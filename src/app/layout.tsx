@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { Navbar } from "@/components/layout/navbar";
+import { NewsProvider } from "@/context/NewsContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Geekore | Gamer Social Network",
-  description: "Drop your legendary moments",
+  title: "GEEKORE | The Ultimate Geek Feed",
+  description: "Il cuore pulsante della cultura nerd: Gaming, Cinema, Manga e Boardgames.",
 };
 
 export default function RootLayout({
@@ -16,13 +16,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="it">
-      <body className={`${inter.className} bg-[#0a0a0f] text-white min-h-screen`}>
-        {/* La Navbar è definita qui UNA SOLA VOLTA per tutta l'app */}
-        <Navbar />
-        
-        {/* Il contenuto delle varie pagine viene iniettato qui */}
-        {children}
+    <html lang="it" className="dark">
+      <body className={`${inter.className} bg-[#050507] text-white antialiased`}>
+        {/* Avvolgendo l'intera app nel NewsProvider, il caricamento 
+            delle news parte immediatamente all'accesso al sito, 
+            popolando la cache globale per ogni pagina.
+        */}
+        <NewsProvider>
+          {children}
+        </NewsProvider>
       </body>
     </html>
   );
