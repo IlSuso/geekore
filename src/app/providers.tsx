@@ -10,7 +10,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         value={{
           fetcher: (url: string) => fetch(url).then((res) => res.json()),
           revalidateOnFocus: false,
-          dedupingInterval: 60000,
+          dedupingInterval: 30000,
         }}
       >
         {children}
