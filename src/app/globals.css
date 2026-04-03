@@ -2,87 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 10, 10, 15;
-  --background-end-rgb: 0, 0, 0;
-}
-
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
-  min-height: 100vh;
-  /* Evita lo scroll orizzontale fastidioso su mobile */
-  overflow-x: hidden; 
+  font-family: 'Inter', system_ui, sans-serif;
+  background: #000;
+  color: #fff;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+/* Spazio extra per navbar mobile */
+main {
+  padding-bottom: 90px;   /* spazio per la barra mobile */
+}
+
+@media (min-width: 768px) {
+  main {
+    padding-bottom: 2rem;
   }
 }
 
-/* --- CUSTOM SCROLLBAR PER I COMMENTI --- */
-/* Rende la scrollbar dei commenti sottile e viola, stile gaming */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
+/* Scrollbar stile geek */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #18181b;
+}
+::-webkit-scrollbar-thumb {
+  background: #6b21a8;
+  border-radius: 20px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9333ea;
 }
 
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 10px;
+/* Stile generale per le card */
+.card {
+  background: #09090b;
+  border: 1px solid #27272a;
+  transition: all 0.2s ease;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(124, 106, 247, 0.3);
-  border-radius: 10px;
-  transition: all 0.3s ease;
+.card:hover {
+  border-color: #6b21a8;
+  transform: translateY(-2px);
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(124, 106, 247, 0.6);
-}
-
-/* --- ANIMAZIONI DI ENTRATA --- */
-/* Per far apparire i post e i commenti con un effetto smooth */
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-feed-item {
-  animation: slideUp 0.6s ease-out forwards;
-}
-
-/* --- FIX PER INPUT E BOTTONI --- */
-input:focus, textarea:focus {
-  outline: none;
-}
-
-/* Nasconde la scrollbar principale ma permette lo scroll (opzionale, per un look più pulito) */
-/* body::-webkit-scrollbar {
-  display: none;
-}
-body {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-} 
-*/
-
-/* Effetto vetro per la Navbar */
-.glass-effect {
-  background: rgba(10, 10, 15, 0.8);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+/* Rimuove qualsiasi margine/padding indesiderato */
+* {
+  box-sizing: border-box;
 }
