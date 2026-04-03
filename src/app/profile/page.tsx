@@ -170,10 +170,13 @@ export default function ProfilePage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
                 {items.map((media) => (
                   <div key={media.id} className="group relative bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden hover:border-violet-500/50 transition">
-                    {/* Bollino Steam ufficiale */}
+                    {/* Bollino Steam ultra-minimo */}
 {media.is_steam && (
-  <div className="absolute top-3 right-3 z-10 bg-[#171D25] p-1 rounded-full shadow-lg border border-[#66C0F4]/30">
-    <SteamIcon size={24} className="text-white" />
+  <div className="absolute top-3 right-3 z-20 bg-[#171D25] p-[2px] rounded-full shadow-md border border-[#66C0F4]/40">
+    <SteamIcon 
+      size={19} 
+      className="text-white" 
+    />
   </div>
 )}
 
