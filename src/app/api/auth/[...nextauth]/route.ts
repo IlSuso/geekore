@@ -28,7 +28,7 @@ const getAuthOptions = (req: NextRequest): NextAuthOptions => ({
   secret: process.env.NEXTAUTH_SECRET,
 });
 
-// FIX OBBLIGATORIO PER NEXT.JS 16: params deve essere Promise
+// IL FIX DEFINITIVO PER VERCEL & NEXT 16
 export async function GET(req: NextRequest, { params }: { params: Promise<{ nextauth: string[] }> }) {
   const resolvedParams = await params;
   // @ts-ignore
