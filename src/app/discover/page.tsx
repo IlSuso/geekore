@@ -36,16 +36,23 @@ export default function DiscoverPage() {
     { id: 'game', label: 'Videogiochi', icon: Gamepad2 },
   ];
 
+  // Carica già aggiunti
   useEffect(() => {
     const loadAdded = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase.from('user_media_entries').select('external_id').eq('user_id', user.id);
+
+      const { data } = await supabase
+        .from('user_media_entries')
+        .select('external_id')
+        .eq('user_id', user.id);
+
       if (data) setAlreadyAdded(data.map(item => item.external_id));
     };
     loadAdded();
   }, []);
 
+  // Ricerca live
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (searchTerm.trim().length >= 2 || activeType === 'game') searchMedia();
@@ -55,18 +62,27 @@ export default function DiscoverPage() {
   }, [searchTerm, activeType]);
 
   const searchMedia = async () => {
+    if (searchTerm.trim().length < 2 && activeType !== 'game') return;
+
     setLoading(true);
     setResults([]);
 
-    const term = searchTerm.trim();
+    const term = searchTerm.trim().toLowerCase();
+    let newResults: MediaItem[] = [];
 
     try {
-      let newResults: MediaItem[] = [];
-
       // AniList
       if (activeType === 'all' || activeType === 'anime' || activeType === 'manga') {
         const aniListType = activeType === 'manga' ? 'MANGA' : 'ANIME';
-        const query = `query ($search: String) { Page(page: 1, perPage: 12) { media(search: $search, type: ${aniListType}, sort: [POPULARITY_DESC, SCORE_DESC]) { id title { romaji english } coverImage { large } seasonYear episodes type } } }`;
+        const query = `
+          query ($search: String) {
+            Page(page: 1, perPage: 12) {
+              media(search: $search, type: ${aniListType}, sort: [POPULARITY_DESC, SCORE_DESC]) {
+                id title { romaji english } coverImage { large } seasonYear episodes type
+              }
+            }
+          }
+        `;
 
         const res = await fetch('https://graphql.anilist.co', {
           method: 'POST',
@@ -84,6 +100,7 @@ export default function DiscoverPage() {
           episodes: m.episodes,
           source: 'anilist',
         }));
+
         newResults = [...newResults, ...aniResults];
       }
 
@@ -110,7 +127,7 @@ export default function DiscoverPage() {
         }
       }
 
-      // IGDB tramite API Route (proxy per evitare CORS)
+      // IGDB - Solo API reale (nessun placeholder)
       if (activeType === 'all' || activeType === 'game') {
         const res = await fetch('/api/igdb', {
           method: 'POST',
@@ -118,19 +135,12 @@ export default function DiscoverPage() {
           body: JSON.stringify({ search: term }),
         });
 
-        const games = await res.json();
-
-        const igdbResults = games.map((g: any) => ({
-          id: g.id.toString(),
-          title: g.name,
-          type: 'game',
-          coverImage: g.cover?.url ? `https:${g.cover.url.replace('t_thumb', 't_cover_big')}` : undefined,
-          year: g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : undefined,
-          episodes: 1,
-          source: 'igdb',
-        }));
-
-        newResults = [...newResults, ...igdbResults];
+        if (res.ok) {
+          const gameResults = await res.json();
+          newResults = [...newResults, ...gameResults];
+        } else {
+          console.error('IGDB proxy failed');
+        }
       }
 
       setResults(newResults);
@@ -156,19 +166,19 @@ export default function DiscoverPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    await supabase.from('user_media_entries').insert({
+    const { error } = await supabase.from('user_media_entries').insert({
       user_id: user.id,
       external_id: media.id,
       title: media.title,
       type: media.type,
       cover_image: media.coverImage,
       status: 'watching',
-      season: 1,
       current_episode: 1,
       progress: 1,
+      episodes: media.episodes || null,
     });
 
-    setAlreadyAdded(prev => [...prev, media.id]);
+    if (!error) setAlreadyAdded(prev => [...prev, media.id]);
   };
 
   const confirmAdd = async () => {
@@ -184,21 +194,26 @@ export default function DiscoverPage() {
 
     const finalEpisode = Math.min(Number(currentEpisode), selectedMedia.episodes || 999);
 
-    await supabase.from('user_media_entries').insert({
+    const { error } = await supabase.from('user_media_entries').insert({
       user_id: user.id,
       external_id: selectedMedia.id,
       title: selectedMedia.title,
       type: selectedMedia.type,
       cover_image: selectedMedia.coverImage,
       status: 'watching',
-      season: 1,
       current_episode: finalEpisode,
       progress: finalEpisode,
+      episodes: selectedMedia.episodes || null,
     });
 
-    setAlreadyAdded(prev => [...prev, selectedMedia.id]);
-    setSelectedMedia(null);
-    setCurrentEpisode('');
+    if (error) {
+      console.error("Errore insert:", error);
+      alert(`Errore: ${error.message}`);
+    } else {
+      setAlreadyAdded(prev => [...prev, selectedMedia.id]);
+      setSelectedMedia(null);
+      setCurrentEpisode('');
+    }
     setAdding(false);
   };
 
@@ -261,7 +276,10 @@ export default function DiscoverPage() {
                 </div>
                 <div className="p-5">
                   <h3 className="font-semibold line-clamp-2 mb-2">{item.title}</h3>
-                  <p className="text-sm text-zinc-500 mb-3 capitalize font-medium">{item.type}</p>
+                  <p className="text-sm text-zinc-500 mb-1 capitalize">{item.type}</p>
+                  {item.episodes && item.episodes > 1 && (
+                    <p className="text-xs text-zinc-400 mb-4">{item.episodes} episodi</p>
+                  )}
 
                   <button 
                     onClick={() => handleAdd(item)}
@@ -313,7 +331,7 @@ export default function DiscoverPage() {
                 value={currentEpisode}
                 onChange={(e) => setCurrentEpisode(e.target.value.replace(/[^0-9]/g, ''))}
                 placeholder="Inserisci il numero"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 text-3xl text-center focus:outline-none focus:border-violet-500"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 text-3xl text-center focus:outline-none focus:border-violet-500 appearance-none"
               />
               <p className="text-xs text-zinc-500 mt-2 text-center">
                 Massimo episodi: {selectedMedia.episodes || '?'}
