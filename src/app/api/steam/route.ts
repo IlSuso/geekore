@@ -1,42 +1,67 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const steamId = searchParams.get('steamId');
-  const apiKey = process.env.STEAM_API_KEY;
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const steamId = searchParams.get("steamId");
 
-  if (!steamId || !apiKey) return NextResponse.json({ error: 'Missing config' }, { status: 400 });
+  if (!steamId) {
+    return NextResponse.json({ error: "Missing SteamID" }, { status: 400 });
+  }
 
   try {
+    // 1. Recupero Giochi Posseduti
     const gamesRes = await fetch(
-      `http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${apiKey}&steamid=${steamId}&format=json&include_appinfo=true`
+      `https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=${process.env.STEAM_API_KEY}&steamid=${steamId}&include_appinfo=true&format=json`
     );
     const gamesData = await gamesRes.json();
-    const allGames = gamesData.response.games || [];
+    const ownedGames = gamesData.response.games || [];
 
-    // Prendiamo i primi 5 per performance
-    const topGames = allGames
+    // 2. Prendiamo i top 12 giochi più giocati
+    const topGames = ownedGames
       .sort((a: any, b: any) => b.playtime_forever - a.playtime_forever)
-      .slice(0, 5);
+      .slice(0, 12);
 
-    const gamesWithData = await Promise.all(topGames.map(async (game: any) => {
-      try {
-        const achRes = await fetch(
-          `http://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/?appid=${game.appid}&key=${apiKey}&steamid=${steamId}`
-        );
-        const achData = await achRes.json();
-        
-        if (achData.playerstats?.success && achData.playerstats.achievements) {
-          const achieved = achData.playerstats.achievements.filter((a: any) => a.achieved === 1).length;
-          const total = achData.playerstats.achievements.length;
-          return { ...game, achieved, total, percent: Math.round((achieved / total) * 100) };
+    // 3. Recupero simultaneo dei trofei
+    const gamesWithStats = await Promise.all(
+      topGames.map(async (game: any) => {
+        try {
+          const statsRes = await fetch(
+            `https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/?key=${process.env.STEAM_API_KEY}&steamid=${steamId}&appid=${game.appid}`
+          );
+          const statsData = await statsRes.json();
+          
+          if (statsData.playerstats?.success) {
+            const achievements = statsData.playerstats.achievements || [];
+            const total = achievements.length;
+            const achieved = achievements.filter((a: any) => a.achieved === 1).length;
+            const percent = total > 0 ? Math.round((achieved / total) * 100) : 0;
+            
+            return { 
+              ...game, 
+              total, 
+              achieved, 
+              percent,
+              status: percent === 100 ? "COMPLETED" : "IN_PROGRESS"
+            };
+          }
+          return { ...game, total: 0, achieved: 0, percent: 0, status: "NO_DATA" };
+        } catch {
+          return { ...game, total: 0, achieved: 0, percent: 0, status: "ERROR" };
         }
-      } catch (e) { /* ignore game if private */ }
-      return { ...game, achieved: 0, total: 0, percent: 0 };
-    }));
+      })
+    );
 
-    return NextResponse.json({ games: gamesWithData });
+    // Calcolo Core Power (Media completamento)
+    const validGames = gamesWithStats.filter(g => g.total > 0);
+    const corePower = validGames.length > 0 
+      ? Math.round(validGames.reduce((acc, g) => acc + g.percent, 0) / validGames.length)
+      : 0;
+
+    return NextResponse.json({ 
+      games: gamesWithStats,
+      corePower: corePower
+    });
   } catch (error) {
-    return NextResponse.json({ error: 'Steam API Fail' }, { status: 500 });
+    return NextResponse.json({ error: "Steam API Failure" }, { status: 500 });
   }
 }
