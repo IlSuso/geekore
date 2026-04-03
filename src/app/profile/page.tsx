@@ -1,151 +1,81 @@
-"use server"
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
-import { Trophy, Grid, Bookmark, Ghost, Twitch, MessageSquare } from 'lucide-react'
-import { EditProfileModal } from '@/components/profile/edit-profile-modal'
+"use client"
+import { useState, useEffect } from 'react'
+import { createBrowserClient } from '@supabase/ssr'
+import { Gamepad2, Film, BookOpen, CheckCircle2, Clock, Star } from 'lucide-react'
 
-export default async function ProfilePage() {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-      },
-    }
-  )
+export default function ProfilePage() {
+  const [activeTab, setActiveTab] = useState<'posts' | 'library'>('posts')
+  const [library, setLibrary] = useState<any[]>([])
+  const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) redirect('/login')
+  useEffect(() => {
+    fetchLibrary()
+  }, [])
 
-  // Query Corazzata: Prende Profilo, Post e Conteggi Social
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select(`
-      *,
-      posts (id, image_url, content, created_at),
-      followers:follows!following_id(count),
-      following:follows!follower_id(count)
-    `)
-    .eq('id', session.user.id)
-    .single()
-
-  if (error || !profile) {
-    return (
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
-        <p className="text-white font-black uppercase italic tracking-tighter animate-pulse">
-          Sincronizzazione Database in corso...
-        </p>
-      </div>
-    )
+  async function fetchLibrary() {
+    const { data } = await supabase.from('user_nerd_lists').select('*').order('created_at', { ascending: false })
+    if (data) setLibrary(data)
   }
 
-  const posts = profile.posts || []
-  const followerCount = profile.followers?.[0]?.count || 0
-  const followingCount = profile.following?.[0]?.count || 0
-
   return (
-    <main className="min-h-screen bg-[#0a0a0f] pt-24 pb-32 px-6">
+    <main className="min-h-screen bg-[#0a0a0f] pt-24 pb-32 px-4 text-white">
       <div className="max-w-2xl mx-auto">
-        
-        {/* HEADER */}
-        <div className="relative mb-12">
-          <div className="h-40 w-full bg-gradient-to-r from-[#7c6af7] to-[#b06ab3] rounded-[3rem] opacity-10 blur-3xl absolute -top-10" />
-          
-          <div className="relative flex flex-col items-center">
-            {/* Avatar */}
-            <div className="relative group">
-              <div className="w-32 h-32 rounded-[3rem] p-1 bg-gradient-to-tr from-[#7c6af7] to-[#ff4d4d] mb-4 shadow-2xl">
-                <div className="w-full h-full rounded-[2.8rem] bg-[#0a0a0f] flex items-center justify-center overflow-hidden">
-                  {profile.avatar_url ? (
-                    <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-4xl font-black text-white/20">
-                      {profile.username?.[0]?.toUpperCase()}
-                    </span>
-                  )}
-                </div>
-              </div>
-              {/* Modale integrata */}
-              <EditProfileModal profile={profile} />
-            </div>
-
-            <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter">
-              {profile.username || 'Gamer'}
-            </h2>
-            
-            {/* Bio */}
-            {profile.bio && (
-              <p className="max-w-md text-center text-gray-400 text-sm mt-4 italic px-4 leading-relaxed">
-                "{profile.bio}"
-              </p>
-            )}
-
-            {/* Social */}
-            <div className="flex gap-4 mt-6">
-              {profile.twitch_url && (
-                <a href={profile.twitch_url.startsWith('http') ? profile.twitch_url : `https://${profile.twitch_url}`} target="_blank" className="p-3 bg-white/5 rounded-2xl text-gray-400 hover:text-[#6441a5] border border-white/5 transition-all">
-                  <Twitch size={18} />
-                </a>
-              )}
-              {profile.discord_username && (
-                <div className="p-3 bg-white/5 rounded-2xl text-gray-400 hover:text-[#5865F2] border border-white/5 group relative">
-                  <MessageSquare size={18} />
-                  <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-[#5865F2] text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                    {profile.discord_username}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Stats */}
-            <div className="flex gap-10 mt-10 bg-[#16161e]/60 border border-white/5 p-6 rounded-[2rem] w-full justify-around shadow-xl">
-              <div className="text-center">
-                <span className="block text-xl font-black text-white">{posts.length}</span>
-                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Drops</span>
-              </div>
-              <div className="text-center border-x border-white/5 px-10">
-                <span className="block text-xl font-black text-white">{followerCount}</span>
-                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Followers</span>
-              </div>
-              <div className="text-center">
-                <span className="block text-xl font-black text-white">{followingCount}</span>
-                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Following</span>
-              </div>
-            </div>
+        {/* Header Profilo semplificato */}
+        <div className="flex flex-col items-center mb-10">
+          <div className="w-24 h-24 rounded-3xl bg-gradient-to-tr from-[#7c6af7] to-[#ff4d4d] p-1 mb-4 shadow-2xl shadow-[#7c6af7]/20">
+             <div className="w-full h-full rounded-[22px] bg-[#16161e] overflow-hidden">
+                <img src="https://api.dicebear.com/7.x/pixel-art/svg?seed=Geekore" className="w-full h-full" />
+             </div>
           </div>
+          <h1 className="text-2xl font-black italic uppercase tracking-tighter">Master Nerd</h1>
+          <p className="text-[#7c6af7] text-[10px] font-black uppercase tracking-[0.3em]">Livello 42 • Sincronizzato</p>
         </div>
 
-        {/* FEED GRID */}
-        <div className="flex justify-center gap-8 mb-8 border-b border-white/5 pb-4">
-          <button className="flex items-center gap-2 text-[#7c6af7] font-black text-xs uppercase tracking-widest border-b-2 border-[#7c6af7] pb-4 -mb-[18px]">
-            <Grid size={16} /> My Drops
+        {/* Tab Switcher */}
+        <div className="flex bg-[#16161e] rounded-2xl p-1 mb-8">
+          <button 
+            onClick={() => setActiveTab('posts')}
+            className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'posts' ? 'bg-[#7c6af7] text-white shadow-lg' : 'text-gray-500'}`}
+          >
+            I miei Drop
           </button>
-          <button className="flex items-center gap-2 text-gray-600 font-black text-xs uppercase tracking-widest hover:text-white transition-colors pb-4">
-            <Bookmark size={16} /> Saved
+          <button 
+            onClick={() => setActiveTab('library')}
+            className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'library' ? 'bg-[#7c6af7] text-white shadow-lg' : 'text-gray-500'}`}
+          >
+            Libreria Nerd
           </button>
         </div>
 
-        {posts.length > 0 ? (
-          <div className="grid grid-cols-2 gap-4">
-            {posts.map((post: any) => (
-              <div key={post.id} className="aspect-square rounded-[2rem] overflow-hidden border border-white/5 relative group bg-[#16161e]">
-                <img src={post.image_url} alt="Post" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <Trophy className="text-white" size={32} />
+        {/* Sezione Libreria Nerd */}
+        {activeTab === 'library' ? (
+          <div className="grid gap-4">
+            {library.map((item) => (
+              <div key={item.id} className="bg-[#16161e]/40 border border-white/5 p-4 rounded-[1.5rem] flex items-center justify-between group hover:border-[#7c6af7]/30 transition-all">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-white/5 rounded-xl text-[#7c6af7]">
+                    {item.category === 'Game' && <Gamepad2 size={20} />}
+                    {item.category === 'Movie' && <Film size={20} />}
+                    {item.category === 'Anime' && <BookOpen size={20} />}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm uppercase tracking-tight">{item.item_name}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] px-2 py-0.5 bg-white/5 rounded-md text-gray-400 font-bold uppercase">{item.status}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end">
+                  <div className="flex items-center gap-1 text-[#ffb800]">
+                    <Star size={12} fill="currentColor" />
+                    <span className="text-xs font-black">{item.score}/10</span>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="text-center py-20 bg-[#16161e]/30 rounded-[3rem] border-2 border-dashed border-white/5">
-            <Ghost className="mx-auto text-gray-700 mb-4" size={48} />
-            <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Ancora nessun drop...</p>
-          </div>
+          <div className="text-center text-gray-600 py-20 uppercase font-black text-xs tracking-widest">Nessun drop ancora...</div>
         )}
       </div>
     </main>
