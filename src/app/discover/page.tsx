@@ -12,7 +12,7 @@ type MediaItem = {
   coverImage?: string;
   year?: number;
   episodes?: number;
-  source: 'anilist' | 'omdb';
+  source: 'anilist' | 'omdb' | 'igdb';
 };
 
 export default function DiscoverPage() {
@@ -36,35 +36,25 @@ export default function DiscoverPage() {
     { id: 'game', label: 'Videogiochi', icon: Gamepad2 },
   ];
 
-  // Carica già aggiunti
   useEffect(() => {
     const loadAdded = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
-      const { data } = await supabase
-        .from('user_media_entries')
-        .select('external_id')
-        .eq('user_id', user.id);
-
-      if (data) {
-        setAlreadyAdded(data.map(item => item.external_id));
-      }
+      const { data } = await supabase.from('user_media_entries').select('external_id').eq('user_id', user.id);
+      if (data) setAlreadyAdded(data.map(item => item.external_id));
     };
     loadAdded();
   }, []);
 
-  // Ricerca live
   useEffect(() => {
     const timeout = setTimeout(() => {
-      if (searchTerm.trim().length >= 2) searchMedia();
+      if (searchTerm.trim().length >= 2 || activeType === 'game') searchMedia();
       else setResults([]);
     }, 400);
     return () => clearTimeout(timeout);
   }, [searchTerm, activeType]);
 
   const searchMedia = async () => {
-    if (searchTerm.trim().length < 2) return;
     setLoading(true);
     setResults([]);
 
@@ -73,29 +63,15 @@ export default function DiscoverPage() {
     try {
       let newResults: MediaItem[] = [];
 
-      // AniList per Anime e Manga
+      // AniList
       if (activeType === 'all' || activeType === 'anime' || activeType === 'manga') {
         const aniListType = activeType === 'manga' ? 'MANGA' : 'ANIME';
-
-        const query = `
-          query ($search: String) {
-            Page(page: 1, perPage: 12) {
-              media(search: $search, type: ${aniListType}, sort: [POPULARITY_DESC, SCORE_DESC]) {
-                id
-                title { romaji english }
-                coverImage { large }
-                seasonYear
-                episodes
-                type
-              }
-            }
-          }
-        `;
+        const query = `query ($search: String) { Page(page: 1, perPage: 12) { media(search: $search, type: ${aniListType}, sort: [POPULARITY_DESC, SCORE_DESC]) { id title { romaji english } coverImage { large } seasonYear episodes type } } }`;
 
         const res = await fetch('https://graphql.anilist.co', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query, variables: { search: term } }),
+          body: JSON.stringify({ query, variables: { search: term || ' ' } }),
         });
 
         const json = await res.json();
@@ -106,20 +82,17 @@ export default function DiscoverPage() {
           coverImage: m.coverImage?.large,
           year: m.seasonYear,
           episodes: m.episodes,
-          source: 'anilist' as const,
+          source: 'anilist',
         }));
-
         newResults = [...newResults, ...aniResults];
       }
 
-      // OMDb per Film e Serie TV
+      // OMDb
       if (activeType === 'all' || activeType === 'movie' || activeType === 'tv') {
         const omdbKey = process.env.NEXT_PUBLIC_OMDB_API_KEY;
         if (omdbKey) {
           const typeParam = activeType === 'movie' ? '&type=movie' : activeType === 'tv' ? '&type=series' : '';
-          const url = `https://www.omdbapi.com/?s=${encodeURIComponent(term)}${typeParam}&apikey=${omdbKey}`;
-
-          const res = await fetch(url);
+          const res = await fetch(`https://www.omdbapi.com/?s=${encodeURIComponent(term)}${typeParam}&apikey=${omdbKey}`);
           const json = await res.json();
 
           if (json.Search) {
@@ -130,26 +103,34 @@ export default function DiscoverPage() {
               coverImage: m.Poster !== 'N/A' ? m.Poster : undefined,
               year: parseInt(m.Year),
               episodes: 1,
-              source: 'omdb' as const,
+              source: 'omdb',
             }));
             newResults = [...newResults, ...omdbResults];
           }
         }
       }
 
-      // Videogiochi (placeholder)
+      // IGDB tramite API Route (proxy per evitare CORS)
       if (activeType === 'all' || activeType === 'game') {
-        const gameExamples = ["Elden Ring", "The Witcher 3", "Cyberpunk 2077", "Hades II", "Stardew Valley", "Baldur's Gate 3"];
-        const gameResults = gameExamples.map((title, i) => ({
-          id: `game-${i}`,
-          title,
+        const res = await fetch('/api/igdb', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ search: term }),
+        });
+
+        const games = await res.json();
+
+        const igdbResults = games.map((g: any) => ({
+          id: g.id.toString(),
+          title: g.name,
           type: 'game',
-          coverImage: undefined,
-          year: 2018 + i,
+          coverImage: g.cover?.url ? `https:${g.cover.url.replace('t_thumb', 't_cover_big')}` : undefined,
+          year: g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : undefined,
           episodes: 1,
-          source: 'omdb' as const,
+          source: 'igdb',
         }));
-        newResults = [...newResults, ...gameResults];
+
+        newResults = [...newResults, ...igdbResults];
       }
 
       setResults(newResults);
@@ -162,13 +143,11 @@ export default function DiscoverPage() {
   const handleAdd = async (media: MediaItem) => {
     if (alreadyAdded.includes(media.id)) return;
 
-    // Se è un film o ha 1 solo episodio → aggiungi direttamente
     if (media.episodes === 1 || !media.episodes) {
       addDirectly(media);
       return;
     }
 
-    // Altrimenti apri modal per scegliere episodio
     setSelectedMedia(media);
     setCurrentEpisode('');
   };
@@ -177,7 +156,7 @@ export default function DiscoverPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { error } = await supabase.from('user_media_entries').insert({
+    await supabase.from('user_media_entries').insert({
       user_id: user.id,
       external_id: media.id,
       title: media.title,
@@ -189,9 +168,7 @@ export default function DiscoverPage() {
       progress: 1,
     });
 
-    if (!error) {
-      setAlreadyAdded(prev => [...prev, media.id]);
-    }
+    setAlreadyAdded(prev => [...prev, media.id]);
   };
 
   const confirmAdd = async () => {
@@ -205,10 +182,9 @@ export default function DiscoverPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Applica il massimale reale
     const finalEpisode = Math.min(Number(currentEpisode), selectedMedia.episodes || 999);
 
-    const { error } = await supabase.from('user_media_entries').insert({
+    await supabase.from('user_media_entries').insert({
       user_id: user.id,
       external_id: selectedMedia.id,
       title: selectedMedia.title,
@@ -220,13 +196,9 @@ export default function DiscoverPage() {
       progress: finalEpisode,
     });
 
-    if (!error) {
-      setAlreadyAdded(prev => [...prev, selectedMedia.id]);
-      setSelectedMedia(null);
-      setCurrentEpisode('');
-    } else {
-      alert("Errore durante il salvataggio");
-    }
+    setAlreadyAdded(prev => [...prev, selectedMedia.id]);
+    setSelectedMedia(null);
+    setCurrentEpisode('');
     setAdding(false);
   };
 
@@ -240,7 +212,6 @@ export default function DiscoverPage() {
           <p className="text-zinc-400 mt-3">Anime, Manga, Film, Serie TV e Videogiochi</p>
         </div>
 
-        {/* Filtri tipo */}
         <div className="flex flex-wrap gap-3 justify-center mb-8">
           {typeFilters.map((t) => {
             const Icon = t.icon;
@@ -249,9 +220,7 @@ export default function DiscoverPage() {
                 key={t.id}
                 onClick={() => setActiveType(t.id)}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-medium transition ${
-                  activeType === t.id 
-                    ? 'bg-violet-600 text-white' 
-                    : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-700'
+                  activeType === t.id ? 'bg-violet-600 text-white' : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-700'
                 }`}
               >
                 <Icon size={18} />
@@ -285,34 +254,23 @@ export default function DiscoverPage() {
                   {item.coverImage ? (
                     <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-6xl">
-                      {item.type === 'anime' || item.type === 'tv' ? '📺' : item.type === 'manga' ? '📖' : item.type === 'movie' ? '🎬' : '🎮'}
+                    <div className="w-full h-full flex items-center justify-center text-6xl bg-zinc-800">
+                      {item.type === 'game' ? '🎮' : item.type === 'anime' || item.type === 'tv' ? '📺' : '📖'}
                     </div>
                   )}
                 </div>
                 <div className="p-5">
                   <h3 className="font-semibold line-clamp-2 mb-2">{item.title}</h3>
-                  <p className="text-sm text-zinc-500 mb-1 capitalize">{item.type}</p>
-                  {item.episodes && item.episodes > 1 && (
-                    <p className="text-xs text-zinc-400 mb-4">{item.episodes} episodi</p>
-                  )}
+                  <p className="text-sm text-zinc-500 mb-3 capitalize font-medium">{item.type}</p>
 
                   <button 
                     onClick={() => handleAdd(item)}
                     disabled={isAdded}
                     className={`w-full py-3 rounded-2xl text-sm font-medium flex items-center justify-center gap-2 transition ${
-                      isAdded 
-                        ? 'bg-emerald-600 text-white cursor-default' 
-                        : 'bg-zinc-900 hover:bg-violet-600 border border-zinc-700 hover:border-violet-500'
+                      isAdded ? 'bg-emerald-600 text-white cursor-default' : 'bg-zinc-900 hover:bg-violet-600 border border-zinc-700 hover:border-violet-500'
                     }`}
                   >
-                    {isAdded ? (
-                      <>✓ Già nei progressi</>
-                    ) : (
-                      <>
-                        <Plus size={18} /> Aggiungi
-                      </>
-                    )}
+                    {isAdded ? <>✓ Già nei progressi</> : <><Plus size={18} /> Aggiungi</>}
                   </button>
                 </div>
               </div>
@@ -321,7 +279,7 @@ export default function DiscoverPage() {
         </div>
       </div>
 
-      {/* Modal con massimale */}
+      {/* Modal */}
       {selectedMedia && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
           <div className="bg-zinc-900 border border-zinc-700 rounded-3xl max-w-md w-full p-8">
@@ -333,12 +291,16 @@ export default function DiscoverPage() {
             </div>
 
             <div className="flex gap-5 mb-8">
-              {selectedMedia.coverImage && (
+              {selectedMedia.coverImage ? (
                 <img src={selectedMedia.coverImage} alt="" className="w-24 h-36 object-cover rounded-2xl" />
+              ) : (
+                <div className="w-24 h-36 bg-zinc-800 rounded-2xl flex items-center justify-center text-5xl">
+                  {selectedMedia.type === 'game' ? '🎮' : '🎬'}
+                </div>
               )}
               <div className="flex-1">
                 <p className="font-semibold text-lg">{selectedMedia.title}</p>
-                <p className="text-sm text-zinc-500">{selectedMedia.year} • {selectedMedia.episodes} episodi totali</p>
+                <p className="text-sm text-zinc-500">{selectedMedia.year} • {selectedMedia.type}</p>
               </div>
             </div>
 

@@ -2,16 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
-import { Trophy, Clock, Star, Users } from 'lucide-react';
+import { Trophy, Clock, Star, Users, Edit2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 type UserMedia = {
   id: string;
   title: string;
-  type: string;
+  type: string;           // 'anime' | 'manga' | 'movie' | 'tv' | 'game'
   cover_image?: string;
   current_episode: number;
   status: string;
+  episodes?: number;      // per sapere se è finito
 };
 
 export default function ProfilePage() {
@@ -29,7 +30,7 @@ export default function ProfilePage() {
 
       setUser(user);
 
-      // Prendi profilo utente
+      // Profilo utente
       const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
@@ -38,7 +39,7 @@ export default function ProfilePage() {
 
       setProfile(profileData);
 
-      // Prendi i media dell'utente
+      // Media dell'utente
       const { data: mediaData } = await supabase
         .from('user_media_entries')
         .select('*')
@@ -52,18 +53,30 @@ export default function ProfilePage() {
     fetchProfile();
   }, []);
 
+  const getStatusText = (media: UserMedia) => {
+    if (media.type === 'movie' || media.type === 'game') {
+      return ''; // niente "watching" e niente "episodio"
+    }
+
+    if (media.episodes && media.current_episode >= media.episodes) {
+      return '✅ Completato';
+    }
+
+    return `Episodio ${media.current_episode} • ${media.status}`;
+  };
+
   if (loading) {
-    return <div className="min-h-screen bg-black flex items-center justify-center">Caricamento...</div>;
+    return <div className="min-h-screen bg-black flex items-center justify-center text-white">Caricamento profilo...</div>;
   }
 
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="pt-8 pb-20 max-w-6xl mx-auto px-6">
         {/* Banner + Avatar */}
-        <div className="relative h-80 rounded-3xl overflow-hidden mb-8 bg-gradient-to-r from-violet-900 to-fuchsia-900">
+        <div className="relative h-80 rounded-3xl overflow-hidden mb-8 bg-gradient-to-r from-violet-900 via-fuchsia-900 to-cyan-900">
           <div className="absolute inset-0 bg-black/40" />
           <div className="absolute bottom-8 left-8 flex items-end gap-6">
-            <div className="w-32 h-32 rounded-2xl overflow-hidden border-4 border-zinc-900">
+            <div className="w-32 h-32 rounded-2xl overflow-hidden border-4 border-zinc-900 shadow-xl">
               <img 
                 src={profile?.avatar_url || 'https://via.placeholder.com/128'} 
                 alt="Avatar" 
@@ -106,30 +119,37 @@ export default function ProfilePage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
           {mediaList.map((media) => (
-            <div key={media.id} className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden">
+            <div key={media.id} className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden group hover:border-violet-500/50 transition">
               <div className="relative h-48 bg-zinc-900">
                 {media.cover_image ? (
-                  <img src={media.cover_image} alt={media.title} className="w-full h-full object-cover" />
+                  <img 
+                    src={media.cover_image} 
+                    alt={media.title} 
+                    className="w-full h-full object-cover" 
+                  />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-5xl">
-                    {media.type === 'anime' || media.type === 'tv' ? '📺' : '🎬'}
+                  <div className="w-full h-full flex items-center justify-center text-6xl bg-zinc-800">
+                    {media.type === 'game' ? '🎮' : media.type === 'anime' || media.type === 'tv' ? '📺' : '📖'}
                   </div>
                 )}
               </div>
-              <div className="p-4">
+
+              <div className="p-5">
                 <h3 className="font-semibold line-clamp-2 mb-2">{media.title}</h3>
                 <p className="text-sm text-zinc-500 capitalize mb-3">{media.type}</p>
-                <p className="text-sm text-emerald-400">
-                  Episodio {media.current_episode} • {media.status}
+
+                <p className="text-sm text-emerald-400 font-medium">
+                  {getStatusText(media)}
                 </p>
               </div>
             </div>
           ))}
 
           {mediaList.length === 0 && (
-            <p className="col-span-full text-center text-zinc-500 py-12">
-              Non hai ancora aggiunto nulla.<br />Vai su Discover e inizia!
-            </p>
+            <div className="col-span-full text-center py-16 text-zinc-500">
+              Non hai ancora aggiunto nulla.<br />
+              Vai su <span className="text-violet-400">Discover</span> e inizia a tracciare i tuoi progressi!
+            </div>
           )}
         </div>
       </div>
