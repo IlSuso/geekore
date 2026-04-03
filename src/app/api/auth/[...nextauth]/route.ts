@@ -28,17 +28,15 @@ const getAuthOptions = (req: NextRequest): NextAuthOptions => ({
   secret: process.env.NEXTAUTH_SECRET,
 });
 
-// IL FIX PER NEXT.JS 16: 'context' deve gestire la Promise per i params
-async function handler(
-  req: NextRequest, 
-  context: { params: Promise<{ nextauth: string[] }> } 
-) {
-  // Anche se non usiamo direttamente 'nextauth' qui, 
-  // dobbiamo tipizzarlo come Promise per soddisfare il build di Next 16
-  await context.params; 
-  
+// FIX OBBLIGATORIO PER NEXT.JS 16: params deve essere Promise
+export async function GET(req: NextRequest, { params }: { params: Promise<{ nextauth: string[] }> }) {
+  const resolvedParams = await params;
   // @ts-ignore
-  return await NextAuth(req, context, getAuthOptions(req));
+  return await NextAuth(req, { params: resolvedParams }, getAuthOptions(req));
 }
 
-export { handler as GET, handler as POST };
+export async function POST(req: NextRequest, { params }: { params: Promise<{ nextauth: string[] }> }) {
+  const resolvedParams = await params;
+  // @ts-ignore
+  return await NextAuth(req, { params: resolvedParams }, getAuthOptions(req));
+}
