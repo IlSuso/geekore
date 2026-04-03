@@ -143,7 +143,6 @@ export default function ProfilePage() {
     return acc;
   }, {});
 
-  // Ordina i videogiochi per ore giocate (decrescente)
   if (grouped['Videogiochi']) {
     grouped['Videogiochi'].sort((a, b) => b.current_episode - a.current_episode);
   }
@@ -152,7 +151,7 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-zinc-950 text-white pb-20">
       <div className="pt-8 max-w-6xl mx-auto px-6">
         
-        {/* Header profilo SENZA COPERTINA - solo foto profilo centrata */}
+        {/* Header senza copertina */}
         <div className="flex flex-col items-center mb-12">
           <Avatar className="w-48 h-48 border-4 border-zinc-700 mb-6">
             <AvatarImage src={profile?.avatar_url || undefined} alt="Avatar" />
