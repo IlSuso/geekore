@@ -1,11 +1,12 @@
 "use client"
 import { useState, useEffect } from 'react'
-import { Send, X } from 'lucide-react'
 import { createBrowserClient } from '@supabase/ssr'
+import { Send, Loader2 } from 'lucide-react'
 
-export function CommentSection({ postId, onClose }: { postId: string, onClose: () => void }) {
+export function CommentSection({ postId, currentUser }: { postId: string, currentUser: any }) {
   const [comments, setComments] = useState<any[]>([])
   const [newComment, setNewComment] = useState('')
+  const [loading, setLoading] = useState(false)
   const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
   useEffect(() => {
@@ -15,65 +16,53 @@ export function CommentSection({ postId, onClose }: { postId: string, onClose: (
   async function fetchComments() {
     const { data } = await supabase
       .from('comments')
-      .select('*, profiles(username)')
+      .select('*, profiles(username, avatar_url)')
       .eq('post_id', postId)
       .order('created_at', { ascending: true })
     if (data) setComments(data)
   }
 
-  async function postComment() {
-    if (!newComment.trim()) return
-    const { data: { user } } = await supabase.auth.getUser()
+  async function handleSend() {
+    if (!newComment.trim() || !currentUser || loading) return
+    setLoading(true)
     
-    const { error } = await supabase.from('comments').insert({
-      content: newComment,
-      post_id: postId,
-      user_id: user?.id
-    })
+    const { error } = await supabase
+      .from('comments')
+      .insert({ post_id: postId, user_id: currentUser.id, content: newComment })
 
     if (!error) {
       setNewComment('')
       fetchComments()
+      // Opzionale: Invia notifica al proprietario del post qui
     }
+    setLoading(false)
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-4">
-      <div className="bg-[#16161e] w-full max-w-lg rounded-t-[3rem] sm:rounded-[3rem] h-[80vh] flex flex-col border border-white/10 shadow-2xl overflow-hidden">
-        {/* Header Modale */}
-        <div className="p-6 border-b border-white/5 flex items-center justify-between">
-          <h3 className="text-white font-black uppercase tracking-tighter italic">Discussione_</h3>
-          <button onClick={onClose} className="p-2 bg-white/5 rounded-full text-gray-400 hover:text-white"><X size={20} /></button>
-        </div>
+    <div className="mt-4 pt-4 border-t border-white/5 space-y-4">
+      <div className="max-h-40 overflow-y-auto space-y-3 px-2">
+        {comments.map((c) => (
+          <div key={c.id} className="text-sm">
+            <span className="font-black text-[#7c6af7] mr-2 uppercase italic text-[10px]">{c.profiles?.username}</span>
+            <span className="text-gray-300">{c.content}</span>
+          </div>
+        ))}
+      </div>
 
-        {/* Lista Commenti */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {comments.length > 0 ? comments.map((c) => (
-            <div key={c.id} className="flex gap-3">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#7c6af7] to-[#b06ab3] flex-shrink-0" />
-              <div>
-                <span className="text-[10px] font-black text-[#7c6af7] uppercase">{c.profiles?.username}</span>
-                <p className="text-sm text-gray-300 leading-snug">{c.content}</p>
-              </div>
-            </div>
-          )) : (
-            <p className="text-center text-gray-600 text-xs py-10 uppercase font-bold tracking-widest">Ancora nessun commento...</p>
-          )}
-        </div>
-
-        {/* Input Commento */}
-        <div className="p-6 bg-[#0a0a0f]/50 border-t border-white/5 flex gap-3">
+      {currentUser && (
+        <div className="flex gap-2 items-center bg-[#0a0a0f] p-2 rounded-2xl border border-white/5">
           <input 
+            type="text" 
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
-            placeholder="Scrivi la tua..."
-            className="flex-1 bg-[#1c1c27] border-none rounded-2xl text-sm text-white focus:ring-1 focus:ring-[#7c6af7] px-4"
+            placeholder="Scrivi un commento..."
+            className="flex-1 bg-transparent border-none outline-none text-xs text-white px-2"
           />
-          <button onClick={postComment} className="p-4 bg-[#7c6af7] rounded-2xl text-white hover:scale-105 active:scale-95 transition-all">
-            <Send size={18} />
+          <button onClick={handleSend} disabled={loading} className="p-2 text-[#7c6af7] hover:scale-110 transition-transform">
+            {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </button>
         </div>
-      </div>
+      )}
     </div>
   )
 }

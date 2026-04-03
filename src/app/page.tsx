@@ -1,7 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { PostCard } from '@/components/feed/post-card'
-import { Ghost } from 'lucide-react'
+import { Film, Gamepad2, BookOpen, Tv, Ghost, Sparkles } from 'lucide-react'
+import Link from 'next/link'
 
 export default async function HomePage() {
   const cookieStore = await cookies()
@@ -13,26 +14,42 @@ export default async function HomePage() {
 
   const { data: { session } } = await supabase.auth.getSession()
   
+  // Recupera post e info sugli item collegati
   const { data: posts } = await supabase
     .from('posts')
-    .select(`
-      *,
-      profiles (id, username, avatar_url),
-      likes (user_id)
-    `)
+    .select(`*, profiles (username, avatar_url), nerd_items (title, category), likes (user_id)`)
     .order('created_at', { ascending: false })
+
+  const categories = [
+    { name: 'Gaming', icon: <Gamepad2 size={20} />, color: 'from-blue-500' },
+    { name: 'Cinema', icon: <Film size={20} />, color: 'from-red-500' },
+    { name: 'Anime', icon: <Tv size={20} />, color: 'from-purple-500' },
+    { name: 'Manga', icon: <BookOpen size={20} />, color: 'from-orange-500' },
+  ]
 
   return (
     <main className="min-h-screen bg-[#0a0a0f] pt-24 pb-32 px-4">
-      <div className="max-w-lg mx-auto">
-        <div className="mb-10 px-2">
-          <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">
-            GEEK<span className="text-[#7c6af7]">ORE</span>
-          </h1>
-          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.3em]">Sector_Global_Feed</p>
+      <div className="max-w-xl mx-auto">
+        
+        {/* EXPLORER BAR - Le 4 anime del mondo Nerd */}
+        <div className="flex gap-4 overflow-x-auto pb-8 no-scrollbar">
+          {categories.map((cat) => (
+            <div key={cat.name} className={`flex-shrink-0 flex items-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-br ${cat.color} to-transparent border border-white/10 backdrop-blur-md cursor-pointer hover:scale-105 transition-all`}>
+              <span className="text-white">{cat.icon}</span>
+              <span className="text-xs font-black uppercase tracking-tighter text-white">{cat.name}</span>
+            </div>
+          ))}
         </div>
 
-        <div className="space-y-8">
+        {/* NEWS FLASH / SUGGESTIONS */}
+        <div className="mb-10 bg-gradient-to-r from-[#16161e] to-transparent p-6 rounded-[2rem] border border-white/5 relative overflow-hidden">
+          <Sparkles className="absolute right-4 top-4 text-[#7c6af7] opacity-20" size={40} />
+          <h2 className="text-[10px] font-black text-[#7c6af7] uppercase tracking-[0.3em] mb-2">Consiglio del giorno</h2>
+          <p className="text-sm font-bold text-gray-200">Hai visto l'ultimo episodio di Solo Leveling? La community lo sta amando!</p>
+        </div>
+
+        {/* FEED MULTIMEDIALE */}
+        <div className="space-y-10">
           {posts && posts.length > 0 ? (
             posts.map((post: any) => (
               <PostCard 
@@ -46,9 +63,9 @@ export default async function HomePage() {
               />
             ))
           ) : (
-            <div className="text-center py-32 border-2 border-dashed border-white/5 rounded-[3rem]">
-              <Ghost className="mx-auto text-gray-800 mb-4" size={50} />
-              <p className="text-gray-600 font-black uppercase italic tracking-widest text-xs">Radar offline...</p>
+            <div className="text-center py-20 opacity-20">
+              <Ghost size={48} className="mx-auto mb-4" />
+              <p className="text-xs font-black uppercase tracking-widest">Nessun drop rilevato nel settore</p>
             </div>
           )}
         </div>
