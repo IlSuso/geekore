@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 
 const getAuthOptions = (req: NextRequest): NextAuthOptions => ({
   providers: [
+    // Usiamo STEAM_API_KEY come l'hai nominata nel tuo .env
     SteamProvider(req, {
       clientSecret: process.env.STEAM_API_KEY || "",
       callbackUrl: `${process.env.NEXTAUTH_URL}/api/auth/callback`,
@@ -28,7 +29,7 @@ const getAuthOptions = (req: NextRequest): NextAuthOptions => ({
   secret: process.env.NEXTAUTH_SECRET,
 });
 
-// IL FIX DEFINITIVO PER VERCEL & NEXT 16
+// FIX PER NEXT.JS 16: I params sono una Promise, vanno "aspettati" (await)
 export async function GET(req: NextRequest, { params }: { params: Promise<{ nextauth: string[] }> }) {
   const resolvedParams = await params;
   // @ts-ignore
