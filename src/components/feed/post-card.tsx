@@ -1,173 +1,103 @@
 "use client"
-import { useState, useEffect } from 'react'
-import { Heart, MessageCircle, Share2, MoreHorizontal } from 'lucide-react'
+import { useState } from 'react'
+import { Heart, MessageCircle, Share2, Trophy, Loader2 } from 'lucide-react'
 import { createBrowserClient } from '@supabase/ssr'
-import { CommentSection } from './comment-section'
 
-export function PostCard({ post }: { post: any }) {
-  const [liked, setLiked] = useState(false)
-  // Assicuriamoci che likesCount sia sempre un numero fin dall'inizio
-  const [likesCount, setLikesCount] = useState<number>(Number(post.likes_count) || 0)
-  const [showComments, setShowComments] = useState(false)
-  
+export function PostCard({ post, currentUser }: { post: any, currentUser: any }) {
+  const [isLiked, setIsLiked] = useState(post.is_liked_by_me)
+  const [likesCount, setLikesCount] = useState(post.likes_count)
+  const [loading, setLoading] = useState(false)
+
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  // Controllo iniziale dello stato del Like per l'utente loggato
-  useEffect(() => {
-    const checkLikeStatus = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      
-      const { data } = await supabase
-        .from('likes')
-        .select('*')
-        .eq('post_id', post.id)
-        .eq('user_id', user.id)
-        .single()
-        
-      if (data) setLiked(true)
-    }
-    checkLikeStatus()
-  }, [post.id, supabase])
-
   const handleLike = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      alert("Devi essere loggato per mettere like!")
-      return
-    }
-
-    const willBeLiked = !liked
-    const previousLiked = liked
-    const previousCount = likesCount
-
-    // Aggiornamento UI Ottimistico
-    setLiked(willBeLiked)
-    // Qui forziamo il tipo numero per evitare errori con prev
-    setLikesCount((prev: number) => {
-      const current = Number(prev) || 0
-      return willBeLiked ? current + 1 : current - 1
-    })
+    if (!currentUser || loading) return
+    setLoading(true)
 
     try {
-      if (previousLiked) {
-        // Rimoziome Like
-        const { error } = await supabase
-          .from('likes')
-          .delete()
-          .eq('post_id', post.id)
-          .eq('user_id', user.id)
-        
-        if (error) throw error
+      if (isLiked) {
+        // Rimuovi Like
+        await supabase.from('likes').delete().eq('post_id', post.id).eq('user_id', currentUser.id)
+        setIsLiked(false)
+        setLikesCount((prev: number) => prev - 1)
       } else {
-        // Inserimento Like
-        const { error } = await supabase
-          .from('likes')
-          .insert({ post_id: post.id, user_id: user.id })
-        
-        if (error) throw error
+        // Aggiungi Like
+        await supabase.from('likes').insert({ post_id: post.id, user_id: currentUser.id })
+        setIsLiked(true)
+        setLikesCount((prev: number) => prev + 1)
+
+        // Invia Notifica (solo se il post non è mio)
+        if (post.user_id !== currentUser.id) {
+          await supabase.from('notifications').insert({
+            receiver_id: post.user_id,
+            sender_id: currentUser.id,
+            type: 'like',
+            post_id: post.id
+          })
+        }
       }
     } catch (err) {
-      console.error("Errore database Like:", err)
-      // Rollback in caso di fallimento
-      setLiked(previousLiked)
-      setLikesCount(previousCount)
+      console.error(err)
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <>
-      <article className="bg-[#16161e]/60 border border-white/5 rounded-[2.5rem] overflow-hidden mb-8 backdrop-blur-md transition-all hover:border-[#7c6af7]/20 shadow-xl">
-        
-        {/* HEADER: Profilo Utente */}
-        <div className="p-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#7c6af7] to-[#b06ab3] p-[2px]">
-              <div className="w-full h-full rounded-[14px] bg-[#0a0a0f] flex items-center justify-center text-white font-black text-sm uppercase">
-                {post.profiles?.username?.[0] || 'G'}
-              </div>
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-white leading-none tracking-tight">
-                {post.profiles?.username || 'Gamer'}
-              </h4>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-[10px] text-[#7c6af7] uppercase font-black tracking-widest">
-                  Level 42
-                </span>
-                <span className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
-              </div>
-            </div>
+    <div className="bg-[#16161e]/50 border border-white/5 rounded-[2.5rem] overflow-hidden backdrop-blur-md">
+      {/* User Header */}
+      <div className="p-5 flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#7c6af7] to-[#ff4d4d] p-[1px]">
+          <div className="w-full h-full rounded-[11px] bg-[#0a0a0f] flex items-center justify-center overflow-hidden">
+            {post.profiles?.avatar_url ? (
+              <img src={post.profiles.avatar_url} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-xs font-black text-white">{post.profiles?.username?.[0].toUpperCase()}</span>
+            )}
           </div>
-          <button className="p-2 text-gray-600 hover:text-white transition-colors">
-            <MoreHorizontal size={20} />
-          </button>
         </div>
-
-        {/* MEDIA: Immagine */}
-        {post.image_url && (
-          <div className="px-4">
-            <div 
-              className="relative group cursor-pointer overflow-hidden rounded-[2rem] border border-white/5"
-              onClick={() => setShowComments(true)}
-            >
-              <img 
-                src={post.image_url} 
-                alt="Post content" 
-                className="w-full aspect-video object-cover transition-transform duration-700 group-hover:scale-105" 
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6">
-                <span className="text-white text-xs font-bold uppercase tracking-widest">Visualizza dettagli</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TEXT: Descrizione */}
-        <div className="p-6">
-          <p className="text-gray-300 text-sm leading-relaxed font-medium">
-            {post.content}
-          </p>
+        <div>
+          <p className="text-sm font-black text-white uppercase italic tracking-tighter">{post.profiles?.username}</p>
+          <p className="text-[9px] text-[#7c6af7] font-black uppercase tracking-[0.2em]">Active Player</p>
         </div>
+      </div>
 
-        {/* FOOTER: Bottoni Azione */}
-        <div className="px-6 pb-6 flex items-center gap-8">
-          {/* Like Button */}
+      {/* Main Image */}
+      <div className="aspect-square w-full bg-black relative">
+        <img src={post.image_url} className="w-full h-full object-cover" alt="Drop" />
+        <div className="absolute top-4 right-4 bg-black/60 p-2 rounded-xl border border-white/10 backdrop-blur-md">
+          <Trophy size={16} className="text-[#7c6af7]" />
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="p-6">
+        <div className="flex gap-6 mb-4">
           <button 
             onClick={handleLike} 
-            className={`flex items-center gap-2.5 transition-all active:scale-75 ${liked ? 'text-red-500' : 'text-gray-500 hover:text-white'}`}
+            disabled={loading}
+            className={`flex items-center gap-2 transition-all ${isLiked ? 'text-[#ff4d4d]' : 'text-gray-400 hover:text-white'}`}
           >
-            <Heart size={24} className={liked ? 'fill-current' : ''} />
-            <span className="text-xs font-black tabular-nums">{likesCount}</span>
+            {loading ? <Loader2 size={22} className="animate-spin" /> : <Heart size={24} fill={isLiked ? "currentColor" : "none"} />}
+            <span className="text-xs font-black">{likesCount}</span>
           </button>
-
-          {/* Comment Button */}
-          <button 
-            onClick={() => setShowComments(true)}
-            className="flex items-center gap-2.5 text-gray-500 hover:text-[#7c6af7] transition-all group active:scale-75"
-          >
-            <MessageCircle size={24} className="group-hover:rotate-12 transition-transform" />
-            <span className="text-xs font-black tabular-nums">{post.comments_count || 0}</span>
+          <button className="flex items-center gap-2 text-gray-400 hover:text-[#7c6af7]">
+            <MessageCircle size={24} />
+            <span className="text-xs font-black">0</span>
           </button>
-
-          {/* Share Button */}
-          <button className="ml-auto text-gray-600 hover:text-white transition-all active:scale-75">
+          <button className="ml-auto text-gray-600 hover:text-white">
             <Share2 size={22} />
           </button>
         </div>
-      </article>
-
-      {/* RENDER MODALE COMMENTI */}
-      {showComments && (
-        <CommentSection 
-          postId={post.id} 
-          onClose={() => setShowComments(false)} 
-        />
-      )}
-    </>
+        
+        <p className="text-sm text-gray-300 leading-relaxed">
+          <span className="font-black text-white mr-2 italic uppercase">{post.profiles?.username}</span>
+          {post.content}
+        </p>
+      </div>
+    </div>
   )
 }

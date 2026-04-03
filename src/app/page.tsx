@@ -1,104 +1,50 @@
-"use client"
-import { useState, useEffect } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
-import { Header } from "@/components/feed/header"
-import { Nav } from "@/components/feed/nav"
-import { FeedCard } from "@/components/feed/FeedCard"
-import { Loader2, Globe, Users } from 'lucide-react'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import { PostCard } from '@/components/feed/post-card'
 
-export default function Home() {
-  const [posts, setPosts] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'following'>('all')
-  const [user, setUser] = useState<any>(null)
-
-  const supabase = createBrowserClient(
+export default async function HomePage() {
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { get(name) { return cookieStore.get(name)?.value } } }
   )
 
-  useEffect(() => {
-    fetchPosts()
-  }, [filter])
-
-  async function fetchPosts() {
-    setLoading(true)
-    const { data: { user: currentUser } } = await supabase.auth.getUser()
-    setUser(currentUser)
-
-    let query = supabase
-      .from('posts')
-      .select(`
-        *,
-        profiles (username, avatar_url, display_name),
-        likes (user_id),
-        comments (id, content, profiles (username))
-      `)
-      .order('created_at', { ascending: false })
-
-    // Se il filtro è 'following', scarichiamo solo i post di chi seguiamo
-    if (filter === 'following' && currentUser) {
-      const { data: following } = await supabase
-        .from('follows')
-        .select('following_id')
-        .eq('follower_id', currentUser.id)
-
-      const followingIds = following?.map(f => f.following_id) || []
-      query = query.in('user_id', [...followingIds, currentUser.id]) // Includi te stesso
-    }
-
-    const { data } = await query
-    if (data) setPosts(data)
-    setLoading(false)
-  }
+  const { data: { session } } = await supabase.auth.getSession()
+  
+  // Query potente: prende Post + Profilo + Conteggio Like
+  const { data: posts } = await supabase
+    .from('posts')
+    .select(`
+      *,
+      profiles (id, username, avatar_url),
+      likes (user_id)
+    `)
+    .order('created_at', { ascending: false })
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white">
-      <Header />
-      
-      <main className="max-w-xl mx-auto pt-24 pb-32 px-4">
+    <main className="min-h-screen bg-[#0a0a0f] pt-10 pb-32 px-4 md:pt-28">
+      <div className="max-w-lg mx-auto space-y-8">
+        <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-8">Global_Feed</h1>
         
-        {/* Toggle Filtro */}
-        <div className="flex bg-[#16161e] p-1 rounded-full border border-white/5 mb-8 w-fit mx-auto">
-          <button 
-            onClick={() => setFilter('all')}
-            className={`flex items-center gap-2 px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
-              filter === 'all' ? 'bg-[#7c6af7] text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'
-            }`}
-          >
-            <Globe size={14} /> Global
-          </button>
-          <button 
-            onClick={() => setFilter('following')}
-            className={`flex items-center gap-2 px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
-              filter === 'following' ? 'bg-[#7c6af7] text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'
-            }`}
-          >
-            <Users size={14} /> Following
-          </button>
-        </div>
+        {posts?.map((post: any) => (
+          <PostCard 
+            key={post.id} 
+            post={{
+              ...post, 
+              likes_count: post.likes?.length || 0,
+              is_liked_by_me: post.likes?.some((l: any) => l.user_id === session?.user?.id)
+            }} 
+            currentUser={session?.user} 
+          />
+        ))}
 
-        {loading ? (
-          <div className="flex justify-center py-20">
-            <Loader2 className="animate-spin text-[#7c6af7]" size={32} />
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {posts.map((post) => (
-              <FeedCard key={post.id} post={post} />
-            ))}
-            
-            {posts.length === 0 && (
-              <div className="text-center py-20 opacity-30">
-                <Users size={48} className="mx-auto mb-4" />
-                <p className="text-[10px] font-black uppercase tracking-widest">L'arena è vuota. Inizia a seguire qualcuno!</p>
-              </div>
-            )}
+        {(!posts || posts.length === 0) && (
+          <div className="text-center py-20 text-gray-600 font-bold uppercase tracking-widest text-xs">
+            Nessun drop rilevato nel settore...
           </div>
         )}
-      </main>
-
-      <Nav />
-    </div>
+      </div>
+    </main>
   )
 }
