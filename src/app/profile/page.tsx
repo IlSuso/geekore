@@ -2,12 +2,12 @@
 
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
-import { Trophy, Loader2, Zap, Target, Clock, LogOut, Fingerprint, Activity, ImageOff } from 'lucide-react';
+import { Trophy, Loader2, Target, Clock, LogOut, User } from 'lucide-react';
 
 export default function ProfilePage() {
   const { data: session, status } = useSession();
   const [games, setGames] = useState<any[]>([]);
-  const [corePower, setCorePower] = useState(0);
+  const [completionAverage, setCompletionAverage] = useState(0);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -19,7 +19,7 @@ export default function ProfilePage() {
         .then((res) => res.json())
         .then((data) => {
           setGames(data.games || []);
-          setCorePower(data.corePower || 0);
+          setCompletionAverage(data.corePower || 0);
           setLoading(false);
         })
         .catch(() => setLoading(false));
@@ -35,132 +35,96 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#050507] pt-12 pb-32 px-4 text-white uppercase italic">
+    <main className="min-h-screen bg-[#050507] pt-12 pb-32 px-4 text-white uppercase italic font-medium">
       <div className="max-w-2xl mx-auto">
         
-        {/* HEADER & CORE POWER */}
-        <div className="relative p-[1px] bg-gradient-to-r from-transparent via-[#7c6af7]/50 to-transparent mb-10">
-          <div className="bg-[#050507] py-8 px-4 flex flex-col md:flex-row items-center gap-8">
-            <div className="relative">
-                {session?.user?.image ? (
-                    <img 
-                    src={session.user.image} 
-                    className="w-28 h-28 rounded-full border-2 border-[#7c6af7] object-cover shadow-[0_0_30px_rgba(124,106,247,0.3)]" 
-                    alt="Avatar"
-                    />
-                ) : (
-                    <div className="w-28 h-28 rounded-full border-2 border-[#7c6af7] bg-[#0d0d0f] flex items-center justify-center text-[#7c6af7]">
-                        <Zap size={40} />
-                    </div>
-                )}
-                <div className="absolute -bottom-2 -right-2 bg-[#7c6af7] text-black px-2 py-1 rounded text-[10px] font-black tracking-tighter">
-                    {corePower}% PWR
+        {/* PROFILO UTENTE */}
+        <div className="mb-12 border-b border-white/5 pb-10">
+          <div className="flex flex-col md:flex-row items-center gap-8">
+            <div className="relative shrink-0">
+                <img 
+                  src={session?.user?.image || ""} 
+                  className="w-28 h-28 rounded-full border border-white/10 object-cover shadow-2xl" 
+                  alt="Avatar"
+                />
+                <div className="absolute -bottom-1 -right-1 bg-white text-black px-2 py-1 rounded font-black text-[10px]">
+                    {completionAverage}%
                 </div>
             </div>
             
             <div className="flex-1 text-center md:text-left">
-              <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
-                <Activity size={12} className="text-[#7c6af7]" />
-                <span className="text-[9px] font-black tracking-[0.4em] text-[#7c6af7]">CORE_STATUS: ONLINE</span>
-              </div>
-              <h1 className="text-6xl font-black tracking-tighter leading-none mb-2 break-all">
-                {session?.user?.name || "GUEST_UNIT"}
+              <span className="text-[10px] tracking-[0.3em] text-[#7c6af7] font-black">STEAM PROFILE</span>
+              <h1 className="text-5xl md:text-6xl font-black tracking-tighter leading-none mt-2">
+                {session?.user?.name || "GUEST"}
               </h1>
-              <div className="flex items-center justify-center md:justify-start gap-4 opacity-40">
-                <div className="flex items-center gap-1">
-                    <Fingerprint size={12} />
-                    <span className="text-[8px]">ID: {(session?.user as any)?.id || "0000"}</span>
-                </div>
-              </div>
             </div>
           </div>
         </div>
 
         {!session ? (
-          <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-2xl bg-[#0d0d0f]/50">
-            <p className="text-[10px] mb-8 opacity-50 tracking-[0.2em] font-black">COLLEGAMENTO MANCANTE</p>
+          <div className="text-center py-12">
             <button 
               onClick={() => signIn("steam")} 
-              className="px-12 py-6 bg-white text-black rounded-2xl font-black text-xl hover:bg-[#7c6af7] hover:text-white transition-all shadow-[0_0_50px_rgba(124,106,247,0.2)]"
+              className="w-full py-8 bg-white text-black rounded-xl font-black text-xl hover:bg-[#7c6af7] hover:text-white transition-all shadow-xl"
             >
-              INITIALIZE_LINK
+              COLLEGA ACCOUNT STEAM
             </button>
           </div>
         ) : (
           <div className="space-y-6">
-            <div className="flex justify-between items-end border-b border-white/5 pb-4">
-                <h2 className="text-xs font-black flex items-center gap-2 tracking-[0.3em]">
-                <Target size={14} className="text-[#7c6af7]" /> ACTIVE_UNITS_DATA
+            <div className="flex justify-between items-center mb-8">
+                <h2 className="text-xs font-black tracking-[0.2em] flex items-center gap-2">
+                  <Target size={14} /> GIOCHI RECENTI
                 </h2>
-                <span className="text-[9px] opacity-40">SORTED BY: PLAYTIME</span>
+                <div className="h-px flex-1 bg-white/5 mx-4 hidden sm:block"></div>
+                <span className="text-[9px] opacity-40">ORDINA PER ORE</span>
             </div>
             
             {loading ? (
               <div className="space-y-4 pt-10">
-                {[1,2,3].map(i => (
-                    <div key={i} className="h-32 bg-white/5 rounded-2xl animate-pulse" />
-                ))}
-                <p className="text-center text-[8px] tracking-[1em] text-[#7c6af7]">SYNCHRONIZING...</p>
+                {[1,2,3].map(i => <div key={i} className="h-32 bg-white/5 rounded-xl animate-pulse" />)}
               </div>
-            ) : games.length === 0 ? (
-                <div className="text-center py-20 border border-white/5 rounded-2xl bg-[#0d0d0f]">
-                  <p className="opacity-30 text-[10px] tracking-widest uppercase font-black">Nessun dato rilevato o profilo privato</p>
-                </div>
             ) : (
-              <div className="grid gap-6">
+              <div className="grid gap-5">
                 {games.map((game) => (
-                  <div key={game.appid} className="group relative bg-[#0d0d0f] border border-white/5 rounded-2xl hover:border-[#7c6af7]/50 transition-all overflow-hidden flex flex-col md:flex-row">
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#7c6af7]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                    
-                    {/* Immagine Header HD e a colori */}
-                    <div className="relative w-full md:w-48 h-28 shrink-0 overflow-hidden">
+                  <div key={game.appid} className="group relative bg-[#0d0d0f] border border-white/5 rounded-xl hover:border-white/20 transition-all overflow-hidden flex flex-col sm:flex-row shadow-sm">
+                    {/* Immagine Header HD */}
+                    <div className="relative w-full sm:w-48 h-32 sm:h-auto overflow-hidden shrink-0">
                       <img 
                         src={`https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${game.appid}/header.jpg`} 
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         alt={game.name}
-                        onError={(e) => {
-                            // Fallback all'icona se l'header non carica, anche se raro
-                            (e.target as HTMLImageElement).src = `https://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${game.img_icon_url}.jpg`;
-                            // Se fallisce anche l'icona, mostra placeholder
-                            (e.target as HTMLImageElement).onerror = () => {
-                                (e.target as HTMLImageElement).classList.add('hidden');
-                                (e.target as HTMLImageElement).parentElement?.classList.add('flex','items-center','justify-center','bg-[#1a1a1c]');
-                                const placeholder = document.createElement('div');
-                                placeholder.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-image-off text-white/20"><line x1="2" x2="22" y1="2" y2="22"/><path d="M10.41 10.41a2 2 0 1 1 2.83 2.83"/><path d="M13.5 13.5 10 17H7.5"/><path d="M15 11h.01"/><path d="M16.51 21.51 18 20V11a2 2 0 0 0-2-2"/><path d="M19 19a2 2 0 0 0 0-4"/><path d="M21 21a2 2 0 0 1-2 2"/><path d="M3 6.13 4.13 5"/><path d="M3.59 3.59A2 2 0 0 0 2 5v11a2 2 0 0 0 2 2h11a2 2 0 0 0 1.59-.59"/><path d="M5 21a2 2 0 0 0 2-2"/></svg>';
-                                (e.target as HTMLImageElement).parentElement?.appendChild(placeholder.firstChild as Node);
-                            }
-                        }}
+                        onError={(e) => { (e.target as HTMLImageElement).src = `https://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${game.img_icon_url}.jpg` }}
                       />
-                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent md:hidden"></div>
                     </div>
 
-                    <div className="relative flex-1 p-5 min-w-0 flex flex-col justify-between">
+                    <div className="flex-1 p-5 flex flex-col justify-between min-w-0">
                       <div>
-                        <div className="flex justify-between items-start mb-2 gap-4">
-                          <h3 className="font-black text-[16px] truncate uppercase">{game.name}</h3>
-                          <div className="flex items-center gap-1.5 text-[#7c6af7] shrink-0 font-black">
+                        <div className="flex justify-between items-start gap-4 mb-4">
+                          <h3 className="font-black text-lg leading-tight truncate">{game.name}</h3>
+                          <div className="flex items-center gap-1.5 text-white/50 font-black shrink-0">
                             <Clock size={14} />
-                            <span className="text-[12px]">{(game.playtime_forever / 60).toFixed(0)}H</span>
+                            <span className="text-xs">{(game.playtime_forever / 60).toFixed(0)}H</span>
                           </div>
                         </div>
                         
-                        <div className="h-1.5 bg-black rounded-full overflow-hidden border border-white/5 mb-3">
+                        <div className="h-1 bg-white/5 rounded-full overflow-hidden mb-2">
                           <div 
-                            className="h-full bg-[#7c6af7] shadow-[0_0_15px_#7c6af7] transition-all duration-1000" 
+                            className={`h-full transition-all duration-1000 ${
+                                game.percent === 100 ? 'bg-white' : 'bg-[#7c6af7]'
+                            }`}
                             style={{ width: `${game.percent}%` }}
                           ></div>
                         </div>
                       </div>
 
-                      <div className="flex justify-between items-center text-[10px] font-black mt-2">
-                           <div className="flex gap-5 opacity-50">
-                                <span className="flex items-center gap-1">
-                                    <Trophy size={11} /> {game.achieved}/{game.total}
-                                </span>
-                           </div>
-                           <span className={game.percent === 100 ? "text-[#7c6af7]" : "opacity-50"}>
-                                {game.percent}% COMPLETE
-                           </span>
+                      <div className="flex justify-between items-center mt-2 text-[10px] font-black tracking-widest">
+                        <div className="flex gap-4 opacity-40">
+                          <span className="flex items-center gap-1"><Trophy size={11}/> {game.achieved}/{game.total}</span>
+                        </div>
+                        <span className={game.percent === 100 ? "text-white" : "text-[#7c6af7]"}>
+                            {game.percent}%
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -170,9 +134,9 @@ export default function ProfilePage() {
             
             <button 
               onClick={() => signOut()} 
-              className="mt-20 w-full py-4 text-red-500/20 text-[9px] font-black hover:text-red-500 transition-all flex items-center justify-center gap-2 border border-red-500/5 rounded-full hover:border-red-500/20"
+              className="mt-20 w-full py-4 text-white/20 text-[10px] font-black hover:text-white transition-all border border-white/5 rounded-lg hover:bg-white/5"
             >
-              <LogOut size={14} /> TERMINATE_CORE_SESSION
+              DISCONNETTI ACCOUNT
             </button>
           </div>
         )}
