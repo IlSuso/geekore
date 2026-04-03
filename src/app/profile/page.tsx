@@ -1,68 +1,93 @@
 "use client";
 
-import { useSession, signIn, signOut } from "next-auth/react";
-import useSWR from "swr";
-import { Trophy, Clock, Target, Loader2 } from 'lucide-react';
+import { useSession } from "next-auth/react";
+import { Loader2, User, LogOut, Shield } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function ProfilePage() {
-  const { data: session } = useSession();
-  // @ts-ignore
-  const sId = session?.user?.id;
+  // Il trucco per il Build: inizializziamo session come oggetto vuoto se undefined
+  const session = useSession();
+  const { data: userData, status } = session || { data: null, status: "unauthenticated" };
+  const router = useRouter();
 
-  // Recupera i dati dalla cache istantaneamente
-  const { data, isValidating } = useSWR(
-    sId ? `/api/steam?steamId=${sId}&username=${session?.user?.name}&avatar=${session?.user?.image}` : null
-  );
-
-  const games = data?.games || [];
-  const avg = data?.corePower || 0;
-
-  if (!session) return (
-    <div className="pt-32 text-center px-4">
-      <button onClick={() => signIn("steam")} className="w-full py-8 bg-white text-black font-black rounded-xl">
-        COLLEGA STEAM
-      </button>
-    </div>
-  );
-
-  return (
-    <main className="min-h-screen pt-24 pb-32 px-4 max-w-2xl mx-auto">
-      {/* Header con indicatore di caricamento silenzioso */}
-      <div className="flex items-center gap-6 mb-12 border-b border-white/5 pb-10">
-        <div className="relative">
-          <img src={session.user?.image || ""} className="w-24 h-24 rounded-full border border-white/10" />
-          {isValidating && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full">
-              <Loader2 className="animate-spin text-[#7c6af7]" size={20} />
-            </div>
-          )}
-          <div className="absolute -bottom-2 -right-2 bg-white text-black px-2 py-1 rounded font-black text-[10px]">
-            {avg}%
-          </div>
-        </div>
-        <h1 className="text-4xl font-black tracking-tighter">{session.user?.name}</h1>
+  // 1. STATO CARICAMENTO
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen bg-[#050507] flex flex-col items-center justify-center gap-4">
+        <Loader2 className="animate-spin text-[#7c6af7]" size={40} />
+        <span className="text-[10px] font-black tracking-[0.5em] text-white/20 uppercase">Auth_Verifying...</span>
       </div>
+    );
+  }
 
-      {/* Lista Giochi - Carica istantaneamente se i dati sono in cache */}
-      <div className="grid gap-4">
-        {games.map((game: any) => (
-          <div key={game.appid} className="bg-[#0d0d0f] border border-white/5 rounded-xl overflow-hidden flex h-24">
-            <img 
-              src={`https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${game.appid}/header.jpg`} 
-              className="w-40 h-full object-cover" 
-            />
-            <div className="p-4 flex-1 flex flex-col justify-center min-w-0">
-              <h3 className="font-black text-sm truncate">{game.name}</h3>
-              <div className="h-1 bg-white/5 rounded-full my-2">
-                <div className="h-full bg-[#7c6af7]" style={{ width: `${game.percent}%` }} />
-              </div>
-              <div className="flex justify-between text-[9px] font-black opacity-40">
-                <span>{game.achieved}/{game.total} TROFEI</span>
-                <span>{game.percent}%</span>
-              </div>
+  // 2. UTENTE NON AUTENTICATO
+  if (status === "unauthenticated" || !userData) {
+    return (
+      <div className="min-h-screen bg-[#050507] flex flex-col items-center justify-center p-6 text-center">
+        <Shield size={48} className="text-red-500 mb-6 opacity-50" />
+        <h1 className="text-4xl font-black italic uppercase tracking-tighter mb-4 text-white">Access_Denied</h1>
+        <p className="text-sm text-white/40 mb-8 max-w-xs lowercase">devi effettuare l'accesso per visualizzare i dati del tuo profilo geekore.</p>
+        <button 
+          onClick={() => router.push("/")}
+          className="bg-white text-black px-8 py-3 font-black italic uppercase text-xs hover:bg-[#7c6af7] hover:text-white transition-all"
+        >
+          Back_to_Home
+        </button>
+      </div>
+    );
+  }
+
+  // 3. UTENTE AUTENTICATO (LAYOUT GEEKORE)
+  return (
+    <main className="min-h-screen bg-[#050507] text-white p-6 pt-12 md:p-20">
+      <header className="max-w-4xl mx-auto border-b-2 border-white pb-10 mb-16">
+        <div className="flex items-center gap-2 text-[#7c6af7] mb-2 text-[10px] font-black tracking-[0.4em] uppercase">
+          <User size={14} />
+          <span>User_Authorized_Session</span>
+        </div>
+        <h1 className="text-7xl md:text-9xl font-black italic uppercase leading-none tracking-tighter">
+          PROFILE
+        </h1>
+      </header>
+
+      <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-12">
+        {/* INFO UTENTE */}
+        <section className="space-y-8">
+          <div>
+            <label className="text-[10px] font-black text-white/30 uppercase tracking-widest block mb-2">Username_ID</label>
+            <p className="text-2xl font-black italic uppercase">{userData.user?.name || "Anonymous_Geek"}</p>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-black text-white/30 uppercase tracking-widest block mb-2">Email_Address</label>
+            <p className="text-xl font-bold opacity-60 lowercase">{userData.user?.email}</p>
+          </div>
+
+          <div className="pt-8">
+            <button 
+              className="flex items-center gap-3 bg-red-600/10 text-red-500 border border-red-500/20 px-6 py-3 text-[10px] font-black italic uppercase hover:bg-red-600 hover:text-white transition-all"
+            >
+              <LogOut size={14} /> Logout_Session
+            </button>
+          </div>
+        </section>
+
+        {/* STATISTICHE O PLACEHOLDER ESTETICO */}
+        <section className="border-l border-white/5 pl-0 md:pl-12 hidden md:block">
+          <div className="bg-white/5 p-8 rounded-2xl border border-white/5 space-y-6">
+            <div className="flex justify-between items-end border-b border-white/10 pb-4">
+              <span className="text-[10px] font-black opacity-30 uppercase tracking-widest">Rank</span>
+              <span className="text-xl font-black italic text-[#7c6af7]">CORE_MEMBER</span>
+            </div>
+            <div className="flex justify-between items-end border-b border-white/10 pb-4">
+              <span className="text-[10px] font-black opacity-30 uppercase tracking-widest">Status</span>
+              <span className="text-xl font-black italic">ACTIVE</span>
+            </div>
+            <div className="p-4 bg-[#7c6af7]/10 text-[#7c6af7] text-[9px] font-black leading-tight uppercase tracking-widest">
+              il tuo account è sincronizzato con il database centrale di geekore.
             </div>
           </div>
-        ))}
+        </section>
       </div>
     </main>
   );
