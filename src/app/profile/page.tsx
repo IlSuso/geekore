@@ -1,8 +1,11 @@
+// src/app/profile/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { CheckCircle, RefreshCw } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import Link from 'next/link';
+import { CheckCircle, RefreshCw, Clock } from 'lucide-react';
 import SteamConnectButton from '@/components/SteamConnectButton';
 import { SteamIcon } from '@/components/icons/SteamIcon';
 
@@ -18,15 +21,12 @@ type UserMedia = {
   appid?: string;
 };
 
-// Determina se l'immagine è orizzontale (header/capsule) o verticale (library portrait).
-// Le immagini orizzontali vanno mostrate con object-contain per non zoomare.
 function isHorizontalSteamImage(url?: string): boolean {
   if (!url) return false;
   return (
     url.includes('header.jpg') ||
     url.includes('capsule_231x87') ||
     url.includes('capsule_616x353') ||
-    // header_image della Store API contiene "header" nell'URL
     (url.includes('steampowered.com') && url.includes('header'))
   );
 }
@@ -39,8 +39,6 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [importingGames, setImportingGames] = useState(false);
 
-  const supabase = createClient();
-
   const refreshMediaList = async (userId: string) => {
     const { data } = await supabase
       .from('user_media_entries')
@@ -50,39 +48,17 @@ export default function ProfilePage() {
     setMediaList(data || []);
   };
 
-  const importSteamGames = async (
-    steamId?: string,
-    userId?: string,
-    skipIfExists = false
-  ) => {
+  const importSteamGames = async (steamId?: string, userId?: string) => {
     const resolvedSteamId = steamId ?? steamAccount?.steam_id64;
     const resolvedUserId = userId ?? user?.id;
-
     if (!resolvedSteamId || !resolvedUserId || importingGames) return;
 
-    if (skipIfExists) {
-      const { count } = await supabase
-        .from('user_media_entries')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', resolvedUserId)
-        .eq('is_steam', true);
-
-      if ((count ?? 0) > 0) {
-        console.log('Giochi Steam già presenti, skip auto-import.');
-        return;
-      }
-    }
-
     setImportingGames(true);
-
     try {
       const res = await fetch(`/api/steam/games?steamid=${resolvedSteamId}`);
       const data = await res.json();
 
-      if (!data.success || !data.games?.length) {
-        console.error('Nessun gioco trovato o errore API:', data.error);
-        return;
-      }
+      if (!data.success || !data.games?.length) return;
 
       const steamMedia = data.games.map((game: any) => ({
         user_id: resolvedUserId,
@@ -100,7 +76,7 @@ export default function ProfilePage() {
         .upsert(steamMedia, { onConflict: 'user_id,title' });
 
       if (error) {
-        console.error('Errore upsert Supabase:', error.code, error.message, error.details);
+        console.error('Errore upsert:', error);
         return;
       }
 
@@ -115,11 +91,11 @@ export default function ProfilePage() {
   useEffect(() => {
     const fetchData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-
       if (!user) {
-        setLoading(false);
+        window.location.href = '/login';
         return;
       }
+
       setUser(user);
 
       const [profileRes, steamRes, mediaRes] = await Promise.all([
@@ -135,11 +111,12 @@ export default function ProfilePage() {
       setProfile(profileRes.data);
       setSteamAccount(steamRes.data);
       setMediaList(mediaRes.data || []);
-      setLoading(false);
 
       if (steamRes.data?.steam_id64) {
-        importSteamGames(steamRes.data.steam_id64, user.id, true);
+        importSteamGames(steamRes.data.steam_id64, user.id);
       }
+
+      setLoading(false);
     };
 
     fetchData();
@@ -147,8 +124,11 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center text-white">
-        Caricamento...
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white">
+        <div className="text-center">
+          <div className="animate-spin w-8 h-8 border-4 border-zinc-700 border-t-white rounded-full mx-auto mb-4"></div>
+          <p>Caricamento profilo...</p>
+        </div>
       </div>
     );
   }
@@ -163,28 +143,34 @@ export default function ProfilePage() {
     return acc;
   }, {});
 
+  // Ordina i videogiochi per ore giocate (decrescente)
+  if (grouped['Videogiochi']) {
+    grouped['Videogiochi'].sort((a, b) => b.current_episode - a.current_episode);
+  }
+
   return (
-    <div className="min-h-screen bg-black text-white pb-20">
+    <div className="min-h-screen bg-zinc-950 text-white pb-20">
       <div className="pt-8 max-w-6xl mx-auto px-6">
-        {/* Banner */}
-        <div className="relative h-[380px] rounded-3xl overflow-hidden mb-12 bg-gradient-to-br from-violet-950 to-black">
-          <div className="absolute bottom-10 left-10 flex items-end gap-8">
-            <div className="w-36 h-36 rounded-3xl overflow-hidden border-4 border-zinc-900">
-              <img
-                src={profile?.avatar_url || 'https://via.placeholder.com/300'}
-                alt="Avatar"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div>
-              <h1 className="text-5xl font-bold tracking-tighter">
-                {profile?.display_name || user?.email?.split('@')[0]}
-              </h1>
-              <p className="text-xl text-zinc-400 mt-1">
-                @{profile?.username || 'geek'}
-              </p>
-            </div>
-          </div>
+        
+        {/* Header profilo SENZA COPERTINA - solo foto profilo centrata */}
+        <div className="flex flex-col items-center mb-12">
+          <Avatar className="w-48 h-48 border-4 border-zinc-700 mb-6">
+            <AvatarImage src={profile?.avatar_url || undefined} alt="Avatar" />
+            <AvatarFallback className="text-7xl bg-zinc-800">
+              {profile?.username?.[0]?.toUpperCase() || 'G'}
+            </AvatarFallback>
+          </Avatar>
+
+          <h1 className="text-5xl font-bold tracking-tighter mb-2">
+            {profile?.display_name || user?.email?.split('@')[0]}
+          </h1>
+          <p className="text-xl text-zinc-400">@{profile?.username || 'geek'}</p>
+
+          <Link href="/profile/edit" className="mt-6">
+            <button className="px-8 py-3 bg-white text-black font-semibold rounded-full hover:bg-zinc-200 transition-all">
+              Modifica Profilo
+            </button>
+          </Link>
         </div>
 
         {/* Sezione Steam */}
@@ -200,7 +186,6 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
-
           {steamAccount && (
             <button
               onClick={() => importSteamGames()}
@@ -224,7 +209,6 @@ export default function ProfilePage() {
                 <h3 className="text-2xl font-semibold">{category}</h3>
                 <p className="text-zinc-500">{items.length} elementi</p>
               </div>
-
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
                 {items.map((media) => {
                   const imageUrl =
@@ -232,10 +216,6 @@ export default function ProfilePage() {
                     (media.appid
                       ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${media.appid}/header.jpg`
                       : undefined);
-
-                  // Le immagini orizzontali (header) usano object-contain per non zoomare,
-                  // quelle verticali (library portrait) usano object-cover come prima.
-                  const isHorizontal = isHorizontalSteamImage(imageUrl);
 
                   return (
                     <div
@@ -247,7 +227,6 @@ export default function ProfilePage() {
                           <SteamIcon size={16} className="text-white" />
                         </div>
                       )}
-
                       <div className="relative h-72 bg-zinc-900">
                         {imageUrl ? (
                           <img
@@ -269,13 +248,17 @@ export default function ProfilePage() {
                           </div>
                         )}
                       </div>
-
                       <div className="p-6">
                         <h4 className="font-semibold line-clamp-2 mb-1">{media.title}</h4>
-                        <p className="text-emerald-400 text-sm">
-                          {media.type === 'game'
-                            ? `${media.current_episode} ore`
-                            : `Ep. ${media.current_episode}`}
+                        <p className="text-emerald-400 text-sm flex items-center gap-1.5">
+                          {media.type === 'game' ? (
+                            <>
+                              <Clock size={16} className="text-emerald-400" />
+                              {media.current_episode} ore
+                            </>
+                          ) : (
+                            `Ep. ${media.current_episode}`
+                          )}
                         </p>
                       </div>
                     </div>

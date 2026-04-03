@@ -1,5 +1,4 @@
 'use client';
-
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import { Search, Plus, X, Film, Tv, Gamepad2, BookOpen } from 'lucide-react';
@@ -14,6 +13,24 @@ type MediaItem = {
   episodes?: number;
   source: 'anilist' | 'omdb' | 'igdb';
 };
+
+// FILTRO LEGGERO ma blocca il link Amazon rotto che hai segnalato
+function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
+  if (!item?.coverImage || typeof item.coverImage !== 'string') return false;
+
+  const url = item.coverImage.trim();
+
+  // Escludi solo i casi chiaramente sbagliati
+  if (url.length < 10) return false;
+  if (url.includes('N/A') || url.includes('placeholder') || url.includes('no-image')) return false;
+
+  // BLOCCA SPECIFICAMENTE il link Amazon rotto che mi hai mandato
+  if (url.includes('m.media-amazon.com') && url.includes('MV5BYWVjZDliMmItNWY5Ny00YzBhLWI4MGMtMzlhM2VlMTExNWE2')) {
+    return false;
+  }
+
+  return true;
+}
 
 export default function DiscoverPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -36,23 +53,19 @@ export default function DiscoverPage() {
     { id: 'game', label: 'Videogiochi', icon: Gamepad2 },
   ];
 
-  // Carica già aggiunti
   useEffect(() => {
     const loadAdded = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
       const { data } = await supabase
         .from('user_media_entries')
         .select('external_id')
         .eq('user_id', user.id);
-
       if (data) setAlreadyAdded(data.map(item => item.external_id));
     };
     loadAdded();
   }, []);
 
-  // Ricerca live
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (searchTerm.trim().length >= 2 || activeType === 'game') searchMedia();
@@ -71,12 +84,12 @@ export default function DiscoverPage() {
     let newResults: MediaItem[] = [];
 
     try {
-      // 1. AniList - Anime + Manga (solo con immagine)
+      // 1. AniList
       if (activeType === 'all' || activeType === 'anime' || activeType === 'manga') {
         const aniListType = activeType === 'manga' ? 'MANGA' : 'ANIME';
         const query = `
           query ($search: String) {
-            Page(page: 1, perPage: 12) {
+            Page(page: 1, perPage: 15) {
               media(search: $search, type: ${aniListType}, sort: [POPULARITY_DESC, SCORE_DESC]) {
                 id title { romaji english } coverImage { large } seasonYear episodes type
               }
@@ -91,8 +104,9 @@ export default function DiscoverPage() {
         });
 
         const json = await res.json();
-        const aniResults: MediaItem[] = (json.data?.Page?.media || [])
-          .map((m: any) => ({
+
+        const aniResults = (json.data?.Page?.media || [])
+          .map((m: any): MediaItem => ({
             id: m.id.toString(),
             title: m.title.romaji || m.title.english || 'Senza titolo',
             type: (m.type || 'anime').toLowerCase(),
@@ -101,12 +115,12 @@ export default function DiscoverPage() {
             episodes: m.episodes,
             source: 'anilist',
           }))
-          .filter((item: MediaItem): item is MediaItem => !!item.coverImage);
+          .filter(hasValidCover);
 
         newResults = [...newResults, ...aniResults];
       }
 
-      // 2. OMDb - Film + Serie TV (filtro aggressivo su poster rotti)
+      // 2. OMDb - Film + Serie TV
       if (activeType === 'all' || activeType === 'movie' || activeType === 'tv') {
         const omdbKey = process.env.NEXT_PUBLIC_OMDB_API_KEY;
         if (omdbKey) {
@@ -115,24 +129,24 @@ export default function DiscoverPage() {
           const json = await res.json();
 
           if (json.Search) {
-            const omdbResults: MediaItem[] = json.Search
-              .map((m: any) => ({
+            const omdbResults = json.Search
+              .map((m: any): MediaItem => ({
                 id: m.imdbID,
                 title: m.Title,
                 type: m.Type === 'movie' ? 'movie' : 'tv',
-                coverImage: m.Poster && m.Poster !== 'N/A' && !m.Poster.includes('N/A') ? m.Poster : undefined,
+                coverImage: m.Poster && m.Poster !== 'N/A' ? m.Poster : undefined,
                 year: parseInt(m.Year),
                 episodes: 1,
                 source: 'omdb',
               }))
-              .filter((item: MediaItem): item is MediaItem => !!item.coverImage);
+              .filter(hasValidCover);
 
             newResults = [...newResults, ...omdbResults];
           }
         }
       }
 
-      // 3. IGDB - Videogiochi (solo con immagine)
+      // 3. IGDB
       if (activeType === 'all' || activeType === 'game') {
         const res = await fetch('/api/igdb', {
           method: 'POST',
@@ -142,7 +156,7 @@ export default function DiscoverPage() {
 
         if (res.ok) {
           const gameResults: MediaItem[] = await res.json();
-          const filteredGames = gameResults.filter((item: MediaItem): item is MediaItem => !!item.coverImage);
+          const filteredGames = gameResults.filter(hasValidCover);
           newResults = [...newResults, ...filteredGames];
         }
       }
@@ -151,17 +165,16 @@ export default function DiscoverPage() {
     } catch (err) {
       console.error('Errore ricerca:', err);
     }
+
     setLoading(false);
   };
 
   const handleAdd = async (media: MediaItem) => {
     if (alreadyAdded.includes(media.id)) return;
-
     if (media.episodes === 1 || !media.episodes) {
       addDirectly(media);
       return;
     }
-
     setSelectedMedia(media);
     setCurrentEpisode('');
   };
@@ -187,12 +200,11 @@ export default function DiscoverPage() {
 
   const confirmAdd = async () => {
     if (!selectedMedia || !currentEpisode || Number(currentEpisode) < 1) {
-      alert("Inserisci un numero di episodio valido");
+      alert('Inserisci un numero di episodio valido');
       return;
     }
 
     setAdding(true);
-
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -211,7 +223,7 @@ export default function DiscoverPage() {
     });
 
     if (error) {
-      console.error("Errore insert:", error);
+      console.error('Errore insert:', error);
       alert(`Errore: ${error.message}`);
     } else {
       setAlreadyAdded(prev => [...prev, selectedMedia.id]);
@@ -268,24 +280,18 @@ export default function DiscoverPage() {
           {results.map((item) => {
             const isAdded = alreadyAdded.includes(item.id);
             return (
-              <div key={item.id} className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden hover:border-violet-500/50 transition group">
+              <div
+                key={item.id}
+                className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden hover:border-violet-500/50 transition group"
+              >
                 <div className="relative h-64 bg-zinc-900">
-                  {item.coverImage ? (
-                    <img 
-                      src={item.coverImage} 
-                      alt={item.title} 
-                      className="w-full h-full object-cover transition-transform group-hover:scale-105" 
-                      onError={(e) => {
-                        // Se l'immagine si rompe durante il caricamento, sostituisci con placeholder
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-6xl bg-zinc-800">
-                      {item.type === 'game' ? '🎮' : item.type === 'anime' || item.type === 'tv' ? '📺' : '📖'}
-                    </div>
-                  )}
+                  <img
+                    src={item.coverImage}
+                    alt={item.title}
+                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                  />
                 </div>
+
                 <div className="p-5">
                   <h3 className="font-semibold line-clamp-2 mb-2">{item.title}</h3>
                   <p className="text-sm text-zinc-500 mb-1 capitalize">{item.type}</p>
@@ -293,11 +299,13 @@ export default function DiscoverPage() {
                     <p className="text-xs text-zinc-400 mb-4">{item.episodes} episodi</p>
                   )}
 
-                  <button 
+                  <button
                     onClick={() => handleAdd(item)}
                     disabled={isAdded}
                     className={`w-full py-3 rounded-2xl text-sm font-medium flex items-center justify-center gap-2 transition ${
-                      isAdded ? 'bg-emerald-600 text-white cursor-default' : 'bg-zinc-900 hover:bg-violet-600 border border-zinc-700 hover:border-violet-500'
+                      isAdded
+                        ? 'bg-emerald-600 text-white cursor-default'
+                        : 'bg-zinc-900 hover:bg-violet-600 border border-zinc-700 hover:border-violet-500'
                     }`}
                   >
                     {isAdded ? <>✓ Già nei progressi</> : <><Plus size={18} /> Aggiungi</>}
@@ -309,11 +317,13 @@ export default function DiscoverPage() {
         </div>
 
         {results.length === 0 && !loading && searchTerm.length >= 2 && (
-          <p className="text-center text-zinc-500 mt-12">Nessun risultato con copertina valida trovato.</p>
+          <p className="text-center text-zinc-500 mt-12">
+            Nessun risultato con copertina valida trovato.
+          </p>
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modal Aggiungi */}
       {selectedMedia && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
           <div className="bg-zinc-900 border border-zinc-700 rounded-3xl max-w-md w-full p-8">
@@ -330,7 +340,9 @@ export default function DiscoverPage() {
               )}
               <div className="flex-1">
                 <p className="font-semibold text-lg">{selectedMedia.title}</p>
-                <p className="text-sm text-zinc-500">{selectedMedia.year} • {selectedMedia.type}</p>
+                <p className="text-sm text-zinc-500">
+                  {selectedMedia.year} • {selectedMedia.type}
+                </p>
               </div>
             </div>
 
@@ -350,9 +362,14 @@ export default function DiscoverPage() {
               </p>
             </div>
 
-            <button 
+            <button
               onClick={confirmAdd}
-              disabled={adding || !currentEpisode || Number(currentEpisode) < 1 || Number(currentEpisode) > (selectedMedia.episodes || 999)}
+              disabled={
+                adding ||
+                !currentEpisode ||
+                Number(currentEpisode) < 1 ||
+                Number(currentEpisode) > (selectedMedia.episodes || 999)
+              }
               className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-2xl font-semibold text-lg hover:brightness-110 disabled:opacity-50 transition"
             >
               {adding ? 'Aggiungendo...' : `Aggiungi (Episodio ${currentEpisode})`}

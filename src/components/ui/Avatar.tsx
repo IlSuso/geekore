@@ -1,35 +1,49 @@
-import Image from 'next/image'
-import { cn } from '@/lib/utils'
+// src/components/ui/avatar.tsx
+import React from 'react';
 
-interface AvatarProps {
-  src?: string | null
-  username: string
-  size?: number
-  className?: string
+interface AvatarProps extends React.HTMLAttributes<HTMLDivElement> {
+  className?: string;
 }
 
-export function Avatar({ src, username, size = 36, className }: AvatarProps) {
-  const initials = username.slice(0, 2).toUpperCase()
-
-  if (src) {
+const Avatar = React.forwardRef<HTMLDivElement, AvatarProps>(
+  ({ className = '', ...props }, ref) => {
     return (
-      <Image
-        src={src}
-        alt={username}
-        width={size}
-        height={size}
-        className={cn('rounded-full object-cover', className)}
-        style={{ width: size, height: size }}
+      <div
+        ref={ref}
+        className={`relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full border-4 border-zinc-700 ${className}`}
+        {...props}
       />
-    )
+    );
   }
+);
+Avatar.displayName = 'Avatar';
 
-  return (
-    <div
-      className={cn('flex items-center justify-center rounded-full bg-accent/20 text-accent font-semibold', className)}
-      style={{ width: size, height: size, fontSize: size * 0.35 }}
-    >
-      {initials}
-    </div>
-  )
-}
+const AvatarImage = React.forwardRef<HTMLImageElement, React.ImgHTMLAttributes<HTMLImageElement>>(
+  ({ className = '', ...props }, ref) => {
+    return (
+      <img
+        ref={ref}
+        className={`aspect-square h-full w-full object-cover ${className}`}
+        {...props}
+      />
+    );
+  }
+);
+AvatarImage.displayName = 'AvatarImage';
+
+const AvatarFallback = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className = '', children, ...props }, ref) => {
+    return (
+      <div
+        ref={ref}
+        className={`flex h-full w-full items-center justify-center bg-zinc-800 text-white ${className}`}
+        {...props}
+      >
+        {children}
+      </div>
+    );
+  }
+);
+AvatarFallback.displayName = 'AvatarFallback';
+
+export { Avatar, AvatarImage, AvatarFallback };
