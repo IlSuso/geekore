@@ -71,7 +71,7 @@ export default function DiscoverPage() {
     let newResults: MediaItem[] = [];
 
     try {
-      // AniList
+      // 1. AniList - Anime + Manga (solo con immagine)
       if (activeType === 'all' || activeType === 'anime' || activeType === 'manga') {
         const aniListType = activeType === 'manga' ? 'MANGA' : 'ANIME';
         const query = `
@@ -91,20 +91,22 @@ export default function DiscoverPage() {
         });
 
         const json = await res.json();
-        const aniResults = (json.data?.Page?.media || []).map((m: any) => ({
-          id: m.id.toString(),
-          title: m.title.romaji || m.title.english || 'Senza titolo',
-          type: (m.type || 'anime').toLowerCase(),
-          coverImage: m.coverImage?.large,
-          year: m.seasonYear,
-          episodes: m.episodes,
-          source: 'anilist',
-        }));
+        const aniResults: MediaItem[] = (json.data?.Page?.media || [])
+          .map((m: any) => ({
+            id: m.id.toString(),
+            title: m.title.romaji || m.title.english || 'Senza titolo',
+            type: (m.type || 'anime').toLowerCase(),
+            coverImage: m.coverImage?.large,
+            year: m.seasonYear,
+            episodes: m.episodes,
+            source: 'anilist',
+          }))
+          .filter((item: MediaItem): item is MediaItem => !!item.coverImage);
 
         newResults = [...newResults, ...aniResults];
       }
 
-      // OMDb
+      // 2. OMDb - Film + Serie TV (filtro aggressivo su poster rotti)
       if (activeType === 'all' || activeType === 'movie' || activeType === 'tv') {
         const omdbKey = process.env.NEXT_PUBLIC_OMDB_API_KEY;
         if (omdbKey) {
@@ -113,21 +115,24 @@ export default function DiscoverPage() {
           const json = await res.json();
 
           if (json.Search) {
-            const omdbResults = json.Search.map((m: any) => ({
-              id: m.imdbID,
-              title: m.Title,
-              type: m.Type === 'movie' ? 'movie' : 'tv',
-              coverImage: m.Poster !== 'N/A' ? m.Poster : undefined,
-              year: parseInt(m.Year),
-              episodes: 1,
-              source: 'omdb',
-            }));
+            const omdbResults: MediaItem[] = json.Search
+              .map((m: any) => ({
+                id: m.imdbID,
+                title: m.Title,
+                type: m.Type === 'movie' ? 'movie' : 'tv',
+                coverImage: m.Poster && m.Poster !== 'N/A' && !m.Poster.includes('N/A') ? m.Poster : undefined,
+                year: parseInt(m.Year),
+                episodes: 1,
+                source: 'omdb',
+              }))
+              .filter((item: MediaItem): item is MediaItem => !!item.coverImage);
+
             newResults = [...newResults, ...omdbResults];
           }
         }
       }
 
-      // IGDB - Solo API reale (nessun placeholder)
+      // 3. IGDB - Videogiochi (solo con immagine)
       if (activeType === 'all' || activeType === 'game') {
         const res = await fetch('/api/igdb', {
           method: 'POST',
@@ -136,10 +141,9 @@ export default function DiscoverPage() {
         });
 
         if (res.ok) {
-          const gameResults = await res.json();
-          newResults = [...newResults, ...gameResults];
-        } else {
-          console.error('IGDB proxy failed');
+          const gameResults: MediaItem[] = await res.json();
+          const filteredGames = gameResults.filter((item: MediaItem): item is MediaItem => !!item.coverImage);
+          newResults = [...newResults, ...filteredGames];
         }
       }
 
@@ -224,7 +228,7 @@ export default function DiscoverPage() {
           <h1 className="text-5xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-cyan-400">
             Discover
           </h1>
-          <p className="text-zinc-400 mt-3">Anime, Manga, Film, Serie TV e Videogiochi</p>
+          <p className="text-zinc-400 mt-3">Solo contenuti con copertina valida</p>
         </div>
 
         <div className="flex flex-wrap gap-3 justify-center mb-8">
@@ -267,7 +271,15 @@ export default function DiscoverPage() {
               <div key={item.id} className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden hover:border-violet-500/50 transition group">
                 <div className="relative h-64 bg-zinc-900">
                   {item.coverImage ? (
-                    <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover" />
+                    <img 
+                      src={item.coverImage} 
+                      alt={item.title} 
+                      className="w-full h-full object-cover transition-transform group-hover:scale-105" 
+                      onError={(e) => {
+                        // Se l'immagine si rompe durante il caricamento, sostituisci con placeholder
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-6xl bg-zinc-800">
                       {item.type === 'game' ? '🎮' : item.type === 'anime' || item.type === 'tv' ? '📺' : '📖'}
@@ -295,6 +307,10 @@ export default function DiscoverPage() {
             );
           })}
         </div>
+
+        {results.length === 0 && !loading && searchTerm.length >= 2 && (
+          <p className="text-center text-zinc-500 mt-12">Nessun risultato con copertina valida trovato.</p>
+        )}
       </div>
 
       {/* Modal */}
@@ -309,12 +325,8 @@ export default function DiscoverPage() {
             </div>
 
             <div className="flex gap-5 mb-8">
-              {selectedMedia.coverImage ? (
+              {selectedMedia.coverImage && (
                 <img src={selectedMedia.coverImage} alt="" className="w-24 h-36 object-cover rounded-2xl" />
-              ) : (
-                <div className="w-24 h-36 bg-zinc-800 rounded-2xl flex items-center justify-center text-5xl">
-                  {selectedMedia.type === 'game' ? '🎮' : '🎬'}
-                </div>
               )}
               <div className="flex-1">
                 <p className="font-semibold text-lg">{selectedMedia.title}</p>
