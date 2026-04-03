@@ -1,90 +1,76 @@
 'use client';
 
 import Link from 'next/link';
-import { Home, Compass, User, Newspaper, LogOut } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
-import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { Home, Search, PlusCircle, User, Trophy } from 'lucide-react';
 
 export default function Navbar() {
-  const [user, setUser] = useState<any>(null);
-  const supabase = createClient();
+  const pathname = usePathname();
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => listener.subscription.unsubscribe();
-  }, []);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.href = '/feed';
-  };
+  const navItems = [
+    { href: '/', label: 'Home', icon: Home },
+    { href: '/discover', label: 'Discover', icon: Search },
+    { href: '/feed', label: 'Feed', icon: PlusCircle },
+    { href: '/profile', label: 'Profilo', icon: User },
+  ];
 
   return (
     <>
-      {/* NAVBAR DESKTOP - In alto */}
-      <nav className="hidden md:block fixed top-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-2xl border-b border-zinc-800 h-16">
-        <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
-          <Link href="/feed" className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-violet-500 via-fuchsia-500 to-cyan-400 rounded-2xl flex items-center justify-center">
-              <span className="text-2xl font-black text-black">G</span>
+      {/* Navbar Desktop - in alto */}
+      <nav className="hidden md:flex fixed top-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-xl border-b border-zinc-800">
+        <div className="max-w-6xl mx-auto w-full px-6 py-5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center">
+              <Trophy className="text-white" size={22} />
             </div>
-            <span className="text-3xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-cyan-400">
-              GEEKORE
-            </span>
-          </Link>
+            <span className="text-2xl font-bold tracking-tighter text-white">geekore</span>
+          </div>
 
-          <div className="flex gap-10 text-sm font-medium">
-            <Link href="/feed" className="hover:text-violet-400 transition">Feed</Link>
-            <Link href="/discover" className="hover:text-violet-400 transition">Discover</Link>
-            <Link href="/news" className="hover:text-violet-400 transition">News</Link>
+          <div className="flex items-center gap-10 text-sm font-medium">
+            {navItems.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-2 transition hover:text-violet-400 ${isActive ? 'text-violet-400' : 'text-zinc-400'}`}
+                >
+                  <item.icon size={20} />
+                  {item.label}
+                </Link>
+              );
+            })}
           </div>
 
           <div className="flex items-center gap-4">
-            {user ? (
-              <Link href="/profile" className="flex items-center gap-3 px-5 py-2 rounded-2xl hover:bg-zinc-900 border border-zinc-700 hover:border-violet-500">
-                <div className="w-8 h-8 bg-zinc-800 rounded-xl flex items-center justify-center text-lg">👾</div>
-                <span>Profilo</span>
-              </Link>
-            ) : (
-              <Link href="/feed" className="bg-violet-600 hover:bg-violet-700 px-6 py-2.5 rounded-2xl font-medium">
-                Accedi
-              </Link>
-            )}
-            {user && (
-              <button onClick={handleLogout} className="text-zinc-400 hover:text-red-400">
-                <LogOut size={20} />
-              </button>
-            )}
+            <div className="text-xs px-4 py-2 bg-zinc-900 rounded-full border border-zinc-700 text-zinc-400">
+              v0.1
+            </div>
           </div>
         </div>
       </nav>
 
-      {/* NAVBAR MOBILE - In basso */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-2xl border-t border-zinc-800 h-16 safe-area-inset-bottom">
-        <div className="flex items-center justify-around h-full px-4 text-xs font-medium">
-          <Link href="/feed" className="flex flex-col items-center text-violet-400 active:text-violet-300">
-            <Home size={26} />
-            <span className="mt-0.5">Feed</span>
-          </Link>
-          <Link href="/discover" className="flex flex-col items-center text-zinc-400 active:text-white">
-            <Compass size={26} />
-            <span className="mt-0.5">Discover</span>
-          </Link>
-          <Link href="/news" className="flex flex-col items-center text-zinc-400 active:text-white">
-            <Newspaper size={26} />
-            <span className="mt-0.5">News</span>
-          </Link>
-          <Link href="/profile" className="flex flex-col items-center text-zinc-400 active:text-white">
-            <div className="w-7 h-7 bg-zinc-700 rounded-full flex items-center justify-center text-xl">👾</div>
-            <span className="mt-0.5">Io</span>
-          </Link>
+      {/* Navbar Mobile - in basso (a prova di pollice) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-2xl border-t border-zinc-800">
+        <div className="flex items-center justify-around py-3 px-6">
+          {navItems.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex flex-col items-center gap-1 transition ${isActive ? 'text-violet-400' : 'text-zinc-400'}`}
+              >
+                <item.icon size={26} strokeWidth={isActive ? 2.5 : 2} />
+                <span className="text-[10px] font-medium tracking-wide">{item.label}</span>
+              </Link>
+            );
+          })}
         </div>
       </nav>
+
+      {/* Spazio per compensare la navbar fissa */}
+      <div className="h-20 md:h-20" />
     </>
   );
 }
