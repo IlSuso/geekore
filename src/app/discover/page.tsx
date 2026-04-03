@@ -1,109 +1,92 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { Search, X } from 'lucide-react'
-import AppShell from '@/components/layout/AppShell'
-import { MediaBadge } from '@/components/ui/MediaBadge'
-import { MediaType } from '@/types'
-import { mediaColor } from '@/lib/utils'
-
-const FILTER_TYPES: { type: MediaType | 'all'; label: string }[] = [
-  { type: 'all',   label: 'Tutto' },
-  { type: 'anime', label: 'Anime' },
-  { type: 'manga', label: 'Manga' },
-  { type: 'game',  label: 'Giochi' },
-  { type: 'board', label: 'Board' },
-]
-
-const TRENDING = [
-  { id: '1', type: 'anime' as MediaType, title: 'Solo Leveling', cover: 'https://cdn.anilist.co/img/dir/anime/reg/166240.jpg' },
-  { id: '2', type: 'game'  as MediaType, title: 'Cyberpunk 2077', cover: 'https://cdn.akamai.steamstatic.com/steam/apps/1091500/library_600x900.jpg' },
-  { id: '3', type: 'manga' as MediaType, title: 'Jujutsu Kaisen', cover: 'https://cdn.anilist.co/img/dir/manga/reg/113138.jpg' },
-  { id: '4', type: 'anime' as MediaType, title: 'Dungeon Meshi', cover: 'https://cdn.anilist.co/img/dir/anime/reg/163059.jpg' },
-  { id: '5', type: 'game'  as MediaType, title: 'Baldur\'s Gate 3', cover: 'https://cdn.akamai.steamstatic.com/steam/apps/1086940/library_600x900.jpg' },
-  { id: '6', type: 'board' as MediaType, title: 'Wingspan', cover: 'https://cf.geekdo-images.com/yLZJCVLlIx4c7eJEWUNJ7w__imagepage/img/pVjty2FHKQ4ANFexivtL0xF-M0I=/fit-in/900x600/filters:no_upscale():strip_icc()/pic4458123.jpg' },
-]
+import Navbar from '@/components/Navbar';
+import { Search, Filter } from 'lucide-react';
+import { useState } from 'react';
 
 export default function DiscoverPage() {
-  const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState<MediaType | 'all'>('all')
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeCategory, setActiveCategory] = useState('all');
 
-  const filtered = TRENDING.filter(
-    (item) => filter === 'all' || item.type === filter
-  )
+  const categories = [
+    { id: 'all', label: 'Tutto' },
+    { id: 'anime', label: 'Anime' },
+    { id: 'manga', label: 'Manga' },
+    { id: 'movie', label: 'Film' },
+    { id: 'tv', label: 'Serie TV' },
+    { id: 'game', label: 'Videogiochi' },
+    { id: 'boardgame', label: 'Giochi da Tavolo' },
+  ];
 
   return (
-    <AppShell>
-      <header className="px-4 pt-safe py-4">
-        <h2 className="font-display text-xl font-bold text-white mb-4">Scopri</h2>
+    <div className="min-h-screen bg-black text-white">
+      <Navbar />
 
-        {/* Search bar */}
-        <div className="relative">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Cerca anime, manga, giochi..."
-            className="w-full rounded-xl border border-white/[0.08] bg-bg-card pl-10 pr-10 py-3 text-sm text-white placeholder:text-white/25 outline-none focus:border-accent/40 transition-all"
-          />
-          {query && (
-            <button
-              onClick={() => setQuery('')}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60"
-            >
-              <X size={16} />
-            </button>
-          )}
+      <div className="pt-24 pb-20 max-w-6xl mx-auto px-6">
+        <div className="text-center mb-12">
+          <h1 className="text-5xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-cyan-400">
+            Discover
+          </h1>
+          <p className="text-xl text-zinc-400 mt-3">Trova nuovi anime, manga, film, giochi e tanto altro</p>
         </div>
-      </header>
 
-      {/* Filters */}
-      <div className="flex gap-2 px-4 pb-4 overflow-x-auto scrollbar-none">
-        {FILTER_TYPES.map(({ type, label }) => {
-          const active = filter === type
-          const color = type !== 'all' ? mediaColor(type as MediaType) : '#7c6af7'
-          return (
+        {/* Barra di ricerca */}
+        <div className="relative max-w-2xl mx-auto mb-12">
+          <div className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-500">
+            <Search size={24} />
+          </div>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Cerca anime, manga, giochi... (es. Solo Leveling, Elden Ring)"
+            className="w-full bg-zinc-900 border border-zinc-700 focus:border-violet-500 pl-14 pr-6 py-5 rounded-3xl text-lg placeholder-zinc-500 focus:outline-none"
+          />
+        </div>
+
+        {/* Filtri categorie */}
+        <div className="flex flex-wrap gap-3 justify-center mb-12">
+          {categories.map((cat) => (
             <button
-              key={type}
-              onClick={() => setFilter(type)}
-              className="shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-all"
-              style={active
-                ? { background: `${color}20`, color, border: `1px solid ${color}40` }
-                : { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.06)' }
-              }
+              key={cat.id}
+              onClick={() => setActiveCategory(cat.id)}
+              className={`px-6 py-3 rounded-2xl font-medium transition-all ${
+                activeCategory === cat.id
+                  ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/50'
+                  : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-700'
+              }`}
             >
-              {label}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Trending grid */}
-      <div className="px-4 mb-4">
-        <p className="text-xs font-semibold uppercase tracking-widest text-white/25 mb-3">
-          Trending ora
-        </p>
-        <div className="grid grid-cols-3 gap-2">
-          {filtered.map(({ id, type, title, cover }) => (
-            <button key={id} className="group relative rounded-xl overflow-hidden bg-bg-card aspect-[2/3]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={cover}
-                alt={title}
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-              <div className="absolute bottom-2 left-2 right-2">
-                <MediaBadge type={type} className="mb-1" />
-                <p className="text-[11px] font-medium text-white leading-tight line-clamp-2">
-                  {title}
-                </p>
-              </div>
+              {cat.label}
             </button>
           ))}
         </div>
+
+        {/* Area contenuti (placeholder per ora) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div
+              key={i}
+              className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden hover:border-violet-500/50 transition group"
+            >
+              <div className="h-64 bg-gradient-to-br from-zinc-800 to-zinc-950 flex items-center justify-center">
+                <span className="text-6xl opacity-30">🎬</span>
+              </div>
+              <div className="p-6">
+                <div className="h-6 bg-zinc-800 rounded mb-3 w-3/4"></div>
+                <div className="h-4 bg-zinc-800 rounded w-1/2"></div>
+                <div className="mt-6 flex justify-between text-sm">
+                  <span className="text-violet-400">Anime</span>
+                  <span className="text-zinc-500">2025</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="text-center mt-16 text-zinc-500">
+          La ricerca reale con AniList, IGDB e Steam arriverà nel prossimo passo
+        </div>
       </div>
-    </AppShell>
-  )
+    </div>
+  );
 }

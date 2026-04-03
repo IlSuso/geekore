@@ -1,123 +1,169 @@
--- ============================================================
--- GEEKORE — Supabase Schema
--- Esegui questo nell'editor SQL di Supabase
--- ============================================================
+-- =============================================
+-- GEEKORE - Supabase Schema (Versione Aggiornata - Aprile 2026)
+-- =============================================
 
--- Enable UUID extension
-create extension if not exists "uuid-ossp";
+-- Enable extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ─── Profiles ────────────────────────────────────────────────
-create table public.profiles (
-  id           uuid references auth.users on delete cascade primary key,
-  username     text unique not null,
-  display_name text not null,
-  avatar_url   text,
-  bio          text,
-  steam_id     text,
-  created_at   timestamptz default now()
+-- =============================================
+-- PROFILES
+-- =============================================
+CREATE TABLE IF NOT EXISTS profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    username TEXT UNIQUE NOT NULL,
+    display_name TEXT NOT NULL,
+    avatar_url TEXT,
+    bio TEXT,
+    steam_id TEXT,
+    website TEXT,
+    twitch_url TEXT,
+    discord_username TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Auto-create profile on signup
-create or replace function public.handle_new_user()
-returns trigger as $$
-begin
-  insert into public.profiles (id, username, display_name)
-  values (
-    new.id,
-    coalesce(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)),
-    coalesce(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1))
-  );
-  return new;
-end;
-$$ language plpgsql security definer;
-
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure public.handle_new_user();
-
--- ─── Media ───────────────────────────────────────────────────
-create table public.media (
-  id               uuid default uuid_generate_v4() primary key,
-  type             text not null check (type in ('anime','manga','game','board')),
-  title            text not null,
-  cover_url        text,
-  external_id      text,  -- AniList ID, Steam AppID, IGDB ID, BGG ID
-  year             int,
-  total_episodes   int,
-  total_chapters   int,
-  total_volumes    int,
-  created_at       timestamptz default now(),
-  unique(type, external_id)
+-- =============================================
+-- MEDIA (Anime, Manga, Movie, TV, Game, Board Game)
+-- =============================================
+CREATE TABLE IF NOT EXISTS media (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    type TEXT NOT NULL CHECK (type IN ('anime', 'manga', 'movie', 'tv', 'game', 'boardgame')),
+    title TEXT NOT NULL,
+    cover_url TEXT,
+    external_id TEXT,                    -- id da AniList / IGDB / BGG
+    year INTEGER,
+    total_episodes INTEGER,              -- per anime/tv
+    total_chapters INTEGER,              -- per manga
+    total_volumes INTEGER,               -- per manga
+    created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- ─── User Media Entries ───────────────────────────────────────
-create table public.user_media_entries (
-  id           uuid default uuid_generate_v4() primary key,
-  user_id      uuid references public.profiles(id) on delete cascade not null,
-  media_id     uuid references public.media(id) on delete cascade not null,
-  status       text not null check (status in ('watching','reading','playing','completed','paused','dropped','wishlist')),
-  progress     int default 0,
-  score        int check (score between 1 and 10),
-  notes        text,
-  started_at   timestamptz,
-  completed_at timestamptz,
-  updated_at   timestamptz default now(),
-  unique(user_id, media_id)
+-- =============================================
+-- USER MEDIA ENTRIES (Progressi personali)
+-- =============================================
+CREATE TABLE IF NOT EXISTS user_media_entries (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    media_id UUID NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+    status TEXT NOT NULL CHECK (status IN ('planning', 'watching', 'reading', 'playing', 'completed', 'dropped', 'on_hold')),
+    progress INTEGER DEFAULT 0,          -- episodi/capitoli/ore giocati
+    score INTEGER CHECK (score >= 0 AND score <= 10),
+    notes TEXT,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(user_id, media_id)
 );
 
--- ─── Follows ─────────────────────────────────────────────────
-create table public.follows (
-  follower_id  uuid references public.profiles(id) on delete cascade,
-  following_id uuid references public.profiles(id) on delete cascade,
-  created_at   timestamptz default now(),
-  primary key (follower_id, following_id)
+-- =============================================
+-- POSTS (Post sociali liberi)
+-- =============================================
+CREATE TABLE IF NOT EXISTS posts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    image_url TEXT,
+    item_id UUID REFERENCES media(id) ON DELETE SET NULL,   -- opzionale: legato a un media
+    rating INTEGER CHECK (rating >= 1 AND rating <= 10),
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now())
 );
 
--- ─── Feed Activities ─────────────────────────────────────────
-create table public.feed_activities (
-  id           uuid default uuid_generate_v4() primary key,
-  user_id      uuid references public.profiles(id) on delete cascade not null,
-  entry_id     uuid references public.user_media_entries(id) on delete cascade not null,
-  type         text not null check (type in ('progress_update','status_change','new_entry','score_given','wishlist_add')),
-  created_at   timestamptz default now()
+-- =============================================
+-- COMMENTS
+-- =============================================
+CREATE TABLE IF NOT EXISTS comments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now())
 );
 
--- ─── Likes ───────────────────────────────────────────────────
-create table public.activity_likes (
-  activity_id  uuid references public.feed_activities(id) on delete cascade,
-  user_id      uuid references public.profiles(id) on delete cascade,
-  created_at   timestamptz default now(),
-  primary key (activity_id, user_id)
+-- =============================================
+-- LIKES (Unificata per posts e activities)
+-- =============================================
+CREATE TABLE IF NOT EXISTS likes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+    activity_id UUID,                    -- se vorrai usarlo per feed_activities in futuro
+    created_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(user_id, post_id)
 );
 
--- ─── RLS Policies ────────────────────────────────────────────
-alter table public.profiles          enable row level security;
-alter table public.media             enable row level security;
-alter table public.user_media_entries enable row level security;
-alter table public.follows           enable row level security;
-alter table public.feed_activities   enable row level security;
-alter table public.activity_likes    enable row level security;
+-- =============================================
+-- FOLLOWS
+-- =============================================
+CREATE TABLE IF NOT EXISTS follows (
+    follower_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    following_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    PRIMARY KEY (follower_id, following_id)
+);
 
--- Profiles: public read, own write
-create policy "Profiles are viewable by everyone" on public.profiles for select using (true);
-create policy "Users can update own profile" on public.profiles for update using (auth.uid() = id);
+-- =============================================
+-- FEED ACTIVITIES (attività automatiche)
+-- =============================================
+CREATE TABLE IF NOT EXISTS feed_activities (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    entry_id UUID NOT NULL,              -- può essere post_id o user_media_entry_id
+    type TEXT NOT NULL,                  -- 'post', 'media_update', 'completed', ecc.
+    created_at TIMESTAMPTZ DEFAULT now()
+);
 
--- Media: public read, authenticated insert
-create policy "Media is viewable by everyone" on public.media for select using (true);
-create policy "Authenticated users can insert media" on public.media for insert with check (auth.role() = 'authenticated');
+-- =============================================
+-- NOTIFICATIONS
+-- =============================================
+CREATE TABLE IF NOT EXISTS notifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    type TEXT NOT NULL,
+    sender_id UUID NOT NULL REFERENCES profiles(id),
+    receiver_id UUID NOT NULL REFERENCES profiles(id),
+    post_id UUID REFERENCES posts(id),
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now())
+);
 
--- User entries: public read, own write
-create policy "Entries are viewable by everyone" on public.user_media_entries for select using (true);
-create policy "Users can manage own entries" on public.user_media_entries for all using (auth.uid() = user_id);
+-- =============================================
+-- CACHE TABLES (mantieni se le usi)
+-- =============================================
+CREATE TABLE IF NOT EXISTS news_cache (
+    category TEXT PRIMARY KEY,
+    data JSONB NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
 
--- Follows: public read, own write
-create policy "Follows are viewable by everyone" on public.follows for select using (true);
-create policy "Users can manage own follows" on public.follows for all using (auth.uid() = follower_id);
+CREATE TABLE IF NOT EXISTS boardgames_cache (
+    id INTEGER PRIMARY KEY,
+    data JSONB NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
 
--- Feed: public read, own write
-create policy "Activities are viewable by everyone" on public.feed_activities for select using (true);
-create policy "Users can manage own activities" on public.feed_activities for all using (auth.uid() = user_id);
+-- =============================================
+-- INDEXES per performance
+-- =============================================
+CREATE INDEX idx_posts_user_id ON posts(user_id);
+CREATE INDEX idx_posts_created_at ON posts(created_at DESC);
+CREATE INDEX idx_comments_post_id ON comments(post_id);
+CREATE INDEX idx_user_media_entries_user_id ON user_media_entries(user_id);
+CREATE INDEX idx_follows_follower ON follows(follower_id);
 
--- Likes: public read, own write
-create policy "Likes are viewable by everyone" on public.activity_likes for select using (true);
-create policy "Users can manage own likes" on public.activity_likes for all using (auth.uid() = user_id);
+-- =============================================
+-- TRIGGER per updated_at
+-- =============================================
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_profiles_updated_at 
+    BEFORE UPDATE ON profiles 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_user_media_entries_updated_at 
+    BEFORE UPDATE ON user_media_entries 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
