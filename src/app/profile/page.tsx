@@ -1,3 +1,4 @@
+"use server"
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
@@ -6,7 +7,6 @@ import { EditProfileModal } from '@/components/profile/edit-profile-modal'
 
 export default async function ProfilePage() {
   const cookieStore = await cookies()
-  
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -19,11 +19,10 @@ export default async function ProfilePage() {
     }
   )
 
-  // 1. Recupero sessione
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) redirect('/login')
 
-  // 2. Query robusta con conteggi (Assicurati di aver eseguito lo script SQL dei Follow)
+  // Query Corazzata: Prende Profilo, Post e Conteggi Social
   const { data: profile, error } = await supabase
     .from('profiles')
     .select(`
@@ -36,7 +35,13 @@ export default async function ProfilePage() {
     .single()
 
   if (error || !profile) {
-    return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-white font-black uppercase italic tracking-tighter">Caricamento Profilo fallito...</div>
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+        <p className="text-white font-black uppercase italic tracking-tighter animate-pulse">
+          Sincronizzazione Database in corso...
+        </p>
+      </div>
+    )
   }
 
   const posts = profile.posts || []
@@ -47,7 +52,7 @@ export default async function ProfilePage() {
     <main className="min-h-screen bg-[#0a0a0f] pt-24 pb-32 px-6">
       <div className="max-w-2xl mx-auto">
         
-        {/* HEADER PROFILO */}
+        {/* HEADER */}
         <div className="relative mb-12">
           <div className="h-40 w-full bg-gradient-to-r from-[#7c6af7] to-[#b06ab3] rounded-[3rem] opacity-10 blur-3xl absolute -top-10" />
           
@@ -65,11 +70,12 @@ export default async function ProfilePage() {
                   )}
                 </div>
               </div>
+              {/* Modale integrata */}
               <EditProfileModal profile={profile} />
             </div>
 
             <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter">
-              {profile.username || 'Senza Nome'}
+              {profile.username || 'Gamer'}
             </h2>
             
             {/* Bio */}
@@ -79,24 +85,24 @@ export default async function ProfilePage() {
               </p>
             )}
 
-            {/* Social Links */}
+            {/* Social */}
             <div className="flex gap-4 mt-6">
               {profile.twitch_url && (
-                <a href={profile.twitch_url.startsWith('http') ? profile.twitch_url : `https://${profile.twitch_url}`} target="_blank" className="p-3 bg-white/5 rounded-2xl text-gray-400 hover:text-[#6441a5] border border-white/5">
+                <a href={profile.twitch_url.startsWith('http') ? profile.twitch_url : `https://${profile.twitch_url}`} target="_blank" className="p-3 bg-white/5 rounded-2xl text-gray-400 hover:text-[#6441a5] border border-white/5 transition-all">
                   <Twitch size={18} />
                 </a>
               )}
               {profile.discord_username && (
                 <div className="p-3 bg-white/5 rounded-2xl text-gray-400 hover:text-[#5865F2] border border-white/5 group relative">
                   <MessageSquare size={18} />
-                  <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-[#5865F2] text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                  <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-[#5865F2] text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
                     {profile.discord_username}
                   </span>
                 </div>
               )}
             </div>
 
-            {/* Stats Bar con dati reali */}
+            {/* Stats */}
             <div className="flex gap-10 mt-10 bg-[#16161e]/60 border border-white/5 p-6 rounded-[2rem] w-full justify-around shadow-xl">
               <div className="text-center">
                 <span className="block text-xl font-black text-white">{posts.length}</span>
@@ -114,7 +120,7 @@ export default async function ProfilePage() {
           </div>
         </div>
 
-        {/* FEED */}
+        {/* FEED GRID */}
         <div className="flex justify-center gap-8 mb-8 border-b border-white/5 pb-4">
           <button className="flex items-center gap-2 text-[#7c6af7] font-black text-xs uppercase tracking-widest border-b-2 border-[#7c6af7] pb-4 -mb-[18px]">
             <Grid size={16} /> My Drops
@@ -128,9 +134,7 @@ export default async function ProfilePage() {
           <div className="grid grid-cols-2 gap-4">
             {posts.map((post: any) => (
               <div key={post.id} className="aspect-square rounded-[2rem] overflow-hidden border border-white/5 relative group bg-[#16161e]">
-                {post.image_url && (
-                  <img src={post.image_url} alt="Post" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
-                )}
+                <img src={post.image_url} alt="Post" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <Trophy className="text-white" size={32} />
                 </div>

@@ -12,7 +12,6 @@ export function Navbar() {
   )
 
   useEffect(() => {
-    // 1. Controlla se ci sono notifiche non lette all'avvio
     const checkNotifications = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
@@ -25,59 +24,61 @@ export function Navbar() {
 
       setHasNotifications(Number(count) > 0)
     }
-
     checkNotifications()
 
-    // 2. Realtime: Ascolta se arrivano NUOVE notifiche
     const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications' },
-        () => setHasNotifications(true)
-      )
+      .channel('realtime-notifs')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, () => {
+        setHasNotifications(true)
+      })
       .subscribe()
 
-    return () => {
-      supabase.removeChannel(channel)
-    }
+    return () => { supabase.removeChannel(channel) }
   }, [supabase])
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-[100] bg-[#0a0a0f]/80 backdrop-blur-xl border-t border-white/5 px-6 py-4 md:top-0 md:bottom-auto md:border-b md:border-t-0">
-      <div className="max-w-5xl mx-auto flex justify-between items-center">
+    <nav className="fixed bottom-0 left-0 right-0 z-[999] w-full bg-[#0a0a0f]/90 backdrop-blur-md border-t border-white/5 md:top-0 md:bottom-auto md:border-b md:border-t-0">
+      <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
         
-        {/* Logo (Solo Desktop) */}
-        <Link href="/" className="hidden md:block text-2xl font-black text-white italic tracking-tighter hover:scale-105 transition-transform">
-          GEEK<span className="text-[#7c6af7]">ORE</span>
-        </Link>
+        {/* LATO SINISTRO: LOGO (Solo Desktop) */}
+        <div className="hidden md:flex items-center flex-1">
+          <Link href="/" className="text-2xl font-black text-white italic tracking-tighter hover:opacity-80 transition-opacity">
+            GEEK<span className="text-[#7c6af7]">ORE</span>
+          </Link>
+        </div>
 
-        {/* Menu Items */}
-        <div className="flex justify-around w-full md:w-auto md:gap-8 items-center">
-          <Link href="/" className="p-2 text-gray-500 hover:text-white transition-colors">
-            <Home size={24} />
+        {/* CENTRO/DESTRA: ICONE (Mobile occupa tutto, Desktop sta a destra) */}
+        <div className="flex items-center justify-around w-full md:w-auto md:gap-4 lg:gap-8">
+          
+          <Link href="/" className="p-3 text-gray-500 hover:text-white transition-all">
+            <Home size={26} />
           </Link>
           
-          <Link href="/search" className="p-2 text-gray-500 hover:text-white transition-colors">
-            <Search size={24} />
+          <Link href="/search" className="p-3 text-gray-500 hover:text-white transition-all">
+            <Search size={26} />
           </Link>
 
-          {/* Tasto Centrale "Drop" */}
-          <Link href="/upload" className="bg-gradient-to-tr from-[#7c6af7] to-[#ff4d4d] p-3 rounded-2xl shadow-lg shadow-[#7c6af7]/20 hover:scale-110 active:scale-95 transition-all mx-2">
-            <PlusSquare size={24} className="text-white" />
+          {/* PULSANTE UPLOAD (Sempre centrale/evidente) */}
+          <Link href="/upload" className="mx-2 bg-gradient-to-tr from-[#7c6af7] to-[#ff4d4d] p-3 rounded-2xl shadow-lg shadow-[#7c6af7]/20 hover:scale-110 active:scale-95 transition-all text-white">
+            <PlusSquare size={26} />
           </Link>
 
-          {/* NOTIFICHE con Pallino Rosso */}
-          <Link href="/notifications" className="p-2 text-gray-500 hover:text-white transition-colors relative group">
-            <Bell size={24} />
+          <Link href="/notifications" className="p-3 text-gray-500 hover:text-white transition-all relative">
+            <Bell size={26} />
             {hasNotifications && (
-              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-[#ff4d4d] border-2 border-[#0a0a0f] rounded-full animate-pulse group-hover:scale-125 transition-transform" />
+              <span className="absolute top-3 right-3 w-3 h-3 bg-[#ff4d4d] border-2 border-[#0a0a0f] rounded-full animate-pulse" />
             )}
           </Link>
 
-          <Link href="/profile" className="p-2 text-gray-500 hover:text-white transition-colors">
-            <User size={24} />
+          <Link href="/profile" className="p-3 text-gray-500 hover:text-white transition-all">
+            <User size={26} />
           </Link>
+          
+        </div>
+
+        {/* SPACER PER DESKTOP (Per bilanciare il logo a sinistra) */}
+        <div className="hidden md:flex flex-1 justify-end">
+           {/* Vuoto, serve solo a mantenere le icone centrate o spostate correttamente */}
         </div>
 
       </div>
