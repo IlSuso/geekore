@@ -1,4 +1,5 @@
 'use client';
+
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import { Search, Plus, X, Film, Tv, Gamepad2, BookOpen } from 'lucide-react';
@@ -11,24 +12,16 @@ type MediaItem = {
   coverImage?: string;
   year?: number;
   episodes?: number;
-  source: 'anilist' | 'omdb' | 'igdb';
+  totalSeasons?: number;
+  seasons?: Record<number, { episode_count: number }>;
+  source: 'anilist' | 'tmdb' | 'igdb';
 };
 
-// FILTRO LEGGERO ma blocca il link Amazon rotto che hai segnalato
 function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
   if (!item?.coverImage || typeof item.coverImage !== 'string') return false;
-
   const url = item.coverImage.trim();
-
-  // Escludi solo i casi chiaramente sbagliati
   if (url.length < 10) return false;
   if (url.includes('N/A') || url.includes('placeholder') || url.includes('no-image')) return false;
-
-  // BLOCCA SPECIFICAMENTE il link Amazon rotto che mi hai mandato
-  if (url.includes('m.media-amazon.com') && url.includes('MV5BYWVjZDliMmItNWY5Ny00YzBhLWI4MGMtMzlhM2VlMTExNWE2')) {
-    return false;
-  }
-
   return true;
 }
 
@@ -38,11 +31,13 @@ export default function DiscoverPage() {
   const [results, setResults] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
+  const [selectedSeason, setSelectedSeason] = useState<number>(1);
   const [currentEpisode, setCurrentEpisode] = useState('');
   const [adding, setAdding] = useState(false);
   const [alreadyAdded, setAlreadyAdded] = useState<string[]>([]);
 
   const supabase = createClient();
+  const tmdbToken = process.env.NEXT_PUBLIC_TMDB_API_KEY;
 
   const typeFilters = [
     { id: 'all', label: 'Tutto', icon: Search },
@@ -80,27 +75,25 @@ export default function DiscoverPage() {
     setLoading(true);
     setResults([]);
 
-    const term = searchTerm.trim().toLowerCase();
-    let newResults: MediaItem[] = [];
+    const term = searchTerm.trim();
+    let rawResults: MediaItem[] = [];
 
     try {
-      // 1. AniList
+      // AniList
       if (activeType === 'all' || activeType === 'anime' || activeType === 'manga') {
         const aniListType = activeType === 'manga' ? 'MANGA' : 'ANIME';
-        const query = `
-          query ($search: String) {
-            Page(page: 1, perPage: 15) {
-              media(search: $search, type: ${aniListType}, sort: [POPULARITY_DESC, SCORE_DESC]) {
-                id title { romaji english } coverImage { large } seasonYear episodes type
-              }
+        const query = `query ($search: String) {
+          Page(page: 1, perPage: 20) {
+            media(search: $search, type: ${aniListType}, sort: [POPULARITY_DESC, SCORE_DESC]) {
+              id title { romaji english } coverImage { large } seasonYear episodes type
             }
           }
-        `;
+        }`;
 
         const res = await fetch('https://graphql.anilist.co', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query, variables: { search: term || ' ' } }),
+          body: JSON.stringify({ query, variables: { search: term } }),
         });
 
         const json = await res.json();
@@ -117,36 +110,81 @@ export default function DiscoverPage() {
           }))
           .filter(hasValidCover);
 
-        newResults = [...newResults, ...aniResults];
+        rawResults = [...rawResults, ...aniResults];
       }
 
-      // 2. OMDb - Film + Serie TV
-      if (activeType === 'all' || activeType === 'movie' || activeType === 'tv') {
-        const omdbKey = process.env.NEXT_PUBLIC_OMDB_API_KEY;
-        if (omdbKey) {
-          const typeParam = activeType === 'movie' ? '&type=movie' : activeType === 'tv' ? '&type=series' : '';
-          const res = await fetch(`https://www.omdbapi.com/?s=${encodeURIComponent(term)}${typeParam}&apikey=${omdbKey}`);
-          const json = await res.json();
-
-          if (json.Search) {
-            const omdbResults = json.Search
-              .map((m: any): MediaItem => ({
-                id: m.imdbID,
-                title: m.Title,
-                type: m.Type === 'movie' ? 'movie' : 'tv',
-                coverImage: m.Poster && m.Poster !== 'N/A' ? m.Poster : undefined,
-                year: parseInt(m.Year),
-                episodes: 1,
-                source: 'omdb',
-              }))
-              .filter(hasValidCover);
-
-            newResults = [...newResults, ...omdbResults];
+      // TMDb
+      if (tmdbToken && (activeType === 'all' || activeType === 'movie' || activeType === 'tv')) {
+        const mediaType = activeType === 'tv' ? 'tv' : 'movie';
+        const searchRes = await fetch(
+          `https://api.themoviedb.org/3/search/${mediaType}?query=${encodeURIComponent(term)}&language=it-IT&page=1`,
+          {
+            method: 'GET',
+            headers: {
+              'accept': 'application/json',
+              'Authorization': `Bearer ${tmdbToken}`
+            }
           }
+        );
+
+        const searchJson = await searchRes.json();
+
+        if (searchJson.results) {
+          const detailedResults = await Promise.all(
+            searchJson.results.map(async (m: any) => {
+              let episodes = undefined;
+              let totalSeasons = undefined;
+              let seasonsData: Record<number, { episode_count: number }> = {};
+
+              if (mediaType === 'tv') {
+                const detailRes = await fetch(
+                  `https://api.themoviedb.org/3/tv/${m.id}?language=it-IT`,
+                  {
+                    method: 'GET',
+                    headers: {
+                      'accept': 'application/json',
+                      'Authorization': `Bearer ${tmdbToken}`
+                    }
+                  }
+                );
+
+                if (detailRes.ok) {
+                  const detailJson = await detailRes.json();
+                  totalSeasons = detailJson.number_of_seasons;
+                  episodes = detailJson.number_of_episodes;
+
+                  if (detailJson.seasons) {
+                    detailJson.seasons.forEach((s: any) => {
+                      if (s.season_number > 0) {
+                        seasonsData[s.season_number] = {
+                          episode_count: s.episode_count || 0
+                        };
+                      }
+                    });
+                  }
+                }
+              }
+
+              return {
+                id: m.id.toString(),
+                title: m.name || m.title || 'Senza titolo',
+                type: mediaType,
+                coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
+                year: m.first_air_date ? parseInt(m.first_air_date.substring(0,4)) : m.release_date ? parseInt(m.release_date.substring(0,4)) : undefined,
+                episodes,
+                totalSeasons,
+                seasons: seasonsData,
+                source: 'tmdb',
+              };
+            })
+          );
+
+          const filteredTmdb = detailedResults.filter(hasValidCover);
+          rawResults = [...rawResults, ...filteredTmdb];
         }
       }
 
-      // 3. IGDB
+      // IGDB
       if (activeType === 'all' || activeType === 'game') {
         const res = await fetch('/api/igdb', {
           method: 'POST',
@@ -156,12 +194,15 @@ export default function DiscoverPage() {
 
         if (res.ok) {
           const gameResults: MediaItem[] = await res.json();
-          const filteredGames = gameResults.filter(hasValidCover);
-          newResults = [...newResults, ...filteredGames];
+          rawResults = [...rawResults, ...gameResults.filter(hasValidCover)];
         }
       }
 
-      setResults(newResults);
+      const uniqueResults = rawResults.filter((item, index, self) =>
+        index === self.findIndex((t) => t.id === item.id)
+      );
+
+      setResults(uniqueResults);
     } catch (err) {
       console.error('Errore ricerca:', err);
     }
@@ -171,10 +212,19 @@ export default function DiscoverPage() {
 
   const handleAdd = async (media: MediaItem) => {
     if (alreadyAdded.includes(media.id)) return;
+
+    if (media.type === 'tv') {
+      setSelectedMedia(media);
+      setSelectedSeason(1);
+      setCurrentEpisode('');
+      return;
+    }
+
     if (media.episodes === 1 || !media.episodes) {
       addDirectly(media);
       return;
     }
+
     setSelectedMedia(media);
     setCurrentEpisode('');
   };
@@ -204,11 +254,17 @@ export default function DiscoverPage() {
       return;
     }
 
+    const maxEpisodes = selectedMedia.seasons?.[selectedSeason]?.episode_count || 9999;
+    if (Number(currentEpisode) > maxEpisodes) {
+      alert(`La stagione ${selectedSeason} ha solo ${maxEpisodes} episodi.`);
+      return;
+    }
+
     setAdding(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const finalEpisode = Math.min(Number(currentEpisode), selectedMedia.episodes || 999);
+    const finalEpisode = Math.min(Number(currentEpisode), maxEpisodes);
 
     const { error } = await supabase.from('user_media_entries').insert({
       user_id: user.id,
@@ -217,9 +273,11 @@ export default function DiscoverPage() {
       type: selectedMedia.type,
       cover_image: selectedMedia.coverImage,
       status: 'watching',
+      current_season: selectedMedia.type === 'tv' ? selectedSeason : null,
       current_episode: finalEpisode,
       progress: finalEpisode,
       episodes: selectedMedia.episodes || null,
+      season_episodes: selectedMedia.seasons || null,
     });
 
     if (error) {
@@ -229,6 +287,7 @@ export default function DiscoverPage() {
       setAlreadyAdded(prev => [...prev, selectedMedia.id]);
       setSelectedMedia(null);
       setCurrentEpisode('');
+      setSelectedSeason(1);
     }
     setAdding(false);
   };
@@ -277,11 +336,13 @@ export default function DiscoverPage() {
         {loading && <p className="text-center text-zinc-400">Ricerca in corso...</p>}
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-          {results.map((item) => {
+          {results.map((item, index) => {
             const isAdded = alreadyAdded.includes(item.id);
+            const uniqueKey = `${item.id}-${item.source}-${index}`;
+
             return (
               <div
-                key={item.id}
+                key={uniqueKey}
                 className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden hover:border-violet-500/50 transition group"
               >
                 <div className="relative h-64 bg-zinc-900">
@@ -294,10 +355,10 @@ export default function DiscoverPage() {
 
                 <div className="p-5">
                   <h3 className="font-semibold line-clamp-2 mb-2">{item.title}</h3>
-                  <p className="text-sm text-zinc-500 mb-1 capitalize">{item.type}</p>
-                  {item.episodes && item.episodes > 1 && (
-                    <p className="text-xs text-zinc-400 mb-4">{item.episodes} episodi</p>
-                  )}
+                  <p className="text-sm text-zinc-500 mb-1 capitalize">
+                    {item.type}
+                    {item.totalSeasons && item.type === 'tv' && ` • ${item.totalSeasons} stagioni`}
+                  </p>
 
                   <button
                     onClick={() => handleAdd(item)}
@@ -323,7 +384,7 @@ export default function DiscoverPage() {
         )}
       </div>
 
-      {/* Modal Aggiungi */}
+      {/* Modal Aggiungi - SENZA FRECCETTE */}
       {selectedMedia && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
           <div className="bg-zinc-900 border border-zinc-700 rounded-3xl max-w-md w-full p-8">
@@ -342,37 +403,59 @@ export default function DiscoverPage() {
                 <p className="font-semibold text-lg">{selectedMedia.title}</p>
                 <p className="text-sm text-zinc-500">
                   {selectedMedia.year} • {selectedMedia.type}
+                  {selectedMedia.totalSeasons && ` • ${selectedMedia.totalSeasons} stagioni`}
                 </p>
               </div>
             </div>
 
-            <div className="mb-8">
-              <p className="text-sm text-zinc-400 mb-3">A che episodio sei arrivato?</p>
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={currentEpisode}
-                onChange={(e) => setCurrentEpisode(e.target.value.replace(/[^0-9]/g, ''))}
-                placeholder="Inserisci il numero"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 text-3xl text-center focus:outline-none focus:border-violet-500 appearance-none"
-              />
-              <p className="text-xs text-zinc-500 mt-2 text-center">
-                Massimo episodi: {selectedMedia.episodes || '?'}
-              </p>
+            <div className="mb-8 space-y-6">
+              <div>
+                <p className="text-sm text-zinc-400 mb-2">Stagione</p>
+                <select
+                  value={selectedSeason}
+                  onChange={(e) => {
+                    setSelectedSeason(Number(e.target.value));
+                    setCurrentEpisode('');
+                  }}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 text-lg focus:outline-none focus:border-violet-500"
+                >
+                  {Object.keys(selectedMedia.seasons || {}).map((key) => {
+                    const num = parseInt(key);
+                    const count = selectedMedia.seasons?.[num]?.episode_count || 0;
+                    return (
+                      <option key={num} value={num}>
+                        Stagione {num} ({count} episodi)
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div>
+                <p className="text-sm text-zinc-400 mb-2">Episodio</p>
+                <input
+                  type="number"
+                  min="1"
+                  max={selectedMedia.seasons?.[selectedSeason]?.episode_count || 9999}
+                  value={currentEpisode}
+                  onChange={(e) => setCurrentEpisode(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="Numero episodio"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 text-3xl text-center focus:outline-none focus:border-violet-500 appearance-none no-spinner"
+                />
+              </div>
             </div>
 
             <button
               onClick={confirmAdd}
               disabled={
-                adding ||
-                !currentEpisode ||
+                adding || 
+                !currentEpisode || 
                 Number(currentEpisode) < 1 ||
-                Number(currentEpisode) > (selectedMedia.episodes || 999)
+                Number(currentEpisode) > (selectedMedia.seasons?.[selectedSeason]?.episode_count || 9999)
               }
               className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-2xl font-semibold text-lg hover:brightness-110 disabled:opacity-50 transition"
             >
-              {adding ? 'Aggiungendo...' : `Aggiungi (Episodio ${currentEpisode})`}
+              {adding ? 'Aggiungendo...' : `Aggiungi (S${selectedSeason} E${currentEpisode})`}
             </button>
           </div>
         </div>
