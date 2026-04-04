@@ -2,31 +2,23 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 export function createClient() {
-  const cookieStore = cookies();
+  const cookieStore = cookies();   // ← Non serve più await qui perché lo facciamo nella route
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        async get(name: string) {
-          const cookie = await cookieStore;
-          return cookie.get(name)?.value;
+        getAll() {
+          return cookieStore.getAll();
         },
-        async set(name: string, value: string, options: any) {
+        setAll(cookiesToSet) {
           try {
-            const cookie = await cookieStore;
-            cookie.set(name, value, options);
-          } catch (error) {
-            // Ignora errori di scrittura durante la lettura (SSR)
-          }
-        },
-        async remove(name: string, options: any) {
-          try {
-            const cookie = await cookieStore;
-            cookie.set(name, '', { ...options, maxAge: 0 });
-          } catch (error) {
-            // Ignora errori di rimozione durante la lettura
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          } catch {
+            // Ignora errori di scrittura cookie
           }
         },
       },

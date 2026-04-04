@@ -1,36 +1,63 @@
-// src/app/login/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const router = useRouter();
+  const [messageType, setMessageType] = useState<'success' | 'error' | ''>('');
+
+  // Controllo iniziale se già loggato
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        goToProfile(session.user.id);
+      }
+    });
+  }, []);
+
+  const goToProfile = async (userId: string) => {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('username')
+      .eq('id', userId)
+      .single();
+
+    const profileUrl = profile?.username ? `/profile/${profile.username}` : '/profile';
+    window.location.href = profileUrl;
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMessage('');
+    setMessageType('');
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
 
-      setMessage('Login effettuato con successo! Reindirizzamento...');
+      if (!data.user) throw new Error("Utente non trovato");
+
+      setMessage('Login riuscito! Reindirizzamento...');
+      setMessageType('success');
+
+      // Piccolo ritardo per mostrare il messaggio
       setTimeout(() => {
-        router.push('/profile');
-      }, 1500);
+        goToProfile(data.user.id);
+      }, 800);
+
     } catch (error: any) {
-      setMessage('Errore: ' + error.message);
+      console.error('Login error:', error);
+      setMessage(error.message || 'Errore durante il login');
+      setMessageType('error');
     } finally {
       setLoading(false);
     }
@@ -75,7 +102,7 @@ export default function LoginPage() {
 
         {message && (
           <div className={`mt-6 p-4 rounded-xl text-center text-sm ${
-            message.includes('successo') 
+            messageType === 'success' 
               ? 'bg-green-950 text-green-400' 
               : 'bg-red-950 text-red-400'
           }`}>
@@ -84,7 +111,8 @@ export default function LoginPage() {
         )}
 
         <p className="text-center text-zinc-500 text-sm mt-6">
-          Non hai un account? <a href="/register" className="text-white underline">Registrati</a>
+          Non hai un account?{' '}
+          <a href="/register" className="text-white underline">Registrati</a>
         </p>
       </div>
     </div>
