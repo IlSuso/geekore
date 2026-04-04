@@ -39,7 +39,7 @@ type UserMedia = {
   rating?: number;
 };
 
-// StarRating
+// StarRating Component
 export function StarRating({
   value = 0,
   onChange,
@@ -117,6 +117,7 @@ export function StarRating({
   );
 }
 
+// Sortable Box Component
 function SortableBox({ media, children }: { media: UserMedia; children: React.ReactNode }) {
   const {
     attributes,
@@ -355,25 +356,16 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
       const isCurrentOwner = !!user && user.id === profileData.id;
       setIsOwner(isCurrentOwner);
 
+      // FIX: Carica Steam account SOLO se è il proprietario
       if (isCurrentOwner) {
-  let sData = null;
-  try {
-    const { data, error } = await supabase
-      .from('steam_accounts')
-      .select('*')
-      .eq('user_id', user.id)
-      .maybeSingle();   // ← Cambiato da .single() a .maybeSingle()
-
-    if (error) {
-      console.log('Steam account non trovato:', error.message);
-    } else {
-      sData = data;
-    }
-  } catch (err) {
-    console.log('Errore nella query steam_accounts:', err);
-  }
-  setSteamAccount(sData);
-}
+        const { data: sData } = await supabase
+          .from('steam_accounts')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        
+        setSteamAccount(sData);
+      }
 
       const { data: mediaData } = await supabase
         .from('user_media_entries')
@@ -410,7 +402,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
   const categoryOrder = ['Videogiochi', 'Serie & Anime', 'Manga', 'Film', 'Altro'];
   const orderedCategories = categoryOrder.filter(cat => grouped[cat] && grouped[cat].length > 0);
 
-  // Avatar funzionante
+  // Avatar Component
   const AvatarComponent = () => (
     <div className="w-48 h-48 border-4 border-zinc-700 mb-6 bg-zinc-800 rounded-full flex items-center justify-center overflow-hidden">
       {profile.avatar_url ? (
@@ -634,14 +626,25 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
 
           <div className="flex flex-col sm:flex-row gap-4">
             {steamAccount ? (
-              <button
-                onClick={importSteamGames}
-                disabled={importingGames}
-                className="flex-1 flex items-center justify-center gap-3 bg-[#1B2838] hover:bg-[#2a475e] border border-[#66C0F4] py-4 rounded-2xl font-medium transition"
-              >
-                <RefreshCw size={20} className={importingGames ? 'animate-spin' : ''} />
-                {importingGames ? 'Aggiornamento...' : 'Aggiorna giochi da Steam'}
-              </button>
+              <>
+                <button
+                  onClick={importSteamGames}
+                  disabled={importingGames}
+                  className="flex-1 flex items-center justify-center gap-3 bg-[#1B2838] hover:bg-[#2a475e] border border-[#66C0F4] py-4 rounded-2xl font-medium transition disabled:opacity-50"
+                >
+                  <RefreshCw size={20} className={importingGames ? 'animate-spin' : ''} />
+                  {importingGames ? 'Aggiornamento...' : 'Aggiorna giochi da Steam'}
+                </button>
+
+                <button
+                  onClick={reorderGamesByHours}
+                  disabled={reorderingGames}
+                  className="flex-1 flex items-center justify-center gap-3 bg-zinc-900 hover:bg-zinc-800 border border-violet-500/50 hover:border-violet-500 py-4 rounded-2xl font-medium transition disabled:opacity-50"
+                >
+                  <RotateCw size={20} className={reorderingGames ? 'animate-spin' : ''} />
+                  {reorderingGames ? 'Riordinamento...' : 'Riordina per ore'}
+                </button>
+              </>
             ) : (
               <a
                 href="/api/steam/connect"
@@ -651,15 +654,6 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                 Collega Account Steam
               </a>
             )}
-
-            <button
-              onClick={reorderGamesByHours}
-              disabled={reorderingGames || !steamAccount}
-              className="flex-1 flex items-center justify-center gap-3 bg-zinc-900 hover:bg-zinc-800 border border-violet-500/50 hover:border-violet-500 py-4 rounded-2xl font-medium transition disabled:opacity-60"
-            >
-              <RotateCw size={20} className={reorderingGames ? 'animate-spin' : ''} />
-              {reorderingGames ? 'Riordinamento...' : 'Riordina videogiochi per ore'}
-            </button>
           </div>
         </div>
 

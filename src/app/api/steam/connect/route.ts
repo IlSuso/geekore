@@ -3,15 +3,11 @@ import { createClient } from '@/lib/supabase/server';
 
 export async function GET(request: Request) {
   const supabase = await createClient();
-
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    console.log('❌ Utente non autenticato in /api/steam/connect');
     return NextResponse.redirect(new URL('/login', request.url));
   }
-
-  console.log('✅ Utente autenticato in connect →', user.id);
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
   const callbackUrl = `${siteUrl}/api/steam/callback`;
