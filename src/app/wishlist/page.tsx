@@ -1,93 +1,114 @@
-import { Plus, Calendar } from 'lucide-react'
-import AppShell from '@/components/layout/AppShell'
-import { MediaBadge } from '@/components/ui/MediaBadge'
-import { mediaColor } from '@/lib/utils'
-import { MediaType } from '@/types'
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { Bookmark, Calendar, BookOpen, Gamepad2, Film, Tv, Dices } from 'lucide-react'
 
-const MOCK_WISHLIST = [
-  {
-    id: 'w1', type: 'game' as MediaType,
-    title: 'Ghost of Yōtei',
-    cover: 'https://media.rawg.io/media/games/4a0/4a0a1316102366260e6f38fd2a9cfdce.jpg',
-    release_date: '2025-10-15',
-  },
-  {
-    id: 'w2', type: 'anime' as MediaType,
-    title: 'Dandadan S2',
-    cover: 'https://cdn.anilist.co/img/dir/anime/reg/171018.jpg',
-    release_date: '2025-04-04',
-  },
-  {
-    id: 'w3', type: 'manga' as MediaType,
-    title: 'One Piece Vol. 110',
-    cover: 'https://cdn.anilist.co/img/dir/manga/reg/13.jpg',
-    release_date: '2025-06-01',
-  },
-]
+const TYPE_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+  anime:     { label: 'Anime',      color: 'bg-sky-500',    icon: BookOpen },
+  manga:     { label: 'Manga',      color: 'bg-orange-500', icon: BookOpen },
+  game:      { label: 'Game',       color: 'bg-green-500',  icon: Gamepad2 },
+  movie:     { label: 'Film',       color: 'bg-red-500',    icon: Film },
+  tv:        { label: 'Serie',      color: 'bg-purple-500', icon: Tv },
+  boardgame: { label: 'Board',      color: 'bg-yellow-500', icon: Dices },
+}
 
-function daysUntil(dateStr: string): string {
+function daysUntil(dateStr: string | null): string {
+  if (!dateStr) return ''
   const diff = Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000)
-  if (diff <= 0) return 'Disponibile!'
+  if (diff <= 0) return 'Disponibile'
   if (diff === 1) return 'Domani'
-  if (diff < 30) return `${diff} giorni`
+  if (diff < 30) return `tra ${diff} giorni`
   return new Date(dateStr).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export default function WishlistPage() {
+export default async function WishlistPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  let wishlist: any[] = []
+  try {
+    const { data } = await supabase
+      .from('wishlist')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+    wishlist = data || []
+  } catch {
+    // Tabella non ancora creata — mostra empty state
+  }
+
   return (
-    <AppShell>
-      <header className="flex items-center justify-between px-4 pt-safe py-4">
-        <div>
-          <h2 className="font-display text-xl font-bold text-white">Wishlist</h2>
-          <p className="text-xs text-white/30 mt-0.5">Uscite che aspetti</p>
+    <main className="min-h-screen bg-zinc-950 pt-6 pb-24 px-4">
+      <div className="max-w-xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight">Wishlist</h1>
+          <p className="text-zinc-500 text-sm mt-1">
+            {wishlist.length > 0
+              ? `${wishlist.length} ${wishlist.length === 1 ? 'titolo' : 'titoli'} nella lista`
+              : 'Uscite che stai aspettando'}
+          </p>
         </div>
-        <button className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/10 border border-accent/20 text-accent hover:bg-accent/20 transition-all">
-          <Plus size={20} />
-        </button>
-      </header>
 
-      <div className="px-4 flex flex-col gap-3 stagger">
-        {MOCK_WISHLIST.map(({ id, type, title, cover, release_date }) => {
-          const color = mediaColor(type)
-          const countdown = daysUntil(release_date)
-          const isClose = countdown === 'Domani' || countdown === 'Disponibile!'
-
-          return (
-            <div key={id} className="glass rounded-2xl overflow-hidden flex items-center gap-0">
-              {/* Cover */}
-              <div className="h-24 w-16 shrink-0 bg-bg-card">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={cover} alt={title} className="h-full w-full object-cover" />
-              </div>
-
-              {/* Info */}
-              <div className="flex-1 min-w-0 px-4 py-3">
-                <MediaBadge type={type} className="mb-1.5" />
-                <h3 className="text-sm font-semibold text-white leading-tight truncate">{title}</h3>
-                <div className="flex items-center gap-1.5 mt-2">
-                  <Calendar size={12} className="text-white/30" />
-                  <span
-                    className="text-xs font-medium"
-                    style={{ color: isClose ? color : undefined }}
-                  >
-                    {countdown}
-                  </span>
-                </div>
-              </div>
-
-              {/* Color accent bar */}
-              <div className="w-1 self-stretch" style={{ background: `${color}60` }} />
+        {wishlist.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="w-16 h-16 bg-zinc-900 border border-zinc-800 rounded-3xl flex items-center justify-center mb-4">
+              <Bookmark size={28} className="text-zinc-600" />
             </div>
-          )
-        })}
+            <p className="text-zinc-500 font-medium">Wishlist vuota</p>
+            <p className="text-zinc-700 text-sm mt-1 max-w-xs">
+              Vai su Discover e usa il pulsante segnalibro per aggiungere titoli che vuoi seguire
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {wishlist.map((item) => {
+              const config = TYPE_CONFIG[item.type] ?? TYPE_CONFIG.anime
+              const Icon = config.icon
+              const countdown = daysUntil(item.release_date)
+              const isClose = countdown === 'Disponibile' || countdown === 'Domani'
 
-        {/* Empty state hint */}
-        <div className="glass rounded-2xl p-6 text-center border border-dashed border-white/10 mt-2">
-          <Plus size={28} className="text-white/20 mx-auto mb-2" />
-          <p className="text-sm text-white/40">Aggiungi qualcosa che vuoi seguire</p>
-          <p className="text-xs text-white/20 mt-1">Ti avviseremo quando esce</p>
-        </div>
+              return (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-0 bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-zinc-700 transition-colors"
+                >
+                  {/* Cover */}
+                  <div className="w-16 h-24 shrink-0 bg-zinc-800">
+                    {item.cover_image ? (
+                      <img src={item.cover_image} alt={item.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Icon size={24} className="text-zinc-600" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0 px-4 py-3">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white ${config.color}`}>
+                        {config.label}
+                      </span>
+                    </div>
+                    <h3 className="text-sm font-semibold text-white leading-tight truncate">{item.title}</h3>
+                    {countdown && (
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <Calendar size={11} className="text-zinc-600" />
+                        <span className={`text-xs font-medium ${isClose ? 'text-violet-400' : 'text-zinc-500'}`}>
+                          {countdown}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Accent bar */}
+                  <div className={`w-1 self-stretch opacity-40 ${config.color}`} />
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
-    </AppShell>
+    </main>
   )
 }

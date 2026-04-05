@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Plus, X, Film, Tv, Gamepad2, BookOpen } from 'lucide-react';
+import { Search, Plus, X, Film, Tv, Gamepad2, BookOpen, Dices, Bookmark, BookmarkCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { StarRating } from '@/components/ui/StarRating';
+import { showToast } from '@/components/ui/Toast';
 
 type MediaItem = {
   id: string;
@@ -14,7 +15,7 @@ type MediaItem = {
   episodes?: number;
   totalSeasons?: number;
   seasons?: Record<number, { episode_count: number }>;
-  source: 'anilist' | 'tmdb' | 'igdb';
+  source: 'anilist' | 'tmdb' | 'igdb' | 'bgg';
 };
 
 function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
@@ -35,6 +36,7 @@ export default function DiscoverPage() {
   const [currentEpisode, setCurrentEpisode] = useState('');
   const [adding, setAdding] = useState(false);
   const [alreadyAdded, setAlreadyAdded] = useState<string[]>([]);
+  const [wishlistIds, setWishlistIds] = useState<string[]>([]);
   const [modalRating, setModalRating] = useState(0);
 
   const supabase = createClient();
@@ -47,17 +49,19 @@ export default function DiscoverPage() {
     { id: 'movie', label: 'Film', icon: Film },
     { id: 'tv', label: 'Serie TV', icon: Tv },
     { id: 'game', label: 'Videogiochi', icon: Gamepad2 },
+    { id: 'boardgame', label: 'Board Game', icon: Dices },
   ];
 
   useEffect(() => {
     const loadAdded = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase
-        .from('user_media_entries')
-        .select('external_id')
-        .eq('user_id', user.id);
-      if (data) setAlreadyAdded(data.map(item => item.external_id));
+      const [{ data: entries }, { data: wish }] = await Promise.all([
+        supabase.from('user_media_entries').select('external_id').eq('user_id', user.id),
+        supabase.from('wishlist').select('external_id').eq('user_id', user.id),
+      ]);
+      if (entries) setAlreadyAdded(entries.map(item => item.external_id));
+      if (wish) setWishlistIds(wish.map(item => item.external_id));
     };
     loadAdded();
   }, []);
@@ -254,6 +258,23 @@ export default function DiscoverPage() {
         }
       }
 
+      // BoardGameGeek
+      if (activeType === 'boardgame' && term.length >= 2) {
+        const res = await fetch(`/api/boardgames?search=${encodeURIComponent(term)}`);
+        if (res.ok) {
+          const json = await res.json();
+          const bggResults: MediaItem[] = (json.results || []).map((g: any) => ({
+            id: g.id,
+            title: g.title,
+            type: 'boardgame',
+            coverImage: g.coverImage,
+            year: g.year,
+            source: 'bgg' as const,
+          }));
+          rawResults = [...rawResults, ...bggResults.filter(hasValidCover)];
+        }
+      }
+
       const uniqueResults = rawResults.filter((item, index, self) =>
         index === self.findIndex((t) => t.id === item.id)
       );
@@ -264,6 +285,23 @@ export default function DiscoverPage() {
     }
 
     setLoading(false);
+  };
+
+  const toggleWishlist = async (media: MediaItem) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    if (wishlistIds.includes(media.id)) {
+      await supabase.from('wishlist').delete().eq('user_id', user.id).eq('external_id', media.id);
+      setWishlistIds(prev => prev.filter(id => id !== media.id));
+      showToast('Rimosso dalla wishlist');
+    } else {
+      await supabase.from('wishlist').upsert({
+        user_id: user.id, title: media.title, type: media.type,
+        cover_image: media.coverImage, external_id: media.id,
+      }, { onConflict: 'user_id,external_id' });
+      setWishlistIds(prev => [...prev, media.id]);
+      showToast('Aggiunto alla wishlist');
+    }
   };
 
   const handleAdd = async (media: MediaItem) => {
@@ -281,6 +319,7 @@ export default function DiscoverPage() {
     if (!user) return;
 
     const isMovie = media.type === 'movie';
+    const isBoardgame = media.type === 'boardgame';
 
     const { error } = await supabase.from('user_media_entries').insert({
       user_id: user.id,
@@ -289,7 +328,7 @@ export default function DiscoverPage() {
       type: media.type,
       cover_image: media.coverImage,
       status: isMovie ? 'completed' : 'watching',
-      current_episode: 1,
+      current_episode: isBoardgame ? 0 : 1,
       progress: 1,
       episodes: media.episodes || null,
       rating: rating || null,
@@ -305,8 +344,8 @@ export default function DiscoverPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setAdding(false); return; }
 
-    // Film o gioco senza episodi: aggiunto direttamente
-    if (selectedMedia.type === 'movie' || selectedMedia.type === 'game' || (selectedMedia.episodes === 1 || !selectedMedia.episodes)) {
+    // Film, gioco, boardgame senza episodi: aggiunto direttamente
+    if (selectedMedia.type === 'movie' || selectedMedia.type === 'game' || selectedMedia.type === 'boardgame' || (selectedMedia.episodes === 1 || !selectedMedia.episodes)) {
       await addDirectly(selectedMedia, modalRating);
       setSelectedMedia(null);
       setModalRating(0);
@@ -414,24 +453,37 @@ export default function DiscoverPage() {
                   />
                 </div>
 
-                <div className="p-5">
-                  <h3 className="font-semibold line-clamp-2 mb-2">{item.title}</h3>
-                  <p className="text-sm text-zinc-500 mb-1 capitalize">
+                <div className="p-4">
+                  <h3 className="font-semibold line-clamp-2 mb-1 text-sm leading-tight">{item.title}</h3>
+                  <p className="text-xs text-zinc-500 mb-3 capitalize">
                     {item.type}
                     {item.totalSeasons && item.type === 'tv' && ` • ${item.totalSeasons} stagioni`}
                   </p>
 
-                  <button
-                    onClick={() => handleAdd(item)}
-                    disabled={isAdded}
-                    className={`w-full py-3 rounded-2xl text-sm font-medium flex items-center justify-center gap-2 transition ${
-                      isAdded
-                        ? 'bg-emerald-600 text-white cursor-default'
-                        : 'bg-zinc-900 hover:bg-violet-600 border border-zinc-700 hover:border-violet-500'
-                    }`}
-                  >
-                    {isAdded ? <>✓ Già nei progressi</> : <><Plus size={18} /> Aggiungi</>}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleAdd(item)}
+                      disabled={isAdded}
+                      className={`flex-1 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
+                        isAdded
+                          ? 'bg-emerald-600 text-white cursor-default'
+                          : 'bg-zinc-800 hover:bg-violet-600 border border-zinc-700 hover:border-violet-500'
+                      }`}
+                    >
+                      {isAdded ? <>✓ Aggiunto</> : <><Plus size={14} /> Aggiungi</>}
+                    </button>
+                    <button
+                      onClick={() => toggleWishlist(item)}
+                      title={wishlistIds.includes(item.id) ? 'Rimuovi dalla wishlist' : 'Aggiungi alla wishlist'}
+                      className={`p-2.5 rounded-xl border transition-all ${
+                        wishlistIds.includes(item.id)
+                          ? 'bg-violet-600 border-violet-500 text-white'
+                          : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-violet-400 hover:border-violet-500'
+                      }`}
+                    >
+                      {wishlistIds.includes(item.id) ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -533,6 +585,13 @@ export default function DiscoverPage() {
               {selectedMedia.type === 'movie' && (
                 <div className="bg-zinc-800 rounded-2xl px-5 py-4 text-sm text-zinc-400">
                   Il film verrà aggiunto come completato.
+                </div>
+              )}
+
+              {/* Messaggio per boardgame */}
+              {selectedMedia.type === 'boardgame' && (
+                <div className="bg-zinc-800 rounded-2xl px-5 py-4 text-sm text-zinc-400">
+                  Il board game verrà aggiunto alla tua collezione. Potrai aggiornare le partite giocate dal profilo.
                 </div>
               )}
             </div>

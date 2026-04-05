@@ -26,7 +26,7 @@ import Link from 'next/link'
 type UserMedia = {
   id: string
   title: string
-  type: 'anime' | 'tv' | 'movie' | 'game' | 'manga'
+  type: 'anime' | 'tv' | 'movie' | 'game' | 'manga' | 'boardgame'
   cover_image?: string
   current_episode: number
   current_season?: number
@@ -71,13 +71,34 @@ function SortableBox({ media, children }: { media: UserMedia; children: React.Re
 
 // ─── MediaCard (shared between owner/public view) ─────────────────────────────
 
+const TYPE_COLORS: Record<string, string> = {
+  anime: 'bg-sky-500',
+  manga: 'bg-orange-500',
+  game: 'bg-green-500',
+  tv: 'bg-purple-500',
+  movie: 'bg-red-500',
+  boardgame: 'bg-yellow-500',
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  anime: 'Anime',
+  manga: 'Manga',
+  game: 'Game',
+  tv: 'Serie',
+  movie: 'Film',
+  boardgame: 'Board',
+}
+
 function MediaCard({
-  media, isOwner,
-  onDelete, onRating, onNotes, onSaveProgress, onMarkComplete, onReset,
+  media, isOwner, deletingId,
+  onDelete, onDeleteRequest, onDeleteCancel, onRating, onNotes, onSaveProgress, onMarkComplete, onReset,
 }: {
   media: UserMedia
   isOwner: boolean
+  deletingId?: string | null
   onDelete?: (id: string) => void
+  onDeleteRequest?: (id: string) => void
+  onDeleteCancel?: () => void
   onRating?: (id: string, r: number) => void
   onNotes?: (media: UserMedia) => void
   onSaveProgress?: (id: string, val: number, field?: 'current_episode' | 'current_season') => void
@@ -87,6 +108,7 @@ function MediaCard({
   const imageUrl = media.cover_image ||
     (media.appid ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${media.appid}/header.jpg` : undefined)
 
+  const isConfirmingDelete = deletingId === media.id
   const hasSeasonData = !!media.season_episodes && Object.keys(media.season_episodes).length > 0
   const hasEpisodeData = !!(media.episodes && media.episodes > 1)
   const currentSeasonNum = media.current_season || 1
@@ -145,14 +167,36 @@ function MediaCard({
           </div>
         </div>
 
-        {/* Delete button - owner only */}
+        {/* Type badge */}
+        <div className={`absolute top-3 right-3 z-20 px-2 py-1 rounded-full text-[10px] font-bold text-white ${TYPE_COLORS[media.type] || 'bg-zinc-700'}`}>
+          {TYPE_LABELS[media.type] || media.type}
+        </div>
+
+        {/* Delete button / inline confirm - owner only */}
         {isOwner && (
-          <button
-            onClick={() => onDelete?.(media.id)}
-            className="absolute top-3 right-3 z-30 opacity-0 group-hover:opacity-100 bg-zinc-950/90 hover:bg-red-950 border border-zinc-700 hover:border-red-500 p-2 rounded-full transition-all duration-200"
-          >
-            <X className="w-5 h-5 text-zinc-400 hover:text-red-400" />
-          </button>
+          isConfirmingDelete ? (
+            <div className="absolute top-3 right-3 z-30 flex gap-1.5">
+              <button
+                onClick={() => onDeleteCancel?.()}
+                className="px-3 py-1.5 text-xs font-medium bg-zinc-900 border border-zinc-600 rounded-full hover:bg-zinc-800 transition"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={() => onDelete?.(media.id)}
+                className="px-3 py-1.5 text-xs font-medium bg-red-900 border border-red-700 text-red-300 rounded-full hover:bg-red-800 transition"
+              >
+                Elimina
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => onDeleteRequest?.(media.id)}
+              className="absolute top-3 right-3 z-30 opacity-0 group-hover:opacity-100 bg-zinc-950/90 hover:bg-red-950 border border-zinc-700 hover:border-red-500 p-2 rounded-full transition-all duration-200"
+            >
+              <X className="w-5 h-5 text-zinc-400 hover:text-red-400" />
+            </button>
+          )
         )}
 
         {imageUrl ? (
@@ -186,7 +230,26 @@ function MediaCard({
 
       {/* Progress */}
       <div className="mt-auto p-6 pt-0">
-        {media.type === 'game' ? (
+        {media.type === 'boardgame' ? (
+          <div className="flex items-center justify-between">
+            <p className="text-emerald-400 text-sm flex items-center gap-1.5">
+              <Clock size={14} /> {media.current_episode} {media.current_episode === 1 ? 'partita' : 'partite'}
+            </p>
+            {isOwner && (
+              <div className="flex gap-1">
+                <button
+                  onClick={() => onSaveProgress?.(media.id, Math.max(0, media.current_episode - 1))}
+                  disabled={media.current_episode <= 0}
+                  className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30"
+                >−</button>
+                <button
+                  onClick={() => onSaveProgress?.(media.id, media.current_episode + 1)}
+                  className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold"
+                >+</button>
+              </div>
+            )}
+          </div>
+        ) : media.type === 'game' ? (
           <p className="text-emerald-400 text-sm flex items-center justify-center gap-1.5">
             <Clock size={14} /> {media.current_episode} ore
           </p>
@@ -302,6 +365,9 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
   const [followingCount, setFollowingCount] = useState(0)
   const [isFollowing, setIsFollowing] = useState(false)
 
+  // Inline delete confirm
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
   // Notes modal
   const [selectedMedia, setSelectedMedia] = useState<UserMedia | null>(null)
   const [notesInput, setNotesInput] = useState('')
@@ -381,9 +447,9 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
 
   const handleDelete = async (id: string) => {
     if (!isOwner) return
-    if (!confirm('Vuoi davvero eliminare questo elemento?')) return
     await supabase.from('user_media_entries').delete().eq('id', id)
     setMediaList(prev => prev.filter(item => item.id !== id))
+    setDeletingId(null)
     showToast('Eliminato dalla collezione')
   }
 
@@ -533,13 +599,14 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
       : item.type === 'manga' ? 'Manga'
       : item.type === 'anime' || item.type === 'tv' ? 'Serie & Anime'
       : item.type === 'movie' ? 'Film'
+      : item.type === 'boardgame' ? 'Board Game'
       : 'Altro'
     if (!acc[cat]) acc[cat] = []
     acc[cat].push(item)
     return acc
   }, {})
 
-  const categoryOrder = ['Videogiochi', 'Serie & Anime', 'Manga', 'Film', 'Altro']
+  const categoryOrder = ['Videogiochi', 'Serie & Anime', 'Manga', 'Film', 'Board Game', 'Altro']
   const orderedCategories = categoryOrder.filter(cat => grouped[cat]?.length > 0)
 
   return (
@@ -657,9 +724,35 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
           </div>
         )}
 
-        <h2 className="text-4xl font-bold tracking-tight mb-10">
+        <h2 className="text-4xl font-bold tracking-tight mb-8">
           {isOwner ? 'I miei progressi' : `Progressi di @${profile.username}`}
         </h2>
+
+        {/* Statistiche profilo */}
+        {mediaList.length > 0 && (() => {
+          const totalAnime = mediaList.filter(m => m.type === 'anime').length
+          const totalGames = mediaList.filter(m => m.type === 'game').length
+          const steamHours = mediaList.filter(m => m.type === 'game' && m.is_steam).reduce((s, m) => s + (m.current_episode || 0), 0)
+          const rated = mediaList.filter(m => m.rating && m.rating > 0)
+          const avgRating = rated.length > 0 ? (rated.reduce((s, m) => s + (m.rating || 0), 0) / rated.length).toFixed(1) : null
+          const stats = [
+            { label: 'Anime', value: totalAnime },
+            { label: 'Giochi', value: totalGames },
+            { label: 'Ore Steam', value: steamHours },
+            { label: 'Voto medio', value: avgRating ? `★ ${avgRating}` : '—' },
+            { label: 'Nella collezione', value: mediaList.length },
+          ]
+          return (
+            <div className="flex flex-wrap gap-4 mb-10">
+              {stats.map(s => (
+                <div key={s.label} className="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-3 text-center min-w-[90px]">
+                  <p className="text-xl font-bold text-violet-400">{s.value}</p>
+                  <p className="text-xs text-zinc-500 mt-1">{s.label}</p>
+                </div>
+              ))}
+            </div>
+          )
+        })()}
 
         {mediaList.length === 0 ? (
           <div className="text-center py-20 text-zinc-500">
@@ -682,7 +775,10 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                           <MediaCard
                             media={media}
                             isOwner={true}
+                            deletingId={deletingId}
                             onDelete={handleDelete}
+                            onDeleteRequest={setDeletingId}
+                            onDeleteCancel={() => setDeletingId(null)}
                             onRating={setRating}
                             onNotes={openNotesModal}
                             onSaveProgress={saveProgress}
