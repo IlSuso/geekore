@@ -1,10 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
   // 1. ESTRAZIONE PARAMETRI DALL'URL (Cruciale per SWR)
@@ -16,6 +11,8 @@ export async function GET(request: Request) {
   if (!steamId) {
     return NextResponse.json({ error: "SteamID mancante" }, { status: 400 });
   }
+
+  const supabase = await createClient();
 
   try {
     // 2. FETCH DA STEAM (Giochi e Trofei)
