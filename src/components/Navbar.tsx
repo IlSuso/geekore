@@ -1,22 +1,26 @@
-'use client';
+'use client'
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Home, Search, PlusCircle, User, Trophy } from 'lucide-react';
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { Home, Search, PlusCircle, User, Trophy } from 'lucide-react'
 
 export default function Navbar() {
-  const pathname = usePathname();
+  const pathname = usePathname()
 
   const navItems = [
     { href: '/', label: 'Home', icon: Home },
     { href: '/discover', label: 'Discover', icon: Search },
     { href: '/feed', label: 'Feed', icon: PlusCircle },
-    { href: '/profile', label: 'Profilo', icon: User },
-  ];
+    { href: '/profile/me', label: 'Profilo', icon: User }, // FIX: /profile/me invece di /profile
+  ]
+
+  // Considera "profilo" attivo anche su /profile/[username]
+  const isProfileActive =
+    pathname === '/profile/me' || pathname.startsWith('/profile/')
 
   return (
     <>
-      {/* Navbar Desktop - in alto */}
+      {/* Navbar Desktop */}
       <nav className="hidden md:flex fixed top-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-xl border-b border-zinc-800">
         <div className="max-w-6xl mx-auto w-full px-6 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -28,17 +32,22 @@ export default function Navbar() {
 
           <div className="flex items-center gap-10 text-sm font-medium">
             {navItems.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive =
+                item.href === '/profile/me'
+                  ? isProfileActive
+                  : pathname === item.href
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-2 transition hover:text-violet-400 ${isActive ? 'text-violet-400' : 'text-zinc-400'}`}
+                  className={`flex items-center gap-2 transition hover:text-violet-400 ${
+                    isActive ? 'text-violet-400' : 'text-zinc-400'
+                  }`}
                 >
                   <item.icon size={20} />
                   {item.label}
                 </Link>
-              );
+              )
             })}
           </div>
 
@@ -50,27 +59,33 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* Navbar Mobile - in basso (a prova di pollice) */}
+      {/* Navbar Mobile */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-2xl border-t border-zinc-800">
         <div className="flex items-center justify-around py-3 px-6">
           {navItems.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive =
+              item.href === '/profile/me'
+                ? isProfileActive
+                : pathname === item.href
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-col items-center gap-1 transition ${isActive ? 'text-violet-400' : 'text-zinc-400'}`}
+                className={`flex flex-col items-center gap-1 transition ${
+                  isActive ? 'text-violet-400' : 'text-zinc-400'
+                }`}
               >
                 <item.icon size={26} strokeWidth={isActive ? 2.5 : 2} />
-                <span className="text-[10px] font-medium tracking-wide">{item.label}</span>
+                <span className="text-[10px] font-medium tracking-wide">
+                  {item.label}
+                </span>
               </Link>
-            );
+            )
           })}
         </div>
       </nav>
 
-      {/* Spazio per compensare la navbar fissa */}
       <div className="h-20 md:h-20" />
     </>
-  );
+  )
 }

@@ -11,7 +11,7 @@ export default async function MeProfileRedirect() {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
+  if (!user) redirect('/login')
 
   const { data: profile } = await supabase
     .from('profiles')

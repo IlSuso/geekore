@@ -1,18 +1,10 @@
 // src/lib/supabase.ts
-import { createClient } from '@supabase/supabase-js';
+// Shim di compatibilità — molti componenti importano da qui.
+// Usa createBrowserClient (SSR-safe): salva sessione nei cookie,
+// non in localStorage, quindi visibile al server.
+import { createBrowserClient } from '@supabase/ssr'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables. Check your .env.local file.');
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-    storageKey: 'geekore-auth-token',   // chiave unica per evitare conflitti
-  },
-});
+export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)

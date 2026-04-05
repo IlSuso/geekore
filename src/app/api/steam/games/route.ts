@@ -1,94 +1,103 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 
-const STEAM_API_KEY = process.env.STEAM_API_KEY;
+const STEAM_API_KEY = process.env.STEAM_API_KEY
+const CACHE_HOURS = 24
 
-// Controlla se un'immagine Steam esiste davvero (alcuni giochi non hanno library_600x900)
-async function imageExists(url: string): Promise<boolean> {
-  try {
-    const res = await fetch(url, { method: 'HEAD' });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
+// Service client per bypassare RLS sulla steam_import_log (scrittura server-side)
+const supabaseService = createServiceClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
-// Recupera l'immagine migliore disponibile per un gioco dalla Steam Store API
 async function getBestImage(appid: number): Promise<string> {
-  const base = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appid}`;
-
-  // 1. Prova library_600x900 (portrait, la migliore per card)
-  const portrait = `${base}/library_600x900.jpg`;
-  if (await imageExists(portrait)) return portrait;
-
-  // 2. Prova library_600x900_2x
-  const portrait2x = `${base}/library_600x900_2x.jpg`;
-  if (await imageExists(portrait2x)) return portrait2x;
-
-  // 3. Fallback: recupera capsule_231x87 o header dalla Store API
-  try {
-    const storeRes = await fetch(
-      `https://store.steampowered.com/api/appdetails?appids=${appid}&filters=basic`
-    );
-    const storeData = await storeRes.json();
-    const appData = storeData?.[String(appid)]?.data;
-
-    if (appData?.header_image) return appData.header_image;
-  } catch {
-    // ignora errori della Store API
-  }
-
-  // 4. Ultimo fallback: header.jpg diretto
-  return `${base}/header.jpg`;
+  const base = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appid}`
+  // Non facciamo più imageExists() con richieste HEAD per ogni gioco —
+  // header.jpg esiste sempre per tutti i giochi Steam
+  return `${base}/library_600x900.jpg`
 }
 
 export async function GET(request: NextRequest) {
-  const steamid = request.nextUrl.searchParams.get('steamid');
+  const steamid = request.nextUrl.searchParams.get('steamid')
 
   if (!steamid) {
-    return NextResponse.json({ success: false, error: 'Missing steamid' }, { status: 400 });
+    return NextResponse.json({ success: false, error: 'Missing steamid' }, { status: 400 })
   }
 
   if (!STEAM_API_KEY) {
-    return NextResponse.json({ success: false, error: 'STEAM_API_KEY not configured' }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'STEAM_API_KEY not configured' }, { status: 500 })
   }
 
-  try {
-    const url = `https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${STEAM_API_KEY}&steamid=${steamid}&format=json&include_appinfo=true&include_played_free_games=true`;
+  // ── Verifica utente autenticato ──────────────────────────────────────────
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
-    const res = await fetch(url);
-    const data = await res.json();
+  if (!user) {
+    return NextResponse.json({ success: false, error: 'Non autenticato' }, { status: 401 })
+  }
+
+  // ── Controlla cache: ha già importato nelle ultime 24 ore? ───────────────
+  const { data: importLog } = await supabaseService
+    .from('steam_import_log')
+    .select('imported_at, games_count')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (importLog?.imported_at) {
+    const lastImport = new Date(importLog.imported_at)
+    const hoursSinceImport = (Date.now() - lastImport.getTime()) / (1000 * 60 * 60)
+
+    if (hoursSinceImport < CACHE_HOURS) {
+      const remainingHours = Math.ceil(CACHE_HOURS - hoursSinceImport)
+      return NextResponse.json({
+        success: false,
+        cached: true,
+        error: `Hai già importato i giochi di recente. Riprova tra ${remainingHours} ore.`,
+        last_import: importLog.imported_at,
+        games_count: importLog.games_count,
+      }, { status: 429 })
+    }
+  }
+
+  // ── Chiamata Steam API ───────────────────────────────────────────────────
+  try {
+    const url = `https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${STEAM_API_KEY}&steamid=${steamid}&format=json&include_appinfo=true&include_played_free_games=true`
+
+    const res = await fetch(url)
+    const data = await res.json()
 
     if (!data.response?.games) {
-      return NextResponse.json({ success: false, error: 'No games found' });
+      return NextResponse.json({ success: false, error: 'Nessun gioco trovato o profilo Steam privato' })
     }
 
-    // Risolve le immagini in parallelo (max 10 alla volta per non saturare Steam)
-    const rawGames = data.response.games;
+    const rawGames = data.response.games
 
-    const chunkSize = 10;
-    const gamesWithImages: any[] = [];
+    // Costruisce la lista giochi — immagine singola senza richieste HEAD
+    const games = rawGames.map((game: any) => ({
+      appid: game.appid,
+      name: game.name,
+      playtime_forever: game.playtime_forever,
+      cover_image: `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/library_600x900.jpg`,
+    }))
 
-    for (let i = 0; i < rawGames.length; i += chunkSize) {
-      const chunk = rawGames.slice(i, i + chunkSize);
-      const resolved = await Promise.all(
-        chunk.map(async (game: any) => ({
-          appid: game.appid,
-          name: game.name,
-          // Restituisce i minuti raw — la divisione per 60 avviene nel frontend
-          playtime_forever: game.playtime_forever,
-          cover_image: await getBestImage(game.appid),
-        }))
-      );
-      gamesWithImages.push(...resolved);
-    }
+    // ── Aggiorna log importazione ──────────────────────────────────────────
+    await supabaseService
+      .from('steam_import_log')
+      .upsert({
+        user_id: user.id,
+        imported_at: new Date().toISOString(),
+        games_count: games.length,
+      }, { onConflict: 'user_id' })
 
     return NextResponse.json({
       success: true,
-      games: gamesWithImages,
-      count: gamesWithImages.length,
-    });
+      games,
+      count: games.length,
+    })
+
   } catch (error) {
-    console.error('Steam API error:', error);
-    return NextResponse.json({ success: false, error: 'Steam API error' }, { status: 502 });
+    console.error('Steam API error:', error)
+    return NextResponse.json({ success: false, error: 'Errore chiamata Steam API' }, { status: 502 })
   }
 }

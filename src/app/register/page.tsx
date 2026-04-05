@@ -1,25 +1,33 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import Link from 'next/link';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { useState } from 'react'
+import { createBrowserClient } from '@supabase/ssr'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+
+function createClient() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+}
 
 export default function RegisterPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+  const supabase = createClient()
 
   const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
 
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -27,57 +35,60 @@ export default function RegisterPage() {
             display_name: displayName || email.split('@')[0],
           },
         },
-      });
+      })
 
       if (error) {
-        setError(error.message);
-        return;
+        setError(error.message)
+        return
       }
 
-      setSuccess(true);
+      setSuccess(true)
     } catch (err: any) {
-      setError('Errore durante la registrazione. Riprova più tardi.');
+      setError('Errore durante la registrazione. Riprova più tardi.')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   if (success) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white">
         <div className="text-center max-w-md mx-auto px-6">
-          <div className="mb-8">
-            <Avatar className="w-24 h-24 mx-auto border-4 border-zinc-700">
-              <AvatarFallback className="text-5xl bg-zinc-800">📧</AvatarFallback>
-            </Avatar>
-          </div>
-          <h1 className="text-4xl font-bold tracking-tighter mb-4">Controlla la tua email</h1>
+          <div className="mb-8 text-7xl">📧</div>
+          <h1 className="text-4xl font-bold tracking-tighter mb-4">
+            Controlla la tua email
+          </h1>
           <p className="text-zinc-400 text-lg mb-8">
-            Abbiamo inviato un link di conferma a <strong>{email}</strong>.<br />
+            Abbiamo inviato un link di conferma a{' '}
+            <strong>{email}</strong>.<br />
             Clicca sul link per attivare il tuo account.
           </p>
-          <Link 
-            href="/login" 
+          <Link
+            href="/login"
             className="inline-block px-6 py-3 border border-zinc-700 hover:border-zinc-500 rounded-full text-sm font-medium transition-colors"
           >
             Torna al Login
           </Link>
         </div>
       </div>
-    );
+    )
   }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center pb-20">
       <div className="max-w-md w-full mx-auto px-6">
         <div className="text-center mb-10">
-          <h1 className="text-5xl font-bold tracking-tighter mb-3">Crea il tuo account</h1>
+          <h1 className="text-5xl font-bold tracking-tighter mb-3">
+            Crea il tuo account
+          </h1>
           <p className="text-zinc-400">Unisciti alla community di Geekore</p>
         </div>
 
         <form onSubmit={handleRegister} className="space-y-6">
           <div>
-            <label className="block text-sm text-zinc-400 mb-2">Nome visualizzato</label>
+            <label className="block text-sm text-zinc-400 mb-2">
+              Nome visualizzato
+            </label>
             <input
               type="text"
               value={displayName}
@@ -135,5 +146,5 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
-  );
+  )
 }
