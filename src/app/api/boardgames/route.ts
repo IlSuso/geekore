@@ -1,74 +1,59 @@
-// DESTINAZIONE: src/app/api/boardgames/route.ts
-
 import { NextRequest, NextResponse } from 'next/server'
 import { parseStringPromise } from 'xml2js'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-const CACHE_DURATION_MS = 86400000
+const CACHE_DURATION_MS = 86_400_000 // 24h
 
-// GET senza parametri → hot list (comportamento originale)
-// GET con ?search=termine → ricerca per nome
+function getServiceClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
+
+const BGG_HEADERS = {
+  'User-Agent': 'Geekore/1.0',
+  'Accept': 'application/xml',
+}
+
+// GET ?search=termine → ricerca per nome
+// GET (no params) → hot list
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const search = searchParams.get('search')
 
-  // ── MODALITÀ RICERCA ────────────────────────────────────────────────────────
+  // ── SEARCH MODE ──────────────────────────────────────────────────────────────
   if (search) {
-    if (typeof search !== 'string' || search.trim().length < 2 || search.length > 200) {
+    const trimmed = search.trim()
+    if (typeof search !== 'string' || trimmed.length < 2 || trimmed.length > 200) {
       return NextResponse.json({ results: [] }, { status: 400 })
     }
 
     try {
-      console.log('[BGG] Ricerca v1:', search.trim())
-
-      // BGG XML API v1 — ancora pubblica senza auth
       const searchRes = await fetch(
-        `https://boardgamegeek.com/xmlapi/search?search=${encodeURIComponent(search.trim())}`,
-        {
-          headers: {
-            'User-Agent': 'Geekore/1.0 (contact: suinky1999@gmail.com)',
-            'Accept': 'application/xml',
-          }
-        }
+        `https://boardgamegeek.com/xmlapi/search?search=${encodeURIComponent(trimmed)}`,
+        { headers: BGG_HEADERS }
       )
-      console.log('[BGG] Search status:', searchRes.status)
       const searchXml = await searchRes.text()
-      console.log('[BGG] XML inizio:', searchXml.substring(0, 300))
 
       if (!searchXml.trim().startsWith('<')) {
         return NextResponse.json({ results: [] })
       }
 
       const searchResult = await parseStringPromise(searchXml)
-      // v1 usa <boardgames><boardgame objectid="...">
       const items = (searchResult?.boardgames?.boardgame || []).slice(0, 8)
-      console.log('[BGG] Items trovati:', items.length)
 
       if (items.length === 0) return NextResponse.json({ results: [] })
 
-      // Fetch dettagli con v1
       const ids = items.map((item: any) => item.$.objectid).join(',')
-      console.log('[BGG] IDs:', ids)
 
       const detailRes = await fetch(
         `https://boardgamegeek.com/xmlapi/boardgame/${ids}?stats=0`,
-        {
-          headers: {
-            'User-Agent': 'Geekore/1.0 (contact: suinky1999@gmail.com)',
-            'Accept': 'application/xml',
-          }
-        }
+        { headers: BGG_HEADERS }
       )
-      console.log('[BGG] Detail status:', detailRes.status)
       const detailXml = await detailRes.text()
-      console.log('[BGG] Detail XML inizio:', detailXml.substring(0, 300))
       const detailResult = await parseStringPromise(detailXml)
       const detailItems = detailResult?.boardgames?.boardgame || []
-      console.log('[BGG] Detail items:', detailItems.length)
 
       const results = detailItems
         .map((item: any) => {
@@ -83,14 +68,7 @@ export async function GET(request: NextRequest) {
 
           if (!coverImage) return null
 
-          return {
-            id: `bgg-${id}`,
-            title,
-            type: 'boardgame',
-            coverImage,
-            year,
-            source: 'bgg',
-          }
+          return { id: `bgg-${id}`, title, type: 'boardgame', coverImage, year, source: 'bgg' }
         })
         .filter(Boolean)
 
@@ -101,20 +79,22 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ── MODALITÀ HOT LIST (comportamento originale) ──────────────────────────
+  // ── HOT LIST MODE ─────────────────────────────────────────────────────────────
+  const supabase = getServiceClient()
+
   try {
     const { data: cache } = await supabase
       .from('boardgames_cache')
       .select('*')
       .single()
 
-    const now = new Date().getTime()
+    const now = Date.now()
     if (cache && now - new Date(cache.updated_at).getTime() < CACHE_DURATION_MS) {
       return NextResponse.json({ articles: cache.data })
     }
 
     const response = await fetch('https://boardgamegeek.com/xmlapi2/hot?type=boardgame', {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
+      headers: { 'User-Agent': 'Geekore/1.0' },
     })
     const xmlData = await response.text()
 
@@ -144,6 +124,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ articles: cleanedArticles })
   } catch (e) {
+    console.error('BGG hot list error:', e)
     return NextResponse.json({ articles: [] })
   }
 }

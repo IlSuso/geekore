@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect, use, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   CheckCircle, Clock, X, RotateCw, RotateCcw, Edit3, RefreshCw,
@@ -348,9 +349,10 @@ function Avatar({ profile }: { profile: Profile }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
+function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = use(params)
   const supabase = createClient()
+  const searchParams = useSearchParams()
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [isOwner, setIsOwner] = useState(false)
@@ -584,6 +586,26 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
     }
     fetchData()
   }, [username])
+
+  // ── Handle Steam OAuth feedback from URL params ───────────────────────────
+  useEffect(() => {
+    const steamSuccess = searchParams.get('steam_success')
+    const error = searchParams.get('error')
+    if (steamSuccess === 'true') {
+      showToast('Account Steam collegato con successo!', 'success')
+      // Clean URL without reload
+      window.history.replaceState({}, '', window.location.pathname)
+    } else if (error) {
+      const errorMessages: Record<string, string> = {
+        steam_invalid: 'Risposta Steam non valida',
+        steam_verification_failed: 'Verifica Steam fallita. Riprova.',
+        db_error: 'Errore di salvataggio. Riprova più tardi.',
+        server_error: 'Errore del server. Riprova più tardi.',
+      }
+      showToast(errorMessages[error] || 'Errore sconosciuto', 'error')
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [searchParams])
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -834,5 +856,13 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
         </div>
       )}
     </div>
+  )
+}
+// Wrap with Suspense because ProfilePage uses useSearchParams
+export default function ProfilePageWrapper(props: { params: Promise<{ username: string }> }) {
+  return (
+    <Suspense fallback={<Spinner />}>
+      <ProfilePage {...props} />
+    </Suspense>
   )
 }

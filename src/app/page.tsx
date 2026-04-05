@@ -14,7 +14,7 @@ export default async function HomePage() {
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col">
 
       {/* Nav minima */}
-      <nav className="flex items-center justify-between px-8 py-6 max-w-6xl mx-auto w-full">
+      <nav className="flex items-center justify-between px-5 sm:px-8 py-5 sm:py-6 max-w-6xl mx-auto w-full">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
@@ -50,7 +50,7 @@ export default async function HomePage() {
           </div>
 
           {/* Titolo */}
-          <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-none mb-6">
+          <h1 className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tighter leading-none mb-6">
             Traccia tutto
             <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-fuchsia-400 to-cyan-400">
@@ -59,22 +59,22 @@ export default async function HomePage() {
           </h1>
 
           {/* Descrizione */}
-          <p className="text-xl text-zinc-400 mb-12 max-w-xl mx-auto leading-relaxed">
+          <p className="text-lg sm:text-xl text-zinc-400 mb-10 sm:mb-12 max-w-xl mx-auto leading-relaxed">
             Anime, manga, videogiochi, serie TV e film in un unico profilo.
             Condividi i tuoi progressi con la community.
           </p>
 
           {/* CTA */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
             <Link
               href="/register"
-              className="px-10 py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-bold text-lg transition-all hover:scale-105 shadow-lg shadow-violet-500/20"
+              className="px-8 sm:px-10 py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-bold text-base sm:text-lg transition-all hover:scale-[1.02] shadow-lg shadow-violet-500/20"
             >
               Registrati gratis
             </Link>
             <Link
               href="/login"
-              className="px-10 py-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl font-bold text-lg transition-all"
+              className="px-8 sm:px-10 py-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl font-bold text-base sm:text-lg transition-all"
             >
               Accedi
             </Link>

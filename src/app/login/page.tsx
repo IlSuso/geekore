@@ -1,33 +1,37 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, Zap, Gamepad2, BookOpen, Film } from 'lucide-react'
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) goToProfile(session.user.id)
-    })
-  }, [])
+  const redirectTo = searchParams.get('redirect')
 
-  const goToProfile = async (userId: string) => {
+  // Note: session check removed — middleware already redirects logged-in users
+
+  const goAfterLogin = async (userId: string) => {
+    // If middleware set a redirect target, use it (validate it's a relative path)
+    if (redirectTo && redirectTo.startsWith('/') && !redirectTo.startsWith('//')) {
+      router.push(redirectTo)
+      return
+    }
     const { data: profile } = await supabase
       .from('profiles')
       .select('username')
       .eq('id', userId)
       .single()
-    router.push(profile?.username ? `/profile/${profile.username}` : '/profile/me')
+    router.push(profile?.username ? `/profile/${profile.username}` : '/feed')
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -37,7 +41,7 @@ export default function LoginPage() {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
-      await goToProfile(data.user.id)
+      await goAfterLogin(data.user.id)
     } catch {
       setError('Email o password non corretti')
     } finally {
@@ -169,5 +173,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-zinc-950" />}>
+      <LoginForm />
+    </Suspense>
   )
 }

@@ -1,8 +1,26 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+// Validate the OpenID response by sending a check_authentication request to Steam.
+// Without this, anyone could forge a callback with an arbitrary Steam ID.
+async function verifyOpenIdWithSteam(params: URLSearchParams): Promise<boolean> {
+  const verifyParams = new URLSearchParams(params)
+  verifyParams.set('openid.mode', 'check_authentication')
+
+  try {
+    const res = await fetch('https://steamcommunity.com/openid/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: verifyParams.toString(),
+    })
+    const body = await res.text()
+    return body.includes('is_valid:true')
+  } catch {
+    return false
+  }
+}
+
 export async function GET(request: Request) {
-  const supabase = await createClient()
   const url = new URL(request.url)
   const claimedId = url.searchParams.get('openid.claimed_id')
 
@@ -10,8 +28,20 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL('/profile/me?error=steam_invalid', request.url))
   }
 
-  const steamId64 = claimedId.replace('https://steamcommunity.com/openid/id/', '')
+  // Extract Steam ID before verification so we can validate the format
+  const steamIdMatch = claimedId.match(/^https:\/\/steamcommunity\.com\/openid\/id\/(\d{17})$/)
+  if (!steamIdMatch) {
+    return NextResponse.redirect(new URL('/profile/me?error=steam_invalid', request.url))
+  }
+  const steamId64 = steamIdMatch[1]
 
+  // Verify the OpenID response with Steam to prevent spoofing
+  const isValid = await verifyOpenIdWithSteam(url.searchParams)
+  if (!isValid) {
+    return NextResponse.redirect(new URL('/profile/me?error=steam_verification_failed', request.url))
+  }
+
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.redirect(new URL('/login', request.url))
@@ -52,7 +82,6 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL('/profile/me?error=db_error', request.url))
     }
 
-    // Recupera username per redirect corretto al profilo
     const { data: profile } = await supabase
       .from('profiles')
       .select('username')

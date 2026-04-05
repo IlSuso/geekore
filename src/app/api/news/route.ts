@@ -1,24 +1,18 @@
-// DESTINAZIONE: src/app/api/news/route.ts
-
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 
 const VALID_CATEGORIES = ['all', 'gaming', 'cinema', 'anime', 'boardgames']
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const cat = searchParams.get('cat') || 'all'
 
-    // ── Validazione input ────────────────────────────────────────────────────
     if (!VALID_CATEGORIES.includes(cat)) {
       return NextResponse.json({ error: 'Categoria non valida' }, { status: 400 })
     }
+
+    const supabase = await createClient()
 
     let query = supabase.from('news_cache').select('data')
     if (cat !== 'all') query = query.eq('category', cat)
@@ -26,14 +20,13 @@ export async function GET(request: Request) {
     const { data, error } = await query
     if (error) throw error
 
-    let allNews: any[] = []
-    data.forEach(row => {
+    const allNews: any[] = []
+    for (const row of data ?? []) {
       const parsed = typeof row.data === 'string' ? JSON.parse(row.data) : row.data
-      if (Array.isArray(parsed)) allNews = [...allNews, ...parsed]
-    })
+      if (Array.isArray(parsed)) allNews.push(...parsed)
+    }
 
     return NextResponse.json(allNews)
-
   } catch (err) {
     console.error('News API error:', err)
     return NextResponse.json([], { status: 500 })

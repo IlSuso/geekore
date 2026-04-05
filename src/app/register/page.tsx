@@ -1,9 +1,22 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { Eye, EyeOff, Zap, CheckCircle, Mail } from 'lucide-react'
+
+function passwordStrength(pwd: string): { score: number; label: string; color: string } {
+  if (pwd.length === 0) return { score: 0, label: '', color: '' }
+  let score = 0
+  if (pwd.length >= 8) score++
+  if (pwd.length >= 12) score++
+  if (/[A-Z]/.test(pwd)) score++
+  if (/[0-9]/.test(pwd)) score++
+  if (/[^A-Za-z0-9]/.test(pwd)) score++
+  if (score <= 1) return { score, label: 'Debole', color: 'bg-red-500' }
+  if (score <= 3) return { score, label: 'Buona', color: 'bg-amber-500' }
+  return { score, label: 'Ottima', color: 'bg-emerald-500' }
+}
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
@@ -14,6 +27,8 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const supabase = createClient()
+
+  const pwdStrength = useMemo(() => passwordStrength(password), [password])
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -172,6 +187,28 @@ export default function RegisterPage() {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+
+              {/* Password strength meter */}
+              {password.length > 0 && (
+                <div className="mt-2 space-y-1.5">
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div
+                        key={i}
+                        className={`h-1 flex-1 rounded-full transition-all duration-300 ${
+                          i <= pwdStrength.score ? pwdStrength.color : 'bg-zinc-700'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-xs text-zinc-500">
+                    Sicurezza: <span className={`font-medium ${
+                      pwdStrength.score <= 1 ? 'text-red-400' :
+                      pwdStrength.score <= 3 ? 'text-amber-400' : 'text-emerald-400'
+                    }`}>{pwdStrength.label}</span>
+                  </p>
+                </div>
+              )}
             </div>
 
             {error && (
