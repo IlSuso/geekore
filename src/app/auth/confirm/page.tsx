@@ -1,11 +1,13 @@
+// DESTINAZIONE: src/app/auth/confirm/page.tsx
+
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
 
-export default function AuthConfirmPage() {
+function ConfirmContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
@@ -37,7 +39,6 @@ export default function AuthConfirmPage() {
 
       setStatus('success')
 
-      // Recupera il profilo per il redirect corretto
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data: profile } = await supabase
@@ -99,5 +100,17 @@ export default function AuthConfirmPage() {
 
       </div>
     </div>
+  )
+}
+
+export default function AuthConfirmPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <Loader2 size={40} className="text-violet-500 animate-spin" />
+      </div>
+    }>
+      <ConfirmContent />
+    </Suspense>
   )
 }
