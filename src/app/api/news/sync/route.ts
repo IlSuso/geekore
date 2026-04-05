@@ -1,20 +1,9 @@
 import { NextResponse } from "next/server";
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST() {
   try {
-    // Verifichiamo se le chiavi esistono, altrimenti evitiamo il crash
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      return NextResponse.json({ 
-        status: "skipped", 
-        message: "Missing Supabase Keys" 
-      }, { status: 200 }); // Usiamo 200 per non far scattare l'errore nel frontend
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = await createClient();
 
     // Update base per testare se funziona
     await supabase
