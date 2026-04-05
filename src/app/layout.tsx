@@ -7,6 +7,10 @@ export const metadata: Metadata = {
   title: { default: 'Geekore', template: '%s — Geekore' },
   description: 'Traccia anime, manga, videogiochi, film e serie in un unico posto. Condividi i tuoi progressi con la community.',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/icons/favicon-32.png',
+    apple: '/icons/apple-touch-icon.png',
+  },
   openGraph: {
     title: 'Geekore',
     description: 'Il tuo universo geek in un unico posto.',
