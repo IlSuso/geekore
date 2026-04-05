@@ -14,7 +14,7 @@ export async function GET(request: Request) {
 
     const supabase = await createClient()
 
-    let query = supabase.from('news_cache').select('data')
+    let query = supabase.from('news_cache').select('data').limit(20)
     if (cat !== 'all') query = query.eq('category', cat)
 
     const { data, error } = await query
@@ -22,8 +22,12 @@ export async function GET(request: Request) {
 
     const allNews: any[] = []
     for (const row of data ?? []) {
-      const parsed = typeof row.data === 'string' ? JSON.parse(row.data) : row.data
-      if (Array.isArray(parsed)) allNews.push(...parsed)
+      try {
+        const parsed = typeof row.data === 'string' ? JSON.parse(row.data) : row.data
+        if (Array.isArray(parsed)) allNews.push(...parsed)
+      } catch {
+        // Skip corrupted rows
+      }
     }
 
     return NextResponse.json(allNews)

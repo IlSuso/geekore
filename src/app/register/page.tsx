@@ -140,10 +140,11 @@ export default function RegisterPage() {
 
           <form onSubmit={handleRegister} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">
+              <label htmlFor="reg-name" className="block text-sm font-medium text-zinc-400 mb-2">
                 Nome visualizzato
               </label>
               <input
+                id="reg-name"
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
@@ -154,8 +155,9 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">Email</label>
+              <label htmlFor="reg-email" className="block text-sm font-medium text-zinc-400 mb-2">Email</label>
               <input
+                id="reg-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -167,21 +169,24 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">Password</label>
+              <label htmlFor="reg-password" className="block text-sm font-medium text-zinc-400 mb-2">Password</label>
               <div className="relative">
                 <input
+                  id="reg-password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Almeno 6 caratteri"
                   autoComplete="new-password"
                   minLength={6}
+                  aria-describedby="pwd-strength"
                   className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-5 py-3.5 pr-12 text-white placeholder-zinc-600 focus:outline-none transition-colors"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Nascondi password' : 'Mostra password'}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -190,7 +195,7 @@ export default function RegisterPage() {
 
               {/* Password strength meter */}
               {password.length > 0 && (
-                <div className="mt-2 space-y-1.5">
+                <div id="pwd-strength" className="mt-2 space-y-1.5" aria-live="polite">
                   <div className="flex gap-1">
                     {[1, 2, 3, 4, 5].map((i) => (
                       <div

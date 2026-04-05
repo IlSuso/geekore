@@ -42,6 +42,8 @@ export function ToastProvider() {
       {toasts.map(toast => (
         <div
           key={toast.id}
+          role="alert"
+          aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
           className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border pointer-events-auto
             animate-in slide-in-from-right-4 fade-in duration-300
             ${toast.type === 'success'
@@ -50,12 +52,13 @@ export function ToastProvider() {
             }`}
         >
           {toast.type === 'success'
-            ? <CheckCircle size={18} className="shrink-0" />
-            : <XCircle size={18} className="shrink-0" />
+            ? <CheckCircle size={18} className="shrink-0" aria-hidden="true" />
+            : <XCircle size={18} className="shrink-0" aria-hidden="true" />
           }
           <span className="text-sm font-medium text-white">{toast.message}</span>
           <button
             onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+            aria-label="Chiudi notifica"
             className="ml-1 text-zinc-500 hover:text-white transition shrink-0"
           >
             <X size={14} />

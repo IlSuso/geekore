@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { showToast } from '@/components/ui/Toast'
 import { UserPlus, UserCheck } from 'lucide-react'
 
 export function FollowButton({
@@ -19,29 +20,50 @@ export function FollowButton({
 
   if (targetId === currentUserId) return null
 
-  const toggleFollow = async () => {
+  const toggleFollow = useCallback(async () => {
     if (loading) return
     setLoading(true)
+
+    // Optimistic update
+    const prev = isFollowing
+    setIsFollowing(!prev)
+
     try {
-      if (isFollowing) {
-        await supabase.from('follows').delete().eq('follower_id', currentUserId).eq('following_id', targetId)
-        setIsFollowing(false)
+      if (prev) {
+        const { error } = await supabase
+          .from('follows')
+          .delete()
+          .eq('follower_id', currentUserId)
+          .eq('following_id', targetId)
+        if (error) throw error
       } else {
-        await supabase.from('follows').insert({ follower_id: currentUserId, following_id: targetId })
+        const { error } = await supabase
+          .from('follows')
+          .insert({ follower_id: currentUserId, following_id: targetId })
+        if (error) throw error
+
+        // Notification — best effort, don't block on failure
         await supabase.from('notifications').insert({
-          receiver_id: targetId, sender_id: currentUserId, type: 'follow',
+          receiver_id: targetId,
+          sender_id: currentUserId,
+          type: 'follow',
         })
-        setIsFollowing(true)
       }
+    } catch {
+      // Rollback optimistic update
+      setIsFollowing(prev)
+      showToast('Errore. Riprova tra poco.', 'error')
     } finally {
       setLoading(false)
     }
-  }
+  }, [loading, isFollowing, targetId, currentUserId])
 
   return (
     <button
       onClick={toggleFollow}
       disabled={loading}
+      aria-label={isFollowing ? `Smetti di seguire` : `Segui`}
+      aria-pressed={isFollowing}
       className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold transition-all disabled:opacity-60 ${
         isFollowing
           ? 'bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700 hover:border-zinc-600'
