@@ -8,6 +8,10 @@ const nextConfig = {
       { protocol: 'https', hostname: 'media.rawg.io' },
       { protocol: 'https', hostname: 'avatars.akamai.steamstatic.com' },
       { protocol: 'https', hostname: '*.supabase.co' },
+      { protocol: 'https', hostname: 'image.tmdb.org' },
+      { protocol: 'https', hostname: 'via.placeholder.com' },
+      { protocol: 'https', hostname: 'cdn.cloudflare.steamstatic.com' },
+      { protocol: 'https', hostname: 'api.dicebear.com' },
     ],
   },
 }

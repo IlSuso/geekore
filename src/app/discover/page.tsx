@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Plus, X, Film, Tv, Gamepad2, BookOpen } from 'lucide-react';
+import { Search, Plus, X, Film, Tv, Gamepad2, BookOpen, Dices } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { StarRating } from '@/components/ui/StarRating';
 
@@ -14,7 +14,7 @@ type MediaItem = {
   episodes?: number;
   totalSeasons?: number;
   seasons?: Record<number, { episode_count: number }>;
-  source: 'anilist' | 'tmdb' | 'igdb';
+  source: 'anilist' | 'tmdb' | 'igdb' | 'bgg';
 };
 
 function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
@@ -47,6 +47,7 @@ export default function DiscoverPage() {
     { id: 'movie', label: 'Film', icon: Film },
     { id: 'tv', label: 'Serie TV', icon: Tv },
     { id: 'game', label: 'Videogiochi', icon: Gamepad2 },
+    { id: 'boardgame', label: 'Board Game', icon: Dices },
   ];
 
   useEffect(() => {
@@ -254,6 +255,23 @@ export default function DiscoverPage() {
         }
       }
 
+      // BoardGameGeek
+      if (activeType === 'boardgame' && term.length >= 2) {
+        const res = await fetch(`/api/boardgames?search=${encodeURIComponent(term)}`);
+        if (res.ok) {
+          const json = await res.json();
+          const bggResults: MediaItem[] = (json.results || []).map((g: any) => ({
+            id: g.id,
+            title: g.title,
+            type: 'boardgame',
+            coverImage: g.coverImage,
+            year: g.year,
+            source: 'bgg' as const,
+          }));
+          rawResults = [...rawResults, ...bggResults.filter(hasValidCover)];
+        }
+      }
+
       const uniqueResults = rawResults.filter((item, index, self) =>
         index === self.findIndex((t) => t.id === item.id)
       );
@@ -281,6 +299,7 @@ export default function DiscoverPage() {
     if (!user) return;
 
     const isMovie = media.type === 'movie';
+    const isBoardgame = media.type === 'boardgame';
 
     const { error } = await supabase.from('user_media_entries').insert({
       user_id: user.id,
@@ -289,7 +308,7 @@ export default function DiscoverPage() {
       type: media.type,
       cover_image: media.coverImage,
       status: isMovie ? 'completed' : 'watching',
-      current_episode: 1,
+      current_episode: isBoardgame ? 0 : 1,
       progress: 1,
       episodes: media.episodes || null,
       rating: rating || null,
@@ -305,8 +324,8 @@ export default function DiscoverPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setAdding(false); return; }
 
-    // Film o gioco senza episodi: aggiunto direttamente
-    if (selectedMedia.type === 'movie' || selectedMedia.type === 'game' || (selectedMedia.episodes === 1 || !selectedMedia.episodes)) {
+    // Film, gioco, boardgame senza episodi: aggiunto direttamente
+    if (selectedMedia.type === 'movie' || selectedMedia.type === 'game' || selectedMedia.type === 'boardgame' || (selectedMedia.episodes === 1 || !selectedMedia.episodes)) {
       await addDirectly(selectedMedia, modalRating);
       setSelectedMedia(null);
       setModalRating(0);
@@ -533,6 +552,13 @@ export default function DiscoverPage() {
               {selectedMedia.type === 'movie' && (
                 <div className="bg-zinc-800 rounded-2xl px-5 py-4 text-sm text-zinc-400">
                   Il film verrà aggiunto come completato.
+                </div>
+              )}
+
+              {/* Messaggio per boardgame */}
+              {selectedMedia.type === 'boardgame' && (
+                <div className="bg-zinc-800 rounded-2xl px-5 py-4 text-sm text-zinc-400">
+                  Il board game verrà aggiunto alla tua collezione. Potrai aggiornare le partite giocate dal profilo.
                 </div>
               )}
             </div>
