@@ -2,65 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Base ────────────────────────────────────────────────────── */
 body {
-  font-family: 'Inter', system_ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
   background: #000;
   color: #fff;
-  margin: 0;
-  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
 }
 
-/* Spazio extra per navbar mobile */
-main {
-  padding-bottom: 90px;   /* spazio per la barra mobile */
-}
+/* ── Scrollbar ───────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #7c6af7; }
 
-@media (min-width: 768px) {
-  main {
-    padding-bottom: 2rem;
-  }
-}
-
-/* Scrollbar stile geek */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #18181b;
-}
-::-webkit-scrollbar-thumb {
-  background: #6b21a8;
-  border-radius: 20px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #9333ea;
-}
-
-/* Stile generale per le card */
-.card {
-  background: #09090b;
-  border: 1px solid #27272a;
-  transition: all 0.2s ease;
-}
-
-.card:hover {
-  border-color: #6b21a8;
-  transform: translateY(-2px);
-}
-
-/* Rimuove qualsiasi margine/padding indesiderato */
-* {
-  box-sizing: border-box;
-}
-
-/* ==================== NASCONDE LE FRECCETTE DELL'INPUT NUMBER ==================== */
+/* ── Number input — hide spinners ────────────────────────────── */
 input[type="number"].no-spinner::-webkit-inner-spin-button,
 input[type="number"].no-spinner::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
+input[type="number"].no-spinner { -moz-appearance: textfield; }
 
-input[type="number"].no-spinner {
-  -moz-appearance: textfield;
+/* ── Animations ──────────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in  { animation: fade-in  0.3s ease forwards; }
+.animate-scale-in { animation: scale-in 0.2s ease forwards; }
+
+/* ── Skeleton shimmer ────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg, #18181b 25%, #27272a 50%, #18181b 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
 }
