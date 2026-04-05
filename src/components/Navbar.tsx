@@ -2,21 +2,64 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Search, PlusCircle, User, Trophy } from 'lucide-react'
+import { Home, Search, PlusCircle, User, Trophy, Bell } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 export default function Navbar() {
   const pathname = usePathname()
+  const supabase = createClient()
+  const [hasNewNotifications, setHasNewNotifications] = useState(false)
 
   const navItems = [
     { href: '/', label: 'Home', icon: Home },
     { href: '/discover', label: 'Discover', icon: Search },
     { href: '/feed', label: 'Feed', icon: PlusCircle },
-    { href: '/profile/me', label: 'Profilo', icon: User }, // FIX: /profile/me invece di /profile
+    { href: '/notifications', label: 'Notifiche', icon: Bell, hasDot: true },
+    { href: '/profile/me', label: 'Profilo', icon: User },
   ]
 
-  // Considera "profilo" attivo anche su /profile/[username]
   const isProfileActive =
     pathname === '/profile/me' || pathname.startsWith('/profile/')
+
+  useEffect(() => {
+    if (pathname === '/notifications') setHasNewNotifications(false)
+  }, [pathname])
+
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+
+      supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('receiver_id', user.id)
+        .eq('is_read', false)
+        .then(({ count }) => {
+          if (count && count > 0) setHasNewNotifications(true)
+        })
+
+      channel = supabase
+        .channel('navbar-notifications')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `receiver_id=eq.${user.id}`,
+          },
+          () => setHasNewNotifications(true)
+        )
+        .subscribe()
+    })
+
+    return () => {
+      if (channel) supabase.removeChannel(channel)
+    }
+  }, [])
 
   return (
     <>
@@ -40,12 +83,15 @@ export default function Navbar() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-2 transition hover:text-violet-400 ${
+                  className={`relative flex items-center gap-2 transition hover:text-violet-400 ${
                     isActive ? 'text-violet-400' : 'text-zinc-400'
                   }`}
                 >
                   <item.icon size={20} />
                   {item.label}
+                  {item.hasDot && hasNewNotifications && (
+                    <span className="absolute -top-1 -right-2 w-2 h-2 bg-red-500 rounded-full" />
+                  )}
                 </Link>
               )
             })}
@@ -75,7 +121,12 @@ export default function Navbar() {
                   isActive ? 'text-violet-400' : 'text-zinc-400'
                 }`}
               >
-                <item.icon size={26} strokeWidth={isActive ? 2.5 : 2} />
+                <div className="relative">
+                  <item.icon size={26} strokeWidth={isActive ? 2.5 : 2} />
+                  {item.hasDot && hasNewNotifications && (
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-black" />
+                  )}
+                </div>
                 <span className="text-[10px] font-medium tracking-wide">
                   {item.label}
                 </span>

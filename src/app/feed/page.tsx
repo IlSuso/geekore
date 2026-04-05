@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import { formatDistanceToNow } from 'date-fns';
 import { it } from 'date-fns/locale';
 
@@ -43,6 +44,12 @@ export default function FeedPage() {
   const [currentProfile, setCurrentProfile] = useState<any>(null);
   const [commentContent, setCommentContent] = useState('');
   const [commentingPostId, setCommentingPostId] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [feedFilter, setFeedFilter] = useState<'all' | 'following'>('all');
+
+  const PAGE_SIZE = 20;
 
   const supabase = createClient();
 
@@ -57,7 +64,7 @@ export default function FeedPage() {
           .eq('id', user.id)
           .single();
         setCurrentProfile(profile);
-        await loadPosts(user.id);
+        await loadPosts(user.id, 0, false);
       } else {
         setLoading(false);
       }
@@ -65,72 +72,114 @@ export default function FeedPage() {
     init();
   }, []);
 
-  const loadPosts = async (userId: string) => {
-    setLoading(true);
+  const loadPosts = async (userId: string, pageIndex = 0, append = false, filter: 'all' | 'following' = 'all') => {
+    if (append) setLoadingMore(true);
+    else setLoading(true);
 
-    const { data: postsData, error: postsError } = await supabase
+    const from = pageIndex * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
+    // Se filtro following, prima recupera gli ID degli utenti seguiti
+    let followingIds: string[] = [];
+    if (filter === 'following') {
+      const { data: followsData } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', userId);
+      followingIds = (followsData || []).map((f: any) => f.following_id);
+      // Se non segue nessuno, mostra lista vuota subito
+      if (followingIds.length === 0) {
+        setPosts(append ? (prev => prev) : []);
+        setHasMore(false);
+        if (append) setLoadingMore(false);
+        else setLoading(false);
+        return;
+      }
+    }
+
+    let query = supabase
       .from('posts')
       .select(`
         id, content, image_url, created_at,
-        profiles!posts_user_id_fkey (username, display_name, avatar_url)
+        profiles!posts_user_id_fkey (username, display_name, avatar_url),
+        likes (id, user_id),
+        comments (id, content, created_at, user_id)
       `)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (filter === 'following' && followingIds.length > 0) {
+      query = query.in('user_id', followingIds);
+    }
+
+    const { data: postsData, error: postsError } = await query;
 
     if (postsError) {
       console.error('Errore caricamento post:', postsError);
-      setLoading(false);
+      if (append) setLoadingMore(false);
+      else setLoading(false);
       return;
     }
 
-    const formatted = await Promise.all((postsData || []).map(async (post: any) => {
-      const { count: likesCount } = await supabase
-        .from('likes')
-        .select('*', { count: 'exact', head: true })
-        .eq('post_id', post.id);
+    // Per i commenti recuperiamo i profili in una query sola
+    const allComments = (postsData || []).flatMap((p: any) => p.comments || []);
+    const uniqueUserIds = [...new Set(allComments.map((c: any) => c.user_id))];
 
-      const { count: commentsCount } = await supabase
-        .from('comments')
-        .select('*', { count: 'exact', head: true })
-        .eq('post_id', post.id);
+    let profileMap: Record<string, { username: string; display_name?: string }> = {};
+    if (uniqueUserIds.length > 0) {
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, username, display_name')
+        .in('id', uniqueUserIds);
+      if (profilesData) {
+        profilesData.forEach((p: any) => { profileMap[p.id] = p; });
+      }
+    }
 
-      const { data: rawComments } = await supabase
-        .from('comments')
-        .select('id, content, created_at, user_id')
-        .eq('post_id', post.id)
-        .order('created_at', { ascending: false });
-
-      const commentsWithProfile = await Promise.all((rawComments || []).map(async (comment: any) => {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('username, display_name')
-          .eq('id', comment.user_id)
-          .single();
-
-        return {
-          ...comment,
-          username: profileData?.username || 'utente',
-          display_name: profileData?.display_name,
-        };
+    const formatted = (postsData || []).map((post: any) => {
+      const likes = post.likes || [];
+      const comments = (post.comments || []).map((c: any) => ({
+        id: c.id,
+        content: c.content,
+        created_at: c.created_at,
+        user_id: c.user_id,
+        username: profileMap[c.user_id]?.username || 'utente',
+        display_name: profileMap[c.user_id]?.display_name,
       }));
-
-      const { data: userLike } = await supabase
-        .from('likes')
-        .select('id')
-        .eq('post_id', post.id)
-        .eq('user_id', userId)
-        .maybeSingle();
 
       return {
         ...post,
-        likes_count: likesCount || 0,
-        comments_count: commentsCount || 0,
-        liked_by_user: !!userLike,
-        comments: commentsWithProfile,
+        likes_count: likes.length,
+        liked_by_user: likes.some((l: any) => l.user_id === userId),
+        comments_count: comments.length,
+        comments,
       };
-    }));
+    });
 
-    setPosts(formatted);
-    setLoading(false);
+    setHasMore((postsData || []).length === PAGE_SIZE);
+
+    if (append) {
+      setPosts(prev => [...prev, ...formatted]);
+      setLoadingMore(false);
+    } else {
+      setPosts(formatted);
+      setLoading(false);
+    }
+  };
+
+  const loadMore = async () => {
+    if (!currentUser || loadingMore || !hasMore) return;
+    const nextPage = page + 1;
+    setPage(nextPage);
+    await loadPosts(currentUser.id, nextPage, true, feedFilter);
+  };
+
+  const handleFilterChange = async (filter: 'all' | 'following') => {
+    if (!currentUser) return;
+    setFeedFilter(filter);
+    setPage(0);
+    setHasMore(true);
+    await loadPosts(currentUser.id, 0, false, filter);
   };
 
   const handleCreatePost = async (e: React.FormEvent) => {
@@ -287,13 +336,7 @@ export default function FeedPage() {
     setCommentingPostId(null);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <Sparkles className="w-12 h-12 text-violet-500 animate-pulse" />
-      </div>
-    );
-  }
+  if (loading) return <Spinner />;
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -338,11 +381,45 @@ export default function FeedPage() {
         )}
 
         <div className="space-y-8">
+          {/* Toggle Tutti / Following */}
+          {currentUser && (
+            <div className="flex gap-2 bg-zinc-950 border border-zinc-800 rounded-2xl p-1.5 w-fit">
+              <button
+                onClick={() => handleFilterChange('all')}
+                className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                  feedFilter === 'all'
+                    ? 'bg-violet-600 text-white'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                Tutti
+              </button>
+              <button
+                onClick={() => handleFilterChange('following')}
+                className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                  feedFilter === 'following'
+                    ? 'bg-violet-600 text-white'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                Following
+              </button>
+            </div>
+          )}
           {posts.length === 0 ? (
             <div className="text-center py-24">
               <Sparkles className="mx-auto mb-6 text-violet-500" size={60} />
-              <p className="text-2xl font-medium">Il feed è vuoto</p>
-              <p className="text-zinc-500 mt-3">Sii il primo a condividere qualcosa!</p>
+              {feedFilter === 'following' ? (
+                <>
+                  <p className="text-2xl font-medium">Nessun post dai tuoi following</p>
+                  <p className="text-zinc-500 mt-3">Inizia a seguire qualcuno per vedere i loro post qui.</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-2xl font-medium">Il feed è vuoto</p>
+                  <p className="text-zinc-500 mt-3">Sii il primo a condividere qualcosa!</p>
+                </>
+              )}
             </div>
           ) : (
             posts.map((post) => (
@@ -355,7 +432,9 @@ export default function FeedPage() {
                     {post.profiles.avatar_url ? (
                       <img src={post.profiles.avatar_url} alt="" className="object-cover w-full h-full" />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-violet-500 to-cyan-400 flex items-center justify-center text-3xl">👤</div>
+                      <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-xl">
+                        {post.profiles.display_name?.[0]?.toUpperCase() || post.profiles.username?.[0]?.toUpperCase() || '?'}
+                      </div>
                     )}
                   </div>
                   <div>
@@ -440,6 +519,26 @@ export default function FeedPage() {
             ))
           )}
         </div>
+
+        {/* Pulsante carica altri */}
+        {hasMore && posts.length > 0 && (
+          <div className="flex justify-center mt-10">
+            <button
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="px-10 py-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl font-medium transition disabled:opacity-50 flex items-center gap-3"
+            >
+              {loadingMore ? (
+                <>
+                  <Sparkles size={18} className="animate-pulse text-violet-400" />
+                  Caricamento...
+                </>
+              ) : (
+                'Carica altri post'
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

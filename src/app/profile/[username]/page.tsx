@@ -6,6 +6,10 @@ import {
   CheckCircle, Clock, X, RotateCw, RotateCcw, Edit3, RefreshCw,
 } from 'lucide-react'
 import { SteamIcon } from '@/components/icons/SteamIcon'
+import { StarRating } from '@/components/ui/StarRating'
+import { Spinner } from '@/components/ui/Spinner'
+import { showToast } from '@/components/ui/Toast'
+import { FollowButton } from '@/components/profile/follow-button'
 import {
   DndContext, closestCenter, PointerSensor,
   useSensor, useSensors, DragEndEvent,
@@ -42,59 +46,6 @@ type Profile = {
   display_name?: string
   avatar_url?: string
   bio?: string
-}
-
-// ─── StarRating ───────────────────────────────────────────────────────────────
-
-export function StarRating({
-  value = 0, onChange, size = 20, viewOnly = false,
-}: {
-  value?: number
-  onChange?: (r: number) => void
-  size?: number
-  viewOnly?: boolean
-}) {
-  const [hovered, setHovered] = useState<number | null>(null)
-  const displayed = hovered ?? value
-
-  return (
-    <div
-      className={`flex flex-row items-center gap-0.5 ${viewOnly ? 'pointer-events-none' : ''}`}
-      onMouseLeave={() => !viewOnly && setHovered(null)}
-    >
-      {[1, 2, 3, 4, 5].map((star) => {
-        const full = displayed >= star
-        const half = !full && displayed >= star - 0.5
-        return (
-          <div key={star} className={`relative ${viewOnly ? '' : 'cursor-pointer select-none'}`} style={{ width: size, height: size }}>
-            <svg width={size} height={size} viewBox="0 0 24 24" className="absolute inset-0">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#374151" />
-            </svg>
-            <svg width={size} height={size} viewBox="0 0 24 24" className="absolute inset-0">
-              <defs>
-                <clipPath id={`half-${star}`}><rect x="0" y="0" width="12" height="24" /></clipPath>
-              </defs>
-              <path
-                d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-                fill={full || half ? '#fbbf24' : 'transparent'}
-                clipPath={full ? undefined : `url(#half-${star})`}
-              />
-            </svg>
-            {!viewOnly && (
-              <>
-                <div className="absolute inset-y-0 left-0 z-10" style={{ width: '50%' }}
-                  onMouseEnter={() => setHovered(star - 0.5)}
-                  onClick={() => onChange?.(star - 0.5)} />
-                <div className="absolute inset-y-0 right-0 z-10" style={{ width: '50%' }}
-                  onMouseEnter={() => setHovered(star)}
-                  onClick={() => onChange?.(star)} />
-              </>
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
 }
 
 // ─── SortableBox ─────────────────────────────────────────────────────────────
@@ -347,6 +298,9 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
   const [importingGames, setImportingGames] = useState(false)
   const [reorderingGames, setReorderingGames] = useState(false)
   const [steamMessage, setSteamMessage] = useState<{ text: string; type: 'error' | 'success' } | null>(null)
+  const [followersCount, setFollowersCount] = useState(0)
+  const [followingCount, setFollowingCount] = useState(0)
+  const [isFollowing, setIsFollowing] = useState(false)
 
   // Notes modal
   const [selectedMedia, setSelectedMedia] = useState<UserMedia | null>(null)
@@ -430,6 +384,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
     if (!confirm('Vuoi davvero eliminare questo elemento?')) return
     await supabase.from('user_media_entries').delete().eq('id', id)
     setMediaList(prev => prev.filter(item => item.id !== id))
+    showToast('Eliminato dalla collezione')
   }
 
   const markAsCompleted = async (id: string, media: UserMedia) => {
@@ -445,6 +400,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
     }
     await supabase.from('user_media_entries').update(update).eq('id', id)
     setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
+    showToast('Completato!')
   }
 
   const resetProgress = async (id: string) => {
@@ -452,6 +408,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
     const update = { current_season: 1, current_episode: 1 }
     await supabase.from('user_media_entries').update(update).eq('id', id)
     setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
+    showToast('Progresso ripristinato')
   }
 
   const saveProgress = async (id: string, val: number, field: 'current_episode' | 'current_season' = 'current_episode') => {
@@ -459,12 +416,14 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
     const update = field === 'current_season' ? { current_season: val, current_episode: 1 } : { current_episode: val }
     await supabase.from('user_media_entries').update(update).eq('id', id)
     setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
+    showToast('Progresso salvato')
   }
 
   const setRating = async (mediaId: string, rating: number) => {
     if (!isOwner) return
     await supabase.from('user_media_entries').update({ rating }).eq('id', mediaId)
     setMediaList(prev => prev.map(item => item.id === mediaId ? { ...item, rating } : item))
+    showToast('Voto salvato')
   }
 
   const openNotesModal = (media: UserMedia) => {
@@ -480,6 +439,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
     setMediaList(prev => prev.map(item => item.id === selectedMedia.id ? { ...item, notes: notesInput.trim() } : item))
     setIsNotesModalOpen(false)
     setSelectedMedia(null)
+    showToast('Note aggiornate')
   }
 
   const onDragEnd = async (event: DragEndEvent) => {
@@ -535,6 +495,25 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
         .eq('user_id', profileData.id)
       if (mediaData) setMediaList(sortMediaList(mediaData))
 
+      // 6. Contatori followers/following
+      const [{ count: fwersCount }, { count: fwingCount }] = await Promise.all([
+        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profileData.id),
+        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profileData.id),
+      ])
+      setFollowersCount(fwersCount || 0)
+      setFollowingCount(fwingCount || 0)
+
+      // 7. Segue già questo utente?
+      if (user && !ownerCheck) {
+        const { data: followData } = await supabase
+          .from('follows')
+          .select('follower_id')
+          .eq('follower_id', user.id)
+          .eq('following_id', profileData.id)
+          .maybeSingle()
+        setIsFollowing(!!followData)
+      }
+
       setLoading(false)
     }
     fetchData()
@@ -542,9 +521,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  if (loading) {
-    return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white">Caricamento...</div>
-  }
+  if (loading) return <Spinner />
 
   if (!profile) {
     return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white">Utente non trovato</div>
@@ -579,12 +556,36 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
             <p className="text-xl text-zinc-400">@{profile.username}</p>
             {profile.bio && <p className="text-zinc-500 mt-3 text-center max-w-md">{profile.bio}</p>}
 
+            {/* Contatori followers/following */}
+            <div className="flex items-center gap-6 mt-5">
+              <div className="text-center">
+                <p className="text-xl font-bold">{followersCount}</p>
+                <p className="text-xs text-zinc-500 uppercase tracking-widest">Follower</p>
+              </div>
+              <div className="w-px h-8 bg-zinc-800" />
+              <div className="text-center">
+                <p className="text-xl font-bold">{followingCount}</p>
+                <p className="text-xs text-zinc-500 uppercase tracking-widest">Following</p>
+              </div>
+            </div>
+
             {isOwner && (
               <Link href="/profile/edit" className="mt-6">
                 <button className="px-8 py-3 bg-white text-black font-semibold rounded-full hover:bg-zinc-200 transition-all">
                   Modifica Profilo
                 </button>
               </Link>
+            )}
+
+            {/* FollowButton — solo se non sei il proprietario e sei loggato */}
+            {!isOwner && currentUserId && profile && (
+              <div className="mt-6">
+                <FollowButton
+                  targetId={profile.id}
+                  currentUserId={currentUserId}
+                  isFollowingInitial={isFollowing}
+                />
+              </div>
             )}
           </div>
 

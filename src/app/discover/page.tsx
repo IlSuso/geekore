@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Navbar from '@/components/Navbar';
 import { Search, Plus, X, Film, Tv, Gamepad2, BookOpen } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { StarRating } from '@/components/ui/StarRating';
 
 type MediaItem = {
   id: string;
@@ -35,6 +35,7 @@ export default function DiscoverPage() {
   const [currentEpisode, setCurrentEpisode] = useState('');
   const [adding, setAdding] = useState(false);
   const [alreadyAdded, setAlreadyAdded] = useState<string[]>([]);
+  const [modalRating, setModalRating] = useState(0);
 
   const supabase = createClient();
   const tmdbToken = process.env.NEXT_PUBLIC_TMDB_API_KEY;
@@ -79,38 +80,93 @@ export default function DiscoverPage() {
     let rawResults: MediaItem[] = [];
 
     try {
-      // AniList
-      if (activeType === 'all' || activeType === 'anime' || activeType === 'manga') {
-        const aniListType = activeType === 'manga' ? 'MANGA' : 'ANIME';
+      // AniList — Anime
+      if (activeType === 'all' || activeType === 'anime') {
         const query = `query ($search: String) {
           Page(page: 1, perPage: 20) {
-            media(search: $search, type: ${aniListType}, sort: [POPULARITY_DESC, SCORE_DESC]) {
+            media(search: $search, type: ANIME, sort: [POPULARITY_DESC, SCORE_DESC]) {
               id title { romaji english } coverImage { large } seasonYear episodes type
             }
           }
         }`;
-
         const res = await fetch('https://graphql.anilist.co', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query, variables: { search: term } }),
         });
-
         const json = await res.json();
-
         const aniResults = (json.data?.Page?.media || [])
           .map((m: any): MediaItem => ({
-            id: m.id.toString(),
+            id: `anilist-anime-${m.id}`,
             title: m.title.romaji || m.title.english || 'Senza titolo',
-            type: (m.type || 'anime').toLowerCase(),
+            type: 'anime',
             coverImage: m.coverImage?.large,
             year: m.seasonYear,
             episodes: m.episodes,
             source: 'anilist',
           }))
           .filter(hasValidCover);
-
         rawResults = [...rawResults, ...aniResults];
+      }
+
+      // AniList — Manga + Light Novel
+      if (activeType === 'all' || activeType === 'manga') {
+        // Manga
+        const mangaQuery = `query ($search: String) {
+          Page(page: 1, perPage: 15) {
+            media(search: $search, type: MANGA, format_in: [MANGA, ONE_SHOT], sort: [POPULARITY_DESC, SCORE_DESC]) {
+              id title { romaji english } coverImage { large } seasonYear chapters type
+            }
+          }
+        }`;
+        const novelQuery = `query ($search: String) {
+          Page(page: 1, perPage: 5) {
+            media(search: $search, type: MANGA, format_in: [NOVEL], sort: [POPULARITY_DESC, SCORE_DESC]) {
+              id title { romaji english } coverImage { large } seasonYear chapters type
+            }
+          }
+        }`;
+
+        const [mangaRes, novelRes] = await Promise.all([
+          fetch('https://graphql.anilist.co', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: mangaQuery, variables: { search: term } }),
+          }),
+          fetch('https://graphql.anilist.co', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: novelQuery, variables: { search: term } }),
+          }),
+        ]);
+
+        const [mangaJson, novelJson] = await Promise.all([mangaRes.json(), novelRes.json()]);
+
+        const mangaResults = (mangaJson.data?.Page?.media || [])
+          .map((m: any): MediaItem => ({
+            id: `anilist-manga-${m.id}`,
+            title: m.title.romaji || m.title.english || 'Senza titolo',
+            type: 'manga',
+            coverImage: m.coverImage?.large,
+            year: m.seasonYear,
+            episodes: m.chapters,
+            source: 'anilist',
+          }))
+          .filter(hasValidCover);
+
+        const novelResults = (novelJson.data?.Page?.media || [])
+          .map((m: any): MediaItem => ({
+            id: `anilist-novel-${m.id}`,
+            title: m.title.romaji || m.title.english || 'Senza titolo',
+            type: 'manga', // mostriamo i novel come manga nel profilo
+            coverImage: m.coverImage?.large,
+            year: m.seasonYear,
+            episodes: m.chapters,
+            source: 'anilist',
+          }))
+          .filter(hasValidCover);
+
+        rawResults = [...rawResults, ...mangaResults, ...novelResults];
       }
 
       // TMDb
@@ -213,25 +269,18 @@ export default function DiscoverPage() {
   const handleAdd = async (media: MediaItem) => {
     if (alreadyAdded.includes(media.id)) return;
 
-    if (media.type === 'tv') {
-      setSelectedMedia(media);
-      setSelectedSeason(1);
-      setCurrentEpisode('');
-      return;
-    }
-
-    if (media.episodes === 1 || !media.episodes) {
-      addDirectly(media);
-      return;
-    }
-
+    // Apri sempre il modal per permettere di votare subito
     setSelectedMedia(media);
+    setModalRating(0);
+    setSelectedSeason(1);
     setCurrentEpisode('');
   };
 
-  const addDirectly = async (media: MediaItem) => {
+  const addDirectly = async (media: MediaItem, rating: number = 0) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+
+    const isMovie = media.type === 'movie';
 
     const { error } = await supabase.from('user_media_entries').insert({
       user_id: user.id,
@@ -239,30 +288,43 @@ export default function DiscoverPage() {
       title: media.title,
       type: media.type,
       cover_image: media.coverImage,
-      status: 'watching',
+      status: isMovie ? 'completed' : 'watching',
       current_episode: 1,
       progress: 1,
       episodes: media.episodes || null,
+      rating: rating || null,
     });
 
     if (!error) setAlreadyAdded(prev => [...prev, media.id]);
   };
 
   const confirmAdd = async () => {
-    if (!selectedMedia || !currentEpisode || Number(currentEpisode) < 1) {
-      alert('Inserisci un numero di episodio valido');
+    if (!selectedMedia) return;
+
+    setAdding(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setAdding(false); return; }
+
+    // Film o gioco senza episodi: aggiunto direttamente
+    if (selectedMedia.type === 'movie' || selectedMedia.type === 'game' || (selectedMedia.episodes === 1 || !selectedMedia.episodes)) {
+      await addDirectly(selectedMedia, modalRating);
+      setSelectedMedia(null);
+      setModalRating(0);
+      setAdding(false);
+      return;
+    }
+
+    // Serie/Anime: serve episodio
+    if (!currentEpisode || Number(currentEpisode) < 1) {
+      setAdding(false);
       return;
     }
 
     const maxEpisodes = selectedMedia.seasons?.[selectedSeason]?.episode_count || 9999;
     if (Number(currentEpisode) > maxEpisodes) {
-      alert(`La stagione ${selectedSeason} ha solo ${maxEpisodes} episodi.`);
+      setAdding(false);
       return;
     }
-
-    setAdding(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
 
     const finalEpisode = Math.min(Number(currentEpisode), maxEpisodes);
 
@@ -278,16 +340,15 @@ export default function DiscoverPage() {
       progress: finalEpisode,
       episodes: selectedMedia.episodes || null,
       season_episodes: selectedMedia.seasons || null,
+      rating: modalRating || null,
     });
 
-    if (error) {
-      console.error('Errore insert:', error);
-      alert(`Errore: ${error.message}`);
-    } else {
+    if (!error) {
       setAlreadyAdded(prev => [...prev, selectedMedia.id]);
       setSelectedMedia(null);
       setCurrentEpisode('');
       setSelectedSeason(1);
+      setModalRating(0);
     }
     setAdding(false);
   };
@@ -384,7 +445,7 @@ export default function DiscoverPage() {
         )}
       </div>
 
-      {/* Modal Aggiungi - SENZA FRECCETTE */}
+      {/* Modal Aggiungi */}
       {selectedMedia && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
           <div className="bg-zinc-900 border border-zinc-700 rounded-3xl max-w-md w-full p-8">
@@ -397,7 +458,7 @@ export default function DiscoverPage() {
 
             <div className="flex gap-5 mb-8">
               {selectedMedia.coverImage && (
-                <img src={selectedMedia.coverImage} alt="" className="w-24 h-36 object-cover rounded-2xl" />
+                <img src={selectedMedia.coverImage} alt="" className="w-24 h-36 object-cover rounded-2xl flex-shrink-0" />
               )}
               <div className="flex-1">
                 <p className="font-semibold text-lg">{selectedMedia.title}</p>
@@ -409,53 +470,87 @@ export default function DiscoverPage() {
             </div>
 
             <div className="mb-8 space-y-6">
+
+              {/* Voto — sempre visibile */}
               <div>
-                <p className="text-sm text-zinc-400 mb-2">Stagione</p>
-                <select
-                  value={selectedSeason}
-                  onChange={(e) => {
-                    setSelectedSeason(Number(e.target.value));
-                    setCurrentEpisode('');
-                  }}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 text-lg focus:outline-none focus:border-violet-500"
-                >
-                  {Object.keys(selectedMedia.seasons || {}).map((key) => {
-                    const num = parseInt(key);
-                    const count = selectedMedia.seasons?.[num]?.episode_count || 0;
-                    return (
-                      <option key={num} value={num}>
-                        Stagione {num} ({count} episodi)
-                      </option>
-                    );
-                  })}
-                </select>
+                <p className="text-sm text-zinc-400 mb-3">Voto (opzionale)</p>
+                <StarRating value={modalRating} onChange={setModalRating} />
+                {modalRating > 0 && (
+                  <p className="text-xs text-zinc-500 mt-2">{modalRating} / 5 stelle</p>
+                )}
               </div>
 
-              <div>
-                <p className="text-sm text-zinc-400 mb-2">Episodio</p>
-                <input
-                  type="number"
-                  min="1"
-                  max={selectedMedia.seasons?.[selectedSeason]?.episode_count || 9999}
-                  value={currentEpisode}
-                  onChange={(e) => setCurrentEpisode(e.target.value.replace(/[^0-9]/g, ''))}
-                  placeholder="Numero episodio"
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 text-3xl text-center focus:outline-none focus:border-violet-500 appearance-none no-spinner"
-                />
-              </div>
+              {/* Stagione + Episodio — solo per serie TV e anime con episodi */}
+              {selectedMedia.type !== 'movie' && selectedMedia.type !== 'game' &&
+               selectedMedia.episodes && selectedMedia.episodes > 1 && (
+
+                <>
+                  {selectedMedia.type === 'tv' && selectedMedia.seasons && Object.keys(selectedMedia.seasons).length > 0 && (
+                    <div>
+                      <p className="text-sm text-zinc-400 mb-2">Stagione</p>
+                      <select
+                        value={selectedSeason}
+                        onChange={(e) => {
+                          setSelectedSeason(Number(e.target.value));
+                          setCurrentEpisode('');
+                        }}
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 text-lg focus:outline-none focus:border-violet-500"
+                      >
+                        {Object.keys(selectedMedia.seasons).map((key) => {
+                          const num = parseInt(key);
+                          const count = selectedMedia.seasons?.[num]?.episode_count || 0;
+                          return (
+                            <option key={num} value={num}>
+                              Stagione {num} ({count} episodi)
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="text-sm text-zinc-400 mb-2">Episodio corrente</p>
+                    <input
+                      type="number"
+                      min="1"
+                      max={selectedMedia.seasons?.[selectedSeason]?.episode_count || selectedMedia.episodes || 9999}
+                      value={currentEpisode}
+                      onChange={(e) => setCurrentEpisode(e.target.value.replace(/[^0-9]/g, ''))}
+                      placeholder="Numero episodio"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 text-3xl text-center focus:outline-none focus:border-violet-500 appearance-none no-spinner"
+                    />
+                    {currentEpisode && Number(currentEpisode) > (selectedMedia.seasons?.[selectedSeason]?.episode_count || selectedMedia.episodes || 9999) && (
+                      <p className="text-xs text-red-400 mt-2">
+                        Numero episodio non valido
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Messaggio per film */}
+              {selectedMedia.type === 'movie' && (
+                <div className="bg-zinc-800 rounded-2xl px-5 py-4 text-sm text-zinc-400">
+                  Il film verrà aggiunto come completato.
+                </div>
+              )}
             </div>
 
             <button
               onClick={confirmAdd}
-              disabled={
-                adding || 
-                !currentEpisode || 
-                Number(currentEpisode) < 1 ||
-                Number(currentEpisode) > (selectedMedia.seasons?.[selectedSeason]?.episode_count || 9999)
-              }
+              disabled={adding || (
+                selectedMedia.type !== 'movie' &&
+                selectedMedia.type !== 'game' &&
+                selectedMedia.episodes && selectedMedia.episodes > 1 && (
+                  !currentEpisode ||
+                  Number(currentEpisode) < 1 ||
+                  Number(currentEpisode) > (selectedMedia.seasons?.[selectedSeason]?.episode_count || selectedMedia.episodes || 9999)
+                )
+              ) as boolean}
               className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-2xl font-semibold text-lg hover:brightness-110 disabled:opacity-50 transition"
             >
-              {adding ? 'Aggiungendo...' : `Aggiungi (S${selectedSeason} E${currentEpisode})`}
+              {adding ? 'Aggiungendo...' : 'Aggiungi'}
             </button>
           </div>
         </div>
