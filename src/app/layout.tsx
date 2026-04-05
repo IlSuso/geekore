@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import Navbar from '@/components/Navbar'
 import { ToastProvider } from '@/components/ui/Toast'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 
 export const metadata: Metadata = {
   title: { default: 'Geekore', template: '%s — Geekore' },
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
         <ToastProvider />
+        <SpeedInsights />
       </body>
     </html>
   )
