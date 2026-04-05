@@ -30,11 +30,11 @@ export default function LeaderboardPage() {
   );
 
   return (
-    <main className="min-h-screen bg-[#050507] pt-24 pb-32 px-4 text-white uppercase italic">
+    <main className="min-h-screen bg-[#050507] pt-8 sm:pt-24 pb-20 sm:pb-32 px-4 text-white uppercase italic">
       <div className="max-w-2xl mx-auto">
-        <div className="mb-12 border-b border-white/5 pb-8">
+        <div className="mb-8 sm:mb-12 border-b border-white/5 pb-6 sm:pb-8">
           <span className="text-[10px] tracking-[0.3em] text-[#7c6af7] font-black">GLOBAL RANKING</span>
-          <h1 className="text-5xl font-black tracking-tighter leading-none mt-2">CLASSIFICA</h1>
+          <h1 className="text-4xl sm:text-5xl font-black tracking-tighter leading-none mt-2">CLASSIFICA</h1>
         </div>
 
         <div className="space-y-4">
@@ -44,7 +44,7 @@ export default function LeaderboardPage() {
             </div>
           ) : (
             leaders.map((user, index) => (
-              <div key={user.steam_id} className="bg-[#0d0d0f] border border-white/5 p-5 rounded-xl flex items-center gap-6 transition-all hover:border-white/20">
+              <div key={user.steam_id} className="bg-[#0d0d0f] border border-white/5 p-4 sm:p-5 rounded-xl flex items-center gap-4 sm:gap-6 transition-all hover:border-white/20">
                 <div className="text-xl font-black opacity-20 w-8 flex justify-center">
                   {index === 0 ? <Trophy size={20} className="text-yellow-500 opacity-100" /> : `#${index + 1}`}
                 </div>

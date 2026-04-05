@@ -98,27 +98,32 @@ export default function Navbar() {
       </nav>
 
       {/* Mobile bottom navbar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-2xl border-t border-zinc-800/60">
-        <div className="flex items-center justify-around py-2 px-2">
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-2xl border-t border-zinc-800/60"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
+        <div className="flex items-center justify-around py-1 px-1">
           {NAV_ITEMS.map((item) => {
             const isActive = item.href === '/profile/me' ? isProfileActive : pathname === item.href
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-col items-center gap-1 px-4 py-2 rounded-2xl transition-all ${
-                  isActive ? 'text-violet-400' : 'text-zinc-500'
+                className={`flex flex-col items-center gap-0.5 min-w-[60px] py-2.5 px-3 rounded-2xl transition-all active:scale-95 ${
+                  isActive
+                    ? 'text-violet-400 bg-violet-500/10'
+                    : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
                 <div className="relative">
-                  <item.icon size={22} strokeWidth={isActive ? 2.5 : 1.8} />
+                  <item.icon size={24} strokeWidth={isActive ? 2.5 : 1.8} />
                   {item.hasDot && hasNewNotifications && (
                     <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-black" />
                   )}
                 </div>
-                {isActive && (
-                  <span className="text-[10px] font-semibold tracking-wide">{item.label}</span>
-                )}
+                <span className={`text-[10px] font-semibold tracking-wide transition-all ${isActive ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
+                  {item.label}
+                </span>
               </Link>
             )
           })}

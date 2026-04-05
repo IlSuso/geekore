@@ -58,7 +58,7 @@ function SortableBox({ media, children }: { media: UserMedia; children: React.Re
       style={{ transform: CSS.Transform.toString(transform), transition: transition || 'transform 50ms ease' }}
       {...attributes}
       {...listeners}
-      className={`cursor-grab active:cursor-grabbing rounded-3xl overflow-hidden h-[520px] flex flex-col transition-all duration-200 ${
+      className={`cursor-grab active:cursor-grabbing rounded-3xl overflow-hidden h-[400px] sm:h-[520px] flex flex-col transition-all duration-200 ${
         isDragging
           ? 'border-2 border-violet-500 shadow-2xl scale-[1.02] z-50'
           : 'border border-zinc-800 hover:border-violet-500/50 hover:shadow-xl'
@@ -136,7 +136,7 @@ function MediaCard({
   return (
     <div className="group relative bg-zinc-950 rounded-3xl overflow-hidden h-full flex flex-col">
       {/* Cover */}
-      <div className="relative h-72 bg-zinc-900 flex-shrink-0">
+      <div className="relative h-52 sm:h-72 bg-zinc-900 flex-shrink-0">
         {media.is_steam && (
           <div className="absolute top-3 left-3 z-20 bg-[#171D25] p-1.5 rounded-full shadow-lg border border-[#66C0F4]/50">
             <SteamIcon size={18} className="text-white" />
@@ -240,11 +240,11 @@ function MediaCard({
                 <button
                   onClick={() => onSaveProgress?.(media.id, Math.max(0, media.current_episode - 1))}
                   disabled={media.current_episode <= 0}
-                  className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30"
+                  className="w-9 h-9 sm:w-7 sm:h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30"
                 >−</button>
                 <button
                   onClick={() => onSaveProgress?.(media.id, media.current_episode + 1)}
-                  className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold"
+                  className="w-9 h-9 sm:w-7 sm:h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold"
                 >+</button>
               </div>
             )}
@@ -270,7 +270,7 @@ function MediaCard({
                     <button
                       onClick={() => onSaveProgress?.(media.id, Math.max(1, currentSeasonNum - 1), 'current_season')}
                       disabled={currentSeasonNum <= 1}
-                      className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30"
+                      className="w-9 h-9 sm:w-7 sm:h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30"
                     >−</button>
                   )}
                   <div className="flex-1 text-emerald-400 text-sm flex items-center justify-center">
@@ -280,7 +280,7 @@ function MediaCard({
                     <button
                       onClick={() => { if (currentSeasonNum + 1 <= maxSeasons) onSaveProgress?.(media.id, currentSeasonNum + 1, 'current_season') }}
                       disabled={currentSeasonNum >= maxSeasons}
-                      className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30"
+                      className="w-9 h-9 sm:w-7 sm:h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30"
                     >+</button>
                   )}
                 </div>
@@ -291,7 +291,7 @@ function MediaCard({
                   <button
                     onClick={() => onSaveProgress?.(media.id, Math.max(1, media.current_episode - 1))}
                     disabled={media.current_episode <= 1}
-                    className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30"
+                    className="w-9 h-9 sm:w-7 sm:h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30"
                   >−</button>
                 )}
                 <div className="flex-1 text-emerald-400 text-sm flex items-center justify-center gap-1.5">
@@ -306,7 +306,7 @@ function MediaCard({
                         ? onSaveProgress?.(media.id, next)
                         : onMarkComplete?.(media.id, media)
                     }}
-                    className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold"
+                    className="w-9 h-9 sm:w-7 sm:h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold"
                   >+</button>
                 )}
               </div>
@@ -611,34 +611,34 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white pb-20">
-      <div className="pt-8 max-w-6xl mx-auto px-6">
+      <div className="pt-6 sm:pt-8 max-w-6xl mx-auto px-4 sm:px-6">
 
         {/* Header profilo */}
-        <div className="flex justify-between items-start mb-12">
+        <div className="flex justify-between items-start mb-8 sm:mb-12">
           <div className="flex flex-col items-center flex-1">
             <Avatar profile={profile} />
-            <h1 className="text-5xl font-bold tracking-tighter mb-2">
+            <h1 className="text-3xl sm:text-5xl font-bold tracking-tighter mb-1 sm:mb-2 text-center">
               {profile.display_name || profile.username}
             </h1>
-            <p className="text-xl text-zinc-400">@{profile.username}</p>
-            {profile.bio && <p className="text-zinc-500 mt-3 text-center max-w-md">{profile.bio}</p>}
+            <p className="text-base sm:text-xl text-zinc-400">@{profile.username}</p>
+            {profile.bio && <p className="text-zinc-500 mt-2 sm:mt-3 text-center max-w-md text-sm sm:text-base px-4">{profile.bio}</p>}
 
             {/* Contatori followers/following */}
-            <div className="flex items-center gap-6 mt-5">
+            <div className="flex items-center gap-6 mt-4 sm:mt-5">
               <div className="text-center">
-                <p className="text-xl font-bold">{followersCount}</p>
+                <p className="text-lg sm:text-xl font-bold">{followersCount}</p>
                 <p className="text-xs text-zinc-500 uppercase tracking-widest">Follower</p>
               </div>
               <div className="w-px h-8 bg-zinc-800" />
               <div className="text-center">
-                <p className="text-xl font-bold">{followingCount}</p>
+                <p className="text-lg sm:text-xl font-bold">{followingCount}</p>
                 <p className="text-xs text-zinc-500 uppercase tracking-widest">Following</p>
               </div>
             </div>
 
             {isOwner && (
-              <Link href="/profile/edit" className="mt-6">
-                <button className="px-8 py-3 bg-white text-black font-semibold rounded-full hover:bg-zinc-200 transition-all">
+              <Link href="/profile/edit" className="mt-5 sm:mt-6">
+                <button className="px-6 sm:px-8 py-2.5 sm:py-3 bg-white text-black font-semibold rounded-full hover:bg-zinc-200 transition-all text-sm sm:text-base">
                   Modifica Profilo
                 </button>
               </Link>
@@ -646,7 +646,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
 
             {/* FollowButton — solo se non sei il proprietario e sei loggato */}
             {!isOwner && currentUserId && profile && (
-              <div className="mt-6">
+              <div className="mt-5 sm:mt-6">
                 <FollowButton
                   targetId={profile.id}
                   currentUserId={currentUserId}
@@ -659,7 +659,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
           {currentUserId && (
             <button
               onClick={async () => { await supabase.auth.signOut(); window.location.href = '/login' }}
-              className="px-6 py-2.5 text-sm font-medium border border-zinc-700 hover:border-zinc-500 rounded-full transition-colors"
+              className="px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-medium border border-zinc-700 hover:border-zinc-500 rounded-full transition-colors shrink-0"
             >
               Logout
             </button>
@@ -668,11 +668,11 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
 
         {/* Steam section — solo owner */}
         {isOwner && (
-          <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-8 mb-12">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-4">
-                <SteamIcon size={32} className="text-[#66C0F4]" />
-                <h2 className="text-2xl font-semibold">Account Steam</h2>
+          <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-4 sm:p-8 mb-8 sm:mb-12">
+            <div className="flex justify-between items-center mb-4 sm:mb-6">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <SteamIcon size={28} className="text-[#66C0F4]" />
+                <h2 className="text-lg sm:text-2xl font-semibold">Account Steam</h2>
               </div>
               {steamAccount ? (
                 <div className="text-green-400 flex items-center gap-2"><CheckCircle size={20} /> Collegato</div>
@@ -724,7 +724,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
           </div>
         )}
 
-        <h2 className="text-4xl font-bold tracking-tight mb-8">
+        <h2 className="text-2xl sm:text-4xl font-bold tracking-tight mb-6 sm:mb-8">
           {isOwner ? 'I miei progressi' : `Progressi di @${profile.username}`}
         </h2>
 
@@ -743,11 +743,11 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
             { label: 'Nella collezione', value: mediaList.length },
           ]
           return (
-            <div className="flex flex-wrap gap-4 mb-10">
+            <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-3 sm:gap-4 mb-8 sm:mb-10">
               {stats.map(s => (
-                <div key={s.label} className="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-3 text-center min-w-[90px]">
-                  <p className="text-xl font-bold text-violet-400">{s.value}</p>
-                  <p className="text-xs text-zinc-500 mt-1">{s.label}</p>
+                <div key={s.label} className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 sm:px-5 py-3 text-center">
+                  <p className="text-lg sm:text-xl font-bold text-violet-400">{s.value}</p>
+                  <p className="text-[10px] sm:text-xs text-zinc-500 mt-1">{s.label}</p>
                 </div>
               ))}
             </div>
@@ -760,16 +760,16 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
           </div>
         ) : (
           orderedCategories.map((category) => (
-            <div key={category} className="mb-16">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-semibold">{category}</h3>
-                <p className="text-zinc-500">{grouped[category].length} elementi</p>
+            <div key={category} className="mb-10 sm:mb-16">
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
+                <h3 className="text-xl sm:text-2xl font-semibold">{category}</h3>
+                <p className="text-sm text-zinc-500">{grouped[category].length} elementi</p>
               </div>
 
               {isOwner ? (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
                   <SortableContext items={grouped[category].map(m => m.id)} strategy={rectSortingStrategy}>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6">
                       {grouped[category].map((media) => (
                         <SortableBox key={media.id} media={media}>
                           <MediaCard
@@ -791,9 +791,9 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                   </SortableContext>
                 </DndContext>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6">
                   {grouped[category].map((media) => (
-                    <div key={media.id} className="border border-zinc-800 rounded-3xl overflow-hidden h-[520px] flex flex-col">
+                    <div key={media.id} className="border border-zinc-800 rounded-3xl overflow-hidden h-[400px] sm:h-[520px] flex flex-col">
                       <MediaCard media={media} isOwner={false} />
                     </div>
                   ))}
@@ -806,8 +806,8 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
 
       {/* Modal Note */}
       {isNotesModalOpen && selectedMedia && isOwner && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60]">
-          <div className="bg-zinc-900 rounded-3xl w-full max-w-lg mx-4 overflow-hidden">
+        <div className="fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center z-[60]">
+          <div className="bg-zinc-900 rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg overflow-hidden">
             <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
               <h3 className="text-xl font-semibold">Note su {selectedMedia.title}</h3>
               <button onClick={() => setIsNotesModalOpen(false)} className="text-zinc-400 hover:text-white">

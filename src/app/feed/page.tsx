@@ -340,15 +340,15 @@ export default function FeedPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <div className="pt-8 pb-20 max-w-3xl mx-auto px-6">
+      <div className="pt-6 pb-20 max-w-3xl mx-auto px-4 sm:px-6">
         {currentUser && (
-          <div className="mb-12 bg-zinc-950 border border-zinc-800 rounded-3xl p-8">
+          <div className="mb-8 sm:mb-12 bg-zinc-950 border border-zinc-800 rounded-3xl p-4 sm:p-8">
             <form onSubmit={handleCreatePost}>
               <textarea
                 value={newPostContent}
                 onChange={(e) => setNewPostContent(e.target.value)}
                 placeholder="Cosa bolle nel tuo calderone geek oggi?"
-                className="w-full bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-2xl p-6 text-lg min-h-[140px] resize-y focus:outline-none"
+                className="w-full bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-2xl p-4 sm:p-6 text-base sm:text-lg min-h-[120px] sm:min-h-[140px] resize-y focus:outline-none"
               />
               {imagePreview && (
                 <div className="mt-4 relative rounded-2xl overflow-hidden border border-zinc-700 bg-black">
@@ -362,18 +362,18 @@ export default function FeedPage() {
                   </button>
                 </div>
               )}
-              <div className="flex gap-4 mt-6">
-                <label className="cursor-pointer flex-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 py-4 rounded-2xl flex items-center justify-center gap-3 transition">
-                  <ImageIcon size={22} />
-                  <span>Aggiungi immagine</span>
+              <div className="flex gap-3 mt-4 sm:mt-6">
+                <label className="cursor-pointer flex-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 py-3 sm:py-4 rounded-2xl flex items-center justify-center gap-2 transition text-sm sm:text-base">
+                  <ImageIcon size={20} />
+                  <span className="hidden xs:inline sm:inline">Immagine</span>
                   <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
                 </label>
                 <button
                   type="submit"
                   disabled={isPublishing}
-                  className="flex-1 bg-gradient-to-r from-violet-600 via-fuchsia-600 to-cyan-500 py-4 rounded-2xl font-semibold flex items-center justify-center gap-3 hover:brightness-110 disabled:opacity-70 transition"
+                  className="flex-1 bg-gradient-to-r from-violet-600 via-fuchsia-600 to-cyan-500 py-3 sm:py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 hover:brightness-110 disabled:opacity-70 transition text-sm sm:text-base"
                 >
-                  {isPublishing ? 'Pubblicazione in corso...' : 'Pubblica'}
+                  {isPublishing ? <><span className="animate-pulse">●</span> Pubblicazione...</> : 'Pubblica'}
                 </button>
               </div>
             </form>
@@ -383,10 +383,10 @@ export default function FeedPage() {
         <div className="space-y-8">
           {/* Toggle Tutti / Following */}
           {currentUser && (
-            <div className="flex gap-2 bg-zinc-950 border border-zinc-800 rounded-2xl p-1.5 w-fit">
+            <div className="flex gap-2 bg-zinc-950 border border-zinc-800 rounded-2xl p-1.5 w-full sm:w-fit">
               <button
                 onClick={() => handleFilterChange('all')}
-                className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                   feedFilter === 'all'
                     ? 'bg-violet-600 text-white'
                     : 'text-zinc-400 hover:text-white'
@@ -396,7 +396,7 @@ export default function FeedPage() {
               </button>
               <button
                 onClick={() => handleFilterChange('following')}
-                className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                   feedFilter === 'following'
                     ? 'bg-violet-600 text-white'
                     : 'text-zinc-400 hover:text-white'
@@ -423,12 +423,12 @@ export default function FeedPage() {
             </div>
           ) : (
             posts.map((post) => (
-              <div 
-                key={post.id} 
-                className="bg-zinc-950 border border-zinc-800 rounded-3xl p-8 transition-all duration-500 ease-out animate-in fade-in slide-in-from-top-4"
+              <div
+                key={post.id}
+                className="bg-zinc-950 border border-zinc-800 rounded-3xl p-4 sm:p-8 transition-all duration-500 ease-out animate-in fade-in slide-in-from-top-4"
               >
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-12 h-12 rounded-2xl overflow-hidden ring-2 ring-violet-500/30">
+                <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl overflow-hidden ring-2 ring-violet-500/30 shrink-0">
                     {post.profiles.avatar_url ? (
                       <img src={post.profiles.avatar_url} alt="" className="object-cover w-full h-full" />
                     ) : (
@@ -437,23 +437,23 @@ export default function FeedPage() {
                       </div>
                     )}
                   </div>
-                  <div>
-                    <p className="font-bold text-xl">{post.profiles.display_name || post.profiles.username}</p>
-                    <p className="text-sm text-zinc-500">
-                      @{post.profiles.username} • {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: it })}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-base sm:text-xl truncate">{post.profiles.display_name || post.profiles.username}</p>
+                    <p className="text-xs sm:text-sm text-zinc-500 truncate">
+                      @{post.profiles.username} · {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: it })}
                     </p>
                   </div>
                 </div>
 
-                <p className="text-[17px] leading-relaxed mb-8 whitespace-pre-wrap">{post.content}</p>
+                <p className="text-[15px] sm:text-[17px] leading-relaxed mb-5 sm:mb-8 whitespace-pre-wrap">{post.content}</p>
 
                 {post.image_url && (
-                  <div className="mb-8 rounded-2xl overflow-hidden border border-zinc-700">
-                    <img src={post.image_url} alt="post" className="w-full max-h-[500px] object-contain bg-black" />
+                  <div className="mb-5 sm:mb-8 rounded-2xl overflow-hidden border border-zinc-700">
+                    <img src={post.image_url} alt="post" className="w-full max-h-[400px] sm:max-h-[500px] object-contain bg-black" />
                   </div>
                 )}
 
-                <div className="flex gap-10 border-t border-zinc-800 pt-6 text-zinc-400">
+                <div className="flex gap-6 sm:gap-10 border-t border-zinc-800 pt-4 sm:pt-6 text-zinc-400">
                   <button
                     onClick={() => toggleLike(post.id)}
                     className={`flex items-center gap-3 hover:text-red-500 transition ${post.liked_by_user ? 'text-red-500' : ''}`}
@@ -471,13 +471,13 @@ export default function FeedPage() {
                 </div>
 
                 {commentingPostId === post.id && (
-                  <div className="mt-6 flex gap-3">
+                  <div className="mt-4 flex gap-2">
                     <input
                       type="text"
                       value={commentContent}
                       onChange={(e) => setCommentContent(e.target.value)}
                       placeholder="Scrivi un commento..."
-                      className="flex-1 bg-zinc-900 border border-zinc-700 focus:border-cyan-400 rounded-2xl px-5 py-3 focus:outline-none"
+                      className="flex-1 bg-zinc-900 border border-zinc-700 focus:border-cyan-400 rounded-2xl px-4 py-3 text-sm focus:outline-none"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
@@ -487,9 +487,9 @@ export default function FeedPage() {
                     />
                     <button
                       onClick={() => handleAddComment(post.id)}
-                      className="bg-violet-600 hover:bg-violet-700 px-6 rounded-2xl font-medium flex items-center gap-2"
+                      className="bg-violet-600 hover:bg-violet-700 px-4 rounded-2xl font-medium flex items-center gap-2 shrink-0"
                     >
-                      <Send size={18} /> Invia
+                      <Send size={16} />
                     </button>
                   </div>
                 )}

@@ -28,7 +28,7 @@ export const viewport: Viewport = {
   themeColor: '#7c6af7',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -36,7 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="it">
       <body className="bg-black text-white min-h-screen antialiased">
         <Navbar />
-        <main className="pt-16 pb-20 md:pb-8">
+        <main className="pt-16 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-8">
           {children}
         </main>
         <ToastProvider />

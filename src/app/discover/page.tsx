@@ -394,48 +394,51 @@ export default function DiscoverPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <div className="pt-8 pb-20 max-w-6xl mx-auto px-6">
-        <div className="text-center mb-12">
-          <h1 className="text-5xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-cyan-400">
+      <div className="pt-6 pb-20 max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="text-center mb-8 sm:mb-12">
+          <h1 className="text-3xl sm:text-5xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-cyan-400">
             Discover
           </h1>
-          <p className="text-zinc-400 mt-3">Solo contenuti con copertina valida</p>
+          <p className="text-zinc-400 mt-2 text-sm sm:text-base">Cerca anime, manga, giochi e molto altro</p>
         </div>
 
-        <div className="flex flex-wrap gap-3 justify-center mb-8">
-          {typeFilters.map((t) => {
-            const Icon = t.icon;
-            return (
-              <button
-                key={t.id}
-                onClick={() => setActiveType(t.id)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-medium transition ${
-                  activeType === t.id ? 'bg-violet-600 text-white' : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-700'
-                }`}
-              >
-                <Icon size={18} />
-                {t.label}
-              </button>
-            );
-          })}
+        {/* Type filters — horizontal scroll on mobile */}
+        <div className="scroll-x-hide mb-6 sm:mb-8 -mx-4 sm:mx-0 px-4 sm:px-0">
+          <div className="flex gap-2 sm:flex-wrap sm:justify-center w-max sm:w-auto">
+            {typeFilters.map((t) => {
+              const Icon = t.icon;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setActiveType(t.id)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-medium transition whitespace-nowrap shrink-0 ${
+                    activeType === t.id ? 'bg-violet-600 text-white' : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-700'
+                  }`}
+                >
+                  <Icon size={16} />
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="max-w-2xl mx-auto mb-12">
+        <div className="max-w-2xl mx-auto mb-8 sm:mb-12">
           <div className="relative">
-            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-500" size={24} />
+            <Search className="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Cerca titolo..."
-              className="w-full bg-zinc-900 border border-zinc-700 focus:border-violet-500 pl-16 pr-6 py-5 rounded-3xl text-lg placeholder-zinc-500 focus:outline-none"
+              className="w-full bg-zinc-900 border border-zinc-700 focus:border-violet-500 pl-12 sm:pl-16 pr-4 sm:pr-6 py-4 sm:py-5 rounded-3xl text-base sm:text-lg placeholder-zinc-500 focus:outline-none"
             />
           </div>
         </div>
 
         {loading && <p className="text-center text-zinc-400">Ricerca in corso...</p>}
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6">
           {results.map((item, index) => {
             const isAdded = alreadyAdded.includes(item.id);
             const uniqueKey = `${item.id}-${item.source}-${index}`;
@@ -443,9 +446,9 @@ export default function DiscoverPage() {
             return (
               <div
                 key={uniqueKey}
-                className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden hover:border-violet-500/50 transition group"
+                className="bg-zinc-950 border border-zinc-800 rounded-2xl sm:rounded-3xl overflow-hidden hover:border-violet-500/50 transition group"
               >
-                <div className="relative h-64 bg-zinc-900">
+                <div className="relative h-48 sm:h-64 bg-zinc-900">
                   <img
                     src={item.coverImage}
                     alt={item.title}
@@ -499,18 +502,18 @@ export default function DiscoverPage() {
 
       {/* Modal Aggiungi */}
       {selectedMedia && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-3xl max-w-md w-full p-8">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold">Aggiungi ai progressi</h3>
-              <button onClick={() => setSelectedMedia(null)} className="text-zinc-400 hover:text-white">
-                <X size={28} />
+        <div className="fixed inset-0 bg-black/90 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-t-3xl sm:rounded-3xl max-w-md w-full p-5 sm:p-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-5 sm:mb-6">
+              <h3 className="text-lg sm:text-xl font-semibold">Aggiungi ai progressi</h3>
+              <button onClick={() => setSelectedMedia(null)} className="text-zinc-400 hover:text-white p-1">
+                <X size={24} />
               </button>
             </div>
 
-            <div className="flex gap-5 mb-8">
+            <div className="flex gap-4 sm:gap-5 mb-6 sm:mb-8">
               {selectedMedia.coverImage && (
-                <img src={selectedMedia.coverImage} alt="" className="w-24 h-36 object-cover rounded-2xl flex-shrink-0" />
+                <img src={selectedMedia.coverImage} alt="" className="w-20 h-28 sm:w-24 sm:h-36 object-cover rounded-xl sm:rounded-2xl flex-shrink-0" />
               )}
               <div className="flex-1">
                 <p className="font-semibold text-lg">{selectedMedia.title}</p>
@@ -521,7 +524,7 @@ export default function DiscoverPage() {
               </div>
             </div>
 
-            <div className="mb-8 space-y-6">
+            <div className="mb-6 sm:mb-8 space-y-5 sm:space-y-6">
 
               {/* Voto — sempre visibile */}
               <div>
@@ -546,7 +549,7 @@ export default function DiscoverPage() {
                           setSelectedSeason(Number(e.target.value));
                           setCurrentEpisode('');
                         }}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 text-lg focus:outline-none focus:border-violet-500"
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg focus:outline-none focus:border-violet-500"
                       >
                         {Object.keys(selectedMedia.seasons).map((key) => {
                           const num = parseInt(key);
@@ -570,7 +573,7 @@ export default function DiscoverPage() {
                       value={currentEpisode}
                       onChange={(e) => setCurrentEpisode(e.target.value.replace(/[^0-9]/g, ''))}
                       placeholder="Numero episodio"
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 text-3xl text-center focus:outline-none focus:border-violet-500 appearance-none no-spinner"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-4 sm:py-5 text-2xl sm:text-3xl text-center focus:outline-none focus:border-violet-500 appearance-none no-spinner"
                     />
                     {currentEpisode && Number(currentEpisode) > (selectedMedia.seasons?.[selectedSeason]?.episode_count || selectedMedia.episodes || 9999) && (
                       <p className="text-xs text-red-400 mt-2">
@@ -607,7 +610,7 @@ export default function DiscoverPage() {
                   Number(currentEpisode) > (selectedMedia.seasons?.[selectedSeason]?.episode_count || selectedMedia.episodes || 9999)
                 )
               ) as boolean}
-              className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-2xl font-semibold text-lg hover:brightness-110 disabled:opacity-50 transition"
+              className="w-full py-3.5 sm:py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-2xl font-semibold text-base sm:text-lg hover:brightness-110 disabled:opacity-50 transition"
             >
               {adding ? 'Aggiungendo...' : 'Aggiungi'}
             </button>

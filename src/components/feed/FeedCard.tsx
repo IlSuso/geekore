@@ -77,7 +77,7 @@ export function FeedCard({ post }: { post: any }) {
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden hover:border-violet-500/30 transition-all duration-300">
       {/* Header */}
-      <div className="p-6 pb-4 flex items-center gap-3">
+      <div className="p-4 sm:p-6 pb-3 sm:pb-4 flex items-center gap-3">
         <Link href={`/profile/${post.profiles?.username}`} className="group shrink-0">
           <div className="w-11 h-11 rounded-2xl overflow-hidden ring-2 ring-violet-500/20 group-hover:ring-violet-500/50 transition-all">
             {post.profiles?.avatar_url ? (
@@ -102,13 +102,13 @@ export function FeedCard({ post }: { post: any }) {
       </div>
 
       {/* Content */}
-      <div className="px-6 pb-4">
+      <div className="px-4 sm:px-6 pb-3 sm:pb-4">
         <p className="text-zinc-200 text-sm leading-relaxed">{post.content}</p>
       </div>
 
       {/* Image */}
       {post.image_url && (
-        <div className="mx-4 mb-4 rounded-2xl overflow-hidden border border-zinc-800">
+        <div className="mx-3 sm:mx-4 mb-3 sm:mb-4 rounded-2xl overflow-hidden border border-zinc-800">
           <img
             src={post.image_url}
             alt=""
@@ -118,7 +118,7 @@ export function FeedCard({ post }: { post: any }) {
       )}
 
       {/* Actions */}
-      <div className="px-6 py-4 border-t border-zinc-800/60 flex items-center gap-6">
+      <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-zinc-800/60 flex items-center gap-5 sm:gap-6">
         <button
           onClick={handleLike}
           className={`flex items-center gap-2 group transition-all ${hasLiked ? 'text-orange-500' : 'text-zinc-500 hover:text-orange-400'}`}
@@ -142,12 +142,12 @@ export function FeedCard({ post }: { post: any }) {
 
       {/* Comments section */}
       {showComments && (
-        <div className="px-6 pb-6 border-t border-zinc-800/60 pt-4 bg-black/20">
+        <div className="px-4 sm:px-6 pb-4 sm:pb-6 border-t border-zinc-800/60 pt-3 sm:pt-4 bg-black/20">
           {comments.length > 0 && (
             <div className="space-y-3 mb-4 max-h-56 overflow-y-auto">
               {comments.map((comment: any) => (
-                <div key={comment.id} className="flex gap-3">
-                  <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 flex items-center justify-center text-xs font-bold text-violet-300 shrink-0">
+                <div key={comment.id} className="flex gap-2 sm:gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 flex items-center justify-center text-xs font-bold text-violet-300 shrink-0">
                     {(comment.profiles?.display_name?.[0] || comment.profiles?.username?.[0] || '?').toUpperCase()}
                   </div>
                   <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-2 flex-1">

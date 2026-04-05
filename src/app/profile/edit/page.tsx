@@ -160,8 +160,8 @@ export default function EditProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-6">
-      <div className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
+    <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-4 sm:p-6">
+      <div className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-3xl p-5 sm:p-8">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-bold">Modifica Profilo</h1>
           <Link
