@@ -23,34 +23,10 @@ export async function GET(request: Request) {
     const data = await response.json();
     const games = data.response.games || [];
 
-    // 3. LOGICA DI CALCOLO (Trofei/Percentuali)
-    // Qui va il tuo ciclo for che recupera i trofei per ogni gioco...
-    // (Mantieni la logica che avevi per calcolare 'achieved' e 'total')
-    
-    let totalAchieved = 0;
-    let totalPossible = 0;
-    
-    // Esempio rapido della logica di calcolo che avevamo:
-    const gamesWithStats = await Promise.all(games.slice(0, 10).map(async (game: any) => {
-        // ... recupero trofei ...
-        return { ...game, percent: 50 }; // Placeholder
-    }));
-
-    const corePower = 75; // Placeholder del tuo calcolo finale
-
-    // 4. UPDATE SUPABASE (Leaderboard)
-    // Usiamo l'upsert per non creare duplicati
-    await supabase.from("leaderboard").upsert({
-      steam_id: steamId,
-      username: username || "Unknown",
-      avatar: avatar || "",
-      core_power: corePower,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'steam_id' });
-
+    // TODO: implementare calcolo corePower reale basato su trofei/completamento
+    // Per ora l'endpoint restituisce solo i giochi senza aggiornare la leaderboard
     return NextResponse.json({
-      games: gamesWithStats,
-      corePower: corePower
+      games: games.slice(0, 10),
     });
 
   } catch (error) {

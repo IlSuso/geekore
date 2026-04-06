@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { Home, Search, Rss, Bell, User, Zap } from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
+import { Home, Search, Rss, Bell, User, Zap, LogOut } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -18,8 +18,14 @@ const AUTH_PATHS = ['/login', '/register', '/auth/confirm']
 
 export default function Navbar() {
   const pathname = usePathname()
+  const router = useRouter()
   const supabase = createClient()
   const [hasNewNotifications, setHasNewNotifications] = useState(false)
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
 
   const isProfileActive = pathname === '/profile/me' || pathname.startsWith('/profile/')
   const isAuthPage = AUTH_PATHS.some(p => pathname.startsWith(p))
@@ -95,7 +101,14 @@ export default function Navbar() {
             })}
           </div>
 
-          <div className="w-[100px]" /> {/* spacer */}
+          <button
+            onClick={handleLogout}
+            aria-label="Logout"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all"
+          >
+            <LogOut size={18} />
+            Logout
+          </button>
         </div>
       </nav>
 

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect } from 'react'
+import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   CheckCircle, Clock, X, RotateCw, RotateCcw, Edit3, RefreshCw,
@@ -349,8 +350,8 @@ function Avatar({ profile }: { profile: Profile }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
-  const { username } = use(params)
+export default function ProfilePage() {
+  const { username } = useParams<{ username: string }>()
   const supabase = createClient()
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
@@ -463,7 +464,8 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
     } else if (media.episodes) {
       update = { current_episode: media.episodes }
     } else {
-      update = { current_episode: 999 }
+      // Film, boardgame o media senza dati episodi: impostiamo 1 come "completato"
+      update = { current_episode: 1 }
     }
     await supabase.from('user_media_entries').update(update).eq('id', id)
     setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
@@ -574,6 +576,13 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
     }
     fetchData()
   }, [username])
+
+  // Auto-dismiss steamMessage dopo 5 secondi
+  useEffect(() => {
+    if (!steamMessage) return
+    const timer = setTimeout(() => setSteamMessage(null), 5000)
+    return () => clearTimeout(timer)
+  }, [steamMessage])
 
   // ── Render ────────────────────────────────────────────────────────────────
 

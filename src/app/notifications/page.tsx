@@ -38,8 +38,11 @@ export default async function NotificationsPage() {
     .order('created_at', { ascending: false })
     .limit(50)
 
-  // Mark as read
-  await supabase.from('notifications').update({ is_read: true }).eq('receiver_id', user.id)
+  // Marca come lette solo le notifiche effettivamente caricate in questa risposta
+  const unreadIds = (notifications || []).filter(n => !n.is_read).map(n => n.id)
+  if (unreadIds.length > 0) {
+    await supabase.from('notifications').update({ is_read: true }).in('id', unreadIds)
+  }
 
   return (
     <main className="min-h-screen bg-zinc-950 pt-6 pb-24 px-4">

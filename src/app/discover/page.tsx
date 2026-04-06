@@ -31,6 +31,7 @@ export default function DiscoverPage() {
   const [activeType, setActiveType] = useState<string>('all');
   const [results, setResults] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
   const [currentEpisode, setCurrentEpisode] = useState('');
@@ -79,6 +80,7 @@ export default function DiscoverPage() {
 
     setLoading(true);
     setResults([]);
+    setSearchError(null);
 
     const term = searchTerm.trim();
     let rawResults: MediaItem[] = [];
@@ -282,6 +284,7 @@ export default function DiscoverPage() {
       setResults(uniqueResults);
     } catch (err) {
       console.error('Errore ricerca:', err);
+      setSearchError('Errore durante la ricerca. Verifica la connessione o riprova tra qualche secondo.')
     }
 
     setLoading(false);
@@ -490,6 +493,16 @@ export default function DiscoverPage() {
           })}
         </div>
 
+        {searchError && (
+          <p className="text-center text-red-400 mt-12 text-sm">
+            {searchError}
+          </p>
+        )}
+        {results.length === 0 && !loading && searchTerm.length > 0 && searchTerm.length < 2 && activeType !== 'game' && (
+          <p className="text-center text-zinc-500 mt-12 text-sm">
+            Scrivi almeno 2 caratteri per cercare.
+          </p>
+        )}
         {results.length === 0 && !loading && searchTerm.length >= 2 && (
           <p className="text-center text-zinc-500 mt-12">
             Nessun risultato con copertina valida trovato.
@@ -598,7 +611,7 @@ export default function DiscoverPage() {
 
             <button
               onClick={confirmAdd}
-              disabled={adding || (
+              disabled={adding || !!(
                 selectedMedia.type !== 'movie' &&
                 selectedMedia.type !== 'game' &&
                 selectedMedia.episodes && selectedMedia.episodes > 1 && (
@@ -606,7 +619,7 @@ export default function DiscoverPage() {
                   Number(currentEpisode) < 1 ||
                   Number(currentEpisode) > (selectedMedia.seasons?.[selectedSeason]?.episode_count || selectedMedia.episodes || 9999)
                 )
-              ) as boolean}
+              )}
               className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-2xl font-semibold text-lg hover:brightness-110 disabled:opacity-50 transition"
             >
               {adding ? 'Aggiungendo...' : 'Aggiungi'}
