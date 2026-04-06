@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X } from 'lucide-react';
+import { Flame, MessageCircle, Send, Sparkles, Image as ImageIcon, X, Users, Globe } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { formatDistanceToNow } from 'date-fns';
 import { it } from 'date-fns/locale';
+import Link from 'next/link';
 
 type Comment = {
   id: string;
@@ -22,10 +23,10 @@ type Post = {
   content: string;
   image_url?: string | null;
   created_at: string;
-  profiles: { 
-    username: string; 
-    display_name?: string; 
-    avatar_url?: string 
+  profiles: {
+    username: string;
+    display_name?: string;
+    avatar_url?: string
   };
   likes_count: number;
   comments_count: number;
@@ -48,9 +49,9 @@ export default function FeedPage() {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [feedFilter, setFeedFilter] = useState<'all' | 'following'>('all');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const PAGE_SIZE = 20;
-
   const supabase = createClient();
 
   useEffect(() => {
@@ -79,7 +80,6 @@ export default function FeedPage() {
     const from = pageIndex * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
 
-    // Se filtro following, prima recupera gli ID degli utenti seguiti
     let followingIds: string[] = [];
     if (filter === 'following') {
       const { data: followsData } = await supabase
@@ -87,7 +87,6 @@ export default function FeedPage() {
         .select('following_id')
         .eq('follower_id', userId);
       followingIds = (followsData || []).map((f: any) => f.following_id);
-      // Se non segue nessuno, mostra lista vuota subito
       if (followingIds.length === 0) {
         setPosts(append ? (prev => prev) : []);
         setHasMore(false);
@@ -121,7 +120,6 @@ export default function FeedPage() {
       return;
     }
 
-    // Per i commenti recuperiamo i profili in una query sola
     const allComments = (postsData || []).flatMap((p: any) => p.comments || []);
     const uniqueUserIds = [...new Set(allComments.map((c: any) => c.user_id))];
 
@@ -215,9 +213,8 @@ export default function FeedPage() {
       .single();
 
     if (!error && newPostData) {
-      // Fix del tipo: profiles è un oggetto singolo, non un array
-      const profile = Array.isArray(newPostData.profiles) 
-        ? newPostData.profiles[0] 
+      const profile = Array.isArray(newPostData.profiles)
+        ? newPostData.profiles[0]
         : newPostData.profiles;
 
       const optimisticPost: Post = {
@@ -236,15 +233,10 @@ export default function FeedPage() {
         comments: [],
       };
 
-      // Aggiungi in cima con animazione
       setPosts(prev => [optimisticPost, ...prev]);
-
-      // Reset form
       setNewPostContent('');
       setSelectedImage(null);
       setImagePreview(null);
-    } else {
-      alert('Errore nella pubblicazione: ' + (error?.message || 'Errore sconosciuto'));
     }
 
     setIsPublishing(false);
@@ -261,6 +253,7 @@ export default function FeedPage() {
   const removeImage = () => {
     setSelectedImage(null);
     setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const toggleLike = async (postId: string) => {
@@ -302,11 +295,7 @@ export default function FeedPage() {
     setPosts(prev =>
       prev.map(post =>
         post.id === postId
-          ? {
-              ...post,
-              comments_count: post.comments_count + 1,
-              comments: [newCommentTemp, ...post.comments],
-            }
+          ? { ...post, comments_count: post.comments_count + 1, comments: [newCommentTemp, ...post.comments] }
           : post
       )
     );
@@ -329,212 +318,268 @@ export default function FeedPage() {
             : post
         )
       );
-      alert('Errore nell’invio del commento: ' + error.message);
     }
 
     setCommentContent('');
     setCommentingPostId(null);
   };
 
+  const avatarInitial = (currentProfile?.display_name?.[0] || currentProfile?.username?.[0] || '?').toUpperCase();
+
   if (loading) return <Spinner />;
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <div className="pt-6 pb-20 max-w-3xl mx-auto px-4 sm:px-6">
+    <div className="min-h-screen bg-[#080810] text-white">
+      <div className="pt-6 pb-24 md:pb-10 max-w-2xl mx-auto px-4">
+
+        {/* Post composer */}
         {currentUser && (
-          <div className="mb-8 sm:mb-12 bg-zinc-950 border border-zinc-800 rounded-3xl p-4 sm:p-8">
-            <form onSubmit={handleCreatePost}>
-              <textarea
-                value={newPostContent}
-                onChange={(e) => setNewPostContent(e.target.value)}
-                placeholder="Cosa bolle nel tuo calderone geek oggi?"
-                className="w-full bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-2xl p-4 sm:p-6 text-base sm:text-lg min-h-[120px] sm:min-h-[140px] resize-y focus:outline-none"
-              />
-              {imagePreview && (
-                <div className="mt-4 relative rounded-2xl overflow-hidden border border-zinc-700 bg-black">
-                  <img src={imagePreview} alt="preview" className="max-h-96 w-full object-contain" />
-                  <button
-                    type="button"
-                    onClick={removeImage}
-                    className="absolute top-3 right-3 bg-black/80 p-2 rounded-full hover:bg-red-600 transition"
-                  >
-                    <X size={20} />
-                  </button>
-                </div>
-              )}
-              <div className="flex gap-3 mt-4 sm:mt-6">
-                <label className="cursor-pointer flex-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 py-3 sm:py-4 rounded-2xl flex items-center justify-center gap-2 transition text-sm sm:text-base">
-                  <ImageIcon size={20} />
-                  <span className="hidden xs:inline sm:inline">Immagine</span>
-                  <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
-                </label>
-                <button
-                  type="submit"
-                  disabled={isPublishing}
-                  className="flex-1 bg-gradient-to-r from-violet-600 via-fuchsia-600 to-cyan-500 py-3 sm:py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 hover:brightness-110 disabled:opacity-70 transition text-sm sm:text-base"
-                >
-                  {isPublishing ? <><span className="animate-pulse">●</span> Pubblicazione...</> : 'Pubblica'}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        <div className="space-y-8">
-          {/* Toggle Tutti / Following */}
-          {currentUser && (
-            <div className="flex gap-2 bg-zinc-950 border border-zinc-800 rounded-2xl p-1.5 w-full sm:w-fit">
-              <button
-                onClick={() => handleFilterChange('all')}
-                className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                  feedFilter === 'all'
-                    ? 'bg-violet-600 text-white'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                Tutti
-              </button>
-              <button
-                onClick={() => handleFilterChange('following')}
-                className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                  feedFilter === 'following'
-                    ? 'bg-violet-600 text-white'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                Following
-              </button>
-            </div>
-          )}
-          {posts.length === 0 ? (
-            <div className="text-center py-24">
-              <Sparkles className="mx-auto mb-6 text-violet-500" size={60} />
-              {feedFilter === 'following' ? (
-                <>
-                  <p className="text-2xl font-medium">Nessun post dai tuoi following</p>
-                  <p className="text-zinc-500 mt-3">Inizia a seguire qualcuno per vedere i loro post qui.</p>
-                </>
-              ) : (
-                <>
-                  <p className="text-2xl font-medium">Il feed è vuoto</p>
-                  <p className="text-zinc-500 mt-3">Sii il primo a condividere qualcosa!</p>
-                </>
-              )}
-            </div>
-          ) : (
-            posts.map((post) => (
-              <div
-                key={post.id}
-                className="bg-zinc-950 border border-zinc-800 rounded-3xl p-4 sm:p-8 transition-all duration-500 ease-out animate-in fade-in slide-in-from-top-4"
-              >
-                <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl overflow-hidden ring-2 ring-violet-500/30 shrink-0">
-                    {post.profiles.avatar_url ? (
-                      <img src={post.profiles.avatar_url} alt="" className="object-cover w-full h-full" />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-xl">
-                        {post.profiles.display_name?.[0]?.toUpperCase() || post.profiles.username?.[0]?.toUpperCase() || '?'}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-base sm:text-xl truncate">{post.profiles.display_name || post.profiles.username}</p>
-                    <p className="text-xs sm:text-sm text-zinc-500 truncate">
-                      @{post.profiles.username} · {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: it })}
-                    </p>
-                  </div>
-                </div>
-
-                <p className="text-[15px] sm:text-[17px] leading-relaxed mb-5 sm:mb-8 whitespace-pre-wrap">{post.content}</p>
-
-                {post.image_url && (
-                  <div className="mb-5 sm:mb-8 rounded-2xl overflow-hidden border border-zinc-700">
-                    <img src={post.image_url} alt="post" className="w-full max-h-[400px] sm:max-h-[500px] object-contain bg-black" />
+          <div className="mb-6 glass border border-white/8 rounded-3xl p-4 sm:p-5">
+            <div className="flex gap-3">
+              {/* Avatar */}
+              <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 ring-2 ring-violet-500/20">
+                {currentProfile?.avatar_url ? (
+                  <img src={currentProfile.avatar_url} className="w-full h-full object-cover" alt="" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-sm">
+                    {avatarInitial}
                   </div>
                 )}
+              </div>
 
-                <div className="flex gap-6 sm:gap-10 border-t border-zinc-800 pt-4 sm:pt-6 text-zinc-400">
-                  <button
-                    onClick={() => toggleLike(post.id)}
-                    className={`flex items-center gap-3 hover:text-red-500 transition ${post.liked_by_user ? 'text-red-500' : ''}`}
-                  >
-                    <Heart size={26} fill={post.liked_by_user ? 'currentColor' : 'none'} />
-                    <span>{post.likes_count}</span>
-                  </button>
-                  <button
-                    onClick={() => setCommentingPostId(commentingPostId === post.id ? null : post.id)}
-                    className="flex items-center gap-3 hover:text-cyan-400 transition"
-                  >
-                    <MessageCircle size={26} />
-                    <span>{post.comments_count}</span>
-                  </button>
-                </div>
+              <form onSubmit={handleCreatePost} className="flex-1 flex flex-col gap-3">
+                <textarea
+                  value={newPostContent}
+                  onChange={(e) => setNewPostContent(e.target.value)}
+                  placeholder="Cosa bolle nel tuo calderone geek oggi?"
+                  rows={3}
+                  className="w-full bg-transparent text-sm sm:text-base placeholder-zinc-600 text-white resize-none focus:outline-none leading-relaxed"
+                />
 
-                {commentingPostId === post.id && (
-                  <div className="mt-4 flex gap-2">
-                    <input
-                      type="text"
-                      value={commentContent}
-                      onChange={(e) => setCommentContent(e.target.value)}
-                      placeholder="Scrivi un commento..."
-                      className="flex-1 bg-zinc-900 border border-zinc-700 focus:border-cyan-400 rounded-2xl px-4 py-3 text-sm focus:outline-none"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleAddComment(post.id);
-                        }
-                      }}
-                    />
+                {imagePreview && (
+                  <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-black">
+                    <img src={imagePreview} alt="preview" className="max-h-80 w-full object-contain" />
                     <button
-                      onClick={() => handleAddComment(post.id)}
-                      className="bg-violet-600 hover:bg-violet-700 px-4 rounded-2xl font-medium flex items-center gap-2 shrink-0"
+                      type="button"
+                      onClick={removeImage}
+                      className="absolute top-2 right-2 bg-black/70 hover:bg-red-600 p-1.5 rounded-full transition-colors"
                     >
-                      <Send size={16} />
+                      <X size={14} />
                     </button>
                   </div>
                 )}
 
-                {post.comments && post.comments.length > 0 && (
-                  <div className="mt-6 pl-4 border-l-2 border-zinc-700 space-y-4 text-sm">
-                    {post.comments.map((comment, cIndex) => (
-                      <div 
-                        key={comment.id} 
-                        className="flex flex-col animate-in fade-in slide-in-from-left-2"
-                        style={{ animationDelay: `${cIndex * 30}ms` }}
-                      >
-                        <div>
-                          <span className="font-medium text-violet-400">
-                            @{comment.username || 'utente'}
-                          </span>
-                          <span className="ml-2 text-zinc-200">{comment.content}</span>
-                        </div>
-                        <span className="text-xs text-zinc-500 mt-1">
-                          {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: it })}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div className="flex items-center justify-between pt-3 border-t border-white/5">
+                  <label className="cursor-pointer p-2 text-zinc-500 hover:text-violet-400 hover:bg-violet-500/10 rounded-xl transition-all">
+                    <ImageIcon size={18} />
+                    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+                  </label>
+
+                  <button
+                    type="submit"
+                    disabled={isPublishing || (!newPostContent.trim() && !selectedImage)}
+                    className="px-5 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-xl text-sm font-semibold hover:brightness-110 disabled:opacity-40 transition-all flex items-center gap-2"
+                  >
+                    {isPublishing ? (
+                      <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Invio...</>
+                    ) : (
+                      'Pubblica'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Feed filter */}
+        {currentUser && (
+          <div className="flex gap-1 mb-6 bg-zinc-900/60 border border-white/6 rounded-2xl p-1 w-fit">
+            <button
+              onClick={() => handleFilterChange('all')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                feedFilter === 'all'
+                  ? 'bg-violet-600 text-white shadow-md shadow-violet-500/20'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <Globe size={14} />
+              Tutti
+            </button>
+            <button
+              onClick={() => handleFilterChange('following')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                feedFilter === 'following'
+                  ? 'bg-violet-600 text-white shadow-md shadow-violet-500/20'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <Users size={14} />
+              Following
+            </button>
+          </div>
+        )}
+
+        {/* Posts */}
+        <div className="space-y-4">
+          {posts.length === 0 ? (
+            <div className="text-center py-20">
+              <div className="w-16 h-16 mx-auto mb-5 bg-violet-500/10 border border-violet-500/20 rounded-3xl flex items-center justify-center">
+                <Sparkles size={28} className="text-violet-400" />
               </div>
-            ))
+              {feedFilter === 'following' ? (
+                <>
+                  <p className="text-lg font-semibold">Nessun post dai tuoi following</p>
+                  <p className="text-zinc-600 mt-2 text-sm">Inizia a seguire qualcuno per vedere i loro post qui.</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-lg font-semibold">Il feed è vuoto</p>
+                  <p className="text-zinc-600 mt-2 text-sm">Sii il primo a condividere qualcosa!</p>
+                </>
+              )}
+            </div>
+          ) : (
+            posts.map((post) => {
+              const timeAgo = post.created_at
+                ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: it })
+                : '';
+              const initials = (post.profiles.display_name?.[0] || post.profiles.username?.[0] || '?').toUpperCase();
+
+              return (
+                <article
+                  key={post.id}
+                  className="bg-zinc-900/60 border border-white/6 rounded-3xl overflow-hidden hover:border-violet-500/20 transition-all duration-300 backdrop-blur-sm"
+                >
+                  {/* Header */}
+                  <div className="flex items-center gap-3 p-4 sm:p-5 pb-3">
+                    <Link href={`/profile/${post.profiles.username}`} className="shrink-0">
+                      <div className="w-10 h-10 rounded-xl overflow-hidden ring-2 ring-white/5 hover:ring-violet-500/40 transition-all">
+                        {post.profiles.avatar_url ? (
+                          <img src={post.profiles.avatar_url} alt="" className="object-cover w-full h-full" />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-sm">
+                            {initials}
+                          </div>
+                        )}
+                      </div>
+                    </Link>
+                    <div className="flex-1 min-w-0">
+                      <Link href={`/profile/${post.profiles.username}`} className="hover:text-violet-400 transition-colors">
+                        <p className="font-semibold text-sm text-white truncate">
+                          {post.profiles.display_name || post.profiles.username}
+                        </p>
+                      </Link>
+                      <p className="text-xs text-zinc-600 mt-0.5">@{post.profiles.username} · {timeAgo}</p>
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="px-4 sm:px-5 pb-3">
+                    <p className="text-sm sm:text-[15px] leading-relaxed text-zinc-200 whitespace-pre-wrap">{post.content}</p>
+                  </div>
+
+                  {/* Image */}
+                  {post.image_url && (
+                    <div className="mx-3 mb-3 rounded-2xl overflow-hidden border border-white/5">
+                      <img
+                        src={post.image_url}
+                        alt=""
+                        className="w-full max-h-[400px] object-cover hover:scale-[1.01] transition-transform duration-500"
+                      />
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1 px-3 sm:px-4 py-3 border-t border-white/5">
+                    <button
+                      onClick={() => toggleLike(post.id)}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all group ${
+                        post.liked_by_user
+                          ? 'text-orange-400 bg-orange-500/10'
+                          : 'text-zinc-500 hover:text-orange-400 hover:bg-orange-500/10'
+                      }`}
+                    >
+                      <Flame size={16} className={post.liked_by_user ? 'fill-orange-400' : 'group-hover:scale-110 transition-transform'} />
+                      {post.likes_count}
+                    </button>
+
+                    <button
+                      onClick={() => setCommentingPostId(commentingPostId === post.id ? null : post.id)}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all group ${
+                        commentingPostId === post.id
+                          ? 'text-violet-400 bg-violet-500/10'
+                          : 'text-zinc-500 hover:text-violet-400 hover:bg-violet-500/10'
+                      }`}
+                    >
+                      <MessageCircle size={16} className="group-hover:scale-110 transition-transform" />
+                      {post.comments_count}
+                    </button>
+                  </div>
+
+                  {/* Comments section */}
+                  {commentingPostId === post.id && (
+                    <div className="px-4 sm:px-5 pb-4 border-t border-white/5 pt-3 bg-black/20">
+                      {post.comments.length > 0 && (
+                        <div className="space-y-2.5 mb-3 max-h-48 overflow-y-auto">
+                          {post.comments.map((comment) => (
+                            <div key={comment.id} className="flex gap-2.5">
+                              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 border border-white/5 flex items-center justify-center text-[10px] font-bold text-violet-300 shrink-0">
+                                {(comment.display_name?.[0] || comment.username?.[0] || '?').toUpperCase()}
+                              </div>
+                              <div className="bg-zinc-900 border border-white/5 rounded-2xl px-3 py-2 flex-1">
+                                <Link href={`/profile/${comment.username}`} className="text-[10px] font-bold text-violet-400 hover:text-violet-300 transition-colors">
+                                  @{comment.username || 'user'}
+                                </Link>
+                                <p className="text-zinc-300 text-xs mt-0.5">{comment.content}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="relative flex gap-2">
+                        <input
+                          type="text"
+                          value={commentContent}
+                          onChange={(e) => setCommentContent(e.target.value)}
+                          placeholder="Scrivi un commento..."
+                          className="flex-1 bg-zinc-900 border border-white/8 focus:border-violet-500/50 rounded-2xl py-2.5 px-4 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleAddComment(post.id);
+                            }
+                          }}
+                        />
+                        <button
+                          onClick={() => handleAddComment(post.id)}
+                          disabled={!commentContent.trim()}
+                          className="px-3 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 rounded-2xl transition-colors shrink-0"
+                        >
+                          <Send size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </article>
+              );
+            })
           )}
         </div>
 
-        {/* Pulsante carica altri */}
+        {/* Load more */}
         {hasMore && posts.length > 0 && (
-          <div className="flex justify-center mt-10">
+          <div className="flex justify-center mt-8">
             <button
               onClick={loadMore}
               disabled={loadingMore}
-              className="px-10 py-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl font-medium transition disabled:opacity-50 flex items-center gap-3"
+              className="group flex items-center gap-2 px-6 py-3 bg-zinc-900/60 hover:bg-zinc-800/60 border border-white/8 hover:border-violet-500/30 rounded-2xl text-sm font-medium transition-all disabled:opacity-50"
             >
               {loadingMore ? (
-                <>
-                  <Sparkles size={18} className="animate-pulse text-violet-400" />
-                  Caricamento...
-                </>
+                <><span className="w-3.5 h-3.5 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" /> Caricamento...</>
               ) : (
-                'Carica altri post'
+                <>Carica altri post</>
               )}
             </button>
           </div>

@@ -392,30 +392,58 @@ export default function DiscoverPage() {
     setAdding(false);
   };
 
+  const TYPE_LABELS: Record<string, string> = {
+    anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie', game: 'Gioco', boardgame: 'Board'
+  }
+  const TYPE_COLORS: Record<string, string> = {
+    anime: 'bg-sky-500', manga: 'bg-orange-500', movie: 'bg-red-500',
+    tv: 'bg-purple-500', game: 'bg-green-600', boardgame: 'bg-yellow-500'
+  }
+
   return (
-    <div className="min-h-screen bg-black text-white">
-      <div className="pt-6 pb-20 max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="text-center mb-8 sm:mb-12">
-          <h1 className="text-3xl sm:text-5xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-cyan-400">
-            Discover
+    <div className="min-h-screen bg-[#080810] text-white">
+      <div className="pt-6 pb-24 md:pb-10 max-w-6xl mx-auto px-4 sm:px-6">
+
+        {/* Header */}
+        <div className="mb-8 sm:mb-10">
+          <p className="text-[10px] tracking-[0.3em] text-violet-500 font-bold uppercase mb-1">Esplora</p>
+          <h1 className="text-4xl sm:text-5xl font-black tracking-tighter">
+            <span className="grad-text">Discover</span>
           </h1>
-          <p className="text-zinc-400 mt-2 text-sm sm:text-base">Cerca anime, manga, giochi e molto altro</p>
+          <p className="text-zinc-600 mt-2 text-sm">Cerca anime, manga, giochi e molto altro</p>
         </div>
 
-        {/* Type filters — horizontal scroll on mobile */}
-        <div className="scroll-x-hide mb-6 sm:mb-8 -mx-4 sm:mx-0 px-4 sm:px-0">
-          <div className="flex gap-2 sm:flex-wrap sm:justify-center w-max sm:w-auto">
+        {/* Search */}
+        <div className="max-w-2xl mx-auto mb-6">
+          <div className="relative">
+            <Search className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${loading ? 'text-violet-400 animate-pulse' : 'text-zinc-500'}`} size={18} />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Cerca un titolo..."
+              className="w-full bg-zinc-900/60 border border-white/8 focus:border-violet-500/50 pl-11 pr-4 py-4 rounded-2xl text-base placeholder-zinc-600 focus:outline-none transition-colors backdrop-blur-sm"
+            />
+          </div>
+        </div>
+
+        {/* Type filters */}
+        <div className="scroll-x-hide mb-8 -mx-4 sm:mx-0 px-4 sm:px-0">
+          <div className="flex gap-2 sm:flex-wrap w-max sm:w-auto">
             {typeFilters.map((t) => {
               const Icon = t.icon;
+              const isActive = activeType === t.id;
               return (
                 <button
                   key={t.id}
                   onClick={() => setActiveType(t.id)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-medium transition whitespace-nowrap shrink-0 ${
-                    activeType === t.id ? 'bg-violet-600 text-white' : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-700'
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap shrink-0 ${
+                    isActive
+                      ? 'bg-violet-600 text-white shadow-md shadow-violet-500/20'
+                      : 'bg-zinc-900/60 border border-white/6 text-zinc-400 hover:text-white hover:border-violet-500/30'
                   }`}
                 >
-                  <Icon size={16} />
+                  <Icon size={14} />
                   {t.label}
                 </button>
               );
@@ -423,70 +451,78 @@ export default function DiscoverPage() {
           </div>
         </div>
 
-        <div className="max-w-2xl mx-auto mb-8 sm:mb-12">
-          <div className="relative">
-            <Search className="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Cerca titolo..."
-              className="w-full bg-zinc-900 border border-zinc-700 focus:border-violet-500 pl-12 sm:pl-16 pr-4 sm:pr-6 py-4 sm:py-5 rounded-3xl text-base sm:text-lg placeholder-zinc-500 focus:outline-none"
-            />
+        {/* Results grid */}
+        {loading && results.length === 0 && (
+          <div className="flex items-center justify-center gap-2 py-12 text-zinc-500 text-sm">
+            <span className="w-4 h-4 border-2 border-zinc-700 border-t-violet-500 rounded-full animate-spin" />
+            Ricerca in corso...
           </div>
-        </div>
+        )}
 
-        {loading && <p className="text-center text-zinc-400">Ricerca in corso...</p>}
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
           {results.map((item, index) => {
             const isAdded = alreadyAdded.includes(item.id);
+            const inWishlist = wishlistIds.includes(item.id);
             const uniqueKey = `${item.id}-${item.source}-${index}`;
 
             return (
               <div
                 key={uniqueKey}
-                className="bg-zinc-950 border border-zinc-800 rounded-2xl sm:rounded-3xl overflow-hidden hover:border-violet-500/50 transition group"
+                className="group bg-zinc-900/50 border border-white/6 rounded-2xl overflow-hidden hover:border-violet-500/30 hover:bg-zinc-900/80 transition-all duration-300 card-hover"
               >
-                <div className="relative h-48 sm:h-64 bg-zinc-900">
+                {/* Cover */}
+                <div className="relative overflow-hidden" style={{ aspectRatio: '2/3' }}>
                   <img
                     src={item.coverImage}
                     alt={item.title}
-                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
-                </div>
+                  {/* Gradient overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-                <div className="p-4">
-                  <h3 className="font-semibold line-clamp-2 mb-1 text-sm leading-tight">{item.title}</h3>
-                  <p className="text-xs text-zinc-500 mb-3 capitalize">
-                    {item.type}
-                    {item.totalSeasons && item.type === 'tv' && ` • ${item.totalSeasons} stagioni`}
-                  </p>
+                  {/* Type badge */}
+                  <span className={`absolute top-2 left-2 text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white ${TYPE_COLORS[item.type] || 'bg-zinc-600'}`}>
+                    {TYPE_LABELS[item.type] || item.type}
+                  </span>
 
-                  <div className="flex gap-2">
+                  {/* Year badge */}
+                  {item.year && (
+                    <span className="absolute top-2 right-2 text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-black/60 text-zinc-300 backdrop-blur-sm">
+                      {item.year}
+                    </span>
+                  )}
+
+                  {/* Hover actions overlay */}
+                  <div className="absolute bottom-0 left-0 right-0 p-2 flex gap-1.5 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
                     <button
                       onClick={() => handleAdd(item)}
                       disabled={isAdded}
-                      className={`flex-1 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
+                      className={`flex-1 py-2 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 transition backdrop-blur-sm ${
                         isAdded
-                          ? 'bg-emerald-600 text-white cursor-default'
-                          : 'bg-zinc-800 hover:bg-violet-600 border border-zinc-700 hover:border-violet-500'
+                          ? 'bg-emerald-600/90 text-white cursor-default'
+                          : 'bg-violet-600/90 hover:bg-violet-500 text-white'
                       }`}
                     >
-                      {isAdded ? <>✓ Aggiunto</> : <><Plus size={14} /> Aggiungi</>}
+                      {isAdded ? '✓ Aggiunto' : <><Plus size={12} /> Aggiungi</>}
                     </button>
                     <button
                       onClick={() => toggleWishlist(item)}
-                      title={wishlistIds.includes(item.id) ? 'Rimuovi dalla wishlist' : 'Aggiungi alla wishlist'}
-                      className={`p-2.5 rounded-xl border transition-all ${
-                        wishlistIds.includes(item.id)
-                          ? 'bg-violet-600 border-violet-500 text-white'
-                          : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-violet-400 hover:border-violet-500'
+                      title={inWishlist ? 'Rimuovi dalla wishlist' : 'Aggiungi alla wishlist'}
+                      className={`p-2 rounded-xl backdrop-blur-sm transition-all ${
+                        inWishlist ? 'bg-violet-600/90 text-white' : 'bg-black/60 text-zinc-300 hover:text-violet-400'
                       }`}
                     >
-                      {wishlistIds.includes(item.id) ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
+                      {inWishlist ? <BookmarkCheck size={13} /> : <Bookmark size={13} />}
                     </button>
                   </div>
+                </div>
+
+                {/* Info */}
+                <div className="p-2.5">
+                  <h3 className="font-semibold line-clamp-1 text-xs leading-tight text-white">{item.title}</h3>
+                  {item.totalSeasons && item.type === 'tv' && (
+                    <p className="text-[10px] text-zinc-600 mt-0.5">{item.totalSeasons} stagioni</p>
+                  )}
                 </div>
               </div>
             );
@@ -494,107 +530,105 @@ export default function DiscoverPage() {
         </div>
 
         {results.length === 0 && !loading && searchTerm.length >= 2 && (
-          <p className="text-center text-zinc-500 mt-12">
-            Nessun risultato con copertina valida trovato.
-          </p>
+          <div className="text-center py-16">
+            <Search className="mx-auto mb-3 text-zinc-700" size={32} />
+            <p className="text-zinc-600 text-sm">Nessun risultato con copertina valida trovato.</p>
+          </div>
+        )}
+
+        {results.length === 0 && !loading && searchTerm.length < 2 && (
+          <div className="text-center py-16">
+            <div className="text-5xl mb-4">🔍</div>
+            <p className="text-zinc-600 text-sm">Inizia a digitare per cercare...</p>
+          </div>
         )}
       </div>
 
       {/* Modal Aggiungi */}
       {selectedMedia && (
-        <div className="fixed inset-0 bg-black/90 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-t-3xl sm:rounded-3xl max-w-md w-full p-5 sm:p-8 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-5 sm:mb-6">
-              <h3 className="text-lg sm:text-xl font-semibold">Aggiungi ai progressi</h3>
-              <button onClick={() => setSelectedMedia(null)} className="text-zinc-400 hover:text-white p-1">
-                <X size={24} />
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" onClick={(e) => { if (e.target === e.currentTarget) setSelectedMedia(null); }}>
+          <div className="bg-zinc-900 border border-white/10 rounded-t-3xl sm:rounded-3xl max-w-md w-full p-5 sm:p-7 max-h-[90vh] overflow-y-auto shadow-2xl">
+            {/* Handle bar on mobile */}
+            <div className="sm:hidden w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-5" />
+
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="text-lg font-bold">Aggiungi ai progressi</h3>
+              <button onClick={() => setSelectedMedia(null)} className="p-1.5 text-zinc-500 hover:text-white hover:bg-white/5 rounded-xl transition-all">
+                <X size={18} />
               </button>
             </div>
 
-            <div className="flex gap-4 sm:gap-5 mb-6 sm:mb-8">
+            <div className="flex gap-4 mb-6">
               {selectedMedia.coverImage && (
-                <img src={selectedMedia.coverImage} alt="" className="w-20 h-28 sm:w-24 sm:h-36 object-cover rounded-xl sm:rounded-2xl flex-shrink-0" />
+                <img src={selectedMedia.coverImage} alt="" className="w-20 h-28 object-cover rounded-xl flex-shrink-0 shadow-xl" />
               )}
-              <div className="flex-1">
-                <p className="font-semibold text-lg">{selectedMedia.title}</p>
-                <p className="text-sm text-zinc-500">
-                  {selectedMedia.year} • {selectedMedia.type}
-                  {selectedMedia.totalSeasons && ` • ${selectedMedia.totalSeasons} stagioni`}
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-base leading-tight">{selectedMedia.title}</p>
+                <p className="text-sm text-zinc-500 mt-1">
+                  {selectedMedia.year && `${selectedMedia.year} · `}{selectedMedia.type}
+                  {selectedMedia.totalSeasons && ` · ${selectedMedia.totalSeasons} stagioni`}
                 </p>
               </div>
             </div>
 
-            <div className="mb-6 sm:mb-8 space-y-5 sm:space-y-6">
-
-              {/* Voto — sempre visibile */}
+            <div className="space-y-5">
+              {/* Rating */}
               <div>
-                <p className="text-sm text-zinc-400 mb-3">Voto (opzionale)</p>
+                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Voto (opzionale)</p>
                 <StarRating value={modalRating} onChange={setModalRating} />
                 {modalRating > 0 && (
-                  <p className="text-xs text-zinc-500 mt-2">{modalRating} / 5 stelle</p>
+                  <p className="text-xs text-zinc-600 mt-2">{modalRating} / 5 stelle</p>
                 )}
               </div>
 
-              {/* Stagione + Episodio — solo per serie TV e anime con episodi */}
+              {/* Season + Episode */}
               {selectedMedia.type !== 'movie' && selectedMedia.type !== 'game' &&
                selectedMedia.episodes && selectedMedia.episodes > 1 && (
-
                 <>
                   {selectedMedia.type === 'tv' && selectedMedia.seasons && Object.keys(selectedMedia.seasons).length > 0 && (
                     <div>
-                      <p className="text-sm text-zinc-400 mb-2">Stagione</p>
+                      <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Stagione</p>
                       <select
                         value={selectedSeason}
-                        onChange={(e) => {
-                          setSelectedSeason(Number(e.target.value));
-                          setCurrentEpisode('');
-                        }}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg focus:outline-none focus:border-violet-500"
+                        onChange={(e) => { setSelectedSeason(Number(e.target.value)); setCurrentEpisode(''); }}
+                        className="w-full bg-zinc-800 border border-white/8 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-violet-500 text-white"
                       >
                         {Object.keys(selectedMedia.seasons).map((key) => {
                           const num = parseInt(key);
                           const count = selectedMedia.seasons?.[num]?.episode_count || 0;
-                          return (
-                            <option key={num} value={num}>
-                              Stagione {num} ({count} episodi)
-                            </option>
-                          );
+                          return <option key={num} value={num}>Stagione {num} ({count} ep.)</option>;
                         })}
                       </select>
                     </div>
                   )}
 
                   <div>
-                    <p className="text-sm text-zinc-400 mb-2">Episodio corrente</p>
+                    <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Episodio corrente</p>
                     <input
                       type="number"
                       min="1"
                       max={selectedMedia.seasons?.[selectedSeason]?.episode_count || selectedMedia.episodes || 9999}
                       value={currentEpisode}
                       onChange={(e) => setCurrentEpisode(e.target.value.replace(/[^0-9]/g, ''))}
-                      placeholder="Numero episodio"
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-4 sm:py-5 text-2xl sm:text-3xl text-center focus:outline-none focus:border-violet-500 appearance-none no-spinner"
+                      placeholder="—"
+                      className="w-full bg-zinc-800 border border-white/8 rounded-xl px-4 py-3 text-2xl text-center focus:outline-none focus:border-violet-500 appearance-none no-spinner font-bold"
                     />
                     {currentEpisode && Number(currentEpisode) > (selectedMedia.seasons?.[selectedSeason]?.episode_count || selectedMedia.episodes || 9999) && (
-                      <p className="text-xs text-red-400 mt-2">
-                        Numero episodio non valido
-                      </p>
+                      <p className="text-xs text-red-400 mt-2">Numero episodio non valido</p>
                     )}
                   </div>
                 </>
               )}
 
-              {/* Messaggio per film */}
               {selectedMedia.type === 'movie' && (
-                <div className="bg-zinc-800 rounded-2xl px-5 py-4 text-sm text-zinc-400">
+                <div className="bg-zinc-800/60 border border-white/5 rounded-xl px-4 py-3 text-sm text-zinc-500">
                   Il film verrà aggiunto come completato.
                 </div>
               )}
 
-              {/* Messaggio per boardgame */}
               {selectedMedia.type === 'boardgame' && (
-                <div className="bg-zinc-800 rounded-2xl px-5 py-4 text-sm text-zinc-400">
-                  Il board game verrà aggiunto alla tua collezione. Potrai aggiornare le partite giocate dal profilo.
+                <div className="bg-zinc-800/60 border border-white/5 rounded-xl px-4 py-3 text-sm text-zinc-500">
+                  Il board game verrà aggiunto alla tua collezione.
                 </div>
               )}
             </div>
@@ -610,9 +644,14 @@ export default function DiscoverPage() {
                   Number(currentEpisode) > (selectedMedia.seasons?.[selectedSeason]?.episode_count || selectedMedia.episodes || 9999)
                 )
               ) as boolean}
-              className="w-full py-3.5 sm:py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-2xl font-semibold text-base sm:text-lg hover:brightness-110 disabled:opacity-50 transition"
+              className="w-full mt-6 py-3.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-2xl font-bold text-base hover:brightness-110 disabled:opacity-40 transition-all shadow-lg shadow-violet-500/20"
             >
-              {adding ? 'Aggiungendo...' : 'Aggiungi'}
+              {adding ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Aggiungendo...
+                </span>
+              ) : 'Aggiungi'}
             </button>
           </div>
         </div>
