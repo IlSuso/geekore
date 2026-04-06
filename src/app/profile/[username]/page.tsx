@@ -135,7 +135,7 @@ function MediaCard({
   const hasNotes = !!media.notes?.trim()
 
   return (
-    <div className="group relative bg-zinc-950 rounded-3xl overflow-hidden h-full flex flex-col">
+    <div className="group relative bg-zinc-900/60 rounded-3xl overflow-hidden h-full flex flex-col">
       {/* Cover */}
       <div className="relative h-52 sm:h-72 bg-zinc-900 flex-shrink-0">
         {media.is_steam && (
@@ -335,14 +335,19 @@ function MediaCard({
 
 function Avatar({ profile }: { profile: Profile }) {
   return (
-    <div className="w-36 h-36 border-4 border-zinc-700 mb-6 bg-zinc-800 rounded-full flex items-center justify-center overflow-hidden">
-      {profile.avatar_url ? (
-        <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-      ) : (
-        <span className="text-6xl font-bold text-zinc-400">
-          {(profile.display_name?.[0] || profile.username?.[0] || 'G').toUpperCase()}
-        </span>
-      )}
+    <div className="relative mb-5">
+      <div className="absolute -inset-3 bg-gradient-to-br from-violet-500/20 to-fuchsia-500/10 rounded-full blur-xl" />
+      <div className="relative w-28 h-28 sm:w-36 sm:h-36 border-2 border-violet-500/30 rounded-full overflow-hidden bg-zinc-800 shadow-2xl shadow-violet-500/10">
+        {profile.avatar_url ? (
+          <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+            <span className="text-5xl font-black text-white">
+              {(profile.display_name?.[0] || profile.username?.[0] || 'G').toUpperCase()}
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -612,7 +617,7 @@ function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
   if (loading) return <Spinner />
 
   if (!profile) {
-    return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white">Utente non trovato</div>
+    return <div className="min-h-screen bg-[#080810] flex items-center justify-center text-zinc-500">Utente non trovato</div>
   }
 
   const grouped = mediaList.reduce((acc: Record<string, UserMedia[]>, item) => {
@@ -632,113 +637,121 @@ function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const orderedCategories = categoryOrder.filter(cat => grouped[cat]?.length > 0)
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white pb-20">
-      <div className="pt-6 sm:pt-8 max-w-6xl mx-auto px-4 sm:px-6">
+    <div className="min-h-screen bg-[#080810] text-white pb-24 md:pb-10">
+      <div className="pt-6 sm:pt-10 max-w-6xl mx-auto px-4 sm:px-6">
 
-        {/* Header profilo */}
-        <div className="flex justify-between items-start mb-8 sm:mb-12">
-          <div className="flex flex-col items-center flex-1">
+        {/* Profile hero header */}
+        <div className="relative mb-8 sm:mb-12">
+          {/* Ambient glow behind avatar */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-violet-600/10 rounded-full blur-[80px] pointer-events-none" />
+
+          <div className="relative flex flex-col items-center">
+            {/* Logout — top right */}
+            {currentUserId && (
+              <button
+                onClick={async () => { await supabase.auth.signOut(); window.location.href = '/login' }}
+                className="absolute right-0 top-0 px-4 py-2 text-xs font-medium text-zinc-500 border border-white/8 hover:border-white/20 hover:text-zinc-300 rounded-xl transition-all"
+              >
+                Logout
+              </button>
+            )}
+
             <Avatar profile={profile} />
-            <h1 className="text-3xl sm:text-5xl font-bold tracking-tighter mb-1 sm:mb-2 text-center">
+
+            <h1 className="text-3xl sm:text-5xl font-black tracking-tighter mb-1 text-center">
               {profile.display_name || profile.username}
             </h1>
-            <p className="text-base sm:text-xl text-zinc-400">@{profile.username}</p>
-            {profile.bio && <p className="text-zinc-500 mt-2 sm:mt-3 text-center max-w-md text-sm sm:text-base px-4">{profile.bio}</p>}
+            <p className="text-sm sm:text-base text-zinc-500">@{profile.username}</p>
+            {profile.bio && (
+              <p className="text-zinc-500 mt-3 text-center max-w-md text-sm leading-relaxed px-4">{profile.bio}</p>
+            )}
 
-            {/* Contatori followers/following */}
-            <div className="flex items-center gap-6 mt-4 sm:mt-5">
+            {/* Followers/Following */}
+            <div className="flex items-center gap-6 mt-5 bg-zinc-900/50 border border-white/6 rounded-2xl px-6 py-3">
               <div className="text-center">
-                <p className="text-lg sm:text-xl font-bold">{followersCount}</p>
-                <p className="text-xs text-zinc-500 uppercase tracking-widest">Follower</p>
+                <p className="text-xl font-black text-white">{followersCount}</p>
+                <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Follower</p>
               </div>
               <div className="w-px h-8 bg-zinc-800" />
               <div className="text-center">
-                <p className="text-lg sm:text-xl font-bold">{followingCount}</p>
-                <p className="text-xs text-zinc-500 uppercase tracking-widest">Following</p>
+                <p className="text-xl font-black text-white">{followingCount}</p>
+                <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Following</p>
               </div>
             </div>
 
-            {isOwner && (
-              <Link href="/profile/edit" className="mt-5 sm:mt-6">
-                <button className="px-6 sm:px-8 py-2.5 sm:py-3 bg-white text-black font-semibold rounded-full hover:bg-zinc-200 transition-all text-sm sm:text-base">
-                  Modifica Profilo
-                </button>
-              </Link>
-            )}
-
-            {/* FollowButton — solo se non sei il proprietario e sei loggato */}
-            {!isOwner && currentUserId && profile && (
-              <div className="mt-5 sm:mt-6">
+            {/* Action buttons */}
+            <div className="mt-5 flex gap-3">
+              {isOwner && (
+                <Link href="/profile/edit">
+                  <button className="px-6 py-2.5 bg-white text-black text-sm font-bold rounded-xl hover:bg-zinc-100 transition-all">
+                    Modifica profilo
+                  </button>
+                </Link>
+              )}
+              {!isOwner && currentUserId && profile && (
                 <FollowButton
                   targetId={profile.id}
                   currentUserId={currentUserId}
                   isFollowingInitial={isFollowing}
                 />
-              </div>
-            )}
+              )}
+            </div>
           </div>
-
-          {currentUserId && (
-            <button
-              onClick={async () => { await supabase.auth.signOut(); window.location.href = '/login' }}
-              className="px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-medium border border-zinc-700 hover:border-zinc-500 rounded-full transition-colors shrink-0"
-            >
-              Logout
-            </button>
-          )}
         </div>
 
         {/* Steam section — solo owner */}
         {isOwner && (
-          <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-4 sm:p-8 mb-8 sm:mb-12">
-            <div className="flex justify-between items-center mb-4 sm:mb-6">
-              <div className="flex items-center gap-3 sm:gap-4">
-                <SteamIcon size={28} className="text-[#66C0F4]" />
-                <h2 className="text-lg sm:text-2xl font-semibold">Account Steam</h2>
+          <div className="bg-zinc-900/50 border border-white/6 rounded-2xl p-4 sm:p-6 mb-8">
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-3">
+                <SteamIcon size={22} className="text-[#66C0F4]" />
+                <h2 className="text-base font-semibold">Account Steam</h2>
               </div>
               {steamAccount ? (
-                <div className="text-green-400 flex items-center gap-2"><CheckCircle size={20} /> Collegato</div>
+                <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-semibold">
+                  <CheckCircle size={14} /> Collegato
+                </div>
               ) : (
-                <div className="text-amber-400 text-sm">Non collegato</div>
+                <span className="text-amber-400 text-xs font-medium">Non collegato</span>
               )}
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-3">
               {steamAccount ? (
                 <>
                   <button
                     onClick={importSteamGames}
                     disabled={importingGames}
-                    className="flex-1 flex items-center justify-center gap-3 bg-[#1B2838] hover:bg-[#2a475e] border border-[#66C0F4] py-4 rounded-2xl font-medium transition disabled:opacity-50"
+                    className="flex-1 flex items-center justify-center gap-2.5 bg-[#1B2838] hover:bg-[#2a475e] border border-[#66C0F4]/50 hover:border-[#66C0F4] py-3 rounded-xl text-sm font-medium transition disabled:opacity-50"
                   >
-                    <RefreshCw size={20} className={importingGames ? 'animate-spin' : ''} />
-                    {importingGames ? 'Aggiornamento...' : 'Aggiorna giochi da Steam'}
+                    <RefreshCw size={16} className={importingGames ? 'animate-spin' : ''} />
+                    {importingGames ? 'Aggiornamento...' : 'Aggiorna giochi Steam'}
                   </button>
                   <button
                     onClick={reorderGamesByHours}
                     disabled={reorderingGames}
-                    className="flex-1 flex items-center justify-center gap-3 bg-zinc-900 hover:bg-zinc-800 border border-violet-500/50 hover:border-violet-500 py-4 rounded-2xl font-medium transition disabled:opacity-50"
+                    className="flex-1 flex items-center justify-center gap-2.5 bg-zinc-900 hover:bg-zinc-800 border border-violet-500/30 hover:border-violet-500/60 py-3 rounded-xl text-sm font-medium transition disabled:opacity-50"
                   >
-                    <RotateCw size={20} className={reorderingGames ? 'animate-spin' : ''} />
+                    <RotateCw size={16} className={reorderingGames ? 'animate-spin' : ''} />
                     {reorderingGames ? 'Riordinamento...' : 'Riordina per ore'}
                   </button>
                 </>
               ) : (
                 <a
                   href="/api/steam/connect"
-                  className="flex-1 flex items-center justify-center gap-3 bg-[#1B2838] hover:bg-[#2a475e] border border-[#66C0F4] py-4 rounded-2xl font-medium transition"
+                  className="flex-1 flex items-center justify-center gap-2.5 bg-[#1B2838] hover:bg-[#2a475e] border border-[#66C0F4]/50 hover:border-[#66C0F4] py-3 rounded-xl text-sm font-medium transition"
                 >
-                  <SteamIcon size={20} />
+                  <SteamIcon size={16} />
                   Collega Account Steam
                 </a>
               )}
             </div>
 
             {steamMessage && (
-              <div className={`mt-4 px-5 py-3 rounded-2xl text-sm font-medium ${
+              <div className={`mt-3 px-4 py-3 rounded-xl text-sm font-medium ${
                 steamMessage.type === 'error'
-                  ? 'bg-red-950/50 border border-red-800 text-red-400'
-                  : 'bg-emerald-950/50 border border-emerald-800 text-emerald-400'
+                  ? 'bg-red-950/40 border border-red-800/50 text-red-400'
+                  : 'bg-emerald-950/40 border border-emerald-800/50 text-emerald-400'
               }`}>
                 {steamMessage.text}
               </div>
@@ -746,11 +759,7 @@ function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
           </div>
         )}
 
-        <h2 className="text-2xl sm:text-4xl font-bold tracking-tight mb-6 sm:mb-8">
-          {isOwner ? 'I miei progressi' : `Progressi di @${profile.username}`}
-        </h2>
-
-        {/* Statistiche profilo */}
+        {/* Stats bar */}
         {mediaList.length > 0 && (() => {
           const totalAnime = mediaList.filter(m => m.type === 'anime').length
           const totalGames = mediaList.filter(m => m.type === 'game').length
@@ -758,40 +767,52 @@ function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
           const rated = mediaList.filter(m => m.rating && m.rating > 0)
           const avgRating = rated.length > 0 ? (rated.reduce((s, m) => s + (m.rating || 0), 0) / rated.length).toFixed(1) : null
           const stats = [
+            { label: 'Titoli', value: mediaList.length },
             { label: 'Anime', value: totalAnime },
             { label: 'Giochi', value: totalGames },
             { label: 'Ore Steam', value: steamHours },
-            { label: 'Voto medio', value: avgRating ? `★ ${avgRating}` : '—' },
-            { label: 'Nella collezione', value: mediaList.length },
+            { label: 'Voto medio', value: avgRating ? `${avgRating}★` : '—' },
           ]
           return (
-            <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-3 sm:gap-4 mb-8 sm:mb-10">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 mb-8">
               {stats.map(s => (
-                <div key={s.label} className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 sm:px-5 py-3 text-center">
-                  <p className="text-lg sm:text-xl font-bold text-violet-400">{s.value}</p>
-                  <p className="text-[10px] sm:text-xs text-zinc-500 mt-1">{s.label}</p>
+                <div key={s.label} className="bg-zinc-900/50 border border-white/5 rounded-xl px-3 py-3 text-center">
+                  <p className="text-lg font-black text-violet-400 leading-none">{s.value}</p>
+                  <p className="text-[10px] text-zinc-600 mt-1 uppercase tracking-wide">{s.label}</p>
                 </div>
               ))}
             </div>
           )
         })()}
 
+        {/* Section header */}
+        <div className="flex items-center gap-3 mb-6">
+          <h2 className="text-xl sm:text-2xl font-black tracking-tight">
+            {isOwner ? 'La mia collezione' : `Collezione di @${profile.username}`}
+          </h2>
+          {mediaList.length > 0 && (
+            <span className="text-xs font-bold text-zinc-600 bg-zinc-900/60 border border-white/5 px-2.5 py-1 rounded-full">
+              {mediaList.length}
+            </span>
+          )}
+        </div>
+
         {mediaList.length === 0 ? (
-          <div className="text-center py-20 text-zinc-500">
+          <div className="text-center py-20 text-zinc-600">
             {isOwner ? 'Non hai ancora nulla nella tua collezione.' : 'Questo utente non ha ancora nulla nella collezione.'}
           </div>
         ) : (
           orderedCategories.map((category) => (
-            <div key={category} className="mb-10 sm:mb-16">
-              <div className="flex items-center justify-between mb-4 sm:mb-6">
-                <h3 className="text-xl sm:text-2xl font-semibold">{category}</h3>
-                <p className="text-sm text-zinc-500">{grouped[category].length} elementi</p>
+            <div key={category} className="mb-10 sm:mb-14">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-bold text-zinc-300 tracking-wide">{category}</h3>
+                <span className="text-xs text-zinc-700">{grouped[category].length}</span>
               </div>
 
               {isOwner ? (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
                   <SortableContext items={grouped[category].map(m => m.id)} strategy={rectSortingStrategy}>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
                       {grouped[category].map((media) => (
                         <SortableBox key={media.id} media={media}>
                           <MediaCard
@@ -813,9 +834,9 @@ function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
                   </SortableContext>
                 </DndContext>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
                   {grouped[category].map((media) => (
-                    <div key={media.id} className="border border-zinc-800 rounded-3xl overflow-hidden h-[400px] sm:h-[520px] flex flex-col">
+                    <div key={media.id} className="border border-white/6 rounded-3xl overflow-hidden h-[400px] sm:h-[520px] flex flex-col">
                       <MediaCard media={media} isOwner={false} />
                     </div>
                   ))}
@@ -828,27 +849,28 @@ function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
 
       {/* Modal Note */}
       {isNotesModalOpen && selectedMedia && isOwner && (
-        <div className="fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center z-[60]">
-          <div className="bg-zinc-900 rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg overflow-hidden">
-            <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
-              <h3 className="text-xl font-semibold">Note su {selectedMedia.title}</h3>
-              <button onClick={() => setIsNotesModalOpen(false)} className="text-zinc-400 hover:text-white">
-                <X size={24} />
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center z-[60]">
+          <div className="bg-zinc-900 border border-white/10 rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg overflow-hidden shadow-2xl">
+            <div className="sm:hidden w-10 h-1 bg-zinc-700 rounded-full mx-auto mt-4" />
+            <div className="p-5 border-b border-white/6 flex items-center justify-between">
+              <h3 className="text-base font-bold">Note su {selectedMedia.title}</h3>
+              <button onClick={() => setIsNotesModalOpen(false)} className="p-1.5 text-zinc-500 hover:text-white hover:bg-white/5 rounded-xl transition-all">
+                <X size={18} />
               </button>
             </div>
-            <div className="p-6">
+            <div className="p-5">
               <textarea
                 value={notesInput}
                 onChange={(e) => setNotesInput(e.target.value)}
                 placeholder="Scrivi qui le tue note personali..."
-                className="w-full h-40 bg-zinc-800 border border-zinc-700 rounded-2xl p-4 text-white resize-y focus:outline-none focus:border-violet-500"
+                className="w-full h-36 bg-zinc-800 border border-white/8 focus:border-violet-500/50 rounded-xl p-4 text-sm text-white resize-none focus:outline-none transition-colors placeholder-zinc-600"
               />
             </div>
-            <div className="p-6 border-t border-zinc-800 flex gap-3">
-              <button onClick={() => setIsNotesModalOpen(false)} className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition">
+            <div className="p-5 border-t border-white/6 flex gap-3">
+              <button onClick={() => setIsNotesModalOpen(false)} className="flex-1 py-2.5 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm transition">
                 Annulla
               </button>
-              <button onClick={saveNotes} className="flex-1 py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl transition font-medium">
+              <button onClick={saveNotes} className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-xl text-sm transition font-semibold">
                 Salva
               </button>
             </div>

@@ -153,14 +153,14 @@ export default function EditProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white">
+      <div className="min-h-screen bg-[#080810] flex items-center justify-center text-white">
         <Loader2 size={40} className="animate-spin text-violet-500" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-4 sm:p-6">
+    <div className="min-h-screen bg-[#080810] text-white flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-3xl p-5 sm:p-8">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-bold">Modifica Profilo</h1>

@@ -53,7 +53,7 @@ export default function RegisterPage() {
 
   if (success) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-zinc-950 flex items-center justify-center p-6">
+      <div className="min-h-[calc(100vh-4rem)] bg-[#080810] flex items-center justify-center p-6">
         <div className="text-center max-w-md mx-auto">
           <div className="w-20 h-20 bg-violet-500/10 border border-violet-500/30 rounded-3xl flex items-center justify-center mx-auto mb-6">
             <Mail size={36} className="text-violet-400" />
@@ -85,7 +85,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-stretch bg-zinc-950">
+    <div className="min-h-[calc(100vh-4rem)] flex items-stretch bg-[#080810]">
 
       {/* Left — Branding */}
       <div className="hidden lg:flex lg:w-[45%] relative flex-col justify-between p-16 overflow-hidden border-r border-zinc-800/50">
@@ -150,7 +150,7 @@ export default function RegisterPage() {
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="Il tuo nome o nickname"
                 autoComplete="name"
-                className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors"
+                className="w-full bg-zinc-900 border border-white/8 focus:border-violet-500/50 rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors"
               />
             </div>
 
@@ -163,7 +163,7 @@ export default function RegisterPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="tuo@email.com"
                 autoComplete="email"
-                className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors"
+                className="w-full bg-zinc-900 border border-white/8 focus:border-violet-500/50 rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors"
                 required
               />
             </div>

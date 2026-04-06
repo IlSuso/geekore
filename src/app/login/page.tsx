@@ -50,7 +50,7 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-stretch bg-zinc-950">
+    <div className="min-h-[calc(100vh-4rem)] flex items-stretch bg-[#080810]">
 
       {/* Left — Branding panel (desktop) */}
       <div className="hidden lg:flex lg:w-[45%] relative flex-col justify-between p-16 overflow-hidden border-r border-zinc-800/50">
@@ -123,7 +123,7 @@ function LoginForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="tuo@email.com"
                 autoComplete="email"
-                className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors"
+                className="w-full bg-zinc-900 border border-white/8 focus:border-violet-500/50 rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors"
                 required
               />
             </div>
@@ -181,7 +181,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-zinc-950" />}>
+    <Suspense fallback={<div className="min-h-screen bg-[#080810]" />}>
       <LoginForm />
     </Suspense>
   )

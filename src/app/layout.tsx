@@ -34,7 +34,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="it">
-      <body className="bg-black text-white min-h-screen antialiased">
+      <body className="bg-[#080810] text-white min-h-screen antialiased">
         <Navbar />
         <main className="pt-16 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-8">
           {children}
