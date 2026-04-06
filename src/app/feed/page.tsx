@@ -190,10 +190,16 @@ export default function FeedPage() {
 
     let imageUrl = null;
     if (selectedImage) {
+      const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+      if (!ALLOWED_MIME_TYPES.includes(selectedImage.type)) {
+        setIsPublishing(false)
+        alert('Formato immagine non supportato. Usa JPG, PNG, GIF o WebP.')
+        return
+      }
       const fileName = `${Date.now()}-${selectedImage.name}`;
       const { error: uploadError } = await supabase.storage
         .from('post-images')
-        .upload(fileName, selectedImage);
+        .upload(fileName, selectedImage, { contentType: selectedImage.type });
 
       if (!uploadError) {
         const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(fileName);

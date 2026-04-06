@@ -13,7 +13,7 @@ export default async function ExplorePage() {
 
   const { data: allPosts } = await supabase
     .from('posts')
-    .select(`*, profiles:user_id (*)`)
+    .select(`*, profiles:user_id (*), likes (id, user_id), comments (id, content, created_at, user_id)`)
     .order('created_at', { ascending: false })
     .limit(20)
 
@@ -32,7 +32,7 @@ export default async function ExplorePage() {
         <div className="space-y-6 mt-10">
           <h2 className="text-xs font-black uppercase tracking-widest text-violet-400">Post Recenti</h2>
           {allPosts?.map((post: any) => (
-            <FeedCard key={post.id} post={post} />
+            <FeedCard key={post.id} post={{ ...post, likes_count: post.likes?.length || 0, comments_count: post.comments?.length || 0 }} />
           ))}
         </div>
       </main>

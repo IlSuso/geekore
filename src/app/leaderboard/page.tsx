@@ -14,7 +14,7 @@ export default function LeaderboardPage() {
       const { data, error } = await supabase
         .from('leaderboard')
         .select('*')
-        .order('completion_rate', { ascending: false })
+        .order('core_power', { ascending: false })
         .limit(50);
       
       if (!error && data) setLeaders(data);
@@ -57,7 +57,7 @@ export default function LeaderboardPage() {
                 </div>
                 <div className="text-right">
                   <div className={`text-2xl font-black ${index === 0 ? 'text-yellow-500' : 'text-[#7c6af7]'}`}>
-                    {user.completion_rate}%
+                    {user.core_power ?? 0}
                   </div>
                 </div>
               </div>

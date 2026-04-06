@@ -1,8 +1,10 @@
 -- =============================================
--- GEEKORE - Supabase Schema (Versione Aggiornata - Aprile 2026)
+-- GEEKORE - Supabase Schema (Sincronizzato con il codice - Aprile 2026)
+-- =============================================
+-- NOTA: questo schema usa user_media_entries come tabella FLAT (senza media separata)
+-- per allinearsi con il codice attuale. La tabella `media` normalizzata è rimossa.
 -- =============================================
 
--- Enable extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- =============================================
@@ -23,48 +25,69 @@ CREATE TABLE IF NOT EXISTS profiles (
 );
 
 -- =============================================
--- MEDIA (Anime, Manga, Movie, TV, Game, Board Game)
--- =============================================
-CREATE TABLE IF NOT EXISTS media (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    type TEXT NOT NULL CHECK (type IN ('anime', 'manga', 'movie', 'tv', 'game', 'boardgame')),
-    title TEXT NOT NULL,
-    cover_url TEXT,
-    external_id TEXT,                    -- id da AniList / IGDB / BGG
-    year INTEGER,
-    total_episodes INTEGER,              -- per anime/tv
-    total_chapters INTEGER,              -- per manga
-    total_volumes INTEGER,               -- per manga
-    created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- =============================================
--- USER MEDIA ENTRIES (Progressi personali)
+-- USER MEDIA ENTRIES (Flat — nessuna tabella media separata)
 -- =============================================
 CREATE TABLE IF NOT EXISTS user_media_entries (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    media_id UUID NOT NULL REFERENCES media(id) ON DELETE CASCADE,
-    status TEXT NOT NULL CHECK (status IN ('planning', 'watching', 'reading', 'playing', 'completed', 'dropped', 'on_hold')),
-    progress INTEGER DEFAULT 0,          -- episodi/capitoli/ore giocati
-    score INTEGER CHECK (score >= 0 AND score <= 10),
+
+    -- Dati media inline
+    title TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('anime', 'manga', 'movie', 'tv', 'game', 'boardgame')),
+    cover_image TEXT,
+    external_id TEXT,                  -- AniList ID, IGDB ID, BGG ID
+    appid TEXT,                        -- Steam AppID
+
+    -- Progressi
+    current_episode INTEGER DEFAULT 0,
+    current_season INTEGER DEFAULT 1,
+    episodes INTEGER,                  -- totale episodi/capitoli per la stagione corrente
+    season_episodes JSONB,             -- { "1": { "episode_count": 13 }, ... }
+
+    -- Metadati
+    rating NUMERIC(3,1) CHECK (rating >= 0 AND rating <= 5),  -- mezze stelle (0.5 step)
     notes TEXT,
-    started_at TIMESTAMPTZ,
-    completed_at TIMESTAMPTZ,
+    is_steam BOOLEAN DEFAULT false,
+    display_order BIGINT DEFAULT 0,
+
     updated_at TIMESTAMPTZ DEFAULT now(),
-    UNIQUE(user_id, media_id)
+
+    -- Vincolo unico per media normali (non Steam)
+    UNIQUE NULLS NOT DISTINCT (user_id, title)
+    -- Per Steam usare UNIQUE(user_id, appid) — aggiungere se necessario:
+    -- UNIQUE NULLS NOT DISTINCT (user_id, appid)
 );
 
 -- =============================================
--- POSTS (Post sociali liberi)
+-- STEAM ACCOUNTS
+-- =============================================
+CREATE TABLE IF NOT EXISTS steam_accounts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL UNIQUE REFERENCES profiles(id) ON DELETE CASCADE,
+    steam_id TEXT,           -- Steam vanity URL / custom ID
+    steam_id64 TEXT,         -- Steam 64-bit ID numerico
+    username TEXT,           -- Steam display name
+    avatar TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================
+-- STEAM IMPORT LOG (rate limiting)
+-- =============================================
+CREATE TABLE IF NOT EXISTS steam_import_log (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    imported_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================
+-- POSTS
 -- =============================================
 CREATE TABLE IF NOT EXISTS posts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
     image_url TEXT,
-    item_id UUID REFERENCES media(id) ON DELETE SET NULL,   -- opzionale: legato a un media
-    rating INTEGER CHECK (rating >= 1 AND rating <= 10),
     created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now())
 );
 
@@ -80,13 +103,12 @@ CREATE TABLE IF NOT EXISTS comments (
 );
 
 -- =============================================
--- LIKES (Unificata per posts e activities)
+-- LIKES
 -- =============================================
 CREATE TABLE IF NOT EXISTS likes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
-    activity_id UUID,                    -- se vorrai usarlo per feed_activities in futuro
     created_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE(user_id, post_id)
 );
@@ -102,31 +124,47 @@ CREATE TABLE IF NOT EXISTS follows (
 );
 
 -- =============================================
--- FEED ACTIVITIES (attività automatiche)
--- =============================================
-CREATE TABLE IF NOT EXISTS feed_activities (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    entry_id UUID NOT NULL,              -- può essere post_id o user_media_entry_id
-    type TEXT NOT NULL,                  -- 'post', 'media_update', 'completed', ecc.
-    created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- =============================================
 -- NOTIFICATIONS
 -- =============================================
 CREATE TABLE IF NOT EXISTS notifications (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    type TEXT NOT NULL,
-    sender_id UUID NOT NULL REFERENCES profiles(id),
-    receiver_id UUID NOT NULL REFERENCES profiles(id),
-    post_id UUID REFERENCES posts(id),
+    type TEXT NOT NULL,               -- 'like', 'comment', 'follow'
+    sender_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    receiver_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
     is_read BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now())
 );
 
 -- =============================================
--- CACHE TABLES (mantieni se le usi)
+-- WISHLIST
+-- =============================================
+CREATE TABLE IF NOT EXISTS wishlist (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('anime', 'manga', 'movie', 'tv', 'game', 'boardgame')),
+    cover_image TEXT,
+    external_id TEXT,
+    added_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(user_id, external_id)
+);
+
+-- =============================================
+-- LEADERBOARD
+-- =============================================
+CREATE TABLE IF NOT EXISTS leaderboard (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID UNIQUE REFERENCES profiles(id) ON DELETE CASCADE,
+    username TEXT,
+    avatar_url TEXT,
+    steam_id TEXT,
+    core_power INTEGER DEFAULT 0,      -- score calcolato (era hardcoded a 75)
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================
+-- CACHE TABLES
 -- =============================================
 CREATE TABLE IF NOT EXISTS news_cache (
     category TEXT PRIMARY KEY,
@@ -143,11 +181,15 @@ CREATE TABLE IF NOT EXISTS boardgames_cache (
 -- =============================================
 -- INDEXES per performance
 -- =============================================
-CREATE INDEX idx_posts_user_id ON posts(user_id);
-CREATE INDEX idx_posts_created_at ON posts(created_at DESC);
-CREATE INDEX idx_comments_post_id ON comments(post_id);
-CREATE INDEX idx_user_media_entries_user_id ON user_media_entries(user_id);
-CREATE INDEX idx_follows_follower ON follows(follower_id);
+CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id);
+CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id);
+CREATE INDEX IF NOT EXISTS idx_user_media_entries_user_id ON user_media_entries(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_media_entries_type ON user_media_entries(user_id, type);
+CREATE INDEX IF NOT EXISTS idx_follows_follower ON follows(follower_id);
+CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_receiver ON notifications(receiver_id, is_read);
+CREATE INDEX IF NOT EXISTS idx_steam_import_log_user ON steam_import_log(user_id, imported_at DESC);
 
 -- =============================================
 -- TRIGGER per updated_at
@@ -160,10 +202,14 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
-CREATE TRIGGER update_profiles_updated_at 
-    BEFORE UPDATE ON profiles 
+CREATE TRIGGER update_profiles_updated_at
+    BEFORE UPDATE ON profiles
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_user_media_entries_updated_at 
-    BEFORE UPDATE ON user_media_entries 
+CREATE TRIGGER update_user_media_entries_updated_at
+    BEFORE UPDATE ON user_media_entries
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_leaderboard_updated_at
+    BEFORE UPDATE ON leaderboard
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

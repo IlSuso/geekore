@@ -22,15 +22,14 @@ export default function Navbar() {
   const [hasNewNotifications, setHasNewNotifications] = useState(false)
 
   const isProfileActive = pathname === '/profile/me' || pathname.startsWith('/profile/')
-
-  // Hide on auth pages
-  if (AUTH_PATHS.some(p => pathname.startsWith(p))) return null
+  const isAuthPage = AUTH_PATHS.some(p => pathname.startsWith(p))
 
   useEffect(() => {
     if (pathname === '/notifications') setHasNewNotifications(false)
   }, [pathname])
 
   useEffect(() => {
+    if (isAuthPage) return
     let channel: ReturnType<typeof supabase.channel> | null = null
 
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -53,7 +52,10 @@ export default function Navbar() {
     })
 
     return () => { if (channel) supabase.removeChannel(channel) }
-  }, [])
+  }, [isAuthPage])
+
+  // Hide on auth pages
+  if (isAuthPage) return null
 
   return (
     <>
