@@ -2,10 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Design tokens ───────────────────────────────────────────── */
+:root {
+  --accent:        #7c6af7;
+  --accent-bright: #9d8fff;
+  --accent-glow:   rgba(124, 106, 247, 0.3);
+  --fuchsia:       #d946ef;
+  --cyan:          #06b6d4;
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left,   0px);
+  --sar: env(safe-area-inset-right,  0px);
+}
+
 /* ── Base ────────────────────────────────────────────────────── */
+html { scroll-behavior: smooth; }
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
-  background: #000;
+  background: #080810;
   color: #fff;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -13,19 +27,12 @@ body {
 }
 
 /* ── Scrollbar ───────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: #7c6af7; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-/* ── Safe-area (notch / home indicator) ─────────────────────── */
-:root {
-  --sab: env(safe-area-inset-bottom, 0px);
-  --sal: env(safe-area-inset-left,   0px);
-  --sar: env(safe-area-inset-right,  0px);
-}
-
-/* ── Scrollable row without visible scrollbar ────────────────── */
+/* ── Scrollable row — no scrollbar ──────────────────────────── */
 .scroll-x-hide {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -37,10 +44,80 @@ body {
 /* ── Number input — hide spinners ────────────────────────────── */
 input[type="number"].no-spinner::-webkit-inner-spin-button,
 input[type="number"].no-spinner::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+  -webkit-appearance: none; margin: 0;
 }
 input[type="number"].no-spinner { -moz-appearance: textfield; }
+
+/* ── Glass card ──────────────────────────────────────────────── */
+.glass {
+  background: rgba(255,255,255,0.03);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+/* ── Glow effect ─────────────────────────────────────────────── */
+.glow-violet { box-shadow: 0 0 40px var(--accent-glow); }
+.glow-text   { text-shadow: 0 0 40px var(--accent-glow); }
+
+/* ── Gradient text ───────────────────────────────────────────── */
+.grad-text {
+  background: linear-gradient(135deg, #a78bfa 0%, #e879f9 50%, #67e8f9 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.grad-text-violet {
+  background: linear-gradient(135deg, #a78bfa 0%, #e879f9 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Noise texture overlay (subtle grain) ───────────────────── */
+.noise::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  pointer-events: none;
+  z-index: 0;
+  border-radius: inherit;
+}
+
+/* ── Mesh background blobs ───────────────────────────────────── */
+.mesh-bg {
+  position: relative;
+  isolation: isolate;
+}
+.mesh-bg::before {
+  content: '';
+  position: fixed;
+  top: -30vh;
+  left: -20vw;
+  width: 70vw;
+  height: 70vw;
+  max-width: 900px;
+  max-height: 900px;
+  background: radial-gradient(circle at 50% 50%, rgba(124,106,247,0.12) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+.mesh-bg::after {
+  content: '';
+  position: fixed;
+  bottom: -20vh;
+  right: -15vw;
+  width: 60vw;
+  height: 60vw;
+  max-width: 700px;
+  max-height: 700px;
+  background: radial-gradient(circle at 50% 50%, rgba(217,70,239,0.08) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
 
 /* ── Animations ──────────────────────────────────────────────── */
 @keyframes shimmer {
@@ -48,22 +125,81 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
   100% { background-position:  200% 0; }
 }
 
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(8px); }
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 @keyframes scale-in {
-  from { opacity: 0; transform: scale(0.96); }
+  from { opacity: 0; transform: scale(0.95); }
   to   { opacity: 1; transform: scale(1); }
 }
 
-.animate-fade-in  { animation: fade-in  0.3s ease forwards; }
-.animate-scale-in { animation: scale-in 0.2s ease forwards; }
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(124,106,247,0.3); }
+  50%       { box-shadow: 0 0 40px rgba(124,106,247,0.6); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.animate-fade-up    { animation: fade-up   0.5s cubic-bezier(0.16,1,0.3,1) forwards; }
+.animate-fade-in    { animation: fade-in   0.3s ease forwards; }
+.animate-scale-in   { animation: scale-in  0.2s ease forwards; }
+.animate-slide-up   { animation: slide-up  0.4s cubic-bezier(0.16,1,0.3,1) forwards; }
+.animate-float      { animation: float     3s ease-in-out infinite; }
+.animate-glow-pulse { animation: glow-pulse 2s ease-in-out infinite; }
+.animate-spin-slow  { animation: spin-slow 8s linear infinite; }
+
+/* ── Staggered children ──────────────────────────────────────── */
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 60ms; }
+.stagger > *:nth-child(3) { animation-delay: 120ms; }
+.stagger > *:nth-child(4) { animation-delay: 180ms; }
+.stagger > *:nth-child(5) { animation-delay: 240ms; }
+.stagger > *:nth-child(6) { animation-delay: 300ms; }
 
 /* ── Skeleton shimmer ────────────────────────────────────────── */
 .skeleton {
   background: linear-gradient(90deg, #18181b 25%, #27272a 50%, #18181b 75%);
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+/* ── Hover card lift ─────────────────────────────────────────── */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(124,106,247,0.2);
+}
+
+/* ── Line clamp ──────────────────────────────────────────────── */
+.line-clamp-1 { overflow:hidden; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; }
+.line-clamp-2 { overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+.line-clamp-3 { overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
+
+/* ── Custom focus ring ───────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
