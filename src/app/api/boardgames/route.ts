@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
 
       // 1. Ricerca con v2 — restituisce id + nome già nella risposta
       const searchXml = await bggFetch(
-        `https://boardgamegeek.com/xmlapi2/search?query=${encodeURIComponent(term)}&type=boardgame`
+        `https://api.geekdo.com/xmlapi2/search?query=${encodeURIComponent(term)}&type=boardgame`
       )
       if (!searchXml) return NextResponse.json({ results: [] })
 
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
       // Piccolo delay per rispettare il rate limit di BGG
       await new Promise(r => setTimeout(r, 800))
       const detailXml = await bggFetch(
-        `https://boardgamegeek.com/xmlapi2/thing?id=${ids}&type=boardgame&stats=0`
+        `https://api.geekdo.com/xmlapi2/thing?id=${ids}&type=boardgame&stats=0`
       )
 
       if (!detailXml) return NextResponse.json({ results: [] })
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ articles: cache.data })
     }
 
-    const xmlData = await bggFetch('https://boardgamegeek.com/xmlapi2/hot?type=boardgame')
+    const xmlData = await bggFetch('https://api.geekdo.com/xmlapi2/hot?type=boardgame')
     if (!xmlData) {
       return cache
         ? NextResponse.json({ articles: cache.data })
