@@ -42,57 +42,53 @@ export async function GET(request: NextRequest) {
 
     const term = search.trim()
 
-    // BGG XML API v1 — percorso diverso da v2, non bloccato da Cloudflare
+    // BGG internal search API (usata dal loro stesso sito, non esposta a Cloudflare)
     try {
-      const searchXml = await bggFetch(
-        `https://boardgamegeek.com/xmlapi/search?search=${encodeURIComponent(term)}&exact=0`
+      const searchRes = await fetch(
+        `https://api.geekdo.com/api/search?q=${encodeURIComponent(term)}&nosession=1&objecttype=boardgame&start=0&count=10`,
+        { cache: 'no-store', headers: { 'Accept': 'application/json' } }
       )
-      if (!searchXml) return NextResponse.json({ results: [] })
 
-      const searchResult = await parseStringPromise(searchXml)
-      const items: any[] = (searchResult?.boardgames?.boardgame || []).slice(0, 10)
+      console.log(`[BGG] internal API status: ${searchRes.status}`)
+
+      if (!searchRes.ok) {
+        console.error(`[BGG] internal API HTTP ${searchRes.status}`)
+        return NextResponse.json({ results: [] })
+      }
+
+      const searchJson = await searchRes.json()
+      const items: any[] = searchJson.items || []
       if (items.length === 0) return NextResponse.json({ results: [] })
 
-      const ids = items.map((item: any) => item.$.objectid).join(',')
+      // Fetch dettagli per ogni gioco (thumbnail + anno)
+      const detailPromises = items.slice(0, 8).map(async (item: any) => {
+        try {
+          const detailRes = await fetch(
+            `https://api.geekdo.com/api/geekitems?nosession=1&objecttype=thing&objectid=${item.id}`,
+            { cache: 'no-store', headers: { 'Accept': 'application/json' } }
+          )
+          if (!detailRes.ok) return null
+          const detail = await detailRes.json()
+          const game = detail?.item
+          if (!game) return null
 
-      await new Promise(r => setTimeout(r, 800))
-      const detailXml = await bggFetch(
-        `https://boardgamegeek.com/xmlapi/boardgame/${ids}?stats=0`
-      )
-      if (!detailXml) return NextResponse.json({ results: [] })
-
-      const detailResult = await parseStringPromise(detailXml)
-      const detailItems: any[] = detailResult?.boardgames?.boardgame || []
-
-      const results = detailItems
-        .map((item: any) => {
-          const id = item.$.objectid
-          const nameEl = Array.isArray(item.name)
-            ? item.name.find((n: any) => n.$.primary === 'true') || item.name[0]
-            : item.name
-          const title = nameEl?._ || nameEl || 'Senza titolo'
-
-          const thumb = item.thumbnail?.[0]?.trim()
-          const fullImg = item.image?.[0]?.trim()
-          const rawImage = fullImg || thumb
-          if (!rawImage) return null
-          const coverImage = rawImage.startsWith('http') ? rawImage : `https:${rawImage}`
-
-          const year = item.yearpublished?.[0]
-            ? parseInt(item.yearpublished[0])
-            : undefined
+          const coverImage = game.imageurl || game.images?.thumb
+          if (!coverImage) return null
 
           return {
-            id: `bgg-${id}`,
-            title,
+            id: `bgg-${item.id}`,
+            title: item.name || 'Senza titolo',
             type: 'boardgame',
-            coverImage,
-            year,
+            coverImage: coverImage.startsWith('http') ? coverImage : `https:${coverImage}`,
+            year: item.yearpublished || undefined,
             source: 'bgg',
           }
-        })
-        .filter(Boolean)
+        } catch {
+          return null
+        }
+      })
 
+      const results = (await Promise.all(detailPromises)).filter(Boolean)
       return NextResponse.json({ results })
     } catch (e) {
       console.error('[BGG] search error:', e)
