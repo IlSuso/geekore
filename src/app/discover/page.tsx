@@ -231,27 +231,65 @@ export default function DiscoverPage() {
         }
       }
 
-      // BoardGameGeek
+      // BoardGameGeek — chiamata diretta dal browser (bypassa il blocco Cloudflare server-side)
       if (activeType === 'boardgame' && term.length >= 2) {
         try {
-          const res = await fetch(`/api/boardgames?search=${encodeURIComponent(term)}`);
-          if (res.ok) {
-            const json = await res.json();
-            const bggResults: MediaItem[] = (json.results || []).map((g: any) => ({
-              id: g.id,
-              title: g.title,
-              type: 'boardgame',
-              coverImage: g.coverImage,
-              year: g.year,
-              description: g.description,
-              source: 'bgg' as const,
-            }));
-            rawResults = [...rawResults, ...bggResults.filter(hasValidCover)];
+          const searchRes = await fetch(
+            `https://boardgamegeek.com/xmlapi2/search?query=${encodeURIComponent(term)}&type=boardgame`,
+            { mode: 'cors' }
+          )
+
+          if (!searchRes.ok) {
+            setSearchError(`BoardGameGeek non risponde (${searchRes.status}). Riprova tra qualche secondo.`)
           } else {
-            setSearchError('BoardGameGeek non risponde. Riprova tra qualche secondo.');
+            const searchText = await searchRes.text()
+            const parser = new DOMParser()
+            const searchDoc = parser.parseFromString(searchText, 'text/xml')
+            const items = Array.from(searchDoc.querySelectorAll('item')).slice(0, 10)
+
+            if (items.length > 0) {
+              const ids = items.map(i => i.getAttribute('id')).filter(Boolean).join(',')
+
+              const detailRes = await fetch(
+                `https://boardgamegeek.com/xmlapi2/thing?id=${ids}&type=boardgame`,
+                { mode: 'cors' }
+              )
+
+              if (detailRes.ok) {
+                const detailText = await detailRes.text()
+                const detailDoc = parser.parseFromString(detailText, 'text/xml')
+                const games = Array.from(detailDoc.querySelectorAll('item'))
+
+                const bggResults: MediaItem[] = games.map((game) => {
+                  const id = game.getAttribute('id')
+                  const primaryName = game.querySelector('name[type="primary"]')
+                  const title = primaryName?.getAttribute('value') || 'Senza titolo'
+                  const thumb = game.querySelector('thumbnail')?.textContent?.trim()
+                  const image = game.querySelector('image')?.textContent?.trim()
+                  const rawImage = image || thumb
+                  if (!rawImage) return null
+                  const coverImage = rawImage.startsWith('http') ? rawImage : `https:${rawImage}`
+                  const yearEl = game.querySelector('yearpublished')
+                  const year = yearEl?.getAttribute('value') ? parseInt(yearEl.getAttribute('value')!) : undefined
+                  const descEl = game.querySelector('description')
+                  const description = descEl?.textContent
+                    ? descEl.textContent.replace(/<[^>]+>/g, '').slice(0, 400)
+                    : undefined
+
+                  return { id: `bgg-${id}`, title, type: 'boardgame', coverImage, year, description, source: 'bgg' as const }
+                }).filter((g): g is MediaItem => g !== null && !!g.coverImage)
+
+                rawResults = [...rawResults, ...bggResults.filter(hasValidCover)]
+              }
+            }
           }
-        } catch {
-          setSearchError('Errore di connessione a BoardGameGeek. Riprova più tardi.');
+        } catch (err: any) {
+          // CORS error = BGG blocca anche le richieste browser
+          if (err?.message?.includes('Failed to fetch') || err?.message?.includes('CORS')) {
+            setSearchError('BoardGameGeek blocca le richieste dal browser. Funzionalità temporaneamente non disponibile.')
+          } else {
+            setSearchError('Errore di connessione a BoardGameGeek.')
+          }
         }
       }
 
