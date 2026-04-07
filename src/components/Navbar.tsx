@@ -2,14 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, Search, Rss, Bell, User, Zap, LogOut } from 'lucide-react'
+import { Home, Search, Rss, Bell, User, Zap, LogOut, Newspaper } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 const NAV_ITEMS = [
-  { href: '/',              label: 'Home',      icon: Home   },
+  { href: '/feed',          label: 'Home',      icon: Home   },
   { href: '/discover',      label: 'Discover',  icon: Search },
-  { href: '/feed',          label: 'Feed',      icon: Rss    },
+  { href: '/news',          label: 'News',      icon: Newspaper },
   { href: '/notifications', label: 'Notifiche', icon: Bell, hasDot: true },
   { href: '/profile/me',    label: 'Profilo',   icon: User   },
 ]
@@ -80,7 +80,11 @@ export default function Navbar() {
           {/* Nav items */}
           <div className="flex items-center gap-1">
             {NAV_ITEMS.map((item) => {
-              const isActive = item.href === '/profile/me' ? isProfileActive : pathname === item.href
+              const isActive = item.href === '/profile/me'
+                ? isProfileActive
+                : item.href === '/feed'
+                  ? pathname === '/feed' || pathname === '/'
+                  : pathname === item.href
               return (
                 <Link
                   key={item.href}

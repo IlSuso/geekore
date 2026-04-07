@@ -4,6 +4,7 @@ import { Heart, UserPlus, MessageSquare, BellOff } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { it } from 'date-fns/locale'
+import { FollowBackButton } from '@/components/notifications/FollowBackButton'
 
 const TYPE_CONFIG = {
   like: {
@@ -33,7 +34,7 @@ export default async function NotificationsPage() {
 
   const { data: notifications } = await supabase
     .from('notifications')
-    .select('*, sender:profiles!sender_id (username, display_name, avatar_url)')
+    .select('*, sender:profiles!sender_id (id, username, display_name, avatar_url)')
     .eq('receiver_id', user.id)
     .order('created_at', { ascending: false })
     .limit(50)
@@ -103,6 +104,11 @@ export default async function NotificationsPage() {
                     </p>
                     <p className="text-xs text-zinc-600 mt-0.5">{timeAgo}</p>
                   </div>
+
+                  {/* Follow-back button — solo per notifiche follow */}
+                  {n.type === 'follow' && n.sender?.id && (
+                    <FollowBackButton targetId={n.sender.id} />
+                  )}
 
                   {/* Icon */}
                   <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 ${config.bg}`}>

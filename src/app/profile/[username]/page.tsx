@@ -169,7 +169,7 @@ function MediaCard({
         </div>
 
         {/* Type badge */}
-        <div className={`absolute top-3 right-3 z-20 px-2 py-1 rounded-full text-[10px] font-bold text-white ${TYPE_COLORS[media.type] || 'bg-zinc-700'}`}>
+        <div className={`absolute bottom-12 right-3 z-20 px-2 py-1 rounded-full text-[10px] font-bold text-white ${TYPE_COLORS[media.type] || 'bg-zinc-700'}`}>
           {TYPE_LABELS[media.type] || media.type}
         </div>
 

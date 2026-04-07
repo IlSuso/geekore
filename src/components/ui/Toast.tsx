@@ -23,11 +23,17 @@ export function ToastProvider() {
   const [toasts, setToasts] = useState<ToastItem[]>([])
 
   const addToast = useCallback((message: string, type: ToastType = 'success') => {
-    const id = ++toastId
-    setToasts(prev => [...prev, { id, message, type }])
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id))
-    }, 3000)
+    setToasts(prev => {
+      // Ignora duplicato se già presente
+      if (prev.some(t => t.message === message && t.type === type)) return prev
+      const id = ++toastId
+      setTimeout(() => {
+        setToasts(p => p.filter(t => t.id !== id))
+      }, 3000)
+      // Max 2 toast contemporanei: rimuove il più vecchio
+      const base = prev.length >= 2 ? prev.slice(1) : prev
+      return [...base, { id, message, type }]
+    })
   }, [])
 
   useEffect(() => {
