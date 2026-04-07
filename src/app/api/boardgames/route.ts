@@ -43,60 +43,83 @@ export async function GET(request: NextRequest) {
     try {
       const term = search.trim()
 
-      // 1. Ricerca con v2 — restituisce id + nome già nella risposta
+      // Prova prima il proxy JSON community (gestisce Cloudflare/auth BGG)
+      const proxyRes = await fetch(
+        `https://bgg-json.azurewebsites.net/search/${encodeURIComponent(term)}`,
+        { cache: 'no-store' }
+      )
+
+      if (proxyRes.ok) {
+        const proxyGames: any[] = await proxyRes.json()
+        const results = proxyGames
+          .slice(0, 10)
+          .filter((g: any) => g.thumbnail)
+          .map((g: any) => {
+            const rawDesc = g.description || ''
+            const description = rawDesc
+              .replace(/&#10;/g, ' ')
+              .replace(/&amp;/g, '&')
+              .replace(/&mdash;/g, '—')
+              .replace(/&ndash;/g, '–')
+              .replace(/<[^>]+>/g, '')
+              .trim()
+              .slice(0, 300)
+
+            return {
+              id: `bgg-${g.gameId}`,
+              title: g.name,
+              type: 'boardgame',
+              coverImage: g.image || g.thumbnail,
+              year: g.yearPublished || undefined,
+              description: description || undefined,
+              players: g.minPlayers && g.maxPlayers
+                ? `${g.minPlayers}${g.minPlayers !== g.maxPlayers ? `–${g.maxPlayers}` : ''} giocatori`
+                : undefined,
+              source: 'bgg',
+            }
+          })
+        return NextResponse.json({ results })
+      }
+
+      // Fallback: BGG XML API v1 (percorso diverso da v2, meno filtrato da Cloudflare)
+      console.log('[BGG] proxy fallito, provo XML v1')
       const searchXml = await bggFetch(
-        `https://api.geekdo.com/xmlapi2/search?query=${encodeURIComponent(term)}&type=boardgame`
+        `https://boardgamegeek.com/xmlapi/search?search=${encodeURIComponent(term)}&exact=0`
       )
       if (!searchXml) return NextResponse.json({ results: [] })
 
       const searchResult = await parseStringPromise(searchXml)
-      const items: any[] = (searchResult?.items?.item || []).slice(0, 10)
+      const items: any[] = (searchResult?.boardgames?.boardgame || []).slice(0, 10)
       if (items.length === 0) return NextResponse.json({ results: [] })
 
-      const ids = items.map((item: any) => item.$.id).join(',')
+      const ids = items.map((item: any) => item.$.objectid).join(',')
 
-      // 2. Dettagli con v2 — restituisce image, thumbnail, description, anno, giocatori
-      // Piccolo delay per rispettare il rate limit di BGG
       await new Promise(r => setTimeout(r, 800))
       const detailXml = await bggFetch(
-        `https://api.geekdo.com/xmlapi2/thing?id=${ids}&type=boardgame&stats=0`
+        `https://boardgamegeek.com/xmlapi/boardgame/${ids}?stats=0`
       )
-
       if (!detailXml) return NextResponse.json({ results: [] })
+
       const detailResult = await parseStringPromise(detailXml)
-      const detailItems: any[] = detailResult?.items?.item || []
+      const detailItems: any[] = detailResult?.boardgames?.boardgame || []
 
       const results = detailItems
         .map((item: any) => {
-          const id = item.$.id
-          const nameEl = (item.name || []).find((n: any) => n.$.type === 'primary')
-          const title = nameEl?.$.value || 'Senza titolo'
+          const id = item.$.objectid
+          const nameEl = Array.isArray(item.name)
+            ? item.name.find((n: any) => n.$.primary === 'true') || item.name[0]
+            : item.name
+          const title = nameEl?._ || nameEl || 'Senza titolo'
 
-          // v2 usa <thumbnail> e <image> come elementi con valore diretto
           const thumb = item.thumbnail?.[0]?.trim()
           const fullImg = item.image?.[0]?.trim()
           const rawImage = fullImg || thumb
           if (!rawImage) return null
           const coverImage = rawImage.startsWith('http') ? rawImage : `https:${rawImage}`
 
-          const year = item.yearpublished?.[0]?.$?.value
-            ? parseInt(item.yearpublished[0].$.value)
+          const year = item.yearpublished?.[0]
+            ? parseInt(item.yearpublished[0])
             : undefined
-
-          const minPlayers = item.minplayers?.[0]?.$?.value
-          const maxPlayers = item.maxplayers?.[0]?.$?.value
-          const playingTime = item.playingtime?.[0]?.$?.value
-
-          // Descrizione: BGG la codifica con entità HTML
-          const rawDesc = item.description?.[0] || ''
-          const description = rawDesc
-            .replace(/&#10;/g, ' ')
-            .replace(/&amp;/g, '&')
-            .replace(/&mdash;/g, '—')
-            .replace(/&ndash;/g, '–')
-            .replace(/<[^>]+>/g, '')
-            .trim()
-            .slice(0, 300)
 
           return {
             id: `bgg-${id}`,
@@ -104,11 +127,6 @@ export async function GET(request: NextRequest) {
             type: 'boardgame',
             coverImage,
             year,
-            description: description || undefined,
-            players: minPlayers && maxPlayers
-              ? `${minPlayers}${minPlayers !== maxPlayers ? `–${maxPlayers}` : ''} giocatori`
-              : undefined,
-            playingTime: playingTime ? `~${playingTime} min` : undefined,
             source: 'bgg',
           }
         })
