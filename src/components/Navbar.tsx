@@ -2,17 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, Search, Rss, Bell, User, Zap, LogOut, Newspaper } from 'lucide-react'
+import { Home, Search, Bell, User, Zap, LogOut, Newspaper, Settings } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-
-const NAV_ITEMS = [
-  { href: '/feed',          label: 'Home',      icon: Home   },
-  { href: '/discover',      label: 'Discover',  icon: Search },
-  { href: '/news',          label: 'News',      icon: Newspaper },
-  { href: '/notifications', label: 'Notifiche', icon: Bell, hasDot: true },
-  { href: '/profile/me',    label: 'Profilo',   icon: User   },
-]
+import { useLocale } from '@/lib/locale'
 
 const AUTH_PATHS = ['/login', '/register', '/auth/confirm']
 
@@ -20,6 +13,7 @@ export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const { t } = useLocale()
   const [hasNewNotifications, setHasNewNotifications] = useState(false)
 
   const handleLogout = async () => {
@@ -29,6 +23,14 @@ export default function Navbar() {
 
   const isProfileActive = pathname === '/profile/me' || pathname.startsWith('/profile/')
   const isAuthPage = AUTH_PATHS.some(p => pathname.startsWith(p))
+
+  const NAV_ITEMS = [
+    { href: '/feed',          label: t.nav.home,          icon: Home    },
+    { href: '/discover',      label: t.nav.discover,      icon: Search  },
+    { href: '/news',          label: t.nav.news,          icon: Newspaper },
+    { href: '/notifications', label: t.nav.notifications, icon: Bell, hasDot: true },
+    { href: '/profile/me',    label: t.nav.profile,       icon: User    },
+  ]
 
   useEffect(() => {
     if (pathname === '/notifications') setHasNewNotifications(false)
@@ -60,7 +62,6 @@ export default function Navbar() {
     return () => { if (channel) supabase.removeChannel(channel) }
   }, [isAuthPage])
 
-  // Hide on auth pages
   if (isAuthPage) return null
 
   return (
@@ -105,14 +106,28 @@ export default function Navbar() {
             })}
           </div>
 
-          <button
-            onClick={handleLogout}
-            aria-label="Logout"
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all"
-          >
-            <LogOut size={18} />
-            Logout
-          </button>
+          {/* Right: Settings + Logout */}
+          <div className="flex items-center gap-1">
+            <Link
+              href="/settings"
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                pathname === '/settings'
+                  ? 'bg-violet-500/10 text-violet-400'
+                  : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+              }`}
+            >
+              <Settings size={18} />
+              {t.nav.settings}
+            </Link>
+            <button
+              onClick={handleLogout}
+              aria-label="Logout"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all"
+            >
+              <LogOut size={18} />
+              {t.nav.logout}
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -125,7 +140,7 @@ export default function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-col items-center gap-1 px-4 py-2 rounded-2xl transition-all ${
+                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-2xl transition-all ${
                   isActive ? 'text-violet-400' : 'text-zinc-500'
                 }`}
               >
@@ -141,6 +156,18 @@ export default function Navbar() {
               </Link>
             )
           })}
+          {/* Settings icon on mobile — only when on settings page or as extra icon */}
+          <Link
+            href="/settings"
+            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-2xl transition-all ${
+              pathname === '/settings' ? 'text-violet-400' : 'text-zinc-500'
+            }`}
+          >
+            <Settings size={22} strokeWidth={pathname === '/settings' ? 2.5 : 1.8} />
+            {pathname === '/settings' && (
+              <span className="text-[10px] font-semibold tracking-wide">{t.nav.settings}</span>
+            )}
+          </Link>
         </div>
       </nav>
 

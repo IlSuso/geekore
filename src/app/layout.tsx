@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import Navbar from '@/components/Navbar'
 import { ToastProvider } from '@/components/ui/Toast'
+import { ClientProviders } from '@/components/ClientProviders'
 
 export const metadata: Metadata = {
   title: { default: 'Geekore', template: '%s — Geekore' },
@@ -35,11 +36,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="it">
       <body className="bg-black text-white min-h-screen antialiased">
-        <Navbar />
-        <main className="pt-16 pb-20 md:pb-8">
-          {children}
-        </main>
-        <ToastProvider />
+        <ClientProviders>
+          <Navbar />
+          <main className="pt-16 pb-20 md:pb-8">
+            {children}
+          </main>
+          <ToastProvider />
+        </ClientProviders>
       </body>
     </html>
   )

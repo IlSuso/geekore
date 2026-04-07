@@ -1,7 +1,5 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
-
-const CACHE_TTL_MS = 12 * 60 * 60 * 1000 // 12 ore
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -16,12 +14,14 @@ function tmdbImageUrl(path: string | null, size = 'w500') {
   return path ? `https://image.tmdb.org/t/p/${size}${path}` : null
 }
 
-// ── Fetchers per categoria ────────────────────────────────────────────────────
+// ── Fetchers ──────────────────────────────────────────────────────────────────
 
-async function fetchCinema() {
+async function fetchCinema(lang: string) {
+  const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
+  const region   = lang === 'en' ? 'US' : 'IT'
   try {
     const res = await fetch(
-      'https://api.themoviedb.org/3/movie/upcoming?language=it-IT&page=1&region=IT',
+      `https://api.themoviedb.org/3/movie/upcoming?language=${tmdbLang}&page=1&region=${region}`,
       { headers: tmdbHeaders(), cache: 'no-store' }
     )
     if (!res.ok) return []
@@ -40,10 +40,11 @@ async function fetchCinema() {
   } catch { return [] }
 }
 
-async function fetchTV() {
+async function fetchTV(lang: string) {
+  const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
   try {
     const res = await fetch(
-      'https://api.themoviedb.org/3/tv/on_the_air?language=it-IT&page=1',
+      `https://api.themoviedb.org/3/tv/on_the_air?language=${tmdbLang}&page=1`,
       { headers: tmdbHeaders(), cache: 'no-store' }
     )
     if (!res.ok) return []
@@ -62,17 +63,22 @@ async function fetchTV() {
   } catch { return [] }
 }
 
-async function fetchAnime() {
-  try {
-    // Calcola la stagione corrente
-    const month = new Date().getMonth() + 1
-    const year = new Date().getFullYear()
-    const season = month <= 3 ? 'WINTER' : month <= 6 ? 'SPRING' : month <= 9 ? 'SUMMER' : 'FALL'
+async function fetchAnime(lang: string) {
+  const month = new Date().getMonth() + 1
+  const year  = new Date().getFullYear()
+  const season = month <= 3 ? 'WINTER' : month <= 6 ? 'SPRING' : month <= 9 ? 'SUMMER' : 'FALL'
 
+  // In EN mode prefer english title, fallback to romaji
+  const titleField = lang === 'en'
+    ? 'romaji english'
+    : 'romaji'
+
+  try {
     const query = `query ($season: MediaSeason, $year: Int) {
-      current: Page(perPage: 15) {
+      current: Page(perPage: 20) {
         media(type: ANIME, season: $season, seasonYear: $year, sort: POPULARITY_DESC, status: RELEASING) {
-          id title { romaji } coverImage { large } nextAiringEpisode { airingAt episode }
+          id title { ${titleField} } coverImage { large }
+          nextAiringEpisode { airingAt episode }
           description(asHtml: false) siteUrl startDate { year month day }
         }
       }
@@ -88,9 +94,12 @@ async function fetchAnime() {
       .filter((m: any) => m.coverImage?.large)
       .map((m: any) => {
         const d = m.startDate
-        const date = d?.year ? `${d.year}-${String(d.month || 1).padStart(2, '0')}-${String(d.day || 1).padStart(2, '0')}` : null
+        const date = d?.year
+          ? `${d.year}-${String(d.month || 1).padStart(2, '0')}-${String(d.day || 1).padStart(2, '0')}`
+          : null
+        const title = (lang === 'en' && m.title.english) ? m.title.english : m.title.romaji
         return {
-          title: m.title.romaji,
+          title,
           description: m.description
             ? m.description.replace(/<[^>]+>/g, '').slice(0, 300)
             : null,
@@ -106,20 +115,23 @@ async function fetchAnime() {
 }
 
 async function fetchGaming() {
+  // IGDB è sempre in inglese — una sola versione
   try {
-    const clientId = process.env.IGDB_CLIENT_ID
+    const clientId     = process.env.IGDB_CLIENT_ID
     const clientSecret = process.env.IGDB_CLIENT_SECRET
     if (!clientId || !clientSecret) return []
 
     const tokenRes = await fetch('https://id.twitch.tv/oauth2/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, grant_type: 'client_credentials' }),
+      body: new URLSearchParams({
+        client_id: clientId, client_secret: clientSecret, grant_type: 'client_credentials',
+      }),
     })
     const tokenData = await tokenRes.json()
     if (!tokenData.access_token) return []
 
-    const nowUnix = Math.floor(Date.now() / 1000)
+    const nowUnix       = Math.floor(Date.now() / 1000)
     const sixMonthsUnix = nowUnix + 6 * 30 * 24 * 3600
 
     const res = await fetch('https://api.igdb.com/v4/games', {
@@ -130,7 +142,7 @@ async function fetchGaming() {
         'Content-Type': 'text/plain',
       },
       body: `
-        fields name, cover.url, first_release_date, summary, platforms.name;
+        fields name, cover.url, first_release_date, summary, slug;
         where first_release_date > ${nowUnix} & first_release_date < ${sixMonthsUnix} & cover != null;
         sort first_release_date asc;
         limit 20;
@@ -156,40 +168,56 @@ async function fetchGaming() {
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 
-export async function POST() {
+async function runSync(lang: 'it' | 'en') {
   const supabase = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
+  const suffix = `_${lang}` // es. cinema_it, cinema_en
+
+  const [cinema, tv, anime, gaming] = await Promise.all([
+    fetchCinema(lang),
+    fetchTV(lang),
+    fetchAnime(lang),
+    fetchGaming(),       // IGDB sempre in EN, condiviso
+  ])
+
+  const now = new Date().toISOString()
+
+  await Promise.all([
+    supabase.from('news_cache').upsert({ category: `cinema${suffix}`, data: cinema, updated_at: now }, { onConflict: 'category' }),
+    supabase.from('news_cache').upsert({ category: `tv${suffix}`,     data: tv,     updated_at: now }, { onConflict: 'category' }),
+    supabase.from('news_cache').upsert({ category: `anime${suffix}`,  data: anime,  updated_at: now }, { onConflict: 'category' }),
+    supabase.from('news_cache').upsert({ category: `gaming${suffix}`, data: gaming, updated_at: now }, { onConflict: 'category' }),
+  ])
+
+  return { cinema: cinema.length, tv: tv.length, anime: anime.length, gaming: gaming.length }
+}
+
+export async function POST(request: NextRequest) {
   try {
-    const [cinema, tv, anime, gaming] = await Promise.all([
-      fetchCinema(),
-      fetchTV(),
-      fetchAnime(),
-      fetchGaming(),
-    ])
+    let lang: 'it' | 'en' = 'it'
+    try {
+      const body = await request.json()
+      if (body?.lang === 'en') lang = 'en'
+    } catch {}
 
-    const now = new Date().toISOString()
-
-    await Promise.all([
-      supabase.from('news_cache').upsert({ category: 'cinema', data: cinema, updated_at: now }, { onConflict: 'category' }),
-      supabase.from('news_cache').upsert({ category: 'tv',     data: tv,     updated_at: now }, { onConflict: 'category' }),
-      supabase.from('news_cache').upsert({ category: 'anime',  data: anime,  updated_at: now }, { onConflict: 'category' }),
-      supabase.from('news_cache').upsert({ category: 'gaming', data: gaming, updated_at: now }, { onConflict: 'category' }),
-    ])
-
-    return NextResponse.json({
-      status: 'ok',
-      counts: { cinema: cinema.length, tv: tv.length, anime: anime.length, gaming: gaming.length },
-    })
+    const counts = await runSync(lang)
+    return NextResponse.json({ status: 'ok', lang, counts })
   } catch (err) {
     console.error('[News sync] error:', err)
     return NextResponse.json({ status: 'error' }, { status: 500 })
   }
 }
 
-export async function GET() {
-  // Trigger sync via GET per comodità (es. da cron Vercel)
-  return POST()
+export async function GET(request: NextRequest) {
+  const lang = request.nextUrl.searchParams.get('lang') === 'en' ? 'en' : 'it'
+  try {
+    const counts = await runSync(lang)
+    return NextResponse.json({ status: 'ok', lang, counts })
+  } catch (err) {
+    console.error('[News sync] error:', err)
+    return NextResponse.json({ status: 'error' }, { status: 500 })
+  }
 }

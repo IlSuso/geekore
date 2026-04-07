@@ -9,27 +9,35 @@ export async function GET(request: Request) {
   const supabase = await createClient()
   try {
     const { searchParams } = new URL(request.url)
-    const cat = searchParams.get('cat') || 'all'
+    const cat  = searchParams.get('cat')  || 'all'
+    const lang = searchParams.get('lang') === 'en' ? 'en' : 'it'
 
     if (!VALID_CATEGORIES.includes(cat)) {
       return NextResponse.json({ error: 'Categoria non valida' }, { status: 400 })
     }
 
-    let query = supabase.from('news_cache').select('data, updated_at, category')
-    if (cat !== 'all') query = query.eq('category', cat)
+    const suffix = `_${lang}` // es. cinema_it
 
-    const { data, error } = await query
+    // Build query: fetch categories with lang suffix
+    const categoriesNeeded = cat === 'all'
+      ? ['cinema', 'tv', 'anime', 'gaming'].map(c => `${c}${suffix}`)
+      : [`${cat}${suffix}`]
+
+    const { data, error } = await supabase
+      .from('news_cache')
+      .select('data, updated_at, category')
+      .in('category', categoriesNeeded)
+
     if (error) throw error
 
-    // Se la cache è vuota o scaduta, triggera sync in background
+    // Se cache vuota o scaduta → sync in background
     const now = Date.now()
     const isCacheStale = !data || data.length === 0 ||
       data.some(row => !row.updated_at || now - new Date(row.updated_at).getTime() > CACHE_TTL_MS)
 
     if (isCacheStale) {
-      // Sync in background — non blocca la risposta
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
-      fetch(`${baseUrl}/api/news/sync`, { method: 'POST' }).catch(() => {})
+      fetch(`${baseUrl}/api/news/sync?lang=${lang}`, { method: 'GET' }).catch(() => {})
     }
 
     let allNews: any[] = []
@@ -40,7 +48,7 @@ export async function GET(request: Request) {
       })
     }
 
-    // Ordina per data più recente prima
+    // Ordina per data più recente
     allNews.sort((a, b) => {
       if (!a.date) return 1
       if (!b.date) return -1
