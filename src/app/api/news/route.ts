@@ -1,16 +1,12 @@
 // DESTINAZIONE: src/app/api/news/route.ts
 
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 
 const VALID_CATEGORIES = ['all', 'gaming', 'cinema', 'anime', 'boardgames']
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
 export async function GET(request: Request) {
+  const supabase = await createClient()
   try {
     const { searchParams } = new URL(request.url)
     const cat = searchParams.get('cat') || 'all'

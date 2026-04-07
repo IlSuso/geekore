@@ -15,6 +15,8 @@ type MediaItem = {
   episodes?: number;
   totalSeasons?: number;
   seasons?: Record<number, { episode_count: number }>;
+  description?: string;
+  genres?: string[];
   source: 'anilist' | 'tmdb' | 'igdb' | 'bgg';
 };
 
@@ -31,6 +33,7 @@ export default function DiscoverPage() {
   const [activeType, setActiveType] = useState<string>('all');
   const [results, setResults] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
   const [currentEpisode, setCurrentEpisode] = useState('');
@@ -79,98 +82,59 @@ export default function DiscoverPage() {
 
     setLoading(true);
     setResults([]);
+    setSearchError(null);
 
     const term = searchTerm.trim();
     let rawResults: MediaItem[] = [];
 
     try {
-      // AniList — Anime
-      if (activeType === 'all' || activeType === 'anime') {
-        const query = `query ($search: String) {
-          Page(page: 1, perPage: 20) {
-            media(search: $search, type: ANIME, sort: [POPULARITY_DESC, SCORE_DESC]) {
-              id title { romaji english } coverImage { large } seasonYear episodes type
-            }
+      // AniList — Anime + Manga + Novel in una sola richiesta GraphQL con alias
+      if (activeType === 'all' || activeType === 'anime' || activeType === 'manga') {
+        const mediaFields = `id title { romaji english } coverImage { large } seasonYear episodes chapters type description(asHtml: false) genres`;
+        const anilistQuery = `query ($search: String) {
+          ${activeType === 'all' || activeType === 'anime' ? `
+          anime: Page(page: 1, perPage: 20) {
+            media(search: $search, type: ANIME, sort: [POPULARITY_DESC, SCORE_DESC]) { ${mediaFields} }
+          }` : ''}
+          ${activeType === 'all' || activeType === 'manga' ? `
+          manga: Page(page: 1, perPage: 15) {
+            media(search: $search, type: MANGA, format_in: [MANGA, ONE_SHOT], sort: [POPULARITY_DESC, SCORE_DESC]) { ${mediaFields} }
           }
+          novel: Page(page: 1, perPage: 5) {
+            media(search: $search, type: MANGA, format_in: [NOVEL], sort: [POPULARITY_DESC, SCORE_DESC]) { ${mediaFields} }
+          }` : ''}
         }`;
-        const res = await fetch('https://graphql.anilist.co', {
+
+        const anilistRes = await fetch('https://graphql.anilist.co', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query, variables: { search: term } }),
+          body: JSON.stringify({ query: anilistQuery, variables: { search: term } }),
         });
-        const json = await res.json();
-        const aniResults = (json.data?.Page?.media || [])
-          .map((m: any): MediaItem => ({
-            id: `anilist-anime-${m.id}`,
-            title: m.title.romaji || m.title.english || 'Senza titolo',
-            type: 'anime',
-            coverImage: m.coverImage?.large,
-            year: m.seasonYear,
-            episodes: m.episodes,
-            source: 'anilist',
-          }))
+        const anilistJson = await anilistRes.json();
+
+        const mapAnilist = (m: any, type: 'anime' | 'manga', prefix: string): MediaItem => ({
+          id: `anilist-${prefix}-${m.id}`,
+          title: m.title.romaji || m.title.english || 'Senza titolo',
+          type,
+          coverImage: m.coverImage?.large,
+          year: m.seasonYear,
+          episodes: m.episodes ?? m.chapters,
+          description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 400) : undefined,
+          genres: m.genres,
+          source: 'anilist',
+        });
+
+        const aniResults = (anilistJson.data?.anime?.media || [])
+          .map((m: any) => mapAnilist(m, 'anime', 'anime'))
           .filter(hasValidCover);
-        rawResults = [...rawResults, ...aniResults];
-      }
-
-      // AniList — Manga + Light Novel
-      if (activeType === 'all' || activeType === 'manga') {
-        // Manga
-        const mangaQuery = `query ($search: String) {
-          Page(page: 1, perPage: 15) {
-            media(search: $search, type: MANGA, format_in: [MANGA, ONE_SHOT], sort: [POPULARITY_DESC, SCORE_DESC]) {
-              id title { romaji english } coverImage { large } seasonYear chapters type
-            }
-          }
-        }`;
-        const novelQuery = `query ($search: String) {
-          Page(page: 1, perPage: 5) {
-            media(search: $search, type: MANGA, format_in: [NOVEL], sort: [POPULARITY_DESC, SCORE_DESC]) {
-              id title { romaji english } coverImage { large } seasonYear chapters type
-            }
-          }
-        }`;
-
-        const [mangaRes, novelRes] = await Promise.all([
-          fetch('https://graphql.anilist.co', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: mangaQuery, variables: { search: term } }),
-          }),
-          fetch('https://graphql.anilist.co', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: novelQuery, variables: { search: term } }),
-          }),
-        ]);
-
-        const [mangaJson, novelJson] = await Promise.all([mangaRes.json(), novelRes.json()]);
-
-        const mangaResults = (mangaJson.data?.Page?.media || [])
-          .map((m: any): MediaItem => ({
-            id: `anilist-manga-${m.id}`,
-            title: m.title.romaji || m.title.english || 'Senza titolo',
-            type: 'manga',
-            coverImage: m.coverImage?.large,
-            year: m.seasonYear,
-            episodes: m.chapters,
-            source: 'anilist',
-          }))
+        const mangaResults = (anilistJson.data?.manga?.media || [])
+          .map((m: any) => mapAnilist(m, 'manga', 'manga'))
+          .filter(hasValidCover);
+        const novelResults = (anilistJson.data?.novel?.media || [])
+          .map((m: any) => mapAnilist(m, 'manga', 'novel'))
           .filter(hasValidCover);
 
-        const novelResults = (novelJson.data?.Page?.media || [])
-          .map((m: any): MediaItem => ({
-            id: `anilist-novel-${m.id}`,
-            title: m.title.romaji || m.title.english || 'Senza titolo',
-            type: 'manga', // mostriamo i novel come manga nel profilo
-            coverImage: m.coverImage?.large,
-            year: m.seasonYear,
-            episodes: m.chapters,
-            source: 'anilist',
-          }))
-          .filter(hasValidCover);
-
-        rawResults = [...rawResults, ...mangaResults, ...novelResults];
+        rawResults = [...rawResults, ...aniResults, ...mangaResults, ...novelResults];
       }
 
       // TMDb
@@ -190,8 +154,13 @@ export default function DiscoverPage() {
         const searchJson = await searchRes.json();
 
         if (searchJson.results) {
+          // Limit TV detail fetches to 8 to avoid N+1 performance issue
+          const resultsToFetch = mediaType === 'tv'
+            ? searchJson.results.slice(0, 8)
+            : searchJson.results;
+
           const detailedResults = await Promise.all(
-            searchJson.results.map(async (m: any) => {
+            resultsToFetch.map(async (m: any) => {
               let episodes = undefined;
               let totalSeasons = undefined;
               let seasonsData: Record<number, { episode_count: number }> = {};
@@ -231,6 +200,7 @@ export default function DiscoverPage() {
                 type: mediaType,
                 coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
                 year: m.first_air_date ? parseInt(m.first_air_date.substring(0,4)) : m.release_date ? parseInt(m.release_date.substring(0,4)) : undefined,
+                description: m.overview ? m.overview.slice(0, 400) : undefined,
                 episodes,
                 totalSeasons,
                 seasons: seasonsData,
@@ -253,25 +223,35 @@ export default function DiscoverPage() {
         });
 
         if (res.ok) {
-          const gameResults: MediaItem[] = await res.json();
+          const gameResults: MediaItem[] = (await res.json()).map((g: any) => ({
+            ...g,
+            source: 'igdb' as const,
+          }));
           rawResults = [...rawResults, ...gameResults.filter(hasValidCover)];
         }
       }
 
       // BoardGameGeek
       if (activeType === 'boardgame' && term.length >= 2) {
-        const res = await fetch(`/api/boardgames?search=${encodeURIComponent(term)}`);
-        if (res.ok) {
-          const json = await res.json();
-          const bggResults: MediaItem[] = (json.results || []).map((g: any) => ({
-            id: g.id,
-            title: g.title,
-            type: 'boardgame',
-            coverImage: g.coverImage,
-            year: g.year,
-            source: 'bgg' as const,
-          }));
-          rawResults = [...rawResults, ...bggResults.filter(hasValidCover)];
+        try {
+          const res = await fetch(`/api/boardgames?search=${encodeURIComponent(term)}`);
+          if (res.ok) {
+            const json = await res.json();
+            const bggResults: MediaItem[] = (json.results || []).map((g: any) => ({
+              id: g.id,
+              title: g.title,
+              type: 'boardgame',
+              coverImage: g.coverImage,
+              year: g.year,
+              description: g.description,
+              source: 'bgg' as const,
+            }));
+            rawResults = [...rawResults, ...bggResults.filter(hasValidCover)];
+          } else {
+            setSearchError('BoardGameGeek non risponde. Riprova tra qualche secondo.');
+          }
+        } catch {
+          setSearchError('Errore di connessione a BoardGameGeek. Riprova più tardi.');
         }
       }
 
@@ -282,6 +262,7 @@ export default function DiscoverPage() {
       setResults(uniqueResults);
     } catch (err) {
       console.error('Errore ricerca:', err);
+      setSearchError('Errore durante la ricerca. Verifica la connessione o riprova tra qualche secondo.')
     }
 
     setLoading(false);
@@ -334,7 +315,14 @@ export default function DiscoverPage() {
       rating: rating || null,
     });
 
-    if (!error) setAlreadyAdded(prev => [...prev, media.id]);
+    if (error) {
+      if (error.code === '23505') {
+        showToast('Già presente nella tua collezione')
+        setAlreadyAdded(prev => [...prev, media.id])
+      }
+    } else {
+      setAlreadyAdded(prev => [...prev, media.id])
+    }
   };
 
   const confirmAdd = async () => {
@@ -382,13 +370,18 @@ export default function DiscoverPage() {
       rating: modalRating || null,
     });
 
-    if (!error) {
-      setAlreadyAdded(prev => [...prev, selectedMedia.id]);
-      setSelectedMedia(null);
-      setCurrentEpisode('');
-      setSelectedSeason(1);
-      setModalRating(0);
+    if (error) {
+      if (error.code === '23505') {
+        showToast('Già presente nella tua collezione')
+        setAlreadyAdded(prev => [...prev, selectedMedia.id])
+      }
+    } else {
+      setAlreadyAdded(prev => [...prev, selectedMedia.id])
     }
+    setSelectedMedia(null);
+    setCurrentEpisode('');
+    setSelectedSeason(1);
+    setModalRating(0);
     setAdding(false);
   };
 
@@ -490,6 +483,16 @@ export default function DiscoverPage() {
           })}
         </div>
 
+        {searchError && (
+          <p className="text-center text-red-400 mt-12 text-sm">
+            {searchError}
+          </p>
+        )}
+        {results.length === 0 && !loading && searchTerm.length > 0 && searchTerm.length < 2 && activeType !== 'game' && (
+          <p className="text-center text-zinc-500 mt-12 text-sm">
+            Scrivi almeno 2 caratteri per cercare.
+          </p>
+        )}
         {results.length === 0 && !loading && searchTerm.length >= 2 && (
           <p className="text-center text-zinc-500 mt-12">
             Nessun risultato con copertina valida trovato.
@@ -508,18 +511,30 @@ export default function DiscoverPage() {
               </button>
             </div>
 
-            <div className="flex gap-5 mb-8">
+            <div className="flex gap-5 mb-6">
               {selectedMedia.coverImage && (
-                <img src={selectedMedia.coverImage} alt="" className="w-24 h-36 object-cover rounded-2xl flex-shrink-0" />
+                <img src={selectedMedia.coverImage} alt={`Copertina di ${selectedMedia.title}`} className="w-24 h-36 object-cover rounded-2xl flex-shrink-0" />
               )}
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <p className="font-semibold text-lg">{selectedMedia.title}</p>
-                <p className="text-sm text-zinc-500">
+                <p className="text-sm text-zinc-500 mb-2">
                   {selectedMedia.year} • {selectedMedia.type}
                   {selectedMedia.totalSeasons && ` • ${selectedMedia.totalSeasons} stagioni`}
                 </p>
+                {selectedMedia.genres && selectedMedia.genres.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {selectedMedia.genres.slice(0, 4).map(g => (
+                      <span key={g} className="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full">{g}</span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
+            {selectedMedia.description && (
+              <p className="text-xs text-zinc-400 leading-relaxed mb-6 line-clamp-4">
+                {selectedMedia.description}
+              </p>
+            )}
 
             <div className="mb-8 space-y-6">
 
@@ -598,7 +613,7 @@ export default function DiscoverPage() {
 
             <button
               onClick={confirmAdd}
-              disabled={adding || (
+              disabled={adding || !!(
                 selectedMedia.type !== 'movie' &&
                 selectedMedia.type !== 'game' &&
                 selectedMedia.episodes && selectedMedia.episodes > 1 && (
@@ -606,7 +621,7 @@ export default function DiscoverPage() {
                   Number(currentEpisode) < 1 ||
                   Number(currentEpisode) > (selectedMedia.seasons?.[selectedSeason]?.episode_count || selectedMedia.episodes || 9999)
                 )
-              ) as boolean}
+              )}
               className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-2xl font-semibold text-lg hover:brightness-110 disabled:opacity-50 transition"
             >
               {adding ? 'Aggiungendo...' : 'Aggiungi'}

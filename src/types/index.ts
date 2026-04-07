@@ -1,6 +1,6 @@
 // ─── Media Types ───────────────────────────────────────────────────────────────
 
-export type MediaType = 'anime' | 'manga' | 'game' | 'board'
+export type MediaType = 'anime' | 'manga' | 'game' | 'boardgame' | 'tv' | 'movie'
 
 export type MediaStatus =
   | 'watching'   // anime
@@ -15,13 +15,23 @@ export interface MediaItem {
   id: string
   type: MediaType
   title: string
-  cover_url: string
-  external_id?: string        // AniList ID, Steam AppID, IGDB ID, BGG ID
+  cover_url?: string
+  cover_image?: string
+  external_id?: string        // AniList ID, IGDB ID, BGG ID
+  appid?: string              // Steam AppID
   year?: number
   genres?: string[]
+  episodes?: number           // anime / tv
   total_episodes?: number     // anime
   total_chapters?: number     // manga
   total_volumes?: number      // manga
+  is_steam?: boolean
+  current_episode?: number
+  current_season?: number
+  season_episodes?: Record<number, { episode_count: number }>
+  display_order?: number
+  rating?: number
+  notes?: string
 }
 
 // ─── User & Profile ────────────────────────────────────────────────────────────

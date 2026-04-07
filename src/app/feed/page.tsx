@@ -190,10 +190,16 @@ export default function FeedPage() {
 
     let imageUrl = null;
     if (selectedImage) {
+      const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+      if (!ALLOWED_MIME_TYPES.includes(selectedImage.type)) {
+        setIsPublishing(false)
+        alert('Formato immagine non supportato. Usa JPG, PNG, GIF o WebP.')
+        return
+      }
       const fileName = `${Date.now()}-${selectedImage.name}`;
       const { error: uploadError } = await supabase.storage
         .from('post-images')
-        .upload(fileName, selectedImage);
+        .upload(fileName, selectedImage, { contentType: selectedImage.type });
 
       if (!uploadError) {
         const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(fileName);
@@ -346,10 +352,14 @@ export default function FeedPage() {
             <form onSubmit={handleCreatePost}>
               <textarea
                 value={newPostContent}
-                onChange={(e) => setNewPostContent(e.target.value)}
+                onChange={(e) => setNewPostContent(e.target.value.slice(0, 500))}
                 placeholder="Cosa bolle nel tuo calderone geek oggi?"
+                maxLength={500}
                 className="w-full bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-2xl p-6 text-lg min-h-[140px] resize-y focus:outline-none"
               />
+              <div className={`text-right text-xs mt-1 ${newPostContent.length >= 480 ? 'text-orange-400' : 'text-zinc-600'}`}>
+                {newPostContent.length}/500
+              </div>
               {imagePreview && (
                 <div className="mt-4 relative rounded-2xl overflow-hidden border border-zinc-700 bg-black">
                   <img src={imagePreview} alt="preview" className="max-h-96 w-full object-contain" />

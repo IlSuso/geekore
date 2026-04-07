@@ -8,10 +8,12 @@ export function FollowButton({
   targetId,
   currentUserId,
   isFollowingInitial,
+  onFollowChange,
 }: {
   targetId: string
   currentUserId: string
   isFollowingInitial: boolean
+  onFollowChange?: (isNowFollowing: boolean) => void
 }) {
   const [isFollowing, setIsFollowing] = useState(isFollowingInitial)
   const [loading, setLoading] = useState(false)
@@ -26,12 +28,14 @@ export function FollowButton({
       if (isFollowing) {
         await supabase.from('follows').delete().eq('follower_id', currentUserId).eq('following_id', targetId)
         setIsFollowing(false)
+        onFollowChange?.(false)
       } else {
         await supabase.from('follows').insert({ follower_id: currentUserId, following_id: targetId })
         await supabase.from('notifications').insert({
           receiver_id: targetId, sender_id: currentUserId, type: 'follow',
         })
         setIsFollowing(true)
+        onFollowChange?.(true)
       }
     } finally {
       setLoading(false)

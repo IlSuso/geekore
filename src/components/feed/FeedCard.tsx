@@ -111,7 +111,7 @@ export function FeedCard({ post }: { post: any }) {
         <div className="mx-4 mb-4 rounded-2xl overflow-hidden border border-zinc-800">
           <img
             src={post.image_url}
-            alt=""
+            alt={`Immagine del post di ${post.profiles?.username || 'utente'}`}
             className="w-full max-h-[420px] object-cover hover:scale-[1.02] transition-transform duration-500"
           />
         </div>
@@ -121,6 +121,7 @@ export function FeedCard({ post }: { post: any }) {
       <div className="px-6 py-4 border-t border-zinc-800/60 flex items-center gap-6">
         <button
           onClick={handleLike}
+          aria-label={hasLiked ? 'Rimuovi like' : 'Metti like'}
           className={`flex items-center gap-2 group transition-all ${hasLiked ? 'text-orange-500' : 'text-zinc-500 hover:text-orange-400'}`}
         >
           <div className={`p-1.5 rounded-xl transition-colors ${hasLiked ? 'bg-orange-500/15' : 'group-hover:bg-orange-500/10'}`}>
@@ -131,6 +132,7 @@ export function FeedCard({ post }: { post: any }) {
 
         <button
           onClick={() => setShowComments(!showComments)}
+          aria-label={showComments ? 'Nascondi commenti' : 'Mostra commenti'}
           className={`flex items-center gap-2 group transition-all ${showComments ? 'text-violet-400' : 'text-zinc-500 hover:text-violet-400'}`}
         >
           <div className={`p-1.5 rounded-xl transition-colors ${showComments ? 'bg-violet-500/15' : 'group-hover:bg-violet-500/10'}`}>

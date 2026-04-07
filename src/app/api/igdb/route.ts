@@ -1,6 +1,35 @@
-// DESTINAZIONE: src/app/api/igdb/route.ts
-
 import { NextRequest, NextResponse } from 'next/server'
+
+// Module-level token cache — persists across requests in the same server instance
+let cachedToken: { token: string; expiresAt: number } | null = null
+
+async function getIgdbToken(clientId: string, clientSecret: string): Promise<string | null> {
+  const now = Date.now()
+  // Reuse cached token if still valid (with 60s buffer)
+  if (cachedToken && cachedToken.expiresAt > now + 60_000) {
+    return cachedToken.token
+  }
+
+  const tokenRes = await fetch('https://id.twitch.tv/oauth2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: 'client_credentials',
+    }),
+  })
+
+  const tokenData = await tokenRes.json()
+  const accessToken = tokenData.access_token
+  if (!accessToken) return null
+
+  cachedToken = {
+    token: accessToken,
+    expiresAt: now + (tokenData.expires_in || 3600) * 1000,
+  }
+  return accessToken
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,20 +57,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Configurazione IGDB mancante' }, { status: 500 })
     }
 
-    // ── Token Twitch/IGDB ────────────────────────────────────────────────────
-    const tokenRes = await fetch('https://id.twitch.tv/oauth2/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        grant_type: 'client_credentials',
-      }),
-    })
-
-    const tokenData = await tokenRes.json()
-    const accessToken = tokenData.access_token
-
+    // ── Token Twitch/IGDB (cached) ───────────────────────────────────────────
+    const accessToken = await getIgdbToken(clientId, clientSecret)
     if (!accessToken) {
       return NextResponse.json({ error: 'Impossibile ottenere token IGDB' }, { status: 500 })
     }
@@ -56,7 +73,7 @@ export async function POST(request: NextRequest) {
       },
       body: `
         search "${cleanSearch}";
-        fields name, cover.url, first_release_date, summary, rating;
+        fields name, cover.url, first_release_date, summary, genres.name;
         limit 20;
       `,
     })
@@ -82,6 +99,8 @@ export async function POST(request: NextRequest) {
         ? new Date(g.first_release_date * 1000).getFullYear()
         : undefined,
       episodes: 1,
+      description: g.summary ? g.summary.slice(0, 400) : undefined,
+      genres: g.genres?.map((gen: any) => gen.name) as string[] | undefined,
       source: 'igdb',
     }))
 

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect } from 'react'
+import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   CheckCircle, Clock, X, RotateCw, RotateCcw, Edit3, RefreshCw,
@@ -192,6 +193,7 @@ function MediaCard({
           ) : (
             <button
               onClick={() => onDeleteRequest?.(media.id)}
+              aria-label={`Elimina ${media.title}`}
               className="absolute top-3 right-3 z-30 opacity-0 group-hover:opacity-100 bg-zinc-950/90 hover:bg-red-950 border border-zinc-700 hover:border-red-500 p-2 rounded-full transition-all duration-200"
             >
               <X className="w-5 h-5 text-zinc-400 hover:text-red-400" />
@@ -233,7 +235,7 @@ function MediaCard({
         {media.type === 'boardgame' ? (
           <div className="flex items-center justify-between">
             <p className="text-emerald-400 text-sm flex items-center gap-1.5">
-              <Clock size={14} /> {media.current_episode} {media.current_episode === 1 ? 'partita' : 'partite'}
+              <Clock size={14} /> {media.current_episode === 0 ? 'Non ancora giocato' : `${media.current_episode} ${media.current_episode === 1 ? 'partita' : 'partite'}`}
             </p>
             {isOwner && (
               <div className="flex gap-1">
@@ -348,8 +350,8 @@ function Avatar({ profile }: { profile: Profile }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
-  const { username } = use(params)
+export default function ProfilePage() {
+  const { username } = useParams<{ username: string }>()
   const supabase = createClient()
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
@@ -422,9 +424,10 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
         updated_at: new Date().toISOString(),
         rating: 0,
       }))
-      await supabase.from('user_media_entries').upsert(steamMedia, { onConflict: 'user_id,title' })
+      await supabase.from('user_media_entries').upsert(steamMedia, { onConflict: 'user_id,appid' })
       await refreshMedia(currentUserId)
-      setSteamMessage({ text: `${data.games.length} giochi importati con successo!`, type: 'success' })
+      const cpMsg = data.core_power != null ? ` Core Power: ${data.core_power}.` : ''
+      setSteamMessage({ text: `${data.games.length} giochi importati con successo!${cpMsg}`, type: 'success' })
     } finally {
       setImportingGames(false)
     }
@@ -462,7 +465,8 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
     } else if (media.episodes) {
       update = { current_episode: media.episodes }
     } else {
-      update = { current_episode: 999 }
+      // Film, boardgame o media senza dati episodi: impostiamo 1 come "completato"
+      update = { current_episode: 1 }
     }
     await supabase.from('user_media_entries').update(update).eq('id', id)
     setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
@@ -544,46 +548,42 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
       const ownerCheck = !!user && user.id === profileData.id
       setIsOwner(ownerCheck)
 
-      // 4. Steam solo se owner
-      if (ownerCheck) {
-        const { data: steam } = await supabase
-          .from('steam_accounts')
-          .select('*')
-          .eq('user_id', user!.id)
-          .maybeSingle()
-        setSteamAccount(steam)
-      }
-
-      // 5. Media (pubblica in lettura grazie a RLS SELECT policy)
-      const { data: mediaData } = await supabase
-        .from('user_media_entries')
-        .select('*')
-        .eq('user_id', profileData.id)
-      if (mediaData) setMediaList(sortMediaList(mediaData))
-
-      // 6. Contatori followers/following
-      const [{ count: fwersCount }, { count: fwingCount }] = await Promise.all([
+      // 4–7. Tutte le query indipendenti in parallelo dopo aver ottenuto profileData.id
+      const [
+        steamResult,
+        mediaResult,
+        fwersResult,
+        fwingResult,
+        followResult,
+      ] = await Promise.all([
+        ownerCheck
+          ? supabase.from('steam_accounts').select('*').eq('user_id', user!.id).maybeSingle()
+          : Promise.resolve({ data: null }),
+        supabase.from('user_media_entries').select('*').eq('user_id', profileData.id),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profileData.id),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profileData.id),
+        (user && !ownerCheck)
+          ? supabase.from('follows').select('follower_id').eq('follower_id', user.id).eq('following_id', profileData.id).maybeSingle()
+          : Promise.resolve({ data: null }),
       ])
-      setFollowersCount(fwersCount || 0)
-      setFollowingCount(fwingCount || 0)
 
-      // 7. Segue già questo utente?
-      if (user && !ownerCheck) {
-        const { data: followData } = await supabase
-          .from('follows')
-          .select('follower_id')
-          .eq('follower_id', user.id)
-          .eq('following_id', profileData.id)
-          .maybeSingle()
-        setIsFollowing(!!followData)
-      }
+      if (ownerCheck) setSteamAccount(steamResult.data)
+      if (mediaResult.data) setMediaList(sortMediaList(mediaResult.data))
+      setFollowersCount(fwersResult.count || 0)
+      setFollowingCount(fwingResult.count || 0)
+      if (user && !ownerCheck) setIsFollowing(!!followResult.data)
 
       setLoading(false)
     }
     fetchData()
   }, [username])
+
+  // Auto-dismiss steamMessage dopo 5 secondi
+  useEffect(() => {
+    if (!steamMessage) return
+    const timer = setTimeout(() => setSteamMessage(null), 5000)
+    return () => clearTimeout(timer)
+  }, [steamMessage])
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -651,6 +651,9 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                   targetId={profile.id}
                   currentUserId={currentUserId}
                   isFollowingInitial={isFollowing}
+                  onFollowChange={(nowFollowing) =>
+                    setFollowersCount(prev => nowFollowing ? prev + 1 : Math.max(0, prev - 1))
+                  }
                 />
               </div>
             )}

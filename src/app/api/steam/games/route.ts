@@ -5,12 +5,6 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 const STEAM_API_KEY = process.env.STEAM_API_KEY
 const CACHE_HOURS = 24
 
-// Service client per bypassare RLS sulla steam_import_log (scrittura server-side)
-const supabaseService = createServiceClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 async function getBestImage(appid: number): Promise<string> {
   const base = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appid}`
   // Non facciamo più imageExists() con richieste HEAD per ogni gioco —
@@ -36,6 +30,12 @@ export async function GET(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ success: false, error: 'Non autenticato' }, { status: 401 })
   }
+
+  // Service client inizializzato dentro il handler per evitare errori in build time
+  const supabaseService = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
 
   // ── Controlla cache: ha già importato nelle ultime 24 ore? ───────────────
   const { data: importLog } = await supabaseService
@@ -90,10 +90,35 @@ export async function GET(request: NextRequest) {
         games_count: games.length,
       }, { onConflict: 'user_id' })
 
+    // ── Calcola e aggiorna core_power nella leaderboard ───────────────────
+    // Formula Opzione A: ore totali / 10, max 9999
+    const totalHours = rawGames.reduce(
+      (sum: number, g: any) => sum + Math.floor((g.playtime_forever || 0) / 60), 0
+    )
+    const corePower = Math.min(Math.round(totalHours / 10), 9999)
+
+    const { data: profileData } = await supabaseService
+      .from('profiles')
+      .select('username, avatar_url')
+      .eq('id', user.id)
+      .single()
+
+    await supabaseService
+      .from('leaderboard')
+      .upsert({
+        user_id: user.id,
+        username: profileData?.username || 'Unknown',
+        avatar_url: profileData?.avatar_url || null,
+        steam_id: steamid,
+        core_power: corePower,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' })
+
     return NextResponse.json({
       success: true,
       games,
       count: games.length,
+      core_power: corePower,
     })
 
   } catch (error) {

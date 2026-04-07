@@ -14,7 +14,7 @@ export default function LeaderboardPage() {
       const { data, error } = await supabase
         .from('leaderboard')
         .select('*')
-        .order('completion_rate', { ascending: false })
+        .order('core_power', { ascending: false })
         .limit(50);
       
       if (!error && data) setLeaders(data);
@@ -48,7 +48,7 @@ export default function LeaderboardPage() {
                 <div className="text-xl font-black opacity-20 w-8 flex justify-center">
                   {index === 0 ? <Trophy size={20} className="text-yellow-500 opacity-100" /> : `#${index + 1}`}
                 </div>
-                <img src={user.avatar_url} className="w-12 h-12 rounded-full border border-white/10" alt="" />
+                <img src={user.avatar_url} className="w-12 h-12 rounded-full border border-white/10" alt={`Avatar di ${user.username}`} />
                 <div className="flex-1 min-w-0">
                   <h3 className="font-black text-lg truncate">{user.username}</h3>
                   <div className="flex items-center gap-2 opacity-30 text-[8px] tracking-widest">
@@ -57,7 +57,7 @@ export default function LeaderboardPage() {
                 </div>
                 <div className="text-right">
                   <div className={`text-2xl font-black ${index === 0 ? 'text-yellow-500' : 'text-[#7c6af7]'}`}>
-                    {user.completion_rate}%
+                    {user.core_power ?? 0}
                   </div>
                 </div>
               </div>
