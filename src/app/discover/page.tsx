@@ -233,19 +233,25 @@ export default function DiscoverPage() {
 
       // BoardGameGeek
       if (activeType === 'boardgame' && term.length >= 2) {
-        const res = await fetch(`/api/boardgames?search=${encodeURIComponent(term)}`);
-        if (res.ok) {
-          const json = await res.json();
-          const bggResults: MediaItem[] = (json.results || []).map((g: any) => ({
-            id: g.id,
-            title: g.title,
-            type: 'boardgame',
-            coverImage: g.coverImage,
-            year: g.year,
-            description: g.description,
-            source: 'bgg' as const,
-          }));
-          rawResults = [...rawResults, ...bggResults.filter(hasValidCover)];
+        try {
+          const res = await fetch(`/api/boardgames?search=${encodeURIComponent(term)}`);
+          if (res.ok) {
+            const json = await res.json();
+            const bggResults: MediaItem[] = (json.results || []).map((g: any) => ({
+              id: g.id,
+              title: g.title,
+              type: 'boardgame',
+              coverImage: g.coverImage,
+              year: g.year,
+              description: g.description,
+              source: 'bgg' as const,
+            }));
+            rawResults = [...rawResults, ...bggResults.filter(hasValidCover)];
+          } else {
+            setSearchError('BoardGameGeek non risponde. Riprova tra qualche secondo.');
+          }
+        } catch {
+          setSearchError('Errore di connessione a BoardGameGeek. Riprova più tardi.');
         }
       }
 

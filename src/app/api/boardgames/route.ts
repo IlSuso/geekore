@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseStringPromise } from 'xml2js'
-import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
 const CACHE_DURATION_MS = 86400000 // 24 ore
@@ -10,33 +9,32 @@ const BGG_HEADERS = {
 }
 
 // BGG spesso risponde 202 (ancora in elaborazione) — riprova fino a maxRetries volte
-async function bggFetch(url: string, maxRetries = 4, delayMs = 1500): Promise<string | null> {
+async function bggFetch(url: string, maxRetries = 5, delayMs = 2000): Promise<string | null> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
-    if (attempt > 0) await new Promise(r => setTimeout(r, delayMs * attempt))
+    if (attempt > 0) await new Promise(r => setTimeout(r, delayMs))
     try {
-      const res = await fetch(url, { headers: BGG_HEADERS })
+      const res = await fetch(url, { headers: BGG_HEADERS, cache: 'no-store' })
       if (res.status === 202) continue // BGG sta ancora processando
-      if (!res.ok) return null
+      if (!res.ok) {
+        console.error(`[BGG] HTTP ${res.status} per ${url}`)
+        return null
+      }
       const text = await res.text()
-      if (!text.trim().startsWith('<')) return null
+      if (!text.trim().startsWith('<')) {
+        console.error('[BGG] Risposta non XML:', text.slice(0, 200))
+        return null
+      }
       return text
-    } catch {
+    } catch (e) {
+      console.error(`[BGG] Errore rete tentativo ${attempt}:`, e)
       if (attempt === maxRetries - 1) return null
     }
   }
+  console.error('[BGG] Tutti i tentativi esauriti per', url)
   return null
 }
 
 export async function GET(request: NextRequest) {
-  // ── Verifica autenticazione ──────────────────────────────────────────────
-  const supabase = await createClient()
-  const supabaseService = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
-
   const { searchParams } = new URL(request.url)
   const search = searchParams.get('search')
 
@@ -128,6 +126,11 @@ export async function GET(request: NextRequest) {
   }
 
   // ── MODALITÀ HOT LIST (BGG v2 cached) ───────────────────────────────────
+  const supabaseService = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
   try {
     const { data: cache } = await supabaseService
       .from('boardgames_cache')
