@@ -337,7 +337,14 @@ export default function DiscoverPage() {
       rating: rating || null,
     });
 
-    if (!error) setAlreadyAdded(prev => [...prev, media.id]);
+    if (error) {
+      if (error.code === '23505') {
+        showToast('Già presente nella tua collezione')
+        setAlreadyAdded(prev => [...prev, media.id])
+      }
+    } else {
+      setAlreadyAdded(prev => [...prev, media.id])
+    }
   };
 
   const confirmAdd = async () => {
@@ -385,13 +392,18 @@ export default function DiscoverPage() {
       rating: modalRating || null,
     });
 
-    if (!error) {
-      setAlreadyAdded(prev => [...prev, selectedMedia.id]);
-      setSelectedMedia(null);
-      setCurrentEpisode('');
-      setSelectedSeason(1);
-      setModalRating(0);
+    if (error) {
+      if (error.code === '23505') {
+        showToast('Già presente nella tua collezione')
+        setAlreadyAdded(prev => [...prev, selectedMedia.id])
+      }
+    } else {
+      setAlreadyAdded(prev => [...prev, selectedMedia.id])
     }
+    setSelectedMedia(null);
+    setCurrentEpisode('');
+    setSelectedSeason(1);
+    setModalRating(0);
     setAdding(false);
   };
 
@@ -523,7 +535,7 @@ export default function DiscoverPage() {
 
             <div className="flex gap-5 mb-8">
               {selectedMedia.coverImage && (
-                <img src={selectedMedia.coverImage} alt="" className="w-24 h-36 object-cover rounded-2xl flex-shrink-0" />
+                <img src={selectedMedia.coverImage} alt={`Copertina di ${selectedMedia.title}`} className="w-24 h-36 object-cover rounded-2xl flex-shrink-0" />
               )}
               <div className="flex-1">
                 <p className="font-semibold text-lg">{selectedMedia.title}</p>
