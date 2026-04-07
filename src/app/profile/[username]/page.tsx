@@ -136,71 +136,43 @@ function MediaCard({
 
   return (
     <div className="group relative bg-zinc-950 rounded-3xl overflow-hidden h-full flex flex-col">
-      {/* Cover */}
-      <div className="relative h-72 bg-zinc-900 flex-shrink-0">
+
+      {/* ── Cover ── */}
+      <div className="relative h-60 bg-zinc-900 flex-shrink-0 overflow-hidden">
+
+        {/* Steam badge */}
         {media.is_steam && (
-          <div className="absolute top-3 left-3 z-20 bg-[#171D25] p-1.5 rounded-full shadow-lg border border-[#66C0F4]/50">
-            <SteamIcon size={18} className="text-white" />
+          <div className="absolute top-3 left-3 z-20 bg-[#1b2838]/90 backdrop-blur-sm p-1.5 rounded-xl border border-[#66C0F4]/30 shadow-lg">
+            <SteamIcon size={15} className="text-[#66C0F4]" />
           </div>
         )}
 
-        {/* Bottom-left: notes + rating */}
-        <div className="absolute bottom-3 left-3 z-30 flex items-center gap-2">
-          {isOwner && (
-            <button
-              onClick={() => onNotes?.(media)}
-              className={`p-2.5 rounded-full border transition-all ${
-                hasNotes
-                  ? 'bg-violet-600 border-violet-500 text-white'
-                  : 'bg-zinc-950/80 border-zinc-700 hover:border-violet-500 text-zinc-400 hover:text-violet-400'
-              }`}
-            >
-              <Edit3 size={18} />
-            </button>
-          )}
-          <div className="bg-zinc-950/90 border border-zinc-700 rounded-full px-3 py-1.5">
-            <StarRating
-              value={rating}
-              onChange={isOwner ? (r) => onRating?.(media.id, r) : undefined}
-              size={18}
-              viewOnly={!isOwner}
-            />
+        {/* Delete confirm overlay */}
+        {isOwner && isConfirmingDelete && (
+          <div className="absolute top-3 right-3 z-30 flex gap-1.5">
+            <button onClick={() => onDeleteCancel?.()} className="px-3 py-1.5 text-xs font-medium bg-zinc-900/95 border border-zinc-600 rounded-full hover:bg-zinc-800 transition">Annulla</button>
+            <button onClick={() => onDelete?.(media.id)} className="px-3 py-1.5 text-xs font-medium bg-red-900/95 border border-red-700 text-red-300 rounded-full hover:bg-red-800 transition">Elimina</button>
           </div>
-        </div>
+        )}
 
-        {/* Type badge */}
-        <div className={`absolute bottom-12 right-3 z-20 px-2 py-1 rounded-full text-[10px] font-bold text-white ${TYPE_COLORS[media.type] || 'bg-zinc-700'}`}>
+        {/* X delete button — sottile di default, piena su hover */}
+        {isOwner && !isConfirmingDelete && (
+          <button
+            onClick={() => onDeleteRequest?.(media.id)}
+            aria-label={`Elimina ${media.title}`}
+            className="absolute top-3 right-3 z-30 opacity-30 group-hover:opacity-100 bg-black/50 hover:bg-red-950/80 border border-white/10 hover:border-red-500/60 p-1.5 rounded-xl transition-all duration-200"
+          >
+            <X className="w-4 h-4 text-white group-hover:text-red-400 transition-colors" />
+          </button>
+        )}
+
+        {/* Gradient + type badge bottom-left */}
+        <div className="absolute bottom-0 inset-x-0 h-14 bg-gradient-to-t from-black/70 to-transparent z-10 pointer-events-none" />
+        <div className={`absolute bottom-3 left-3 z-20 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white tracking-wide ${TYPE_COLORS[media.type] || 'bg-zinc-700'}`}>
           {TYPE_LABELS[media.type] || media.type}
         </div>
 
-        {/* Delete button / inline confirm - owner only */}
-        {isOwner && (
-          isConfirmingDelete ? (
-            <div className="absolute top-3 right-3 z-30 flex gap-1.5">
-              <button
-                onClick={() => onDeleteCancel?.()}
-                className="px-3 py-1.5 text-xs font-medium bg-zinc-900 border border-zinc-600 rounded-full hover:bg-zinc-800 transition"
-              >
-                Annulla
-              </button>
-              <button
-                onClick={() => onDelete?.(media.id)}
-                className="px-3 py-1.5 text-xs font-medium bg-red-900 border border-red-700 text-red-300 rounded-full hover:bg-red-800 transition"
-              >
-                Elimina
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => onDeleteRequest?.(media.id)}
-              aria-label={`Elimina ${media.title}`}
-              className="absolute top-3 right-3 z-30 opacity-0 group-hover:opacity-100 bg-zinc-950/90 hover:bg-red-950 border border-zinc-700 hover:border-red-500 p-2 rounded-full transition-all duration-200"
-            >
-              <X className="w-5 h-5 text-zinc-400 hover:text-red-400" />
-            </button>
-          )
-        )}
-
+        {/* Image */}
         {imageUrl ? (
           <img
             src={imageUrl}
@@ -209,29 +181,55 @@ function MediaCard({
             onError={(e) => {
               const img = e.target as HTMLImageElement
               img.onerror = null
-              img.src = `https://via.placeholder.com/600x900/27272a/ffffff?text=${encodeURIComponent(media.title.substring(0, 12))}`
+              img.style.display = 'none'
             }}
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-800 text-white">
-            <span className="text-7xl mb-3">🎮</span>
-            <p className="text-sm font-medium text-center px-6">{media.title}</p>
+          <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-800 text-white gap-2">
+            <span className="text-5xl">🎮</span>
+            <p className="text-xs font-medium text-center px-4 text-zinc-400 line-clamp-2">{media.title}</p>
           </div>
         )}
       </div>
 
-      {/* Title */}
-      <div className="p-6 pb-3 flex-shrink-0">
-        <h4 className="font-semibold line-clamp-2 text-lg leading-tight">{media.title}</h4>
+      {/* ── Info ── */}
+      <div className="flex flex-col flex-1 px-4 pt-3 pb-4 gap-2">
+
+        {/* Title */}
+        <h4 className="font-semibold line-clamp-2 text-sm leading-snug text-white">
+          {media.title}
+        </h4>
+
+        {/* Stars + notes button */}
+        <div className="flex items-center gap-2">
+          <StarRating
+            value={rating}
+            onChange={isOwner ? (r) => onRating?.(media.id, r) : undefined}
+            size={15}
+            viewOnly={!isOwner}
+          />
+          {isOwner && (
+            <button
+              onClick={() => onNotes?.(media)}
+              className={`ml-auto p-1.5 rounded-lg border transition-all ${
+                hasNotes
+                  ? 'bg-violet-600 border-violet-500 text-white'
+                  : 'bg-zinc-900 border-zinc-800 hover:border-violet-500/60 text-zinc-600 hover:text-violet-400'
+              }`}
+            >
+              <Edit3 size={13} />
+            </button>
+          )}
+        </div>
+
         {isCompleted && (
-          <div className="mt-3 text-emerald-400 text-sm font-medium flex items-center gap-1.5">
-            <CheckCircle size={16} /> Completato
+          <div className="text-emerald-400 text-xs font-medium flex items-center gap-1">
+            <CheckCircle size={12} /> Completato
           </div>
         )}
-      </div>
 
       {/* Progress */}
-      <div className="mt-auto p-6 pt-0">
+      <div className="mt-auto pt-1">
         {media.type === 'boardgame' ? (
           <div className="flex items-center justify-between">
             <p className="text-emerald-400 text-sm flex items-center gap-1.5">
@@ -327,6 +325,7 @@ function MediaCard({
             </div>
           )
         ) : null}
+      </div>
       </div>
     </div>
   )

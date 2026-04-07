@@ -23,10 +23,17 @@ const CATEGORIES = [
 ]
 
 const CATEGORY_COLORS: Record<string, string> = {
-  cinema: 'bg-red-500/20 text-red-300 border-red-500/30',
-  tv:     'bg-purple-500/20 text-purple-300 border-purple-500/30',
-  anime:  'bg-orange-500/20 text-orange-300 border-orange-500/30',
-  gaming: 'bg-green-500/20 text-green-300 border-green-500/30',
+  cinema: 'bg-red-600 text-white',
+  tv:     'bg-purple-600 text-white',
+  anime:  'bg-orange-500 text-white',
+  gaming: 'bg-emerald-600 text-white',
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  cinema: 'Film',
+  tv:     'Serie',
+  anime:  'Anime',
+  gaming: 'Game',
 }
 
 function formatDate(dateStr?: string) {
@@ -97,20 +104,21 @@ export default function NewsPage() {
         </div>
 
         {/* Category filters */}
-        <div className="flex flex-wrap gap-3 mb-10">
+        <div className="flex flex-wrap gap-2 mb-8">
           {CATEGORIES.map(cat => {
             const Icon = cat.icon
+            const active = activeCategory === cat.id
             return (
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-medium transition ${
-                  activeCategory === cat.id
-                    ? 'bg-violet-600 text-white'
-                    : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300'
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                  active
+                    ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/20'
+                    : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-white'
                 }`}
               >
-                {Icon && <Icon size={16} />}
+                {Icon && <Icon size={14} />}
                 {cat.label}
               </button>
             )
@@ -134,17 +142,17 @@ export default function NewsPage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {news.map((item, i) => (
               <a
                 key={i}
                 href={item.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden hover:border-violet-500/50 transition-all hover:shadow-lg hover:shadow-violet-500/10 flex flex-col"
+                className="group bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-violet-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-violet-500/10 hover:-translate-y-0.5 flex flex-col"
               >
                 {/* Cover */}
-                <div className="relative h-64 bg-zinc-900 flex-shrink-0 overflow-hidden">
+                <div className="relative aspect-[2/3] bg-zinc-800 flex-shrink-0 overflow-hidden">
                   {item.coverImage ? (
                     <img
                       src={item.coverImage}
@@ -152,40 +160,45 @@ export default function NewsPage() {
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-zinc-700">
-                      <Film size={40} />
+                    <div className="w-full h-full flex items-center justify-center text-zinc-600">
+                      <Film size={36} />
                     </div>
                   )}
+                  {/* Gradient bottom */}
+                  <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
                   {/* Category badge */}
-                  <div className={`absolute top-3 left-3 px-2 py-1 rounded-full text-[10px] font-bold border ${CATEGORY_COLORS[item.category] || 'bg-zinc-800 text-zinc-400'}`}>
-                    {item.category === 'cinema' ? 'Film' : item.category === 'tv' ? 'Serie' : item.category === 'anime' ? 'Anime' : 'Game'}
+                  <div className={`absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full text-[10px] font-bold shadow-lg ${CATEGORY_COLORS[item.category] || 'bg-zinc-700 text-zinc-300'}`}>
+                    {CATEGORY_LABELS[item.category] || item.category}
+                  </div>
+                  {/* External link icon on hover */}
+                  <div className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="bg-black/60 backdrop-blur-sm p-1 rounded-lg">
+                      <ExternalLink size={11} className="text-white" />
+                    </div>
                   </div>
                 </div>
 
                 {/* Info */}
-                <div className="p-4 flex flex-col flex-1">
-                  <h3 className="font-semibold text-sm leading-tight line-clamp-2 mb-1 group-hover:text-violet-300 transition-colors">
+                <div className="p-3 flex flex-col flex-1 gap-1.5">
+                  <h3 className="font-semibold text-xs leading-snug line-clamp-2 text-white group-hover:text-violet-300 transition-colors">
                     {item.title}
                   </h3>
 
                   {item.description && (
-                    <p className="text-xs text-zinc-500 line-clamp-2 mb-2 flex-1">
+                    <p className="text-[11px] text-zinc-500 line-clamp-2 leading-relaxed flex-1">
                       {item.description}
                     </p>
                   )}
 
-                  <div className="flex items-center justify-between mt-auto pt-2">
+                  <div className="mt-auto pt-1">
                     {item.date ? (
-                      <div className="flex items-center gap-1 text-xs text-zinc-500">
-                        <CalendarDays size={11} />
+                      <div className="flex items-center gap-1 text-[11px] text-zinc-400 font-medium">
+                        <CalendarDays size={10} />
                         {formatDate(item.date)}
                       </div>
                     ) : item.nextEpisode ? (
-                      <span className="text-xs text-emerald-400">Ep. {item.nextEpisode} in arrivo</span>
-                    ) : (
-                      <span className="text-xs text-zinc-600">{typeof item.source === 'string' ? item.source : (item.source as any)?.name || ''}</span>
-                    )}
-                    <ExternalLink size={11} className="text-zinc-600 group-hover:text-violet-400 transition-colors" />
+                      <span className="text-[11px] text-emerald-400 font-medium">Ep. {item.nextEpisode} in arrivo</span>
+                    ) : null}
                   </div>
                 </div>
               </a>
