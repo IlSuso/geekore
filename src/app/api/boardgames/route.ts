@@ -40,49 +40,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ results: [] }, { status: 400 })
     }
 
+    const term = search.trim()
+
+    // BGG XML API v1 — percorso diverso da v2, non bloccato da Cloudflare
     try {
-      const term = search.trim()
-
-      // Prova prima il proxy JSON community (gestisce Cloudflare/auth BGG)
-      const proxyRes = await fetch(
-        `https://bgg-json.azurewebsites.net/search/${encodeURIComponent(term)}`,
-        { cache: 'no-store' }
-      )
-
-      if (proxyRes.ok) {
-        const proxyGames: any[] = await proxyRes.json()
-        const results = proxyGames
-          .slice(0, 10)
-          .filter((g: any) => g.thumbnail)
-          .map((g: any) => {
-            const rawDesc = g.description || ''
-            const description = rawDesc
-              .replace(/&#10;/g, ' ')
-              .replace(/&amp;/g, '&')
-              .replace(/&mdash;/g, '—')
-              .replace(/&ndash;/g, '–')
-              .replace(/<[^>]+>/g, '')
-              .trim()
-              .slice(0, 300)
-
-            return {
-              id: `bgg-${g.gameId}`,
-              title: g.name,
-              type: 'boardgame',
-              coverImage: g.image || g.thumbnail,
-              year: g.yearPublished || undefined,
-              description: description || undefined,
-              players: g.minPlayers && g.maxPlayers
-                ? `${g.minPlayers}${g.minPlayers !== g.maxPlayers ? `–${g.maxPlayers}` : ''} giocatori`
-                : undefined,
-              source: 'bgg',
-            }
-          })
-        return NextResponse.json({ results })
-      }
-
-      // Fallback: BGG XML API v1 (percorso diverso da v2, meno filtrato da Cloudflare)
-      console.log('[BGG] proxy fallito, provo XML v1')
       const searchXml = await bggFetch(
         `https://boardgamegeek.com/xmlapi/search?search=${encodeURIComponent(term)}&exact=0`
       )
