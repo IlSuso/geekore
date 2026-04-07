@@ -369,6 +369,8 @@ export default function ProfilePage() {
 
   // Inline delete confirm
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [boardgameTitle, setBoardgameTitle] = useState('')
+  const [addingBoardgame, setAddingBoardgame] = useState(false)
 
   // Notes modal
   const [selectedMedia, setSelectedMedia] = useState<UserMedia | null>(null)
@@ -445,6 +447,29 @@ export default function ProfilePage() {
       await refreshMedia(currentUserId)
     } finally {
       setReorderingGames(false)
+    }
+  }
+
+  const addBoardgameManually = async () => {
+    const title = boardgameTitle.trim()
+    if (!title || !currentUserId || addingBoardgame) return
+    setAddingBoardgame(true)
+    const { data, error } = await supabase.from('user_media_entries').insert({
+      user_id: currentUserId,
+      external_id: `manual-bg-${Date.now()}`,
+      title,
+      type: 'boardgame',
+      status: 'watching',
+      current_episode: 0,
+      progress: 0,
+    }).select().single()
+    setAddingBoardgame(false)
+    if (error) {
+      showToast('Errore durante l\'aggiunta')
+    } else {
+      setMediaList(prev => [...prev, data as UserMedia])
+      setBoardgameTitle('')
+      showToast(`"${title}" aggiunto alla collezione`)
     }
   }
 
@@ -724,6 +749,42 @@ export default function ProfilePage() {
                 {steamMessage.text}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Aggiungi Board Game manualmente — solo owner */}
+        {isOwner && (
+          <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-8 mb-12">
+            <div className="flex items-center gap-4 mb-6">
+              <span className="text-2xl">🎲</span>
+              <div>
+                <h2 className="text-2xl font-semibold">Board Game</h2>
+                <p className="text-sm text-zinc-500 mt-0.5">
+                  Cerca il titolo su{' '}
+                  <a href="https://boardgamegeek.com" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:underline">
+                    BoardGameGeek
+                  </a>{' '}
+                  poi aggiungilo qui
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={boardgameTitle}
+                onChange={e => setBoardgameTitle(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addBoardgameManually()}
+                placeholder="Nome del gioco da tavolo..."
+                className="flex-1 bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-2xl px-5 py-3.5 text-sm placeholder-zinc-500 focus:outline-none"
+              />
+              <button
+                onClick={addBoardgameManually}
+                disabled={!boardgameTitle.trim() || addingBoardgame}
+                className="px-6 py-3.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl text-sm font-semibold transition"
+              >
+                {addingBoardgame ? 'Aggiungendo...' : 'Aggiungi'}
+              </button>
+            </div>
           </div>
         )}
 

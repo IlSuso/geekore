@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Plus, X, Film, Tv, Gamepad2, BookOpen, Dices, Bookmark, BookmarkCheck } from 'lucide-react';
+import { Search, Plus, X, Film, Tv, Gamepad2, BookOpen, Dices, Bookmark, BookmarkCheck, ExternalLink } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { StarRating } from '@/components/ui/StarRating';
 import { showToast } from '@/components/ui/Toast';
@@ -52,7 +52,7 @@ export default function DiscoverPage() {
     { id: 'movie', label: 'Film', icon: Film },
     { id: 'tv', label: 'Serie TV', icon: Tv },
     { id: 'game', label: 'Videogiochi', icon: Gamepad2 },
-    { id: 'boardgame', label: 'Board Game', icon: Dices },
+    { id: 'boardgame', label: 'Board Game', icon: Dices, disabled: true },
   ];
 
   useEffect(() => {
@@ -231,67 +231,6 @@ export default function DiscoverPage() {
         }
       }
 
-      // BoardGameGeek — chiamata diretta dal browser (bypassa il blocco Cloudflare server-side)
-      if (activeType === 'boardgame' && term.length >= 2) {
-        try {
-          const searchRes = await fetch(
-            `https://boardgamegeek.com/xmlapi2/search?query=${encodeURIComponent(term)}&type=boardgame`,
-            { mode: 'cors' }
-          )
-
-          if (!searchRes.ok) {
-            setSearchError(`BoardGameGeek non risponde (${searchRes.status}). Riprova tra qualche secondo.`)
-          } else {
-            const searchText = await searchRes.text()
-            const parser = new DOMParser()
-            const searchDoc = parser.parseFromString(searchText, 'text/xml')
-            const items = Array.from(searchDoc.querySelectorAll('item')).slice(0, 10)
-
-            if (items.length > 0) {
-              const ids = items.map(i => i.getAttribute('id')).filter(Boolean).join(',')
-
-              const detailRes = await fetch(
-                `https://boardgamegeek.com/xmlapi2/thing?id=${ids}&type=boardgame`,
-                { mode: 'cors' }
-              )
-
-              if (detailRes.ok) {
-                const detailText = await detailRes.text()
-                const detailDoc = parser.parseFromString(detailText, 'text/xml')
-                const games = Array.from(detailDoc.querySelectorAll('item'))
-
-                const bggResults: MediaItem[] = games.map((game) => {
-                  const id = game.getAttribute('id')
-                  const primaryName = game.querySelector('name[type="primary"]')
-                  const title = primaryName?.getAttribute('value') || 'Senza titolo'
-                  const thumb = game.querySelector('thumbnail')?.textContent?.trim()
-                  const image = game.querySelector('image')?.textContent?.trim()
-                  const rawImage = image || thumb
-                  if (!rawImage) return null
-                  const coverImage = rawImage.startsWith('http') ? rawImage : `https:${rawImage}`
-                  const yearEl = game.querySelector('yearpublished')
-                  const year = yearEl?.getAttribute('value') ? parseInt(yearEl.getAttribute('value')!) : undefined
-                  const descEl = game.querySelector('description')
-                  const description = descEl?.textContent
-                    ? descEl.textContent.replace(/<[^>]+>/g, '').slice(0, 400)
-                    : undefined
-
-                  return { id: `bgg-${id}`, title, type: 'boardgame', coverImage, year, description, source: 'bgg' as const }
-                }).filter((g): g is MediaItem => g !== null && !!g.coverImage)
-
-                rawResults = [...rawResults, ...bggResults.filter(hasValidCover)]
-              }
-            }
-          }
-        } catch (err: any) {
-          // CORS error = BGG blocca anche le richieste browser
-          if (err?.message?.includes('Failed to fetch') || err?.message?.includes('CORS')) {
-            setSearchError('BoardGameGeek blocca le richieste dal browser. Funzionalità temporaneamente non disponibile.')
-          } else {
-            setSearchError('Errore di connessione a BoardGameGeek.')
-          }
-        }
-      }
 
       const uniqueResults = rawResults.filter((item, index, self) =>
         index === self.findIndex((t) => t.id === item.id)
@@ -439,13 +378,19 @@ export default function DiscoverPage() {
             return (
               <button
                 key={t.id}
-                onClick={() => setActiveType(t.id)}
+                onClick={() => !t.disabled && setActiveType(t.id)}
+                title={t.disabled ? 'API BoardGameGeek non disponibile — aggiungi dal profilo' : undefined}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-medium transition ${
-                  activeType === t.id ? 'bg-violet-600 text-white' : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-700'
+                  t.disabled
+                    ? 'bg-zinc-900 border border-zinc-800 text-zinc-600 cursor-not-allowed'
+                    : activeType === t.id
+                      ? 'bg-violet-600 text-white'
+                      : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-700'
                 }`}
               >
                 <Icon size={18} />
                 {t.label}
+                {t.disabled && <span className="text-xs ml-1 opacity-60">—</span>}
               </button>
             );
           })}
@@ -521,8 +466,27 @@ export default function DiscoverPage() {
           })}
         </div>
 
+        {/* Banner board game */}
+        <div className="mt-8 max-w-lg mx-auto bg-zinc-900 border border-zinc-700 rounded-3xl p-6 text-center">
+          <Dices size={28} className="mx-auto mb-3 text-yellow-400" />
+          <p className="font-semibold mb-1">Board Game</p>
+          <p className="text-sm text-zinc-400 mb-4">
+            BoardGameGeek non consente l'accesso API esterno. Puoi aggiungere i tuoi giochi da tavolo manualmente dal profilo.
+          </p>
+          <div className="flex gap-3 justify-center flex-wrap">
+            <a
+              href="https://boardgamegeek.com/search/boardgame"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 rounded-xl text-sm transition"
+            >
+              <ExternalLink size={14} /> Cerca su BGG
+            </a>
+          </div>
+        </div>
+
         {searchError && (
-          <p className="text-center text-red-400 mt-12 text-sm">
+          <p className="text-center text-red-400 mt-6 text-sm">
             {searchError}
           </p>
         )}
