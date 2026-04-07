@@ -5,8 +5,13 @@
 import { createBrowserClient } from '@supabase/ssr'
 
 export function createClient() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url || !key) {
+    // Durante il build statico le env var possono essere assenti.
+    // Restituiamo un client con valori placeholder — non verrà usato
+    // perché i componenti client non eseguono chiamate nel server pre-render.
+    return createBrowserClient('https://placeholder.supabase.co', 'placeholder-key')
+  }
+  return createBrowserClient(url, key)
 }

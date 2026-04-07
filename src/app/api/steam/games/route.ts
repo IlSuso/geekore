@@ -5,12 +5,6 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 const STEAM_API_KEY = process.env.STEAM_API_KEY
 const CACHE_HOURS = 24
 
-// Service client per bypassare RLS sulla steam_import_log (scrittura server-side)
-const supabaseService = createServiceClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 async function getBestImage(appid: number): Promise<string> {
   const base = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appid}`
   // Non facciamo più imageExists() con richieste HEAD per ogni gioco —
@@ -36,6 +30,12 @@ export async function GET(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ success: false, error: 'Non autenticato' }, { status: 401 })
   }
+
+  // Service client inizializzato dentro il handler per evitare errori in build time
+  const supabaseService = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
 
   // ── Controlla cache: ha già importato nelle ultime 24 ore? ───────────────
   const { data: importLog } = await supabaseService

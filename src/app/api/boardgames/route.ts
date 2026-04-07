@@ -7,17 +7,18 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 
 const CACHE_DURATION_MS = 86400000
 
-// Client con service role solo per la cache pubblica (boardgames_cache)
-const supabaseService = createServiceClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 // GET senza parametri → hot list (comportamento originale)
 // GET con ?search=termine → ricerca per nome
 export async function GET(request: NextRequest) {
   // ── Verifica autenticazione ──────────────────────────────────────────────
   const supabase = await createClient()
+
+  // Client con service role solo per la cache pubblica (boardgames_cache)
+  // Inizializzato dentro il handler per evitare errori in build time
+  const supabaseService = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
