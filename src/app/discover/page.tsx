@@ -88,102 +88,53 @@ export default function DiscoverPage() {
     let rawResults: MediaItem[] = [];
 
     try {
-      // AniList — Anime
-      if (activeType === 'all' || activeType === 'anime') {
-        const query = `query ($search: String) {
-          Page(page: 1, perPage: 20) {
-            media(search: $search, type: ANIME, sort: [POPULARITY_DESC, SCORE_DESC]) {
-              id title { romaji english } coverImage { large } seasonYear episodes type
-              description(asHtml: false) genres
-            }
+      // AniList — Anime + Manga + Novel in una sola richiesta GraphQL con alias
+      if (activeType === 'all' || activeType === 'anime' || activeType === 'manga') {
+        const mediaFields = `id title { romaji english } coverImage { large } seasonYear episodes chapters type description(asHtml: false) genres`;
+        const anilistQuery = `query ($search: String) {
+          ${activeType === 'all' || activeType === 'anime' ? `
+          anime: Page(page: 1, perPage: 20) {
+            media(search: $search, type: ANIME, sort: [POPULARITY_DESC, SCORE_DESC]) { ${mediaFields} }
+          }` : ''}
+          ${activeType === 'all' || activeType === 'manga' ? `
+          manga: Page(page: 1, perPage: 15) {
+            media(search: $search, type: MANGA, format_in: [MANGA, ONE_SHOT], sort: [POPULARITY_DESC, SCORE_DESC]) { ${mediaFields} }
           }
+          novel: Page(page: 1, perPage: 5) {
+            media(search: $search, type: MANGA, format_in: [NOVEL], sort: [POPULARITY_DESC, SCORE_DESC]) { ${mediaFields} }
+          }` : ''}
         }`;
-        const res = await fetch('https://graphql.anilist.co', {
+
+        const anilistRes = await fetch('https://graphql.anilist.co', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query, variables: { search: term } }),
+          body: JSON.stringify({ query: anilistQuery, variables: { search: term } }),
         });
-        const json = await res.json();
-        const aniResults = (json.data?.Page?.media || [])
-          .map((m: any): MediaItem => ({
-            id: `anilist-anime-${m.id}`,
-            title: m.title.romaji || m.title.english || 'Senza titolo',
-            type: 'anime',
-            coverImage: m.coverImage?.large,
-            year: m.seasonYear,
-            episodes: m.episodes,
-            description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 400) : undefined,
-            genres: m.genres,
-            source: 'anilist',
-          }))
+        const anilistJson = await anilistRes.json();
+
+        const mapAnilist = (m: any, type: 'anime' | 'manga', prefix: string): MediaItem => ({
+          id: `anilist-${prefix}-${m.id}`,
+          title: m.title.romaji || m.title.english || 'Senza titolo',
+          type,
+          coverImage: m.coverImage?.large,
+          year: m.seasonYear,
+          episodes: m.episodes ?? m.chapters,
+          description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 400) : undefined,
+          genres: m.genres,
+          source: 'anilist',
+        });
+
+        const aniResults = (anilistJson.data?.anime?.media || [])
+          .map((m: any) => mapAnilist(m, 'anime', 'anime'))
           .filter(hasValidCover);
-        rawResults = [...rawResults, ...aniResults];
-      }
-
-      // AniList — Manga + Light Novel
-      if (activeType === 'all' || activeType === 'manga') {
-        // Manga
-        const mangaQuery = `query ($search: String) {
-          Page(page: 1, perPage: 15) {
-            media(search: $search, type: MANGA, format_in: [MANGA, ONE_SHOT], sort: [POPULARITY_DESC, SCORE_DESC]) {
-              id title { romaji english } coverImage { large } seasonYear chapters type
-              description(asHtml: false) genres
-            }
-          }
-        }`;
-        const novelQuery = `query ($search: String) {
-          Page(page: 1, perPage: 5) {
-            media(search: $search, type: MANGA, format_in: [NOVEL], sort: [POPULARITY_DESC, SCORE_DESC]) {
-              id title { romaji english } coverImage { large } seasonYear chapters type
-              description(asHtml: false) genres
-            }
-          }
-        }`;
-
-        const [mangaRes, novelRes] = await Promise.all([
-          fetch('https://graphql.anilist.co', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: mangaQuery, variables: { search: term } }),
-          }),
-          fetch('https://graphql.anilist.co', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: novelQuery, variables: { search: term } }),
-          }),
-        ]);
-
-        const [mangaJson, novelJson] = await Promise.all([mangaRes.json(), novelRes.json()]);
-
-        const mangaResults = (mangaJson.data?.Page?.media || [])
-          .map((m: any): MediaItem => ({
-            id: `anilist-manga-${m.id}`,
-            title: m.title.romaji || m.title.english || 'Senza titolo',
-            type: 'manga',
-            coverImage: m.coverImage?.large,
-            year: m.seasonYear,
-            episodes: m.chapters,
-            description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 400) : undefined,
-            genres: m.genres,
-            source: 'anilist',
-          }))
+        const mangaResults = (anilistJson.data?.manga?.media || [])
+          .map((m: any) => mapAnilist(m, 'manga', 'manga'))
+          .filter(hasValidCover);
+        const novelResults = (anilistJson.data?.novel?.media || [])
+          .map((m: any) => mapAnilist(m, 'manga', 'novel'))
           .filter(hasValidCover);
 
-        const novelResults = (novelJson.data?.Page?.media || [])
-          .map((m: any): MediaItem => ({
-            id: `anilist-novel-${m.id}`,
-            title: m.title.romaji || m.title.english || 'Senza titolo',
-            type: 'manga', // mostriamo i novel come manga nel profilo
-            coverImage: m.coverImage?.large,
-            year: m.seasonYear,
-            episodes: m.chapters,
-            description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 400) : undefined,
-            genres: m.genres,
-            source: 'anilist',
-          }))
-          .filter(hasValidCover);
-
-        rawResults = [...rawResults, ...mangaResults, ...novelResults];
+        rawResults = [...rawResults, ...aniResults, ...mangaResults, ...novelResults];
       }
 
       // TMDb
