@@ -525,9 +525,12 @@ export default function DiscoverPage() {
                 </p>
                 {selectedMedia.genres && selectedMedia.genres.length > 0 && (
                   <div className="flex flex-wrap gap-1">
-                    {selectedMedia.genres.slice(0, 4).map(g => (
-                      <span key={g} className="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full">{g}</span>
-                    ))}
+                    {selectedMedia.genres.slice(0, 4)
+                      .map(g => typeof g === 'string' ? g : (g as any)?.name)
+                      .filter(Boolean)
+                      .map((g: string) => (
+                        <span key={g} className="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full">{g}</span>
+                      ))}
                   </div>
                 )}
               </div>

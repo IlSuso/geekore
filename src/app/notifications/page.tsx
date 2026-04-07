@@ -1,6 +1,8 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import { Heart, UserPlus, MessageSquare, BellOff } from 'lucide-react'
+'use client'
+
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { Heart, UserPlus, MessageSquare, BellOff, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -27,23 +29,34 @@ const TYPE_CONFIG = {
   },
 }
 
-export default async function NotificationsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+export default function NotificationsPage() {
+  const [notifications, setNotifications] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const supabase = createClient()
 
-  const { data: notifications } = await supabase
-    .from('notifications')
-    .select('*, sender:profiles!sender_id (id, username, display_name, avatar_url)')
-    .eq('receiver_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(50)
+  useEffect(() => {
+    const load = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { window.location.href = '/login'; return }
 
-  // Marca come lette solo le notifiche effettivamente caricate in questa risposta
-  const unreadIds = (notifications || []).filter(n => !n.is_read).map(n => n.id)
-  if (unreadIds.length > 0) {
-    await supabase.from('notifications').update({ is_read: true }).in('id', unreadIds)
-  }
+      const { data } = await supabase
+        .from('notifications')
+        .select('*, sender:profiles!sender_id (id, username, display_name, avatar_url)')
+        .eq('receiver_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+      setNotifications(data || [])
+      setLoading(false)
+
+      // Marca come lette
+      const unreadIds = (data || []).filter((n: any) => !n.is_read).map((n: any) => n.id)
+      if (unreadIds.length > 0) {
+        await supabase.from('notifications').update({ is_read: true }).in('id', unreadIds)
+      }
+    }
+    load()
+  }, [])
 
   return (
     <main className="min-h-screen bg-zinc-950 pt-6 pb-24 px-4">
@@ -51,11 +64,15 @@ export default async function NotificationsPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">Notifiche</h1>
           <p className="text-zinc-500 text-sm mt-1">
-            {notifications?.length ?? 0} attività recenti
+            {loading ? '...' : `${notifications.length} attività recenti`}
           </p>
         </div>
 
-        {!notifications || notifications.length === 0 ? (
+        {loading ? (
+          <div className="flex justify-center py-24">
+            <Loader2 size={28} className="animate-spin text-violet-400" />
+          </div>
+        ) : notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="w-16 h-16 bg-zinc-900 border border-zinc-800 rounded-3xl flex items-center justify-center mb-4">
               <BellOff size={28} className="text-zinc-600" />
@@ -110,7 +127,7 @@ export default async function NotificationsPage() {
                     <FollowBackButton targetId={n.sender.id} />
                   )}
 
-                  {/* Icon */}
+                  {/* Icon badge */}
                   <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 ${config.bg}`}>
                     <Icon size={14} className={config.color} />
                   </div>
