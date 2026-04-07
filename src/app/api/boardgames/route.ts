@@ -3,18 +3,13 @@ import { parseStringPromise } from 'xml2js'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
 const CACHE_DURATION_MS = 86400000 // 24 ore
-const BGG_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-  'Accept-Language': 'en-US,en;q=0.5',
-}
 
 // BGG spesso risponde 202 (ancora in elaborazione) — riprova fino a maxRetries volte
 async function bggFetch(url: string, maxRetries = 5, delayMs = 2000): Promise<string | null> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     if (attempt > 0) await new Promise(r => setTimeout(r, delayMs))
     try {
-      const res = await fetch(url, { headers: BGG_HEADERS, cache: 'no-store' })
+      const res = await fetch(url, { cache: 'no-store' })
       if (res.status === 202) continue // BGG sta ancora processando
       if (!res.ok) {
         console.error(`[BGG] HTTP ${res.status} per ${url}`)
