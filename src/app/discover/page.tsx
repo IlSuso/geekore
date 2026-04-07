@@ -52,7 +52,7 @@ export default function DiscoverPage() {
     { id: 'movie', label: 'Film', icon: Film },
     { id: 'tv', label: 'Serie TV', icon: Tv },
     { id: 'game', label: 'Videogiochi', icon: Gamepad2 },
-    { id: 'boardgame', label: 'Board Game', icon: Dices, disabled: true },
+    { id: 'boardgame', label: 'Board Game', icon: Dices },
   ];
 
   useEffect(() => {
@@ -231,6 +231,18 @@ export default function DiscoverPage() {
         }
       }
 
+      // BGG Board Games
+      if (activeType === 'all' || activeType === 'boardgame') {
+        const res = await fetch(`/api/boardgames?search=${encodeURIComponent(term)}`);
+        if (res.ok) {
+          const json = await res.json();
+          const bggResults: MediaItem[] = (json.results || []).map((g: any) => ({
+            ...g,
+            source: 'bgg' as const,
+          }));
+          rawResults = [...rawResults, ...bggResults.filter(hasValidCover)];
+        }
+      }
 
       const uniqueResults = rawResults.filter((item, index, self) =>
         index === self.findIndex((t) => t.id === item.id)
@@ -378,19 +390,15 @@ export default function DiscoverPage() {
             return (
               <button
                 key={t.id}
-                onClick={() => !t.disabled && setActiveType(t.id)}
-                title={t.disabled ? 'API BoardGameGeek non disponibile — aggiungi dal profilo' : undefined}
+                onClick={() => setActiveType(t.id)}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-medium transition ${
-                  t.disabled
-                    ? 'bg-zinc-900 border border-zinc-800 text-zinc-600 cursor-not-allowed'
-                    : activeType === t.id
-                      ? 'bg-violet-600 text-white'
-                      : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-700'
+                  activeType === t.id
+                    ? 'bg-violet-600 text-white'
+                    : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-700'
                 }`}
               >
                 <Icon size={18} />
                 {t.label}
-                {t.disabled && <span className="text-xs ml-1 opacity-60">—</span>}
               </button>
             );
           })}
@@ -464,25 +472,6 @@ export default function DiscoverPage() {
               </div>
             );
           })}
-        </div>
-
-        {/* Banner board game */}
-        <div className="mt-8 max-w-lg mx-auto bg-zinc-900 border border-zinc-700 rounded-3xl p-6 text-center">
-          <Dices size={28} className="mx-auto mb-3 text-yellow-400" />
-          <p className="font-semibold mb-1">Board Game</p>
-          <p className="text-sm text-zinc-400 mb-4">
-            BoardGameGeek non consente l'accesso API esterno. Puoi aggiungere i tuoi giochi da tavolo manualmente dal profilo.
-          </p>
-          <div className="flex gap-3 justify-center flex-wrap">
-            <a
-              href="https://boardgamegeek.com/search/boardgame"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 rounded-xl text-sm transition"
-            >
-              <ExternalLink size={14} /> Cerca su BGG
-            </a>
-          </div>
         </div>
 
         {searchError && (

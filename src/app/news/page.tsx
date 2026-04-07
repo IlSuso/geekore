@@ -183,7 +183,7 @@ export default function NewsPage() {
                     ) : item.nextEpisode ? (
                       <span className="text-xs text-emerald-400">Ep. {item.nextEpisode} in arrivo</span>
                     ) : (
-                      <span className="text-xs text-zinc-600">{item.source}</span>
+                      <span className="text-xs text-zinc-600">{typeof item.source === 'string' ? item.source : (item.source as any)?.name || ''}</span>
                     )}
                     <ExternalLink size={11} className="text-zinc-600 group-hover:text-violet-400 transition-colors" />
                   </div>

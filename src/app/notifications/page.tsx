@@ -127,10 +127,12 @@ export default function NotificationsPage() {
                     <FollowBackButton targetId={n.sender.id} />
                   )}
 
-                  {/* Icon badge */}
-                  <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 ${config.bg}`}>
-                    <Icon size={14} className={config.color} />
-                  </div>
+                  {/* Icon badge — nascosto per follow (FollowBackButton lo sostituisce) */}
+                  {n.type !== 'follow' && (
+                    <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 ${config.bg}`}>
+                      <Icon size={14} className={config.color} />
+                    </div>
+                  )}
                 </div>
               )
             })}

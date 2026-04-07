@@ -4,12 +4,17 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 
 const CACHE_DURATION_MS = 86400000 // 24 ore
 
+function bggHeaders(): HeadersInit {
+  const token = process.env.BGG_BEARER_TOKEN
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 // BGG spesso risponde 202 (ancora in elaborazione) — riprova fino a maxRetries volte
 async function bggFetch(url: string, maxRetries = 5, delayMs = 2000): Promise<string | null> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     if (attempt > 0) await new Promise(r => setTimeout(r, delayMs))
     try {
-      const res = await fetch(url, { cache: 'no-store' })
+      const res = await fetch(url, { cache: 'no-store', headers: bggHeaders() })
       if (res.status === 202) continue // BGG sta ancora processando
       if (!res.ok) {
         console.error(`[BGG] HTTP ${res.status} per ${url}`)
@@ -54,7 +59,7 @@ export async function GET(request: NextRequest) {
 
     for (const endpoint of endpoints) {
       try {
-        const res = await fetch(endpoint, { cache: 'no-store' })
+        const res = await fetch(endpoint, { cache: 'no-store', headers: bggHeaders() })
         console.log(`[BGG] ${endpoint.split('?')[0]} → ${res.status}`)
         if (res.status === 202) continue
         if (!res.ok) continue
@@ -101,7 +106,7 @@ export async function GET(request: NextRequest) {
       let detailXml: string | null = null
       for (const endpoint of detailEndpoints) {
         try {
-          const res = await fetch(endpoint, { cache: 'no-store' })
+          const res = await fetch(endpoint, { cache: 'no-store', headers: bggHeaders() })
           console.log(`[BGG] detail ${endpoint.split('?')[0]} → ${res.status}`)
           if (res.status === 202) continue
           if (!res.ok) continue
