@@ -426,7 +426,8 @@ export default function ProfilePage() {
       }))
       await supabase.from('user_media_entries').upsert(steamMedia, { onConflict: 'user_id,appid' })
       await refreshMedia(currentUserId)
-      setSteamMessage({ text: `${data.games.length} giochi importati con successo!`, type: 'success' })
+      const cpMsg = data.core_power != null ? ` Core Power: ${data.core_power}.` : ''
+      setSteamMessage({ text: `${data.games.length} giochi importati con successo!${cpMsg}`, type: 'success' })
     } finally {
       setImportingGames(false)
     }

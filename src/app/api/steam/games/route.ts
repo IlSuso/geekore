@@ -90,10 +90,35 @@ export async function GET(request: NextRequest) {
         games_count: games.length,
       }, { onConflict: 'user_id' })
 
+    // ── Calcola e aggiorna core_power nella leaderboard ───────────────────
+    // Formula Opzione A: ore totali / 10, max 9999
+    const totalHours = rawGames.reduce(
+      (sum: number, g: any) => sum + Math.floor((g.playtime_forever || 0) / 60), 0
+    )
+    const corePower = Math.min(Math.round(totalHours / 10), 9999)
+
+    const { data: profileData } = await supabaseService
+      .from('profiles')
+      .select('username, avatar_url')
+      .eq('id', user.id)
+      .single()
+
+    await supabaseService
+      .from('leaderboard')
+      .upsert({
+        user_id: user.id,
+        username: profileData?.username || 'Unknown',
+        avatar_url: profileData?.avatar_url || null,
+        steam_id: steamid,
+        core_power: corePower,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' })
+
     return NextResponse.json({
       success: true,
       games,
       count: games.length,
+      core_power: corePower,
     })
 
   } catch (error) {

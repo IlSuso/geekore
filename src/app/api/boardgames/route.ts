@@ -2,17 +2,27 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { parseStringPromise } from 'xml2js'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
+const CACHE_DURATION_MS = 86400000
+
+// Client con service role solo per la cache pubblica (boardgames_cache)
+const supabaseService = createServiceClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
-const CACHE_DURATION_MS = 86400000
 
 // GET senza parametri → hot list (comportamento originale)
 // GET con ?search=termine → ricerca per nome
 export async function GET(request: NextRequest) {
+  // ── Verifica autenticazione ──────────────────────────────────────────────
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
+  }
+
   const { searchParams } = new URL(request.url)
   const search = searchParams.get('search')
 
@@ -103,7 +113,7 @@ export async function GET(request: NextRequest) {
 
   // ── MODALITÀ HOT LIST (comportamento originale) ──────────────────────────
   try {
-    const { data: cache } = await supabase
+    const { data: cache } = await supabaseService
       .from('boardgames_cache')
       .select('*')
       .single()
@@ -136,7 +146,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    await supabase.from('boardgames_cache').upsert({
+    await supabaseService.from('boardgames_cache').upsert({
       id: 1,
       data: cleanedArticles,
       updated_at: new Date().toISOString(),
