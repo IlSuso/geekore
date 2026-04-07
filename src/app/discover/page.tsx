@@ -15,6 +15,8 @@ type MediaItem = {
   episodes?: number;
   totalSeasons?: number;
   seasons?: Record<number, { episode_count: number }>;
+  description?: string;
+  genres?: string[];
   source: 'anilist' | 'tmdb' | 'igdb' | 'bgg';
 };
 
@@ -92,6 +94,7 @@ export default function DiscoverPage() {
           Page(page: 1, perPage: 20) {
             media(search: $search, type: ANIME, sort: [POPULARITY_DESC, SCORE_DESC]) {
               id title { romaji english } coverImage { large } seasonYear episodes type
+              description(asHtml: false) genres
             }
           }
         }`;
@@ -109,6 +112,8 @@ export default function DiscoverPage() {
             coverImage: m.coverImage?.large,
             year: m.seasonYear,
             episodes: m.episodes,
+            description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 400) : undefined,
+            genres: m.genres,
             source: 'anilist',
           }))
           .filter(hasValidCover);
@@ -122,6 +127,7 @@ export default function DiscoverPage() {
           Page(page: 1, perPage: 15) {
             media(search: $search, type: MANGA, format_in: [MANGA, ONE_SHOT], sort: [POPULARITY_DESC, SCORE_DESC]) {
               id title { romaji english } coverImage { large } seasonYear chapters type
+              description(asHtml: false) genres
             }
           }
         }`;
@@ -129,6 +135,7 @@ export default function DiscoverPage() {
           Page(page: 1, perPage: 5) {
             media(search: $search, type: MANGA, format_in: [NOVEL], sort: [POPULARITY_DESC, SCORE_DESC]) {
               id title { romaji english } coverImage { large } seasonYear chapters type
+              description(asHtml: false) genres
             }
           }
         }`;
@@ -156,6 +163,8 @@ export default function DiscoverPage() {
             coverImage: m.coverImage?.large,
             year: m.seasonYear,
             episodes: m.chapters,
+            description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 400) : undefined,
+            genres: m.genres,
             source: 'anilist',
           }))
           .filter(hasValidCover);
@@ -168,6 +177,8 @@ export default function DiscoverPage() {
             coverImage: m.coverImage?.large,
             year: m.seasonYear,
             episodes: m.chapters,
+            description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 400) : undefined,
+            genres: m.genres,
             source: 'anilist',
           }))
           .filter(hasValidCover);
@@ -192,8 +203,13 @@ export default function DiscoverPage() {
         const searchJson = await searchRes.json();
 
         if (searchJson.results) {
+          // Limit TV detail fetches to 8 to avoid N+1 performance issue
+          const resultsToFetch = mediaType === 'tv'
+            ? searchJson.results.slice(0, 8)
+            : searchJson.results;
+
           const detailedResults = await Promise.all(
-            searchJson.results.map(async (m: any) => {
+            resultsToFetch.map(async (m: any) => {
               let episodes = undefined;
               let totalSeasons = undefined;
               let seasonsData: Record<number, { episode_count: number }> = {};
@@ -233,6 +249,7 @@ export default function DiscoverPage() {
                 type: mediaType,
                 coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
                 year: m.first_air_date ? parseInt(m.first_air_date.substring(0,4)) : m.release_date ? parseInt(m.release_date.substring(0,4)) : undefined,
+                description: m.overview ? m.overview.slice(0, 400) : undefined,
                 episodes,
                 totalSeasons,
                 seasons: seasonsData,
@@ -255,7 +272,10 @@ export default function DiscoverPage() {
         });
 
         if (res.ok) {
-          const gameResults: MediaItem[] = await res.json();
+          const gameResults: MediaItem[] = (await res.json()).map((g: any) => ({
+            ...g,
+            source: 'igdb' as const,
+          }));
           rawResults = [...rawResults, ...gameResults.filter(hasValidCover)];
         }
       }
@@ -271,6 +291,7 @@ export default function DiscoverPage() {
             type: 'boardgame',
             coverImage: g.coverImage,
             year: g.year,
+            description: g.description,
             source: 'bgg' as const,
           }));
           rawResults = [...rawResults, ...bggResults.filter(hasValidCover)];
@@ -533,18 +554,30 @@ export default function DiscoverPage() {
               </button>
             </div>
 
-            <div className="flex gap-5 mb-8">
+            <div className="flex gap-5 mb-6">
               {selectedMedia.coverImage && (
                 <img src={selectedMedia.coverImage} alt={`Copertina di ${selectedMedia.title}`} className="w-24 h-36 object-cover rounded-2xl flex-shrink-0" />
               )}
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <p className="font-semibold text-lg">{selectedMedia.title}</p>
-                <p className="text-sm text-zinc-500">
+                <p className="text-sm text-zinc-500 mb-2">
                   {selectedMedia.year} • {selectedMedia.type}
                   {selectedMedia.totalSeasons && ` • ${selectedMedia.totalSeasons} stagioni`}
                 </p>
+                {selectedMedia.genres && selectedMedia.genres.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {selectedMedia.genres.slice(0, 4).map(g => (
+                      <span key={g} className="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full">{g}</span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
+            {selectedMedia.description && (
+              <p className="text-xs text-zinc-400 leading-relaxed mb-6 line-clamp-4">
+                {selectedMedia.description}
+              </p>
+            )}
 
             <div className="mb-8 space-y-6">
 
