@@ -4,8 +4,9 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 
 const CACHE_DURATION_MS = 86400000 // 24 ore
 const BGG_HEADERS = {
-  'User-Agent': 'Geekore/1.0 (contact: suinky1999@gmail.com)',
-  'Accept': 'application/xml',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.5',
 }
 
 // BGG spesso risponde 202 (ancora in elaborazione) — riprova fino a maxRetries volte
