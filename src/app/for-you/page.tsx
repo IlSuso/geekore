@@ -71,6 +71,8 @@ function RecommendationCard({
   const fy = t.forYou
   const Icon = TYPE_ICONS[item.type]
   const colorClass = TYPE_COLORS[item.type]
+  // Clamp score a max 5 stelle in ogni caso
+  const displayScore = item.score ? Math.min(item.score, 5) : undefined
 
   return (
     <div className="flex-shrink-0 w-36 group">
@@ -93,10 +95,10 @@ function RecommendationCard({
           {item.type.toUpperCase()}
         </div>
 
-        {/* Score */}
-        {item.score && (
+        {/* Score — sempre su 5 stelle */}
+        {displayScore && (
           <div className="absolute top-2 right-2 bg-black/70 backdrop-blur text-yellow-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-            ★ {item.score.toFixed(1)}
+            ★ {displayScore.toFixed(1)}
           </div>
         )}
 
@@ -132,7 +134,7 @@ function RecommendationCard({
       <p className="text-xs font-semibold text-white leading-tight line-clamp-2 mb-1">{item.title}</p>
       {item.year && <p className="text-[10px] text-zinc-500">{item.year}</p>}
 
-      {/* Why badge */}
+      {/* Why badge — mostra sempre la spiegazione personalizzata */}
       <p className="text-[10px] text-violet-400 leading-tight line-clamp-2 mt-1 italic">{item.why}</p>
     </div>
   )
@@ -216,7 +218,6 @@ function TasteWidget({ tasteProfile, totalEntries }: { tasteProfile: TasteProfil
 
       {open && (
         <div className="mt-5 space-y-4">
-          {/* Gusti globali cross-media */}
           {tasteProfile.globalGenres.length > 0 && (
             <div>
               <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">I tuoi generi (tutti i media)</p>
@@ -229,7 +230,6 @@ function TasteWidget({ tasteProfile, totalEntries }: { tasteProfile: TasteProfil
               </div>
             </div>
           )}
-          {/* Dettaglio per tipo */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {topTypes.map(type => {
               const genres = tasteProfile.topGenres[type as MediaType]?.slice(0, 3) || []
@@ -392,7 +392,9 @@ export default function ForYouPage() {
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set())
   const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set())
   const [showPrefs, setShowPrefs] = useState(false)
-  const [cacheHours, setCacheHours] = useState<number | null>(null)
+  const [isCached, setIsCached] = useState(false)
+  // Traccia l'ultima volta che la collezione è cambiata per auto-refresh
+  const [lastCollectionUpdate, setLastCollectionUpdate] = useState<string | null>(null)
 
   const fetchRecommendations = useCallback(async (forceRefresh = false) => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -405,13 +407,7 @@ export default function ForYouPage() {
     const json = await res.json()
     setRecommendations(json.recommendations || {})
     setTasteProfile(json.tasteProfile || null)
-
-    if (json.cached) {
-      // Stima ore fa dalla cache
-      setCacheHours(6)
-    } else {
-      setCacheHours(0)
-    }
+    setIsCached(!!json.cached)
   }, [])
 
   useEffect(() => {
@@ -419,21 +415,64 @@ export default function ForYouPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      // Carica collezione e wishlist per sapere cosa è già aggiunto
-      const [{ data: entries }, { data: wish }] = await Promise.all([
+      // Carica collezione, wishlist e controlla ultima modifica
+      const [{ data: entries }, { data: wish }, { data: lastEntry }] = await Promise.all([
         supabase.from('user_media_entries').select('external_id').eq('user_id', user.id),
         supabase.from('wishlist').select('external_id').eq('user_id', user.id),
+        supabase.from('user_media_entries')
+          .select('updated_at')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .single(),
       ])
 
       setAddedIds(new Set((entries || []).map(e => e.external_id).filter(Boolean)))
       setWishlistIds(new Set((wish || []).map(w => w.external_id).filter(Boolean)))
       setTotalEntries(entries?.length || 0)
 
-      await fetchRecommendations()
+      const lastUpdate = lastEntry?.updated_at || null
+      setLastCollectionUpdate(lastUpdate)
+
+      // Passa il timestamp così l'API può verificare se la cache è ancora valida
+      await fetchRecommendations(false)
       setLoading(false)
     }
     init()
   }, [])
+
+  // ── Realtime: ascolta nuove voci nella collezione e aggiorna i consigli ───
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+
+      channel = supabase
+        .channel('for-you-collection-watch')
+        .on('postgres_changes', {
+          event: '*', // INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'user_media_entries',
+          filter: `user_id=eq.${user.id}`,
+        }, async () => {
+          // Quando la collezione cambia, ricarica IDs e rigenera i consigli
+          const [{ data: entries }, { data: wish }] = await Promise.all([
+            supabase.from('user_media_entries').select('external_id').eq('user_id', user.id),
+            supabase.from('wishlist').select('external_id').eq('user_id', user.id),
+          ])
+          setAddedIds(new Set((entries || []).map((e: any) => e.external_id).filter(Boolean)))
+          setWishlistIds(new Set((wish || []).map((w: any) => w.external_id).filter(Boolean)))
+          setTotalEntries(entries?.length || 0)
+
+          // Rigenera i consigli con la collezione aggiornata (forceRefresh=true)
+          await fetchRecommendations(true)
+        })
+        .subscribe()
+    })
+
+    return () => { if (channel) supabase.removeChannel(channel) }
+  }, [fetchRecommendations])
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -459,6 +498,7 @@ export default function ForYouPage() {
     if (!error) {
       setAddedIds(prev => new Set([...prev, item.id]))
       showToast(`"${item.title}" aggiunto alla collezione`)
+      // Il realtime channel aggiornerà automaticamente i consigli
     }
   }
 
@@ -512,8 +552,8 @@ export default function ForYouPage() {
               {fy.title}
             </h1>
             <p className="text-zinc-400 mt-2">{fy.subtitle}</p>
-            {cacheHours !== null && cacheHours > 0 && (
-              <p className="text-xs text-zinc-600 mt-1">{fy.cacheInfo(cacheHours)}</p>
+            {isCached && (
+              <p className="text-xs text-zinc-600 mt-1">Dalla cache — aggiornato automaticamente ad ogni modifica della collezione</p>
             )}
           </div>
           <div className="flex items-center gap-3">
