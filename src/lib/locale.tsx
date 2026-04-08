@@ -436,7 +436,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <LocaleContext.Provider value={{ locale, setLocale, t: translations[locale] }}>
+    <LocaleContext.Provider value={{ locale, setLocale, t: translations[locale] as unknown as T }}>
       {children}
     </LocaleContext.Provider>
   )
