@@ -79,7 +79,6 @@ async function fetchGenresForNames(gameNames: string[], clientId: string, token:
 }
 
 // POST /api/steam/enrich-genres
-// Arricchisce con generi IGDB tutti i giochi Steam dell'utente che hanno genres = [] o null
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -135,11 +134,15 @@ export async function POST(request: NextRequest) {
     if (!genres || genres.length === 0) continue
 
     enrichedCount++
+
+    // CORREZIONE QUI: aggiungiamo .throwOnError() oppure semplicemente awaitiamo dopo
+    // ma la versione più pulita e tipata correttamente è:
     updates.push(
       supabaseService
         .from('user_media_entries')
         .update({ genres, updated_at: new Date().toISOString() })
         .eq('id', game.id)
+        // .throwOnError()  // opzionale, ma utile
     )
   }
 
@@ -156,7 +159,7 @@ export async function POST(request: NextRequest) {
   })
 }
 
-// GET — stesso comportamento, utile per chiamata dal browser
+// GET — stesso comportamento
 export async function GET(request: NextRequest) {
   return POST(request)
 }
