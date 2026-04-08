@@ -26,44 +26,50 @@ function ConfirmContent() {
         return
       }
 
-      // Verifica OTP
-      const { error } = await supabase.auth.verifyOtp({
-        token_hash,
-        type: type as any,
-      })
+      // 1. Prima controlliamo se l'utente è già autenticato (caso più comune ora)
+      let { data: { user } } = await supabase.auth.getUser()
 
-      if (error) {
-        setErrorMessage(error.message || 'Errore durante la conferma.')
-        setStatus('error')
-        return
+      // 2. Se non è ancora loggato, proviamo a verificare l'OTP
+      if (!user) {
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          token_hash,
+          type: type as any,
+        })
+
+        // Ricontrolliamo l'utente dopo verifyOtp
+        const { data: { user: refreshedUser } } = await supabase.auth.getUser()
+        user = refreshedUser
+
+        if (verifyError && !user) {
+          setErrorMessage(verifyError.message || 'Link non valido o scaduto.')
+          setStatus('error')
+          return
+        }
       }
 
-      setStatus('success')
-
-      // Recupera utente e profilo
-      const { data: { user } } = await supabase.auth.getUser()
-      
+      // Se arriviamo qui → l'utente è autenticato (conferma riuscita)
       if (user) {
+        setStatus('success')
+
         const { data: profile } = await supabase
           .from('profiles')
           .select('username')
           .eq('id', user.id)
           .single()
 
-        // Redirect dopo conferma
         const redirectPath = profile?.username 
           ? `/profile/${profile.username}` 
-          : '/profile/me'
+          : '/feed'
 
         setTimeout(() => {
           router.push(redirectPath)
-        }, 1800)
-      } else {
-        // Fallback se non riesce a prendere l'utente
-        setTimeout(() => {
-          router.push('/feed')
-        }, 1800)
+        }, 1600)
+        return
       }
+
+      // Fallback raro
+      setStatus('error')
+      setErrorMessage('Errore durante la conferma.')
     }
 
     confirm()
@@ -92,7 +98,7 @@ function ConfirmContent() {
         {status === 'error' && (
           <>
             <XCircle size={56} className="mx-auto mb-6 text-red-400" />
-            <h1 className="text-2xl font-bold mb-2">Link non valido</h1>
+            <h1 className="text-2xl font-bold mb-2">Problema con il link</h1>
             <p className="text-zinc-400 mb-8">{errorMessage}</p>
             <div className="flex flex-col gap-3">
               <a
