@@ -3,6 +3,7 @@ import './globals.css'
 import Navbar from '@/components/Navbar'
 import { ToastProvider } from '@/components/ui/Toast'
 import { ClientProviders } from '@/components/ClientProviders'
+import { Footer } from '@/components/Footer'
 
 export const metadata: Metadata = {
   title: { default: 'Geekore', template: '%s — Geekore' },
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main className="pt-16 pb-20 md:pb-8">
             {children}
           </main>
+          <Footer />
           <ToastProvider />
         </ClientProviders>
       </body>

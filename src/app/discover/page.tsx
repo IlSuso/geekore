@@ -5,6 +5,7 @@ import { Search, Plus, X, Film, Tv, Gamepad2, BookOpen, Dices, Bookmark, Bookmar
 import { createClient } from '@/lib/supabase/client';
 import { StarRating } from '@/components/ui/StarRating';
 import { showToast } from '@/components/ui/Toast';
+import { useLocale } from '@/lib/locale';
 
 type MediaItem = {
   id: string;
@@ -44,15 +45,17 @@ export default function DiscoverPage() {
 
   const supabase = createClient();
   const tmdbToken = process.env.NEXT_PUBLIC_TMDB_API_KEY;
+  const { t } = useLocale();
+  const d = t.discover;
 
   const typeFilters = [
-    { id: 'all', label: 'Tutto', icon: Search },
-    { id: 'anime', label: 'Anime', icon: Film },
-    { id: 'manga', label: 'Manga', icon: BookOpen },
-    { id: 'movie', label: 'Film', icon: Film },
-    { id: 'tv', label: 'Serie TV', icon: Tv },
-    { id: 'game', label: 'Videogiochi', icon: Gamepad2 },
-    { id: 'boardgame', label: 'Board Game', icon: Dices },
+    { id: 'all',       label: d.all,       icon: Search   },
+    { id: 'anime',     label: d.anime,     icon: Film     },
+    { id: 'manga',     label: d.manga,     icon: BookOpen },
+    { id: 'movie',     label: d.movie,     icon: Film     },
+    { id: 'tv',        label: d.tv,        icon: Tv       },
+    { id: 'game',      label: d.game,      icon: Gamepad2 },
+    { id: 'boardgame', label: d.boardgame, icon: Dices    },
   ];
 
   useEffect(() => {
@@ -263,14 +266,14 @@ export default function DiscoverPage() {
     if (wishlistIds.includes(media.id)) {
       await supabase.from('wishlist').delete().eq('user_id', user.id).eq('external_id', media.id);
       setWishlistIds(prev => prev.filter(id => id !== media.id));
-      showToast('Rimosso dalla wishlist');
+      showToast(d.wishlistRemove);
     } else {
       await supabase.from('wishlist').upsert({
         user_id: user.id, title: media.title, type: media.type,
         cover_image: media.coverImage, external_id: media.id,
       }, { onConflict: 'user_id,external_id' });
       setWishlistIds(prev => [...prev, media.id]);
-      showToast('Aggiunto alla wishlist');
+      showToast(d.wishlistAdd);
     }
   };
 
@@ -306,7 +309,7 @@ export default function DiscoverPage() {
 
     if (error) {
       if (error.code === '23505') {
-        showToast('Già presente nella tua collezione')
+        showToast(d.alreadyAdded)
         setAlreadyAdded(prev => [...prev, media.id])
       }
     } else {
@@ -361,7 +364,7 @@ export default function DiscoverPage() {
 
     if (error) {
       if (error.code === '23505') {
-        showToast('Già presente nella tua collezione')
+        showToast(d.alreadyAdded)
         setAlreadyAdded(prev => [...prev, selectedMedia.id])
       }
     } else {
@@ -411,13 +414,13 @@ export default function DiscoverPage() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Cerca titolo..."
+              placeholder={d.searchPlaceholder}
               className="w-full bg-zinc-900 border border-zinc-700 focus:border-violet-500 pl-16 pr-6 py-5 rounded-3xl text-lg placeholder-zinc-500 focus:outline-none"
             />
           </div>
         </div>
 
-        {loading && <p className="text-center text-zinc-400">Ricerca in corso...</p>}
+        {loading && <p className="text-center text-zinc-400">{d.searching}</p>}
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
           {results.map((item, index) => {
@@ -454,11 +457,11 @@ export default function DiscoverPage() {
                           : 'bg-zinc-800 hover:bg-violet-600 border border-zinc-700 hover:border-violet-500'
                       }`}
                     >
-                      {isAdded ? <>✓ Aggiunto</> : <><Plus size={14} /> Aggiungi</>}
+                      {isAdded ? <>{d.added}</> : <><Plus size={14} /> {d.add}</>}
                     </button>
                     <button
                       onClick={() => toggleWishlist(item)}
-                      title={wishlistIds.includes(item.id) ? 'Rimuovi dalla wishlist' : 'Aggiungi alla wishlist'}
+                      title={wishlistIds.includes(item.id) ? d.removeFromWishlist : d.addToWishlist}
                       className={`p-2.5 rounded-xl border transition-all ${
                         wishlistIds.includes(item.id)
                           ? 'bg-violet-600 border-violet-500 text-white'
@@ -480,14 +483,10 @@ export default function DiscoverPage() {
           </p>
         )}
         {results.length === 0 && !loading && searchTerm.length > 0 && searchTerm.length < 2 && activeType !== 'game' && (
-          <p className="text-center text-zinc-500 mt-12 text-sm">
-            Scrivi almeno 2 caratteri per cercare.
-          </p>
+          <p className="text-center text-zinc-500 mt-12 text-sm">{d.minChars}</p>
         )}
         {results.length === 0 && !loading && searchTerm.length >= 2 && (
-          <p className="text-center text-zinc-500 mt-12">
-            Nessun risultato con copertina valida trovato.
-          </p>
+          <p className="text-center text-zinc-500 mt-12">{d.noResults}</p>
         )}
       </div>
 
@@ -496,7 +495,7 @@ export default function DiscoverPage() {
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
           <div className="bg-zinc-900 border border-zinc-700 rounded-3xl max-w-md w-full p-8">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold">Aggiungi ai progressi</h3>
+              <h3 className="text-xl font-semibold">{d.addProgress}</h3>
               <button onClick={() => setSelectedMedia(null)} className="text-zinc-400 hover:text-white">
                 <X size={28} />
               </button>
@@ -618,7 +617,7 @@ export default function DiscoverPage() {
               )}
               className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-2xl font-semibold text-lg hover:brightness-110 disabled:opacity-50 transition"
             >
-              {adding ? 'Aggiungendo...' : 'Aggiungi'}
+              {adding ? d.adding : d.add}
             </button>
           </div>
         </div>

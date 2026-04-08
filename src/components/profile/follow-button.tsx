@@ -3,12 +3,10 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { UserPlus, UserCheck } from 'lucide-react'
+import { useLocale } from '@/lib/locale'
 
 export function FollowButton({
-  targetId,
-  currentUserId,
-  isFollowingInitial,
-  onFollowChange,
+  targetId, currentUserId, isFollowingInitial, onFollowChange,
 }: {
   targetId: string
   currentUserId: string
@@ -18,6 +16,7 @@ export function FollowButton({
   const [isFollowing, setIsFollowing] = useState(isFollowingInitial)
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
+  const { t } = useLocale()
 
   if (targetId === currentUserId) return null
 
@@ -26,7 +25,8 @@ export function FollowButton({
     setLoading(true)
     try {
       if (isFollowing) {
-        await supabase.from('follows').delete().eq('follower_id', currentUserId).eq('following_id', targetId)
+        await supabase.from('follows').delete()
+          .eq('follower_id', currentUserId).eq('following_id', targetId)
         setIsFollowing(false)
         onFollowChange?.(false)
       } else {
@@ -44,19 +44,16 @@ export function FollowButton({
 
   return (
     <button
-      onClick={toggleFollow}
-      disabled={loading}
+      onClick={toggleFollow} disabled={loading}
       className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold transition-all disabled:opacity-60 ${
         isFollowing
           ? 'bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700 hover:border-zinc-600'
           : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:brightness-110 shadow-lg shadow-violet-500/20'
       }`}
     >
-      {isFollowing ? (
-        <><UserCheck size={16} /> Following</>
-      ) : (
-        <><UserPlus size={16} /> Segui</>
-      )}
+      {isFollowing
+        ? <><UserCheck size={16} /> {t.follow.following}</>
+        : <><UserPlus size={16} /> {t.follow.follow}</>}
     </button>
   )
 }

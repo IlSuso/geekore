@@ -5,6 +5,23 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, Zap, Gamepad2, BookOpen, Film } from 'lucide-react'
+import { useLocale } from '@/lib/locale'
+
+function LocaleToggle() {
+  const { locale, setLocale } = useLocale()
+  return (
+    <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-xl p-1">
+      <button
+        onClick={() => setLocale('it')}
+        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${locale === 'it' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-white'}`}
+      >🇮🇹</button>
+      <button
+        onClick={() => setLocale('en')}
+        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${locale === 'en' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-white'}`}
+      >🇬🇧</button>
+    </div>
+  )
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -14,6 +31,8 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const router = useRouter()
   const supabase = createClient()
+  const { t } = useLocale()
+  const l = t.login
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -23,10 +42,7 @@ export default function LoginPage() {
 
   const goToProfile = async (userId: string) => {
     const { data: profile } = await supabase
-      .from('profiles')
-      .select('username')
-      .eq('id', userId)
-      .single()
+      .from('profiles').select('username').eq('id', userId).single()
     router.push(profile?.username ? `/profile/${profile.username}` : '/profile/me')
   }
 
@@ -39,11 +55,17 @@ export default function LoginPage() {
       if (error) throw error
       await goToProfile(data.user.id)
     } catch {
-      setError('Email o password non corretti')
+      setError(l.error)
     } finally {
       setLoading(false)
     }
   }
+
+  const FEATURES = [
+    { icon: BookOpen, label: l.features[0], color: 'text-sky-400',   bg: 'bg-sky-400/10' },
+    { icon: Gamepad2, label: l.features[1], color: 'text-green-400', bg: 'bg-green-400/10' },
+    { icon: Film,     label: l.features[2], color: 'text-red-400',   bg: 'bg-red-400/10' },
+  ]
 
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-stretch bg-zinc-950">
@@ -63,22 +85,15 @@ export default function LoginPage() {
         <div className="relative space-y-10">
           <div>
             <h2 className="text-5xl font-black tracking-tighter leading-none mb-5">
-              Tutto ciò<br />
+              {l.tagline.split(' ').slice(0, -1).join(' ')}<br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400">
-                che ami.
+                {l.tagline.split(' ').slice(-1)[0]}
               </span>
             </h2>
-            <p className="text-zinc-400 text-lg leading-relaxed">
-              Anime, manga, videogiochi, film e serie. Traccia tutto in un unico posto e condividi con la community.
-            </p>
+            <p className="text-zinc-400 text-lg leading-relaxed">{l.description}</p>
           </div>
-
           <div className="space-y-4">
-            {[
-              { icon: BookOpen, label: 'Anime & Manga', color: 'text-sky-400', bg: 'bg-sky-400/10' },
-              { icon: Gamepad2, label: 'Videogiochi & Steam', color: 'text-green-400', bg: 'bg-green-400/10' },
-              { icon: Film, label: 'Film & Serie TV', color: 'text-red-400', bg: 'bg-red-400/10' },
-            ].map(({ icon: Icon, label, color, bg }) => (
+            {FEATURES.map(({ icon: Icon, label, color, bg }) => (
               <div key={label} className="flex items-center gap-3">
                 <div className={`w-9 h-9 ${bg} rounded-xl flex items-center justify-center shrink-0`}>
                   <Icon size={18} className={color} />
@@ -89,82 +104,76 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="relative text-xs text-zinc-700">Geekore — fatto con passione per i geek</p>
+        <p className="relative text-xs text-zinc-700">{l.footer}</p>
       </div>
 
       {/* Right — Form */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
 
-          {/* Mobile logo */}
-          <div className="lg:hidden flex items-center justify-center gap-3 mb-10">
-            <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center">
-              <Zap size={20} className="text-white" />
+          {/* Top row: mobile logo + locale toggle */}
+          <div className="flex items-center justify-between mb-10">
+            <div className="lg:hidden flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center">
+                <Zap size={20} className="text-white" />
+              </div>
+              <span className="text-2xl font-bold tracking-tighter">geekore</span>
             </div>
-            <span className="text-2xl font-bold tracking-tighter">geekore</span>
+            <div className="hidden lg:block" />
+            <LocaleToggle />
           </div>
 
           <div className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight mb-2">Bentornato</h1>
-            <p className="text-zinc-500">Accedi al tuo account per continuare</p>
+            <h1 className="text-3xl font-bold tracking-tight mb-2">{l.welcome}</h1>
+            <p className="text-zinc-500">{l.subtitle}</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">Email</label>
+              <label className="block text-sm font-medium text-zinc-400 mb-2">{l.email}</label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="tuo@email.com"
-                autoComplete="email"
+                type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                placeholder={l.emailPlaceholder} autoComplete="email"
                 className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors"
                 required
               />
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">Password</label>
+              <label className="block text-sm font-medium text-zinc-400 mb-2">{l.password}</label>
               <div className="relative">
                 <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
+                  type={showPassword ? 'text' : 'password'} value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  autoComplete="current-password"
+                  placeholder={l.passwordPlaceholder} autoComplete="current-password"
                   className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-5 py-3.5 pr-12 text-white placeholder-zinc-600 focus:outline-none transition-colors"
                   required
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
-                >
+                <button type="button" onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors">
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
-
             {error && (
-              <div className="bg-red-950/60 border border-red-800/50 text-red-400 px-5 py-3.5 rounded-2xl text-sm">
-                {error}
-              </div>
+              <div className="bg-red-950/60 border border-red-800/50 text-red-400 px-5 py-3.5 rounded-2xl text-sm">{error}</div>
             )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-semibold text-lg transition-all disabled:opacity-60 shadow-lg shadow-violet-500/20 mt-2"
-            >
-              {loading ? 'Accesso in corso...' : 'Accedi'}
+            <button type="submit" disabled={loading}
+              className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-semibold text-lg transition-all disabled:opacity-60 shadow-lg shadow-violet-500/20 mt-2">
+              {loading ? l.signingIn : l.signIn}
             </button>
           </form>
 
           <p className="text-center text-zinc-500 text-sm mt-8">
-            Non hai un account?{' '}
+            {l.noAccount}{' '}
             <Link href="/register" className="text-violet-400 hover:text-violet-300 font-medium transition-colors">
-              Registrati gratis
+              {l.registerLink}
             </Link>
+          </p>
+
+          <p className="text-center text-zinc-700 text-xs mt-6">
+            <Link href="/privacy" className="hover:text-zinc-500 transition-colors">{t.legal.privacy}</Link>
+            {' · '}
+            <Link href="/terms" className="hover:text-zinc-500 transition-colors">{t.legal.terms}</Link>
           </p>
         </div>
       </div>

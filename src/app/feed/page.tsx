@@ -6,7 +6,8 @@ import { User } from '@supabase/supabase-js';
 import { Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { formatDistanceToNow } from 'date-fns';
-import { it } from 'date-fns/locale';
+import { it, enUS } from 'date-fns/locale';
+import { useLocale } from '@/lib/locale';
 
 type Comment = {
   id: string;
@@ -52,6 +53,8 @@ export default function FeedPage() {
   const PAGE_SIZE = 20;
 
   const supabase = createClient();
+  const { locale, t } = useLocale();
+  const f = t.feed;
 
   useEffect(() => {
     const init = async () => {
@@ -353,7 +356,7 @@ export default function FeedPage() {
               <textarea
                 value={newPostContent}
                 onChange={(e) => setNewPostContent(e.target.value.slice(0, 500))}
-                placeholder="Cosa bolle nel tuo calderone geek oggi?"
+                placeholder={f.placeholder}
                 maxLength={500}
                 className="w-full bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-2xl p-6 text-lg min-h-[140px] resize-y focus:outline-none"
               />
@@ -375,7 +378,7 @@ export default function FeedPage() {
               <div className="flex gap-4 mt-6">
                 <label className="cursor-pointer flex-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 py-4 rounded-2xl flex items-center justify-center gap-3 transition">
                   <ImageIcon size={22} />
-                  <span>Aggiungi immagine</span>
+                  <span>{f.addImage}</span>
                   <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
                 </label>
                 <button
@@ -383,7 +386,7 @@ export default function FeedPage() {
                   disabled={isPublishing}
                   className="flex-1 bg-gradient-to-r from-violet-600 via-fuchsia-600 to-cyan-500 py-4 rounded-2xl font-semibold flex items-center justify-center gap-3 hover:brightness-110 disabled:opacity-70 transition"
                 >
-                  {isPublishing ? 'Pubblicazione in corso...' : 'Pubblica'}
+                  {isPublishing ? f.publishing : f.publish}
                 </button>
               </div>
             </form>
@@ -402,7 +405,7 @@ export default function FeedPage() {
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
-                Tutti
+                {f.filterAll}
               </button>
               <button
                 onClick={() => handleFilterChange('following')}
@@ -412,7 +415,7 @@ export default function FeedPage() {
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
-                Following
+                {f.filterFollowing}
               </button>
             </div>
           )}
@@ -421,13 +424,13 @@ export default function FeedPage() {
               <Sparkles className="mx-auto mb-6 text-violet-500" size={60} />
               {feedFilter === 'following' ? (
                 <>
-                  <p className="text-2xl font-medium">Nessun post dai tuoi following</p>
-                  <p className="text-zinc-500 mt-3">Inizia a seguire qualcuno per vedere i loro post qui.</p>
+                  <p className="text-2xl font-medium">{f.noFollowingTitle}</p>
+                  <p className="text-zinc-500 mt-3">{f.noFollowingHint}</p>
                 </>
               ) : (
                 <>
-                  <p className="text-2xl font-medium">Il feed è vuoto</p>
-                  <p className="text-zinc-500 mt-3">Sii il primo a condividere qualcosa!</p>
+                  <p className="text-2xl font-medium">{f.emptyTitle}</p>
+                  <p className="text-zinc-500 mt-3">{f.emptyHint}</p>
                 </>
               )}
             </div>
@@ -450,7 +453,7 @@ export default function FeedPage() {
                   <div>
                     <p className="font-bold text-xl">{post.profiles.display_name || post.profiles.username}</p>
                     <p className="text-sm text-zinc-500">
-                      @{post.profiles.username} • {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: it })}
+                      @{post.profiles.username} • {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })}
                     </p>
                   </div>
                 </div>
@@ -519,7 +522,7 @@ export default function FeedPage() {
                           <span className="ml-2 text-zinc-200">{comment.content}</span>
                         </div>
                         <span className="text-xs text-zinc-500 mt-1">
-                          {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: it })}
+                          {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })}
                         </span>
                       </div>
                     ))}

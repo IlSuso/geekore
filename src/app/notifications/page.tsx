@@ -5,34 +5,22 @@ import { createClient } from '@/lib/supabase/client'
 import { Heart, UserPlus, MessageSquare, BellOff, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
-import { it } from 'date-fns/locale'
+import { it, enUS } from 'date-fns/locale'
 import { FollowBackButton } from '@/components/notifications/FollowBackButton'
-
-const TYPE_CONFIG = {
-  like: {
-    icon: Heart,
-    color: 'text-red-400',
-    bg: 'bg-red-400/10 border-red-400/20',
-    label: 'ha messo like al tuo post',
-  },
-  follow: {
-    icon: UserPlus,
-    color: 'text-violet-400',
-    bg: 'bg-violet-400/10 border-violet-400/20',
-    label: 'ha iniziato a seguirti',
-  },
-  comment: {
-    icon: MessageSquare,
-    color: 'text-blue-400',
-    bg: 'bg-blue-400/10 border-blue-400/20',
-    label: 'ha commentato il tuo post',
-  },
-}
+import { useLocale } from '@/lib/locale'
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
+  const { locale, t } = useLocale()
+  const n = t.notifications
+
+  const TYPE_CONFIG = {
+    like:    { icon: Heart,          color: 'text-red-400',    bg: 'bg-red-400/10 border-red-400/20',    label: n.likeAction    },
+    follow:  { icon: UserPlus,       color: 'text-violet-400', bg: 'bg-violet-400/10 border-violet-400/20', label: n.followAction },
+    comment: { icon: MessageSquare,  color: 'text-blue-400',   bg: 'bg-blue-400/10 border-blue-400/20',  label: n.commentAction },
+  }
 
   useEffect(() => {
     const load = async () => {
@@ -49,7 +37,6 @@ export default function NotificationsPage() {
       setNotifications(data || [])
       setLoading(false)
 
-      // Marca come lette
       const unreadIds = (data || []).filter((n: any) => !n.is_read).map((n: any) => n.id)
       if (unreadIds.length > 0) {
         await supabase.from('notifications').update({ is_read: true }).in('id', unreadIds)
@@ -62,9 +49,9 @@ export default function NotificationsPage() {
     <main className="min-h-screen bg-zinc-950 pt-6 pb-24 px-4">
       <div className="max-w-xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">Notifiche</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{n.title}</h1>
           <p className="text-zinc-500 text-sm mt-1">
-            {loading ? '...' : `${notifications.length} attività recenti`}
+            {loading ? '…' : n.recentActivity(notifications.length)}
           </p>
         </div>
 
@@ -77,58 +64,57 @@ export default function NotificationsPage() {
             <div className="w-16 h-16 bg-zinc-900 border border-zinc-800 rounded-3xl flex items-center justify-center mb-4">
               <BellOff size={28} className="text-zinc-600" />
             </div>
-            <p className="text-zinc-500 font-medium">Nessuna notifica</p>
-            <p className="text-zinc-700 text-sm mt-1">Le interazioni appariranno qui</p>
+            <p className="text-zinc-500 font-medium">{n.empty}</p>
+            <p className="text-zinc-700 text-sm mt-1">{n.emptyHint}</p>
           </div>
         ) : (
           <div className="space-y-2">
-            {notifications.map((n: any) => {
-              const config = TYPE_CONFIG[n.type as keyof typeof TYPE_CONFIG] ?? TYPE_CONFIG.like
+            {notifications.map((notif: any) => {
+              const config = TYPE_CONFIG[notif.type as keyof typeof TYPE_CONFIG] ?? TYPE_CONFIG.like
               const Icon = config.icon
-              const timeAgo = n.created_at
-                ? formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: it })
+              const timeAgo = notif.created_at
+                ? formatDistanceToNow(new Date(notif.created_at), {
+                    addSuffix: true,
+                    locale: locale === 'en' ? enUS : it,
+                  })
                 : ''
 
               return (
-                <div
-                  key={n.id}
+                <div key={notif.id}
                   className={`flex items-center gap-4 p-4 rounded-2xl border transition-all ${
-                    n.is_read === false
+                    notif.is_read === false
                       ? 'bg-violet-500/5 border-violet-500/20'
                       : 'bg-zinc-900 border-zinc-800'
                   }`}
                 >
-                  {/* Avatar */}
-                  <Link href={`/profile/${n.sender?.username}`} className="shrink-0">
+                  <Link href={`/profile/${notif.sender?.username}`} className="shrink-0">
                     <div className="w-11 h-11 rounded-2xl overflow-hidden ring-2 ring-zinc-800">
-                      {n.sender?.avatar_url ? (
-                        <img src={n.sender.avatar_url} className="w-full h-full object-cover" alt="" />
+                      {notif.sender?.avatar_url ? (
+                        <img src={notif.sender.avatar_url} className="w-full h-full object-cover" alt="" />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold">
-                          {(n.sender?.display_name?.[0] || n.sender?.username?.[0] || '?').toUpperCase()}
+                          {(notif.sender?.display_name?.[0] || notif.sender?.username?.[0] || '?').toUpperCase()}
                         </div>
                       )}
                     </div>
                   </Link>
 
-                  {/* Text */}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-zinc-200 leading-snug">
-                      <Link href={`/profile/${n.sender?.username}`} className="font-semibold text-white hover:text-violet-400 transition-colors">
-                        {n.sender?.display_name || n.sender?.username}
+                      <Link href={`/profile/${notif.sender?.username}`}
+                        className="font-semibold text-white hover:text-violet-400 transition-colors">
+                        {notif.sender?.display_name || notif.sender?.username}
                       </Link>
                       {' '}{config.label}
                     </p>
                     <p className="text-xs text-zinc-600 mt-0.5">{timeAgo}</p>
                   </div>
 
-                  {/* Follow-back button — solo per notifiche follow */}
-                  {n.type === 'follow' && n.sender?.id && (
-                    <FollowBackButton targetId={n.sender.id} />
+                  {notif.type === 'follow' && notif.sender?.id && (
+                    <FollowBackButton targetId={notif.sender.id} />
                   )}
 
-                  {/* Icon badge — nascosto per follow (FollowBackButton lo sostituisce) */}
-                  {n.type !== 'follow' && (
+                  {notif.type !== 'follow' && (
                     <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 ${config.bg}`}>
                       <Icon size={14} className={config.color} />
                     </div>
