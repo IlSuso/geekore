@@ -79,7 +79,6 @@ async function fetchGenresForNames(gameNames: string[], clientId: string, token:
 }
 
 // POST /api/steam/enrich-genres
-// Arricchisce con generi IGDB tutti i giochi Steam dell'utente che hanno genres = [] o null
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -100,7 +99,6 @@ export async function POST(request: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // Recupera tutti i giochi Steam senza generi (o con array vuoto)
   const { data: steamGames, error } = await supabaseService
     .from('user_media_entries')
     .select('id, title, genres')
@@ -112,7 +110,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ enriched: 0, message: 'Nessun gioco Steam trovato' })
   }
 
-  // Filtra solo quelli senza generi
   const withoutGenres = steamGames.filter(g => !g.genres || g.genres.length === 0)
 
   if (withoutGenres.length === 0) {
@@ -126,28 +123,27 @@ export async function POST(request: NextRequest) {
 
   console.log(`[Enrich] Got genres for ${genreMap.size} / ${withoutGenres.length} games`)
 
-  // Aggiorna solo i giochi per cui abbiamo trovato generi
   let enrichedCount = 0
-  const updates: Promise<any>[] = []
 
-  for (const game of withoutGenres) {
-    const genres = genreMap.get(game.title.toLowerCase())
-    if (!genres || genres.length === 0) continue
-
-    enrichedCount++
-    updates.push(
-      supabaseService
-        .from('user_media_entries')
-        .update({ genres, updated_at: new Date().toISOString() })
-        .eq('id', game.id)
-        .then()
+  // Esegui aggiornamenti in batch di 10 con await diretto
+  const toUpdate = withoutGenres
+    .map(game => ({ game, genres: genreMap.get(game.title.toLowerCase()) }))
+    .filter((x): x is { game: typeof withoutGenres[0]; genres: string[] } =>
+      !!x.genres && x.genres.length > 0
     )
-  }
 
-  // Esegui in batch di 10 per non saturare il DB
+  enrichedCount = toUpdate.length
+
   const BATCH = 10
-  for (let i = 0; i < updates.length; i += BATCH) {
-    await Promise.allSettled(updates.slice(i, i + BATCH))
+  for (let i = 0; i < toUpdate.length; i += BATCH) {
+    await Promise.allSettled(
+      toUpdate.slice(i, i + BATCH).map(({ game, genres }) =>
+        supabaseService
+          .from('user_media_entries')
+          .update({ genres, updated_at: new Date().toISOString() })
+          .eq('id', game.id)
+      )
+    )
   }
 
   return NextResponse.json({
