@@ -42,6 +42,10 @@ const TMDB_TV_GENRE_MAP: Record<string, number> = {
   'Sci-Fi & Fantasy': 10765, 'Soap': 10766, 'Talk': 10767, 'War & Politics': 10768,
 }
 
+// Generi di default per giochi Steam senza generi espliciti.
+// Vengono usati per dare peso al taste profile in base alle ore giocate.
+const STEAM_DEFAULT_GENRES = ['Action', 'Adventure', 'RPG', 'Strategy', 'Shooter']
+
 // ── Compute taste profile ────────────────────────────────────────────────────
 
 function computeTasteProfile(entries: any[], preferences: any): TasteProfile {
@@ -52,12 +56,15 @@ function computeTasteProfile(entries: any[], preferences: any): TasteProfile {
 
   for (const entry of entries) {
     const genres: string[] = entry.genres || []
-    if (genres.length === 0) continue
+    const type = entry.type as string
 
+    // ── Peso rating ────────────────────────────────────────────────────────
     const ratingWeight = entry.rating ? entry.rating * 2 : 3
 
+    // ── Peso engagement ───────────────────────────────────────────────────
     let engagementWeight = 0
     if (entry.is_steam && entry.current_episode > 0) {
+      // Giochi Steam: ore giocate pesano molto
       engagementWeight = Math.min(entry.current_episode / 10, 5)
     } else if (entry.current_episode > 0) {
       engagementWeight = Math.min(entry.current_episode / 5, 3)
@@ -65,15 +72,25 @@ function computeTasteProfile(entries: any[], preferences: any): TasteProfile {
 
     const totalWeight = ratingWeight + engagementWeight
 
-    for (const genre of genres) {
-      globalScores[genre] = (globalScores[genre] || 0) + totalWeight
-      const type = entry.type
+    // ── Se il media NON ha generi (es. giochi Steam importati automaticamente)
+    // usiamo un set di generi di default per il tipo, scalato per il peso
+    // In questo modo i giochi Steam contribuiscono comunque al profilo gusti
+    const effectiveGenres = genres.length > 0
+      ? genres
+      : (type === 'game' || entry.is_steam) ? STEAM_DEFAULT_GENRES : []
+
+    // Peso ridotto per generi di default (non conosciamo davvero i generi)
+    const genreWeight = genres.length > 0 ? totalWeight : Math.min(engagementWeight * 0.5, 1.5)
+
+    for (const genre of effectiveGenres) {
+      globalScores[genre] = (globalScores[genre] || 0) + genreWeight
       if (perTypeScores[type]) {
-        perTypeScores[type][genre] = (perTypeScores[type][genre] || 0) + totalWeight
+        perTypeScores[type][genre] = (perTypeScores[type][genre] || 0) + genreWeight
       }
     }
   }
 
+  // ── Applica preferenze esplicite utente ──────────────────────────────────
   if (preferences) {
     const allFavGenres = [
       ...(preferences.fav_game_genres || []),
@@ -136,7 +153,6 @@ const TYPE_LABEL_IT: Record<string, string> = {
 }
 
 function buildWhy(genres: string[], _type: MediaType, tasteProfile: TasteProfile): string {
-  // 1. Cerca il miglior item nella collezione che condivide generi con la raccomandazione
   const topItem = tasteProfile.topItems.find(item =>
     item.genres.some(g => genres.includes(g))
   )
@@ -145,18 +161,43 @@ function buildWhy(genres: string[], _type: MediaType, tasteProfile: TasteProfile
     return `Perché ami "${topItem.title}" (${label})`
   }
 
-  // 2. Fallback: genere globale in comune
   const matchingGlobal = tasteProfile.globalGenres.find(g => genres.includes(g.genre))
   if (matchingGlobal) {
     return `Basato sui tuoi gusti: ${matchingGlobal.genre}`
   }
 
-  // 3. Fallback migliorato: usa il primo genere della raccomandazione
   if (genres.length > 0) {
     return `Popolare nel genere ${genres[0]}`
   }
 
   return `Consigliato per te`
+}
+
+// ── getGenresForType: usa generi specifici per tipo, poi globali, poi fallback
+// Questo garantisce che tutti i media (inclusi Steam) influenzino i consigli
+// per il loro tipo, e che i gusti per tipo siano usati al posto di quelli globali
+
+const UNIVERSAL_FALLBACK = ['Action', 'Adventure', 'Fantasy', 'Drama', 'Thriller']
+
+const TYPE_FALLBACK: Record<MediaType, string[]> = {
+  game: ['Action', 'Adventure', 'RPG', 'Strategy', 'Shooter'],
+  anime: ['Action', 'Adventure', 'Fantasy', 'Drama', 'Comedy'],
+  manga: ['Action', 'Adventure', 'Fantasy', 'Drama', 'Romance'],
+  movie: ['Action', 'Drama', 'Thriller', 'Comedy', 'Science Fiction'],
+  tv: ['Drama', 'Action', 'Thriller', 'Comedy', 'Science Fiction'],
+}
+
+function getGenresForType(type: MediaType, tasteProfile: TasteProfile): string[] {
+  // 1. Generi specifici per questo tipo (con almeno 2 generi rilevati)
+  const typeSpecific = tasteProfile.topGenres[type]?.map(g => g.genre) || []
+  if (typeSpecific.length >= 2) return typeSpecific
+
+  // 2. Generi globali (considerano tutti i media della collezione)
+  const global = tasteProfile.globalGenres.map(g => g.genre)
+  if (global.length >= 2) return global
+
+  // 3. Fallback specifico per tipo (es. se la collezione è quasi vuota)
+  return TYPE_FALLBACK[type] || UNIVERSAL_FALLBACK
 }
 
 // ── Fetcher: Anime (AniList) ─────────────────────────────────────────────────
@@ -201,7 +242,6 @@ async function fetchAnimeRecs(
         coverImage: m.coverImage?.large,
         year: m.seasonYear,
         genres: recGenres,
-        // FIX: AniList usa scala 0-100, dividiamo per 20 per avere max 5 stelle
         score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
         description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 300) : undefined,
         why: buildWhy(recGenres, 'anime', tasteProfile),
@@ -248,7 +288,6 @@ async function fetchMangaRecs(
         coverImage: m.coverImage?.large,
         year: m.seasonYear,
         genres: recGenres,
-        // FIX: stessa correzione scala /20
         score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
         description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 300) : undefined,
         why: buildWhy(recGenres, 'manga', tasteProfile),
@@ -294,7 +333,6 @@ async function fetchMovieRecs(
         coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
         year: m.release_date ? parseInt(m.release_date.substring(0, 4)) : undefined,
         genres: recGenres,
-        // TMDb: voto su 10 diviso per 2 → max 5
         score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
         description: m.overview ? m.overview.slice(0, 300) : undefined,
         why: buildWhy(recGenres, 'movie', tasteProfile),
@@ -340,7 +378,6 @@ async function fetchTvRecs(
         coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
         year: m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined,
         genres: recGenres,
-        // TMDb: voto su 10 diviso per 2 → max 5
         score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
         description: m.overview ? m.overview.slice(0, 300) : undefined,
         why: buildWhy(recGenres, 'tv', tasteProfile),
@@ -394,6 +431,7 @@ async function fetchGameRecs(
   const games = await res.json()
   if (!Array.isArray(games)) return []
 
+  // Escludi giochi già in libreria (sia per external_id che per nome Steam)
   return games
     .filter((g: any) => !ownedIds.has(g.id.toString()) && g.cover?.url)
     .slice(0, 8)
@@ -406,7 +444,6 @@ async function fetchGameRecs(
         coverImage: `https:${g.cover.url.replace('t_thumb', 't_cover_big')}`,
         year: g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : undefined,
         genres: recGenres,
-        // IGDB: rating su 100 diviso per 20 → max 5
         score: g.rating ? Math.min(Math.round(g.rating) / 20, 5) : undefined,
         description: g.summary ? g.summary.slice(0, 300) : undefined,
         why: buildWhy(recGenres, 'game', tasteProfile),
@@ -426,9 +463,15 @@ export async function GET(request: NextRequest) {
     const requestedType = searchParams.get('type') || 'all'
     const forceRefresh = searchParams.get('refresh') === '1'
 
-    // ── Carica SEMPRE la collezione completa e aggiornata ────────────────────
-    // Non usiamo la cache se forceRefresh=1 o se il tipo è 'all'
-    // La cache è utile solo per tipo singolo e solo se la collezione non è cambiata
+    // ── Carica SEMPRE tutta la collezione aggiornata ──────────────────────
+    // Nessun filtro su updated_at: prendiamo TUTTI i media del profilo
+    // indipendentemente da quando sono stati aggiunti o da quale fonte
+    const { data: entries } = await supabase
+      .from('user_media_entries')
+      .select('type, rating, genres, current_episode, is_steam, title, external_id, appid, updated_at')
+      .eq('user_id', user.id)
+
+    // Controlla cache solo se non force-refresh e non 'all'
     if (!forceRefresh && requestedType !== 'all') {
       const { data: cached } = await supabase
         .from('recommendations_cache')
@@ -438,51 +481,45 @@ export async function GET(request: NextRequest) {
         .single()
 
       if (cached && new Date(cached.expires_at) > new Date()) {
-        // Verifica se la collezione è cambiata dopo la generazione della cache
-        const { data: lastEntry } = await supabase
-          .from('user_media_entries')
-          .select('updated_at')
-          .eq('user_id', user.id)
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .single()
-
+        // La cache è valida solo se la collezione non è cambiata dopo la generazione
         const cacheGeneratedAt = new Date(cached.generated_at)
-        const lastUpdate = lastEntry ? new Date(lastEntry.updated_at) : new Date(0)
+        const allEntries = entries || []
+        const lastUpdateEntry = allEntries.reduce((latest, e) => {
+          const t = new Date(e.updated_at || 0)
+          return t > latest ? t : latest
+        }, new Date(0))
 
-        // Se la collezione non è cambiata dalla generazione della cache, usa la cache
-        if (lastUpdate <= cacheGeneratedAt) {
+        if (lastUpdateEntry <= cacheGeneratedAt) {
           return NextResponse.json({ recommendations: cached.data, cached: true })
         }
-        // Altrimenti rigenera i consigli con i dati aggiornati
+        // Collezione cambiata → rigenera
       }
     }
 
-    // ── Carica TUTTA la collezione aggiornata ────────────────────────────────
-    const { data: entries } = await supabase
-      .from('user_media_entries')
-      .select('type, rating, genres, current_episode, is_steam, title, external_id, updated_at')
-      .eq('user_id', user.id)
-
-    // ── Carica preferenze utente ─────────────────────────────────────────────
+    // ── Carica preferenze utente ─────────────────────────────────────────
     const { data: preferences } = await supabase
       .from('user_preferences')
       .select('*')
       .eq('user_id', user.id)
       .single()
 
-    // ── Carica wishlist (da escludere dai risultati) ──────────────────────────
+    // ── Carica wishlist (da escludere dai risultati) ──────────────────────
     const { data: wishlist } = await supabase
       .from('wishlist')
       .select('external_id')
       .eq('user_id', user.id)
 
     const allEntries = entries || []
+
+    // ── Calcola taste profile basato su TUTTA la collezione ───────────────
+    // Questo include giochi Steam (anche senza generi), anime, manga, ecc.
     const tasteProfile = computeTasteProfile(allEntries, preferences)
 
-    // Set di ID già posseduti o in wishlist
+    // Set di ID già posseduti o in wishlist — esclusi dai consigli
+    // Per i giochi Steam includiamo anche il nome nel set per evitare duplicati
     const ownedIds = new Set<string>([
       ...allEntries.map(e => e.external_id).filter(Boolean),
+      ...allEntries.map(e => e.appid).filter(Boolean),
       ...(wishlist || []).map(w => w.external_id).filter(Boolean),
     ])
 
@@ -494,17 +531,12 @@ export async function GET(request: NextRequest) {
       ? ['anime', 'manga', 'movie', 'tv', 'game']
       : [requestedType as MediaType]
 
-    const globalGenreNames = tasteProfile.globalGenres.map(g => g.genre)
-    const UNIVERSAL_FALLBACK = ['Action', 'Adventure', 'Fantasy', 'Drama', 'Thriller']
-
-    const getGenresForType = (_type: MediaType): string[] => {
-      return globalGenreNames.length >= 2 ? globalGenreNames : UNIVERSAL_FALLBACK
-    }
-
-    // ── Fetch raccomandazioni in parallelo ───────────────────────────────────
+    // ── Fetch raccomandazioni in parallelo ───────────────────────────────
+    // getGenresForType ora usa prima i generi specifici per tipo,
+    // poi quelli globali, poi il fallback — mai ignora la collezione esistente
     const results = await Promise.allSettled(
       typesToFetch.map(async type => {
-        const genres = getGenresForType(type)
+        const genres = getGenresForType(type, tasteProfile)
         switch (type) {
           case 'anime': return { type, items: await fetchAnimeRecs(genres, ownedIds, tasteProfile) }
           case 'manga': return { type, items: await fetchMangaRecs(genres, ownedIds, tasteProfile) }
@@ -522,8 +554,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // ── Salva in cache con timestamp aggiornato ──────────────────────────────
-    // Per tipo singolo salva nella cache; per 'all' salva ogni tipo separatamente
+    // ── Salva in cache ───────────────────────────────────────────────────
     const now = new Date().toISOString()
     const expiresAt = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString()
 
@@ -538,7 +569,6 @@ export async function GET(request: NextRequest) {
         expires_at: expiresAt,
       }, { onConflict: 'user_id,media_type' })
     } else {
-      // Salva ogni tipo in cache per uso futuro
       await Promise.allSettled(
         typesToFetch.map(type =>
           supabase.from('recommendations_cache').upsert({
