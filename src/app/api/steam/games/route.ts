@@ -5,11 +5,91 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 const STEAM_API_KEY = process.env.STEAM_API_KEY
 const CACHE_HOURS = 24
 
-async function getBestImage(appid: number): Promise<string> {
-  const base = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appid}`
-  // Non facciamo più imageExists() con richieste HEAD per ogni gioco —
-  // header.jpg esiste sempre per tutti i giochi Steam
-  return `${base}/library_600x900.jpg`
+// ── IGDB token cache ──────────────────────────────────────────────────────────
+let igdbTokenCache: { token: string; expiresAt: number } | null = null
+
+async function getIgdbToken(): Promise<string | null> {
+  const clientId = process.env.IGDB_CLIENT_ID
+  const clientSecret = process.env.IGDB_CLIENT_SECRET
+  if (!clientId || !clientSecret) return null
+
+  const now = Date.now()
+  if (igdbTokenCache && igdbTokenCache.expiresAt > now + 60_000) return igdbTokenCache.token
+
+  try {
+    const res = await fetch('https://id.twitch.tv/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: 'client_credentials',
+      }),
+    })
+    const data = await res.json()
+    if (!data.access_token) return null
+    igdbTokenCache = { token: data.access_token, expiresAt: now + (data.expires_in || 3600) * 1000 }
+    return igdbTokenCache.token
+  } catch {
+    return null
+  }
+}
+
+// ── Fetch genres from IGDB for a batch of game names ─────────────────────────
+// Ritorna una mappa { gameName (lowercase) → string[] }
+async function fetchGenresBatch(gameNames: string[]): Promise<Map<string, string[]>> {
+  const result = new Map<string, string[]>()
+  if (gameNames.length === 0) return result
+
+  const clientId = process.env.IGDB_CLIENT_ID
+  const token = await getIgdbToken()
+  if (!clientId || !token) return result
+
+  // IGDB permette max ~500 char per body — processiamo in chunk da 10 giochi
+  const CHUNK = 10
+  for (let i = 0; i < gameNames.length; i += CHUNK) {
+    const chunk = gameNames.slice(i, i + CHUNK)
+
+    // Costruiamo una ricerca per nome esatto (case-insensitive)
+    const searchNames = chunk.map(n => `"${n.replace(/"/g, '')}"`).join(',')
+
+    try {
+      const res = await fetch('https://api.igdb.com/v4/games', {
+        method: 'POST',
+        headers: {
+          'Client-ID': clientId,
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'text/plain',
+        },
+        body: `
+          fields name, genres.name;
+          where name = (${searchNames});
+          limit ${CHUNK * 2};
+        `,
+        signal: AbortSignal.timeout(6000),
+      })
+
+      if (!res.ok) continue
+      const games = await res.json()
+      if (!Array.isArray(games)) continue
+
+      for (const game of games) {
+        if (!game.genres || game.genres.length === 0) continue
+        const genres: string[] = game.genres.map((g: any) => g.name).filter(Boolean)
+        // Mappa per nome lowercase per match flessibile
+        result.set(game.name.toLowerCase(), genres)
+      }
+
+      // Piccolo delay tra chunk per rispettare i rate limit IGDB
+      if (i + CHUNK < gameNames.length) {
+        await new Promise(r => setTimeout(r, 300))
+      }
+    } catch {
+      // Chunk fallito, continua con il prossimo
+    }
+  }
+
+  return result
 }
 
 export async function GET(request: NextRequest) {
@@ -23,7 +103,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'STEAM_API_KEY not configured' }, { status: 500 })
   }
 
-  // ── Verifica utente autenticato ──────────────────────────────────────────
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -31,13 +110,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Non autenticato' }, { status: 401 })
   }
 
-  // Service client inizializzato dentro il handler per evitare errori in build time
   const supabaseService = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // ── Controlla cache: ha già importato nelle ultime 24 ore? ───────────────
+  // ── Controlla cache 24h ───────────────────────────────────────────────────
   const { data: importLog } = await supabaseService
     .from('steam_import_log')
     .select('imported_at, games_count')
@@ -60,7 +138,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ── Chiamata Steam API ───────────────────────────────────────────────────
+  // ── Chiamata Steam API ────────────────────────────────────────────────────
   try {
     const url = `https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${STEAM_API_KEY}&steamid=${steamid}&format=json&include_appinfo=true&include_played_free_games=true`
 
@@ -71,17 +149,50 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Nessun gioco trovato o profilo Steam privato' })
     }
 
-    const rawGames = data.response.games
+    const rawGames: any[] = data.response.games
 
-    // Costruisce la lista giochi — immagine singola senza richieste HEAD
-    const games = rawGames.map((game: any) => ({
-      appid: game.appid,
-      name: game.name,
-      playtime_forever: game.playtime_forever,
-      cover_image: `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/library_600x900.jpg`,
+    // ── Arricchimento generi da IGDB ──────────────────────────────────────
+    // Prendiamo solo i giochi con più di 30 minuti giocati per ottimizzare le chiamate
+    // (i giochi mai giocati non contribuiscono al taste profile)
+    const playedGames = rawGames.filter(g => (g.playtime_forever || 0) >= 30)
+    const gameNames = playedGames.map(g => g.name)
+
+    console.log(`[Steam Import] Fetching IGDB genres for ${gameNames.length} played games...`)
+    const genreMap = await fetchGenresBatch(gameNames)
+    console.log(`[Steam Import] Got genres for ${genreMap.size} games from IGDB`)
+
+    // ── Costruisce la lista giochi con generi ─────────────────────────────
+    const games = rawGames.map((game: any) => {
+      // Cerca generi dal map IGDB (match per nome lowercase)
+      const igdbGenres = genreMap.get(game.name.toLowerCase()) || []
+
+      return {
+        appid: game.appid,
+        name: game.name,
+        playtime_forever: game.playtime_forever,
+        cover_image: `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/library_600x900.jpg`,
+        genres: igdbGenres,
+      }
+    })
+
+    // ── Upsert su Supabase con generi inclusi ─────────────────────────────
+    const steamMedia = games.map((game: any) => ({
+      user_id: user.id,
+      title: game.name,
+      type: 'game',
+      appid: String(game.appid),
+      cover_image: game.cover_image ?? null,
+      current_episode: Math.floor(game.playtime_forever / 60),
+      is_steam: true,
+      genres: game.genres,           // <-- generi IGDB salvati nel DB
+      display_order: Date.now(),
+      updated_at: new Date().toISOString(),
+      rating: 0,
     }))
 
-    // ── Aggiorna log importazione ──────────────────────────────────────────
+    await supabaseService.from('user_media_entries').upsert(steamMedia, { onConflict: 'user_id,appid' })
+
+    // ── Aggiorna log importazione ─────────────────────────────────────────
     await supabaseService
       .from('steam_import_log')
       .upsert({
@@ -90,8 +201,7 @@ export async function GET(request: NextRequest) {
         games_count: games.length,
       }, { onConflict: 'user_id' })
 
-    // ── Calcola e aggiorna core_power nella leaderboard ───────────────────
-    // Formula Opzione A: ore totali / 10, max 9999
+    // ── Calcola core_power e aggiorna leaderboard ─────────────────────────
     const totalHours = rawGames.reduce(
       (sum: number, g: any) => sum + Math.floor((g.playtime_forever || 0) / 60), 0
     )
@@ -114,10 +224,14 @@ export async function GET(request: NextRequest) {
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' })
 
+    // Conta quanti giochi hanno ottenuto generi
+    const enrichedCount = games.filter((g: any) => g.genres.length > 0).length
+
     return NextResponse.json({
       success: true,
       games,
       count: games.length,
+      enriched_count: enrichedCount,
       core_power: corePower,
     })
 
