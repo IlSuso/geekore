@@ -8,14 +8,14 @@ type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game'
 interface TasteProfile {
   globalGenres: Array<{ genre: string; score: number }>
   topGenres: Record<MediaType, Array<{ genre: string; score: number }>>
-  genreToTitles: Record<string, Array<{ title: string; type: string }>>
+  genreToTitles: Record<string, Array<{ title: string; type: string; recency: number }>>
   collectionSize: Record<string, number>
-  // Segnali profondi interni — non esposti al frontend
+  recentWindow: number // quanti mesi è la finestra attiva (2, 4 o 6)
   deepSignals: {
-    keywords: Record<string, number>      // es. "time travel", "mafia", "open world"
-    themes: Record<string, number>        // es. "revenge", "friendship", "dystopia"
-    tones: Record<string, number>         // es. "dark", "lighthearted", "philosophical"
-    settings: Record<string, number>      // es. "feudal japan", "space", "medieval"
+    keywords: Record<string, number>
+    themes: Record<string, number>
+    tones: Record<string, number>
+    settings: Record<string, number>
   }
 }
 
@@ -49,7 +49,7 @@ const TMDB_TV_GENRE_MAP: Record<string, number> = {
   'Sci-Fi & Fantasy': 10765, 'Soap': 10766, 'Talk': 10767, 'War & Politics': 10768,
 }
 
-// Generi IGDB → generi equivalenti TMDb/AniList per cross-media recommendations
+// Generi IGDB → generi cross-media per anime/film/serie
 const IGDB_TO_CROSS_GENRE: Record<string, string[]> = {
   'Role-playing (RPG)': ['Fantasy', 'Adventure', 'Drama'],
   'Action': ['Action', 'Adventure'],
@@ -74,21 +74,17 @@ const IGDB_TO_CROSS_GENRE: Record<string, string[]> = {
   'Tactical': ['Strategy', 'Thriller'],
   'Survival': ['Horror', 'Thriller', 'Adventure'],
   'Battle Royale': ['Action', 'Thriller'],
-  'Massively Multiplayer Online (MMO)': ['Fantasy', 'Adventure', 'RPG'],
+  'Massively Multiplayer Online (MMO)': ['Fantasy', 'Adventure'],
   'Card & Board Game': ['Strategy'],
 }
 
-// ── Segnali profondi: keyword → temi/tono/setting ───────────────────────────
-// Usati internamente per arricchire il profilo, mai mostrati all'utente
-
+// Segnali profondi: keyword → temi/tono/setting
 const KEYWORD_TO_DEEP: Record<string, { themes?: string[]; tones?: string[]; settings?: string[] }> = {
-  // Temi narrativi
   'time travel': { themes: ['time travel'], tones: ['mind-bending'] },
   'revenge': { themes: ['revenge'] },
   'redemption': { themes: ['redemption'] },
   'dystopia': { themes: ['dystopia'], tones: ['dark'], settings: ['dystopian future'] },
   'apocalypse': { themes: ['apocalypse'], tones: ['dark', 'tense'] },
-  'based on novel': { themes: ['literary adaptation'] },
   'superhero': { themes: ['superhero'], tones: ['action-packed'] },
   'artificial intelligence': { themes: ['AI', 'technology'], settings: ['sci-fi future'] },
   'serial killer': { themes: ['crime', 'psychology'], tones: ['dark', 'tense'] },
@@ -103,28 +99,22 @@ const KEYWORD_TO_DEEP: Record<string, { themes?: string[]; tones?: string[]; set
   'political': { themes: ['politics'], tones: ['complex'] },
   'philosophical': { tones: ['philosophical'] },
   'friendship': { themes: ['friendship'] },
-  'family': { themes: ['family'] },
   'romance': { themes: ['romance'] },
   'psychological': { tones: ['psychological', 'dark'] },
   'supernatural': { themes: ['supernatural'] },
   'mystery': { themes: ['mystery'], tones: ['tense'] },
   'samurai': { settings: ['feudal japan'] },
-  'ninja': { settings: ['feudal japan'] },
   'cyberpunk': { themes: ['technology', 'dystopia'], settings: ['cyberpunk'] },
-  'steampunk': { settings: ['steampunk'] },
   'vampire': { themes: ['supernatural'], settings: ['gothic'] },
   'zombie': { themes: ['survival', 'apocalypse'], tones: ['horror'] },
   'alien': { themes: ['alien contact'], settings: ['outer space', 'sci-fi future'] },
   'detective': { themes: ['investigation'], tones: ['tense'] },
   'mafia': { themes: ['crime', 'mafia'], tones: ['dark'] },
-  'tournament': { themes: ['competition'] },
-  'music': { themes: ['music'] },
-  'school': { settings: ['school'], themes: ['coming of age'] },
   'survival': { themes: ['survival'], tones: ['tense'] },
   'monsters': { themes: ['monsters'], settings: ['fantasy world'] },
 }
 
-// ── GENERI DEFAULT per giochi senza generi IGDB ────────────────────────────
+// Inferenza genere dal nome del gioco (fallback per giochi senza metadati)
 function inferGenresFromName(name: string): string[] {
   const n = name.toLowerCase()
   if (n.includes('horror') || n.includes('dead') || n.includes('evil') || n.includes('resident') || n.includes('silent')) return ['Horror', 'Thriller']
@@ -144,28 +134,69 @@ function inferGenresFromName(name: string): string[] {
   return []
 }
 
-// ── Controlla se un entry è "rilevante" per il taste profile ─────────────────
-// Regola: un media conta solo se:
-//   - È un gioco con >= 20 ore giocate, OPPURE
-//   - Ha un rating >= 3.5 (indipendentemente dal tipo o dalle ore)
+// ── Calcolo moltiplicatore temporale ─────────────────────────────────────────
+// Più recente = peso maggiore. Scala lineare con soglie a 2, 4, 6 mesi.
+
+function getTemporalMultiplier(updatedAt: string | null | undefined): number {
+  if (!updatedAt) return 0.5 // nessuna data → molto vecchio, peso minimo
+
+  const now = Date.now()
+  const updated = new Date(updatedAt).getTime()
+  const daysAgo = (now - updated) / (1000 * 60 * 60 * 24)
+
+  if (daysAgo <= 60)  return 3.0  // entro 2 mesi: molto rilevante
+  if (daysAgo <= 120) return 1.8  // entro 4 mesi: abbastanza rilevante
+  if (daysAgo <= 180) return 1.0  // entro 6 mesi: normale
+  if (daysAgo <= 365) return 0.6  // entro 1 anno: poco rilevante
+  return 0.3                       // oltre 1 anno: peso minimo
+}
+
+// Determina la "finestra attiva" espandendola se ci sono pochi dati recenti
+function determineActiveWindow(entries: any[]): number {
+  const now = Date.now()
+  const count2m = entries.filter(e => {
+    if (!e.updated_at) return false
+    return (now - new Date(e.updated_at).getTime()) / (1000 * 60 * 60 * 24) <= 60
+  }).length
+
+  if (count2m >= 3) return 2 // abbastanza roba entro 2 mesi
+
+  const count4m = entries.filter(e => {
+    if (!e.updated_at) return false
+    return (now - new Date(e.updated_at).getTime()) / (1000 * 60 * 60 * 24) <= 120
+  }).length
+
+  if (count4m >= 3) return 4 // espandi a 4 mesi
+
+  const count6m = entries.filter(e => {
+    if (!e.updated_at) return false
+    return (now - new Date(e.updated_at).getTime()) / (1000 * 60 * 60 * 24) <= 180
+  }).length
+
+  if (count6m >= 3) return 6 // espandi a 6 mesi
+
+  return 12 // collezione quasi inattiva → usa tutto
+}
+
+// ── Filtra le entry rilevanti ─────────────────────────────────────────────────
+// Un media è rilevante se:
+// - È un gioco Steam con >= 1h oppure con rating >= 3.5
+// - È qualsiasi altro media con rating >= 3 o con ep/cap/completamento > 0
+
 function isRelevantEntry(entry: any): boolean {
   const rating: number = entry.rating || 0
   const hoursOrEp: number = entry.current_episode || 0
   const type: string = entry.type || ''
 
-  // Rating alto: vale sempre (anche un film visto con 4 stelle conta)
   if (rating >= 3.5) return true
 
-  // Gioco senza rating: conta solo se ha almeno 20 ore
   if (type === 'game' || entry.is_steam) {
-    return hoursOrEp >= 20
+    return hoursOrEp >= 1 // almeno 1 ora giocata
   }
 
-  // Anime/manga/serie/film senza rating sufficiente:
-  // conta se ha un engagement minimo (ep visti > 3 o capitoli > 5)
-  if (type === 'anime' || type === 'tv') return hoursOrEp >= 4
-  if (type === 'manga') return hoursOrEp >= 5
-  if (type === 'movie') return hoursOrEp >= 1 // film completato
+  if (type === 'anime' || type === 'tv') return hoursOrEp >= 2
+  if (type === 'manga') return hoursOrEp >= 3
+  if (type === 'movie') return hoursOrEp >= 1
 
   return false
 }
@@ -177,33 +208,37 @@ function computeTasteProfile(entries: any[], preferences: any): TasteProfile {
   const perTypeScores: Record<string, Record<string, number>> = {
     anime: {}, manga: {}, movie: {}, tv: {}, game: {},
   }
-  const genreToTitles: Record<string, Array<{ title: string; type: string }>> = {}
+  const genreToTitles: Record<string, Array<{ title: string; type: string; recency: number }>> = {}
 
-  // Segnali profondi interni
   const deepKeywords: Record<string, number> = {}
   const deepThemes: Record<string, number> = {}
   const deepTones: Record<string, number> = {}
   const deepSettings: Record<string, number> = {}
 
-  const addScore = (genre: string, weight: number, type: string, title: string) => {
+  // Determina finestra temporale attiva
+  const relevantEntries = entries.filter(isRelevantEntry)
+  const activeWindow = determineActiveWindow(relevantEntries)
+
+  const addScore = (genre: string, weight: number, type: string, title: string, recency: number) => {
     globalScores[genre] = (globalScores[genre] || 0) + weight
     if (perTypeScores[type]) {
       perTypeScores[type][genre] = (perTypeScores[type][genre] || 0) + weight
     }
     if (!genreToTitles[genre]) genreToTitles[genre] = []
-    if (!genreToTitles[genre].some(t => t.title === title)) {
-      genreToTitles[genre].push({ title, type })
+    const existing = genreToTitles[genre].find(t => t.title === title)
+    if (existing) {
+      // Aggiorna recency se più alto
+      if (recency > existing.recency) existing.recency = recency
+    } else {
+      genreToTitles[genre].push({ title, type, recency })
     }
   }
 
-  const addDeep = (signals: { keywords?: string[]; themes?: string[]; tones?: string[]; settings?: string[] }, weight: number) => {
+  const addDeep = (signals: { themes?: string[]; tones?: string[]; settings?: string[] }, weight: number) => {
     for (const kw of signals.themes || []) deepThemes[kw] = (deepThemes[kw] || 0) + weight
     for (const kw of signals.tones || []) deepTones[kw] = (deepTones[kw] || 0) + weight
     for (const kw of signals.settings || []) deepSettings[kw] = (deepSettings[kw] || 0) + weight
   }
-
-  // Filtra solo le entry rilevanti prima di calcolare
-  const relevantEntries = entries.filter(isRelevantEntry)
 
   for (const entry of relevantEntries) {
     const title: string = entry.title || ''
@@ -211,62 +246,65 @@ function computeTasteProfile(entries: any[], preferences: any): TasteProfile {
     const rating: number = entry.rating || 0
     const hoursOrEp: number = entry.current_episode || 0
     let genres: string[] = entry.genres || []
-    const tags: string[] = entry.tags || []          // AniList tags
-    const keywords: string[] = entry.keywords || []  // TMDb keywords
-    const themes: string[] = entry.themes || []      // IGDB themes
+    const tags: string[] = entry.tags || []
+    const keywords: string[] = entry.keywords || []
+    const themes: string[] = entry.themes || []
     const playerPerspectives: string[] = entry.player_perspectives || []
 
-    if (genres.length === 0) {
-      if (entry.is_steam || type === 'game') {
-        genres = inferGenresFromName(title)
-      }
+    if (genres.length === 0 && (entry.is_steam || type === 'game')) {
+      genres = inferGenresFromName(title)
     }
 
     if (genres.length === 0) continue
 
-    // ── Calcola peso ─────────────────────────────────────────────────────
-    let weight: number
+    // ── Moltiplicatore temporale ─────────────────────────────────────────
+    const temporalMult = getTemporalMultiplier(entry.updated_at)
+    // recency score: valore normalizzato 0-1 per ordinare candidati buildWhy
+    const recency = temporalMult / 3.0
+
+    // ── Peso base ────────────────────────────────────────────────────────
+    let baseWeight: number
 
     if (entry.is_steam || type === 'game') {
       const hours = hoursOrEp
-      // hours >= 20 già garantito da isRelevantEntry (se rating < 3.5)
-      weight = Math.min(Math.log10(hours + 1) * 10, 25)
-      if (rating >= 4) weight *= 1.5
-      else if (rating >= 3.5) weight *= 1.2
+      baseWeight = hours === 0 ? 0.5 : Math.min(Math.log10(hours + 1) * 10, 25)
+      if (rating >= 4) baseWeight *= 1.5
+      else if (rating >= 3.5) baseWeight *= 1.2
     } else {
       const ratingW = rating >= 1 ? rating * 3 : 2
       const engW = Math.min(hoursOrEp / 5, 5)
-      weight = ratingW + engW
+      baseWeight = ratingW + engW
     }
 
-    // ── Generi nativi ─────────────────────────────────────────────────────
+    // ── Peso finale = base × temporale ───────────────────────────────────
+    const weight = baseWeight * temporalMult
+
+    // ── Generi nativi ────────────────────────────────────────────────────
     for (const genre of genres) {
-      addScore(genre, weight, type, title)
+      addScore(genre, weight, type, title, recency)
     }
 
-    // ── Cross-media per giochi ────────────────────────────────────────────
+    // ── Cross-media per giochi ───────────────────────────────────────────
     if (type === 'game') {
       for (const genre of genres) {
         const crossGenres = IGDB_TO_CROSS_GENRE[genre] || []
         for (const cg of crossGenres) {
           if (!genres.includes(cg)) {
-            addScore(cg, weight * 0.4, type, title)
+            addScore(cg, weight * 0.4, type, title, recency)
           }
         }
       }
     }
 
-    // ── Segnali profondi: AniList tags ────────────────────────────────────
-    // I tag AniList sono molto specifici (es. "Time Travel", "Overpowered MC", "School Life")
+    // ── Segnali profondi: tags AniList ───────────────────────────────────
     for (const tag of tags) {
       const tagLower = tag.toLowerCase()
       deepKeywords[tagLower] = (deepKeywords[tagLower] || 0) + weight * 0.5
-      // Mappa anche verso temi/toni se disponibile
       const mapped = KEYWORD_TO_DEEP[tagLower]
       if (mapped) addDeep(mapped, weight * 0.5)
     }
 
-    // ── Segnali profondi: TMDb keywords ──────────────────────────────────
+    // ── Segnali profondi: keywords TMDb/IGDB ─────────────────────────────
     for (const kw of keywords) {
       const kwLower = kw.toLowerCase()
       deepKeywords[kwLower] = (deepKeywords[kwLower] || 0) + weight * 0.5
@@ -275,20 +313,18 @@ function computeTasteProfile(entries: any[], preferences: any): TasteProfile {
     }
 
     // ── Segnali profondi: IGDB themes ────────────────────────────────────
-    // IGDB ha themes come: Action, Fantasy, Science fiction, Horror, Non-fiction, Historical, etc.
     for (const theme of themes) {
       const themeLower = theme.toLowerCase()
       deepThemes[themeLower] = (deepThemes[themeLower] || 0) + weight * 0.6
     }
 
-    // ── Segnali profondi: player perspective (IGDB) ───────────────────────
-    // es. "First person", "Third person", "Side view", "Top-down"
+    // ── Player perspective ────────────────────────────────────────────────
     for (const pp of playerPerspectives) {
       deepSettings[pp.toLowerCase()] = (deepSettings[pp.toLowerCase()] || 0) + weight * 0.3
     }
   }
 
-  // ── Applica preferenze esplicite utente ──────────────────────────────────
+  // ── Preferenze esplicite utente ──────────────────────────────────────────
   if (preferences) {
     const allFavGenres = [
       ...(preferences.fav_game_genres || []),
@@ -305,9 +341,7 @@ function computeTasteProfile(entries: any[], preferences: any): TasteProfile {
     const disliked: string[] = preferences.disliked_genres || []
     for (const genre of disliked) {
       delete globalScores[genre]
-      for (const t of Object.keys(perTypeScores)) {
-        delete perTypeScores[t][genre]
-      }
+      for (const t of Object.keys(perTypeScores)) delete perTypeScores[t][genre]
       delete genreToTitles[genre]
     }
   }
@@ -335,24 +369,16 @@ function computeTasteProfile(entries: any[], preferences: any): TasteProfile {
     topGenres,
     genreToTitles,
     collectionSize,
-    deepSignals: {
-      keywords: deepKeywords,
-      themes: deepThemes,
-      tones: deepTones,
-      settings: deepSettings,
-    },
+    recentWindow: activeWindow,
+    deepSignals: { keywords: deepKeywords, themes: deepThemes, tones: deepTones, settings: deepSettings },
   }
 }
 
-// ── buildWhy — motivazione reale e diversificata ─────────────────────────────
-// Usa solo titoli rilevanti (già filtrati nel tasteProfile)
+// ── buildWhy — motivazione diversificata con priorità ai titoli recenti ───────
+// Tra i candidati, i titoli più recenti hanno priorità nella selezione
 
-function buildWhy(
-  recGenres: string[],
-  recId: string,
-  tasteProfile: TasteProfile,
-): string {
-  const candidates: Array<{ title: string; type: string; score: number }> = []
+function buildWhy(recGenres: string[], recId: string, tasteProfile: TasteProfile): string {
+  const candidates: Array<{ title: string; type: string; score: number; recency: number }> = []
 
   for (const genre of recGenres) {
     const titles = tasteProfile.genreToTitles[genre] || []
@@ -363,7 +389,7 @@ function buildWhy(
       if (existing) {
         existing.score += genreScore
       } else {
-        candidates.push({ title: t.title, type: t.type, score: genreScore })
+        candidates.push({ title: t.title, type: t.type, score: genreScore, recency: t.recency })
       }
     }
   }
@@ -375,7 +401,10 @@ function buildWhy(
     return 'Consigliato per te'
   }
 
-  candidates.sort((a, b) => b.score - a.score)
+  // Ordina per: score × recency (titoli recenti con buon match vengono prima)
+  candidates.sort((a, b) => (b.score * (1 + b.recency)) - (a.score * (1 + a.recency)))
+
+  // Prendi i top 5 e usa l'ID come seed per variare (evita che tutti dicano lo stesso)
   const topCandidates = candidates.slice(0, 5)
   const idSum = recId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
   const chosen = topCandidates[idSum % topCandidates.length]
@@ -385,6 +414,13 @@ function buildWhy(
   }
   const label = TYPE_LABEL[chosen.type] || chosen.type
 
+  // Se il titolo è molto recente (entro 2 mesi), usa una formula più diretta
+  if (chosen.recency >= 0.9) {
+    return `Stai giocando/guardando "${chosen.title}"`
+  }
+  if (chosen.recency >= 0.5) {
+    return `Hai giocato/visto di recente "${chosen.title}"`
+  }
   return `Perché ami "${chosen.title}" (${label})`
 }
 
@@ -426,7 +462,6 @@ function getGenresForType(type: MediaType, tasteProfile: TasteProfile): string[]
 }
 
 // ── Fetcher: Anime (AniList) ─────────────────────────────────────────────────
-// Richiede anche tags per arricchire il profilo futuro
 
 async function fetchAnimeRecs(
   genres: string[], ownedIds: Set<string>, tasteProfile: TasteProfile
@@ -441,11 +476,8 @@ async function fetchAnimeRecs(
   const validGenres = genres.filter(g => ANILIST_GENRES.has(g))
   if (validGenres.length === 0) return []
 
-  // Recupera top temi/toni dai deepSignals per filtrare meglio
   const topThemes = Object.entries(tasteProfile.deepSignals.themes)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5)
-    .map(([t]) => t)
+    .sort(([, a], [, b]) => b - a).slice(0, 5).map(([t]) => t)
 
   const query = `
     query($genres: [String]) {
@@ -468,7 +500,6 @@ async function fetchAnimeRecs(
   const json = await res.json()
   const media = json.data?.Page?.media || []
 
-  // Se abbiamo segnali profondi, usa boosting per rilevanza
   const scored = media
     .filter((m: any) => {
       const id = `anilist-anime-${m.id}`
@@ -518,9 +549,7 @@ async function fetchMangaRecs(
   if (validGenres.length === 0) return []
 
   const topThemes = Object.entries(tasteProfile.deepSignals.themes)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5)
-    .map(([t]) => t)
+    .sort(([, a], [, b]) => b - a).slice(0, 5).map(([t]) => t)
 
   const query = `
     query($genres: [String]) {
@@ -574,42 +603,28 @@ async function fetchMangaRecs(
 }
 
 // ── Fetcher: Film (TMDb) ─────────────────────────────────────────────────────
-// Usa keywords TMDb per boosting
 
 async function fetchMovieRecs(
   genres: string[], ownedIds: Set<string>, tasteProfile: TasteProfile, tmdbToken: string
 ): Promise<Recommendation[]> {
   if (genres.length === 0 || !tmdbToken) return []
 
-  const genreIds = genres
-    .map(g => TMDB_GENRE_MAP[g])
-    .filter(Boolean)
-    .slice(0, 3)
-    .join(',')
+  const genreIds = genres.map(g => TMDB_GENRE_MAP[g]).filter(Boolean).slice(0, 3).join(',')
   if (!genreIds) return []
 
   const res = await fetch(
     `https://api.themoviedb.org/3/discover/movie?with_genres=${genreIds}&sort_by=vote_average.desc&vote_count.gte=100&language=it-IT&page=1`,
-    {
-      headers: { Authorization: `Bearer ${tmdbToken}`, accept: 'application/json' },
-      signal: AbortSignal.timeout(8000),
-    }
+    { headers: { Authorization: `Bearer ${tmdbToken}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
   )
   if (!res.ok) return []
   const json = await res.json()
   const results = json.results || []
 
-  // Per i top 20 film, arricchiamo con keywords TMDb per boosting
   const topKeywords = Object.entries(tasteProfile.deepSignals.keywords)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 10)
-    .map(([k]) => k)
+    .sort(([, a], [, b]) => b - a).slice(0, 10).map(([k]) => k)
 
-  const candidates = results
-    .filter((m: any) => !ownedIds.has(m.id.toString()) && m.poster_path)
-    .slice(0, 30)
+  const candidates = results.filter((m: any) => !ownedIds.has(m.id.toString()) && m.poster_path).slice(0, 30)
 
-  // Fetch keywords per ogni film (batch, best effort)
   const keywordsMap = new Map<number, string[]>()
   await Promise.allSettled(
     candidates.slice(0, 15).map(async (m: any) => {
@@ -661,32 +676,21 @@ async function fetchTvRecs(
 ): Promise<Recommendation[]> {
   if (genres.length === 0 || !tmdbToken) return []
 
-  const genreIds = genres
-    .map(g => TMDB_TV_GENRE_MAP[g])
-    .filter(Boolean)
-    .slice(0, 3)
-    .join(',')
+  const genreIds = genres.map(g => TMDB_TV_GENRE_MAP[g]).filter(Boolean).slice(0, 3).join(',')
   if (!genreIds) return []
 
   const res = await fetch(
     `https://api.themoviedb.org/3/discover/tv?with_genres=${genreIds}&sort_by=vote_average.desc&vote_count.gte=50&language=it-IT&page=1`,
-    {
-      headers: { Authorization: `Bearer ${tmdbToken}`, accept: 'application/json' },
-      signal: AbortSignal.timeout(8000),
-    }
+    { headers: { Authorization: `Bearer ${tmdbToken}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
   )
   if (!res.ok) return []
   const json = await res.json()
   const results = json.results || []
 
   const topKeywords = Object.entries(tasteProfile.deepSignals.keywords)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 10)
-    .map(([k]) => k)
+    .sort(([, a], [, b]) => b - a).slice(0, 10).map(([k]) => k)
 
-  const candidates = results
-    .filter((m: any) => !ownedIds.has(m.id.toString()) && m.poster_path)
-    .slice(0, 30)
+  const candidates = results.filter((m: any) => !ownedIds.has(m.id.toString()) && m.poster_path).slice(0, 30)
 
   const keywordsMap = new Map<number, string[]>()
   await Promise.allSettled(
@@ -733,7 +737,6 @@ async function fetchTvRecs(
 }
 
 // ── Fetcher: Giochi (IGDB) ───────────────────────────────────────────────────
-// Richiede anche themes e player_perspectives per segnali profondi
 
 let cachedToken: { token: string; expiresAt: number } | null = null
 
@@ -760,15 +763,12 @@ async function fetchGameRecs(
   const token = await getIgdbToken(clientId, clientSecret)
   if (!token) return []
 
-  // Usa top temi profondi per query più specifica se disponibili
   const topTones = Object.entries(tasteProfile.deepSignals.tones)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 3)
-    .map(([t]) => t)
+    .sort(([, a], [, b]) => b - a).slice(0, 3).map(([t]) => t)
 
   const genreFilter = genres.slice(0, 3).map(g => `"${g}"`).join(',')
   const body = `
-    fields name, cover.url, first_release_date, summary, genres.name, themes.name, 
+    fields name, cover.url, first_release_date, summary, genres.name, themes.name,
            player_perspectives.name, rating, rating_count;
     where genres.name = (${genreFilter}) & rating_count > 50 & cover != null;
     sort rating desc;
@@ -785,7 +785,6 @@ async function fetchGameRecs(
   const games = await res.json()
   if (!Array.isArray(games)) return []
 
-  // Boosting per temi e toni profondi
   const scored = games
     .filter((g: any) => !ownedIds.has(g.id.toString()) && g.cover?.url)
     .map((g: any) => {
@@ -828,7 +827,7 @@ export async function GET(request: NextRequest) {
     const requestedType = searchParams.get('type') || 'all'
     const forceRefresh = searchParams.get('refresh') === '1'
 
-    // Legge la collezione con campi estesi per segnali profondi
+    // Legge tutta la collezione con updated_at per il peso temporale
     const { data: entries } = await supabase
       .from('user_media_entries')
       .select('type, rating, genres, current_episode, is_steam, title, external_id, appid, updated_at, tags, keywords, themes, player_perspectives')
@@ -836,7 +835,7 @@ export async function GET(request: NextRequest) {
 
     const allEntries = entries || []
 
-    // ── Cache check ───────────────────────────────────────────────────────
+    // Cache check: invalida sempre se la collezione è cambiata di recente
     if (!forceRefresh) {
       const { data: cached } = await supabase
         .from('recommendations_cache')
@@ -861,9 +860,7 @@ export async function GET(request: NextRequest) {
 
             if (allCached && allCached.length > 0) {
               const recommendations: Record<string, any[]> = {}
-              for (const c of allCached) {
-                recommendations[c.media_type] = c.data
-              }
+              for (const c of allCached) recommendations[c.media_type] = c.data
               return NextResponse.json({ recommendations, cached: true })
             }
           } else {
@@ -873,20 +870,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // ── Preferenze utente ────────────────────────────────────────────────
     const { data: preferences } = await supabase
-      .from('user_preferences')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
+      .from('user_preferences').select('*').eq('user_id', user.id).single()
 
-    // ── Wishlist da escludere ────────────────────────────────────────────
     const { data: wishlist } = await supabase
-      .from('wishlist')
-      .select('external_id')
-      .eq('user_id', user.id)
+      .from('wishlist').select('external_id').eq('user_id', user.id)
 
-    // ── Taste profile dalla collezione filtrata ───────────────────────────
+    // Calcola taste profile con pesi temporali
     const tasteProfile = computeTasteProfile(allEntries, preferences)
 
     const ownedIds = new Set<string>([
@@ -923,7 +913,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // ── Salva in cache ────────────────────────────────────────────────────
     const now = new Date().toISOString()
     const expiresAt = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString()
 
@@ -946,7 +935,7 @@ export async function GET(request: NextRequest) {
         globalGenres: tasteProfile.globalGenres,
         topGenres: tasteProfile.topGenres,
         collectionSize: tasteProfile.collectionSize,
-        // deepSignals NON esposto al frontend — solo uso interno
+        recentWindow: tasteProfile.recentWindow, // esposto al frontend per debug/info
       },
       cached: false,
     })
