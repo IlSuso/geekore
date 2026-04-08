@@ -391,8 +391,6 @@ export default function ForYouPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
 
-    // Usa sempre forceRefresh=true al primo carico e quando esplicitamente richiesto
-    // Questo garantisce che la collezione esistente (inclusi giochi Steam) venga letta
     const url = `/api/recommendations?type=all${forceRefresh ? '&refresh=1' : ''}`
     const res = await fetch(url)
     if (!res.ok) return
@@ -401,7 +399,7 @@ export default function ForYouPage() {
     setRecommendations(json.recommendations || {})
     setTasteProfile(json.tasteProfile || null)
     setIsCached(!!json.cached)
-  }, [])
+  }, [router])
 
   useEffect(() => {
     const init = async () => {
@@ -418,44 +416,55 @@ export default function ForYouPage() {
       setWishlistIds(new Set((wish || []).map(w => w.external_id).filter(Boolean)))
       setTotalEntries(entries?.length || 0)
 
-      // Al primo carico forziamo sempre il refresh per leggere tutta la collezione esistente
-      // inclusi giochi Steam già presenti e media aggiunti prima di questa sessione
+      // Al primo carico forziamo sempre il refresh
       await fetchRecommendations(true)
       setLoading(false)
     }
     init()
-  }, [])
+  }, [fetchRecommendations, router])
 
   // ── Realtime: ascolta nuove voci nella collezione ─────────────────────────
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    const setupRealtime = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
       channel = supabase
         .channel('for-you-collection-watch')
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'user_media_entries',
-          filter: `user_id=eq.${user.id}`,
-        }, async () => {
-          const [{ data: entries }, { data: wish }] = await Promise.all([
-            supabase.from('user_media_entries').select('external_id').eq('user_id', user.id),
-            supabase.from('wishlist').select('external_id').eq('user_id', user.id),
-          ])
-          setAddedIds(new Set((entries || []).map((e: any) => e.external_id).filter(Boolean)))
-          setWishlistIds(new Set((wish || []).map((w: any) => w.external_id).filter(Boolean)))
-          setTotalEntries(entries?.length || 0)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'user_media_entries',
+            filter: `user_id=eq.${user.id}`,
+          },
+          async () => {
+            const [{ data: entries }, { data: wish }] = await Promise.all([
+              supabase.from('user_media_entries').select('external_id').eq('user_id', user.id),
+              supabase.from('wishlist').select('external_id').eq('user_id', user.id),
+            ])
 
-          // Rigenera con la collezione aggiornata
-          await fetchRecommendations(true)
-        })
+            setAddedIds(new Set((entries || []).map((e: any) => e.external_id).filter(Boolean)))
+            setWishlistIds(new Set((wish || []).map((w: any) => w.external_id).filter(Boolean)))
+            setTotalEntries(entries?.length || 0)
+
+            // Rigenera le raccomandazioni con i dati aggiornati
+            await fetchRecommendations(true)
+          }
+        )
         .subscribe()
-    })
+    }
 
-    return () => { if (channel) supabase.removeChannel(channel) }
+    setupRealtime()
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel)
+      }
+    }
   }, [fetchRecommendations])
 
   const handleRefresh = async () => {
