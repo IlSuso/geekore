@@ -140,6 +140,7 @@ export async function POST(request: NextRequest) {
         .from('user_media_entries')
         .update({ genres, updated_at: new Date().toISOString() })
         .eq('id', game.id)
+        .then()
     )
   }
 
