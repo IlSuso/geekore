@@ -1,3 +1,5 @@
+// DESTINAZIONE: src/app/register/page.tsx
+
 'use client'
 
 import { useState } from 'react'
@@ -40,8 +42,13 @@ export default function RegisterPage() {
     setError(null)
     try {
       const { error } = await supabase.auth.signUp({
-        email, password,
-        options: { data: { display_name: displayName || email.split('@')[0] } },
+        email, 
+        password,
+        options: { 
+          data: { display_name: displayName || email.split('@')[0] },
+          // Aggiornamento per nuovo dominio geekore.it
+          emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://geekore.it'}/auth/confirm`
+        },
       })
       if (error) { setError(error.message); return }
       setSuccess(true)

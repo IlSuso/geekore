@@ -26,6 +26,7 @@ function ConfirmContent() {
         return
       }
 
+      // Verifica OTP
       const { error } = await supabase.auth.verifyOtp({
         token_hash,
         type: type as any,
@@ -39,7 +40,9 @@ function ConfirmContent() {
 
       setStatus('success')
 
+      // Recupera utente e profilo
       const { data: { user } } = await supabase.auth.getUser()
+      
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
@@ -47,14 +50,24 @@ function ConfirmContent() {
           .eq('id', user.id)
           .single()
 
+        // Redirect dopo conferma
+        const redirectPath = profile?.username 
+          ? `/profile/${profile.username}` 
+          : '/profile/me'
+
         setTimeout(() => {
-          router.push(profile?.username ? `/profile/${profile.username}` : '/profile/me')
-        }, 2000)
+          router.push(redirectPath)
+        }, 1800)
+      } else {
+        // Fallback se non riesce a prendere l'utente
+        setTimeout(() => {
+          router.push('/feed')
+        }, 1800)
       }
     }
 
     confirm()
-  }, [])
+  }, [searchParams, router, supabase])
 
   return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white px-6">
