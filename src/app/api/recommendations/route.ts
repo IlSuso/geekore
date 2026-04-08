@@ -33,7 +33,7 @@ const TMDB_GENRE_MAP: Record<string, number> = {
   'Azione': 28, 'Avventura': 12, 'Animazione': 16, 'Commedia': 35, 'Crimine': 80,
   'Documentario': 99, 'Dramma': 18, 'Fantasia': 14, 'Storia': 36, 'Orrore': 27,
   'Musica': 10402, 'Mistero': 9648, 'Romantico': 10749, 'Fantascienza': 878,
-  'Thriller': 53, 'Guerra': 10752,
+  'Guerra': 10752,
 }
 
 // TMDb TV-specific genre IDs
