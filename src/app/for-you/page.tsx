@@ -403,15 +403,14 @@ export default function ForYouPage() {
       if (!user) { router.push('/login'); return }
 
       // Carica collezione e wishlist per sapere cosa è già aggiunto
-      const [{ data: entries }, { data: wish }, { data: countData }] = await Promise.all([
+      const [{ data: entries }, { data: wish }] = await Promise.all([
         supabase.from('user_media_entries').select('external_id').eq('user_id', user.id),
         supabase.from('wishlist').select('external_id').eq('user_id', user.id),
-        supabase.from('user_media_entries').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
       ])
 
       setAddedIds(new Set((entries || []).map(e => e.external_id).filter(Boolean)))
       setWishlistIds(new Set((wish || []).map(w => w.external_id).filter(Boolean)))
-      setTotalEntries(countData?.length || 0)
+      setTotalEntries(entries?.length || 0)
 
       await fetchRecommendations()
       setLoading(false)
@@ -464,8 +463,7 @@ export default function ForYouPage() {
     }
   }
 
-  // Conta titoli con rating per l'empty state
-  const hasEnoughData = totalEntries >= 5
+  const hasEnoughData = totalEntries >= 1
 
   const SECTIONS: Array<{ key: MediaType; label: string }> = [
     { key: 'game', label: fy.sections.game },
