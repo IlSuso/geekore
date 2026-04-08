@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Camera, Upload, Loader2 } from 'lucide-react'
+import { useLocale } from '@/lib/locale'
 
 // ── Costanti di validazione (allineate ai CHECK del DB) ──────────────────────
 const USERNAME_MAX = 30
@@ -14,21 +15,23 @@ const USERNAME_MIN = 3
 const BIO_MAX = 500
 const USERNAME_REGEX = /^[a-z0-9_]+$/
 
-function validateUsername(value: string): string | null {
-  if (value.length < USERNAME_MIN) return `Username troppo corto (minimo ${USERNAME_MIN} caratteri)`
-  if (value.length > USERNAME_MAX) return `Username troppo lungo (massimo ${USERNAME_MAX} caratteri)`
-  if (!USERNAME_REGEX.test(value)) return 'Solo lettere minuscole, numeri e underscore'
-  return null
-}
-
-function validateBio(value: string): string | null {
-  if (value.length > BIO_MAX) return `Bio troppo lunga (massimo ${BIO_MAX} caratteri)`
-  return null
-}
-
 export default function EditProfilePage() {
   const supabase = createClient()
   const router = useRouter()
+  const { t } = useLocale()
+  const pe = t.profileEdit
+
+  const validateUsername = (value: string): string | null => {
+    if (value.length < USERNAME_MIN) return pe.usernameTooShort(USERNAME_MIN)
+    if (value.length > USERNAME_MAX) return pe.usernameTooLong(USERNAME_MAX)
+    if (!USERNAME_REGEX.test(value)) return pe.usernameInvalid
+    return null
+  }
+
+  const validateBio = (value: string): string | null => {
+    if (value.length > BIO_MAX) return pe.bioTooLong(BIO_MAX)
+    return null
+  }
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -83,7 +86,7 @@ export default function EditProfilePage() {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 5 * 1024 * 1024) {
-      setMessage('Immagine troppo grande (massimo 5MB)')
+      setMessage(pe.imageTooLarge)
       setMessageType('error')
       return
     }
@@ -137,14 +140,14 @@ export default function EditProfilePage() {
 
       if (error) throw error
 
-      setMessage('Profilo aggiornato con successo!')
+      setMessage(pe.saved)
       setMessageType('success')
       setTimeout(() => router.push(`/profile/${formData.username}`), 1000)
 
     } catch (err: any) {
       setMessage(err.message?.includes('profiles_username')
-        ? 'Username già in uso, scegline un altro'
-        : 'Errore nel salvataggio. Riprova.')
+        ? pe.usernameTaken
+        : pe.saveError)
       setMessageType('error')
     } finally {
       setSaving(false)
@@ -163,12 +166,12 @@ export default function EditProfilePage() {
     <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-6">
       <div className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-bold">Modifica Profilo</h1>
+          <h1 className="text-2xl font-bold">{pe.title}</h1>
           <Link
             href={`/profile/${profile?.username || 'me'}`}
             className="text-zinc-400 hover:text-white text-sm transition"
           >
-            Torna al profilo
+            {pe.backToProfile}
           </Link>
         </div>
 
@@ -194,7 +197,7 @@ export default function EditProfilePage() {
               onClick={() => fileRef.current?.click()}
               className="text-sm text-violet-400 hover:text-violet-300 transition"
             >
-              Cambia foto
+              {pe.changePhoto}
             </button>
             {avatarPreview && (
               <button
@@ -202,7 +205,7 @@ export default function EditProfilePage() {
                 onClick={removeAvatar}
                 className="text-sm text-red-400 hover:text-red-300 transition"
               >
-                Rimuovi
+                {pe.removePhoto}
               </button>
             )}
           </div>
@@ -210,9 +213,9 @@ export default function EditProfilePage() {
 
         <form onSubmit={handleSave} className="space-y-5">
 
-          {/* Nome visualizzato */}
+          {/* Display name */}
           <div>
-            <label className="block text-sm text-zinc-400 mb-2">Nome visualizzato</label>
+            <label className="block text-sm text-zinc-400 mb-2">{pe.displayName}</label>
             <input
               type="text"
               value={formData.display_name}
@@ -225,7 +228,7 @@ export default function EditProfilePage() {
           {/* Username */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm text-zinc-400">Username</label>
+              <label className="block text-sm text-zinc-400">{pe.username}</label>
               <span className={`text-xs ${formData.username.length > USERNAME_MAX - 5 ? 'text-amber-400' : 'text-zinc-600'}`}>
                 {formData.username.length}/{USERNAME_MAX}
               </span>
@@ -243,14 +246,14 @@ export default function EditProfilePage() {
             {fieldErrors.username ? (
               <p className="text-xs text-red-400 mt-1">{fieldErrors.username}</p>
             ) : (
-              <p className="text-xs text-zinc-600 mt-1">Solo lettere minuscole, numeri e underscore</p>
+              <p className="text-xs text-zinc-600 mt-1">{pe.usernameHint}</p>
             )}
           </div>
 
           {/* Bio */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm text-zinc-400">Bio</label>
+              <label className="block text-sm text-zinc-400">{pe.bio}</label>
               <span className={`text-xs ${formData.bio.length > BIO_MAX - 50 ? 'text-amber-400' : 'text-zinc-600'}`}>
                 {formData.bio.length}/{BIO_MAX}
               </span>
@@ -260,7 +263,7 @@ export default function EditProfilePage() {
               onChange={(e) => handleBioChange(e.target.value)}
               rows={3}
               maxLength={BIO_MAX}
-              placeholder="Di cosa sei fan?"
+              placeholder={pe.bioPlaceholder}
               className={`w-full bg-zinc-800 border rounded-2xl px-5 py-3 focus:outline-none transition resize-none ${
                 fieldErrors.bio ? 'border-red-500 focus:border-red-500' : 'border-zinc-700 focus:border-violet-500'
               }`}
@@ -287,8 +290,8 @@ export default function EditProfilePage() {
             className="w-full py-4 bg-violet-600 hover:bg-violet-500 rounded-2xl font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {saving
-              ? <><Loader2 size={18} className="animate-spin" /> Salvataggio...</>
-              : 'Salva modifiche'
+              ? <><Loader2 size={18} className="animate-spin" /> {pe.saving}</>
+              : pe.save
             }
           </button>
         </form>

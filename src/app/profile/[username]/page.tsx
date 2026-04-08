@@ -21,6 +21,7 @@ import {
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import Link from 'next/link'
+import { useLocale } from '@/lib/locale'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -81,15 +82,6 @@ const TYPE_COLORS: Record<string, string> = {
   boardgame: 'bg-yellow-500',
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  anime: 'Anime',
-  manga: 'Manga',
-  game: 'Game',
-  tv: 'Serie',
-  movie: 'Film',
-  boardgame: 'Board',
-}
-
 function MediaCard({
   media, isOwner, deletingId,
   onDelete, onDeleteRequest, onDeleteCancel, onRating, onNotes, onSaveProgress, onMarkComplete, onReset,
@@ -106,6 +98,9 @@ function MediaCard({
   onMarkComplete?: (id: string, media: UserMedia) => void
   onReset?: (id: string) => void
 }) {
+  const { t } = useLocale()
+  const m = t.media
+
   const imageUrl = media.cover_image ||
     (media.appid ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${media.appid}/header.jpg` : undefined)
 
@@ -150,8 +145,8 @@ function MediaCard({
         {/* Delete confirm overlay */}
         {isOwner && isConfirmingDelete && (
           <div className="absolute top-3 right-3 z-30 flex gap-1.5">
-            <button onClick={() => onDeleteCancel?.()} className="px-3 py-1.5 text-xs font-medium bg-zinc-900/95 border border-zinc-600 rounded-full hover:bg-zinc-800 transition">Annulla</button>
-            <button onClick={() => onDelete?.(media.id)} className="px-3 py-1.5 text-xs font-medium bg-red-900/95 border border-red-700 text-red-300 rounded-full hover:bg-red-800 transition">Elimina</button>
+            <button onClick={() => onDeleteCancel?.()} className="px-3 py-1.5 text-xs font-medium bg-zinc-900/95 border border-zinc-600 rounded-full hover:bg-zinc-800 transition">{m.cancel}</button>
+            <button onClick={() => onDelete?.(media.id)} className="px-3 py-1.5 text-xs font-medium bg-red-900/95 border border-red-700 text-red-300 rounded-full hover:bg-red-800 transition">{m.delete}</button>
           </div>
         )}
 
@@ -169,7 +164,7 @@ function MediaCard({
         {/* Gradient + type badge bottom-left */}
         <div className="absolute bottom-0 inset-x-0 h-14 bg-gradient-to-t from-black/70 to-transparent z-10 pointer-events-none" />
         <div className={`absolute bottom-3 left-3 z-20 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white tracking-wide ${TYPE_COLORS[media.type] || 'bg-zinc-700'}`}>
-          {TYPE_LABELS[media.type] || media.type}
+          {(m.typeLabels as Record<string, string>)[media.type] || media.type}
         </div>
 
         {/* Image */}
@@ -224,7 +219,7 @@ function MediaCard({
 
         {isCompleted && (
           <div className="text-emerald-400 text-xs font-medium flex items-center gap-1">
-            <CheckCircle size={12} /> Completato
+            <CheckCircle size={12} /> {m.completed}
           </div>
         )}
 
@@ -233,7 +228,7 @@ function MediaCard({
         {media.type === 'boardgame' ? (
           <div className="flex items-center justify-between">
             <p className="text-emerald-400 text-sm flex items-center gap-1.5">
-              <Clock size={14} /> {media.current_episode === 0 ? 'Non ancora giocato' : `${media.current_episode} ${media.current_episode === 1 ? 'partita' : 'partite'}`}
+              <Clock size={14} /> {m.gamesPlayed(media.current_episode)}
             </p>
             {isOwner && (
               <div className="flex gap-1">
@@ -251,7 +246,7 @@ function MediaCard({
           </div>
         ) : media.type === 'game' ? (
           <p className="text-emerald-400 text-sm flex items-center justify-center gap-1.5">
-            <Clock size={14} /> {media.current_episode} ore
+            <Clock size={14} /> {m.hoursPlayed(media.current_episode)}
           </p>
         ) : hasEpisodeData ? (
           isCompleted ? (
@@ -274,7 +269,7 @@ function MediaCard({
                     >−</button>
                   )}
                   <div className="flex-1 text-emerald-400 text-sm flex items-center justify-center">
-                    Stagione {currentSeasonNum}
+                    {m.season(currentSeasonNum)}
                   </div>
                   {isOwner && (
                     <button
@@ -295,7 +290,7 @@ function MediaCard({
                   >−</button>
                 )}
                 <div className="flex-1 text-emerald-400 text-sm flex items-center justify-center gap-1.5">
-                  <span>Ep. {media.current_episode}</span>
+                  <span>{m.ep(media.current_episode)}</span>
                   <span className="text-zinc-500">/ {maxEpisodesThisSeason}</span>
                 </div>
                 {isOwner && (
@@ -315,7 +310,7 @@ function MediaCard({
                 <div className="h-full bg-emerald-500 transition-all duration-300 rounded-full" style={{ width: `${totalProgress}%` }} />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-zinc-500">{totalProgress}% completato</span>
+                <span className="text-xs text-zinc-500">{m.progress(totalProgress)}</span>
                 {isOwner && (
                   <button onClick={() => onMarkComplete?.(media.id, media)} className="p-1.5 text-emerald-400 hover:text-emerald-300 transition-colors">
                     <CheckCircle size={20} />
@@ -352,6 +347,7 @@ function Avatar({ profile }: { profile: Profile }) {
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>()
   const supabase = createClient()
+  const { t } = useLocale()
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [isOwner, setIsOwner] = useState(false)
@@ -408,7 +404,7 @@ export default function ProfilePage() {
       }
 
       if (!data.success || !data.games?.length) {
-        setSteamMessage({ text: 'Nessun gioco trovato o profilo Steam privato.', type: 'error' })
+        setSteamMessage({ text: t.toasts.steamNoGames, type: 'error' })
         return
       }
       const steamMedia = data.games.map((game: any) => ({
@@ -426,7 +422,7 @@ export default function ProfilePage() {
       await supabase.from('user_media_entries').upsert(steamMedia, { onConflict: 'user_id,appid' })
       await refreshMedia(currentUserId)
       const cpMsg = data.core_power != null ? ` Core Power: ${data.core_power}.` : ''
-      setSteamMessage({ text: `${data.games.length} giochi importati con successo!${cpMsg}`, type: 'success' })
+      setSteamMessage({ text: `${t.toasts.steamImported(data.games.length)}${cpMsg}`, type: 'success' })
     } finally {
       setImportingGames(false)
     }
@@ -452,7 +448,7 @@ export default function ProfilePage() {
     await supabase.from('user_media_entries').delete().eq('id', id)
     setMediaList(prev => prev.filter(item => item.id !== id))
     setDeletingId(null)
-    showToast('Eliminato dalla collezione')
+    showToast(t.toasts.deleted)
   }
 
   const markAsCompleted = async (id: string, media: UserMedia) => {
@@ -469,7 +465,7 @@ export default function ProfilePage() {
     }
     await supabase.from('user_media_entries').update(update).eq('id', id)
     setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
-    showToast('Completato!')
+    showToast(t.toasts.completed)
   }
 
   const resetProgress = async (id: string) => {
@@ -477,7 +473,7 @@ export default function ProfilePage() {
     const update = { current_season: 1, current_episode: 1 }
     await supabase.from('user_media_entries').update(update).eq('id', id)
     setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
-    showToast('Progresso ripristinato')
+    showToast(t.toasts.progressReset)
   }
 
   const saveProgress = async (id: string, val: number, field: 'current_episode' | 'current_season' = 'current_episode') => {
@@ -485,14 +481,14 @@ export default function ProfilePage() {
     const update = field === 'current_season' ? { current_season: val, current_episode: 1 } : { current_episode: val }
     await supabase.from('user_media_entries').update(update).eq('id', id)
     setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
-    showToast('Progresso salvato')
+    showToast(t.toasts.progressSaved)
   }
 
   const setRating = async (mediaId: string, rating: number) => {
     if (!isOwner) return
     await supabase.from('user_media_entries').update({ rating }).eq('id', mediaId)
     setMediaList(prev => prev.map(item => item.id === mediaId ? { ...item, rating } : item))
-    showToast('Voto salvato')
+    showToast(t.toasts.ratingSaved)
   }
 
   const openNotesModal = (media: UserMedia) => {
@@ -508,7 +504,7 @@ export default function ProfilePage() {
     setMediaList(prev => prev.map(item => item.id === selectedMedia.id ? { ...item, notes: notesInput.trim() } : item))
     setIsNotesModalOpen(false)
     setSelectedMedia(null)
-    showToast('Note aggiornate')
+    showToast(t.toasts.notesSaved)
   }
 
   const onDragEnd = async (event: DragEndEvent) => {
@@ -589,23 +585,24 @@ export default function ProfilePage() {
   if (loading) return <Spinner />
 
   if (!profile) {
-    return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white">Utente non trovato</div>
+    return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white">{t.profile.notFound}</div>
   }
 
+  const cats = t.profile.categories
   const grouped = mediaList.reduce((acc: Record<string, UserMedia[]>, item) => {
     const cat =
-      item.type === 'game' ? 'Videogiochi'
-      : item.type === 'manga' ? 'Manga'
-      : item.type === 'anime' || item.type === 'tv' ? 'Serie & Anime'
-      : item.type === 'movie' ? 'Film'
-      : item.type === 'boardgame' ? 'Board Game'
-      : 'Altro'
+      item.type === 'game' ? cats.games
+      : item.type === 'manga' ? cats.manga
+      : item.type === 'anime' || item.type === 'tv' ? cats.anime
+      : item.type === 'movie' ? cats.movies
+      : item.type === 'boardgame' ? cats.boardgames
+      : cats.other
     if (!acc[cat]) acc[cat] = []
     acc[cat].push(item)
     return acc
   }, {})
 
-  const categoryOrder = ['Videogiochi', 'Serie & Anime', 'Manga', 'Film', 'Board Game', 'Altro']
+  const categoryOrder = [cats.games, cats.anime, cats.manga, cats.movies, cats.boardgames, cats.other]
   const orderedCategories = categoryOrder.filter(cat => grouped[cat]?.length > 0)
 
   return (
@@ -626,19 +623,19 @@ export default function ProfilePage() {
             <div className="flex items-center gap-6 mt-5">
               <div className="text-center">
                 <p className="text-xl font-bold">{followersCount}</p>
-                <p className="text-xs text-zinc-500 uppercase tracking-widest">Follower</p>
+                <p className="text-xs text-zinc-500 uppercase tracking-widest">{t.profile.follower}</p>
               </div>
               <div className="w-px h-8 bg-zinc-800" />
               <div className="text-center">
                 <p className="text-xl font-bold">{followingCount}</p>
-                <p className="text-xs text-zinc-500 uppercase tracking-widest">Following</p>
+                <p className="text-xs text-zinc-500 uppercase tracking-widest">{t.profile.following}</p>
               </div>
             </div>
 
             {isOwner && (
               <Link href="/profile/edit" className="mt-6">
                 <button className="px-8 py-3 bg-white text-black font-semibold rounded-full hover:bg-zinc-200 transition-all">
-                  Modifica Profilo
+                  {t.profile.editProfile}
                 </button>
               </Link>
             )}
@@ -663,7 +660,7 @@ export default function ProfilePage() {
               onClick={async () => { await supabase.auth.signOut(); window.location.href = '/login' }}
               className="px-6 py-2.5 text-sm font-medium border border-zinc-700 hover:border-zinc-500 rounded-full transition-colors"
             >
-              Logout
+              {t.profile.logout}
             </button>
           )}
         </div>
@@ -674,12 +671,12 @@ export default function ProfilePage() {
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-4">
                 <SteamIcon size={32} className="text-[#66C0F4]" />
-                <h2 className="text-2xl font-semibold">Account Steam</h2>
+                <h2 className="text-2xl font-semibold">{t.steam.accountTitle}</h2>
               </div>
               {steamAccount ? (
-                <div className="text-green-400 flex items-center gap-2"><CheckCircle size={20} /> Collegato</div>
+                <div className="text-green-400 flex items-center gap-2"><CheckCircle size={20} /> {t.steam.connected}</div>
               ) : (
-                <div className="text-amber-400 text-sm">Non collegato</div>
+                <div className="text-amber-400 text-sm">{t.steam.notConnected}</div>
               )}
             </div>
 
@@ -692,7 +689,7 @@ export default function ProfilePage() {
                     className="flex-1 flex items-center justify-center gap-3 bg-[#1B2838] hover:bg-[#2a475e] border border-[#66C0F4] py-4 rounded-2xl font-medium transition disabled:opacity-50"
                   >
                     <RefreshCw size={20} className={importingGames ? 'animate-spin' : ''} />
-                    {importingGames ? 'Aggiornamento...' : 'Aggiorna giochi da Steam'}
+                    {importingGames ? t.steam.updating : t.steam.updateBtn}
                   </button>
                   <button
                     onClick={reorderGamesByHours}
@@ -700,7 +697,7 @@ export default function ProfilePage() {
                     className="flex-1 flex items-center justify-center gap-3 bg-zinc-900 hover:bg-zinc-800 border border-violet-500/50 hover:border-violet-500 py-4 rounded-2xl font-medium transition disabled:opacity-50"
                   >
                     <RotateCw size={20} className={reorderingGames ? 'animate-spin' : ''} />
-                    {reorderingGames ? 'Riordinamento...' : 'Riordina per ore'}
+                    {reorderingGames ? t.steam.reordering : t.steam.reorderBtn}
                   </button>
                 </>
               ) : (
@@ -709,7 +706,7 @@ export default function ProfilePage() {
                   className="flex-1 flex items-center justify-center gap-3 bg-[#1B2838] hover:bg-[#2a475e] border border-[#66C0F4] py-4 rounded-2xl font-medium transition"
                 >
                   <SteamIcon size={20} />
-                  Collega Account Steam
+                  {t.steam.connectBtn}
                 </a>
               )}
             </div>
@@ -727,7 +724,7 @@ export default function ProfilePage() {
         )}
 
         <h2 className="text-4xl font-bold tracking-tight mb-8">
-          {isOwner ? 'I miei progressi' : `Progressi di @${profile.username}`}
+          {isOwner ? t.profile.myProgress : t.profile.progressOf(profile.username)}
         </h2>
 
         {/* Statistiche profilo */}
@@ -738,11 +735,11 @@ export default function ProfilePage() {
           const rated = mediaList.filter(m => m.rating && m.rating > 0)
           const avgRating = rated.length > 0 ? (rated.reduce((s, m) => s + (m.rating || 0), 0) / rated.length).toFixed(1) : null
           const stats = [
-            { label: 'Anime', value: totalAnime },
-            { label: 'Giochi', value: totalGames },
-            { label: 'Ore Steam', value: steamHours },
-            { label: 'Voto medio', value: avgRating ? `★ ${avgRating}` : '—' },
-            { label: 'Nella collezione', value: mediaList.length },
+            { label: t.profile.statsAnime, value: totalAnime },
+            { label: t.profile.statsGames, value: totalGames },
+            { label: t.profile.statsSteamHours, value: steamHours },
+            { label: t.profile.statsAvgRating, value: avgRating ? `★ ${avgRating}` : '—' },
+            { label: t.profile.statsCollection, value: mediaList.length },
           ]
           return (
             <div className="flex flex-wrap gap-4 mb-10">
@@ -758,14 +755,14 @@ export default function ProfilePage() {
 
         {mediaList.length === 0 ? (
           <div className="text-center py-20 text-zinc-500">
-            {isOwner ? 'Non hai ancora nulla nella tua collezione.' : 'Questo utente non ha ancora nulla nella collezione.'}
+            {isOwner ? t.profile.emptyOwner : t.profile.emptyOther}
           </div>
         ) : (
           orderedCategories.map((category) => (
             <div key={category} className="mb-16">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-2xl font-semibold">{category}</h3>
-                <p className="text-zinc-500">{grouped[category].length} elementi</p>
+                <p className="text-zinc-500">{t.profile.elements(grouped[category].length)}</p>
               </div>
 
               {isOwner ? (
@@ -811,7 +808,7 @@ export default function ProfilePage() {
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60]">
           <div className="bg-zinc-900 rounded-3xl w-full max-w-lg mx-4 overflow-hidden">
             <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
-              <h3 className="text-xl font-semibold">Note su {selectedMedia.title}</h3>
+              <h3 className="text-xl font-semibold">{t.profile.notesTitle(selectedMedia.title)}</h3>
               <button onClick={() => setIsNotesModalOpen(false)} className="text-zinc-400 hover:text-white">
                 <X size={24} />
               </button>
@@ -820,16 +817,16 @@ export default function ProfilePage() {
               <textarea
                 value={notesInput}
                 onChange={(e) => setNotesInput(e.target.value)}
-                placeholder="Scrivi qui le tue note personali..."
+                placeholder={t.profile.notesPlaceholder}
                 className="w-full h-40 bg-zinc-800 border border-zinc-700 rounded-2xl p-4 text-white resize-y focus:outline-none focus:border-violet-500"
               />
             </div>
             <div className="p-6 border-t border-zinc-800 flex gap-3">
               <button onClick={() => setIsNotesModalOpen(false)} className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition">
-                Annulla
+                {t.media.cancel}
               </button>
               <button onClick={saveNotes} className="flex-1 py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl transition font-medium">
-                Salva
+                {t.common.save}
               </button>
             </div>
           </div>
