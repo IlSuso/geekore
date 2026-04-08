@@ -127,28 +127,31 @@ export async function POST(request: NextRequest) {
 
   // Aggiorna solo i giochi per cui abbiamo trovato generi
   let enrichedCount = 0
-  const updates: Promise<any>[] = []
 
-  for (const game of withoutGenres) {
-    const genres = genreMap.get(game.title.toLowerCase())
-    if (!genres || genres.length === 0) continue
-
-    enrichedCount++
-
-    // Correzione del type error: .throwOnError() rende esplicitamente una Promise
-    updates.push(
-      supabaseService
-        .from('user_media_entries')
-        .update({ genres, updated_at: new Date().toISOString() })
-        .eq('id', game.id)
-        .throwOnError()
-    )
-  }
-
-  // Esegui in batch di 10 per non saturare il DB
+  // Correzione: eseguiamo le update in batch di 10 con await diretto
   const BATCH = 10
-  for (let i = 0; i < updates.length; i += BATCH) {
-    await Promise.allSettled(updates.slice(i, i + BATCH))
+  for (let i = 0; i < withoutGenres.length; i += BATCH) {
+    const batch = withoutGenres.slice(i, i + BATCH)
+    const promises: Promise<any>[] = []
+
+    for (const game of batch) {
+      const genres = genreMap.get(game.title.toLowerCase())
+      if (!genres || genres.length === 0) continue
+
+      enrichedCount++
+
+      promises.push(
+        supabaseService
+          .from('user_media_entries')
+          .update({ genres, updated_at: new Date().toISOString() })
+          .eq('id', game.id)
+          .throwOnError()
+      )
+    }
+
+    if (promises.length > 0) {
+      await Promise.allSettled(promises)
+    }
   }
 
   return NextResponse.json({
@@ -158,7 +161,7 @@ export async function POST(request: NextRequest) {
   })
 }
 
-// GET — stesso comportamento, utile per chiamata dal browser
+// GET — stesso comportamento
 export async function GET(request: NextRequest) {
   return POST(request)
 }
