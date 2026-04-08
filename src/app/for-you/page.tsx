@@ -28,6 +28,7 @@ interface Recommendation {
 }
 
 interface TasteProfile {
+  globalGenres: Array<{ genre: string; score: number }>
   topGenres: Record<MediaType, Array<{ genre: string; score: number }>>
   collectionSize: Record<string, number>
 }
@@ -214,25 +215,41 @@ function TasteWidget({ tasteProfile, totalEntries }: { tasteProfile: TasteProfil
       </button>
 
       {open && (
-        <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {topTypes.map(type => {
-            const genres = tasteProfile.topGenres[type as MediaType]?.slice(0, 3) || []
-            if (genres.length === 0) return null
-            return (
-              <div key={type}>
-                <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">
-                  {typeLabels[type] || type}
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {genres.map(({ genre }) => (
-                    <span key={genre} className="text-[10px] bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">
-                      {genre}
-                    </span>
-                  ))}
-                </div>
+        <div className="mt-5 space-y-4">
+          {/* Gusti globali cross-media */}
+          {tasteProfile.globalGenres.length > 0 && (
+            <div>
+              <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">I tuoi generi (tutti i media)</p>
+              <div className="flex flex-wrap gap-1.5">
+                {tasteProfile.globalGenres.slice(0, 6).map(({ genre }) => (
+                  <span key={genre} className="text-[10px] bg-fuchsia-500/20 text-fuchsia-300 px-2 py-0.5 rounded-full font-medium">
+                    {genre}
+                  </span>
+                ))}
               </div>
-            )
-          })}
+            </div>
+          )}
+          {/* Dettaglio per tipo */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {topTypes.map(type => {
+              const genres = tasteProfile.topGenres[type as MediaType]?.slice(0, 3) || []
+              if (genres.length === 0) return null
+              return (
+                <div key={type}>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">
+                    {typeLabels[type] || type}
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {genres.map(({ genre }) => (
+                      <span key={genre} className="text-[10px] bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">
+                        {genre}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>

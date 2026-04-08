@@ -6,7 +6,11 @@ import { createClient } from '@/lib/supabase/server'
 type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game'
 
 interface TasteProfile {
+  // Profilo unificato cross-media: aggrega gusti da TUTTI i tipi
+  globalGenres: Array<{ genre: string; score: number }>
+  // Per tipo (usato nel widget UI)
   topGenres: Record<MediaType, Array<{ genre: string; score: number }>>
+  // Top item da qualsiasi categoria per le spiegazioni cross-media
   topItems: Array<{ title: string; type: string; rating: number; genres: string[] }>
   collectionSize: Record<string, number>
 }
@@ -46,72 +50,84 @@ const TMDB_TV_GENRE_MAP: Record<string, number> = {
 // ── Compute taste profile from user's media entries ──────────────────────────
 
 function computeTasteProfile(entries: any[], preferences: any): TasteProfile {
-  const genreScores: Record<string, Record<string, number>> = {
+  // Score globale cross-media: aggrega generi da TUTTI i tipi
+  const globalScores: Record<string, number> = {}
+  // Score per-tipo (per il widget UI)
+  const perTypeScores: Record<string, Record<string, number>> = {
     anime: {}, manga: {}, movie: {}, tv: {}, game: {},
   }
 
   for (const entry of entries) {
-    const type = entry.type as MediaType
-    if (!genreScores[type]) continue
-
     const genres: string[] = entry.genres || []
     if (genres.length === 0) continue
 
-    // Peso base: rating (se assente usa 3 come neutro)
     const ratingWeight = entry.rating ? entry.rating * 2 : 3
 
-    // Peso per engagement: ore giocate (Steam) o episodi visti
     let engagementWeight = 0
     if (entry.is_steam && entry.current_episode > 0) {
-      engagementWeight = Math.min(entry.current_episode / 10, 5) // max 5 punti
+      engagementWeight = Math.min(entry.current_episode / 10, 5)
     } else if (entry.current_episode > 0) {
-      engagementWeight = Math.min(entry.current_episode / 5, 3) // max 3 punti
+      engagementWeight = Math.min(entry.current_episode / 5, 3)
     }
 
     const totalWeight = ratingWeight + engagementWeight
 
     for (const genre of genres) {
-      if (!genreScores[type][genre]) genreScores[type][genre] = 0
-      genreScores[type][genre] += totalWeight
+      // Accumula nello score globale (cross-media)
+      globalScores[genre] = (globalScores[genre] || 0) + totalWeight
+
+      // E anche nello score per-tipo
+      const type = entry.type
+      if (perTypeScores[type]) {
+        perTypeScores[type][genre] = (perTypeScores[type][genre] || 0) + totalWeight
+      }
     }
   }
 
-  // Applica preferenze esplicite dell'utente (boost x2)
+  // Applica preferenze esplicite: boost globale + per-tipo
   if (preferences) {
-    const boostMap: Record<MediaType, keyof typeof preferences> = {
-      game: 'fav_game_genres', anime: 'fav_anime_genres',
-      movie: 'fav_movie_genres', tv: 'fav_tv_genres', manga: 'fav_manga_genres',
+    const allFavGenres = [
+      ...(preferences.fav_game_genres || []),
+      ...(preferences.fav_anime_genres || []),
+      ...(preferences.fav_movie_genres || []),
+      ...(preferences.fav_tv_genres || []),
+      ...(preferences.fav_manga_genres || []),
+    ]
+    for (const genre of allFavGenres) {
+      if (globalScores[genre]) globalScores[genre] *= 2
+      else globalScores[genre] = 10 // preferenza esplicita anche senza storico
     }
-    for (const [type, prefKey] of Object.entries(boostMap)) {
-      const favGenres: string[] = preferences[prefKey] || []
-      for (const genre of favGenres) {
-        if (!genreScores[type][genre]) genreScores[type][genre] = 0
-        genreScores[type][genre] *= 2 // boost preferenze esplicite
-      }
-    }
-    // Rimuovi generi non graditi
+
+    // Rimuovi generi non graditi da tutto
     const disliked: string[] = preferences.disliked_genres || []
-    for (const type of Object.keys(genreScores)) {
-      for (const genre of disliked) {
-        delete genreScores[type as MediaType][genre]
+    for (const genre of disliked) {
+      delete globalScores[genre]
+      for (const type of Object.keys(perTypeScores)) {
+        delete perTypeScores[type][genre]
       }
     }
   }
 
-  // Converti in array ordinato e prendi top 5
+  // Top generi globali (usati per le query alle API)
+  const globalGenres = Object.entries(globalScores)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 8)
+    .map(([genre, score]) => ({ genre, score }))
+
+  // Top generi per-tipo (usati nel widget UI)
   const topGenres = {} as TasteProfile['topGenres']
-  for (const [type, scores] of Object.entries(genreScores)) {
+  for (const [type, scores] of Object.entries(perTypeScores)) {
     topGenres[type as MediaType] = Object.entries(scores)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 5)
       .map(([genre, score]) => ({ genre, score }))
   }
 
-  // Top items per spiegazioni "Perché hai amato X"
+  // Top items da QUALSIASI categoria (per spiegazioni cross-media)
   const topItems = entries
     .filter(e => e.rating && e.rating >= 4 && (e.genres || []).length > 0)
     .sort((a, b) => (b.rating || 0) - (a.rating || 0))
-    .slice(0, 10)
+    .slice(0, 15)
     .map(e => ({
       title: e.title,
       type: e.type,
@@ -124,26 +140,32 @@ function computeTasteProfile(entries: any[], preferences: any): TasteProfile {
     collectionSize[entry.type] = (collectionSize[entry.type] || 0) + 1
   }
 
-  return { topGenres, topItems, collectionSize }
+  return { globalGenres, topGenres, topItems, collectionSize }
 }
 
-// ── Genera spiegazione personalizzata ────────────────────────────────────────
+// ── Genera spiegazione personalizzata (cross-media) ──────────────────────────
 
-function buildWhy(genres: string[], type: MediaType, tasteProfile: TasteProfile): string {
+const TYPE_LABEL_IT: Record<string, string> = {
+  anime: 'anime', manga: 'manga', movie: 'film', tv: 'serie', game: 'videogioco',
+}
+
+function buildWhy(genres: string[], _type: MediaType, tasteProfile: TasteProfile): string {
+  // Cerca il miglior item da QUALSIASI categoria che condivide generi
   const topItem = tasteProfile.topItems.find(item =>
-    item.type === type && item.genres.some(g => genres.includes(g))
+    item.genres.some(g => genres.includes(g))
   )
-  if (topItem) return `Perché hai amato "${topItem.title}"`
-
-  const matchingGenre = tasteProfile.topGenres[type]?.[0]?.genre
-  if (matchingGenre && genres.includes(matchingGenre)) {
-    return `Basato sui tuoi ${matchingGenre} preferiti`
+  if (topItem) {
+    const label = TYPE_LABEL_IT[topItem.type] || topItem.type
+    return `Perché ami "${topItem.title}" (${label})`
   }
 
-  const typeLabel: Record<MediaType, string> = {
-    anime: 'anime', manga: 'manga', movie: 'film', tv: 'serie', game: 'giochi',
+  // Fallback: primo genere globale in comune
+  const matchingGlobal = tasteProfile.globalGenres.find(g => genres.includes(g.genre))
+  if (matchingGlobal) {
+    return `Basato sui tuoi gusti: ${matchingGlobal.genre}`
   }
-  return `Consigliato per i tuoi gusti in ${typeLabel[type]}`
+
+  return `Consigliato per te`
 }
 
 // ── Fetcher: Anime (AniList) ─────────────────────────────────────────────────
@@ -460,21 +482,15 @@ export async function GET(request: NextRequest) {
       ? ['anime', 'manga', 'movie', 'tv', 'game']
       : [requestedType as MediaType]
 
-    // Fallback: se l'utente ha pochi dati, usa generi popolari
-    const getFallbackGenres = (type: MediaType): string[] => {
-      const fallbacks: Record<MediaType, string[]> = {
-        anime: ['Action', 'Adventure', 'Fantasy'],
-        manga: ['Action', 'Romance', 'Fantasy'],
-        movie: ['Action', 'Drama', 'Thriller'],
-        tv: ['Drama', 'Action & Adventure', 'Comedy'],
-        game: ['RPG', 'Action', 'Adventure'],
-      }
-      return fallbacks[type]
-    }
+    // Generi globali cross-media (base per tutte le query)
+    const globalGenreNames = tasteProfile.globalGenres.map(g => g.genre)
 
-    const getGenresForType = (type: MediaType): string[] => {
-      const top = tasteProfile.topGenres[type]?.map(g => g.genre) || []
-      return top.length >= 2 ? top : [...top, ...getFallbackGenres(type)].slice(0, 5)
+    // Fallback se la collezione è vuota
+    const UNIVERSAL_FALLBACK = ['Action', 'Adventure', 'Fantasy', 'Drama', 'Thriller']
+
+    // Restituisce i generi globali dell'utente, con fallback se vuoti
+    const getGenresForType = (_type: MediaType): string[] => {
+      return globalGenreNames.length >= 2 ? globalGenreNames : UNIVERSAL_FALLBACK
     }
 
     // Fetcha raccomandazioni in parallelo
@@ -514,6 +530,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       recommendations,
       tasteProfile: {
+        globalGenres: tasteProfile.globalGenres,
         topGenres: tasteProfile.topGenres,
         collectionSize: tasteProfile.collectionSize,
       },
