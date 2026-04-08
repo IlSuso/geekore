@@ -135,14 +135,13 @@ export async function POST(request: NextRequest) {
 
     enrichedCount++
 
-    // CORREZIONE QUI: aggiungiamo .throwOnError() oppure semplicemente awaitiamo dopo
-    // ma la versione più pulita e tipata correttamente è:
+    // Correzione del type error: .throwOnError() rende esplicitamente una Promise
     updates.push(
       supabaseService
         .from('user_media_entries')
         .update({ genres, updated_at: new Date().toISOString() })
         .eq('id', game.id)
-        // .throwOnError()  // opzionale, ma utile
+        .throwOnError()
     )
   }
 
@@ -159,7 +158,7 @@ export async function POST(request: NextRequest) {
   })
 }
 
-// GET — stesso comportamento
+// GET — stesso comportamento, utile per chiamata dal browser
 export async function GET(request: NextRequest) {
   return POST(request)
 }
