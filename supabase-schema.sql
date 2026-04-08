@@ -49,6 +49,8 @@ CREATE TABLE IF NOT EXISTS user_media_entries (
     notes TEXT,
     is_steam BOOLEAN DEFAULT false,
     display_order BIGINT DEFAULT 0,
+    genres TEXT[] DEFAULT '{}',          -- generi salvati al momento dell'aggiunta
+    status TEXT DEFAULT 'watching',      -- watching|completed|paused|dropped|planning
 
     updated_at TIMESTAMPTZ DEFAULT now(),
 
@@ -56,6 +58,39 @@ CREATE TABLE IF NOT EXISTS user_media_entries (
     UNIQUE NULLS NOT DISTINCT (user_id, title)
     -- Per Steam usare UNIQUE(user_id, appid) — aggiungere se necessario:
     -- UNIQUE NULLS NOT DISTINCT (user_id, appid)
+);
+
+-- =============================================
+-- USER PREFERENCES (per raccomandazioni personalizzate)
+-- =============================================
+CREATE TABLE IF NOT EXISTS user_preferences (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL UNIQUE REFERENCES profiles(id) ON DELETE CASCADE,
+    -- Generi preferiti per categoria (array di stringhe)
+    fav_game_genres TEXT[] DEFAULT '{}',
+    fav_anime_genres TEXT[] DEFAULT '{}',
+    fav_movie_genres TEXT[] DEFAULT '{}',
+    fav_tv_genres TEXT[] DEFAULT '{}',
+    fav_manga_genres TEXT[] DEFAULT '{}',
+    -- Generi da escludere
+    disliked_genres TEXT[] DEFAULT '{}',
+    -- Piattaforme preferite per giochi
+    preferred_platforms TEXT[] DEFAULT '{}',
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================
+-- RECOMMENDATIONS CACHE (TTL 6h, evita martellare API esterne)
+-- =============================================
+CREATE TABLE IF NOT EXISTS recommendations_cache (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    media_type TEXT NOT NULL,            -- 'game'|'anime'|'movie'|'tv'|'manga'
+    data JSONB NOT NULL,                 -- array di raccomandazioni
+    taste_snapshot JSONB,               -- snapshot del profilo gusti usato
+    generated_at TIMESTAMPTZ DEFAULT now(),
+    expires_at TIMESTAMPTZ DEFAULT (now() + interval '6 hours'),
+    UNIQUE(user_id, media_type)
 );
 
 -- =============================================
@@ -190,6 +225,8 @@ CREATE INDEX IF NOT EXISTS idx_follows_follower ON follows(follower_id);
 CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_receiver ON notifications(receiver_id, is_read);
 CREATE INDEX IF NOT EXISTS idx_steam_import_log_user ON steam_import_log(user_id, imported_at DESC);
+CREATE INDEX IF NOT EXISTS idx_user_media_entries_genres ON user_media_entries USING GIN(genres);
+CREATE INDEX IF NOT EXISTS idx_recommendations_cache_user ON recommendations_cache(user_id, expires_at);
 
 -- =============================================
 -- TRIGGER per updated_at

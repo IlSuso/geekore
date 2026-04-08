@@ -6,8 +6,13 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Camera, Upload, Loader2 } from 'lucide-react'
+import { Camera, Upload, Loader2, Sparkles } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
+
+const ALL_GENRES = [
+  'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery',
+  'Romance', 'Sci-Fi', 'Thriller', 'RPG', 'Strategy', 'Simulation', 'Psychological',
+]
 
 // ── Costanti di validazione (allineate ai CHECK del DB) ──────────────────────
 const USERNAME_MAX = 30
@@ -42,6 +47,8 @@ export default function EditProfilePage() {
   const [fieldErrors, setFieldErrors] = useState<{ username?: string; bio?: string }>({})
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [likedGenres, setLikedGenres] = useState<string[]>([])
+  const [dislikedGenres, setDislikedGenres] = useState<string[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -64,6 +71,23 @@ export default function EditProfilePage() {
         })
         setAvatarPreview(profileData.avatar_url || null)
       }
+
+      const { data: prefsData } = await supabase
+        .from('user_preferences')
+        .select('fav_game_genres, fav_anime_genres, fav_movie_genres, disliked_genres')
+        .eq('user_id', user.id)
+        .single()
+
+      if (prefsData) {
+        const liked = [...new Set([
+          ...(prefsData.fav_game_genres || []),
+          ...(prefsData.fav_anime_genres || []),
+          ...(prefsData.fav_movie_genres || []),
+        ])]
+        setLikedGenres(liked)
+        setDislikedGenres(prefsData.disliked_genres || [])
+      }
+
       setLoading(false)
     }
     load()
@@ -139,6 +163,18 @@ export default function EditProfilePage() {
       }).eq('id', profile.id)
 
       if (error) throw error
+
+      // Salva preferenze generi
+      await supabase.from('user_preferences').upsert({
+        user_id: profile.id,
+        fav_game_genres: likedGenres.filter(g => ['Action', 'Adventure', 'RPG', 'Strategy', 'Simulation', 'Horror', 'Thriller', 'Mystery', 'Psychological'].includes(g)),
+        fav_anime_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller', 'Psychological'].includes(g)),
+        fav_movie_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller'].includes(g)),
+        fav_tv_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller'].includes(g)),
+        fav_manga_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller', 'Psychological'].includes(g)),
+        disliked_genres: dislikedGenres,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' })
 
       setMessage(pe.saved)
       setMessageType('success')
@@ -271,6 +307,61 @@ export default function EditProfilePage() {
             {fieldErrors.bio && (
               <p className="text-xs text-red-400 mt-1">{fieldErrors.bio}</p>
             )}
+          </div>
+
+          {/* Gusti & Preferenze */}
+          <div className="pt-4 border-t border-zinc-800">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles size={16} className="text-violet-400" />
+              <span className="text-sm font-semibold text-white">Gusti & Preferenze</span>
+              <Link href="/for-you" className="ml-auto text-xs text-violet-400 hover:text-violet-300 transition">
+                Personalizza tutto →
+              </Link>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-xs text-zinc-400 mb-2">Generi che ami</p>
+              <div className="flex flex-wrap gap-2">
+                {ALL_GENRES.map(genre => (
+                  <button
+                    key={genre}
+                    type="button"
+                    onClick={() => setLikedGenres(prev =>
+                      prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
+                    )}
+                    className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                      likedGenres.includes(genre)
+                        ? 'bg-violet-500/20 border-violet-500/50 text-violet-300'
+                        : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                    }`}
+                  >
+                    {genre}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs text-zinc-400 mb-2">Generi che non ti piacciono</p>
+              <div className="flex flex-wrap gap-2">
+                {ALL_GENRES.map(genre => (
+                  <button
+                    key={genre}
+                    type="button"
+                    onClick={() => setDislikedGenres(prev =>
+                      prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
+                    )}
+                    className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                      dislikedGenres.includes(genre)
+                        ? 'bg-red-500/20 border-red-500/50 text-red-300'
+                        : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                    }`}
+                  >
+                    {genre}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Messaggio feedback */}

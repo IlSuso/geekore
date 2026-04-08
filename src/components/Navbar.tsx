@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, Search, Bell, User, Zap, LogOut, Newspaper, Settings } from 'lucide-react'
+import { Home, Search, Bell, User, Zap, LogOut, Newspaper, Settings, Sparkles } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useLocale } from '@/lib/locale'
@@ -25,11 +25,12 @@ export default function Navbar() {
   const isAuthPage = AUTH_PATHS.some(p => pathname.startsWith(p))
 
   const NAV_ITEMS = [
-    { href: '/feed',          label: t.nav.home,          icon: Home    },
-    { href: '/discover',      label: t.nav.discover,      icon: Search  },
+    { href: '/feed',          label: t.nav.home,          icon: Home     },
+    { href: '/discover',      label: t.nav.discover,      icon: Search   },
+    { href: '/for-you',       label: t.nav.forYou,        icon: Sparkles },
     { href: '/news',          label: t.nav.news,          icon: Newspaper },
     { href: '/notifications', label: t.nav.notifications, icon: Bell, hasDot: true },
-    { href: '/profile/me',    label: t.nav.profile,       icon: User    },
+    { href: '/profile/me',    label: t.nav.profile,       icon: User     },
   ]
 
   useEffect(() => {

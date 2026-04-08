@@ -302,9 +302,9 @@ export default function DiscoverPage() {
       cover_image: media.coverImage,
       status: isMovie ? 'completed' : 'watching',
       current_episode: isBoardgame ? 0 : 1,
-      progress: 1,
       episodes: media.episodes || null,
       rating: rating || null,
+      genres: media.genres || [],
     });
 
     if (error) {
@@ -356,10 +356,10 @@ export default function DiscoverPage() {
       status: 'watching',
       current_season: selectedMedia.type === 'tv' ? selectedSeason : null,
       current_episode: finalEpisode,
-      progress: finalEpisode,
       episodes: selectedMedia.episodes || null,
       season_episodes: selectedMedia.seasons || null,
       rating: modalRating || null,
+      genres: selectedMedia.genres || [],
     });
 
     if (error) {
