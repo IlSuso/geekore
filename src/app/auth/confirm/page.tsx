@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState, Suspense } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
 
 function ConfirmContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
 
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
@@ -14,7 +15,7 @@ function ConfirmContent() {
 
   useEffect(() => {
     const confirm = async () => {
-      // Caso 1: sessione già attiva (ricaricamento pagina)
+      // Caso 1: sessione già attiva (es. ricaricamento pagina)
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {
         setStatus('success')
@@ -26,25 +27,14 @@ function ConfirmContent() {
         return
       }
 
-      // Leggi i parametri dall'hash (#) — Brevo non visita gli URL con fragment
-      // quindi il token arriva intatto al browser dell'utente
-      const hash = window.location.hash.substring(1) // rimuove il #
-      const params = new URLSearchParams(hash)
-      const token_hash = params.get('token_hash')
-      const type = params.get('type')
+      // Leggi i parametri dalla query string (?token_hash=...&type=...)
+      const token_hash = searchParams.get('token_hash')
+      const type = searchParams.get('type')
+      const code = searchParams.get('code')
 
-      // Fallback: controlla anche query string (per compatibilità con link vecchi)
-      const searchParams = new URLSearchParams(window.location.search)
-      const qs_token = searchParams.get('token_hash')
-      const qs_type = searchParams.get('type')
-      const qs_code = searchParams.get('code')
-
-      const finalToken = token_hash || qs_token
-      const finalType = type || qs_type
-
-      // Caso 2: PKCE flow (code)
-      if (qs_code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(qs_code)
+      // Caso 2: PKCE flow con "code"
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
         if (!error) {
           const { data: { session: s } } = await supabase.auth.getSession()
           if (s?.user) {
@@ -57,18 +47,21 @@ function ConfirmContent() {
             return
           }
         }
+        setErrorMessage('Il link è scaduto o già stato usato. Prova ad accedere direttamente.')
+        setStatus('error')
+        return
       }
 
-      if (!finalToken || !finalType) {
+      // Caso 3: token_hash flow (quello che usiamo noi)
+      if (!token_hash || !type) {
         setErrorMessage('Link non valido. Riprova la registrazione.')
         setStatus('error')
         return
       }
 
-      // Caso 3: token_hash flow
       const { error } = await supabase.auth.verifyOtp({
-        token_hash: finalToken,
-        type: finalType as any,
+        token_hash,
+        type: type as any,
       })
 
       if (error) {

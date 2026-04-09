@@ -47,7 +47,7 @@ export default function RegisterPage() {
         options: { 
           data: { display_name: displayName || email.split('@')[0] },
           // Aggiornamento per nuovo dominio geekore.it
-          emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://geekore.it'}/auth/confirm`
+          emailRedirectTo: `https://geekore.it/auth/confirm`
         },
       })
       if (error) { setError(error.message); return }
