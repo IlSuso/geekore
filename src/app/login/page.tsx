@@ -11,14 +11,8 @@ function LocaleToggle() {
   const { locale, setLocale } = useLocale()
   return (
     <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-xl p-1">
-      <button
-        onClick={() => setLocale('it')}
-        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${locale === 'it' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-white'}`}
-      >IT</button>
-      <button
-        onClick={() => setLocale('en')}
-        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${locale === 'en' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-white'}`}
-      >EN</button>
+      <button onClick={() => setLocale('it')} className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${locale === 'it' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-white'}`}>IT</button>
+      <button onClick={() => setLocale('en')} className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${locale === 'en' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-white'}`}>EN</button>
     </div>
   )
 }
@@ -41,8 +35,7 @@ export default function LoginPage() {
   }, [])
 
   const goToProfile = async (userId: string) => {
-    const { data: profile } = await supabase
-      .from('profiles').select('username').eq('id', userId).single()
+    const { data: profile } = await supabase.from('profiles').select('username').eq('id', userId).single()
     router.push(profile?.username ? `/profile/${profile.username}` : '/profile/me')
   }
 
@@ -62,26 +55,22 @@ export default function LoginPage() {
   }
 
   const FEATURES = [
-    { icon: BookOpen, label: l.features[0], color: 'text-sky-400',   bg: 'bg-sky-400/10' },
+    { icon: BookOpen, label: l.features[0], color: 'text-sky-400', bg: 'bg-sky-400/10' },
     { icon: Gamepad2, label: l.features[1], color: 'text-green-400', bg: 'bg-green-400/10' },
-    { icon: Film,     label: l.features[2], color: 'text-red-400',   bg: 'bg-red-400/10' },
+    { icon: Film, label: l.features[2], color: 'text-red-400', bg: 'bg-red-400/10' },
   ]
 
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-stretch bg-zinc-950">
-
-      {/* Left — Branding panel (desktop) */}
       <div className="hidden lg:flex lg:w-[45%] relative flex-col justify-between p-16 overflow-hidden border-r border-zinc-800/50">
         <div className="absolute top-1/4 -left-20 w-96 h-96 bg-violet-600/20 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute bottom-1/3 right-0 w-72 h-72 bg-fuchsia-600/10 rounded-full blur-[100px] pointer-events-none" />
-
         <div className="relative flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center shadow-lg shadow-violet-500/30">
             <Zap size={20} className="text-white" />
           </div>
           <span className="text-2xl font-bold tracking-tighter">geekore</span>
         </div>
-
         <div className="relative space-y-10">
           <div>
             <h2 className="text-5xl font-black tracking-tighter leading-none mb-5">
@@ -103,15 +92,11 @@ export default function LoginPage() {
             ))}
           </div>
         </div>
-
         <p className="relative text-xs text-zinc-700">{l.footer}</p>
       </div>
 
-      {/* Right — Form */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
-
-          {/* Top row: mobile logo + locale toggle */}
           <div className="flex items-center justify-between mb-10">
             <div className="lg:hidden flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center">
@@ -131,32 +116,33 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-zinc-400 mb-2">{l.email}</label>
-              <input
-                type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                 placeholder={l.emailPlaceholder} autoComplete="email"
-                className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors"
-                required
-              />
+                className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors" required />
             </div>
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">{l.password}</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-zinc-400">{l.password}</label>
+                <Link href="/forgot-password" className="text-xs text-violet-400 hover:text-violet-300 transition-colors">
+                  Password dimenticata?
+                </Link>
+              </div>
               <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'} value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                <input type={showPassword ? 'text' : 'password'} value={password}
+                  onChange={e => setPassword(e.target.value)}
                   placeholder={l.passwordPlaceholder} autoComplete="current-password"
-                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-5 py-3.5 pr-12 text-white placeholder-zinc-600 focus:outline-none transition-colors"
-                  required
-                />
+                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-5 py-3.5 pr-12 text-white placeholder-zinc-600 focus:outline-none transition-colors" required />
                 <button type="button" onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors">
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
+
             {error && (
               <div className="bg-red-950/60 border border-red-800/50 text-red-400 px-5 py-3.5 rounded-2xl text-sm">{error}</div>
             )}
+
             <button type="submit" disabled={loading}
               className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-semibold text-lg transition-all disabled:opacity-60 shadow-lg shadow-violet-500/20 mt-2">
               {loading ? l.signingIn : l.signIn}

@@ -19,16 +19,15 @@ type MediaItem = {
   description?: string;
   genres?: string[];
   source: 'anilist' | 'tmdb' | 'igdb' | 'bgg';
-  // Metadati profondi — popolati dalle API, salvati nel DB, MAI mostrati all'utente
-  tags?: string[];              // AniList tags
-  keywords?: string[];          // TMDb keywords / IGDB keywords
-  themes?: string[];            // IGDB themes
-  player_perspectives?: string[]; // IGDB
-  game_modes?: string[];        // IGDB
-  developers?: string[];        // IGDB
-  categories?: string[];        // BGG categories
-  mechanics?: string[];         // BGG mechanics
-  designers?: string[];         // BGG designers
+  tags?: string[];
+  keywords?: string[];
+  themes?: string[];
+  player_perspectives?: string[];
+  game_modes?: string[];
+  developers?: string[];
+  categories?: string[];
+  mechanics?: string[];
+  designers?: string[];
 };
 
 function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
@@ -102,7 +101,6 @@ export default function DiscoverPage() {
     try {
       // ── AniList — Anime + Manga ─────────────────────────────────────────
       if (activeType === 'all' || activeType === 'anime' || activeType === 'manga') {
-        // Includiamo i tag AniList nella query
         const mediaFields = `id title { romaji english } coverImage { large } seasonYear episodes chapters type description(asHtml: false) genres tags { name rank category }`;
         const anilistQuery = `query ($search: String) {
           ${activeType === 'all' || activeType === 'anime' ? `
@@ -134,7 +132,6 @@ export default function DiscoverPage() {
           episodes: m.episodes ?? m.chapters,
           description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 400) : undefined,
           genres: m.genres,
-          // Tag AniList: prendiamo solo quelli con rank > 60 (rilevanti) — max 20
           tags: (m.tags || [])
             .filter((tag: any) => tag.rank >= 60)
             .sort((a: any, b: any) => b.rank - a.rank)
@@ -174,7 +171,6 @@ export default function DiscoverPage() {
               let seasonsData: Record<number, { episode_count: number }> = {};
               let tmdbKeywords: string[] = [];
 
-              // Per TV: dettagli stagioni
               if (mediaType === 'tv') {
                 const [detailRes, kwRes] = await Promise.all([
                   fetch(`https://api.themoviedb.org/3/tv/${m.id}?language=it-IT`,
@@ -200,7 +196,6 @@ export default function DiscoverPage() {
                   tmdbKeywords = (kwJson.results || []).map((k: any) => k.name).slice(0, 30);
                 }
               } else {
-                // Per film: fetch keywords
                 try {
                   const kwRes = await fetch(
                     `https://api.themoviedb.org/3/movie/${m.id}/keywords`,
@@ -243,7 +238,6 @@ export default function DiscoverPage() {
         });
 
         if (res.ok) {
-          // IGDB route aggiornato restituisce già themes, keywords, player_perspectives
           const gameResults: MediaItem[] = (await res.json()).map((g: any) => ({
             ...g,
             source: 'igdb' as const,
@@ -257,7 +251,6 @@ export default function DiscoverPage() {
         const res = await fetch(`/api/boardgames?search=${encodeURIComponent(term)}`);
         if (res.ok) {
           const json = await res.json();
-          // BGG route aggiornato restituisce già categories, mechanics, designers
           const bggResults: MediaItem[] = (json.results || []).map((g: any) => ({
             ...g,
             source: 'bgg' as const,
@@ -323,13 +316,11 @@ export default function DiscoverPage() {
       episodes: media.episodes || null,
       rating: rating || null,
       genres: media.genres || [],
-      // Metadati profondi — salvati nel DB per il taste profile
       tags: media.tags || [],
       keywords: media.keywords || [],
       themes: media.themes || [],
       player_perspectives: media.player_perspectives || [],
       game_modes: media.game_modes || [],
-      // Per boardgame: categorie e meccaniche mappate a keywords e themes
       ...(isBoardgame && {
         keywords: [...(media.keywords || []), ...(media.mechanics || [])],
         themes: [...(media.themes || []), ...(media.categories || [])],
@@ -343,6 +334,15 @@ export default function DiscoverPage() {
       }
     } else {
       setAlreadyAdded(prev => [...prev, media.id]);
+      // Log activity
+      const { logActivity } = await import('@/lib/activity');
+      await logActivity({
+        type: 'media_added',
+        media_id: media.id,
+        media_title: media.title,
+        media_type: media.type,
+        media_cover: media.coverImage,
+      });
     }
   };
 
@@ -407,6 +407,15 @@ export default function DiscoverPage() {
       }
     } else {
       setAlreadyAdded(prev => [...prev, selectedMedia.id]);
+      // Log activity per serie/anime con episodio
+      const { logActivity } = await import('@/lib/activity');
+      await logActivity({
+        type: 'media_added',
+        media_id: selectedMedia.id,
+        media_title: selectedMedia.title,
+        media_type: selectedMedia.type,
+        media_cover: selectedMedia.coverImage,
+      });
     }
     setSelectedMedia(null);
     setCurrentEpisode('');
@@ -567,7 +576,6 @@ export default function DiscoverPage() {
             )}
 
             <div className="mb-8 space-y-6">
-              {/* Voto — sempre visibile */}
               <div>
                 <p className="text-sm text-zinc-400 mb-3">Voto (opzionale)</p>
                 <StarRating value={modalRating} onChange={setModalRating} />
@@ -576,7 +584,6 @@ export default function DiscoverPage() {
                 )}
               </div>
 
-              {/* Stagione + Episodio — solo per serie TV e anime */}
               {selectedMedia.type !== 'movie' && selectedMedia.type !== 'game' &&
                selectedMedia.episodes && selectedMedia.episodes > 1 && (
                 <>

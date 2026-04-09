@@ -1,5 +1,7 @@
 'use client'
 
+import { logActivity } from '@/lib/activity'
+import { Trash2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -40,6 +42,7 @@ type UserMedia = {
   appid?: string
   notes?: string
   rating?: number
+  status?: string
 }
 
 type Profile = {
@@ -71,7 +74,7 @@ function SortableBox({ media, children }: { media: UserMedia; children: React.Re
   )
 }
 
-// ─── MediaCard (shared between owner/public view) ─────────────────────────────
+// ─── MediaCard ────────────────────────────────────────────────────────────────
 
 const TYPE_COLORS: Record<string, string> = {
   anime: 'bg-sky-500',
@@ -84,7 +87,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 function MediaCard({
   media, isOwner, deletingId,
-  onDelete, onDeleteRequest, onDeleteCancel, onRating, onNotes, onSaveProgress, onMarkComplete, onReset,
+  onDelete, onDeleteRequest, onDeleteCancel, onRating, onNotes, onSaveProgress, onMarkComplete, onReset, onStatusChange,
 }: {
   media: UserMedia
   isOwner: boolean
@@ -97,6 +100,7 @@ function MediaCard({
   onSaveProgress?: (id: string, val: number, field?: 'current_episode' | 'current_season') => void
   onMarkComplete?: (id: string, media: UserMedia) => void
   onReset?: (id: string) => void
+  onStatusChange?: (id: string, status: string) => void
 }) {
   const { t } = useLocale()
   const m = t.media
@@ -135,14 +139,12 @@ function MediaCard({
       {/* ── Cover ── */}
       <div className="relative h-60 bg-zinc-900 flex-shrink-0 overflow-hidden">
 
-        {/* Steam badge */}
         {media.is_steam && (
           <div className="absolute top-3 left-3 z-20 bg-[#1b2838]/90 backdrop-blur-sm p-1.5 rounded-xl border border-[#66C0F4]/30 shadow-lg">
             <SteamIcon size={15} className="text-[#66C0F4]" />
           </div>
         )}
 
-        {/* Delete confirm overlay */}
         {isOwner && isConfirmingDelete && (
           <div className="absolute top-3 right-3 z-30 flex gap-1.5">
             <button onClick={() => onDeleteCancel?.()} className="px-3 py-1.5 text-xs font-medium bg-zinc-900/95 border border-zinc-600 rounded-full hover:bg-zinc-800 transition">{m.cancel}</button>
@@ -150,7 +152,6 @@ function MediaCard({
           </div>
         )}
 
-        {/* X delete button — sottile di default, piena su hover */}
         {isOwner && !isConfirmingDelete && (
           <button
             onClick={() => onDeleteRequest?.(media.id)}
@@ -161,13 +162,11 @@ function MediaCard({
           </button>
         )}
 
-        {/* Gradient + type badge bottom-left */}
         <div className="absolute bottom-0 inset-x-0 h-14 bg-gradient-to-t from-black/70 to-transparent z-10 pointer-events-none" />
         <div className={`absolute bottom-3 left-3 z-20 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white tracking-wide ${TYPE_COLORS[media.type] || 'bg-zinc-700'}`}>
           {(m.typeLabels as Record<string, string>)[media.type] || media.type}
         </div>
 
-        {/* Image */}
         {imageUrl ? (
           <img
             src={imageUrl}
@@ -190,7 +189,6 @@ function MediaCard({
       {/* ── Info ── */}
       <div className="flex flex-col flex-1 px-4 pt-3 pb-4 gap-2">
 
-        {/* Title */}
         <h4 className="font-semibold line-clamp-2 text-sm leading-snug text-white">
           {media.title}
         </h4>
@@ -217,110 +215,139 @@ function MediaCard({
           )}
         </div>
 
+        {/* Status selector (owner) o badge (visitatore) */}
+        {isOwner ? (
+          <div className="flex">
+            <select
+              value={media.status || 'watching'}
+              onChange={e => onStatusChange?.(media.id, e.target.value)}
+              onClick={e => e.stopPropagation()}
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-zinc-900 border-zinc-800 text-zinc-400 focus:outline-none focus:border-violet-500 transition cursor-pointer appearance-none"
+            >
+              <option value="watching">▶ In corso</option>
+              <option value="completed">✓ Completato</option>
+              <option value="paused">⏸ In pausa</option>
+              <option value="dropped">✗ Abbandonato</option>
+            </select>
+          </div>
+        ) : (
+          media.status && media.status !== 'watching' && (
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit ${
+              media.status === 'completed' ? 'bg-emerald-500/20 text-emerald-400' :
+              media.status === 'paused' ? 'bg-yellow-500/20 text-yellow-400' :
+              media.status === 'dropped' ? 'bg-red-500/20 text-red-400' : ''
+            }`}>
+              {media.status === 'completed' ? '✓ Completato' :
+               media.status === 'paused' ? '⏸ In pausa' :
+               media.status === 'dropped' ? '✗ Abbandonato' : ''}
+            </span>
+          )
+        )}
+
         {isCompleted && (
           <div className="text-emerald-400 text-xs font-medium flex items-center gap-1">
             <CheckCircle size={12} /> {m.completed}
           </div>
         )}
 
-      {/* Progress */}
-      <div className="mt-auto pt-1">
-        {media.type === 'boardgame' ? (
-          <div className="flex items-center justify-between">
-            <p className="text-emerald-400 text-sm flex items-center gap-1.5">
-              <Clock size={14} /> {m.gamesPlayed(media.current_episode)}
+        {/* Progress */}
+        <div className="mt-auto pt-1">
+          {media.type === 'boardgame' ? (
+            <div className="flex items-center justify-between">
+              <p className="text-emerald-400 text-sm flex items-center gap-1.5">
+                <Clock size={14} /> {m.gamesPlayed(media.current_episode)}
+              </p>
+              {isOwner && (
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => onSaveProgress?.(media.id, Math.max(0, media.current_episode - 1))}
+                    disabled={media.current_episode <= 0}
+                    className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30"
+                  >−</button>
+                  <button
+                    onClick={() => onSaveProgress?.(media.id, media.current_episode + 1)}
+                    className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold"
+                  >+</button>
+                </div>
+              )}
+            </div>
+          ) : media.type === 'game' ? (
+            <p className="text-emerald-400 text-sm flex items-center justify-center gap-1.5">
+              <Clock size={14} /> {m.hoursPlayed(media.current_episode)}
             </p>
-            {isOwner && (
-              <div className="flex gap-1">
-                <button
-                  onClick={() => onSaveProgress?.(media.id, Math.max(0, media.current_episode - 1))}
-                  disabled={media.current_episode <= 0}
-                  className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30"
-                >−</button>
-                <button
-                  onClick={() => onSaveProgress?.(media.id, media.current_episode + 1)}
-                  className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold"
-                >+</button>
-              </div>
-            )}
-          </div>
-        ) : media.type === 'game' ? (
-          <p className="text-emerald-400 text-sm flex items-center justify-center gap-1.5">
-            <Clock size={14} /> {m.hoursPlayed(media.current_episode)}
-          </p>
-        ) : hasEpisodeData ? (
-          isCompleted ? (
-            isOwner ? (
-              <div className="flex justify-end">
-                <button onClick={() => onReset?.(media.id)} className="p-2 text-zinc-500 hover:text-zinc-300 transition-colors" title="Ripristina">
-                  <RotateCcw size={18} />
-                </button>
-              </div>
-            ) : null
-          ) : (
-            <div className="space-y-4">
-              {hasSeasonData && (
-                <div className="flex items-center justify-between gap-2">
+          ) : hasEpisodeData ? (
+            isCompleted ? (
+              isOwner ? (
+                <div className="flex justify-end">
+                  <button onClick={() => onReset?.(media.id)} className="p-2 text-zinc-500 hover:text-zinc-300 transition-colors" title="Ripristina">
+                    <RotateCcw size={18} />
+                  </button>
+                </div>
+              ) : null
+            ) : (
+              <div className="space-y-4">
+                {hasSeasonData && (
+                  <div className="flex items-center justify-between gap-2">
+                    {isOwner && (
+                      <button
+                        onClick={() => onSaveProgress?.(media.id, Math.max(1, currentSeasonNum - 1), 'current_season')}
+                        disabled={currentSeasonNum <= 1}
+                        className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30"
+                      >−</button>
+                    )}
+                    <div className="flex-1 text-emerald-400 text-sm flex items-center justify-center">
+                      {m.season(currentSeasonNum)}
+                    </div>
+                    {isOwner && (
+                      <button
+                        onClick={() => { if (currentSeasonNum + 1 <= maxSeasons) onSaveProgress?.(media.id, currentSeasonNum + 1, 'current_season') }}
+                        disabled={currentSeasonNum >= maxSeasons}
+                        className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30"
+                      >+</button>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between gap-3">
                   {isOwner && (
                     <button
-                      onClick={() => onSaveProgress?.(media.id, Math.max(1, currentSeasonNum - 1), 'current_season')}
-                      disabled={currentSeasonNum <= 1}
+                      onClick={() => onSaveProgress?.(media.id, Math.max(1, media.current_episode - 1))}
+                      disabled={media.current_episode <= 1}
                       className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30"
                     >−</button>
                   )}
-                  <div className="flex-1 text-emerald-400 text-sm flex items-center justify-center">
-                    {m.season(currentSeasonNum)}
+                  <div className="flex-1 text-emerald-400 text-sm flex items-center justify-center gap-1.5">
+                    <span>{m.ep(media.current_episode)}</span>
+                    <span className="text-zinc-500">/ {maxEpisodesThisSeason}</span>
                   </div>
                   {isOwner && (
                     <button
-                      onClick={() => { if (currentSeasonNum + 1 <= maxSeasons) onSaveProgress?.(media.id, currentSeasonNum + 1, 'current_season') }}
-                      disabled={currentSeasonNum >= maxSeasons}
-                      className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30"
+                      onClick={() => {
+                        const next = media.current_episode + 1
+                        next <= maxEpisodesThisSeason
+                          ? onSaveProgress?.(media.id, next)
+                          : onMarkComplete?.(media.id, media)
+                      }}
+                      className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold"
                     >+</button>
                   )}
                 </div>
-              )}
 
-              <div className="flex items-center justify-between gap-3">
-                {isOwner && (
-                  <button
-                    onClick={() => onSaveProgress?.(media.id, Math.max(1, media.current_episode - 1))}
-                    disabled={media.current_episode <= 1}
-                    className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30"
-                  >−</button>
-                )}
-                <div className="flex-1 text-emerald-400 text-sm flex items-center justify-center gap-1.5">
-                  <span>{m.ep(media.current_episode)}</span>
-                  <span className="text-zinc-500">/ {maxEpisodesThisSeason}</span>
+                <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-500 transition-all duration-300 rounded-full" style={{ width: `${totalProgress}%` }} />
                 </div>
-                {isOwner && (
-                  <button
-                    onClick={() => {
-                      const next = media.current_episode + 1
-                      next <= maxEpisodesThisSeason
-                        ? onSaveProgress?.(media.id, next)
-                        : onMarkComplete?.(media.id, media)
-                    }}
-                    className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold"
-                  >+</button>
-                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-500">{m.progress(totalProgress)}</span>
+                  {isOwner && (
+                    <button onClick={() => onMarkComplete?.(media.id, media)} className="p-1.5 text-emerald-400 hover:text-emerald-300 transition-colors">
+                      <CheckCircle size={20} />
+                    </button>
+                  )}
+                </div>
               </div>
-
-              <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-500 transition-all duration-300 rounded-full" style={{ width: `${totalProgress}%` }} />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-zinc-500">{m.progress(totalProgress)}</span>
-                {isOwner && (
-                  <button onClick={() => onMarkComplete?.(media.id, media)} className="p-1.5 text-emerald-400 hover:text-emerald-300 transition-colors">
-                    <CheckCircle size={20} />
-                  </button>
-                )}
-              </div>
-            </div>
-          )
-        ) : null}
-      </div>
+            )
+          ) : null}
+        </div>
       </div>
     </div>
   )
@@ -338,6 +365,94 @@ function Avatar({ profile }: { profile: Profile }) {
           {(profile.display_name?.[0] || profile.username?.[0] || 'G').toUpperCase()}
         </span>
       )}
+    </div>
+  )
+}
+
+// ─── ActivityFeed ─────────────────────────────────────────────────────────────
+
+function ActivityFeed({ userId, isOwner }: { userId: string; isOwner: boolean }) {
+  const [activities, setActivities] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch(`/api/activity?userId=${userId}&limit=10`)
+      .then(r => r.json())
+      .then(data => { setActivities(Array.isArray(data) ? data : []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [userId])
+
+  const typeLabel = (type: string) => {
+    switch (type) {
+      case 'media_added':     return 'ha aggiunto alla collezione'
+      case 'media_completed': return 'ha completato'
+      case 'media_dropped':   return 'ha abbandonato'
+      case 'rating_given':    return 'ha votato'
+      case 'steam_imported':  return 'ha importato giochi da Steam'
+      default:                return 'ha aggiornato'
+    }
+  }
+
+  const timeAgo = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const mins  = Math.floor(diff / 60000)
+    const hours = Math.floor(diff / 3600000)
+    const days  = Math.floor(diff / 86400000)
+    if (mins < 2)   return 'adesso'
+    if (mins < 60)  return `${mins}m fa`
+    if (hours < 24) return `${hours}h fa`
+    if (days < 7)   return `${days}g fa`
+    return new Date(dateStr).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
+  }
+
+  if (loading) return (
+    <div className="space-y-3">
+      {[1, 2, 3].map(i => <div key={i} className="h-16 bg-zinc-900 rounded-2xl animate-pulse" />)}
+    </div>
+  )
+
+  if (activities.length === 0) return (
+    <div className="text-center py-12 text-zinc-600 text-sm">
+      Nessuna attività recente
+    </div>
+  )
+
+  return (
+    <div className="space-y-2">
+      {activities.map(a => (
+        <div key={a.id} className="flex items-center gap-4 p-4 bg-zinc-900 border border-zinc-800 rounded-2xl hover:border-zinc-700 transition-colors">
+          {a.media_cover ? (
+            <img src={a.media_cover} alt={a.media_title} className="w-10 h-14 object-cover rounded-xl flex-shrink-0" />
+          ) : (
+            <div className="w-10 h-14 bg-zinc-800 rounded-xl flex-shrink-0" />
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-zinc-300 leading-snug">
+              <span className="text-zinc-500">{typeLabel(a.type)}</span>
+              {a.media_title && (
+                <span className="font-semibold text-white ml-1">"{a.media_title}"</span>
+              )}
+              {a.rating_value && (
+                <span className="text-yellow-400 ml-1">{'★'.repeat(Math.round(a.rating_value))}</span>
+              )}
+            </p>
+            <p className="text-xs text-zinc-600 mt-0.5">{timeAgo(a.created_at)}</p>
+          </div>
+          {a.media_type && (
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
+              a.media_type === 'anime'     ? 'bg-sky-500/20 text-sky-400' :
+              a.media_type === 'game'      ? 'bg-green-500/20 text-green-400' :
+              a.media_type === 'manga'     ? 'bg-orange-500/20 text-orange-400' :
+              a.media_type === 'movie'     ? 'bg-red-500/20 text-red-400' :
+              a.media_type === 'tv'        ? 'bg-purple-500/20 text-purple-400' :
+              a.media_type === 'boardgame' ? 'bg-yellow-500/20 text-yellow-400' :
+              'bg-zinc-700 text-zinc-400'
+            }`}>
+              {a.media_type.toUpperCase()}
+            </span>
+          )}
+        </div>
+      ))}
     </div>
   )
 }
@@ -362,13 +477,16 @@ export default function ProfilePage() {
   const [followingCount, setFollowingCount] = useState(0)
   const [isFollowing, setIsFollowing] = useState(false)
 
-  // Inline delete confirm
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  // Notes modal
   const [selectedMedia, setSelectedMedia] = useState<UserMedia | null>(null)
   const [notesInput, setNotesInput] = useState('')
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
+
+  // Delete account
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deletingAccount, setDeletingAccount] = useState(false)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
@@ -387,7 +505,7 @@ export default function ProfilePage() {
     if (data) setMediaList(sortMediaList(data))
   }
 
-  // ── Actions (owner only) ──────────────────────────────────────────────────
+  // ── Actions ──────────────────────────────────────────────────────────────────
 
   const importSteamGames = async () => {
     if (!steamAccount?.steam_id64 || !currentUserId || importingGames) return
@@ -396,17 +514,8 @@ export default function ProfilePage() {
     try {
       const res = await fetch(`/api/steam/games?steamid=${steamAccount.steam_id64}`)
       const data = await res.json()
-
-      // Rate limit attivo: mostra messaggio integrato invece di alert
-      if (res.status === 429 && data.cached) {
-        setSteamMessage({ text: data.error, type: 'error' })
-        return
-      }
-
-      if (!data.success || !data.games?.length) {
-        setSteamMessage({ text: t.toasts.steamNoGames, type: 'error' })
-        return
-      }
+      if (res.status === 429 && data.cached) { setSteamMessage({ text: data.error, type: 'error' }); return }
+      if (!data.success || !data.games?.length) { setSteamMessage({ text: t.toasts.steamNoGames, type: 'error' }); return }
       const steamMedia = data.games.map((game: any) => ({
         user_id: currentUserId,
         title: game.name,
@@ -456,16 +565,22 @@ export default function ProfilePage() {
     let update: any = {}
     if (media.season_episodes) {
       const maxS = Math.max(...Object.keys(media.season_episodes).map(Number))
-      update = { current_season: maxS, current_episode: media.season_episodes[maxS]?.episode_count || 1 }
+      update = { current_season: maxS, current_episode: media.season_episodes[maxS]?.episode_count || 1, status: 'completed' }
     } else if (media.episodes) {
-      update = { current_episode: media.episodes }
+      update = { current_episode: media.episodes, status: 'completed' }
     } else {
-      // Film, boardgame o media senza dati episodi: impostiamo 1 come "completato"
-      update = { current_episode: 1 }
+      update = { current_episode: 1, status: 'completed' }
     }
     await supabase.from('user_media_entries').update(update).eq('id', id)
     setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
     showToast(t.toasts.completed)
+    await logActivity({
+      type: 'media_completed',
+      media_id: media.id,
+      media_title: media.title,
+      media_type: media.type,
+      media_cover: media.cover_image,
+    })
   }
 
   const resetProgress = async (id: string) => {
@@ -486,9 +601,20 @@ export default function ProfilePage() {
 
   const setRating = async (mediaId: string, rating: number) => {
     if (!isOwner) return
+    const item = mediaList.find(m => m.id === mediaId)
     await supabase.from('user_media_entries').update({ rating }).eq('id', mediaId)
     setMediaList(prev => prev.map(item => item.id === mediaId ? { ...item, rating } : item))
     showToast(t.toasts.ratingSaved)
+    if (item) {
+      await logActivity({
+        type: 'rating_given',
+        media_id: item.id,
+        media_title: item.title,
+        media_type: item.type,
+        media_cover: item.cover_image,
+        rating_value: rating,
+      })
+    }
   }
 
   const openNotesModal = (media: UserMedia) => {
@@ -505,6 +631,37 @@ export default function ProfilePage() {
     setIsNotesModalOpen(false)
     setSelectedMedia(null)
     showToast(t.toasts.notesSaved)
+  }
+
+  const changeStatus = async (id: string, status: string) => {
+    if (!isOwner) return
+    await supabase.from('user_media_entries').update({ status }).eq('id', id)
+    setMediaList(prev => prev.map(item => item.id === id ? { ...item, status } : item))
+    if (status === 'completed') {
+      const item = mediaList.find(m => m.id === id)
+      if (item) {
+        await logActivity({
+          type: 'media_completed',
+          media_id: item.id,
+          media_title: item.title,
+          media_type: item.type,
+          media_cover: item.cover_image,
+        })
+      }
+    }
+  }
+
+  const deleteAccount = async () => {
+    if (deleteConfirmText !== 'elimina' || !isOwner) return
+    setDeletingAccount(true)
+    const res = await fetch('/api/user/delete', { method: 'DELETE' })
+    if (res.ok) {
+      await supabase.auth.signOut()
+      window.location.href = '/'
+    } else {
+      showToast('Errore nella cancellazione. Riprova.', 'error')
+      setDeletingAccount(false)
+    }
   }
 
   const onDragEnd = async (event: DragEndEvent) => {
@@ -525,11 +682,9 @@ export default function ProfilePage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      // 1. Utente corrente (dal server — non manipolabile)
       const { data: { user } } = await supabase.auth.getUser()
       setCurrentUserId(user?.id || null)
 
-      // 2. Profilo target
       const { data: profileData } = await supabase
         .from('profiles')
         .select('id, username, display_name, avatar_url, bio')
@@ -539,18 +694,10 @@ export default function ProfilePage() {
       if (!profileData) { setLoading(false); return }
       setProfile(profileData)
 
-      // 3. isOwner: confronto ID server-side — non dipende dall'URL
       const ownerCheck = !!user && user.id === profileData.id
       setIsOwner(ownerCheck)
 
-      // 4–7. Tutte le query indipendenti in parallelo dopo aver ottenuto profileData.id
-      const [
-        steamResult,
-        mediaResult,
-        fwersResult,
-        fwingResult,
-        followResult,
-      ] = await Promise.all([
+      const [steamResult, mediaResult, fwersResult, fwingResult, followResult] = await Promise.all([
         ownerCheck
           ? supabase.from('steam_accounts').select('*').eq('user_id', user!.id).maybeSingle()
           : Promise.resolve({ data: null }),
@@ -573,7 +720,6 @@ export default function ProfilePage() {
     fetchData()
   }, [username])
 
-  // Auto-dismiss steamMessage dopo 5 secondi
   useEffect(() => {
     if (!steamMessage) return
     const timer = setTimeout(() => setSteamMessage(null), 5000)
@@ -619,7 +765,6 @@ export default function ProfilePage() {
             <p className="text-xl text-zinc-400">@{profile.username}</p>
             {profile.bio && <p className="text-zinc-500 mt-3 text-center max-w-md">{profile.bio}</p>}
 
-            {/* Contatori followers/following */}
             <div className="flex items-center gap-6 mt-5">
               <div className="text-center">
                 <p className="text-xl font-bold">{followersCount}</p>
@@ -640,7 +785,16 @@ export default function ProfilePage() {
               </Link>
             )}
 
-            {/* FollowButton — solo se non sei il proprietario e sei loggato */}
+            {/* Elimina account — solo owner, piccolo e discreto */}
+            {isOwner && (
+              <button
+                onClick={() => setShowDeleteModal(true)}
+                className="mt-3 text-xs text-zinc-600 hover:text-red-400 transition-colors flex items-center gap-1"
+              >
+                <Trash2 size={12} /> Elimina account
+              </button>
+            )}
+
             {!isOwner && currentUserId && profile && (
               <div className="mt-6">
                 <FollowButton
@@ -654,7 +808,6 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
-
         </div>
 
         {/* Steam section — solo owner */}
@@ -745,6 +898,12 @@ export default function ProfilePage() {
           )
         })()}
 
+        {/* ── Attività recente ── */}
+        <div className="mb-12">
+          <h3 className="text-xl font-semibold mb-5">Attività recente</h3>
+          <ActivityFeed userId={profile.id} isOwner={isOwner} />
+        </div>
+
         {mediaList.length === 0 ? (
           <div className="text-center py-20 text-zinc-500">
             {isOwner ? t.profile.emptyOwner : t.profile.emptyOther}
@@ -775,6 +934,7 @@ export default function ProfilePage() {
                             onSaveProgress={saveProgress}
                             onMarkComplete={markAsCompleted}
                             onReset={resetProgress}
+                            onStatusChange={changeStatus}
                           />
                         </SortableBox>
                       ))}
@@ -785,7 +945,7 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
                   {grouped[category].map((media) => (
                     <div key={media.id} className="border border-zinc-800 rounded-3xl overflow-hidden h-[520px] flex flex-col">
-                      <MediaCard media={media} isOwner={false} />
+                      <MediaCard media={media} isOwner={false} onStatusChange={changeStatus} />
                     </div>
                   ))}
                 </div>
@@ -819,6 +979,48 @@ export default function ProfilePage() {
               </button>
               <button onClick={saveNotes} className="flex-1 py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl transition font-medium">
                 {t.common.save}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Cancellazione Account */}
+      {showDeleteModal && isOwner && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[70] p-4">
+          <div className="bg-zinc-900 border border-red-900/50 rounded-3xl max-w-md w-full p-8">
+            <div className="w-14 h-14 bg-red-950 border border-red-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <Trash2 size={28} className="text-red-400" />
+            </div>
+            <h3 className="text-2xl font-bold text-white text-center mb-2">Elimina account</h3>
+            <p className="text-zinc-400 text-center text-sm mb-6">
+              Questa azione è <strong className="text-red-400">irreversibile</strong>. Tutti i tuoi dati verranno cancellati permanentemente: collezione, post, follower, wishlist.
+            </p>
+            <div className="mb-6">
+              <label className="block text-sm text-zinc-500 mb-2">
+                Scrivi <span className="text-red-400 font-mono font-bold">elimina</span> per confermare
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={e => setDeleteConfirmText(e.target.value)}
+                placeholder="elimina"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 text-white focus:outline-none focus:border-red-500 transition"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowDeleteModal(false); setDeleteConfirmText('') }}
+                className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition font-medium"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={deleteAccount}
+                disabled={deleteConfirmText !== 'elimina' || deletingAccount}
+                className="flex-1 py-3 bg-red-600 hover:bg-red-500 disabled:opacity-30 rounded-2xl transition font-medium text-white"
+              >
+                {deletingAccount ? 'Eliminazione...' : 'Elimina definitivamente'}
               </button>
             </div>
           </div>
