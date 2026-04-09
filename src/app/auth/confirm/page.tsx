@@ -15,7 +15,7 @@ function ConfirmContent() {
 
   useEffect(() => {
     const confirm = async () => {
-      // Caso 1: sessione già attiva (es. ricaricamento pagina)
+      // Caso 1: sessione già attiva
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {
         setStatus('success')
@@ -27,7 +27,6 @@ function ConfirmContent() {
         return
       }
 
-      // Leggi i parametri dalla query string (?token_hash=...&type=...)
       const token_hash = searchParams.get('token_hash')
       const type = searchParams.get('type')
       const code = searchParams.get('code')
@@ -52,16 +51,19 @@ function ConfirmContent() {
         return
       }
 
-      // Caso 3: token_hash flow (quello che usiamo noi)
-      if (!token_hash || !type) {
+      // Caso 3: token_hash flow
+      if (!token_hash) {
         setErrorMessage('Link non valido. Riprova la registrazione.')
         setStatus('error')
         return
       }
 
+      // Se type è vuoto o mancante lo forziamo a 'email'
+      const finalType = (type && type.trim() !== '') ? type : 'email'
+
       const { error } = await supabase.auth.verifyOtp({
         token_hash,
-        type: type as any,
+        type: finalType as any,
       })
 
       if (error) {
