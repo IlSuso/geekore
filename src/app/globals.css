@@ -26,6 +26,35 @@ input[type="number"].no-spinner::-webkit-outer-spin-button {
 }
 input[type="number"].no-spinner { -moz-appearance: textfield; }
 
+/* ── Media card — altezza adattiva su mobile ─────────────────── */
+/* Su schermi piccoli le card non hanno altezza fissa */
+@media (max-width: 639px) {
+  .media-card-grid .card-fixed-height {
+    height: auto !important;
+    min-height: 380px;
+  }
+}
+
+/* ── StarRating — non si sovrappone su mobile ────────────────── */
+.star-rating-container {
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+/* ── Footer mobile — non duplica su pagine auth ──────────────── */
+@media (max-width: 767px) {
+  footer {
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* ── Safe area per iPhone notch ──────────────────────────────── */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  nav.fixed.bottom-0 {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
 /* ── Animations ──────────────────────────────────────────────── */
 @keyframes shimmer {
   0%   { background-position: -200% 0; }
@@ -50,4 +79,13 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
   background: linear-gradient(90deg, #18181b 25%, #27272a 50%, #18181b 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
+}
+
+/* ── Scrollbar hide utility ──────────────────────────────────── */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }

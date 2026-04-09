@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, Search, Bell, User, Zap, LogOut, Newspaper, Settings, Sparkles, ChevronDown, Edit3, Bookmark } from 'lucide-react'
+import { Home, Search, Bell, Zap, Newspaper, Sparkles, ChevronDown, Edit3, Bookmark, User, Settings, LogOut } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useLocale } from '@/lib/locale'
 
 const AUTH_PATHS = ['/login', '/register', '/auth/confirm']
+const PUBLIC_PATHS = ['/'] // pagine pubbliche senza navbar
 
 export default function Navbar() {
   const pathname = usePathname()
@@ -19,6 +20,7 @@ export default function Navbar() {
   const [displayName, setDisplayName] = useState<string | null>(null)
   const [username, setUsername] = useState<string | null>(null)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   const handleLogout = async () => {
@@ -28,6 +30,7 @@ export default function Navbar() {
 
   const isProfileActive = pathname === '/profile/me' || pathname.startsWith('/profile/')
   const isAuthPage = AUTH_PATHS.some(p => pathname.startsWith(p))
+  const isPublicLanding = pathname === '/'
 
   const NAV_ITEMS = [
     { href: '/feed',          label: t.nav.home,          icon: Home     },
@@ -37,7 +40,6 @@ export default function Navbar() {
     { href: '/notifications', label: t.nav.notifications, icon: Bell, hasDot: true },
   ]
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -54,12 +56,13 @@ export default function Navbar() {
 
   useEffect(() => {
     if (isAuthPage) return
+
     let channel: ReturnType<typeof supabase.channel> | null = null
 
     supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsLoggedIn(!!user)
       if (!user) return
 
-      // Fetch profile data
       supabase.from('profiles').select('avatar_url, display_name, username').eq('id', user.id).single()
         .then(({ data }) => {
           if (data) {
@@ -88,7 +91,10 @@ export default function Navbar() {
     return () => { if (channel) supabase.removeChannel(channel) }
   }, [isAuthPage])
 
+  // Nasconde la navbar nelle pagine auth E nella landing se non loggato
   if (isAuthPage) return null
+  if (isPublicLanding && isLoggedIn === false) return null
+  if (isPublicLanding && isLoggedIn === null) return null // loading, non mostrare nulla
 
   const avatarInitial = (displayName?.[0] || username?.[0] || '?').toUpperCase()
 
@@ -98,7 +104,6 @@ export default function Navbar() {
       <nav className="hidden md:flex fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-2xl border-b border-zinc-800/60">
         <div className="max-w-6xl mx-auto w-full px-6 py-4 flex items-center justify-between">
 
-          {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
             <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl flex items-center justify-center shadow-md shadow-violet-500/30 group-hover:scale-105 transition-transform">
               <Zap size={16} className="text-white" />
@@ -106,7 +111,6 @@ export default function Navbar() {
             <span className="text-xl font-bold tracking-tighter text-white">geekore</span>
           </Link>
 
-          {/* Nav items */}
           <div className="flex items-center gap-1">
             {NAV_ITEMS.map((item) => {
               const isActive = item.href === '/feed'
@@ -157,10 +161,8 @@ export default function Navbar() {
               <ChevronDown size={14} className={`text-zinc-500 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            {/* Dropdown menu */}
             {dropdownOpen && (
               <div className="absolute right-0 top-full mt-2 w-56 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden z-50">
-                {/* User info header */}
                 <div className="px-4 py-3 border-b border-zinc-800">
                   <p className="text-sm font-semibold text-white truncate">{displayName || username}</p>
                   {username && <p className="text-xs text-zinc-500">@{username}</p>}
@@ -224,14 +226,14 @@ export default function Navbar() {
 
       {/* Mobile bottom navbar */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-2xl border-t border-zinc-800/60">
-        <div className="flex items-center justify-around py-2 px-2">
+        <div className="flex items-center justify-around py-2 px-1">
           {[...NAV_ITEMS, { href: '/profile/me', label: t.nav.profile, icon: User, hasDot: false }].map((item) => {
             const isActive = item.href === '/profile/me' ? isProfileActive : pathname === item.href
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-2xl transition-all ${
+                className={`flex flex-col items-center gap-0.5 px-2 py-2 rounded-2xl transition-all min-w-[44px] ${
                   isActive ? 'text-violet-400' : 'text-zinc-500'
                 }`}
               >
@@ -244,25 +246,25 @@ export default function Navbar() {
                     <item.icon size={22} strokeWidth={isActive ? 2.5 : 1.8} />
                   )}
                   {'hasDot' in item && item.hasDot && hasNewNotifications && (
-                    <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-black" />
+                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full border border-black" />
                   )}
                 </div>
-                {isActive && (
-                  <span className="text-[10px] font-semibold tracking-wide">{item.label}</span>
-                )}
+                <span className={`text-[9px] font-medium tracking-wide transition-all ${isActive ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
+                  {item.label}
+                </span>
               </Link>
             )
           })}
           <Link
             href="/settings"
-            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-2xl transition-all ${
+            className={`flex flex-col items-center gap-0.5 px-2 py-2 rounded-2xl transition-all min-w-[44px] ${
               pathname === '/settings' ? 'text-violet-400' : 'text-zinc-500'
             }`}
           >
             <Settings size={22} strokeWidth={pathname === '/settings' ? 2.5 : 1.8} />
-            {pathname === '/settings' && (
-              <span className="text-[10px] font-semibold tracking-wide">{t.nav.settings}</span>
-            )}
+            <span className={`text-[9px] font-medium tracking-wide transition-all ${pathname === '/settings' ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
+              {t.nav.settings}
+            </span>
           </Link>
         </div>
       </nav>

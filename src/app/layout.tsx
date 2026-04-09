@@ -39,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-black text-white min-h-screen antialiased">
         <ClientProviders>
           <Navbar />
-          <main className="pt-16 pb-20 md:pb-8">
+          <main className="pt-16 pb-24 md:pb-8">
             {children}
           </main>
           <Footer />
