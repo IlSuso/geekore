@@ -7,7 +7,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useLocale } from '@/lib/locale'
 
-const AUTH_PATHS = ['/login', '/register', '/auth/confirm']
+const AUTH_PATHS = ['/login', '/register', '/auth/confirm', '/forgot-password', '/auth/reset-password']
 const PUBLIC_PATHS = ['/'] // pagine pubbliche senza navbar
 
 export default function Navbar() {

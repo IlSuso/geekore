@@ -116,9 +116,11 @@ function MediaCard({
   const maxSeasons = hasSeasonData && media.season_episodes
     ? Math.max(...Object.keys(media.season_episodes).map(Number)) : 1
 
-  const isCompleted = hasEpisodeData &&
+  const isCompleted = media.status === 'completed' || (
+    hasEpisodeData &&
     media.current_episode >= maxEpisodesThisSeason &&
     (!hasSeasonData || currentSeasonNum >= maxSeasons)
+  )
 
   let totalProgress = 0
   if (hasSeasonData && media.season_episodes) {
@@ -132,6 +134,14 @@ function MediaCard({
 
   const rating = media.rating || 0
   const hasNotes = !!media.notes?.trim()
+
+  // Etichette status per il badge visitatore
+  const statusBadge: Record<string, { label: string; cls: string }> = {
+    completed: { label: '✓ Completato', cls: 'bg-emerald-500/20 text-emerald-400' },
+    paused:    { label: '⏸ In pausa',   cls: 'bg-yellow-500/20 text-yellow-400' },
+    dropped:   { label: '✗ Abbandonato',cls: 'bg-red-500/20 text-red-400' },
+    watching:  { label: '▶ In corso',   cls: 'bg-zinc-700/40 text-zinc-400' },
+  }
 
   return (
     <div className="group relative bg-zinc-950 rounded-3xl overflow-hidden h-full flex flex-col">
@@ -215,7 +225,7 @@ function MediaCard({
           )}
         </div>
 
-        {/* Status selector (owner) o badge (visitatore) */}
+        {/* Status: select per owner, badge per visitatore */}
         {isOwner ? (
           <div className="flex">
             <select
@@ -231,27 +241,21 @@ function MediaCard({
             </select>
           </div>
         ) : (
-          media.status && media.status !== 'watching' && (
-            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit ${
-              media.status === 'completed' ? 'bg-emerald-500/20 text-emerald-400' :
-              media.status === 'paused' ? 'bg-yellow-500/20 text-yellow-400' :
-              media.status === 'dropped' ? 'bg-red-500/20 text-red-400' : ''
-            }`}>
-              {media.status === 'completed' ? '✓ Completato' :
-               media.status === 'paused' ? '⏸ In pausa' :
-               media.status === 'dropped' ? '✗ Abbandonato' : ''}
-            </span>
-          )
+          (() => {
+            const currentStatus = media.status || 'watching'
+            const badge = statusBadge[currentStatus]
+            return badge ? (
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit ${badge.cls}`}>
+                {badge.label}
+              </span>
+            ) : null
+          })()
         )}
 
-        {isCompleted && (
-          <div className="text-emerald-400 text-xs font-medium flex items-center gap-1">
-            <CheckCircle size={12} /> {m.completed}
-          </div>
-        )}
-
-        {/* Progress */}
+        {/* Progress — area inferiore */}
         <div className="mt-auto pt-1">
+
+          {/* Board game: contatore partite */}
           {media.type === 'boardgame' ? (
             <div className="flex items-center justify-between">
               <p className="text-emerald-400 text-sm flex items-center gap-1.5">
@@ -271,20 +275,37 @@ function MediaCard({
                 </div>
               )}
             </div>
+
+          /* Gioco: ore giocate */
           ) : media.type === 'game' ? (
             <p className="text-emerald-400 text-sm flex items-center justify-center gap-1.5">
               <Clock size={14} /> {m.hoursPlayed(media.current_episode)}
             </p>
+
+          /* Anime/TV/Manga con episodi: controlli progresso */
           ) : hasEpisodeData ? (
             isCompleted ? (
+              /* Completato: solo tasto reset per owner */
               isOwner ? (
-                <div className="flex justify-end">
-                  <button onClick={() => onReset?.(media.id)} className="p-2 text-zinc-500 hover:text-zinc-300 transition-colors" title="Ripristina">
+                <div className="flex items-center justify-between">
+                  <span className="text-emerald-400 text-xs font-medium flex items-center gap-1">
+                    <CheckCircle size={12} /> {m.completed}
+                  </span>
+                  <button
+                    onClick={() => onReset?.(media.id)}
+                    className="p-2 text-zinc-500 hover:text-zinc-300 transition-colors"
+                    title="Ripristina"
+                  >
                     <RotateCcw size={18} />
                   </button>
                 </div>
-              ) : null
+              ) : (
+                <span className="text-emerald-400 text-xs font-medium flex items-center gap-1">
+                  <CheckCircle size={12} /> {m.completed}
+                </span>
+              )
             ) : (
+              /* In corso: stagione + episodio + barra progresso */
               <div className="space-y-4">
                 {hasSeasonData && (
                   <div className="flex items-center justify-between gap-2">
@@ -339,7 +360,10 @@ function MediaCard({
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-zinc-500">{m.progress(totalProgress)}</span>
                   {isOwner && (
-                    <button onClick={() => onMarkComplete?.(media.id, media)} className="p-1.5 text-emerald-400 hover:text-emerald-300 transition-colors">
+                    <button
+                      onClick={() => onMarkComplete?.(media.id, media)}
+                      className="p-1.5 text-emerald-400 hover:text-emerald-300 transition-colors"
+                    >
                       <CheckCircle size={20} />
                     </button>
                   )}
