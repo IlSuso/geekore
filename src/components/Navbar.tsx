@@ -2,13 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, Search, Bell, Zap, Newspaper, Sparkles, ChevronDown, Edit3, Bookmark, User, Settings, LogOut } from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
+import { Home, Search, Bell, Zap, Newspaper, Sparkles, ChevronDown, Edit3, Bookmark, User, Settings, LogOut, X } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useLocale } from '@/lib/locale'
 
 const AUTH_PATHS = ['/login', '/register', '/auth/confirm', '/forgot-password', '/auth/reset-password']
-const PUBLIC_PATHS = ['/'] // pagine pubbliche senza navbar
+const PUBLIC_PATHS = ['/']
 
 export default function Navbar() {
   const pathname = usePathname()
@@ -22,6 +22,14 @@ export default function Navbar() {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -40,10 +48,16 @@ export default function Navbar() {
     { href: '/notifications', label: t.nav.notifications, icon: Bell, hasDot: true },
   ]
 
+  // Close dropdowns on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false)
+      }
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false)
+        setSearchQuery('')
+        setSearchResults([])
       }
     }
     document.addEventListener('mousedown', handler)
@@ -91,10 +105,35 @@ export default function Navbar() {
     return () => { if (channel) supabase.removeChannel(channel) }
   }, [isAuthPage])
 
-  // Nasconde la navbar nelle pagine auth E nella landing se non loggato
+  // User search
+  const searchUsers = useCallback(async (val: string) => {
+    if (val.length < 2) { setSearchResults([]); setSearchOpen(false); return }
+    setSearchLoading(true)
+    const { data } = await supabase
+      .from('profiles')
+      .select('username, display_name, avatar_url')
+      .or(`username.ilike.%${val}%,display_name.ilike.%${val}%`)
+      .limit(6)
+    setSearchResults(data || [])
+    setSearchOpen(true)
+    setSearchLoading(false)
+  }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => searchUsers(searchQuery), 280)
+    return () => clearTimeout(timer)
+  }, [searchQuery, searchUsers])
+
+  const clearSearch = () => {
+    setSearchQuery('')
+    setSearchResults([])
+    setSearchOpen(false)
+    searchInputRef.current?.focus()
+  }
+
   if (isAuthPage) return null
   if (isPublicLanding && isLoggedIn === false) return null
-  if (isPublicLanding && isLoggedIn === null) return null // loading, non mostrare nulla
+  if (isPublicLanding && isLoggedIn === null) return null
 
   const avatarInitial = (displayName?.[0] || username?.[0] || '?').toUpperCase()
 
@@ -102,16 +141,18 @@ export default function Navbar() {
     <>
       {/* Desktop navbar */}
       <nav className="hidden md:flex fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-2xl border-b border-zinc-800/60">
-        <div className="max-w-6xl mx-auto w-full px-6 py-4 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto w-full px-6 py-4 flex items-center gap-4">
 
-          <Link href="/" className="flex items-center gap-2.5 group">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">
             <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl flex items-center justify-center shadow-md shadow-violet-500/30 group-hover:scale-105 transition-transform">
               <Zap size={16} className="text-white" />
             </div>
             <span className="text-xl font-bold tracking-tighter text-white">geekore</span>
           </Link>
 
-          <div className="flex items-center gap-1">
+          {/* Nav links */}
+          <div className="flex items-center gap-1 flex-shrink-0">
             {NAV_ITEMS.map((item) => {
               const isActive = item.href === '/feed'
                 ? pathname === '/feed' || pathname === '/'
@@ -136,8 +177,69 @@ export default function Navbar() {
             })}
           </div>
 
+          {/* Search bar — espandibile al centro */}
+          <div ref={searchRef} className="flex-1 max-w-xs relative mx-2">
+            <div className={`flex items-center gap-2 bg-zinc-900 border rounded-2xl px-4 py-2 transition-all ${
+              searchOpen && searchResults.length > 0
+                ? 'border-violet-500/50'
+                : 'border-zinc-800 focus-within:border-violet-500/30'
+            }`}>
+              <Search size={14} className={searchLoading ? 'text-violet-400 animate-pulse' : 'text-zinc-500'} />
+              <input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cerca utenti..."
+                className="bg-transparent outline-none text-sm w-full placeholder-zinc-600 text-white"
+              />
+              {searchQuery && (
+                <button onClick={clearSearch} className="text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0">
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+
+            {/* Search dropdown */}
+            {searchOpen && searchResults.length > 0 && (
+              <div className="absolute top-full left-0 w-full mt-2 bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl shadow-black/50 z-50">
+                {searchResults.map((res) => (
+                  <Link
+                    key={res.username}
+                    href={`/profile/${res.username}`}
+                    onClick={() => { setSearchOpen(false); setSearchQuery(''); setSearchResults([]) }}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-800 transition-colors border-b border-zinc-800/50 last:border-0"
+                  >
+                    <div className="w-8 h-8 rounded-xl overflow-hidden shrink-0">
+                      {res.avatar_url ? (
+                        <img src={res.avatar_url} className="w-full h-full object-cover" alt="" />
+                      ) : (
+                        <img
+                          src={`https://api.dicebear.com/7.x/initials/svg?seed=${res.username}&backgroundColor=6d28d9&textColor=ffffff`}
+                          className="w-full h-full object-cover"
+                          alt=""
+                        />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white leading-tight">
+                        {res.display_name || res.username}
+                      </p>
+                      <p className="text-xs text-violet-400">@{res.username}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            {searchOpen && searchQuery.length >= 2 && searchResults.length === 0 && !searchLoading && (
+              <div className="absolute top-full left-0 w-full mt-2 bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-zinc-500 shadow-2xl z-50">
+                Nessun utente trovato
+              </div>
+            )}
+          </div>
+
           {/* Avatar dropdown */}
-          <div className="relative" ref={dropdownRef}>
+          <div className="relative flex-shrink-0 ml-auto" ref={dropdownRef}>
             <button
               onClick={() => setDropdownOpen(v => !v)}
               className={`flex items-center gap-2.5 px-3 py-1.5 rounded-2xl border transition-all ${
@@ -149,6 +251,12 @@ export default function Navbar() {
               <div className="w-7 h-7 rounded-full overflow-hidden ring-2 ring-violet-500/30 flex-shrink-0">
                 {avatarUrl ? (
                   <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                ) : username ? (
+                  <img
+                    src={`https://api.dicebear.com/7.x/initials/svg?seed=${username}&backgroundColor=6d28d9&textColor=ffffff`}
+                    alt="avatar"
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-xs">
                     {avatarInitial}
@@ -238,9 +346,17 @@ export default function Navbar() {
                 }`}
               >
                 <div className="relative">
-                  {item.href === '/profile/me' && avatarUrl ? (
+                  {item.href === '/profile/me' && (avatarUrl || username) ? (
                     <div className={`w-6 h-6 rounded-full overflow-hidden ring-2 ${isActive ? 'ring-violet-400' : 'ring-zinc-700'}`}>
-                      <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        <img
+                          src={`https://api.dicebear.com/7.x/initials/svg?seed=${username}&backgroundColor=6d28d9&textColor=ffffff`}
+                          alt="avatar"
+                          className="w-full h-full object-cover"
+                        />
+                      )}
                     </div>
                   ) : (
                     <item.icon size={22} strokeWidth={isActive ? 2.5 : 1.8} />

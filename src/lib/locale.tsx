@@ -147,8 +147,13 @@ const translations = {
       notFound: 'Utente non trovato',
       logout: 'Esci',
       categories: {
-        games: 'Videogiochi', anime: 'Serie & Anime', manga: 'Manga',
-        movies: 'Film', boardgames: 'Board Game', other: 'Altro',
+        games: 'Videogiochi',
+        anime: 'Anime',
+        tv: 'Serie TV',          // ← NUOVO: TV separato da Anime
+        manga: 'Manga',
+        movies: 'Film',
+        boardgames: 'Board Game',
+        other: 'Altro',
       },
       statsAnime: 'Anime', statsGames: 'Giochi', statsSteamHours: 'Ore Steam',
       statsAvgRating: 'Voto medio', statsCollection: 'Nella collezione',
@@ -389,8 +394,13 @@ const translations = {
       notFound: 'User not found',
       logout: 'Logout',
       categories: {
-        games: 'Games', anime: 'Series & Anime', manga: 'Manga',
-        movies: 'Movies', boardgames: 'Board Games', other: 'Other',
+        games: 'Games',
+        anime: 'Anime',
+        tv: 'TV Shows',          // ← NUOVO: TV separato da Anime
+        manga: 'Manga',
+        movies: 'Movies',
+        boardgames: 'Board Games',
+        other: 'Other',
       },
       statsAnime: 'Anime', statsGames: 'Games', statsSteamHours: 'Steam Hours',
       statsAvgRating: 'Avg Rating', statsCollection: 'In collection',

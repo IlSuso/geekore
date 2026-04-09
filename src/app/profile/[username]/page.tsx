@@ -1,8 +1,8 @@
 'use client'
 
 import { logActivity } from '@/lib/activity'
-import { Trash2 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { Trash2, Copy, Check, Search as SearchIcon } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -43,6 +43,7 @@ type UserMedia = {
   notes?: string
   rating?: number
   status?: string
+  genres?: string[]
 }
 
 type Profile = {
@@ -51,6 +52,13 @@ type Profile = {
   display_name?: string
   avatar_url?: string
   bio?: string
+}
+
+// ─── DiceBear avatar helper ───────────────────────────────────────────────────
+
+function getAvatarUrl(avatarUrl: string | undefined, username: string): string {
+  if (avatarUrl) return avatarUrl
+  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(username)}&backgroundColor=6d28d9,7c3aed,8b5cf6&textColor=ffffff&fontSize=38`
 }
 
 // ─── SortableBox ─────────────────────────────────────────────────────────────
@@ -135,7 +143,6 @@ function MediaCard({
   const rating = media.rating || 0
   const hasNotes = !!media.notes?.trim()
 
-  // Etichette status per il badge visitatore
   const statusBadge: Record<string, { label: string; cls: string }> = {
     completed: { label: '✓ Completato', cls: 'bg-emerald-500/20 text-emerald-400' },
     paused:    { label: '⏸ In pausa',   cls: 'bg-yellow-500/20 text-yellow-400' },
@@ -252,10 +259,9 @@ function MediaCard({
           })()
         )}
 
-        {/* Progress — area inferiore */}
+        {/* Progress area */}
         <div className="mt-auto pt-1">
 
-          {/* Board game: contatore partite */}
           {media.type === 'boardgame' ? (
             <div className="flex items-center justify-between">
               <p className="text-emerald-400 text-sm flex items-center gap-1.5">
@@ -276,26 +282,19 @@ function MediaCard({
               )}
             </div>
 
-          /* Gioco: ore giocate */
           ) : media.type === 'game' ? (
             <p className="text-emerald-400 text-sm flex items-center justify-center gap-1.5">
               <Clock size={14} /> {m.hoursPlayed(media.current_episode)}
             </p>
 
-          /* Anime/TV/Manga con episodi: controlli progresso */
           ) : hasEpisodeData ? (
             isCompleted ? (
-              /* Completato: solo tasto reset per owner */
               isOwner ? (
                 <div className="flex items-center justify-between">
                   <span className="text-emerald-400 text-xs font-medium flex items-center gap-1">
                     <CheckCircle size={12} /> {m.completed}
                   </span>
-                  <button
-                    onClick={() => onReset?.(media.id)}
-                    className="p-2 text-zinc-500 hover:text-zinc-300 transition-colors"
-                    title="Ripristina"
-                  >
+                  <button onClick={() => onReset?.(media.id)} className="p-2 text-zinc-500 hover:text-zinc-300 transition-colors" title="Ripristina">
                     <RotateCcw size={18} />
                   </button>
                 </div>
@@ -305,7 +304,6 @@ function MediaCard({
                 </span>
               )
             ) : (
-              /* In corso: stagione + episodio + barra progresso */
               <div className="space-y-4">
                 {hasSeasonData && (
                   <div className="flex items-center justify-between gap-2">
@@ -360,10 +358,7 @@ function MediaCard({
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-zinc-500">{m.progress(totalProgress)}</span>
                   {isOwner && (
-                    <button
-                      onClick={() => onMarkComplete?.(media.id, media)}
-                      className="p-1.5 text-emerald-400 hover:text-emerald-300 transition-colors"
-                    >
+                    <button onClick={() => onMarkComplete?.(media.id, media)} className="p-1.5 text-emerald-400 hover:text-emerald-300 transition-colors">
                       <CheckCircle size={20} />
                     </button>
                   )}
@@ -380,22 +375,17 @@ function MediaCard({
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
 function Avatar({ profile }: { profile: Profile }) {
+  const src = getAvatarUrl(profile.avatar_url, profile.display_name || profile.username)
   return (
     <div className="w-36 h-36 border-4 border-zinc-700 mb-6 bg-zinc-800 rounded-full flex items-center justify-center overflow-hidden">
-      {profile.avatar_url ? (
-        <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-      ) : (
-        <span className="text-6xl font-bold text-zinc-400">
-          {(profile.display_name?.[0] || profile.username?.[0] || 'G').toUpperCase()}
-        </span>
-      )}
+      <img src={src} alt="Avatar" className="w-full h-full object-cover" />
     </div>
   )
 }
 
 // ─── ActivityFeed ─────────────────────────────────────────────────────────────
 
-function ActivityFeed({ userId, isOwner }: { userId: string; isOwner: boolean }) {
+function ActivityFeed({ userId }: { userId: string }) {
   const [activities, setActivities] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -436,9 +426,7 @@ function ActivityFeed({ userId, isOwner }: { userId: string; isOwner: boolean })
   )
 
   if (activities.length === 0) return (
-    <div className="text-center py-12 text-zinc-600 text-sm">
-      Nessuna attività recente
-    </div>
+    <div className="text-center py-12 text-zinc-600 text-sm">Nessuna attività recente</div>
   )
 
   return (
@@ -481,6 +469,158 @@ function ActivityFeed({ userId, isOwner }: { userId: string; isOwner: boolean })
   )
 }
 
+// ─── StatsPanel ───────────────────────────────────────────────────────────────
+
+function StatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
+  const stats = useMemo(() => {
+    const totalAnime    = mediaList.filter(m => m.type === 'anime').length
+    const totalTV       = mediaList.filter(m => m.type === 'tv').length
+    const totalManga    = mediaList.filter(m => m.type === 'manga').length
+    const totalGames    = mediaList.filter(m => m.type === 'game').length
+    const totalMovies   = mediaList.filter(m => m.type === 'movie').length
+    const totalBoards   = mediaList.filter(m => m.type === 'boardgame').length
+    const steamHours    = mediaList.filter(m => m.type === 'game' && m.is_steam).reduce((s, m) => s + (m.current_episode || 0), 0)
+    const mangaChapters = mediaList.filter(m => m.type === 'manga').reduce((s, m) => s + (m.current_episode || 0), 0)
+    // Stima ore anime: ep × 24min
+    const animeEps      = mediaList.filter(m => m.type === 'anime').reduce((s, m) => s + (m.current_episode || 0), 0)
+    const animeHours    = Math.round(animeEps * 24 / 60)
+
+    const rated = mediaList.filter(m => m.rating && m.rating > 0)
+    const avgRating = rated.length > 0
+      ? (rated.reduce((s, m) => s + (m.rating || 0), 0) / rated.length).toFixed(1)
+      : null
+
+    // Top generi: conta frequenza generi in tutta la collezione
+    const genreCount: Record<string, number> = {}
+    for (const item of mediaList) {
+      for (const g of (item.genres || [])) {
+        genreCount[g] = (genreCount[g] || 0) + 1
+      }
+    }
+    const topGenres = Object.entries(genreCount)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([g]) => g)
+
+    return {
+      totalAnime, totalTV, totalManga, totalGames, totalMovies, totalBoards,
+      steamHours, mangaChapters, animeHours, avgRating, topGenres,
+      total: mediaList.length,
+    }
+  }, [mediaList])
+
+  return (
+    <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-6 mb-10">
+      <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-widest mb-4">Statistiche</h3>
+
+      {/* Conteggi per tipo */}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-4">
+        {[
+          { label: 'Anime',      value: stats.totalAnime,  color: 'text-sky-400' },
+          { label: 'Serie TV',   value: stats.totalTV,     color: 'text-purple-400' },
+          { label: 'Manga',      value: stats.totalManga,  color: 'text-orange-400' },
+          { label: 'Giochi',     value: stats.totalGames,  color: 'text-green-400' },
+          { label: 'Film',       value: stats.totalMovies, color: 'text-red-400' },
+          { label: 'Board Game', value: stats.totalBoards, color: 'text-yellow-400' },
+        ].map(s => (
+          <div key={s.label} className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2.5 text-center">
+            <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+            <p className="text-[10px] text-zinc-500 mt-0.5">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Metriche extra */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2.5 text-center">
+          <p className="text-lg font-bold text-violet-400">{stats.steamHours}h</p>
+          <p className="text-[10px] text-zinc-500 mt-0.5">Ore su Steam</p>
+        </div>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2.5 text-center">
+          <p className="text-lg font-bold text-sky-400">~{stats.animeHours}h</p>
+          <p className="text-[10px] text-zinc-500 mt-0.5">Ore anime stimate</p>
+        </div>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2.5 text-center">
+          <p className="text-lg font-bold text-orange-400">{stats.mangaChapters}</p>
+          <p className="text-[10px] text-zinc-500 mt-0.5">Capitoli manga</p>
+        </div>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2.5 text-center">
+          <p className="text-lg font-bold text-yellow-400">{stats.avgRating ? `★ ${stats.avgRating}` : '—'}</p>
+          <p className="text-[10px] text-zinc-500 mt-0.5">Voto medio</p>
+        </div>
+      </div>
+
+      {/* Generi preferiti */}
+      {stats.topGenres.length > 0 && (
+        <div>
+          <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">Generi più seguiti</p>
+          <div className="flex flex-wrap gap-1.5">
+            {stats.topGenres.map(g => (
+              <span key={g} className="text-[10px] bg-violet-500/15 text-violet-300 px-2.5 py-1 rounded-full font-medium border border-violet-500/20">
+                {g}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── SearchBar collezione ─────────────────────────────────────────────────────
+
+function CollectionSearch({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="relative max-w-sm">
+      <SearchIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+      <input
+        type="text"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder="Cerca nella collezione..."
+        className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl pl-8 pr-8 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
+      />
+      {value && (
+        <button onClick={() => onChange('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
+          <X size={13} />
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ─── CopyProfileLink ─────────────────────────────────────────────────────────
+
+function CopyProfileLink({ username }: { username: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    const url = `https://geekore.it/profile/${username}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // fallback
+    }
+  }
+
+  return (
+    <button
+      onClick={handleCopy}
+      title="Copia link profilo"
+      className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium border transition-all ${
+        copied
+          ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
+          : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500'
+      }`}
+    >
+      {copied ? <Check size={12} /> : <Copy size={12} />}
+      {copied ? 'Link copiato!' : 'Copia link profilo'}
+    </button>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
@@ -500,17 +640,16 @@ export default function ProfilePage() {
   const [followersCount, setFollowersCount] = useState(0)
   const [followingCount, setFollowingCount] = useState(0)
   const [isFollowing, setIsFollowing] = useState(false)
-
   const [deletingId, setDeletingId] = useState<string | null>(null)
-
   const [selectedMedia, setSelectedMedia] = useState<UserMedia | null>(null)
   const [notesInput, setNotesInput] = useState('')
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
-
-  // Delete account
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [deletingAccount, setDeletingAccount] = useState(false)
+
+  // Ricerca nella collezione
+  const [collectionSearch, setCollectionSearch] = useState('')
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
@@ -540,19 +679,6 @@ export default function ProfilePage() {
       const data = await res.json()
       if (res.status === 429 && data.cached) { setSteamMessage({ text: data.error, type: 'error' }); return }
       if (!data.success || !data.games?.length) { setSteamMessage({ text: t.toasts.steamNoGames, type: 'error' }); return }
-      const steamMedia = data.games.map((game: any) => ({
-        user_id: currentUserId,
-        title: game.name,
-        type: 'game',
-        appid: String(game.appid),
-        cover_image: game.cover_image ?? null,
-        current_episode: Math.floor(game.playtime_forever / 60),
-        is_steam: true,
-        display_order: Date.now(),
-        updated_at: new Date().toISOString(),
-        rating: 0,
-      }))
-      await supabase.from('user_media_entries').upsert(steamMedia, { onConflict: 'user_id,appid' })
       await refreshMedia(currentUserId)
       const cpMsg = data.core_power != null ? ` Core Power: ${data.core_power}.` : ''
       setSteamMessage({ text: `${t.toasts.steamImported(data.games.length)}${cpMsg}`, type: 'success' })
@@ -598,18 +724,12 @@ export default function ProfilePage() {
     await supabase.from('user_media_entries').update(update).eq('id', id)
     setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
     showToast(t.toasts.completed)
-    await logActivity({
-      type: 'media_completed',
-      media_id: media.id,
-      media_title: media.title,
-      media_type: media.type,
-      media_cover: media.cover_image,
-    })
+    await logActivity({ type: 'media_completed', media_id: media.id, media_title: media.title, media_type: media.type, media_cover: media.cover_image })
   }
 
   const resetProgress = async (id: string) => {
     if (!isOwner) return
-    const update = { current_season: 1, current_episode: 1 }
+    const update = { current_season: 1, current_episode: 1, status: 'watching' }
     await supabase.from('user_media_entries').update(update).eq('id', id)
     setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
     showToast(t.toasts.progressReset)
@@ -629,16 +749,7 @@ export default function ProfilePage() {
     await supabase.from('user_media_entries').update({ rating }).eq('id', mediaId)
     setMediaList(prev => prev.map(item => item.id === mediaId ? { ...item, rating } : item))
     showToast(t.toasts.ratingSaved)
-    if (item) {
-      await logActivity({
-        type: 'rating_given',
-        media_id: item.id,
-        media_title: item.title,
-        media_type: item.type,
-        media_cover: item.cover_image,
-        rating_value: rating,
-      })
-    }
+    if (item) await logActivity({ type: 'rating_given', media_id: item.id, media_title: item.title, media_type: item.type, media_cover: item.cover_image, rating_value: rating })
   }
 
   const openNotesModal = (media: UserMedia) => {
@@ -663,15 +774,7 @@ export default function ProfilePage() {
     setMediaList(prev => prev.map(item => item.id === id ? { ...item, status } : item))
     if (status === 'completed') {
       const item = mediaList.find(m => m.id === id)
-      if (item) {
-        await logActivity({
-          type: 'media_completed',
-          media_id: item.id,
-          media_title: item.title,
-          media_type: item.type,
-          media_cover: item.cover_image,
-        })
-      }
+      if (item) await logActivity({ type: 'media_completed', media_id: item.id, media_title: item.title, media_type: item.type, media_cover: item.cover_image })
     }
   }
 
@@ -758,21 +861,32 @@ export default function ProfilePage() {
     return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white">{t.profile.notFound}</div>
   }
 
+  // ── Categorie separate: TV e Anime hanno sezioni distinte ─────────────────
+
   const cats = t.profile.categories
-  const grouped = mediaList.reduce((acc: Record<string, UserMedia[]>, item) => {
-    const cat =
-      item.type === 'game' ? cats.games
-      : item.type === 'manga' ? cats.manga
-      : item.type === 'anime' || item.type === 'tv' ? cats.anime
-      : item.type === 'movie' ? cats.movies
-      : item.type === 'boardgame' ? cats.boardgames
-      : cats.other
+
+  // Filtra per ricerca
+  const filteredList = collectionSearch.trim()
+    ? mediaList.filter(m => m.title.toLowerCase().includes(collectionSearch.toLowerCase().trim()))
+    : mediaList
+
+  const grouped = filteredList.reduce((acc: Record<string, UserMedia[]>, item) => {
+    let cat: string
+    if (item.type === 'game')      cat = cats.games
+    else if (item.type === 'manga') cat = cats.manga
+    else if (item.type === 'anime') cat = cats.anime   // Anime separati da TV
+    else if (item.type === 'tv')    cat = cats.tv       // TV sezione propria
+    else if (item.type === 'movie') cat = cats.movies
+    else if (item.type === 'boardgame') cat = cats.boardgames
+    else cat = cats.other
+
     if (!acc[cat]) acc[cat] = []
     acc[cat].push(item)
     return acc
   }, {})
 
-  const categoryOrder = [cats.games, cats.anime, cats.manga, cats.movies, cats.boardgames, cats.other]
+  // Ordine categorie con TV separata da Anime
+  const categoryOrder = [cats.games, cats.anime, cats.tv, cats.manga, cats.movies, cats.boardgames, cats.other]
   const orderedCategories = categoryOrder.filter(cat => grouped[cat]?.length > 0)
 
   return (
@@ -801,15 +915,35 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {isOwner && (
-              <Link href="/profile/edit" className="mt-6">
-                <button className="px-8 py-3 bg-white text-black font-semibold rounded-full hover:bg-zinc-200 transition-all">
-                  {t.profile.editProfile}
-                </button>
-              </Link>
-            )}
+            {/* Azioni profilo */}
+            <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
+              {isOwner ? (
+                <>
+                  <Link href="/profile/edit">
+                    <button className="px-8 py-3 bg-white text-black font-semibold rounded-full hover:bg-zinc-200 transition-all">
+                      {t.profile.editProfile}
+                    </button>
+                  </Link>
+                  <CopyProfileLink username={profile.username} />
+                </>
+              ) : (
+                <>
+                  {currentUserId && profile && (
+                    <FollowButton
+                      targetId={profile.id}
+                      currentUserId={currentUserId}
+                      isFollowingInitial={isFollowing}
+                      onFollowChange={(nowFollowing) =>
+                        setFollowersCount(prev => nowFollowing ? prev + 1 : Math.max(0, prev - 1))
+                      }
+                    />
+                  )}
+                  <CopyProfileLink username={profile.username} />
+                </>
+              )}
+            </div>
 
-            {/* Elimina account — solo owner, piccolo e discreto */}
+            {/* Elimina account */}
             {isOwner && (
               <button
                 onClick={() => setShowDeleteModal(true)}
@@ -818,23 +952,10 @@ export default function ProfilePage() {
                 <Trash2 size={12} /> Elimina account
               </button>
             )}
-
-            {!isOwner && currentUserId && profile && (
-              <div className="mt-6">
-                <FollowButton
-                  targetId={profile.id}
-                  currentUserId={currentUserId}
-                  isFollowingInitial={isFollowing}
-                  onFollowChange={(nowFollowing) =>
-                    setFollowersCount(prev => nowFollowing ? prev + 1 : Math.max(0, prev - 1))
-                  }
-                />
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Steam section — solo owner */}
+        {/* Steam section */}
         {isOwner && (
           <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-8 mb-12">
             <div className="flex justify-between items-center mb-6">
@@ -892,43 +1013,37 @@ export default function ProfilePage() {
           </div>
         )}
 
-        <h2 className="text-4xl font-bold tracking-tight mb-8">
+        <h2 className="text-4xl font-bold tracking-tight mb-6">
           {isOwner ? t.profile.myProgress : t.profile.progressOf(profile.username)}
         </h2>
 
-        {/* Statistiche profilo */}
-        {mediaList.length > 0 && (() => {
-          const totalAnime = mediaList.filter(m => m.type === 'anime').length
-          const totalGames = mediaList.filter(m => m.type === 'game').length
-          const steamHours = mediaList.filter(m => m.type === 'game' && m.is_steam).reduce((s, m) => s + (m.current_episode || 0), 0)
-          const rated = mediaList.filter(m => m.rating && m.rating > 0)
-          const avgRating = rated.length > 0 ? (rated.reduce((s, m) => s + (m.rating || 0), 0) / rated.length).toFixed(1) : null
-          const stats = [
-            { label: t.profile.statsAnime, value: totalAnime },
-            { label: t.profile.statsGames, value: totalGames },
-            { label: t.profile.statsSteamHours, value: steamHours },
-            { label: t.profile.statsAvgRating, value: avgRating ? `★ ${avgRating}` : '—' },
-            { label: t.profile.statsCollection, value: mediaList.length },
-          ]
-          return (
-            <div className="flex flex-wrap gap-4 mb-10">
-              {stats.map(s => (
-                <div key={s.label} className="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-3 text-center min-w-[90px]">
-                  <p className="text-xl font-bold text-violet-400">{s.value}</p>
-                  <p className="text-xs text-zinc-500 mt-1">{s.label}</p>
-                </div>
-              ))}
-            </div>
-          )
-        })()}
+        {/* Statistiche dettagliate */}
+        {mediaList.length > 0 && <StatsPanel mediaList={mediaList} />}
 
-        {/* ── Attività recente ── */}
+        {/* Attività recente */}
         <div className="mb-12">
           <h3 className="text-xl font-semibold mb-5">Attività recente</h3>
-          <ActivityFeed userId={profile.id} isOwner={isOwner} />
+          <ActivityFeed userId={profile.id} />
         </div>
 
-        {mediaList.length === 0 ? (
+        {/* Ricerca nella collezione */}
+        {mediaList.length > 5 && (
+          <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
+            <CollectionSearch value={collectionSearch} onChange={setCollectionSearch} />
+            {collectionSearch && (
+              <p className="text-sm text-zinc-500">
+                {filteredList.length} risultat{filteredList.length === 1 ? 'o' : 'i'} per "{collectionSearch}"
+              </p>
+            )}
+          </div>
+        )}
+
+        {filteredList.length === 0 && collectionSearch ? (
+          <div className="text-center py-16 text-zinc-500">
+            <SearchIcon size={36} className="mx-auto mb-3 opacity-30" />
+            <p>Nessun titolo trovato per "{collectionSearch}"</p>
+          </div>
+        ) : mediaList.length === 0 ? (
           <div className="text-center py-20 text-zinc-500">
             {isOwner ? t.profile.emptyOwner : t.profile.emptyOther}
           </div>
@@ -1018,7 +1133,7 @@ export default function ProfilePage() {
             </div>
             <h3 className="text-2xl font-bold text-white text-center mb-2">Elimina account</h3>
             <p className="text-zinc-400 text-center text-sm mb-6">
-              Questa azione è <strong className="text-red-400">irreversibile</strong>. Tutti i tuoi dati verranno cancellati permanentemente: collezione, post, follower, wishlist.
+              Questa azione è <strong className="text-red-400">irreversibile</strong>. Tutti i tuoi dati verranno cancellati permanentemente.
             </p>
             <div className="mb-6">
               <label className="block text-sm text-zinc-500 mb-2">

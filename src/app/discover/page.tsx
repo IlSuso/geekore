@@ -30,6 +30,16 @@ type MediaItem = {
   designers?: string[];
 };
 
+// Ordine di priorità dei tipi per visualizzazione in modalità "all"
+const TYPE_ORDER: Record<string, number> = {
+  anime: 0,
+  manga: 1,
+  movie: 2,
+  tv: 3,
+  game: 4,
+  boardgame: 5,
+};
+
 function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
   if (!item?.coverImage || typeof item.coverImage !== 'string') return false;
   const url = item.coverImage.trim();
@@ -37,6 +47,25 @@ function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
   if (url.includes('N/A') || url.includes('placeholder') || url.includes('no-image')) return false;
   return true;
 }
+
+// Etichette per separatori di gruppo
+const TYPE_LABELS: Record<string, string> = {
+  anime: 'Anime',
+  manga: 'Manga',
+  movie: 'Film',
+  tv: 'Serie TV',
+  game: 'Videogiochi',
+  boardgame: 'Board Game',
+};
+
+const TYPE_COLORS: Record<string, string> = {
+  anime:     'text-sky-400 border-sky-500/30 bg-sky-500/10',
+  manga:     'text-orange-400 border-orange-500/30 bg-orange-500/10',
+  movie:     'text-red-400 border-red-500/30 bg-red-500/10',
+  tv:        'text-purple-400 border-purple-500/30 bg-purple-500/10',
+  game:      'text-green-400 border-green-500/30 bg-green-500/10',
+  boardgame: 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10',
+};
 
 export default function DiscoverPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -259,9 +288,20 @@ export default function DiscoverPage() {
         }
       }
 
+      // Deduplicazione
       const uniqueResults = rawResults.filter((item, index, self) =>
         index === self.findIndex((t) => t.id === item.id)
       );
+
+      // Ordinamento per tipo quando activeType === 'all'
+      if (activeType === 'all') {
+        uniqueResults.sort((a, b) => {
+          const orderA = TYPE_ORDER[a.type] ?? 99;
+          const orderB = TYPE_ORDER[b.type] ?? 99;
+          return orderA - orderB;
+        });
+      }
+
       setResults(uniqueResults);
 
     } catch (err) {
@@ -297,7 +337,6 @@ export default function DiscoverPage() {
     setCurrentEpisode('');
   };
 
-  // Salva il media con TUTTI i metadati profondi disponibili
   const addDirectly = async (media: MediaItem, rating: number = 0) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -334,7 +373,6 @@ export default function DiscoverPage() {
       }
     } else {
       setAlreadyAdded(prev => [...prev, media.id]);
-      // Log activity
       const { logActivity } = await import('@/lib/activity');
       await logActivity({
         type: 'media_added',
@@ -352,7 +390,6 @@ export default function DiscoverPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setAdding(false); return; }
 
-    // Film, gioco, boardgame o media senza episodi: aggiunto direttamente
     if (
       selectedMedia.type === 'movie' ||
       selectedMedia.type === 'game' ||
@@ -366,7 +403,6 @@ export default function DiscoverPage() {
       return;
     }
 
-    // Serie/Anime: serve episodio
     if (!currentEpisode || Number(currentEpisode) < 1) {
       setAdding(false);
       return;
@@ -407,7 +443,6 @@ export default function DiscoverPage() {
       }
     } else {
       setAlreadyAdded(prev => [...prev, selectedMedia.id]);
-      // Log activity per serie/anime con episodio
       const { logActivity } = await import('@/lib/activity');
       await logActivity({
         type: 'media_added',
@@ -424,6 +459,17 @@ export default function DiscoverPage() {
     setAdding(false);
   };
 
+  // Raggruppa i risultati per tipo quando activeType === 'all'
+  const groupedResults = activeType === 'all'
+    ? Object.entries(
+        results.reduce((acc: Record<string, MediaItem[]>, item) => {
+          if (!acc[item.type]) acc[item.type] = [];
+          acc[item.type].push(item);
+          return acc;
+        }, {})
+      ).sort(([a], [b]) => (TYPE_ORDER[a] ?? 99) - (TYPE_ORDER[b] ?? 99))
+    : null;
+
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="pt-8 pb-20 max-w-6xl mx-auto px-6">
@@ -431,9 +477,10 @@ export default function DiscoverPage() {
           <h1 className="text-5xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-cyan-400">
             Discover
           </h1>
-          <p className="text-zinc-400 mt-3">Solo contenuti con copertina valida</p>
+          <p className="text-zinc-400 mt-3">Anime, manga, giochi, film, serie e board game</p>
         </div>
 
+        {/* Filtri tipo */}
         <div className="flex flex-wrap gap-3 justify-center mb-8">
           {typeFilters.map((tf) => {
             const Icon = tf.icon;
@@ -454,6 +501,7 @@ export default function DiscoverPage() {
           })}
         </div>
 
+        {/* Search */}
         <div className="max-w-2xl mx-auto mb-12">
           <div className="relative">
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-500" size={24} />
@@ -469,60 +517,59 @@ export default function DiscoverPage() {
 
         {loading && <p className="text-center text-zinc-400">{d.searching}</p>}
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-          {results.map((item, index) => {
-            const isAdded = alreadyAdded.includes(item.id);
-            const uniqueKey = `${item.id}-${item.source}-${index}`;
-
-            return (
-              <div
-                key={uniqueKey}
-                className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden hover:border-violet-500/50 transition group"
-              >
-                <div className="relative h-64 bg-zinc-900">
-                  <img
-                    src={item.coverImage}
-                    alt={item.title}
-                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                  />
+        {/* Risultati: raggruppati per tipo quando "all", griglia normale altrimenti */}
+        {activeType === 'all' && groupedResults && groupedResults.length > 0 ? (
+          <div className="space-y-10">
+            {groupedResults.map(([type, items]) => (
+              <div key={type}>
+                {/* Separatore di tipo */}
+                <div className="flex items-center gap-3 mb-4">
+                  <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${TYPE_COLORS[type] || 'text-zinc-400 border-zinc-700 bg-zinc-800'}`}>
+                    {TYPE_LABELS[type] || type}
+                  </span>
+                  <div className="flex-1 h-px bg-zinc-800" />
+                  <span className="text-xs text-zinc-600">{items.length} risultati</span>
                 </div>
 
-                <div className="p-4">
-                  <h3 className="font-semibold line-clamp-2 mb-1 text-sm leading-tight">{item.title}</h3>
-                  <p className="text-xs text-zinc-500 mb-3 capitalize">
-                    {item.type}
-                    {item.totalSeasons && item.type === 'tv' && ` • ${item.totalSeasons} stagioni`}
-                  </p>
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleAdd(item)}
-                      disabled={isAdded}
-                      className={`flex-1 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
-                        isAdded
-                          ? 'bg-emerald-600 text-white cursor-default'
-                          : 'bg-zinc-800 hover:bg-violet-600 border border-zinc-700 hover:border-violet-500'
-                      }`}
-                    >
-                      {isAdded ? <>{d.added}</> : <><Plus size={14} /> {d.add}</>}
-                    </button>
-                    <button
-                      onClick={() => toggleWishlist(item)}
-                      title={wishlistIds.includes(item.id) ? d.removeFromWishlist : d.addToWishlist}
-                      className={`p-2.5 rounded-xl border transition-all ${
-                        wishlistIds.includes(item.id)
-                          ? 'bg-violet-600 border-violet-500 text-white'
-                          : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-violet-400 hover:border-violet-500'
-                      }`}
-                    >
-                      {wishlistIds.includes(item.id) ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
-                    </button>
-                  </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                  {items.map((item, index) => {
+                    const isAdded = alreadyAdded.includes(item.id);
+                    const uniqueKey = `${item.id}-${item.source}-${index}`;
+                    return (
+                      <ResultCard
+                        key={uniqueKey}
+                        item={item}
+                        isAdded={isAdded}
+                        inWishlist={wishlistIds.includes(item.id)}
+                        onAdd={() => handleAdd(item)}
+                        onWishlist={() => toggleWishlist(item)}
+                        d={d}
+                      />
+                    );
+                  })}
                 </div>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+            {results.map((item, index) => {
+              const isAdded = alreadyAdded.includes(item.id);
+              const uniqueKey = `${item.id}-${item.source}-${index}`;
+              return (
+                <ResultCard
+                  key={uniqueKey}
+                  item={item}
+                  isAdded={isAdded}
+                  inWishlist={wishlistIds.includes(item.id)}
+                  onAdd={() => handleAdd(item)}
+                  onWishlist={() => toggleWishlist(item)}
+                  d={d}
+                />
+              );
+            })}
+          </div>
+        )}
 
         {searchError && (
           <p className="text-center text-red-400 mt-6 text-sm">{searchError}</p>
@@ -633,7 +680,7 @@ export default function DiscoverPage() {
               )}
               {selectedMedia.type === 'boardgame' && (
                 <div className="bg-zinc-800 rounded-2xl px-5 py-4 text-sm text-zinc-400">
-                  Il board game verrà aggiunto alla tua collezione. Potrai aggiornare le partite giocate dal profilo.
+                  Il board game verrà aggiunto alla tua collezione.
                 </div>
               )}
             </div>
@@ -656,6 +703,64 @@ export default function DiscoverPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── ResultCard estratta per riuso ────────────────────────────────────────────
+
+function ResultCard({
+  item, isAdded, inWishlist, onAdd, onWishlist, d,
+}: {
+  item: MediaItem
+  isAdded: boolean
+  inWishlist: boolean
+  onAdd: () => void
+  onWishlist: () => void
+  d: any
+}) {
+  return (
+    <div className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden hover:border-violet-500/50 transition group">
+      <div className="relative h-64 bg-zinc-900">
+        <img
+          src={item.coverImage}
+          alt={item.title}
+          className="w-full h-full object-cover transition-transform group-hover:scale-105"
+        />
+      </div>
+
+      <div className="p-4">
+        <h3 className="font-semibold line-clamp-2 mb-1 text-sm leading-tight">{item.title}</h3>
+        <p className="text-xs text-zinc-500 mb-3 capitalize">
+          {item.type}
+          {item.totalSeasons && item.type === 'tv' && ` • ${item.totalSeasons} stagioni`}
+        </p>
+
+        <div className="flex gap-2">
+          <button
+            onClick={onAdd}
+            disabled={isAdded}
+            className={`flex-1 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
+              isAdded
+                ? 'bg-emerald-600 text-white cursor-default'
+                : 'bg-zinc-800 hover:bg-violet-600 border border-zinc-700 hover:border-violet-500'
+            }`}
+          >
+            {isAdded ? <>{d.added}</> : <><Plus size={14} /> {d.add}</>}
+          </button>
+          <button
+            onClick={onWishlist}
+            title={inWishlist ? d.removeFromWishlist : d.addToWishlist}
+            className={`p-2.5 rounded-xl border transition-all ${
+              inWishlist
+                ? 'bg-violet-600 border-violet-500 text-white'
+                : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-violet-400 hover:border-violet-500'
+            }`}
+          >
+            {inWishlist ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
