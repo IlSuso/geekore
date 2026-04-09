@@ -655,14 +655,6 @@ export default function ProfilePage() {
             )}
           </div>
 
-          {currentUserId && (
-            <button
-              onClick={async () => { await supabase.auth.signOut(); window.location.href = '/login' }}
-              className="px-6 py-2.5 text-sm font-medium border border-zinc-700 hover:border-zinc-500 rounded-full transition-colors"
-            >
-              {t.profile.logout}
-            </button>
-          )}
         </div>
 
         {/* Steam section — solo owner */}

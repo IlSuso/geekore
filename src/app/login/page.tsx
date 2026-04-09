@@ -14,11 +14,11 @@ function LocaleToggle() {
       <button
         onClick={() => setLocale('it')}
         className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${locale === 'it' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-white'}`}
-      >🇮🇹</button>
+      >IT</button>
       <button
         onClick={() => setLocale('en')}
         className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${locale === 'en' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-white'}`}
-      >🇬🇧</button>
+      >EN</button>
     </div>
   )
 }
