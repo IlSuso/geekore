@@ -2,6 +2,59 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Aggiungere in cima a src/app/globals.css ────────────────────────────── */
+/* Dopo le direttive @tailwind */
+
+/* Dark mode (default) */
+:root {
+  --bg-primary: #000000;
+  --bg-secondary: #09090b;
+  --bg-card: #18181b;
+  --bg-hover: #27272a;
+  --text-primary: #ffffff;
+  --text-secondary: #a1a1aa;
+  --text-muted: #52525b;
+  --border: #27272a;
+  --border-subtle: #18181b;
+}
+
+/* Light mode */
+html.light {
+  --bg-primary: #f9fafb;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --bg-hover: #f3f4f6;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --border: #e5e7eb;
+  --border-subtle: #f3f4f6;
+}
+
+html.light body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Overrides Tailwind per light mode */
+html.light .bg-black { background-color: var(--bg-primary) !important; }
+html.light .bg-zinc-950 { background-color: var(--bg-secondary) !important; }
+html.light .bg-zinc-900 { background-color: var(--bg-card) !important; }
+html.light .bg-zinc-800 { background-color: #f3f4f6 !important; }
+html.light .border-zinc-800 { border-color: var(--border) !important; }
+html.light .border-zinc-700 { border-color: #d1d5db !important; }
+html.light .text-white { color: var(--text-primary) !important; }
+html.light .text-zinc-400 { color: var(--text-secondary) !important; }
+html.light .text-zinc-500 { color: #6b7280 !important; }
+html.light .text-zinc-600 { color: #9ca3af !important; }
+
+/* ── ThemeToggle button — aggiungi in settings o navbar ─────────────────── */
+/*
+  <button onClick={toggleTheme}>
+    {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+  </button>
+*/
+
 /* ── Base ────────────────────────────────────────────────────── */
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
