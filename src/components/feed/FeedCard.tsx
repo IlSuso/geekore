@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { it } from 'date-fns/locale'
+import { ReportButton } from '@/components/ui/ReportButton'
 
 export function FeedCard({ post }: { post: any }) {
   const supabase = createClient()
@@ -74,6 +75,9 @@ export function FeedCard({ post }: { post: any }) {
     ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: it })
     : ''
 
+  // Mostra report solo se l'utente è loggato e non è l'autore del post
+  const showReport = user && user.id !== post.user_id
+
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden hover:border-violet-500/30 transition-all duration-300">
       {/* Header */}
@@ -99,6 +103,15 @@ export function FeedCard({ post }: { post: any }) {
             @{post.profiles?.username || 'anon'} · {timeAgo}
           </p>
         </div>
+        {/* Report button in alto a destra */}
+        {showReport && (
+          <ReportButton
+            targetType="post"
+            targetId={post.id}
+            iconOnly
+            className="opacity-0 group-hover:opacity-100 transition-opacity"
+          />
+        )}
       </div>
 
       {/* Content */}
@@ -140,6 +153,13 @@ export function FeedCard({ post }: { post: any }) {
           </div>
           <span className="text-xs font-bold">{comments.length}</span>
         </button>
+
+        {/* Segnala post — in fondo alla riga azioni */}
+        {showReport && (
+          <div className="ml-auto">
+            <ReportButton targetType="post" targetId={post.id} iconOnly />
+          </div>
+        )}
       </div>
 
       {/* Comments section */}
@@ -153,9 +173,19 @@ export function FeedCard({ post }: { post: any }) {
                     {(comment.profiles?.display_name?.[0] || comment.profiles?.username?.[0] || '?').toUpperCase()}
                   </div>
                   <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-2 flex-1">
-                    <Link href={`/profile/${comment.profiles?.username}`} className="text-[10px] font-bold text-violet-400 uppercase tracking-wider hover:text-violet-300">
-                      @{comment.profiles?.username || 'user'}
-                    </Link>
+                    <div className="flex items-center justify-between gap-2">
+                      <Link href={`/profile/${comment.profiles?.username}`} className="text-[10px] font-bold text-violet-400 uppercase tracking-wider hover:text-violet-300">
+                        @{comment.profiles?.username || 'user'}
+                      </Link>
+                      {/* Report commento */}
+                      {user && user.id !== comment.user_id && (
+                        <ReportButton
+                          targetType="comment"
+                          targetId={comment.id}
+                          iconOnly
+                        />
+                      )}
+                    </div>
                     <p className="text-zinc-300 text-xs mt-0.5">{comment.content}</p>
                   </div>
                 </div>

@@ -13,6 +13,7 @@ import { StarRating } from '@/components/ui/StarRating'
 import { Spinner } from '@/components/ui/Spinner'
 import { showToast } from '@/components/ui/Toast'
 import { FollowButton } from '@/components/profile/follow-button'
+import { ProfileComments } from '@/components/profile/ProfileComments'
 import {
   DndContext, closestCenter, PointerSensor,
   useSensor, useSensors, DragEndEvent,
@@ -232,7 +233,7 @@ function MediaCard({
           )}
         </div>
 
-        {/* Status: select per owner, badge per visitatore */}
+        {/* Status */}
         {isOwner ? (
           <div className="flex">
             <select
@@ -481,7 +482,6 @@ function StatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
     const totalBoards   = mediaList.filter(m => m.type === 'boardgame').length
     const steamHours    = mediaList.filter(m => m.type === 'game' && m.is_steam).reduce((s, m) => s + (m.current_episode || 0), 0)
     const mangaChapters = mediaList.filter(m => m.type === 'manga').reduce((s, m) => s + (m.current_episode || 0), 0)
-    // Stima ore anime: ep × 24min
     const animeEps      = mediaList.filter(m => m.type === 'anime').reduce((s, m) => s + (m.current_episode || 0), 0)
     const animeHours    = Math.round(animeEps * 24 / 60)
 
@@ -490,7 +490,6 @@ function StatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
       ? (rated.reduce((s, m) => s + (m.rating || 0), 0) / rated.length).toFixed(1)
       : null
 
-    // Top generi: conta frequenza generi in tutta la collezione
     const genreCount: Record<string, number> = {}
     for (const item of mediaList) {
       for (const g of (item.genres || [])) {
@@ -513,7 +512,6 @@ function StatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
     <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-6 mb-10">
       <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-widest mb-4">Statistiche</h3>
 
-      {/* Conteggi per tipo */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-4">
         {[
           { label: 'Anime',      value: stats.totalAnime,  color: 'text-sky-400' },
@@ -530,7 +528,6 @@ function StatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
         ))}
       </div>
 
-      {/* Metriche extra */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2.5 text-center">
           <p className="text-lg font-bold text-violet-400">{stats.steamHours}h</p>
@@ -550,7 +547,6 @@ function StatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
         </div>
       </div>
 
-      {/* Generi preferiti */}
       {stats.topGenres.length > 0 && (
         <div>
           <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">Generi più seguiti</p>
@@ -567,7 +563,7 @@ function StatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
   )
 }
 
-// ─── SearchBar collezione ─────────────────────────────────────────────────────
+// ─── CollectionSearch ─────────────────────────────────────────────────────────
 
 function CollectionSearch({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
@@ -600,9 +596,7 @@ function CopyProfileLink({ username }: { username: string }) {
       await navigator.clipboard.writeText(url)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    } catch {
-      // fallback
-    }
+    } catch {}
   }
 
   return (
@@ -647,13 +641,9 @@ export default function ProfilePage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [deletingAccount, setDeletingAccount] = useState(false)
-
-  // Ricerca nella collezione
   const [collectionSearch, setCollectionSearch] = useState('')
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
-
-  // ── Helpers ──────────────────────────────────────────────────────────────────
 
   const sortMediaList = (list: UserMedia[]) =>
     [...list].sort((a, b) => {
@@ -667,8 +657,6 @@ export default function ProfilePage() {
     const { data } = await supabase.from('user_media_entries').select('*').eq('user_id', userId)
     if (data) setMediaList(sortMediaList(data))
   }
-
-  // ── Actions ──────────────────────────────────────────────────────────────────
 
   const importSteamGames = async () => {
     if (!steamAccount?.steam_id64 || !currentUserId || importingGames) return
@@ -805,8 +793,6 @@ export default function ProfilePage() {
     await supabase.from('user_media_entries').upsert(newList.map(item => ({ id: item.id, display_order: item.display_order })))
   }
 
-  // ── Data fetch ────────────────────────────────────────────────────────────
-
   useEffect(() => {
     const fetchData = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -853,30 +839,25 @@ export default function ProfilePage() {
     return () => clearTimeout(timer)
   }, [steamMessage])
 
-  // ── Render ────────────────────────────────────────────────────────────────
-
   if (loading) return <Spinner />
 
   if (!profile) {
     return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white">{t.profile.notFound}</div>
   }
 
-  // ── Categorie separate: TV e Anime hanno sezioni distinte ─────────────────
-
   const cats = t.profile.categories
 
-  // Filtra per ricerca
   const filteredList = collectionSearch.trim()
     ? mediaList.filter(m => m.title.toLowerCase().includes(collectionSearch.toLowerCase().trim()))
     : mediaList
 
   const grouped = filteredList.reduce((acc: Record<string, UserMedia[]>, item) => {
     let cat: string
-    if (item.type === 'game')      cat = cats.games
-    else if (item.type === 'manga') cat = cats.manga
-    else if (item.type === 'anime') cat = cats.anime   // Anime separati da TV
-    else if (item.type === 'tv')    cat = cats.tv       // TV sezione propria
-    else if (item.type === 'movie') cat = cats.movies
+    if (item.type === 'game')           cat = cats.games
+    else if (item.type === 'manga')     cat = cats.manga
+    else if (item.type === 'anime')     cat = cats.anime
+    else if (item.type === 'tv')        cat = cats.tv
+    else if (item.type === 'movie')     cat = cats.movies
     else if (item.type === 'boardgame') cat = cats.boardgames
     else cat = cats.other
 
@@ -885,7 +866,6 @@ export default function ProfilePage() {
     return acc
   }, {})
 
-  // Ordine categorie con TV separata da Anime
   const categoryOrder = [cats.games, cats.anime, cats.tv, cats.manga, cats.movies, cats.boardgames, cats.other]
   const orderedCategories = categoryOrder.filter(cat => grouped[cat]?.length > 0)
 
@@ -915,7 +895,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Azioni profilo */}
             <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
               {isOwner ? (
                 <>
@@ -943,7 +922,6 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* Elimina account */}
             {isOwner && (
               <button
                 onClick={() => setShowDeleteModal(true)}
@@ -1017,16 +995,13 @@ export default function ProfilePage() {
           {isOwner ? t.profile.myProgress : t.profile.progressOf(profile.username)}
         </h2>
 
-        {/* Statistiche dettagliate */}
         {mediaList.length > 0 && <StatsPanel mediaList={mediaList} />}
 
-        {/* Attività recente */}
         <div className="mb-12">
           <h3 className="text-xl font-semibold mb-5">Attività recente</h3>
           <ActivityFeed userId={profile.id} />
         </div>
 
-        {/* Ricerca nella collezione */}
         {mediaList.length > 5 && (
           <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
             <CollectionSearch value={collectionSearch} onChange={setCollectionSearch} />
@@ -1092,6 +1067,16 @@ export default function ProfilePage() {
             </div>
           ))
         )}
+
+        {/* ── BACHECA COMMENTI ─────────────────────────────────────────── */}
+        {profile && (
+          <ProfileComments
+            profileId={profile.id}
+            profileUsername={profile.username}
+            isOwner={isOwner}
+          />
+        )}
+
       </div>
 
       {/* Modal Note */}

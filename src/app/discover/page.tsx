@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/client';
 import { StarRating } from '@/components/ui/StarRating';
 import { showToast } from '@/components/ui/Toast';
 import { useLocale } from '@/lib/locale';
+import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer';
+import type { MediaDetails } from '@/components/media/MediaDetailsDrawer';
 
 type MediaItem = {
   id: string;
@@ -28,16 +30,17 @@ type MediaItem = {
   categories?: string[];
   mechanics?: string[];
   designers?: string[];
+  // Board game extras
+  min_players?: number;
+  max_players?: number;
+  playing_time?: number;
+  complexity?: number;
+  bgg_rating?: number;
+  score?: number;
 };
 
-// Ordine di priorità dei tipi per visualizzazione in modalità "all"
 const TYPE_ORDER: Record<string, number> = {
-  anime: 0,
-  manga: 1,
-  movie: 2,
-  tv: 3,
-  game: 4,
-  boardgame: 5,
+  anime: 0, manga: 1, movie: 2, tv: 3, game: 4, boardgame: 5,
 };
 
 function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
@@ -48,14 +51,9 @@ function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
   return true;
 }
 
-// Etichette per separatori di gruppo
 const TYPE_LABELS: Record<string, string> = {
-  anime: 'Anime',
-  manga: 'Manga',
-  movie: 'Film',
-  tv: 'Serie TV',
-  game: 'Videogiochi',
-  boardgame: 'Board Game',
+  anime: 'Anime', manga: 'Manga', movie: 'Film',
+  tv: 'Serie TV', game: 'Videogiochi', boardgame: 'Board Game',
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -66,6 +64,31 @@ const TYPE_COLORS: Record<string, string> = {
   game:      'text-green-400 border-green-500/30 bg-green-500/10',
   boardgame: 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10',
 };
+
+// Converte MediaItem → MediaDetails per il drawer
+function toMediaDetails(item: MediaItem): MediaDetails {
+  return {
+    id: item.id,
+    title: item.title,
+    type: item.type,
+    coverImage: item.coverImage,
+    year: item.year,
+    episodes: item.episodes,
+    description: item.description,
+    genres: item.genres,
+    source: item.source,
+    score: item.score,
+    min_players: item.min_players,
+    max_players: item.max_players,
+    playing_time: item.playing_time,
+    complexity: item.complexity,
+    bgg_rating: item.bgg_rating,
+    mechanics: item.mechanics,
+    designers: item.designers,
+    developers: item.developers,
+    themes: item.themes,
+  };
+}
 
 export default function DiscoverPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -80,6 +103,9 @@ export default function DiscoverPage() {
   const [alreadyAdded, setAlreadyAdded] = useState<string[]>([]);
   const [wishlistIds, setWishlistIds] = useState<string[]>([]);
   const [modalRating, setModalRating] = useState(0);
+
+  // Stato drawer dettagli
+  const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null);
 
   const supabase = createClient();
   const tmdbToken = process.env.NEXT_PUBLIC_TMDB_API_KEY;
@@ -128,7 +154,6 @@ export default function DiscoverPage() {
     let rawResults: MediaItem[] = [];
 
     try {
-      // ── AniList — Anime + Manga ─────────────────────────────────────────
       if (activeType === 'all' || activeType === 'anime' || activeType === 'manga') {
         const mediaFields = `id title { romaji english } coverImage { large } seasonYear episodes chapters type description(asHtml: false) genres tags { name rank category }`;
         const anilistQuery = `query ($search: String) {
@@ -179,7 +204,6 @@ export default function DiscoverPage() {
         rawResults = [...rawResults, ...aniResults, ...mangaResults, ...novelResults];
       }
 
-      // ── TMDb — Film + Serie TV ───────────────────────────────────────────
       if (tmdbToken && (activeType === 'all' || activeType === 'movie' || activeType === 'tv')) {
         const mediaType = activeType === 'tv' ? 'tv' : 'movie';
         const searchRes = await fetch(
@@ -258,7 +282,6 @@ export default function DiscoverPage() {
         }
       }
 
-      // ── IGDB — Videogiochi ───────────────────────────────────────────────
       if (activeType === 'all' || activeType === 'game') {
         const res = await fetch('/api/igdb', {
           method: 'POST',
@@ -275,7 +298,6 @@ export default function DiscoverPage() {
         }
       }
 
-      // ── BGG — Board Games ────────────────────────────────────────────────
       if (activeType === 'all' || activeType === 'boardgame') {
         const res = await fetch(`/api/boardgames?search=${encodeURIComponent(term)}`);
         if (res.ok) {
@@ -288,12 +310,10 @@ export default function DiscoverPage() {
         }
       }
 
-      // Deduplicazione
       const uniqueResults = rawResults.filter((item, index, self) =>
         index === self.findIndex((t) => t.id === item.id)
       );
 
-      // Ordinamento per tipo quando activeType === 'all'
       if (activeType === 'all') {
         uniqueResults.sort((a, b) => {
           const orderA = TYPE_ORDER[a.type] ?? 99;
@@ -459,7 +479,6 @@ export default function DiscoverPage() {
     setAdding(false);
   };
 
-  // Raggruppa i risultati per tipo quando activeType === 'all'
   const groupedResults = activeType === 'all'
     ? Object.entries(
         results.reduce((acc: Record<string, MediaItem[]>, item) => {
@@ -517,12 +536,11 @@ export default function DiscoverPage() {
 
         {loading && <p className="text-center text-zinc-400">{d.searching}</p>}
 
-        {/* Risultati: raggruppati per tipo quando "all", griglia normale altrimenti */}
+        {/* Risultati */}
         {activeType === 'all' && groupedResults && groupedResults.length > 0 ? (
           <div className="space-y-10">
             {groupedResults.map(([type, items]) => (
               <div key={type}>
-                {/* Separatore di tipo */}
                 <div className="flex items-center gap-3 mb-4">
                   <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${TYPE_COLORS[type] || 'text-zinc-400 border-zinc-700 bg-zinc-800'}`}>
                     {TYPE_LABELS[type] || type}
@@ -543,6 +561,7 @@ export default function DiscoverPage() {
                         inWishlist={wishlistIds.includes(item.id)}
                         onAdd={() => handleAdd(item)}
                         onWishlist={() => toggleWishlist(item)}
+                        onOpenDetails={() => setDrawerMedia(toMediaDetails(item))}
                         d={d}
                       />
                     );
@@ -564,6 +583,7 @@ export default function DiscoverPage() {
                   inWishlist={wishlistIds.includes(item.id)}
                   onAdd={() => handleAdd(item)}
                   onWishlist={() => toggleWishlist(item)}
+                  onOpenDetails={() => setDrawerMedia(toMediaDetails(item))}
                   d={d}
                 />
               );
@@ -703,34 +723,57 @@ export default function DiscoverPage() {
           </div>
         </div>
       )}
+
+      {/* ── MEDIA DETAILS DRAWER ─────────────────────────────────────────── */}
+      <MediaDetailsDrawer
+        media={drawerMedia}
+        onClose={() => setDrawerMedia(null)}
+      />
     </div>
   );
 }
 
-// ─── ResultCard estratta per riuso ────────────────────────────────────────────
+// ─── ResultCard ────────────────────────────────────────────────────────────────
 
 function ResultCard({
-  item, isAdded, inWishlist, onAdd, onWishlist, d,
+  item, isAdded, inWishlist, onAdd, onWishlist, onOpenDetails, d,
 }: {
   item: MediaItem
   isAdded: boolean
   inWishlist: boolean
   onAdd: () => void
   onWishlist: () => void
+  onOpenDetails: () => void
   d: any
 }) {
   return (
     <div className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden hover:border-violet-500/50 transition group">
-      <div className="relative h-64 bg-zinc-900">
+      {/* Cover — cliccabile per aprire il drawer */}
+      <div
+        className="relative h-64 bg-zinc-900 cursor-pointer"
+        onClick={onOpenDetails}
+        title="Vedi dettagli"
+      >
         <img
           src={item.coverImage}
           alt={item.title}
           className="w-full h-full object-cover transition-transform group-hover:scale-105"
         />
+        {/* Overlay hint al hover */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+          <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
+            Dettagli →
+          </span>
+        </div>
       </div>
 
       <div className="p-4">
-        <h3 className="font-semibold line-clamp-2 mb-1 text-sm leading-tight">{item.title}</h3>
+        <h3
+          className="font-semibold line-clamp-2 mb-1 text-sm leading-tight cursor-pointer hover:text-violet-300 transition-colors"
+          onClick={onOpenDetails}
+        >
+          {item.title}
+        </h3>
         <p className="text-xs text-zinc-500 mb-3 capitalize">
           {item.type}
           {item.totalSeasons && item.type === 'tv' && ` • ${item.totalSeasons} stagioni`}
