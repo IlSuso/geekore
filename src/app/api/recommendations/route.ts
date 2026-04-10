@@ -820,8 +820,8 @@ async function fetchGameRecs(
 
 export async function GET(request: NextRequest) {
   try {
-    const rateLimitResult = await rateLimit(request)
-    if (rateLimitResult) return rateLimitResult
+    const result = rateLimit(request, { limit: 10, windowMs: 60_000 })
+    if (!result.ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
 
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
