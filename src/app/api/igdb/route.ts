@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/rateLimit'
 
 let cachedToken: { token: string; expiresAt: number } | null = null
 
@@ -8,53 +9,101 @@ async function getIgdbToken(clientId: string, clientSecret: string): Promise<str
   const tokenRes = await fetch('https://id.twitch.tv/oauth2/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, grant_type: 'client_credentials' }),
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: 'client_credentials',
+    }),
   })
   const tokenData = await tokenRes.json()
   const accessToken = tokenData.access_token
   if (!accessToken) return null
-  cachedToken = { token: accessToken, expiresAt: now + (tokenData.expires_in || 3600) * 1000 }
+  cachedToken = {
+    token: accessToken,
+    expiresAt: now + (tokenData.expires_in || 3600) * 1000,
+  }
   return accessToken
 }
 
+// Caratteri consentiti nella ricerca (previene injection IGDB)
+const SAFE_SEARCH_RE = /^[\p{L}\p{N}\s\-_:.,'!?&()]+$/u
+
 export async function POST(request: NextRequest) {
+  // ── Rate limiting: 30 req/min per IP ──────────────────────────────────────
+  const rl = rateLimit(request, { limit: 30, windowMs: 60_000, prefix: 'igdb' })
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: 'Troppe richieste. Riprova tra qualche secondo.' },
+      { status: 429, headers: rl.headers }
+    )
+  }
+
   try {
     const body = await request.json()
     const { search } = body
 
+    // ── Validazione server-side ───────────────────────────────────────────────
     if (!search || typeof search !== 'string') {
-      return NextResponse.json({ error: 'Parametro search mancante' }, { status: 400 })
-    }
-    if (search.trim().length < 2) {
-      return NextResponse.json({ error: 'Ricerca troppo corta (minimo 2 caratteri)' }, { status: 400 })
-    }
-    if (search.length > 200) {
-      return NextResponse.json({ error: 'Ricerca troppo lunga (massimo 200 caratteri)' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Parametro search mancante' },
+        { status: 400, headers: rl.headers }
+      )
     }
 
-    const cleanSearch = search.trim()
+    const trimmed = search.trim()
+
+    if (trimmed.length < 2) {
+      return NextResponse.json(
+        { error: 'Ricerca troppo corta (minimo 2 caratteri)' },
+        { status: 400, headers: rl.headers }
+      )
+    }
+
+    if (trimmed.length > 100) {
+      return NextResponse.json(
+        { error: 'Ricerca troppo lunga (massimo 100 caratteri)' },
+        { status: 400, headers: rl.headers }
+      )
+    }
+
+    if (!SAFE_SEARCH_RE.test(trimmed)) {
+      return NextResponse.json(
+        { error: 'Caratteri non consentiti nella ricerca' },
+        { status: 400, headers: rl.headers }
+      )
+    }
+
+    const cleanSearch = trimmed
     const clientId = process.env.IGDB_CLIENT_ID
     const clientSecret = process.env.IGDB_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
-      return NextResponse.json({ error: 'Configurazione IGDB mancante' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'Configurazione IGDB mancante' },
+        { status: 500, headers: rl.headers }
+      )
     }
 
     const accessToken = await getIgdbToken(clientId, clientSecret)
     if (!accessToken) {
-      return NextResponse.json({ error: 'Impossibile ottenere token IGDB' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'Impossibile ottenere token IGDB' },
+        { status: 500, headers: rl.headers }
+      )
     }
 
-    // Richiediamo tutti i metadati profondi disponibili
+    // Escape per prevenire injection nella query IGDB
+    const safeSearch = cleanSearch.replace(/"/g, '\\"')
+
     const igdbRes = await fetch('https://api.igdb.com/v4/games', {
       method: 'POST',
       headers: {
         'Client-ID': clientId,
-        'Authorization': `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'text/plain',
       },
       body: `
-        search "${cleanSearch}";
+        search "${safeSearch}";
         fields name, cover.url, first_release_date, summary,
                genres.name, themes.name, keywords.name,
                player_perspectives.name,
@@ -66,12 +115,18 @@ export async function POST(request: NextRequest) {
     })
 
     if (!igdbRes.ok) {
-      return NextResponse.json({ error: 'Errore risposta IGDB' }, { status: 502 })
+      return NextResponse.json(
+        { error: 'Errore risposta IGDB' },
+        { status: 502, headers: rl.headers }
+      )
     }
 
     const games = await igdbRes.json()
     if (!Array.isArray(games)) {
-      return NextResponse.json({ error: 'Risposta IGDB non valida' }, { status: 502 })
+      return NextResponse.json(
+        { error: 'Risposta IGDB non valida' },
+        { status: 502, headers: rl.headers }
+      )
     }
 
     const formattedGames = games.map((g: any) => ({
@@ -87,7 +142,6 @@ export async function POST(request: NextRequest) {
       episodes: 1,
       description: g.summary ? g.summary.slice(0, 400) : undefined,
       genres: g.genres?.map((gen: any) => gen.name) as string[] | undefined,
-      // Metadati profondi — salvati nel DB, non mostrati all'utente
       themes: g.themes?.map((t: any) => t.name) as string[] | undefined,
       keywords: g.keywords?.map((k: any) => k.name) as string[] | undefined,
       player_perspectives: g.player_perspectives?.map((p: any) => p.name) as string[] | undefined,
@@ -99,10 +153,12 @@ export async function POST(request: NextRequest) {
       source: 'igdb',
     }))
 
-    return NextResponse.json(formattedGames)
-
+    return NextResponse.json(formattedGames, { headers: rl.headers })
   } catch (error) {
     console.error('IGDB proxy error:', error)
-    return NextResponse.json({ error: 'Errore interno del server' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Errore interno del server' },
+      { status: 500 }
+    )
   }
 }

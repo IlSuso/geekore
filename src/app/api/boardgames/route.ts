@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseStringPromise } from 'xml2js'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { rateLimit } from '@/lib/rateLimit'
 
 const CACHE_DURATION_MS = 86400000 // 24 ore
 
@@ -35,13 +36,35 @@ async function bggFetch(url: string, maxRetries = 5, delayMs = 2000): Promise<st
 }
 
 export async function GET(request: NextRequest) {
+  // ── Rate limiting: 20 req/min per IP ──────────────────────────────────────
+  const rl = rateLimit(request, { limit: 20, windowMs: 60_000, prefix: 'bgg' })
+  if (!rl.ok) {
+    return NextResponse.json(
+      { results: [], error: 'Troppe richieste. Riprova tra qualche secondo.' },
+      { status: 429, headers: rl.headers }
+    )
+  }
+
   const { searchParams } = new URL(request.url)
   const search = searchParams.get('search')
 
   // ── MODALITÀ RICERCA ─────────────────────────────────────────────────────
   if (search) {
+    // Validazione server-side
     if (typeof search !== 'string' || search.trim().length < 2 || search.length > 200) {
-      return NextResponse.json({ results: [] }, { status: 400 })
+      return NextResponse.json(
+        { results: [] },
+        { status: 400, headers: rl.headers }
+      )
+    }
+
+    // Controlla caratteri non consentiti (prevenzione injection XML)
+    const dangerous = /<|>|&(?!amp;|lt;|gt;|quot;|apos;)/
+    if (dangerous.test(search)) {
+      return NextResponse.json(
+        { results: [] },
+        { status: 400, headers: rl.headers }
+      )
     }
 
     const term = search.trim()
@@ -65,7 +88,10 @@ export async function GET(request: NextRequest) {
     }
 
     if (!searchXml) {
-      return NextResponse.json({ results: [], error: 'BGG non raggiungibile' })
+      return NextResponse.json(
+        { results: [], error: 'BGG non raggiungibile' },
+        { headers: rl.headers }
+      )
     }
 
     try {
@@ -73,15 +99,14 @@ export async function GET(request: NextRequest) {
       const items = (searchResult?.items?.item || []).slice(0, 10)
       const ids = items.map((i: any) => i.$.id).join(',')
 
-      if (items.length === 0) return NextResponse.json({ results: [] })
+      if (items.length === 0) return NextResponse.json({ results: [] }, { headers: rl.headers })
 
       await new Promise(r => setTimeout(r, 600))
 
-      // Richiediamo stats=1 per avere rating e altri metadati
       const detailXml = await bggFetch(
         `https://boardgamegeek.com/xmlapi2/thing?id=${ids}&type=boardgame&stats=1`
       )
-      if (!detailXml) return NextResponse.json({ results: [] })
+      if (!detailXml) return NextResponse.json({ results: [] }, { headers: rl.headers })
 
       const detailResult = await parseStringPromise(detailXml)
       const detailItems: any[] = detailResult?.items?.item || []
@@ -98,58 +123,51 @@ export async function GET(request: NextRequest) {
         const coverImage = rawImage.startsWith('http') ? rawImage : `https:${rawImage}`
 
         const year = item.yearpublished?.[0]?.$?.value
-          ? parseInt(item.yearpublished[0].$.value) : undefined
+          ? parseInt(item.yearpublished[0].$.value)
+          : undefined
 
-        // Descrizione
         const description = item.description?.[0]
           ? item.description[0].replace(/&#10;/g, ' ').replace(/&amp;/g, '&').slice(0, 400)
           : undefined
 
-        // Metadati profondi da BGG — link
         const links: any[] = item.link || []
 
-        // Categorie BGG (es. "Fantasy", "Sci-Fi", "Medieval", "Card Game")
         const categories = links
           .filter((l: any) => l.$.type === 'boardgamecategory')
           .map((l: any) => l.$.value)
           .filter(Boolean) as string[]
 
-        // Meccaniche (es. "Deck Building", "Worker Placement", "Dice Rolling")
         const mechanics = links
           .filter((l: any) => l.$.type === 'boardgamemechanic')
           .map((l: any) => l.$.value)
           .filter(Boolean) as string[]
 
-        // Designer
         const designers = links
           .filter((l: any) => l.$.type === 'boardgamedesigner')
           .map((l: any) => l.$.value)
           .filter(Boolean) as string[]
 
-        // Publisher
         const publishers = links
           .filter((l: any) => l.$.type === 'boardgamepublisher')
           .map((l: any) => l.$.value)
           .filter(Boolean)
           .slice(0, 3) as string[]
 
-        // Numero giocatori
         const minPlayers = item.minplayers?.[0]?.$?.value
-          ? parseInt(item.minplayers[0].$.value) : undefined
+          ? parseInt(item.minplayers[0].$.value)
+          : undefined
         const maxPlayers = item.maxplayers?.[0]?.$?.value
-          ? parseInt(item.maxplayers[0].$.value) : undefined
-
-        // Durata media
+          ? parseInt(item.maxplayers[0].$.value)
+          : undefined
         const playingTime = item.playingtime?.[0]?.$?.value
-          ? parseInt(item.playingtime[0].$.value) : undefined
-
-        // Complessità (peso BGG 1-5)
+          ? parseInt(item.playingtime[0].$.value)
+          : undefined
         const complexity = item.statistics?.[0]?.ratings?.[0]?.averageweight?.[0]?.$?.value
-          ? parseFloat(item.statistics[0].ratings[0].averageweight[0].$.value) : undefined
-
-        // Rating medio BGG
+          ? parseFloat(item.statistics[0].ratings[0].averageweight[0].$.value)
+          : undefined
         const bggRating = item.statistics?.[0]?.ratings?.[0]?.average?.[0]?.$?.value
-          ? parseFloat(item.statistics[0].ratings[0].average[0].$.value) : undefined
+          ? parseFloat(item.statistics[0].ratings[0].average[0].$.value)
+          : undefined
 
         return {
           id: `bgg-${id}`,
@@ -159,9 +177,7 @@ export async function GET(request: NextRequest) {
           year,
           source: 'bgg',
           description,
-          // Generi derivati: categorie BGG mappate a generi standard
           genres: mapBggCategoriesToGenres(categories),
-          // Metadati profondi
           categories,
           mechanics,
           designers,
@@ -174,10 +190,10 @@ export async function GET(request: NextRequest) {
         }
       }).filter(Boolean)
 
-      return NextResponse.json({ results })
+      return NextResponse.json({ results }, { headers: rl.headers })
     } catch (e) {
       console.error('[BGG] parse error:', e)
-      return NextResponse.json({ results: [] })
+      return NextResponse.json({ results: [] }, { headers: rl.headers })
     }
   }
 
@@ -195,14 +211,14 @@ export async function GET(request: NextRequest) {
 
     const now = Date.now()
     if (cache && now - new Date(cache.updated_at).getTime() < CACHE_DURATION_MS) {
-      return NextResponse.json({ articles: cache.data })
+      return NextResponse.json({ articles: cache.data }, { headers: rl.headers })
     }
 
     const xmlData = await bggFetch('https://boardgamegeek.com/xmlapi2/hot?type=boardgame')
     if (!xmlData) {
       return cache
-        ? NextResponse.json({ articles: cache.data })
-        : NextResponse.json({ articles: [] })
+        ? NextResponse.json({ articles: cache.data }, { headers: rl.headers })
+        : NextResponse.json({ articles: [] }, { headers: rl.headers })
     }
 
     const result = await parseStringPromise(xmlData)
@@ -223,52 +239,52 @@ export async function GET(request: NextRequest) {
       updated_at: new Date().toISOString(),
     })
 
-    return NextResponse.json({ articles: cleanedArticles })
+    return NextResponse.json({ articles: cleanedArticles }, { headers: rl.headers })
   } catch (e) {
     console.error('[BGG] hot list error:', e)
-    return NextResponse.json({ articles: [] })
+    return NextResponse.json({ articles: [] }, { headers: rl.headers })
   }
 }
 
 // Mappa categorie BGG → generi standard per il taste profile
 function mapBggCategoriesToGenres(categories: string[]): string[] {
   const map: Record<string, string> = {
-    'Fantasy': 'Fantasy',
+    Fantasy: 'Fantasy',
     'Science Fiction': 'Science Fiction',
-    'Horror': 'Horror',
-    'Medieval': 'Medieval',
-    'Adventure': 'Adventure',
-    'Fighting': 'Fighting',
-    'Deduction': 'Mystery',
+    Horror: 'Horror',
+    Medieval: 'Medieval',
+    Adventure: 'Adventure',
+    Fighting: 'Fighting',
+    Deduction: 'Mystery',
     'Murder/Mystery': 'Mystery',
     'Thriller/Suspense': 'Thriller',
-    'Humor': 'Comedy',
-    'Wargame': 'War',
+    Humor: 'Comedy',
+    Wargame: 'War',
     'World War II': 'War',
     'World War I': 'War',
-    'Historical': 'History',
-    'Economic': 'Strategy',
-    'Political': 'Political',
-    'Bluffing': 'Strategy',
-    'Negotiation': 'Strategy',
+    Historical: 'History',
+    Economic: 'Strategy',
+    Political: 'Political',
+    Bluffing: 'Strategy',
+    Negotiation: 'Strategy',
     'Territory Building': 'Strategy',
     'Card Game': 'Card Game',
-    'Dice': 'Dice',
+    Dice: 'Dice',
     'Abstract Strategy': 'Abstract',
     'Cooperative Game': 'Cooperative',
     'Party Game': 'Party',
-    'Children\'s Game': 'Family',
-    'Family': 'Family',
-    'Sports': 'Sports',
-    'Animals': 'Nature',
-    'Exploration': 'Adventure',
-    'Civilization': 'Strategy',
+    "Children's Game": 'Family',
+    Family: 'Family',
+    Sports: 'Sports',
+    Animals: 'Nature',
+    Exploration: 'Adventure',
+    Civilization: 'Strategy',
     'City Building': 'Strategy',
-    'Pirates': 'Adventure',
-    'Nautical': 'Adventure',
+    Pirates: 'Adventure',
+    Nautical: 'Adventure',
     'Space Exploration': 'Science Fiction',
-    'Zombies': 'Horror',
-    'Mythology': 'Fantasy',
+    Zombies: 'Horror',
+    Mythology: 'Fantasy',
   }
 
   const genres = new Set<string>()

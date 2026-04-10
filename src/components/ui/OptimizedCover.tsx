@@ -1,0 +1,109 @@
+'use client'
+// src/components/ui/OptimizedCover.tsx
+// Sostituisce gli <img> delle cover con next/image per LCP e bandwidth ottimali.
+// Mantiene fallback su <img> standard per URL da domini non configurati.
+
+import Image from 'next/image'
+import { useState } from 'react'
+
+// Domini configurati in next.config.js — URL fuori da questi usa <img> normale
+const OPTIMIZED_DOMAINS = [
+  's4.anilist.co',
+  'image.tmdb.org',
+  'images.igdb.com',
+  'cdn.cloudflare.steamstatic.com',
+  'cf.geekdo-images.com',
+  'api.dicebear.com',
+]
+
+function isOptimizable(src: string): boolean {
+  try {
+    const url = new URL(src)
+    return OPTIMIZED_DOMAINS.some(
+      d => url.hostname === d || url.hostname.endsWith(`.${d}`)
+    ) || url.hostname.endsWith('.supabase.co')
+  } catch {
+    return false
+  }
+}
+
+interface OptimizedCoverProps {
+  src: string | undefined | null
+  alt: string
+  className?: string
+  /** Width in px — usato da next/image per il calcolo sizes */
+  width?: number
+  /** Height in px */
+  height?: number
+  /** Se true, usa fill mode (il parent deve avere position: relative) */
+  fill?: boolean
+  /** Priorità LCP: true per le cover above-the-fold */
+  priority?: boolean
+  /** Fallback JSX se src è vuoto */
+  fallback?: React.ReactNode
+  onError?: () => void
+}
+
+export function OptimizedCover({
+  src,
+  alt,
+  className = '',
+  width = 300,
+  height = 450,
+  fill = false,
+  priority = false,
+  fallback,
+  onError,
+}: OptimizedCoverProps) {
+  const [imgError, setImgError] = useState(false)
+
+  const handleError = () => {
+    setImgError(true)
+    onError?.()
+  }
+
+  if (!src || imgError) {
+    return fallback ? <>{fallback}</> : null
+  }
+
+  // Usa next/image per i domini configurati
+  if (isOptimizable(src)) {
+    if (fill) {
+      return (
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          className={`object-cover ${className}`}
+          priority={priority}
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+          onError={handleError}
+        />
+      )
+    }
+
+    return (
+      <Image
+        src={src}
+        alt={alt}
+        width={width}
+        height={height}
+        className={`object-cover ${className}`}
+        priority={priority}
+        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+        onError={handleError}
+      />
+    )
+  }
+
+  // Fallback a <img> standard per domini non configurati (BGG, Steam header, ecc.)
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      loading={priority ? 'eager' : 'lazy'}
+      onError={handleError}
+    />
+  )
+}
