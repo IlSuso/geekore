@@ -1,4 +1,6 @@
 // DESTINAZIONE: src/app/profile/edit/page.tsx
+// S2: L'upload avatar ora passa per /api/avatar/upload che valida i magic bytes
+//     server-side. Il client non può più falsificare il tipo di file.
 
 'use client'
 
@@ -8,17 +10,31 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Camera, Upload, Loader2, Sparkles } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
+import { Avatar } from '@/components/ui/Avatar'
 
 const ALL_GENRES = [
   'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery',
   'Romance', 'Sci-Fi', 'Thriller', 'RPG', 'Strategy', 'Simulation', 'Psychological',
 ]
 
-// ── Costanti di validazione (allineate ai CHECK del DB) ──────────────────────
 const USERNAME_MAX = 30
 const USERNAME_MIN = 3
 const BIO_MAX = 500
 const USERNAME_REGEX = /^[a-z0-9_]+$/
+
+// S6: blocca look-alike unicode
+function hasUnicodeLookalike(value: string): boolean {
+  const normalized = value.normalize('NFKD')
+  for (let i = 0; i < normalized.length; i++) {
+    const code = normalized.codePointAt(i) ?? 0
+    if (
+      !(code >= 97 && code <= 122) &&
+      !(code >= 48 && code <= 57) &&
+      code !== 95
+    ) return true
+  }
+  return false
+}
 
 export default function EditProfilePage() {
   const supabase = createClient()
@@ -30,6 +46,7 @@ export default function EditProfilePage() {
     if (value.length < USERNAME_MIN) return pe.usernameTooShort(USERNAME_MIN)
     if (value.length > USERNAME_MAX) return pe.usernameTooLong(USERNAME_MAX)
     if (!USERNAME_REGEX.test(value)) return pe.usernameInvalid
+    if (hasUnicodeLookalike(value)) return 'Username contiene caratteri non consentiti'
     return null
   }
 
@@ -40,6 +57,7 @@ export default function EditProfilePage() {
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [message, setMessage] = useState('')
   const [messageType, setMessageType] = useState<'success' | 'error'>('success')
   const [profile, setProfile] = useState<any>(null)
@@ -106,14 +124,18 @@ export default function EditProfilePage() {
     setFieldErrors(prev => ({ ...prev, bio: err || undefined }))
   }
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    // Controllo dimensione client-side (feedback immediato)
     if (file.size > 5 * 1024 * 1024) {
       setMessage(pe.imageTooLarge)
       setMessageType('error')
       return
     }
+
+    // Preview immediata
     setAvatarFile(file)
     setAvatarPreview(URL.createObjectURL(file))
   }
@@ -129,7 +151,6 @@ export default function EditProfilePage() {
     e.preventDefault()
     if (!profile) return
 
-    // Validazione finale prima di salvare
     const usernameErr = validateUsername(formData.username)
     const bioErr = validateBio(formData.bio)
     if (usernameErr || bioErr) {
@@ -143,15 +164,26 @@ export default function EditProfilePage() {
     try {
       let avatarUrl = profile.avatar_url
 
+      // S2: Upload via API route con validazione magic bytes server-side
       if (avatarFile) {
-        const ext = avatarFile.name.split('.').pop()
-        const path = `public/${profile.id}-${Date.now()}.${ext}`
-        const { error: uploadErr } = await supabase.storage
-          .from('avatars')
-          .upload(path, avatarFile, { upsert: true })
-        if (uploadErr) throw uploadErr
-        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
-        avatarUrl = urlData.publicUrl
+        setUploadingAvatar(true)
+        const formDataUpload = new FormData()
+        formDataUpload.append('avatar', avatarFile)
+
+        const uploadRes = await fetch('/api/avatar/upload', {
+          method: 'POST',
+          body: formDataUpload,
+        })
+
+        setUploadingAvatar(false)
+
+        if (!uploadRes.ok) {
+          const err = await uploadRes.json().catch(() => ({}))
+          throw new Error(err.error || 'Errore upload avatar')
+        }
+
+        const { url } = await uploadRes.json()
+        avatarUrl = url
       }
 
       const { error } = await supabase.from('profiles').update({
@@ -164,7 +196,6 @@ export default function EditProfilePage() {
 
       if (error) throw error
 
-      // Salva preferenze generi
       await supabase.from('user_preferences').upsert({
         user_id: profile.id,
         fav_game_genres: likedGenres.filter(g => ['Action', 'Adventure', 'RPG', 'Strategy', 'Simulation', 'Horror', 'Thriller', 'Mystery', 'Psychological'].includes(g)),
@@ -181,12 +212,16 @@ export default function EditProfilePage() {
       setTimeout(() => router.push(`/profile/${formData.username}`), 1000)
 
     } catch (err: any) {
-      setMessage(err.message?.includes('profiles_username')
-        ? pe.usernameTaken
-        : pe.saveError)
+      setMessage(
+        err.message?.includes('profiles_username') ? pe.usernameTaken :
+        err.message?.includes('Formato non supportato') ? err.message :
+        err.message?.includes('magic') ? 'Formato file non valido.' :
+        pe.saveError
+      )
       setMessageType('error')
     } finally {
       setSaving(false)
+      setUploadingAvatar(false)
     }
   }
 
@@ -197,6 +232,8 @@ export default function EditProfilePage() {
       </div>
     )
   }
+
+  const isBusy = saving || uploadingAvatar
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-6">
@@ -220,13 +257,27 @@ export default function EditProfilePage() {
             {avatarPreview ? (
               <img src={avatarPreview} alt="avatar" className="w-full h-full object-cover" />
             ) : (
-              <Camera size={32} className="text-zinc-500" />
+              <Avatar
+                src={null}
+                username={formData.username || profile?.username || 'u'}
+                displayName={formData.display_name}
+                size={112}
+              />
             )}
             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-full">
-              <Upload size={24} className="text-white" />
+              {uploadingAvatar
+                ? <Loader2 size={24} className="text-white animate-spin" />
+                : <Upload size={24} className="text-white" />
+              }
             </div>
           </div>
-          <input ref={fileRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            onChange={handleAvatarChange}
+            className="hidden"
+          />
           <div className="flex gap-3">
             <button
               type="button"
@@ -245,6 +296,7 @@ export default function EditProfilePage() {
               </button>
             )}
           </div>
+          <p className="text-[10px] text-zinc-600">JPEG, PNG, GIF o WebP · max 5MB</p>
         </div>
 
         <form onSubmit={handleSave} className="space-y-5">
@@ -318,14 +370,11 @@ export default function EditProfilePage() {
                 Personalizza tutto →
               </Link>
             </div>
-
             <div className="mb-4">
               <p className="text-xs text-zinc-400 mb-2">Generi che ami</p>
               <div className="flex flex-wrap gap-2">
                 {ALL_GENRES.map(genre => (
-                  <button
-                    key={genre}
-                    type="button"
+                  <button key={genre} type="button"
                     onClick={() => setLikedGenres(prev =>
                       prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
                     )}
@@ -334,20 +383,15 @@ export default function EditProfilePage() {
                         ? 'bg-violet-500/20 border-violet-500/50 text-violet-300'
                         : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-500'
                     }`}
-                  >
-                    {genre}
-                  </button>
+                  >{genre}</button>
                 ))}
               </div>
             </div>
-
             <div>
               <p className="text-xs text-zinc-400 mb-2">Generi che non ti piacciono</p>
               <div className="flex flex-wrap gap-2">
                 {ALL_GENRES.map(genre => (
-                  <button
-                    key={genre}
-                    type="button"
+                  <button key={genre} type="button"
                     onClick={() => setDislikedGenres(prev =>
                       prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
                     )}
@@ -356,15 +400,12 @@ export default function EditProfilePage() {
                         ? 'bg-red-500/20 border-red-500/50 text-red-300'
                         : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-500'
                     }`}
-                  >
-                    {genre}
-                  </button>
+                  >{genre}</button>
                 ))}
               </div>
             </div>
           </div>
 
-          {/* Messaggio feedback */}
           {message && (
             <div className={`p-4 rounded-2xl text-sm text-center ${
               messageType === 'success'
@@ -377,11 +418,11 @@ export default function EditProfilePage() {
 
           <button
             type="submit"
-            disabled={saving || !!fieldErrors.username || !!fieldErrors.bio}
+            disabled={isBusy || !!fieldErrors.username || !!fieldErrors.bio}
             className="w-full py-4 bg-violet-600 hover:bg-violet-500 rounded-2xl font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {saving
-              ? <><Loader2 size={18} className="animate-spin" /> {pe.saving}</>
+            {isBusy
+              ? <><Loader2 size={18} className="animate-spin" /> {uploadingAvatar ? 'Caricamento avatar...' : pe.saving}</>
               : pe.save
             }
           </button>

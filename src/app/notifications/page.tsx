@@ -1,17 +1,23 @@
-'use client'
-// src/app/notifications/page.tsx
-// Aggiunge badge PWA (navigator.setAppBadge) e clearBadge alla lettura.
+// DESTINAZIONE: src/app/notifications/page.tsx
+// #7:  Skeleton loaders al posto dello spinner
+// #10: Pull-to-refresh per aggiornare le notifiche su mobile
+// #21: Badge PWA (già presente, mantenuto)
 
-import { useState, useEffect } from 'react'
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Heart, UserPlus, MessageSquare, BellOff, Loader2 } from 'lucide-react'
+import { Heart, UserPlus, MessageSquare, BellOff } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { it, enUS } from 'date-fns/locale'
 import { FollowBackButton } from '@/components/notifications/FollowBackButton'
+import { Avatar } from '@/components/ui/Avatar'
+import { SkeletonNotification } from '@/components/ui/SkeletonCard'
+import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
+import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { useLocale } from '@/lib/locale'
 
-// ── Badge PWA helper ───────────────────────────────────────────────────────────
 function setAppBadge(count: number) {
   if (typeof navigator === 'undefined') return
   if ('setAppBadge' in navigator) {
@@ -36,35 +42,43 @@ export default function NotificationsPage() {
     comment: { icon: MessageSquare, color: 'text-blue-400',   bg: 'bg-blue-400/10 border-blue-400/20',    label: n.commentAction },
   }
 
-  useEffect(() => {
-    const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { window.location.href = '/login'; return }
+  const load = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { window.location.href = '/login'; return }
 
-      const { data } = await supabase
-        .from('notifications')
-        .select('*, sender:profiles!sender_id (id, username, display_name, avatar_url)')
-        .eq('receiver_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(50)
+    const { data } = await supabase
+      .from('notifications')
+      .select('*, sender:profiles!sender_id (id, username, display_name, avatar_url)')
+      .eq('receiver_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(50)
 
-      setNotifications(data || [])
-      setLoading(false)
+    setNotifications(data || [])
+    setLoading(false)
 
-      const unreadIds = (data || []).filter((n: any) => !n.is_read).map((n: any) => n.id)
+    const unreadIds = (data || []).filter((n: any) => !n.is_read).map((n: any) => n.id)
+    setAppBadge(0)
 
-      // Azzera badge PWA quando l'utente apre le notifiche
-      setAppBadge(0)
-
-      if (unreadIds.length > 0) {
-        await supabase.from('notifications').update({ is_read: true }).in('id', unreadIds)
-      }
+    if (unreadIds.length > 0) {
+      await supabase.from('notifications').update({ is_read: true }).in('id', unreadIds)
     }
-    load()
-  }, [])
+  }, [supabase])
+
+  useEffect(() => { load() }, [load])
+
+  // #10 Pull-to-refresh
+  const { isPulling, isRefreshing, pullDistance } = usePullToRefresh({
+    onRefresh: async () => { await load() },
+  })
 
   return (
     <main className="min-h-screen bg-zinc-950 pt-6 pb-24 px-4">
+      {/* #10 Pull indicator */}
+      <PullToRefreshIndicator
+        pullDistance={pullDistance}
+        isRefreshing={isRefreshing}
+      />
+
       <div className="max-w-xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">{n.title}</h1>
@@ -73,9 +87,12 @@ export default function NotificationsPage() {
           </p>
         </div>
 
+        {/* #7 Skeleton loaders */}
         {loading ? (
-          <div className="flex justify-center py-24">
-            <Loader2 size={28} className="animate-spin text-violet-400" />
+          <div className="space-y-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonNotification key={i} />
+            ))}
           </div>
         ) : notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -107,13 +124,13 @@ export default function NotificationsPage() {
                 >
                   <Link href={`/profile/${notif.sender?.username}`} className="shrink-0">
                     <div className="w-11 h-11 rounded-2xl overflow-hidden ring-2 ring-zinc-800">
-                      {notif.sender?.avatar_url ? (
-                        <img src={notif.sender.avatar_url} className="w-full h-full object-cover" alt="" />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold">
-                          {(notif.sender?.display_name?.[0] || notif.sender?.username?.[0] || '?').toUpperCase()}
-                        </div>
-                      )}
+                      <Avatar
+                        src={notif.sender?.avatar_url}
+                        username={notif.sender?.username || 'u'}
+                        displayName={notif.sender?.display_name}
+                        size={44}
+                        className="rounded-2xl"
+                      />
                     </div>
                   </Link>
 

@@ -1,11 +1,12 @@
 // src/middleware.ts
-// Protegge le route autenticate lato server PRIMA del rendering.
-// Elimina i flash di contenuto non autenticato e le redirect client-side ridondanti.
+// #24: Aggiunto check onboarding_done lato server.
+//      Se l'utente è loggato ma non ha completato l'onboarding,
+//      viene redirectato a /onboarding (tranne che per le route pubbliche
+//      e l'onboarding stesso). Previene bypass via navigazione diretta.
 
 import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 
-// Route che richiedono autenticazione
 const PROTECTED_PATHS = [
   '/feed',
   '/discover',
@@ -21,17 +22,14 @@ const PROTECTED_PATHS = [
   '/trending',
   '/leaderboard',
   '/explore',
-  '/onboarding',
 ]
 
-// Route accessibili solo ai non autenticati (redirect a feed se loggato)
 const AUTH_ONLY_PATHS = [
   '/login',
   '/register',
   '/forgot-password',
 ]
 
-// Route sempre pubbliche (bypass completo)
 const PUBLIC_PATHS = [
   '/privacy',
   '/terms',
@@ -40,6 +38,13 @@ const PUBLIC_PATHS = [
   '/auth/email-change',
   '/auth/reset-password',
   '/api/',
+]
+
+// #24: queste route sono accessibili anche senza onboarding completato
+const ONBOARDING_EXEMPT = [
+  '/onboarding',
+  '/profile',   // il profilo pubblico deve restare accessibile
+  '/auth/',
 ]
 
 function isProtected(pathname: string): boolean {
@@ -54,10 +59,14 @@ function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some(p => pathname.startsWith(p))
 }
 
+function isOnboardingExempt(pathname: string): boolean {
+  return ONBOARDING_EXEMPT.some(p => pathname === p || pathname.startsWith(p))
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Bypass per assets statici, API routes e path pubblici
+  // Bypass per assets statici e path pubblici
   if (
     pathname.startsWith('/_next/') ||
     pathname.startsWith('/icons/') ||
@@ -70,7 +79,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Crea client Supabase SSR
   let response = NextResponse.next({
     request: { headers: request.headers },
   })
@@ -96,7 +104,6 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Verifica sessione (non usa getUser() per non fare richiesta al DB in ogni request)
   const { data: { session } } = await supabase.auth.getSession()
   const isLoggedIn = !!session?.user
 
@@ -107,7 +114,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
-  // Route auth-only + già autenticato → feed
+  // Route auth-only + già autenticato → controlla onboarding prima
   if (isAuthOnly(pathname) && isLoggedIn) {
     return NextResponse.redirect(new URL('/feed', request.url))
   }
@@ -117,17 +124,31 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/feed', request.url))
   }
 
+  // #24: Check onboarding per utenti autenticati su route protette
+  // Usa solo getSession() per non fare query DB aggiuntive su ogni request —
+  // il profilo viene letto solo quando strettamente necessario (route protetta).
+  if (isLoggedIn && isProtected(pathname) && !isOnboardingExempt(pathname)) {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('onboarding_done')
+        .eq('id', session.user.id)
+        .single()
+
+      // Se onboarding non completato → redirect a /onboarding
+      if (profile && profile.onboarding_done === false) {
+        return NextResponse.redirect(new URL('/onboarding', request.url))
+      }
+    } catch {
+      // In caso di errore DB non blocchiamo la navigazione
+    }
+  }
+
   return response
 }
 
 export const config = {
   matcher: [
-    /*
-     * Esegui su tutte le route TRANNE:
-     * - _next/static (asset statici)
-     * - _next/image (ottimizzazione immagini)
-     * - favicon.ico
-     */
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 }
