@@ -6,6 +6,9 @@ const withBundleAnalyzer = process.env.ANALYZE === 'true'
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // ← AGGIUNTA SOLO QUESTA RIGA (per risolvere l'errore Turbopack su Next.js 16)
+  turbopack: {},
+
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 's4.anilist.co', pathname: '/file/**' },
