@@ -12,16 +12,20 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'image.tmdb.org' },
       // IGDB (videogiochi)
       { protocol: 'https', hostname: 'images.igdb.com' },
-      // Steam (libreria giochi)
+      // Steam (libreria giochi) — tutti i CDN Steam per i fallback cover
       { protocol: 'https', hostname: 'cdn.cloudflare.steamstatic.com' },
       { protocol: 'https', hostname: 'media.steampowered.com' },
+      { protocol: 'https', hostname: 'cdn.akamai.steamstatic.com' },
+      { protocol: 'https', hostname: 'steamcdn-a.akamaihd.net' },
       // BoardGameGeek
       { protocol: 'https', hostname: 'cf.geekdo-images.com' },
       { protocol: 'https', hostname: '*.geekdo-images.com' },
       // Supabase Storage (avatar, post images)
       { protocol: 'https', hostname: '*.supabase.co' },
-      // DiceBear (avatar generati)
+      // DiceBear (avatar generati — fallback)
       { protocol: 'https', hostname: 'api.dicebear.com' },
+      // Kitsu (fallback cover anime)
+      { protocol: 'https', hostname: 'media.kitsu.io' },
     ],
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
@@ -55,25 +59,29 @@ const nextConfig: NextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
           },
-          // HSTS — forza HTTPS per 1 anno (abilitare solo in produzione con HTTPS)
+          // HSTS — forza HTTPS per 1 anno
           {
             key: 'Strict-Transport-Security',
             value: 'max-age=31536000; includeSubDomains',
           },
+          // X-DNS-Prefetch-Control
+          {
+            key: 'X-DNS-Prefetch-Control',
+            value: 'on',
+          },
           // Content Security Policy
-          // Permissiva ma sicura: blocca inline scripts non autorizzati
           {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              // Script: solo self + Next.js inline (necessario per hydration)
+              // Script: self + Next.js inline (necessario per hydration)
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               // Stili: self + inline (necessario per Tailwind)
               "style-src 'self' 'unsafe-inline'",
-              // Immagini: tutti i domini delle cover + data URIs
-              "img-src 'self' data: blob: https://s4.anilist.co https://*.anilist.co https://image.tmdb.org https://images.igdb.com https://cdn.cloudflare.steamstatic.com https://media.steampowered.com https://*.geekdo-images.com https://*.supabase.co https://api.dicebear.com https://*.steamstatic.com",
-              // Font: solo self
-              "font-src 'self'",
+              // Immagini: tutti i domini delle cover + data URIs + blob (avatar SVG locali)
+              "img-src 'self' data: blob: https://s4.anilist.co https://*.anilist.co https://image.tmdb.org https://images.igdb.com https://cdn.cloudflare.steamstatic.com https://cdn.akamai.steamstatic.com https://steamcdn-a.akamaihd.net https://media.steampowered.com https://*.geekdo-images.com https://*.supabase.co https://api.dicebear.com https://*.steamstatic.com https://media.kitsu.io",
+              // Font: solo self + data (per SVG avatar inline)
+              "font-src 'self' data:",
               // Connessioni: Supabase + API esterne
               "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://graphql.anilist.co https://api.themoviedb.org https://api.igdb.com https://id.twitch.tv https://api.steampowered.com https://boardgamegeek.com",
               // Manifest PWA
@@ -83,11 +91,6 @@ const nextConfig: NextConfig = {
               // Frame
               "frame-ancestors 'none'",
             ].join('; '),
-          },
-          // X-DNS-Prefetch-Control
-          {
-            key: 'X-DNS-Prefetch-Control',
-            value: 'on',
           },
         ],
       },
@@ -111,7 +114,7 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      // Cache per assets pubblici (sw.js, manifest, icons)
+      // Service Worker: no-cache per aggiornamenti immediati
       {
         source: '/sw.js',
         headers: [
@@ -131,7 +134,6 @@ const nextConfig: NextConfig = {
   // ── Redirects ────────────────────────────────────────────────────────────────
   async redirects() {
     return [
-      // Redirect legacy paths
       {
         source: '/home',
         destination: '/feed',
@@ -146,13 +148,8 @@ const nextConfig: NextConfig = {
   },
 
   // ── Ottimizzazioni ───────────────────────────────────────────────────────────
-  // Compressione
   compress: true,
-
-  // PoweredBy header rimosso (sicurezza)
   poweredByHeader: false,
-
-  // Strict mode React per catch bugs in sviluppo
   reactStrictMode: true,
 
   // Ottimizzazione pacchetti (Next.js 14+)

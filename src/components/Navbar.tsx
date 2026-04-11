@@ -7,6 +7,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useLocale } from '@/lib/locale'
 import { useTheme } from '@/lib/theme'
+import { Avatar, getLocalAvatarSvg } from '@/components/ui/Avatar'
 
 const AUTH_PATHS = ['/login', '/register', '/auth/confirm', '/forgot-password', '/auth/reset-password']
 const PUBLIC_PATHS = ['/']
@@ -26,7 +27,6 @@ export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Search state
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -51,17 +51,10 @@ export default function Navbar() {
     { href: '/notifications', label: t.nav.notifications, icon: Bell, hasDot: true },
   ]
 
-  // Close dropdowns on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false)
-      }
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setSearchOpen(false)
-        setSearchQuery('')
-        setSearchResults([])
-      }
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setDropdownOpen(false)
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) { setSearchOpen(false); setSearchQuery(''); setSearchResults([]) }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -73,7 +66,6 @@ export default function Navbar() {
 
   useEffect(() => {
     if (isAuthPage) return
-
     let channel: ReturnType<typeof supabase.channel> | null = null
 
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -89,34 +81,21 @@ export default function Navbar() {
           }
         })
 
-      supabase
-        .from('notifications')
-        .select('id', { count: 'exact', head: true })
-        .eq('receiver_id', user.id)
-        .eq('is_read', false)
+      supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('receiver_id', user.id).eq('is_read', false)
         .then(({ count }) => { if (count && count > 0) setHasNewNotifications(true) })
 
-      channel = supabase
-        .channel('navbar-notifications')
-        .on('postgres_changes', {
-          event: 'INSERT', schema: 'public', table: 'notifications',
-          filter: `receiver_id=eq.${user.id}`,
-        }, () => setHasNewNotifications(true))
+      channel = supabase.channel('navbar-notifications')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `receiver_id=eq.${user.id}` }, () => setHasNewNotifications(true))
         .subscribe()
     })
 
     return () => { if (channel) supabase.removeChannel(channel) }
   }, [isAuthPage])
 
-  // User search
   const searchUsers = useCallback(async (val: string) => {
     if (val.length < 2) { setSearchResults([]); setSearchOpen(false); return }
     setSearchLoading(true)
-    const { data } = await supabase
-      .from('profiles')
-      .select('username, display_name, avatar_url')
-      .or(`username.ilike.%${val}%,display_name.ilike.%${val}%`)
-      .limit(6)
+    const { data } = await supabase.from('profiles').select('username, display_name, avatar_url').or(`username.ilike.%${val}%,display_name.ilike.%${val}%`).limit(6)
     setSearchResults(data || [])
     setSearchOpen(true)
     setSearchLoading(false)
@@ -127,26 +106,24 @@ export default function Navbar() {
     return () => clearTimeout(timer)
   }, [searchQuery, searchUsers])
 
-  const clearSearch = () => {
-    setSearchQuery('')
-    setSearchResults([])
-    setSearchOpen(false)
-    searchInputRef.current?.focus()
-  }
+  const clearSearch = () => { setSearchQuery(''); setSearchResults([]); setSearchOpen(false); searchInputRef.current?.focus() }
 
   if (isAuthPage) return null
   if (isPublicLanding && isLoggedIn === false) return null
   if (isPublicLanding && isLoggedIn === null) return null
 
-  const avatarInitial = (displayName?.[0] || username?.[0] || '?').toUpperCase()
   const isDark = theme === 'dark'
+  const currentUsername = username || ''
+  const currentDisplayName = displayName || username || ''
+
+  // Generate local avatar src (no dicebear)
+  const localAvatarSrc = currentUsername ? getLocalAvatarSvg(currentUsername, displayName) : undefined
 
   return (
     <>
       {/* Desktop navbar */}
       <nav className="hidden md:flex fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-2xl border-b border-zinc-800/60">
         <div className="max-w-6xl mx-auto w-full px-6 py-4 flex items-center gap-4">
-
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">
             <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl flex items-center justify-center shadow-md shadow-violet-500/30 group-hover:scale-105 transition-transform">
@@ -158,24 +135,13 @@ export default function Navbar() {
           {/* Nav links */}
           <div className="flex items-center gap-1 flex-shrink-0">
             {NAV_ITEMS.map((item) => {
-              const isActive = item.href === '/feed'
-                ? pathname === '/feed' || pathname === '/'
-                : pathname === item.href
+              const isActive = item.href === '/feed' ? pathname === '/feed' || pathname === '/' : pathname === item.href
               return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                    isActive
-                      ? 'bg-violet-500/10 text-violet-400'
-                      : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
-                  }`}
-                >
+                <Link key={item.href} href={item.href}
+                  className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${isActive ? 'bg-violet-500/10 text-violet-400' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'}`}>
                   <item.icon size={18} />
                   {item.label}
-                  {item.hasDot && hasNewNotifications && (
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
-                  )}
+                  {item.hasDot && hasNewNotifications && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />}
                 </Link>
               )
             })}
@@ -183,50 +149,24 @@ export default function Navbar() {
 
           {/* Search bar */}
           <div ref={searchRef} className="flex-1 max-w-xs relative mx-2">
-            <div className={`flex items-center gap-2 bg-zinc-900 border rounded-2xl px-4 py-2 transition-all ${
-              searchOpen && searchResults.length > 0
-                ? 'border-violet-500/50'
-                : 'border-zinc-800 focus-within:border-violet-500/30'
-            }`}>
+            <div className={`flex items-center gap-2 bg-zinc-900 border rounded-2xl px-4 py-2 transition-all ${searchOpen && searchResults.length > 0 ? 'border-violet-500/50' : 'border-zinc-800 focus-within:border-violet-500/30'}`}>
               <Search size={14} className={searchLoading ? 'text-violet-400 animate-pulse' : 'text-zinc-500'} />
-              <input
-                ref={searchInputRef}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cerca utenti..."
-                className="bg-transparent outline-none text-sm w-full placeholder-zinc-600 text-white"
-              />
-              {searchQuery && (
-                <button onClick={clearSearch} className="text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0">
-                  <X size={13} />
-                </button>
-              )}
+              <input ref={searchInputRef} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Cerca utenti..."
+                className="bg-transparent outline-none text-sm w-full placeholder-zinc-600 text-white" />
+              {searchQuery && <button onClick={clearSearch} className="text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0"><X size={13} /></button>}
             </div>
 
             {searchOpen && searchResults.length > 0 && (
               <div className="absolute top-full left-0 w-full mt-2 bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl shadow-black/50 z-50">
                 {searchResults.map((res) => (
-                  <Link
-                    key={res.username}
-                    href={`/profile/${res.username}`}
+                  <Link key={res.username} href={`/profile/${res.username}`}
                     onClick={() => { setSearchOpen(false); setSearchQuery(''); setSearchResults([]) }}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-800 transition-colors border-b border-zinc-800/50 last:border-0"
-                  >
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-800 transition-colors border-b border-zinc-800/50 last:border-0">
                     <div className="w-8 h-8 rounded-xl overflow-hidden shrink-0">
-                      {res.avatar_url ? (
-                        <img src={res.avatar_url} className="w-full h-full object-cover" alt="" />
-                      ) : (
-                        <img
-                          src={`https://api.dicebear.com/7.x/initials/svg?seed=${res.username}&backgroundColor=6d28d9&textColor=ffffff`}
-                          className="w-full h-full object-cover"
-                          alt=""
-                        />
-                      )}
+                      <Avatar src={res.avatar_url} username={res.username} displayName={res.display_name} size={32} />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-white leading-tight">
-                        {res.display_name || res.username}
-                      </p>
+                      <p className="text-sm font-semibold text-white leading-tight">{res.display_name || res.username}</p>
                       <p className="text-xs text-violet-400">@{res.username}</p>
                     </div>
                   </Link>
@@ -241,45 +181,27 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Theme toggle rapido + Avatar dropdown */}
+          {/* Theme toggle + Avatar dropdown */}
           <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
-
-            {/* Theme toggle standalone — visibile sempre */}
-            <button
-              onClick={toggleTheme}
-              title={isDark ? 'Tema chiaro' : 'Tema scuro'}
-              className="w-8 h-8 flex items-center justify-center rounded-xl text-zinc-500 hover:text-yellow-400 hover:bg-zinc-900 transition-all"
-            >
+            <button onClick={toggleTheme} title={isDark ? 'Tema chiaro' : 'Tema scuro'}
+              className="w-8 h-8 flex items-center justify-center rounded-xl text-zinc-500 hover:text-yellow-400 hover:bg-zinc-900 transition-all">
               {isDark ? <Sun size={16} /> : <Moon size={16} />}
             </button>
 
-            {/* Avatar dropdown */}
             <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setDropdownOpen(v => !v)}
-                className={`flex items-center gap-2.5 px-3 py-1.5 rounded-2xl border transition-all ${
-                  dropdownOpen
-                    ? 'bg-zinc-800 border-violet-500/50'
-                    : 'border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900'
-                }`}
-              >
+              <button onClick={() => setDropdownOpen(v => !v)}
+                className={`flex items-center gap-2.5 px-3 py-1.5 rounded-2xl border transition-all ${dropdownOpen ? 'bg-zinc-800 border-violet-500/50' : 'border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900'}`}>
                 <div className="w-7 h-7 rounded-full overflow-hidden ring-2 ring-violet-500/30 flex-shrink-0">
                   {avatarUrl ? (
                     <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
-                  ) : username ? (
-                    <img
-                      src={`https://api.dicebear.com/7.x/initials/svg?seed=${username}&backgroundColor=6d28d9&textColor=ffffff`}
-                      alt="avatar"
-                      className="w-full h-full object-cover"
-                    />
+                  ) : currentUsername ? (
+                    <img src={localAvatarSrc} alt="avatar" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-xs">
-                      {avatarInitial}
-                    </div>
+                    <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-xs">?</div>
                   )}
                 </div>
                 <span className="text-sm font-medium text-zinc-300 max-w-[100px] truncate hidden lg:block">
-                  {displayName || username || '…'}
+                  {currentDisplayName || '…'}
                 </span>
                 <ChevronDown size={14} className={`text-zinc-500 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
               </button>
@@ -287,67 +209,36 @@ export default function Navbar() {
               {dropdownOpen && (
                 <div className="absolute right-0 top-full mt-2 w-56 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden z-50">
                   <div className="px-4 py-3 border-b border-zinc-800">
-                    <p className="text-sm font-semibold text-white truncate">{displayName || username}</p>
-                    {username && <p className="text-xs text-zinc-500">@{username}</p>}
+                    <p className="text-sm font-semibold text-white truncate">{currentDisplayName}</p>
+                    {currentUsername && <p className="text-xs text-zinc-500">@{currentUsername}</p>}
                   </div>
-
                   <div className="p-1.5 space-y-0.5">
-                    <Link
-                      href={`/profile/${username || 'me'}`}
-                      onClick={() => setDropdownOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
-                        isProfileActive ? 'text-violet-400 bg-violet-500/10' : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
-                      }`}
-                    >
-                      <User size={16} />
-                      {t.nav.profile}
+                    <Link href={`/profile/${currentUsername || 'me'}`} onClick={() => setDropdownOpen(false)}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${isProfileActive ? 'text-violet-400 bg-violet-500/10' : 'text-zinc-300 hover:text-white hover:bg-zinc-800'}`}>
+                      <User size={16} /> {t.nav.profile}
                     </Link>
-                    <Link
-                      href="/profile/edit"
-                      onClick={() => setDropdownOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all"
-                    >
-                      <Edit3 size={16} />
-                      Modifica profilo
+                    <Link href="/profile/edit" onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all">
+                      <Edit3 size={16} /> Modifica profilo
                     </Link>
-                    <Link
-                      href="/wishlist"
-                      onClick={() => setDropdownOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
-                        pathname === '/wishlist' ? 'text-violet-400 bg-violet-500/10' : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
-                      }`}
-                    >
-                      <Bookmark size={16} />
-                      Wishlist
+                    <Link href="/wishlist" onClick={() => setDropdownOpen(false)}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${pathname === '/wishlist' ? 'text-violet-400 bg-violet-500/10' : 'text-zinc-300 hover:text-white hover:bg-zinc-800'}`}>
+                      <Bookmark size={16} /> Wishlist
                     </Link>
-                    <Link
-                      href="/settings"
-                      onClick={() => setDropdownOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
-                        pathname === '/settings' ? 'text-violet-400 bg-violet-500/10' : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
-                      }`}
-                    >
-                      <Settings size={16} />
-                      {t.nav.settings}
+                    <Link href="/settings" onClick={() => setDropdownOpen(false)}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${pathname === '/settings' ? 'text-violet-400 bg-violet-500/10' : 'text-zinc-300 hover:text-white hover:bg-zinc-800'}`}>
+                      <Settings size={16} /> {t.nav.settings}
                     </Link>
-
-                    {/* Theme toggle nel dropdown */}
-                    <button
-                      onClick={() => { toggleTheme(); setDropdownOpen(false) }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all"
-                    >
+                    <button onClick={() => { toggleTheme(); setDropdownOpen(false) }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all">
                       {isDark ? <Sun size={16} /> : <Moon size={16} />}
                       {isDark ? 'Tema chiaro' : 'Tema scuro'}
                     </button>
                   </div>
-
                   <div className="p-1.5 border-t border-zinc-800">
-                    <button
-                      onClick={() => { setDropdownOpen(false); handleLogout() }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                    >
-                      <LogOut size={16} />
-                      {t.nav.logout}
+                    <button onClick={() => { setDropdownOpen(false); handleLogout() }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-all">
+                      <LogOut size={16} /> {t.nav.logout}
                     </button>
                   </div>
                 </div>
@@ -363,24 +254,15 @@ export default function Navbar() {
           {[...NAV_ITEMS, { href: '/profile/me', label: t.nav.profile, icon: User, hasDot: false }].map((item) => {
             const isActive = item.href === '/profile/me' ? isProfileActive : pathname === item.href
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex flex-col items-center gap-0.5 px-2 py-2 rounded-2xl transition-all min-w-[44px] ${
-                  isActive ? 'text-violet-400' : 'text-zinc-500'
-                }`}
-              >
+              <Link key={item.href} href={item.href}
+                className={`flex flex-col items-center gap-0.5 px-2 py-2 rounded-2xl transition-all min-w-[44px] ${isActive ? 'text-violet-400' : 'text-zinc-500'}`}>
                 <div className="relative">
-                  {item.href === '/profile/me' && (avatarUrl || username) ? (
+                  {item.href === '/profile/me' && (avatarUrl || currentUsername) ? (
                     <div className={`w-6 h-6 rounded-full overflow-hidden ring-2 ${isActive ? 'ring-violet-400' : 'ring-zinc-700'}`}>
                       {avatarUrl ? (
                         <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
                       ) : (
-                        <img
-                          src={`https://api.dicebear.com/7.x/initials/svg?seed=${username}&backgroundColor=6d28d9&textColor=ffffff`}
-                          alt="avatar"
-                          className="w-full h-full object-cover"
-                        />
+                        <img src={localAvatarSrc} alt="avatar" className="w-full h-full object-cover" />
                       )}
                     </div>
                   ) : (
@@ -396,11 +278,7 @@ export default function Navbar() {
               </Link>
             )
           })}
-          {/* Theme toggle mobile */}
-          <button
-            onClick={toggleTheme}
-            className="flex flex-col items-center gap-0.5 px-2 py-2 rounded-2xl transition-all min-w-[44px] text-zinc-500 hover:text-yellow-400"
-          >
+          <button onClick={toggleTheme} className="flex flex-col items-center gap-0.5 px-2 py-2 rounded-2xl transition-all min-w-[44px] text-zinc-500 hover:text-yellow-400">
             {isDark ? <Sun size={22} strokeWidth={1.8} /> : <Moon size={22} strokeWidth={1.8} />}
           </button>
         </div>

@@ -1,4 +1,5 @@
 {
+  "id": "/",
   "name": "Geekore",
   "short_name": "Geekore",
   "description": "Traccia anime, manga, videogiochi, film e serie. Il tuo universo geek in un unico posto.",
@@ -10,6 +11,7 @@
   "background_color": "#000000",
   "theme_color": "#7c6af7",
   "lang": "it",
+  "dir": "ltr",
   "categories": ["entertainment", "social", "lifestyle"],
   "icons": [
     {
@@ -102,21 +104,39 @@
       "short_name": "Feed",
       "description": "Vai al feed della community",
       "url": "/feed",
-      "icons": [{ "src": "/icons/shortcut-feed.png", "sizes": "96x96" }]
+      "icons": [
+        { "src": "/icons/shortcut-feed.png", "sizes": "96x96" },
+        { "src": "/icons/icon-96x96.png", "sizes": "96x96" }
+      ]
     },
     {
       "name": "Discover",
       "short_name": "Discover",
       "description": "Cerca nuovi media",
       "url": "/discover",
-      "icons": [{ "src": "/icons/shortcut-discover.png", "sizes": "96x96" }]
+      "icons": [
+        { "src": "/icons/shortcut-discover.png", "sizes": "96x96" },
+        { "src": "/icons/icon-96x96.png", "sizes": "96x96" }
+      ]
     },
     {
       "name": "La mia collezione",
       "short_name": "Collezione",
       "description": "Vedi i tuoi progressi",
       "url": "/profile/me",
-      "icons": [{ "src": "/icons/shortcut-profile.png", "sizes": "96x96" }]
+      "icons": [
+        { "src": "/icons/shortcut-profile.png", "sizes": "96x96" },
+        { "src": "/icons/icon-96x96.png", "sizes": "96x96" }
+      ]
+    },
+    {
+      "name": "Notifiche",
+      "short_name": "Notifiche",
+      "description": "Vedi le tue notifiche",
+      "url": "/notifications",
+      "icons": [
+        { "src": "/icons/icon-96x96.png", "sizes": "96x96" }
+      ]
     }
   ],
   "share_target": {
@@ -127,6 +147,15 @@
       "text": "search",
       "url": "url"
     }
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+geekore",
+      "url": "/discover?search=%s"
+    }
+  ],
+  "edge_side_panel": {
+    "preferred_width": 400
   },
   "related_applications": [],
   "prefer_related_applications": false

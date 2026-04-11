@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+// Steam ID64 deve essere un numero di 17 cifre che inizia con 7656119
+const STEAM_ID64_REGEX = /^7656119\d{10}$/
+
+function isValidSteamId64(id: string): boolean {
+  return STEAM_ID64_REGEX.test(id)
+}
+
 export async function GET(request: Request) {
   const supabase = await createClient()
   const url = new URL(request.url)
@@ -11,6 +18,12 @@ export async function GET(request: Request) {
   }
 
   const steamId64 = claimedId.replace('https://steamcommunity.com/openid/id/', '')
+
+  // ── Validazione Steam ID64 ──────────────────────────────────────────────────
+  if (!isValidSteamId64(steamId64)) {
+    console.error('[Steam Callback] Invalid Steam ID64:', steamId64)
+    return NextResponse.redirect(new URL('/profile/me?error=steam_invalid_id', request.url))
+  }
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
@@ -23,8 +36,9 @@ export async function GET(request: Request) {
     let steamAvatar = ''
 
     if (steamApiKey) {
+      // Usa encodeURIComponent per il steamId per sicurezza (anche se validato sopra)
       const playerRes = await fetch(
-        `https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key=${steamApiKey}&steamids=${steamId64}`
+        `https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key=${steamApiKey}&steamids=${encodeURIComponent(steamId64)}`
       )
       const playerData = await playerRes.json()
       const player = playerData?.response?.players?.[0]
@@ -52,7 +66,6 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL('/profile/me?error=db_error', request.url))
     }
 
-    // Recupera username per redirect corretto al profilo
     const { data: profile } = await supabase
       .from('profiles')
       .select('username')

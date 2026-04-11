@@ -5,6 +5,9 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 const STEAM_API_KEY = process.env.STEAM_API_KEY
 const CACHE_HOURS = 24
 
+// Validazione Steam ID64: numero di 17 cifre che inizia con 7656119
+const STEAM_ID64_REGEX = /^7656119\d{10}$/
+
 let igdbTokenCache: { token: string; expiresAt: number } | null = null
 
 async function getIgdbToken(): Promise<string | null> {
@@ -26,7 +29,6 @@ async function getIgdbToken(): Promise<string | null> {
   } catch { return null }
 }
 
-// Ritorna mappa { gameName (lowercase) → metadati completi }
 interface IgdbMeta {
   genres: string[]
   themes: string[]
@@ -46,7 +48,8 @@ async function fetchIgdbMetaBatch(gameNames: string[]): Promise<Map<string, Igdb
   const CHUNK = 10
   for (let i = 0; i < gameNames.length; i += CHUNK) {
     const chunk = gameNames.slice(i, i + CHUNK)
-    const searchNames = chunk.map(n => `"${n.replace(/"/g, '')}"`).join(',')
+    // Normalizza i nomi: prova versione originale e lowercase per match più ampio
+    const searchNames = chunk.map(n => `"${n.replace(/"/g, '').replace(/'/g, '')}"`).join(',')
 
     try {
       const res = await fetch('https://api.igdb.com/v4/games', {
@@ -82,9 +85,7 @@ async function fetchIgdbMetaBatch(gameNames: string[]): Promise<Map<string, Igdb
       if (i + CHUNK < gameNames.length) {
         await new Promise(r => setTimeout(r, 300))
       }
-    } catch {
-      // chunk fallito, continua
-    }
+    } catch { /* chunk fallito, continua */ }
   }
 
   return result
@@ -96,6 +97,12 @@ export async function GET(request: NextRequest) {
   if (!steamid) {
     return NextResponse.json({ success: false, error: 'Missing steamid' }, { status: 400 })
   }
+
+  // ── Validazione Steam ID64 ──────────────────────────────────────────────────
+  if (!STEAM_ID64_REGEX.test(steamid)) {
+    return NextResponse.json({ success: false, error: 'Steam ID non valido' }, { status: 400 })
+  }
+
   if (!STEAM_API_KEY) {
     return NextResponse.json({ success: false, error: 'STEAM_API_KEY not configured' }, { status: 500 })
   }
@@ -132,7 +139,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const url = `https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${STEAM_API_KEY}&steamid=${steamid}&format=json&include_appinfo=true&include_played_free_games=true`
+    const url = `https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${STEAM_API_KEY}&steamid=${encodeURIComponent(steamid)}&format=json&include_appinfo=true&include_played_free_games=true`
     const res = await fetch(url)
     const data = await res.json()
 
@@ -146,9 +153,7 @@ export async function GET(request: NextRequest) {
     const playedGames = rawGames.filter(g => (g.playtime_forever || 0) >= 30)
     const gameNames = playedGames.map(g => g.name)
 
-    console.log(`[Steam Import] Fetching IGDB metadata for ${gameNames.length} played games...`)
     const metaMap = await fetchIgdbMetaBatch(gameNames)
-    console.log(`[Steam Import] Got metadata for ${metaMap.size} games from IGDB`)
 
     const games = rawGames.map((game: any) => {
       const meta = metaMap.get(game.name.toLowerCase())
@@ -156,6 +161,7 @@ export async function GET(request: NextRequest) {
         appid: game.appid,
         name: game.name,
         playtime_forever: game.playtime_forever,
+        // Multiple cover fallbacks
         cover_image: `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/library_600x900.jpg`,
         genres: meta?.genres || [],
         themes: meta?.themes || [],
@@ -191,9 +197,7 @@ export async function GET(request: NextRequest) {
       games_count: games.length,
     }, { onConflict: 'user_id' })
 
-    const totalHours = rawGames.reduce(
-      (sum: number, g: any) => sum + Math.floor((g.playtime_forever || 0) / 60), 0
-    )
+    const totalHours = rawGames.reduce((sum: number, g: any) => sum + Math.floor((g.playtime_forever || 0) / 60), 0)
     const corePower = Math.min(Math.round(totalHours / 10), 9999)
 
     const { data: profileData } = await supabaseService

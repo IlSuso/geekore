@@ -41,67 +41,128 @@ html.light body {
   color: var(--text-primary);
 }
 
-/* Backgrounds */
+/* === BACKGROUNDS === */
 html.light .bg-black            { background-color: var(--bg-primary) !important; }
 html.light .bg-zinc-950         { background-color: #f1f1f3 !important; }
 html.light .bg-zinc-900         { background-color: var(--bg-card) !important; }
 html.light .bg-zinc-800         { background-color: #e4e4e7 !important; }
 html.light .bg-zinc-700         { background-color: #d4d4d8 !important; }
 html.light .bg-zinc-950\/50     { background-color: rgba(241,241,243,0.5) !important; }
+html.light .bg-zinc-950\/60     { background-color: rgba(241,241,243,0.6) !important; }
 html.light .bg-zinc-900\/50     { background-color: rgba(255,255,255,0.5) !important; }
 html.light .bg-zinc-900\/60     { background-color: rgba(255,255,255,0.6) !important; }
+html.light .bg-zinc-800\/30     { background-color: rgba(228,228,231,0.3) !important; }
+html.light .bg-zinc-800\/50     { background-color: rgba(228,228,231,0.5) !important; }
+html.light .bg-black\/20        { background-color: rgba(244,244,245,0.5) !important; }
+html.light .bg-black\/60        { background-color: rgba(0,0,0,0.65) !important; }
+html.light .bg-black\/70        { background-color: rgba(0,0,0,0.75) !important; }
 html.light .bg-black\/80        { background-color: rgba(0,0,0,0.85) !important; }
 html.light .bg-black\/90        { background-color: rgba(0,0,0,0.9) !important; }
-html.light .bg-black\/70        { background-color: rgba(0,0,0,0.8) !important; }
+html.light .bg-zinc-900\/95     { background-color: rgba(255,255,255,0.97) !important; }
 
-/* Borders */
+/* === BORDERS === */
 html.light .border-zinc-800     { border-color: var(--border) !important; }
+html.light .border-zinc-800\/50 { border-color: rgba(212,212,216,0.5) !important; }
+html.light .border-zinc-800\/60 { border-color: rgba(212,212,216,0.6) !important; }
 html.light .border-zinc-700     { border-color: #c4c4c8 !important; }
 html.light .border-zinc-900     { border-color: #e4e4e7 !important; }
 html.light .border-white\/5     { border-color: rgba(0,0,0,0.05) !important; }
+html.light .border-white\/10    { border-color: rgba(0,0,0,0.10) !important; }
 
-/* Text */
+/* === TEXT === */
 html.light .text-white          { color: var(--text-primary) !important; }
+html.light .text-zinc-100       { color: #18181b !important; }
+html.light .text-zinc-200       { color: #27272a !important; }
+html.light .text-zinc-300       { color: #3f3f46 !important; }
 html.light .text-zinc-400       { color: #52525b !important; }
 html.light .text-zinc-500       { color: #71717a !important; }
 html.light .text-zinc-600       { color: #a1a1aa !important; }
 html.light .text-zinc-700       { color: #d4d4d8 !important; }
-html.light .text-zinc-300       { color: #27272a !important; }
-html.light .text-zinc-200       { color: #18181b !important; }
 
-/* Hover states */
+/* === HOVER TEXT === */
+html.light .hover\:text-white:hover    { color: #09090b !important; }
+html.light .hover\:text-zinc-300:hover { color: #3f3f46 !important; }
+html.light .hover\:text-zinc-400:hover { color: #52525b !important; }
+
+/* === HOVER BACKGROUNDS === */
 html.light .hover\:bg-zinc-800:hover  { background-color: #e4e4e7 !important; }
 html.light .hover\:bg-zinc-700:hover  { background-color: #d4d4d8 !important; }
 html.light .hover\:bg-zinc-900:hover  { background-color: #f1f1f3 !important; }
-html.light .hover\:text-white:hover   { color: #09090b !important; }
 
-/* Violet rimane identico — il brand non cambia */
-html.light .text-violet-400     { color: #6d28d9 !important; }
-html.light .text-violet-300     { color: #7c3aed !important; }
-html.light .bg-violet-600       { background-color: #7c3aed !important; }
-html.light .bg-violet-500\/10   { background-color: rgba(124,58,237,0.1) !important; }
-html.light .bg-violet-500\/20   { background-color: rgba(124,58,237,0.15) !important; }
+/* === VIOLET — brand rimane identico in light mode === */
+html.light .text-violet-400       { color: #6d28d9 !important; }
+html.light .text-violet-300       { color: #7c3aed !important; }
+html.light .text-violet-500       { color: #5b21b6 !important; }
+html.light .text-fuchsia-300      { color: #a21caf !important; }
+html.light .bg-violet-500\/10     { background-color: rgba(124,58,237,0.08) !important; }
+html.light .bg-violet-500\/15     { background-color: rgba(124,58,237,0.12) !important; }
+html.light .bg-violet-500\/20     { background-color: rgba(124,58,237,0.15) !important; }
+html.light .bg-violet-500\/30     { background-color: rgba(124,58,237,0.2) !important; }
+html.light .bg-fuchsia-500\/15    { background-color: rgba(162,28,175,0.10) !important; }
+html.light .bg-fuchsia-500\/20    { background-color: rgba(162,28,175,0.12) !important; }
 html.light .border-violet-500\/20 { border-color: rgba(124,58,237,0.3) !important; }
+html.light .border-violet-500\/30 { border-color: rgba(124,58,237,0.4) !important; }
 html.light .border-violet-500\/50 { border-color: rgba(124,58,237,0.5) !important; }
 
-/* Scrollbar light */
-html.light ::-webkit-scrollbar-thumb { background: #d4d4d8; }
-html.light ::-webkit-scrollbar-thumb:hover { background: #7c3aed; }
+/* === COLORI TIPI MEDIA (badge rimangono saturi ma testo si scurisce) === */
+html.light .text-sky-400      { color: #0369a1 !important; }
+html.light .bg-sky-500\/10    { background-color: rgba(14,165,233,0.10) !important; }
+html.light .bg-sky-500\/20    { background-color: rgba(14,165,233,0.16) !important; }
 
-/* Navbar light */
-html.light nav.fixed {
-  background: rgba(244,244,245,0.9) !important;
-  border-color: var(--border) !important;
-}
+html.light .text-orange-400   { color: #c2410c !important; }
+html.light .bg-orange-500\/10 { background-color: rgba(249,115,22,0.10) !important; }
+html.light .bg-orange-500\/20 { background-color: rgba(249,115,22,0.15) !important; }
 
-/* Card media light: i badge colorati dei tipi rimangono invariati */
-/* Le card hanno sfondo bianco con ombra leggera invece che border dark */
+html.light .text-green-400    { color: #15803d !important; }
+html.light .bg-green-500\/10  { background-color: rgba(34,197,94,0.10) !important; }
+html.light .bg-green-500\/20  { background-color: rgba(34,197,94,0.15) !important; }
+
+html.light .text-purple-400   { color: #7e22ce !important; }
+html.light .bg-purple-500\/10 { background-color: rgba(168,85,247,0.10) !important; }
+html.light .bg-purple-500\/20 { background-color: rgba(168,85,247,0.15) !important; }
+
+html.light .text-red-400      { color: #b91c1c !important; }
+html.light .bg-red-500\/10    { background-color: rgba(239,68,68,0.10) !important; }
+html.light .bg-red-500\/20    { background-color: rgba(239,68,68,0.15) !important; }
+
+html.light .text-yellow-400   { color: #a16207 !important; }
+html.light .bg-yellow-500\/10 { background-color: rgba(234,179,8,0.10) !important; }
+html.light .bg-yellow-500\/20 { background-color: rgba(234,179,8,0.12) !important; }
+
+html.light .text-emerald-400  { color: #047857 !important; }
+html.light .bg-emerald-500\/10 { background-color: rgba(16,185,129,0.10) !important; }
+html.light .bg-emerald-500\/20 { background-color: rgba(16,185,129,0.12) !important; }
+html.light .bg-emerald-600\/20 { background-color: rgba(5,150,105,0.12) !important; }
+html.light .border-emerald-800    { border-color: #6ee7b7 !important; }
+html.light .border-emerald-800\/50 { border-color: rgba(110,231,183,0.5) !important; }
+html.light .bg-emerald-950\/40 { background-color: rgba(236,253,245,0.7) !important; }
+html.light .bg-emerald-950\/50 { background-color: rgba(236,253,245,0.8) !important; }
+
+html.light .text-cyan-400     { color: #0e7490 !important; }
+html.light .bg-cyan-500\/20   { background-color: rgba(6,182,212,0.12) !important; }
+
+/* === FEEDBACK / ALERT COLORS === */
+html.light .bg-red-950\/40    { background-color: rgba(255,237,237,0.6) !important; }
+html.light .bg-red-950\/50    { background-color: rgba(255,237,237,0.7) !important; }
+html.light .border-red-800    { border-color: #fca5a5 !important; }
+html.light .border-red-800\/50 { border-color: rgba(252,165,165,0.5) !important; }
+html.light .border-red-900\/50 { border-color: rgba(252,165,165,0.5) !important; }
+html.light .bg-violet-950     { background-color: #f5f3ff !important; }
+
+/* === STEAM CARD === */
+html.light .bg-\[\#1b2838\],
+html.light .bg-\[\#1B2838\] { background-color: #dbeafe !important; }
+html.light .bg-\[\#0d0d0f\] { background-color: #f1f1f3 !important; }
+html.light .bg-\[\#050507\] { background-color: #f4f4f5 !important; }
+
+/* === CARD SHADOWS in light mode === */
 html.light .border-zinc-800.rounded-3xl,
-html.light .border-zinc-800.rounded-2xl {
+html.light .border-zinc-800.rounded-2xl,
+html.light .bg-zinc-900.border.border-zinc-800 {
   box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
 }
 
-/* Input / textarea light */
+/* === INPUT / TEXTAREA === */
 html.light input,
 html.light textarea,
 html.light select {
@@ -109,17 +170,32 @@ html.light select {
   border-color: #d4d4d8 !important;
   color: #09090b !important;
 }
-
 html.light input::placeholder,
 html.light textarea::placeholder {
   color: #a1a1aa !important;
 }
-
-/* Glassmorphism backdrop light */
-html.light .backdrop-blur-2xl {
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+html.light input:focus,
+html.light textarea:focus,
+html.light select:focus {
+  border-color: #7c3aed !important;
 }
+
+/* === NAVBAR light === */
+html.light nav.fixed {
+  background: rgba(244,244,245,0.92) !important;
+  border-color: var(--border) !important;
+}
+
+/* === GLASSMORPHISM light === */
+html.light .backdrop-blur-2xl,
+html.light .backdrop-blur-sm {
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+}
+
+/* === SCROLLBAR light === */
+html.light ::-webkit-scrollbar-thumb { background: #d4d4d8; }
+html.light ::-webkit-scrollbar-thumb:hover { background: #7c3aed; }
 
 /* ── Base ────────────────────────────────────────────────────── */
 
@@ -226,10 +302,28 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
   100% { transform: scale(1); }
 }
 
-.animate-fade-in     { animation: fade-in  0.3s ease forwards; }
-.animate-scale-in    { animation: scale-in 0.2s ease forwards; }
-.animate-slide-up    { animation: slide-up 0.3s ease forwards; }
-.animate-heart-burst { animation: heart-burst 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+/* Drawer / bottom sheet slide-in */
+@keyframes slide-in-from-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+@keyframes slide-in-from-bottom {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.animate-fade-in      { animation: fade-in  0.3s ease forwards; }
+.animate-scale-in     { animation: scale-in 0.2s ease forwards; }
+.animate-slide-up     { animation: slide-up 0.3s ease forwards; }
+.animate-heart-burst  { animation: heart-burst 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+
+/* animate-in helper classes (usate da MediaDetailsDrawer, toast, ecc.) */
+.animate-in           { animation-fill-mode: both; }
+.slide-in-from-right  { animation: slide-in-from-right 0.3s ease forwards; }
+.slide-in-from-top-2  { animation: fade-in 0.3s ease forwards; }
+.fade-in              { animation: fade-in 0.3s ease forwards; }
+.duration-300         { animation-duration: 0.3s; }
 
 /* ── Skeleton shimmer ────────────────────────────────────────── */
 .skeleton {
@@ -268,4 +362,16 @@ html.light .skeleton {
 ::selection {
   background: rgba(124, 106, 247, 0.3);
   color: inherit;
+}
+
+/* ── Haptic press visual feedback su mobile ──────────────────── */
+.haptic-press:active {
+  transform: scale(0.96);
+  transition: transform 0.08s ease;
+}
+
+/* ── Profile tab indicator ───────────────────────────────────── */
+.profile-tab-active {
+  border-bottom: 2px solid #7c6af7;
+  color: #a78bfa;
 }
