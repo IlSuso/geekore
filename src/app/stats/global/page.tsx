@@ -81,13 +81,20 @@ async function getGlobalStats() {
     .sort(([, a], [, b]) => b - a)
     .slice(0, 12)
 
-  return {
+    return {
     totalUsers: totalUsers || 0,
     totalEntries,
     totalPosts: totalPosts || 0,
     totalHours,
-    animeHours, mangaHours, gameHours, movieHours, tvHours,
-    animeEps, mangaChapters, gameHours: gameHours, movieCount, tvEps,
+    animeHours,
+    mangaHours,
+    gameHours,           // ← corretto (una sola volta)
+    movieHours,
+    tvHours,
+    animeEps,
+    mangaChapters,
+    movieCount,
+    tvEps,
     popularTitles,
     popularGenres,
   }
