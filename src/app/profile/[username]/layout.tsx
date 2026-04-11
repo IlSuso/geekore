@@ -25,13 +25,18 @@ export async function generateMetadata(
       title: `${displayName} — Geekore`,
       description,
       type: 'profile',
-      ...(profile?.avatar_url ? { images: [{ url: profile.avatar_url }] } : {}),
+      images: [{
+        url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://geekore.it'}/api/og/${username}`,
+        width: 1200,
+        height: 630,
+        alt: `Profilo di ${displayName} su Geekore`,
+      }],
     },
     twitter: {
-      card: profile?.avatar_url ? 'summary_large_image' : 'summary',
+      card: 'summary_large_image',
       title: `${displayName} — Geekore`,
       description,
-      ...(profile?.avatar_url ? { images: [profile.avatar_url] } : {}),
+      images: [`${process.env.NEXT_PUBLIC_SITE_URL || 'https://geekore.it'}/api/og/${username}`],
     },
   }
 }
