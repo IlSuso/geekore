@@ -249,7 +249,7 @@ export default function Navbar() {
       </nav>
 
       {/* Mobile bottom navbar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-2xl border-t border-zinc-800/60">
+      <nav className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-2xl border-t border-zinc-800/60">
         <div className="flex items-center justify-around py-2 px-1">
           {[...NAV_ITEMS, { href: '/profile/me', label: t.nav.profile, icon: User, hasDot: false }].map((item) => {
             const isActive = item.href === '/profile/me' ? isProfileActive : pathname === item.href

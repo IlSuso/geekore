@@ -472,3 +472,19 @@ html.oled select {
     animation: none;
   }
 }
+/* ── #14: Tastiera iOS — nasconde navbar mobile quando input/textarea è in focus */
+/* Impedisce che la fixed bottom-0 navbar si sovrapponga alla tastiera virtuale  */
+@media (max-width: 768px) {
+  body:has(input:focus) .mobile-nav,
+  body:has(textarea:focus) .mobile-nav {
+    transform: translateY(100%);
+    pointer-events: none;
+    transition: transform 0.25s ease;
+  }
+
+  body:not(:has(input:focus)):not(:has(textarea:focus)) .mobile-nav {
+    transform: translateY(0);
+    pointer-events: auto;
+    transition: transform 0.25s ease;
+  }
+}

@@ -17,7 +17,8 @@ import { SkeletonFeedPost } from '@/components/ui/SkeletonCard'
 import { Avatar } from '@/components/ui/Avatar'
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll'
 import { formatDistanceToNow } from 'date-fns'
-import { it, enUS } from 'date-fns/locale'
+import { it } from 'date-fns/locale/it'
+import { enUS } from 'date-fns/locale/en-US'
 import { useLocale } from '@/lib/locale'
 
 // ── Tipi ────────────────────────────────────────────────────────────────────
@@ -176,27 +177,35 @@ const PostCard = memo(function PostCard({
       </div>
 
       {/* Comment input */}
-      {isCommenting && (
-        <div className="mt-4 flex gap-2">
-          <input
-            type="text"
-            value={commentContent}
-            onChange={e => onCommentChange(e.target.value.slice(0, 500))}
-            placeholder="Scrivi un commento..."
-            maxLength={500}
-            className="flex-1 bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-2xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition"
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onAddComment(post.id) }
-            }}
-          />
-          <button
-            onClick={() => onAddComment(post.id)}
-            className="bg-violet-600 hover:bg-violet-500 px-4 rounded-2xl transition"
-          >
-            <Send size={16} />
-          </button>
-        </div>
-      )}
+{isCommenting && (
+  <div className="mt-4 flex flex-col gap-1">
+    <div className="flex gap-2">
+      <input
+        type="text"
+        value={commentContent}
+        onChange={e => onCommentChange(e.target.value.slice(0, 500))}
+        placeholder="Scrivi un commento..."
+        maxLength={500}
+        className="flex-1 bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-2xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition"
+        onKeyDown={e => {
+          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onAddComment(post.id) }
+        }}
+      />
+      <button
+        onClick={() => onAddComment(post.id)}
+        className="bg-violet-600 hover:bg-violet-500 px-4 rounded-2xl transition"
+      >
+        <Send size={16} />
+      </button>
+    </div>
+    {/* Contatore caratteri — appare solo quando si avvicina al limite */}
+    {commentContent.length > 400 && (
+      <div className={`text-right text-xs pr-14 ${commentContent.length >= 480 ? 'text-orange-400' : 'text-zinc-600'}`}>
+        {commentContent.length}/500
+      </div>
+    )}
+  </div>
+)}
 
       {/* Comments list */}
       {post.comments.length > 0 && (
