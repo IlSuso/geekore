@@ -2,8 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Aggiungere in cima a src/app/globals.css ────────────────────────────── */
-/* Dopo le direttive @tailwind */
+/* ── CSS Variables ───────────────────────────────────────────────────────── */
 
 /* Dark mode (default) */
 :root {
@@ -16,46 +15,114 @@
   --text-muted: #52525b;
   --border: #27272a;
   --border-subtle: #18181b;
+  --violet: #7c6af7;
+  --violet-light: #a78bfa;
 }
 
 /* Light mode */
 html.light {
-  --bg-primary: #f9fafb;
+  --bg-primary: #f4f4f5;
   --bg-secondary: #ffffff;
   --bg-card: #ffffff;
-  --bg-hover: #f3f4f6;
-  --text-primary: #111827;
-  --text-secondary: #6b7280;
-  --text-muted: #9ca3af;
-  --border: #e5e7eb;
-  --border-subtle: #f3f4f6;
+  --bg-hover: #e4e4e7;
+  --text-primary: #09090b;
+  --text-secondary: #52525b;
+  --text-muted: #a1a1aa;
+  --border: #d4d4d8;
+  --border-subtle: #e4e4e7;
+  --violet: #7c3aed;
+  --violet-light: #6d28d9;
 }
+
+/* ── Light mode overrides ────────────────────────────────────────────────── */
 
 html.light body {
   background: var(--bg-primary);
   color: var(--text-primary);
 }
 
-/* Overrides Tailwind per light mode */
-html.light .bg-black { background-color: var(--bg-primary) !important; }
-html.light .bg-zinc-950 { background-color: var(--bg-secondary) !important; }
-html.light .bg-zinc-900 { background-color: var(--bg-card) !important; }
-html.light .bg-zinc-800 { background-color: #f3f4f6 !important; }
-html.light .border-zinc-800 { border-color: var(--border) !important; }
-html.light .border-zinc-700 { border-color: #d1d5db !important; }
-html.light .text-white { color: var(--text-primary) !important; }
-html.light .text-zinc-400 { color: var(--text-secondary) !important; }
-html.light .text-zinc-500 { color: #6b7280 !important; }
-html.light .text-zinc-600 { color: #9ca3af !important; }
+/* Backgrounds */
+html.light .bg-black            { background-color: var(--bg-primary) !important; }
+html.light .bg-zinc-950         { background-color: #f1f1f3 !important; }
+html.light .bg-zinc-900         { background-color: var(--bg-card) !important; }
+html.light .bg-zinc-800         { background-color: #e4e4e7 !important; }
+html.light .bg-zinc-700         { background-color: #d4d4d8 !important; }
+html.light .bg-zinc-950\/50     { background-color: rgba(241,241,243,0.5) !important; }
+html.light .bg-zinc-900\/50     { background-color: rgba(255,255,255,0.5) !important; }
+html.light .bg-zinc-900\/60     { background-color: rgba(255,255,255,0.6) !important; }
+html.light .bg-black\/80        { background-color: rgba(0,0,0,0.85) !important; }
+html.light .bg-black\/90        { background-color: rgba(0,0,0,0.9) !important; }
+html.light .bg-black\/70        { background-color: rgba(0,0,0,0.8) !important; }
 
-/* ── ThemeToggle button — aggiungi in settings o navbar ─────────────────── */
-/*
-  <button onClick={toggleTheme}>
-    {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-  </button>
-*/
+/* Borders */
+html.light .border-zinc-800     { border-color: var(--border) !important; }
+html.light .border-zinc-700     { border-color: #c4c4c8 !important; }
+html.light .border-zinc-900     { border-color: #e4e4e7 !important; }
+html.light .border-white\/5     { border-color: rgba(0,0,0,0.05) !important; }
+
+/* Text */
+html.light .text-white          { color: var(--text-primary) !important; }
+html.light .text-zinc-400       { color: #52525b !important; }
+html.light .text-zinc-500       { color: #71717a !important; }
+html.light .text-zinc-600       { color: #a1a1aa !important; }
+html.light .text-zinc-700       { color: #d4d4d8 !important; }
+html.light .text-zinc-300       { color: #27272a !important; }
+html.light .text-zinc-200       { color: #18181b !important; }
+
+/* Hover states */
+html.light .hover\:bg-zinc-800:hover  { background-color: #e4e4e7 !important; }
+html.light .hover\:bg-zinc-700:hover  { background-color: #d4d4d8 !important; }
+html.light .hover\:bg-zinc-900:hover  { background-color: #f1f1f3 !important; }
+html.light .hover\:text-white:hover   { color: #09090b !important; }
+
+/* Violet rimane identico — il brand non cambia */
+html.light .text-violet-400     { color: #6d28d9 !important; }
+html.light .text-violet-300     { color: #7c3aed !important; }
+html.light .bg-violet-600       { background-color: #7c3aed !important; }
+html.light .bg-violet-500\/10   { background-color: rgba(124,58,237,0.1) !important; }
+html.light .bg-violet-500\/20   { background-color: rgba(124,58,237,0.15) !important; }
+html.light .border-violet-500\/20 { border-color: rgba(124,58,237,0.3) !important; }
+html.light .border-violet-500\/50 { border-color: rgba(124,58,237,0.5) !important; }
+
+/* Scrollbar light */
+html.light ::-webkit-scrollbar-thumb { background: #d4d4d8; }
+html.light ::-webkit-scrollbar-thumb:hover { background: #7c3aed; }
+
+/* Navbar light */
+html.light nav.fixed {
+  background: rgba(244,244,245,0.9) !important;
+  border-color: var(--border) !important;
+}
+
+/* Card media light: i badge colorati dei tipi rimangono invariati */
+/* Le card hanno sfondo bianco con ombra leggera invece che border dark */
+html.light .border-zinc-800.rounded-3xl,
+html.light .border-zinc-800.rounded-2xl {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+}
+
+/* Input / textarea light */
+html.light input,
+html.light textarea,
+html.light select {
+  background-color: #f9f9fb !important;
+  border-color: #d4d4d8 !important;
+  color: #09090b !important;
+}
+
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: #a1a1aa !important;
+}
+
+/* Glassmorphism backdrop light */
+html.light .backdrop-blur-2xl {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
 
 /* ── Base ────────────────────────────────────────────────────── */
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
   background: #000;
@@ -63,6 +130,8 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  /* Fix per tastiera virtuale iOS */
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ── Scrollbar ───────────────────────────────────────────────── */
@@ -79,8 +148,29 @@ input[type="number"].no-spinner::-webkit-outer-spin-button {
 }
 input[type="number"].no-spinner { -moz-appearance: textfield; }
 
+/* ── Mobile: fix tastiera virtuale iOS ────────────────────────── */
+/* Quando la tastiera è aperta, usa dvh (dynamic viewport height) */
+@supports (height: 100dvh) {
+  .min-h-screen { min-height: 100dvh; }
+  .h-screen     { height: 100dvh; }
+}
+
+/* Navbar mobile: sopra la safe area + area tastiera */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  nav.fixed.bottom-0 {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Fix: quando si apre la tastiera su iOS, il viewport si riduce ma la
+   navbar fixed rimane. Evita che si sovrapponga agli input. */
+@media screen and (max-height: 500px) {
+  nav.fixed.bottom-0 {
+    display: none;
+  }
+}
+
 /* ── Media card — altezza adattiva su mobile ─────────────────── */
-/* Su schermi piccoli le card non hanno altezza fissa */
 @media (max-width: 639px) {
   .media-card-grid .card-fixed-height {
     height: auto !important;
@@ -94,7 +184,7 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
   overflow: visible;
 }
 
-/* ── Footer mobile — non duplica su pagine auth ──────────────── */
+/* ── Footer mobile — spazio per la navbar ───────────────────── */
 @media (max-width: 767px) {
   footer {
     padding-bottom: calc(4rem + env(safe-area-inset-bottom));
@@ -102,10 +192,9 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
 }
 
 /* ── Safe area per iPhone notch ──────────────────────────────── */
-@supports (padding-bottom: env(safe-area-inset-bottom)) {
-  nav.fixed.bottom-0 {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
+@supports (padding-top: env(safe-area-inset-top)) {
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 }
 
 /* ── Animations ──────────────────────────────────────────────── */
@@ -124,12 +213,33 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
   to   { opacity: 1; transform: scale(1); }
 }
 
-.animate-fade-in  { animation: fade-in  0.3s ease forwards; }
-.animate-scale-in { animation: scale-in 0.2s ease forwards; }
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes heart-burst {
+  0%   { transform: scale(1); }
+  25%  { transform: scale(1.3); }
+  50%  { transform: scale(0.9); }
+  75%  { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.animate-fade-in     { animation: fade-in  0.3s ease forwards; }
+.animate-scale-in    { animation: scale-in 0.2s ease forwards; }
+.animate-slide-up    { animation: slide-up 0.3s ease forwards; }
+.animate-heart-burst { animation: heart-burst 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
 
 /* ── Skeleton shimmer ────────────────────────────────────────── */
 .skeleton {
   background: linear-gradient(90deg, #18181b 25%, #27272a 50%, #18181b 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+html.light .skeleton {
+  background: linear-gradient(90deg, #e4e4e7 25%, #f4f4f5 50%, #e4e4e7 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
@@ -139,6 +249,23 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* ── Bottom sheet (mobile modali) ────────────────────────────── */
+.bottom-sheet {
+  border-radius: 20px 20px 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ── Focus visible (accessibilità) ──────────────────────────── */
+:focus-visible {
+  outline: 2px solid #7c6af7;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── Selection ───────────────────────────────────────────────── */
+::selection {
+  background: rgba(124, 106, 247, 0.3);
+  color: inherit;
 }
