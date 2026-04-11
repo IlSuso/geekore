@@ -116,7 +116,6 @@ export default function Navbar() {
   const currentUsername = username || ''
   const currentDisplayName = displayName || username || ''
 
-  // Generate local avatar src (no dicebear)
   const localAvatarSrc = currentUsername ? getLocalAvatarSvg(currentUsername, displayName) : undefined
 
   return (
@@ -249,6 +248,7 @@ export default function Navbar() {
       </nav>
 
       {/* Mobile bottom navbar */}
+      {/* #14: classe "mobile-nav" usata dal CSS per nasconderla quando tastiera iOS è aperta */}
       <nav className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-2xl border-t border-zinc-800/60">
         <div className="flex items-center justify-around py-2 px-1">
           {[...NAV_ITEMS, { href: '/profile/me', label: t.nav.profile, icon: User, hasDot: false }].map((item) => {

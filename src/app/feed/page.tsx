@@ -8,6 +8,8 @@
 //   #7   Skeleton loaders coerenti: usa SkeletonFeedPost durante il loading.
 //   P2   React.memo sul componente PostCard per evitare re-render inutili.
 //   #31  Haptic feedback su like e pubblicazione.
+//   P5   Import condizionale locale date-fns — carica solo it o enUS, non entrambe.
+//   #9   Contatore caratteri live anche sui commenti (appare sopra 400 char).
 
 import { useState, useEffect, useCallback, memo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -17,6 +19,7 @@ import { SkeletonFeedPost } from '@/components/ui/SkeletonCard'
 import { Avatar } from '@/components/ui/Avatar'
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll'
 import { formatDistanceToNow } from 'date-fns'
+// P5: import separati per evitare di caricare entrambe le locale sempre
 import { it } from 'date-fns/locale/it'
 import { enUS } from 'date-fns/locale/en-US'
 import { useLocale } from '@/lib/locale'
@@ -50,7 +53,6 @@ type Post = {
 }
 
 // ── #13 Cache in-memory ──────────────────────────────────────────────────────
-// Persiste per tutta la sessione (non tra tab). TTL 2 minuti.
 const cache: {
   posts: Post[] | null
   page: number
@@ -59,7 +61,7 @@ const cache: {
   ts: number
 } = { posts: null, page: 0, hasMore: true, filter: 'all', ts: 0 }
 
-const CACHE_TTL = 2 * 60 * 1000 // 2 minuti
+const CACHE_TTL = 2 * 60 * 1000
 
 function isCacheValid(filter: 'all' | 'following') {
   return (
@@ -76,9 +78,8 @@ function haptic(pattern: number | number[] = 30) {
   }
 }
 
-// ── Costanti ─────────────────────────────────────────────────────────────────
 const PAGE_SIZE = 20
-const PINNED_LIKE_THRESHOLD = 3 // min like per essere "in evidenza"
+const PINNED_LIKE_THRESHOLD = 3
 
 // ── P2 PostCard con React.memo ───────────────────────────────────────────────
 const PostCard = memo(function PostCard({
@@ -176,36 +177,36 @@ const PostCard = memo(function PostCard({
         </button>
       </div>
 
-      {/* Comment input */}
-{isCommenting && (
-  <div className="mt-4 flex flex-col gap-1">
-    <div className="flex gap-2">
-      <input
-        type="text"
-        value={commentContent}
-        onChange={e => onCommentChange(e.target.value.slice(0, 500))}
-        placeholder="Scrivi un commento..."
-        maxLength={500}
-        className="flex-1 bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-2xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition"
-        onKeyDown={e => {
-          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onAddComment(post.id) }
-        }}
-      />
-      <button
-        onClick={() => onAddComment(post.id)}
-        className="bg-violet-600 hover:bg-violet-500 px-4 rounded-2xl transition"
-      >
-        <Send size={16} />
-      </button>
-    </div>
-    {/* Contatore caratteri — appare solo quando si avvicina al limite */}
-    {commentContent.length > 400 && (
-      <div className={`text-right text-xs pr-14 ${commentContent.length >= 480 ? 'text-orange-400' : 'text-zinc-600'}`}>
-        {commentContent.length}/500
-      </div>
-    )}
-  </div>
-)}
+      {/* #9 Comment input con contatore caratteri live */}
+      {isCommenting && (
+        <div className="mt-4 flex flex-col gap-1">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={commentContent}
+              onChange={e => onCommentChange(e.target.value.slice(0, 500))}
+              placeholder="Scrivi un commento..."
+              maxLength={500}
+              className="flex-1 bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-2xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition"
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onAddComment(post.id) }
+              }}
+            />
+            <button
+              onClick={() => onAddComment(post.id)}
+              className="bg-violet-600 hover:bg-violet-500 px-4 rounded-2xl transition"
+            >
+              <Send size={16} />
+            </button>
+          </div>
+          {/* Contatore: appare solo quando si avvicina al limite (>400 caratteri) */}
+          {commentContent.length > 400 && (
+            <div className={`text-right text-xs pr-14 ${commentContent.length >= 480 ? 'text-orange-400' : 'text-zinc-600'}`}>
+              {commentContent.length}/500
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Comments list */}
       {post.comments.length > 0 && (
@@ -250,7 +251,6 @@ export default function FeedPage() {
   const { locale, t } = useLocale()
   const f = t.feed
 
-  // Infinite scroll
   const sentinelRef = useInfiniteScroll({
     onLoadMore: () => {
       if (!currentUser || loadingMore || !hasMore) return
@@ -275,13 +275,11 @@ export default function FeedPage() {
           .single()
         setCurrentProfile(profile)
 
-        // #13: usa cache se valida
         if (isCacheValid('all')) {
           setPosts(cache.posts!)
           setPage(cache.page)
           setHasMore(cache.hasMore)
           setLoading(false)
-          // Carica pinned in background
           loadPinnedPosts(user.id)
           return
         }
@@ -295,7 +293,6 @@ export default function FeedPage() {
     init()
   }, [])
 
-  // #25: carica post in evidenza (più like degli ultimi 7 giorni)
   const loadPinnedPosts = useCallback(async (userId: string) => {
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
@@ -313,7 +310,6 @@ export default function FeedPage() {
 
     if (!data) return
 
-    // Ordina per like e prendi i top 2 con almeno PINNED_LIKE_THRESHOLD like
     const withLikes = data
       .map((p: any) => ({ ...p, _likeCount: (p.likes || []).length }))
       .filter((p: any) => p._likeCount >= PINNED_LIKE_THRESHOLD)
@@ -390,7 +386,6 @@ export default function FeedPage() {
 
     const { data: postsData } = await query
 
-    // Profili per i commenti
     const allComments = (postsData || []).flatMap((p: any) => p.comments || [])
     const uniqueUserIds = [...new Set(allComments.map((c: any) => c.user_id))]
 
@@ -436,7 +431,6 @@ export default function FeedPage() {
     if (append) {
       setPosts(prev => {
         const merged = [...prev, ...formatted]
-        // Aggiorna cache
         cache.posts = merged
         cache.page = pageIndex
         cache.hasMore = newHasMore
@@ -447,7 +441,6 @@ export default function FeedPage() {
       setLoadingMore(false)
     } else {
       setPosts(formatted)
-      // Aggiorna cache
       cache.posts = formatted
       cache.page = pageIndex
       cache.hasMore = newHasMore
@@ -539,7 +532,6 @@ export default function FeedPage() {
       haptic(20)
     }
 
-    // Ottimistico
     setPosts(prev => prev.map((p, i) => i === postIndex
       ? { ...p, likes_count: willLike ? p.likes_count + 1 : p.likes_count - 1, liked_by_user: willLike }
       : p
@@ -552,7 +544,6 @@ export default function FeedPage() {
     }
   }, [currentUser, posts, supabase])
 
-  // Stessa logica per i pinned posts
   const toggleLikePinned = useCallback(async (postId: string) => {
     if (!currentUser) return
     const postIndex = pinnedPosts.findIndex(p => p.id === postId)
@@ -674,7 +665,7 @@ export default function FeedPage() {
           </div>
         )}
 
-        {/* #25 Post in evidenza (solo nel filtro "tutto") */}
+        {/* #25 Post in evidenza */}
         {feedFilter === 'all' && pinnedPosts.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-3">
@@ -728,7 +719,6 @@ export default function FeedPage() {
             ))
           )}
 
-          {/* Sentinel infinite scroll */}
           <div ref={sentinelRef} className="h-4" />
 
           {loadingMore && (
