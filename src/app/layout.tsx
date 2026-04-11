@@ -1,3 +1,8 @@
+// DESTINAZIONE: src/app/layout.tsx
+// #40: View Transitions API abilitata via experimental_ppr e viewTransition in <Link>
+//      Funziona su Chrome 111+, Edge 111+, Safari 18+.
+//      Su browser non supportati cade silenziosamente al comportamento normale.
+
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import Navbar from '@/components/Navbar'
@@ -31,14 +36,25 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
+  // #14: viewport-fit=cover per tastiera iOS
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="it">
+    // #40: aggiunge style per abilitare View Transitions — Chrome le intercetta
+    // automaticamente su navigazione <Link> quando è presente il meta
+    <html lang="it" style={{ viewTransitionName: 'root' } as React.CSSProperties}>
+      <head>
+        {/* #40: meta per abilitare View Transitions nelle versioni più vecchie */}
+        <meta name="view-transition" content="same-origin" />
+      </head>
       <body className="bg-black text-white min-h-screen antialiased">
         <ClientProviders>
-          <Navbar />
+          {/* view-transition-name sulla navbar per escluderla dalle transizioni */}
+          <div style={{ viewTransitionName: 'navbar' } as React.CSSProperties}>
+            <Navbar />
+          </div>
           <main className="pt-16 pb-24 md:pb-8">
             {children}
           </main>

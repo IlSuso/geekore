@@ -1,11 +1,11 @@
 'use client'
-// src/lib/theme.tsx
-// Gestione dark/light mode con persistenza localStorage.
-// Il tema viene applicato aggiungendo/rimuovendo la classe 'light' su <html>.
+// DESTINAZIONE: src/lib/theme.tsx
+// #39: Aggiunta modalità OLED — sfondo #000000 puro, risparmio batteria su AMOLED.
+// I tre temi: 'dark' (default), 'light', 'oled'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 
-type Theme = 'dark' | 'light'
+export type Theme = 'dark' | 'light' | 'oled'
 
 interface ThemeContextType {
   theme: Theme
@@ -19,27 +19,25 @@ const ThemeContext = createContext<ThemeContextType>({
   toggleTheme: () => {},
 })
 
+// Ciclo: dark → light → oled → dark
+const CYCLE: Theme[] = ['dark', 'light', 'oled']
+
+function applyTheme(t: Theme) {
+  const html = document.documentElement
+  html.classList.remove('light', 'dark', 'oled')
+  html.classList.add(t)
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('dark')
 
   useEffect(() => {
     const saved = localStorage.getItem('geekore_theme') as Theme | null
     const preferred = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
-    const initial = saved || preferred
+    const initial: Theme = (saved && CYCLE.includes(saved)) ? saved : preferred
     setThemeState(initial)
     applyTheme(initial)
   }, [])
-
-  const applyTheme = (t: Theme) => {
-    const html = document.documentElement
-    if (t === 'light') {
-      html.classList.add('light')
-      html.classList.remove('dark')
-    } else {
-      html.classList.remove('light')
-      html.classList.add('dark')
-    }
-  }
 
   const setTheme = (t: Theme) => {
     setThemeState(t)
@@ -47,7 +45,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     applyTheme(t)
   }
 
-  const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark')
+  // Ciclo: dark → light → oled → dark
+  const toggleTheme = () => {
+    const next = CYCLE[(CYCLE.indexOf(theme) + 1) % CYCLE.length]
+    setTheme(next)
+  }
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>

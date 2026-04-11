@@ -375,3 +375,100 @@ html.light .skeleton {
   border-bottom: 2px solid #7c6af7;
   color: #a78bfa;
 }
+/* ── #39 OLED mode ───────────────────────────────────────────── */
+/* Sfondo #000000 puro — risparmio batteria massimo su schermi AMOLED/OLED */
+
+html.oled {
+  --bg-primary:    #000000;
+  --bg-secondary:  #000000;
+  --bg-card:       #0a0a0a;
+  --bg-hover:      #111111;
+  --text-primary:  #ffffff;
+  --text-secondary: #a1a1aa;
+  --text-muted:    #52525b;
+  --border:        #1a1a1a;
+  --border-subtle: #0f0f0f;
+  --violet:        #7c6af7;
+  --violet-light:  #a78bfa;
+}
+
+html.oled body {
+  background: #000000;
+  color: #ffffff;
+}
+
+html.oled .bg-black      { background-color: #000000 !important; }
+html.oled .bg-zinc-950   { background-color: #050505 !important; }
+html.oled .bg-zinc-900   { background-color: #0a0a0a !important; }
+html.oled .bg-zinc-800   { background-color: #111111 !important; }
+html.oled .bg-zinc-950\/50 { background-color: rgba(5,5,5,0.5) !important; }
+html.oled .bg-zinc-900\/50 { background-color: rgba(10,10,10,0.5) !important; }
+html.oled .bg-zinc-900\/60 { background-color: rgba(10,10,10,0.6) !important; }
+html.oled .bg-zinc-900\/95 { background-color: rgba(10,10,10,0.97) !important; }
+
+html.oled .border-zinc-800   { border-color: #1a1a1a !important; }
+html.oled .border-zinc-700   { border-color: #222222 !important; }
+
+/* Skeleton in OLED: più scuro */
+html.oled .skeleton {
+  background: linear-gradient(90deg, #0a0a0a 25%, #141414 50%, #0a0a0a 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Navbar OLED */
+html.oled nav.fixed {
+  background: rgba(0,0,0,0.95) !important;
+  border-color: #1a1a1a !important;
+}
+
+/* Card OLED — bordi più sottili per non "accendere" pixel */
+html.oled .border-zinc-800.rounded-3xl,
+html.oled .border-zinc-800.rounded-2xl {
+  border-color: #111111 !important;
+}
+
+/* Input OLED */
+html.oled input,
+html.oled textarea,
+html.oled select {
+  background-color: #0a0a0a !important;
+  border-color: #1a1a1a !important;
+}
+
+/* ── #40 View Transitions API ──────────────────────────────────── */
+/* Transizioni fluide tra pagine Next.js su Chrome 111+ / Safari 18+ */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Abilita view transitions — Next.js le attiva via <Link> */
+  ::view-transition-old(root) {
+    animation: 180ms cubic-bezier(0.4, 0, 1, 1) both vt-fade-out;
+  }
+  ::view-transition-new(root) {
+    animation: 280ms cubic-bezier(0, 0, 0.2, 1) both vt-fade-in;
+  }
+
+  /* Transizione speciale per la navbar — rimane stabile */
+  ::view-transition-old(navbar),
+  ::view-transition-new(navbar) {
+    animation: none;
+  }
+
+  @keyframes vt-fade-out {
+    from { opacity: 1; transform: translateY(0); }
+    to   { opacity: 0; transform: translateY(-6px); }
+  }
+
+  @keyframes vt-fade-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/* Riduce animazioni per chi ha impostato prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
