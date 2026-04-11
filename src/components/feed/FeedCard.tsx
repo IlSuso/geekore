@@ -7,17 +7,29 @@ import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { ReportButton } from '@/components/ui/ReportButton'
+import { Avatar } from '@/components/ui/Avatar'
+
+// Haptic feedback — accetta number | number[] per non causare TS2345
+function haptic(duration: number | number[] = 30) {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    navigator.vibrate(duration)
+  }
+}
 
 export function FeedCard({ post }: { post: any }) {
   const supabase = createClient()
 
   const [likesCount, setLikesCount] = useState<number>(post.likes?.length || 0)
   const [hasLiked, setHasLiked] = useState(false)
+  const [likeAnimating, setLikeAnimating] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [showComments, setShowComments] = useState(false)
   const [comments, setComments] = useState<any[]>(post.comments || [])
   const [newComment, setNewComment] = useState('')
+  const [commentCharCount, setCommentCharCount] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const MAX_COMMENT_LENGTH = 500
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -30,6 +42,12 @@ export function FeedCard({ post }: { post: any }) {
 
   const handleLike = async () => {
     if (!user) return
+
+    // Animazione burst + haptic
+    setLikeAnimating(true)
+    haptic(hasLiked ? 20 : [40, 20, 40])
+    setTimeout(() => setLikeAnimating(false), 400)
+
     if (hasLiked) {
       setHasLiked(false)
       setLikesCount(prev => prev - 1)
@@ -46,14 +64,23 @@ export function FeedCard({ post }: { post: any }) {
     }
   }
 
+  const handleCommentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    if (val.length <= MAX_COMMENT_LENGTH) {
+      setNewComment(val)
+      setCommentCharCount(val.length)
+    }
+  }
+
   const handleSendComment = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newComment.trim() || !user) return
     setIsSubmitting(true)
+    haptic(30)
     const { data, error } = await supabase
       .from('comments')
       .insert([{ content: newComment, post_id: post.id, user_id: user.id }])
-      .select('*, profiles(username, display_name)')
+      .select('*, profiles(username, display_name, avatar_url)')
       .single()
     if (!error && data) {
       setComments(prev => [...prev, data])
@@ -63,19 +90,15 @@ export function FeedCard({ post }: { post: any }) {
         }])
       }
       setNewComment('')
+      setCommentCharCount(0)
     }
     setIsSubmitting(false)
   }
-
-  const avatarInitial = (
-    post.profiles?.display_name?.[0] || post.profiles?.username?.[0] || '?'
-  ).toUpperCase()
 
   const timeAgo = post.created_at
     ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: it })
     : ''
 
-  // Mostra report solo se l'utente è loggato e non è l'autore del post
   const showReport = user && user.id !== post.user_id
 
   return (
@@ -84,13 +107,13 @@ export function FeedCard({ post }: { post: any }) {
       <div className="p-6 pb-4 flex items-center gap-3">
         <Link href={`/profile/${post.profiles?.username}`} className="group shrink-0">
           <div className="w-11 h-11 rounded-2xl overflow-hidden ring-2 ring-violet-500/20 group-hover:ring-violet-500/50 transition-all">
-            {post.profiles?.avatar_url ? (
-              <img src={post.profiles.avatar_url} className="w-full h-full object-cover" alt="" />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-lg">
-                {avatarInitial}
-              </div>
-            )}
+            <Avatar
+              src={post.profiles?.avatar_url}
+              username={post.profiles?.username || 'user'}
+              displayName={post.profiles?.display_name}
+              size={44}
+              className="rounded-2xl"
+            />
           </div>
         </Link>
         <div className="flex-1 min-w-0">
@@ -103,7 +126,6 @@ export function FeedCard({ post }: { post: any }) {
             @{post.profiles?.username || 'anon'} · {timeAgo}
           </p>
         </div>
-        {/* Report button in alto a destra */}
         {showReport && (
           <ReportButton
             targetType="post"
@@ -132,13 +154,17 @@ export function FeedCard({ post }: { post: any }) {
 
       {/* Actions */}
       <div className="px-6 py-4 border-t border-zinc-800/60 flex items-center gap-6">
+        {/* Like button con animazione heart-burst */}
         <button
           onClick={handleLike}
           aria-label={hasLiked ? 'Rimuovi like' : 'Metti like'}
           className={`flex items-center gap-2 group transition-all ${hasLiked ? 'text-orange-500' : 'text-zinc-500 hover:text-orange-400'}`}
         >
           <div className={`p-1.5 rounded-xl transition-colors ${hasLiked ? 'bg-orange-500/15' : 'group-hover:bg-orange-500/10'}`}>
-            <Flame size={20} className={hasLiked ? 'fill-orange-500' : ''} />
+            <Flame
+              size={20}
+              className={`transition-transform ${hasLiked ? 'fill-orange-500' : ''} ${likeAnimating ? 'animate-heart-burst' : ''}`}
+            />
           </div>
           <span className="text-xs font-bold">{likesCount}</span>
         </button>
@@ -154,7 +180,6 @@ export function FeedCard({ post }: { post: any }) {
           <span className="text-xs font-bold">{comments.length}</span>
         </button>
 
-        {/* Segnala post — in fondo alla riga azioni */}
         {showReport && (
           <div className="ml-auto">
             <ReportButton targetType="post" targetId={post.id} iconOnly />
@@ -169,15 +194,20 @@ export function FeedCard({ post }: { post: any }) {
             <div className="space-y-3 mb-4 max-h-56 overflow-y-auto">
               {comments.map((comment: any) => (
                 <div key={comment.id} className="flex gap-3">
-                  <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 flex items-center justify-center text-xs font-bold text-violet-300 shrink-0">
-                    {(comment.profiles?.display_name?.[0] || comment.profiles?.username?.[0] || '?').toUpperCase()}
+                  <div className="w-7 h-7 rounded-xl overflow-hidden flex-shrink-0">
+                    <Avatar
+                      src={comment.profiles?.avatar_url}
+                      username={comment.profiles?.username || 'user'}
+                      displayName={comment.profiles?.display_name}
+                      size={28}
+                      className="rounded-xl"
+                    />
                   </div>
                   <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-2 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <Link href={`/profile/${comment.profiles?.username}`} className="text-[10px] font-bold text-violet-400 uppercase tracking-wider hover:text-violet-300">
                         @{comment.profiles?.username || 'user'}
                       </Link>
-                      {/* Report commento */}
                       {user && user.id !== comment.user_id && (
                         <ReportButton
                           targetType="comment"
@@ -193,15 +223,28 @@ export function FeedCard({ post }: { post: any }) {
             </div>
           )}
 
+          {/* Input commento con contatore caratteri e sanitizzazione */}
           <form onSubmit={handleSendComment} className="relative">
             <input
               type="text"
               value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
+              onChange={handleCommentChange}
               placeholder="Scrivi un commento..."
-              className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl py-3 px-5 pr-12 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
+              maxLength={MAX_COMMENT_LENGTH}
+              className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl py-3 px-5 pr-20 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
             />
+            {/* Contatore caratteri */}
+            {commentCharCount > 0 && (
+              <span className={`absolute right-11 top-1/2 -translate-y-1/2 text-[10px] font-medium transition-colors ${
+                commentCharCount > MAX_COMMENT_LENGTH * 0.9
+                  ? commentCharCount >= MAX_COMMENT_LENGTH ? 'text-red-400' : 'text-yellow-400'
+                  : 'text-zinc-600'
+              }`}>
+                {MAX_COMMENT_LENGTH - commentCharCount}
+              </span>
+            )}
             <button
+              type="submit"
               disabled={isSubmitting || !newComment.trim()}
               className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-violet-400 hover:text-violet-300 disabled:opacity-40 transition-colors"
             >

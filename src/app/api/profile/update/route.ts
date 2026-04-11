@@ -1,7 +1,9 @@
 // src/app/api/profile/update/route.ts
 // Route server-side per aggiornare il profilo con validazione robusta.
-// Il frontend attuale usa Supabase direttamente dal client — questa route
-// aggiunge un layer di validazione e sanitizzazione server-side.
+// ── Aggiornamenti rispetto alla versione precedente ──────────────────────────
+//   • S6: Blocco unicode look-alike (caratteri cirillici, greci ecc. che
+//     visualmente imitano lettere ASCII — es: 'а' cirillico vs 'a' latino).
+//     Usa NFKD normalization + block range check.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
@@ -13,12 +15,34 @@ const BIO_MAX = 500
 const DISPLAY_NAME_MAX = 50
 const USERNAME_REGEX = /^[a-z0-9_]+$/
 
+// ── S6: blocca caratteri non-ASCII che passerebbero comunque la regex ─────────
+// Dopo NFKD normalization i caratteri compositi si espandono;
+// controlliamo che ogni code point sia nell'intervallo ASCII stampabile.
+function hasUnicodeLookalike(value: string): boolean {
+  // Normalizza in forma NFKD (decomposizione compatibilità)
+  const normalized = value.normalize('NFKD')
+  for (let i = 0; i < normalized.length; i++) {
+    const code = normalized.codePointAt(i) ?? 0
+    // Accetta solo: a-z (97-122), 0-9 (48-57), _ (95)
+    if (
+      !(code >= 97 && code <= 122) &&  // a-z
+      !(code >= 48 && code <= 57) &&   // 0-9
+      code !== 95                       // _
+    ) {
+      return true // contiene caratteri non-ASCII
+    }
+  }
+  return false
+}
+
 function validateUsername(value: unknown): string | null {
   if (typeof value !== 'string') return 'Username non valido'
   const v = value.trim()
   if (v.length < USERNAME_MIN) return `Username troppo corto (minimo ${USERNAME_MIN} caratteri)`
   if (v.length > USERNAME_MAX) return `Username troppo lungo (massimo ${USERNAME_MAX} caratteri)`
   if (!USERNAME_REGEX.test(v)) return 'Solo lettere minuscole, numeri e underscore'
+  // S6: blocca look-alike unicode
+  if (hasUnicodeLookalike(v)) return 'Username contiene caratteri non consentiti'
   // Blocca username riservati
   const reserved = ['admin', 'geekore', 'support', 'api', 'me', 'root', 'null', 'undefined']
   if (reserved.includes(v)) return 'Username non disponibile'

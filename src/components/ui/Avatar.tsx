@@ -3,10 +3,9 @@
 // Genera avatar con iniziali lato client senza dipendenze da dicebear.
 // Usa un gradiente deterministico basato sullo username.
 
-import Image from 'next/image'
 import { useState } from 'react'
 
-const GRADIENTS = [
+const GRADIENTS: [string, string][] = [
   ['#7c3aed', '#a21caf'],   // violet → fuchsia
   ['#0891b2', '#7c3aed'],   // cyan → violet
   ['#059669', '#0891b2'],   // emerald → cyan

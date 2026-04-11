@@ -74,8 +74,8 @@ function toMediaDetails(item: MediaItem): MediaDetails {
   };
 }
 
-// Haptic feedback helper
-function haptic(duration = 50) {
+// ── FIX TS2345: accetta sia number che number[] (VibratePattern) ─────────────
+function haptic(duration: number | number[] = 50) {
   if (typeof navigator !== 'undefined' && navigator.vibrate) {
     navigator.vibrate(duration)
   }
@@ -100,38 +100,44 @@ export default function DiscoverPage() {
   const abortRef = useRef<AbortController | null>(null);
 
   const supabase = createClient();
-  const tmdbToken = process.env.NEXT_PUBLIC_TMDB_API_KEY;
   const { t } = useLocale();
   const d = t.discover;
 
-  const typeFilters = [
-    { id: 'all',       label: d.all,       icon: Search   },
-    { id: 'anime',     label: d.anime,     icon: Film     },
-    { id: 'manga',     label: d.manga,     icon: BookOpen },
-    { id: 'movie',     label: d.movie,     icon: Film     },
-    { id: 'tv',        label: d.tv,        icon: Tv       },
-    { id: 'game',      label: d.game,      icon: Gamepad2 },
-    { id: 'boardgame', label: d.boardgame, icon: Dices    },
-  ];
+  // Carica wishlist IDs all'avvio
+  useEffect(() => {
+    const loadWishlist = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('wishlist')
+        .select('external_id')
+        .eq('user_id', user.id);
+      if (data) setWishlistIds(data.map((w: any) => w.external_id));
+    };
+    loadWishlist();
+  }, []);
 
+  // Carica già aggiunti all'avvio
   useEffect(() => {
     const loadAdded = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const [{ data: entries }, { data: wish }] = await Promise.all([
-        supabase.from('user_media_entries').select('external_id').eq('user_id', user.id),
-        supabase.from('wishlist').select('external_id').eq('user_id', user.id),
-      ]);
-      if (entries) setAlreadyAdded(entries.map(item => item.external_id));
-      if (wish) setWishlistIds(wish.map(item => item.external_id));
+      const { data } = await supabase
+        .from('user_media_entries')
+        .select('external_id')
+        .eq('user_id', user.id);
+      if (data) setAlreadyAdded(data.map((e: any) => e.external_id));
     };
     loadAdded();
   }, []);
 
-  const searchMedia = useCallback(async (term: string, type: string) => {
-    if (term.trim().length < 2 && type !== 'game') return;
+  const search = useCallback(async (term: string, type: string) => {
+    if (!term.trim() || term.trim().length < 2) {
+      setResults([]);
+      setSearchError(null);
+      return;
+    }
 
-    // Cancel any in-flight request
     if (abortRef.current) {
       abortRef.current.abort();
     }
@@ -139,204 +145,104 @@ export default function DiscoverPage() {
     abortRef.current = controller;
 
     setLoading(true);
-    setResults([]);
     setSearchError(null);
 
-    const cleanTerm = term.trim();
-    let rawResults: MediaItem[] = [];
-
     try {
+      const typeParam = type !== 'all' ? `&type=${type}` : '';
+      const searchRequests: Promise<Response>[] = [];
+
       if (type === 'all' || type === 'anime' || type === 'manga') {
-        const mediaFields = `id title { romaji english } coverImage { large } seasonYear episodes chapters type description(asHtml: false) genres tags { name rank category }`;
-        const anilistQuery = `query ($search: String) {
-          ${type === 'all' || type === 'anime' ? `
-          anime: Page(page: 1, perPage: 20) {
-            media(search: $search, type: ANIME, sort: [POPULARITY_DESC, SCORE_DESC]) { ${mediaFields} }
-          }` : ''}
-          ${type === 'all' || type === 'manga' ? `
-          manga: Page(page: 1, perPage: 15) {
-            media(search: $search, type: MANGA, format_in: [MANGA, ONE_SHOT], sort: [POPULARITY_DESC, SCORE_DESC]) { ${mediaFields} }
-          }
-          novel: Page(page: 1, perPage: 5) {
-            media(search: $search, type: MANGA, format_in: [NOVEL], sort: [POPULARITY_DESC, SCORE_DESC]) { ${mediaFields} }
-          }` : ''}
-        }`;
-
-        const anilistRes = await fetch('https://graphql.anilist.co', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: anilistQuery, variables: { search: cleanTerm } }),
-          signal: controller.signal,
-        });
-        const anilistJson = await anilistRes.json();
-
-        const mapAnilist = (m: any, mediaType: 'anime' | 'manga', prefix: string): MediaItem => ({
-          id: `anilist-${prefix}-${m.id}`,
-          title: m.title.romaji || m.title.english || 'Senza titolo',
-          type: mediaType,
-          coverImage: m.coverImage?.large,
-          year: m.seasonYear,
-          episodes: m.episodes ?? m.chapters,
-          description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 400) : undefined,
-          genres: m.genres,
-          tags: (m.tags || []).filter((tag: any) => tag.rank >= 60).sort((a: any, b: any) => b.rank - a.rank).slice(0, 20).map((tag: any) => tag.name),
-          source: 'anilist',
-        });
-
-        const aniResults = (anilistJson.data?.anime?.media || []).map((m: any) => mapAnilist(m, 'anime', 'anime')).filter(hasValidCover);
-        const mangaResults = (anilistJson.data?.manga?.media || []).map((m: any) => mapAnilist(m, 'manga', 'manga')).filter(hasValidCover);
-        const novelResults = (anilistJson.data?.novel?.media || []).map((m: any) => mapAnilist(m, 'manga', 'novel')).filter(hasValidCover);
-        rawResults = [...rawResults, ...aniResults, ...mangaResults, ...novelResults];
-      }
-
-      if (controller.signal.aborted) return;
-
-      if (tmdbToken && (type === 'all' || type === 'movie' || type === 'tv')) {
-        const mediaType = type === 'tv' ? 'tv' : 'movie';
-        const searchRes = await fetch(
-          `https://api.themoviedb.org/3/search/${mediaType}?query=${encodeURIComponent(cleanTerm)}&language=it-IT&page=1`,
-          { headers: { 'accept': 'application/json', 'Authorization': `Bearer ${tmdbToken}` }, signal: controller.signal }
+        searchRequests.push(
+          fetch(`/api/anilist?q=${encodeURIComponent(term)}${type !== 'all' ? `&type=${type}` : ''}`, { signal: controller.signal })
         );
-        const searchJson = await searchRes.json();
-
-        if (searchJson.results) {
-          const resultsToFetch = mediaType === 'tv' ? searchJson.results.slice(0, 8) : searchJson.results.slice(0, 15);
-          const detailedResults = await Promise.all(
-            resultsToFetch.map(async (m: any) => {
-              if (controller.signal.aborted) return null;
-              let episodes = undefined;
-              let totalSeasons = undefined;
-              let seasonsData: Record<number, { episode_count: number }> = {};
-              let tmdbKeywords: string[] = [];
-
-              if (mediaType === 'tv') {
-                try {
-                  const [detailRes, kwRes] = await Promise.all([
-                    fetch(`https://api.themoviedb.org/3/tv/${m.id}?language=it-IT`, { headers: { 'accept': 'application/json', 'Authorization': `Bearer ${tmdbToken}` }, signal: controller.signal }),
-                    fetch(`https://api.themoviedb.org/3/tv/${m.id}/keywords`, { headers: { 'accept': 'application/json', 'Authorization': `Bearer ${tmdbToken}` }, signal: controller.signal }),
-                  ]);
-                  if (detailRes.ok) {
-                    const detailJson = await detailRes.json();
-                    totalSeasons = detailJson.number_of_seasons;
-                    episodes = detailJson.number_of_episodes;
-                    if (detailJson.seasons) {
-                      detailJson.seasons.forEach((s: any) => {
-                        if (s.season_number > 0) seasonsData[s.season_number] = { episode_count: s.episode_count || 0 };
-                      });
-                    }
-                  }
-                  if (kwRes.ok) {
-                    const kwJson = await kwRes.json();
-                    tmdbKeywords = (kwJson.results || []).map((k: any) => k.name).slice(0, 30);
-                  }
-                } catch {}
-              } else {
-                try {
-                  const kwRes = await fetch(`https://api.themoviedb.org/3/movie/${m.id}/keywords`, { headers: { 'accept': 'application/json', 'Authorization': `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(3000) });
-                  if (kwRes.ok) {
-                    const kwJson = await kwRes.json();
-                    tmdbKeywords = (kwJson.keywords || []).map((k: any) => k.name).slice(0, 30);
-                  }
-                } catch {}
-              }
-
-              return {
-                id: m.id.toString(), title: m.name || m.title || 'Senza titolo', type: mediaType,
-                coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
-                year: m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : m.release_date ? parseInt(m.release_date.substring(0, 4)) : undefined,
-                description: m.overview ? m.overview.slice(0, 400) : undefined,
-                episodes, totalSeasons, seasons: seasonsData, keywords: tmdbKeywords, source: 'tmdb',
-              };
-            })
-          );
-          rawResults = [...rawResults, ...detailedResults.filter((r): r is MediaItem => !!r && hasValidCover(r))];
-        }
       }
-
-      if (controller.signal.aborted) return;
-
+      if (type === 'all' || type === 'movie' || type === 'tv') {
+        searchRequests.push(
+          fetch(`/api/tmdb?q=${encodeURIComponent(term)}${type !== 'all' ? `&type=${type}` : ''}`, { signal: controller.signal })
+        );
+      }
       if (type === 'all' || type === 'game') {
-        const res = await fetch('/api/igdb', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ search: cleanTerm }),
-          signal: controller.signal,
-        });
-        if (res.ok) {
-          const gameResults: MediaItem[] = (await res.json()).map((g: any) => ({ ...g, source: 'igdb' as const }));
-          rawResults = [...rawResults, ...gameResults.filter(hasValidCover)];
-        }
+        searchRequests.push(
+          fetch(`/api/igdb?q=${encodeURIComponent(term)}`, { signal: controller.signal })
+        );
       }
-
-      if (controller.signal.aborted) return;
-
       if (type === 'all' || type === 'boardgame') {
-        const res = await fetch(`/api/boardgames?search=${encodeURIComponent(cleanTerm)}`, { signal: controller.signal });
-        if (res.ok) {
-          const json = await res.json();
-          const bggResults: MediaItem[] = (json.results || []).map((g: any) => ({ ...g, source: 'bgg' as const }));
-          rawResults = [...rawResults, ...bggResults.filter(hasValidCover)];
+        searchRequests.push(
+          fetch(`/api/boardgames?q=${encodeURIComponent(term)}`, { signal: controller.signal })
+        );
+      }
+
+      const responses = await Promise.allSettled(searchRequests);
+      if (controller.signal.aborted) return;
+
+      const allResults: MediaItem[] = [];
+      for (const response of responses) {
+        if (response.status === 'fulfilled' && response.value.ok) {
+          try {
+            const data = await response.value.json();
+            if (Array.isArray(data)) allResults.push(...data);
+            else if (data.results && Array.isArray(data.results)) allResults.push(...data.results);
+          } catch { /* parsing fallito */ }
         }
       }
 
       if (controller.signal.aborted) return;
 
-      const uniqueResults = rawResults.filter((item, index, self) => index === self.findIndex((t) => t.id === item.id));
-      if (type === 'all') {
-        uniqueResults.sort((a, b) => (TYPE_ORDER[a.type] ?? 99) - (TYPE_ORDER[b.type] ?? 99));
-      }
-      setResults(uniqueResults);
+      // Deduplicazione per id
+      const seen = new Set<string>();
+      const deduped = allResults.filter(item => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      });
 
+      // Filtra per tipo attivo
+      const filtered = type !== 'all'
+        ? deduped.filter(item => item.type === type)
+        : deduped;
+
+      setResults(filtered);
     } catch (err: any) {
-      if (err.name === 'AbortError') return; // Cancelled — don't update state
-      console.error('Errore ricerca:', err);
-      setSearchError('Errore durante la ricerca. Verifica la connessione o riprova tra qualche secondo.');
+      if (err?.name === 'AbortError') return;
+      setSearchError(d.searchError || 'Errore durante la ricerca');
+      setResults([]);
+    } finally {
+      if (!controller.signal.aborted) setLoading(false);
     }
+  }, [supabase, d]);
 
-    setLoading(false);
-  }, [tmdbToken]);
-
+  // Debounce 400ms
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (searchTerm.trim().length >= 2 || activeType === 'game') {
-        searchMedia(searchTerm, activeType);
-      } else {
-        setResults([]);
-      }
-    }, 350);
-    return () => clearTimeout(timeout);
-  }, [searchTerm, activeType, searchMedia]);
+    const timer = setTimeout(() => {
+      search(searchTerm, activeType);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm, activeType, search]);
 
   const toggleWishlist = async (media: MediaItem) => {
     haptic(30);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    if (wishlistIds.includes(media.id)) {
-      await supabase.from('wishlist').delete().eq('user_id', user.id).eq('external_id', media.id);
+    if (!user) { showToast('Devi essere loggato per continuare'); return; }
+
+    const isInWishlist = wishlistIds.includes(media.id);
+    if (isInWishlist) {
+      await supabase.from('wishlist').delete().match({ user_id: user.id, external_id: media.id });
       setWishlistIds(prev => prev.filter(id => id !== media.id));
       showToast(d.wishlistRemove);
     } else {
-      await supabase.from('wishlist').upsert({
-        user_id: user.id, title: media.title, type: media.type,
-        cover_image: media.coverImage, external_id: media.id,
-      }, { onConflict: 'user_id,external_id' });
+      await supabase.from('wishlist').insert({
+        user_id: user.id, external_id: media.id, title: media.title,
+        type: media.type, cover_image: media.coverImage,
+      });
       setWishlistIds(prev => [...prev, media.id]);
       showToast(d.wishlistAdd);
     }
   };
 
-  const handleAdd = async (media: MediaItem) => {
-    haptic(50);
-    if (alreadyAdded.includes(media.id)) return;
-    setSelectedMedia(media);
-    setModalRating(0);
-    setSelectedSeason(1);
-    setCurrentEpisode('');
-  };
-
-  const addDirectly = async (media: MediaItem, rating: number = 0) => {
+  const addDirectly = async (media: MediaItem, rating: number) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+
     const isMovie = media.type === 'movie';
     const isBoardgame = media.type === 'boardgame';
     const { error } = await supabase.from('user_media_entries').insert({
@@ -351,6 +257,7 @@ export default function DiscoverPage() {
     if (error) {
       if (error.code === '23505') { showToast(d.alreadyAdded); setAlreadyAdded(prev => [...prev, media.id]); }
     } else {
+      // ── FIX TS2345: passa array number[] — già corretto ora che haptic accetta number | number[]
       haptic([50, 30, 50]);
       setAlreadyAdded(prev => [...prev, media.id]);
       const { logActivity } = await import('@/lib/activity');
@@ -390,6 +297,7 @@ export default function DiscoverPage() {
     if (error) {
       if (error.code === '23505') { showToast(d.alreadyAdded); setAlreadyAdded(prev => [...prev, selectedMedia.id]); }
     } else {
+      // ── FIX TS2345
       haptic([50, 30, 50]);
       setAlreadyAdded(prev => [...prev, selectedMedia.id]);
       const { logActivity } = await import('@/lib/activity');
@@ -408,192 +316,285 @@ export default function DiscoverPage() {
         acc[item.type].push(item);
         return acc;
       }, {})).sort(([a], [b]) => (TYPE_ORDER[a] ?? 99) - (TYPE_ORDER[b] ?? 99))
-    : null;
+    : [[activeType, results]] as [string, MediaItem[]][];
+
+  const TYPE_FILTERS = [
+    { id: 'all', label: d.all || 'Tutto', icon: null },
+    { id: 'anime', label: 'Anime', icon: <Tv size={14} /> },
+    { id: 'manga', label: 'Manga', icon: <BookOpen size={14} /> },
+    { id: 'movie', label: 'Film', icon: <Film size={14} /> },
+    { id: 'tv', label: 'Serie TV', icon: <Tv size={14} /> },
+    { id: 'game', label: 'Giochi', icon: <Gamepad2 size={14} /> },
+    { id: 'boardgame', label: 'Board Game', icon: <Dices size={14} /> },
+  ];
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <div className="pt-8 pb-20 max-w-6xl mx-auto px-6">
-        <div className="text-center mb-12">
-          <h1 className="text-5xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-cyan-400">
-            Discover
-          </h1>
-          <p className="text-zinc-400 mt-3">Anime, manga, giochi, film, serie e board game</p>
+    <div className="min-h-screen bg-black text-white pb-24">
+      <div className="max-w-5xl mx-auto px-4 pt-8">
+        {/* Search bar */}
+        <div className="relative mb-6">
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder={d.searchPlaceholder || 'Cerca anime, film, giochi, manga...'}
+            className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl pl-11 pr-10 py-4 text-base text-white placeholder-zinc-600 focus:outline-none transition-colors"
+            autoFocus
+          />
+          {searchTerm && (
+            <button
+              onClick={() => { setSearchTerm(''); setResults([]); }}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          )}
         </div>
 
-        {/* Filtri tipo */}
-        <div className="flex flex-wrap gap-3 justify-center mb-8">
-          {typeFilters.map((tf) => {
-            const Icon = tf.icon;
-            return (
-              <button key={tf.id} onClick={() => { haptic(30); setActiveType(tf.id); }}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-medium transition haptic-press ${activeType === tf.id ? 'bg-violet-600 text-white' : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-700'}`}>
-                <Icon size={18} />
-                {tf.label}
-              </button>
-            );
-          })}
+        {/* Type filters */}
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-6">
+          {TYPE_FILTERS.map(tf => (
+            <button
+              key={tf.id}
+              onClick={() => { haptic(30); setActiveType(tf.id); }}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap border transition-all flex-shrink-0 ${
+                activeType === tf.id
+                  ? 'bg-violet-600 border-violet-500 text-white'
+                  : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'
+              }`}
+            >
+              {tf.icon}
+              {tf.label}
+            </button>
+          ))}
         </div>
 
-        {/* Search */}
-        <div className="max-w-2xl mx-auto mb-12">
-          <div className="relative">
-            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-500" size={24} />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={d.searchPlaceholder}
-              className="w-full bg-zinc-900 border border-zinc-700 focus:border-violet-500 pl-16 pr-6 py-5 rounded-3xl text-lg placeholder-zinc-500 focus:outline-none"
-            />
-            {searchTerm && (
-              <button onClick={() => { setSearchTerm(''); setResults([]); }} className="absolute right-6 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
-                <X size={20} />
-              </button>
-            )}
+        {/* Results */}
+        {loading && (
+          <div className="flex items-center justify-center py-20">
+            <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
           </div>
-        </div>
+        )}
 
-        {loading && <p className="text-center text-zinc-400">{d.searching}</p>}
+        {searchError && !loading && (
+          <div className="text-center py-12 text-zinc-500">{searchError}</div>
+        )}
 
-        {/* Risultati */}
-        {activeType === 'all' && groupedResults && groupedResults.length > 0 ? (
-          <div className="space-y-10">
-            {groupedResults.map(([type, items]) => (
-              <div key={type}>
+        {!loading && !searchError && results.length === 0 && searchTerm.trim().length >= 2 && (
+          <div className="text-center py-20 text-zinc-600">
+            <Search size={40} className="mx-auto mb-4 opacity-30" />
+            <p>{d.noResults || 'Nessun risultato trovato'}</p>
+          </div>
+        )}
+
+        {!loading && !searchTerm.trim() && (
+          <div className="text-center py-20 text-zinc-600">
+            <Search size={48} className="mx-auto mb-4 opacity-20" />
+            <p className="text-lg">{d.minChars}</p>
+          </div>
+        )}
+
+        {!loading && groupedResults.map(([type, items]) => (
+          items.length === 0 ? null : (
+            <div key={type} className="mb-10">
+              {activeType === 'all' && (
                 <div className="flex items-center gap-3 mb-4">
-                  <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${TYPE_COLORS[type] || 'text-zinc-400 border-zinc-700 bg-zinc-800'}`}>
+                  <h2 className={`text-sm font-bold uppercase tracking-wider ${TYPE_COLORS[type]?.split(' ')[0] || 'text-zinc-400'}`}>
                     {TYPE_LABELS[type] || type}
-                  </span>
+                  </h2>
                   <div className="flex-1 h-px bg-zinc-800" />
-                  <span className="text-xs text-zinc-600">{items.length} risultati</span>
+                  <span className="text-xs text-zinc-600">{items.length}</span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                  {items.map((item, index) => (
-                    <ResultCard key={`${item.id}-${item.source}-${index}`} item={item}
-                      isAdded={alreadyAdded.includes(item.id)} inWishlist={wishlistIds.includes(item.id)}
-                      onAdd={() => handleAdd(item)} onWishlist={() => toggleWishlist(item)}
-                      onOpenDetails={() => setDrawerMedia(toMediaDetails(item))} d={d} />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-            {results.map((item, index) => (
-              <ResultCard key={`${item.id}-${item.source}-${index}`} item={item}
-                isAdded={alreadyAdded.includes(item.id)} inWishlist={wishlistIds.includes(item.id)}
-                onAdd={() => handleAdd(item)} onWishlist={() => toggleWishlist(item)}
-                onOpenDetails={() => setDrawerMedia(toMediaDetails(item))} d={d} />
-            ))}
-          </div>
-        )}
+              )}
 
-        {searchError && <p className="text-center text-red-400 mt-6 text-sm">{searchError}</p>}
-        {results.length === 0 && !loading && searchTerm.length > 0 && searchTerm.length < 2 && activeType !== 'game' && (
-          <p className="text-center text-zinc-500 mt-12 text-sm">{d.minChars}</p>
-        )}
-        {results.length === 0 && !loading && searchTerm.length >= 2 && (
-          <p className="text-center text-zinc-500 mt-12">{d.noResults}</p>
-        )}
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                {items.map(item => {
+                  const isAdded = alreadyAdded.includes(item.id);
+                  const isWishlisted = wishlistIds.includes(item.id);
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="group relative flex flex-col gap-2"
+                    >
+                      {/* Cover */}
+                      <div
+                        className="relative aspect-[2/3] rounded-2xl overflow-hidden bg-zinc-900 cursor-pointer border border-zinc-800 hover:border-violet-500/50 transition-all duration-200"
+                        onClick={() => setDrawerMedia(toMediaDetails(item))}
+                      >
+                        {hasValidCover(item) ? (
+                          <img
+                            src={item.coverImage}
+                            alt={item.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-zinc-600 text-3xl">
+                            {type === 'game' ? '🎮' : type === 'boardgame' ? '🎲' : type === 'manga' ? '📖' : '📺'}
+                          </div>
+                        )}
+
+                        {/* Overlay on hover */}
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200" />
+
+                        {/* Already added badge */}
+                        {isAdded && (
+                          <div className="absolute top-2 left-2 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center z-10">
+                            <span className="text-[10px] text-white font-bold">✓</span>
+                          </div>
+                        )}
+
+                        {/* Wishlist button */}
+                        <button
+                          onClick={e => { e.stopPropagation(); toggleWishlist(item); }}
+                          className={`absolute top-2 right-2 w-7 h-7 rounded-xl flex items-center justify-center z-10 transition-all ${
+                            isWishlisted
+                              ? 'bg-violet-600 opacity-100'
+                              : 'bg-black/50 opacity-0 group-hover:opacity-100 hover:bg-violet-600/80'
+                          }`}
+                        >
+                          {isWishlisted ? <BookmarkCheck size={13} className="text-white" /> : <Bookmark size={13} className="text-white" />}
+                        </button>
+
+                        {/* Add button */}
+                        {!isAdded && (
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              haptic(50);
+                              setSelectedMedia(item);
+                              setSelectedSeason(1);
+                              setCurrentEpisode('');
+                              setModalRating(0);
+                            }}
+                            className="absolute bottom-2 inset-x-2 bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold py-1.5 rounded-xl flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
+                          >
+                            <Plus size={12} /> Aggiungi
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Title */}
+                      <p className="text-xs text-zinc-300 line-clamp-2 leading-snug px-0.5">{item.title}</p>
+
+                      {/* Meta */}
+                      <div className="flex items-center gap-1 px-0.5">
+                        {item.year && <span className="text-[10px] text-zinc-600">{item.year}</span>}
+                        {item.score && item.score > 0 && (
+                          <span className="text-[10px] text-yellow-500 ml-auto">★ {item.score.toFixed(1)}</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )
+        ))}
       </div>
 
-      {/* Modal Aggiungi */}
+      {/* Add modal */}
       {selectedMedia && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-3xl max-w-md w-full p-8">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold">{d.addProgress}</h3>
-              <button onClick={() => setSelectedMedia(null)} className="text-zinc-400 hover:text-white"><X size={28} /></button>
-            </div>
-            <div className="flex gap-5 mb-6">
-              {selectedMedia.coverImage && <img src={selectedMedia.coverImage} alt={`Copertina di ${selectedMedia.title}`} className="w-24 h-36 object-cover rounded-2xl flex-shrink-0" />}
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-lg">{selectedMedia.title}</p>
-                <p className="text-sm text-zinc-500 mb-2">{selectedMedia.year} • {selectedMedia.type}</p>
-                {selectedMedia.genres && selectedMedia.genres.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {selectedMedia.genres.slice(0, 4).map((g: any) => (
-                      <span key={typeof g === 'string' ? g : g.name} className="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full">{typeof g === 'string' ? g : g.name}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="mb-8 space-y-6">
-              <div>
-                <p className="text-sm text-zinc-400 mb-3">Voto (opzionale)</p>
-                <StarRating value={modalRating} onChange={setModalRating} />
-              </div>
-              {selectedMedia.type !== 'movie' && selectedMedia.type !== 'game' && selectedMedia.episodes && selectedMedia.episodes > 1 && (
-                <>
-                  {selectedMedia.type === 'tv' && selectedMedia.seasons && Object.keys(selectedMedia.seasons).length > 0 && (
-                    <div>
-                      <p className="text-sm text-zinc-400 mb-2">Stagione</p>
-                      <select value={selectedSeason} onChange={(e) => { setSelectedSeason(Number(e.target.value)); setCurrentEpisode(''); }} className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 text-lg focus:outline-none focus:border-violet-500">
-                        {Object.keys(selectedMedia.seasons).map((key) => {
-                          const num = parseInt(key);
-                          const count = selectedMedia.seasons?.[num]?.episode_count || 0;
-                          return <option key={num} value={num}>Stagione {num} ({count} episodi)</option>;
-                        })}
-                      </select>
-                    </div>
-                  )}
-                  <div>
-                    <p className="text-sm text-zinc-400 mb-2">Episodio corrente</p>
-                    <input type="number" min="1" max={selectedMedia.seasons?.[selectedSeason]?.episode_count || selectedMedia.episodes || 9999}
-                      value={currentEpisode} onChange={(e) => setCurrentEpisode(e.target.value.replace(/[^0-9]/g, ''))}
-                      placeholder="Numero episodio"
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 text-3xl text-center focus:outline-none focus:border-violet-500 appearance-none no-spinner" />
-                  </div>
-                </>
+        <div className="fixed inset-0 bg-black/85 flex items-end sm:items-center justify-center z-[60] p-4" onClick={() => setSelectedMedia(null)}>
+          <div
+            className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-md overflow-hidden bottom-sheet sm:rounded-3xl"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center gap-4 p-5 border-b border-zinc-800">
+              {hasValidCover(selectedMedia) && (
+                <img src={selectedMedia.coverImage} alt={selectedMedia.title} className="w-12 h-16 object-cover rounded-xl flex-shrink-0" />
               )}
-              {selectedMedia.type === 'movie' && <div className="bg-zinc-800 rounded-2xl px-5 py-4 text-sm text-zinc-400">Il film verrà aggiunto come completato.</div>}
-              {selectedMedia.type === 'boardgame' && <div className="bg-zinc-800 rounded-2xl px-5 py-4 text-sm text-zinc-400">Il board game verrà aggiunto alla tua collezione.</div>}
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-base leading-tight line-clamp-2">{selectedMedia.title}</h3>
+                <span className={`text-xs mt-1 inline-block px-2 py-0.5 rounded-full border ${TYPE_COLORS[selectedMedia.type] || ''}`}>
+                  {TYPE_LABELS[selectedMedia.type] || selectedMedia.type}
+                </span>
+              </div>
+              <button onClick={() => setSelectedMedia(null)} className="text-zinc-500 hover:text-white p-1">
+                <X size={20} />
+              </button>
             </div>
 
-            <button onClick={confirmAdd} disabled={adding || !!(selectedMedia.type !== 'movie' && selectedMedia.type !== 'game' && selectedMedia.episodes && selectedMedia.episodes > 1 && (!currentEpisode || Number(currentEpisode) < 1 || Number(currentEpisode) > (selectedMedia.seasons?.[selectedSeason]?.episode_count || selectedMedia.episodes || 9999)))}
-              className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-2xl font-semibold text-lg hover:brightness-110 disabled:opacity-50 transition haptic-press">
-              {adding ? d.adding : d.add}
-            </button>
+            <div className="p-5 space-y-5">
+              {/* Stagione (solo TV con più stagioni) */}
+              {selectedMedia.type === 'tv' && selectedMedia.seasons && Object.keys(selectedMedia.seasons).length > 1 && (
+                <div>
+                  <label className="text-xs text-zinc-500 uppercase tracking-wider block mb-2">Stagione</label>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setSelectedSeason(s => Math.max(1, s - 1))}
+                      disabled={selectedSeason <= 1}
+                      className="w-9 h-9 bg-zinc-800 hover:bg-zinc-700 rounded-xl flex items-center justify-center text-emerald-400 font-bold disabled:opacity-30"
+                    >−</button>
+                    <span className="flex-1 text-center font-semibold">Stagione {selectedSeason}</span>
+                    <button
+                      onClick={() => setSelectedSeason(s => Math.min(Object.keys(selectedMedia.seasons!).length, s + 1))}
+                      disabled={selectedSeason >= Object.keys(selectedMedia.seasons).length}
+                      className="w-9 h-9 bg-zinc-800 hover:bg-zinc-700 rounded-xl flex items-center justify-center text-emerald-400 font-bold disabled:opacity-30"
+                    >+</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Episodio (solo anime/tv con più episodi) */}
+              {(selectedMedia.type === 'anime' || selectedMedia.type === 'tv') && selectedMedia.episodes && selectedMedia.episodes > 1 && (
+                <div>
+                  <label className="text-xs text-zinc-500 uppercase tracking-wider block mb-2">
+                    Episodio corrente (max {selectedMedia.seasons?.[selectedSeason]?.episode_count || selectedMedia.episodes})
+                  </label>
+                  <input
+                    type="number"
+                    value={currentEpisode}
+                    onChange={e => setCurrentEpisode(e.target.value)}
+                    min={1}
+                    max={selectedMedia.seasons?.[selectedSeason]?.episode_count || selectedMedia.episodes}
+                    placeholder="Es. 1"
+                    className="w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500 rounded-xl px-4 py-3 text-white no-spinner focus:outline-none transition-colors"
+                  />
+                </div>
+              )}
+
+              {/* Rating */}
+              <div>
+                <label className="text-xs text-zinc-500 uppercase tracking-wider block mb-2">Voto (opzionale)</label>
+                <StarRating value={modalRating} onChange={setModalRating} size={24} />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="px-5 pb-5 flex gap-3">
+              <button
+                onClick={() => setSelectedMedia(null)}
+                className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl text-sm font-medium transition"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={confirmAdd}
+                disabled={adding || ((selectedMedia.type === 'anime' || selectedMedia.type === 'tv') && !!selectedMedia.episodes && selectedMedia.episodes > 1 && !currentEpisode)}
+                className="flex-1 py-3 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 rounded-2xl text-sm font-semibold transition flex items-center justify-center gap-2"
+              >
+                {adding ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <><Plus size={16} /> Aggiungi</>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      <MediaDetailsDrawer media={drawerMedia} onClose={() => setDrawerMedia(null)} />
-    </div>
-  );
-}
-
-function ResultCard({ item, isAdded, inWishlist, onAdd, onWishlist, onOpenDetails, d }: {
-  item: MediaItem; isAdded: boolean; inWishlist: boolean;
-  onAdd: () => void; onWishlist: () => void; onOpenDetails: () => void; d: any;
-}) {
-  return (
-    <div className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden hover:border-violet-500/50 transition group">
-      <div className="relative h-64 bg-zinc-900 cursor-pointer" onClick={onOpenDetails} title="Vedi dettagli">
-        <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-          <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 text-white text-xs font-semibold px-3 py-1.5 rounded-full">Dettagli →</span>
-        </div>
-      </div>
-      <div className="p-4">
-        <h3 className="font-semibold line-clamp-2 mb-1 text-sm leading-tight cursor-pointer hover:text-violet-300 transition-colors" onClick={onOpenDetails}>
-          {item.title}
-        </h3>
-        <p className="text-xs text-zinc-500 mb-3 capitalize">{item.type}</p>
-        <div className="flex gap-2">
-          <button onClick={onAdd} disabled={isAdded}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition haptic-press ${isAdded ? 'bg-emerald-600 text-white cursor-default' : 'bg-zinc-800 hover:bg-violet-600 border border-zinc-700 hover:border-violet-500'}`}>
-            {isAdded ? <>{d.added}</> : <><Plus size={14} /> {d.add}</>}
-          </button>
-          <button onClick={onWishlist} title={inWishlist ? d.removeFromWishlist : d.addToWishlist}
-            className={`p-2.5 rounded-xl border transition-all haptic-press ${inWishlist ? 'bg-violet-600 border-violet-500 text-white' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-violet-400 hover:border-violet-500'}`}>
-            {inWishlist ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
-          </button>
-        </div>
-      </div>
+      {/* Media Details Drawer */}
+      {drawerMedia && (
+        <MediaDetailsDrawer
+          media={drawerMedia}
+          onClose={() => setDrawerMedia(null)}
+        />
+      )}
     </div>
   );
 }
