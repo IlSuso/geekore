@@ -1,4 +1,6 @@
 'use client'
+// src/app/notifications/page.tsx
+// Aggiunge badge PWA (navigator.setAppBadge) e clearBadge alla lettura.
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -9,6 +11,18 @@ import { it, enUS } from 'date-fns/locale'
 import { FollowBackButton } from '@/components/notifications/FollowBackButton'
 import { useLocale } from '@/lib/locale'
 
+// ── Badge PWA helper ───────────────────────────────────────────────────────────
+function setAppBadge(count: number) {
+  if (typeof navigator === 'undefined') return
+  if ('setAppBadge' in navigator) {
+    if (count > 0) {
+      (navigator as any).setAppBadge(count).catch(() => {})
+    } else {
+      (navigator as any).clearAppBadge().catch(() => {})
+    }
+  }
+}
+
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -17,9 +31,9 @@ export default function NotificationsPage() {
   const n = t.notifications
 
   const TYPE_CONFIG = {
-    like:    { icon: Heart,          color: 'text-red-400',    bg: 'bg-red-400/10 border-red-400/20',    label: n.likeAction    },
-    follow:  { icon: UserPlus,       color: 'text-violet-400', bg: 'bg-violet-400/10 border-violet-400/20', label: n.followAction },
-    comment: { icon: MessageSquare,  color: 'text-blue-400',   bg: 'bg-blue-400/10 border-blue-400/20',  label: n.commentAction },
+    like:    { icon: Heart,         color: 'text-red-400',    bg: 'bg-red-400/10 border-red-400/20',       label: n.likeAction    },
+    follow:  { icon: UserPlus,      color: 'text-violet-400', bg: 'bg-violet-400/10 border-violet-400/20', label: n.followAction  },
+    comment: { icon: MessageSquare, color: 'text-blue-400',   bg: 'bg-blue-400/10 border-blue-400/20',    label: n.commentAction },
   }
 
   useEffect(() => {
@@ -38,6 +52,10 @@ export default function NotificationsPage() {
       setLoading(false)
 
       const unreadIds = (data || []).filter((n: any) => !n.is_read).map((n: any) => n.id)
+
+      // Azzera badge PWA quando l'utente apre le notifiche
+      setAppBadge(0)
+
       if (unreadIds.length > 0) {
         await supabase.from('notifications').update({ is_read: true }).in('id', unreadIds)
       }

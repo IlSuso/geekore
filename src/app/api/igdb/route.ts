@@ -162,3 +162,17 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+// GET handler: accetta /api/igdb?q=<termine> (usato dal nuovo discover)
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  const q = searchParams.get('q') || searchParams.get('search') || ''
+  if (!q || q.trim().length < 2) return NextResponse.json([])
+
+  // Riusa il POST handler creando un request sintetico con body JSON
+  const syntheticRequest = new Request(request.url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...Object.fromEntries(request.headers) },
+    body: JSON.stringify({ search: q.trim() }),
+  })
+  return POST(syntheticRequest as NextRequest)
+}

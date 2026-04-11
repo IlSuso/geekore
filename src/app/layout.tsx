@@ -1,51 +1,46 @@
-import type { Metadata, Viewport } from 'next'
-import './globals.css'
-import Navbar from '@/components/Navbar'
-import { ToastProvider } from '@/components/ui/Toast'
-import { ClientProviders } from '@/components/ClientProviders'
-import { Footer } from '@/components/Footer'
+import type { Metadata } from 'next'
+import { createClient } from '@/lib/supabase/server'
 
-export const metadata: Metadata = {
-  title: { default: 'Geekore', template: '%s — Geekore' },
-  description: 'Traccia anime, manga, videogiochi, film e serie in un unico posto. Condividi i tuoi progressi con la community.',
-  manifest: '/manifest.json',
-  icons: {
-    icon: '/icons/favicon-32.png',
-    apple: '/icons/apple-touch-icon.png',
-  },
-  openGraph: {
-    title: 'Geekore',
-    description: 'Il tuo universo geek in un unico posto.',
-    type: 'website',
-    locale: 'it_IT',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Geekore',
-    description: 'Il tuo universo geek in un unico posto.',
-  },
+export async function generateMetadata(
+  { params }: { params: Promise<{ username: string }> }
+): Promise<Metadata> {
+  const { username } = await params
+  const supabase = await createClient()
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('display_name, username, bio, avatar_url')
+    .ilike('username', username)
+    .single()
+
+  const displayName = profile?.display_name || profile?.username || username
+  const description = profile?.bio
+    ? `${profile.bio} — Profilo di ${displayName} su Geekore`
+    : `La collezione di ${displayName} su Geekore: anime, manga, videogiochi, film e board game.`
+
+  return {
+    title: displayName,
+    description,
+    openGraph: {
+      title: `${displayName} — Geekore`,
+      description,
+      type: 'profile',
+      images: [{
+        url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://geekore.it'}/api/og/${username}`,
+        width: 1200,
+        height: 630,
+        alt: `Profilo di ${displayName} su Geekore`,
+      }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${displayName} — Geekore`,
+      description,
+      images: [`${process.env.NEXT_PUBLIC_SITE_URL || 'https://geekore.it'}/api/og/${username}`],
+    },
+  }
 }
 
-export const viewport: Viewport = {
-  themeColor: '#7c6af7',
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 1,
-}
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="it">
-      <body className="bg-black text-white min-h-screen antialiased">
-        <ClientProviders>
-          <Navbar />
-          <main className="pt-16 pb-24 md:pb-8">
-            {children}
-          </main>
-          <Footer />
-          <ToastProvider />
-        </ClientProviders>
-      </body>
-    </html>
-  )
+export default function ProfileUsernameLayout({ children }: { children: React.ReactNode }) {
+  return <>{children}</>
 }

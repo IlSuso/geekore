@@ -61,7 +61,7 @@ export default function Navbar() {
   }, [])
 
   useEffect(() => {
-    if (pathname === '/notifications') setHasNewNotifications(false)
+    if (pathname === '/notifications') { setHasNewNotifications(false); if (typeof navigator !== 'undefined' && 'clearAppBadge' in navigator) (navigator as any).clearAppBadge().catch(() => {}); }
   }, [pathname])
 
   useEffect(() => {
@@ -85,7 +85,7 @@ export default function Navbar() {
         .then(({ count }) => { if (count && count > 0) setHasNewNotifications(true) })
 
       channel = supabase.channel('navbar-notifications')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `receiver_id=eq.${user.id}` }, () => setHasNewNotifications(true))
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `receiver_id=eq.${user.id}` }, ({ new: newNotif }) => { setHasNewNotifications(true); if ('setAppBadge' in navigator) (navigator as any).setAppBadge(1).catch(() => {}); })
         .subscribe()
     })
 

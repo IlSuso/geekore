@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url)
-  const search = searchParams.get('search')
+  const search = searchParams.get("search") || searchParams.get("q")
 
   // ── MODALITÀ RICERCA ─────────────────────────────────────────────────────
   if (search) {
