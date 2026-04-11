@@ -25,6 +25,7 @@ import {
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useDndSensors } from '@/hooks/useDndSensors'
+import { useCsrf } from '@/hooks/useCsrf'
 import Link from 'next/link'
 import { useLocale } from '@/lib/locale'
 
@@ -650,6 +651,7 @@ export default function ProfilePage() {
   const supabase = createClient()
   const { t } = useLocale()
   const sensors = useDndSensors()
+  const { csrfFetch } = useCsrf()
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [isOwner, setIsOwner] = useState(false)
@@ -797,7 +799,8 @@ export default function ProfilePage() {
   const deleteAccount = async () => {
     if (deleteConfirmText !== 'elimina' || !isOwner) return
     setDeletingAccount(true)
-    const res = await fetch('/api/user/delete', { method: 'DELETE' })
+    // S1: usa csrfFetch che allega X-CSRF-Token automaticamente
+    const res = await csrfFetch('/api/user/delete', { method: 'DELETE' })
     if (res.ok) {
       await supabase.auth.signOut()
       window.location.href = '/'

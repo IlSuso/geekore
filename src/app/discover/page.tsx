@@ -1,6 +1,8 @@
 'use client';
 // DESTINAZIONE: src/app/discover/page.tsx
-// #33: Ricerca vocale via SpeechRecognition API
+// ── Implementazioni roadmap ──────────────────────────────────────────────────
+//   #18  Bottom sheet mobile: usa BottomSheet riusabile invece del modal custom
+//   #33  Ricerca vocale via SpeechRecognition API (invariata)
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, Plus, X, Film, Tv, Gamepad2, BookOpen, Dices, Bookmark, BookmarkCheck, Mic, MicOff } from 'lucide-react';
@@ -9,6 +11,7 @@ import { StarRating } from '@/components/ui/StarRating';
 import { showToast } from '@/components/ui/Toast';
 import { useLocale } from '@/lib/locale';
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer';
 
 type MediaItem = {
@@ -279,40 +282,57 @@ export default function DiscoverPage() {
         ))}
       </div>
 
-      {selectedMedia && (
-        <div className="fixed inset-0 bg-black/85 flex items-end sm:items-center justify-center z-[60] p-4" onClick={() => setSelectedMedia(null)}>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-md overflow-hidden bottom-sheet sm:rounded-3xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-4 p-5 border-b border-zinc-800">
-              {hasValidCover(selectedMedia) && <img src={selectedMedia.coverImage} alt={selectedMedia.title} className="w-12 h-16 object-cover rounded-xl flex-shrink-0" />}
-              <div className="flex-1 min-w-0"><h3 className="font-bold text-base leading-tight line-clamp-2">{selectedMedia.title}</h3><span className={`text-xs mt-1 inline-block px-2 py-0.5 rounded-full border ${TYPE_COLORS[selectedMedia.type] || ''}`}>{TYPE_LABELS[selectedMedia.type] || selectedMedia.type}</span></div>
-              <button onClick={() => setSelectedMedia(null)} className="text-zinc-500 hover:text-white p-1"><X size={20} /></button>
-            </div>
-            <div className="p-5 space-y-5">
-              {selectedMedia.type === 'tv' && selectedMedia.seasons && Object.keys(selectedMedia.seasons).length > 1 && (
-                <div><label className="text-xs text-zinc-500 uppercase tracking-wider block mb-2">Stagione</label>
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => setSelectedSeason(s => Math.max(1, s - 1))} disabled={selectedSeason <= 1} className="w-9 h-9 bg-zinc-800 rounded-xl flex items-center justify-center text-emerald-400 font-bold disabled:opacity-30">−</button>
-                    <span className="flex-1 text-center font-semibold">Stagione {selectedSeason}</span>
-                    <button onClick={() => setSelectedSeason(s => Math.min(Object.keys(selectedMedia.seasons!).length, s + 1))} disabled={selectedSeason >= Object.keys(selectedMedia.seasons).length} className="w-9 h-9 bg-zinc-800 rounded-xl flex items-center justify-center text-emerald-400 font-bold disabled:opacity-30">+</button>
-                  </div>
-                </div>
+      {/* #18: Bottom sheet mobile per aggiungere media */}
+      <BottomSheet
+        open={!!selectedMedia}
+        onClose={() => { setSelectedMedia(null); setCurrentEpisode(''); setSelectedSeason(1); setModalRating(0); }}
+        title={selectedMedia ? `Aggiungi ${TYPE_LABELS[selectedMedia.type] || selectedMedia.type}` : ''}
+        showClose
+      >
+        {selectedMedia && (
+          <div className="p-5 space-y-5">
+            <div className="flex items-center gap-4 pb-2">
+              {hasValidCover(selectedMedia) && (
+                <img src={selectedMedia.coverImage} alt={selectedMedia.title} className="w-12 h-16 object-cover rounded-xl flex-shrink-0" />
               )}
-              {(selectedMedia.type === 'anime' || selectedMedia.type === 'tv') && selectedMedia.episodes && selectedMedia.episodes > 1 && (
-                <div><label className="text-xs text-zinc-500 uppercase tracking-wider block mb-2">Episodio corrente (max {selectedMedia.seasons?.[selectedSeason]?.episode_count || selectedMedia.episodes})</label>
-                  <input type="number" value={currentEpisode} onChange={e => setCurrentEpisode(e.target.value)} min={1} max={selectedMedia.seasons?.[selectedSeason]?.episode_count || selectedMedia.episodes} placeholder="Es. 1" className="w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500 rounded-xl px-4 py-3 text-white no-spinner focus:outline-none transition-colors" />
-                </div>
-              )}
-              <div><label className="text-xs text-zinc-500 uppercase tracking-wider block mb-2">Voto (opzionale)</label><StarRating value={modalRating} onChange={setModalRating} size={24} /></div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-base leading-tight line-clamp-2">{selectedMedia.title}</h3>
+                <span className={`text-xs mt-1 inline-block px-2 py-0.5 rounded-full border ${TYPE_COLORS[selectedMedia.type] || ''}`}>
+                  {TYPE_LABELS[selectedMedia.type] || selectedMedia.type}
+                </span>
+              </div>
             </div>
-            <div className="px-5 pb-5 flex gap-3">
-              <button onClick={() => setSelectedMedia(null)} className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl text-sm font-medium transition">Annulla</button>
+            {selectedMedia.type === 'tv' && selectedMedia.seasons && Object.keys(selectedMedia.seasons).length > 1 && (
+              <div>
+                <label className="text-xs text-zinc-500 uppercase tracking-wider block mb-2">Stagione</label>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setSelectedSeason(s => Math.max(1, s - 1))} disabled={selectedSeason <= 1} className="w-9 h-9 bg-zinc-800 rounded-xl flex items-center justify-center text-emerald-400 font-bold disabled:opacity-30">−</button>
+                  <span className="flex-1 text-center font-semibold">Stagione {selectedSeason}</span>
+                  <button onClick={() => setSelectedSeason(s => Math.min(Object.keys(selectedMedia.seasons!).length, s + 1))} disabled={selectedSeason >= Object.keys(selectedMedia.seasons).length} className="w-9 h-9 bg-zinc-800 rounded-xl flex items-center justify-center text-emerald-400 font-bold disabled:opacity-30">+</button>
+                </div>
+              </div>
+            )}
+            {(selectedMedia.type === 'anime' || selectedMedia.type === 'tv') && selectedMedia.episodes && selectedMedia.episodes > 1 && (
+              <div>
+                <label className="text-xs text-zinc-500 uppercase tracking-wider block mb-2">
+                  Episodio corrente (max {selectedMedia.seasons?.[selectedSeason]?.episode_count || selectedMedia.episodes})
+                </label>
+                <input type="number" value={currentEpisode} onChange={e => setCurrentEpisode(e.target.value)} min={1} max={selectedMedia.seasons?.[selectedSeason]?.episode_count || selectedMedia.episodes} placeholder="Es. 1" className="w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500 rounded-xl px-4 py-3 text-white no-spinner focus:outline-none transition-colors" />
+              </div>
+            )}
+            <div>
+              <label className="text-xs text-zinc-500 uppercase tracking-wider block mb-2">Voto (opzionale)</label>
+              <StarRating value={modalRating} onChange={setModalRating} size={24} />
+            </div>
+            <div className="flex gap-3 pt-2 pb-2">
+              <button onClick={() => { setSelectedMedia(null); setCurrentEpisode(''); setSelectedSeason(1); setModalRating(0); }} className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl text-sm font-medium transition">Annulla</button>
               <button onClick={confirmAdd} disabled={adding || ((selectedMedia.type === 'anime' || selectedMedia.type === 'tv') && !!selectedMedia.episodes && selectedMedia.episodes > 1 && !currentEpisode)} className="flex-1 py-3 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 rounded-2xl text-sm font-semibold transition flex items-center justify-center gap-2">
                 {adding ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Plus size={16} /> Aggiungi</>}
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </BottomSheet>
 
       {drawerMedia && <MediaDetailsDrawer media={drawerMedia} onClose={() => setDrawerMedia(null)} />}
     </div>

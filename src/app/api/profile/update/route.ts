@@ -1,13 +1,13 @@
 // src/app/api/profile/update/route.ts
 // Route server-side per aggiornare il profilo con validazione robusta.
-// ── Aggiornamenti rispetto alla versione precedente ──────────────────────────
-//   • S6: Blocco unicode look-alike (caratteri cirillici, greci ecc. che
-//     visualmente imitano lettere ASCII — es: 'а' cirillico vs 'a' latino).
-//     Usa NFKD normalization + block range check.
+// ── Aggiornamenti ────────────────────────────────────────────────────────────
+//   • S6: Blocco unicode look-alike (caratteri cirillici, greci ecc.)
+//   • S1: CSRF check via Origin header
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
+import { verifyCsrf } from '@/lib/csrf'
 
 const USERNAME_MIN = 3
 const USERNAME_MAX = 30
@@ -79,6 +79,12 @@ export async function PATCH(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+    }
+
+    // S1: CSRF check
+    const csrf = verifyCsrf(request, user.id)
+    if (!csrf.ok) {
+      return NextResponse.json({ error: csrf.reason || 'Richiesta non autorizzata' }, { status: 403 })
     }
 
     let body: any

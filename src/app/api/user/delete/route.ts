@@ -1,14 +1,23 @@
+// src/app/api/user/delete/route.ts
+// S1: CSRF check aggiunto — verifica Origin header prima di eliminare l'account.
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { verifyCsrf } from '@/lib/csrf'
 
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
       return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+    }
+
+    // S1: verifica CSRF prima di procedere con operazione distruttiva
+    const csrf = verifyCsrf(request, user.id)
+    if (!csrf.ok) {
+      return NextResponse.json({ error: csrf.reason || 'Richiesta non autorizzata' }, { status: 403 })
     }
 
     const serviceClient = createServiceClient(
