@@ -118,12 +118,60 @@ export function SkeletonNewsCard() {
 // ── Discover result skeleton ──────────────────────────────────────────────────
 export function SkeletonDiscoverCard() {
   return (
-    <div className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden animate-pulse">
-      <div className="h-64 skeleton" />
-      <div className="p-4 space-y-3">
-        <div className="h-4 skeleton rounded-full w-4/5" />
-        <div className="h-3 skeleton rounded-full w-1/3" />
-        <div className="h-10 skeleton rounded-2xl" />
+    <div className="flex flex-col gap-2 animate-pulse">
+      <div className="aspect-[2/3] skeleton rounded-2xl" />
+      <div className="h-3 skeleton rounded-full w-4/5" />
+      <div className="h-2 skeleton rounded-full w-1/3" />
+    </div>
+  )
+}
+
+// ── For You: riga di raccomandazioni orizzontale ──────────────────────────────
+export function SkeletonRecommendationCard() {
+  return (
+    <div className="flex-shrink-0 w-36 animate-pulse">
+      <div className="h-52 skeleton rounded-2xl mb-2" />
+      <div className="h-3 skeleton rounded-full w-4/5 mb-1" />
+      <div className="h-2 skeleton rounded-full w-1/3 mb-1" />
+      <div className="h-2 skeleton rounded-full w-3/4" />
+    </div>
+  )
+}
+
+export function SkeletonForYouRow() {
+  return (
+    <div className="mb-12 animate-pulse">
+      {/* Section header */}
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-8 h-8 skeleton rounded-xl" />
+        <div className="h-5 skeleton rounded-full w-40" />
+      </div>
+      {/* Horizontal scroll row */}
+      <div className="flex gap-4 overflow-hidden">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <SkeletonRecommendationCard key={i} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── "Amici che guardano" skeleton ────────────────────────────────────────────
+export function SkeletonFriendsWatching() {
+  return (
+    <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-5 mb-10 animate-pulse">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-8 h-8 skeleton rounded-xl" />
+        <div className="h-5 skeleton rounded-full w-48" />
+      </div>
+      <div className="flex gap-4 overflow-hidden">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="flex-shrink-0 w-28">
+            <div className="h-40 skeleton rounded-2xl mb-2" />
+            <div className="h-3 skeleton rounded-full w-4/5 mb-1" />
+            <div className="h-2 skeleton rounded-full w-2/3" />
+          </div>
+        ))}
       </div>
     </div>
   )

@@ -1,15 +1,17 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, memo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Sparkles, RefreshCw, SlidersHorizontal, Gamepad2, Tv, Film,
-  BookOpen, Zap, Plus, Bookmark, X, Check, ChevronDown, ChevronUp,
+  BookOpen, Zap, Plus, Bookmark, X, Check, ChevronDown, ChevronUp, Users,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { Avatar } from '@/components/ui/Avatar'
 import { useLocale } from '@/lib/locale'
+import { SkeletonForYouRow, SkeletonFriendsWatching } from '@/components/ui/SkeletonCard'
 
 // ── Tipi ────────────────────────────────────────────────────────────────────
 
@@ -31,6 +33,19 @@ interface TasteProfile {
   globalGenres: Array<{ genre: string; score: number }>
   topGenres: Record<MediaType, Array<{ genre: string; score: number }>>
   collectionSize: Record<string, number>
+}
+
+// Voce "amici che guardano"
+interface FriendActivity {
+  userId: string
+  username: string
+  displayName?: string
+  avatarUrl?: string
+  mediaId: string
+  mediaTitle: string
+  mediaCover?: string
+  mediaType: string
+  updatedAt: string
 }
 
 // ── Generi disponibili per ogni tipo ────────────────────────────────────────
@@ -56,9 +71,91 @@ const TYPE_COLORS: Record<MediaType, string> = {
   tv: 'from-cyan-500 to-blue-500',
 }
 
+// ── #22 Sezione "Amici che guardano" ─────────────────────────────────────────
+
+const FriendsWatchingSection = memo(function FriendsWatchingSection({
+  items,
+}: {
+  items: FriendActivity[]
+}) {
+  if (items.length === 0) return null
+
+  const timeAgo = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const hours = Math.floor(diff / 3600000)
+    const days = Math.floor(diff / 86400000)
+    if (hours < 1) return 'ora'
+    if (hours < 24) return `${hours}h fa`
+    return `${days}g fa`
+  }
+
+  const TYPE_EMOJI: Record<string, string> = {
+    anime: '📺', manga: '📖', game: '🎮', movie: '🎬', tv: '📺', boardgame: '🎲',
+  }
+
+  return (
+    <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-5 mb-10">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-8 h-8 bg-gradient-to-br from-fuchsia-500 to-violet-500 rounded-xl flex items-center justify-center shadow-lg">
+          <Users size={16} className="text-white" />
+        </div>
+        <h2 className="text-sm font-bold text-white">Amici che guardano</h2>
+        <span className="text-xs text-zinc-500 ml-auto">{items.length} attività</span>
+      </div>
+
+      <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+        {items.map((activity) => (
+          <Link
+            key={`${activity.userId}-${activity.mediaId}`}
+            href={`/profile/${activity.username}`}
+            className="flex-shrink-0 w-28 group"
+          >
+            {/* Cover */}
+            <div className="relative h-40 rounded-2xl overflow-hidden bg-zinc-800 mb-2">
+              {activity.mediaCover ? (
+                <img
+                  src={activity.mediaCover}
+                  alt={activity.mediaTitle}
+                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-2xl text-zinc-600">
+                  {TYPE_EMOJI[activity.mediaType] || '📺'}
+                </div>
+              )}
+              {/* Avatar sovrapposto in basso */}
+              <div className="absolute bottom-2 left-2 ring-2 ring-black rounded-full">
+                <Avatar
+                  src={activity.avatarUrl}
+                  username={activity.username}
+                  displayName={activity.displayName}
+                  size={24}
+                />
+              </div>
+              {/* Tempo */}
+              <div className="absolute top-2 right-2 bg-black/70 text-[9px] text-zinc-300 px-1.5 py-0.5 rounded-full">
+                {timeAgo(activity.updatedAt)}
+              </div>
+            </div>
+            {/* Info */}
+            <p className="text-[10px] font-semibold text-zinc-300 line-clamp-2 leading-tight mb-0.5">
+              {activity.mediaTitle}
+            </p>
+            <p className="text-[9px] text-violet-400 truncate">
+              @{activity.username}
+            </p>
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+})
+
 // ── Componente Card ──────────────────────────────────────────────────────────
 
-function RecommendationCard({
+// P2: memo per evitare re-render quando il parent cambia stato non correlato
+const RecommendationCard = memo(function RecommendationCard({
   item, onAdd, onWishlist, alreadyAdded, inWishlist,
 }: {
   item: Recommendation
@@ -81,7 +178,8 @@ function RecommendationCard({
             src={item.coverImage}
             alt={item.title}
             className="w-full h-full object-cover transition-transform group-hover:scale-105"
-            onError={e => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/144x208/27272a/ffffff?text=N/A' }}
+            loading="lazy"
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
@@ -131,11 +229,11 @@ function RecommendationCard({
       <p className="text-[10px] text-violet-400 leading-tight line-clamp-2 mt-1 italic">{item.why}</p>
     </div>
   )
-}
+})
 
 // ── Componente Sezione ───────────────────────────────────────────────────────
 
-function RecommendationSection({
+const RecommendationSection = memo(function RecommendationSection({
   type, items, label, onAdd, onWishlist, addedIds, wishlistIds,
 }: {
   type: MediaType
@@ -173,11 +271,16 @@ function RecommendationSection({
       </div>
     </div>
   )
-}
+})
 
 // ── Componente Taste Profile Widget ─────────────────────────────────────────
 
-function TasteWidget({ tasteProfile, totalEntries }: { tasteProfile: TasteProfile; totalEntries: number }) {
+const TasteWidget = memo(function TasteWidget({
+  tasteProfile, totalEntries,
+}: {
+  tasteProfile: TasteProfile
+  totalEntries: number
+}) {
   const [open, setOpen] = useState(false)
   const { t } = useLocale()
 
@@ -247,7 +350,7 @@ function TasteWidget({ tasteProfile, totalEntries }: { tasteProfile: TasteProfil
       )}
     </div>
   )
-}
+})
 
 // ── Componente Modal Preferenze ──────────────────────────────────────────────
 
@@ -387,12 +490,14 @@ export default function ForYouPage() {
   const [showPrefs, setShowPrefs] = useState(false)
   const [isCached, setIsCached] = useState(false)
 
+  // #22: amici che guardano
+  const [friendsActivity, setFriendsActivity] = useState<FriendActivity[]>([])
+  const [friendsLoading, setFriendsLoading] = useState(true)
+
   const fetchRecommendations = useCallback(async (forceRefresh = false) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
 
-    // Usa sempre forceRefresh=true al primo carico e quando esplicitamente richiesto
-    // Questo garantisce che la collezione esistente (inclusi giochi Steam) venga letta
     const url = `/api/recommendations?type=all${forceRefresh ? '&refresh=1' : ''}`
     const res = await fetch(url)
     if (!res.ok) return
@@ -403,12 +508,88 @@ export default function ForYouPage() {
     setIsCached(!!json.cached)
   }, [])
 
+  // #22: carica attività recenti degli utenti seguiti
+  const fetchFriendsActivity = useCallback(async (userId: string) => {
+    setFriendsLoading(true)
+    try {
+      // Prendi chi segui
+      const { data: followsData } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', userId)
+
+      const followingIds = (followsData || []).map((f: any) => f.following_id)
+
+      if (followingIds.length === 0) {
+        setFriendsActivity([])
+        setFriendsLoading(false)
+        return
+      }
+
+      // Ultime voci nella collezione degli utenti seguiti (ultimi 7 giorni)
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+      const { data: entries } = await supabase
+        .from('user_media_entries')
+        .select('user_id, external_id, title, cover_image, type, updated_at')
+        .in('user_id', followingIds)
+        .gte('updated_at', since)
+        .order('updated_at', { ascending: false })
+        .limit(20)
+
+      if (!entries?.length) {
+        setFriendsActivity([])
+        setFriendsLoading(false)
+        return
+      }
+
+      // Profili degli utenti
+      const uniqueUserIds = [...new Set(entries.map(e => e.user_id))]
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, username, display_name, avatar_url')
+        .in('id', uniqueUserIds)
+
+      const profileMap: Record<string, any> = {}
+      profiles?.forEach(p => { profileMap[p.id] = p })
+
+      // Deduplica: un solo titolo per utente (il più recente)
+      const seen = new Set<string>()
+      const activity: FriendActivity[] = []
+
+      for (const entry of entries) {
+        const key = `${entry.user_id}-${entry.external_id}`
+        if (seen.has(key)) continue
+        seen.add(key)
+
+        const profile = profileMap[entry.user_id]
+        if (!profile) continue
+
+        activity.push({
+          userId: entry.user_id,
+          username: profile.username,
+          displayName: profile.display_name,
+          avatarUrl: profile.avatar_url,
+          mediaId: entry.external_id,
+          mediaTitle: entry.title,
+          mediaCover: entry.cover_image,
+          mediaType: entry.type,
+          updatedAt: entry.updated_at,
+        })
+      }
+
+      setFriendsActivity(activity.slice(0, 12))
+    } catch {
+      setFriendsActivity([])
+    } finally {
+      setFriendsLoading(false)
+    }
+  }, [supabase])
+
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      // Carica collezione e wishlist
       const [{ data: entries }, { data: wish }] = await Promise.all([
         supabase.from('user_media_entries').select('external_id').eq('user_id', user.id),
         supabase.from('wishlist').select('external_id').eq('user_id', user.id),
@@ -418,15 +599,17 @@ export default function ForYouPage() {
       setWishlistIds(new Set((wish || []).map(w => w.external_id).filter(Boolean)))
       setTotalEntries(entries?.length || 0)
 
-      // Al primo carico forziamo sempre il refresh per leggere tutta la collezione esistente
-      // inclusi giochi Steam già presenti e media aggiunti prima di questa sessione
-      await fetchRecommendations(true)
+      // Fetch in parallelo
+      await Promise.all([
+        fetchRecommendations(true),
+        fetchFriendsActivity(user.id),
+      ])
       setLoading(false)
     }
     init()
   }, [])
 
-  // ── Realtime: ascolta nuove voci nella collezione ─────────────────────────
+  // Realtime: aggiorna addedIds e rigenera raccomandazioni
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null
     let cancelled = false
@@ -450,15 +633,12 @@ export default function ForYouPage() {
           setAddedIds(new Set((entries || []).map((e: any) => e.external_id).filter(Boolean)))
           setWishlistIds(new Set((wish || []).map((w: any) => w.external_id).filter(Boolean)))
           setTotalEntries(entries?.length || 0)
-
-          // Rigenera con la collezione aggiornata
           await fetchRecommendations(true)
         })
         .subscribe()
     }
 
     setupChannel()
-
     return () => {
       cancelled = true
       if (channel) supabase.removeChannel(channel)
@@ -467,11 +647,15 @@ export default function ForYouPage() {
 
   const handleRefresh = async () => {
     setRefreshing(true)
-    await fetchRecommendations(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    await Promise.all([
+      fetchRecommendations(true),
+      user ? fetchFriendsActivity(user.id) : Promise.resolve(),
+    ])
     setRefreshing(false)
   }
 
-  const handleAdd = async (item: Recommendation) => {
+  const handleAdd = useCallback(async (item: Recommendation) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
@@ -490,9 +674,9 @@ export default function ForYouPage() {
       setAddedIds(prev => new Set([...prev, item.id]))
       showToast(`"${item.title}" aggiunto alla collezione`)
     }
-  }
+  }, [supabase])
 
-  const handleWishlist = async (item: Recommendation) => {
+  const handleWishlist = useCallback(async (item: Recommendation) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
@@ -508,7 +692,7 @@ export default function ForYouPage() {
       setWishlistIds(prev => new Set([...prev, item.id]))
       showToast(t.discover.wishlistAdd)
     }
-  }
+  }, [supabase, wishlistIds, t])
 
   const hasEnoughData = totalEntries >= 1
 
@@ -522,11 +706,16 @@ export default function ForYouPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-zinc-400 text-sm">{t.common.loading}</p>
+      <div className="min-h-screen bg-black text-white pt-8 pb-24 max-w-6xl mx-auto px-6">
+        {/* Header skeleton */}
+        <div className="mb-10 animate-pulse">
+          <div className="h-10 w-48 bg-zinc-800 rounded-2xl mb-3" />
+          <div className="h-5 w-80 bg-zinc-900 rounded-xl" />
         </div>
+        {/* Amici skeleton */}
+        <SkeletonFriendsWatching />
+        {/* Sezioni skeleton */}
+        {[1, 2, 3].map(i => <SkeletonForYouRow key={i} />)}
       </div>
     )
   }
@@ -585,6 +774,13 @@ export default function ForYouPage() {
           <>
             {tasteProfile && (
               <TasteWidget tasteProfile={tasteProfile} totalEntries={totalEntries} />
+            )}
+
+            {/* #22: Amici che guardano */}
+            {friendsLoading ? (
+              <SkeletonFriendsWatching />
+            ) : (
+              <FriendsWatchingSection items={friendsActivity} />
             )}
 
             {SECTIONS.map(({ key, label }) => {

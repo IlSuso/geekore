@@ -1,16 +1,26 @@
 'use client'
 // src/app/feed/page.tsx
-// Versione aggiornata: infinite scroll automatico + skeleton loaders + like animation
+// ── Implementazioni roadmap ──────────────────────────────────────────────────
+//   #13  Cache client-side in-memory: i post sono memoizzati per 2 min.
+//        Navigare avanti/indietro non ricarica tutto da zero.
+//   #25  Post in evidenza: i 2 post con più like degli ultimi 7 giorni
+//        vengono mostrati con badge "In evidenza" in cima al feed.
+//   #7   Skeleton loaders coerenti: usa SkeletonFeedPost durante il loading.
+//   P2   React.memo sul componente PostCard per evitare re-render inutili.
+//   #31  Haptic feedback su like e pubblicazione.
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, memo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { User } from '@supabase/supabase-js'
-import { Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X, Loader2 } from 'lucide-react'
+import { Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X, Loader2, Pin } from 'lucide-react'
 import { SkeletonFeedPost } from '@/components/ui/SkeletonCard'
+import { Avatar } from '@/components/ui/Avatar'
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll'
 import { formatDistanceToNow } from 'date-fns'
 import { it, enUS } from 'date-fns/locale'
 import { useLocale } from '@/lib/locale'
+
+// ── Tipi ────────────────────────────────────────────────────────────────────
 
 type Comment = {
   id: string
@@ -35,12 +45,182 @@ type Post = {
   comments_count: number
   liked_by_user: boolean
   comments: Comment[]
+  pinned?: boolean // #25
 }
 
+// ── #13 Cache in-memory ──────────────────────────────────────────────────────
+// Persiste per tutta la sessione (non tra tab). TTL 2 minuti.
+const cache: {
+  posts: Post[] | null
+  page: number
+  hasMore: boolean
+  filter: 'all' | 'following'
+  ts: number
+} = { posts: null, page: 0, hasMore: true, filter: 'all', ts: 0 }
+
+const CACHE_TTL = 2 * 60 * 1000 // 2 minuti
+
+function isCacheValid(filter: 'all' | 'following') {
+  return (
+    cache.posts !== null &&
+    cache.filter === filter &&
+    Date.now() - cache.ts < CACHE_TTL
+  )
+}
+
+// ── #31 Haptic ───────────────────────────────────────────────────────────────
+function haptic(pattern: number | number[] = 30) {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    navigator.vibrate(pattern)
+  }
+}
+
+// ── Costanti ─────────────────────────────────────────────────────────────────
 const PAGE_SIZE = 20
+const PINNED_LIKE_THRESHOLD = 3 // min like per essere "in evidenza"
+
+// ── P2 PostCard con React.memo ───────────────────────────────────────────────
+const PostCard = memo(function PostCard({
+  post,
+  currentUser,
+  isLiking,
+  commentingPostId,
+  commentContent,
+  locale,
+  onLike,
+  onToggleComment,
+  onCommentChange,
+  onAddComment,
+}: {
+  post: Post
+  currentUser: User | null
+  isLiking: boolean
+  commentingPostId: string | null
+  commentContent: string
+  locale: string
+  onLike: (id: string) => void
+  onToggleComment: (id: string) => void
+  onCommentChange: (val: string) => void
+  onAddComment: (id: string) => void
+}) {
+  const isCommenting = commentingPostId === post.id
+
+  return (
+    <div className={`bg-zinc-950 border rounded-3xl p-6 transition-all duration-300 animate-in fade-in slide-in-from-top-2 ${
+      post.pinned
+        ? 'border-violet-500/40 ring-1 ring-violet-500/20'
+        : 'border-zinc-800'
+    }`}>
+      {/* #25 Badge in evidenza */}
+      {post.pinned && (
+        <div className="flex items-center gap-1.5 mb-4 text-violet-400">
+          <Pin size={12} className="rotate-45" />
+          <span className="text-[10px] font-bold uppercase tracking-widest">In evidenza</span>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-11 h-11 rounded-2xl overflow-hidden ring-2 ring-violet-500/20">
+          <Avatar
+            src={post.profiles.avatar_url}
+            username={post.profiles.username}
+            displayName={post.profiles.display_name}
+            size={44}
+            className="rounded-2xl"
+          />
+        </div>
+        <div>
+          <p className="font-bold text-white">{post.profiles.display_name || post.profiles.username}</p>
+          <p className="text-xs text-zinc-500">
+            @{post.profiles.username} · {formatDistanceToNow(new Date(post.created_at), {
+              addSuffix: true, locale: locale === 'en' ? enUS : it,
+            })}
+          </p>
+        </div>
+      </div>
+
+      <p className="text-[16px] leading-relaxed mb-5 whitespace-pre-wrap text-zinc-100">{post.content}</p>
+
+      {post.image_url && (
+        <div className="mb-5 rounded-2xl overflow-hidden border border-zinc-700">
+          <img
+            src={post.image_url}
+            alt="post"
+            className="w-full max-h-[400px] object-contain bg-black"
+            loading="lazy"
+          />
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-8 border-t border-zinc-800 pt-5 text-zinc-400">
+        <button
+          onClick={() => onLike(post.id)}
+          className={`flex items-center gap-2 transition-all ${post.liked_by_user ? 'text-red-500' : 'hover:text-red-400'}`}
+        >
+          <Heart
+            size={22}
+            fill={post.liked_by_user ? 'currentColor' : 'none'}
+            className={isLiking ? 'animate-heart-burst' : ''}
+          />
+          <span className="text-sm font-medium">{post.likes_count}</span>
+        </button>
+        <button
+          onClick={() => onToggleComment(post.id)}
+          className={`flex items-center gap-2 transition-all ${isCommenting ? 'text-violet-400' : 'hover:text-violet-400'}`}
+        >
+          <MessageCircle size={22} />
+          <span className="text-sm font-medium">{post.comments_count}</span>
+        </button>
+      </div>
+
+      {/* Comment input */}
+      {isCommenting && (
+        <div className="mt-4 flex gap-2">
+          <input
+            type="text"
+            value={commentContent}
+            onChange={e => onCommentChange(e.target.value.slice(0, 500))}
+            placeholder="Scrivi un commento..."
+            maxLength={500}
+            className="flex-1 bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-2xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition"
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onAddComment(post.id) }
+            }}
+          />
+          <button
+            onClick={() => onAddComment(post.id)}
+            className="bg-violet-600 hover:bg-violet-500 px-4 rounded-2xl transition"
+          >
+            <Send size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* Comments list */}
+      {post.comments.length > 0 && (
+        <div className="mt-4 pl-3 border-l-2 border-zinc-800 space-y-3 text-sm">
+          {post.comments.slice(0, 3).map(comment => (
+            <div key={comment.id}>
+              <span className="font-semibold text-violet-400">@{comment.username}</span>
+              <span className="ml-2 text-zinc-300">{comment.content}</span>
+            </div>
+          ))}
+          {post.comments.length > 3 && (
+            <p className="text-xs text-zinc-600">+{post.comments.length - 3} altri commenti</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+})
+
+// ── Pagina principale ────────────────────────────────────────────────────────
 
 export default function FeedPage() {
   const [posts, setPosts] = useState<Post[]>([])
+  const [pinnedPosts, setPinnedPosts] = useState<Post[]>([])
   const [newPostContent, setNewPostContent] = useState('')
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -54,17 +234,19 @@ export default function FeedPage() {
   const [commentContent, setCommentContent] = useState('')
   const [commentingPostId, setCommentingPostId] = useState<string | null>(null)
   const [feedFilter, setFeedFilter] = useState<'all' | 'following'>('all')
-  const [likingIds, setLikingIds] = useState<Set<string>>(new Set()) // per animazione
+  const [likingIds, setLikingIds] = useState<Set<string>>(new Set())
+  const pageRef = useRef(0)
 
   const supabase = createClient()
   const { locale, t } = useLocale()
   const f = t.feed
 
-  // Infinite scroll sentinel
+  // Infinite scroll
   const sentinelRef = useInfiniteScroll({
     onLoadMore: () => {
       if (!currentUser || loadingMore || !hasMore) return
-      const nextPage = page + 1
+      const nextPage = pageRef.current + 1
+      pageRef.current = nextPage
       setPage(nextPage)
       loadPosts(currentUser.id, nextPage, true, feedFilter)
     },
@@ -83,13 +265,76 @@ export default function FeedPage() {
           .eq('id', user.id)
           .single()
         setCurrentProfile(profile)
+
+        // #13: usa cache se valida
+        if (isCacheValid('all')) {
+          setPosts(cache.posts!)
+          setPage(cache.page)
+          setHasMore(cache.hasMore)
+          setLoading(false)
+          // Carica pinned in background
+          loadPinnedPosts(user.id)
+          return
+        }
+
         await loadPosts(user.id, 0, false)
+        await loadPinnedPosts(user.id)
       } else {
         setLoading(false)
       }
     }
     init()
   }, [])
+
+  // #25: carica post in evidenza (più like degli ultimi 7 giorni)
+  const loadPinnedPosts = useCallback(async (userId: string) => {
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+    const { data } = await supabase
+      .from('posts')
+      .select(`
+        id, content, image_url, created_at,
+        profiles!posts_user_id_fkey (username, display_name, avatar_url),
+        likes (id, user_id),
+        comments (id, content, created_at, user_id)
+      `)
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .limit(50)
+
+    if (!data) return
+
+    // Ordina per like e prendi i top 2 con almeno PINNED_LIKE_THRESHOLD like
+    const withLikes = data
+      .map((p: any) => ({ ...p, _likeCount: (p.likes || []).length }))
+      .filter((p: any) => p._likeCount >= PINNED_LIKE_THRESHOLD)
+      .sort((a: any, b: any) => b._likeCount - a._likeCount)
+      .slice(0, 2)
+
+    const formatted = withLikes.map((post: any) => {
+      const likes = post.likes || []
+      const comments = post.comments || []
+      const profile = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles
+      return {
+        id: post.id,
+        content: post.content,
+        image_url: post.image_url,
+        created_at: post.created_at,
+        profiles: {
+          username: profile?.username || '',
+          display_name: profile?.display_name,
+          avatar_url: profile?.avatar_url,
+        },
+        likes_count: likes.length,
+        liked_by_user: likes.some((l: any) => l.user_id === userId),
+        comments_count: comments.length,
+        comments: [],
+        pinned: true,
+      }
+    })
+
+    setPinnedPosts(formatted)
+  }, [supabase])
 
   const loadPosts = useCallback(async (
     userId: string,
@@ -136,6 +381,7 @@ export default function FeedPage() {
 
     const { data: postsData } = await query
 
+    // Profili per i commenti
     const allComments = (postsData || []).flatMap((p: any) => p.comments || [])
     const uniqueUserIds = [...new Set(allComments.map((c: any) => c.user_id))]
 
@@ -148,8 +394,9 @@ export default function FeedPage() {
       profilesData?.forEach((p: any) => { profileMap[p.id] = p })
     }
 
-    const formatted = (postsData || []).map((post: any) => {
+    const formatted: Post[] = (postsData || []).map((post: any) => {
       const likes = post.likes || []
+      const profile = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles
       const comments = (post.comments || []).map((c: any) => ({
         id: c.id,
         content: c.content,
@@ -159,7 +406,15 @@ export default function FeedPage() {
         display_name: profileMap[c.user_id]?.display_name,
       }))
       return {
-        ...post,
+        id: post.id,
+        content: post.content,
+        image_url: post.image_url,
+        created_at: post.created_at,
+        profiles: {
+          username: profile?.username || '',
+          display_name: profile?.display_name,
+          avatar_url: profile?.avatar_url,
+        },
         likes_count: likes.length,
         liked_by_user: likes.some((l: any) => l.user_id === userId),
         comments_count: comments.length,
@@ -167,20 +422,38 @@ export default function FeedPage() {
       }
     })
 
-    setHasMore((postsData || []).length === PAGE_SIZE)
+    const newHasMore = (postsData || []).length === PAGE_SIZE
 
     if (append) {
-      setPosts(prev => [...prev, ...formatted])
+      setPosts(prev => {
+        const merged = [...prev, ...formatted]
+        // Aggiorna cache
+        cache.posts = merged
+        cache.page = pageIndex
+        cache.hasMore = newHasMore
+        cache.filter = filter
+        cache.ts = Date.now()
+        return merged
+      })
       setLoadingMore(false)
     } else {
       setPosts(formatted)
+      // Aggiorna cache
+      cache.posts = formatted
+      cache.page = pageIndex
+      cache.hasMore = newHasMore
+      cache.filter = filter
+      cache.ts = Date.now()
       setLoading(false)
     }
+
+    setHasMore(newHasMore)
   }, [supabase])
 
   const handleFilterChange = async (filter: 'all' | 'following') => {
     if (!currentUser) return
     setFeedFilter(filter)
+    pageRef.current = 0
     setPage(0)
     setHasMore(true)
     await loadPosts(currentUser.id, 0, false, filter)
@@ -190,14 +463,12 @@ export default function FeedPage() {
     e.preventDefault()
     if ((!newPostContent.trim() && !selectedImage) || !currentUser || isPublishing) return
     setIsPublishing(true)
+    haptic(50)
 
     let imageUrl = null
     if (selectedImage) {
       const ALLOWED = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-      if (!ALLOWED.includes(selectedImage.type)) {
-        setIsPublishing(false)
-        return
-      }
+      if (!ALLOWED.includes(selectedImage.type)) { setIsPublishing(false); return }
       const fileName = `${Date.now()}-${selectedImage.name}`
       const { error: uploadErr } = await supabase.storage
         .from('post-images')
@@ -222,12 +493,14 @@ export default function FeedPage() {
         image_url: newPostData.image_url,
         created_at: newPostData.created_at,
         profiles: { username: profile?.username || '', display_name: profile?.display_name, avatar_url: profile?.avatar_url },
-        likes_count: 0,
-        comments_count: 0,
-        liked_by_user: false,
-        comments: [],
+        likes_count: 0, comments_count: 0, liked_by_user: false, comments: [],
       }
-      setPosts(prev => [optimisticPost, ...prev])
+      setPosts(prev => {
+        const updated = [optimisticPost, ...prev]
+        cache.posts = updated
+        cache.ts = Date.now()
+        return updated
+      })
       setNewPostContent('')
       setSelectedImage(null)
       setImagePreview(null)
@@ -241,7 +514,7 @@ export default function FeedPage() {
     if (file) { setSelectedImage(file); setImagePreview(URL.createObjectURL(file)) }
   }
 
-  const toggleLike = async (postId: string) => {
+  const toggleLike = useCallback(async (postId: string) => {
     if (!currentUser) return
     const postIndex = posts.findIndex(p => p.id === postId)
     if (postIndex === -1) return
@@ -249,10 +522,12 @@ export default function FeedPage() {
     const current = posts[postIndex]
     const willLike = !current.liked_by_user
 
-    // Animazione like
     if (willLike) {
+      haptic([40, 20, 40])
       setLikingIds(prev => new Set([...prev, postId]))
       setTimeout(() => setLikingIds(prev => { const s = new Set(prev); s.delete(postId); return s }), 400)
+    } else {
+      haptic(20)
     }
 
     // Ottimistico
@@ -266,10 +541,38 @@ export default function FeedPage() {
     } else {
       await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
     }
-  }
+  }, [currentUser, posts, supabase])
 
-  const handleAddComment = async (postId: string) => {
+  // Stessa logica per i pinned posts
+  const toggleLikePinned = useCallback(async (postId: string) => {
+    if (!currentUser) return
+    const postIndex = pinnedPosts.findIndex(p => p.id === postId)
+    if (postIndex === -1) return
+
+    const current = pinnedPosts[postIndex]
+    const willLike = !current.liked_by_user
+
+    if (willLike) {
+      haptic([40, 20, 40])
+      setLikingIds(prev => new Set([...prev, postId]))
+      setTimeout(() => setLikingIds(prev => { const s = new Set(prev); s.delete(postId); return s }), 400)
+    }
+
+    setPinnedPosts(prev => prev.map((p, i) => i === postIndex
+      ? { ...p, likes_count: willLike ? p.likes_count + 1 : p.likes_count - 1, liked_by_user: willLike }
+      : p
+    ))
+
+    if (willLike) {
+      await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id })
+    } else {
+      await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
+    }
+  }, [currentUser, pinnedPosts, supabase])
+
+  const handleAddComment = useCallback(async (postId: string) => {
     if (!commentContent.trim() || !currentUser) return
+    haptic(30)
 
     const newCommentTemp: Comment = {
       id: 'temp-' + Date.now(),
@@ -289,7 +592,12 @@ export default function FeedPage() {
     await supabase.from('comments').insert({ post_id: postId, user_id: currentUser.id, content: commentContent.trim() })
     setCommentContent('')
     setCommentingPostId(null)
-  }
+  }, [commentContent, currentUser, currentProfile, supabase])
+
+  const handleToggleComment = useCallback((postId: string) => {
+    setCommentingPostId(prev => prev === postId ? null : postId)
+    setCommentContent('')
+  }, [])
 
   if (loading) {
     return (
@@ -304,6 +612,7 @@ export default function FeedPage() {
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="pt-8 pb-20 max-w-3xl mx-auto px-6">
+
         {/* Composer */}
         {currentUser && (
           <div className="mb-8 bg-zinc-950 border border-zinc-800 rounded-3xl p-6">
@@ -356,6 +665,34 @@ export default function FeedPage() {
           </div>
         )}
 
+        {/* #25 Post in evidenza (solo nel filtro "tutto") */}
+        {feedFilter === 'all' && pinnedPosts.length > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles size={14} className="text-violet-400" />
+              <span className="text-xs font-bold text-violet-400 uppercase tracking-widest">In evidenza questa settimana</span>
+            </div>
+            <div className="space-y-4">
+              {pinnedPosts.map(post => (
+                <PostCard
+                  key={`pinned-${post.id}`}
+                  post={post}
+                  currentUser={currentUser}
+                  isLiking={likingIds.has(post.id)}
+                  commentingPostId={commentingPostId}
+                  commentContent={commentContent}
+                  locale={locale}
+                  onLike={toggleLikePinned}
+                  onToggleComment={handleToggleComment}
+                  onCommentChange={setCommentContent}
+                  onAddComment={handleAddComment}
+                />
+              ))}
+            </div>
+            <div className="h-px bg-zinc-800 my-8" />
+          </div>
+        )}
+
         {/* Posts */}
         <div className="space-y-6">
           {posts.length === 0 ? (
@@ -366,101 +703,31 @@ export default function FeedPage() {
             </div>
           ) : (
             posts.map(post => (
-              <div key={post.id} className="bg-zinc-950 border border-zinc-800 rounded-3xl p-6 transition-all duration-300 animate-in fade-in slide-in-from-top-2">
-                {/* Header */}
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="w-11 h-11 rounded-2xl overflow-hidden ring-2 ring-violet-500/20">
-                    {post.profiles.avatar_url
-                      ? <img src={post.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
-                      : <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold">
-                          {(post.profiles.display_name?.[0] || post.profiles.username?.[0] || '?').toUpperCase()}
-                        </div>
-                    }
-                  </div>
-                  <div>
-                    <p className="font-bold text-white">{post.profiles.display_name || post.profiles.username}</p>
-                    <p className="text-xs text-zinc-500">
-                      @{post.profiles.username} · {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })}
-                    </p>
-                  </div>
-                </div>
-
-                <p className="text-[16px] leading-relaxed mb-5 whitespace-pre-wrap">{post.content}</p>
-
-                {post.image_url && (
-                  <div className="mb-5 rounded-2xl overflow-hidden border border-zinc-700">
-                    <img src={post.image_url} alt="post" className="w-full max-h-[400px] object-contain bg-black" loading="lazy" />
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="flex gap-8 border-t border-zinc-800 pt-5 text-zinc-400">
-                  <button
-                    onClick={() => toggleLike(post.id)}
-                    className={`flex items-center gap-2 transition-all ${post.liked_by_user ? 'text-red-500' : 'hover:text-red-400'}`}
-                  >
-                    <Heart
-                      size={22}
-                      fill={post.liked_by_user ? 'currentColor' : 'none'}
-                      className={likingIds.has(post.id) ? 'animate-heart-burst' : ''}
-                    />
-                    <span className="text-sm font-medium">{post.likes_count}</span>
-                  </button>
-                  <button
-                    onClick={() => setCommentingPostId(commentingPostId === post.id ? null : post.id)}
-                    className={`flex items-center gap-2 transition-all ${commentingPostId === post.id ? 'text-violet-400' : 'hover:text-violet-400'}`}
-                  >
-                    <MessageCircle size={22} />
-                    <span className="text-sm font-medium">{post.comments_count}</span>
-                  </button>
-                </div>
-
-                {/* Comments */}
-                {commentingPostId === post.id && (
-                  <div className="mt-4 flex gap-2">
-                    <input
-                      type="text"
-                      value={commentContent}
-                      onChange={e => setCommentContent(e.target.value)}
-                      placeholder="Scrivi un commento..."
-                      className="flex-1 bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-2xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition"
-                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddComment(post.id) } }}
-                    />
-                    <button onClick={() => handleAddComment(post.id)}
-                      className="bg-violet-600 hover:bg-violet-500 px-4 rounded-2xl transition">
-                      <Send size={16} />
-                    </button>
-                  </div>
-                )}
-
-                {post.comments.length > 0 && (
-                  <div className="mt-4 pl-3 border-l-2 border-zinc-800 space-y-3 text-sm">
-                    {post.comments.slice(0, 3).map(comment => (
-                      <div key={comment.id}>
-                        <span className="font-semibold text-violet-400">@{comment.username}</span>
-                        <span className="ml-2 text-zinc-300">{comment.content}</span>
-                      </div>
-                    ))}
-                    {post.comments.length > 3 && (
-                      <p className="text-xs text-zinc-600">+{post.comments.length - 3} altri commenti</p>
-                    )}
-                  </div>
-                )}
-              </div>
+              <PostCard
+                key={post.id}
+                post={post}
+                currentUser={currentUser}
+                isLiking={likingIds.has(post.id)}
+                commentingPostId={commentingPostId}
+                commentContent={commentContent}
+                locale={locale}
+                onLike={toggleLike}
+                onToggleComment={handleToggleComment}
+                onCommentChange={setCommentContent}
+                onAddComment={handleAddComment}
+              />
             ))
           )}
 
-          {/* Sentinel per infinite scroll */}
+          {/* Sentinel infinite scroll */}
           <div ref={sentinelRef} className="h-4" />
 
-          {/* Loading more indicator */}
           {loadingMore && (
             <div className="flex justify-center py-6">
               <Loader2 size={24} className="animate-spin text-violet-400" />
             </div>
           )}
 
-          {/* Fine contenuti */}
           {!hasMore && posts.length > 0 && (
             <p className="text-center text-zinc-600 text-sm py-6">Hai visto tutto! 🎉</p>
           )}
