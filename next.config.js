@@ -62,7 +62,7 @@ const nextConfig = {
                   "style-src 'self' 'unsafe-inline'",
                   "img-src * data: blob:",
                   "font-src 'self' data:",
-                  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.steampowered.com https://graphql.anilist.co https://api.themoviedb.org https://api.igdb.com",
+                  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.steampowered.com https://graphql.anilist.co https://api.themoviedb.org https://api.igdb.com https://cdn.cloudflare.steamstatic.com https://s4.anilist.co https://image.tmdb.org https://images.igdb.com",
                   "frame-ancestors 'none'",
                   "base-uri 'self'",
                   "form-action 'self'",
