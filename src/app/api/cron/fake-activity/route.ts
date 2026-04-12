@@ -100,15 +100,6 @@ const FAKE_USERS: Record<string, { username: string; topics: string[]; style: st
 
 const FAKE_USER_IDS = Object.keys(FAKE_USERS)
 
-// ── Ora "naturale" per ogni utente ────────────────────────────────────────────
-// Derivata deterministicamente dall'UUID → ogni utente ha la sua fascia oraria
-function getUserActiveHour(userId: string): number {
-  // Prende gli ultimi 2 caratteri hex dell'UUID e li mappa in 6..23
-  const hex = userId.replace(/-/g, '').slice(-2)
-  const n = parseInt(hex, 16) % 18 // 0..17
-  return n + 6 // 6..23 (mattina fino a tarda sera)
-}
-
 // ── Hash deterministico del contenuto (per burn) ──────────────────────────────
 function hashContent(text: string): string {
   return createHash('sha256').update(text.trim().toLowerCase()).digest('hex').slice(0, 16)
@@ -572,7 +563,35 @@ async function pickUnusedComment(
 
 // ════════════════════════════════════════════════════════════════════════════
 // HANDLER PRINCIPALE
+// Gira una volta al giorno (schedule: "0 12 * * *").
+// Seleziona 3-5 utenti casuali tra i 15, ognuno con probabilità diverse
+// di postare/commentare/likare. I timestamp vengono randomizzati nelle
+// ultime 23 ore così i contenuti appaiono distribuiti nella giornata.
 // ════════════════════════════════════════════════════════════════════════════
+
+// Genera un timestamp casuale tra le 12:00 UTC di ieri e adesso
+// così i post appaiono distribuiti nelle ultime 24 ore, mai nel futuro
+function randomTimestampSinceMidnight(): string {
+  const now = Date.now()
+  const yesterdayNoon = new Date()
+  yesterdayNoon.setUTCDate(yesterdayNoon.getUTCDate() - 1)
+  yesterdayNoon.setUTCHours(12, 0, 0, 0)
+  const windowMs = now - yesterdayNoon.getTime()
+  // 5 minuti di margine prima di adesso
+  const safeWindow = Math.max(windowMs - 5 * 60 * 1000, 0)
+  const offsetMs = Math.floor(Math.random() * safeWindow)
+  return new Date(yesterdayNoon.getTime() + offsetMs).toISOString()
+}
+
+// Shuffle Fisher-Yates
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
@@ -586,21 +605,13 @@ export async function GET(request: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const currentHour = new Date().getUTCHours()
   const results: string[] = []
 
-  // Ogni utente ha la sua ora "attiva" → agisce solo nell'ora giusta
-  const activeUsers = FAKE_USER_IDS.filter(id => {
-    const targetHour = getUserActiveHour(id)
-    // Piccola finestra: ±0 (esatto) oppure anche l'ora successiva con 30% prob
-    return targetHour === currentHour || (targetHour === currentHour - 1 && Math.random() < 0.3)
-  })
+  // ── Seleziona 3-5 utenti casuali per oggi ─────────────────────────────────
+  const count = 3 + Math.floor(Math.random() * 3) // 3, 4 o 5
+  const activeUsers = shuffle(FAKE_USER_IDS).slice(0, count)
 
-  if (activeUsers.length === 0) {
-    return NextResponse.json({ success: true, message: 'Nessun utente attivo in questa ora', active_hour: currentHour })
-  }
-
-  // Recupera post recenti (ultimi 14 giorni) su cui fare like/commenti
+  // ── Recupera post recenti (ultimi 14 giorni) per like/commenti ────────────
   const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
   const { data: recentPosts } = await supabase
     .from('posts')
@@ -608,7 +619,7 @@ export async function GET(request: NextRequest) {
     .gte('created_at', twoWeeksAgo)
     .limit(60)
 
-  // Controlla chi ha già postato oggi
+  // ── Controlla chi ha già postato oggi ─────────────────────────────────────
   const todayStart = new Date()
   todayStart.setUTCHours(0, 0, 0, 0)
   const { data: todayPosts } = await supabase
@@ -620,17 +631,19 @@ export async function GET(request: NextRequest) {
   const alreadyPostedToday = new Set((todayPosts || []).map((p: any) => p.user_id))
 
   for (const userId of activeUsers) {
-    // Ogni utente: 45% post, 35% commento, 20% like
+    // Ogni utente: 50% post, 30% commento, 20% like
     const roll = Math.random()
 
-    if (roll < 0.45 && !alreadyPostedToday.has(userId)) {
+    if (roll < 0.50 && !alreadyPostedToday.has(userId)) {
       // ── POST ──────────────────────────────────────────────────────────────
       const content = await pickUnusedPost(supabase, userId)
       if (content) {
-        const { error } = await supabase.from('posts').insert({ user_id: userId, content })
+        const { error } = await supabase
+          .from('posts')
+          .insert({ user_id: userId, content, created_at: randomTimestampSinceMidnight() })
         if (!error) {
           await markUsed(supabase, content)
-          results.push(`POST [${FAKE_USERS[userId].username}]: "${content.slice(0, 60)}..."`)
+          results.push(`POST [${FAKE_USERS[userId].username}] @ ${createdAt.slice(11, 16)} UTC: "${content.slice(0, 60)}..."`)
         }
       } else {
         results.push(`SKIP POST [${FAKE_USERS[userId].username}]: pool esaurito`)
@@ -643,12 +656,14 @@ export async function GET(request: NextRequest) {
         const targetPost = pick(eligible)
         const comment = await pickUnusedComment(supabase, targetPost.content || '')
         if (comment) {
+          // Il commento appare dopo il post ma sempre nella giornata
+          const commentAt = randomTimestampSinceMidnight()
           const { error } = await supabase
             .from('comments')
-            .insert({ post_id: targetPost.id, user_id: userId, content: comment })
+            .insert({ post_id: targetPost.id, user_id: userId, content: comment, created_at: commentAt })
           if (!error) {
             await markUsed(supabase, comment)
-            results.push(`COMMENT [${FAKE_USERS[userId].username}]: "${comment}"`)
+            results.push(`COMMENT [${FAKE_USERS[userId].username}] @ ${commentAt.slice(11, 16)} UTC: "${comment}"`)
           }
         } else {
           results.push(`SKIP COMMENT [${FAKE_USERS[userId].username}]: commenti esauriti`)
@@ -668,11 +683,12 @@ export async function GET(request: NextRequest) {
           .maybeSingle()
 
         if (!existing) {
+          const likeAt = randomTimestampSinceMidnight()
           const { error } = await supabase
             .from('likes')
-            .insert({ user_id: userId, post_id: targetPost.id })
+            .insert({ user_id: userId, post_id: targetPost.id, created_at: likeAt })
           if (!error) {
-            results.push(`LIKE [${FAKE_USERS[userId].username}] su post ${targetPost.id.slice(-6)}`)
+            results.push(`LIKE [${FAKE_USERS[userId].username}] @ ${likeAt.slice(11, 16)} UTC su post ${targetPost.id.slice(-6)}`)
           }
         }
       }
@@ -681,7 +697,6 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    current_hour_utc: currentHour,
     active_users: activeUsers.map(id => FAKE_USERS[id].username),
     actions: results.length,
     details: results,
