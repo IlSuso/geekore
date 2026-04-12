@@ -154,6 +154,14 @@ function parseCSV(rawText: string): { rows: Record<string, string>[]; extractedL
     const name = row['name'] || row['title'] || ''
     if (!name) continue
 
+    // Nei CSV lista (header con "position"), scarta le righe di metadati:
+    // sono quelle dove "position" esiste come colonna ma non è un numero intero positivo
+    // (es. la riga "Name,Film Visti,https://letterboxd.com/..." che descrive la lista stessa)
+    if (headers.includes('position')) {
+      const pos = row['position'] || ''
+      if (!pos.match(/^\d+$/)) continue
+    }
+
     // Scarta righe che sembrano metadati: hanno un name ma nessun anno E nessun URI
     // (tipico delle righe descrittive nei CSV lista)
     const hasYear = !!(row['year'] && row['year'].match(/^\d{4}$/))
