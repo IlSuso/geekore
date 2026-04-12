@@ -2,7 +2,7 @@
 // Service Worker Geekore — PWA offline support
 // Fix: clone PRIMA di leggere il body, non dopo
 
-const CACHE_NAME = 'geekore-v3'
+const CACHE_NAME = 'geekore-v4'
 const STATIC_ASSETS = [
   '/',
   '/feed',
@@ -40,14 +40,20 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event
 
-  // Ignora richieste non-GET e chiamate API/Supabase (sempre live)
   if (request.method !== 'GET') return
   const url = new URL(request.url)
   if (
     url.pathname.startsWith('/api/') ||
     url.hostname.includes('supabase.co') ||
     url.hostname.includes('supabase.in') ||
-    url.protocol === 'chrome-extension:'
+    url.protocol === 'chrome-extension:' ||
+    // CDN esterni — lascia passare direttamente al browser
+    url.hostname.includes('steamstatic.com') ||
+    url.hostname.includes('anilist.co') ||
+    url.hostname.includes('tmdb.org') ||
+    url.hostname.includes('igdb.com') ||
+    url.hostname.includes('geekdo-images.com') ||
+    url.hostname.includes('dicebear.com')
   ) return
 
   event.respondWith(networkFirst(request))
@@ -55,29 +61,23 @@ self.addEventListener('fetch', (event) => {
 
 async function networkFirst(request) {
   try {
-    // Fetch dalla rete
     const networkResponse = await fetch(request)
 
-    // Salva in cache solo risposte valide — CLONE prima di qualsiasi .json()/.text()
     if (networkResponse.ok) {
       const cache = await caches.open(CACHE_NAME)
-      // .clone() deve essere chiamato PRIMA che il body venga consumato
       cache.put(request, networkResponse.clone())
     }
 
     return networkResponse
   } catch {
-    // Rete non disponibile — prova dalla cache
     const cached = await caches.match(request)
     if (cached) return cached
 
-    // Fallback per navigazione: mostra / dalla cache
     if (request.mode === 'navigate') {
       const root = await caches.match('/')
       if (root) return root
     }
 
-    // Nessuna cache disponibile
     return new Response('Offline — riprova quando sei connesso', {
       status: 503,
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },
