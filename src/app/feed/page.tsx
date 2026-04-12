@@ -361,7 +361,8 @@ export default function FeedPage() {
         id, user_id, content, image_url, created_at,
         profiles!posts_user_id_fkey (username, display_name, avatar_url),
         likes (id, user_id),
-        comments (id, content, created_at, user_id)
+        comments (id, content, created_at, user_id,
+          profiles!comments_user_id_fkey (username, display_name, avatar_url))
       `)
       .gte('created_at', since)
       .order('created_at', { ascending: false })
@@ -378,8 +379,18 @@ export default function FeedPage() {
 
     const formatted = withLikes.map((post: any) => {
       const likes = post.likes || []
-      const comments = post.comments || []
       const profile = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles
+      const comments = (post.comments || []).map((c: any) => {
+        const cp = Array.isArray(c.profiles) ? c.profiles[0] : c.profiles
+        return {
+          id: c.id,
+          content: c.content,
+          created_at: c.created_at,
+          user_id: c.user_id,
+          username: cp?.username || 'utente',
+          display_name: cp?.display_name,
+        }
+      })
       return {
         id: post.id,
         content: post.content,
@@ -393,7 +404,7 @@ export default function FeedPage() {
         likes_count: likes.length,
         liked_by_user: likes.some((l: any) => l.user_id === userId),
         comments_count: comments.length,
-        comments: [],
+        comments,
         pinned: true,
         user_id: post.user_id,
       }
@@ -490,9 +501,13 @@ export default function FeedPage() {
 
     const newHasMore = (postsData || []).length === PAGE_SIZE
 
+    // Esclude dal feed normale i post già mostrati in evidenza
+    const pinnedIds = new Set(pinnedPosts.map(p => p.id))
+    const filteredFormatted = formatted.filter(p => !pinnedIds.has(p.id))
+
     if (append) {
       setPosts(prev => {
-        const merged = [...prev, ...formatted]
+        const merged = [...prev, ...filteredFormatted]
         cache.posts = merged
         cache.page = pageIndex
         cache.hasMore = newHasMore
@@ -502,8 +517,8 @@ export default function FeedPage() {
       })
       setLoadingMore(false)
     } else {
-      setPosts(formatted)
-      cache.posts = formatted
+      setPosts(filteredFormatted)
+      cache.posts = filteredFormatted
       cache.page = pageIndex
       cache.hasMore = newHasMore
       cache.filter = filter
@@ -512,7 +527,7 @@ export default function FeedPage() {
     }
 
     setHasMore(newHasMore)
-  }, [supabase])
+  }, [supabase, pinnedPosts])
 
   const handleFilterChange = async (filter: 'all' | 'following') => {
     if (!currentUser) return

@@ -69,6 +69,22 @@ export default function EditProfilePage() {
   const [dislikedGenres, setDislikedGenres] = useState<string[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
   const [exporting, setExporting] = useState(false)
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false)
+
+  // 12 omini DiceBear — seed fissi per avere sempre gli stessi personaggi
+  const DICEBEAR_SEEDS = [
+    'felix', 'luna', 'max', 'zara', 'kai', 'nova',
+    'atlas', 'iris', 'leo', 'sage', 'remy', 'eden',
+  ]
+  const dicebearUrl = (seed: string) =>
+    `https://api.dicebear.com/7.x/avataaars/png?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`
+
+  const handlePickDicebear = async (seed: string) => {
+    const url = dicebearUrl(seed)
+    setAvatarPreview(url)
+    setAvatarFile(null) // nessun file da uploadare, salviamo direttamente l'URL
+    setShowAvatarPicker(false)
+  }
 
   const handleExportData = async () => {
     setExporting(true)
@@ -187,6 +203,11 @@ export default function EditProfilePage() {
 
     try {
       let avatarUrl = profile.avatar_url
+
+      // Se è stato scelto un avatar DiceBear (nessun file, URL diretto)
+      if (!avatarFile && avatarPreview && avatarPreview.includes('dicebear.com')) {
+        avatarUrl = avatarPreview
+      }
 
       // S2: Upload via API route con validazione magic bytes server-side
       if (avatarFile) {
@@ -310,6 +331,13 @@ export default function EditProfilePage() {
             >
               {pe.changePhoto}
             </button>
+            <button
+              type="button"
+              onClick={() => setShowAvatarPicker(prev => !prev)}
+              className="text-sm text-fuchsia-400 hover:text-fuchsia-300 transition"
+            >
+              Scegli omino
+            </button>
             {avatarPreview && (
               <button
                 type="button"
@@ -320,6 +348,27 @@ export default function EditProfilePage() {
               </button>
             )}
           </div>
+
+          {/* DiceBear picker */}
+          {showAvatarPicker && (
+            <div className="grid grid-cols-6 gap-2 p-3 bg-zinc-800 border border-zinc-700 rounded-2xl">
+              {DICEBEAR_SEEDS.map(seed => (
+                <button
+                  key={seed}
+                  type="button"
+                  onClick={() => handlePickDicebear(seed)}
+                  className={`w-12 h-12 rounded-xl overflow-hidden border-2 transition-all hover:scale-110 ${
+                    avatarPreview === dicebearUrl(seed)
+                      ? 'border-violet-500 ring-2 ring-violet-500/30'
+                      : 'border-zinc-700 hover:border-violet-500/50'
+                  }`}
+                >
+                  <img src={dicebearUrl(seed)} alt={seed} className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+
           <p className="text-[10px] text-zinc-600">JPEG, PNG, GIF o WebP · max 5MB</p>
         </div>
 
