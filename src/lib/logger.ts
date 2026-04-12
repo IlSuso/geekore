@@ -46,6 +46,9 @@ export const logger = {
   log: (prefix: string, ...args: unknown[]) => {
     if (isDev) console.log(`[${prefix}]`, ...args.map(sanitize))
   },
+  info: (prefix: string, ...args: unknown[]) => {
+    if (isDev) console.info(`[${prefix}]`, ...args.map(sanitize))
+  },
   error: (prefix: string, ...args: unknown[]) => {
     if (isDev) console.error(`[${prefix}]`, ...args.map(sanitize))
   },
