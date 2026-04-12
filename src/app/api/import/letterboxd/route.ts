@@ -66,41 +66,77 @@ function parseCSVLine(line: string): string[] {
 
 /**
  * Parsa un CSV Letterboxd.
- * Gestisce i CSV di lista che hanno righe di metadati iniziali tipo:
+ *
+ * Il CSV di lista Letterboxd ha questa struttura reale (export v7):
  *   ,,,,
- *   Name of list: Film Visti
+ *   Name,Year,Letterboxd URI,Description
+ *   Film Visti,,https://letterboxd.com/...,
  *   ,,,,
  *   Position,Name,Year,Letterboxd URI,Description
- * Estrae il nome lista dai metadati e lo restituisce separatamente.
+ *   1,The Godfather,1972,...,...
+ *
+ * Oppure può iniziare direttamente con l'header (watched.csv, ratings.csv, watchlist.csv).
+ *
+ * La strategia è:
+ * 1. Cerca la riga header "corretta" — quella che ha "position" O ("name" + "year" + "letterboxd")
+ * 2. Tutto ciò che precede l'header viene scansionato per estrarre il nome lista
+ * 3. Le righe dati con valori che sembrano metadati (nessun anno, nessun URI) vengono filtrate
  */
 function parseCSV(rawText: string): { rows: Record<string, string>[]; extractedListName: string | null } {
   const text = rawText.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
   const allLines = text.split('\n')
 
-  // Estrae il nome lista dai metadati (es. "Name of list: Film Visti")
   let extractedListName: string | null = null
-  for (let i = 0; i < Math.min(allLines.length, 10); i++) {
-    const m = allLines[i].match(/^(?:name of list|lista)[:\s]+(.+)/i)
-    if (m && m[1].trim()) {
-      extractedListName = m[1].trim()
+  let headerIdx = -1
+
+  // Prima passata: cerca l'header più specifico possibile
+  // Un header di lista ha "position" come prima colonna
+  // Un header di watched/ratings ha "date" come prima colonna
+  for (let i = 0; i < Math.min(allLines.length, 20); i++) {
+    const lower = allLines[i].toLowerCase().trim()
+    const cols = lower.split(',').map(c => c.trim())
+
+    // Header lista Letterboxd: inizia con "position"
+    if (cols[0] === 'position' && cols.includes('name')) {
+      headerIdx = i
       break
     }
-  }
-
-  // Trova la riga header: deve avere "name" + year/date/position
-  // e NON deve essere una riga di metadati
-  let headerIdx = -1
-  for (let i = 0; i < Math.min(allLines.length, 15); i++) {
-    const lower = allLines[i].toLowerCase().trim()
-    if (lower.startsWith('name of list') || lower.startsWith('lista')) continue
+    // Header watched/ratings/watchlist: inizia con "date" e ha "name"
+    if (cols[0] === 'date' && cols.includes('name') && cols.includes('year')) {
+      headerIdx = i
+      break
+    }
+    // Fallback generico: ha sia "name" che "year" e "letterboxd" da qualche parte
     if (
-      lower.includes('name') &&
-      (lower.includes('year') || lower.includes('date') || lower.includes('position'))
+      cols.includes('name') &&
+      cols.includes('year') &&
+      lower.includes('letterboxd')
     ) {
       headerIdx = i
       break
     }
   }
+
+  // Estrae il nome lista dalle righe prima dell'header
+  const metaLines = allLines.slice(0, headerIdx === -1 ? 10 : headerIdx)
+  for (const line of metaLines) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.replace(/,/g, '').trim() === '') continue // riga vuota o solo virgole
+
+    // Formato "Name of list: Film Visti" o "Name,Film Visti,..."
+    const m1 = trimmed.match(/^name\s+of\s+list[:\s]+(.+)/i)
+    if (m1) { extractedListName = m1[1].trim(); continue }
+
+    // Formato CSV con prima cella "Name" e seconda cella il nome
+    const cells = parseCSVLine(trimmed)
+    if (cells[0]?.toLowerCase() === 'name' && cells[1] && cells[1].trim()) {
+      // Potrebbe essere il nome della lista (non l'header, che avrebbe "Year" in cells[2])
+      if (!cells[2] || !['year', 'letterboxd uri', 'date', 'position'].includes(cells[2].toLowerCase().trim())) {
+        extractedListName = cells[1].trim()
+      }
+    }
+  }
+
   if (headerIdx === -1) return { rows: [], extractedListName }
 
   const headers = parseCSVLine(allLines[headerIdx]).map(h => h.trim().toLowerCase())
@@ -109,12 +145,21 @@ function parseCSV(rawText: string): { rows: Record<string, string>[]; extractedL
   for (let i = headerIdx + 1; i < allLines.length; i++) {
     const line = allLines[i].trim()
     if (!line) continue
+    if (line.replace(/,/g, '').trim() === '') continue // riga solo virgole
+
     const values = parseCSVLine(line)
     const row: Record<string, string> = {}
     headers.forEach((h, idx) => { row[h] = (values[idx] || '').trim() })
-    if (!row['name']) continue
-    // Filtra righe il cui "name" corrisponde al nome della lista (metadato mal-parsato)
-    if (extractedListName && row['name'].toLowerCase() === extractedListName.toLowerCase()) continue
+
+    const name = row['name'] || row['title'] || ''
+    if (!name) continue
+
+    // Scarta righe che sembrano metadati: hanno un name ma nessun anno E nessun URI
+    // (tipico delle righe descrittive nei CSV lista)
+    const hasYear = !!(row['year'] && row['year'].match(/^\d{4}$/))
+    const hasURI  = !!(row['letterboxd uri'] || row['url'] || row['letterboxd_uri'])
+    if (!hasYear && !hasURI) continue
+
     rows.push(row)
   }
 
@@ -194,6 +239,8 @@ async function loadFromCache(
  * Strategia:
  *   1. Cerca per titolo originale + anno, risposta in it-IT (ottiene titolo localizzato)
  *   2. Se nessun risultato con poster, riprova senza anno
+ *   3. Una volta trovato il tmdb_id, fa una seconda chiamata /movie/{id} in it-IT
+ *      per ottenere il titolo localizzato e il poster in alta qualità
  *   Restituisce titolo italiano, poster e tmdb_id.
  */
 async function fetchTmdbData(
@@ -201,21 +248,34 @@ async function fetchTmdbData(
   year: string,
   apiKey: string
 ): Promise<{ tmdbId: number | null; posterUrl: string | null; titleIt: string | null }> {
+  const headers = { 'Authorization': `Bearer ${apiKey}`, 'Accept': 'application/json' }
+
+  // Step 1: cerca per titolo (in inglese, senza bias lingua) per trovare il film
   const search = async (withYear: boolean): Promise<any | null> => {
-    const params = new URLSearchParams({ query: title, language: 'it-IT', page: '1' })
+    const params = new URLSearchParams({ query: title, page: '1' })
     if (withYear && year) params.set('primary_release_year', year)
 
-    const res = await fetch(`${TMDB_BASE}/search/movie?${params.toString()}`, {
-      headers: { 'Authorization': `Bearer ${apiKey}`, 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(6000),
-    })
-    if (!res.ok) return null
-
-    const json = await res.json()
-    const results: any[] = json.results || []
-    let best = results.find((m: any) => m.poster_path && withYear && year && m.release_date?.startsWith(year))
-    if (!best) best = results.find((m: any) => m.poster_path)
-    return best ?? null
+    try {
+      const res = await fetch(`${TMDB_BASE}/search/movie?${params.toString()}`, {
+        headers,
+        signal: AbortSignal.timeout(6000),
+      })
+      if (!res.ok) return null
+      const json = await res.json()
+      const results: any[] = json.results || []
+      // Priorità: anno + poster, poi poster qualsiasi
+      let best = withYear && year
+        ? results.find((m: any) => m.poster_path && m.release_date?.startsWith(year))
+        : null
+      if (!best) best = results.find((m: any) => m.poster_path)
+      // Ultimo fallback: qualsiasi risultato anche senza poster (prendiamo l'id per fare la chiamata dettaglio)
+      if (!best) best = withYear && year
+        ? results.find((m: any) => m.release_date?.startsWith(year))
+        : results[0] ?? null
+      return best ?? null
+    } catch {
+      return null
+    }
   }
 
   try {
@@ -223,10 +283,36 @@ async function fetchTmdbData(
     if (!best) best = await search(false)
     if (!best) return { tmdbId: null, posterUrl: null, titleIt: null }
 
+    const tmdbId: number = best.id
+
+    // Step 2: chiama /movie/{id}?language=it-IT per ottenere titolo italiano e poster localizzato
+    try {
+      const detailRes = await fetch(
+        `${TMDB_BASE}/movie/${tmdbId}?language=it-IT&append_to_response=images&include_image_language=it,en,null`,
+        { headers, signal: AbortSignal.timeout(6000) }
+      )
+      if (detailRes.ok) {
+        const detail = await detailRes.json()
+
+        // Poster: preferisce il poster italiano se disponibile, altrimenti quello di default
+        const itPoster = detail.images?.posters?.find((p: any) => p.iso_639_1 === 'it')
+        const posterPath = itPoster?.file_path || detail.poster_path || best.poster_path
+
+        return {
+          tmdbId,
+          posterUrl: posterPath ? `${TMDB_IMAGE_BASE}${posterPath}` : null,
+          // Titolo italiano: usa detail.title se diverso dall'originale (detail.original_title)
+          titleIt: detail.title && detail.title !== detail.original_title ? detail.title : null,
+        }
+      }
+    } catch {
+      // fallback al risultato della search
+    }
+
+    // Fallback se la chiamata dettaglio fallisce
     return {
-      tmdbId: best.id,
-      posterUrl: `${TMDB_IMAGE_BASE}${best.poster_path}`,
-      // "title" con it-IT è il titolo localizzato; lo usiamo solo se diverso dall'originale
+      tmdbId,
+      posterUrl: best.poster_path ? `${TMDB_IMAGE_BASE}${best.poster_path}` : null,
       titleIt: best.title && best.title !== title ? best.title : null,
     }
   } catch (err) {
