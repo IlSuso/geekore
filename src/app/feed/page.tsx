@@ -378,7 +378,18 @@ export default function FeedPage() {
       .slice(0, 2)
 
     // Fetch profili autori commenti (identico a loadPosts)
-    const
+    const formatted = withLikes.map((post: any) => {
+      const likes = post.likes || []
+      const comments = (post.comments || []).map((c: any) => ({
+        id: c.id,
+        content: c.content,
+        created_at: c.created_at,
+        user_id: c.user_id,
+        username: c.profiles?.username || 'utente',
+        display_name: c.profiles?.display_name,
+      }))
+      const profile = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles
+
       return {
         id: post.id,
         content: post.content,
