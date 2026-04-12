@@ -270,8 +270,8 @@ export default function DiscoverPage() {
         {!loading && !searchTerm.trim() && (
           <div className="text-center py-20 text-zinc-600">
             <Search size={48} className="mx-auto mb-4 opacity-20" />
-            <p className="text-lg font-medium text-zinc-500">{d.startSearching || 'Inizia a cercare'}</p>
-            <p className="text-sm mt-1">{d.searchHint || 'Anime, manga, film, serie, giochi…'}</p>
+            <p className="text-lg font-medium text-zinc-500">{'Inizia a cercare'}</p>
+            <p className="text-sm mt-1">{'Cerca tra anime, manga, film, serie TV, giochi e board game…'}</p>
           </div>
         )}
 
@@ -341,7 +341,7 @@ export default function DiscoverPage() {
 
       {/* Add modal */}
       {selectedMedia && (
-        <BottomSheet onClose={() => setSelectedMedia(null)} title={`Aggiungi: ${selectedMedia.title}`}>
+        <BottomSheet open={!!selectedMedia} onClose={() => setSelectedMedia(null)} title={`Aggiungi: ${selectedMedia.title}`}>
           <div className="p-6 space-y-5">
             <StarRating value={modalRating} onChange={setModalRating} size={28} />
             <button
