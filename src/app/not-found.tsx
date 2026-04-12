@@ -1,5 +1,6 @@
 // src/app/not-found.tsx
 // M7: 404 custom con glitch effect, messaggio geek, CTA rapidi
+// Fix: rimosso styled-jsx (non funziona in Server Component) → animazioni inline
 
 import Link from 'next/link'
 
@@ -15,22 +16,49 @@ export default function NotFound() {
         >
           404
         </h1>
-        {/* Glitch layers */}
+
+        {/* Glitch layer 1 — fuchsia, clip top */}
         <h1
           aria-hidden
-          className="absolute inset-0 text-[140px] sm:text-[180px] font-black leading-none text-fuchsia-500/30 animate-glitch-1"
-          style={{ clipPath: 'inset(20% 0 60% 0)', transform: 'translateX(-4px)' }}
+          className="absolute inset-0 text-[140px] sm:text-[180px] font-black leading-none text-fuchsia-500/30"
+          style={{
+            clipPath: 'inset(20% 0 60% 0)',
+            transform: 'translateX(-4px)',
+            animation: 'geekore-glitch-1 3s infinite',
+          }}
         >
           404
         </h1>
+
+        {/* Glitch layer 2 — cyan, clip bottom */}
         <h1
           aria-hidden
-          className="absolute inset-0 text-[140px] sm:text-[180px] font-black leading-none text-cyan-500/20 animate-glitch-2"
-          style={{ clipPath: 'inset(60% 0 20% 0)', transform: 'translateX(4px)' }}
+          className="absolute inset-0 text-[140px] sm:text-[180px] font-black leading-none text-cyan-500/20"
+          style={{
+            clipPath: 'inset(60% 0 20% 0)',
+            transform: 'translateX(4px)',
+            animation: 'geekore-glitch-2 3s infinite 0.5s',
+          }}
         >
           404
         </h1>
       </div>
+
+      {/* Keyframes iniettati una volta sola via <style> tag (valido in Server Component) */}
+      <style>{`
+        @keyframes geekore-glitch-1 {
+          0%,100% { transform: translateX(-4px); opacity: .3; }
+          25%      { transform: translateX( 4px); opacity: .5; }
+          50%      { transform: translateX(-2px); opacity: .2; }
+          75%      { transform: translateX( 2px); opacity: .4; }
+        }
+        @keyframes geekore-glitch-2 {
+          0%,100% { transform: translateX( 4px); opacity: .2; }
+          25%      { transform: translateX(-4px); opacity: .4; }
+          50%      { transform: translateX( 2px); opacity: .3; }
+          75%      { transform: translateX(-2px); opacity: .2; }
+        }
+      `}</style>
 
       {/* Messaggio geek */}
       <p className="text-xl sm:text-2xl font-semibold mb-3 text-center">
@@ -61,23 +89,6 @@ export default function NotFound() {
           👤 Il mio profilo
         </Link>
       </div>
-
-      <style jsx>{`
-        @keyframes glitch-1 {
-          0%, 100% { transform: translateX(-4px); opacity: 0.3; }
-          25% { transform: translateX(4px); opacity: 0.5; }
-          50% { transform: translateX(-2px); opacity: 0.2; }
-          75% { transform: translateX(2px); opacity: 0.4; }
-        }
-        @keyframes glitch-2 {
-          0%, 100% { transform: translateX(4px); opacity: 0.2; }
-          25% { transform: translateX(-4px); opacity: 0.4; }
-          50% { transform: translateX(2px); opacity: 0.3; }
-          75% { transform: translateX(-2px); opacity: 0.2; }
-        }
-        .animate-glitch-1 { animation: glitch-1 3s infinite; }
-        .animate-glitch-2 { animation: glitch-2 3s infinite 0.5s; }
-      `}</style>
     </div>
   )
 }
