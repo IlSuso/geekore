@@ -330,7 +330,7 @@ export default function FeedPage() {
   const loadPinnedPosts = useCallback(async (userId: string) => {
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('posts')
       .select(`
         id, content, image_url, created_at,
@@ -342,6 +342,7 @@ export default function FeedPage() {
       .order('created_at', { ascending: false })
       .limit(50)
 
+    if (error) { console.error('[Feed] Errore pinned posts:', error); return }
     if (!data) return
 
     const withLikes = data

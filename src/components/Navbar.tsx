@@ -7,7 +7,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, Search, Bell, Zap, Newspaper, Sparkles, ChevronDown, Edit3, Bookmark, User, Settings, LogOut, X, Sun, Moon } from 'lucide-react'
+import { Home, Search, Bell, Zap, Newspaper, Sparkles, ChevronDown, Edit3, Bookmark, User, Settings, LogOut, X, Sun, Moon, Users } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useLocale } from '@/lib/locale'
@@ -54,6 +54,10 @@ export default function Navbar() {
     { href: '/for-you',       label: t.nav.forYou,        icon: Sparkles },
     { href: '/news',          label: t.nav.news,          icon: Newspaper },
     { href: '/notifications', label: t.nav.notifications, icon: Bell, hasDot: true },
+  ]
+
+  const MOBILE_EXTRA_ITEMS = [
+    { href: '/search', label: 'Cerca', icon: Users, hasDot: false },
   ]
 
   useEffect(() => {
@@ -268,7 +272,7 @@ export default function Navbar() {
       {/* z-[100]: sopra tutto il contenuto, inclusi modali z-50~z-90 */}
       <nav className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-black/90 backdrop-blur-2xl border-t border-zinc-800/60">
         <div className="flex items-center justify-around py-2 px-1">
-          {[...NAV_ITEMS, { href: '/profile/me', label: t.nav.profile, icon: User, hasDot: false }].map((item) => {
+          {[...NAV_ITEMS, { href: '/search', label: 'Cerca', icon: Users, hasDot: false }, { href: '/profile/me', label: t.nav.profile, icon: User, hasDot: false }].map((item) => {
             const isActive = item.href === '/profile/me' ? isProfileActive : pathname === item.href
             return (
               <Link key={item.href} href={item.href} prefetch={true}

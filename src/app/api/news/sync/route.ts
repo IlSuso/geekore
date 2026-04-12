@@ -6,7 +6,7 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 
 function tmdbHeaders() {
   return {
-    'Authorization': `Bearer ${process.env.NEXT_PUBLIC_TMDB_API_KEY}`,
+    'Authorization': `Bearer ${process.env.TMDB_API_KEY}`,
     'Accept': 'application/json',
   }
 }

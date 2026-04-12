@@ -8,7 +8,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Camera, Upload, Loader2, Sparkles } from 'lucide-react'
+import { Camera, Upload, Loader2, Sparkles, Download } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { Avatar } from '@/components/ui/Avatar'
 
@@ -68,6 +68,30 @@ export default function EditProfilePage() {
   const [likedGenres, setLikedGenres] = useState<string[]>([])
   const [dislikedGenres, setDislikedGenres] = useState<string[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
+  const [exporting, setExporting] = useState(false)
+
+  const handleExportData = async () => {
+    setExporting(true)
+    try {
+      const res = await fetch('/api/user/export')
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        alert(err.error || 'Errore durante l\'esportazione')
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `geekore-export-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   useEffect(() => {
     const load = async () => {
@@ -426,6 +450,21 @@ export default function EditProfilePage() {
               : pe.save
             }
           </button>
+
+          {/* 6.4 — Export dati (GDPR) */}
+          <div className="pt-4 border-t border-zinc-800">
+            <p className="text-xs text-zinc-500 mb-3">Puoi scaricare una copia di tutti i tuoi dati in formato JSON.</p>
+            <button
+              type="button"
+              onClick={handleExportData}
+              disabled={exporting}
+              className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-2xl text-sm font-medium text-zinc-300 transition disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {exporting
+                ? <><Loader2 size={16} className="animate-spin" /> Esportazione in corso...</>
+                : <><Download size={16} /> Esporta i tuoi dati</>}
+            </button>
+          </div>
         </form>
       </div>
     </div>

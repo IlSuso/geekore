@@ -691,7 +691,8 @@ export default function ProfilePage() {
     })
 
   const refreshMedia = async (userId: string) => {
-    const { data } = await supabase.from('user_media_entries').select('*').eq('user_id', userId)
+    const { data, error } = await supabase.from('user_media_entries').select('*').eq('user_id', userId)
+    if (error) { console.error('[Profile] Errore refresh media:', error); return }
     if (data) setMediaList(sortMediaList(data))
   }
 
@@ -714,7 +715,8 @@ export default function ProfilePage() {
     if (!currentUserId || reorderingGames) return
     setReorderingGames(true)
     try {
-      const { data } = await supabase.from('user_media_entries').select('*').eq('user_id', currentUserId).eq('type', 'game')
+      const { data, error } = await supabase.from('user_media_entries').select('*').eq('user_id', currentUserId).eq('type', 'game')
+      if (error) { console.error('[Profile] Errore reorder games:', error); return }
       if (!data?.length) return
       const sorted = [...data].sort((a, b) => (b.current_episode || 0) - (a.current_episode || 0))
       const updates = sorted.map((g, i) => ({ id: g.id, display_order: Date.now() - i * 10000 }))
@@ -829,26 +831,40 @@ export default function ProfilePage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError) {
+        console.error('[Profile] Errore autenticazione:', authError)
+        setLoading(false)
+        return
+      }
       setCurrentUserId(user?.id || null)
 
-      const { data: profileData } = await supabase.from('profiles').select('id, username, display_name, avatar_url, bio').ilike('username', username).single()
-      if (!profileData) { setLoading(false); return }
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, username, display_name, avatar_url, bio')
+        .ilike('username', username)
+        .single()
+
+      if (profileError || !profileData) { setLoading(false); return }
       setProfile(profileData)
 
       const ownerCheck = !!user && user.id === profileData.id
       setIsOwner(ownerCheck)
 
       const [steamResult, mediaResult, fwersResult, fwingResult, followResult] = await Promise.all([
-        ownerCheck ? supabase.from('steam_accounts').select('*').eq('user_id', user!.id).maybeSingle() : Promise.resolve({ data: null }),
+        ownerCheck ? supabase.from('steam_accounts').select('*').eq('user_id', user!.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
         supabase.from('user_media_entries').select('*').eq('user_id', profileData.id),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profileData.id),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profileData.id),
-        (user && !ownerCheck) ? supabase.from('follows').select('follower_id').eq('follower_id', user.id).eq('following_id', profileData.id).maybeSingle() : Promise.resolve({ data: null }),
+        (user && !ownerCheck) ? supabase.from('follows').select('follower_id').eq('follower_id', user.id).eq('following_id', profileData.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
       ])
 
       if (ownerCheck) setSteamAccount(steamResult.data)
-      if (mediaResult.data) setMediaList(sortMediaList(mediaResult.data))
+      if (mediaResult.error) {
+        console.error('[Profile] Errore caricamento media:', mediaResult.error)
+      } else if (mediaResult.data) {
+        setMediaList(sortMediaList(mediaResult.data))
+      }
       setFollowersCount(fwersResult.count || 0)
       setFollowingCount(fwingResult.count || 0)
       if (user && !ownerCheck) setIsFollowing(!!followResult.data)

@@ -9,7 +9,7 @@ const TMDB_BASE = 'https://api.themoviedb.org/3'
 
 function tmdbHeaders() {
   return {
-    'Authorization': `Bearer ${process.env.NEXT_PUBLIC_TMDB_API_KEY}`,
+    'Authorization': `Bearer ${process.env.TMDB_API_KEY}`,
     'Accept': 'application/json',
   }
 }
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
   if (!q || q.trim().length < 2) return NextResponse.json([], { headers: rl.headers })
 
   const term = q.trim().slice(0, 100)
-  const token = process.env.NEXT_PUBLIC_TMDB_API_KEY
+  const token = process.env.TMDB_API_KEY
   if (!token) return NextResponse.json([], { headers: rl.headers })
 
   let types: ('movie' | 'tv')[] = ['movie', 'tv']

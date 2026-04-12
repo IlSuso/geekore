@@ -1723,7 +1723,7 @@ export async function GET(request: NextRequest) {
       ...(wishlistRaw || []).map(w => w.external_id).filter(Boolean),
     ])
 
-    const tmdbToken = process.env.NEXT_PUBLIC_TMDB_API_KEY || ''
+    const tmdbToken = process.env.TMDB_API_KEY || ''
     const igdbClientId = process.env.IGDB_CLIENT_ID || ''
     const igdbClientSecret = process.env.IGDB_CLIENT_SECRET || ''
 

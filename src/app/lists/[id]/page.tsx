@@ -76,7 +76,7 @@ export default function ListDetailPage() {
       const { data: { user } } = await supabase.auth.getUser()
 
       // Carica lista + owner
-      const { data: listData } = await supabase
+      const { data: listData, error: listError } = await supabase
         .from('user_lists')
         .select(`
           id, title, description, is_public, user_id, created_at,
@@ -85,7 +85,7 @@ export default function ListDetailPage() {
         .eq('id', id)
         .single()
 
-      if (!listData) { router.push('/lists'); return }
+      if (listError || !listData) { router.push('/lists'); return }
 
       setList({
         ...listData,
@@ -94,22 +94,22 @@ export default function ListDetailPage() {
       setIsOwner(user?.id === listData.user_id)
 
       // Carica items
-      const { data: itemsData } = await supabase
+      const { data: itemsData, error: itemsError } = await supabase
         .from('user_list_items')
         .select('id, media_id, media_title, media_type, media_cover, notes, position')
         .eq('list_id', id)
         .order('position', { ascending: true })
 
-      setItems(itemsData || [])
+      if (!itemsError) setItems(itemsData || [])
 
       // Se owner: carica collezione per poter aggiungere titoli
       if (user && user.id === listData.user_id) {
-        const { data: col } = await supabase
+        const { data: col, error: colError } = await supabase
           .from('user_media_entries')
           .select('external_id, title, type, cover_image')
           .eq('user_id', user.id)
           .order('display_order', { ascending: false })
-        setCollectionItems(col || [])
+        if (!colError) setCollectionItems(col || [])
       }
 
       setLoading(false)

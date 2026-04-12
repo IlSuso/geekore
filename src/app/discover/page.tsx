@@ -431,7 +431,7 @@ export default function DiscoverPage() {
                     {/* Add button */}
                     {!alreadyAdded.includes(item.id) && (
                       <button
-                        onClick={e => { e.stopPropagation(); setSelectedMedia(item); setModalRating(0); setCurrentEpisode(''); }}
+                        onClick={e => { e.stopPropagation(); setSelectedSeason(1); setCurrentEpisode(''); setModalRating(0); setSelectedMedia(item); }}
                         className="absolute bottom-2 right-2 w-7 h-7 bg-violet-600 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <Plus size={13} className="text-white" />
