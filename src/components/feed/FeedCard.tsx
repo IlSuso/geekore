@@ -5,7 +5,7 @@
 // A6: fix locale lazy import
 
 import { useState, useEffect, memo } from 'react'
-import { Flame, MessageSquare, Send, Loader2, Pin } from 'lucide-react'
+import { Flame, MessageSquare, Send, Loader2, Pin, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
@@ -189,6 +189,11 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
     setIsSubmitting(false)
   }
 
+  const handleDeleteComment = async (commentId: string) => {
+    await supabase.from('comments').delete().eq('id', commentId)
+    setComments(prev => prev.filter(c => c.id !== commentId))
+  }
+
   const showReport = user && user.id !== post.user_id
 
   return (
@@ -305,14 +310,24 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
                       className="rounded-xl"
                     />
                   </div>
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-2 flex-1">
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-2 flex-1 group">
                     <div className="flex items-center justify-between gap-2">
                       <Link href={`/profile/${comment.profiles?.username}`} className="text-[10px] font-bold text-violet-400 uppercase tracking-wider hover:text-violet-300">
                         @{comment.profiles?.username || 'user'}
                       </Link>
-                      {user && user.id !== comment.user_id && (
-                        <ReportButton targetType="comment" targetId={comment.id} iconOnly />
-                      )}
+                      <div className="flex items-center gap-1">
+                        {user && user.id === comment.user_id && (
+                          <button
+                            onClick={() => handleDeleteComment(comment.id)}
+                            className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 transition-all"
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        )}
+                        {user && user.id !== comment.user_id && (
+                          <ReportButton targetType="comment" targetId={comment.id} iconOnly />
+                        )}
+                      </div>
                     </div>
                     <p className="text-zinc-300 text-xs mt-0.5">{comment.content}</p>
                   </div>

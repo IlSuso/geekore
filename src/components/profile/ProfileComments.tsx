@@ -58,19 +58,31 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
     setLoading(true)
     const { data } = await supabase
       .from('profile_comments')
-      .select(`
-        id, content, created_at, author_id,
-        author:profiles!author_id (username, display_name, avatar_url)
-      `)
+      .select('id, content, created_at, author_id')
       .eq('profile_id', profileId)
       .eq('is_deleted', false)
       .order('created_at', { ascending: false })
       .limit(30)
 
+    if (!data || data.length === 0) {
+      setComments([])
+      setLoading(false)
+      return
+    }
+
+    // Carica i profili degli autori separatamente
+    const authorIds = [...new Set(data.map((c: any) => c.author_id))]
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url')
+      .in('id', authorIds)
+
+    const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]))
+
     setComments(
-      (data || []).map((c: any) => ({
+      data.map((c: any) => ({
         ...c,
-        author: Array.isArray(c.author) ? c.author[0] : c.author,
+        author: profileMap.get(c.author_id) || { username: 'utente', display_name: undefined, avatar_url: undefined },
       }))
     )
     setLoading(false)
@@ -100,23 +112,40 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
     const draft = newComment.trim()
     setNewComment('')
 
-    const { error } = await supabase.from('profile_comments').insert({
-      profile_id: profileId,
-      author_id: currentUserId,
-      content: draft,
-    })
+    const { data: inserted, error } = await supabase
+      .from('profile_comments')
+      .insert({
+        profile_id: profileId,
+        author_id: currentUserId,
+        content: draft,
+      })
+      .select('id, content, created_at, author_id')
+      .single()
 
-    if (error) {
+    if (error || !inserted) {
       setComments(prev => prev.filter(c => c.id !== optimistic.id))
       showToast('Errore nell\'invio del commento', 'error')
     } else {
+      // Sostituisce l'optimistic con il record reale (id vero dal DB)
+      const { data: authorProfile } = await supabase
+        .from('profiles')
+        .select('username, display_name, avatar_url')
+        .eq('id', currentUserId)
+        .single()
+
+      setComments(prev => prev.map(c =>
+        c.id === optimistic.id
+          ? { ...inserted, author: authorProfile || { username: currentUsername || 'tu', display_name: undefined, avatar_url: undefined } }
+          : c
+      ))
+
       // Notifica al proprietario del profilo
       if (profileId !== currentUserId) {
         await supabase.from('notifications').insert({
           receiver_id: profileId,
           sender_id: currentUserId,
           type: 'comment',
-        }).then(() => {}) // non bloccare
+        }).then(() => {})
       }
     }
 
@@ -125,7 +154,7 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
 
   const handleDelete = async (commentId: string, authorId: string) => {
     if (!currentUserId) return
-    if (currentUserId !== authorId && !isOwner) return
+    if (currentUserId !== authorId) return
 
     await supabase
       .from('profile_comments')
@@ -216,7 +245,7 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
                       })}
                     </span>
                     {/* Delete button — visible solo all'autore o al proprietario del profilo */}
-                    {(currentUserId === comment.author_id || isOwner) && (
+                    {currentUserId === comment.author_id && (
                       <button
                         onClick={() => handleDelete(comment.id, comment.author_id)}
                         className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 transition-all"
