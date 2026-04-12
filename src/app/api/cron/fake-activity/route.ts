@@ -643,7 +643,7 @@ export async function GET(request: NextRequest) {
           .insert({ user_id: userId, content, created_at: randomTimestampSinceMidnight() })
         if (!error) {
           await markUsed(supabase, content)
-          results.push(`POST [${FAKE_USERS[userId].username}] @ ${createdAt.slice(11, 16)} UTC: "${content.slice(0, 60)}..."`)
+          results.push(`POST [${FAKE_USERS[userId].username}]: "${content.slice(0, 60)}..."`)
         }
       } else {
         results.push(`SKIP POST [${FAKE_USERS[userId].username}]: pool esaurito`)
