@@ -39,3 +39,9 @@ next-env.d.ts
 # Misc
 .vercel
 .turbo
+
+# Playwright
+/playwright-report/
+/test-results/
+/tests/.auth/
+tests/.env.test

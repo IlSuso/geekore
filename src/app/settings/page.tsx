@@ -1,10 +1,11 @@
 // N1: Aura aggiunto nel ciclo temi
 'use client'
 // src/app/settings/page.tsx
-// M5: Aggiunta sezione "Sicurezza" con cambio password, logout da tutti i dispositivi
-// e info sull'ultimo accesso.
+// M5: Sezione "Sicurezza" con cambio password, logout da tutti i dispositivi, ultimo accesso
+// #22: Sezione importazione Xbox aggiunta
+// #24: Toggle digest email settimanale
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useLocale } from '@/lib/locale'
 import { useTheme } from '@/lib/theme'
 import { createClient } from '@/lib/supabase/client'
@@ -12,10 +13,11 @@ import { showToast } from '@/components/ui/Toast'
 import {
   Settings, Globe, Sun, Moon, Download, List, TrendingUp, BarChart3, Bell,
   Shield, KeyRound, LogOut, Eye, EyeOff, Loader2, ChevronDown, ChevronUp,
-  Circle, Sparkles,
+  Circle, Sparkles, Mail,
 } from 'lucide-react'
 import { AniListImport } from '@/components/import/AniListImport'
 import { MALImport } from '@/components/import/MALImport'
+import { XboxImport } from '@/components/import/XboxImport'
 import { PushNotificationsToggle } from '@/components/notifications/PushNotificationsToggle'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -39,7 +41,6 @@ function ChangePasswordSheet() {
     }
     setLoading(true)
     try {
-      // Verifica la password corrente ri-autenticando
       const { data: { user } } = await supabase.auth.getUser()
       if (!user?.email) throw new Error('Utente non trovato')
 
@@ -174,19 +175,17 @@ function LastAccessInfo() {
   const [info, setInfo] = useState<string | null>(null)
   const supabase = createClient()
 
-  useState(() => {
+  useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      // last_sign_in_at è disponibile sul tipo User di Supabase
       const ts = (user as any)?.last_sign_in_at
       if (ts) {
-        const date = new Date(ts)
-        setInfo(date.toLocaleString('it-IT', {
+        setInfo(new Date(ts).toLocaleString('it-IT', {
           day: 'numeric', month: 'long', year: 'numeric',
           hour: '2-digit', minute: '2-digit',
         }))
       }
     })
-  })
+  }, [])
 
   if (!info) return null
 
@@ -194,6 +193,96 @@ function LastAccessInfo() {
     <p className="text-xs text-zinc-600 px-4 pb-3">
       Sessione corrente iniziata il {info}
     </p>
+  )
+}
+
+// ─── #24 Toggle digest email settimanale ─────────────────────────────────────
+
+function DigestToggle() {
+  const [enabled, setEnabled] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const supabase = createClient()
+
+  useEffect(() => {
+    const load = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setLoading(false); return }
+
+      // Gestisce digest=off da URL (link unsubscribe nelle email)
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('digest') === 'off') {
+        await supabase.from('user_preferences').upsert({
+          user_id: user.id,
+          digest_enabled: false,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' })
+        setEnabled(false)
+        setLoading(false)
+        showToast('Digest settimanale disattivato')
+        // Rimuovi il param dall'URL senza ricaricare la pagina
+        window.history.replaceState({}, '', window.location.pathname)
+        return
+      }
+
+      const { data } = await supabase
+        .from('user_preferences')
+        .select('digest_enabled')
+        .eq('user_id', user.id)
+        .single()
+
+      // Default true se il campo non esiste ancora
+      setEnabled(data?.digest_enabled !== false)
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  const toggle = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const next = !enabled
+    setEnabled(next)
+
+    await supabase.from('user_preferences').upsert({
+      user_id: user.id,
+      digest_enabled: next,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' })
+
+    showToast(next ? 'Digest settimanale attivato' : 'Digest settimanale disattivato')
+  }
+
+  return (
+    <div className="flex items-center justify-between p-4 bg-zinc-900 border border-zinc-800 rounded-2xl">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 bg-violet-500/20 rounded-xl flex items-center justify-center">
+          <Mail size={15} className="text-violet-400" />
+        </div>
+        <div>
+          <p className="text-sm font-medium text-white">Digest settimanale</p>
+          <p className="text-xs text-zinc-500">Riepilogo ogni lunedì: gusti, completati, trending</p>
+        </div>
+      </div>
+
+      {loading ? (
+        <Loader2 size={18} className="text-zinc-600 animate-spin" />
+      ) : (
+        <button
+          onClick={toggle}
+          className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
+            enabled ? 'bg-violet-600' : 'bg-zinc-700'
+          }`}
+          aria-label={enabled ? 'Disattiva digest' : 'Attiva digest'}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+              enabled ? 'translate-x-5' : 'translate-x-0'
+            }`}
+          />
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -287,16 +376,19 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Notifiche push */}
+        {/* Notifiche push + digest */}
         <section>
           <div className="flex items-center gap-2 mb-3">
             <Bell size={15} className="text-zinc-500" />
             <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Notifiche</h2>
           </div>
-          <PushNotificationsToggle />
+          <div className="space-y-3">
+            <PushNotificationsToggle />
+            <DigestToggle />
+          </div>
         </section>
 
-        {/* Import */}
+        {/* Importazione — AniList + MAL + Xbox */}
         <section>
           <div className="flex items-center gap-2 mb-3">
             <Download size={15} className="text-zinc-500" />
@@ -305,10 +397,12 @@ export default function SettingsPage() {
           <div className="space-y-4">
             <AniListImport />
             <MALImport />
+            {/* #22: Xbox import */}
+            <XboxImport />
           </div>
         </section>
 
-        {/* Link */}
+        {/* Link utili */}
         <section>
           <div className="flex items-center gap-2 mb-3">
             <BarChart3 size={15} className="text-zinc-500" />

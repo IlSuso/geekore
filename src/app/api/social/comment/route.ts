@@ -1,6 +1,8 @@
+// DESTINAZIONE: src/app/api/social/comment/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
+import { sendPushToUser, commentPayload } from '@/lib/push'
 
 export async function POST(request: NextRequest) {
   const rl = rateLimit(request, { limit: 20, windowMs: 60_000, prefix: 'comment' })
@@ -19,6 +21,11 @@ export async function POST(request: NextRequest) {
   const { data: post } = await supabase.from('posts').select('user_id').eq('id', post_id).single()
   if (post && post.user_id !== user.id) {
     await supabase.from('notifications').insert({ type: 'comment', sender_id: user.id, receiver_id: post.user_id, post_id })
+    // F: notifica push al proprietario del post
+    const { data: sender } = await supabase.from('profiles').select('username').eq('id', user.id).single()
+    if (sender?.username) {
+      await sendPushToUser(post.user_id, commentPayload(sender.username, post_id))
+    }
   }
   return NextResponse.json({ success: true, comment: data }, { headers: rl.headers })
 }

@@ -1,6 +1,8 @@
+// DESTINAZIONE: src/app/api/social/like/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
+import { sendPushToUser, likePayload } from '@/lib/push'
 
 export async function POST(request: NextRequest) {
   const rl = rateLimit(request, { limit: 60, windowMs: 60_000, prefix: 'like' })
@@ -18,6 +20,11 @@ export async function POST(request: NextRequest) {
     const { data: post } = await supabase.from('posts').select('user_id').eq('id', post_id).single()
     if (post && post.user_id !== user.id) {
       await supabase.from('notifications').insert({ type: 'like', sender_id: user.id, receiver_id: post.user_id, post_id })
+      // F: notifica push al proprietario del post
+      const { data: sender } = await supabase.from('profiles').select('username').eq('id', user.id).single()
+      if (sender?.username) {
+        await sendPushToUser(post.user_id, likePayload(sender.username, post_id))
+      }
     }
   } else {
     await supabase.from('likes').delete().eq('post_id', post_id).eq('user_id', user.id)
