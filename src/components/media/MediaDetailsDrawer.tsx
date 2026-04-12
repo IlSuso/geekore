@@ -1,11 +1,11 @@
 'use client'
-// src/components/media/MediaDetailsDrawer.tsx
-// M2: Skeleton loader per le sezioni utente durante il caricamento (300-500ms gap eliminato)
+// DESTINAZIONE: src/components/media/MediaDetailsDrawer.tsx
+// V3: salva studios/directors/authors in user_media_entries + taste delta real-time + wishlist genres
 
 import { useEffect, useState, useCallback } from 'react'
 import {
   X, ExternalLink, Star, Clock, Users, Layers,
-  Gamepad2, BookOpen, Film, Tv, Dices, ChevronRight,
+  Gamepad2, BookOpen, Film, Tv, Dices, Clapperboard,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -33,6 +33,14 @@ export interface MediaDetails {
   themes?: string[]
   score?: number
   externalUrl?: string
+  // V3: creator fields (da AniList/IGDB search)
+  studios?: string[]
+  directors?: string[]
+  authors?: string[]
+  relations?: Array<{
+    relationType: string; id: string; type: string
+    title: string; coverImage?: string; year?: number; genres: string[]
+  }>
 }
 
 interface MediaDetailsDrawerProps {
@@ -42,7 +50,7 @@ interface MediaDetailsDrawerProps {
   onAdd?: (media: MediaDetails) => void
 }
 
-// ─── Helper ───────────────────────────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function buildExternalUrl(media: MediaDetails): string | undefined {
   if (media.externalUrl) return media.externalUrl
@@ -54,6 +62,19 @@ function buildExternalUrl(media: MediaDetails): string | undefined {
   if (media.source === 'igdb') return `https://www.igdb.com/games/${id}`
   if (media.source === 'bgg') return `https://boardgamegeek.com/boardgame/${id}`
   return undefined
+}
+
+// V3: fire-and-forget taste delta
+function triggerTasteDelta(options: {
+  action: 'rating' | 'status_change' | 'wishlist_add'
+  mediaId: string; mediaType: string; genres: string[]
+  rating?: number; status?: string
+}) {
+  fetch('/api/taste/update', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  }).catch(() => {})
 }
 
 const TYPE_ICON: Record<string, React.ElementType> = {
@@ -69,18 +90,21 @@ const TYPE_LABEL: Record<string, string> = {
   tv: 'Serie TV', movie: 'Film', boardgame: 'Board Game',
 }
 
-// ─── M2: Skeleton per le sezioni utente ──────────────────────────────────────
+const RELATION_LABEL: Record<string, string> = {
+  SEQUEL: 'Sequel', PREQUEL: 'Prequel', SIDE_STORY: 'Side story',
+  SPIN_OFF: 'Spin-off', ALTERNATIVE: 'Alternativo',
+}
+
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 function UserDataSkeleton() {
   return (
     <div className="animate-pulse space-y-3 pt-2">
-      {/* Progress skeleton */}
       <div className="space-y-2">
         <div className="h-3 bg-zinc-800 rounded-full w-24" />
         <div className="h-2 bg-zinc-800 rounded-full" />
         <div className="h-3 bg-zinc-800 rounded-full w-16" />
       </div>
-      {/* CTA skeleton */}
       <div className="h-12 bg-zinc-800 rounded-2xl" />
       <div className="h-10 bg-zinc-800 rounded-2xl" />
     </div>
@@ -92,10 +116,9 @@ function UserDataSkeleton() {
 export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDetailsDrawerProps) {
   const [inCollection, setInCollection] = useState(false)
   const [inWishlist, setInWishlist] = useState(false)
-  const [checkDone, setCheckDone] = useState(false) // M2: controlla quando il check è fatto
+  const [checkDone, setCheckDone] = useState(false)
   const supabase = createClient()
 
-  // Blocca scroll body quando aperto
   useEffect(() => {
     if (media) {
       document.body.style.overflow = 'hidden'
@@ -105,17 +128,15 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     return () => { document.body.style.overflow = '' }
   }, [media])
 
-  // Chiudi con Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
 
-  // Controlla se già in collezione o wishlist
   useEffect(() => {
     if (!media) { setCheckDone(false); return }
-    setCheckDone(false) // M2: reset per mostrare skeleton al cambio media
+    setCheckDone(false)
     const check = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setCheckDone(true); return }
@@ -135,6 +156,8 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     if (onAdd) { onAdd(media); return }
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+
+    // V3: includi studios/directors/authors nell'insert per il creator tracking
     const { error } = await supabase.from('user_media_entries').insert({
       user_id: user.id,
       external_id: media.id,
@@ -144,10 +167,26 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
       genres: media.genres || [],
       status: media.type === 'movie' ? 'completed' : 'watching',
       current_episode: 1,
+      // V3: creator data
+      studios: media.studios || [],
+      directors: media.directors || [],
+      authors: media.authors || [],
+      developer: media.developers?.[0] || null,
     })
     if (!error) {
       setInCollection(true)
       showToast(`"${media.title}" aggiunto alla collezione`)
+
+      // V3: aggiorna taste profile in real-time
+      if ((media.genres || []).length > 0) {
+        triggerTasteDelta({
+          action: 'status_change',
+          mediaId: media.id,
+          mediaType: media.type,
+          genres: media.genres || [],
+          status: media.type === 'movie' ? 'completed' : 'watching',
+        })
+      }
     }
   }, [media, onAdd])
 
@@ -160,12 +199,26 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
       setInWishlist(false)
       showToast('Rimosso dalla wishlist')
     } else {
+      // V3: salva generi e studios per amplificazione profilo
       await supabase.from('wishlist').upsert({
         user_id: user.id, external_id: media.id,
         title: media.title, type: media.type, cover_image: media.coverImage,
+        genres: media.genres || [],        // V3: amplificatore
+        media_type: media.type,            // V3
+        studios: media.studios || [],      // V3: creator da wishlist
       }, { onConflict: 'user_id,external_id' })
       setInWishlist(true)
       showToast('Aggiunto alla wishlist')
+
+      // V3: amplifica il profilo gusti
+      if ((media.genres || []).length > 0) {
+        triggerTasteDelta({
+          action: 'wishlist_add',
+          mediaId: media.id,
+          mediaType: media.type,
+          genres: media.genres || [],
+        })
+      }
     }
   }, [media, inWishlist])
 
@@ -173,6 +226,20 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
   const Icon = TYPE_ICON[media.type] || Film
   const externalUrl = buildExternalUrl(media)
+
+  // V3: creator display (studios o directors o authors)
+  const creatorLabel = media.studios?.length
+    ? media.studios.slice(0, 2).join(', ')
+    : media.directors?.length
+    ? media.directors.slice(0, 2).join(', ')
+    : media.authors?.length
+    ? media.authors.slice(0, 2).join(', ')
+    : null
+
+  // V3: relations filtrate (solo sequel/prequel/spinoff)
+  const continuityRelations = (media.relations || [])
+    .filter(r => ['SEQUEL', 'PREQUEL', 'SIDE_STORY', 'SPIN_OFF'].includes(r.relationType))
+    .slice(0, 4)
 
   return (
     <>
@@ -194,11 +261,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
         {/* Header con cover */}
         <div className="relative h-72 bg-zinc-900 flex-shrink-0 overflow-hidden">
           {media.coverImage ? (
-            <img
-              src={media.coverImage}
-              alt={media.title}
-              className="w-full h-full object-cover"
-            />
+            <img src={media.coverImage} alt={media.title} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <Icon size={64} className="text-zinc-700" />
@@ -222,14 +285,22 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
           <div className="absolute bottom-4 left-5 right-5">
             <h2 className="text-xl font-bold text-white leading-tight line-clamp-2">{media.title}</h2>
-            {media.year && <p className="text-sm text-zinc-400 mt-1">{media.year}</p>}
+            <div className="flex items-center gap-2 mt-1">
+              {media.year && <p className="text-sm text-zinc-400">{media.year}</p>}
+              {/* V3: creator inline nell'header */}
+              {creatorLabel && (
+                <p className="text-sm text-sky-400 flex items-center gap-1 truncate">
+                  <Clapperboard size={11} />{creatorLabel}
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Contenuto */}
         <div className="p-5 space-y-6">
 
-          {/* Score + stats veloci */}
+          {/* Score + stats */}
           <div className="flex flex-wrap gap-3">
             {media.score != null && (
               <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2">
@@ -300,15 +371,33 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             </div>
           )}
 
+          {/* V3: Studios / Directors / Authors */}
+          {(media.studios?.length || media.directors?.length || media.authors?.length) ? (
+            <div>
+              <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                <Clapperboard size={11} />
+                {media.studios?.length ? 'Studio' : media.authors?.length ? 'Autori' : 'Registi'}
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {(media.studios?.length ? media.studios : media.directors?.length ? media.directors : media.authors || [])
+                  .slice(0, 4)
+                  .map(name => (
+                    <span key={name} className="text-xs bg-sky-500/10 text-sky-300 border border-sky-500/20 px-2.5 py-1 rounded-full">
+                      {name}
+                    </span>
+                  ))
+                }
+              </div>
+            </div>
+          ) : null}
+
           {/* Meccaniche (boardgame) */}
           {media.mechanics && media.mechanics.length > 0 && (
             <div>
               <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Meccaniche</h3>
               <div className="flex flex-wrap gap-1.5">
                 {media.mechanics.slice(0, 8).map(m => (
-                  <span key={m} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">
-                    {m}
-                  </span>
+                  <span key={m} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{m}</span>
                 ))}
               </div>
             </div>
@@ -320,9 +409,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Temi</h3>
               <div className="flex flex-wrap gap-1.5">
                 {media.themes.slice(0, 6).map(t => (
-                  <span key={t} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">
-                    {t}
-                  </span>
+                  <span key={t} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{t}</span>
                 ))}
               </div>
             </div>
@@ -340,10 +427,35 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             </div>
           ) : null}
 
-          {/* M2: CTA con skeleton mentre checkDone è false */}
+          {/* V3: Continuity / Relations */}
+          {continuityRelations.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-3">
+                Nella stessa serie
+              </h3>
+              <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
+                {continuityRelations.map(rel => (
+                  <div key={rel.id} className="flex-shrink-0 w-20">
+                    <div className="relative h-28 rounded-xl overflow-hidden bg-zinc-800 mb-1.5">
+                      {rel.coverImage
+                        ? <img src={rel.coverImage} alt={rel.title} className="w-full h-full object-cover" loading="lazy" />
+                        : <div className="w-full h-full flex items-center justify-center text-zinc-600 text-lg">📺</div>
+                      }
+                      <div className="absolute top-1 left-1 bg-amber-500/90 text-[8px] font-bold px-1 py-0.5 rounded text-white">
+                        {RELATION_LABEL[rel.relationType] || rel.relationType}
+                      </div>
+                    </div>
+                    <p className="text-[9px] font-semibold text-zinc-300 line-clamp-2 leading-tight">{rel.title}</p>
+                    {rel.year && <p className="text-[8px] text-zinc-600">{rel.year}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* CTA */}
           <div className="pt-2">
             {!checkDone ? (
-              // M2: skeleton loader per le sezioni utente
               <UserDataSkeleton />
             ) : (
               <div className="flex flex-col gap-3">

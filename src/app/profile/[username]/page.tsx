@@ -13,6 +13,7 @@ import { StarRating } from '@/components/ui/StarRating'
 import { Spinner } from '@/components/ui/Spinner'
 import { showToast } from '@/components/ui/Toast'
 import { FollowButton } from '@/components/profile/follow-button'
+import { TasteSimilarityBadge } from '@/components/social/TasteSimilarityBadge'
 import { ProfileComments } from '@/components/profile/ProfileComments'
 import { Avatar, getLocalAvatarSvg } from '@/components/ui/Avatar'
 import {
@@ -956,6 +957,7 @@ export default function ProfilePage() {
                     <FollowButton targetId={profile.id} currentUserId={currentUserId} isFollowingInitial={isFollowing}
                       onFollowChange={(nowFollowing) => setFollowersCount(prev => nowFollowing ? prev + 1 : Math.max(0, prev - 1))} />
                   )}
+                  <TasteSimilarityBadge targetUserId={profile.id} />
                   <CopyProfileLink username={profile.username} />
                 </>
               )}
