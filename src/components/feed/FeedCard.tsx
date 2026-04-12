@@ -144,7 +144,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
       .eq('post_id', post.id)
       .order('created_at', { ascending: true })
     if (!error && data) {
-      setComments(data as PostComment[])
+      setComments(data as unknown as PostComment[])
       setCommentsFetched(true)
     }
   }
