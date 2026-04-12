@@ -393,7 +393,7 @@ function buildWatchlistEntry(row: Record<string, string>, userId: string, poster
     cover_image: posterMap.get(id) ?? null,
     current_episode: 0,
     episodes: 1,
-    status: 'want',
+    status: 'wishlist',
     rating: null,
     genres: [],
     tags: [],
@@ -432,88 +432,43 @@ async function manualUpsert(
 ): Promise<{ imported: number; skipped: number }> {
   if (toInsert.length === 0) return { imported: 0, skipped: 0 }
 
-  // Usa la RPC bulk_upsert_media_entries per fare tutto in una sola chiamata Postgres.
-  // Questo risolve il problema del timeout su import grandi (500+ film):
-  // invece di N chiamate HTTP separate, ne fa UNA sola.
-  //
-  // Fallback: se la RPC non esiste (migration non ancora eseguita),
-  // torna al metodo originale insert-batch + update-singolo.
+  // Usiamo upsert con onConflict su external_id (constraint già esistente in DB).
+  // Se un film esiste già per external_id → aggiorna (cover_image, rating, ecc).
+  // Se un film esiste già per title ma external_id diverso → ignoraDuplicates evita
+  // il crash su unique_user_media(user_id, title), lo saltiamo senza errore.
+  let imported = 0
+  let skipped = 0
 
-  try {
-    const CHUNK = 500 // Postgres JSONB ha un limite pratico, spezziamo in chunk da 500
-    let totalImported = 0
-    let totalSkipped  = 0
+  for (let i = 0; i < toInsert.length; i += 50) {
+    const batch = toInsert.slice(i, i + 50)
 
-    for (let i = 0; i < toInsert.length; i += CHUNK) {
-      const chunk = toInsert.slice(i, i + CHUNK)
-      const { data, error } = await supabase.rpc('bulk_upsert_media_entries', {
-        p_user_id: userId,
-        p_entries: chunk,
+    const { error, count } = await supabase
+      .from('user_media_entries')
+      .upsert(batch, {
+        onConflict: 'user_id,external_id',
+        ignoreDuplicates: false,  // su conflict di external_id → aggiorna
+        count: 'exact',
       })
 
-      if (error) {
-        // Se la RPC non esiste ancora → fallback al metodo classico per questo chunk
-        if (error.code === 'PGRST202' || error.message?.includes('function') || error.message?.includes('does not exist')) {
-          logger.error('[Letterboxd] RPC non disponibile, uso fallback:', error.message)
-          const fb = await fallbackUpsert(supabase, chunk, userId)
-          totalImported += fb.imported
-          totalSkipped  += fb.skipped
-        } else {
-          logger.error('[Letterboxd] RPC error:', error)
-          totalSkipped += chunk.length
-        }
-      } else {
-        totalImported += data?.imported ?? 0
-        totalSkipped  += data?.skipped  ?? 0
+    if (!error) {
+      imported += batch.length
+    } else if (error.code === '23505') {
+      // Conflitto su unique_user_media(user_id, title): film già presente con
+      // external_id diverso (importato in precedenza con altro sistema).
+      // Aggiorniamo solo il cover_image su quei film cercandoli per titolo.
+      for (const item of batch) {
+        const { error: e2 } = await supabase
+          .from('user_media_entries')
+          .update({ cover_image: item.cover_image, updated_at: new Date().toISOString() })
+          .eq('user_id', userId)
+          .eq('title', item.title)
+        if (!e2) imported++
+        else skipped++
       }
+    } else {
+      logger.error('[Letterboxd] upsert error:', JSON.stringify(error))
+      skipped += batch.length
     }
-
-    return { imported: totalImported, skipped: totalSkipped }
-
-  } catch (err) {
-    logger.error('[Letterboxd] manualUpsert unexpected error:', err)
-    // Fallback completo
-    return fallbackUpsert(supabase, toInsert, userId)
-  }
-}
-
-/**
- * Metodo originale di upsert — usato come fallback se la RPC non è disponibile.
- * Lento su grandi volumi (un update HTTP per film) ma funziona sempre.
- */
-async function fallbackUpsert(
-  supabase: any,
-  toInsert: any[],
-  userId: string
-): Promise<{ imported: number; skipped: number }> {
-  const externalIds = toInsert.map(i => i.external_id)
-  let existingEntries: any[] = []
-  for (let i = 0; i < externalIds.length; i += 500) {
-    const { data } = await supabase
-      .from('user_media_entries')
-      .select('id, external_id')
-      .eq('user_id', userId)
-      .in('external_id', externalIds.slice(i, i + 500))
-    if (data) existingEntries = existingEntries.concat(data)
-  }
-
-  const existingMap = new Map(existingEntries.map((e: any) => [e.external_id, e.id]))
-  const toCreate = toInsert.filter(i => !existingMap.has(i.external_id))
-  const toUpdate = toInsert.filter(i => existingMap.has(i.external_id))
-
-  let imported = 0, skipped = 0
-
-  for (let i = 0; i < toCreate.length; i += 50) {
-    const { error } = await supabase.from('user_media_entries').insert(toCreate.slice(i, i + 50))
-    if (!error) imported += Math.min(50, toCreate.length - i)
-    else { logger.error('[Letterboxd] insert error:', error); skipped += Math.min(50, toCreate.length - i) }
-  }
-
-  for (const item of toUpdate) {
-    const rowId = existingMap.get(item.external_id)
-    const { error } = await supabase.from('user_media_entries').update({ ...item }).eq('id', rowId)
-    if (!error) imported++
-    else { logger.error('[Letterboxd] update error:', error); skipped++ }
   }
 
   return { imported, skipped }
