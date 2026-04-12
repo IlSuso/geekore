@@ -164,7 +164,7 @@ export default function NotificationsPage() {
                 </div>
 
                 {n.type === 'follow' && n.sender?.username && (
-                  <FollowBackButton targetUsername={n.sender.username} />
+                  <FollowBackButton targetId={n.sender_id} />
                 )}
                 {n.post_id && (
                   <Link href={`/feed#${n.post_id}`} className="text-xs text-zinc-500 hover:text-violet-400 transition-colors flex-shrink-0">
