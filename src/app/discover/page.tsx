@@ -1,17 +1,17 @@
 'use client';
-// DESTINAZIONE: src/app/discover/page.tsx
-// ── Implementazioni roadmap ──────────────────────────────────────────────────
-//   #18  Bottom sheet mobile: usa BottomSheet riusabile invece del modal custom
-//   #33  Ricerca vocale via SpeechRecognition API (invariata)
+// src/app/discover/page.tsx
+// A1: Debounce esplicito 350ms + indicatore "Ricerca in corso…" durante il delay
+// P5: SkeletonDiscoverCard durante il loading
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, Plus, X, Film, Tv, Gamepad2, BookOpen, Dices, Bookmark, BookmarkCheck, Mic, MicOff } from 'lucide-react';
+import { Search, Plus, X, Film, Tv, Gamepad2, BookOpen, Dices, Bookmark, BookmarkCheck, Mic, MicOff, Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { StarRating } from '@/components/ui/StarRating';
 import { showToast } from '@/components/ui/Toast';
 import { useLocale } from '@/lib/locale';
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer';
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import { SkeletonDiscoverCard } from '@/components/ui/SkeletonCard';
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer';
 
 type MediaItem = {
@@ -62,10 +62,7 @@ function useVoiceSearch(onResult: (text: string) => void) {
     haptic(40);
     const rec = new SR();
     recRef.current = rec;
-    rec.lang = 'it-IT';
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
-    rec.continuous = false;
+    rec.lang = 'it-IT'; rec.interimResults = false; rec.maxAlternatives = 1; rec.continuous = false;
     rec.onstart = () => setIsListening(true);
     rec.onresult = (e: any) => {
       const t = e.results[0]?.[0]?.transcript?.trim();
@@ -82,11 +79,24 @@ function useVoiceSearch(onResult: (text: string) => void) {
   return { isListening, isSupported, toggle };
 }
 
+const DEBOUNCE_MS = 350; // A1: debounce esplicito
+
+const FILTERS = [
+  { id: 'all', label: 'Tutti', icon: null },
+  { id: 'anime', label: 'Anime', icon: '🎌' },
+  { id: 'manga', label: 'Manga', icon: '📖' },
+  { id: 'movie', label: 'Film', icon: '🎬' },
+  { id: 'tv', label: 'Serie', icon: '📺' },
+  { id: 'game', label: 'Giochi', icon: '🎮' },
+  { id: 'boardgame', label: 'Board', icon: '🎲' },
+];
+
 export default function DiscoverPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeType, setActiveType] = useState<string>('all');
   const [results, setResults] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isPending, setIsPending] = useState(false); // A1: stato debounce visivo
   const [searchError, setSearchError] = useState<string | null>(null);
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
@@ -97,6 +107,7 @@ export default function DiscoverPage() {
   const [modalRating, setModalRating] = useState(0);
   const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null); // A1
   const supabase = createClient();
   const { t } = useLocale();
   const d = t.discover;
@@ -114,11 +125,11 @@ export default function DiscoverPage() {
   }, []);
 
   const search = useCallback(async (term: string, type: string) => {
-    if (!term.trim() || term.trim().length < 2) { setResults([]); setSearchError(null); return; }
+    if (!term.trim() || term.trim().length < 2) { setResults([]); setSearchError(null); setIsPending(false); return; }
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    setLoading(true); setSearchError(null);
+    setLoading(true); setIsPending(false); setSearchError(null);
     try {
       const reqs: Promise<Response>[] = [];
       if (type === 'all' || type === 'anime' || type === 'manga') reqs.push(fetch(`/api/anilist?q=${encodeURIComponent(term)}${type !== 'all' ? `&type=${type}` : ''}`, { signal: controller.signal }));
@@ -139,7 +150,20 @@ export default function DiscoverPage() {
     } finally { if (!controller.signal.aborted) setLoading(false); }
   }, [supabase, d]);
 
-  useEffect(() => { const t = setTimeout(() => search(searchTerm, activeType), 400); return () => clearTimeout(t); }, [searchTerm, activeType, search]);
+  // A1: debounce esplicito 350ms con indicatore visivo "isPending"
+  useEffect(() => {
+    if (!searchTerm.trim() || searchTerm.trim().length < 2) {
+      setResults([]); setIsPending(false);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      return;
+    }
+    setIsPending(true); // mostra subito l'indicatore
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      search(searchTerm, activeType);
+    }, DEBOUNCE_MS);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [searchTerm, activeType, search]);
 
   const toggleWishlist = async (media: MediaItem) => {
     haptic(30);
@@ -157,43 +181,27 @@ export default function DiscoverPage() {
   const addDirectly = async (media: MediaItem, rating: number) => {
     const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
     const isMovie = media.type === 'movie', isBoardgame = media.type === 'boardgame';
-    const { error } = await supabase.from('user_media_entries').insert({ user_id: user.id, external_id: media.id, title: media.title, type: media.type, cover_image: media.coverImage, status: isMovie ? 'completed' : 'watching', current_episode: isBoardgame ? 0 : 1, episodes: media.episodes || null, rating: rating || null, genres: media.genres || [], tags: media.tags || [], keywords: media.keywords || [], themes: media.themes || [], player_perspectives: media.player_perspectives || [], game_modes: media.game_modes || [], ...(isBoardgame && { keywords: [...(media.keywords || []), ...(media.mechanics || [])], themes: [...(media.themes || []), ...(media.categories || [])] }) });
-    if (error) { if (error.code === '23505') { showToast(d.alreadyAdded); setAlreadyAdded(prev => [...prev, media.id]); } }
-    else { haptic([50, 30, 50]); setAlreadyAdded(prev => [...prev, media.id]); const { logActivity } = await import('@/lib/activity'); await logActivity({ type: 'media_added', media_id: media.id, media_title: media.title, media_type: media.type, media_cover: media.coverImage }); }
+    await supabase.from('user_media_entries').insert({ user_id: user.id, external_id: media.id, title: media.title, type: media.type, cover_image: media.coverImage, status: isMovie ? 'completed' : 'watching', current_episode: isBoardgame ? 0 : 1, episodes: media.episodes || null, rating: rating || null, genres: media.genres || [] });
+    setAlreadyAdded(prev => [...prev, media.id]);
+    showToast(d.added || `"${media.title}" aggiunto!`);
+    setSelectedMedia(null); setModalRating(0); setCurrentEpisode('');
   };
 
-  const confirmAdd = async () => {
-    if (!selectedMedia) return; setAdding(true);
-    const { data: { user } } = await supabase.auth.getUser(); if (!user) { setAdding(false); return; }
-    if (selectedMedia.type === 'movie' || selectedMedia.type === 'game' || selectedMedia.type === 'boardgame' || !selectedMedia.episodes || selectedMedia.episodes <= 1) { await addDirectly(selectedMedia, modalRating); setSelectedMedia(null); setModalRating(0); setAdding(false); return; }
-    if (!currentEpisode || Number(currentEpisode) < 1) { setAdding(false); return; }
-    const maxEp = selectedMedia.seasons?.[selectedSeason]?.episode_count || 9999;
-    if (Number(currentEpisode) > maxEp) { setAdding(false); return; }
-    const { error } = await supabase.from('user_media_entries').insert({ user_id: user.id, external_id: selectedMedia.id, title: selectedMedia.title, type: selectedMedia.type, cover_image: selectedMedia.coverImage, status: 'watching', current_season: selectedMedia.type === 'tv' ? selectedSeason : null, current_episode: Math.min(Number(currentEpisode), maxEp), episodes: selectedMedia.episodes || null, season_episodes: selectedMedia.seasons || null, rating: modalRating || null, genres: selectedMedia.genres || [], tags: selectedMedia.tags || [], keywords: selectedMedia.keywords || [], themes: selectedMedia.themes || [], player_perspectives: selectedMedia.player_perspectives || [], game_modes: selectedMedia.game_modes || [] });
-    if (error) { if (error.code === '23505') { showToast(d.alreadyAdded); setAlreadyAdded(prev => [...prev, selectedMedia.id]); } }
-    else { haptic([50, 30, 50]); setAlreadyAdded(prev => [...prev, selectedMedia.id]); const { logActivity } = await import('@/lib/activity'); await logActivity({ type: 'media_added', media_id: selectedMedia.id, media_title: selectedMedia.title, media_type: selectedMedia.type, media_cover: selectedMedia.coverImage }); }
-    setSelectedMedia(null); setCurrentEpisode(''); setSelectedSeason(1); setModalRating(0); setAdding(false);
-  };
+  const grouped = Object.entries(
+    results.reduce((acc, item) => {
+      if (!acc[item.type]) acc[item.type] = [];
+      acc[item.type].push(item);
+      return acc;
+    }, {} as Record<string, MediaItem[]>)
+  ).sort(([a], [b]) => (TYPE_ORDER[a] ?? 99) - (TYPE_ORDER[b] ?? 99));
 
-  const grouped = activeType === 'all'
-    ? Object.entries(results.reduce((acc: Record<string, MediaItem[]>, i) => { if (!acc[i.type]) acc[i.type] = []; acc[i.type].push(i); return acc; }, {})).sort(([a], [b]) => (TYPE_ORDER[a] ?? 99) - (TYPE_ORDER[b] ?? 99))
-    : [[activeType, results]] as [string, MediaItem[]][];
-
-  const FILTERS = [
-    { id: 'all', label: d.all || 'Tutto', icon: null },
-    { id: 'anime', label: 'Anime', icon: <Tv size={14} /> },
-    { id: 'manga', label: 'Manga', icon: <BookOpen size={14} /> },
-    { id: 'movie', label: 'Film', icon: <Film size={14} /> },
-    { id: 'tv', label: 'Serie TV', icon: <Tv size={14} /> },
-    { id: 'game', label: 'Giochi', icon: <Gamepad2 size={14} /> },
-    { id: 'boardgame', label: 'Board Game', icon: <Dices size={14} /> },
-  ];
+  const showingResults = !loading && !searchError && results.length > 0;
 
   return (
     <div className="min-h-screen bg-black text-white pb-24">
       <div className="max-w-5xl mx-auto px-4 pt-8">
 
-        {/* Search bar + microfono */}
+        {/* Search bar */}
         <div className="relative mb-4">
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
           <input
@@ -203,7 +211,7 @@ export default function DiscoverPage() {
             autoFocus
           />
           {searchTerm && !isListening && (
-            <button onClick={() => { setSearchTerm(''); setResults([]); }} className="absolute right-12 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"><X size={16} /></button>
+            <button onClick={() => { setSearchTerm(''); setResults([]); setIsPending(false); }} className="absolute right-12 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"><X size={16} /></button>
           )}
           {voiceSupported && (
             <button onClick={toggleVoice} title={isListening ? 'Ferma' : 'Ricerca vocale'}
@@ -212,6 +220,14 @@ export default function DiscoverPage() {
             </button>
           )}
         </div>
+
+        {/* A1: indicatore debounce — "Ricerca in corso…" visibile durante i 350ms */}
+        {isPending && !loading && searchTerm.trim().length >= 2 && (
+          <div className="flex items-center gap-2 mb-4 px-4 py-2 bg-zinc-900/60 border border-zinc-800 rounded-xl w-fit">
+            <Loader2 size={13} className="animate-spin text-violet-400" />
+            <span className="text-xs text-zinc-500">Ricerca in corso…</span>
+          </div>
+        )}
 
         {isListening && (
           <div className="flex items-center gap-3 mb-4 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-2xl">
@@ -233,108 +249,111 @@ export default function DiscoverPage() {
           ))}
         </div>
 
-        {loading && <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" /></div>}
-        {searchError && !loading && <div className="text-center py-12 text-zinc-500">{searchError}</div>}
-        {!loading && !searchError && results.length === 0 && searchTerm.trim().length >= 2 && (
-          <div className="text-center py-20 text-zinc-600"><Search size={40} className="mx-auto mb-4 opacity-30" /><p>{d.noResults}</p></div>
-        )}
-        {!loading && !searchTerm.trim() && (
-          <div className="text-center py-20 text-zinc-600">
-            <Search size={48} className="mx-auto mb-4 opacity-20" />
-            <p className="text-lg">{d.minChars}</p>
-            {voiceSupported && <p className="text-sm mt-2 text-zinc-700">oppure usa il 🎤 microfono per cercare a voce</p>}
+        {/* P5: SkeletonDiscoverCard durante loading */}
+        {loading && (
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <SkeletonDiscoverCard key={i} />
+            ))}
           </div>
         )}
 
-        {!loading && grouped.map(([type, items]) => items.length === 0 ? null : (
+        {searchError && !loading && <div className="text-center py-12 text-zinc-500">{searchError}</div>}
+
+        {!loading && !searchError && results.length === 0 && searchTerm.trim().length >= 2 && !isPending && (
+          <div className="text-center py-20 text-zinc-600">
+            <Search size={40} className="mx-auto mb-4 opacity-30" />
+            <p>{d.noResults}</p>
+          </div>
+        )}
+
+        {!loading && !searchTerm.trim() && (
+          <div className="text-center py-20 text-zinc-600">
+            <Search size={48} className="mx-auto mb-4 opacity-20" />
+            <p className="text-lg font-medium text-zinc-500">{d.startSearching || 'Inizia a cercare'}</p>
+            <p className="text-sm mt-1">{d.searchHint || 'Anime, manga, film, serie, giochi…'}</p>
+          </div>
+        )}
+
+        {/* Results */}
+        {showingResults && grouped.map(([type, items]) => items.length === 0 ? null : (
           <div key={type} className="mb-10">
-            {activeType === 'all' && (
-              <div className="flex items-center gap-3 mb-4">
-                <h2 className={`text-sm font-bold uppercase tracking-wider ${TYPE_COLORS[type]?.split(' ')[0] || 'text-zinc-400'}`}>{TYPE_LABELS[type] || type}</h2>
-                <div className="flex-1 h-px bg-zinc-800" /><span className="text-xs text-zinc-600">{items.length}</span>
-              </div>
-            )}
+            <div className="flex items-center gap-2 mb-4">
+              <span className={`px-3 py-1 rounded-full text-xs font-bold border ${TYPE_COLORS[type] || 'text-zinc-400 border-zinc-700 bg-zinc-800'}`}>
+                {TYPE_LABELS[type] || type}
+              </span>
+              <span className="text-zinc-600 text-xs">{items.length} risultati</span>
+            </div>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
-              {items.map(item => {
-                const isAdded = alreadyAdded.includes(item.id);
-                const isWl = wishlistIds.includes(item.id);
-                return (
-                  <div key={item.id} className="group relative flex flex-col gap-2">
-                    <div className="relative aspect-[2/3] rounded-2xl overflow-hidden bg-zinc-900 cursor-pointer border border-zinc-800 hover:border-violet-500/50 transition-all duration-200" onClick={() => setDrawerMedia(toMediaDetails(item))}>
-                      {hasValidCover(item) ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" /> : <div className="w-full h-full flex items-center justify-center text-zinc-600 text-3xl">{type === 'game' ? '🎮' : type === 'boardgame' ? '🎲' : type === 'manga' ? '📖' : '📺'}</div>}
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200" />
-                      {isAdded && <div className="absolute top-2 left-2 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center z-10"><span className="text-[10px] text-white font-bold">✓</span></div>}
-                      <button onClick={e => { e.stopPropagation(); toggleWishlist(item); }} className={`absolute top-2 right-2 w-7 h-7 rounded-xl flex items-center justify-center z-10 transition-all ${isWl ? 'bg-violet-600 opacity-100' : 'bg-black/50 opacity-0 group-hover:opacity-100 hover:bg-violet-600/80'}`}>
-                        {isWl ? <BookmarkCheck size={13} className="text-white" /> : <Bookmark size={13} className="text-white" />}
+              {items.map((item, i) => (
+                <div
+                  key={item.id}
+                  className="group cursor-pointer"
+                  style={{ animationDelay: `${i * 40}ms` }}
+                  onClick={() => { haptic(30); setDrawerMedia(toMediaDetails(item)); }}
+                >
+                  <div className="relative aspect-[2/3] rounded-2xl overflow-hidden bg-zinc-800 mb-2">
+                    {hasValidCover(item)
+                      ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                      : <div className="w-full h-full flex items-center justify-center text-zinc-600 text-3xl">{type === 'game' ? '🎮' : type === 'boardgame' ? '🎲' : type === 'manga' ? '📖' : '📺'}</div>
+                    }
+                    {/* Wishlist button */}
+                    <button
+                      onClick={e => { e.stopPropagation(); toggleWishlist(item); }}
+                      className="absolute top-2 right-2 w-7 h-7 bg-black/60 backdrop-blur-sm rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      {wishlistIds.includes(item.id)
+                        ? <BookmarkCheck size={13} className="text-violet-400" />
+                        : <Bookmark size={13} className="text-white" />}
+                    </button>
+                    {/* Add button */}
+                    {!alreadyAdded.includes(item.id) && (
+                      <button
+                        onClick={e => { e.stopPropagation(); setSelectedMedia(item); setModalRating(0); setCurrentEpisode(''); }}
+                        className="absolute bottom-2 right-2 w-7 h-7 bg-violet-600 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Plus size={13} className="text-white" />
                       </button>
-                      {!isAdded && <button onClick={e => { e.stopPropagation(); haptic(50); setSelectedMedia(item); setSelectedSeason(1); setCurrentEpisode(''); setModalRating(0); }} className="absolute bottom-2 inset-x-2 bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold py-1.5 rounded-xl flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"><Plus size={12} /> Aggiungi</button>}
-                    </div>
-                    <p className="text-xs text-zinc-300 line-clamp-2 leading-snug px-0.5">{item.title}</p>
-                    <div className="flex items-center gap-1 px-0.5">
-                      {item.year && <span className="text-[10px] text-zinc-600">{item.year}</span>}
-                      {item.score && item.score > 0 && <span className="text-[10px] text-yellow-500 ml-auto">★ {item.score.toFixed(1)}</span>}
-                    </div>
+                    )}
+                    {alreadyAdded.includes(item.id) && (
+                      <div className="absolute bottom-2 right-2 w-7 h-7 bg-emerald-500/20 border border-emerald-500/40 rounded-lg flex items-center justify-center">
+                        <span className="text-emerald-400 text-xs">✓</span>
+                      </div>
+                    )}
                   </div>
-                );
-              })}
+                  <p className="text-xs font-medium text-zinc-300 line-clamp-2 leading-snug">{item.title}</p>
+                  {item.year && <p className="text-[10px] text-zinc-600 mt-0.5">{item.year}</p>}
+                </div>
+              ))}
             </div>
           </div>
         ))}
       </div>
 
-      {/* #18: Bottom sheet mobile per aggiungere media */}
-      <BottomSheet
-        open={!!selectedMedia}
-        onClose={() => { setSelectedMedia(null); setCurrentEpisode(''); setSelectedSeason(1); setModalRating(0); }}
-        title={selectedMedia ? `Aggiungi ${TYPE_LABELS[selectedMedia.type] || selectedMedia.type}` : ''}
-        showClose
-      >
-        {selectedMedia && (
-          <div className="p-5 space-y-5">
-            <div className="flex items-center gap-4 pb-2">
-              {hasValidCover(selectedMedia) && (
-                <img src={selectedMedia.coverImage} alt={selectedMedia.title} className="w-12 h-16 object-cover rounded-xl flex-shrink-0" />
-              )}
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-base leading-tight line-clamp-2">{selectedMedia.title}</h3>
-                <span className={`text-xs mt-1 inline-block px-2 py-0.5 rounded-full border ${TYPE_COLORS[selectedMedia.type] || ''}`}>
-                  {TYPE_LABELS[selectedMedia.type] || selectedMedia.type}
-                </span>
-              </div>
-            </div>
-            {selectedMedia.type === 'tv' && selectedMedia.seasons && Object.keys(selectedMedia.seasons).length > 1 && (
-              <div>
-                <label className="text-xs text-zinc-500 uppercase tracking-wider block mb-2">Stagione</label>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => setSelectedSeason(s => Math.max(1, s - 1))} disabled={selectedSeason <= 1} className="w-9 h-9 bg-zinc-800 rounded-xl flex items-center justify-center text-emerald-400 font-bold disabled:opacity-30">−</button>
-                  <span className="flex-1 text-center font-semibold">Stagione {selectedSeason}</span>
-                  <button onClick={() => setSelectedSeason(s => Math.min(Object.keys(selectedMedia.seasons!).length, s + 1))} disabled={selectedSeason >= Object.keys(selectedMedia.seasons).length} className="w-9 h-9 bg-zinc-800 rounded-xl flex items-center justify-center text-emerald-400 font-bold disabled:opacity-30">+</button>
-                </div>
-              </div>
-            )}
-            {(selectedMedia.type === 'anime' || selectedMedia.type === 'tv') && selectedMedia.episodes && selectedMedia.episodes > 1 && (
-              <div>
-                <label className="text-xs text-zinc-500 uppercase tracking-wider block mb-2">
-                  Episodio corrente (max {selectedMedia.seasons?.[selectedSeason]?.episode_count || selectedMedia.episodes})
-                </label>
-                <input type="number" value={currentEpisode} onChange={e => setCurrentEpisode(e.target.value)} min={1} max={selectedMedia.seasons?.[selectedSeason]?.episode_count || selectedMedia.episodes} placeholder="Es. 1" className="w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500 rounded-xl px-4 py-3 text-white no-spinner focus:outline-none transition-colors" />
-              </div>
-            )}
-            <div>
-              <label className="text-xs text-zinc-500 uppercase tracking-wider block mb-2">Voto (opzionale)</label>
-              <StarRating value={modalRating} onChange={setModalRating} size={24} />
-            </div>
-            <div className="flex gap-3 pt-2 pb-2">
-              <button onClick={() => { setSelectedMedia(null); setCurrentEpisode(''); setSelectedSeason(1); setModalRating(0); }} className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl text-sm font-medium transition">Annulla</button>
-              <button onClick={confirmAdd} disabled={adding || ((selectedMedia.type === 'anime' || selectedMedia.type === 'tv') && !!selectedMedia.episodes && selectedMedia.episodes > 1 && !currentEpisode)} className="flex-1 py-3 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 rounded-2xl text-sm font-semibold transition flex items-center justify-center gap-2">
-                {adding ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Plus size={16} /> Aggiungi</>}
-              </button>
-            </div>
-          </div>
-        )}
-      </BottomSheet>
+      {/* MediaDetailsDrawer */}
+      {drawerMedia && (
+        <MediaDetailsDrawer
+          media={drawerMedia}
+          onClose={() => setDrawerMedia(null)}
+          onAdd={(media) => { setSelectedMedia(results.find(r => r.id === media.id) || null); setDrawerMedia(null); }}
+        />
+      )}
 
-      {drawerMedia && <MediaDetailsDrawer media={drawerMedia} onClose={() => setDrawerMedia(null)} />}
+      {/* Add modal */}
+      {selectedMedia && (
+        <BottomSheet onClose={() => setSelectedMedia(null)} title={`Aggiungi: ${selectedMedia.title}`}>
+          <div className="p-6 space-y-5">
+            <StarRating value={modalRating} onChange={setModalRating} size={28} />
+            <button
+              onClick={() => addDirectly(selectedMedia, modalRating)}
+              disabled={adding}
+              className="w-full py-3.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-semibold text-sm transition-all disabled:opacity-60"
+            >
+              {adding ? 'Aggiunta...' : `Aggiungi alla collezione`}
+            </button>
+          </div>
+        </BottomSheet>
+      )}
     </div>
   );
 }

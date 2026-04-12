@@ -1,9 +1,8 @@
 'use client'
-// DESTINAZIONE: src/components/ui/ThemeToggle.tsx
-// #39: Bottone a 3 stati che cicla dark → light → oled.
-// Icone: 🌙 dark | ☀️ light | ⚫ OLED
+// src/components/ui/ThemeToggle.tsx
+// N1: Aggiunto tema Aura — ciclo a 4 stati: dark → light → oled → aura → dark
 
-import { Sun, Moon, Circle } from 'lucide-react'
+import { Sun, Moon, Circle, Sparkles } from 'lucide-react'
 import { useTheme, type Theme } from '@/lib/theme'
 
 interface ThemeToggleProps {
@@ -27,14 +26,21 @@ const THEME_CONFIG: Record<Theme, { icon: React.ElementType; label: string; titl
   oled: {
     icon: Circle,
     label: 'OLED',
+    title: 'Passa al tema Aura',
+    iconClass: 'text-zinc-200 hover:text-violet-400',
+  },
+  // N1: Aura — icona Sparkles con colore viola/fuchsia
+  aura: {
+    icon: Sparkles,
+    label: 'Aura',
     title: 'Passa al tema scuro',
-    iconClass: 'text-zinc-200 hover:text-zinc-400',
+    iconClass: 'text-violet-400 hover:text-fuchsia-400',
   },
 }
 
 export function ThemeToggle({ showLabel = false, className = '' }: ThemeToggleProps) {
   const { theme, toggleTheme } = useTheme()
-  const config = THEME_CONFIG[theme]
+  const config = THEME_CONFIG[theme] || THEME_CONFIG.dark
   const Icon = config.icon
 
   return (

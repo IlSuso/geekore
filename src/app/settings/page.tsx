@@ -1,3 +1,4 @@
+// N1: Aura aggiunto nel ciclo temi
 'use client'
 // src/app/settings/page.tsx
 // M5: Aggiunta sezione "Sicurezza" con cambio password, logout da tutti i dispositivi
@@ -11,6 +12,7 @@ import { showToast } from '@/components/ui/Toast'
 import {
   Settings, Globe, Sun, Moon, Download, List, TrendingUp, BarChart3, Bell,
   Shield, KeyRound, LogOut, Eye, EyeOff, Loader2, ChevronDown, ChevronUp,
+  Circle, Sparkles,
 } from 'lucide-react'
 import { AniListImport } from '@/components/import/AniListImport'
 import { MALImport } from '@/components/import/MALImport'
@@ -244,23 +246,26 @@ export default function SettingsPage() {
             <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Tema</h2>
           </div>
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-            <div className="flex p-3 gap-2">
-              <button
-                onClick={() => setTheme('dark')}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold transition-all ${
-                  theme === 'dark' ? 'bg-violet-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
-                }`}
-              >
-                <Moon size={14} /> Scuro {theme === 'dark' && <span className="text-violet-300 text-xs">✓</span>}
-              </button>
-              <button
-                onClick={() => setTheme('light')}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold transition-all ${
-                  theme === 'light' ? 'bg-violet-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
-                }`}
-              >
-                <Sun size={14} /> Chiaro {theme === 'light' && <span className="text-violet-300 text-xs">✓</span>}
-              </button>
+            <div className="grid grid-cols-2 gap-2 p-3">
+              {([
+                { id: 'dark'  as const, label: 'Scuro',   Icon: Moon     },
+                { id: 'light' as const, label: 'Chiaro',  Icon: Sun      },
+                { id: 'oled'  as const, label: 'OLED',    Icon: Circle   },
+                { id: 'aura'  as const, label: '✨ Aura', Icon: Sparkles },
+              ]).map(({ id, label, Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => setTheme(id)}
+                  className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold transition-all ${
+                    theme === id
+                      ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/20'
+                      : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
+                  }`}
+                >
+                  <Icon size={14} /> {label}
+                  {theme === id && <span className="text-violet-300 text-xs">✓</span>}
+                </button>
+              ))}
             </div>
           </div>
         </section>

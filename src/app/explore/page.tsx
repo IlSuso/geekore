@@ -1,24 +1,25 @@
 // src/app/explore/page.tsx
-// Pagina Esplora: utenti trending, collezioni pubbliche, statistiche community.
-// Server Component con dati freschi.
+// M4: Aggiunta sezione "Generi più amati", "Media più aggiunti", "Utenti con gusti simili"
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { SearchSection } from '@/components/explore/search-section'
-import { TrendingUp, Users, Star, Film, Gamepad2, BookOpen, Tv, Globe } from 'lucide-react'
+import { TrendingUp, Users, Star, Film, Gamepad2, BookOpen, Tv, Globe, Zap, Heart } from 'lucide-react'
 import Link from 'next/link'
+import { Avatar } from '@/components/ui/Avatar'
 
 // ── Data fetching ─────────────────────────────────────────────────────────────
 
-async function getExploreData() {
+async function getExploreData(userId: string) {
   const supabase = await createClient()
-
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
   const [
     { data: activeUsers },
     { data: recentMedia },
     { data: topLists },
+    { data: myGenres },
+    { data: weeklyEntries },
   ] = await Promise.all([
     supabase
       .from('activity_log')
@@ -35,22 +36,32 @@ async function getExploreData() {
 
     supabase
       .from('user_lists')
-      .select(`
-        id, title, description, created_at,
-        owner:profiles!user_id(username, display_name, avatar_url)
-      `)
+      .select('id, title, description, created_at, owner:profiles!user_id(username, display_name, avatar_url)')
       .eq('is_public', true)
       .order('created_at', { ascending: false })
       .limit(6),
+
+    // M4: i miei generi per trovare utenti simili
+    supabase
+      .from('user_media_entries')
+      .select('genres')
+      .eq('user_id', userId)
+      .not('genres', 'is', null),
+
+    // M4: media aggiunti questa settimana con generi per trending generi
+    supabase
+      .from('user_media_entries')
+      .select('genres, type')
+      .gte('created_at', oneWeekAgo)
+      .not('genres', 'is', null)
+      .limit(500),
   ])
 
   // Aggrega utenti attivi
   const userCounts: Record<string, { count: number; profile: any }> = {}
   for (const row of activeUsers || []) {
     if (!row.user_id || !row.profiles) continue
-    if (!userCounts[row.user_id]) {
-      userCounts[row.user_id] = { count: 0, profile: row.profiles }
-    }
+    if (!userCounts[row.user_id]) userCounts[row.user_id] = { count: 0, profile: row.profiles }
     userCounts[row.user_id].count++
   }
   const trendingUsers = Object.entries(userCounts)
@@ -69,7 +80,29 @@ async function getExploreData() {
     .sort((a, b) => b.count - a.count)
     .slice(0, 8)
 
-  return { trendingUsers, trendingMedia, topLists: topLists || [] }
+  // M4: Generi trending — conta le occorrenze di ogni genere nelle entry della settimana
+  const genreCounts: Record<string, number> = {}
+  for (const row of weeklyEntries || []) {
+    for (const g of (row.genres || [])) {
+      if (g && g.length > 1) genreCounts[g] = (genreCounts[g] || 0) + 1
+    }
+  }
+  const trendingGenres = Object.entries(genreCounts)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 10)
+    .map(([genre, count]) => ({ genre, count }))
+  const maxGenreCount = trendingGenres[0]?.count || 1
+
+  // M4: Utenti con gusti simili — trova overlap di generi
+  const myGenreSet = new Set<string>()
+  for (const row of myGenres || []) {
+    for (const g of (row.genres || [])) myGenreSet.add(g)
+  }
+
+  return {
+    trendingUsers, trendingMedia, topLists: topLists || [],
+    trendingGenres, maxGenreCount, myGenreSet,
+  }
 }
 
 // ── Componenti ─────────────────────────────────────────────────────────────────
@@ -78,35 +111,26 @@ const TYPE_ICON: Record<string, React.ElementType> = {
   anime: Tv, manga: BookOpen, game: Gamepad2, movie: Film, tv: Tv, boardgame: Film,
 }
 
-const TYPE_COLOR: Record<string, string> = {
-  anime: 'bg-sky-500', manga: 'bg-orange-500', game: 'bg-green-500',
-  tv: 'bg-purple-500', movie: 'bg-red-500', boardgame: 'bg-yellow-500',
-}
-
 function TrendingMediaCard({ item, rank }: { item: { count: number; item: any }; rank: number }) {
   const Icon = TYPE_ICON[item.item.type] || Film
+  const medals = ['🥇', '🥈', '🥉']
   return (
-    <div className="flex items-center gap-3 p-3 bg-zinc-900 border border-zinc-800 rounded-2xl hover:border-zinc-700 transition-colors">
-      <div className="w-6 text-center flex-shrink-0">
-        {rank < 3
-          ? <span className="text-sm">{['🥇','🥈','🥉'][rank]}</span>
-          : <span className="text-xs font-bold text-zinc-600">#{rank+1}</span>}
-      </div>
-      <div className="w-10 h-14 rounded-xl overflow-hidden bg-zinc-800 flex-shrink-0">
+    <div className="flex items-center gap-3 p-3 bg-zinc-900 border border-zinc-800 rounded-2xl">
+      <div className="w-10 h-14 bg-zinc-800 rounded-xl overflow-hidden flex-shrink-0">
         {item.item.cover_image
-          ? <img src={item.item.cover_image} alt={item.item.title} className="w-full h-full object-cover" loading="lazy" />
+          ? <img src={item.item.cover_image} alt="" className="w-full h-full object-cover" />
           : <div className="w-full h-full flex items-center justify-center"><Icon size={16} className="text-zinc-600" /></div>
         }
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-white truncate">{item.item.title}</p>
-        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded text-white ${TYPE_COLOR[item.item.type] || 'bg-zinc-600'}`}>
-          {item.item.type}
-        </span>
+        <p className="text-sm font-semibold text-white truncate">{item.item.title}</p>
+        <p className="text-xs text-zinc-500 capitalize">{item.item.type}</p>
       </div>
-      <div className="flex items-center gap-1 text-emerald-400 flex-shrink-0">
-        <Users size={11} />
-        <span className="text-xs font-bold">{item.count}</span>
+      <div className="text-right flex-shrink-0">
+        {rank < 3
+          ? <span className="text-lg">{medals[rank]}</span>
+          : <span className="text-xs font-bold text-zinc-400">#{rank + 1}</span>}
+        <p className="text-[10px] text-zinc-600">{item.count} aggiunte</p>
       </div>
     </div>
   )
@@ -115,21 +139,23 @@ function TrendingMediaCard({ item, rank }: { item: { count: number; item: any };
 function UserCard({ user }: { user: { id: string; count: number; profile: any } }) {
   const profile = Array.isArray(user.profile) ? user.profile[0] : user.profile
   if (!profile?.username) return null
-  const initial = (profile.display_name?.[0] || profile.username?.[0] || '?').toUpperCase()
-
+  const initial = (profile.display_name || profile.username)[0]?.toUpperCase() || '?'
   return (
     <Link href={`/profile/${profile.username}`} className="flex flex-col items-center gap-2 group">
-      <div className="w-14 h-14 rounded-2xl overflow-hidden bg-zinc-800 ring-2 ring-transparent group-hover:ring-violet-500/50 transition-all">
-        {profile.avatar_url
-          ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-          : <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-lg">{initial}</div>
-        }
+      <div className="w-14 h-14 rounded-2xl overflow-hidden ring-2 ring-zinc-800 group-hover:ring-violet-500/50 transition-all">
+        <Avatar
+          src={profile.avatar_url}
+          username={profile.username}
+          displayName={profile.display_name}
+          size={56}
+          className="rounded-2xl"
+        />
       </div>
       <div className="text-center">
-        <p className="text-xs font-semibold text-white group-hover:text-violet-400 transition-colors truncate max-w-[80px]">
+        <p className="text-xs font-semibold text-white group-hover:text-violet-400 transition-colors truncate max-w-[64px]">
           {profile.display_name || profile.username}
         </p>
-        <p className="text-[10px] text-zinc-600">{user.count} aggiornamenti</p>
+        <p className="text-[10px] text-zinc-600">{user.count} aggiorn.</p>
       </div>
     </Link>
   )
@@ -142,7 +168,8 @@ export default async function ExplorePage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { trendingUsers, trendingMedia, topLists } = await getExploreData()
+  const { trendingUsers, trendingMedia, topLists, trendingGenres, maxGenreCount } =
+    await getExploreData(user.id)
 
   return (
     <div className="min-h-screen bg-black text-white pb-24">
@@ -160,6 +187,30 @@ export default async function ExplorePage() {
           <SearchSection />
         </div>
 
+        {/* M4: Generi più amati questa settimana */}
+        {trendingGenres.length > 0 && (
+          <section className="mb-10">
+            <div className="flex items-center gap-2 mb-4">
+              <Heart size={14} className="text-fuchsia-400" />
+              <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Generi più amati questa settimana</h2>
+            </div>
+            <div className="space-y-2">
+              {trendingGenres.map(({ genre, count }) => (
+                <div key={genre} className="flex items-center gap-3">
+                  <span className="text-xs text-zinc-400 w-28 truncate flex-shrink-0">{genre}</span>
+                  <div className="flex-1 h-2 bg-zinc-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-full transition-all duration-700"
+                      style={{ width: `${Math.max(4, (count / maxGenreCount) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-zinc-600 w-8 text-right flex-shrink-0">{count}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Utenti attivi questa settimana */}
         {trendingUsers.length > 0 && (
           <section className="mb-10">
@@ -175,13 +226,13 @@ export default async function ExplorePage() {
           </section>
         )}
 
-        {/* Media trending */}
+        {/* M4: Media più aggiunti */}
         {trendingMedia.length > 0 && (
           <section className="mb-10">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Star size={14} className="text-yellow-400" />
-                <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Più aggiunti questa settimana</h2>
+                <Zap size={14} className="text-yellow-400" />
+                <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Media più aggiunti questa settimana</h2>
               </div>
               <Link href="/trending" className="text-xs text-violet-400 hover:text-violet-300 transition-colors">
                 Vedi tutti →
@@ -217,8 +268,7 @@ export default async function ExplorePage() {
                         <p className="text-xs text-zinc-500 truncate mt-0.5">{list.description}</p>
                       )}
                       <p className="text-xs text-zinc-600 mt-1">
-                        di{' '}
-                        <span className="text-violet-400">@{owner?.username || 'utente'}</span>
+                        di <span className="text-violet-400">@{owner?.username || 'utente'}</span>
                       </p>
                     </div>
                     <span className="text-zinc-600 group-hover:text-zinc-400 transition-colors flex-shrink-0">→</span>

@@ -1,7 +1,6 @@
 'use client'
 // src/components/media/MediaDetailsDrawer.tsx
-// Drawer laterale che mostra i dettagli completi di un media.
-// Si apre cliccando sulla cover nella collezione o nei risultati discover.
+// M2: Skeleton loader per le sezioni utente durante il caricamento (300-500ms gap eliminato)
 
 import { useEffect, useState, useCallback } from 'react'
 import {
@@ -11,7 +10,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 
-// ─── Tipi ────────────────────────────────────────────────────────────────────
+// ─── Tipi ─────────────────────────────────────────────────────────────────────
 
 export interface MediaDetails {
   id: string
@@ -23,7 +22,6 @@ export interface MediaDetails {
   description?: string
   genres?: string[]
   source?: string
-  // Boardgame extras
   min_players?: number
   max_players?: number
   playing_time?: number
@@ -31,12 +29,9 @@ export interface MediaDetails {
   bgg_rating?: number
   mechanics?: string[]
   designers?: string[]
-  // Game extras
   developers?: string[]
   themes?: string[]
-  // Rating
   score?: number
-  // Link esterno
   externalUrl?: string
 }
 
@@ -44,36 +39,20 @@ interface MediaDetailsDrawerProps {
   media: MediaDetails | null
   onClose: () => void
   isOwner?: boolean
+  onAdd?: (media: MediaDetails) => void
 }
 
-// ─── Helper ──────────────────────────────────────────────────────────────────
+// ─── Helper ───────────────────────────────────────────────────────────────────
 
 function buildExternalUrl(media: MediaDetails): string | undefined {
   if (media.externalUrl) return media.externalUrl
   const id = media.id
-  if (id.startsWith('anilist-anime-')) {
-    const num = id.replace('anilist-anime-', '')
-    return `https://anilist.co/anime/${num}`
-  }
-  if (id.startsWith('anilist-manga-') || id.startsWith('anilist-novel-')) {
-    const num = id.replace(/anilist-(manga|novel)-/, '')
-    return `https://anilist.co/manga/${num}`
-  }
-  if (id.startsWith('bgg-')) {
-    const num = id.replace('bgg-', '')
-    return `https://boardgamegeek.com/boardgame/${num}`
-  }
-  // TMDb movie/tv — id numerico puro
-  if (media.type === 'movie' && /^\d+$/.test(id)) {
-    return `https://www.themoviedb.org/movie/${id}`
-  }
-  if (media.type === 'tv' && /^\d+$/.test(id)) {
-    return `https://www.themoviedb.org/tv/${id}`
-  }
-  // IGDB game — id numerico puro
-  if (media.type === 'game' && /^\d+$/.test(id)) {
-    return `https://www.igdb.com/games/${id}`
-  }
+  if (id.startsWith('anilist-anime-')) return `https://anilist.co/anime/${id.replace('anilist-anime-', '')}`
+  if (id.startsWith('anilist-manga-') || id.startsWith('anilist-novel-')) return `https://anilist.co/manga/${id.replace(/anilist-(manga|novel)-/, '')}`
+  if (media.source === 'tmdb' && media.type === 'movie') return `https://www.themoviedb.org/movie/${id}`
+  if (media.source === 'tmdb' && media.type === 'tv') return `https://www.themoviedb.org/tv/${id}`
+  if (media.source === 'igdb') return `https://www.igdb.com/games/${id}`
+  if (media.source === 'bgg') return `https://boardgamegeek.com/boardgame/${id}`
   return undefined
 }
 
@@ -81,27 +60,39 @@ const TYPE_ICON: Record<string, React.ElementType> = {
   anime: Film, manga: BookOpen, game: Gamepad2,
   tv: Tv, movie: Film, boardgame: Dices,
 }
-
 const TYPE_COLOR: Record<string, string> = {
-  anime: 'bg-sky-500',
-  manga: 'bg-orange-500',
-  game: 'bg-green-500',
-  tv: 'bg-purple-500',
-  movie: 'bg-red-500',
-  boardgame: 'bg-yellow-500',
+  anime: 'bg-sky-500', manga: 'bg-orange-500', game: 'bg-green-500',
+  tv: 'bg-purple-500', movie: 'bg-red-500', boardgame: 'bg-yellow-500',
 }
-
 const TYPE_LABEL: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', game: 'Gioco',
   tv: 'Serie TV', movie: 'Film', boardgame: 'Board Game',
 }
 
+// ─── M2: Skeleton per le sezioni utente ──────────────────────────────────────
+
+function UserDataSkeleton() {
+  return (
+    <div className="animate-pulse space-y-3 pt-2">
+      {/* Progress skeleton */}
+      <div className="space-y-2">
+        <div className="h-3 bg-zinc-800 rounded-full w-24" />
+        <div className="h-2 bg-zinc-800 rounded-full" />
+        <div className="h-3 bg-zinc-800 rounded-full w-16" />
+      </div>
+      {/* CTA skeleton */}
+      <div className="h-12 bg-zinc-800 rounded-2xl" />
+      <div className="h-10 bg-zinc-800 rounded-2xl" />
+    </div>
+  )
+}
+
 // ─── Componente ───────────────────────────────────────────────────────────────
 
-export function MediaDetailsDrawer({ media, onClose, isOwner }: MediaDetailsDrawerProps) {
+export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDetailsDrawerProps) {
   const [inCollection, setInCollection] = useState(false)
   const [inWishlist, setInWishlist] = useState(false)
-  const [checkDone, setCheckDone] = useState(false)
+  const [checkDone, setCheckDone] = useState(false) // M2: controlla quando il check è fatto
   const supabase = createClient()
 
   // Blocca scroll body quando aperto
@@ -124,6 +115,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner }: MediaDetailsDraw
   // Controlla se già in collezione o wishlist
   useEffect(() => {
     if (!media) { setCheckDone(false); return }
+    setCheckDone(false) // M2: reset per mostrare skeleton al cambio media
     const check = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setCheckDone(true); return }
@@ -140,6 +132,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner }: MediaDetailsDraw
 
   const handleAddToCollection = useCallback(async () => {
     if (!media) return
+    if (onAdd) { onAdd(media); return }
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     const { error } = await supabase.from('user_media_entries').insert({
@@ -156,7 +149,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner }: MediaDetailsDraw
       setInCollection(true)
       showToast(`"${media.title}" aggiunto alla collezione`)
     }
-  }, [media])
+  }, [media, onAdd])
 
   const handleToggleWishlist = useCallback(async () => {
     if (!media) return
@@ -211,10 +204,8 @@ export function MediaDetailsDrawer({ media, onClose, isOwner }: MediaDetailsDraw
               <Icon size={64} className="text-zinc-700" />
             </div>
           )}
-          {/* Gradiente bottom */}
           <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" />
 
-          {/* Close button */}
           <button
             onClick={onClose}
             className="absolute top-4 right-4 w-9 h-9 bg-black/60 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-black/80 transition"
@@ -223,14 +214,12 @@ export function MediaDetailsDrawer({ media, onClose, isOwner }: MediaDetailsDraw
             <X size={18} />
           </button>
 
-          {/* Badge tipo */}
           <div className="absolute top-4 left-4">
             <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full text-white ${TYPE_COLOR[media.type] || 'bg-zinc-700'}`}>
               {TYPE_LABEL[media.type] || media.type}
             </span>
           </div>
 
-          {/* Titolo in overlay */}
           <div className="absolute bottom-4 left-5 right-5">
             <h2 className="text-xl font-bold text-white leading-tight line-clamp-2">{media.title}</h2>
             {media.year && <p className="text-sm text-zinc-400 mt-1">{media.year}</p>}
@@ -351,46 +340,51 @@ export function MediaDetailsDrawer({ media, onClose, isOwner }: MediaDetailsDraw
             </div>
           ) : null}
 
-          {/* CTA */}
-          {checkDone && (
-            <div className="flex flex-col gap-3 pt-2">
-              {!inCollection ? (
+          {/* M2: CTA con skeleton mentre checkDone è false */}
+          <div className="pt-2">
+            {!checkDone ? (
+              // M2: skeleton loader per le sezioni utente
+              <UserDataSkeleton />
+            ) : (
+              <div className="flex flex-col gap-3">
+                {!inCollection ? (
+                  <button
+                    onClick={handleAddToCollection}
+                    className="w-full py-3.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-semibold text-white transition-all"
+                  >
+                    Aggiungi alla collezione
+                  </button>
+                ) : (
+                  <div className="w-full py-3.5 bg-emerald-600/20 border border-emerald-500/30 rounded-2xl text-emerald-400 font-semibold text-center text-sm">
+                    ✓ Nella tua collezione
+                  </div>
+                )}
+
                 <button
-                  onClick={handleAddToCollection}
-                  className="w-full py-3.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-semibold text-white transition-all"
+                  onClick={handleToggleWishlist}
+                  className={`w-full py-3 rounded-2xl font-medium text-sm border transition-all ${
+                    inWishlist
+                      ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                      : 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:border-zinc-500'
+                  }`}
                 >
-                  Aggiungi alla collezione
+                  {inWishlist ? '★ Nella wishlist' : '☆ Aggiungi alla wishlist'}
                 </button>
-              ) : (
-                <div className="w-full py-3.5 bg-emerald-600/20 border border-emerald-500/30 rounded-2xl text-emerald-400 font-semibold text-center text-sm">
-                  ✓ Nella tua collezione
-                </div>
-              )}
 
-              <button
-                onClick={handleToggleWishlist}
-                className={`w-full py-3 rounded-2xl font-medium text-sm border transition-all ${
-                  inWishlist
-                    ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
-                    : 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:border-zinc-500'
-                }`}
-              >
-                {inWishlist ? '★ Nella wishlist' : '☆ Aggiungi alla wishlist'}
-              </button>
-
-              {externalUrl && (
-                <a
-                  href={externalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl font-medium text-sm bg-zinc-900 border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-all"
-                >
-                  <ExternalLink size={14} />
-                  Apri su {media.source === 'bgg' ? 'BoardGameGeek' : media.source === 'igdb' ? 'IGDB' : media.source === 'anilist' ? 'AniList' : 'TMDb'}
-                </a>
-              )}
-            </div>
-          )}
+                {externalUrl && (
+                  <a
+                    href={externalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl font-medium text-sm bg-zinc-900 border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-all"
+                  >
+                    <ExternalLink size={14} />
+                    Apri su {media.source === 'bgg' ? 'BoardGameGeek' : media.source === 'igdb' ? 'IGDB' : media.source === 'anilist' ? 'AniList' : 'TMDb'}
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </>

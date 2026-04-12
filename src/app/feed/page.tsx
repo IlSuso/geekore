@@ -14,7 +14,7 @@
 import { useState, useEffect, useCallback, memo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { User } from '@supabase/supabase-js'
-import { Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X, Loader2, Pin } from 'lucide-react'
+import { Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X, Loader2, Pin, ArrowUp } from 'lucide-react'
 import { SkeletonFeedPost } from '@/components/ui/SkeletonCard'
 import { Avatar } from '@/components/ui/Avatar'
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll'
@@ -245,6 +245,8 @@ export default function FeedPage() {
   const [commentingPostId, setCommentingPostId] = useState<string | null>(null)
   const [feedFilter, setFeedFilter] = useState<'all' | 'following'>('all')
   const [likingIds, setLikingIds] = useState<Set<string>>(new Set())
+  const [newPostsCount, setNewPostsCount] = useState(0) // N8: contatore nuovi post realtime
+  const latestPostIdRef = useRef<string | null>(null)
   const pageRef = useRef(0)
 
   const supabase = createClient()
@@ -292,6 +294,38 @@ export default function FeedPage() {
     }
     init()
   }, [])
+
+  // N8: Supabase Realtime — ascolta nuovi post senza aggiornare automaticamente
+  useEffect(() => {
+    const channel = supabase
+      .channel('public:posts')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, (payload) => {
+        const newId = payload.new?.id
+        // Ignora se è già il post più recente (appena pubblicato da noi)
+        if (!newId || newId === latestPostIdRef.current) return
+        setNewPostsCount(prev => prev + 1)
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [supabase])
+
+  // N8: aggiorna ref quando arrivano nuovi post
+  useEffect(() => {
+    if (posts.length > 0) {
+      latestPostIdRef.current = posts[0].id
+    }
+  }, [posts])
+
+  const handleShowNewPosts = async () => {
+    if (!currentUser) return
+    setNewPostsCount(0)
+    pageRef.current = 0
+    setPage(0)
+    setHasMore(true)
+    await loadPosts(currentUser.id, 0, false, feedFilter)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   const loadPinnedPosts = useCallback(async (userId: string) => {
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
@@ -648,6 +682,17 @@ export default function FeedPage() {
               </div>
             </form>
           </div>
+        )}
+
+        {/* N8: Banner "nuovi post" — non aggiorna automaticamente per non disturbare la lettura */}
+        {newPostsCount > 0 && (
+          <button
+            onClick={handleShowNewPosts}
+            className="flex items-center gap-2 mx-auto mb-4 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-full text-sm font-semibold text-white shadow-lg shadow-violet-500/30 transition-all hover:scale-105 animate-in fade-in slide-in-from-top-2"
+          >
+            <ArrowUp size={14} />
+            🆕 {newPostsCount === 1 ? '1 nuovo post' : `${newPostsCount} nuovi post`} — clicca per vedere
+          </button>
         )}
 
         {/* Filter tabs */}

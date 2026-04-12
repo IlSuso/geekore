@@ -1,12 +1,18 @@
-import { logger } from '@/lib/logger'
+// src/app/api/igdb/route.ts
+// SEC1: Aggiunto AbortSignal.timeout(8000) su tutte le fetch esterne
+// C2:  logger invece di console.error
+
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rateLimit'
+import { logger } from '@/lib/logger'
 
 let cachedToken: { token: string; expiresAt: number } | null = null
 
 async function getIgdbToken(clientId: string, clientSecret: string): Promise<string | null> {
   const now = Date.now()
   if (cachedToken && cachedToken.expiresAt > now + 60_000) return cachedToken.token
+
+  // SEC1: timeout sul fetch del token OAuth Twitch
   const tokenRes = await fetch('https://id.twitch.tv/oauth2/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -15,6 +21,7 @@ async function getIgdbToken(clientId: string, clientSecret: string): Promise<str
       client_secret: clientSecret,
       grant_type: 'client_credentials',
     }),
+    signal: AbortSignal.timeout(8000),
   })
   const tokenData = await tokenRes.json()
   const accessToken = tokenData.access_token
@@ -30,7 +37,6 @@ async function getIgdbToken(clientId: string, clientSecret: string): Promise<str
 const SAFE_SEARCH_RE = /^[\p{L}\p{N}\s\-_:.,'!?&()]+$/u
 
 export async function POST(request: NextRequest) {
-  // ── Rate limiting: 30 req/min per IP ──────────────────────────────────────
   const rl = rateLimit(request, { limit: 30, windowMs: 60_000, prefix: 'igdb' })
   if (!rl.ok) {
     return NextResponse.json(
@@ -43,35 +49,20 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { search } = body
 
-    // ── Validazione server-side ───────────────────────────────────────────────
     if (!search || typeof search !== 'string') {
-      return NextResponse.json(
-        { error: 'Parametro search mancante' },
-        { status: 400, headers: rl.headers }
-      )
+      return NextResponse.json({ error: 'Parametro search mancante' }, { status: 400, headers: rl.headers })
     }
 
     const trimmed = search.trim()
 
     if (trimmed.length < 2) {
-      return NextResponse.json(
-        { error: 'Ricerca troppo corta (minimo 2 caratteri)' },
-        { status: 400, headers: rl.headers }
-      )
+      return NextResponse.json({ error: 'Ricerca troppo corta (minimo 2 caratteri)' }, { status: 400, headers: rl.headers })
     }
-
     if (trimmed.length > 100) {
-      return NextResponse.json(
-        { error: 'Ricerca troppo lunga (massimo 100 caratteri)' },
-        { status: 400, headers: rl.headers }
-      )
+      return NextResponse.json({ error: 'Ricerca troppo lunga (massimo 100 caratteri)' }, { status: 400, headers: rl.headers })
     }
-
     if (!SAFE_SEARCH_RE.test(trimmed)) {
-      return NextResponse.json(
-        { error: 'Caratteri non consentiti nella ricerca' },
-        { status: 400, headers: rl.headers }
-      )
+      return NextResponse.json({ error: 'Caratteri non consentiti nella ricerca' }, { status: 400, headers: rl.headers })
     }
 
     const cleanSearch = trimmed
@@ -79,23 +70,17 @@ export async function POST(request: NextRequest) {
     const clientSecret = process.env.IGDB_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
-      return NextResponse.json(
-        { error: 'Configurazione IGDB mancante' },
-        { status: 500, headers: rl.headers }
-      )
+      return NextResponse.json({ error: 'Configurazione IGDB mancante' }, { status: 500, headers: rl.headers })
     }
 
     const accessToken = await getIgdbToken(clientId, clientSecret)
     if (!accessToken) {
-      return NextResponse.json(
-        { error: 'Impossibile ottenere token IGDB' },
-        { status: 500, headers: rl.headers }
-      )
+      return NextResponse.json({ error: 'Impossibile ottenere token IGDB' }, { status: 500, headers: rl.headers })
     }
 
-    // Escape per prevenire injection nella query IGDB
     const safeSearch = cleanSearch.replace(/"/g, '\\"')
 
+    // SEC1: timeout sulla ricerca IGDB
     const igdbRes = await fetch('https://api.igdb.com/v4/games', {
       method: 'POST',
       headers: {
@@ -113,33 +98,24 @@ export async function POST(request: NextRequest) {
                rating, rating_count;
         limit 20;
       `,
+      signal: AbortSignal.timeout(8000),
     })
 
     if (!igdbRes.ok) {
-      return NextResponse.json(
-        { error: 'Errore risposta IGDB' },
-        { status: 502, headers: rl.headers }
-      )
+      return NextResponse.json({ error: 'Errore risposta IGDB' }, { status: 502, headers: rl.headers })
     }
 
     const games = await igdbRes.json()
     if (!Array.isArray(games)) {
-      return NextResponse.json(
-        { error: 'Risposta IGDB non valida' },
-        { status: 502, headers: rl.headers }
-      )
+      return NextResponse.json({ error: 'Risposta IGDB non valida' }, { status: 502, headers: rl.headers })
     }
 
     const formattedGames = games.map((g: any) => ({
       id: g.id.toString(),
       title: g.name,
       type: 'game',
-      coverImage: g.cover?.url
-        ? `https:${g.cover.url.replace('t_thumb', 't_cover_big')}`
-        : undefined,
-      year: g.first_release_date
-        ? new Date(g.first_release_date * 1000).getFullYear()
-        : undefined,
+      coverImage: g.cover?.url ? `https:${g.cover.url.replace('t_thumb', 't_cover_big')}` : undefined,
+      year: g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : undefined,
       episodes: 1,
       description: g.summary ? g.summary.slice(0, 400) : undefined,
       genres: g.genres?.map((gen: any) => gen.name) as string[] | undefined,
@@ -155,21 +131,21 @@ export async function POST(request: NextRequest) {
     }))
 
     return NextResponse.json(formattedGames, { headers: rl.headers })
-  } catch (error) {
-    logger.error('IGDB proxy error:', error)
-    return NextResponse.json(
-      { error: 'Errore interno del server' },
-      { status: 500 }
-    )
+  } catch (error: any) {
+    if (error?.name === 'TimeoutError') {
+      logger.error('igdb', 'Timeout richiesta IGDB')
+      return NextResponse.json({ error: 'Timeout API IGDB' }, { status: 504 })
+    }
+    logger.error('igdb', error)
+    return NextResponse.json({ error: 'Errore interno del server' }, { status: 500 })
   }
 }
-// GET handler: accetta /api/igdb?q=<termine> (usato dal nuovo discover)
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const q = searchParams.get('q') || searchParams.get('search') || ''
   if (!q || q.trim().length < 2) return NextResponse.json([])
 
-  // Riusa il POST handler creando un request sintetico con body JSON
   const syntheticRequest = new Request(request.url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...Object.fromEntries(request.headers) },

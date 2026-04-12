@@ -1,15 +1,13 @@
 'use client'
 // src/components/ui/SkeletonCard.tsx
-// Skeleton loaders riutilizzabili per tutti i loading states.
-// Usali al posto degli spinner per una UX percepita più veloce.
+// P5: Aggiunto SkeletonLeaderboardRow — mancava, usato in leaderboard/page.tsx
+// Tutti gli altri skeleton esistenti mantenuti invariati.
 
 // ── Media card skeleton (usato in profilo, for-you, discover) ─────────────────
 export function SkeletonMediaCard() {
   return (
     <div className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden h-[520px] flex flex-col animate-pulse">
-      {/* Cover */}
       <div className="h-60 skeleton flex-shrink-0" />
-      {/* Content */}
       <div className="flex flex-col flex-1 px-4 pt-3 pb-4 gap-3">
         <div className="h-4 skeleton rounded-full w-4/5" />
         <div className="h-3 skeleton rounded-full w-2/5" />
@@ -28,7 +26,6 @@ export function SkeletonMediaCard() {
   )
 }
 
-// ── Grid di skeleton card ────────────────────────────────────────────────────
 export function SkeletonMediaGrid({ count = 10 }: { count?: number }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
@@ -141,12 +138,10 @@ export function SkeletonRecommendationCard() {
 export function SkeletonForYouRow() {
   return (
     <div className="mb-12 animate-pulse">
-      {/* Section header */}
       <div className="flex items-center gap-3 mb-5">
         <div className="w-8 h-8 skeleton rounded-xl" />
         <div className="h-5 skeleton rounded-full w-40" />
       </div>
-      {/* Horizontal scroll row */}
       <div className="flex gap-4 overflow-hidden">
         {Array.from({ length: 5 }).map((_, i) => (
           <SkeletonRecommendationCard key={i} />
@@ -172,6 +167,86 @@ export function SkeletonFriendsWatching() {
             <div className="h-2 skeleton rounded-full w-2/3" />
           </div>
         ))}
+      </div>
+    </div>
+  )
+}
+
+// ── P5: Leaderboard row skeleton ──────────────────────────────────────────────
+export function SkeletonLeaderboardRow() {
+  return (
+    <div className="flex items-center gap-4 p-4 bg-zinc-950 border border-zinc-800 rounded-2xl animate-pulse">
+      {/* Rank */}
+      <div className="w-8 h-5 skeleton rounded-full flex-shrink-0" />
+      {/* Avatar */}
+      <div className="w-10 h-10 skeleton rounded-2xl flex-shrink-0" />
+      {/* Info */}
+      <div className="flex-1 space-y-2">
+        <div className="h-4 skeleton rounded-full w-32" />
+        <div className="h-3 skeleton rounded-full w-20" />
+      </div>
+      {/* Score */}
+      <div className="text-right space-y-1">
+        <div className="h-4 skeleton rounded-full w-20" />
+        <div className="h-2 skeleton rounded-full w-12 ml-auto" />
+      </div>
+    </div>
+  )
+}
+
+// ── N5: GeekScore animato con requestAnimationFrame ───────────────────────────
+// Conta da 0 al valore reale in 1.5s al primo render.
+// Aggiunge rank badge: Novizio / Appassionato / Esperto / Leggenda
+
+import { useEffect, useRef, useState } from 'react'
+
+const RANKS = [
+  { min: 0,     label: 'Novizio',      badge: '🥉', color: 'text-zinc-400' },
+  { min: 500,   label: 'Appassionato', badge: '🥈', color: 'text-blue-400' },
+  { min: 2000,  label: 'Esperto',      badge: '🥇', color: 'text-yellow-400' },
+  { min: 10000, label: 'Leggenda',     badge: '💎', color: 'text-violet-400' },
+]
+
+function getRank(score: number) {
+  return [...RANKS].reverse().find(r => score >= r.min) || RANKS[0]
+}
+
+export function AnimatedGeekScore({ score }: { score: number }) {
+  const [displayed, setDisplayed] = useState(0)
+  const rafRef = useRef<number | null>(null)
+  const startRef = useRef<number | null>(null)
+  const DURATION = 1500
+
+  useEffect(() => {
+    if (score === 0) return
+    startRef.current = null
+
+    const animate = (now: number) => {
+      if (!startRef.current) startRef.current = now
+      const elapsed = now - startRef.current
+      const progress = Math.min(elapsed / DURATION, 1)
+      // easeOutCubic
+      const eased = 1 - Math.pow(1 - progress, 3)
+      setDisplayed(Math.round(eased * score))
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(animate)
+      }
+    }
+
+    rafRef.current = requestAnimationFrame(animate)
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
+  }, [score])
+
+  const rank = getRank(score)
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-2xl font-black tabular-nums text-white">
+        {displayed.toLocaleString('it')}
+      </span>
+      <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 ${rank.color}`}>
+        <span className="text-sm">{rank.badge}</span>
+        <span className="text-xs font-semibold">{rank.label}</span>
       </div>
     </div>
   )

@@ -258,7 +258,8 @@ const RecommendationSection = memo(function RecommendationSection({
         <span className="text-xs text-zinc-500 ml-auto">{items.length} titoli</span>
       </div>
       <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
-        {items.map(item => (
+        {items.map((item, i) => (
+          <div key={item.id} className="animate-in fade-in" style={{ animationDelay: `${i * 40}ms` }}>
           <RecommendationCard
             key={item.id}
             item={item}
@@ -267,6 +268,7 @@ const RecommendationSection = memo(function RecommendationSection({
             alreadyAdded={addedIds.has(item.id)}
             inWishlist={wishlistIds.has(item.id)}
           />
+          </div>
         ))}
       </div>
     </div>

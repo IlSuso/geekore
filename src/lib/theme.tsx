@@ -1,11 +1,11 @@
 'use client'
-// DESTINAZIONE: src/lib/theme.tsx
-// #39: Aggiunta modalità OLED — sfondo #000000 puro, risparmio batteria su AMOLED.
-// I tre temi: 'dark' (default), 'light', 'oled'
+// src/lib/theme.tsx
+// N1: Aggiunto tema "aura" — gradiente aurora animato viola/fuchsia/cyan
+// Ciclo temi: dark → light → oled → aura → dark
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 
-export type Theme = 'dark' | 'light' | 'oled'
+export type Theme = 'dark' | 'light' | 'oled' | 'aura'
 
 interface ThemeContextType {
   theme: Theme
@@ -19,12 +19,12 @@ const ThemeContext = createContext<ThemeContextType>({
   toggleTheme: () => {},
 })
 
-// Ciclo: dark → light → oled → dark
-const CYCLE: Theme[] = ['dark', 'light', 'oled']
+// N1: Aura aggiunto nel ciclo
+const CYCLE: Theme[] = ['dark', 'light', 'oled', 'aura']
 
 function applyTheme(t: Theme) {
   const html = document.documentElement
-  html.classList.remove('light', 'dark', 'oled')
+  html.classList.remove('light', 'dark', 'oled', 'aura')
   html.classList.add(t)
 }
 
@@ -45,7 +45,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     applyTheme(t)
   }
 
-  // Ciclo: dark → light → oled → dark
   const toggleTheme = () => {
     const next = CYCLE[(CYCLE.indexOf(theme) + 1) % CYCLE.length]
     setTheme(next)

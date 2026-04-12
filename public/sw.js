@@ -1,17 +1,12 @@
-// DESTINAZIONE: public/sw.js
-// #30: Modalità offline — cache della collezione utente.
-//      Quando l'utente è offline, il profilo e la collezione mostrano
-//      i dati dell'ultima visita invece di una pagina bianca.
-//
-// Strategia per rotta:
-//   /_next/static/*  → cache-first (immutabile)
-//   /                → network-first con fallback cache
-//   /feed, /profile, /for-you, /discover → stale-while-revalidate
-//   /api/*           → network-only (no cache dati sensibili)
-//   /api/activity, /api/recommendations → cache con TTL 10 min
+// public/sw.js
+// M8: Aggiunta Background Sync API per azioni offline
+// Le azioni critiche (update progresso, like) vengono salvate in IndexedDB
+// quando offline e riprocessate automaticamente quando la connessione torna.
 
-const CACHE_NAME = 'geekore-v2'
-const DATA_CACHE = 'geekore-data-v2'
+const CACHE_NAME = 'geekore-v3'
+const DATA_CACHE = 'geekore-data-v3'
+const SYNC_QUEUE_DB = 'geekore-sync-queue'
+const SYNC_TAG = 'geekore-bg-sync'
 
 const STATIC_ASSETS = [
   '/',
@@ -19,7 +14,6 @@ const STATIC_ASSETS = [
   '/offline.html',
 ]
 
-// Route UI da mettere in cache per offline
 const CACHEABLE_PAGES = [
   '/feed',
   '/for-you',
@@ -29,20 +23,86 @@ const CACHEABLE_PAGES = [
   '/wishlist',
 ]
 
-// API response da cacheare (dati non sensibili, TTL 10 min)
 const CACHEABLE_API = [
   '/api/recommendations',
   '/api/activity',
   '/api/news',
 ]
 
-const DATA_CACHE_TTL = 10 * 60 * 1000 // 10 minuti
+// M8: API endpoint che vengono messe in coda quando offline
+const SYNC_ELIGIBLE_PATTERNS = [
+  { pattern: /\/api\/social\/like/, method: 'POST' },
+  { pattern: /\/api\/social\/like/, method: 'DELETE' },
+  { pattern: /\/user_media_entries/, method: 'PATCH' },
+]
 
-// ─── Install ──────────────────────────────────────────────────────────────────
+const DATA_CACHE_TTL = 10 * 60 * 1000
+
+// ── IndexedDB helper ──────────────────────────────────────────────────────────
+
+function openSyncDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(SYNC_QUEUE_DB, 1)
+    req.onupgradeneeded = (e) => {
+      e.target.result.createObjectStore('queue', { keyPath: 'id', autoIncrement: true })
+    }
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error)
+  })
+}
+
+async function enqueueAction(request) {
+  const db = await openSyncDB()
+  const body = await request.clone().text().catch(() => null)
+  const entry = {
+    url: request.url,
+    method: request.method,
+    headers: Object.fromEntries(request.headers.entries()),
+    body,
+    timestamp: Date.now(),
+  }
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('queue', 'readwrite')
+    tx.objectStore('queue').add(entry)
+    tx.oncomplete = resolve
+    tx.onerror = reject
+  })
+}
+
+async function flushQueue() {
+  const db = await openSyncDB()
+  const items = await new Promise((resolve) => {
+    const tx = db.transaction('queue', 'readonly')
+    const req = tx.objectStore('queue').getAll()
+    req.onsuccess = () => resolve(req.result)
+  })
+
+  for (const item of items) {
+    try {
+      const response = await fetch(item.url, {
+        method: item.method,
+        headers: item.headers,
+        body: item.body || undefined,
+      })
+      if (response.ok) {
+        // Rimuovi dalla coda se riuscito
+        await new Promise((resolve) => {
+          const tx = db.transaction('queue', 'readwrite')
+          tx.objectStore('queue').delete(item.id)
+          tx.oncomplete = resolve
+        })
+      }
+    } catch {
+      // Lascia in coda, riproverà al prossimo sync
+    }
+  }
+}
+
+// ── Install ───────────────────────────────────────────────────────────────────
+
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache =>
-      // addAll silenzioso: non blocca se un asset fallisce
       Promise.allSettled(STATIC_ASSETS.map(url =>
         cache.add(url).catch(() => {})
       ))
@@ -51,7 +111,8 @@ self.addEventListener('install', event => {
   self.skipWaiting()
 })
 
-// ─── Activate ─────────────────────────────────────────────────────────────────
+// ── Activate ──────────────────────────────────────────────────────────────────
+
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
@@ -65,101 +126,92 @@ self.addEventListener('activate', event => {
   self.clients.claim()
 })
 
-// ─── Push ─────────────────────────────────────────────────────────────────────
+// ── Push ──────────────────────────────────────────────────────────────────────
+
 self.addEventListener('push', event => {
   if (!event.data) return
-
   let payload
   try { payload = event.data.json() }
   catch { payload = { title: 'Geekore', body: event.data.text() } }
-
   const { title = 'Geekore', body = '', icon, url = '/', tag } = payload
-
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
-      icon: icon || '/icons/icon-192x192.png',
-      badge: '/icons/badge-72x72.png',
-      tag: tag || 'geekore-notification',
-      renotify: true,
+      icon: icon || '/icons/icon-192.png',
+      badge: '/icons/favicon-32.png',
+      tag: tag || 'geekore-notif',
       data: { url },
-      actions: [
-        { action: 'open', title: 'Apri' },
-        { action: 'dismiss', title: 'Ignora' },
-      ],
+      vibrate: [200, 100, 200],
     })
   )
 })
 
-// ─── Notification click ───────────────────────────────────────────────────────
 self.addEventListener('notificationclick', event => {
   event.notification.close()
-  if (event.action === 'dismiss') return
-
   const url = event.notification.data?.url || '/'
-
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
-      for (const client of clients) {
-        if ('focus' in client) {
-          client.focus()
-          if ('navigate' in client) client.navigate(url)
-          return
-        }
+    clients.matchAll({ type: 'window' }).then(windowClients => {
+      for (const client of windowClients) {
+        if (client.url === url && 'focus' in client) return client.focus()
       }
-      if (self.clients.openWindow) return self.clients.openWindow(url)
+      if (clients.openWindow) return clients.openWindow(url)
     })
   )
 })
 
-// ─── Helpers cache ────────────────────────────────────────────────────────────
+// ── M8: Background Sync ───────────────────────────────────────────────────────
 
-function isExpired(response) {
-  if (!response) return true
-  const dateHeader = response.headers.get('sw-cached-at')
-  if (!dateHeader) return false // non ha TTL
-  return Date.now() - parseInt(dateHeader, 10) > DATA_CACHE_TTL
-}
+self.addEventListener('sync', event => {
+  if (event.tag === SYNC_TAG) {
+    event.waitUntil(
+      flushQueue().then(() => {
+        // Notifica i client che la sync è completata
+        self.clients.matchAll().then(clients => {
+          clients.forEach(client => client.postMessage({ type: 'SYNC_COMPLETE' }))
+        })
+      })
+    )
+  }
+})
+
+// ── Fetch ─────────────────────────────────────────────────────────────────────
 
 function addTimestamp(response) {
   const headers = new Headers(response.headers)
-  headers.set('sw-cached-at', String(Date.now()))
+  headers.set('sw-cached-at', Date.now().toString())
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
 }
 
-// ─── Fetch ────────────────────────────────────────────────────────────────────
+function isExpired(response) {
+  const cachedAt = response.headers.get('sw-cached-at')
+  if (!cachedAt) return true
+  return Date.now() - parseInt(cachedAt) > DATA_CACHE_TTL
+}
+
 self.addEventListener('fetch', event => {
-  const url = new URL(event.request.url)
-  const { pathname } = url
+  const { pathname } = new URL(event.request.url)
 
-  // Solo richieste same-origin
-  if (url.origin !== self.location.origin) return
-
-  // ── 1. Asset statici Next.js → cache-first (immutabili) ──────────────────
+  // ── Static Next.js assets → cache-first ────────────────────────────────────
   if (pathname.startsWith('/_next/static/')) {
     event.respondWith(
-      caches.match(event.request).then(cached => {
+      caches.open(CACHE_NAME).then(async cache => {
+        const cached = await cache.match(event.request)
         if (cached) return cached
-        return fetch(event.request).then(response => {
-          const clone = response.clone()
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone))
-          return response
-        })
+        const response = await fetch(event.request)
+        if (response.ok) cache.put(event.request, response.clone())
+        return response
       })
     )
     return
   }
 
-  // ── 2. Immagini ottimizzate Next.js → stale-while-revalidate ─────────────
+  // ── Next.js images → stale-while-revalidate ─────────────────────────────────
   if (pathname.startsWith('/_next/image')) {
     event.respondWith(
       caches.open(CACHE_NAME).then(async cache => {
         const cached = await cache.match(event.request)
         const networkPromise = fetch(event.request)
-          .then(response => {
-            cache.put(event.request, response.clone())
-            return response
-          })
+          .then(response => { cache.put(event.request, response.clone()); return response })
           .catch(() => cached)
         return cached || networkPromise
       })
@@ -167,22 +219,41 @@ self.addEventListener('fetch', event => {
     return
   }
 
-  // ── 3. API cacheable → network-first con fallback e TTL ──────────────────
+  // ── M8: Azioni mutanti → se offline, metti in coda ──────────────────────────
+  const isSyncEligible = SYNC_ELIGIBLE_PATTERNS.some(
+    p => p.pattern.test(event.request.url) && p.method === event.request.method
+  )
+
+  if (isSyncEligible && ['POST', 'PATCH', 'DELETE'].includes(event.request.method)) {
+    event.respondWith(
+      fetch(event.request.clone()).catch(async () => {
+        // Offline: salva in coda e registra Background Sync
+        await enqueueAction(event.request)
+        try {
+          await self.registration.sync.register(SYNC_TAG)
+        } catch {}
+        // Risposta ottimistica per non bloccare la UI
+        return new Response(
+          JSON.stringify({ queued: true, message: 'Azione salvata, verrà sincronizzata quando online' }),
+          { status: 202, headers: { 'Content-Type': 'application/json', 'X-Queued': 'true' } }
+        )
+      })
+    )
+    return
+  }
+
+  // ── API cacheable → network-first con fallback TTL ──────────────────────────
   const isCacheableApi = CACHEABLE_API.some(p => pathname.startsWith(p))
   if (isCacheableApi && event.request.method === 'GET') {
     event.respondWith(
       caches.open(DATA_CACHE).then(async cache => {
         try {
           const response = await fetch(event.request)
-          if (response.ok) {
-            cache.put(event.request, addTimestamp(response.clone()))
-          }
+          if (response.ok) cache.put(event.request, addTimestamp(response.clone()))
           return response
         } catch {
-          // Offline: usa cache se non scaduta
           const cached = await cache.match(event.request)
           if (cached && !isExpired(cached)) return cached
-          // Cache scaduta ma siamo offline: ritorna comunque (meglio di niente)
           if (cached) return cached
           return new Response(
             JSON.stringify({ error: 'offline', cached: false }),
@@ -194,34 +265,27 @@ self.addEventListener('fetch', event => {
     return
   }
 
-  // ── 4. API non cacheable → network-only ──────────────────────────────────
-  if (pathname.startsWith('/api/')) {
-    // Lascia passare senza intercettare
-    return
-  }
+  // ── API non cacheable → network-only ────────────────────────────────────────
+  if (pathname.startsWith('/api/')) return
 
-  // ── 5. Pagine UI → network-first con fallback cache ───────────────────────
+  // ── Pagine UI → network-first con fallback offline ──────────────────────────
   const isCacheablePage = CACHEABLE_PAGES.some(p => pathname === p || pathname.startsWith(p + '/'))
   if (isCacheablePage || pathname === '/') {
     event.respondWith(
       fetch(event.request)
         .then(response => {
           if (response.ok) {
-            const clone = response.clone()
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone))
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, response.clone()))
           }
           return response
         })
         .catch(async () => {
-          // Offline: prova dalla cache
           const cached = await caches.match(event.request)
           if (cached) return cached
-          // Fallback alla home dalla cache
-          const homeCached = await caches.match('/')
-          if (homeCached) return homeCached
-          // Ultimo fallback: pagina offline statica
-          const offlinePage = await caches.match('/offline.html')
-          return offlinePage || new Response(
+          const home = await caches.match('/')
+          if (home) return home
+          const offline = await caches.match('/offline.html')
+          return offline || new Response(
             '<html><body><h1>Offline</h1><p>Connettiti a Internet per usare Geekore.</p></body></html>',
             { headers: { 'Content-Type': 'text/html' } }
           )
@@ -231,19 +295,23 @@ self.addEventListener('fetch', event => {
   }
 })
 
-// ─── Message: forza aggiornamento cache dalla pagina ─────────────────────────
+// ── Message ───────────────────────────────────────────────────────────────────
+
 self.addEventListener('message', event => {
   if (event.data?.type === 'CACHE_URLS' && Array.isArray(event.data.urls)) {
     caches.open(DATA_CACHE).then(cache =>
       Promise.allSettled(
-        event.data.urls.map((url) =>
+        event.data.urls.map(url =>
           fetch(url).then(r => r.ok ? cache.put(url, addTimestamp(r)) : null).catch(() => {})
         )
       )
     )
   }
-
   if (event.data?.type === 'CLEAR_DATA_CACHE') {
     caches.delete(DATA_CACHE)
+  }
+  // M8: forza flush della coda manualmente (es. quando l'utente torna online)
+  if (event.data?.type === 'FLUSH_SYNC_QUEUE') {
+    flushQueue()
   }
 })

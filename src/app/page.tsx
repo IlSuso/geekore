@@ -1,17 +1,195 @@
+// src/app/page.tsx
+// C1: Landing page con dati reali via Server Component + Suspense streaming
+// Mostra: contatori community, ultimi iscritti, preview feed pubblico
+
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { Suspense } from 'react'
+import { Avatar } from '@/components/ui/Avatar'
+
+// ─── Fetch dati reali ─────────────────────────────────────────────────────────
+
+async function getCommunityStats() {
+  const supabase = await createClient()
+  const [
+    { count: userCount },
+    { count: mediaCount },
+    { data: recentUsers },
+    { data: recentPosts },
+  ] = await Promise.all([
+    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+    supabase.from('user_media_entries').select('*', { count: 'exact', head: true }),
+    supabase.from('profiles')
+      .select('username, display_name, avatar_url')
+      .order('created_at', { ascending: false })
+      .limit(6),
+    supabase.from('posts')
+      .select('id, content, created_at, profiles(username, display_name, avatar_url)')
+      .order('created_at', { ascending: false })
+      .limit(3),
+  ])
+  return {
+    userCount: userCount || 0,
+    mediaCount: mediaCount || 0,
+    recentUsers: recentUsers || [],
+    recentPosts: recentPosts || [],
+  }
+}
+
+// ─── Contatori animati via CSS ────────────────────────────────────────────────
+
+function AnimatedCounter({ value, label, suffix = '' }: { value: number; label: string; suffix?: string }) {
+  const display = value >= 1000
+    ? `${(value / 1000).toFixed(1)}k`
+    : value.toString()
+  return (
+    <div className="text-center">
+      <p className="text-4xl md:text-5xl font-black tracking-tighter text-white tabular-nums">
+        {display}{suffix}
+      </p>
+      <p className="text-zinc-500 text-sm mt-1">{label}</p>
+    </div>
+  )
+}
+
+// ─── Community live section ───────────────────────────────────────────────────
+
+async function CommunityLive() {
+  const { userCount, mediaCount, recentUsers, recentPosts } = await getCommunityStats()
+
+  return (
+    <div className="mt-20 max-w-4xl mx-auto w-full space-y-10">
+
+      {/* Contatori */}
+      <div className="relative">
+        <div className="absolute -inset-1 bg-gradient-to-r from-violet-600/20 to-fuchsia-600/20 rounded-3xl blur-xl" />
+        <div className="relative bg-zinc-900/60 border border-zinc-800 rounded-3xl p-8 backdrop-blur">
+          <div className="flex items-center gap-2 mb-8 justify-center">
+            <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+            <p className="text-sm font-medium text-zinc-400 uppercase tracking-widest">Community live</p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
+            <AnimatedCounter value={userCount} label="Geek iscritti" />
+            <AnimatedCounter value={mediaCount} label="Media tracciati" />
+            <div className="text-center col-span-2 md:col-span-1">
+              <p className="text-4xl md:text-5xl font-black tracking-tighter text-white">5+</p>
+              <p className="text-zinc-500 text-sm mt-1">Categorie supportate</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Ultimi iscritti */}
+      {recentUsers.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-zinc-600 uppercase tracking-widest mb-4 text-center">
+            Entrati di recente
+          </p>
+          <div className="flex justify-center gap-3 flex-wrap">
+            {recentUsers.map((u: any) => (
+              <Link
+                key={u.username}
+                href={`/profile/${u.username}`}
+                className="flex flex-col items-center gap-2 group"
+              >
+                <div className="w-12 h-12 rounded-2xl overflow-hidden ring-2 ring-zinc-800 group-hover:ring-violet-500/50 transition-all">
+                  <Avatar
+                    src={u.avatar_url}
+                    username={u.username}
+                    displayName={u.display_name}
+                    size={48}
+                    className="rounded-2xl"
+                  />
+                </div>
+                <p className="text-[10px] text-zinc-600 group-hover:text-zinc-400 transition-colors truncate max-w-[56px]">
+                  @{u.username}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Preview feed pubblico */}
+      {recentPosts.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-xs font-semibold text-zinc-600 uppercase tracking-widest mb-4 text-center">
+            Dal feed
+          </p>
+          {recentPosts.map((post: any) => (
+            <div
+              key={post.id}
+              className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4 text-left"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0">
+                  <Avatar
+                    src={post.profiles?.avatar_url}
+                    username={post.profiles?.username || 'user'}
+                    displayName={post.profiles?.display_name}
+                    size={32}
+                    className="rounded-xl"
+                  />
+                </div>
+                <span className="text-xs font-semibold text-violet-400">
+                  @{post.profiles?.username || 'utente'}
+                </span>
+              </div>
+              <p className="text-sm text-zinc-300 line-clamp-2 leading-relaxed">
+                {post.content}
+              </p>
+            </div>
+          ))}
+          <div className="text-center pt-2">
+            <Link href="/register" className="text-xs text-zinc-600 hover:text-violet-400 transition-colors">
+              Registrati per vedere il feed completo →
+            </Link>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Skeleton per Suspense ────────────────────────────────────────────────────
+
+function CommunityLiveSkeleton() {
+  return (
+    <div className="mt-20 max-w-4xl mx-auto w-full space-y-10 animate-pulse">
+      <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-8">
+        <div className="grid grid-cols-3 gap-8">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="text-center space-y-2">
+              <div className="h-12 bg-zinc-800 rounded-xl w-24 mx-auto" />
+              <div className="h-4 bg-zinc-800 rounded-full w-20 mx-auto" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="flex justify-center gap-3">
+        {[1, 2, 3, 4, 5, 6].map(i => (
+          <div key={i} className="flex flex-col items-center gap-2">
+            <div className="w-12 h-12 bg-zinc-800 rounded-2xl" />
+            <div className="h-2 bg-zinc-800 rounded-full w-10" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default async function HomePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-
   if (user) redirect('/feed')
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col -mt-16">
 
-      {/* Nav dedicata alla landing (non usa il Navbar globale) */}
+      {/* Nav */}
       <nav className="flex items-center justify-between px-6 py-5 max-w-6xl mx-auto w-full">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center">
@@ -63,32 +241,10 @@ export default async function HomePage() {
           </div>
         </div>
 
-        <div className="mt-20 max-w-4xl mx-auto w-full">
-          <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent z-10 pointer-events-none" />
-            <div className="absolute -inset-1 bg-gradient-to-r from-violet-600/20 to-fuchsia-600/20 rounded-3xl blur-xl" />
-            <div className="relative bg-zinc-900/50 border border-zinc-800 rounded-3xl p-6 md:p-8 backdrop-blur">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
-                {MOCK_CARDS.map((card, i) => (
-                  <div key={i} className="bg-zinc-800/80 rounded-2xl overflow-hidden border border-zinc-700/50">
-                    <div className="h-28 md:h-36 w-full" style={{ background: card.gradient }} />
-                    <div className="p-3">
-                      <div className="text-xs font-semibold truncate">{card.title}</div>
-                      <div className="text-xs text-zinc-500 mt-1">{card.type}</div>
-                      <div className="flex gap-0.5 mt-2">
-                        {[1,2,3,4,5].map(s => (
-                          <svg key={s} width="10" height="10" viewBox="0 0 24 24">
-                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill={s <= card.stars ? '#fbbf24' : '#374151'} />
-                          </svg>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* C1: Dati reali con Suspense streaming — non rallenta TTFB */}
+        <Suspense fallback={<CommunityLiveSkeleton />}>
+          <CommunityLive />
+        </Suspense>
 
         <div className="flex flex-wrap gap-2 md:gap-3 justify-center mt-12 md:mt-16">
           {FEATURES.map((f, i) => (
@@ -99,20 +255,12 @@ export default async function HomePage() {
         </div>
       </main>
 
-      {/* Footer standalone — senza il Footer globale che appare dopo */}
       <footer className="text-center py-6 text-zinc-600 text-sm border-t border-zinc-900">
         Geekore — fatto con passione per i geek
       </footer>
     </div>
   )
 }
-
-const MOCK_CARDS = [
-  { title: 'Attack on Titan', type: 'Anime', stars: 5, gradient: 'linear-gradient(135deg, #1a1a2e, #16213e)' },
-  { title: 'Elden Ring', type: 'Videogioco', stars: 5, gradient: 'linear-gradient(135deg, #2d1b00, #1a0f00)' },
-  { title: 'One Piece', type: 'Manga', stars: 4, gradient: 'linear-gradient(135deg, #001f3f, #003366)' },
-  { title: 'Breaking Bad', type: 'Serie TV', stars: 5, gradient: 'linear-gradient(135deg, #1a2a1a, #0d1a0d)' },
-]
 
 const FEATURES = [
   'Anime & Manga', 'Videogiochi', 'Serie TV', 'Film',

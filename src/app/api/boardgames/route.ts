@@ -15,10 +15,10 @@ async function bggFetch(url: string, maxRetries = 5, delayMs = 2000): Promise<st
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     if (attempt > 0) await new Promise(r => setTimeout(r, delayMs))
     try {
-      const res = await fetch(url, { cache: 'no-store', headers: bggHeaders() })
+      const res = await fetch(url, { cache: 'no-store', headers: bggHeaders(), signal: AbortSignal.timeout(8000) })
       if (res.status === 202) continue
       if (!res.ok) {
-        logger.error('error', `[BGG] HTTP ${res.status} per ${url}`)
+        console.error(`[BGG] HTTP ${res.status} per ${url}`)
         return null
       }
       const text = await res.text()
@@ -28,7 +28,7 @@ async function bggFetch(url: string, maxRetries = 5, delayMs = 2000): Promise<st
       }
       return text
     } catch (e) {
-      logger.error('error', `[BGG] Errore rete tentativo ${attempt}:`, e)
+      logger.error(`[BGG] Errore rete tentativo ${attempt}:`, e)
       if (attempt === maxRetries - 1) return null
     }
   }
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
         searchXml = text
         break
       } catch (e) {
-        logger.error('error', `[BGG] errore su ${endpoint}:`, e)
+        logger.error(`[BGG] errore su ${endpoint}:`, e)
       }
     }
 
