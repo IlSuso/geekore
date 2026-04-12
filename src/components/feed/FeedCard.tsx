@@ -67,7 +67,7 @@ export interface FeedCardProps {
   onLikeChange?: (postId: string, delta: number) => void
 }
 
-export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardProps) {
+export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardProps): JSX.Element {
   const supabase = createClient()
   const { locale } = useLocale()
 
@@ -158,7 +158,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
     }
   }
 
-
+  const handleCommentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value
     if (val.length <= MAX_COMMENT_LENGTH) {
       setNewComment(val)
