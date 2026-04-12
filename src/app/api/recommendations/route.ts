@@ -923,7 +923,7 @@ function buildWhyV3(
     const titles = tasteProfile.genreToTitles[genre] || []
     const genreScore = tasteProfile.globalGenres.find(g => g.genre === genre)?.score || 1
     for (const t of titles) {
-      if (t.isWishlist) continue // non citare items dalla wishlist nelle spiegazioni
+      if ((t as any).isWishlist) continue // non citare items dalla wishlist nelle spiegazioni
       const existing = candidates.find(c => c.title === t.title)
       if (existing) existing.score += genreScore
       else candidates.push({ ...t, score: genreScore })
