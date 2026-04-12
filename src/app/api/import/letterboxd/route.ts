@@ -94,7 +94,12 @@ function makeExternalId(row: Record<string, string>): string {
   const slug = uri ? uri.replace(/\/$/, '').split('/').pop() || '' : ''
   const nameslug = row['name'].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
   const year = row['year'] || ''
-  return `letterboxd-${slug || nameslug}${year ? `-${year}` : ''}`
+  // Se abbiamo lo slug URI lo usiamo da solo — è già univoco su Letterboxd.
+  // watched.csv e ratings.csv hanno lo stesso slug per lo stesso film,
+  // quindi non generiamo più external_id diversi per lo stesso film.
+  // L'anno si aggiunge solo nel fallback (nessun URI disponibile).
+  if (slug) return `letterboxd-${slug}`
+  return `letterboxd-${nameslug}${year ? `-${year}` : ''}`
 }
 
 function parseRating(val: string): number | null {
