@@ -1,6 +1,6 @@
-// DESTINAZIONE: src/app/layout.tsx
-// N6: Aggiunto color-scheme meta tag per compatibilità con Dark Reader
+// src/app/layout.tsx
 // #40: View Transitions API abilitata
+// N6:  color-scheme meta tag per compatibilità Dark Reader
 
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
@@ -35,28 +35,31 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
+  // #14: viewport-fit=cover per tastiera iOS
   viewportFit: 'cover',
-  // N6: color-scheme segnala a Dark Reader che il sito gestisce già dark/light
+  // N6: segnala a Dark Reader che il sito gestisce già dark/light autonomamente
   colorScheme: 'dark light',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="it" className="dark" suppressHydrationWarning>
+    <html lang="it" style={{ viewTransitionName: 'root' } as React.CSSProperties}>
       <head>
-        {/* N6: meta tag esplicito per Dark Reader — segnala che il sito gestisce
-            autonomamente dark/light mode e non deve essere invertito */}
+        {/* #40: View Transitions */}
+        <meta name="view-transition" content="same-origin" />
+        {/* N6: Dark Reader compatibility */}
         <meta name="color-scheme" content="dark light" />
       </head>
-      <body className="bg-zinc-950 text-white antialiased">
+      <body className="bg-black text-white min-h-screen antialiased">
         <ClientProviders>
-          <ToastProvider>
+          <div style={{ viewTransitionName: 'navbar' } as React.CSSProperties}>
             <Navbar />
-            <main className="min-h-screen">
-              {children}
-            </main>
-            <Footer />
-          </ToastProvider>
+          </div>
+          <main className="pt-16 pb-24 md:pb-8">
+            {children}
+          </main>
+          <Footer />
+          <ToastProvider />
         </ClientProviders>
       </body>
     </html>
