@@ -36,9 +36,13 @@ export async function POST(request: NextRequest) {
     result_clicked_genres: Array.isArray(result_clicked_genres) ? result_clicked_genres : [],
   })
 
-  // Pulisci vecchie ricerche (mantieni solo le ultime 500 per utente)
-  // Fatto in background, non blocca la risposta
-  supabase.rpc('cleanup_search_history', { p_user_id: user.id, p_keep: 500 }).then(() => {}).catch(() => {})
+        // Pulizia automatica vecchi record (max 500 per utente)
+      Promise.resolve(
+        supabase.rpc('cleanup_old_search_history', { 
+          user_id: user.id, 
+          p_keep: 500 
+        })
+      ).then(() => {}).catch(() => {})
 
   return NextResponse.json({ ok: true }, { headers: rl.headers })
 }
