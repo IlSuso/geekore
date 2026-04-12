@@ -211,8 +211,9 @@ export default function SearchPage() {
                 {currentUserId && currentUserId !== user.id && (
                   <div className="shrink-0">
                     <FollowButton
-                      targetUserId={user.id}
+                      targetId={user.id}
                       currentUserId={currentUserId}
+                      isFollowingInitial={false}
                     />
                   </div>
                 )}
