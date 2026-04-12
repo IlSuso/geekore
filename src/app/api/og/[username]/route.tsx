@@ -1,10 +1,12 @@
 // src/app/api/og/[username]/route.tsx
-// OG image dinamica per profili. Richiede: npm install @vercel/og
+// M9: Aggiunto Cache-Control per evitare query Supabase ad ogni richiesta dei bot social
 import { ImageResponse } from 'next/og'
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 export const runtime = 'edge'
+// M9: cache Edge di Vercel per 1 ora
+export const revalidate = 3600
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ username: string }> }) {
   const { username } = await params
@@ -35,7 +37,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     ...(steamHours > 0 ? [{ label: 'Ore Steam', value: steamHours + 'h', color: '#66C0F4' }] : []),
   ].filter(s => (typeof s.value === 'number' ? s.value > 0 : true))
 
-  return new ImageResponse(
+  const imageResponse = new ImageResponse(
     <div style={{ display:'flex', width:'1200px', height:'630px', background:'linear-gradient(135deg,#09090b 0%,#0f0a1e 50%,#09090b 100%)', fontFamily:'system-ui,sans-serif', padding:'64px', gap:'48px', alignItems:'center' }}>
       <div style={{ display:'flex', flexDirection:'column', gap:'0', position:'absolute', top:'-80px', left:'-80px', width:'300px', height:'300px', background:'radial-gradient(circle,rgba(124,106,247,0.4) 0%,transparent 70%)', borderRadius:'50%' }} />
       <div style={{ display:'flex', flexDirection:'column', flex:1, gap:'24px', zIndex:1 }}>
@@ -67,4 +69,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     </div>,
     { width: 1200, height: 630 }
   )
+
+  // M9: Cache-Control — pubblica per 1h nel browser, 24h nell'Edge CDN di Vercel
+  const response = new Response(imageResponse.body, {
+    headers: {
+      ...Object.fromEntries(imageResponse.headers.entries()),
+      'Cache-Control': 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=3600',
+    },
+  })
+
+  return response
 }

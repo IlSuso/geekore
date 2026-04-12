@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(data || [])
   } catch (err) {
-    console.error('[Activity GET]', err)
+    logger.error('[Activity GET]', err)
     return NextResponse.json([], { status: 500 })
   }
 }
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
     if (error) throw error
     return NextResponse.json({ success: true })
   } catch (err) {
-    console.error('[Activity POST]', err)
+    logger.error('[Activity POST]', err)
     return NextResponse.json({ error: 'Errore' }, { status: 500 })
   }
 }

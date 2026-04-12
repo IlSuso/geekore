@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { logger } from '@/lib/logger'
 
 const VALID_CATEGORIES = ['all', 'gaming', 'cinema', 'anime', 'tv']
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000 // 12 ore
@@ -16,9 +16,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Categoria non valida' }, { status: 400 })
     }
 
-    const suffix = `_${lang}` // es. cinema_it
+    const suffix = `_${lang}`
 
-    // Build query: fetch categories with lang suffix
     const categoriesNeeded = cat === 'all'
       ? ['cinema', 'tv', 'anime', 'gaming'].map(c => `${c}${suffix}`)
       : [`${cat}${suffix}`]
@@ -30,14 +29,16 @@ export async function GET(request: Request) {
 
     if (error) throw error
 
-    // Se cache vuota o scaduta → sync in background
     const now = Date.now()
     const isCacheStale = !data || data.length === 0 ||
       data.some(row => !row.updated_at || now - new Date(row.updated_at).getTime() > CACHE_TTL_MS)
 
     if (isCacheStale) {
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
-      fetch(`${baseUrl}/api/news/sync?lang=${lang}`, { method: 'GET' }).catch(() => {})
+      fetch(`${baseUrl}/api/news/sync?lang=${lang}`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(8000),
+      }).catch(() => {})
     }
 
     let allNews: any[] = []
@@ -48,7 +49,6 @@ export async function GET(request: Request) {
       })
     }
 
-    // Ordina per data più recente
     allNews.sort((a, b) => {
       if (!a.date) return 1
       if (!b.date) return -1
@@ -58,7 +58,8 @@ export async function GET(request: Request) {
     return NextResponse.json(allNews)
 
   } catch (err) {
-    console.error('News API error:', err)
+    // C2: usa logger invece di console.error
+    logger.error('news/route', err)
     return NextResponse.json([], { status: 500 })
   }
 }

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { parseStringPromise } from 'xml2js'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
@@ -17,21 +18,21 @@ async function bggFetch(url: string, maxRetries = 5, delayMs = 2000): Promise<st
       const res = await fetch(url, { cache: 'no-store', headers: bggHeaders() })
       if (res.status === 202) continue
       if (!res.ok) {
-        console.error(`[BGG] HTTP ${res.status} per ${url}`)
+        logger.error('error', `[BGG] HTTP ${res.status} per ${url}`)
         return null
       }
       const text = await res.text()
       if (!text.trim().startsWith('<')) {
-        console.error('[BGG] Risposta non XML:', text.slice(0, 200))
+        logger.error('[BGG] Risposta non XML:', text.slice(0, 200))
         return null
       }
       return text
     } catch (e) {
-      console.error(`[BGG] Errore rete tentativo ${attempt}:`, e)
+      logger.error('error', `[BGG] Errore rete tentativo ${attempt}:`, e)
       if (attempt === maxRetries - 1) return null
     }
   }
-  console.error('[BGG] Tutti i tentativi esauriti per', url)
+  logger.error('[BGG] Tutti i tentativi esauriti per', url)
   return null
 }
 
@@ -83,7 +84,7 @@ export async function GET(request: NextRequest) {
         searchXml = text
         break
       } catch (e) {
-        console.error(`[BGG] errore su ${endpoint}:`, e)
+        logger.error('error', `[BGG] errore su ${endpoint}:`, e)
       }
     }
 
@@ -192,7 +193,7 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({ results }, { headers: rl.headers })
     } catch (e) {
-      console.error('[BGG] parse error:', e)
+      logger.error('[BGG] parse error:', e)
       return NextResponse.json({ results: [] }, { headers: rl.headers })
     }
   }
@@ -241,7 +242,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ articles: cleanedArticles }, { headers: rl.headers })
   } catch (e) {
-    console.error('[BGG] hot list error:', e)
+    logger.error('[BGG] hot list error:', e)
     return NextResponse.json({ articles: [] }, { headers: rl.headers })
   }
 }

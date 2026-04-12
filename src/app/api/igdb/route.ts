@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rateLimit'
 
@@ -155,7 +156,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(formattedGames, { headers: rl.headers })
   } catch (error) {
-    console.error('IGDB proxy error:', error)
+    logger.error('IGDB proxy error:', error)
     return NextResponse.json(
       { error: 'Errore interno del server' },
       { status: 500 }

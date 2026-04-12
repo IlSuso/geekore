@@ -1,3 +1,22 @@
+/* Aggiunta in cima a globals.css — inserisci queste righe PRIMA del @tailwind base esistente */
+
+/* N6: Dark Reader compatibility — segnala che il sito gestisce dark/light autonomamente */
+:root {
+  color-scheme: dark light;
+}
+
+/* M1: Glassmorphism cross-browser per navbar — aggiunto saturate+brightness
+   Chrome/Firefox producevano effetti diversi senza questi valori coordinati */
+.mobile-nav, nav.fixed {
+  backdrop-filter: blur(20px) saturate(180%) brightness(0.95);
+  -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(0.95);
+}
+
+html.light .mobile-nav, html.light nav.fixed {
+  backdrop-filter: blur(20px) saturate(200%) brightness(1.05);
+  -webkit-backdrop-filter: blur(20px) saturate(200%) brightness(1.05);
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

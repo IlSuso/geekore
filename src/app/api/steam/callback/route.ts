@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
 
   // ── Validazione Steam ID64 ──────────────────────────────────────────────────
   if (!isValidSteamId64(steamId64)) {
-    console.error('[Steam Callback] Invalid Steam ID64:', steamId64)
+    logger.error('[Steam Callback] Invalid Steam ID64:', steamId64)
     return NextResponse.redirect(new URL('/profile/me?error=steam_invalid_id', request.url))
   }
 
@@ -62,7 +63,7 @@ export async function GET(request: Request) {
       )
 
     if (error) {
-      console.error('Errore DB Steam:', error)
+      logger.error('Errore DB Steam:', error)
       return NextResponse.redirect(new URL('/profile/me?error=db_error', request.url))
     }
 
@@ -78,7 +79,7 @@ export async function GET(request: Request) {
 
     return NextResponse.redirect(new URL(profileUrl, request.url))
   } catch (err) {
-    console.error('Errore callback Steam:', err)
+    logger.error('Errore callback Steam:', err)
     return NextResponse.redirect(new URL('/profile/me?error=server_error', request.url))
   }
 }

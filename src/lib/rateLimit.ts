@@ -1,11 +1,16 @@
 /**
  * Rate limiter leggero in-memory per le API route di Next.js.
+ * SEC5: supporta userId opzionale — bucket separati per autenticati vs anonimi.
+ *       Un utente loggato non viene bloccato per colpa di un altro utente sullo stesso IP.
+ *
  * In produzione multi-istanza usa Redis/Upstash — questo funziona
  * benissimo su Vercel con una sola istanza per cold start.
  *
- * Utilizzo:
+ * Utilizzo (anonimo):
  *   const result = rateLimit(request, { limit: 10, windowMs: 60_000 })
- *   if (!result.ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+ *
+ * Utilizzo (autenticato):
+ *   const result = rateLimit(request, { limit: 30, windowMs: 60_000, userId: user.id })
  */
 
 type Entry = { count: number; resetAt: number }
@@ -29,6 +34,11 @@ interface RateLimitOptions {
   windowMs?: number
   /** Prefisso per la chiave (default: ip) */
   prefix?: string
+  /**
+   * SEC5: userId opzionale — se presente, usa `prefix:user:userId` come chiave
+   * invece dell'IP, evitando collateral damage su IP condivisi (NAT, VPN).
+   */
+  userId?: string | null
 }
 
 interface RateLimitResult {
@@ -42,17 +52,23 @@ export function rateLimit(
   request: Request,
   options: RateLimitOptions
 ): RateLimitResult {
-  const { limit, windowMs = 60_000, prefix = 'rl' } = options
+  const { limit, windowMs = 60_000, prefix = 'rl', userId } = options
 
-  // Estrae IP dal header Vercel/Cloudflare, fallback a 'unknown'
-  const ip =
-    request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
-    request.headers.get('x-real-ip') ||
-    'unknown'
+  let key: string
 
-  const key = `${prefix}:${ip}`
+  if (userId) {
+    // SEC5: utente autenticato → bucket isolato per userId (non condiviso con l'IP)
+    key = `${prefix}:user:${userId}`
+  } else {
+    // Anonimo → usa IP come prima
+    const ip =
+      request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+      request.headers.get('x-real-ip') ||
+      'unknown'
+    key = `${prefix}:ip:${ip}`
+  }
+
   const now = Date.now()
-
   let entry = store.get(key)
 
   if (!entry || entry.resetAt < now) {

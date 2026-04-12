@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 // DESTINAZIONE: src/app/api/auth/me/route.ts
 
 import { createClient } from '@/lib/supabase/server'
@@ -15,7 +16,7 @@ export async function GET() {
 
     return NextResponse.json({ user })
   } catch (err) {
-    console.error('Errore in /api/auth/me:', err)
+    logger.error('Errore in /api/auth/me:', err)
     return NextResponse.json({ user: null }, { status: 500 })
   }
 }

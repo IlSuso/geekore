@@ -1,8 +1,9 @@
 // DESTINAZIONE: src/app/register/page.tsx
+// C3: Aggiunta PasswordStrengthBar con 4 livelli + blocco submit se < "media"
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { Eye, EyeOff, Zap, CheckCircle, Mail } from 'lucide-react'
@@ -24,6 +25,59 @@ function LocaleToggle() {
   )
 }
 
+// C3: Calcola forza password: 0=vuota 1=debole 2=media 3=buona 4=forte
+function calcStrength(password: string): number {
+  if (!password) return 0
+  let score = 0
+  if (password.length >= 8) score++
+  if (/[0-9]/.test(password)) score++
+  if (/[^a-zA-Z0-9]/.test(password)) score++
+  if (password.length >= 12) score++
+  return score
+}
+
+const STRENGTH_LABELS = ['', 'Debole', 'Media', 'Buona', 'Forte']
+const STRENGTH_LABELS_EN = ['', 'Weak', 'Medium', 'Good', 'Strong']
+const STRENGTH_COLORS = [
+  '',
+  'bg-red-500',
+  'bg-yellow-500',
+  'bg-emerald-400',
+  'bg-emerald-500',
+]
+const STRENGTH_TEXT_COLORS = [
+  '',
+  'text-red-400',
+  'text-yellow-400',
+  'text-emerald-400',
+  'text-emerald-400',
+]
+
+function PasswordStrengthBar({ password, locale }: { password: string; locale: string }) {
+  const strength = calcStrength(password)
+  if (!password) return null
+  const labels = locale === 'en' ? STRENGTH_LABELS_EN : STRENGTH_LABELS
+  return (
+    <div className="mt-2 space-y-1.5">
+      <div className="flex gap-1">
+        {[1, 2, 3, 4].map(level => (
+          <div
+            key={level}
+            className={`h-1 flex-1 rounded-full transition-all duration-300 ${
+              strength >= level ? STRENGTH_COLORS[strength] : 'bg-zinc-800'
+            }`}
+          />
+        ))}
+      </div>
+      <p className={`text-xs font-medium ${STRENGTH_TEXT_COLORS[strength]}`}>
+        {labels[strength]}
+        {strength === 1 && (locale === 'en' ? ' — min. 8 chars, a number and a symbol' : ' — min. 8 caratteri, un numero e un simbolo')}
+        {strength === 2 && (locale === 'en' ? ' — add a symbol or make it longer' : ' — aggiungi un simbolo o allungala')}
+      </p>
+    </div>
+  )
+}
+
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -33,20 +87,24 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const supabase = createClient()
-  const { t } = useLocale()
+  const { locale, t } = useLocale()
   const l = t.register
+
+  const passwordStrength = useMemo(() => calcStrength(password), [password])
+  // C3: blocca submit se forza < 2 ("media")
+  const passwordTooWeak = password.length > 0 && passwordStrength < 2
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (passwordTooWeak) return
     setLoading(true)
     setError(null)
     try {
       const { error } = await supabase.auth.signUp({
-        email, 
+        email,
         password,
-        options: { 
+        options: {
           data: { display_name: displayName || email.split('@')[0] },
-          // Aggiornamento per nuovo dominio geekore.it
           emailRedirectTo: `https://geekore.it/auth/confirm`
         },
       })
@@ -127,7 +185,6 @@ export default function RegisterPage() {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
 
-          {/* Top row: mobile logo + locale toggle */}
           <div className="flex items-center justify-between mb-10">
             <div className="lg:hidden flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center">
@@ -163,20 +220,27 @@ export default function RegisterPage() {
               <div className="relative">
                 <input type={showPassword ? 'text' : 'password'} value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={l.passwordPlaceholder} autoComplete="new-password" minLength={6}
-                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-5 py-3.5 pr-12 text-white placeholder-zinc-600 focus:outline-none transition-colors"
+                  placeholder={l.passwordPlaceholder} autoComplete="new-password"
+                  className={`w-full bg-zinc-900 border rounded-2xl px-5 py-3.5 pr-12 text-white placeholder-zinc-600 focus:outline-none transition-colors ${
+                    passwordTooWeak ? 'border-red-500/60 focus:border-red-500' : 'border-zinc-800 focus:border-violet-500'
+                  }`}
                   required />
                 <button type="button" onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors">
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+              {/* C3: PasswordStrengthBar */}
+              <PasswordStrengthBar password={password} locale={locale} />
             </div>
             {error && (
               <div className="bg-red-950/60 border border-red-800/50 text-red-400 px-5 py-3.5 rounded-2xl text-sm">{error}</div>
             )}
-            <button type="submit" disabled={loading}
-              className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-semibold text-lg transition-all disabled:opacity-60 shadow-lg shadow-violet-500/20 mt-2">
+            <button
+              type="submit"
+              disabled={loading || passwordTooWeak}
+              className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-semibold text-lg transition-all disabled:opacity-60 shadow-lg shadow-violet-500/20 mt-2"
+            >
               {loading ? l.creating : l.create}
             </button>
           </form>

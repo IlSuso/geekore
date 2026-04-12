@@ -1,76 +1,171 @@
-import { createClient } from '@/lib/supabase/server'
+'use client'
+// src/app/wishlist/page.tsx
+// A4: Wishlist interattiva — rimuovi item, badge "Disponibile ora", filtro per tipo
+// Convertito da Server Component puro a Server+Client ibrido
+
+import { useState, useEffect, useCallback } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { redirect } from 'next/navigation'
-import { Bookmark, Calendar, BookOpen, Gamepad2, Film, Tv, Dices } from 'lucide-react'
+import {
+  Bookmark, Calendar, BookOpen, Gamepad2, Film, Tv, Dices,
+  Trash2, Check, Loader2, SlidersHorizontal,
+} from 'lucide-react'
+import { showToast } from '@/components/ui/Toast'
 
-const TYPE_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  anime:     { label: 'Anime',      color: 'bg-sky-500',    icon: BookOpen },
-  manga:     { label: 'Manga',      color: 'bg-orange-500', icon: BookOpen },
-  game:      { label: 'Game',       color: 'bg-green-500',  icon: Gamepad2 },
-  movie:     { label: 'Film',       color: 'bg-red-500',    icon: Film },
-  tv:        { label: 'Serie',      color: 'bg-purple-500', icon: Tv },
-  boardgame: { label: 'Board',      color: 'bg-yellow-500', icon: Dices },
+const TYPE_CONFIG: Record<string, { label: string; color: string; dot: string; icon: React.ElementType }> = {
+  anime:     { label: 'Anime',   color: 'bg-sky-500',    dot: 'bg-sky-400',    icon: BookOpen },
+  manga:     { label: 'Manga',   color: 'bg-orange-500', dot: 'bg-orange-400', icon: BookOpen },
+  game:      { label: 'Game',    color: 'bg-green-500',  dot: 'bg-green-400',  icon: Gamepad2 },
+  movie:     { label: 'Film',    color: 'bg-red-500',    dot: 'bg-red-400',    icon: Film },
+  tv:        { label: 'Serie',   color: 'bg-purple-500', dot: 'bg-purple-400', icon: Tv },
+  boardgame: { label: 'Board',   color: 'bg-yellow-500', dot: 'bg-yellow-400', icon: Dices },
 }
 
-function daysUntil(dateStr: string | null): string {
-  if (!dateStr) return ''
+function daysUntil(dateStr: string | null): { label: string; available: boolean } {
+  if (!dateStr) return { label: '', available: false }
   const diff = Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000)
-  if (diff <= 0) return 'Disponibile'
-  if (diff === 1) return 'Domani'
-  if (diff < 30) return `tra ${diff} giorni`
-  return new Date(dateStr).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })
+  if (diff <= 0) return { label: '🟢 Disponibile ora', available: true }
+  if (diff === 1) return { label: 'Domani', available: false }
+  if (diff < 30) return { label: `tra ${diff} giorni`, available: false }
+  return {
+    label: new Date(dateStr).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' }),
+    available: false,
+  }
 }
 
-export default async function WishlistPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+export default function WishlistPage() {
+  const supabase = createClient()
+  const [wishlist, setWishlist] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [removing, setRemoving] = useState<string | null>(null)
+  const [activeFilter, setActiveFilter] = useState('all')
 
-  let wishlist: any[] = []
-  try {
+  const loadWishlist = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { window.location.href = '/login'; return }
+
     const { data } = await supabase
       .from('wishlist')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-    wishlist = data || []
-  } catch {
-    // Tabella non ancora creata — mostra empty state
+
+    setWishlist(data || [])
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { loadWishlist() }, [loadWishlist])
+
+  const handleRemove = async (itemId: string, title: string) => {
+    setRemoving(itemId)
+    const { error } = await supabase.from('wishlist').delete().eq('id', itemId)
+    if (!error) {
+      setWishlist(prev => prev.filter(i => i.id !== itemId))
+      showToast(`"${title}" rimosso dalla wishlist`)
+    } else {
+      showToast('Errore nella rimozione')
+    }
+    setRemoving(null)
+  }
+
+  // Filtri per tipo
+  const types = ['all', ...Array.from(new Set(wishlist.map(i => i.type)))]
+  const filtered = activeFilter === 'all'
+    ? wishlist
+    : wishlist.filter(i => i.type === activeFilter)
+
+  const availableCount = wishlist.filter(i => {
+    if (!i.release_date) return false
+    return new Date(i.release_date).getTime() <= Date.now()
+  }).length
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <Loader2 size={28} className="animate-spin text-violet-400" />
+      </main>
+    )
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 pt-6 pb-24 px-4">
+    <main className="min-h-screen bg-zinc-950 pt-6 pb-24 px-4 text-white">
       <div className="max-w-xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">Wishlist</h1>
-          <p className="text-zinc-500 text-sm mt-1">
-            {wishlist.length > 0
-              ? `${wishlist.length} ${wishlist.length === 1 ? 'titolo' : 'titoli'} nella lista`
-              : 'Uscite che stai aspettando'}
-          </p>
+
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Wishlist</h1>
+              <p className="text-zinc-500 text-sm mt-1">
+                {wishlist.length > 0
+                  ? `${wishlist.length} ${wishlist.length === 1 ? 'titolo' : 'titoli'} nella lista`
+                  : 'Uscite che stai aspettando'}
+              </p>
+            </div>
+            {availableCount > 0 && (
+              <div className="px-3 py-1.5 bg-emerald-500/15 border border-emerald-500/30 rounded-full">
+                <p className="text-xs font-semibold text-emerald-400">
+                  {availableCount} disponibil{availableCount === 1 ? 'e' : 'i'}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Filtri per tipo */}
+          {types.length > 2 && (
+            <div className="flex gap-2 mt-4 overflow-x-auto pb-1 hide-scrollbar">
+              {types.map(type => {
+                const cfg = type !== 'all' ? TYPE_CONFIG[type] : null
+                return (
+                  <button
+                    key={type}
+                    onClick={() => setActiveFilter(type)}
+                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                      activeFilter === type
+                        ? 'bg-violet-600 text-white'
+                        : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    {cfg && <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />}
+                    {type === 'all' ? 'Tutti' : cfg?.label || type}
+                    <span className="opacity-60">
+                      {type === 'all' ? wishlist.length : wishlist.filter(i => i.type === type).length}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
-        {wishlist.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="w-16 h-16 bg-zinc-900 border border-zinc-800 rounded-3xl flex items-center justify-center mb-4">
               <Bookmark size={28} className="text-zinc-600" />
             </div>
-            <p className="text-zinc-500 font-medium">Wishlist vuota</p>
+            <p className="text-zinc-500 font-medium">
+              {activeFilter === 'all' ? 'Wishlist vuota' : 'Nessun titolo in questa categoria'}
+            </p>
             <p className="text-zinc-700 text-sm mt-1 max-w-xs">
               Vai su Discover e usa il pulsante segnalibro per aggiungere titoli che vuoi seguire
             </p>
           </div>
         ) : (
           <div className="space-y-3">
-            {wishlist.map((item) => {
+            {filtered.map((item) => {
               const config = TYPE_CONFIG[item.type] ?? TYPE_CONFIG.anime
               const Icon = config.icon
               const countdown = daysUntil(item.release_date)
-              const isClose = countdown === 'Disponibile' || countdown === 'Domani'
+              const isRemoving = removing === item.id
 
               return (
                 <div
                   key={item.id}
-                  className="flex items-center gap-0 bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-zinc-700 transition-colors"
+                  className={`flex items-center gap-0 bg-zinc-900 border rounded-2xl overflow-hidden transition-all duration-200 ${
+                    countdown.available
+                      ? 'border-emerald-500/40 shadow-lg shadow-emerald-500/5'
+                      : 'border-zinc-800 hover:border-zinc-700'
+                  }`}
                 >
                   {/* Cover */}
                   <div className="w-16 h-24 shrink-0 bg-zinc-800">
@@ -91,14 +186,30 @@ export default async function WishlistPage() {
                       </span>
                     </div>
                     <h3 className="text-sm font-semibold text-white leading-tight truncate">{item.title}</h3>
-                    {countdown && (
+                    {countdown.label && (
                       <div className="flex items-center gap-1.5 mt-1.5">
-                        <Calendar size={11} className="text-zinc-600" />
-                        <span className={`text-xs font-medium ${isClose ? 'text-violet-400' : 'text-zinc-500'}`}>
-                          {countdown}
+                        {!countdown.available && <Calendar size={11} className="text-zinc-600" />}
+                        <span className={`text-xs font-medium ${
+                          countdown.available ? 'text-emerald-400' : 'text-zinc-500'
+                        }`}>
+                          {countdown.label}
                         </span>
                       </div>
                     )}
+                  </div>
+
+                  {/* A4: Pulsante Rimuovi */}
+                  <div className="pr-4 flex items-center">
+                    <button
+                      onClick={() => handleRemove(item.id, item.title)}
+                      disabled={isRemoving}
+                      className="w-8 h-8 flex items-center justify-center rounded-xl text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-50"
+                      title="Rimuovi dalla wishlist"
+                    >
+                      {isRemoving
+                        ? <Loader2 size={14} className="animate-spin" />
+                        : <Trash2 size={14} />}
+                    </button>
                   </div>
 
                   {/* Accent bar */}

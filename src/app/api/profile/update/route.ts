@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 // src/app/api/profile/update/route.ts
 // Route server-side per aggiornare il profilo con validazione robusta.
 // ── Aggiornamenti ────────────────────────────────────────────────────────────
@@ -168,7 +169,7 @@ export async function PATCH(request: NextRequest) {
       { headers: rl.headers }
     )
   } catch (err) {
-    console.error('[Profile Update]', err)
+    logger.error('[Profile Update]', err)
     return NextResponse.json({ error: 'Errore interno' }, { status: 500 })
   }
 }

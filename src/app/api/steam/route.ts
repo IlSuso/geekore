@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 // src/app/api/steam/route.ts
 // ── Aggiornamenti ────────────────────────────────────────────────────────────
 //   • S3: Validazione Steam ID64 — deve essere un numero di esattamente 17
@@ -67,7 +68,7 @@ export async function GET(request: Request) {
 
   } catch (error) {
     // Non loggare il steamId in produzione (dati personali)
-    console.error("API Steam Error:", error instanceof Error ? error.message : 'unknown');
+    logger.error('API Steam Error:', error instanceof Error ? error.message : 'unknown');
     return NextResponse.json({ error: "Errore interno" }, { status: 500 });
   }
 }

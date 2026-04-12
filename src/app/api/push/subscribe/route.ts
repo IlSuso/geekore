@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 // src/app/api/push/subscribe/route.ts
 // Salva o elimina la push subscription di un utente su Supabase.
 // Richiede la tabella `push_subscriptions` nel database.
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
     }, { onConflict: 'user_id,endpoint' })
 
   if (error) {
-    console.error('[Push Subscribe]', error)
+    logger.error('[Push Subscribe]', error)
     return NextResponse.json({ error: 'Errore nel salvataggio' }, { status: 500 })
   }
 

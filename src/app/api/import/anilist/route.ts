@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 // src/app/api/import/anilist/route.ts
 // Importa la lista anime/manga di un utente AniList tramite GraphQL pubblico.
 // Non richiede OAuth — la lista deve essere pubblica sul profilo AniList.
@@ -183,7 +184,7 @@ export async function POST(request: NextRequest) {
     if (!error) {
       imported += batch.length
     } else {
-      console.error('[AniList Import] batch error:', error)
+      logger.error('[AniList Import] batch error:', error)
       skipped += batch.length
     }
   }

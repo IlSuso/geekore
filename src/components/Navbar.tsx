@@ -136,7 +136,7 @@ export default function Navbar() {
             {NAV_ITEMS.map((item) => {
               const isActive = item.href === '/feed' ? pathname === '/feed' || pathname === '/' : pathname === item.href
               return (
-                <Link key={item.href} href={item.href}
+                <Link key={item.href} href={item.href} prefetch={true}
                   className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${isActive ? 'bg-violet-500/10 text-violet-400' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'}`}>
                   <item.icon size={18} />
                   {item.label}
@@ -254,7 +254,7 @@ export default function Navbar() {
           {[...NAV_ITEMS, { href: '/profile/me', label: t.nav.profile, icon: User, hasDot: false }].map((item) => {
             const isActive = item.href === '/profile/me' ? isProfileActive : pathname === item.href
             return (
-              <Link key={item.href} href={item.href}
+              <Link key={item.href} href={item.href} prefetch={true}
                 className={`flex flex-col items-center gap-0.5 px-2 py-2 rounded-2xl transition-all min-w-[44px] ${isActive ? 'text-violet-400' : 'text-zinc-500'}`}>
                 <div className="relative">
                   {item.href === '/profile/me' && (avatarUrl || currentUsername) ? (

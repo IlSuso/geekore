@@ -1,26 +1,48 @@
 "use client"
+// src/components/feed/FeedCard.tsx
+// C5: Componente unificato — rimpiazza sia FeedCard.tsx che PostCard inline in feed/page.tsx
+// M6: locale dinamica via useLocale() invece di { it } hardcoded
+// A6: fix locale lazy import
 
-import { useState, useEffect } from 'react'
-import { Flame, MessageSquare, Send, Loader2 } from 'lucide-react'
+import { useState, useEffect, memo } from 'react'
+import { Flame, MessageSquare, Send, Loader2, Pin } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
-import { it } from 'date-fns/locale'
 import { ReportButton } from '@/components/ui/ReportButton'
 import { Avatar } from '@/components/ui/Avatar'
+import { useLocale } from '@/lib/locale'
 
-// Haptic feedback — accetta number | number[] per non causare TS2345
+// M6/A6: import lazy delle locale — carica solo quella necessaria
+async function getDateLocale(locale: string) {
+  if (locale === 'en') {
+    const { enUS } = await import('date-fns/locale/en-US')
+    return enUS
+  }
+  const { it } = await import('date-fns/locale/it')
+  return it
+}
+
 function haptic(duration: number | number[] = 30) {
   if (typeof navigator !== 'undefined' && navigator.vibrate) {
     navigator.vibrate(duration)
   }
 }
 
-export function FeedCard({ post }: { post: any }) {
-  const supabase = createClient()
+export interface FeedCardProps {
+  post: any
+  /** Callback per aggiornare il contatore like nel parent (opzionale) */
+  onLikeChange?: (postId: string, delta: number) => void
+}
 
-  const [likesCount, setLikesCount] = useState<number>(post.likes?.length || 0)
-  const [hasLiked, setHasLiked] = useState(false)
+export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardProps) {
+  const supabase = createClient()
+  const { locale } = useLocale()
+
+  const [likesCount, setLikesCount] = useState<number>(
+    post.likes_count ?? post.likes?.length ?? 0
+  )
+  const [hasLiked, setHasLiked] = useState(post.liked_by_user ?? false)
   const [likeAnimating, setLikeAnimating] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [showComments, setShowComments] = useState(false)
@@ -28,6 +50,7 @@ export function FeedCard({ post }: { post: any }) {
   const [newComment, setNewComment] = useState('')
   const [commentCharCount, setCommentCharCount] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [timeAgo, setTimeAgo] = useState('')
 
   const MAX_COMMENT_LENGTH = 500
 
@@ -40,10 +63,20 @@ export function FeedCard({ post }: { post: any }) {
     })
   }, [])
 
+  // M6: aggiorna timeAgo con la locale corretta in modo asincrono
+  useEffect(() => {
+    if (!post.created_at) return
+    let cancelled = false
+    getDateLocale(locale).then(dateLocale => {
+      if (cancelled) return
+      setTimeAgo(formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: dateLocale }))
+    })
+    return () => { cancelled = true }
+  }, [post.created_at, locale])
+
   const handleLike = async () => {
     if (!user) return
 
-    // Animazione burst + haptic
     setLikeAnimating(true)
     haptic(hasLiked ? 20 : [40, 20, 40])
     setTimeout(() => setLikeAnimating(false), 400)
@@ -51,10 +84,12 @@ export function FeedCard({ post }: { post: any }) {
     if (hasLiked) {
       setHasLiked(false)
       setLikesCount(prev => prev - 1)
+      onLikeChange?.(post.id, -1)
       await supabase.from('likes').delete().match({ user_id: user.id, post_id: post.id })
     } else {
       setHasLiked(true)
       setLikesCount(prev => prev + 1)
+      onLikeChange?.(post.id, 1)
       await supabase.from('likes').insert([{ user_id: user.id, post_id: post.id }])
       if (user.id !== post.user_id) {
         await supabase.from('notifications').insert([{
@@ -95,14 +130,23 @@ export function FeedCard({ post }: { post: any }) {
     setIsSubmitting(false)
   }
 
-  const timeAgo = post.created_at
-    ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: it })
-    : ''
-
   const showReport = user && user.id !== post.user_id
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden hover:border-violet-500/30 transition-all duration-300">
+    <div className={`bg-zinc-900 border rounded-3xl overflow-hidden transition-all duration-300 ${
+      post.pinned
+        ? 'border-violet-500/40 ring-1 ring-violet-500/20'
+        : 'border-zinc-800 hover:border-violet-500/30'
+    }`}>
+
+      {/* C5: Pinned badge (da PostCard inline) */}
+      {post.pinned && (
+        <div className="flex items-center gap-1.5 px-6 pt-4 text-violet-400">
+          <Pin size={12} className="rotate-45" />
+          <span className="text-[10px] font-bold uppercase tracking-widest">In evidenza</span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="p-6 pb-4 flex items-center gap-3">
         <Link href={`/profile/${post.profiles?.username}`} className="group shrink-0">
@@ -138,7 +182,7 @@ export function FeedCard({ post }: { post: any }) {
 
       {/* Content */}
       <div className="px-6 pb-4">
-        <p className="text-zinc-200 text-sm leading-relaxed">{post.content}</p>
+        <p className="text-zinc-200 text-sm leading-relaxed whitespace-pre-wrap">{post.content}</p>
       </div>
 
       {/* Image */}
@@ -154,7 +198,6 @@ export function FeedCard({ post }: { post: any }) {
 
       {/* Actions */}
       <div className="px-6 py-4 border-t border-zinc-800/60 flex items-center gap-6">
-        {/* Like button con animazione heart-burst */}
         <button
           onClick={handleLike}
           aria-label={hasLiked ? 'Rimuovi like' : 'Metti like'}
@@ -170,7 +213,7 @@ export function FeedCard({ post }: { post: any }) {
         </button>
 
         <button
-          onClick={() => setShowComments(!showComments)}
+          onClick={() => { setShowComments(!showComments); haptic(20) }}
           aria-label={showComments ? 'Nascondi commenti' : 'Mostra commenti'}
           className={`flex items-center gap-2 group transition-all ${showComments ? 'text-violet-400' : 'text-zinc-500 hover:text-violet-400'}`}
         >
@@ -209,11 +252,7 @@ export function FeedCard({ post }: { post: any }) {
                         @{comment.profiles?.username || 'user'}
                       </Link>
                       {user && user.id !== comment.user_id && (
-                        <ReportButton
-                          targetType="comment"
-                          targetId={comment.id}
-                          iconOnly
-                        />
+                        <ReportButton targetType="comment" targetId={comment.id} iconOnly />
                       )}
                     </div>
                     <p className="text-zinc-300 text-xs mt-0.5">{comment.content}</p>
@@ -223,7 +262,6 @@ export function FeedCard({ post }: { post: any }) {
             </div>
           )}
 
-          {/* Input commento con contatore caratteri e sanitizzazione */}
           <form onSubmit={handleSendComment} className="relative">
             <input
               type="text"
@@ -233,7 +271,6 @@ export function FeedCard({ post }: { post: any }) {
               maxLength={MAX_COMMENT_LENGTH}
               className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl py-3 px-5 pr-20 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
             />
-            {/* Contatore caratteri */}
             {commentCharCount > 0 && (
               <span className={`absolute right-11 top-1/2 -translate-y-1/2 text-[10px] font-medium transition-colors ${
                 commentCharCount > MAX_COMMENT_LENGTH * 0.9
@@ -255,4 +292,4 @@ export function FeedCard({ post }: { post: any }) {
       )}
     </div>
   )
-}
+})

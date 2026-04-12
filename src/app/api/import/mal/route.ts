@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 // src/app/api/import/mal/route.ts
 // Importa la lista anime/manga da MyAnimeList tramite export XML.
 // L'utente scarica il file XML da MAL (Profilo → Export) e lo carica qui.
@@ -211,7 +212,7 @@ export async function POST(request: NextRequest) {
     if (!error) {
       imported += batch.length
     } else {
-      console.error('[MAL Import] batch error:', error)
+      logger.error('[MAL Import] batch error:', error)
       skipped += batch.length
     }
   }

@@ -1,7 +1,6 @@
 // DESTINAZIONE: src/app/layout.tsx
-// #40: View Transitions API abilitata via experimental_ppr e viewTransition in <Link>
-//      Funziona su Chrome 111+, Edge 111+, Safari 18+.
-//      Su browser non supportati cade silenziosamente al comportamento normale.
+// N6: Aggiunto color-scheme meta tag per compatibilità con Dark Reader
+// #40: View Transitions API abilitata
 
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
@@ -36,30 +35,28 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  // #14: viewport-fit=cover per tastiera iOS
   viewportFit: 'cover',
+  // N6: color-scheme segnala a Dark Reader che il sito gestisce già dark/light
+  colorScheme: 'dark light',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    // #40: aggiunge style per abilitare View Transitions — Chrome le intercetta
-    // automaticamente su navigazione <Link> quando è presente il meta
-    <html lang="it" style={{ viewTransitionName: 'root' } as React.CSSProperties}>
+    <html lang="it" className="dark" suppressHydrationWarning>
       <head>
-        {/* #40: meta per abilitare View Transitions nelle versioni più vecchie */}
-        <meta name="view-transition" content="same-origin" />
+        {/* N6: meta tag esplicito per Dark Reader — segnala che il sito gestisce
+            autonomamente dark/light mode e non deve essere invertito */}
+        <meta name="color-scheme" content="dark light" />
       </head>
-      <body className="bg-black text-white min-h-screen antialiased">
+      <body className="bg-zinc-950 text-white antialiased">
         <ClientProviders>
-          {/* view-transition-name sulla navbar per escluderla dalle transizioni */}
-          <div style={{ viewTransitionName: 'navbar' } as React.CSSProperties}>
+          <ToastProvider>
             <Navbar />
-          </div>
-          <main className="pt-16 pb-24 md:pb-8">
-            {children}
-          </main>
-          <Footer />
-          <ToastProvider />
+            <main className="min-h-screen">
+              {children}
+            </main>
+            <Footer />
+          </ToastProvider>
         </ClientProviders>
       </body>
     </html>

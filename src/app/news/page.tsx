@@ -1,8 +1,10 @@
 'use client'
+// A5: distingue fetchError da lista vuota — usa ErrorState con retry
 
 import { useState, useEffect } from 'react'
 import { Gamepad2, Film, Tv, BookOpen, Loader2, ExternalLink, CalendarDays, RefreshCw } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
+import { ErrorState } from '@/components/ui/ErrorState'
 
 type NewsItem = {
   title: string
@@ -36,6 +38,7 @@ export default function NewsPage() {
   const [activeCategory, setActiveCategory] = useState('all')
   const [news, setNews] = useState<NewsItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(false) // A5: distingui errore da lista vuota
   const [syncing, setSyncing] = useState(false)
   const [lastSync, setLastSync] = useState<string | null>(null)
 
@@ -56,14 +59,24 @@ export default function NewsPage() {
 
   const fetchNews = async (cat: string) => {
     setLoading(true)
+    setFetchError(false) // reset error
     try {
       const res = await fetch(`/api/news?cat=${cat}&lang=${locale}`)
-      if (res.ok) {
+      if (!res.ok) {
+        // A5: errore HTTP → mostra ErrorState, non lista vuota
+        setFetchError(true)
+        setNews([])
+      } else {
         const data = await res.json()
         setNews(Array.isArray(data) ? data : [])
       }
-    } catch {}
-    setLoading(false)
+    } catch {
+      // A5: errore di rete → mostra ErrorState
+      setFetchError(true)
+      setNews([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -134,6 +147,12 @@ export default function NewsPage() {
           <div className="flex items-center justify-center py-32">
             <Loader2 size={32} className="animate-spin text-violet-400" />
           </div>
+        ) : fetchError ? (
+          // A5: ErrorState invece di lista vuota silenziosa
+          <ErrorState
+            error="Non è stato possibile recuperare le notizie. Controlla la connessione e riprova."
+            onRetry={() => fetchNews(activeCategory)}
+          />
         ) : news.length === 0 ? (
           <div className="text-center py-32">
             <p className="text-zinc-500 mb-4">{t.news.empty}</p>
@@ -155,7 +174,6 @@ export default function NewsPage() {
                 rel="noopener noreferrer"
                 className="group bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-violet-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-violet-500/10 hover:-translate-y-0.5 flex flex-col"
               >
-                {/* Cover */}
                 <div className="relative aspect-[2/3] bg-zinc-800 flex-shrink-0 overflow-hidden">
                   {item.coverImage ? (
                     <img
@@ -179,7 +197,6 @@ export default function NewsPage() {
                   </div>
                 </div>
 
-                {/* Info */}
                 <div className="p-3 flex flex-col flex-1 gap-1.5">
                   <h3 className="font-semibold text-xs leading-snug line-clamp-2 text-white group-hover:text-violet-300 transition-colors">
                     {item.title}

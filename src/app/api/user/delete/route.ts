@@ -1,11 +1,22 @@
 // src/app/api/user/delete/route.ts
-// S1: CSRF check aggiunto — verifica Origin header prima di eliminare l'account.
+// SEC2: Guard su SUPABASE_SERVICE_ROLE_KEY
+// C2:   Sostituisce console.error con logger
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyCsrf } from '@/lib/csrf'
+import { logger } from '@/lib/logger'
 
 export async function DELETE(request: NextRequest) {
+  // SEC2: Guard esplicita — se la chiave non è configurata, abortiamo subito
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    logger.error('user/delete', 'SUPABASE_SERVICE_ROLE_KEY non configurata')
+    return NextResponse.json(
+      { error: 'Configurazione server non valida' },
+      { status: 503 }
+    )
+  }
+
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -14,7 +25,6 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
     }
 
-    // S1: verifica CSRF prima di procedere con operazione distruttiva
     const csrf = verifyCsrf(request, user.id)
     if (!csrf.ok) {
       return NextResponse.json({ error: csrf.reason || 'Richiesta non autorizzata' }, { status: 403 })
@@ -22,10 +32,9 @@ export async function DELETE(request: NextRequest) {
 
     const serviceClient = createServiceClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SERVICE_ROLE_KEY
     )
 
-    // Elimina tutti i dati utente prima dell'account
     await Promise.allSettled([
       serviceClient.from('user_media_entries').delete().eq('user_id', user.id),
       serviceClient.from('posts').delete().eq('user_id', user.id),
@@ -42,13 +51,13 @@ export async function DELETE(request: NextRequest) {
       serviceClient.from('recommendations_cache').delete().eq('user_id', user.id),
     ])
 
-    // Elimina l'account da Supabase Auth
     const { error } = await serviceClient.auth.admin.deleteUser(user.id)
     if (error) throw error
 
     return NextResponse.json({ success: true })
   } catch (err) {
-    console.error('[Delete account]', err)
+    // C2: usa logger invece di console.error
+    logger.error('user/delete', err)
     return NextResponse.json({ error: 'Errore nella cancellazione' }, { status: 500 })
   }
 }

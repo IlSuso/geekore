@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
@@ -206,7 +207,7 @@ export async function POST(request: NextRequest) {
     const counts = await runSync(lang)
     return NextResponse.json({ status: 'ok', lang, counts })
   } catch (err) {
-    console.error('[News sync] error:', err)
+    logger.error('[News sync] error:', err)
     return NextResponse.json({ status: 'error' }, { status: 500 })
   }
 }
@@ -217,7 +218,7 @@ export async function GET(request: NextRequest) {
     const counts = await runSync(lang)
     return NextResponse.json({ status: 'ok', lang, counts })
   } catch (err) {
-    console.error('[News sync] error:', err)
+    logger.error('[News sync] error:', err)
     return NextResponse.json({ status: 'error' }, { status: 500 })
   }
 }
