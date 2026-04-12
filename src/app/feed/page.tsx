@@ -163,7 +163,7 @@ const PostCard = memo(function PostCard({
 
       <p className="text-[16px] leading-relaxed mb-5 whitespace-pre-wrap text-zinc-100">{post.content}</p>
 
-      {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
+      {post.image_url && (
         <div className="mb-5 rounded-2xl overflow-hidden border border-zinc-700">
           <img
             src={post.image_url}
@@ -358,11 +358,10 @@ export default function FeedPage() {
     const { data, error } = await supabase
       .from('posts')
       .select(`
-        id, user_id, content, image_url, created_at,
+        id, content, image_url, created_at,
         profiles!posts_user_id_fkey (username, display_name, avatar_url),
         likes (id, user_id),
-        comments (id, content, created_at, user_id,
-          profiles!comments_user_id_fkey (username, display_name, avatar_url))
+        comments (id, content, created_at, user_id)
       `)
       .gte('created_at', since)
       .order('created_at', { ascending: false })
@@ -379,18 +378,8 @@ export default function FeedPage() {
 
     const formatted = withLikes.map((post: any) => {
       const likes = post.likes || []
+      const comments = post.comments || []
       const profile = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles
-      const comments = (post.comments || []).map((c: any) => {
-        const cp = Array.isArray(c.profiles) ? c.profiles[0] : c.profiles
-        return {
-          id: c.id,
-          content: c.content,
-          created_at: c.created_at,
-          user_id: c.user_id,
-          username: cp?.username || 'utente',
-          display_name: cp?.display_name,
-        }
-      })
       return {
         id: post.id,
         content: post.content,
@@ -404,7 +393,7 @@ export default function FeedPage() {
         likes_count: likes.length,
         liked_by_user: likes.some((l: any) => l.user_id === userId),
         comments_count: comments.length,
-        comments,
+        comments: [],
         pinned: true,
         user_id: post.user_id,
       }
@@ -444,7 +433,7 @@ export default function FeedPage() {
     let query = supabase
       .from('posts')
       .select(`
-        id, user_id, content, image_url, created_at,
+        id, content, image_url, created_at,
         profiles!posts_user_id_fkey (username, display_name, avatar_url),
         likes (id, user_id),
         comments (id, content, created_at, user_id)
@@ -501,13 +490,9 @@ export default function FeedPage() {
 
     const newHasMore = (postsData || []).length === PAGE_SIZE
 
-    // Esclude dal feed normale i post già mostrati in evidenza
-    const pinnedIds = new Set(pinnedPosts.map(p => p.id))
-    const filteredFormatted = formatted.filter(p => !pinnedIds.has(p.id))
-
     if (append) {
       setPosts(prev => {
-        const merged = [...prev, ...filteredFormatted]
+        const merged = [...prev, ...formatted]
         cache.posts = merged
         cache.page = pageIndex
         cache.hasMore = newHasMore
@@ -517,8 +502,8 @@ export default function FeedPage() {
       })
       setLoadingMore(false)
     } else {
-      setPosts(filteredFormatted)
-      cache.posts = filteredFormatted
+      setPosts(formatted)
+      cache.posts = formatted
       cache.page = pageIndex
       cache.hasMore = newHasMore
       cache.filter = filter
@@ -527,7 +512,7 @@ export default function FeedPage() {
     }
 
     setHasMore(newHasMore)
-  }, [supabase, pinnedPosts])
+  }, [supabase])
 
   const handleFilterChange = async (filter: 'all' | 'following') => {
     if (!currentUser) return
