@@ -61,7 +61,6 @@ export interface FeedPost {
   likes?: PostLike[]
   comments?: PostComment[]
 }
-
 export interface FeedCardProps {
   post: FeedPost
   /** Callback per aggiornare il contatore like nel parent (opzionale) */
@@ -71,6 +70,11 @@ export interface FeedCardProps {
 export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardProps) {
   const supabase = createClient()
   const { locale } = useLocale()
+
+  // Normalizza profiles: Supabase può restituire oggetto o array
+  const profile: PostProfile | null = Array.isArray(post.profiles)
+    ? (post.profiles[0] ?? null)
+    : (post.profiles ?? null)
 
   const [likesCount, setLikesCount] = useState<number>(
     post.likes_count ?? post.likes?.length ?? 0
@@ -182,25 +186,25 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
 
       {/* Header */}
       <div className="p-6 pb-4 flex items-center gap-3">
-        <Link href={`/profile/${post.profiles?.username}`} className="group shrink-0">
+        <Link href={`/profile/${profile?.username}`} className="group shrink-0">
           <div className="w-11 h-11 rounded-2xl overflow-hidden ring-2 ring-violet-500/20 group-hover:ring-violet-500/50 transition-all">
             <Avatar
-              src={post.profiles?.avatar_url}
-              username={post.profiles?.username || 'user'}
-              displayName={post.profiles?.display_name}
+              src={profile?.avatar_url}
+              username={profile?.username || 'user'}
+              displayName={profile?.display_name}
               size={44}
               className="rounded-2xl"
             />
           </div>
         </Link>
         <div className="flex-1 min-w-0">
-          <Link href={`/profile/${post.profiles?.username}`} className="hover:text-violet-400 transition-colors">
+          <Link href={`/profile/${profile?.username}`} className="hover:text-violet-400 transition-colors">
             <p className="font-semibold text-white text-sm leading-tight truncate">
-              {post.profiles?.display_name || post.profiles?.username || 'Utente'}
+              {profile?.display_name || profile?.username || 'Utente'}
             </p>
           </Link>
           <p className="text-xs text-zinc-500 mt-0.5">
-            @{post.profiles?.username || 'anon'} · {timeAgo}
+            @{profile?.username || 'anon'} · {timeAgo}
           </p>
         </div>
         {showReport && (
@@ -223,7 +227,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
         <div className="mx-4 mb-4 rounded-2xl overflow-hidden border border-zinc-800">
           <img
             src={post.image_url}
-            alt={`Immagine del post di ${post.profiles?.username || 'utente'}`}
+            alt={`Immagine del post di ${profile?.username || 'utente'}`}
             className="w-full max-h-[420px] object-cover hover:scale-[1.02] transition-transform duration-500"
           />
         </div>
