@@ -840,9 +840,10 @@ function buildWhyV3(
     isContinuity?: boolean
     continuityFrom?: string
     trendingBoost?: number
+    creatorBoost?: string     // ← AGGIUNTA SOLO QUESTA PROPRIETÀ
   } = {}
 ): string {
-  const { recStudios, recDirectors, recDeveloper, isContinuity, continuityFrom, trendingBoost } = options
+  const { recStudios, recDirectors, recDeveloper, isContinuity, continuityFrom, trendingBoost, creatorBoost } = options
 
   // V3: Continuity explanation — massima priorità
   if (isContinuity && continuityFrom) {
@@ -871,6 +872,11 @@ function buildWhyV3(
     if (topDevs.some(([d]) => d === recDeveloper)) {
       return `Dallo sviluppatore di giochi che hai adorato (${recDeveloper})`
     }
+  }
+
+  // V3: Creator boost dal parametro creatorBoost (usato in anime e manga)
+  if (creatorBoost) {
+    return `Stesso creatore/studio che ami (${creatorBoost})`
   }
 
   // V3: Discovery explanation
