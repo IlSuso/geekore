@@ -1569,7 +1569,7 @@ async function fetchGameRecs(
       const games = await res.json()
       if (!Array.isArray(games)) continue
 
-      const scored = games
+            const scored = games
         .filter((g: any) => !ownedIds.has(g.id.toString()) && g.cover?.url && !seen.has(g.id.toString()))
         .map((g: any) => {
           const gameThemes: string[] = (g.themes || []).map((t: any) => t.name.toLowerCase())
@@ -1589,7 +1589,8 @@ async function fetchGameRecs(
           if (developer && topDevsSet.has(developer)) { boost += 10; creatorBoost = developer }
 
           const recGenres: string[] = g.genres?.map((gen: any) => gen.name) || []
-          const matchScore = computeMatchScore(recGenres, allTags, tasteProfile, [], [], developer ? [developer] : [])
+          const matchScore = computeMatchScore(recGenres, allTags, tasteProfile, [], developer ? [developer] : [])
+
           return { g, boost, matchScore, recGenres, developer, creatorBoost }
         })
         .filter(({ matchScore }: any) => matchScore >= 20)
