@@ -29,8 +29,41 @@ function haptic(duration: number | number[] = 30) {
   }
 }
 
+export interface PostProfile {
+  username: string
+  display_name?: string | null
+  avatar_url?: string | null
+}
+
+export interface PostComment {
+  id: string
+  content: string
+  created_at: string
+  user_id: string
+  profiles?: PostProfile | null
+}
+
+export interface PostLike {
+  id?: string
+  user_id: string
+}
+
+export interface FeedPost {
+  id: string
+  content: string
+  image_url?: string | null
+  created_at: string
+  user_id?: string
+  pinned?: boolean
+  liked_by_user?: boolean
+  likes_count?: number
+  profiles?: PostProfile | PostProfile[] | null
+  likes?: PostLike[]
+  comments?: PostComment[]
+}
+
 export interface FeedCardProps {
-  post: any
+  post: FeedPost
   /** Callback per aggiornare il contatore like nel parent (opzionale) */
   onLikeChange?: (postId: string, delta: number) => void
 }
@@ -44,9 +77,9 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
   )
   const [hasLiked, setHasLiked] = useState(post.liked_by_user ?? false)
   const [likeAnimating, setLikeAnimating] = useState(false)
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<{ id: string } | null>(null)
   const [showComments, setShowComments] = useState(false)
-  const [comments, setComments] = useState<any[]>(post.comments || [])
+  const [comments, setComments] = useState<PostComment[]>((post.comments as PostComment[]) || [])
   const [newComment, setNewComment] = useState('')
   const [commentCharCount, setCommentCharCount] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -58,7 +91,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user)
       if (user && post.likes) {
-        setHasLiked(post.likes.some((l: any) => l.user_id === user.id))
+        setHasLiked(post.likes.some((l) => l.user_id === user.id))
       }
     })
   }, [])
@@ -235,7 +268,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
         <div className="px-6 pb-6 border-t border-zinc-800/60 pt-4 bg-black/20">
           {comments.length > 0 && (
             <div className="space-y-3 mb-4 max-h-56 overflow-y-auto">
-              {comments.map((comment: any) => (
+              {comments.map((comment) => (
                 <div key={comment.id} className="flex gap-3">
                   <div className="w-7 h-7 rounded-xl overflow-hidden flex-shrink-0">
                     <Avatar

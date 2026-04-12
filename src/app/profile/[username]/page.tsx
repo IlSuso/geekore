@@ -29,6 +29,10 @@ import { useDndSensors } from '@/hooks/useDndSensors'
 import { useCsrf } from '@/hooks/useCsrf'
 import Link from 'next/link'
 import { useLocale } from '@/lib/locale'
+import { ProfileStatsPanel } from '@/components/profile/ProfileStatsPanel'
+import { ProfileActivityFeed } from '@/components/profile/ProfileActivityFeed'
+import { NotesModal } from '@/components/profile/NotesModal'
+import { DeleteAccountModal } from '@/components/profile/DeleteAccountModal'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -353,135 +357,9 @@ function MediaCard({
 
 // ─── StatsPanel ───────────────────────────────────────────────────────────────
 
-function StatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
-  const stats = useMemo(() => {
-    const byType = (t: string) => mediaList.filter(m => m.type === t)
-    const steamHours = byType('game').filter(m => m.is_steam).reduce((s, m) => s + (m.current_episode || 0), 0)
-    const animeEps = byType('anime').reduce((s, m) => s + (m.current_episode || 0), 0)
-    const mangaChapters = byType('manga').reduce((s, m) => s + (m.current_episode || 0), 0)
-    const rated = mediaList.filter(m => m.rating && m.rating > 0)
-    const avgRating = rated.length > 0 ? (rated.reduce((s, m) => s + (m.rating || 0), 0) / rated.length).toFixed(1) : null
-    const genreCount: Record<string, number> = {}
-    for (const item of mediaList) for (const g of (item.genres || [])) genreCount[g] = (genreCount[g] || 0) + 1
-    const topGenres = Object.entries(genreCount).sort(([,a],[,b]) => b-a).slice(0, 5).map(([g]) => g)
-    return {
-      anime: byType('anime').length, tv: byType('tv').length, manga: byType('manga').length,
-      games: byType('game').length, movies: byType('movie').length, boards: byType('boardgame').length,
-      steamHours, animeHours: Math.round(animeEps * 24 / 60), mangaChapters,
-      avgRating, topGenres, total: mediaList.length,
-    }
-  }, [mediaList])
-
-  return (
-    <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-6 mb-10">
-      <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-widest mb-4">Statistiche</h3>
-      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-4">
-        {[
-          { label: 'Anime', value: stats.anime, color: 'text-sky-400' },
-          { label: 'Serie TV', value: stats.tv, color: 'text-purple-400' },
-          { label: 'Manga', value: stats.manga, color: 'text-orange-400' },
-          { label: 'Giochi', value: stats.games, color: 'text-green-400' },
-          { label: 'Film', value: stats.movies, color: 'text-red-400' },
-          { label: 'Board', value: stats.boards, color: 'text-yellow-400' },
-        ].map(s => (
-          <div key={s.label} className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2.5 text-center">
-            <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
-            <p className="text-[10px] text-zinc-500 mt-0.5">{s.label}</p>
-          </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2.5 text-center">
-          <p className="text-lg font-bold text-violet-400">{stats.steamHours}h</p>
-          <p className="text-[10px] text-zinc-500 mt-0.5">Ore Steam</p>
-        </div>
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2.5 text-center">
-          <p className="text-lg font-bold text-sky-400">~{stats.animeHours}h</p>
-          <p className="text-[10px] text-zinc-500 mt-0.5">Ore anime</p>
-        </div>
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2.5 text-center">
-          <p className="text-lg font-bold text-orange-400">{stats.mangaChapters}</p>
-          <p className="text-[10px] text-zinc-500 mt-0.5">Cap. manga</p>
-        </div>
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2.5 text-center">
-          <p className="text-lg font-bold text-yellow-400">{stats.avgRating ? `★ ${stats.avgRating}` : '—'}</p>
-          <p className="text-[10px] text-zinc-500 mt-0.5">Voto medio</p>
-        </div>
-      </div>
-      {stats.topGenres.length > 0 && (
-        <div>
-          <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">Generi più seguiti</p>
-          <div className="flex flex-wrap gap-1.5">
-            {stats.topGenres.map(g => (
-              <span key={g} className="text-[10px] bg-violet-500/15 text-violet-300 px-2.5 py-1 rounded-full font-medium border border-violet-500/20">{g}</span>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ─── ActivityFeed ─────────────────────────────────────────────────────────────
 
-function ActivityFeed({ userId }: { userId: string }) {
-  const [activities, setActivities] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetch(`/api/activity?userId=${userId}&limit=10`)
-      .then(r => r.json())
-      .then(data => { setActivities(Array.isArray(data) ? data : []); setLoading(false) })
-      .catch(() => setLoading(false))
-  }, [userId])
-
-  const typeLabel = (type: string) => {
-    const map: Record<string, string> = {
-      media_added: 'ha aggiunto', media_completed: 'ha completato',
-      media_dropped: 'ha abbandonato', rating_given: 'ha votato',
-      steam_imported: 'ha importato giochi da Steam',
-    }
-    return map[type] || 'ha aggiornato'
-  }
-
-  const timeAgo = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime()
-    const mins = Math.floor(diff / 60000)
-    const hours = Math.floor(diff / 3600000)
-    const days = Math.floor(diff / 86400000)
-    if (mins < 2) return 'adesso'
-    if (mins < 60) return `${mins}m fa`
-    if (hours < 24) return `${hours}h fa`
-    if (days < 7) return `${days}g fa`
-    return new Date(dateStr).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
-  }
-
-  if (loading) return <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-16 bg-zinc-900 rounded-2xl animate-pulse" />)}</div>
-  if (activities.length === 0) return <div className="text-center py-12 text-zinc-600 text-sm">Nessuna attività recente</div>
-
-  return (
-    <div className="space-y-2">
-      {activities.map(a => (
-        <div key={a.id} className="flex items-center gap-4 p-4 bg-zinc-900 border border-zinc-800 rounded-2xl hover:border-zinc-700 transition-colors">
-          {a.media_cover ? <img src={a.media_cover} alt={a.media_title} className="w-10 h-14 object-cover rounded-xl flex-shrink-0" /> : <div className="w-10 h-14 bg-zinc-800 rounded-xl flex-shrink-0" />}
-          <div className="flex-1 min-w-0">
-            <p className="text-sm text-zinc-300 leading-snug">
-              <span className="text-zinc-500">{typeLabel(a.type)}</span>
-              {a.media_title && <span className="font-semibold text-white ml-1">"{a.media_title}"</span>}
-              {a.rating_value && <span className="text-yellow-400 ml-1">{'★'.repeat(Math.round(a.rating_value))}</span>}
-            </p>
-            <p className="text-xs text-zinc-600 mt-0.5">{timeAgo(a.created_at)}</p>
-          </div>
-          {a.media_type && (
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${TYPE_COLORS[a.media_type] ? TYPE_COLORS[a.media_type].replace('bg-', 'bg-').replace('500', '500/20') + ' ' + TYPE_COLORS[a.media_type].replace('bg-', 'text-').replace('500', '400') : 'bg-zinc-700 text-zinc-400'}`}>
-              {a.media_type.toUpperCase()}
-            </span>
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
 
 // ─── CopyProfileLink ─────────────────────────────────────────────────────────
 
@@ -669,12 +547,8 @@ export default function ProfilePage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [selectedMedia, setSelectedMedia] = useState<UserMedia | null>(null)
   const [notesInput, setNotesInput] = useState('')
-  const [notesCharCount, setNotesCharCount] = useState(0)
-  const MAX_NOTES_LENGTH = 1000
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [deleteConfirmText, setDeleteConfirmText] = useState('')
-  const [deletingAccount, setDeletingAccount] = useState(false)
   // New state
   const [activeTab, setActiveTab] = useState<ProfileTab>('collection')
   const [collectionSearch, setCollectionSearch] = useState('')
@@ -716,7 +590,7 @@ export default function ProfilePage() {
     setReorderingGames(true)
     try {
       const { data, error } = await supabase.from('user_media_entries').select('*').eq('user_id', currentUserId).eq('type', 'game')
-      if (error) { console.error('[Profile] Errore reorder games:', error); return }
+      if (error) { if (process.env.NODE_ENV === 'development') console.error('[Profile] Errore reorder games:', error); return }
       if (!data?.length) return
       const sorted = [...data].sort((a, b) => (b.current_episode || 0) - (a.current_episode || 0))
       const updates = sorted.map((g, i) => ({ id: g.id, display_order: Date.now() - i * 10000 }))
@@ -802,8 +676,7 @@ export default function ProfilePage() {
   }
 
   const deleteAccount = async () => {
-    if (deleteConfirmText !== 'elimina' || !isOwner) return
-    setDeletingAccount(true)
+    if (!isOwner) return
     // S1: usa csrfFetch che allega X-CSRF-Token automaticamente
     const res = await csrfFetch('/api/user/delete', { method: 'DELETE' })
     if (res.ok) {
@@ -811,7 +684,6 @@ export default function ProfilePage() {
       window.location.href = '/'
     } else {
       showToast('Errore nella cancellazione. Riprova.', 'error')
-      setDeletingAccount(false)
     }
   }
 
@@ -833,7 +705,7 @@ export default function ProfilePage() {
     const fetchData = async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser()
       if (authError) {
-        console.error('[Profile] Errore autenticazione:', authError)
+        if (process.env.NODE_ENV === 'development') console.error('[Profile] Errore autenticazione:', authError)
         setLoading(false)
         return
       }
@@ -861,7 +733,7 @@ export default function ProfilePage() {
 
       if (ownerCheck) setSteamAccount(steamResult.data)
       if (mediaResult.error) {
-        console.error('[Profile] Errore caricamento media:', mediaResult.error)
+        if (process.env.NODE_ENV === 'development') console.error('[Profile] Errore caricamento media:', mediaResult.error)
       } else if (mediaResult.data) {
         setMediaList(sortMediaList(mediaResult.data))
       }
@@ -1028,7 +900,7 @@ export default function ProfilePage() {
         )}
 
         {/* Stats */}
-        {mediaList.length > 0 && <StatsPanel mediaList={mediaList} />}
+        {mediaList.length > 0 && <ProfileStatsPanel mediaList={mediaList} />}
 
         {/* ── TABS ─────────────────────────────────────────────────── */}
         <div className="flex border-b border-zinc-800 mb-8">
@@ -1143,7 +1015,7 @@ export default function ProfilePage() {
         {activeTab === 'activity' && (
           <div>
             <h3 className="text-xl font-semibold mb-5">Attività recente</h3>
-            <ActivityFeed userId={profile.id} />
+            <ProfileActivityFeed userId={profile.id} />
           </div>
         )}
 
@@ -1155,70 +1027,24 @@ export default function ProfilePage() {
 
       {/* Modal Note */}
       {isNotesModalOpen && selectedMedia && isOwner && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60]">
-          <div className="bg-zinc-900 rounded-3xl w-full max-w-lg mx-4 overflow-hidden">
-            <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
-              <h3 className="text-xl font-semibold">{t.profile.notesTitle(selectedMedia.title)}</h3>
-              <button onClick={() => setIsNotesModalOpen(false)} className="text-zinc-400 hover:text-white"><X size={24} /></button>
-            </div>
-            <div className="p-6">
-              <div className="relative">
-                <textarea
-                  value={notesInput}
-                  onChange={(e) => {
-                    const val = e.target.value.slice(0, MAX_NOTES_LENGTH)
-                    setNotesInput(val)
-                    setNotesCharCount(val.length)
-                  }}
-                  placeholder={t.profile.notesPlaceholder}
-                  maxLength={MAX_NOTES_LENGTH}
-                  className="w-full h-40 bg-zinc-800 border border-zinc-700 rounded-2xl p-4 text-white resize-y focus:outline-none focus:border-violet-500"
-                />
-                {/* SEC3: contatore caratteri 0/1000 */}
-                <span className={`absolute bottom-3 right-3 text-[10px] font-medium transition-colors ${
-                  notesCharCount > MAX_NOTES_LENGTH * 0.9
-                    ? notesCharCount >= MAX_NOTES_LENGTH ? 'text-red-400' : 'text-yellow-400'
-                    : 'text-zinc-600'
-                }`}>
-                  {notesCharCount}/{MAX_NOTES_LENGTH}
-                </span>
-              </div>
-            </div>
-            <div className="p-6 border-t border-zinc-800 flex gap-3">
-              <button onClick={() => setIsNotesModalOpen(false)} className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition">{t.media.cancel}</button>
-              <button onClick={saveNotes} className="flex-1 py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl transition font-medium">{t.common.save}</button>
-            </div>
-          </div>
-        </div>
+        <NotesModal
+          title={t.profile.notesTitle(selectedMedia.title)}
+          value={notesInput}
+          onChange={(val) => { setNotesInput(val); setNotesCharCount(val.length) }}
+          onSave={saveNotes}
+          onClose={() => setIsNotesModalOpen(false)}
+          saveLabel={t.common.save}
+          cancelLabel={t.media.cancel}
+          placeholder={t.profile.notesPlaceholder}
+        />
       )}
 
       {/* Modal Cancellazione Account */}
       {showDeleteModal && isOwner && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[70] p-4">
-          <div className="bg-zinc-900 border border-red-900/50 rounded-3xl max-w-md w-full p-8">
-            <div className="w-14 h-14 bg-red-950 border border-red-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <Trash2 size={28} className="text-red-400" />
-            </div>
-            <h3 className="text-2xl font-bold text-white text-center mb-2">Elimina account</h3>
-            <p className="text-zinc-400 text-center text-sm mb-6">
-              Questa azione è <strong className="text-red-400">irreversibile</strong>. Tutti i tuoi dati verranno cancellati permanentemente.
-            </p>
-            <div className="mb-6">
-              <label className="block text-sm text-zinc-500 mb-2">
-                Scrivi <span className="text-red-400 font-mono font-bold">elimina</span> per confermare
-              </label>
-              <input type="text" value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)} placeholder="elimina"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 text-white focus:outline-none focus:border-red-500 transition" />
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => { setShowDeleteModal(false); setDeleteConfirmText('') }} className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition font-medium">Annulla</button>
-              <button onClick={deleteAccount} disabled={deleteConfirmText !== 'elimina' || deletingAccount}
-                className="flex-1 py-3 bg-red-600 hover:bg-red-500 disabled:opacity-30 rounded-2xl transition font-medium text-white">
-                {deletingAccount ? 'Eliminazione...' : 'Elimina definitivamente'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <DeleteAccountModal
+          onConfirm={deleteAccount}
+          onClose={() => setShowDeleteModal(false)}
+        />
       )}
     </div>
   )

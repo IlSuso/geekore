@@ -13,13 +13,13 @@ export function ServiceWorkerRegistrar() {
     navigator.serviceWorker
       .register('/sw.js', { scope: '/' })
       .then(reg => {
-        console.log('[SW] Registrato:', reg.scope)
+        if (process.env.NODE_ENV === 'development') console.log('[SW] Registrato:', reg.scope)
 
         // Controlla aggiornamenti ogni ora
         setInterval(() => reg.update(), 60 * 60 * 1000)
       })
       .catch(err => {
-        console.warn('[SW] Registrazione fallita:', err)
+        if (process.env.NODE_ENV === 'development') console.warn('[SW] Registrazione fallita:', err)
       })
   }, [])
 

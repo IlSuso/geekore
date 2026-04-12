@@ -342,7 +342,7 @@ export default function FeedPage() {
       .order('created_at', { ascending: false })
       .limit(50)
 
-    if (error) { console.error('[Feed] Errore pinned posts:', error); return }
+    if (error) { if (process.env.NODE_ENV === 'development') console.error('[Feed] Errore pinned posts:', error); return }
     if (!data) return
 
     const withLikes = data

@@ -9,7 +9,7 @@ const translations = {
     nav: {
       home: 'Home', discover: 'Discover', news: 'News',
       notifications: 'Notifiche', profile: 'Profilo',
-      settings: 'Impostazioni', logout: 'Esci', forYou: 'Per te',
+      settings: 'Impostazioni', logout: 'Esci', forYou: 'Per te', search: 'Cerca',
     },
     login: {
       welcome: 'Bentornato',
@@ -256,7 +256,7 @@ const translations = {
     nav: {
       home: 'Home', discover: 'Discover', news: 'News',
       notifications: 'Notifications', profile: 'Profile',
-      settings: 'Settings', logout: 'Logout', forYou: 'For You',
+      settings: 'Settings', logout: 'Logout', forYou: 'For You', search: 'Search',
     },
     login: {
       welcome: 'Welcome back',
