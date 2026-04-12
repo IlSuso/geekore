@@ -1,15 +1,13 @@
 'use client'
-// DESTINAZIONE: src/components/import/XboxImport.tsx
-// ═══════════════════════════════════════════════════════════════════════════
-// Feature #22: Import giochi da Xbox via OpenXBL
-// Da integrare in /settings accanto a Steam e AniList import.
-// ═══════════════════════════════════════════════════════════════════════════
+// src/components/import/XboxImport.tsx
+// Import giochi Xbox via OpenXBL — usa XUID diretto
+// Il piano gratuito OpenXBL non permette la ricerca per gamertag di altri utenti,
+// quindi chiediamo lo XUID che l'utente trova su xboxgamertag.com
 
 import { useState } from 'react'
-import { Gamepad2, RefreshCw, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react'
+import { RefreshCw, CheckCircle, AlertCircle, ExternalLink, Info } from 'lucide-react'
 import { showToast } from '@/components/ui/Toast'
 
-// Icona Xbox semplice inline (nessuna dipendenza extra)
 function XboxIcon({ size = 24, className = '' }: { size?: number; className?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -17,6 +15,8 @@ function XboxIcon({ size = 24, className = '' }: { size?: number; className?: st
     </svg>
   )
 }
+
+const XUID_REGEX = /^\d{16}$/
 
 interface ImportResult {
   imported: number
@@ -26,24 +26,27 @@ interface ImportResult {
 }
 
 export function XboxImport() {
-  const [gamertag, setGamertag] = useState('')
+  const [xuid, setXuid] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<ImportResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [showHelp, setShowHelp] = useState(false)
+
+  const isValidXuid = XUID_REGEX.test(xuid.trim())
 
   const handleImport = async () => {
-    const gt = gamertag.trim()
-    if (!gt) return
+    const id = xuid.trim()
+    if (!id || !isValidXuid) return
     setLoading(true)
     setError(null)
     setResult(null)
 
     try {
-      const res = await fetch(`/api/xbox/games?gamertag=${encodeURIComponent(gt)}`)
+      const res = await fetch(`/api/xbox/games?xuid=${encodeURIComponent(id)}`)
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || 'Errore durante l\'importazione')
+        setError(data.error || "Errore durante l'importazione")
         return
       }
 
@@ -64,15 +67,15 @@ export function XboxImport() {
         </div>
         <div>
           <h3 className="text-base font-bold text-white">Xbox</h3>
-          <p className="text-xs text-zinc-500">Importa i tuoi giochi Xbox tramite Gamertag</p>
+          <p className="text-xs text-zinc-500">Importa i tuoi giochi Xbox tramite XUID</p>
         </div>
         <a
-          href="https://account.xbox.com/it-IT/Settings"
+          href="https://www.xboxgamertag.com"
           target="_blank"
           rel="noopener noreferrer"
           className="ml-auto text-xs text-zinc-500 hover:text-zinc-300 flex items-center gap-1"
         >
-          Rendi pubblico il profilo <ExternalLink size={11} />
+          Trova il tuo XUID <ExternalLink size={11} />
         </a>
       </div>
 
@@ -82,7 +85,8 @@ export function XboxImport() {
             <CheckCircle size={18} className="text-emerald-400 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold text-white">
-                Importazione completata per <span className="text-emerald-400">{result.gamertag}</span>
+                Importazione completata
+                {result.gamertag && <span className="text-emerald-400"> per {result.gamertag}</span>}
               </p>
               <p className="text-xs text-zinc-400 mt-0.5">
                 {result.imported} nuovi · {result.skipped} già presenti · {result.total} totali
@@ -90,7 +94,7 @@ export function XboxImport() {
             </div>
           </div>
           <button
-            onClick={() => { setResult(null); setGamertag('') }}
+            onClick={() => { setResult(null); setXuid('') }}
             className="w-full py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-2xl text-sm text-zinc-400 transition"
           >
             Importa un altro account
@@ -98,17 +102,46 @@ export function XboxImport() {
         </div>
       ) : (
         <div className="space-y-3">
+
+          {/* Help accordion */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+            <button
+              onClick={() => setShowHelp(v => !v)}
+              className="w-full flex items-center gap-2 px-4 py-3 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+            >
+              <Info size={13} className="text-violet-400 flex-shrink-0" />
+              <span>Come trovo il mio XUID?</span>
+              <span className="ml-auto text-zinc-600">{showHelp ? '▲' : '▼'}</span>
+            </button>
+            {showHelp && (
+              <div className="px-4 pb-4 text-xs text-zinc-500 space-y-1.5 border-t border-zinc-800 pt-3">
+                <p>1. Vai su <a href="https://www.xboxgamertag.com" target="_blank" rel="noopener noreferrer" className="text-violet-400 underline">xboxgamertag.com</a></p>
+                <p>2. Cerca il tuo Gamertag Xbox nel campo di ricerca</p>
+                <p>3. Copia il numero a 16 cifre sotto il tuo nome</p>
+                <p className="text-zinc-600">Es: <span className="font-mono text-zinc-500">2535416081689610</span></p>
+              </div>
+            )}
+          </div>
+
           <div>
-            <label className="block text-xs text-zinc-500 mb-1.5">Il tuo Gamertag Xbox</label>
+            <label className="block text-xs text-zinc-500 mb-1.5">Il tuo XUID (16 cifre)</label>
             <input
               type="text"
-              value={gamertag}
-              onChange={e => setGamertag(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && !loading && handleImport()}
-              placeholder="es. MajorNelson"
-              className="w-full bg-zinc-900 border border-zinc-800 focus:border-[#107c10] rounded-2xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition"
+              value={xuid}
+              onChange={e => setXuid(e.target.value.replace(/\D/g, '').slice(0, 16))}
+              onKeyDown={e => e.key === 'Enter' && !loading && isValidXuid && handleImport()}
+              placeholder="es. 2535416081689610"
+              className={`w-full bg-zinc-900 border rounded-2xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition font-mono ${
+                xuid && !isValidXuid
+                  ? 'border-red-800 focus:border-red-600'
+                  : 'border-zinc-800 focus:border-[#107c10]'
+              }`}
               disabled={loading}
+              inputMode="numeric"
             />
+            {xuid && !isValidXuid && (
+              <p className="text-[10px] text-red-400 mt-1">Lo XUID deve essere esattamente 16 cifre</p>
+            )}
           </div>
 
           {error && (
@@ -120,7 +153,7 @@ export function XboxImport() {
 
           <button
             onClick={handleImport}
-            disabled={loading || !gamertag.trim()}
+            disabled={loading || !isValidXuid}
             className="w-full flex items-center justify-center gap-2 py-3 bg-[#107c10] hover:bg-[#0d6b0d] disabled:opacity-40 rounded-2xl text-sm font-semibold text-white transition"
           >
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
@@ -128,7 +161,10 @@ export function XboxImport() {
           </button>
 
           <p className="text-[10px] text-zinc-600 text-center">
-            Il profilo Xbox deve essere pubblico. Usa <a href="https://xbl.io" target="_blank" rel="noopener noreferrer" className="underline hover:text-zinc-400">OpenXBL</a>.
+            I dati di gioco devono essere pubblici su{' '}
+            <a href="https://privacy.xbox.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-zinc-400">
+              privacy.xbox.com
+            </a>
           </p>
         </div>
       )}

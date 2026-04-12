@@ -98,17 +98,35 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
+  // Accetta XUID diretto (piano gratuito OpenXBL non supporta ricerca gamertag altrui)
+  // o gamertag come fallback per piani a pagamento
+  let xuid = searchParams.get('xuid')?.trim()
   const gamertag = searchParams.get('gamertag')?.trim()
-  if (!gamertag) return NextResponse.json({ error: 'gamertag mancante' }, { status: 400 })
 
-  // Risolvi XUID
-  const xuid = await resolveGamertag(gamertag)
-  if (!xuid) {
-    return NextResponse.json({ error: `Gamertag "${gamertag}" non trovato. Controlla che il profilo Xbox sia pubblico.` }, { status: 404 })
+  if (!xuid && !gamertag) {
+    return NextResponse.json({ error: 'Parametro xuid o gamertag mancante' }, { status: 400 })
   }
 
-  // Salva gamertag + xuid sul profilo
-  await supabase.from('profiles').update({ xbox_gamertag: gamertag, xbox_xuid: xuid }).eq('id', user.id)
+  // Valida XUID: deve essere 16 cifre
+  if (xuid && !/^\d{16}$/.test(xuid)) {
+    return NextResponse.json({ error: 'XUID non valido: deve essere 16 cifre' }, { status: 400 })
+  }
+
+  // Se passato gamertag invece di XUID, prova a risolverlo
+  if (!xuid && gamertag) {
+    xuid = await resolveGamertag(gamertag) ?? undefined
+    if (!xuid) {
+      return NextResponse.json({
+        error: `Gamertag "${gamertag}" non trovato. Inserisci il tuo XUID (16 cifre) da xboxgamertag.com`,
+      }, { status: 404 })
+    }
+  }
+
+  // Salva xuid sul profilo
+  await supabase.from('profiles').update({
+    ...(gamertag ? { xbox_gamertag: gamertag } : {}),
+    xbox_xuid: xuid,
+  }).eq('id', user.id)
 
   // Recupera giochi
   const titles = await fetchXboxGames(xuid)
