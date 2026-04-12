@@ -309,8 +309,10 @@ async function fetchTmdbData(
         return {
           tmdbId,
           posterUrl: posterPath ? `${TMDB_IMAGE_BASE}${posterPath}` : null,
-          // Titolo italiano: usa detail.title se diverso dall'originale (detail.original_title)
-          titleIt: detail.title && detail.title !== detail.original_title ? detail.title : null,
+          // Titolo italiano: usa detail.title se diverso dal titolo cercato (inglese)
+          // Confronta con title (argomento della funzione, titolo originale del CSV) e non con
+          // original_title di TMDB, che potrebbe essere in qualsiasi lingua
+          titleIt: detail.title && detail.title.toLowerCase() !== title.toLowerCase() ? detail.title : null,
         }
       }
     } catch {
@@ -492,6 +494,8 @@ async function robustUpsert(
       const patch: any = { updated_at: new Date().toISOString() }
       if (entry.external_id && existing.external_id !== entry.external_id) patch.external_id = entry.external_id
       if (!existing.cover_image && entry.cover_image) patch.cover_image = entry.cover_image
+      // Aggiorna il titolo se il nuovo è localizzato (italiano) e diverso dall'attuale
+      if (entry.title && entry.title !== existing.title) patch.title = entry.title
       if (entry.rating !== null && existing.rating === null) patch.rating = entry.rating
       if (entry.tags?.length > 0) {
         const mergedTags = Array.from(new Set([...(existing.tags || []), ...entry.tags]))
