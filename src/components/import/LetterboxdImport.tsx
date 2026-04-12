@@ -6,6 +6,7 @@ import { Download, CheckCircle, AlertTriangle, Loader2, ExternalLink, Upload, Fi
 
 interface ImportResult {
   imported: number
+  updated: number
   skipped: number
   total: number
   watched: number
@@ -283,7 +284,9 @@ export function LetterboxdImport() {
           <div>
             <p className="font-medium">{result.message}</p>
             <p className="text-xs text-emerald-600 mt-1 space-x-2">
-              {result.watched > 0 && <span>{result.watched} visti</span>}
+              {result.imported > 0 && <span>{result.imported} nuovi</span>}
+              {result.updated > 0 && <span>{result.imported > 0 ? "• " : ""}{result.updated} aggiornati</span>}
+              {result.watched > 0 && <span>• {result.watched} visti nel csv</span>}
               {result.ratings > 0 && <span>• {result.ratings} voti</span>}
               {result.watchlist > 0 && <span>• {result.watchlist} watchlist</span>}
               {result.list > 0 && <span>• {result.list} da lista</span>}
