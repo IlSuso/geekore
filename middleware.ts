@@ -1,7 +1,21 @@
-// middleware.ts (root del progetto)
-// Rinnova la sessione Supabase ad ogni request SSR.
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+
+const isDev = process.env.NODE_ENV === 'development'
+
+const CSP = isDev
+  ? "default-src 'self' 'unsafe-inline' 'unsafe-eval' *; img-src * data: blob:;"
+  : [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src * data: blob:",
+      "font-src 'self' data:",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.steampowered.com https://graphql.anilist.co https://api.themoviedb.org https://api.igdb.com https://cdn.cloudflare.steamstatic.com https://s4.anilist.co https://image.tmdb.org https://images.igdb.com https://cf.geekdo-images.com",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join('; ')
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -28,6 +42,8 @@ export async function middleware(request: NextRequest) {
   )
 
   await supabase.auth.getUser()
+
+  supabaseResponse.headers.set('Content-Security-Policy', CSP)
 
   return supabaseResponse
 }
