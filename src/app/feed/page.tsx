@@ -163,7 +163,7 @@ const PostCard = memo(function PostCard({
 
       <p className="text-[16px] leading-relaxed mb-5 whitespace-pre-wrap text-zinc-100">{post.content}</p>
 
-      {post.image_url && (
+      {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
         <div className="mb-5 rounded-2xl overflow-hidden border border-zinc-700">
           <img
             src={post.image_url}
