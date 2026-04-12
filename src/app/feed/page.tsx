@@ -359,10 +359,8 @@ export default function FeedPage() {
       .from('posts')
       .select(`
         id, user_id, content, image_url, created_at,
-        profiles!posts_user_id_fkey (username, display_name, avatar_url),
         likes (id, user_id),
-        comments (id, content, created_at, user_id,
-          profiles!comments_user_id_fkey (username, display_name, avatar_url))
+        comments (id, content, created_at, user_id)
       `)
       .gte('created_at', since)
       .order('created_at', { ascending: false })
@@ -377,7 +375,29 @@ export default function FeedPage() {
       .sort((a: any, b: any) => b._likeCount - a._likeCount)
       .slice(0, 2)
 
-    // Fetch profili autori commenti (identico a loadPosts)
+    // Fetch profili autori post separatamente
+    const postUserIds = [...new Set(withLikes.map((p: any) => p.user_id))]
+    let postProfileMap: Record<string, any> = {}
+    if (postUserIds.length > 0) {
+      const { data: postProfiles } = await supabase
+        .from('profiles')
+        .select('id, username, display_name, avatar_url')
+        .in('id', postUserIds)
+      postProfiles?.forEach((p: any) => { postProfileMap[p.id] = p })
+    }
+
+    // Fetch profili autori commenti separatamente
+    const allCommentsPinned = withLikes.flatMap((p: any) => p.comments || [])
+    const commentUserIds = [...new Set(allCommentsPinned.map((c: any) => c.user_id))]
+    let commentProfileMap: Record<string, any> = {}
+    if (commentUserIds.length > 0) {
+      const { data: commentProfiles } = await supabase
+        .from('profiles')
+        .select('id, username, display_name')
+        .in('id', commentUserIds)
+      commentProfiles?.forEach((p: any) => { commentProfileMap[p.id] = p })
+    }
+
     const formatted = withLikes.map((post: any) => {
       const likes = post.likes || []
       const comments = (post.comments || []).map((c: any) => ({
@@ -385,10 +405,10 @@ export default function FeedPage() {
         content: c.content,
         created_at: c.created_at,
         user_id: c.user_id,
-        username: c.profiles?.username || 'utente',
-        display_name: c.profiles?.display_name,
+        username: commentProfileMap[c.user_id]?.username || 'utente',
+        display_name: commentProfileMap[c.user_id]?.display_name,
       }))
-      const profile = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles
+      const profile = postProfileMap[post.user_id]
 
       return {
         id: post.id,
@@ -440,11 +460,11 @@ export default function FeedPage() {
       }
     }
 
+    // Carica post senza FK hint — i profili autori vengono caricati separatamente
     let query = supabase
       .from('posts')
       .select(`
         id, user_id, content, image_url, created_at,
-        profiles!posts_user_id_fkey (username, display_name, avatar_url),
         likes (id, user_id),
         comments (id, content, created_at, user_id)
       `)
@@ -469,9 +489,20 @@ export default function FeedPage() {
       profilesData?.forEach((p: any) => { profileMap[p.id] = p })
     }
 
+    // Fetch profili autori post separatamente
+    const postUserIds2 = [...new Set((postsData || []).map((p: any) => p.user_id))]
+    let postProfileMap2: Record<string, any> = {}
+    if (postUserIds2.length > 0) {
+      const { data: postProfilesData } = await supabase
+        .from('profiles')
+        .select('id, username, display_name, avatar_url')
+        .in('id', postUserIds2)
+      postProfilesData?.forEach((p: any) => { postProfileMap2[p.id] = p })
+    }
+
     const formatted: Post[] = (postsData || []).map((post: any) => {
       const likes = post.likes || []
-      const profile = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles
+      const profile = postProfileMap2[post.user_id]
       const comments = (post.comments || []).map((c: any) => ({
         id: c.id,
         content: c.content,
@@ -560,18 +591,18 @@ export default function FeedPage() {
     const { data: newPostData, error } = await supabase
       .from('posts')
       .insert({ user_id: currentUser.id, content: newPostContent.trim(), image_url: imageUrl })
-      .select(`id, content, image_url, created_at, profiles!posts_user_id_fkey (username, display_name, avatar_url)`)
+      .select('id, content, image_url, created_at')
       .single()
 
     if (!error && newPostData) {
-      const profile = Array.isArray(newPostData.profiles) ? newPostData.profiles[0] : newPostData.profiles
+      // Usa il profilo già caricato in currentProfile invece di fare una join
       const optimisticPost: Post = {
         id: newPostData.id,
         user_id: currentUser.id,
         content: newPostData.content,
         image_url: newPostData.image_url,
         created_at: newPostData.created_at,
-        profiles: { username: profile?.username || '', display_name: profile?.display_name, avatar_url: profile?.avatar_url },
+        profiles: { username: currentProfile?.username || '', display_name: currentProfile?.display_name, avatar_url: currentProfile?.avatar_url },
         likes_count: 0, comments_count: 0, liked_by_user: false, comments: [],
       }
       setPosts(prev => {

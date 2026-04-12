@@ -99,6 +99,10 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
         setHasLiked(post.likes.some((l) => l.user_id === user.id))
       }
     })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+    return () => subscription.unsubscribe()
   }, [])
 
   // M6: aggiorna timeAgo con la locale corretta in modo asincrono
@@ -316,17 +320,16 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
                         @{comment.profiles?.username || 'user'}
                       </Link>
                       <div className="flex items-center gap-1">
-                        {user && user.id === comment.user_id && (
+                        {user?.id === comment.user_id ? (
                           <button
                             onClick={() => handleDeleteComment(comment.id)}
                             className="text-zinc-600 hover:text-red-400 transition-colors"
                           >
                             <Trash2 size={11} />
                           </button>
-                        )}
-                        {user && user.id !== comment.user_id && (
+                        ) : user ? (
                           <ReportButton targetType="comment" targetId={comment.id} iconOnly />
-                        )}
+                        ) : null}
                       </div>
                     </div>
                     <p className="text-zinc-300 text-xs mt-0.5">{comment.content}</p>
