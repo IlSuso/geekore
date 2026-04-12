@@ -91,7 +91,7 @@ export default function NotificationsPage() {
     fetchNotifications()
   }, [fetchNotifications])
 
-  const { pullDistance, isRefreshing } = usePullToRefresh(fetchNotifications)
+  const { pullDistance, isRefreshing } = usePullToRefresh({ onRefresh: fetchNotifications })
 
   function timeAgo(dateStr: string) {
     if (!dateLocale) return ''
