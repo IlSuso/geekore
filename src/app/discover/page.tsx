@@ -1,7 +1,6 @@
 'use client';
 // src/app/discover/page.tsx
-// A1: Debounce esplicito 350ms + indicatore "Ricerca in corso…" durante il delay
-// P5: SkeletonDiscoverCard durante il loading
+// V3: Search Intent Tracking + Wishlist Amplifier + Taste Delta updates
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, Plus, X, Film, Tv, Gamepad2, BookOpen, Dices, Bookmark, BookmarkCheck, Mic, MicOff, Loader2 } from 'lucide-react';
@@ -79,7 +78,7 @@ function useVoiceSearch(onResult: (text: string) => void) {
   return { isListening, isSupported, toggle };
 }
 
-const DEBOUNCE_MS = 350; // A1: debounce esplicito
+const DEBOUNCE_MS = 350;
 
 const FILTERS = [
   { id: 'all', label: 'Tutti', icon: null },
@@ -91,12 +90,56 @@ const FILTERS = [
   { id: 'boardgame', label: 'Board', icon: '🎲' },
 ];
 
+// ── V3: Search tracking helpers (fire-and-forget, non blocca l'UI) ─────────
+
+function trackSearchQuery(query: string, mediaType?: string) {
+  if (!query || query.trim().length < 2) return;
+  fetch('/api/search/track', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: query.trim(), media_type: mediaType || null }),
+  }).catch(() => {});
+}
+
+function trackSearchClick(query: string, item: MediaItem) {
+  fetch('/api/search/track', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      query: query.trim(),
+      media_type: item.type,
+      result_clicked_id: item.id,
+      result_clicked_type: item.type,
+      result_clicked_genres: item.genres || [],
+    }),
+  }).catch(() => {});
+}
+
+function triggerTasteDelta(options: {
+  action: 'rating' | 'status_change' | 'wishlist_add' | 'rewatch' | 'progress';
+  mediaId: string;
+  mediaType: string;
+  genres: string[];
+  rating?: number;
+  prevRating?: number;
+  status?: string;
+  prevStatus?: string;
+}) {
+  fetch('/api/taste/update', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  }).catch(() => {});
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function DiscoverPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeType, setActiveType] = useState<string>('all');
   const [results, setResults] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isPending, setIsPending] = useState(false); // A1: stato debounce visivo
+  const [isPending, setIsPending] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
@@ -107,7 +150,11 @@ export default function DiscoverPage() {
   const [modalRating, setModalRating] = useState(0);
   const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null); // A1
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // V3: ref per il debounce del search tracking (800ms, più lungo del debounce UI)
+  const trackDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTrackedQueryRef = useRef<string>('');
+
   const supabase = createClient();
   const { t } = useLocale();
   const d = t.discover;
@@ -143,21 +190,30 @@ export default function DiscoverPage() {
       if (controller.signal.aborted) return;
       const seen = new Set<string>();
       const deduped = all.filter(i => { if (seen.has(i.id)) return false; seen.add(i.id); return true; });
-      setResults(type !== 'all' ? deduped.filter(i => i.type === type) : deduped);
+      const filtered = type !== 'all' ? deduped.filter(i => i.type === type) : deduped;
+      setResults(filtered);
+
+      // V3: traccia la ricerca dopo che i risultati sono tornati
+      // Deduplica: non tracciare la stessa query due volte di fila
+      const trimmed = term.trim();
+      if (trimmed !== lastTrackedQueryRef.current && trimmed.length >= 2) {
+        lastTrackedQueryRef.current = trimmed;
+        trackSearchQuery(trimmed, type !== 'all' ? type : undefined);
+      }
     } catch (err: any) {
       if (err?.name === 'AbortError') return;
       setSearchError(d.searchError || 'Errore durante la ricerca'); setResults([]);
     } finally { if (!controller.signal.aborted) setLoading(false); }
   }, [supabase, d]);
 
-  // A1: debounce esplicito 350ms con indicatore visivo "isPending"
   useEffect(() => {
     if (!searchTerm.trim() || searchTerm.trim().length < 2) {
       setResults([]); setIsPending(false);
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (trackDebounceRef.current) clearTimeout(trackDebounceRef.current);
       return;
     }
-    setIsPending(true); // mostra subito l'indicatore
+    setIsPending(true);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       search(searchTerm, activeType);
@@ -165,25 +221,91 @@ export default function DiscoverPage() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [searchTerm, activeType, search]);
 
+  // V3: Wishlist con generi salvati + delta profilo gusti
   const toggleWishlist = async (media: MediaItem) => {
     haptic(30);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { showToast('Devi essere loggato per continuare'); return; }
     if (wishlistIds.includes(media.id)) {
       await supabase.from('wishlist').delete().match({ user_id: user.id, external_id: media.id });
-      setWishlistIds(prev => prev.filter(id => id !== media.id)); showToast(d.wishlistRemove);
+      setWishlistIds(prev => prev.filter(id => id !== media.id));
+      showToast(d.wishlistRemove);
     } else {
-      await supabase.from('wishlist').insert({ user_id: user.id, external_id: media.id, title: media.title, type: media.type, cover_image: media.coverImage });
-      setWishlistIds(prev => [...prev, media.id]); showToast(d.wishlistAdd);
+      // V3: salva i generi nella wishlist per amplificazione profilo
+      await supabase.from('wishlist').insert({
+        user_id: user.id,
+        external_id: media.id,
+        title: media.title,
+        type: media.type,
+        cover_image: media.coverImage,
+        genres: media.genres || [],        // V3: generi per amplificazione
+        media_type: media.type,            // V3: tipo per slot corretti
+      });
+      setWishlistIds(prev => [...prev, media.id]);
+      showToast(d.wishlistAdd);
+
+      // V3: aggiorna il profilo gusti in real-time
+      if ((media.genres || []).length > 0) {
+        triggerTasteDelta({
+          action: 'wishlist_add',
+          mediaId: media.id,
+          mediaType: media.type,
+          genres: media.genres || [],
+        });
+      }
     }
   };
+
+  // V3: handleResultClick — traccia il click sul risultato
+  const handleResultClick = useCallback((item: MediaItem) => {
+    haptic(30);
+    // V3: traccia il click solo se c'era una ricerca attiva
+    if (searchTerm.trim().length >= 2) {
+      trackSearchClick(searchTerm, item);
+    }
+    setDrawerMedia(toMediaDetails(item));
+  }, [searchTerm]);
 
   const addDirectly = async (media: MediaItem, rating: number) => {
     const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
     const isMovie = media.type === 'movie', isBoardgame = media.type === 'boardgame';
-    await supabase.from('user_media_entries').insert({ user_id: user.id, external_id: media.id, title: media.title, type: media.type, cover_image: media.coverImage, status: isMovie ? 'completed' : 'watching', current_episode: isBoardgame ? 0 : 1, episodes: media.episodes || null, rating: rating || null, genres: media.genres || [] });
+    await supabase.from('user_media_entries').insert({
+      user_id: user.id,
+      external_id: media.id,
+      title: media.title,
+      type: media.type,
+      cover_image: media.coverImage,
+      status: isMovie ? 'completed' : 'watching',
+      current_episode: isBoardgame ? 0 : 1,
+      episodes: media.episodes || null,
+      rating: rating || null,
+      genres: media.genres || [],
+    });
     setAlreadyAdded(prev => [...prev, media.id]);
     showToast(d.added || `"${media.title}" aggiunto!`);
+
+    // V3: aggiorna il profilo gusti dopo l'aggiunta
+    if ((media.genres || []).length > 0) {
+      triggerTasteDelta({
+        action: 'status_change',
+        mediaId: media.id,
+        mediaType: media.type,
+        genres: media.genres || [],
+        status: isMovie ? 'completed' : 'watching',
+        ...(rating > 0 ? { rating } : {}),
+      });
+      // Se c'è anche un rating, applica anche il delta rating separato
+      if (rating > 0) {
+        triggerTasteDelta({
+          action: 'rating',
+          mediaId: media.id,
+          mediaType: media.type,
+          genres: media.genres || [],
+          rating,
+        });
+      }
+    }
+
     setSelectedMedia(null); setModalRating(0); setCurrentEpisode('');
   };
 
@@ -211,7 +333,7 @@ export default function DiscoverPage() {
             autoFocus
           />
           {searchTerm && !isListening && (
-            <button onClick={() => { setSearchTerm(''); setResults([]); setIsPending(false); }} className="absolute right-12 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"><X size={16} /></button>
+            <button onClick={() => { setSearchTerm(''); setResults([]); setIsPending(false); lastTrackedQueryRef.current = ''; }} className="absolute right-12 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"><X size={16} /></button>
           )}
           {voiceSupported && (
             <button onClick={toggleVoice} title={isListening ? 'Ferma' : 'Ricerca vocale'}
@@ -221,7 +343,6 @@ export default function DiscoverPage() {
           )}
         </div>
 
-        {/* A1: indicatore debounce — "Ricerca in corso…" visibile durante i 350ms */}
         {isPending && !loading && searchTerm.trim().length >= 2 && (
           <div className="flex items-center gap-2 mb-4 px-4 py-2 bg-zinc-900/60 border border-zinc-800 rounded-xl w-fit">
             <Loader2 size={13} className="animate-spin text-violet-400" />
@@ -249,7 +370,7 @@ export default function DiscoverPage() {
           ))}
         </div>
 
-        {/* P5: SkeletonDiscoverCard durante loading */}
+        {/* Skeleton loading */}
         {loading && (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
             {Array.from({ length: 12 }).map((_, i) => (
@@ -290,7 +411,7 @@ export default function DiscoverPage() {
                   key={item.id}
                   className="group cursor-pointer"
                   style={{ animationDelay: `${i * 40}ms` }}
-                  onClick={() => { haptic(30); setDrawerMedia(toMediaDetails(item)); }}
+                  onClick={() => handleResultClick(item)}  // V3: usa handleResultClick con tracking
                 >
                   <div className="relative aspect-[2/3] rounded-2xl overflow-hidden bg-zinc-800 mb-2">
                     {hasValidCover(item)
