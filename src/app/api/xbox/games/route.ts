@@ -6,14 +6,14 @@
 // Registra un account su https://xbl.io e ottieni una API key gratuita (fino a 500 req/mese).
 //
 // Variabili .env.local:
-//   OPENXBL_API_KEY=la-tua-chiave
+// OPENXBL_API_KEY=la-tua-chiave
 //
 // Il flusso è simpler rispetto a Steam: l'utente inserisce il proprio Gamertag
 // e noi lo risolviamo in XUID, poi recuperiamo i giochi.
 //
 // Tabella DB necessaria (aggiungere via SQL Editor Supabase):
-//   ALTER TABLE profiles ADD COLUMN IF NOT EXISTS xbox_gamertag text;
-//   ALTER TABLE profiles ADD COLUMN IF NOT EXISTS xbox_xuid text;
+// ALTER TABLE profiles ADD COLUMN IF NOT EXISTS xbox_gamertag text;
+// ALTER TABLE profiles ADD COLUMN IF NOT EXISTS xbox_xuid text;
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -53,7 +53,6 @@ async function resolveGamertag(gamertag: string): Promise<string | null> {
       if (xuid) return String(xuid)
     }
   } catch { /* prova strategia 2 */ }
-
   // Strategia 2: endpoint search (fallback)
   try {
     const res = await fetch(`${OPENXBL_BASE}/friends/search?gt=${encodeURIComponent(gamertag)}`, {
@@ -67,9 +66,9 @@ async function resolveGamertag(gamertag: string): Promise<string | null> {
       if (xuid) return String(xuid)
     }
   } catch { /* fallisce */ }
-
   return null
 }
+
 // Recupera lista giochi per XUID
 async function fetchXboxGames(xuid: string): Promise<any[]> {
   try {
@@ -98,6 +97,7 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
+
   // Accetta XUID diretto (piano gratuito OpenXBL non supporta ricerca gamertag altrui)
   // o gamertag come fallback per piani a pagamento
   let xuid = searchParams.get('xuid')?.trim()
@@ -129,7 +129,8 @@ export async function GET(request: NextRequest) {
   }).eq('id', user.id)
 
   // Recupera giochi
-  const titles = await fetchXboxGames(xuid)
+  const titles = await fetchXboxGames(xuid!)
+
   if (!titles.length) {
     return NextResponse.json({ success: true, games: [], message: 'Nessun gioco trovato (il profilo potrebbe essere privato).' })
   }
@@ -174,7 +175,7 @@ export async function GET(request: NextRequest) {
       cover_image: title.displayImage || title.mediaItemType || null,
       status: isCompleted ? 'completed' : gamerscore > 0 ? 'playing' : 'wishlist',
       current_episode: estimatedHours,
-      genres: [],  // Xbox API non fornisce generi direttamente
+      genres: [], // Xbox API non fornisce generi direttamente
       notes: `Gamerscore: ${gamerscore}/${maxGamerscore} (${completionPct}%)`,
       updated_at: new Date().toISOString(),
       display_order: Date.now() - toInsert.length * 1000,
