@@ -432,6 +432,60 @@ async function manualUpsert(
 ): Promise<{ imported: number; skipped: number }> {
   if (toInsert.length === 0) return { imported: 0, skipped: 0 }
 
+  // Usa la RPC bulk_upsert_media_entries per fare tutto in una sola chiamata Postgres.
+  // Questo risolve il problema del timeout su import grandi (500+ film):
+  // invece di N chiamate HTTP separate, ne fa UNA sola.
+  //
+  // Fallback: se la RPC non esiste (migration non ancora eseguita),
+  // torna al metodo originale insert-batch + update-singolo.
+
+  try {
+    const CHUNK = 500 // Postgres JSONB ha un limite pratico, spezziamo in chunk da 500
+    let totalImported = 0
+    let totalSkipped  = 0
+
+    for (let i = 0; i < toInsert.length; i += CHUNK) {
+      const chunk = toInsert.slice(i, i + CHUNK)
+      const { data, error } = await supabase.rpc('bulk_upsert_media_entries', {
+        p_user_id: userId,
+        p_entries: chunk,
+      })
+
+      if (error) {
+        // Se la RPC non esiste ancora → fallback al metodo classico per questo chunk
+        if (error.code === 'PGRST202' || error.message?.includes('function') || error.message?.includes('does not exist')) {
+          logger.error('[Letterboxd] RPC non disponibile, uso fallback:', error.message)
+          const fb = await fallbackUpsert(supabase, chunk, userId)
+          totalImported += fb.imported
+          totalSkipped  += fb.skipped
+        } else {
+          logger.error('[Letterboxd] RPC error:', error)
+          totalSkipped += chunk.length
+        }
+      } else {
+        totalImported += data?.imported ?? 0
+        totalSkipped  += data?.skipped  ?? 0
+      }
+    }
+
+    return { imported: totalImported, skipped: totalSkipped }
+
+  } catch (err) {
+    logger.error('[Letterboxd] manualUpsert unexpected error:', err)
+    // Fallback completo
+    return fallbackUpsert(supabase, toInsert, userId)
+  }
+}
+
+/**
+ * Metodo originale di upsert — usato come fallback se la RPC non è disponibile.
+ * Lento su grandi volumi (un update HTTP per film) ma funziona sempre.
+ */
+async function fallbackUpsert(
+  supabase: any,
+  toInsert: any[],
+  userId: string
+): Promise<{ imported: number; skipped: number }> {
   const externalIds = toInsert.map(i => i.external_id)
   let existingEntries: any[] = []
   for (let i = 0; i < externalIds.length; i += 500) {
