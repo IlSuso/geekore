@@ -175,9 +175,11 @@ function LastAccessInfo() {
   const supabase = createClient()
 
   useState(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.created_at) {
-        const date = new Date(session.created_at)
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      // last_sign_in_at è disponibile sul tipo User di Supabase
+      const ts = (user as any)?.last_sign_in_at
+      if (ts) {
+        const date = new Date(ts)
         setInfo(date.toLocaleString('it-IT', {
           day: 'numeric', month: 'long', year: 'numeric',
           hour: '2-digit', minute: '2-digit',
