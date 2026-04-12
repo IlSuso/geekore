@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
       headers: {
         'Content-Type': 'application/json',
         'Content-Disposition': `attachment; filename="${filename}"`,
-        ...Object.fromEntries(rl.headers.entries()),
+        ...rl.headers,
       },
     })
   } catch (err) {
