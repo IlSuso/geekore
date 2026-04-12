@@ -1,4 +1,9 @@
 'use client'
+// DESTINAZIONE: src/components/Navbar.tsx
+// FIX: z-index alzato da z-50 a z-[100] su entrambe le navbar (desktop + mobile).
+//      Dropdown e search overlay alzati a z-[110] così stanno sempre sopra la navbar stessa.
+//      Questo garantisce che navbar e suoi menu stiano sempre sopra qualsiasi
+//      elemento di pagina (modali z-[60/70/80/90], drawer z-[90], ecc.)
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -61,7 +66,12 @@ export default function Navbar() {
   }, [])
 
   useEffect(() => {
-    if (pathname === '/notifications') { setHasNewNotifications(false); if (typeof navigator !== 'undefined' && 'clearAppBadge' in navigator) (navigator as any).clearAppBadge().catch(() => {}); }
+    if (pathname === '/notifications') {
+      setHasNewNotifications(false)
+      if (typeof navigator !== 'undefined' && 'clearAppBadge' in navigator) {
+        (navigator as any).clearAppBadge().catch(() => {})
+      }
+    }
   }, [pathname])
 
   useEffect(() => {
@@ -85,7 +95,10 @@ export default function Navbar() {
         .then(({ count }) => { if (count && count > 0) setHasNewNotifications(true) })
 
       channel = supabase.channel('navbar-notifications')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `receiver_id=eq.${user.id}` }, ({ new: newNotif }) => { setHasNewNotifications(true); if ('setAppBadge' in navigator) (navigator as any).setAppBadge(1).catch(() => {}); })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `receiver_id=eq.${user.id}` }, () => {
+          setHasNewNotifications(true)
+          if ('setAppBadge' in navigator) (navigator as any).setAppBadge(1).catch(() => {})
+        })
         .subscribe()
     })
 
@@ -112,17 +125,18 @@ export default function Navbar() {
   if (isPublicLanding && isLoggedIn === false) return null
   if (isPublicLanding && isLoggedIn === null) return null
 
-  const isDark = theme === 'dark'
+  const isDark = theme === 'dark' || theme === 'oled'
   const currentUsername = username || ''
   const currentDisplayName = displayName || username || ''
-
   const localAvatarSrc = currentUsername ? getLocalAvatarSvg(currentUsername, displayName) : undefined
 
   return (
     <>
-      {/* Desktop navbar */}
-      <nav className="hidden md:flex fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-2xl border-b border-zinc-800/60">
+      {/* ── Desktop navbar ───────────────────────────────────────────────────── */}
+      {/* z-[100]: sopra tutto il contenuto di pagina (modali z-50~z-90, card z-10~z-50) */}
+      <nav className="hidden md:flex fixed top-0 left-0 right-0 z-[100] bg-black/80 backdrop-blur-2xl border-b border-zinc-800/60">
         <div className="max-w-6xl mx-auto w-full px-6 py-4 flex items-center gap-4">
+
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">
             <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl flex items-center justify-center shadow-md shadow-violet-500/30 group-hover:scale-105 transition-transform">
@@ -155,8 +169,9 @@ export default function Navbar() {
               {searchQuery && <button onClick={clearSearch} className="text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0"><X size={13} /></button>}
             </div>
 
+            {/* z-[110]: sopra la navbar stessa */}
             {searchOpen && searchResults.length > 0 && (
-              <div className="absolute top-full left-0 w-full mt-2 bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl shadow-black/50 z-50">
+              <div className="absolute top-full left-0 w-full mt-2 bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl shadow-black/50 z-[110]">
                 {searchResults.map((res) => (
                   <Link key={res.username} href={`/profile/${res.username}`}
                     onClick={() => { setSearchOpen(false); setSearchQuery(''); setSearchResults([]) }}
@@ -174,7 +189,7 @@ export default function Navbar() {
             )}
 
             {searchOpen && searchQuery.length >= 2 && searchResults.length === 0 && !searchLoading && (
-              <div className="absolute top-full left-0 w-full mt-2 bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-zinc-500 shadow-2xl z-50">
+              <div className="absolute top-full left-0 w-full mt-2 bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-zinc-500 shadow-2xl z-[110]">
                 Nessun utente trovato
               </div>
             )}
@@ -205,8 +220,9 @@ export default function Navbar() {
                 <ChevronDown size={14} className={`text-zinc-500 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
+              {/* Dropdown: z-[110] — sopra la navbar e tutto il resto */}
               {dropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-56 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden z-50">
+                <div className="absolute right-0 top-full mt-2 w-56 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden z-[110]">
                   <div className="px-4 py-3 border-b border-zinc-800">
                     <p className="text-sm font-semibold text-white truncate">{currentDisplayName}</p>
                     {currentUsername && <p className="text-xs text-zinc-500">@{currentUsername}</p>}
@@ -247,9 +263,9 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* Mobile bottom navbar */}
-      {/* #14: classe "mobile-nav" usata dal CSS per nasconderla quando tastiera iOS è aperta */}
-      <nav className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-2xl border-t border-zinc-800/60">
+      {/* ── Mobile bottom navbar ─────────────────────────────────────────────── */}
+      {/* z-[100]: sopra tutto il contenuto, inclusi modali z-50~z-90 */}
+      <nav className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-black/90 backdrop-blur-2xl border-t border-zinc-800/60">
         <div className="flex items-center justify-around py-2 px-1">
           {[...NAV_ITEMS, { href: '/profile/me', label: t.nav.profile, icon: User, hasDot: false }].map((item) => {
             const isActive = item.href === '/profile/me' ? isProfileActive : pathname === item.href
