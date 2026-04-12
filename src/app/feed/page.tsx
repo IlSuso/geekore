@@ -358,7 +358,7 @@ export default function FeedPage() {
     const { data, error } = await supabase
       .from('posts')
       .select(`
-        id, content, image_url, created_at,
+        id, user_id, content, image_url, created_at,
         profiles!posts_user_id_fkey (username, display_name, avatar_url),
         likes (id, user_id),
         comments (id, content, created_at, user_id)
@@ -433,7 +433,7 @@ export default function FeedPage() {
     let query = supabase
       .from('posts')
       .select(`
-        id, content, image_url, created_at,
+        id, user_id, content, image_url, created_at,
         profiles!posts_user_id_fkey (username, display_name, avatar_url),
         likes (id, user_id),
         comments (id, content, created_at, user_id)
