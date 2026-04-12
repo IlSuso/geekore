@@ -75,21 +75,25 @@ export default function ListDetailPage() {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
 
-      // Carica lista + owner
+      // Carica lista
       const { data: listData, error: listError } = await supabase
         .from('user_lists')
-        .select(`
-          id, title, description, is_public, user_id, created_at,
-          owner:profiles!user_id (username, display_name, avatar_url)
-        `)
+        .select('id, title, description, is_public, user_id, created_at')
         .eq('id', id)
         .single()
 
       if (listError || !listData) { router.push('/lists'); return }
 
+      // Carica profilo owner separatamente
+      const { data: ownerData } = await supabase
+        .from('profiles')
+        .select('username, display_name, avatar_url')
+        .eq('id', listData.user_id)
+        .single()
+
       setList({
         ...listData,
-        owner: Array.isArray(listData.owner) ? listData.owner[0] : listData.owner,
+        owner: ownerData || { username: '', display_name: undefined, avatar_url: undefined },
       })
       setIsOwner(user?.id === listData.user_id)
 
