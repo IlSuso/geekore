@@ -652,6 +652,7 @@ export default function FeedPage() {
           <div className="mb-8 bg-zinc-950 border border-zinc-800 rounded-3xl p-6">
             <form onSubmit={handleCreatePost}>
               <textarea
+                data-testid="post-composer"
                 value={newPostContent}
                 onChange={e => setNewPostContent(e.target.value.slice(0, 500))}
                 placeholder={f.placeholder}
@@ -700,6 +701,7 @@ export default function FeedPage() {
           <div className="flex gap-2 mb-6 bg-zinc-950 border border-zinc-800 rounded-2xl p-1.5 w-fit">
             {(['all', 'following'] as const).map(filter => (
               <button key={filter}
+                data-testid={`filter-${filter}`}
                 onClick={() => handleFilterChange(filter)}
                 className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${
                   feedFilter === filter ? 'bg-violet-600 text-white' : 'text-zinc-400 hover:text-white'

@@ -169,7 +169,7 @@ export async function GET(request: NextRequest) {
   try {
     resend = await getResend()
   } catch {
-    return NextResponse.json({ error: 'RESEND_API_KEY non configurata' }, { status: 500 })
+    return NextResponse.json({ skipped: true, reason: 'RESEND_API_KEY non configurata' }, { status: 200 })
   }
 
   const from = process.env.RESEND_FROM || 'digest@geekore.it'

@@ -44,8 +44,8 @@ export default async function globalSetup(config: FullConfig) {
   try {
     // Tenta login
     await page.goto(`${BASE_URL}/login`)
-    await page.getByPlaceholder(/email/i).fill(TEST_EMAIL)
-    await page.getByPlaceholder(/password/i).fill(TEST_PASSWORD)
+    await page.locator('input[type="email"]').fill(TEST_EMAIL)
+    await page.locator('input[type="password"]').fill(TEST_PASSWORD)
     await page.getByRole('button', { name: /accedi|login|entra/i }).click()
 
     // Aspetta redirect post-login (max 15s)
@@ -58,12 +58,12 @@ export default async function globalSetup(config: FullConfig) {
     await page.goto(`${BASE_URL}/register`)
 
     try {
-      await page.getByPlaceholder(/email/i).fill(TEST_EMAIL)
+      await page.locator('input[type="email"]').fill(TEST_EMAIL)
       const usernameInput = page.getByPlaceholder(/username/i)
       if (await usernameInput.isVisible()) {
         await usernameInput.fill(process.env.TEST_USERNAME || 'e2e_testuser')
       }
-      await page.getByPlaceholder(/password/i).first().fill(TEST_PASSWORD)
+      await page.locator('input[type="password"]').first().fill(TEST_PASSWORD)
       await page.getByRole('button', { name: /registr|crea/i }).click()
       await page.waitForURL(/\/(onboarding|feed|for-you)/, { timeout: 15_000 })
       console.log(`[setup] Registrazione riuscita`)

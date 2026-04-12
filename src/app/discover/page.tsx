@@ -327,6 +327,7 @@ export default function DiscoverPage() {
         <div className="relative mb-4">
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
           <input
+            data-testid="search-input"
             type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
             placeholder={isListening ? '🎤 In ascolto...' : (d.searchPlaceholder || 'Cerca anime, film, giochi, manga...')}
             className={`w-full bg-zinc-900 border rounded-2xl pl-11 py-4 text-base text-white placeholder-zinc-600 focus:outline-none transition-colors ${isListening ? 'border-red-500 pr-20' : 'border-zinc-800 focus:border-violet-500 pr-20'}`}
@@ -363,7 +364,7 @@ export default function DiscoverPage() {
         {/* Filters */}
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-6">
           {FILTERS.map(tf => (
-            <button key={tf.id} onClick={() => { haptic(30); setActiveType(tf.id); }}
+            <button key={tf.id} data-testid={`filter-${tf.id}`} onClick={() => { haptic(30); setActiveType(tf.id); }}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap border transition-all flex-shrink-0 ${activeType === tf.id ? 'bg-violet-600 border-violet-500 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'}`}>
               {tf.icon}{tf.label}
             </button>

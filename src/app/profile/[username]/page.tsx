@@ -945,7 +945,7 @@ export default function ProfilePage() {
               {isOwner ? (
                 <>
                   <Link href="/profile/edit">
-                    <button className="px-8 py-3 bg-white text-black font-semibold rounded-full hover:bg-zinc-200 transition-all">
+                    <button data-testid="btn-edit-profile" className="px-8 py-3 bg-white text-black font-semibold rounded-full hover:bg-zinc-200 transition-all">
                       {t.profile.editProfile}
                     </button>
                   </Link>
@@ -1019,6 +1019,7 @@ export default function ProfilePage() {
           {TABS.map(tab => (
             <button
               key={tab.id}
+              data-testid={`tab-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-all border-b-2 -mb-px ${
                 activeTab === tab.id

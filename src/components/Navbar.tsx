@@ -151,6 +151,7 @@ export default function Navbar() {
               const isActive = item.href === '/feed' ? pathname === '/feed' || pathname === '/' : pathname === item.href
               return (
                 <Link key={item.href} href={item.href} prefetch={true}
+                  data-testid={`nav-${item.href.replace('/', '')}`}
                   className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${isActive ? 'bg-violet-500/10 text-violet-400' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'}`}>
                   <item.icon size={18} />
                   {item.label}
@@ -251,7 +252,7 @@ export default function Navbar() {
                     </button>
                   </div>
                   <div className="p-1.5 border-t border-zinc-800">
-                    <button onClick={() => { setDropdownOpen(false); handleLogout() }}
+                    <button data-testid="nav-logout" onClick={() => { setDropdownOpen(false); handleLogout() }}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-all">
                       <LogOut size={16} /> {t.nav.logout}
                     </button>
@@ -271,6 +272,7 @@ export default function Navbar() {
             const isActive = item.href === '/profile/me' ? isProfileActive : pathname === item.href
             return (
               <Link key={item.href} href={item.href} prefetch={true}
+                data-testid={`nav-mobile-${item.href.replace('/', '')}`}
                 className={`flex flex-col items-center gap-0.5 px-2 py-2 rounded-2xl transition-all min-w-[44px] ${isActive ? 'text-violet-400' : 'text-zinc-500'}`}>
                 <div className="relative">
                   {item.href === '/profile/me' && (avatarUrl || currentUsername) ? (

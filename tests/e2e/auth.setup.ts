@@ -14,8 +14,8 @@ const TEST_PASSWORD = process.env.TEST_PASSWORD || 'GeekoreE2E2024!'
 setup('autenticazione utente di test', async ({ page }) => {
   await page.goto('/login')
 
-  await page.getByPlaceholder(/email/i).fill(TEST_EMAIL)
-  await page.getByPlaceholder(/password/i).fill(TEST_PASSWORD)
+  await page.locator('input[type="email"]').fill(TEST_EMAIL)
+  await page.locator('input[type="password"]').fill(TEST_PASSWORD)
   await page.getByRole('button', { name: /accedi|login|entra/i }).click()
 
   // Aspetta che il login vada a buon fine
