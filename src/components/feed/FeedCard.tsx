@@ -301,7 +301,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
             <div className="space-y-3 mb-4 max-h-56 overflow-y-auto">
               {comments.map((comment) => (
                 <div key={comment.id} className="flex gap-3">
-                  <div className="w-7 h-7 rounded-xl overflow-hidden flex-shrink-0">
+                  <Link href={`/profile/${comment.profiles?.username}`} className="w-7 h-7 rounded-xl overflow-hidden flex-shrink-0 hover:ring-2 hover:ring-violet-500/50 transition-all">
                     <Avatar
                       src={comment.profiles?.avatar_url}
                       username={comment.profiles?.username || 'user'}
@@ -309,8 +309,8 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
                       size={28}
                       className="rounded-xl"
                     />
-                  </div>
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-2 flex-1 group">
+                  </Link>
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-2 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <Link href={`/profile/${comment.profiles?.username}`} className="text-[10px] font-bold text-violet-400 uppercase tracking-wider hover:text-violet-300">
                         @{comment.profiles?.username || 'user'}
@@ -319,7 +319,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
                         {user && user.id === comment.user_id && (
                           <button
                             onClick={() => handleDeleteComment(comment.id)}
-                            className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 transition-all"
+                            className="text-zinc-600 hover:text-red-400 transition-colors"
                           >
                             <Trash2 size={11} />
                           </button>
