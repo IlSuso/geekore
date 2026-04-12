@@ -14,7 +14,7 @@
 import { useState, useEffect, useCallback, memo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { User } from '@supabase/supabase-js'
-import { Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X, Loader2, Pin, ArrowUp } from 'lucide-react'
+import { Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X, Loader2, Pin, ArrowUp, Trash2 } from 'lucide-react'
 import { SkeletonFeedPost } from '@/components/ui/SkeletonCard'
 import { Avatar } from '@/components/ui/Avatar'
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll'
@@ -37,6 +37,7 @@ type Comment = {
 
 type Post = {
   id: string
+  user_id: string
   content: string
   image_url?: string | null
   created_at: string
@@ -93,6 +94,9 @@ const PostCard = memo(function PostCard({
   onToggleComment,
   onCommentChange,
   onAddComment,
+  onDelete,
+  expandedComments,
+  onExpandComments,
 }: {
   post: Post
   currentUser: User | null
@@ -104,8 +108,14 @@ const PostCard = memo(function PostCard({
   onToggleComment: (id: string) => void
   onCommentChange: (val: string) => void
   onAddComment: (id: string) => void
+  onDelete: (id: string) => void
+  expandedComments: Set<string>
+  onExpandComments: (id: string) => void
 }) {
   const isCommenting = commentingPostId === post.id
+  const isExpanded = expandedComments.has(post.id)
+  const visibleComments = isExpanded ? post.comments : post.comments.slice(0, 3)
+  const hiddenCount = post.comments.length - 3
 
   return (
     <div className={`bg-zinc-950 border rounded-3xl p-6 transition-all duration-300 animate-in fade-in slide-in-from-top-2 ${
@@ -132,7 +142,7 @@ const PostCard = memo(function PostCard({
             className="rounded-2xl"
           />
         </div>
-        <div>
+        <div className="flex-1">
           <p className="font-bold text-white">{post.profiles.display_name || post.profiles.username}</p>
           <p className="text-xs text-zinc-500">
             @{post.profiles.username} · {formatDistanceToNow(new Date(post.created_at), {
@@ -140,6 +150,15 @@ const PostCard = memo(function PostCard({
             })}
           </p>
         </div>
+        {currentUser && currentUser.id === post.user_id && (
+          <button
+            onClick={() => onDelete(post.id)}
+            className="p-2 rounded-xl text-zinc-600 hover:text-red-400 hover:bg-red-400/10 transition-all"
+            title="Elimina post"
+          >
+            <Trash2 size={15} />
+          </button>
+        )}
       </div>
 
       <p className="text-[16px] leading-relaxed mb-5 whitespace-pre-wrap text-zinc-100">{post.content}</p>
@@ -211,14 +230,19 @@ const PostCard = memo(function PostCard({
       {/* Comments list */}
       {post.comments.length > 0 && (
         <div className="mt-4 pl-3 border-l-2 border-zinc-800 space-y-3 text-sm">
-          {post.comments.slice(0, 3).map(comment => (
+          {visibleComments.map(comment => (
             <div key={comment.id}>
               <span className="font-semibold text-violet-400">@{comment.username}</span>
               <span className="ml-2 text-zinc-300">{comment.content}</span>
             </div>
           ))}
-          {post.comments.length > 3 && (
-            <p className="text-xs text-zinc-600">+{post.comments.length - 3} altri commenti</p>
+          {!isExpanded && hiddenCount > 0 && (
+            <button
+              onClick={() => onExpandComments(post.id)}
+              className="text-xs text-zinc-500 hover:text-violet-400 transition-colors"
+            >
+              +{hiddenCount} {hiddenCount === 1 ? 'altro commento' : 'altri commenti'}
+            </button>
           )}
         </div>
       )}
@@ -245,6 +269,7 @@ export default function FeedPage() {
   const [commentingPostId, setCommentingPostId] = useState<string | null>(null)
   const [feedFilter, setFeedFilter] = useState<'all' | 'following'>('all')
   const [likingIds, setLikingIds] = useState<Set<string>>(new Set())
+  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set())
   const [newPostsCount, setNewPostsCount] = useState(0) // N8: contatore nuovi post realtime
   const latestPostIdRef = useRef<string | null>(null)
   const pageRef = useRef(0)
@@ -370,6 +395,7 @@ export default function FeedPage() {
         comments_count: comments.length,
         comments: [],
         pinned: true,
+        user_id: post.user_id,
       }
     })
 
@@ -446,6 +472,7 @@ export default function FeedPage() {
       }))
       return {
         id: post.id,
+        user_id: post.user_id,
         content: post.content,
         image_url: post.image_url,
         created_at: post.created_at,
@@ -526,6 +553,7 @@ export default function FeedPage() {
       const profile = Array.isArray(newPostData.profiles) ? newPostData.profiles[0] : newPostData.profiles
       const optimisticPost: Post = {
         id: newPostData.id,
+        user_id: currentUser.id,
         content: newPostData.content,
         image_url: newPostData.image_url,
         created_at: newPostData.created_at,
@@ -634,6 +662,27 @@ export default function FeedPage() {
     setCommentContent('')
   }, [])
 
+  const handleExpandComments = useCallback((postId: string) => {
+    setExpandedComments(prev => new Set([...prev, postId]))
+  }, [])
+
+  const handleDeletePost = useCallback(async (postId: string) => {
+    if (!currentUser) return
+    // Rimozione ottimistica
+    setPosts(prev => {
+      const updated = prev.filter(p => p.id !== postId)
+      cache.posts = updated
+      cache.ts = Date.now()
+      return updated
+    })
+    setPinnedPosts(prev => prev.filter(p => p.id !== postId))
+    // Cancella commenti, likes e post (le FK con ON DELETE CASCADE potrebbero già farlo,
+    // ma lo facciamo esplicitamente per sicurezza)
+    await supabase.from('comments').delete().eq('post_id', postId)
+    await supabase.from('likes').delete().eq('post_id', postId)
+    await supabase.from('posts').delete().eq('id', postId).eq('user_id', currentUser.id)
+  }, [currentUser, supabase])
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black text-white">
@@ -734,6 +783,9 @@ export default function FeedPage() {
                   onToggleComment={handleToggleComment}
                   onCommentChange={setCommentContent}
                   onAddComment={handleAddComment}
+                  onDelete={handleDeletePost}
+                  expandedComments={expandedComments}
+                  onExpandComments={handleExpandComments}
                 />
               ))}
             </div>
@@ -763,6 +815,9 @@ export default function FeedPage() {
                 onToggleComment={handleToggleComment}
                 onCommentChange={setCommentContent}
                 onAddComment={handleAddComment}
+                onDelete={handleDeletePost}
+                expandedComments={expandedComments}
+                onExpandComments={handleExpandComments}
               />
             ))
           )}
