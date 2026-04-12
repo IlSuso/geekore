@@ -24,6 +24,7 @@
     "react-dom": "^18",
     "react-flexible-star-rating": "^1.0.7",
     "react-simple-star-rating": "^5.1.7",
+    "resend": "^6.10.0",
     "rss-parser": "^3.13.0",
     "swr": "^2.4.1",
     "tailwind-merge": "^2.3.0",
