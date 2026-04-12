@@ -1,14 +1,11 @@
 import { logger } from '@/lib/logger'
 // src/app/api/import/mal/route.ts
-// Importa la lista anime/manga da MyAnimeList tramite export XML.
-// L'utente scarica il file XML da MAL (Profilo → Export) e lo carica qui.
-// Non richiede OAuth — parsing lato server del file XML.
+// FIX: strategia manual upsert per evitare il problema con constraint mancante su Supabase
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
 
-// Mappa status MAL → status Geekore
 const STATUS_MAP_ANIME: Record<string, string> = {
   'Watching': 'watching',
   'Completed': 'completed',
@@ -25,15 +22,8 @@ const STATUS_MAP_MANGA: Record<string, string> = {
   'Plan to Read': 'watching',
 }
 
-// Parser XML semplice — estrae tag <anime> e <manga> senza dipendenze esterne
 function parseMALXML(xml: string): { animeList: any[]; mangaList: any[]; type: 'anime' | 'manga' | 'mixed' } {
-  // Rimuovi BOM e normalizza newline
   const clean = xml.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n')
-
-  const getTagContent = (str: string, tag: string): string => {
-    const match = str.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i'))
-    return match ? match[1].trim() : ''
-  }
 
   const parseBlock = (block: string): Record<string, string> => {
     const result: Record<string, string> = {}
@@ -45,7 +35,6 @@ function parseMALXML(xml: string): { animeList: any[]; mangaList: any[]; type: '
     return result
   }
 
-  // Estrai blocchi <anime>
   const animeBlocks: string[] = []
   const animeRe = /<anime>([\s\S]*?)<\/anime>/gi
   let am: RegExpExecArray | null
@@ -53,7 +42,6 @@ function parseMALXML(xml: string): { animeList: any[]; mangaList: any[]; type: '
     animeBlocks.push(am[1])
   }
 
-  // Estrai blocchi <manga>
   const mangaBlocks: string[] = []
   const mangaRe = /<manga>([\s\S]*?)<\/manga>/gi
   let mm: RegExpExecArray | null
@@ -79,8 +67,6 @@ function transformAnime(entry: Record<string, string>, userId: string) {
   const status = STATUS_MAP_ANIME[entry['my_status']] || 'watching'
   const progress = parseInt(entry['my_watched_episodes'] || '0', 10) || 0
   const totalEps = parseInt(entry['series_episodes'] || '0', 10) || null
-
-  // MAL score: 0-10 → Geekore: 0-5 (mezzo punto)
   const rawScore = parseFloat(entry['my_score'] || '0')
   const rating = rawScore > 0 ? Math.round((rawScore / 10) * 5 * 2) / 2 : null
 
@@ -89,7 +75,7 @@ function transformAnime(entry: Record<string, string>, userId: string) {
     external_id: `mal-anime-${malId}`,
     title,
     type: 'anime',
-    cover_image: null, // MAL XML non include cover; si può arricchire in futuro
+    cover_image: null,
     current_episode: progress,
     episodes: totalEps,
     status,
@@ -110,7 +96,6 @@ function transformManga(entry: Record<string, string>, userId: string) {
   const status = STATUS_MAP_MANGA[entry['my_status']] || 'watching'
   const progress = parseInt(entry['my_read_chapters'] || '0', 10) || 0
   const totalChaps = parseInt(entry['manga_chapters'] || '0', 10) || null
-
   const rawScore = parseFloat(entry['my_score'] || '0')
   const rating = rawScore > 0 ? Math.round((rawScore / 10) * 5 * 2) / 2 : null
 
@@ -133,11 +118,10 @@ function transformManga(entry: Record<string, string>, userId: string) {
 }
 
 export async function POST(request: NextRequest) {
-  // Rate limit: 3 import/ora per IP
   const rl = rateLimit(request, { limit: 3, windowMs: 60 * 60 * 1000, prefix: 'mal-import' })
   if (!rl.ok) {
     return NextResponse.json(
-      { error: 'Troppe importazioni. Attendi un\'ora prima di riprovare.' },
+      { error: "Troppe importazioni. Attendi un'ora prima di riprovare." },
       { status: 429, headers: rl.headers }
     )
   }
@@ -148,22 +132,17 @@ export async function POST(request: NextRequest) {
 
   let xmlContent: string
 
-  // Accetta sia form-data (file upload) sia JSON (xml come stringa)
   const contentType = request.headers.get('content-type') || ''
 
   if (contentType.includes('multipart/form-data')) {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     if (!file) return NextResponse.json({ error: 'File non trovato' }, { status: 400 })
-
-    // Max 5MB
     if (file.size > 5 * 1024 * 1024) {
       return NextResponse.json({ error: 'File troppo grande (max 5MB)' }, { status: 400 })
     }
-
     xmlContent = await file.text()
   } else {
-    // JSON con campo "xml"
     let body: any
     try { body = await request.json() } catch {
       return NextResponse.json({ error: 'Body non valido' }, { status: 400 })
@@ -173,12 +152,11 @@ export async function POST(request: NextRequest) {
 
   if (!xmlContent || !xmlContent.includes('<myanimelist>')) {
     return NextResponse.json(
-      { error: 'File non valido. Carica l\'export XML di MyAnimeList.' },
+      { error: "File non valido. Carica l'export XML di MyAnimeList." },
       { status: 400 }
     )
   }
 
-  // Parse
   let parsed: ReturnType<typeof parseMALXML>
   try {
     parsed = parseMALXML(xmlContent)
@@ -193,27 +171,60 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Trasforma
   const toInsert = [
     ...parsed.animeList.map(e => transformAnime(e, user.id)),
     ...parsed.mangaList.map(e => transformManga(e, user.id)),
   ].filter(Boolean) as any[]
 
-  // Upsert in batch da 50
+  if (toInsert.length === 0) {
+    return NextResponse.json(
+      { error: 'Nessun titolo valido trovato nel file.' },
+      { status: 422 }
+    )
+  }
+
+  // Manual upsert: controlla quali external_id esistono già
+  const externalIds = toInsert.map(i => i.external_id)
+  const { data: existing } = await supabase
+    .from('user_media_entries')
+    .select('id, external_id')
+    .eq('user_id', user.id)
+    .in('external_id', externalIds)
+
+  const existingMap = new Map((existing || []).map((e: any) => [e.external_id, e.id]))
+  const toCreate = toInsert.filter(i => !existingMap.has(i.external_id))
+  const toUpdate = toInsert.filter(i => existingMap.has(i.external_id))
+
   let imported = 0
   let skipped = 0
 
-  for (let i = 0; i < toInsert.length; i += 50) {
-    const batch = toInsert.slice(i, i + 50)
-    const { error } = await supabase
-      .from('user_media_entries')
-      .upsert(batch, { onConflict: 'user_id,external_id', ignoreDuplicates: false })
-
+  // INSERT nuovi in batch da 50
+  for (let i = 0; i < toCreate.length; i += 50) {
+    const batch = toCreate.slice(i, i + 50)
+    const { error } = await supabase.from('user_media_entries').insert(batch)
     if (!error) {
       imported += batch.length
     } else {
-      logger.error('[MAL Import] batch error:', error)
+      logger.error('[MAL Import] insert error:', error)
       skipped += batch.length
+    }
+  }
+
+  // UPDATE esistenti per id
+  for (let i = 0; i < toUpdate.length; i += 50) {
+    const batch = toUpdate.slice(i, i + 50)
+    for (const item of batch) {
+      const rowId = existingMap.get(item.external_id)
+      const { error } = await supabase
+        .from('user_media_entries')
+        .update({ ...item })
+        .eq('id', rowId)
+      if (!error) {
+        imported++
+      } else {
+        logger.error('[MAL Import] update error:', error)
+        skipped++
+      }
     }
   }
 

@@ -18,6 +18,7 @@ import {
 import { AniListImport } from '@/components/import/AniListImport'
 import { MALImport } from '@/components/import/MALImport'
 import { XboxImport } from '@/components/import/XboxImport'
+import { LetterboxdImport } from '@/components/import/LetterboxdImport'
 import { PushNotificationsToggle } from '@/components/notifications/PushNotificationsToggle'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -397,6 +398,7 @@ export default function SettingsPage() {
           <div className="space-y-4">
             <AniListImport />
             <MALImport />
+            <LetterboxdImport />
             {/* #22: Xbox import */}
             <XboxImport />
           </div>

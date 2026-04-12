@@ -1,7 +1,6 @@
 import { logger } from '@/lib/logger'
 // src/app/api/import/anilist/route.ts
-// Importa la lista anime/manga di un utente AniList tramite GraphQL pubblico.
-// Non richiede OAuth — la lista deve essere pubblica sul profilo AniList.
+// FIX: strategia manual upsert per evitare il problema con constraint mancante su Supabase
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
@@ -9,7 +8,6 @@ import { rateLimit } from '@/lib/rateLimit'
 
 const ANILIST_API = 'https://graphql.anilist.co'
 
-// Mappa status AniList → status Geekore
 const STATUS_MAP: Record<string, string> = {
   CURRENT: 'watching',
   COMPLETED: 'completed',
@@ -72,11 +70,10 @@ async function fetchAniListPage(
 }
 
 export async function POST(request: NextRequest) {
-  // Rate limit: 3 import/ora per IP (è pesante)
   const rl = rateLimit(request, { limit: 3, windowMs: 60 * 60 * 1000, prefix: 'anilist-import' })
   if (!rl.ok) {
     return NextResponse.json(
-      { error: 'Troppe importazioni. Attendi un\'ora prima di riprovare.' },
+      { error: "Troppe importazioni. Attendi un'ora prima di riprovare." },
       { status: 429, headers: rl.headers }
     )
   }
@@ -109,18 +106,16 @@ export async function POST(request: NextRequest) {
   const allItems: any[] = []
   const errors: string[] = []
 
-  // Fetch tutte le pagine per ogni tipo
   for (const type of validTypes) {
     let page = 1
     let hasNext = true
-
-    while (hasNext && page <= 10) { // Max 10 pagine = 500 entries per tipo
+    while (hasNext && page <= 10) {
       try {
         const { items, hasNextPage } = await fetchAniListPage(username, type, page)
         allItems.push(...items.map(i => ({ ...i, _type: type })))
         hasNext = hasNextPage
         page++
-        if (hasNext) await new Promise(r => setTimeout(r, 500)) // Rate limit AniList
+        if (hasNext) await new Promise(r => setTimeout(r, 500))
       } catch (e: any) {
         errors.push(`${type}: ${e.message}`)
         hasNext = false
@@ -135,7 +130,6 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Trasforma e inserisce in Supabase
   const toInsert = allItems
     .filter(item => item.media?.id)
     .map(item => {
@@ -149,8 +143,6 @@ export async function POST(request: NextRequest) {
         .sort((a: any, b: any) => b.rank - a.rank)
         .slice(0, 15)
         .map((t: any) => t.name)
-
-      // Converti voto AniList (0-10) → Geekore (0-5)
       const rating = item.score ? Math.round((item.score / 10) * 5 * 2) / 2 : null
 
       return {
@@ -171,21 +163,55 @@ export async function POST(request: NextRequest) {
       }
     })
 
-  // Upsert in batch da 50
+  if (toInsert.length === 0) {
+    return NextResponse.json({
+      success: true, imported: 0, skipped: 0, total: 0,
+      message: 'Nessun titolo valido trovato nel profilo AniList',
+    }, { headers: rl.headers })
+  }
+
+  // Manual upsert: controlla quali external_id esistono già
+  const externalIds = toInsert.map(i => i.external_id)
+  const { data: existing } = await supabase
+    .from('user_media_entries')
+    .select('id, external_id')
+    .eq('user_id', user.id)
+    .in('external_id', externalIds)
+
+  const existingMap = new Map((existing || []).map((e: any) => [e.external_id, e.id]))
+  const toCreate = toInsert.filter(i => !existingMap.has(i.external_id))
+  const toUpdate = toInsert.filter(i => existingMap.has(i.external_id))
+
   let imported = 0
   let skipped = 0
 
-  for (let i = 0; i < toInsert.length; i += 50) {
-    const batch = toInsert.slice(i, i + 50)
-    const { data, error } = await supabase
-      .from('user_media_entries')
-      .upsert(batch, { onConflict: 'user_id,external_id', ignoreDuplicates: false })
-
+  // INSERT nuovi in batch da 50
+  for (let i = 0; i < toCreate.length; i += 50) {
+    const batch = toCreate.slice(i, i + 50)
+    const { error } = await supabase.from('user_media_entries').insert(batch)
     if (!error) {
       imported += batch.length
     } else {
-      logger.error('[AniList Import] batch error:', error)
+      logger.error('[AniList Import] insert error:', error)
       skipped += batch.length
+    }
+  }
+
+  // UPDATE esistenti: usa l'id reale della riga
+  for (let i = 0; i < toUpdate.length; i += 50) {
+    const batch = toUpdate.slice(i, i + 50)
+    for (const item of batch) {
+      const rowId = existingMap.get(item.external_id)
+      const { error } = await supabase
+        .from('user_media_entries')
+        .update({ ...item })
+        .eq('id', rowId)
+      if (!error) {
+        imported++
+      } else {
+        logger.error('[AniList Import] update error:', error)
+        skipped++
+      }
     }
   }
 

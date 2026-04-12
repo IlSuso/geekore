@@ -67,7 +67,7 @@ export interface FeedCardProps {
   onLikeChange?: (postId: string, delta: number) => void
 }
 
-export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardProps) {
+export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardProps): JSX.Element {
   const supabase = createClient()
   const { locale } = useLocale()
 
@@ -84,6 +84,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
   const [user, setUser] = useState<{ id: string } | null>(null)
   const [showComments, setShowComments] = useState(false)
   const [comments, setComments] = useState<PostComment[]>((post.comments as PostComment[]) || [])
+  const [commentsFetched, setCommentsFetched] = useState((post.comments?.length ?? 0) > 0)
   const [newComment, setNewComment] = useState('')
   const [commentCharCount, setCommentCharCount] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -133,6 +134,27 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
           type: 'like', sender_id: user.id, receiver_id: post.user_id, post_id: post.id,
         }])
       }
+    }
+  }
+
+  const fetchComments = async () => {
+    const { data, error } = await supabase
+      .from('comments')
+      .select('id, content, created_at, user_id, profiles(username, display_name, avatar_url)')
+      .eq('post_id', post.id)
+      .order('created_at', { ascending: true })
+    if (!error && data) {
+      setComments(data as unknown as PostComment[])
+      setCommentsFetched(true)
+    }
+  }
+
+  const handleToggleComments = () => {
+    const next = !showComments
+    setShowComments(next)
+    haptic(20)
+    if (next && !commentsFetched) {
+      fetchComments()
     }
   }
 
@@ -223,7 +245,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
       </div>
 
       {/* Image */}
-      {post.image_url && (
+      {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
         <div className="mx-4 mb-4 rounded-2xl overflow-hidden border border-zinc-800">
           <img
             src={post.image_url}
@@ -250,7 +272,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
         </button>
 
         <button
-          onClick={() => { setShowComments(!showComments); haptic(20) }}
+          onClick={handleToggleComments}
           aria-label={showComments ? 'Nascondi commenti' : 'Mostra commenti'}
           className={`flex items-center gap-2 group transition-all ${showComments ? 'text-violet-400' : 'text-zinc-500 hover:text-violet-400'}`}
         >
