@@ -31,22 +31,45 @@ function openxblHeaders() {
 }
 
 // Risolve gamertag → XUID
+// OpenXBL endpoint corretto: GET /profile/gamertag/{gamertag}
 async function resolveGamertag(gamertag: string): Promise<string | null> {
+  // Strategia 1: endpoint profilo diretto (più affidabile)
+  try {
+    const res = await fetch(`${OPENXBL_BASE}/profile/gamertag/${encodeURIComponent(gamertag)}`, {
+      headers: openxblHeaders(),
+      signal: AbortSignal.timeout(8000),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      const profile =
+        data?.profileUsers?.[0] ||
+        data?.people?.[0] ||
+        data?.profile ||
+        data
+      const xuid =
+        profile?.id ||
+        profile?.xuid ||
+        profile?.settings?.find?.((s: any) => s.id === 'Xuid')?.value
+      if (xuid) return String(xuid)
+    }
+  } catch { /* prova strategia 2 */ }
+
+  // Strategia 2: endpoint search (fallback)
   try {
     const res = await fetch(`${OPENXBL_BASE}/friends/search?gt=${encodeURIComponent(gamertag)}`, {
       headers: openxblHeaders(),
       signal: AbortSignal.timeout(8000),
     })
-    if (!res.ok) return null
-    const data = await res.json()
-    // OpenXBL restituisce array di profili
-    const profile = data?.profileUsers?.[0] || data?.people?.[0]
-    return profile?.id || profile?.xuid || null
-  } catch {
-    return null
-  }
-}
+    if (res.ok) {
+      const data = await res.json()
+      const profile = data?.profileUsers?.[0] || data?.people?.[0]
+      const xuid = profile?.id || profile?.xuid
+      if (xuid) return String(xuid)
+    }
+  } catch { /* fallisce */ }
 
+  return null
+}
 // Recupera lista giochi per XUID
 async function fetchXboxGames(xuid: string): Promise<any[]> {
   try {
