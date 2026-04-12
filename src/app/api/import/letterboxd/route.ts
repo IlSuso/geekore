@@ -13,22 +13,22 @@
 //   - un film presente in ratings ma non in watched viene comunque importato come completed
 //   - nessun duplicato: la chiave è l'URI Letterboxd (o name+year come fallback)
 //
-// Strategia upsert anti-duplicati:
-//   1. Prima dell'inserimento, si caricano dal DB tutti i record esistenti dell'utente
-//      con external_id o title corrispondenti
-//   2. Si fa merge in memoria: i nuovi dati arricchiscono i record esistenti
-//      (rating, cover_image, tags) senza mai creare duplicati
-//   3. Si usa upsert solo per aggiornare record già esistenti (per id DB)
-//      e insert solo per i record genuinamente nuovi
-//   Questo approccio è indipendente dai constraint del DB.
+// Logica liste:
+//   - Il CSV di lista Letterboxd ha righe di metadati iniziali (es. "Name of list: Film Visti")
+//     che vengono estratte e usate come nome lista (se l'utente non ne ha specificato uno)
+//   - I film della lista vanno in user_lists + user_list_items, NON in user_media_entries
+//   - Se la lista con lo stesso nome esiste già, viene aggiornata senza duplicati
 //
-// Logica immagini (TMDB poster cache globale):
-//   1. Per ogni film da importare si controlla la tabella `tmdb_poster_cache`
-//   2. I film già in cache vengono arricchiti istantaneamente (zero chiamate API)
-//   3. I film mancanti vengono cercati su TMDB in batch paralleli da MAX_PARALLEL chiamate
-//   4. Ogni risultato (trovato o non trovato) viene salvato in cache per i prossimi utenti
-//   5. I film non trovati su TMDB vengono importati comunque con cover_image: null
-//      e ricontrollati automaticamente dopo RETRY_DAYS giorni
+// Logica TMDB:
+//   - Cerca titolo originale + anno con risposta in it-IT
+//   - Se non trova poster con anno, riprova senza anno
+//   - Salva in cache titolo italiano + poster
+//   - I record vengono salvati con il titolo italiano se disponibile
+//
+// Strategia upsert anti-duplicati:
+//   1. Prima dell'inserimento si caricano i record esistenti per external_id e title
+//   2. Merge in memoria: i nuovi dati arricchiscono quelli esistenti
+//   3. INSERT solo per record genuinamente nuovi, UPDATE per quelli già presenti
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
@@ -37,11 +37,11 @@ import { logger } from '@/lib/logger'
 
 // ── Costanti TMDB ─────────────────────────────────────────────────────────────
 
-const TMDB_BASE        = 'https://api.themoviedb.org/3'
-const TMDB_IMAGE_BASE  = 'https://image.tmdb.org/t/p/w500'
-const MAX_PARALLEL     = 20   // chiamate TMDB simultanee per batch
-const BATCH_DELAY_MS   = 100  // pausa tra un batch e il successivo (evita rate limit TMDB)
-const RETRY_DAYS       = 30   // dopo quanti giorni riprovare i "not found"
+const TMDB_BASE       = 'https://api.themoviedb.org/3'
+const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
+const MAX_PARALLEL    = 20
+const BATCH_DELAY_MS  = 100
+const RETRY_DAYS      = 30
 
 // ── Parser CSV ────────────────────────────────────────────────────────────────
 
@@ -64,19 +64,44 @@ function parseCSVLine(line: string): string[] {
   return result
 }
 
-function parseCSV(rawText: string): Record<string, string>[] {
+/**
+ * Parsa un CSV Letterboxd.
+ * Gestisce i CSV di lista che hanno righe di metadati iniziali tipo:
+ *   ,,,,
+ *   Name of list: Film Visti
+ *   ,,,,
+ *   Position,Name,Year,Letterboxd URI,Description
+ * Estrae il nome lista dai metadati e lo restituisce separatamente.
+ */
+function parseCSV(rawText: string): { rows: Record<string, string>[]; extractedListName: string | null } {
   const text = rawText.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
   const allLines = text.split('\n')
 
-  let headerIdx = -1
+  // Estrae il nome lista dai metadati (es. "Name of list: Film Visti")
+  let extractedListName: string | null = null
   for (let i = 0; i < Math.min(allLines.length, 10); i++) {
-    const lower = allLines[i].toLowerCase()
-    if (lower.includes('name') && (lower.includes('year') || lower.includes('date') || lower.includes('position'))) {
+    const m = allLines[i].match(/^(?:name of list|lista)[:\s]+(.+)/i)
+    if (m && m[1].trim()) {
+      extractedListName = m[1].trim()
+      break
+    }
+  }
+
+  // Trova la riga header: deve avere "name" + year/date/position
+  // e NON deve essere una riga di metadati
+  let headerIdx = -1
+  for (let i = 0; i < Math.min(allLines.length, 15); i++) {
+    const lower = allLines[i].toLowerCase().trim()
+    if (lower.startsWith('name of list') || lower.startsWith('lista')) continue
+    if (
+      lower.includes('name') &&
+      (lower.includes('year') || lower.includes('date') || lower.includes('position'))
+    ) {
       headerIdx = i
       break
     }
   }
-  if (headerIdx === -1) return []
+  if (headerIdx === -1) return { rows: [], extractedListName }
 
   const headers = parseCSVLine(allLines[headerIdx]).map(h => h.trim().toLowerCase())
   const rows: Record<string, string>[] = []
@@ -87,9 +112,13 @@ function parseCSV(rawText: string): Record<string, string>[] {
     const values = parseCSVLine(line)
     const row: Record<string, string> = {}
     headers.forEach((h, idx) => { row[h] = (values[idx] || '').trim() })
-    if (row['name']) rows.push(row)
+    if (!row['name']) continue
+    // Filtra righe il cui "name" corrisponde al nome della lista (metadato mal-parsato)
+    if (extractedListName && row['name'].toLowerCase() === extractedListName.toLowerCase()) continue
+    rows.push(row)
   }
-  return rows
+
+  return { rows, extractedListName }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -114,20 +143,30 @@ function parseRating(val: string): number | null {
   return Math.round(n * 2) / 2
 }
 
+function normTitle(t: string): string {
+  return t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
 // ── TMDB Poster Cache ─────────────────────────────────────────────────────────
 
 interface CacheRow {
   external_id: string
   poster_url: string | null
+  title_it: string | null
   found: boolean
   last_checked: string
+}
+
+interface EnrichResult {
+  posterUrl: string | null
+  titleIt: string | null
 }
 
 async function loadFromCache(
   supabase: any,
   externalIds: string[]
-): Promise<Map<string, string | null>> {
-  const result = new Map<string, string | null>()
+): Promise<Map<string, EnrichResult>> {
+  const result = new Map<string, EnrichResult>()
   if (externalIds.length === 0) return result
 
   const retryThreshold = new Date(Date.now() - RETRY_DAYS * 24 * 60 * 60 * 1000).toISOString()
@@ -136,101 +175,85 @@ async function loadFromCache(
     const chunk = externalIds.slice(i, i + 500)
     const { data, error } = await supabase
       .from('tmdb_poster_cache')
-      .select('external_id, poster_url, found, last_checked')
+      .select('external_id, poster_url, title_it, found, last_checked')
       .in('external_id', chunk)
 
-    if (error) {
-      logger.error('[Letterboxd] loadFromCache error:', error)
-      continue
-    }
+    if (error) { logger.error('[Letterboxd] loadFromCache error:', error); continue }
 
     for (const row of (data as CacheRow[] || [])) {
       if (!row.found && row.last_checked < retryThreshold) continue
-      result.set(row.external_id, row.poster_url)
+      result.set(row.external_id, { posterUrl: row.poster_url, titleIt: row.title_it ?? null })
     }
   }
 
   return result
 }
 
-async function fetchTmdbPoster(
+/**
+ * Cerca un film su TMDB.
+ * Strategia:
+ *   1. Cerca per titolo originale + anno, risposta in it-IT (ottiene titolo localizzato)
+ *   2. Se nessun risultato con poster, riprova senza anno
+ *   Restituisce titolo italiano, poster e tmdb_id.
+ */
+async function fetchTmdbData(
   title: string,
   year: string,
   apiKey: string
-): Promise<{ tmdbId: number | null; posterUrl: string | null }> {
-  try {
-    const params = new URLSearchParams({
-      query: title,
-      language: 'it-IT',
-      page: '1',
+): Promise<{ tmdbId: number | null; posterUrl: string | null; titleIt: string | null }> {
+  const search = async (withYear: boolean): Promise<any | null> => {
+    const params = new URLSearchParams({ query: title, language: 'it-IT', page: '1' })
+    if (withYear && year) params.set('primary_release_year', year)
+
+    const res = await fetch(`${TMDB_BASE}/search/movie?${params.toString()}`, {
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(6000),
     })
-    if (year) params.set('primary_release_year', year)
-
-    const res = await fetch(
-      `${TMDB_BASE}/search/movie?${params.toString()}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Accept': 'application/json',
-        },
-        signal: AbortSignal.timeout(6000),
-      }
-    )
-
-    if (!res.ok) return { tmdbId: null, posterUrl: null }
+    if (!res.ok) return null
 
     const json = await res.json()
     const results: any[] = json.results || []
-
-    let best = results.find((m: any) =>
-      m.poster_path &&
-      year &&
-      m.release_date?.startsWith(year)
-    )
-
+    let best = results.find((m: any) => m.poster_path && withYear && year && m.release_date?.startsWith(year))
     if (!best) best = results.find((m: any) => m.poster_path)
+    return best ?? null
+  }
 
-    if (!best) return { tmdbId: null, posterUrl: null }
+  try {
+    let best = await search(true)
+    if (!best) best = await search(false)
+    if (!best) return { tmdbId: null, posterUrl: null, titleIt: null }
 
     return {
       tmdbId: best.id,
       posterUrl: `${TMDB_IMAGE_BASE}${best.poster_path}`,
+      // "title" con it-IT è il titolo localizzato; lo usiamo solo se diverso dall'originale
+      titleIt: best.title && best.title !== title ? best.title : null,
     }
   } catch (err) {
     logger.error('[Letterboxd] TMDB fetch error:', err)
-    return { tmdbId: null, posterUrl: null }
+    return { tmdbId: null, posterUrl: null, titleIt: null }
   }
 }
 
 async function saveToCache(
   supabase: any,
   entries: Array<{
-    external_id: string
-    title: string
-    year: string
-    tmdb_id: number | null
-    poster_url: string | null
-    found: boolean
+    external_id: string; title: string; year: string
+    tmdb_id: number | null; poster_url: string | null
+    title_it: string | null; found: boolean
   }>
 ): Promise<void> {
   if (entries.length === 0) return
-
   const now = new Date().toISOString()
   const rows = entries.map(e => ({
-    external_id: e.external_id,
-    tmdb_id: e.tmdb_id,
-    poster_url: e.poster_url,
-    title: e.title,
-    year: e.year,
-    found: e.found,
-    last_checked: now,
+    external_id: e.external_id, tmdb_id: e.tmdb_id,
+    poster_url: e.poster_url, title: e.title, title_it: e.title_it,
+    year: e.year, found: e.found, last_checked: now,
   }))
-
   for (let i = 0; i < rows.length; i += 100) {
     const { error } = await supabase
       .from('tmdb_poster_cache')
       .upsert(rows.slice(i, i + 100), { onConflict: 'external_id' })
-
     if (error) logger.error('[Letterboxd] saveToCache error:', error)
   }
 }
@@ -239,67 +262,38 @@ async function enrichWithPosters(
   supabase: any,
   entries: Array<{ external_id: string; title: string; year: string }>,
   apiKey: string
-): Promise<{ posterMap: Map<string, string | null>; fromCache: number; fromApi: number; notFound: number }> {
+): Promise<{ enrichMap: Map<string, EnrichResult>; fromCache: number; fromApi: number; notFound: number }> {
   const allIds = entries.map(e => e.external_id)
-
   const cached = await loadFromCache(supabase, allIds)
-  const posterMap = new Map<string, string | null>(cached)
-
+  const enrichMap = new Map<string, EnrichResult>(cached)
   const missing = entries.filter(e => !cached.has(e.external_id))
-
-  let fromApi = 0
-  let notFound = 0
+  let fromApi = 0, notFound = 0
   const toSave: Parameters<typeof saveToCache>[1] = []
 
   for (let i = 0; i < missing.length; i += MAX_PARALLEL) {
     const batch = missing.slice(i, i + MAX_PARALLEL)
-
-    const results = await Promise.all(
-      batch.map(e => fetchTmdbPoster(e.title, e.year, apiKey))
-    )
+    const results = await Promise.all(batch.map(e => fetchTmdbData(e.title, e.year, apiKey)))
 
     for (let j = 0; j < batch.length; j++) {
       const entry = batch[j]
-      const { tmdbId, posterUrl } = results[j]
-
-      posterMap.set(entry.external_id, posterUrl)
-      toSave.push({
-        external_id: entry.external_id,
-        title: entry.title,
-        year: entry.year,
-        tmdb_id: tmdbId,
-        poster_url: posterUrl,
-        found: posterUrl !== null,
-      })
-
-      if (posterUrl) fromApi++
-      else notFound++
+      const { tmdbId, posterUrl, titleIt } = results[j]
+      enrichMap.set(entry.external_id, { posterUrl, titleIt })
+      toSave.push({ external_id: entry.external_id, title: entry.title, year: entry.year, tmdb_id: tmdbId, poster_url: posterUrl, title_it: titleIt, found: posterUrl !== null })
+      if (posterUrl) fromApi++; else notFound++
     }
 
-    if (i + MAX_PARALLEL < missing.length) {
-      await new Promise(r => setTimeout(r, BATCH_DELAY_MS))
-    }
+    if (i + MAX_PARALLEL < missing.length) await new Promise(r => setTimeout(r, BATCH_DELAY_MS))
   }
 
   await saveToCache(supabase, toSave)
-
-  return {
-    posterMap,
-    fromCache: cached.size,
-    fromApi,
-    notFound,
-  }
+  return { enrichMap, fromCache: cached.size, fromApi, notFound }
 }
 
 // ── Merge watched + ratings ───────────────────────────────────────────────────
 
 type MergedEntry = {
-  external_id: string
-  title: string
-  year: string
-  rating: number | null
-  status: string
-  tags: string[]
+  external_id: string; title: string; year: string
+  rating: number | null; status: string; tags: string[]
 }
 
 function mergeWatchedAndRatings(
@@ -310,32 +304,14 @@ function mergeWatchedAndRatings(
 
   for (const row of watchedRows) {
     const id = makeExternalId(row)
-    map.set(id, {
-      external_id: id,
-      title: row['name'],
-      year: row['year'] || '',
-      rating: null,
-      status: 'completed',
-      tags: [],
-    })
+    map.set(id, { external_id: id, title: row['name'], year: row['year'] || '', rating: null, status: 'completed', tags: [] })
   }
-
   for (const row of ratingsRows) {
     const id = makeExternalId(row)
     const existing = map.get(id)
     const rating = parseRating(row['rating'] || '')
-    if (existing) {
-      existing.rating = rating
-    } else {
-      map.set(id, {
-        external_id: id,
-        title: row['name'],
-        year: row['year'] || '',
-        rating,
-        status: 'completed',
-        tags: [],
-      })
-    }
+    if (existing) { existing.rating = rating }
+    else { map.set(id, { external_id: id, title: row['name'], year: row['year'] || '', rating, status: 'completed', tags: [] }) }
   }
 
   return map
@@ -343,81 +319,32 @@ function mergeWatchedAndRatings(
 
 // ── Builder entries ───────────────────────────────────────────────────────────
 
-function buildEntry(merged: MergedEntry, userId: string, posterMap: Map<string, string | null>) {
+function buildEntry(merged: MergedEntry, userId: string, enrichMap: Map<string, EnrichResult>) {
+  const enrich = enrichMap.get(merged.external_id)
   return {
-    user_id: userId,
-    external_id: merged.external_id,
-    title: merged.title,
-    type: 'movie',
-    cover_image: posterMap.get(merged.external_id) ?? null,
-    current_episode: 1,
-    episodes: 1,
-    status: merged.status,
-    rating: merged.rating,
-    genres: [],
-    tags: merged.tags,
-    notes: null,
-    display_order: Date.now(),
-    updated_at: new Date().toISOString(),
+    user_id: userId, external_id: merged.external_id,
+    title: enrich?.titleIt || merged.title,
+    type: 'movie', cover_image: enrich?.posterUrl ?? null,
+    current_episode: 1, episodes: 1, status: merged.status,
+    rating: merged.rating, genres: [], tags: merged.tags,
+    notes: null, display_order: Date.now(), updated_at: new Date().toISOString(),
   }
 }
 
-function buildWatchlistEntry(row: Record<string, string>, userId: string, posterMap: Map<string, string | null>) {
+function buildWatchlistEntry(row: Record<string, string>, userId: string, enrichMap: Map<string, EnrichResult>) {
   const id = makeExternalId(row)
+  const enrich = enrichMap.get(id)
   return {
-    user_id: userId,
-    external_id: id,
-    title: row['name'],
-    type: 'movie',
-    cover_image: posterMap.get(id) ?? null,
-    current_episode: 0,
-    episodes: 1,
-    status: 'wishlist',
-    rating: null,
-    genres: [],
-    tags: [],
-    notes: null,
-    display_order: Date.now(),
-    updated_at: new Date().toISOString(),
+    user_id: userId, external_id: id,
+    title: enrich?.titleIt || row['name'],
+    type: 'movie', cover_image: enrich?.posterUrl ?? null,
+    current_episode: 0, episodes: 1, status: 'wishlist',
+    rating: null, genres: [], tags: [],
+    notes: null, display_order: Date.now(), updated_at: new Date().toISOString(),
   }
 }
 
-function buildListEntry(row: Record<string, string>, listName: string, userId: string, posterMap: Map<string, string | null>) {
-  const id = makeExternalId(row)
-  return {
-    user_id: userId,
-    external_id: id,
-    title: row['name'],
-    type: 'movie',
-    cover_image: posterMap.get(id) ?? null,
-    current_episode: 1,
-    episodes: 1,
-    status: 'completed',
-    rating: null,
-    genres: [],
-    tags: listName ? [listName] : [],
-    notes: null,
-    display_order: Date.now(),
-    updated_at: new Date().toISOString(),
-  }
-}
-
-// ── Upsert robusto anti-duplicati ─────────────────────────────────────────────
-//
-// Strategia:
-//   1. Carica dal DB tutti i record esistenti dell'utente che matchano
-//      per external_id O per title (normalizzato)
-//   2. Costruisce una mappa: external_id → row DB esistente
-//                            title_norm  → row DB esistente
-//   3. Per ogni entry da importare:
-//      a. Se esiste già per external_id → UPDATE (arricchisce rating, cover, tags)
-//      b. Se esiste già per title (ma external_id diverso) → UPDATE solo cover/rating/tags
-//      c. Se non esiste → INSERT
-//   Questo garantisce zero duplicati indipendentemente dai constraint del DB.
-
-function normTitle(t: string): string {
-  return t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-}
+// ── Upsert robusto anti-duplicati (user_media_entries) ────────────────────────
 
 async function robustUpsert(
   supabase: any,
@@ -426,150 +353,148 @@ async function robustUpsert(
 ): Promise<{ imported: number; updated: number; skipped: number }> {
   if (toImport.length === 0) return { imported: 0, updated: 0, skipped: 0 }
 
-  // 1. Carica tutti i record esistenti dell'utente di tipo 'movie'
-  //    (lo facciamo in chunks per non superare limiti Supabase)
-  const existingByExtId = new Map<string, any>()   // external_id → row
-  const existingByTitle = new Map<string, any>()   // normTitle   → row
+  const existingByExtId = new Map<string, any>()
+  const existingByTitle = new Map<string, any>()
 
   for (let i = 0; i < toImport.length; i += 500) {
     const chunk = toImport.slice(i, i + 500)
     const extIds = chunk.map((e: any) => e.external_id).filter(Boolean)
     const titles = chunk.map((e: any) => e.title).filter(Boolean)
 
-    // Query per external_id
     if (extIds.length > 0) {
       const { data } = await supabase
         .from('user_media_entries')
         .select('id, external_id, title, rating, cover_image, tags, status')
-        .eq('user_id', userId)
-        .eq('type', 'movie')
-        .in('external_id', extIds)
-
+        .eq('user_id', userId).eq('type', 'movie').in('external_id', extIds)
       for (const row of (data || [])) {
         existingByExtId.set(row.external_id, row)
         existingByTitle.set(normTitle(row.title), row)
       }
     }
-
-    // Query per title (cattura film importati senza external_id o con id diverso)
     if (titles.length > 0) {
       const { data } = await supabase
         .from('user_media_entries')
         .select('id, external_id, title, rating, cover_image, tags, status')
-        .eq('user_id', userId)
-        .eq('type', 'movie')
-        .in('title', titles)
-
+        .eq('user_id', userId).eq('type', 'movie').in('title', titles)
       for (const row of (data || [])) {
-        if (!existingByExtId.has(row.external_id)) {
-          existingByExtId.set(row.external_id, row)
-        }
+        if (!existingByExtId.has(row.external_id)) existingByExtId.set(row.external_id, row)
         existingByTitle.set(normTitle(row.title), row)
       }
     }
   }
 
-  // 2. Classifica ogni entry
   const toInsert: any[] = []
   const toUpdate: Array<{ id: string; patch: any }> = []
-  const seenIds = new Set<string>() // evita doppi update sullo stesso record DB
+  const seenIds = new Set<string>()
+  const statusRank: Record<string, number> = { completed: 3, watching: 2, wishlist: 1, planning: 0 }
 
   for (const entry of toImport) {
-    const existByExt = entry.external_id ? existingByExtId.get(entry.external_id) : null
-    const existByTit = existingByTitle.get(normTitle(entry.title))
-    const existing = existByExt || existByTit
+    const existing = (entry.external_id ? existingByExtId.get(entry.external_id) : null) || existingByTitle.get(normTitle(entry.title))
 
     if (existing) {
       if (seenIds.has(existing.id)) continue
       seenIds.add(existing.id)
 
-      // Costruisci patch: arricchisci senza sovrascrivere dati buoni già presenti
-      const patch: any = {
-        updated_at: new Date().toISOString(),
-      }
-
-      // Aggiorna external_id se prima era null/diverso
-      if (entry.external_id && existing.external_id !== entry.external_id) {
-        patch.external_id = entry.external_id
-      }
-
-      // Aggiorna cover_image solo se mancante
-      if (!existing.cover_image && entry.cover_image) {
-        patch.cover_image = entry.cover_image
-      }
-
-      // Aggiorna rating solo se il nuovo è presente e quello vecchio è null
-      if (entry.rating !== null && existing.rating === null) {
-        patch.rating = entry.rating
-      }
-
-      // Merge tags senza duplicati
-      if (entry.tags && entry.tags.length > 0) {
+      const patch: any = { updated_at: new Date().toISOString() }
+      if (entry.external_id && existing.external_id !== entry.external_id) patch.external_id = entry.external_id
+      if (!existing.cover_image && entry.cover_image) patch.cover_image = entry.cover_image
+      if (entry.rating !== null && existing.rating === null) patch.rating = entry.rating
+      if (entry.tags?.length > 0) {
         const mergedTags = Array.from(new Set([...(existing.tags || []), ...entry.tags]))
-        if (mergedTags.length !== (existing.tags || []).length) {
-          patch.tags = mergedTags
-        }
+        if (mergedTags.length !== (existing.tags || []).length) patch.tags = mergedTags
       }
-
-      // Aggiorna status solo se il nuovo è più "completo"
-      // (completed > wishlist > planning)
-      const statusRank: Record<string, number> = { completed: 3, watching: 2, wishlist: 1, planning: 0 }
-      const newRank = statusRank[entry.status] ?? 0
-      const oldRank = statusRank[existing.status] ?? 0
-      if (newRank > oldRank) {
+      if ((statusRank[entry.status] ?? 0) > (statusRank[existing.status] ?? 0)) {
         patch.status = entry.status
         if (entry.status === 'completed') patch.current_episode = 1
       }
-
       toUpdate.push({ id: existing.id, patch })
     } else {
       toInsert.push(entry)
     }
   }
 
-  let imported = 0
-  let updated = 0
-  let skipped = 0
+  let imported = 0, updated = 0, skipped = 0
 
-  // 3. INSERT nuovi record
   for (let i = 0; i < toInsert.length; i += 50) {
     const batch = toInsert.slice(i, i + 50)
-    const { error } = await supabase
-      .from('user_media_entries')
-      .insert(batch)
-
-    if (!error) {
-      imported += batch.length
-    } else {
-      // Ultimo fallback: conflict su title unico → skippa
-      logger.error('[Letterboxd] insert error:', JSON.stringify(error))
-      skipped += batch.length
-    }
+    const { error } = await supabase.from('user_media_entries').insert(batch)
+    if (!error) imported += batch.length
+    else { logger.error('[Letterboxd] insert error:', JSON.stringify(error)); skipped += batch.length }
   }
 
-  // 4. UPDATE record esistenti (solo campi da arricchire)
   for (const { id, patch } of toUpdate) {
-    // Salta se il patch non ha nulla di utile da aggiornare
-    const patchKeys = Object.keys(patch).filter(k => k !== 'updated_at')
-    if (patchKeys.length === 0) {
-      updated++ // conta comunque come "gestito"
-      continue
-    }
-
-    const { error } = await supabase
-      .from('user_media_entries')
-      .update(patch)
-      .eq('id', id)
-      .eq('user_id', userId)
-
+    if (Object.keys(patch).filter(k => k !== 'updated_at').length === 0) { updated++; continue }
+    const { error } = await supabase.from('user_media_entries').update(patch).eq('id', id).eq('user_id', userId)
     if (!error) updated++
-    else {
-      logger.error('[Letterboxd] update error:', JSON.stringify(error))
-      skipped++
-    }
+    else { logger.error('[Letterboxd] update error:', JSON.stringify(error)); skipped++ }
   }
 
   return { imported, updated, skipped }
+}
+
+// ── Import lista in user_lists + user_list_items ──────────────────────────────
+
+async function importList(
+  supabase: any,
+  listName: string,
+  listRows: Record<string, string>[],
+  userId: string,
+  enrichMap: Map<string, EnrichResult>
+): Promise<{ listId: string; inserted: number; skipped: number }> {
+  // Trova o crea la lista
+  let listId: string
+  const { data: existing } = await supabase
+    .from('user_lists')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('title', listName)
+    .maybeSingle()
+
+  if (existing) {
+    listId = existing.id
+  } else {
+    const { data: created, error } = await supabase
+      .from('user_lists')
+      .insert({ user_id: userId, title: listName, is_public: false })
+      .select('id').single()
+    if (error || !created) throw new Error(`Impossibile creare la lista "${listName}": ${error?.message}`)
+    listId = created.id
+  }
+
+  // Carica item già presenti (anti-duplicati)
+  const { data: existingItems } = await supabase
+    .from('user_list_items')
+    .select('media_id, media_title')
+    .eq('list_id', listId)
+
+  const existingMediaIds  = new Set((existingItems || []).map((i: any) => i.media_id))
+  const existingTitlesNorm = new Set((existingItems || []).map((i: any) => normTitle(i.media_title)))
+
+  const toInsert: any[] = []
+  let position = (existingItems || []).length
+
+  for (const row of listRows) {
+    const extId = makeExternalId(row)
+    const enrich = enrichMap.get(extId)
+    const title = enrich?.titleIt || row['name']
+    if (existingMediaIds.has(extId) || existingTitlesNorm.has(normTitle(title))) continue
+
+    toInsert.push({
+      list_id: listId, user_id: userId, media_id: extId,
+      media_title: title, media_type: 'movie',
+      media_cover: enrich?.posterUrl ?? null,
+      notes: row['description'] || null, position: position++,
+    })
+  }
+
+  let inserted = 0, skipped = 0
+  for (let i = 0; i < toInsert.length; i += 50) {
+    const { error } = await supabase.from('user_list_items').insert(toInsert.slice(i, i + 50))
+    if (!error) inserted += toInsert.slice(i, i + 50).length
+    else { logger.error('[Letterboxd] list insert error:', JSON.stringify(error)); skipped += toInsert.slice(i, i + 50).length }
+  }
+
+  return { listId, inserted, skipped }
 }
 
 // ── Route ─────────────────────────────────────────────────────────────────────
@@ -597,7 +522,7 @@ export async function POST(request: NextRequest) {
   const ratingsFile   = formData.get('ratings')   as File | null
   const watchlistFile = formData.get('watchlist') as File | null
   const listFile      = formData.get('list')      as File | null
-  const listName      = (formData.get('list_name') as string | null)?.trim() || ''
+  const listNameOverride = (formData.get('list_name') as string | null)?.trim() || ''
 
   if (!watchedFile && !ratingsFile && !watchlistFile && !listFile) {
     return NextResponse.json({ error: 'Carica almeno un file CSV.' }, { status: 400 })
@@ -614,117 +539,98 @@ export async function POST(request: NextRequest) {
     let ratingsRows:   Record<string, string>[] = []
     let watchlistRows: Record<string, string>[] = []
     let listRows:      Record<string, string>[] = []
+    let csvListName:   string | null = null
 
-    if (watchedFile)   watchedRows   = parseCSV(await readFile(watchedFile))
-    if (ratingsFile)   ratingsRows   = parseCSV(await readFile(ratingsFile))
-    if (watchlistFile) watchlistRows = parseCSV(await readFile(watchlistFile))
-    if (listFile)      listRows      = parseCSV(await readFile(listFile))
+    if (watchedFile)   { const p = parseCSV(await readFile(watchedFile));   watchedRows   = p.rows }
+    if (ratingsFile)   { const p = parseCSV(await readFile(ratingsFile));   ratingsRows   = p.rows }
+    if (watchlistFile) { const p = parseCSV(await readFile(watchlistFile)); watchlistRows = p.rows }
+    if (listFile) {
+      const p = parseCSV(await readFile(listFile))
+      listRows    = p.rows
+      csvListName = p.extractedListName
+    }
 
     if (!watchedRows.length && !ratingsRows.length && !watchlistRows.length && !listRows.length) {
       return NextResponse.json({ error: 'Nessun film trovato nei file caricati. Verifica che siano CSV Letterboxd validi.' }, { status: 422 })
     }
 
+    // Nome lista: override utente > nome estratto dal CSV > nome del file
+    const finalListName = listNameOverride || csvListName || (listFile ? listFile.name.replace(/\.csv$/i, '') : '')
+
     // ── Merge watched + ratings ─────────────────────────────────────────────
     const merged = mergeWatchedAndRatings(watchedRows, ratingsRows)
     const mainEntries = Array.from(merged.values())
-
-    // Watchlist (solo quelli non già presenti in watched/ratings)
     const mainIds = new Set(merged.keys())
     const watchlistEntries = watchlistRows.filter(r => !mainIds.has(makeExternalId(r)))
 
-    // Lista
-    const allKnownIds = new Set([...mainIds, ...watchlistEntries.map(r => makeExternalId(r))])
-    const listEntries = listRows.filter(r => !allKnownIds.has(makeExternalId(r)))
-
-    // ── Raccolta di tutti i film da cercare su TMDB ─────────────────────────
+    // ── Raccolta film da cercare su TMDB ────────────────────────────────────
     const allToEnrich: Array<{ external_id: string; title: string; year: string }> = []
     const seenEnrichIds = new Set<string>()
 
-    for (const e of mainEntries) {
-      if (!seenEnrichIds.has(e.external_id)) {
-        allToEnrich.push({ external_id: e.external_id, title: e.title, year: e.year })
-        seenEnrichIds.add(e.external_id)
-      }
-    }
-    for (const r of watchlistEntries) {
-      const id = makeExternalId(r)
-      if (!seenEnrichIds.has(id)) {
-        allToEnrich.push({ external_id: id, title: r['name'], year: r['year'] || '' })
-        seenEnrichIds.add(id)
-      }
-    }
-    for (const r of listEntries) {
-      const id = makeExternalId(r)
-      if (!seenEnrichIds.has(id)) {
-        allToEnrich.push({ external_id: id, title: r['name'], year: r['year'] || '' })
-        seenEnrichIds.add(id)
-      }
+    const addToEnrich = (id: string, title: string, year: string) => {
+      if (!seenEnrichIds.has(id)) { allToEnrich.push({ external_id: id, title, year }); seenEnrichIds.add(id) }
     }
 
-    // ── Enrichment poster (cache + TMDB) ────────────────────────────────────
+    for (const e of mainEntries)      addToEnrich(e.external_id, e.title, e.year)
+    for (const r of watchlistEntries) addToEnrich(makeExternalId(r), r['name'], r['year'] || '')
+    for (const r of listRows)         addToEnrich(makeExternalId(r), r['name'], r['year'] || '')
+
+    // ── Enrichment poster + titoli italiani ─────────────────────────────────
     const tmdbApiKey = process.env.TMDB_API_KEY || ''
-    let posterMap = new Map<string, string | null>()
+    let enrichMap = new Map<string, EnrichResult>()
     let fromCache = 0, fromApi = 0, notFound = 0
 
     if (tmdbApiKey && allToEnrich.length > 0) {
       const result = await enrichWithPosters(supabase, allToEnrich, tmdbApiKey)
-      posterMap = result.posterMap
+      enrichMap = result.enrichMap
       fromCache = result.fromCache
       fromApi   = result.fromApi
       notFound  = result.notFound
     }
 
-    // ── Build entries finali con poster ────────────────────────────────────
-    const mainBuilt = mainEntries.map(e => buildEntry(e, user.id, posterMap))
+    // ── Build + upsert watched/ratings/watchlist ─────────────────────────────
+    const mainBuilt      = mainEntries.map(e => buildEntry(e, user.id, enrichMap))
+    const watchlistBuilt = watchlistEntries.map(r => buildWatchlistEntry(r, user.id, enrichMap))
 
-    // Tag lista per film già in watched
-    if (listName) {
-      for (const e of mainBuilt) {
-        const matchInList = listRows.find(r => makeExternalId(r) === e.external_id)
-        if (matchInList && !e.tags.includes(listName)) e.tags.push(listName)
-      }
+    const { imported, updated, skipped } = await robustUpsert(
+      supabase, [...mainBuilt, ...watchlistBuilt], user.id
+    )
+
+    // ── Import lista in user_lists + user_list_items ─────────────────────────
+    let listInserted = 0, listSkipped = 0, listId: string | null = null
+
+    if (listRows.length > 0 && finalListName) {
+      const res = await importList(supabase, finalListName, listRows, user.id, enrichMap)
+      listInserted = res.inserted
+      listSkipped  = res.skipped
+      listId       = res.listId
     }
 
-    const watchlistBuilt = watchlistEntries.map(r => buildWatchlistEntry(r, user.id, posterMap))
-    const listBuilt      = listEntries.map(r => buildListEntry(r, listName, user.id, posterMap))
-
-    const allEntries = [...mainBuilt, ...watchlistBuilt, ...listBuilt]
-
-    if (allEntries.length === 0) {
-      return NextResponse.json({ error: 'Nessun film valido trovato.' }, { status: 422 })
-    }
-
-    const { imported, updated, skipped } = await robustUpsert(supabase, allEntries, user.id)
-
+    // ── Risposta ────────────────────────────────────────────────────────────
     const posterMsg = fromCache + fromApi > 0
       ? ` (${fromCache + fromApi} poster trovati${notFound > 0 ? `, ${notFound} senza immagine` : ''})`
       : ''
 
-    const actionMsg = [
-      imported > 0 ? `${imported} nuovi` : '',
-      updated  > 0 ? `${updated} aggiornati` : '',
-    ].filter(Boolean).join(', ')
+    const actionParts = [
+      imported > 0      ? `${imported} nuovi` : '',
+      updated  > 0      ? `${updated} aggiornati` : '',
+      listInserted > 0  ? `${listInserted} in lista "${finalListName}"` : '',
+    ].filter(Boolean)
 
     return NextResponse.json({
       success: true,
-      imported,
-      updated,
-      skipped,
-      total: allEntries.length,
-      watched: watchedRows.length,
-      ratings: ratingsRows.length,
-      watchlist: watchlistRows.length,
-      list: listRows.length,
-      posters: {
-        fromCache,
-        fromApi,
-        notFound,
-        total: fromCache + fromApi,
-      },
-      message: `Importazione completata: ${actionMsg || 'nessuna modifica'}${posterMsg}`,
+      imported, updated, skipped,
+      list_inserted: listInserted, list_skipped: listSkipped, list_id: listId,
+      total: mainBuilt.length + watchlistBuilt.length,
+      watched: watchedRows.length, ratings: ratingsRows.length,
+      watchlist: watchlistRows.length, list: listRows.length,
+      list_name: finalListName || null,
+      posters: { fromCache, fromApi, notFound, total: fromCache + fromApi },
+      message: `Importazione completata: ${actionParts.join(', ') || 'nessuna modifica'}${posterMsg}`,
     }, { headers: rl.headers })
 
   } catch (e: any) {
+    logger.error('[Letterboxd] unexpected error:', e)
     return NextResponse.json({ error: e.message || 'Errore imprevisto.' }, { status: 400 })
   }
 }

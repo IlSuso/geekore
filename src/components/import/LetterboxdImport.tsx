@@ -13,6 +13,9 @@ interface ImportResult {
   ratings: number
   watchlist: number
   list: number
+  list_inserted: number
+  list_id: string | null
+  list_name: string | null
   message: string
 }
 
@@ -236,7 +239,7 @@ export function LetterboxdImport() {
                 Lista personalizzata <span className="text-zinc-500 font-normal text-xs">— opzionale</span>
               </p>
               <p className="text-xs text-zinc-500 mt-0.5">
-                Esporta una tua lista dal profilo e caricala qui. I film entrano nel tuo profilo con il nome della lista come tag.
+                Esporta una tua lista dal profilo e caricala qui. La lista viene creata nella sezione "Le mie liste" con tutti i film.
               </p>
             </div>
             {showList ? <ChevronUp size={15} className="text-zinc-500" /> : <ChevronDown size={15} className="text-zinc-500" />}
@@ -249,13 +252,13 @@ export function LetterboxdImport() {
               </p>
               <div>
                 <label className="block text-sm text-zinc-300 font-medium mb-1.5">
-                  Nome lista <span className="text-zinc-500 font-normal text-xs">(usato come tag sui film)</span>
+                  Nome lista <span className="text-zinc-500 font-normal text-xs">(opzionale — viene rilevato automaticamente dal file)</span>
                 </label>
                 <input
                   type="text"
                   value={listName}
                   onChange={e => setListName(e.target.value.slice(0, 50))}
-                  placeholder="es. Film che riguarderei volentieri"
+                  placeholder="Lascia vuoto per usare il nome dal CSV"
                   className="w-full bg-zinc-800 border border-zinc-700 focus:border-emerald-500 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none transition"
                   disabled={loading}
                 />
@@ -281,17 +284,23 @@ export function LetterboxdImport() {
       {result && (
         <div className="flex items-start gap-3 p-4 bg-emerald-950/40 border border-emerald-800/50 rounded-2xl text-sm text-emerald-400 mb-4">
           <CheckCircle size={16} className="flex-shrink-0 mt-0.5" />
-          <div>
+          <div className="min-w-0">
             <p className="font-medium">{result.message}</p>
             <p className="text-xs text-emerald-600 mt-1 space-x-2">
               {result.imported > 0 && <span>{result.imported} nuovi</span>}
-              {result.updated > 0 && <span>{result.imported > 0 ? "• " : ""}{result.updated} aggiornati</span>}
-              {result.watched > 0 && <span>• {result.watched} visti nel csv</span>}
-              {result.ratings > 0 && <span>• {result.ratings} voti</span>}
+              {result.updated > 0 && <span>{result.imported > 0 ? '• ' : ''}{result.updated} aggiornati</span>}
               {result.watchlist > 0 && <span>• {result.watchlist} watchlist</span>}
-              {result.list > 0 && <span>• {result.list} da lista</span>}
               {result.skipped > 0 && <span>• {result.skipped} saltati</span>}
             </p>
+            {result.list_id && result.list_name && (
+              <a
+                href={`/lists/${result.list_id}`}
+                className="inline-flex items-center gap-1.5 mt-2 text-xs text-emerald-400 hover:text-emerald-300 underline underline-offset-2 transition"
+              >
+                <ExternalLink size={11} />
+                Vai alla lista "{result.list_name}" ({result.list_inserted} film)
+              </a>
+            )}
           </div>
         </div>
       )}
