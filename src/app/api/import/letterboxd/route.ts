@@ -306,13 +306,22 @@ async function fetchTmdbData(
         const itPoster = detail.images?.posters?.find((p: any) => p.iso_639_1 === 'it')
         const posterPath = itPoster?.file_path || detail.poster_path || best.poster_path
 
+        // Titolo italiano: usa detail.title se diverso dal titolo cercato (inglese).
+        // Confronta con title (argomento della funzione, titolo originale del CSV) e non con
+        // original_title di TMDB, che potrebbe essere in qualsiasi lingua.
+        // Scarta anche titoli che sono una sottostringa del titolo originale (es. TMDB restituisce
+        // "Name" invece di "Your Name." — dato errato/troncato sul database TMDB italiano).
+        const candidateTitleIt = detail.title && detail.title.toLowerCase() !== title.toLowerCase()
+          ? detail.title
+          : null
+        const isTruncated = candidateTitleIt !== null &&
+          title.toLowerCase().includes(candidateTitleIt.toLowerCase()) &&
+          candidateTitleIt.length < title.length
+
         return {
           tmdbId,
           posterUrl: posterPath ? `${TMDB_IMAGE_BASE}${posterPath}` : null,
-          // Titolo italiano: usa detail.title se diverso dal titolo cercato (inglese)
-          // Confronta con title (argomento della funzione, titolo originale del CSV) e non con
-          // original_title di TMDB, che potrebbe essere in qualsiasi lingua
-          titleIt: detail.title && detail.title.toLowerCase() !== title.toLowerCase() ? detail.title : null,
+          titleIt: isTruncated ? null : candidateTitleIt,
         }
       }
     } catch {
