@@ -1030,7 +1030,7 @@ export default function ProfilePage() {
         <NotesModal
           title={t.profile.notesTitle(selectedMedia.title)}
           value={notesInput}
-          onChange={(val) => { setNotesInput(val); setNotesCharCount(val.length) }}
+          onChange={(val) => { setNotesInput(val) }}
           onSave={saveNotes}
           onClose={() => setIsNotesModalOpen(false)}
           saveLabel={t.common.save}
