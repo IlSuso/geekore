@@ -123,13 +123,13 @@ function PlatformBadge({ media }: { media: UserMedia }) {
 
   const badges: Record<string, JSX.Element> = {
     steam: (
-      <div className="absolute top-3 left-3 z-20 bg-[#1b2838]/90 backdrop-blur-sm p-1.5 rounded-xl border border-[#66C0F4]/30 shadow-lg">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 65 65" width="15" height="15" fill="#fff"><path d="M1.305 41.202C5.259 54.386 17.488 64 31.959 64c17.673 0 32-14.327 32-32s-14.327-32-32-32C15.001 0 1.124 13.193.028 29.874c2.074 3.477 2.879 5.628 1.275 11.328z" fill="#1387b8"/><path d="M30.31 23.985l.003.158-7.83 11.375c-1.268-.058-2.54.165-3.748.662a8.14 8.14 0 0 0-1.498.8L.042 29.893s-.398 6.546 1.26 11.424l12.156 5.016c.6 2.728 2.48 5.12 5.242 6.27a8.88 8.88 0 0 0 11.603-4.782 8.89 8.89 0 0 0 .684-3.656L42.18 36.16l.275.005c6.705 0 12.155-5.466 12.155-12.18s-5.44-12.16-12.155-12.174c-6.702 0-12.155 5.46-12.155 12.174zm-1.88 23.05c-1.454 3.5-5.466 5.147-8.953 3.694a6.84 6.84 0 0 1-3.524-3.362l3.957 1.64a5.04 5.04 0 0 0 6.591-2.719 5.05 5.05 0 0 0-2.715-6.601l-4.1-1.695c1.578-.6 3.372-.62 5.05.077 1.7.703 3 2.027 3.696 3.72s.692 3.56-.01 5.246M42.466 32.1a8.12 8.12 0 0 1-8.098-8.113 8.12 8.12 0 0 1 8.098-8.111 8.12 8.12 0 0 1 8.1 8.111 8.12 8.12 0 0 1-8.1 8.113m-6.068-8.126a6.09 6.09 0 0 1 6.08-6.095c3.355 0 6.084 2.73 6.084 6.095a6.09 6.09 0 0 1-6.084 6.093 6.09 6.09 0 0 1-6.081-6.093z"/></svg>
+      <div className="absolute top-3 left-3 z-20 rounded-xl shadow-lg overflow-hidden">
+        <SteamIcon size={32} />
       </div>
     ),
     anilist: (
-      <div className="absolute top-3 left-3 z-20 bg-[#1e2630]/90 backdrop-blur-sm p-1 rounded-xl border border-[#02a9ff]/30 shadow-lg overflow-hidden">
-        <svg viewBox="0 0 512 512" width="17" height="17">
+      <div className="absolute top-3 left-3 z-20 w-7 h-7 rounded-full overflow-hidden shadow-lg">
+        <svg viewBox="0 0 512 512" width="28" height="28">
           <rect width="512" height="512" fill="#1e2630"/>
           <path d="M321.92 323.27V136.6c0-10.698-5.887-16.602-16.558-16.602h-36.433c-10.672 0-16.561 5.904-16.561 16.602v88.651c0 2.497 23.996 14.089 24.623 16.541 18.282 71.61 3.972 128.92-13.359 131.6 28.337 1.405 31.455 15.064 10.348 5.731 3.229-38.209 15.828-38.134 52.049-1.406.31.317 7.427 15.282 7.87 15.282h85.545c10.672 0 16.558-5.9 16.558-16.6v-36.524c0-10.698-5.886-16.602-16.558-16.602z" fill="#02a9ff"/>
           <path d="M170.68 120 74.999 393h74.338l16.192-47.222h80.96L262.315 393h73.968l-95.314-273zm11.776 165.28 23.183-75.629 25.393 75.629z" fill="#fefefe"/>
@@ -137,8 +137,8 @@ function PlatformBadge({ media }: { media: UserMedia }) {
       </div>
     ),
     mal: (
-      <div className="absolute top-3 left-3 z-20 backdrop-blur-sm p-1 rounded-xl border border-[#2e51a2]/50 shadow-lg overflow-hidden">
-        <svg viewBox="0 0 256 256" width="17" height="17">
+      <div className="absolute top-3 left-3 z-20 w-7 h-7 rounded-full overflow-hidden shadow-lg">
+        <svg viewBox="0 0 256 256" width="28" height="28">
           <rect width="256" height="256" fill="#2e51a2"/>
           <path fill="#ffffff" d="m 30.638616,88.40918 v 68.70703 h 17.759766 v -41.91016 l 15.470703,19.77344 16.67825,-19.77344 v 41.91016 H 98.307101 V 88.40918 H 80.547335 L 63.869085,109.82324 48.398382,88.40918 Z"/>
           <path fill="#ffffff" d="m 182.49799,88.40918 v 68.70703 h 39.07974 l 3.78365,-14.65739 H 200.25775 V 88.40918 Z"/>
@@ -147,13 +147,14 @@ function PlatformBadge({ media }: { media: UserMedia }) {
       </div>
     ),
     letterboxd: (
-      <div className="absolute top-3 left-3 z-20 bg-[#1a1a1a]/90 backdrop-blur-sm px-1.5 py-1.5 rounded-xl border border-zinc-600/40 shadow-lg">
-        <svg viewBox="0 0 54 24" width="27" height="12">
-          <ellipse cx="12" cy="12" rx="11" ry="11" fill="#ff8000"/>
-          <ellipse cx="27" cy="12" rx="11" ry="11" fill="#00e054"/>
-          <ellipse cx="42" cy="12" rx="11" ry="11" fill="#40bcf4"/>
-          <ellipse cx="19" cy="12" rx="4" ry="11" fill="#ffffff" fillOpacity="0.85"/>
-          <ellipse cx="35" cy="12" rx="4" ry="11" fill="#ffffff" fillOpacity="0.85"/>
+      <div className="absolute top-3 left-3 z-20 w-7 h-7 rounded-full overflow-hidden shadow-lg">
+        <svg viewBox="0 0 40 40" width="28" height="28">
+          <rect width="40" height="40" fill="#1a1a1a"/>
+          <ellipse cx="11" cy="20" rx="9" ry="9" fill="#ff8000"/>
+          <ellipse cx="20" cy="20" rx="9" ry="9" fill="#00e054"/>
+          <ellipse cx="29" cy="20" rx="9" ry="9" fill="#40bcf4"/>
+          <ellipse cx="15.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9"/>
+          <ellipse cx="24.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9"/>
         </svg>
       </div>
     ),
@@ -952,14 +953,14 @@ export default function ProfilePage() {
                     onClick={importSteamGames}
                     disabled={importingGames}
                     title={importingGames ? 'Aggiornamento...' : 'Aggiorna Steam'}
-                    className="w-8 h-8 rounded-full bg-[#1B2838] border border-[#66C0F4]/40 hover:border-[#66C0F4] flex items-center justify-center transition-all hover:scale-110 disabled:opacity-50"
+                    className={`w-8 h-8 rounded-full overflow-hidden border border-[#66C0F4]/40 hover:border-[#66C0F4] transition-all hover:scale-110 disabled:opacity-50 ${importingGames ? 'animate-spin' : ''}`}
                   >
-                    <SteamIcon size={14} className={`text-[#66C0F4] ${importingGames ? 'animate-spin' : ''}`} />
+                    <SteamIcon size={32} />
                   </button>
                 ) : (
                   <a href="/api/steam/connect" title="Connetti Steam"
-                    className="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-700 hover:border-[#66C0F4]/60 flex items-center justify-center transition-all hover:scale-110">
-                    <SteamIcon size={14} className="text-zinc-500" />
+                    className="w-8 h-8 rounded-full overflow-hidden border border-zinc-700 hover:border-[#66C0F4]/60 transition-all hover:scale-110 opacity-50 hover:opacity-100">
+                    <SteamIcon size={32} />
                   </a>
                 )}
 
@@ -986,13 +987,14 @@ export default function ProfilePage() {
 
                 {/* Letterboxd — tre cerchi sovrapposti ufficiali */}
                 <button onClick={() => setImportPlatform('letterboxd')} title="Importa da Letterboxd"
-                  className="w-8 h-8 rounded-full bg-[#1a1a1a] border border-zinc-700 hover:border-zinc-500 flex items-center justify-center transition-all hover:scale-110">
-                  <svg viewBox="0 0 90 40" width="36" height="16">
-                    <ellipse cx="20" cy="20" rx="18" ry="18" fill="#ff8000"/>
-                    <ellipse cx="45" cy="20" rx="18" ry="18" fill="#00e054"/>
-                    <ellipse cx="70" cy="20" rx="18" ry="18" fill="#40bcf4"/>
-                    <ellipse cx="32" cy="20" rx="6" ry="18" fill="#ffffff" fillOpacity="0.9"/>
-                    <ellipse cx="58" cy="20" rx="6" ry="18" fill="#ffffff" fillOpacity="0.9"/>
+                  className="w-8 h-8 rounded-full overflow-hidden border border-zinc-700 hover:border-zinc-500 transition-all hover:scale-110">
+                  <svg viewBox="0 0 40 40" width="32" height="32">
+                    <rect width="40" height="40" fill="#1a1a1a"/>
+                    <ellipse cx="11" cy="20" rx="9" ry="9" fill="#ff8000"/>
+                    <ellipse cx="20" cy="20" rx="9" ry="9" fill="#00e054"/>
+                    <ellipse cx="29" cy="20" rx="9" ry="9" fill="#40bcf4"/>
+                    <ellipse cx="15.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9"/>
+                    <ellipse cx="24.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9"/>
                   </svg>
                 </button>
 

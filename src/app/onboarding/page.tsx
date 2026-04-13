@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Zap, Gamepad2, BookOpen, Film, Tv, Dices, Search, ChevronRight, Check } from 'lucide-react'
+import { SteamIcon } from '@/components/icons/SteamIcon'
 
 const STEPS = [
   { id: 0, title: 'Benvenuto su Geekore!', subtitle: 'Il tuo universo geek in un unico posto.' },
@@ -141,8 +142,8 @@ export default function OnboardingPage() {
             <p className="text-zinc-400 mb-8">{STEPS[2].subtitle}</p>
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 mb-8">
               <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 bg-[#1b2838] rounded-2xl flex items-center justify-center">
-                  <Gamepad2 size={24} className="text-[#66C0F4]" />
+                <div className="w-12 h-12 bg-[#1b2838] rounded-2xl flex items-center justify-center overflow-hidden">
+                  <SteamIcon size={48} />
                 </div>
                 <div>
                   <p className="font-semibold text-white">Steam</p>

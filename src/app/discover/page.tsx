@@ -5,11 +5,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, Plus, X, Film, Tv, Gamepad2, BookOpen, Dices, Bookmark, BookmarkCheck, Mic, MicOff, Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { StarRating } from '@/components/ui/StarRating';
 import { showToast } from '@/components/ui/Toast';
 import { useLocale } from '@/lib/locale';
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer';
-import { BottomSheet } from '@/components/ui/BottomSheet';
 import { SkeletonDiscoverCard } from '@/components/ui/SkeletonCard';
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer';
 
@@ -39,7 +37,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 function toMediaDetails(item: MediaItem): MediaDetails {
-  return { id: item.id, title: item.title, type: item.type, coverImage: item.coverImage, year: item.year, episodes: item.episodes, description: item.description, genres: item.genres, source: item.source, score: item.score, min_players: item.min_players, max_players: item.max_players, playing_time: item.playing_time, complexity: item.complexity, bgg_rating: item.bgg_rating, mechanics: item.mechanics, designers: item.designers, developers: item.developers, themes: item.themes };
+  return { id: item.id, title: item.title, type: item.type, coverImage: item.coverImage, year: item.year, episodes: item.episodes, totalSeasons: item.totalSeasons, seasons: item.seasons, description: item.description, genres: item.genres, source: item.source, score: item.score, min_players: item.min_players, max_players: item.max_players, playing_time: item.playing_time, complexity: item.complexity, bgg_rating: item.bgg_rating, mechanics: item.mechanics, designers: item.designers, developers: item.developers, themes: item.themes };
 }
 
 function haptic(duration: number | number[] = 50) {
@@ -141,13 +139,8 @@ export default function DiscoverPage() {
   const [loading, setLoading] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
-  const [selectedSeason, setSelectedSeason] = useState<number>(1);
-  const [currentEpisode, setCurrentEpisode] = useState('');
-  const [adding, setAdding] = useState(false);
   const [alreadyAdded, setAlreadyAdded] = useState<string[]>([]);
   const [wishlistIds, setWishlistIds] = useState<string[]>([]);
-  const [modalRating, setModalRating] = useState(0);
   const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -265,49 +258,6 @@ export default function DiscoverPage() {
     }
     setDrawerMedia(toMediaDetails(item));
   }, [searchTerm]);
-
-  const addDirectly = async (media: MediaItem, rating: number) => {
-    const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
-    const isMovie = media.type === 'movie', isBoardgame = media.type === 'boardgame';
-    await supabase.from('user_media_entries').insert({
-      user_id: user.id,
-      external_id: media.id,
-      title: media.title,
-      type: media.type,
-      cover_image: media.coverImage,
-      status: isMovie ? 'completed' : 'watching',
-      current_episode: isBoardgame ? 0 : 1,
-      episodes: media.episodes || null,
-      rating: rating || null,
-      genres: media.genres || [],
-    });
-    setAlreadyAdded(prev => [...prev, media.id]);
-    showToast(d.added || `"${media.title}" aggiunto!`);
-
-    // V3: aggiorna il profilo gusti dopo l'aggiunta
-    if ((media.genres || []).length > 0) {
-      triggerTasteDelta({
-        action: 'status_change',
-        mediaId: media.id,
-        mediaType: media.type,
-        genres: media.genres || [],
-        status: isMovie ? 'completed' : 'watching',
-        ...(rating > 0 ? { rating } : {}),
-      });
-      // Se c'è anche un rating, applica anche il delta rating separato
-      if (rating > 0) {
-        triggerTasteDelta({
-          action: 'rating',
-          mediaId: media.id,
-          mediaType: media.type,
-          genres: media.genres || [],
-          rating,
-        });
-      }
-    }
-
-    setSelectedMedia(null); setModalRating(0); setCurrentEpisode('');
-  };
 
   const grouped = Object.entries(
     results.reduce((acc, item) => {
@@ -431,7 +381,7 @@ export default function DiscoverPage() {
                     {/* Add button */}
                     {!alreadyAdded.includes(item.id) && (
                       <button
-                        onClick={e => { e.stopPropagation(); setSelectedSeason(1); setCurrentEpisode(''); setModalRating(0); setSelectedMedia(item); }}
+                        onClick={e => { e.stopPropagation(); setDrawerMedia(item as any); }}
                         className="absolute bottom-2 right-2 w-7 h-7 bg-violet-600 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <Plus size={13} className="text-white" />
@@ -457,24 +407,8 @@ export default function DiscoverPage() {
         <MediaDetailsDrawer
           media={drawerMedia}
           onClose={() => setDrawerMedia(null)}
-          onAdd={(media) => { setSelectedMedia(results.find(r => r.id === media.id) || null); setDrawerMedia(null); }}
+          onAdd={(media) => { setAlreadyAdded(prev => [...prev, media.id]); setDrawerMedia(null); }}
         />
-      )}
-
-      {/* Add modal */}
-      {selectedMedia && (
-        <BottomSheet open={!!selectedMedia} onClose={() => setSelectedMedia(null)} title={`Aggiungi: ${selectedMedia.title}`}>
-          <div className="p-6 space-y-5">
-            <StarRating value={modalRating} onChange={setModalRating} size={28} />
-            <button
-              onClick={() => addDirectly(selectedMedia, modalRating)}
-              disabled={adding}
-              className="w-full py-3.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-semibold text-sm transition-all disabled:opacity-60"
-            >
-              {adding ? 'Aggiunta...' : `Aggiungi alla collezione`}
-            </button>
-          </div>
-        </BottomSheet>
       )}
     </div>
   );

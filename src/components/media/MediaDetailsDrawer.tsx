@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { StarRating } from '@/components/ui/StarRating'
 
 // ─── Tipi ─────────────────────────────────────────────────────────────────────
 
@@ -19,6 +20,8 @@ export interface MediaDetails {
   coverImage?: string
   year?: number
   episodes?: number
+  totalSeasons?: number
+  seasons?: Record<number, { episode_count: number }>
   description?: string
   genres?: string[]
   source?: string
@@ -117,6 +120,12 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   const [inCollection, setInCollection] = useState(false)
   const [inWishlist, setInWishlist] = useState(false)
   const [checkDone, setCheckDone] = useState(false)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [formRating, setFormRating] = useState<number>(0)
+  const [formEpisode, setFormEpisode] = useState<string>('0')
+  const [formSeason, setFormSeason] = useState<string>('1')
+  const [formEpisodeError, setFormEpisodeError] = useState<string | null>(null)
+  const [formSeasonError, setFormSeasonError] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -127,6 +136,16 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     }
     return () => { document.body.style.overflow = '' }
   }, [media])
+
+  // Reset form quando cambia media
+  useEffect(() => {
+    setShowAddForm(false)
+    setFormRating(0)
+    setFormEpisode('0')
+    setFormSeason('1')
+    setFormEpisodeError(null)
+    setFormSeasonError(null)
+  }, [media?.id])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -151,13 +170,14 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     check()
   }, [media?.id])
 
-  const handleAddToCollection = useCallback(async () => {
+  const handleAddToCollection = useCallback(async (opts?: { rating?: number; episode?: number; season?: number }) => {
     if (!media) return
-    if (onAdd) { onAdd(media); return }
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    // V3: includi studios/directors/authors nell'insert per il creator tracking
+    const isMovie = media.type === 'movie'
+    const status = isMovie ? 'completed' : 'watching'
+
     const { error } = await supabase.from('user_media_entries').insert({
       user_id: user.id,
       external_id: media.id,
@@ -165,8 +185,10 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
       type: media.type,
       cover_image: media.coverImage,
       genres: media.genres || [],
-      status: media.type === 'movie' ? 'completed' : 'watching',
-      current_episode: 1,
+      status,
+      current_episode: opts?.episode ?? (isMovie ? null : 0),
+      season: opts?.season ?? null,
+      rating: opts?.rating ?? null,
       // V3: creator data
       studios: media.studios || [],
       directors: media.directors || [],
@@ -175,17 +197,27 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     })
     if (!error) {
       setInCollection(true)
+      setShowAddForm(false)
       showToast(`"${media.title}" aggiunto alla collezione`)
+      onAdd?.(media)
 
-      // V3: aggiorna taste profile in real-time
       if ((media.genres || []).length > 0) {
         triggerTasteDelta({
           action: 'status_change',
           mediaId: media.id,
           mediaType: media.type,
           genres: media.genres || [],
-          status: media.type === 'movie' ? 'completed' : 'watching',
+          status,
         })
+        if (opts?.rating) {
+          triggerTasteDelta({
+            action: 'rating',
+            mediaId: media.id,
+            mediaType: media.type,
+            genres: media.genres || [],
+            rating: opts.rating,
+          })
+        }
       }
     }
   }, [media, onAdd])
@@ -199,18 +231,16 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
       setInWishlist(false)
       showToast('Rimosso dalla wishlist')
     } else {
-      // V3: salva generi e studios per amplificazione profilo
       await supabase.from('wishlist').upsert({
         user_id: user.id, external_id: media.id,
         title: media.title, type: media.type, cover_image: media.coverImage,
-        genres: media.genres || [],        // V3: amplificatore
-        media_type: media.type,            // V3
-        studios: media.studios || [],      // V3: creator da wishlist
+        genres: media.genres || [],
+        media_type: media.type,
+        studios: media.studios || [],
       }, { onConflict: 'user_id,external_id' })
       setInWishlist(true)
       showToast('Aggiunto alla wishlist')
 
-      // V3: amplifica il profilo gusti
       if ((media.genres || []).length > 0) {
         triggerTasteDelta({
           action: 'wishlist_add',
@@ -227,7 +257,6 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   const Icon = TYPE_ICON[media.type] || Film
   const externalUrl = buildExternalUrl(media)
 
-  // V3: creator display (studios o directors o authors)
   const creatorLabel = media.studios?.length
     ? media.studios.slice(0, 2).join(', ')
     : media.directors?.length
@@ -236,7 +265,6 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     ? media.authors.slice(0, 2).join(', ')
     : null
 
-  // V3: relations filtrate (solo sequel/prequel/spinoff)
   const continuityRelations = (media.relations || [])
     .filter(r => ['SEQUEL', 'PREQUEL', 'SIDE_STORY', 'SPIN_OFF'].includes(r.relationType))
     .slice(0, 4)
@@ -245,54 +273,65 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm"
+        className="fixed inset-x-0 top-16 bottom-0 z-[80] bg-black/70 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden
       />
 
       {/* Drawer */}
       <div
-        className="fixed right-0 top-0 bottom-0 z-[90] w-full max-w-md bg-zinc-950 border-l border-zinc-800 overflow-y-auto
+        className="fixed right-0 top-16 bottom-0 z-[90] w-full max-w-md bg-zinc-950 border-l border-zinc-800 overflow-y-auto
                    animate-in slide-in-from-right duration-300"
         role="dialog"
         aria-modal
         aria-label={media.title}
       >
-        {/* Header con cover */}
-        <div className="relative h-72 bg-zinc-900 flex-shrink-0 overflow-hidden">
-          {media.coverImage ? (
-            <img src={media.coverImage} alt={media.title} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Icon size={64} className="text-zinc-700" />
+        {/* ── Bottone chiudi — figlio diretto del drawer, sopra tutto ── */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-[100] w-9 h-9 bg-black/60 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-black/80 transition"
+          aria-label="Chiudi"
+        >
+          <X size={18} />
+        </button>
+
+        {/* Header con cover — layout orizzontale */}
+        <div className="relative bg-zinc-900 flex-shrink-0">
+          {/* Banner sfocato in background */}
+          {media.coverImage && (
+            <div className="absolute inset-0 overflow-hidden">
+              <img src={media.coverImage} alt="" className="w-full h-full object-cover scale-110 blur-xl opacity-30" aria-hidden />
+              <div className="absolute inset-0 bg-gradient-to-b from-zinc-900/60 to-zinc-950" />
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" />
 
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 w-9 h-9 bg-black/60 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-black/80 transition"
-            aria-label="Chiudi"
-          >
-            <X size={18} />
-          </button>
-
-          <div className="absolute top-4 left-4">
-            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full text-white ${TYPE_COLOR[media.type] || 'bg-zinc-700'}`}>
-              {TYPE_LABEL[media.type] || media.type}
-            </span>
-          </div>
-
-          <div className="absolute bottom-4 left-5 right-5">
-            <h2 className="text-xl font-bold text-white leading-tight line-clamp-2">{media.title}</h2>
-            <div className="flex items-center gap-2 mt-1">
-              {media.year && <p className="text-sm text-zinc-400">{media.year}</p>}
-              {/* V3: creator inline nell'header */}
-              {creatorLabel && (
-                <p className="text-sm text-sky-400 flex items-center gap-1 truncate">
-                  <Clapperboard size={11} />{creatorLabel}
-                </p>
+          {/* Contenuto header */}
+          <div className="relative z-10 flex gap-4 p-5 pt-6 pr-14">
+            {/* Cover verticale */}
+            <div className="flex-shrink-0 w-28 h-40 rounded-2xl overflow-hidden bg-zinc-800 shadow-2xl ring-1 ring-white/10">
+              {media.coverImage ? (
+                <img src={media.coverImage} alt={media.title} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Icon size={40} className="text-zinc-600" />
+                </div>
               )}
+            </div>
+
+            {/* Info a destra */}
+            <div className="flex-1 min-w-0 flex flex-col justify-end pb-1">
+              <span className={`self-start text-[10px] font-bold px-2.5 py-1 rounded-full text-white mb-2 ${TYPE_COLOR[media.type] || 'bg-zinc-700'}`}>
+                {TYPE_LABEL[media.type] || media.type}
+              </span>
+              <h2 className="text-lg font-bold text-white leading-tight">{media.title}</h2>
+              <div className="flex flex-col gap-0.5 mt-1.5">
+                {media.year && <p className="text-sm text-zinc-400">{media.year}</p>}
+                {creatorLabel && (
+                  <p className="text-xs text-sky-400 flex items-center gap-1 truncate">
+                    <Clapperboard size={10} />{creatorLabel}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -460,12 +499,116 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             ) : (
               <div className="flex flex-col gap-3">
                 {!inCollection ? (
-                  <button
-                    onClick={handleAddToCollection}
-                    className="w-full py-3.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-semibold text-white transition-all"
-                  >
-                    Aggiungi alla collezione
-                  </button>
+                  <>
+                    {showAddForm ? (
+                      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-4">
+                        {/* Voto */}
+                        <div>
+                          <p className="text-xs text-zinc-500 mb-2">Il tuo voto (opzionale)</p>
+                          <StarRating value={formRating} onChange={setFormRating} size={28} />
+                        </div>
+
+                        {/* Stagione */}
+                        {(media.type === 'tv' || media.type === 'anime') && (() => {
+                          const maxSeasons = media.totalSeasons ?? (media.seasons ? Object.keys(media.seasons).length : null)
+                          return (
+                            <div>
+                              <p className="text-xs text-zinc-500 mb-1">
+                                Stagione{maxSeasons ? ` (max ${maxSeasons})` : ''}
+                              </p>
+                              <input
+                                type="number"
+                                min={1}
+                                max={maxSeasons ?? undefined}
+                                value={formSeason}
+                                onChange={e => {
+                                  const val = e.target.value
+                                  setFormSeason(val)
+                                  const n = parseInt(val)
+                                  if (isNaN(n) || n < 1) {
+                                    setFormSeasonError('Minimo 1')
+                                  } else if (maxSeasons && n > maxSeasons) {
+                                    setFormSeasonError(`Massimo ${maxSeasons}`)
+                                  } else {
+                                    setFormSeasonError(null)
+                                  }
+                                  setFormEpisode('0')
+                                  setFormEpisodeError(null)
+                                }}
+                                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                              />
+                              {formSeasonError && (
+                                <p className="text-xs text-red-400 mt-1">{formSeasonError}</p>
+                              )}
+                            </div>
+                          )
+                        })()}
+
+                        {/* Episodio/Capitolo */}
+                        {media.type !== 'movie' && media.type !== 'boardgame' && (() => {
+                          const seasonNum = parseInt(formSeason) || 1
+                          const maxEp = media.seasons?.[seasonNum]?.episode_count ?? media.episodes ?? null
+                          const label = media.type === 'manga' || media.type === 'novel' ? 'Capitolo corrente' : 'Episodio corrente'
+                          return (
+                            <div>
+                              <p className="text-xs text-zinc-500 mb-1">
+                                {label}{maxEp ? ` (max ${maxEp})` : ''}
+                              </p>
+                              <input
+                                type="number"
+                                min={0}
+                                max={maxEp ?? undefined}
+                                value={formEpisode}
+                                onChange={e => {
+                                  const val = e.target.value
+                                  setFormEpisode(val)
+                                  const n = parseInt(val)
+                                  if (isNaN(n) || n < 0) {
+                                    setFormEpisodeError('Il valore non può essere negativo')
+                                  } else if (maxEp && n > maxEp) {
+                                    setFormEpisodeError(`Massimo ${maxEp}`)
+                                  } else {
+                                    setFormEpisodeError(null)
+                                  }
+                                }}
+                                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                              />
+                              {formEpisodeError && (
+                                <p className="text-xs text-red-400 mt-1">{formEpisodeError}</p>
+                              )}
+                            </div>
+                          )
+                        })()}
+
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            onClick={() => setShowAddForm(false)}
+                            className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-zinc-400 text-sm hover:border-zinc-500 transition-all"
+                          >
+                            Annulla
+                          </button>
+                          <button
+                            disabled={!!formEpisodeError || !!formSeasonError}
+                            onClick={() => handleAddToCollection({
+                              rating: formRating || undefined,
+                              episode: parseInt(formEpisode) || 0,
+                              season: parseInt(formSeason) || 1,
+                            })}
+                            className="flex-1 py-2.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-xl font-semibold text-white text-sm transition-all disabled:opacity-40"
+                          >
+                            Conferma
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setShowAddForm(true)}
+                        className="w-full py-3.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-semibold text-white transition-all"
+                      >
+                        Aggiungi alla collezione
+                      </button>
+                    )}
+                  </>
                 ) : (
                   <div className="w-full py-3.5 bg-emerald-600/20 border border-emerald-500/30 rounded-2xl text-emerald-400 font-semibold text-center text-sm">
                     ✓ Nella tua collezione

@@ -98,12 +98,31 @@ export default function NotificationsPage() {
     return formatDistanceToNow(new Date(dateStr), { addSuffix: true, locale: dateLocale })
   }
 
-  function notifText(n: any) {
-    const name = n.sender?.display_name || n.sender?.username || 'Qualcuno'
-    if (n.type === 'like') return `${name} ha messo like al tuo post`
-    if (n.type === 'comment') return `${name} ha commentato il tuo post`
-    if (n.type === 'follow') return `${name} ha iniziato a seguirti`
-    return `${name} ha interagito con te`
+  function notifAction(type: string): string {
+    if (type === 'like') return 'ha messo like al tuo post'
+    if (type === 'comment') return 'ha commentato il tuo post'
+    if (type === 'follow') return 'ha iniziato a seguirti'
+    return 'ha interagito con te'
+  }
+
+  function NotifText({ n }: { n: any }) {
+    const username = n.sender?.username
+    const name = n.sender?.display_name || username || 'Qualcuno'
+    return (
+      <p className="text-sm text-zinc-200 leading-snug">
+        {username ? (
+          <Link
+            href={`/profile/${username}`}
+            className="font-semibold text-white hover:text-violet-400 transition-colors"
+          >
+            {name}
+          </Link>
+        ) : (
+          <span className="font-semibold text-white">{name}</span>
+        )}{' '}
+        {notifAction(n.type)}
+      </p>
+    )
   }
 
   function NotifIcon({ type }: { type: string }) {
@@ -159,7 +178,7 @@ export default function NotificationsPage() {
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-zinc-200 leading-snug">{notifText(n)}</p>
+                  <NotifText n={n} />
                   <p className="text-xs text-zinc-500 mt-0.5">{timeAgo(n.created_at)}</p>
                 </div>
 

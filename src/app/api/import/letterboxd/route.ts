@@ -25,6 +25,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
 import { logger } from '@/lib/logger'
+import { upsertWithMerge } from '@/lib/importMerge'
 
 // ── Costanti TMDB ─────────────────────────────────────────────────────────────
 
@@ -620,11 +621,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Nessun film valido trovato.' }, { status: 422 })
     }
 
-    const { imported, skipped } = await manualUpsert(supabase, allEntries, user.id)
+    const { imported, merged, skipped } = await upsertWithMerge(supabase, allEntries, user.id, '[Letterboxd Import]')
 
     return NextResponse.json({
       success: true,
       imported,
+      merged,
       skipped,
       total: allEntries.length,
       watched: watchedRows.length,
@@ -637,7 +639,7 @@ export async function POST(request: NextRequest) {
         notFound,
         total: fromCache + fromApi,
       },
-      message: `Importati ${imported} film da Letterboxd (${fromCache + fromApi} poster trovati${notFound > 0 ? `, ${notFound} senza immagine` : ''})`,
+      message: `Importati ${imported} film da Letterboxd${merged > 0 ? `, ${merged} uniti con duplicati` : ''} (${fromCache + fromApi} poster trovati${notFound > 0 ? `, ${notFound} senza immagine` : ''})`,
     }, { headers: rl.headers })
 
   } catch (e: any) {

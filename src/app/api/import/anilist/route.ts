@@ -1,10 +1,10 @@
 import { logger } from '@/lib/logger'
 // src/app/api/import/anilist/route.ts
-// FIX: strategia manual upsert per evitare il problema con constraint mancante su Supabase
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
+import { upsertWithMerge } from '@/lib/importMerge'
 
 const ANILIST_API = 'https://graphql.anilist.co'
 
@@ -172,57 +172,16 @@ export async function POST(request: NextRequest) {
     }, { headers: rl.headers })
   }
 
-  // Manual upsert: controlla quali external_id esistono già
-  const externalIds = toInsert.map(i => i.external_id)
-  const { data: existing } = await supabase
-    .from('user_media_entries')
-    .select('id, external_id')
-    .eq('user_id', user.id)
-    .in('external_id', externalIds)
-
-  const existingMap = new Map((existing || []).map((e: any) => [e.external_id, e.id]))
-  const toCreate = toInsert.filter(i => !existingMap.has(i.external_id))
-  const toUpdate = toInsert.filter(i => existingMap.has(i.external_id))
-
-  let imported = 0
-  let skipped = 0
-
-  // INSERT nuovi in batch da 50
-  for (let i = 0; i < toCreate.length; i += 50) {
-    const batch = toCreate.slice(i, i + 50)
-    const { error } = await supabase.from('user_media_entries').insert(batch)
-    if (!error) {
-      imported += batch.length
-    } else {
-      logger.error('[AniList Import] insert error:', error)
-      skipped += batch.length
-    }
-  }
-
-  // UPDATE esistenti: usa l'id reale della riga
-  for (let i = 0; i < toUpdate.length; i += 50) {
-    const batch = toUpdate.slice(i, i + 50)
-    for (const item of batch) {
-      const rowId = existingMap.get(item.external_id)
-      const { error } = await supabase
-        .from('user_media_entries')
-        .update({ ...item })
-        .eq('id', rowId)
-      if (!error) {
-        imported++
-      } else {
-        logger.error('[AniList Import] update error:', error)
-        skipped++
-      }
-    }
-  }
+  // Upsert con merge cross-source
+  const { imported, merged, skipped } = await upsertWithMerge(supabase, toInsert, user.id, '[AniList Import]')
 
   return NextResponse.json({
     success: true,
     imported,
+    merged,
     skipped,
     total: toInsert.length,
     errors: errors.length > 0 ? errors : undefined,
-    message: `Importati ${imported} titoli da AniList (@${username})`,
+    message: `Importati ${imported} titoli da AniList (@${username})${merged > 0 ? `, ${merged} uniti con duplicati` : ''}`,
   }, { headers: rl.headers })
 }
