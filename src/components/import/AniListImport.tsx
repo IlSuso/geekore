@@ -8,15 +8,26 @@ import { Download, CheckCircle, AlertTriangle, Loader2, ExternalLink } from 'luc
 
 interface ImportResult {
   imported: number
+  merged: number
   skipped: number
   total: number
+  errors?: string[]
   message: string
 }
+
+type ProgressState = {
+  step: string
+  current?: number
+  total?: number
+  page?: number
+  message: string
+} | null
 
 export function AniListImport() {
   const [username, setUsername] = useState('')
   const [types, setTypes] = useState<string[]>(['ANIME', 'MANGA'])
   const [loading, setLoading] = useState(false)
+  const [progress, setProgress] = useState<ProgressState>(null)
   const [result, setResult] = useState<ImportResult | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -31,6 +42,7 @@ export function AniListImport() {
     setLoading(true)
     setResult(null)
     setError(null)
+    setProgress(null)
 
     try {
       const res = await fetch('/api/import/anilist', {
@@ -39,12 +51,31 @@ export function AniListImport() {
         body: JSON.stringify({ anilist_username: username.trim(), types }),
       })
 
-      const data = await res.json()
-
       if (!res.ok) {
-        setError(data.error || 'Errore durante l\'importazione')
-      } else {
-        setResult(data)
+        try { const data = await res.json(); setError(data.error || "Errore durante l'importazione") }
+        catch { setError("Errore durante l'importazione") }
+        setLoading(false); return
+      }
+
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+        for (const line of lines) {
+          if (!line.trim()) continue
+          try {
+            const event = JSON.parse(line)
+            if (event.type === 'progress') setProgress(event)
+            else if (event.type === 'done') { setResult(event); setProgress(null) }
+            else if (event.type === 'error') { setError(event.message); setProgress(null) }
+          } catch {}
+        }
       }
     } catch {
       setError('Errore di rete. Riprova tra qualche secondo.')
@@ -52,6 +83,13 @@ export function AniListImport() {
 
     setLoading(false)
   }
+
+  // Per AniList: fetch paginato (step='fetch', no total) → indeterminate
+  //              salvataggio (step='save') → indeterminate
+  const isDeterminate = progress && progress.step !== 'fetch' && (progress.total ?? 0) > 0
+  const pct = isDeterminate
+    ? Math.round(((progress!.current ?? 0) / (progress!.total ?? 1)) * 100)
+    : null
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
@@ -123,8 +161,30 @@ export function AniListImport() {
             <div>
               <p className="font-medium">{result.message}</p>
               <p className="text-xs text-emerald-600 mt-0.5">
-                {result.imported} importati • {result.skipped} saltati
+                {result.imported > 0 && `${result.imported} importati`}
+                {result.merged > 0 && ` • ${result.merged} uniti`}
+                {result.skipped > 0 && ` • ${result.skipped} saltati`}
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Barra di progresso */}
+        {loading && progress && (
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-xs text-zinc-400">
+              <span>{progress.message}</span>
+              {pct !== null && <span>{pct}%</span>}
+            </div>
+            <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+              {pct !== null ? (
+                <div
+                  className="h-full bg-blue-500 transition-all duration-300 rounded-full"
+                  style={{ width: `${pct}%` }}
+                />
+              ) : (
+                <div className="h-full bg-blue-500/60 rounded-full animate-pulse w-full" />
+              )}
             </div>
           </div>
         )}
@@ -146,12 +206,6 @@ export function AniListImport() {
             </>
           )}
         </button>
-
-        {loading && (
-          <p className="text-xs text-zinc-600 text-center">
-            L'importazione può richiedere qualche minuto per liste molto grandi.
-          </p>
-        )}
       </div>
     </div>
   )

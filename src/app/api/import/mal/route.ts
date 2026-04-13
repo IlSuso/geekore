@@ -212,7 +212,8 @@ async function fetchFromJikan(
 async function enrichWithPosters(
   supabase: any,
   entries: Array<{ mal_id: number; media_type: 'anime' | 'manga' }>,
-  malClientId: string | null
+  malClientId: string | null,
+  onProgress?: (current: number, total: number) => void
 ): Promise<{
   dataMap: Map<string, { posterUrl: string | null; titleIt: string | null }>
   fromCache: number
@@ -225,6 +226,9 @@ async function enrichWithPosters(
   for (const [key, row] of cached.entries()) {
     dataMap.set(key, { posterUrl: row.poster_url, titleIt: row.title_it })
   }
+
+  // Segnala subito i cache hit
+  onProgress?.(cached.size, entries.length)
 
   const missing = entries.filter(e => !cached.has(`${e.media_type}-${e.mal_id}`))
 
@@ -249,16 +253,19 @@ async function enrichWithPosters(
 
       dataMap.set(key, { posterUrl, titleIt })
       toSave.push({
-        mal_id: entry.mal_id,
+        mal_id:     entry.mal_id,
         media_type: entry.media_type,
         poster_url: posterUrl,
-        title_it: titleIt,
-        found: posterUrl !== null,
+        title_it:   titleIt,
+        found:      posterUrl !== null,
       })
 
       if (posterUrl) fromApi++
       else notFound++
     }
+
+    const processed = cached.size + Math.min(i + MAX_PARALLEL, missing.length)
+    onProgress?.(processed, entries.length)
 
     if (i + MAX_PARALLEL < missing.length) {
       await new Promise(r => setTimeout(r, BATCH_DELAY_MS))
@@ -351,7 +358,7 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
 
-  // ── Lettura file ─────────────────────────────────────────────────────────
+  // ── Lettura file (prima dello stream) ────────────────────────────────────
   let xmlContent: string
   const contentType = request.headers.get('content-type') || ''
 
@@ -373,7 +380,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "File non valido. Carica l'export XML di MyAnimeList." }, { status: 400 })
   }
 
-  // ── Parsing ──────────────────────────────────────────────────────────────
   let parsed: ReturnType<typeof parseMALXML>
   try { parsed = parseMALXML(xmlContent) } catch (e: any) {
     return NextResponse.json({ error: `Errore nel parsing XML: ${e.message}` }, { status: 422 })
@@ -383,44 +389,77 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Nessun titolo trovato nel file.' }, { status: 422 })
   }
 
-  // ── Enrichment poster ────────────────────────────────────────────────────
+  // ── Streaming response ────────────────────────────────────────────────────
+  const encoder = new TextEncoder()
   const malClientId = process.env.MAL_CLIENT_ID || null
 
-  const toEnrich: Array<{ mal_id: number; media_type: 'anime' | 'manga' }> = []
-  for (const e of parsed.animeList) {
-    const id = parseInt(e['series_animedb_id'] || e['anime_id'] || '0', 10)
-    if (id) toEnrich.push({ mal_id: id, media_type: 'anime' })
-  }
-  for (const e of parsed.mangaList) {
-    const id = parseInt(e['manga_mangadb_id'] || e['manga_id'] || '0', 10)
-    if (id) toEnrich.push({ mal_id: id, media_type: 'manga' })
-  }
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (data: object) => {
+        try { controller.enqueue(encoder.encode(JSON.stringify(data) + '\n')) } catch {}
+      }
 
-  const { dataMap, fromCache, fromApi, notFound } = await enrichWithPosters(supabase, toEnrich, malClientId)
+      try {
+        // ── Raccolta ID da enrichire ────────────────────────────────────
+        const toEnrich: Array<{ mal_id: number; media_type: 'anime' | 'manga' }> = []
+        for (const e of parsed.animeList) {
+          const id = parseInt(e['series_animedb_id'] || e['anime_id'] || '0', 10)
+          if (id) toEnrich.push({ mal_id: id, media_type: 'anime' })
+        }
+        for (const e of parsed.mangaList) {
+          const id = parseInt(e['manga_mangadb_id'] || e['manga_id'] || '0', 10)
+          if (id) toEnrich.push({ mal_id: id, media_type: 'manga' })
+        }
 
-  // ── Build entries ────────────────────────────────────────────────────────
-  const toInsert = [
-    ...parsed.animeList.map(e => transformAnime(e, user.id, dataMap)),
-    ...parsed.mangaList.map(e => transformManga(e, user.id, dataMap)),
-  ].filter(Boolean) as any[]
+        const source = malClientId ? 'MAL API' : 'Jikan'
+        send({ type: 'progress', step: 'poster', current: 0, total: toEnrich.length,
+          message: `Recupero dati ${source}... 0/${toEnrich.length}` })
 
-  if (toInsert.length === 0) {
-    return NextResponse.json({ error: 'Nessun titolo valido trovato nel file.' }, { status: 422 })
-  }
+        // ── Enrichment con progress callback ───────────────────────────
+        const { dataMap, fromCache, fromApi, notFound } = await enrichWithPosters(
+          supabase, toEnrich, malClientId,
+          (current, total) => send({
+            type: 'progress', step: 'poster', current, total,
+            message: `Recupero dati ${source}... ${current}/${total}`,
+          })
+        )
 
-  // ── Upsert con merge cross-source ───────────────────────────────────────
-  const { imported, merged, skipped } = await upsertWithMerge(supabase, toInsert, user.id, '[MAL Import]')
+        // ── Build entries ───────────────────────────────────────────────
+        send({ type: 'progress', step: 'save', current: 0, total: 0, message: 'Salvataggio...' })
 
-  const source = malClientId ? 'MAL API' : 'Jikan'
-  return NextResponse.json({
-    success: true,
-    imported,
-    merged,
-    skipped,
-    total: toInsert.length,
-    anime: parsed.animeList.length,
-    manga: parsed.mangaList.length,
-    posters: { fromCache, fromApi, notFound, total: fromCache + fromApi },
-    message: `Importati ${imported} titoli da MyAnimeList${merged > 0 ? `, ${merged} uniti con duplicati` : ''} (${fromCache + fromApi} poster trovati via ${source}${notFound > 0 ? `, ${notFound} senza immagine` : ''})`,
-  }, { headers: rl.headers })
+        const toInsert = [
+          ...parsed.animeList.map(e => transformAnime(e, user.id, dataMap)),
+          ...parsed.mangaList.map(e => transformManga(e, user.id, dataMap)),
+        ].filter(Boolean) as any[]
+
+        if (toInsert.length === 0) {
+          send({ type: 'error', message: 'Nessun titolo valido trovato nel file.' }); return
+        }
+
+        const { imported, merged, skipped } = await upsertWithMerge(supabase, toInsert, user.id, '[MAL Import]')
+
+        send({
+          type:    'done',
+          imported, merged, skipped,
+          total:   toInsert.length,
+          anime:   parsed.animeList.length,
+          manga:   parsed.mangaList.length,
+          posters: { fromCache, fromApi, notFound, total: fromCache + fromApi },
+          message: `Importati ${imported} titoli da MyAnimeList${merged > 0 ? `, ${merged} uniti con duplicati` : ''} (${fromCache + fromApi} poster trovati via ${source}${notFound > 0 ? `, ${notFound} senza immagine` : ''})`,
+        })
+      } catch (e: any) {
+        send({ type: 'error', message: e.message || 'Errore imprevisto.' })
+      }
+
+      controller.close()
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'no-cache',
+    },
+  })
 }

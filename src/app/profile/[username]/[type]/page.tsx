@@ -108,6 +108,7 @@ function MediaCard({
 }) {
   const hasNotes = !!media.notes?.trim()
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [imgFailed, setImgFailed] = useState(false)
 
   return (
     <div className="group relative bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded-3xl overflow-hidden flex flex-col transition-all">
@@ -139,7 +140,7 @@ function MediaCard({
         {/* Cover image */}
         {media.is_steam ? (
           <SteamCoverImg appid={media.appid} title={media.title} />
-        ) : media.cover_image ? (
+        ) : media.cover_image && !imgFailed ? (
           <img
             src={media.cover_image}
             alt={media.title}
@@ -149,8 +150,7 @@ function MediaCard({
               if (!img.src.includes('wsrv.nl')) {
                 img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=jpg`
               } else {
-                img.onerror = null
-                img.style.display = 'none'
+                setImgFailed(true)
               }
             }}
           />

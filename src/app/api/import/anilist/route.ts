@@ -127,6 +127,16 @@ async function loadMalTitlesIt(
   return result
 }
 
+// ── Proxy immagine AniList ────────────────────────────────────────────────────
+// Passa le immagini AniList attraverso wsrv.nl per uniformità con MAL
+// e per maggiore stabilità in caso di problemi temporanei con il CDN AniList.
+
+function proxyAniListImage(url: string | null | undefined): string | null {
+  if (!url) return null
+  if (url.includes('wsrv.nl')) return url
+  return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=500&output=jpg`
+}
+
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
@@ -163,111 +173,133 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Tipo non valido' }, { status: 400 })
   }
 
-  // ── Fetch lista AniList ──────────────────────────────────────────────────
-  const allItems: any[] = []
-  const errors: string[] = []
+  // ── Streaming response ────────────────────────────────────────────────────
+  const encoder = new TextEncoder()
 
-  for (const type of validTypes) {
-    let page    = 1
-    let hasNext = true
-    while (hasNext && page <= 10) {
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (data: object) => {
+        try { controller.enqueue(encoder.encode(JSON.stringify(data) + '\n')) } catch {}
+      }
+
       try {
-        const { items, hasNextPage } = await fetchAniListPage(username, type, page)
-        allItems.push(...items.map(i => ({ ...i, _type: type })))
-        hasNext = hasNextPage
-        page++
-        if (hasNext) await new Promise(r => setTimeout(r, 500))
+        // ── Fetch lista AniList (con progress per pagina) ───────────────
+        const allItems: any[] = []
+        const errors: string[] = []
+        let totalFetched = 0
+
+        for (const type of validTypes) {
+          let page    = 1
+          let hasNext = true
+          while (hasNext && page <= 10) {
+            send({ type: 'progress', step: 'fetch', page,
+              message: `Recupero lista AniList... pagina ${page}` })
+            try {
+              const { items, hasNextPage } = await fetchAniListPage(username, type, page)
+              allItems.push(...items.map(i => ({ ...i, _type: type })))
+              totalFetched += items.length
+              hasNext = hasNextPage
+              page++
+              if (hasNext) await new Promise(r => setTimeout(r, 500))
+            } catch (e: any) {
+              errors.push(`${type}: ${e.message}`)
+              hasNext = false
+            }
+          }
+        }
+
+        if (allItems.length === 0 && errors.length > 0) {
+          send({ type: 'error', message: 'Impossibile recuperare i dati. Il profilo AniList è pubblico?' }); return
+        }
+
+        // ── Cross-reference MAL per titoli italiani ─────────────────────
+        const malEntries: Array<{ mal_id: number; media_type: 'anime' | 'manga' }> = []
+        const seenMalIds = new Set<string>()
+
+        for (const item of allItems) {
+          const media = item.media
+          if (!media?.idMal) continue
+          const media_type = item._type === 'ANIME' ? 'anime' : 'manga'
+          const key = `${media_type}-${media.idMal}`
+          if (!seenMalIds.has(key)) {
+            seenMalIds.add(key)
+            malEntries.push({ mal_id: media.idMal, media_type })
+          }
+        }
+
+        const malTitlesIt = await loadMalTitlesIt(supabase, malEntries)
+
+        // ── Build entries ───────────────────────────────────────────────
+        send({ type: 'progress', step: 'save', current: 0, total: 0, message: 'Salvataggio...' })
+
+        const toInsert = allItems
+          .filter(item => item.media?.id)
+          .map(item => {
+            const media   = item.media
+            const isAnime = item._type === 'ANIME'
+            const type    = isAnime ? 'anime' : 'manga'
+
+            const titleIt = media.idMal ? (malTitlesIt.get(media.idMal) || null) : null
+            const title   = titleIt || media.title?.romaji || media.title?.english || 'Senza titolo'
+
+            const topTags = (media.tags || [])
+              .filter((t: any) => t.rank >= 60)
+              .sort((a: any, b: any) => b.rank - a.rank)
+              .slice(0, 15)
+              .map((t: any) => t.name)
+
+            const rating = item.score ? Math.round((item.score / 10) * 5 * 2) / 2 : null
+
+            return {
+              user_id:         user.id,
+              external_id:     `anilist-${type}-${media.id}`,
+              title,
+              type,
+              // Proxy attraverso wsrv.nl per uniformità con MAL e maggiore stabilità
+              cover_image:     proxyAniListImage(media.coverImage?.extraLarge || media.coverImage?.large),
+              current_episode: item.progress || 0,
+              episodes:        isAnime ? (media.episodes || null) : (media.chapters || null),
+              status:          STATUS_MAP[item.status] || 'watching',
+              rating:          rating && rating > 0 ? rating : null,
+              genres:          media.genres || [],
+              tags:            topTags,
+              notes:           item.notes || null,
+              import_source:   'anilist',
+              display_order:   Date.now(),
+              updated_at:      new Date().toISOString(),
+            }
+          })
+
+        if (toInsert.length === 0) {
+          send({ type: 'done', imported: 0, merged: 0, skipped: 0, total: 0,
+            message: 'Nessun titolo valido trovato nel profilo AniList' }); return
+        }
+
+        const { imported, merged, skipped } = await upsertWithMerge(supabase, toInsert, user.id, '[AniList Import]')
+
+        const italianCount = malTitlesIt.size
+        const italianMsg   = italianCount > 0 ? ` (${italianCount} titoli italiani da MAL)` : ''
+
+        send({
+          type:    'done',
+          imported, merged, skipped,
+          total:   toInsert.length,
+          errors:  errors.length > 0 ? errors : undefined,
+          message: `Importati ${imported} titoli da AniList (@${username})${merged > 0 ? `, ${merged} uniti con duplicati` : ''}${italianMsg}`,
+        })
       } catch (e: any) {
-        errors.push(`${type}: ${e.message}`)
-        hasNext = false
+        send({ type: 'error', message: e.message || 'Errore imprevisto.' })
       }
-    }
-  }
 
-  if (allItems.length === 0 && errors.length > 0) {
-    return NextResponse.json(
-      { error: 'Impossibile recuperare i dati. Il profilo AniList è pubblico?', details: errors },
-      { status: 422 }
-    )
-  }
+      controller.close()
+    },
+  })
 
-  // ── Cross-reference MAL per titoli italiani (solo query DB, zero API) ────
-  // Raccoglie gli idMal unici presenti nella lista, poi cerca in mal_poster_cache.
-  const malEntries: Array<{ mal_id: number; media_type: 'anime' | 'manga' }> = []
-  const seenMalIds = new Set<string>()
-
-  for (const item of allItems) {
-    const media = item.media
-    if (!media?.idMal) continue
-    const media_type = item._type === 'ANIME' ? 'anime' : 'manga'
-    const key = `${media_type}-${media.idMal}`
-    if (!seenMalIds.has(key)) {
-      seenMalIds.add(key)
-      malEntries.push({ mal_id: media.idMal, media_type })
-    }
-  }
-
-  const malTitlesIt = await loadMalTitlesIt(supabase, malEntries)
-
-  // ── Build entries finali ─────────────────────────────────────────────────
-  const toInsert = allItems
-    .filter(item => item.media?.id)
-    .map(item => {
-      const media   = item.media
-      const isAnime = item._type === 'ANIME'
-      const type    = isAnime ? 'anime' : 'manga'
-
-      // Priorità titolo: italiano da MAL cache → romaji → english
-      const titleIt = media.idMal ? (malTitlesIt.get(media.idMal) || null) : null
-      const title   = titleIt || media.title?.romaji || media.title?.english || 'Senza titolo'
-
-      const topTags = (media.tags || [])
-        .filter((t: any) => t.rank >= 60)
-        .sort((a: any, b: any) => b.rank - a.rank)
-        .slice(0, 15)
-        .map((t: any) => t.name)
-
-      const rating = item.score ? Math.round((item.score / 10) * 5 * 2) / 2 : null
-
-      return {
-        user_id:         user.id,
-        external_id:     `anilist-${type}-${media.id}`,
-        title,
-        type,
-        cover_image:     media.coverImage?.extraLarge || media.coverImage?.large || null,
-        current_episode: item.progress || 0,
-        episodes:        isAnime ? (media.episodes || null) : (media.chapters || null),
-        status:          STATUS_MAP[item.status] || 'watching',
-        rating:          rating && rating > 0 ? rating : null,
-        genres:          media.genres || [],
-        tags:            topTags,
-        notes:           item.notes || null,
-        import_source:   'anilist',
-        display_order:   Date.now(),
-        updated_at:      new Date().toISOString(),
-      }
-    })
-
-  if (toInsert.length === 0) {
-    return NextResponse.json({
-      success: true, imported: 0, merged: 0, skipped: 0, total: 0,
-      message: 'Nessun titolo valido trovato nel profilo AniList',
-    }, { headers: rl.headers })
-  }
-
-  // ── Upsert con merge cross-source ─────────────────────────────────────────
-  const { imported, merged, skipped } = await upsertWithMerge(supabase, toInsert, user.id, '[AniList Import]')
-
-  const italianCount = malTitlesIt.size
-  const italianMsg   = italianCount > 0 ? ` (${italianCount} titoli italiani da MAL)` : ''
-
-  return NextResponse.json({
-    success: true,
-    imported,
-    merged,
-    skipped,
-    total:  toInsert.length,
-    errors: errors.length > 0 ? errors : undefined,
-    message: `Importati ${imported} titoli da AniList (@${username})${merged > 0 ? `, ${merged} uniti con duplicati` : ''}${italianMsg}`,
-  }, { headers: rl.headers })
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'no-cache',
+    },
+  })
 }

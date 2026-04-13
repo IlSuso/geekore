@@ -6,7 +6,6 @@
 
 import { useState } from 'react'
 import { RefreshCw, CheckCircle, AlertCircle, ExternalLink, Info } from 'lucide-react'
-import { showToast } from '@/components/ui/Toast'
 
 function XboxIcon({ size = 24, className = '' }: { size?: number; className?: string }) {
   return (
@@ -22,12 +21,19 @@ interface ImportResult {
   imported: number
   skipped: number
   total: number
-  gamertag: string
+  gamertag?: string
+  message: string
 }
+
+type ProgressState = {
+  step: string
+  message: string
+} | null
 
 export function XboxImport() {
   const [xuid, setXuid] = useState('')
   const [loading, setLoading] = useState(false)
+  const [progress, setProgress] = useState<ProgressState>(null)
   const [result, setResult] = useState<ImportResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showHelp, setShowHelp] = useState(false)
@@ -40,23 +46,42 @@ export function XboxImport() {
     setLoading(true)
     setError(null)
     setResult(null)
+    setProgress(null)
 
     try {
       const res = await fetch(`/api/xbox/games?xuid=${encodeURIComponent(id)}`)
-      const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || "Errore durante l'importazione")
-        return
+        try { const data = await res.json(); setError(data.error || "Errore durante l'importazione") }
+        catch { setError("Errore durante l'importazione") }
+        setLoading(false); return
       }
 
-      setResult(data)
-      showToast(`${data.imported} giochi Xbox importati!`)
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+        for (const line of lines) {
+          if (!line.trim()) continue
+          try {
+            const event = JSON.parse(line)
+            if (event.type === 'progress') setProgress(event)
+            else if (event.type === 'done') { setResult(event); setProgress(null) }
+            else if (event.type === 'error') { setError(event.message); setProgress(null) }
+          } catch {}
+        }
+      }
     } catch {
       setError('Errore di rete. Riprova.')
-    } finally {
-      setLoading(false)
     }
+
+    setLoading(false)
   }
 
   return (
@@ -148,6 +173,16 @@ export function XboxImport() {
             <div className="flex items-start gap-2 p-3 bg-red-950/30 border border-red-800/40 rounded-xl">
               <AlertCircle size={15} className="text-red-400 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-red-300">{error}</p>
+            </div>
+          )}
+
+          {/* Barra di progresso */}
+          {loading && progress && (
+            <div className="space-y-1.5">
+              <p className="text-xs text-zinc-400">{progress.message}</p>
+              <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                <div className="h-full bg-[#107c10]/70 rounded-full animate-pulse w-full" />
+              </div>
             </div>
           )}
 

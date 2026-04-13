@@ -122,80 +122,109 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Salva xuid sul profilo
-  await supabase.from('profiles').update({
-    ...(gamertag ? { xbox_gamertag: gamertag } : {}),
-    xbox_xuid: xuid,
-  }).eq('id', user.id)
+  // ── Streaming response ──────────────────────────────────────────────────────
+  const encoder = new TextEncoder()
 
-  // Recupera giochi
-  const titles = await fetchXboxGames(xuid!)
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (data: object) => {
+        try { controller.enqueue(encoder.encode(JSON.stringify(data) + '\n')) } catch {}
+      }
 
-  if (!titles.length) {
-    return NextResponse.json({ success: true, games: [], message: 'Nessun gioco trovato (il profilo potrebbe essere privato).' })
-  }
+      try {
+        // Salva xuid sul profilo
+        await supabase.from('profiles').update({
+          ...(gamertag ? { xbox_gamertag: gamertag } : {}),
+          xbox_xuid: xuid,
+        }).eq('id', user.id)
 
-  // Normalizza e importa nella collezione
-  const toInsert: any[] = []
-  const skipped: string[] = []
+        send({ type: 'progress', step: 'fetch', current: 0, total: 0, message: 'Recupero giochi Xbox...' })
 
-  // Leggi titoli già in collezione per evitare duplicati
-  const { data: existing } = await supabase
-    .from('user_media_entries')
-    .select('external_id')
-    .eq('user_id', user.id)
-    .eq('type', 'game')
+        // Recupera giochi
+        const titles = await fetchXboxGames(xuid!)
 
-  const existingIds = new Set((existing || []).map(e => e.external_id).filter(Boolean))
+        if (!titles.length) {
+          send({ type: 'done', success: true, imported: 0, skipped: 0, total: 0,
+            message: 'Nessun gioco trovato (il profilo potrebbe essere privato).' }); return
+        }
 
-  for (const title of titles) {
-    const titleId = title.titleId?.toString() || title.id?.toString()
-    if (!titleId) continue
+        send({ type: 'progress', step: 'save', current: 0, total: 0, message: 'Salvataggio...' })
 
-    const extId = `xbox-${titleId}`
-    if (existingIds.has(extId)) {
-      skipped.push(title.name)
-      continue
-    }
+        // Normalizza e importa nella collezione
+        const toInsert: any[] = []
+        const skipped: string[] = []
 
-    // Calcola ore stimate dagli achievement (approssimazione: gamerscore / 10 = ore)
-    const gamerscore = title.currentGamerscore || 0
-    const estimatedHours = Math.max(1, Math.round(gamerscore / 10))
+        // Leggi titoli già in collezione per evitare duplicati
+        const { data: existing } = await supabase
+          .from('user_media_entries')
+          .select('external_id')
+          .eq('user_id', user.id)
+          .eq('type', 'game')
 
-    // Determina se completato (100% achievement)
-    const maxGamerscore = title.maxGamerscore || 0
-    const isCompleted = maxGamerscore > 0 && gamerscore >= maxGamerscore
-    const completionPct = maxGamerscore > 0 ? Math.round((gamerscore / maxGamerscore) * 100) : 0
+        const existingIds = new Set((existing || []).map(e => e.external_id).filter(Boolean))
 
-    toInsert.push({
-      user_id: user.id,
-      external_id: extId,
-      title: title.name,
-      type: 'game',
-      cover_image: title.displayImage || title.mediaItemType || null,
-      status: isCompleted ? 'completed' : gamerscore > 0 ? 'playing' : 'wishlist',
-      current_episode: estimatedHours,
-      genres: [], // Xbox API non fornisce generi direttamente
-      notes: `Gamerscore: ${gamerscore}/${maxGamerscore} (${completionPct}%)`,
-      updated_at: new Date().toISOString(),
-      display_order: Date.now() - toInsert.length * 1000,
-    })
-  }
+        for (const title of titles) {
+          const titleId = title.titleId?.toString() || title.id?.toString()
+          if (!titleId) continue
 
-  if (toInsert.length > 0) {
-    const BATCH = 50
-    for (let i = 0; i < toInsert.length; i += BATCH) {
-      await supabase.from('user_media_entries').upsert(toInsert.slice(i, i + BATCH), { onConflict: 'user_id,external_id' })
-    }
-  }
+          const extId = `xbox-${titleId}`
+          if (existingIds.has(extId)) {
+            skipped.push(title.name)
+            continue
+          }
 
-  return NextResponse.json({
-    success: true,
-    imported: toInsert.length,
-    skipped: skipped.length,
-    total: titles.length,
-    gamertag,
-    xuid,
-    games: toInsert.map(g => ({ title: g.title, status: g.status, hours: g.current_episode })),
-  }, { headers: rl.headers })
+          const gamerscore = title.currentGamerscore || 0
+          const estimatedHours = Math.max(1, Math.round(gamerscore / 10))
+          const maxGamerscore = title.maxGamerscore || 0
+          const isCompleted = maxGamerscore > 0 && gamerscore >= maxGamerscore
+          const completionPct = maxGamerscore > 0 ? Math.round((gamerscore / maxGamerscore) * 100) : 0
+
+          toInsert.push({
+            user_id: user.id,
+            external_id: extId,
+            title: title.name,
+            type: 'game',
+            cover_image: title.displayImage || title.mediaItemType || null,
+            status: isCompleted ? 'completed' : gamerscore > 0 ? 'playing' : 'wishlist',
+            current_episode: estimatedHours,
+            genres: [],
+            notes: `Gamerscore: ${gamerscore}/${maxGamerscore} (${completionPct}%)`,
+            updated_at: new Date().toISOString(),
+            display_order: Date.now() - toInsert.length * 1000,
+          })
+        }
+
+        if (toInsert.length > 0) {
+          const BATCH = 50
+          for (let i = 0; i < toInsert.length; i += BATCH) {
+            await supabase.from('user_media_entries').upsert(toInsert.slice(i, i + BATCH), { onConflict: 'user_id,external_id' })
+          }
+        }
+
+        send({
+          type: 'done',
+          success: true,
+          imported: toInsert.length,
+          skipped: skipped.length,
+          total: titles.length,
+          gamertag,
+          xuid,
+          message: `${toInsert.length} giochi Xbox importati`,
+        })
+      } catch (e: any) {
+        send({ type: 'error', message: e.message || 'Errore durante il recupero dei giochi Xbox' })
+      }
+
+      controller.close()
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      ...rl.headers,
+      'Content-Type': 'text/plain; charset=utf-8',
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'no-cache',
+    },
+  })
 }

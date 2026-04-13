@@ -159,6 +159,7 @@ function MediaCard({
 }) {
   const { t } = useLocale()
   const m = t.media
+  const [imgFailed, setImgFailed] = useState(false)
 
   const isConfirmingDelete = deletingId === media.id
   const hasSeasonData = !!media.season_episodes && Object.keys(media.season_episodes).length > 0
@@ -199,7 +200,7 @@ function MediaCard({
     if (media.is_steam) {
       return <SteamCoverImg appid={media.appid} title={media.title} />
     }
-    if (media.cover_image) {
+    if (media.cover_image && !imgFailed) {
       return (
         <img
           src={media.cover_image}
@@ -210,8 +211,7 @@ function MediaCard({
             if (!img.src.includes('wsrv.nl')) {
               img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=jpg`
             } else {
-              img.onerror = null
-              img.style.display = 'none'
+              setImgFailed(true)
             }
           }}
         />
@@ -466,6 +466,7 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
   const { t } = useLocale()
   const hasEpisodes = !!(media.episodes && media.episodes > 1)
   const maxEp = media.episodes || 0
+  const [rowImgFailed, setRowImgFailed] = useState(false)
 
   return (
     <div className="flex items-center gap-3 p-3 bg-zinc-900 border border-zinc-800 rounded-2xl hover:border-zinc-700 transition-colors group">
@@ -473,8 +474,20 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
       <div className="w-10 h-14 bg-zinc-800 rounded-xl overflow-hidden flex-shrink-0">
         {media.is_steam ? (
           <SteamCoverImg appid={media.appid} title={media.title} />
-        ) : media.cover_image ? (
-          <img src={media.cover_image} alt={media.title} className="w-full h-full object-cover" onError={(e) => { const img = e.target as HTMLImageElement; if (!img.src.includes("wsrv.nl")) { img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=jpg` } else { img.onerror = null; img.style.display = "none" } }} />
+        ) : media.cover_image && !rowImgFailed ? (
+          <img
+            src={media.cover_image}
+            alt={media.title}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              const img = e.target as HTMLImageElement
+              if (!img.src.includes('wsrv.nl')) {
+                img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=jpg`
+              } else {
+                setRowImgFailed(true)
+              }
+            }}
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-zinc-600">📺</div>
         )}
@@ -546,6 +559,7 @@ export default function ProfilePage() {
   const [importingGames, setImportingGames] = useState(false)
   const [reorderingGames, setReorderingGames] = useState(false)
   const [steamMessage, setSteamMessage] = useState<{ text: string; type: 'error' | 'success' } | null>(null)
+  const [steamProgressMsg, setSteamProgressMsg] = useState<string | null>(null)
   const [followersCount, setFollowersCount] = useState(0)
   const [followingCount, setFollowingCount] = useState(0)
   const [isFollowing, setIsFollowing] = useState(false)
@@ -595,15 +609,58 @@ export default function ProfilePage() {
     if (!steamAccount?.steam_id64 || !currentUserId || importingGames) return
     setImportingGames(true)
     setSteamMessage(null)
+    setSteamProgressMsg(null)
+
     try {
       const res = await fetch(`/api/steam/games?steamid=${steamAccount.steam_id64}`)
-      const data = await res.json()
-      if (res.status === 429 && data.cached) { setSteamMessage({ text: data.error, type: 'error' }); return }
-      if (!data.success || !data.games?.length) { setSteamMessage({ text: t.toasts.steamNoGames, type: 'error' }); return }
-      await refreshMedia(currentUserId)
-      const cpMsg = data.core_power != null ? ` Core Power: ${data.core_power}.` : ''
-      setSteamMessage({ text: `${t.toasts.steamImported(data.games.length)}${cpMsg}`, type: 'success' })
-    } finally { setImportingGames(false) }
+
+      if (!res.ok) {
+        try {
+          const data = await res.json()
+          if (res.status === 429 && data.cached) { setSteamMessage({ text: data.error, type: 'error' }); return }
+          setSteamMessage({ text: data.error || t.toasts.steamNoGames, type: 'error' })
+        } catch { setSteamMessage({ text: t.toasts.steamNoGames, type: 'error' }) }
+        return
+      }
+
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+        for (const line of lines) {
+          if (!line.trim()) continue
+          try {
+            const event = JSON.parse(line)
+            if (event.type === 'progress') {
+              setSteamProgressMsg(event.message)
+            } else if (event.type === 'done') {
+              setSteamProgressMsg(null)
+              if (!event.success || !event.count) {
+                setSteamMessage({ text: t.toasts.steamNoGames, type: 'error' })
+              } else {
+                await refreshMedia(currentUserId)
+                const cpMsg = event.core_power != null ? ` Core Power: ${event.core_power}.` : ''
+                setSteamMessage({ text: `${t.toasts.steamImported(event.count)}${cpMsg}`, type: 'success' })
+              }
+            } else if (event.type === 'error') {
+              setSteamProgressMsg(null)
+              setSteamMessage({ text: event.message || t.toasts.steamNoGames, type: 'error' })
+            }
+          } catch {}
+        }
+      }
+    } catch {
+      setSteamMessage({ text: t.toasts.steamNoGames, type: 'error' })
+    } finally {
+      setImportingGames(false)
+      setSteamProgressMsg(null)
+    }
   }
 
   const reorderGamesByHours = async () => {
@@ -956,6 +1013,11 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
+
+          {/* Progresso Steam */}
+          {steamProgressMsg && (
+            <p className="text-[10px] text-zinc-500 mt-1">{steamProgressMsg}</p>
+          )}
 
           {/* Pallini import — orizzontali sotto i bottoni, solo per owner */}
           {isOwner ? (

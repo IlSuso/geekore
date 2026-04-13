@@ -8,6 +8,7 @@ import { Download, CheckCircle, AlertTriangle, Loader2, ExternalLink, Upload, Fi
 
 interface ImportResult {
   imported: number
+  merged: number
   skipped: number
   total: number
   anime: number
@@ -15,9 +16,17 @@ interface ImportResult {
   message: string
 }
 
+type ProgressState = {
+  step: string
+  current: number
+  total: number
+  message: string
+} | null
+
 export function MALImport() {
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
+  const [progress, setProgress] = useState<ProgressState>(null)
   const [result, setResult] = useState<ImportResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -48,22 +57,39 @@ export function MALImport() {
     setLoading(true)
     setResult(null)
     setError(null)
+    setProgress(null)
 
     try {
       const formData = new FormData()
       formData.append('file', file)
 
-      const res = await fetch('/api/import/mal', {
-        method: 'POST',
-        body: formData,
-      })
-
-      const data = await res.json()
+      const res = await fetch('/api/import/mal', { method: 'POST', body: formData })
 
       if (!res.ok) {
-        setError(data.error || 'Errore durante l\'importazione')
-      } else {
-        setResult(data)
+        try { const data = await res.json(); setError(data.error || "Errore durante l'importazione") }
+        catch { setError("Errore durante l'importazione") }
+        setLoading(false); return
+      }
+
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+        for (const line of lines) {
+          if (!line.trim()) continue
+          try {
+            const event = JSON.parse(line)
+            if (event.type === 'progress') setProgress(event)
+            else if (event.type === 'done') { setResult(event); setProgress(null) }
+            else if (event.type === 'error') { setError(event.message); setProgress(null) }
+          } catch {}
+        }
       }
     } catch {
       setError('Errore di rete. Riprova tra qualche secondo.')
@@ -80,6 +106,10 @@ export function MALImport() {
       handleFileChange(fakeEvent)
     }
   }
+
+  const pct = progress && progress.total > 0
+    ? Math.round((progress.current / progress.total) * 100)
+    : null
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
@@ -166,8 +196,29 @@ export function MALImport() {
               {result.anime > 0 && `${result.anime} anime`}
               {result.anime > 0 && result.manga > 0 && ' • '}
               {result.manga > 0 && `${result.manga} manga`}
+              {result.merged > 0 && ` • ${result.merged} uniti`}
               {result.skipped > 0 && ` • ${result.skipped} saltati`}
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Barra di progresso */}
+      {loading && progress && (
+        <div className="space-y-1.5 mt-4">
+          <div className="flex justify-between text-xs text-zinc-400">
+            <span>{progress.message}</span>
+            {pct !== null && <span>{pct}%</span>}
+          </div>
+          <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+            {pct !== null ? (
+              <div
+                className="h-full bg-blue-500 transition-all duration-300 rounded-full"
+                style={{ width: `${pct}%` }}
+              />
+            ) : (
+              <div className="h-full bg-blue-500/60 rounded-full animate-pulse w-full" />
+            )}
           </div>
         </div>
       )}
@@ -189,12 +240,6 @@ export function MALImport() {
           </>
         )}
       </button>
-
-      {loading && (
-        <p className="text-xs text-zinc-600 text-center mt-2">
-          L'importazione può richiedere qualche secondo.
-        </p>
-      )}
     </div>
   )
 }

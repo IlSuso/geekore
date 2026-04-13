@@ -6,18 +6,23 @@ import { Download, CheckCircle, AlertTriangle, Loader2, ExternalLink, Upload, Fi
 
 interface ImportResult {
   imported: number
-  updated: number
+  merged: number
   skipped: number
   total: number
   watched: number
   ratings: number
   watchlist: number
   list: number
-  list_inserted: number
-  list_id: string | null
-  list_name: string | null
+  posters?: { found: number; notFound: number; total: number }
   message: string
 }
+
+type ProgressState = {
+  step: string
+  current: number
+  total: number
+  message: string
+} | null
 
 interface FileState { file: File | null; error: string | null }
 const emptyFile = (): FileState => ({ file: null, error: null })
@@ -111,6 +116,7 @@ export function LetterboxdImport() {
   const [showList,  setShowList]  = useState(false)
 
   const [loading,     setLoading]     = useState(false)
+  const [progress,    setProgress]    = useState<ProgressState>(null)
   const [result,      setResult]      = useState<ImportResult | null>(null)
   const [globalError, setGlobalError] = useState<string | null>(null)
 
@@ -123,24 +129,54 @@ export function LetterboxdImport() {
 
   const handleImport = async () => {
     if (!hasAnyFile || loading) return
-    setLoading(true); setResult(null); setGlobalError(null)
+    setLoading(true); setResult(null); setGlobalError(null); setProgress(null)
+
     try {
       const formData = new FormData()
-      if (watched.file)   formData.append('watched', watched.file)
-      if (ratings.file)   formData.append('ratings', ratings.file)
-      if (watchlist.file) formData.append('watchlist', watchlist.file)
-      if (listFile.file)  formData.append('list', listFile.file)
+      if (watched.file)    formData.append('watched', watched.file)
+      if (ratings.file)    formData.append('ratings', ratings.file)
+      if (watchlist.file)  formData.append('watchlist', watchlist.file)
+      if (listFile.file)   formData.append('list', listFile.file)
       if (listName.trim()) formData.append('list_name', listName.trim())
 
       const res = await fetch('/api/import/letterboxd', { method: 'POST', body: formData })
-      const data = await res.json()
-      if (!res.ok) setGlobalError(data.error || "Errore durante l'importazione")
-      else setResult(data)
+
+      if (!res.ok) {
+        try { const data = await res.json(); setGlobalError(data.error || "Errore durante l'importazione") }
+        catch { setGlobalError("Errore durante l'importazione") }
+        setLoading(false); return
+      }
+
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+        for (const line of lines) {
+          if (!line.trim()) continue
+          try {
+            const event = JSON.parse(line)
+            if (event.type === 'progress') setProgress(event)
+            else if (event.type === 'done') { setResult(event); setProgress(null) }
+            else if (event.type === 'error') { setGlobalError(event.message); setProgress(null) }
+          } catch {}
+        }
+      }
     } catch {
       setGlobalError('Errore di rete. Riprova tra qualche secondo.')
     }
+
     setLoading(false)
   }
+
+  const pct = progress && progress.total > 0
+    ? Math.round((progress.current / progress.total) * 100)
+    : null
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
@@ -288,18 +324,29 @@ export function LetterboxdImport() {
             <p className="font-medium">{result.message}</p>
             <p className="text-xs text-emerald-600 mt-1 space-x-2">
               {result.imported > 0 && <span>{result.imported} nuovi</span>}
-              {result.updated > 0 && <span>{result.imported > 0 ? '• ' : ''}{result.updated} aggiornati</span>}
+              {result.merged > 0 && <span>• {result.merged} uniti</span>}
               {result.watchlist > 0 && <span>• {result.watchlist} watchlist</span>}
               {result.skipped > 0 && <span>• {result.skipped} saltati</span>}
             </p>
-            {result.list_id && result.list_name && (
-              <a
-                href={`/lists/${result.list_id}`}
-                className="inline-flex items-center gap-1.5 mt-2 text-xs text-emerald-400 hover:text-emerald-300 underline underline-offset-2 transition"
-              >
-                <ExternalLink size={11} />
-                Vai alla lista "{result.list_name}" ({result.list_inserted} film)
-              </a>
+          </div>
+        </div>
+      )}
+
+      {/* Barra di progresso */}
+      {loading && progress && (
+        <div className="space-y-1.5 mb-4">
+          <div className="flex justify-between text-xs text-zinc-400">
+            <span>{progress.message}</span>
+            {pct !== null && <span>{pct}%</span>}
+          </div>
+          <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+            {pct !== null ? (
+              <div
+                className="h-full bg-emerald-500 transition-all duration-300 rounded-full"
+                style={{ width: `${pct}%` }}
+              />
+            ) : (
+              <div className="h-full bg-emerald-500/60 rounded-full animate-pulse w-full" />
             )}
           </div>
         </div>
@@ -316,12 +363,6 @@ export function LetterboxdImport() {
           : <><Download size={16} />Importa da Letterboxd</>
         }
       </button>
-
-      {loading && (
-        <p className="text-xs text-zinc-600 text-center mt-2">
-          L'importazione può richiedere qualche secondo.
-        </p>
-      )}
     </div>
   )
 }

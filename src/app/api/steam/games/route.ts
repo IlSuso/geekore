@@ -38,7 +38,10 @@ interface IgdbMeta {
   game_modes: string[]
 }
 
-async function fetchIgdbMetaBatch(gameNames: string[]): Promise<Map<string, IgdbMeta>> {
+async function fetchIgdbMetaBatch(
+  gameNames: string[],
+  onProgress?: (current: number, total: number) => void
+): Promise<Map<string, IgdbMeta>> {
   const result = new Map<string, IgdbMeta>()
   if (gameNames.length === 0) return result
 
@@ -47,6 +50,9 @@ async function fetchIgdbMetaBatch(gameNames: string[]): Promise<Map<string, Igdb
   if (!clientId || !token) return result
 
   const CHUNK = 10
+  const totalChunks = Math.ceil(gameNames.length / CHUNK)
+  let processedChunks = 0
+
   for (let i = 0; i < gameNames.length; i += CHUNK) {
     const chunk = gameNames.slice(i, i + CHUNK)
     // Normalizza i nomi: prova versione originale e lowercase per match più ampio
@@ -69,9 +75,9 @@ async function fetchIgdbMetaBatch(gameNames: string[]): Promise<Map<string, Igdb
         signal: AbortSignal.timeout(6000),
       })
 
-      if (!res.ok) continue
+      if (!res.ok) { processedChunks++; onProgress?.(processedChunks, totalChunks); continue }
       const games = await res.json()
-      if (!Array.isArray(games)) continue
+      if (!Array.isArray(games)) { processedChunks++; onProgress?.(processedChunks, totalChunks); continue }
 
       for (const game of games) {
         result.set(game.name.toLowerCase(), {
@@ -83,10 +89,16 @@ async function fetchIgdbMetaBatch(gameNames: string[]): Promise<Map<string, Igdb
         })
       }
 
+      processedChunks++
+      onProgress?.(processedChunks, totalChunks)
+
       if (i + CHUNK < gameNames.length) {
         await new Promise(r => setTimeout(r, 300))
       }
-    } catch { /* chunk fallito, continua */ }
+    } catch {
+      processedChunks++
+      onProgress?.(processedChunks, totalChunks)
+    }
   }
 
   return result
@@ -139,89 +151,124 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  try {
-    const url = `https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${STEAM_API_KEY}&steamid=${encodeURIComponent(steamid)}&format=json&include_appinfo=true&include_played_free_games=true`
-    const res = await fetch(url)
-    const data = await res.json()
+  // ── Streaming response ──────────────────────────────────────────────────────
+  const encoder = new TextEncoder()
 
-    if (!data.response?.games) {
-      return NextResponse.json({ success: false, error: 'Nessun gioco trovato o profilo Steam privato' })
-    }
-
-    const rawGames: any[] = data.response.games
-
-    // Fetch metadati IGDB solo per giochi con >30 min giocati
-    const playedGames = rawGames.filter(g => (g.playtime_forever || 0) >= 30)
-    const gameNames = playedGames.map(g => g.name)
-
-    const metaMap = await fetchIgdbMetaBatch(gameNames)
-
-    const games = rawGames.map((game: any) => {
-      const meta = metaMap.get(game.name.toLowerCase())
-      return {
-        appid: game.appid,
-        name: game.name,
-        playtime_forever: game.playtime_forever,
-        // Multiple cover fallbacks
-        cover_image: `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/library_600x900.jpg`,
-        genres: meta?.genres || [],
-        themes: meta?.themes || [],
-        keywords: meta?.keywords || [],
-        player_perspectives: meta?.player_perspectives || [],
-        game_modes: meta?.game_modes || [],
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (data: object) => {
+        try { controller.enqueue(encoder.encode(JSON.stringify(data) + '\n')) } catch {}
       }
-    })
 
-    const steamMedia = games.map((game: any) => ({
-      user_id: user.id,
-      title: game.name,
-      type: 'game',
-      appid: String(game.appid),
-      cover_image: game.cover_image ?? null,
-      current_episode: Math.floor(game.playtime_forever / 60),
-      is_steam: true,
-      genres: game.genres,
-      themes: game.themes,
-      keywords: game.keywords,
-      player_perspectives: game.player_perspectives,
-      game_modes: game.game_modes,
-      display_order: Date.now(),
-      updated_at: new Date().toISOString(),
-      rating: 0,
-    }))
+      try {
+        send({ type: 'progress', step: 'steam', current: 0, total: 0, message: 'Recupero giochi Steam...' })
 
-    await supabaseService.from('user_media_entries').upsert(steamMedia, { onConflict: 'user_id,appid' })
+        const url = `https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${STEAM_API_KEY}&steamid=${encodeURIComponent(steamid)}&format=json&include_appinfo=true&include_played_free_games=true`
+        const res = await fetch(url)
+        const data = await res.json()
 
-    await supabaseService.from('steam_import_log').upsert({
-      user_id: user.id,
-      imported_at: new Date().toISOString(),
-      games_count: games.length,
-    }, { onConflict: 'user_id' })
+        if (!data.response?.games) {
+          send({ type: 'error', message: 'Nessun gioco trovato o profilo Steam privato' }); return
+        }
 
-    const totalHours = rawGames.reduce((sum: number, g: any) => sum + Math.floor((g.playtime_forever || 0) / 60), 0)
-    const corePower = Math.min(Math.round(totalHours / 10), 9999)
+        const rawGames: any[] = data.response.games
 
-    const { data: profileData } = await supabaseService
-      .from('profiles').select('username, avatar_url').eq('id', user.id).single()
+        // Fetch metadati IGDB solo per giochi con >30 min giocati
+        const playedGames = rawGames.filter(g => (g.playtime_forever || 0) >= 30)
+        const gameNames = playedGames.map(g => g.name)
+        const totalChunks = Math.ceil(gameNames.length / 10) || 1
 
-    await supabaseService.from('leaderboard').upsert({
-      user_id: user.id,
-      username: profileData?.username || 'Unknown',
-      avatar_url: profileData?.avatar_url || null,
-      steam_id: steamid,
-      core_power: corePower,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' })
+        send({ type: 'progress', step: 'igdb', current: 0, total: totalChunks,
+          message: `Recupero metadati IGDB... 0/${totalChunks}` })
 
-    const enrichedCount = games.filter((g: any) => g.genres.length > 0).length
+        const metaMap = await fetchIgdbMetaBatch(gameNames, (current, total) => {
+          send({ type: 'progress', step: 'igdb', current, total,
+            message: `Recupero metadati IGDB... ${current}/${total}` })
+        })
 
-    return NextResponse.json({
-      success: true, games, count: games.length,
-      enriched_count: enrichedCount, core_power: corePower,
-    })
+        send({ type: 'progress', step: 'save', current: 0, total: 0, message: 'Salvataggio...' })
 
-  } catch (error) {
-    logger.error('Steam API error:', error)
-    return NextResponse.json({ success: false, error: 'Errore chiamata Steam API' }, { status: 502 })
-  }
+        const games = rawGames.map((game: any) => {
+          const meta = metaMap.get(game.name.toLowerCase())
+          return {
+            appid: game.appid,
+            name: game.name,
+            playtime_forever: game.playtime_forever,
+            cover_image: `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/library_600x900.jpg`,
+            genres: meta?.genres || [],
+            themes: meta?.themes || [],
+            keywords: meta?.keywords || [],
+            player_perspectives: meta?.player_perspectives || [],
+            game_modes: meta?.game_modes || [],
+          }
+        })
+
+        const steamMedia = games.map((game: any) => ({
+          user_id: user.id,
+          title: game.name,
+          type: 'game',
+          appid: String(game.appid),
+          cover_image: game.cover_image ?? null,
+          current_episode: Math.floor(game.playtime_forever / 60),
+          is_steam: true,
+          genres: game.genres,
+          themes: game.themes,
+          keywords: game.keywords,
+          player_perspectives: game.player_perspectives,
+          game_modes: game.game_modes,
+          display_order: Date.now(),
+          updated_at: new Date().toISOString(),
+          rating: 0,
+        }))
+
+        await supabaseService.from('user_media_entries').upsert(steamMedia, { onConflict: 'user_id,appid' })
+
+        await supabaseService.from('steam_import_log').upsert({
+          user_id: user.id,
+          imported_at: new Date().toISOString(),
+          games_count: games.length,
+        }, { onConflict: 'user_id' })
+
+        const totalHours = rawGames.reduce((sum: number, g: any) => sum + Math.floor((g.playtime_forever || 0) / 60), 0)
+        const corePower = Math.min(Math.round(totalHours / 10), 9999)
+
+        const { data: profileData } = await supabaseService
+          .from('profiles').select('username, avatar_url').eq('id', user.id).single()
+
+        await supabaseService.from('leaderboard').upsert({
+          user_id: user.id,
+          username: profileData?.username || 'Unknown',
+          avatar_url: profileData?.avatar_url || null,
+          steam_id: steamid,
+          core_power: corePower,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' })
+
+        const enrichedCount = games.filter((g: any) => g.genres.length > 0).length
+
+        send({
+          type: 'done',
+          success: true,
+          count: games.length,
+          enriched_count: enrichedCount,
+          core_power: corePower,
+          games,
+          message: `${games.length} giochi Steam importati`,
+        })
+      } catch (error: any) {
+        logger.error('Steam API error:', error)
+        send({ type: 'error', message: 'Errore chiamata Steam API' })
+      }
+
+      controller.close()
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'no-cache',
+    },
+  })
 }
