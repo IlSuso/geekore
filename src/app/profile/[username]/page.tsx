@@ -34,6 +34,7 @@ import { AniListImport } from '@/components/import/AniListImport'
 import { MALImport } from '@/components/import/MALImport'
 import { LetterboxdImport } from '@/components/import/LetterboxdImport'
 import { XboxImport } from '@/components/import/XboxImport'
+import { SteamImport } from '@/components/import/SteamImport'
 import { ProfileActivityFeed } from '@/components/profile/ProfileActivityFeed'
 import { NotesModal } from '@/components/profile/NotesModal'
 import { DeleteAccountModal } from '@/components/profile/DeleteAccountModal'
@@ -963,21 +964,13 @@ export default function ProfilePage() {
                 <span className="text-[10px] text-zinc-600 mr-1">Importa da</span>
 
                 {/* Steam */}
-                {steamAccount ? (
-                  <button
-                    onClick={importSteamGames}
-                    disabled={importingGames}
-                    title={importingGames ? 'Aggiornamento...' : 'Aggiorna Steam'}
-                    className={`w-8 h-8 rounded-full overflow-hidden border border-[#66C0F4]/40 hover:border-[#66C0F4] transition-all hover:scale-110 disabled:opacity-50 ${importingGames ? 'animate-spin' : ''}`}
-                  >
-                    <SteamIcon size={32} />
-                  </button>
-                ) : (
-                  <a href="/api/steam/connect" title="Connetti Steam"
-                    className="w-8 h-8 rounded-full overflow-hidden border border-zinc-700 hover:border-[#66C0F4]/60 transition-all hover:scale-110 opacity-50 hover:opacity-100">
-                    <SteamIcon size={32} />
-                  </a>
-                )}
+                <button
+                  onClick={() => setImportPlatform('steam')}
+                  title={steamAccount ? 'Steam (connesso) — clicca per importare' : 'Connetti Steam'}
+                  className={`w-8 h-8 rounded-full overflow-hidden border transition-all hover:scale-110 ${steamAccount ? 'border-[#66C0F4]/40 hover:border-[#66C0F4]' : 'border-zinc-700 hover:border-[#66C0F4]/60 opacity-50 hover:opacity-100'}`}
+                >
+                  <SteamIcon size={32} />
+                </button>
 
                 {/* AniList */}
                 <button onClick={() => setImportPlatform('anilist')} title="Importa da AniList"
@@ -1024,10 +1017,6 @@ export default function ProfilePage() {
             )}
           </div>
 
-          {/* Progresso Steam */}
-          {steamProgressMsg && (
-            <p className="text-[10px] text-zinc-500 mt-1">{steamProgressMsg}</p>
-          )}
 
           {/* Pallini import — orizzontali sotto i bottoni, solo per owner */}
           {isOwner ? (
@@ -1225,7 +1214,7 @@ export default function ProfilePage() {
       {/* Modal Importa piattaforma specifica */}
       {importPlatform && isOwner && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-6"
+          className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-6"
           onClick={() => setImportPlatform(null)}
         >
           <div
@@ -1238,6 +1227,7 @@ export default function ProfilePage() {
                 {importPlatform === 'mal' && 'Importa da MyAnimeList'}
                 {importPlatform === 'letterboxd' && 'Importa da Letterboxd'}
                 {importPlatform === 'xbox' && 'Importa da Xbox'}
+                {importPlatform === 'steam' && 'Importa da Steam'}
               </h2>
               <button onClick={() => setImportPlatform(null)} className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-zinc-800 transition">
                 <XIcon size={18} />
@@ -1248,6 +1238,7 @@ export default function ProfilePage() {
               {importPlatform === 'mal' && <MALImport />}
               {importPlatform === 'letterboxd' && <LetterboxdImport />}
               {importPlatform === 'xbox' && <XboxImport />}
+              {importPlatform === 'steam' && <SteamImport onImportDone={() => { if (currentUserId) refreshMedia(currentUserId) }} />}
             </div>
           </div>
         </div>

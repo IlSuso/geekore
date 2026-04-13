@@ -435,6 +435,59 @@ export async function POST(request: NextRequest) {
 
         const { imported, merged, skipped } = await upsertWithMerge(supabase, allEntries, user.id, '[Letterboxd Import]')
 
+        // ── Crea lista in "Le mie liste" se è stato importato un file lista ──
+        let listCreated = false
+        if (listFile && effectiveListName && listRows.length > 0) {
+          try {
+            // Cerca lista esistente con lo stesso titolo
+            const { data: existingList } = await supabase
+              .from('user_lists')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('title', effectiveListName.slice(0, 100))
+              .maybeSingle()
+
+            let listId: string | null = existingList?.id ?? null
+
+            if (!listId) {
+              const { data: newList } = await supabase
+                .from('user_lists')
+                .insert({ user_id: user.id, title: effectiveListName.slice(0, 100), is_public: false })
+                .select('id')
+                .single()
+              listId = newList?.id ?? null
+            }
+
+            if (listId) {
+              // Svuota e ripopola gli item della lista
+              await supabase.from('user_list_items').delete().eq('list_id', listId)
+
+              const listItems = listRows.map((row, idx) => {
+                const id = makeExternalId(row)
+                return {
+                  list_id:     listId,
+                  user_id:     user.id,
+                  media_id:    id,
+                  media_title: titleItMap.get(id) || row['name'],
+                  media_type:  'movie',
+                  media_cover: posterMap.get(id) ?? null,
+                  position:    idx,
+                }
+              })
+
+              const BATCH = 50
+              for (let i = 0; i < listItems.length; i += BATCH) {
+                await supabase.from('user_list_items').insert(listItems.slice(i, i + BATCH))
+              }
+              listCreated = true
+            }
+          } catch (e: any) {
+            logger.error('[Letterboxd Import] Errore creazione lista:', e)
+          }
+        }
+
+        const listMsg = listCreated ? ` Lista "${effectiveListName}" creata in "Le mie liste".` : ''
+
         send({
           type:      'done',
           imported,
@@ -446,7 +499,7 @@ export async function POST(request: NextRequest) {
           watchlist: watchlistRows.length,
           list:      listRows.length,
           posters:   { found, notFound, total: found },
-          message:   `Importati ${imported} film da Letterboxd${merged > 0 ? `, ${merged} uniti con duplicati` : ''} (${found} poster trovati${notFound > 0 ? `, ${notFound} senza immagine` : ''})`,
+          message:   `Importati ${imported} film da Letterboxd${merged > 0 ? `, ${merged} uniti con duplicati` : ''} (${found} poster trovati${notFound > 0 ? `, ${notFound} senza immagine` : ''}).${listMsg}`,
         })
       } catch (e: any) {
         send({ type: 'error', message: e.message || 'Errore imprevisto.' })
