@@ -213,6 +213,46 @@ CREATE TABLE IF NOT EXISTS boardgames_cache (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Cache globale poster/dati film Letterboxd (via TMDB).
+-- Condivisa tra tutti gli utenti: se utente A importa "Inception",
+-- utente B non richiama TMDB ma prende i dati da qui.
+CREATE TABLE IF NOT EXISTS tmdb_poster_cache (
+    external_id  TEXT PRIMARY KEY,   -- es. "letterboxd-inception-2010"
+    tmdb_id      INTEGER,
+    poster_url   TEXT,
+    title        TEXT,
+    year         TEXT,
+    found        BOOLEAN NOT NULL DEFAULT false,
+    last_checked TIMESTAMPTZ DEFAULT now()
+);
+
+-- Cache globale poster/titoli MAL (via MAL API o Jikan).
+-- Condivisa tra tutti gli utenti: evita chiamate API ripetute per lo stesso MAL ID.
+CREATE TABLE IF NOT EXISTS mal_poster_cache (
+    mal_id       INTEGER NOT NULL,
+    media_type   TEXT NOT NULL CHECK (media_type IN ('anime', 'manga')),
+    poster_url   TEXT,
+    title_it     TEXT,   -- titolo italiano se disponibile via MAL alternative_titles
+    found        BOOLEAN NOT NULL DEFAULT false,
+    last_checked TIMESTAMPTZ DEFAULT now(),
+    PRIMARY KEY (mal_id, media_type)
+);
+
+-- Cache globale dati AniList.
+-- Memorizza poster URL e titoli (incluso italiano da cross-reference MAL)
+-- per evitare lookup ripetuti e arricchire i titoli con la lingua locale.
+CREATE TABLE IF NOT EXISTS anilist_cache (
+    anilist_id    INTEGER NOT NULL,
+    media_type    TEXT NOT NULL CHECK (media_type IN ('anime', 'manga')),
+    poster_url    TEXT,
+    title_romaji  TEXT,
+    title_english TEXT,
+    title_it      TEXT,  -- titolo italiano, ottenuto da mal_poster_cache via idMal
+    found         BOOLEAN NOT NULL DEFAULT true,
+    last_checked  TIMESTAMPTZ DEFAULT now(),
+    PRIMARY KEY (anilist_id, media_type)
+);
+
 -- =============================================
 -- INDEXES per performance
 -- =============================================
@@ -227,6 +267,8 @@ CREATE INDEX IF NOT EXISTS idx_notifications_receiver ON notifications(receiver_
 CREATE INDEX IF NOT EXISTS idx_steam_import_log_user ON steam_import_log(user_id, imported_at DESC);
 CREATE INDEX IF NOT EXISTS idx_user_media_entries_genres ON user_media_entries USING GIN(genres);
 CREATE INDEX IF NOT EXISTS idx_recommendations_cache_user ON recommendations_cache(user_id, expires_at);
+CREATE INDEX IF NOT EXISTS idx_mal_poster_cache_type ON mal_poster_cache(media_type, mal_id);
+CREATE INDEX IF NOT EXISTS idx_anilist_cache_type ON anilist_cache(media_type, anilist_id);
 
 -- =============================================
 -- TRIGGER per updated_at
