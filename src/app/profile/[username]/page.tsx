@@ -207,8 +207,12 @@ function MediaCard({
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           onError={(e) => {
             const img = e.target as HTMLImageElement
-            img.onerror = null
-            img.style.display = 'none'
+            if (!img.src.includes('wsrv.nl')) {
+              img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=jpg`
+            } else {
+              img.onerror = null
+              img.style.display = 'none'
+            }
           }}
         />
       )
@@ -470,7 +474,7 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
         {media.is_steam ? (
           <SteamCoverImg appid={media.appid} title={media.title} />
         ) : media.cover_image ? (
-          <img src={media.cover_image} alt={media.title} className="w-full h-full object-cover" />
+          <img src={media.cover_image} alt={media.title} className="w-full h-full object-cover" onError={(e) => { const img = e.target as HTMLImageElement; if (!img.src.includes("wsrv.nl")) { img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=jpg` } else { img.onerror = null; img.style.display = "none" } }} />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-zinc-600">📺</div>
         )}

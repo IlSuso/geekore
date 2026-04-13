@@ -146,8 +146,8 @@ function MediaCard({
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             onError={(e) => {
               const img = e.target as HTMLImageElement
-              if (img.src.includes('anilist.co') && !img.src.includes('wsrv.nl')) {
-                img.src = `https://wsrv.nl/?url=${encodeURIComponent(img.src)}&w=500&output=jpg`
+              if (!img.src.includes('wsrv.nl')) {
+                img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=jpg`
               } else {
                 img.onerror = null
                 img.style.display = 'none'
@@ -246,7 +246,7 @@ function MediaRow({
         {media.is_steam ? (
           <SteamCoverImg appid={media.appid} title={media.title} />
         ) : media.cover_image ? (
-          <img src={media.cover_image} alt={media.title} className="w-full h-full object-cover" />
+          <img src={(media.cover_image.includes('myanimelist.net') || media.cover_image.includes('anilist.co')) && !media.cover_image.includes('wsrv.nl') ? `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image)}&w=500&output=jpg` : media.cover_image} alt={media.title} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-zinc-600 text-lg">📺</div>
         )}
