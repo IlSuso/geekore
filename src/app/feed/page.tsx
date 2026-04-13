@@ -1,32 +1,60 @@
 'use client'
 // src/app/feed/page.tsx
-// ── Implementazioni roadmap ──────────────────────────────────────────────────
-//   #13  Cache client-side in-memory: i post sono memoizzati per 2 min.
-//        Navigare avanti/indietro non ricarica tutto da zero.
-//   #25  Post in evidenza: i 2 post con più like degli ultimi 7 giorni
-//        vengono mostrati con badge "In evidenza" in cima al feed.
-//   #7   Skeleton loaders coerenti: usa SkeletonFeedPost durante il loading.
-//   P2   React.memo sul componente PostCard per evitare re-render inutili.
-//   #31  Haptic feedback su like e pubblicazione.
-//   P5   Import condizionale locale date-fns — carica solo it o enUS, non entrambe.
-//   #9   Contatore caratteri live anche sui commenti (appare sopra 400 char).
+// ── Implementazioni ──────────────────────────────────────────────────────────
+//   #13  Cache client-side in-memory (2 min TTL)
+//   #25  Post in evidenza: i 2 con più like negli ultimi 7 giorni
+//   #7   Skeleton loaders
+//   P2   React.memo su PostCard
+//   #31  Haptic feedback su like e pubblicazione
+//   P5   Import condizionale locale date-fns
+//   #9   Contatore caratteri live sui commenti (>400 char)
+//   CAT  Categoria post: macro fissa + titolo specifico libero (es: Film:Forrest Gump)
+//   AFF  Tracking affinità utente per categoria su like/commento
+//   IGF  Algoritmo feed Instagram-like: ogni 5 post dei seguiti → 1 post discovery
+//   FLT  Filtro feed per macro-categoria + ricerca sottocategoria libera
 
 import { useState, useEffect, useCallback, memo, useRef } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { User } from '@supabase/supabase-js'
-import { Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X, Loader2, Pin, ArrowUp, Trash2 } from 'lucide-react'
+import {
+  Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X,
+  Loader2, Pin, ArrowUp, Trash2, Tag, ChevronDown, Filter, Search
+} from 'lucide-react'
 import { SkeletonFeedPost } from '@/components/ui/SkeletonCard'
 import { Avatar } from '@/components/ui/Avatar'
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll'
 import { formatDistanceToNow } from 'date-fns'
-// P5: import separati per evitare di caricare entrambe le locale sempre
 import { it } from 'date-fns/locale/it'
 import { enUS } from 'date-fns/locale/en-US'
 import { useLocale } from '@/lib/locale'
 import { FeedSidebar } from '@/components/feed/FeedSidebar'
 
-// ── Tipi ────────────────────────────────────────────────────────────────────
+// ── Macro-categorie ───────────────────────────────────────────────────────────
+
+const MACRO_CATEGORIES = [
+  'Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga', 'Board Game', 'Fumetti', 'Tecnologia',
+]
+
+const CATEGORY_ICON: Record<string, string> = {
+  'Film': '🎬', 'Serie TV': '📺', 'Videogiochi': '🎮',
+  'Anime': '⛩️', 'Manga': '📖', 'Board Game': '🎲',
+  'Fumetti': '💥', 'Tecnologia': '💻',
+}
+
+// Suggerimenti rapidi per sottocategoria — mostrati come chip nel composer
+const QUICK_SUBS: Record<string, string[]> = {
+  'Film': ['Azione', 'Commedia', 'Horror', 'Fantascienza', 'Animazione'],
+  'Serie TV': ['Drama', 'Commedia', 'Thriller', 'Fantascienza', 'Reality'],
+  'Videogiochi': ['RPG', 'FPS', 'Battle Royale', 'Strategia', 'Indie'],
+  'Anime': ['Shonen', 'Shojo', 'Seinen', 'Isekai', 'Slice of Life'],
+  'Manga': ['Shonen', 'Shojo', 'Seinen', 'Josei', 'Webtoon'],
+  'Board Game': ['Strategia', 'Party', 'Cooperativo', 'Deck Building'],
+  'Fumetti': ['Marvel', 'DC', 'Indie'],
+  'Tecnologia': ['Gaming', 'AI', 'Mobile', 'PC'],
+}
+
+// ── Tipi ─────────────────────────────────────────────────────────────────────
 
 type Comment = {
   id: string
@@ -43,6 +71,7 @@ type Post = {
   content: string
   image_url?: string | null
   created_at: string
+  category?: string | null
   profiles: {
     username: string
     display_name?: string
@@ -52,10 +81,12 @@ type Post = {
   comments_count: number
   liked_by_user: boolean
   comments: Comment[]
-  pinned?: boolean // #25
+  pinned?: boolean
+  isDiscovery?: boolean
 }
 
-// ── #13 Cache in-memory ──────────────────────────────────────────────────────
+// ── Cache in-memory ──────────────────────────────────────────────────────────
+
 const cache: {
   posts: Post[] | null
   page: number
@@ -74,47 +105,512 @@ function isCacheValid(filter: 'all' | 'following') {
   )
 }
 
-// ── #31 Haptic ───────────────────────────────────────────────────────────────
 function haptic(pattern: number | number[] = 30) {
-  if (typeof navigator !== 'undefined' && navigator.vibrate) {
-    navigator.vibrate(pattern)
-  }
+  if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(pattern)
 }
 
 const PAGE_SIZE = 20
 const PINNED_LIKE_THRESHOLD = 3
+const DISCOVERY_INTERVAL = 5
 
-// ── P2 PostCard con React.memo ───────────────────────────────────────────────
-const PostCard = memo(function PostCard({
-  post,
-  currentUser,
-  isLiking,
-  commentingPostId,
-  commentContent,
-  locale,
-  onLike,
-  onToggleComment,
-  onCommentChange,
-  onAddComment,
-  onDelete,
-  onDeleteComment,
-  expandedComments,
-  onExpandComments,
+// ── Helpers categoria ────────────────────────────────────────────────────────
+
+function parseCategoryString(cat: string | null | undefined): { category: string; subcategory: string } | null {
+  if (!cat) return null
+  const idx = cat.indexOf(':')
+  if (idx === -1) return { category: cat, subcategory: '' }
+  return { category: cat.slice(0, idx), subcategory: cat.slice(idx + 1) }
+}
+
+function CategoryBadge({ category, onClick }: { category: string | null | undefined; onClick?: () => void }) {
+  if (!category) return null
+  const parsed = parseCategoryString(category)
+  if (!parsed) return null
+  const icon = CATEGORY_ICON[parsed.category] || '🏷️'
+  const label = parsed.subcategory ? `${parsed.category}: ${parsed.subcategory}` : parsed.category
+  return (
+    <span
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-[10px] font-semibold text-zinc-300 ${onClick ? 'cursor-pointer hover:border-fuchsia-500/60 hover:text-fuchsia-300 transition-colors' : ''}`}
+    >
+      {icon} {label}
+    </span>
+  )
+}
+
+// ── API search per categoria ─────────────────────────────────────────────────
+
+type SearchResult = { id: string; title: string; subtitle?: string; image?: string }
+
+async function searchByCategory(category: string, query: string): Promise<SearchResult[]> {
+  if (!query || query.trim().length < 2) return []
+  const q = encodeURIComponent(query.trim())
+
+  try {
+    if (category === 'Film') {
+      const res = await fetch(`/api/tmdb?q=${q}&type=movie`, { signal: AbortSignal.timeout(5000) })
+      if (!res.ok) return []
+      const data = await res.json()
+      return (data || []).slice(0, 8).map((item: any) => ({
+        id: String(item.id || item.tmdbId || item.title),
+        title: item.title || item.name || '',
+        subtitle: item.year ? String(item.year) : item.releaseDate?.slice(0, 4),
+        image: item.poster || item.cover,
+      }))
+    }
+
+    if (category === 'Serie TV') {
+      const res = await fetch(`/api/tmdb?q=${q}&type=tv`, { signal: AbortSignal.timeout(5000) })
+      if (!res.ok) return []
+      const data = await res.json()
+      return (data || []).slice(0, 8).map((item: any) => ({
+        id: String(item.id || item.tmdbId || item.title),
+        title: item.title || item.name || '',
+        subtitle: item.year ? String(item.year) : item.releaseDate?.slice(0, 4),
+        image: item.poster || item.cover,
+      }))
+    }
+
+    if (category === 'Videogiochi') {
+      const res = await fetch(`/api/igdb`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ search: query.trim(), limit: 8 }),
+        signal: AbortSignal.timeout(6000),
+      })
+      if (!res.ok) return []
+      const data = await res.json()
+      const items = Array.isArray(data) ? data : (data.results || data.games || [])
+      return items.slice(0, 8).map((item: any) => ({
+        id: String(item.id || item.name),
+        title: item.name || item.title || '',
+        subtitle: item.first_release_date ? new Date(item.first_release_date * 1000).getFullYear().toString()
+          : item.year ? String(item.year) : undefined,
+        image: item.cover?.url ? `https:${item.cover.url.replace('t_thumb', 't_cover_small')}` : item.cover,
+      }))
+    }
+
+    if (category === 'Anime' || category === 'Manga') {
+      const type = category === 'Anime' ? 'ANIME' : 'MANGA'
+      const res = await fetch(`/api/anilist?search=${q}&type=${type}`, { signal: AbortSignal.timeout(5000) })
+      if (!res.ok) return []
+      const data = await res.json()
+      const items = Array.isArray(data) ? data : (data.results || data.media || [])
+      return items.slice(0, 8).map((item: any) => ({
+        id: String(item.id || item.anilistId),
+        title: item.title?.english || item.title?.romaji || item.title || '',
+        subtitle: item.seasonYear ? String(item.seasonYear) : undefined,
+        image: item.coverImage?.large || item.cover,
+      }))
+    }
+
+    if (category === 'Board Game') {
+      const res = await fetch(`/api/boardgames?q=${q}`, { signal: AbortSignal.timeout(5000) })
+      if (!res.ok) return []
+      const data = await res.json()
+      const items = Array.isArray(data) ? data : (data.results || data.games || [])
+      return items.slice(0, 8).map((item: any) => ({
+        id: String(item.id || item.name),
+        title: item.name || item.title || '',
+        subtitle: item.year ? String(item.year) : item.yearPublished ? String(item.yearPublished) : undefined,
+        image: item.image || item.cover,
+      }))
+    }
+
+  } catch {}
+  return []
+}
+
+// ── Selettore categoria (composer) con autocomplete API ──────────────────────
+// Step 1: scegli macro-categoria
+// Step 2: digita → autocomplete live via API → clicca per selezionare
+
+function CategorySelector({ value, onChange }: { value: string; onChange: (val: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [selectedCat, setSelectedCat] = useState('')
+  const [subInput, setSubInput] = useState('')
+  const [suggestions, setSuggestions] = useState<SearchResult[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [activeSuggestion, setActiveSuggestion] = useState(-1)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const ref = useRef<HTMLDivElement>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Categorie con API support
+  const API_CATEGORIES = new Set(['Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga', 'Board Game'])
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  useEffect(() => {
+    if (open && selectedCat) setTimeout(() => inputRef.current?.focus(), 50)
+  }, [open, selectedCat])
+
+  // Debounced search
+  useEffect(() => {
+    if (!selectedCat || !API_CATEGORIES.has(selectedCat)) return
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (!subInput.trim() || subInput.trim().length < 2) {
+      setSuggestions([]); setIsSearching(false); return
+    }
+    setIsSearching(true)
+    debounceRef.current = setTimeout(async () => {
+      const results = await searchByCategory(selectedCat, subInput)
+      setSuggestions(results)
+      setIsSearching(false)
+      setActiveSuggestion(-1)
+    }, 320)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [subInput, selectedCat])
+
+  const handleSelectMacro = (cat: string) => {
+    setSelectedCat(cat); setSubInput(''); setSuggestions([]); onChange(cat)
+  }
+
+  const handleSelectSuggestion = (result: SearchResult) => {
+    setSubInput(result.title)
+    onChange(`${selectedCat}:${result.title}`)
+    setSuggestions([])
+    setOpen(false)
+  }
+
+  const handleClear = () => {
+    setSelectedCat(''); setSubInput(''); setSuggestions([]); onChange(''); setOpen(false)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (suggestions.length === 0) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActiveSuggestion(i => Math.min(i + 1, suggestions.length - 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveSuggestion(i => Math.max(i - 1, 0)) }
+    else if (e.key === 'Enter') {
+      e.preventDefault()
+      if (activeSuggestion >= 0) handleSelectSuggestion(suggestions[activeSuggestion])
+    }
+    else if (e.key === 'Escape') { setSuggestions([]); setActiveSuggestion(-1) }
+  }
+
+  const parsed = parseCategoryString(value)
+  const displayLabel = value
+    ? `${CATEGORY_ICON[parsed?.category || ''] || '🏷️'} ${parsed?.subcategory ? `${parsed.category}: ${parsed.subcategory}` : parsed?.category}`
+    : 'Aggiungi categoria'
+
+  const hasApiSupport = API_CATEGORIES.has(selectedCat)
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+          value
+            ? 'bg-violet-600/20 border-violet-500/40 text-violet-300'
+            : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-600'
+        }`}
+      >
+        <Tag size={12} />
+        {displayLabel}
+        <ChevronDown size={11} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        {value && (
+          <span onClick={e => { e.stopPropagation(); handleClear() }} className="ml-1 text-zinc-400 hover:text-red-400 transition-colors">
+            <X size={11} />
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute bottom-full mb-2 left-0 z-50 bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
+          style={{ minWidth: selectedCat ? 320 : 280 }}>
+          <div className="p-3">
+            {!selectedCat ? (
+              <>
+                <p className="text-[10px] text-zinc-500 font-semibold px-1 pb-2 uppercase tracking-wider">Scegli categoria</p>
+                <div className="grid grid-cols-2 gap-1">
+                  {MACRO_CATEGORIES.map(cat => (
+                    <button key={cat} type="button" onClick={() => handleSelectMacro(cat)}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all text-left group">
+                      <span className="text-base">{CATEGORY_ICON[cat] || '🏷️'}</span>
+                      <span className="flex-1">{cat}</span>
+                      {API_CATEGORIES.has(cat) && (
+                        <span className="text-[9px] text-violet-500/70 group-hover:text-violet-400 font-medium">API</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 mb-3 pb-2.5 border-b border-zinc-800">
+                  <button type="button" onClick={() => { setSelectedCat(''); setSuggestions([]) }}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all text-sm">←</button>
+                  <span className="text-base">{CATEGORY_ICON[selectedCat]}</span>
+                  <p className="text-sm font-semibold text-white flex-1">{selectedCat}</p>
+                </div>
+
+                {/* Input ricerca */}
+                <div className="relative mb-1">
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={subInput}
+                    onChange={e => setSubInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={hasApiSupport
+                      ? `Cerca ${selectedCat === 'Film' ? 'un film...' : selectedCat === 'Serie TV' ? 'una serie...' : selectedCat === 'Videogiochi' ? 'un videogioco...' : selectedCat === 'Anime' ? 'un anime...' : selectedCat === 'Manga' ? 'un manga...' : 'un titolo...'}`
+                      : `titolo specifico...`}
+                    className="w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500 rounded-xl pl-8 pr-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
+                  />
+                  {isSearching && (
+                    <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-violet-400 animate-spin" />
+                  )}
+                </div>
+
+                {/* Suggerimenti API */}
+                {suggestions.length > 0 && (
+                  <div className="mt-1 rounded-xl overflow-hidden border border-zinc-700/60 bg-zinc-950 max-h-[260px] overflow-y-auto">
+                    {suggestions.map((result, idx) => (
+                      <button
+                        key={result.id}
+                        type="button"
+                        onClick={() => handleSelectSuggestion(result)}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors border-b border-zinc-800/60 last:border-0 ${
+                          idx === activeSuggestion ? 'bg-violet-600/20 text-white' : 'hover:bg-zinc-800 text-zinc-200'
+                        }`}
+                      >
+                        {result.image ? (
+                          <img
+                            src={result.image}
+                            alt={result.title}
+                            className="w-8 h-10 object-cover rounded-md flex-shrink-0 bg-zinc-800"
+                            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                          />
+                        ) : (
+                          <div className="w-8 h-10 rounded-md bg-zinc-800 flex items-center justify-center flex-shrink-0 text-lg">
+                            {CATEGORY_ICON[selectedCat] || '🏷️'}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{result.title}</p>
+                          {result.subtitle && <p className="text-[11px] text-zinc-500">{result.subtitle}</p>}
+                        </div>
+                        <ChevronDown size={12} className="text-zinc-600 -rotate-90 flex-shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Stato vuoto o hint */}
+                {!hasApiSupport && !suggestions.length && (
+                  <>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {(QUICK_SUBS[selectedCat] || []).map(sub => (
+                        <button key={sub} type="button"
+                          onClick={() => { onChange(`${selectedCat}:${sub}`); setOpen(false) }}
+                          className="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-xs text-zinc-300 hover:border-violet-500/60 hover:text-violet-300 transition-all">
+                          {sub}
+                        </button>
+                      ))}
+                    </div>
+                    {subInput.trim() && (
+                      <button type="button"
+                        onClick={() => { onChange(`${selectedCat}:${subInput.trim()}`); setOpen(false) }}
+                        className="mt-2 w-full px-3 py-2 rounded-xl bg-violet-600/20 border border-violet-500/40 text-violet-300 text-xs font-semibold hover:bg-violet-600/30 transition">
+                        Usa «{subInput.trim()}»
+                      </button>
+                    )}
+                  </>
+                )}
+
+                {hasApiSupport && subInput.trim().length >= 2 && !isSearching && suggestions.length === 0 && (
+                  <p className="text-xs text-zinc-600 text-center py-3">Nessun risultato trovato</p>
+                )}
+
+                {hasApiSupport && subInput.trim().length < 2 && !suggestions.length && (
+                  <p className="text-[11px] text-zinc-600 text-center py-2">
+                    Digita almeno 2 caratteri per cercare
+                  </p>
+                )}
+
+                <button type="button" onClick={() => { onChange(selectedCat); setOpen(false) }}
+                  className="mt-3 w-full text-center text-xs text-zinc-600 hover:text-zinc-400 transition-colors py-1">
+                  Usa solo «{selectedCat}» senza titolo
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Filtro feed per categoria ─────────────────────────────────────────────────
+// Permette di filtrare per macro + cercare sottocategoria specifica
+
+function CategoryFilter({
+  activeFilter,
+  onFilterChange,
 }: {
-  post: Post
-  currentUser: User | null
-  isLiking: boolean
-  commentingPostId: string | null
-  commentContent: string
-  locale: string
-  onLike: (id: string) => void
-  onToggleComment: (id: string) => void
-  onCommentChange: (val: string) => void
-  onAddComment: (id: string) => void
-  onDelete: (id: string) => void
-  onDeleteComment: (commentId: string, postId: string) => void
-  expandedComments: Set<string>
-  onExpandComments: (id: string) => void
+  activeFilter: string
+  onFilterChange: (val: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [activeMacro, setActiveMacro] = useState('')
+  const [subSearch, setSubSearch] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const handleMacro = (cat: string) => {
+    if (activeMacro === cat) {
+      setActiveMacro('')
+      setSubSearch('')
+    } else {
+      setActiveMacro(cat)
+      setSubSearch('')
+    }
+  }
+
+  const applyFilter = (val: string) => {
+    onFilterChange(val)
+    setOpen(false)
+  }
+
+  const parsed = parseCategoryString(activeFilter)
+  const displayLabel = activeFilter
+    ? `${CATEGORY_ICON[parsed?.category || ''] || '🏷️'} ${parsed?.subcategory ? `${parsed.category}: ${parsed.subcategory}` : parsed?.category}`
+    : 'Filtra categoria'
+
+  return (
+    <div ref={ref} className="relative">
+      <button onClick={() => setOpen(o => !o)}
+        className={`flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm font-semibold border transition-all ${
+          activeFilter ? 'bg-fuchsia-600/20 border-fuchsia-500/40 text-fuchsia-300' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'
+        }`}>
+        <Filter size={14} />
+        {displayLabel}
+        {activeFilter && (
+          <span onClick={e => { e.stopPropagation(); applyFilter(''); setActiveMacro(''); setSubSearch('') }} className="ml-1 hover:text-red-400 transition-colors">
+            <X size={12} />
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute top-full mt-2 left-0 z-50 bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl shadow-black/60 w-[300px] p-3">
+          <p className="text-[10px] text-zinc-500 font-semibold px-1 pb-2 uppercase tracking-wider">Filtra per categoria</p>
+
+          {/* Macro chips */}
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {MACRO_CATEGORIES.map(cat => (
+              <button key={cat} onClick={() => handleMacro(cat)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                  activeMacro === cat
+                    ? 'bg-fuchsia-600/30 border-fuchsia-500/60 text-fuchsia-300'
+                    : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-500'
+                }`}>
+                {CATEGORY_ICON[cat]} {cat}
+              </button>
+            ))}
+          </div>
+
+          {activeMacro && (
+            <>
+              {/* Applica solo macro */}
+              <button onClick={() => applyFilter(activeMacro)}
+                className="w-full text-left px-3 py-2 rounded-xl text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition mb-2">
+                Tutti i post di <strong>{activeMacro}</strong>
+              </button>
+
+              {/* Ricerca titolo specifico */}
+              <div className="relative mb-2">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <input
+                  autoFocus
+                  type="text"
+                  value={subSearch}
+                  onChange={e => setSubSearch(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && subSearch.trim()) applyFilter(`${activeMacro}:${subSearch.trim()}`) }}
+                  placeholder={`Cerca titolo in ${activeMacro}...`}
+                  className="w-full bg-zinc-800 border border-zinc-700 focus:border-fuchsia-500 rounded-xl pl-8 pr-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
+                />
+              </div>
+
+              {subSearch.trim() && (
+                <button onClick={() => applyFilter(`${activeMacro}:${subSearch.trim()}`)}
+                  className="w-full px-3 py-2 rounded-xl bg-fuchsia-600/20 border border-fuchsia-500/40 text-fuchsia-300 text-sm font-semibold hover:bg-fuchsia-600/30 transition">
+                  Cerca «{subSearch.trim()}» in {activeMacro}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Smart feed (algoritmo IG-like) ───────────────────────────────────────────
+
+function buildSmartFeed(followingPosts: Post[], discoveryPosts: Post[]): Post[] {
+  if (discoveryPosts.length === 0) return followingPosts
+  const result: Post[] = []
+  let discIdx = 0
+  for (let i = 0; i < followingPosts.length; i++) {
+    result.push(followingPosts[i])
+    if ((i + 1) % DISCOVERY_INTERVAL === 0 && discIdx < discoveryPosts.length) {
+      result.push({ ...discoveryPosts[discIdx], isDiscovery: true })
+      discIdx++
+    }
+  }
+  return result
+}
+
+// ── Tracking affinità ────────────────────────────────────────────────────────
+
+async function trackAffinity(supabase: any, userId: string, category: string | null | undefined) {
+  if (!category) return
+  const parsed = parseCategoryString(category)
+  if (!parsed) return
+  const { category: cat, subcategory: sub } = parsed
+  try {
+    const { error } = await supabase.from('user_category_affinity')
+      .upsert(
+        { user_id: userId, category: cat, subcategory: sub || 'Generico', score: 1, last_interacted_at: new Date().toISOString() },
+        { onConflict: 'user_id,category,subcategory' }
+      )
+    if (!error) {
+      await supabase.rpc('increment_category_score', { p_user_id: userId, p_category: cat, p_subcategory: sub || 'Generico' })
+        .catch(() => {})
+    }
+  } catch {}
+}
+
+// ── PostCard ──────────────────────────────────────────────────────────────────
+
+const PostCard = memo(function PostCard({
+  post, currentUser, isLiking, commentingPostId, commentContent, locale,
+  onLike, onToggleComment, onCommentChange, onAddComment, onDelete, onDeleteComment,
+  expandedComments, onExpandComments, onCategoryClick,
+}: {
+  post: Post; currentUser: User | null; isLiking: boolean
+  commentingPostId: string | null; commentContent: string; locale: string
+  onLike: (id: string) => void; onToggleComment: (id: string) => void
+  onCommentChange: (val: string) => void; onAddComment: (id: string) => void
+  onDelete: (id: string) => void; onDeleteComment: (commentId: string, postId: string) => void
+  expandedComments: Set<string>; onExpandComments: (id: string) => void
+  onCategoryClick?: (category: string) => void
 }) {
   const isCommenting = commentingPostId === post.id
   const isExpanded = expandedComments.has(post.id)
@@ -123,11 +619,11 @@ const PostCard = memo(function PostCard({
 
   return (
     <div className={`bg-zinc-950 border rounded-3xl p-6 transition-all duration-300 animate-in fade-in slide-in-from-top-2 ${
-      post.pinned
-        ? 'border-violet-500/40 ring-1 ring-violet-500/20'
-        : 'border-zinc-800'
+      post.pinned ? 'border-violet-500/40 ring-1 ring-violet-500/20'
+      : post.isDiscovery ? 'border-fuchsia-500/30 ring-1 ring-fuchsia-500/10'
+      : 'border-zinc-800'
     }`}>
-      {/* #25 Badge in evidenza */}
+
       {post.pinned && (
         <div className="flex items-center gap-1.5 mb-4 text-violet-400">
           <Pin size={12} className="rotate-45" />
@@ -135,105 +631,75 @@ const PostCard = memo(function PostCard({
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-5">
+      {post.isDiscovery && !post.pinned && (
+        <div className="flex items-center gap-1.5 mb-4 text-fuchsia-400">
+          <Sparkles size={12} />
+          <span className="text-[10px] font-bold uppercase tracking-widest">Consigliato per te</span>
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 mb-4">
         <Link href={`/profile/${post.profiles.username}`} className="w-11 h-11 rounded-2xl overflow-hidden ring-2 ring-violet-500/20 hover:ring-violet-500/50 transition-all flex-shrink-0">
-          <Avatar
-            src={post.profiles.avatar_url}
-            username={post.profiles.username}
-            displayName={post.profiles.display_name}
-            size={44}
-            className="rounded-2xl"
-          />
+          <Avatar src={post.profiles.avatar_url} username={post.profiles.username} displayName={post.profiles.display_name} size={44} className="rounded-2xl" />
         </Link>
         <div className="flex-1">
           <Link href={`/profile/${post.profiles.username}`} className="hover:text-violet-400 transition-colors">
             <p className="font-bold text-white">{post.profiles.display_name || post.profiles.username}</p>
           </Link>
           <p className="text-xs text-zinc-500">
-            @{post.profiles.username} · {formatDistanceToNow(new Date(post.created_at), {
-              addSuffix: true, locale: locale === 'en' ? enUS : it,
-            })}
+            @{post.profiles.username} · {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })}
           </p>
         </div>
         {currentUser && currentUser.id === post.user_id && (
-          <button
-            onClick={() => onDelete(post.id)}
-            className="p-2 rounded-xl text-zinc-600 hover:text-red-400 hover:bg-red-400/10 transition-all"
-            title="Elimina post"
-          >
+          <button onClick={() => onDelete(post.id)} className="p-2 rounded-xl text-zinc-600 hover:text-red-400 hover:bg-red-400/10 transition-all" title="Elimina post">
             <Trash2 size={15} />
           </button>
         )}
       </div>
 
-      <p className="text-[16px] leading-relaxed mb-5 whitespace-pre-wrap text-zinc-100">{post.content}</p>
-
-      {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
-        <div className="mb-5 rounded-2xl overflow-hidden border border-zinc-700">
-          <img
-            src={post.image_url}
-            alt="post"
-            className="w-full max-h-[400px] object-contain bg-black"
-            loading="lazy"
+      {post.category && (
+        <div className="mb-3">
+          <CategoryBadge
+            category={post.category}
+            onClick={onCategoryClick ? () => onCategoryClick(post.category!) : undefined}
           />
         </div>
       )}
 
-      {/* Actions */}
+      <p className="text-[16px] leading-relaxed mb-5 whitespace-pre-wrap text-zinc-100">{post.content}</p>
+
+      {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
+        <div className="mb-5 rounded-2xl overflow-hidden border border-zinc-700">
+          <img src={post.image_url} alt="post" className="w-full max-h-[400px] object-contain bg-black" loading="lazy" />
+        </div>
+      )}
+
       <div className="flex gap-8 border-t border-zinc-800 pt-5 text-zinc-400">
-        <button
-          onClick={() => onLike(post.id)}
-          className={`flex items-center gap-2 transition-all ${post.liked_by_user ? 'text-red-500' : 'hover:text-red-400'}`}
-        >
-          <Heart
-            size={22}
-            fill={post.liked_by_user ? 'currentColor' : 'none'}
-            className={isLiking ? 'animate-heart-burst' : ''}
-          />
+        <button onClick={() => onLike(post.id)} className={`flex items-center gap-2 transition-all ${post.liked_by_user ? 'text-red-500' : 'hover:text-red-400'}`}>
+          <Heart size={22} fill={post.liked_by_user ? 'currentColor' : 'none'} className={isLiking ? 'animate-heart-burst' : ''} />
           <span className="text-sm font-medium">{post.likes_count}</span>
         </button>
-        <button
-          onClick={() => onToggleComment(post.id)}
-          className={`flex items-center gap-2 transition-all ${isCommenting ? 'text-violet-400' : 'hover:text-violet-400'}`}
-        >
+        <button onClick={() => onToggleComment(post.id)} className={`flex items-center gap-2 transition-all ${isCommenting ? 'text-violet-400' : 'hover:text-violet-400'}`}>
           <MessageCircle size={22} />
           <span className="text-sm font-medium">{post.comments_count}</span>
         </button>
       </div>
 
-      {/* #9 Comment input con contatore caratteri live */}
       {isCommenting && (
         <div className="mt-4 flex flex-col gap-1">
           <div className="flex gap-2">
-            <input
-              type="text"
-              value={commentContent}
-              onChange={e => onCommentChange(e.target.value.slice(0, 500))}
-              placeholder="Scrivi un commento..."
-              maxLength={500}
+            <input type="text" value={commentContent} onChange={e => onCommentChange(e.target.value.slice(0, 500))}
+              placeholder="Scrivi un commento..." maxLength={500}
               className="flex-1 bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-2xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition"
-              onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onAddComment(post.id) }
-              }}
-            />
-            <button
-              onClick={() => onAddComment(post.id)}
-              className="bg-violet-600 hover:bg-violet-500 px-4 rounded-2xl transition"
-            >
-              <Send size={16} />
-            </button>
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onAddComment(post.id) } }} />
+            <button onClick={() => onAddComment(post.id)} className="bg-violet-600 hover:bg-violet-500 px-4 rounded-2xl transition"><Send size={16} /></button>
           </div>
-          {/* Contatore: appare solo quando si avvicina al limite (>400 caratteri) */}
           {commentContent.length > 400 && (
-            <div className={`text-right text-xs pr-14 ${commentContent.length >= 480 ? 'text-orange-400' : 'text-zinc-600'}`}>
-              {commentContent.length}/500
-            </div>
+            <div className={`text-right text-xs pr-14 ${commentContent.length >= 480 ? 'text-orange-400' : 'text-zinc-600'}`}>{commentContent.length}/500</div>
           )}
         </div>
       )}
 
-      {/* Comments list */}
       {post.comments.length > 0 && (
         <div className="mt-4 pl-3 border-l-2 border-zinc-800 space-y-3 text-sm">
           {visibleComments.map(comment => (
@@ -243,20 +709,12 @@ const PostCard = memo(function PostCard({
                 <span className="ml-2 text-zinc-300">{comment.content}</span>
               </div>
               {currentUser && currentUser.id === comment.user_id && (
-                <button
-                  onClick={() => onDeleteComment(comment.id, post.id)}
-                  className="text-zinc-600 hover:text-red-400 transition-colors flex-shrink-0 mt-0.5"
-                >
-                  <Trash2 size={11} />
-                </button>
+                <button onClick={() => onDeleteComment(comment.id, post.id)} className="text-zinc-600 hover:text-red-400 transition-colors flex-shrink-0 mt-0.5"><Trash2 size={11} /></button>
               )}
             </div>
           ))}
           {!isExpanded && hiddenCount > 0 && (
-            <button
-              onClick={() => onExpandComments(post.id)}
-              className="text-xs text-zinc-500 hover:text-violet-400 transition-colors"
-            >
+            <button onClick={() => onExpandComments(post.id)} className="text-xs text-zinc-500 hover:text-violet-400 transition-colors">
               +{hiddenCount} {hiddenCount === 1 ? 'altro commento' : 'altri commenti'}
             </button>
           )}
@@ -272,6 +730,7 @@ export default function FeedPage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [pinnedPosts, setPinnedPosts] = useState<Post[]>([])
   const [newPostContent, setNewPostContent] = useState('')
+  const [newPostCategory, setNewPostCategory] = useState('')
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [isPublishing, setIsPublishing] = useState(false)
@@ -286,10 +745,11 @@ export default function FeedPage() {
   const [feedFilter, setFeedFilter] = useState<'all' | 'following'>('all')
   const [likingIds, setLikingIds] = useState<Set<string>>(new Set())
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set())
-  const [newPostsCount, setNewPostsCount] = useState(0) // N8: contatore nuovi post realtime
+  const [newPostsCount, setNewPostsCount] = useState(0)
+  const [categoryFilter, setCategoryFilter] = useState<string>('')
+
   const latestPostIdRef = useRef<string | null>(null)
   const pageRef = useRef(0)
-
   const supabase = createClient()
   const { locale, t } = useLocale()
   const f = t.feed
@@ -311,22 +771,12 @@ export default function FeedPage() {
       const { data: { user } } = await supabase.auth.getUser()
       setCurrentUser(user)
       if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('username, display_name, avatar_url')
-          .eq('id', user.id)
-          .single()
+        const { data: profile } = await supabase.from('profiles').select('username, display_name, avatar_url').eq('id', user.id).single()
         setCurrentProfile(profile)
-
         if (isCacheValid('all')) {
-          setPosts(cache.posts!)
-          setPage(cache.page)
-          setHasMore(cache.hasMore)
-          setLoading(false)
-          loadPinnedPosts(user.id)
-          return
+          setPosts(cache.posts!); setPage(cache.page); setHasMore(cache.hasMore); setLoading(false)
+          loadPinnedPosts(user.id); return
         }
-
         await loadPosts(user.id, 0, false)
         await loadPinnedPosts(user.id)
       } else {
@@ -336,302 +786,231 @@ export default function FeedPage() {
     init()
   }, [])
 
-  // N8: Supabase Realtime — ascolta nuovi post senza aggiornare automaticamente
   useEffect(() => {
-    const channel = supabase
-      .channel('public:posts')
+    const channel = supabase.channel('public:posts')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, (payload) => {
         const newId = payload.new?.id
-        // Ignora se è già il post più recente (appena pubblicato da noi)
         if (!newId || newId === latestPostIdRef.current) return
         setNewPostsCount(prev => prev + 1)
-      })
-      .subscribe()
-
+      }).subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [supabase])
 
-  // N8: aggiorna ref quando arrivano nuovi post
   useEffect(() => {
-    if (posts.length > 0) {
-      latestPostIdRef.current = posts[0].id
-    }
+    if (posts.length > 0) latestPostIdRef.current = posts[0].id
   }, [posts])
 
   const handleShowNewPosts = async () => {
     if (!currentUser) return
-    setNewPostsCount(0)
-    pageRef.current = 0
-    setPage(0)
-    setHasMore(true)
+    setNewPostsCount(0); pageRef.current = 0; setPage(0); setHasMore(true)
     await loadPosts(currentUser.id, 0, false, feedFilter)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const loadPinnedPosts = useCallback(async (userId: string) => {
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-
-    const { data, error } = await supabase
-      .from('posts')
-      .select(`
-        id, user_id, content, image_url, created_at,
-        likes (id, user_id),
-        comments (id, content, created_at, user_id)
-      `)
-      .gte('created_at', since)
-      .order('created_at', { ascending: false })
-      .limit(50)
-
-    if (error) { if (process.env.NODE_ENV === 'development') console.error('[Feed] Errore pinned posts:', error); return }
-    if (!data) return
+    const { data, error } = await supabase.from('posts')
+      .select(`id, user_id, content, image_url, created_at, category, likes (id, user_id), comments (id, content, created_at, user_id)`)
+      .gte('created_at', since).order('created_at', { ascending: false }).limit(50)
+    if (error || !data) return
 
     const withLikes = data
       .map((p: any) => ({ ...p, _likeCount: (p.likes || []).length }))
       .filter((p: any) => p._likeCount >= PINNED_LIKE_THRESHOLD)
-      .sort((a: any, b: any) => b._likeCount - a._likeCount)
-      .slice(0, 2)
+      .sort((a: any, b: any) => b._likeCount - a._likeCount).slice(0, 2)
 
-    // Fetch profili autori post separatamente
     const postUserIds = [...new Set(withLikes.map((p: any) => p.user_id))]
     let postProfileMap: Record<string, any> = {}
     if (postUserIds.length > 0) {
-      const { data: postProfiles } = await supabase
-        .from('profiles')
-        .select('id, username, display_name, avatar_url')
-        .in('id', postUserIds)
-      postProfiles?.forEach((p: any) => { postProfileMap[p.id] = p })
+      const { data: pp } = await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', postUserIds)
+      pp?.forEach((p: any) => { postProfileMap[p.id] = p })
     }
-
-    // Fetch profili autori commenti separatamente
     const allCommentsPinned = withLikes.flatMap((p: any) => p.comments || [])
     const commentUserIds = [...new Set(allCommentsPinned.map((c: any) => c.user_id))]
     let commentProfileMap: Record<string, any> = {}
     if (commentUserIds.length > 0) {
-      const { data: commentProfiles } = await supabase
-        .from('profiles')
-        .select('id, username, display_name')
-        .in('id', commentUserIds)
-      commentProfiles?.forEach((p: any) => { commentProfileMap[p.id] = p })
+      const { data: cp } = await supabase.from('profiles').select('id, username, display_name').in('id', commentUserIds)
+      cp?.forEach((p: any) => { commentProfileMap[p.id] = p })
     }
 
-    const formatted = withLikes.map((post: any) => {
+    setPinnedPosts(withLikes.map((post: any) => {
       const likes = post.likes || []
-      const comments = (post.comments || []).map((c: any) => ({
-        id: c.id,
-        content: c.content,
-        created_at: c.created_at,
-        user_id: c.user_id,
-        username: commentProfileMap[c.user_id]?.username || 'utente',
-        display_name: commentProfileMap[c.user_id]?.display_name,
-      }))
       const profile = postProfileMap[post.user_id]
-
       return {
-        id: post.id,
-        content: post.content,
-        image_url: post.image_url,
-        created_at: post.created_at,
-        profiles: {
-          username: profile?.username || '',
-          display_name: profile?.display_name,
-          avatar_url: profile?.avatar_url,
-        },
-        likes_count: likes.length,
-        liked_by_user: likes.some((l: any) => l.user_id === userId),
-        comments_count: comments.length,
-        comments,
-        pinned: true,
-        user_id: post.user_id,
+        id: post.id, content: post.content, image_url: post.image_url,
+        created_at: post.created_at, category: post.category,
+        profiles: { username: profile?.username || '', display_name: profile?.display_name, avatar_url: profile?.avatar_url },
+        likes_count: likes.length, liked_by_user: likes.some((l: any) => l.user_id === userId),
+        comments_count: (post.comments || []).length,
+        comments: (post.comments || []).map((c: any) => ({
+          id: c.id, content: c.content, created_at: c.created_at, user_id: c.user_id,
+          username: commentProfileMap[c.user_id]?.username || 'utente',
+          display_name: commentProfileMap[c.user_id]?.display_name,
+        })),
+        pinned: true, user_id: post.user_id,
       }
-    })
-
-    setPinnedPosts(formatted)
+    }))
   }, [supabase])
 
-  const loadPosts = useCallback(async (
-    userId: string,
-    pageIndex = 0,
-    append = false,
-    filter: 'all' | 'following' = 'all'
-  ) => {
-    if (append) setLoadingMore(true)
-    else setLoading(true)
+  const getUserTopCategory = useCallback(async (userId: string) => {
+    const { data } = await supabase.from('user_category_affinity')
+      .select('category, subcategory, score').eq('user_id', userId)
+      .order('score', { ascending: false }).limit(1)
+    if (!data || data.length === 0) return null
+    return { category: data[0].category, subcategory: data[0].subcategory }
+  }, [supabase])
 
+  const loadDiscoveryPosts = useCallback(async (userId: string, followingIds: string[], topAffinity: { category: string; subcategory: string } | null): Promise<Post[]> => {
+    if (!topAffinity) return []
+    const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+
+    // Cerca per macro-categoria con ilike per coprire tutti i titoli (Film:Forrest Gump, Film:Azione, ecc.)
+    const { data } = await supabase.from('posts')
+      .select(`id, user_id, content, image_url, created_at, category, likes (id, user_id)`)
+      .ilike('category', `${topAffinity.category}:%`)
+      .gte('created_at', since).limit(50)
+    if (!data) return []
+
+    const eligible = data
+      .filter((p: any) => p.user_id !== userId && !followingIds.includes(p.user_id))
+      .map((p: any) => ({ ...p, _likeCount: (p.likes || []).length }))
+      .sort((a: any, b: any) => b._likeCount - a._likeCount).slice(0, 5)
+    if (eligible.length === 0) return []
+
+    const postUserIds = [...new Set(eligible.map((p: any) => p.user_id))]
+    let ppMap: Record<string, any> = {}
+    if (postUserIds.length > 0) {
+      const { data: pp } = await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', postUserIds)
+      pp?.forEach((p: any) => { ppMap[p.id] = p })
+    }
+    return eligible.map((post: any) => {
+      const likes = post.likes || []
+      const profile = ppMap[post.user_id]
+      return {
+        id: post.id, user_id: post.user_id, content: post.content,
+        image_url: post.image_url, created_at: post.created_at, category: post.category,
+        profiles: { username: profile?.username || '', display_name: profile?.display_name, avatar_url: profile?.avatar_url },
+        likes_count: likes.length, liked_by_user: likes.some((l: any) => l.user_id === userId),
+        comments_count: 0, comments: [], isDiscovery: true,
+      }
+    })
+  }, [supabase])
+
+  const loadPosts = useCallback(async (userId: string, pageIndex = 0, append = false, filter: 'all' | 'following' = 'all') => {
+    if (append) setLoadingMore(true); else setLoading(true)
     const from = pageIndex * PAGE_SIZE
     const to = from + PAGE_SIZE - 1
 
     let followingIds: string[] = []
-    if (filter === 'following') {
-      const { data: followsData } = await supabase
-        .from('follows')
-        .select('following_id')
-        .eq('follower_id', userId)
-      followingIds = (followsData || []).map((f: any) => f.following_id)
-      if (followingIds.length === 0) {
-        setPosts(append ? (prev => prev) : [])
-        setHasMore(false)
-        if (append) setLoadingMore(false)
-        else setLoading(false)
-        return
-      }
+    const { data: followsData } = await supabase.from('follows').select('following_id').eq('follower_id', userId)
+    followingIds = (followsData || []).map((f: any) => f.following_id)
+
+    if (filter === 'following' && followingIds.length === 0) {
+      setPosts(append ? (prev => prev) : []); setHasMore(false)
+      if (append) setLoadingMore(false); else setLoading(false); return
     }
 
-    // Carica post senza FK hint — i profili autori vengono caricati separatamente
-    let query = supabase
-      .from('posts')
-      .select(`
-        id, user_id, content, image_url, created_at,
-        likes (id, user_id),
-        comments (id, content, created_at, user_id)
-      `)
-      .order('created_at', { ascending: false })
-      .range(from, to)
-
-    if (filter === 'following' && followingIds.length > 0) {
-      query = query.in('user_id', followingIds)
-    }
+    let query = supabase.from('posts')
+      .select(`id, user_id, content, image_url, created_at, category, likes (id, user_id), comments (id, content, created_at, user_id)`)
+      .order('created_at', { ascending: false }).range(from, to)
+    if (filter === 'following' && followingIds.length > 0) query = query.in('user_id', followingIds)
 
     const { data: postsData } = await query
 
     const allComments = (postsData || []).flatMap((p: any) => p.comments || [])
-    const uniqueUserIds = [...new Set(allComments.map((c: any) => c.user_id))]
-
+    const uniqueCommentUserIds = [...new Set(allComments.map((c: any) => c.user_id))]
     let profileMap: Record<string, any> = {}
-    if (uniqueUserIds.length > 0) {
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, username, display_name')
-        .in('id', uniqueUserIds)
-      profilesData?.forEach((p: any) => { profileMap[p.id] = p })
+    if (uniqueCommentUserIds.length > 0) {
+      const { data: pd } = await supabase.from('profiles').select('id, username, display_name').in('id', uniqueCommentUserIds)
+      pd?.forEach((p: any) => { profileMap[p.id] = p })
     }
-
-    // Fetch profili autori post separatamente
-    const postUserIds2 = [...new Set((postsData || []).map((p: any) => p.user_id))]
-    let postProfileMap2: Record<string, any> = {}
-    if (postUserIds2.length > 0) {
-      const { data: postProfilesData } = await supabase
-        .from('profiles')
-        .select('id, username, display_name, avatar_url')
-        .in('id', postUserIds2)
-      postProfilesData?.forEach((p: any) => { postProfileMap2[p.id] = p })
+    const postUserIds = [...new Set((postsData || []).map((p: any) => p.user_id))]
+    let ppMap: Record<string, any> = {}
+    if (postUserIds.length > 0) {
+      const { data: ppd } = await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', postUserIds)
+      ppd?.forEach((p: any) => { ppMap[p.id] = p })
     }
 
     const formatted: Post[] = (postsData || []).map((post: any) => {
       const likes = post.likes || []
-      const profile = postProfileMap2[post.user_id]
-      const comments = (post.comments || []).map((c: any) => ({
-        id: c.id,
-        content: c.content,
-        created_at: c.created_at,
-        user_id: c.user_id,
-        username: profileMap[c.user_id]?.username || 'utente',
-        display_name: profileMap[c.user_id]?.display_name,
-      }))
+      const profile = ppMap[post.user_id]
       return {
-        id: post.id,
-        user_id: post.user_id,
-        content: post.content,
-        image_url: post.image_url,
-        created_at: post.created_at,
-        profiles: {
-          username: profile?.username || '',
-          display_name: profile?.display_name,
-          avatar_url: profile?.avatar_url,
-        },
-        likes_count: likes.length,
-        liked_by_user: likes.some((l: any) => l.user_id === userId),
-        comments_count: comments.length,
-        comments,
+        id: post.id, user_id: post.user_id, content: post.content,
+        image_url: post.image_url, created_at: post.created_at, category: post.category,
+        profiles: { username: profile?.username || '', display_name: profile?.display_name, avatar_url: profile?.avatar_url },
+        likes_count: likes.length, liked_by_user: likes.some((l: any) => l.user_id === userId),
+        comments_count: (post.comments || []).length,
+        comments: (post.comments || []).map((c: any) => ({
+          id: c.id, content: c.content, created_at: c.created_at, user_id: c.user_id,
+          username: profileMap[c.user_id]?.username || 'utente',
+          display_name: profileMap[c.user_id]?.display_name,
+        })),
       }
     })
 
     const newHasMore = (postsData || []).length === PAGE_SIZE
-
-    // Esclude dal feed normale i post già mostrati in evidenza
     const pinnedIds = new Set(pinnedPosts.map(p => p.id))
     const filteredFormatted = formatted.filter(p => !pinnedIds.has(p.id))
 
+    let finalPosts = filteredFormatted
+    if (filter === 'following' && pageIndex === 0) {
+      const topAffinity = await getUserTopCategory(userId)
+      const discoveryPosts = await loadDiscoveryPosts(userId, followingIds, topAffinity)
+      finalPosts = buildSmartFeed(filteredFormatted, discoveryPosts)
+    }
+
     if (append) {
       setPosts(prev => {
-        const merged = [...prev, ...filteredFormatted]
-        cache.posts = merged
-        cache.page = pageIndex
-        cache.hasMore = newHasMore
-        cache.filter = filter
-        cache.ts = Date.now()
+        const merged = [...prev, ...finalPosts]
+        cache.posts = merged; cache.page = pageIndex; cache.hasMore = newHasMore; cache.filter = filter; cache.ts = Date.now()
         return merged
       })
       setLoadingMore(false)
     } else {
-      setPosts(filteredFormatted)
-      cache.posts = filteredFormatted
-      cache.page = pageIndex
-      cache.hasMore = newHasMore
-      cache.filter = filter
-      cache.ts = Date.now()
+      setPosts(finalPosts)
+      cache.posts = finalPosts; cache.page = pageIndex; cache.hasMore = newHasMore; cache.filter = filter; cache.ts = Date.now()
       setLoading(false)
     }
-
     setHasMore(newHasMore)
-  }, [supabase, pinnedPosts])
+  }, [supabase, pinnedPosts, getUserTopCategory, loadDiscoveryPosts])
 
   const handleFilterChange = async (filter: 'all' | 'following') => {
     if (!currentUser) return
-    setFeedFilter(filter)
-    pageRef.current = 0
-    setPage(0)
-    setHasMore(true)
+    setFeedFilter(filter); pageRef.current = 0; setPage(0); setHasMore(true)
     await loadPosts(currentUser.id, 0, false, filter)
   }
 
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault()
     if ((!newPostContent.trim() && !selectedImage) || !currentUser || isPublishing) return
-    setIsPublishing(true)
-    haptic(50)
+    setIsPublishing(true); haptic(50)
 
     let imageUrl = null
     if (selectedImage) {
       const ALLOWED = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
       if (!ALLOWED.includes(selectedImage.type)) { setIsPublishing(false); return }
       const fileName = `${Date.now()}-${selectedImage.name}`
-      const { error: uploadErr } = await supabase.storage
-        .from('post-images')
-        .upload(fileName, selectedImage, { contentType: selectedImage.type })
+      const { error: uploadErr } = await supabase.storage.from('post-images').upload(fileName, selectedImage, { contentType: selectedImage.type })
       if (!uploadErr) {
         const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(fileName)
         imageUrl = urlData.publicUrl
       }
     }
 
-    const { data: newPostData, error } = await supabase
-      .from('posts')
-      .insert({ user_id: currentUser.id, content: newPostContent.trim(), image_url: imageUrl })
-      .select('id, content, image_url, created_at')
-      .single()
+    const { data: newPostData, error } = await supabase.from('posts')
+      .insert({ user_id: currentUser.id, content: newPostContent.trim(), image_url: imageUrl, category: newPostCategory || null })
+      .select('id, content, image_url, created_at, category').single()
 
     if (!error && newPostData) {
-      // Usa il profilo già caricato in currentProfile invece di fare una join
       const optimisticPost: Post = {
-        id: newPostData.id,
-        user_id: currentUser.id,
-        content: newPostData.content,
-        image_url: newPostData.image_url,
-        created_at: newPostData.created_at,
+        id: newPostData.id, user_id: currentUser.id, content: newPostData.content,
+        image_url: newPostData.image_url, created_at: newPostData.created_at, category: newPostData.category,
         profiles: { username: currentProfile?.username || '', display_name: currentProfile?.display_name, avatar_url: currentProfile?.avatar_url },
         likes_count: 0, comments_count: 0, liked_by_user: false, comments: [],
       }
-      setPosts(prev => {
-        const updated = [optimisticPost, ...prev]
-        cache.posts = updated
-        cache.ts = Date.now()
-        return updated
-      })
-      setNewPostContent('')
-      setSelectedImage(null)
-      setImagePreview(null)
+      setPosts(prev => { const updated = [optimisticPost, ...prev]; cache.posts = updated; cache.ts = Date.now(); return updated })
+      setNewPostContent(''); setNewPostCategory(''); setSelectedImage(null); setImagePreview(null)
     }
-
     setIsPublishing(false)
   }
 
@@ -644,83 +1023,53 @@ export default function FeedPage() {
     if (!currentUser) return
     const postIndex = posts.findIndex(p => p.id === postId)
     if (postIndex === -1) return
-
     const current = posts[postIndex]
     const willLike = !current.liked_by_user
-
     if (willLike) {
       haptic([40, 20, 40])
       setLikingIds(prev => new Set([...prev, postId]))
       setTimeout(() => setLikingIds(prev => { const s = new Set(prev); s.delete(postId); return s }), 400)
-    } else {
-      haptic(20)
-    }
-
-    setPosts(prev => prev.map((p, i) => i === postIndex
-      ? { ...p, likes_count: willLike ? p.likes_count + 1 : p.likes_count - 1, liked_by_user: willLike }
-      : p
-    ))
-
-    if (willLike) {
-      await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id })
-    } else {
-      await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
-    }
+      if (current.category) trackAffinity(supabase, currentUser.id, current.category)
+    } else { haptic(20) }
+    setPosts(prev => prev.map((p, i) => i === postIndex ? { ...p, likes_count: willLike ? p.likes_count + 1 : p.likes_count - 1, liked_by_user: willLike } : p))
+    if (willLike) await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id })
+    else await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
   }, [currentUser, posts, supabase])
 
   const toggleLikePinned = useCallback(async (postId: string) => {
     if (!currentUser) return
     const postIndex = pinnedPosts.findIndex(p => p.id === postId)
     if (postIndex === -1) return
-
     const current = pinnedPosts[postIndex]
     const willLike = !current.liked_by_user
-
     if (willLike) {
       haptic([40, 20, 40])
       setLikingIds(prev => new Set([...prev, postId]))
       setTimeout(() => setLikingIds(prev => { const s = new Set(prev); s.delete(postId); return s }), 400)
+      if (current.category) trackAffinity(supabase, currentUser.id, current.category)
     }
-
-    setPinnedPosts(prev => prev.map((p, i) => i === postIndex
-      ? { ...p, likes_count: willLike ? p.likes_count + 1 : p.likes_count - 1, liked_by_user: willLike }
-      : p
-    ))
-
-    if (willLike) {
-      await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id })
-    } else {
-      await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
-    }
+    setPinnedPosts(prev => prev.map((p, i) => i === postIndex ? { ...p, likes_count: willLike ? p.likes_count + 1 : p.likes_count - 1, liked_by_user: willLike } : p))
+    if (willLike) await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id })
+    else await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
   }, [currentUser, pinnedPosts, supabase])
 
   const handleAddComment = useCallback(async (postId: string) => {
     if (!commentContent.trim() || !currentUser) return
     haptic(30)
-
+    const post = posts.find(p => p.id === postId)
+    if (post?.category) trackAffinity(supabase, currentUser.id, post.category)
     const newCommentTemp: Comment = {
-      id: 'temp-' + Date.now(),
-      content: commentContent.trim(),
-      created_at: new Date().toISOString(),
-      user_id: currentUser.id,
-      username: currentProfile?.username || 'utente',
-      display_name: currentProfile?.display_name,
+      id: 'temp-' + Date.now(), content: commentContent.trim(),
+      created_at: new Date().toISOString(), user_id: currentUser.id,
+      username: currentProfile?.username || 'utente', display_name: currentProfile?.display_name,
     }
-
-    setPosts(prev => prev.map(post =>
-      post.id === postId
-        ? { ...post, comments_count: post.comments_count + 1, comments: [newCommentTemp, ...post.comments] }
-        : post
-    ))
-
+    setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments_count: p.comments_count + 1, comments: [newCommentTemp, ...p.comments] } : p))
     await supabase.from('comments').insert({ post_id: postId, user_id: currentUser.id, content: commentContent.trim() })
-    setCommentContent('')
-    setCommentingPostId(null)
-  }, [commentContent, currentUser, currentProfile, supabase])
+    setCommentContent(''); setCommentingPostId(null)
+  }, [commentContent, currentUser, currentProfile, posts, supabase])
 
   const handleToggleComment = useCallback((postId: string) => {
-    setCommentingPostId(prev => prev === postId ? null : postId)
-    setCommentContent('')
+    setCommentingPostId(prev => prev === postId ? null : postId); setCommentContent('')
   }, [])
 
   const handleExpandComments = useCallback((postId: string) => {
@@ -730,34 +1079,40 @@ export default function FeedPage() {
   const handleDeleteComment = useCallback(async (commentId: string, postId: string) => {
     if (!currentUser) return
     await supabase.from('comments').delete().eq('id', commentId)
-    setPosts(prev => prev.map(p =>
-      p.id === postId
-        ? { ...p, comments_count: p.comments_count - 1, comments: p.comments.filter(c => c.id !== commentId) }
-        : p
-    ))
-    setPinnedPosts(prev => prev.map(p =>
-      p.id === postId
-        ? { ...p, comments_count: p.comments_count - 1, comments: p.comments.filter(c => c.id !== commentId) }
-        : p
-    ))
+    const remove = (p: Post) => p.id === postId ? { ...p, comments_count: p.comments_count - 1, comments: p.comments.filter(c => c.id !== commentId) } : p
+    setPosts(prev => prev.map(remove)); setPinnedPosts(prev => prev.map(remove))
   }, [currentUser, supabase])
 
   const handleDeletePost = useCallback(async (postId: string) => {
     if (!currentUser) return
-    // Rimozione ottimistica
-    setPosts(prev => {
-      const updated = prev.filter(p => p.id !== postId)
-      cache.posts = updated
-      cache.ts = Date.now()
-      return updated
-    })
+    setPosts(prev => { const updated = prev.filter(p => p.id !== postId); cache.posts = updated; cache.ts = Date.now(); return updated })
     setPinnedPosts(prev => prev.filter(p => p.id !== postId))
-    // Cancella commenti, likes e post (le FK con ON DELETE CASCADE potrebbero già farlo,
-    // ma lo facciamo esplicitamente per sicurezza)
     await supabase.from('comments').delete().eq('post_id', postId)
     await supabase.from('likes').delete().eq('post_id', postId)
     await supabase.from('posts').delete().eq('id', postId).eq('user_id', currentUser.id)
   }, [currentUser, supabase])
+
+  // Filtro client-side: supporta sia "Film" (solo macro) che "Film:Forrest Gump" (match esatto sottocategoria)
+  const displayedPosts = categoryFilter
+    ? posts.filter(p => {
+        if (!p.category) return false
+        const filterParsed = parseCategoryString(categoryFilter)
+        const postParsed = parseCategoryString(p.category)
+        if (!filterParsed || !postParsed) return false
+        if (filterParsed.category !== postParsed.category) return false
+        // Se il filtro ha una sottocategoria, controlla match case-insensitive
+        if (filterParsed.subcategory) {
+          return postParsed.subcategory.toLowerCase().includes(filterParsed.subcategory.toLowerCase())
+        }
+        return true // solo macro, mostra tutto
+      })
+    : posts
+
+  // Click su un badge categoria in un post → attiva il filtro per quella categoria
+  const handleCategoryClick = useCallback((category: string) => {
+    setCategoryFilter(prev => prev === category ? '' : category)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [])
 
   if (loading) {
     return (
@@ -773,157 +1128,159 @@ export default function FeedPage() {
     <div className="min-h-screen bg-black text-white">
       <div className="pt-8 pb-20 max-w-screen-2xl mx-auto px-6">
         <div className="flex gap-8 items-start min-h-screen">
-          {/* ── Colonna principale feed (60%) ─────────────────────── */}
+
+          {/* ── Colonna principale ─────────────────────────────────── */}
           <div className="flex-1 min-w-0">
 
-        {/* Composer */}
-        {currentUser && (
-          <div className="mb-8 bg-zinc-950 border border-zinc-800 rounded-3xl p-6">
-            <form onSubmit={handleCreatePost}>
-              <textarea
-                data-testid="post-composer"
-                value={newPostContent}
-                onChange={e => setNewPostContent(e.target.value.slice(0, 500))}
-                placeholder={f.placeholder}
-                maxLength={500}
-                className="w-full bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-2xl p-5 text-base min-h-[120px] resize-none focus:outline-none transition-colors"
-              />
-              <div className={`text-right text-xs mt-1 ${newPostContent.length >= 480 ? 'text-orange-400' : 'text-zinc-600'}`}>
-                {newPostContent.length}/500
+            {/* Composer */}
+            {currentUser && (
+              <div className="mb-8 bg-zinc-950 border border-zinc-800 rounded-3xl p-6">
+                <form onSubmit={handleCreatePost}>
+                  <textarea
+                    data-testid="post-composer"
+                    value={newPostContent}
+                    onChange={e => setNewPostContent(e.target.value.slice(0, 500))}
+                    placeholder={f.placeholder}
+                    maxLength={500}
+                    className="w-full bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-2xl p-5 text-base min-h-[120px] resize-none focus:outline-none transition-colors"
+                  />
+                  <div className={`text-right text-xs mt-1 ${newPostContent.length >= 480 ? 'text-orange-400' : 'text-zinc-600'}`}>
+                    {newPostContent.length}/500
+                  </div>
+                  {imagePreview && (
+                    <div className="mt-3 relative rounded-2xl overflow-hidden border border-zinc-700">
+                      <img src={imagePreview} alt="preview" className="max-h-72 w-full object-contain bg-black" />
+                      <button type="button" onClick={() => { setSelectedImage(null); setImagePreview(null) }}
+                        className="absolute top-3 right-3 bg-black/80 p-2 rounded-full hover:bg-red-600 transition">
+                        <X size={16} />
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex flex-wrap items-center gap-2 mt-4">
+                    <CategorySelector value={newPostCategory} onChange={setNewPostCategory} />
+                    <label className="cursor-pointer bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 px-3 py-1.5 rounded-xl flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition">
+                      <ImageIcon size={14} /> {f.addImage}
+                      <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+                    </label>
+                    <button type="submit" disabled={isPublishing}
+                      className="ml-auto bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-1.5 rounded-xl font-semibold text-sm hover:brightness-110 disabled:opacity-70 transition flex items-center gap-2">
+                      {isPublishing ? <><Loader2 size={14} className="animate-spin" /> {f.publishing}</> : f.publish}
+                    </button>
+                  </div>
+                </form>
               </div>
-              {imagePreview && (
-                <div className="mt-3 relative rounded-2xl overflow-hidden border border-zinc-700">
-                  <img src={imagePreview} alt="preview" className="max-h-72 w-full object-contain bg-black" />
-                  <button type="button" onClick={() => { setSelectedImage(null); setImagePreview(null) }}
-                    className="absolute top-3 right-3 bg-black/80 p-2 rounded-full hover:bg-red-600 transition">
-                    <X size={16} />
-                  </button>
-                </div>
-              )}
-              <div className="flex gap-3 mt-4">
-                <label className="cursor-pointer flex-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 py-3 rounded-2xl flex items-center justify-center gap-2 text-sm transition">
-                  <ImageIcon size={18} /> {f.addImage}
-                  <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
-                </label>
-                <button type="submit" disabled={isPublishing}
-                  className="flex-1 bg-gradient-to-r from-violet-600 to-fuchsia-600 py-3 rounded-2xl font-semibold text-sm hover:brightness-110 disabled:opacity-70 transition flex items-center justify-center gap-2">
-                  {isPublishing ? <><Loader2 size={16} className="animate-spin" /> {f.publishing}</> : f.publish}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+            )}
 
-        {/* N8: Banner "nuovi post" — non aggiorna automaticamente per non disturbare la lettura */}
-        {newPostsCount > 0 && (
-          <button
-            onClick={handleShowNewPosts}
-            className="flex items-center gap-2 mx-auto mb-4 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-full text-sm font-semibold text-white shadow-lg shadow-violet-500/30 transition-all hover:scale-105 animate-in fade-in slide-in-from-top-2"
-          >
-            <ArrowUp size={14} />
-            🆕 {newPostsCount === 1 ? '1 nuovo post' : `${newPostsCount} nuovi post`} — clicca per vedere
-          </button>
-        )}
-
-        {/* Filter tabs */}
-        {currentUser && (
-          <div className="flex gap-2 mb-6 bg-zinc-950 border border-zinc-800 rounded-2xl p-1.5 w-fit">
-            {(['all', 'following'] as const).map(filter => (
-              <button key={filter}
-                data-testid={`filter-${filter}`}
-                onClick={() => handleFilterChange(filter)}
-                className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${
-                  feedFilter === filter ? 'bg-violet-600 text-white' : 'text-zinc-400 hover:text-white'
-                }`}>
-                {filter === 'all' ? f.filterAll : f.filterFollowing}
+            {/* Banner nuovi post */}
+            {newPostsCount > 0 && (
+              <button onClick={handleShowNewPosts}
+                className="flex items-center gap-2 mx-auto mb-4 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-full text-sm font-semibold text-white shadow-lg shadow-violet-500/30 transition-all hover:scale-105 animate-in fade-in slide-in-from-top-2">
+                <ArrowUp size={14} />
+                🆕 {newPostsCount === 1 ? '1 nuovo post' : `${newPostsCount} nuovi post`} — clicca per vedere
               </button>
-            ))}
+            )}
+
+            {/* Filter tabs + filtro categoria */}
+            {currentUser && (
+              <div className="flex flex-wrap items-center gap-3 mb-6">
+                <div className="flex gap-2 bg-zinc-950 border border-zinc-800 rounded-2xl p-1.5">
+                  {(['all', 'following'] as const).map(filter => (
+                    <button key={filter} data-testid={`filter-${filter}`} onClick={() => handleFilterChange(filter)}
+                      className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${feedFilter === filter ? 'bg-violet-600 text-white' : 'text-zinc-400 hover:text-white'}`}>
+                      {filter === 'all' ? f.filterAll : f.filterFollowing}
+                    </button>
+                  ))}
+                </div>
+
+                <CategoryFilter activeFilter={categoryFilter} onFilterChange={setCategoryFilter} />
+
+                {/* Badge filtro attivo con X rapida */}
+                {categoryFilter && (
+                  <span className="text-xs text-zinc-500">
+                    {displayedPosts.length} post trovati
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Post in evidenza */}
+            {feedFilter === 'all' && !categoryFilter && pinnedPosts.length > 0 && (
+              <div className="mb-8">
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles size={14} className="text-violet-400" />
+                  <span className="text-xs font-bold text-violet-400 uppercase tracking-widest">In evidenza questa settimana</span>
+                </div>
+                <div className="space-y-4">
+                  {pinnedPosts.map(post => (
+                    <PostCard key={`pinned-${post.id}`} post={post} currentUser={currentUser}
+                      isLiking={likingIds.has(post.id)} commentingPostId={commentingPostId}
+                      commentContent={commentContent} locale={locale}
+                      onLike={toggleLikePinned} onToggleComment={handleToggleComment}
+                      onCommentChange={setCommentContent} onAddComment={handleAddComment}
+                      onDelete={handleDeletePost} onDeleteComment={handleDeleteComment}
+                      expandedComments={expandedComments} onExpandComments={handleExpandComments}
+                      onCategoryClick={handleCategoryClick} />
+                  ))}
+                </div>
+                <div className="h-px bg-zinc-800 my-8" />
+              </div>
+            )}
+
+            {/* Feed posts */}
+            <div className="space-y-6">
+              {displayedPosts.length === 0 ? (
+                <div className="text-center py-24">
+                  <Sparkles className="mx-auto mb-6 text-violet-500" size={56} />
+                  <p className="text-xl font-medium">
+                    {categoryFilter
+                      ? `Nessun post per "${parseCategoryString(categoryFilter)?.subcategory || categoryFilter}"`
+                      : feedFilter === 'following' ? f.noFollowingTitle : f.emptyTitle}
+                  </p>
+                  <p className="text-zinc-500 mt-2">
+                    {categoryFilter
+                      ? 'Sii il primo a pubblicare in questa categoria!'
+                      : feedFilter === 'following' ? f.noFollowingHint : f.emptyHint}
+                  </p>
+                  {categoryFilter && (
+                    <button onClick={() => setCategoryFilter('')}
+                      className="mt-4 px-4 py-2 rounded-xl border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 text-sm transition">
+                      Rimuovi filtro
+                    </button>
+                  )}
+                </div>
+              ) : (
+                displayedPosts.map(post => (
+                  <PostCard key={post.id} post={post} currentUser={currentUser}
+                    isLiking={likingIds.has(post.id)} commentingPostId={commentingPostId}
+                    commentContent={commentContent} locale={locale}
+                    onLike={toggleLike} onToggleComment={handleToggleComment}
+                    onCommentChange={setCommentContent} onAddComment={handleAddComment}
+                    onDelete={handleDeletePost} onDeleteComment={handleDeleteComment}
+                    expandedComments={expandedComments} onExpandComments={handleExpandComments}
+                    onCategoryClick={handleCategoryClick} />
+                ))
+              )}
+
+              <div ref={sentinelRef} className="h-4" />
+
+              {loadingMore && (
+                <div className="flex justify-center py-6"><Loader2 size={24} className="animate-spin text-violet-400" /></div>
+              )}
+
+              {!hasMore && posts.length > 0 && (
+                <p className="text-center text-zinc-600 text-sm py-6">Hai visto tutto! 🎉</p>
+              )}
+            </div>
           </div>
-        )}
 
-        {/* #25 Post in evidenza */}
-        {feedFilter === 'all' && pinnedPosts.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles size={14} className="text-violet-400" />
-              <span className="text-xs font-bold text-violet-400 uppercase tracking-widest">In evidenza questa settimana</span>
-            </div>
-            <div className="space-y-4">
-              {pinnedPosts.map(post => (
-                <PostCard
-                  key={`pinned-${post.id}`}
-                  post={post}
-                  currentUser={currentUser}
-                  isLiking={likingIds.has(post.id)}
-                  commentingPostId={commentingPostId}
-                  commentContent={commentContent}
-                  locale={locale}
-                  onLike={toggleLikePinned}
-                  onToggleComment={handleToggleComment}
-                  onCommentChange={setCommentContent}
-                  onAddComment={handleAddComment}
-                  onDelete={handleDeletePost}
-                  onDeleteComment={handleDeleteComment}
-                  expandedComments={expandedComments}
-                  onExpandComments={handleExpandComments}
-                />
-              ))}
-            </div>
-            <div className="h-px bg-zinc-800 my-8" />
-          </div>
-        )}
-
-        {/* Posts */}
-        <div className="space-y-6">
-          {posts.length === 0 ? (
-            <div className="text-center py-24">
-              <Sparkles className="mx-auto mb-6 text-violet-500" size={56} />
-              <p className="text-xl font-medium">{feedFilter === 'following' ? f.noFollowingTitle : f.emptyTitle}</p>
-              <p className="text-zinc-500 mt-2">{feedFilter === 'following' ? f.noFollowingHint : f.emptyHint}</p>
-            </div>
-          ) : (
-            posts.map(post => (
-              <PostCard
-                key={post.id}
-                post={post}
-                currentUser={currentUser}
-                isLiking={likingIds.has(post.id)}
-                commentingPostId={commentingPostId}
-                commentContent={commentContent}
-                locale={locale}
-                onLike={toggleLike}
-                onToggleComment={handleToggleComment}
-                onCommentChange={setCommentContent}
-                onAddComment={handleAddComment}
-                onDelete={handleDeletePost}
-                onDeleteComment={handleDeleteComment}
-                expandedComments={expandedComments}
-                onExpandComments={handleExpandComments}
-              />
-            ))
-          )}
-
-          <div ref={sentinelRef} className="h-4" />
-
-          {loadingMore && (
-            <div className="flex justify-center py-6">
-              <Loader2 size={24} className="animate-spin text-violet-400" />
-            </div>
-          )}
-
-          {!hasMore && posts.length > 0 && (
-            <p className="text-center text-zinc-600 text-sm py-6">Hai visto tutto! 🎉</p>
-          )}
-        </div>
-          </div>{/* fine colonna principale */}
-
-          {/* ── Sidebar destra (35%) ───────────────────────────────── */}
+          {/* ── Sidebar ────────────────────────────────────────────── */}
           <div className="hidden lg:block w-80 flex-shrink-0">
             <div className="sticky top-20">
               <FeedSidebar currentUserId={currentUser?.id || null} />
             </div>
           </div>
-        </div>{/* fine flex */}
+
+        </div>
       </div>
     </div>
   )
