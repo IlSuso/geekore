@@ -53,7 +53,9 @@ self.addEventListener('fetch', (event) => {
     url.hostname.includes('tmdb.org') ||
     url.hostname.includes('igdb.com') ||
     url.hostname.includes('geekdo-images.com') ||
-    url.hostname.includes('dicebear.com')
+    url.hostname.includes('dicebear.com') ||
+    url.hostname.includes('myanimelist.net') ||
+    url.hostname.includes('wsrv.nl')
   ) return
 
   event.respondWith(networkFirst(request))
