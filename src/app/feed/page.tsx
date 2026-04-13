@@ -24,7 +24,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { it } from 'date-fns/locale/it'
 import { enUS } from 'date-fns/locale/en-US'
 import { useLocale } from '@/lib/locale'
-import FeedSidebar from '@/components/feed/FeedSidebar'   // ← named → default
+import { FeedSidebar } from '@/components/feed/FeedSidebar'
 
 // ── Tipi ────────────────────────────────────────────────────────────────────
 
@@ -920,7 +920,7 @@ export default function FeedPage() {
           {/* ── Sidebar destra (35%) ───────────────────────────────── */}
           <div className="hidden lg:block w-80 flex-shrink-0">
             <div className="sticky top-20">
-              <FeedSidebar />
+              <FeedSidebar currentUserId={currentUser?.id || null} />
             </div>
           </div>
         </div>{/* fine flex */}
