@@ -326,13 +326,10 @@ function MediaCard({
           ) : hasEpisodeData ? (
             isCompleted ? (
               isOwner ? (
-                <div className="flex items-center justify-between">
-                  <span className="text-emerald-400 text-xs font-medium flex items-center gap-1"><CheckCircle size={12} /> {m.completed}</span>
-                  <button onClick={() => onReset?.(media.id)} className="p-2 text-zinc-500 hover:text-zinc-300 transition-colors" title="Ripristina"><RotateCcw size={18} /></button>
+                <div className="flex items-center justify-end">
+                  <button onClick={() => onReset?.(media.id)} className="p-2 text-zinc-500 hover:text-zinc-300 transition-colors" title="Ripristina progresso"><RotateCcw size={18} /></button>
                 </div>
-              ) : (
-                <span className="text-emerald-400 text-xs font-medium flex items-center gap-1"><CheckCircle size={12} /> {m.completed}</span>
-              )
+              ) : null
             ) : (
               <div className="space-y-4">
                 {hasSeasonData && (

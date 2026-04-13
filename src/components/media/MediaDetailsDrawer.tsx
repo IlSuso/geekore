@@ -176,7 +176,18 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     if (!user) return
 
     const isMovie = media.type === 'movie'
-    const status = isMovie ? 'completed' : 'watching'
+
+    // Calcola il massimo episodi per la stagione selezionata (o totale se non ha stagioni)
+    const seasonNum = opts?.season ?? 1
+    const maxEpThisSeason = media.seasons?.[seasonNum]?.episode_count ?? media.episodes ?? null
+    const maxSeasons = media.totalSeasons ?? (media.seasons ? Object.keys(media.seasons).length : null)
+
+    // Auto-completed: film sempre, oppure se ha indicato l'ultimo episodio dell'ultima stagione
+    const isLastSeason = !maxSeasons || seasonNum >= maxSeasons
+    const isLastEpisode = maxEpThisSeason !== null && opts?.episode !== undefined && opts.episode >= maxEpThisSeason
+    const autoCompleted = isMovie || (isLastSeason && isLastEpisode)
+
+    const status = autoCompleted ? 'completed' : 'watching'
 
     const { error } = await supabase.from('user_media_entries').insert({
       user_id: user.id,
@@ -187,7 +198,9 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
       genres: media.genres || [],
       status,
       current_episode: opts?.episode ?? (isMovie ? null : 0),
-      season: opts?.season ?? null,
+      current_season: opts?.season ?? null,
+      episodes: media.episodes ?? null,
+      season_episodes: media.seasons ?? null,
       rating: opts?.rating ?? null,
       // V3: creator data
       studios: media.studios || [],
