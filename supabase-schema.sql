@@ -213,18 +213,8 @@ CREATE TABLE IF NOT EXISTS boardgames_cache (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Cache globale poster/dati film Letterboxd (via TMDB).
--- Condivisa tra tutti gli utenti: se utente A importa "Inception",
--- utente B non richiama TMDB ma prende i dati da qui.
-CREATE TABLE IF NOT EXISTS tmdb_poster_cache (
-    external_id  TEXT PRIMARY KEY,   -- es. "letterboxd-inception-2010"
-    tmdb_id      INTEGER,
-    poster_url   TEXT,
-    title        TEXT,
-    year         TEXT,
-    found        BOOLEAN NOT NULL DEFAULT false,
-    last_checked TIMESTAMPTZ DEFAULT now()
-);
+-- Nota: Letterboxd non ha una tabella cache dedicata.
+-- I poster TMDB vengono cercati direttamente ad ogni import (batch paralleli, ~20s per 1000 film).
 
 -- Cache globale poster/titoli MAL (via MAL API o Jikan).
 -- Condivisa tra tutti gli utenti: evita chiamate API ripetute per lo stesso MAL ID.

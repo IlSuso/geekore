@@ -13,13 +13,9 @@
 //   - un film presente in ratings ma non in watched viene comunque importato come completed
 //   - nessun duplicato: la chiave è l'URI Letterboxd (o name+year come fallback)
 //
-// Logica immagini (TMDB poster cache globale):
-//   1. Per ogni film da importare si controlla la tabella `tmdb_poster_cache`
-//   2. I film già in cache vengono arricchiti istantaneamente (zero chiamate API)
-//   3. I film mancanti vengono cercati su TMDB in batch paralleli da MAX_PARALLEL chiamate
-//   4. Ogni risultato (trovato o non trovato) viene salvato in cache per i prossimi utenti
-//   5. I film non trovati su TMDB vengono importati comunque con cover_image: null
-//      e ricontrollati automaticamente dopo RETRY_DAYS giorni
+// Poster (TMDB):
+//   Chiamate dirette in batch paralleli da MAX_PARALLEL con pausa BATCH_DELAY_MS.
+//   I film non trovati vengono importati comunque con cover_image: null.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
@@ -29,11 +25,10 @@ import { upsertWithMerge } from '@/lib/importMerge'
 
 // ── Costanti TMDB ─────────────────────────────────────────────────────────────
 
-const TMDB_BASE        = 'https://api.themoviedb.org/3'
-const TMDB_IMAGE_BASE  = 'https://image.tmdb.org/t/p/w500'
-const MAX_PARALLEL     = 20   // chiamate TMDB simultanee per batch
-const BATCH_DELAY_MS   = 100  // pausa tra un batch e il successivo (evita rate limit TMDB)
-const RETRY_DAYS       = 30   // dopo quanti giorni riprovare i "not found"
+const TMDB_BASE       = 'https://api.themoviedb.org/3'
+const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
+const MAX_PARALLEL    = 20   // chiamate TMDB simultanee per batch
+const BATCH_DELAY_MS  = 100  // pausa tra un batch e il successivo (evita rate limit TMDB)
 
 // ── Parser CSV ────────────────────────────────────────────────────────────────
 
@@ -110,212 +105,73 @@ function parseRating(val: string): number | null {
   return Math.round(n * 2) / 2
 }
 
-// ── TMDB Poster Cache ─────────────────────────────────────────────────────────
+// ── TMDB Poster fetch ─────────────────────────────────────────────────────────
 
-interface CacheRow {
-  external_id: string
-  poster_url: string | null
-  found: boolean
-  last_checked: string
-}
-
-/**
- * Carica dalla cache globale tutti i record corrispondenti agli external_id richiesti.
- * Restituisce una Map<external_id, poster_url | null>.
- * I record "not found" più vecchi di RETRY_DAYS vengono ignorati (saranno ricercati di nuovo).
- */
-async function loadFromCache(
-  supabase: any,
-  externalIds: string[]
-): Promise<Map<string, string | null>> {
-  const result = new Map<string, string | null>()
-  if (externalIds.length === 0) return result
-
-  const retryThreshold = new Date(Date.now() - RETRY_DAYS * 24 * 60 * 60 * 1000).toISOString()
-
-  // Batch da 500 per non superare i limiti Supabase
-  for (let i = 0; i < externalIds.length; i += 500) {
-    const chunk = externalIds.slice(i, i + 500)
-    const { data, error } = await supabase
-      .from('tmdb_poster_cache')
-      .select('external_id, poster_url, found, last_checked')
-      .in('external_id', chunk)
-
-    if (error) {
-      logger.error('[Letterboxd] loadFromCache error:', error)
-      continue
-    }
-
-    for (const row of (data as CacheRow[] || [])) {
-      // Se "not found" ma è vecchio → lo saltiamo, andrà ricercato di nuovo
-      if (!row.found && row.last_checked < retryThreshold) continue
-      result.set(row.external_id, row.poster_url)
-    }
-  }
-
-  return result
-}
-
-/**
- * Cerca un singolo film su TMDB per titolo + anno.
- * Restituisce l'URL completo del poster o null se non trovato.
- */
 async function fetchTmdbPoster(
   title: string,
   year: string,
   apiKey: string
-): Promise<{ tmdbId: number | null; posterUrl: string | null }> {
+): Promise<string | null> {
   try {
-    const params = new URLSearchParams({
-      query: title,
-      language: 'it-IT',
-      page: '1',
-    })
+    const params = new URLSearchParams({ query: title, language: 'it-IT', page: '1' })
     if (year) params.set('primary_release_year', year)
 
     const res = await fetch(
       `${TMDB_BASE}/search/movie?${params.toString()}`,
       {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Accept': 'application/json',
-        },
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Accept': 'application/json' },
         signal: AbortSignal.timeout(6000),
       }
     )
-
-    if (!res.ok) return { tmdbId: null, posterUrl: null }
+    if (!res.ok) return null
 
     const json = await res.json()
     const results: any[] = json.results || []
 
-    // Priorità: risultati con poster e anno corrispondente
-    let best = results.find((m: any) =>
-      m.poster_path &&
-      year &&
-      m.release_date?.startsWith(year)
-    )
-
+    // Priorità: risultato con poster e anno corrispondente
+    let best = results.find((m: any) => m.poster_path && year && m.release_date?.startsWith(year))
     // Fallback: primo risultato con poster
     if (!best) best = results.find((m: any) => m.poster_path)
 
-    if (!best) return { tmdbId: null, posterUrl: null }
-
-    return {
-      tmdbId: best.id,
-      posterUrl: `${TMDB_IMAGE_BASE}${best.poster_path}`,
-    }
+    return best ? `${TMDB_IMAGE_BASE}${best.poster_path}` : null
   } catch (err) {
-    // Timeout o errore di rete → non blocchiamo l'import
     logger.error('[Letterboxd] TMDB fetch error:', err)
-    return { tmdbId: null, posterUrl: null }
+    return null
   }
 }
 
 /**
- * Salva in bulk nella cache globale i risultati delle ricerche TMDB.
- * Usa upsert per non creare duplicati in caso di chiamate concorrenti.
+ * Chiama TMDB in batch paralleli per tutti gli entry, senza cache.
+ * Restituisce una Map<external_id, poster_url | null>.
  */
-async function saveToCache(
-  supabase: any,
-  entries: Array<{
-    external_id: string
-    title: string
-    year: string
-    tmdb_id: number | null
-    poster_url: string | null
-    found: boolean
-  }>
-): Promise<void> {
-  if (entries.length === 0) return
-
-  const now = new Date().toISOString()
-  const rows = entries.map(e => ({
-    external_id: e.external_id,
-    tmdb_id: e.tmdb_id,
-    poster_url: e.poster_url,
-    title: e.title,
-    year: e.year,
-    found: e.found,
-    last_checked: now,
-  }))
-
-  // Batch da 100
-  for (let i = 0; i < rows.length; i += 100) {
-    const { error } = await supabase
-      .from('tmdb_poster_cache')
-      .upsert(rows.slice(i, i + 100), { onConflict: 'external_id' })
-
-    if (error) logger.error('[Letterboxd] saveToCache error:', error)
-  }
-}
-
-/**
- * Arricchisce tutti gli entry con i poster:
- * 1. Legge dalla cache quelli già noti
- * 2. Chiama TMDB in batch paralleli per quelli mancanti
- * 3. Salva i nuovi risultati in cache
- * Restituisce una Map<external_id, poster_url | null>
- */
-async function enrichWithPosters(
-  supabase: any,
+async function fetchAllPosters(
   entries: Array<{ external_id: string; title: string; year: string }>,
   apiKey: string
-): Promise<{ posterMap: Map<string, string | null>; fromCache: number; fromApi: number; notFound: number }> {
-  const allIds = entries.map(e => e.external_id)
-
-  // 1. Cache hit
-  const cached = await loadFromCache(supabase, allIds)
-  const posterMap = new Map<string, string | null>(cached)
-
-  // 2. Quali mancano?
-  const missing = entries.filter(e => !cached.has(e.external_id))
-
-  let fromApi = 0
+): Promise<{ posterMap: Map<string, string | null>; found: number; notFound: number }> {
+  const posterMap = new Map<string, string | null>()
+  let found = 0
   let notFound = 0
-  const toSave: Parameters<typeof saveToCache>[1] = []
 
-  // 3. Batch paralleli
-  for (let i = 0; i < missing.length; i += MAX_PARALLEL) {
-    const batch = missing.slice(i, i + MAX_PARALLEL)
+  for (let i = 0; i < entries.length; i += MAX_PARALLEL) {
+    const batch = entries.slice(i, i + MAX_PARALLEL)
 
     const results = await Promise.all(
       batch.map(e => fetchTmdbPoster(e.title, e.year, apiKey))
     )
 
     for (let j = 0; j < batch.length; j++) {
-      const entry = batch[j]
-      const { tmdbId, posterUrl } = results[j]
-
-      posterMap.set(entry.external_id, posterUrl)
-      toSave.push({
-        external_id: entry.external_id,
-        title: entry.title,
-        year: entry.year,
-        tmdb_id: tmdbId,
-        poster_url: posterUrl,
-        found: posterUrl !== null,
-      })
-
-      if (posterUrl) fromApi++
+      posterMap.set(batch[j].external_id, results[j])
+      if (results[j]) found++
       else notFound++
     }
 
     // Pausa tra batch per rispettare rate limit TMDB (40 req/s)
-    if (i + MAX_PARALLEL < missing.length) {
+    if (i + MAX_PARALLEL < entries.length) {
       await new Promise(r => setTimeout(r, BATCH_DELAY_MS))
     }
   }
 
-  // 4. Salva in cache
-  await saveToCache(supabase, toSave)
-
-  return {
-    posterMap,
-    fromCache: cached.size,
-    fromApi,
-    notFound,
-  }
+  return { posterMap, found, notFound }
 }
 
 // ── Merge watched + ratings ───────────────────────────────────────────────────
@@ -432,72 +288,6 @@ function buildListEntry(row: Record<string, string>, listName: string, userId: s
   }
 }
 
-// ── Upsert helper ─────────────────────────────────────────────────────────────
-
-async function manualUpsert(
-  supabase: any,
-  toInsert: any[],
-  userId: string
-): Promise<{ imported: number; skipped: number }> {
-  if (toInsert.length === 0) return { imported: 0, skipped: 0 }
-
-  // Usiamo upsert con onConflict su external_id (constraint già esistente in DB).
-  // Se un film esiste già per external_id → aggiorna (cover_image, rating, ecc).
-  // Se un film esiste già per title ma external_id diverso → ignoraDuplicates evita
-  // il crash su unique_user_media(user_id, title), lo saltiamo senza errore.
-  let imported = 0
-  let skipped = 0
-
-  for (let i = 0; i < toInsert.length; i += 50) {
-    const batch = toInsert.slice(i, i + 50)
-
-    const { error, count } = await supabase
-      .from('user_media_entries')
-      .upsert(batch, {
-        onConflict: 'user_id,external_id',
-        ignoreDuplicates: false,  // su conflict di external_id → aggiorna
-        count: 'exact',
-      })
-
-    if (!error) {
-      imported += batch.length
-    } else if (error.code === '23505') {
-      // Conflitto su unique_user_media(user_id, title): film già presente con
-      // external_id diverso (es. importato da AniList o manualmente).
-      // Aggiorniamo cover_image SOLO se il record esistente non ce l'ha già —
-      // non vogliamo sovrascrivere poster AniList/IGDB corretti con quelli TMDB.
-      for (const item of batch) {
-        const { data: existing } = await supabase
-          .from('user_media_entries')
-          .select('id, cover_image')
-          .eq('user_id', userId)
-          .eq('title', item.title)
-          .maybeSingle()
-
-        if (!existing) { skipped++; continue }
-
-        // Sovrascrive cover_image solo se il record non ne ha già una
-        const updatePayload: any = { updated_at: new Date().toISOString() }
-        if (!existing.cover_image && item.cover_image) {
-          updatePayload.cover_image = item.cover_image
-        }
-
-        const { error: e2 } = await supabase
-          .from('user_media_entries')
-          .update(updatePayload)
-          .eq('id', existing.id)
-        if (!e2) imported++
-        else skipped++
-      }
-    } else {
-      logger.error('[Letterboxd] upsert error:', JSON.stringify(error))
-      skipped += batch.length
-    }
-  }
-
-  return { imported, skipped }
-}
-
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
@@ -563,7 +353,6 @@ export async function POST(request: NextRequest) {
     const listEntries = listRows.filter(r => !allKnownIds.has(makeExternalId(r)))
 
     // ── Raccolta di tutti i film da cercare su TMDB ─────────────────────────
-    // Uniamo tutto in un unico array deduplicato per minimizzare le chiamate API
     const allToEnrich: Array<{ external_id: string; title: string; year: string }> = []
     const seenIds = new Set<string>()
 
@@ -588,20 +377,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── Enrichment poster (cache + TMDB) ────────────────────────────────────
+    // ── Fetch poster da TMDB ────────────────────────────────────────────────
     const tmdbApiKey = process.env.TMDB_API_KEY || ''
     let posterMap = new Map<string, string | null>()
-    let fromCache = 0, fromApi = 0, notFound = 0
+    let found = 0, notFound = 0
 
     if (tmdbApiKey && allToEnrich.length > 0) {
-      const result = await enrichWithPosters(supabase, allToEnrich, tmdbApiKey)
+      const result = await fetchAllPosters(allToEnrich, tmdbApiKey)
       posterMap = result.posterMap
-      fromCache = result.fromCache
-      fromApi   = result.fromApi
+      found     = result.found
       notFound  = result.notFound
     }
 
-    // ── Build entries finali con poster ────────────────────────────────────
+    // ── Build entries finali con poster ─────────────────────────────────────
     const mainBuilt = mainEntries.map(e => buildEntry(e, user.id, posterMap))
 
     // Tag lista per film già in watched
@@ -629,17 +417,12 @@ export async function POST(request: NextRequest) {
       merged,
       skipped,
       total: allEntries.length,
-      watched: watchedRows.length,
-      ratings: ratingsRows.length,
+      watched:   watchedRows.length,
+      ratings:   ratingsRows.length,
       watchlist: watchlistRows.length,
-      list: listRows.length,
-      posters: {
-        fromCache,
-        fromApi,
-        notFound,
-        total: fromCache + fromApi,
-      },
-      message: `Importati ${imported} film da Letterboxd${merged > 0 ? `, ${merged} uniti con duplicati` : ''} (${fromCache + fromApi} poster trovati${notFound > 0 ? `, ${notFound} senza immagine` : ''})`,
+      list:      listRows.length,
+      posters: { found, notFound, total: found },
+      message: `Importati ${imported} film da Letterboxd${merged > 0 ? `, ${merged} uniti con duplicati` : ''} (${found} poster trovati${notFound > 0 ? `, ${notFound} senza immagine` : ''})`,
     }, { headers: rl.headers })
 
   } catch (e: any) {
