@@ -52,11 +52,24 @@ function parseCSV(rawText: string): Record<string, string>[] {
   const allLines = text.split('\n')
 
   let headerIdx = -1
+  // Per i file lista Letterboxd (list export v7) esistono due sezioni di header:
+  // la prima (Date,Name,Tags,...) descrive la lista stessa, la seconda (Position,Name,Year,...)
+  // descrive i film. Diamo priorità all'header con 'position' che identifica i film reali.
   for (let i = 0; i < Math.min(allLines.length, 10); i++) {
     const lower = allLines[i].toLowerCase()
-    if (lower.includes('name') && (lower.includes('year') || lower.includes('date') || lower.includes('position'))) {
+    if (lower.includes('position') && lower.includes('name')) {
       headerIdx = i
       break
+    }
+  }
+  // Fallback per watched.csv, ratings.csv, watchlist.csv che non hanno 'position'
+  if (headerIdx === -1) {
+    for (let i = 0; i < Math.min(allLines.length, 10); i++) {
+      const lower = allLines[i].toLowerCase()
+      if (lower.includes('name') && (lower.includes('year') || lower.includes('date'))) {
+        headerIdx = i
+        break
+      }
     }
   }
   if (headerIdx === -1) return []
