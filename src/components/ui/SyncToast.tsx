@@ -13,7 +13,7 @@ export function SyncStatusListener() {
 
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'SYNC_COMPLETE') {
-        showToast('✓ Azioni sincronizzate con successo')
+        showToast('Azioni sincronizzate con successo')
       }
     }
 
@@ -45,7 +45,7 @@ export function useSyncAwareFetch() {
   const syncFetch = async (url: string, options?: RequestInit): Promise<Response> => {
     const response = await fetch(url, options)
     if (response.headers.get('X-Queued') === 'true') {
-      showToast('📶 Azione salvata — verrà sincronizzata quando torni online')
+      showToast('Azione salvata — verrà sincronizzata quando torni online')
     }
     return response
   }

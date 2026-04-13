@@ -2,6 +2,7 @@
 // src/app/admin/repair-covers/page.tsx
 
 import { useState } from 'react'
+import { Check, X } from 'lucide-react'
 
 export default function RepairCoversPage() {
   const [dryRun, setDryRun] = useState(true)
@@ -98,7 +99,7 @@ export default function RepairCoversPage() {
                     {r.details?.map((d: any, j: number) => (
                       <div key={j} className="flex items-start gap-2 text-xs">
                         <span className={d.status === 'repaired' ? 'text-emerald-400' : 'text-yellow-400'}>
-                          {d.status === 'repaired' ? '✓' : '✗'}
+                          {d.status === 'repaired' ? <Check size={12} /> : <X size={12} />}
                         </span>
                         <span className="text-zinc-300 truncate">{d.title} <span className="text-zinc-600">({d.type})</span></span>
                       </div>

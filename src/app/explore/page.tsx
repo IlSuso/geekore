@@ -4,7 +4,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { SearchSection } from '@/components/explore/search-section'
-import { TrendingUp, Users, Star, Film, Gamepad2, BookOpen, Tv, Globe, Zap, Heart } from 'lucide-react'
+import { TrendingUp, Users, Star, Film, Gamepad2, BookOpen, Tv, Globe, Zap, Heart, Trophy } from 'lucide-react'
 import Link from 'next/link'
 import { Avatar } from '@/components/ui/Avatar'
 
@@ -113,7 +113,7 @@ const TYPE_ICON: Record<string, React.ElementType> = {
 
 function TrendingMediaCard({ item, rank }: { item: { count: number; item: any }; rank: number }) {
   const Icon = TYPE_ICON[item.item.type] || Film
-  const medals = ['🥇', '🥈', '🥉']
+
   return (
     <div className="flex items-center gap-3 p-3 bg-zinc-900 border border-zinc-800 rounded-2xl">
       <div className="w-10 h-14 bg-zinc-800 rounded-xl overflow-hidden flex-shrink-0">
@@ -128,7 +128,7 @@ function TrendingMediaCard({ item, rank }: { item: { count: number; item: any };
       </div>
       <div className="text-right flex-shrink-0">
         {rank < 3
-          ? <span className="text-lg">{medals[rank]}</span>
+          ? <Trophy size={16} className={rank === 0 ? 'text-yellow-400' : rank === 1 ? 'text-zinc-300' : 'text-amber-600'} />
           : <span className="text-xs font-bold text-zinc-400">#{rank + 1}</span>}
         <p className="text-[10px] text-zinc-600">{item.count} aggiunte</p>
       </div>

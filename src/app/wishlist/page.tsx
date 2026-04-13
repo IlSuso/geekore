@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { redirect } from 'next/navigation'
 import {
   Bookmark, Calendar, BookOpen, Gamepad2, Film, Tv, Dices,
-  Trash2, Check, Loader2, SlidersHorizontal,
+  Trash2, Check, Loader2, SlidersHorizontal, CheckCircle2,
 } from 'lucide-react'
 import { showToast } from '@/components/ui/Toast'
 
@@ -24,7 +24,7 @@ const TYPE_CONFIG: Record<string, { label: string; color: string; dot: string; i
 function daysUntil(dateStr: string | null): { label: string; available: boolean } {
   if (!dateStr) return { label: '', available: false }
   const diff = Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000)
-  if (diff <= 0) return { label: '🟢 Disponibile ora', available: true }
+  if (diff <= 0) return { label: 'Disponibile ora', available: true }
   if (diff === 1) return { label: 'Domani', available: false }
   if (diff < 30) return { label: `tra ${diff} giorni`, available: false }
   return {
@@ -188,7 +188,7 @@ export default function WishlistPage() {
                     <h3 className="text-sm font-semibold text-white leading-tight truncate">{item.title}</h3>
                     {countdown.label && (
                       <div className="flex items-center gap-1.5 mt-1.5">
-                        {!countdown.available && <Calendar size={11} className="text-zinc-600" />}
+                        {countdown.available ? <CheckCircle2 size={11} className="text-emerald-400" /> : <Calendar size={11} className="text-zinc-600" />}
                         <span className={`text-xs font-medium ${
                           countdown.available ? 'text-emerald-400' : 'text-zinc-500'
                         }`}>

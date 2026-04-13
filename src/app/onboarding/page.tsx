@@ -85,7 +85,9 @@ export default function OnboardingPage() {
         {/* Step 0 — Welcome */}
         {step === 0 && (
           <div className="text-center py-8">
-            <div className="text-6xl mb-6">🎮</div>
+            <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-violet-600/20 to-fuchsia-600/20 border border-violet-500/20 flex items-center justify-center">
+              <Zap size={36} className="text-violet-400" />
+            </div>
             <h1 className="text-4xl font-black tracking-tighter text-white mb-4">{STEPS[0].title}</h1>
             <p className="text-zinc-400 text-lg mb-10">{STEPS[0].subtitle}</p>
             <p className="text-zinc-500 mb-10 max-w-sm mx-auto">
@@ -188,7 +190,7 @@ export default function OnboardingPage() {
                 onClick={completeOnboarding}
                 disabled={loading}
                 className="flex-1 py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                {loading ? 'Caricamento...' : 'Entra in Geekore 🎉'}
+                {loading ? 'Caricamento...' : 'Entra in Geekore'}
               </button>
             </div>
           </div>

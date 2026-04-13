@@ -3,7 +3,7 @@
 // Server Component — dati aggregati letti da Supabase.
 
 import { createClient } from '@/lib/supabase/server'
-import { Users, Clock, Star, Gamepad2, Tv, Film, BookOpen, TrendingUp, Globe } from 'lucide-react'
+import { Users, Clock, Star, Gamepad2, Tv, Film, BookOpen, TrendingUp, Globe, Trophy } from 'lucide-react'
 import Link from 'next/link'
 
 async function getGlobalStats() {
@@ -198,14 +198,14 @@ export default async function GlobalStatsPage() {
                 <div key={`${t.item.type}-${t.item.title}`} className="flex items-center gap-3 p-3 bg-zinc-900 border border-zinc-800 rounded-2xl">
                   <div className="w-6 text-center flex-shrink-0">
                     {i < 3
-                      ? <span className="text-base">{['🥇','🥈','🥉'][i]}</span>
+                      ? <Trophy size={14} className={i === 0 ? 'text-yellow-400' : i === 1 ? 'text-zinc-300' : 'text-amber-600'} />
                       : <span className="text-xs font-bold text-zinc-600">#{i+1}</span>
                     }
                   </div>
                   <div className="w-10 h-14 rounded-xl overflow-hidden bg-zinc-800 flex-shrink-0">
                     {t.item.cover_image
                       ? <img src={t.item.cover_image} alt={t.item.title} className="w-full h-full object-cover" loading="lazy" />
-                      : <div className="w-full h-full flex items-center justify-center text-zinc-600 text-lg">📺</div>
+                      : <div className="w-full h-full flex items-center justify-center text-zinc-600"><Tv size={20} /></div>
                     }
                   </div>
                   <div className="flex-1 min-w-0">

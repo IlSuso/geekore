@@ -19,7 +19,9 @@ import { createClient } from '@/lib/supabase/client'
 import { User } from '@supabase/supabase-js'
 import {
   Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X,
-  Loader2, Pin, ArrowUp, Trash2, Tag, ChevronDown, Filter, Search
+  Loader2, Pin, ArrowUp, Trash2, Tag, ChevronDown, Filter, Search,
+  Film, Tv, Gamepad2, BookOpen, Dices, Swords, Check, PartyPopper,
+  Bell, ChevronRight, ArrowLeft
 } from 'lucide-react'
 import { SkeletonFeedPost } from '@/components/ui/SkeletonCard'
 import { Avatar } from '@/components/ui/Avatar'
@@ -33,13 +35,24 @@ import { FeedSidebar } from '@/components/feed/FeedSidebar'
 // ── Macro-categorie ───────────────────────────────────────────────────────────
 
 const MACRO_CATEGORIES = [
-  'Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga', 'Board Game', 'Fumetti', 'Tecnologia',
+  'Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga', 'Board Game',
 ]
 
-const CATEGORY_ICON: Record<string, string> = {
-  'Film': '🎬', 'Serie TV': '📺', 'Videogiochi': '🎮',
-  'Anime': '⛩️', 'Manga': '📖', 'Board Game': '🎲',
-  'Fumetti': '💥', 'Tecnologia': '💻',
+// ── Icone categoria (Lucide) ──────────────────────────────────────────────────
+import type { LucideIcon } from 'lucide-react'
+
+const CATEGORY_ICON_MAP: Record<string, LucideIcon> = {
+  'Film': Film,
+  'Serie TV': Tv,
+  'Videogiochi': Gamepad2,
+  'Anime': Swords,
+  'Manga': BookOpen,
+  'Board Game': Dices,
+}
+
+function CategoryIcon({ category, size = 13, className = '' }: { category: string; size?: number; className?: string }) {
+  const Icon = CATEGORY_ICON_MAP[category] || Tag
+  return <Icon size={size} className={className} />
 }
 
 // Suggerimenti rapidi per sottocategoria — mostrati come chip nel composer
@@ -50,8 +63,6 @@ const QUICK_SUBS: Record<string, string[]> = {
   'Anime': ['Shonen', 'Shojo', 'Seinen', 'Isekai', 'Slice of Life'],
   'Manga': ['Shonen', 'Shojo', 'Seinen', 'Josei', 'Webtoon'],
   'Board Game': ['Strategia', 'Party', 'Cooperativo', 'Deck Building'],
-  'Fumetti': ['Marvel', 'DC', 'Indie'],
-  'Tecnologia': ['Gaming', 'AI', 'Mobile', 'PC'],
 }
 
 // ── Tipi ─────────────────────────────────────────────────────────────────────
@@ -126,14 +137,14 @@ function CategoryBadge({ category, onClick }: { category: string | null | undefi
   if (!category) return null
   const parsed = parseCategoryString(category)
   if (!parsed) return null
-  const icon = CATEGORY_ICON[parsed.category] || '🏷️'
   const label = parsed.subcategory ? `${parsed.category}: ${parsed.subcategory}` : parsed.category
   return (
     <span
       onClick={onClick}
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-[10px] font-semibold text-zinc-300 ${onClick ? 'cursor-pointer hover:border-fuchsia-500/60 hover:text-fuchsia-300 transition-colors' : ''}`}
     >
-      {icon} {label}
+      <CategoryIcon category={parsed.category} size={10} />
+      {label}
     </span>
   )
 }
@@ -295,9 +306,9 @@ function CategorySelector({ value, onChange }: { value: string; onChange: (val: 
   }
 
   const parsed = parseCategoryString(value)
-  const displayLabel = value
-    ? `${CATEGORY_ICON[parsed?.category || ''] || '🏷️'} ${parsed?.subcategory ? `${parsed.category}: ${parsed.subcategory}` : parsed?.category}`
-    : 'Aggiungi categoria'
+  const displayLabel = parsed?.subcategory
+    ? `${parsed.category}: ${parsed.subcategory}`
+    : parsed?.category || 'Aggiungi categoria'
 
   const hasApiSupport = API_CATEGORIES.has(selectedCat)
 
@@ -313,6 +324,7 @@ function CategorySelector({ value, onChange }: { value: string; onChange: (val: 
         }`}
       >
         <Tag size={12} />
+        {value && <CategoryIcon category={parsed?.category || ''} size={11} />}
         {displayLabel}
         <ChevronDown size={11} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
         {value && (
@@ -323,7 +335,7 @@ function CategorySelector({ value, onChange }: { value: string; onChange: (val: 
       </button>
 
       {open && (
-        <div className="absolute bottom-full mb-2 left-0 z-50 bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
+        <div className="absolute top-full mt-2 left-0 z-50 bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
           style={{ minWidth: selectedCat ? 320 : 280 }}>
           <div className="p-3">
             {!selectedCat ? (
@@ -333,11 +345,8 @@ function CategorySelector({ value, onChange }: { value: string; onChange: (val: 
                   {MACRO_CATEGORIES.map(cat => (
                     <button key={cat} type="button" onClick={() => handleSelectMacro(cat)}
                       className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all text-left group">
-                      <span className="text-base">{CATEGORY_ICON[cat] || '🏷️'}</span>
+                      <CategoryIcon category={cat} size={14} className="text-zinc-500 group-hover:text-violet-400 transition-colors" />
                       <span className="flex-1">{cat}</span>
-                      {API_CATEGORIES.has(cat) && (
-                        <span className="text-[9px] text-violet-500/70 group-hover:text-violet-400 font-medium">API</span>
-                      )}
                     </button>
                   ))}
                 </div>
@@ -346,8 +355,10 @@ function CategorySelector({ value, onChange }: { value: string; onChange: (val: 
               <>
                 <div className="flex items-center gap-2 mb-3 pb-2.5 border-b border-zinc-800">
                   <button type="button" onClick={() => { setSelectedCat(''); setSuggestions([]) }}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all text-sm">←</button>
-                  <span className="text-base">{CATEGORY_ICON[selectedCat]}</span>
+                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all">
+                    <ArrowLeft size={14} />
+                  </button>
+                  <CategoryIcon category={selectedCat} size={15} className="text-violet-400" />
                   <p className="text-sm font-semibold text-white flex-1">{selectedCat}</p>
                 </div>
 
@@ -378,22 +389,10 @@ function CategorySelector({ value, onChange }: { value: string; onChange: (val: 
                         key={result.id}
                         type="button"
                         onClick={() => handleSelectSuggestion(result)}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors border-b border-zinc-800/60 last:border-0 ${
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors border-b border-zinc-800/60 last:border-0 ${
                           idx === activeSuggestion ? 'bg-violet-600/20 text-white' : 'hover:bg-zinc-800 text-zinc-200'
                         }`}
                       >
-                        {result.image ? (
-                          <img
-                            src={result.image}
-                            alt={result.title}
-                            className="w-8 h-10 object-cover rounded-md flex-shrink-0 bg-zinc-800"
-                            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-                          />
-                        ) : (
-                          <div className="w-8 h-10 rounded-md bg-zinc-800 flex items-center justify-center flex-shrink-0 text-lg">
-                            {CATEGORY_ICON[selectedCat] || '🏷️'}
-                          </div>
-                        )}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{result.title}</p>
                           {result.subtitle && <p className="text-[11px] text-zinc-500">{result.subtitle}</p>}
@@ -419,8 +418,8 @@ function CategorySelector({ value, onChange }: { value: string; onChange: (val: 
                     {subInput.trim() && (
                       <button type="button"
                         onClick={() => { onChange(`${selectedCat}:${subInput.trim()}`); setOpen(false) }}
-                        className="mt-2 w-full px-3 py-2 rounded-xl bg-violet-600/20 border border-violet-500/40 text-violet-300 text-xs font-semibold hover:bg-violet-600/30 transition">
-                        Usa «{subInput.trim()}»
+                        className="mt-2 w-full px-3 py-2.5 rounded-xl bg-violet-600/20 border border-violet-500/50 text-violet-200 text-sm font-semibold hover:bg-violet-600/30 hover:border-violet-500 transition flex items-center justify-center gap-1.5">
+                        <Check size={13} /> Usa <span className="font-bold">«{subInput.trim()}»</span>
                       </button>
                     )}
                   </>
@@ -437,8 +436,9 @@ function CategorySelector({ value, onChange }: { value: string; onChange: (val: 
                 )}
 
                 <button type="button" onClick={() => { onChange(selectedCat); setOpen(false) }}
-                  className="mt-3 w-full text-center text-xs text-zinc-600 hover:text-zinc-400 transition-colors py-1">
-                  Usa solo «{selectedCat}» senza titolo
+                  className="mt-3 w-full text-center text-sm text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 hover:border-zinc-500 rounded-xl py-2 font-medium transition-all flex items-center justify-center gap-1.5">
+                  Usa solo <span className="text-violet-300 font-semibold">«{selectedCat}»</span> senza titolo
+                  <ChevronRight size={13} className="text-zinc-500" />
                 </button>
               </>
             )}
@@ -489,7 +489,7 @@ function CategoryFilter({
 
   const parsed = parseCategoryString(activeFilter)
   const displayLabel = activeFilter
-    ? `${CATEGORY_ICON[parsed?.category || ''] || '🏷️'} ${parsed?.subcategory ? `${parsed.category}: ${parsed.subcategory}` : parsed?.category}`
+    ? (parsed?.subcategory ? `${parsed.category}: ${parsed.subcategory}` : parsed?.category || 'Filtra categoria')
     : 'Filtra categoria'
 
   return (
@@ -499,6 +499,7 @@ function CategoryFilter({
           activeFilter ? 'bg-fuchsia-600/20 border-fuchsia-500/40 text-fuchsia-300' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'
         }`}>
         <Filter size={14} />
+        {activeFilter && <CategoryIcon category={parsed?.category || ''} size={13} />}
         {displayLabel}
         {activeFilter && (
           <span onClick={e => { e.stopPropagation(); applyFilter(''); setActiveMacro(''); setSubSearch('') }} className="ml-1 hover:text-red-400 transition-colors">
@@ -520,7 +521,8 @@ function CategoryFilter({
                     ? 'bg-fuchsia-600/30 border-fuchsia-500/60 text-fuchsia-300'
                     : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-500'
                 }`}>
-                {CATEGORY_ICON[cat]} {cat}
+                <CategoryIcon category={cat} size={11} />
+                {cat}
               </button>
             ))}
           </div>
@@ -599,6 +601,37 @@ async function trackAffinity(supabase: any, userId: string, category: string | n
 
 // ── PostCard ──────────────────────────────────────────────────────────────────
 
+// ── Popup conferma eliminazione ───────────────────────────────────────────────
+function ConfirmDialog({
+  open, title, message, onConfirm, onCancel,
+}: {
+  open: boolean; title: string; message: string
+  onConfirm: () => void; onCancel: () => void
+}) {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 p-4 animate-in fade-in duration-150">
+      <div className="bg-zinc-900 border border-zinc-700 rounded-3xl w-full max-w-xs p-6 shadow-2xl animate-in zoom-in-95 duration-150">
+        <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 mx-auto mb-4">
+          <Trash2 size={20} className="text-red-400" />
+        </div>
+        <h3 className="text-white font-bold text-center mb-1">{title}</h3>
+        <p className="text-zinc-500 text-sm text-center mb-6">{message}</p>
+        <div className="flex gap-2">
+          <button onClick={onCancel}
+            className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-sm font-semibold transition">
+            Annulla
+          </button>
+          <button onClick={onConfirm}
+            className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition">
+            Elimina
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const PostCard = memo(function PostCard({
   post, currentUser, isLiking, commentingPostId, commentContent, locale,
   onLike, onToggleComment, onCommentChange, onAddComment, onDelete, onDeleteComment,
@@ -617,7 +650,25 @@ const PostCard = memo(function PostCard({
   const visibleComments = isExpanded ? post.comments : post.comments.slice(0, 3)
   const hiddenCount = post.comments.length - 3
 
+  const [confirmPost, setConfirmPost] = useState(false)
+  const [confirmComment, setConfirmComment] = useState<string | null>(null)
+
   return (
+    <>
+    <ConfirmDialog
+      open={confirmPost}
+      title="Eliminare il post?"
+      message="Questa azione è irreversibile. Il post verrà rimosso definitivamente."
+      onConfirm={() => { setConfirmPost(false); onDelete(post.id) }}
+      onCancel={() => setConfirmPost(false)}
+    />
+    <ConfirmDialog
+      open={!!confirmComment}
+      title="Eliminare il commento?"
+      message="Il commento verrà rimosso definitivamente."
+      onConfirm={() => { if (confirmComment) { onDeleteComment(confirmComment, post.id); setConfirmComment(null) } }}
+      onCancel={() => setConfirmComment(null)}
+    />
     <div className={`bg-zinc-950 border rounded-3xl p-6 transition-all duration-300 animate-in fade-in slide-in-from-top-2 ${
       post.pinned ? 'border-violet-500/40 ring-1 ring-violet-500/20'
       : post.isDiscovery ? 'border-fuchsia-500/30 ring-1 ring-fuchsia-500/10'
@@ -651,7 +702,7 @@ const PostCard = memo(function PostCard({
           </p>
         </div>
         {currentUser && currentUser.id === post.user_id && (
-          <button onClick={() => onDelete(post.id)} className="p-2 rounded-xl text-zinc-600 hover:text-red-400 hover:bg-red-400/10 transition-all" title="Elimina post">
+          <button onClick={() => setConfirmPost(true)} className="p-2 rounded-xl text-zinc-600 hover:text-red-400 hover:bg-red-400/10 transition-all" title="Elimina post">
             <Trash2 size={15} />
           </button>
         )}
@@ -709,7 +760,7 @@ const PostCard = memo(function PostCard({
                 <span className="ml-2 text-zinc-300">{comment.content}</span>
               </div>
               {currentUser && currentUser.id === comment.user_id && (
-                <button onClick={() => onDeleteComment(comment.id, post.id)} className="text-zinc-600 hover:text-red-400 transition-colors flex-shrink-0 mt-0.5"><Trash2 size={11} /></button>
+                <button onClick={() => setConfirmComment(comment.id)} className="text-zinc-600 hover:text-red-400 transition-colors flex-shrink-0 mt-0.5"><Trash2 size={11} /></button>
               )}
             </div>
           ))}
@@ -721,6 +772,7 @@ const PostCard = memo(function PostCard({
         </div>
       )}
     </div>
+    </>
   )
 })
 
@@ -1175,8 +1227,8 @@ export default function FeedPage() {
             {newPostsCount > 0 && (
               <button onClick={handleShowNewPosts}
                 className="flex items-center gap-2 mx-auto mb-4 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-full text-sm font-semibold text-white shadow-lg shadow-violet-500/30 transition-all hover:scale-105 animate-in fade-in slide-in-from-top-2">
-                <ArrowUp size={14} />
-                🆕 {newPostsCount === 1 ? '1 nuovo post' : `${newPostsCount} nuovi post`} — clicca per vedere
+                <Bell size={14} />
+                {newPostsCount === 1 ? '1 nuovo post' : `${newPostsCount} nuovi post`} — clicca per vedere
               </button>
             )}
 
@@ -1268,7 +1320,9 @@ export default function FeedPage() {
               )}
 
               {!hasMore && posts.length > 0 && (
-                <p className="text-center text-zinc-600 text-sm py-6">Hai visto tutto! 🎉</p>
+                <p className="text-center text-zinc-600 text-sm py-6 flex items-center justify-center gap-2">
+                  <PartyPopper size={14} /> Hai visto tutto!
+                </p>
               )}
             </div>
           </div>

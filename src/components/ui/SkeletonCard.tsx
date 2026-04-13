@@ -199,12 +199,13 @@ export function SkeletonLeaderboardRow() {
 // Aggiunge rank badge: Novizio / Appassionato / Esperto / Leggenda
 
 import { useEffect, useRef, useState } from 'react'
+import { Award, Star, Trophy, Gem } from 'lucide-react'
 
 const RANKS = [
-  { min: 0,     label: 'Novizio',      badge: '🥉', color: 'text-zinc-400' },
-  { min: 500,   label: 'Appassionato', badge: '🥈', color: 'text-blue-400' },
-  { min: 2000,  label: 'Esperto',      badge: '🥇', color: 'text-yellow-400' },
-  { min: 10000, label: 'Leggenda',     badge: '💎', color: 'text-violet-400' },
+  { min: 0,     label: 'Novizio',      Icon: Award,   color: 'text-zinc-400' },
+  { min: 500,   label: 'Appassionato', Icon: Star,    color: 'text-blue-400' },
+  { min: 2000,  label: 'Esperto',      Icon: Trophy,  color: 'text-yellow-400' },
+  { min: 10000, label: 'Leggenda',     Icon: Gem,     color: 'text-violet-400' },
 ]
 
 function getRank(score: number) {
@@ -245,7 +246,7 @@ export function AnimatedGeekScore({ score }: { score: number }) {
         {displayed.toLocaleString('it')}
       </span>
       <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 ${rank.color}`}>
-        <span className="text-sm">{rank.badge}</span>
+        <rank.Icon size={13} />
         <span className="text-xs font-semibold">{rank.label}</span>
       </div>
     </div>

@@ -3,7 +3,7 @@
 // Server Component — dati freschi ad ogni richiesta.
 
 import { createClient } from '@/lib/supabase/server'
-import { TrendingUp, Star, Users, Film, BookOpen, Gamepad2, Tv, Dices } from 'lucide-react'
+import { TrendingUp, Star, Users, Film, BookOpen, Gamepad2, Tv, Dices, Trophy, Flame } from 'lucide-react'
 import Link from 'next/link'
 
 // ─── Tipi ────────────────────────────────────────────────────────────────────
@@ -38,7 +38,6 @@ const TYPE_LABEL: Record<string, string> = {
   tv: 'Serie TV', movie: 'Film', boardgame: 'Board Game',
 }
 
-const MEDAL: Record<number, string> = { 0: '🥇', 1: '🥈', 2: '🥉' }
 
 // ─── Data fetching ────────────────────────────────────────────────────────────
 
@@ -97,14 +96,14 @@ async function getTrending(): Promise<{ byAdditions: TrendingItem[]; byRating: T
 
 function TrendingCard({ item, rank }: { item: TrendingItem; rank: number }) {
   const Icon = TYPE_ICON[item.type] || Film
-  const medal = MEDAL[rank]
+  const medalColor = rank === 0 ? 'text-yellow-400' : rank === 1 ? 'text-zinc-300' : rank === 2 ? 'text-amber-600' : null
 
   return (
     <div className="flex items-center gap-4 p-4 bg-zinc-900 border border-zinc-800 rounded-2xl hover:border-zinc-700 transition-colors">
       {/* Rank */}
       <div className="w-8 text-center flex-shrink-0">
-        {medal ? (
-          <span className="text-xl">{medal}</span>
+        {medalColor ? (
+          <Trophy size={18} className={medalColor} />
         ) : (
           <span className="text-sm font-bold text-zinc-600">#{rank + 1}</span>
         )}
@@ -193,7 +192,7 @@ export default async function TrendingPage() {
             {/* Top 10 globale */}
             <div className="mb-10">
               <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-4">
-                🔥 Top questa settimana
+                <span className="flex items-center gap-1.5"><Flame size={13} className="text-orange-400" /> Top questa settimana</span>
               </h2>
               <div className="space-y-2">
                 {byAdditions.slice(0, 10).map((item, i) => (

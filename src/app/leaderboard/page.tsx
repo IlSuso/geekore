@@ -1,11 +1,12 @@
 'use client'
+import React from 'react'
 // src/app/leaderboard/page.tsx
 // A7: Usa RPC get_leaderboard() server-side invece del full-scan client
 // P5: SkeletonLeaderboardRow durante il loading
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Loader2, Zap, Gamepad2, Tv } from 'lucide-react'
+import { Loader2, Zap, Gamepad2, Tv, Trophy, Medal } from 'lucide-react'
 import Link from 'next/link'
 import { Avatar } from '@/components/ui/Avatar'
 import { SkeletonLeaderboardRow } from '@/components/ui/SkeletonCard'
@@ -57,14 +58,14 @@ export default function LeaderboardPage() {
         {/* Tabs */}
         <div className="flex gap-2 mb-6 bg-zinc-950 border border-zinc-800 rounded-2xl p-1.5">
           {([
-            ['score',       '⚡ Geek Score'],
-            ['game_hours',  '🎮 Ore Steam'],
-            ['anime_count', '🎌 Anime'],
-          ] as const).map(([id, label]) => (
+            ['score',       <><Zap size={12} /> Geek Score</>],
+            ['game_hours',  <><Gamepad2 size={12} /> Ore Steam</>],
+            ['anime_count', <><Tv size={12} /> Anime</>],
+          ] as [string, React.ReactNode][]).map(([id, label]) => (
             <button
               key={id}
-              onClick={() => setTab(id)}
-              className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all ${tab === id ? 'bg-violet-600 text-white' : 'text-zinc-400 hover:text-white'}`}
+              onClick={() => setTab(id as 'score' | 'game_hours' | 'anime_count')}
+              className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${tab === id ? 'bg-violet-600 text-white' : 'text-zinc-400 hover:text-white'}`}
             >
               {label}
             </button>
@@ -88,7 +89,7 @@ export default function LeaderboardPage() {
                   ? `${leader.anime_count} anime`
                   : `${leader.score.toLocaleString('it')} pts`
 
-              const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null
+              const medalColor = i === 0 ? 'text-yellow-400' : i === 1 ? 'text-zinc-300' : i === 2 ? 'text-amber-600' : null
 
               return (
                 <Link
@@ -99,8 +100,8 @@ export default function LeaderboardPage() {
                 >
                   {/* Rank */}
                   <div className="w-8 text-center flex-shrink-0">
-                    {medal
-                      ? <span className="text-xl">{medal}</span>
+                    {medalColor
+                      ? <Trophy size={18} className={medalColor} />
                       : <span className="text-sm font-bold text-zinc-600">#{i + 1}</span>}
                   </div>
 
@@ -127,9 +128,9 @@ export default function LeaderboardPage() {
                   <div className="text-right flex-shrink-0">
                     <p className="font-bold text-sm text-white">{value}</p>
                     {tab === 'score' && (
-                      <p className="text-[10px] text-zinc-600">
-                        {leader.anime_count > 0 && `${leader.anime_count}🎌 `}
-                        {leader.game_hours > 0 && `${leader.game_hours}h🎮`}
+                      <p className="text-[10px] text-zinc-600 flex items-center gap-1 justify-end">
+                        {leader.anime_count > 0 && <><Tv size={9} />{leader.anime_count}</>}
+                        {leader.game_hours > 0 && <><Gamepad2 size={9} />{leader.game_hours}h</>}
                       </p>
                     )}
                   </div>

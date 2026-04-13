@@ -26,6 +26,8 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const q = searchParams.get('q') || searchParams.get('search') || ''
   const typeParam = searchParams.get('type') // 'movie' | 'tv' | null
+  const langParam = searchParams.get('lang') // 'it' | 'en'
+  const tmdbLang = langParam === 'en' ? 'en-US' : 'it-IT'
 
   if (!q || q.trim().length < 2) return NextResponse.json([], { headers: rl.headers })
 
@@ -41,13 +43,31 @@ export async function GET(request: NextRequest) {
 
   for (const mediaType of types) {
     try {
+      // Fetch nella lingua richiesta
       const res = await fetch(
-        `${TMDB_BASE}/search/${mediaType}?query=${encodeURIComponent(term)}&language=it-IT&page=1`,
+        `${TMDB_BASE}/search/${mediaType}?query=${encodeURIComponent(term)}&language=${tmdbLang}&page=1`,
         { headers: tmdbHeaders(), signal: AbortSignal.timeout(8000) }
       )
       if (!res.ok) continue
       const json = await res.json()
       const results: any[] = (json.results || []).slice(0, 15)
+
+      // Se la lingua richiesta non è inglese, fetch parallelo in EN per avere title_en
+      let enMap: Map<number, string> = new Map()
+      if (tmdbLang !== 'en-US') {
+        try {
+          const enRes = await fetch(
+            `${TMDB_BASE}/search/${mediaType}?query=${encodeURIComponent(term)}&language=en-US&page=1`,
+            { headers: tmdbHeaders(), signal: AbortSignal.timeout(6000) }
+          )
+          if (enRes.ok) {
+            const enJson = await enRes.json()
+            for (const r of (enJson.results || [])) {
+              enMap.set(r.id, r.title || r.name || '')
+            }
+          }
+        } catch { /* skip */ }
+      }
 
       // Fetch dettagli stagioni per le serie (in batch limitato)
       const mapped = await Promise.all(results
@@ -61,7 +81,7 @@ export async function GET(request: NextRequest) {
           if (mediaType === 'tv') {
             try {
               const [detailRes, kwRes] = await Promise.all([
-                fetch(`${TMDB_BASE}/tv/${m.id}?language=it-IT`, { headers: tmdbHeaders(), signal: AbortSignal.timeout(3000) }),
+                fetch(`${TMDB_BASE}/tv/${m.id}?language=${tmdbLang}`, { headers: tmdbHeaders(), signal: AbortSignal.timeout(3000) }),
                 fetch(`${TMDB_BASE}/tv/${m.id}/keywords`, { headers: tmdbHeaders(), signal: AbortSignal.timeout(3000) }),
               ])
               if (detailRes.ok) {
@@ -87,9 +107,16 @@ export async function GET(request: NextRequest) {
             } catch { /* skip */ }
           }
 
+          const localTitle = m.title || m.name || ''
+          // title_en: se la lingua è già EN usiamo lo stesso; altrimenti prendiamo dalla mappa EN
+          const titleEn = tmdbLang === 'en-US'
+            ? localTitle
+            : (enMap.get(m.id) || m.original_title || m.original_name || localTitle)
+
           return {
             id: m.id.toString(),
-            title: m.title || m.name || 'Senza titolo',
+            title: localTitle || 'No title',
+            title_en: titleEn || localTitle || 'No title',
             type: mediaType,
             coverImage: tmdbImage(m.poster_path),
             year: m.release_date

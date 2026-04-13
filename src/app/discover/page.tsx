@@ -3,7 +3,8 @@
 // V3: Search Intent Tracking + Wishlist Amplifier + Taste Delta updates
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, Plus, X, Film, Tv, Gamepad2, BookOpen, Dices, Bookmark, BookmarkCheck, Mic, MicOff, Loader2 } from 'lucide-react';
+import React from 'react';
+import { Search, Plus, X, Film, Tv, Gamepad2, BookOpen, Dices, Bookmark, BookmarkCheck, Mic, MicOff, Loader2, Swords, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { showToast } from '@/components/ui/Toast';
 import { useLocale } from '@/lib/locale';
@@ -12,7 +13,7 @@ import { SkeletonDiscoverCard } from '@/components/ui/SkeletonCard';
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer';
 
 type MediaItem = {
-  id: string; title: string; type: string; coverImage?: string; year?: number;
+  id: string; title: string; title_en?: string; type: string; coverImage?: string; year?: number;
   episodes?: number; totalSeasons?: number; seasons?: Record<number, { episode_count: number }>;
   description?: string; genres?: string[]; source: 'anilist' | 'tmdb' | 'igdb' | 'bgg';
   tags?: string[]; keywords?: string[]; themes?: string[]; player_perspectives?: string[];
@@ -37,7 +38,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 function toMediaDetails(item: MediaItem): MediaDetails {
-  return { id: item.id, title: item.title, type: item.type, coverImage: item.coverImage, year: item.year, episodes: item.episodes, totalSeasons: item.totalSeasons, seasons: item.seasons, description: item.description, genres: item.genres, source: item.source, score: item.score, min_players: item.min_players, max_players: item.max_players, playing_time: item.playing_time, complexity: item.complexity, bgg_rating: item.bgg_rating, mechanics: item.mechanics, designers: item.designers, developers: item.developers, themes: item.themes };
+  return { id: item.id, title: item.title, title_en: item.title_en, type: item.type, coverImage: item.coverImage, year: item.year, episodes: item.episodes, totalSeasons: item.totalSeasons, seasons: item.seasons, description: item.description, genres: item.genres, source: item.source, score: item.score, min_players: item.min_players, max_players: item.max_players, playing_time: item.playing_time, complexity: item.complexity, bgg_rating: item.bgg_rating, mechanics: item.mechanics, designers: item.designers, developers: item.developers, themes: item.themes };
 }
 
 function haptic(duration: number | number[] = 50) {
@@ -78,14 +79,14 @@ function useVoiceSearch(onResult: (text: string) => void) {
 
 const DEBOUNCE_MS = 350;
 
-const FILTERS = [
-  { id: 'all', label: 'Tutti', icon: null },
-  { id: 'anime', label: 'Anime', icon: '🎌' },
-  { id: 'manga', label: 'Manga', icon: '📖' },
-  { id: 'movie', label: 'Film', icon: '🎬' },
-  { id: 'tv', label: 'Serie', icon: '📺' },
-  { id: 'game', label: 'Giochi', icon: '🎮' },
-  { id: 'boardgame', label: 'Board', icon: '🎲' },
+const FILTERS: { id: string; label: string; icon: React.ReactNode }[] = [
+  { id: 'all',       label: 'Tutti',  icon: null },
+  { id: 'anime',     label: 'Anime',  icon: <Swords size={13} /> },
+  { id: 'manga',     label: 'Manga',  icon: <BookOpen size={13} /> },
+  { id: 'movie',     label: 'Film',   icon: <Film size={13} /> },
+  { id: 'tv',        label: 'Serie',  icon: <Tv size={13} /> },
+  { id: 'game',      label: 'Giochi', icon: <Gamepad2 size={13} /> },
+  { id: 'boardgame', label: 'Board',  icon: <Dices size={13} /> },
 ];
 
 // ── V3: Search tracking helpers (fire-and-forget, non blocca l'UI) ─────────
@@ -149,7 +150,7 @@ export default function DiscoverPage() {
   const lastTrackedQueryRef = useRef<string>('');
 
   const supabase = createClient();
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const d = t.discover;
 
   const { isListening, isSupported: voiceSupported, toggle: toggleVoice } = useVoiceSearch(
@@ -164,7 +165,7 @@ export default function DiscoverPage() {
     });
   }, []);
 
-  const search = useCallback(async (term: string, type: string) => {
+  const search = useCallback(async (term: string, type: string, lang: string) => {
     if (!term.trim() || term.trim().length < 2) { setResults([]); setSearchError(null); setIsPending(false); return; }
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
@@ -173,7 +174,7 @@ export default function DiscoverPage() {
     try {
       const reqs: Promise<Response>[] = [];
       if (type === 'all' || type === 'anime' || type === 'manga') reqs.push(fetch(`/api/anilist?q=${encodeURIComponent(term)}${type !== 'all' ? `&type=${type}` : ''}`, { signal: controller.signal }));
-      if (type === 'all' || type === 'movie' || type === 'tv') reqs.push(fetch(`/api/tmdb?q=${encodeURIComponent(term)}${type !== 'all' ? `&type=${type}` : ''}`, { signal: controller.signal }));
+      if (type === 'all' || type === 'movie' || type === 'tv') reqs.push(fetch(`/api/tmdb?q=${encodeURIComponent(term)}${type !== 'all' ? `&type=${type}` : ''}&lang=${lang}`, { signal: controller.signal }));
       if (type === 'all' || type === 'game') reqs.push(fetch(`/api/igdb?q=${encodeURIComponent(term)}`, { signal: controller.signal }));
       if (type === 'all' || type === 'boardgame') reqs.push(fetch(`/api/boardgames?q=${encodeURIComponent(term)}`, { signal: controller.signal }));
       const responses = await Promise.allSettled(reqs);
@@ -197,7 +198,7 @@ export default function DiscoverPage() {
       if (err?.name === 'AbortError') return;
       setSearchError(d.searchError || 'Errore durante la ricerca'); setResults([]);
     } finally { if (!controller.signal.aborted) setLoading(false); }
-  }, [supabase, d]);
+  }, [supabase, d, locale]);
 
   useEffect(() => {
     if (!searchTerm.trim() || searchTerm.trim().length < 2) {
@@ -209,10 +210,10 @@ export default function DiscoverPage() {
     setIsPending(true);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      search(searchTerm, activeType);
+      search(searchTerm, activeType, locale);
     }, DEBOUNCE_MS);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [searchTerm, activeType, search]);
+  }, [searchTerm, activeType, search, locale]);
 
   // V3: Wishlist con generi salvati + delta profilo gusti
   const toggleWishlist = async (media: MediaItem) => {
@@ -279,7 +280,7 @@ export default function DiscoverPage() {
           <input
             data-testid="search-input"
             type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-            placeholder={isListening ? '🎤 In ascolto...' : (d.searchPlaceholder || 'Cerca anime, film, giochi, manga...')}
+            placeholder={isListening ? 'In ascolto...' : (d.searchPlaceholder || 'Cerca anime, film, giochi, manga...')}
             className={`w-full bg-zinc-900 border rounded-2xl pl-11 py-4 text-base text-white placeholder-zinc-600 focus:outline-none transition-colors ${isListening ? 'border-red-500 pr-20' : 'border-zinc-800 focus:border-violet-500 pr-20'}`}
             autoFocus
           />
@@ -367,7 +368,9 @@ export default function DiscoverPage() {
                   <div className="relative aspect-[2/3] rounded-2xl overflow-hidden bg-zinc-800 mb-2">
                     {hasValidCover(item)
                       ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
-                      : <div className="w-full h-full flex items-center justify-center text-zinc-600 text-3xl">{type === 'game' ? '🎮' : type === 'boardgame' ? '🎲' : type === 'manga' ? '📖' : '📺'}</div>
+                      : <div className="w-full h-full flex items-center justify-center text-zinc-700">
+                          {type === 'game' ? <Gamepad2 size={32} /> : type === 'boardgame' ? <Dices size={32} /> : type === 'manga' ? <BookOpen size={32} /> : <Tv size={32} />}
+                        </div>
                     }
                     {/* Wishlist button */}
                     <button
@@ -389,11 +392,11 @@ export default function DiscoverPage() {
                     )}
                     {alreadyAdded.includes(item.id) && (
                       <div className="absolute bottom-2 right-2 w-7 h-7 bg-emerald-500/20 border border-emerald-500/40 rounded-lg flex items-center justify-center">
-                        <span className="text-emerald-400 text-xs">✓</span>
+                        <Check size={13} className="text-emerald-400" />
                       </div>
                     )}
                   </div>
-                  <p className="text-xs font-medium text-zinc-300 line-clamp-2 leading-snug">{item.title}</p>
+                  <p className="text-xs font-medium text-zinc-300 line-clamp-2 leading-snug">{locale === 'en' && item.title_en ? item.title_en : item.title}</p>
                   {item.year && <p className="text-[10px] text-zinc-600 mt-0.5">{item.year}</p>}
                 </div>
               ))}

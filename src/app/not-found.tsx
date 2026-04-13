@@ -3,6 +3,7 @@
 // Fix: rimosso styled-jsx (non funziona in Server Component) → animazioni inline
 
 import Link from 'next/link'
+import { Home, Search, User } from 'lucide-react'
 
 export default function NotFound() {
   return (
@@ -74,19 +75,19 @@ export default function NotFound() {
           href="/feed"
           className="flex items-center gap-2 px-6 py-3 bg-violet-600 hover:bg-violet-500 rounded-full font-semibold transition-all hover:scale-105 text-sm"
         >
-          🏠 Feed
+          <Home size={16} /> Feed
         </Link>
         <Link
           href="/discover"
           className="flex items-center gap-2 px-6 py-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-full font-semibold transition-all hover:scale-105 text-sm"
         >
-          🔍 Discover
+          <Search size={16} /> Discover
         </Link>
         <Link
           href="/profile/me"
           className="flex items-center gap-2 px-6 py-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-full font-semibold transition-all hover:scale-105 text-sm"
         >
-          👤 Il mio profilo
+          <User size={16} /> Il mio profilo
         </Link>
       </div>
     </div>

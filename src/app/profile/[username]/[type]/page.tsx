@@ -14,7 +14,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import Link from 'next/link'
 import {
   ArrowLeft, Search, SlidersHorizontal, Grid3X3, List,
-  Clock, CheckCircle, X, Edit3, Loader2,
+  Clock, CheckCircle, X, Edit3, Loader2, Gamepad2, Tv, Bookmark,
 } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { NotesModal } from '@/components/profile/NotesModal'
@@ -78,7 +78,7 @@ function SteamCoverImg({ appid, title }: { appid?: string; title: string }) {
   if (!appid || attempt >= urls.length) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-800 gap-2">
-        <span className="text-3xl">🎮</span>
+        <Gamepad2 size={28} className="text-zinc-600" />
         <p className="text-xs text-center px-2 text-zinc-400 line-clamp-2">{title}</p>
       </div>
     )
@@ -161,7 +161,7 @@ function MediaCard({
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-zinc-800">
-            <span className="text-5xl opacity-30">📺</span>
+            <Tv size={36} className="text-zinc-700 opacity-40" />
           </div>
         )}
       </div>
@@ -195,20 +195,20 @@ function MediaCard({
             onChange={e => onStatusChange?.(media.id, e.target.value)}
             className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-zinc-900 border-zinc-800 text-zinc-400 focus:outline-none focus:border-violet-500 transition cursor-pointer appearance-none w-fit"
           >
-            <option value="watching">▶ In corso</option>
-            <option value="completed">✓ Completato</option>
-            <option value="paused">⏸ In pausa</option>
-            <option value="dropped">✗ Abbandonato</option>
-            <option value="wishlist">☆ Wishlist</option>
+            <option value="watching">In corso</option>
+            <option value="completed">Completato</option>
+            <option value="paused">In pausa</option>
+            <option value="dropped">Abbandonato</option>
+            <option value="wishlist">Wishlist</option>
           </select>
         ) : (
           media.status && (
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit bg-zinc-800 text-zinc-400">
-              {media.status === 'completed' ? '✓ Completato'
-                : media.status === 'watching' ? '▶ In corso'
-                : media.status === 'paused' ? '⏸ In pausa'
-                : media.status === 'dropped' ? '✗ Abbandonato'
-                : media.status === 'wishlist' ? '☆ Wishlist'
+              {media.status === 'completed' ? 'Completato'
+                : media.status === 'watching' ? 'In corso'
+                : media.status === 'paused' ? 'In pausa'
+                : media.status === 'dropped' ? 'Abbandonato'
+                : media.status === 'wishlist' ? 'Wishlist'
                 : media.status}
             </span>
           )
@@ -267,7 +267,7 @@ function MediaRow({
             }}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-zinc-600 text-lg">📺</div>
+          <div className="w-full h-full flex items-center justify-center text-zinc-700"><Tv size={20} /></div>
         )}
       </div>
       <div className="flex-1 min-w-0">
@@ -289,11 +289,11 @@ function MediaRow({
           onChange={e => onStatusChange?.(media.id, e.target.value)}
           className="text-[10px] bg-transparent text-zinc-500 focus:outline-none cursor-pointer"
         >
-          <option value="watching">▶ In corso</option>
-          <option value="completed">✓ Completato</option>
-          <option value="paused">⏸ Pausa</option>
-          <option value="dropped">✗ Abbandonato</option>
-          <option value="wishlist">☆ Wishlist</option>
+          <option value="watching">In corso</option>
+          <option value="completed">Completato</option>
+          <option value="paused">Pausa</option>
+          <option value="dropped">Abbandonato</option>
+          <option value="wishlist">Wishlist</option>
         </select>
       )}
       {isOwner && (
@@ -483,11 +483,11 @@ export default function ProfileTypePage() {
             className="bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-4 py-2.5 text-sm text-zinc-300 focus:outline-none transition cursor-pointer"
           >
             <option value="all">Tutti gli stati</option>
-            <option value="completed">✓ Completati</option>
-            <option value="watching">▶ In corso</option>
-            <option value="paused">⏸ In pausa</option>
-            <option value="dropped">✗ Abbandonati</option>
-            <option value="wishlist">☆ Wishlist</option>
+            <option value="completed">Completati</option>
+            <option value="watching">In corso</option>
+            <option value="paused">In pausa</option>
+            <option value="dropped">Abbandonati</option>
+            <option value="wishlist">Wishlist</option>
           </select>
 
           {/* Ordinamento */}

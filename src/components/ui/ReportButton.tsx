@@ -12,11 +12,11 @@ type TargetType = 'post' | 'comment' | 'profile' | 'profile_comment'
 type Reason = 'spam' | 'harassment' | 'inappropriate' | 'misinformation' | 'other'
 
 const REASONS: { value: Reason; label: string }[] = [
-  { value: 'spam', label: '🚫 Spam o pubblicità' },
-  { value: 'harassment', label: '😡 Molestie o insulti' },
-  { value: 'inappropriate', label: '⚠️ Contenuto inappropriato' },
-  { value: 'misinformation', label: '📰 Informazioni false' },
-  { value: 'other', label: '💬 Altro' },
+  { value: 'spam',          label: 'Spam o pubblicità' },
+  { value: 'harassment',    label: 'Molestie o insulti' },
+  { value: 'inappropriate', label: 'Contenuto inappropriato' },
+  { value: 'misinformation',label: 'Informazioni false' },
+  { value: 'other',         label: 'Altro' },
 ]
 
 interface ReportButtonProps {

@@ -3,6 +3,7 @@
 // 7.4 — estratto da profile/[username]/page.tsx
 
 import { useState, useEffect } from 'react'
+import { Star } from 'lucide-react'
 
 const TYPE_COLORS: Record<string, string> = {
   anime: 'bg-sky-500',
@@ -80,7 +81,7 @@ export function ProfileActivityFeed({ userId }: { userId: string }) {
                 <span className="font-semibold text-white ml-1">"{a.media_title}"</span>
               )}
               {a.rating_value && (
-                <span className="text-yellow-400 ml-1">{'★'.repeat(Math.round(a.rating_value))}</span>
+                <span className="flex items-center gap-0.5 ml-1">{Array.from({length: Math.round(a.rating_value)}).map((_, i) => <Star key={i} size={11} className="text-yellow-400 fill-yellow-400" />)}</span>
               )}
             </p>
             <p className="text-xs text-zinc-600 mt-0.5">{timeAgo(a.created_at)}</p>

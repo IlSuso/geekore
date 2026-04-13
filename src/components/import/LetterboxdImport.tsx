@@ -2,7 +2,7 @@
 // src/components/import/LetterboxdImport.tsx
 
 import { useState, useRef } from 'react'
-import { Download, CheckCircle, AlertTriangle, Loader2, ExternalLink, Upload, FileText, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { Download, CheckCircle, AlertTriangle, Loader2, ExternalLink, Upload, FileText, X, ChevronDown, ChevronUp, Film, List, FolderOpen } from 'lucide-react'
 
 interface ImportResult {
   imported: number
@@ -219,7 +219,7 @@ export function LetterboxdImport() {
 
         <div className="bg-zinc-800/30 border border-zinc-700/50 rounded-2xl p-4 space-y-3">
           <div className="flex items-start gap-2">
-            <span className="text-base">🎬</span>
+            <Film size={16} className="text-zinc-500 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold text-white">Film visti + voti</p>
               <p className="text-xs text-zinc-500 mt-0.5">
@@ -248,7 +248,7 @@ export function LetterboxdImport() {
         {/* Watchlist */}
         <div className="bg-zinc-800/30 border border-zinc-700/50 rounded-2xl p-4 space-y-3">
           <div className="flex items-start gap-2">
-            <span className="text-base">📋</span>
+            <List size={16} className="text-zinc-500 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold text-white">Watchlist <span className="text-zinc-500 font-normal text-xs">— opzionale</span></p>
               <p className="text-xs text-zinc-500 mt-0.5">
@@ -269,7 +269,7 @@ export function LetterboxdImport() {
             onClick={() => setShowList(v => !v)}
             className="w-full flex items-center gap-2 p-4 text-left hover:bg-zinc-700/20 transition"
           >
-            <span className="text-base">📁</span>
+            <FolderOpen size={16} className="text-zinc-500 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
               <p className="text-sm font-semibold text-white">
                 Lista personalizzata <span className="text-zinc-500 font-normal text-xs">— opzionale</span>

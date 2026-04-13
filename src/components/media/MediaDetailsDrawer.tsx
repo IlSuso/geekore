@@ -5,7 +5,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   X, ExternalLink, Star, Clock, Users, Layers,
-  Gamepad2, BookOpen, Film, Tv, Dices, Clapperboard,
+  Gamepad2, BookOpen, Film, Tv, Dices, Clapperboard, Check, Bookmark,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -16,6 +16,7 @@ import { StarRating } from '@/components/ui/StarRating'
 export interface MediaDetails {
   id: string
   title: string
+  title_en?: string  // titolo inglese per switch lingua real-time
   type: string
   coverImage?: string
   year?: number
@@ -193,6 +194,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
       user_id: user.id,
       external_id: media.id,
       title: media.title,
+      title_en: media.title_en || media.title,  // salva titolo EN per switch lingua
       type: media.type,
       cover_image: media.coverImage,
       genres: media.genres || [],
@@ -246,7 +248,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     } else {
       await supabase.from('wishlist').upsert({
         user_id: user.id, external_id: media.id,
-        title: media.title, type: media.type, cover_image: media.coverImage,
+        title: media.title, title_en: media.title_en || media.title, type: media.type, cover_image: media.coverImage,
         genres: media.genres || [],
         media_type: media.type,
         studios: media.studios || [],
@@ -491,7 +493,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                     <div className="relative h-28 rounded-xl overflow-hidden bg-zinc-800 mb-1.5">
                       {rel.coverImage
                         ? <img src={rel.coverImage} alt={rel.title} className="w-full h-full object-cover" loading="lazy" />
-                        : <div className="w-full h-full flex items-center justify-center text-zinc-600 text-lg">📺</div>
+                        : <div className="w-full h-full flex items-center justify-center text-zinc-700"><Tv size={36} /></div>
                       }
                       <div className="absolute top-1 left-1 bg-amber-500/90 text-[8px] font-bold px-1 py-0.5 rounded text-white">
                         {RELATION_LABEL[rel.relationType] || rel.relationType}
@@ -623,8 +625,8 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                     )}
                   </>
                 ) : (
-                  <div className="w-full py-3.5 bg-emerald-600/20 border border-emerald-500/30 rounded-2xl text-emerald-400 font-semibold text-center text-sm">
-                    ✓ Nella tua collezione
+                  <div className="w-full py-3.5 bg-emerald-600/20 border border-emerald-500/30 rounded-2xl text-emerald-400 font-semibold text-center text-sm flex items-center justify-center gap-2">
+                    <Check size={15} /> Nella tua collezione
                   </div>
                 )}
 
@@ -636,7 +638,10 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                       : 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:border-zinc-500'
                   }`}
                 >
-                  {inWishlist ? '★ Nella wishlist' : '☆ Aggiungi alla wishlist'}
+                  {inWishlist
+                    ? <><Star size={14} className="fill-current" /> Nella wishlist</>
+                    : <><Bookmark size={14} /> Aggiungi alla wishlist</>
+                  }
                 </button>
 
                 {externalUrl && (

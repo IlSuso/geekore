@@ -80,7 +80,7 @@ export function PushNotificationsToggle() {
       if (res.ok) {
         setSubscription(sub)
         setState('granted')
-        showToast('Notifiche attivate! 🔔')
+        showToast('Notifiche attivate!')
       } else {
         setState('default')
         showToast('Errore nell\'attivazione delle notifiche', 'error')

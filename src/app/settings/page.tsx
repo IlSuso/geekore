@@ -13,7 +13,7 @@ import { showToast } from '@/components/ui/Toast'
 import {
   Settings, Globe, Sun, Moon, List, TrendingUp, BarChart3, Bell,
   Shield, KeyRound, LogOut, Eye, EyeOff, Loader2, ChevronDown, ChevronUp,
-  Circle, Sparkles, Mail,
+  Circle, Sparkles, Mail, Check, Heart,
 } from 'lucide-react'
 import { PushNotificationsToggle } from '@/components/notifications/PushNotificationsToggle'
 import Link from 'next/link'
@@ -53,7 +53,7 @@ function ChangePasswordSheet() {
       const { error } = await supabase.auth.updateUser({ password: newPass })
       if (error) throw error
 
-      showToast('Password aggiornata con successo ✓')
+      showToast('Password aggiornata con successo')
       setOpen(false)
       setCurrentPass('')
       setNewPass('')
@@ -320,7 +320,7 @@ export default function SettingsPage() {
                   }`}
                 >
                   {lang === 'it' ? t.settings.italian : t.settings.english}
-                  {locale === lang && <span className="text-violet-300 text-xs">✓</span>}
+                  {locale === lang && <Check size={12} className="text-violet-300" />}
                 </button>
               ))}
             </div>
@@ -339,7 +339,7 @@ export default function SettingsPage() {
                 { id: 'dark'  as const, label: 'Scuro',   Icon: Moon     },
                 { id: 'light' as const, label: 'Chiaro',  Icon: Sun      },
                 { id: 'oled'  as const, label: 'OLED',    Icon: Circle   },
-                { id: 'aura'  as const, label: '✨ Aura', Icon: Sparkles },
+                { id: 'aura'  as const, label: 'Aura', Icon: Sparkles },
               ]).map(({ id, label, Icon }) => (
                 <button
                   key={id}
@@ -351,7 +351,7 @@ export default function SettingsPage() {
                   }`}
                 >
                   <Icon size={14} /> {label}
-                  {theme === id && <span className="text-violet-300 text-xs">✓</span>}
+                  {theme === id && <Check size={12} className="text-violet-300" />}
                 </button>
               ))}
             </div>
@@ -418,7 +418,7 @@ export default function SettingsPage() {
         </section>
 
         <div className="text-center text-zinc-700 text-xs pt-4">
-          Geekore · {locale === 'it' ? 'Fatto con ❤️ per i nerd' : 'Made with ❤️ for nerds'}
+          <span className="inline-flex items-center gap-1">Geekore · {locale === 'it' ? 'Fatto con' : 'Made with'} <Heart size={11} className="text-red-500 fill-red-500" /> {locale === 'it' ? 'per i nerd' : 'for nerds'}</span>
         </div>
       </div>
     </div>

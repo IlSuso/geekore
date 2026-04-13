@@ -1,7 +1,7 @@
 'use client'
 
 import { logActivity } from '@/lib/activity'
-import { Trash2, Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, List, Grid3X3, ChevronRight, Download, X as XIcon } from 'lucide-react'
+import { Trash2, Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, List, Grid3X3, ChevronRight, Download, X as XIcon, Gamepad2, Tv } from 'lucide-react'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -44,6 +44,7 @@ import { DeleteAccountModal } from '@/components/profile/DeleteAccountModal'
 type UserMedia = {
   id: string
   title: string
+  title_en?: string  // titolo inglese per switch lingua real-time
   type: 'anime' | 'tv' | 'movie' | 'game' | 'manga' | 'boardgame'
   cover_image?: string
   current_episode: number
@@ -92,7 +93,7 @@ function SteamCoverImg({ appid, title, className }: { appid?: string; title: str
   if (!appid || attempt >= urls.length) {
     return (
       <div className={`w-full h-full flex flex-col items-center justify-center bg-zinc-800 text-white gap-2 ${className}`}>
-        <span className="text-4xl">🎮</span>
+        <Gamepad2 size={32} className="text-zinc-600" />
         <p className="text-xs font-medium text-center px-3 text-zinc-400 line-clamp-2">{title}</p>
       </div>
     )
@@ -158,9 +159,10 @@ function MediaCard({
   onReset?: (id: string) => void
   onStatusChange?: (id: string, status: string) => void
 }) {
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const m = t.media
   const [imgFailed, setImgFailed] = useState(false)
+  const displayTitle = locale === 'en' && media.title_en ? media.title_en : media.title
 
   const isConfirmingDelete = deletingId === media.id
   const hasSeasonData = !!media.season_episodes && Object.keys(media.season_episodes).length > 0
@@ -190,22 +192,22 @@ function MediaCard({
   const hasNotes = !!media.notes?.trim()
 
   const statusBadge: Record<string, { label: string; cls: string }> = {
-    completed: { label: '✓ Completato', cls: 'bg-emerald-500/20 text-emerald-400' },
-    paused:    { label: '⏸ In pausa',   cls: 'bg-yellow-500/20 text-yellow-400' },
-    dropped:   { label: '✗ Abbandonato',cls: 'bg-red-500/20 text-red-400' },
-    watching:  { label: '▶ In corso',   cls: 'bg-zinc-700/40 text-zinc-400' },
+    completed: { label: 'Completato', cls: 'bg-emerald-500/20 text-emerald-400' },
+    paused:    { label: 'In pausa',   cls: 'bg-yellow-500/20 text-yellow-400' },
+    dropped:   { label: 'Abbandonato',cls: 'bg-red-500/20 text-red-400' },
+    watching:  { label: 'In corso',   cls: 'bg-zinc-700/40 text-zinc-400' },
   }
 
   // Cover rendering
   const renderCover = () => {
     if (media.is_steam) {
-      return <SteamCoverImg appid={media.appid} title={media.title} />
+      return <SteamCoverImg appid={media.appid} title={displayTitle} />
     }
     if (media.cover_image && !imgFailed) {
       return (
         <img
           src={media.cover_image}
-          alt={media.title}
+          alt={displayTitle}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           onError={(e) => {
             const img = e.target as HTMLImageElement
@@ -225,8 +227,8 @@ function MediaCard({
     }
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-800 text-white gap-2">
-        <span className="text-5xl">📺</span>
-        <p className="text-xs font-medium text-center px-4 text-zinc-400 line-clamp-2">{media.title}</p>
+        <Tv size={36} className="text-zinc-600" />
+        <p className="text-xs font-medium text-center px-4 text-zinc-400 line-clamp-2">{displayTitle}</p>
       </div>
     )
   }
@@ -259,7 +261,7 @@ function MediaCard({
 
       {/* Info */}
       <div className="flex flex-col flex-1 px-4 pt-3 pb-4 gap-2">
-        <h4 className="font-semibold line-clamp-2 text-sm leading-snug text-white">{media.title}</h4>
+        <h4 className="font-semibold line-clamp-2 text-sm leading-snug text-white">{displayTitle}</h4>
         <div className="flex items-center gap-2">
           <StarRating
             value={rating}
@@ -289,10 +291,10 @@ function MediaCard({
               onClick={e => e.stopPropagation()}
               className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-zinc-900 border-zinc-800 text-zinc-400 focus:outline-none focus:border-violet-500 transition cursor-pointer appearance-none"
             >
-              <option value="watching">▶ In corso</option>
-              <option value="completed">✓ Completato</option>
-              <option value="paused">⏸ In pausa</option>
-              <option value="dropped">✗ Abbandonato</option>
+              <option value="watching">In corso</option>
+              <option value="completed">Completato</option>
+              <option value="paused">In pausa</option>
+              <option value="dropped">Abbandonato</option>
             </select>
           </div>
         ) : (
@@ -466,21 +468,22 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
   onSaveProgress?: (id: string, val: number) => void
   onStatusChange?: (id: string, status: string) => void
 }) {
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const hasEpisodes = !!(media.episodes && media.episodes > 1)
   const maxEp = media.episodes || 0
   const [rowImgFailed, setRowImgFailed] = useState(false)
+  const displayTitle = locale === 'en' && media.title_en ? media.title_en : media.title
 
   return (
     <div className="flex items-center gap-3 p-3 bg-zinc-900 border border-zinc-800 rounded-2xl hover:border-zinc-700 transition-colors group">
       {/* Cover mini */}
       <div className="w-10 h-14 bg-zinc-800 rounded-xl overflow-hidden flex-shrink-0">
         {media.is_steam ? (
-          <SteamCoverImg appid={media.appid} title={media.title} />
+          <SteamCoverImg appid={media.appid} title={displayTitle} />
         ) : media.cover_image && !rowImgFailed ? (
           <img
             src={media.cover_image}
-            alt={media.title}
+            alt={displayTitle}
             className="w-full h-full object-cover"
             onError={(e) => {
               const img = e.target as HTMLImageElement
@@ -497,23 +500,23 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
             }}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-zinc-600">📺</div>
+          <div className="w-full h-full flex items-center justify-center text-zinc-700"><Tv size={20} /></div>
         )}
       </div>
 
       {/* Title + type */}
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-sm text-white truncate">{media.title}</p>
+        <p className="font-semibold text-sm text-white truncate">{displayTitle}</p>
         <div className="flex items-center gap-2 mt-0.5">
           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white ${TYPE_COLORS[media.type] || 'bg-zinc-700'}`}>
             {media.type.toUpperCase()}
           </span>
           {isOwner && (
             <select value={media.status || 'watching'} onChange={e => onStatusChange?.(media.id, e.target.value)} className="text-[10px] bg-transparent text-zinc-500 focus:outline-none cursor-pointer">
-              <option value="watching">▶ In corso</option>
-              <option value="completed">✓ Completato</option>
-              <option value="paused">⏸ Pausa</option>
-              <option value="dropped">✗ Abbandonato</option>
+              <option value="watching">In corso</option>
+              <option value="completed">Completato</option>
+              <option value="paused">Pausa</option>
+              <option value="dropped">Abbandonato</option>
             </select>
           )}
         </div>
@@ -554,8 +557,7 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>()
   const supabase = createClient()
-  const { t } = useLocale()
-  const sensors = useDndSensors()
+  const { t, locale } = useLocale()
   const { csrfFetch } = useCsrf()
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
@@ -844,7 +846,10 @@ export default function ProfilePage() {
 
   // Apply filters + sort
   const filteredList = mediaList.filter(m => {
-    const matchSearch = !collectionSearch.trim() || m.title.toLowerCase().includes(collectionSearch.toLowerCase().trim())
+    const searchLower = collectionSearch.toLowerCase().trim()
+    const matchSearch = !collectionSearch.trim() ||
+      m.title.toLowerCase().includes(searchLower) ||
+      (m.title_en && m.title_en.toLowerCase().includes(searchLower))
     const matchStatus = statusFilter === 'all' || m.status === statusFilter
     return matchSearch && matchStatus
   })
@@ -852,8 +857,16 @@ export default function ProfilePage() {
   const sortedList = [...filteredList].sort((a, b) => {
     switch (sortMode) {
       case 'rating_desc': return (b.rating || 0) - (a.rating || 0)
-      case 'title_asc': return a.title.localeCompare(b.title)
-      case 'title_desc': return b.title.localeCompare(a.title)
+      case 'title_asc': {
+        const aT = locale === 'en' && a.title_en ? a.title_en : a.title
+        const bT = locale === 'en' && b.title_en ? b.title_en : b.title
+        return aT.localeCompare(bT)
+      }
+      case 'title_desc': {
+        const aT = locale === 'en' && a.title_en ? a.title_en : a.title
+        const bT = locale === 'en' && b.title_en ? b.title_en : b.title
+        return bT.localeCompare(aT)
+      }
       case 'progress_desc': return (b.current_episode || 0) - (a.current_episode || 0)
       case 'date_desc': return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
       default: return 0 // keep original sort

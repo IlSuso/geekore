@@ -7,7 +7,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Share2, X, Download } from 'lucide-react'
+import { ChevronDown, Share2, X, Download, Tv, Gamepad2, BookOpen, Film, Trophy, Gem } from 'lucide-react'
 
 interface WrappedData {
   username: string
@@ -34,10 +34,10 @@ const AVG_MOVIE_MIN = 110
 const AVG_TV_EP_MIN = 45
 
 function calcRank(totalHours: number): { rank: string; rankEmoji: string } {
-  if (totalHours >= 2000) return { rank: 'Leggenda', rankEmoji: '💎' }
-  if (totalHours >= 500)  return { rank: 'Esperto',  rankEmoji: '🥇' }
-  if (totalHours >= 100)  return { rank: 'Appassionato', rankEmoji: '🥈' }
-  return { rank: 'Novizio', rankEmoji: '🥉' }
+  if (totalHours >= 2000) return { rank: 'Leggenda', rankEmoji: 'gem' }
+  if (totalHours >= 500)  return { rank: 'Esperto',  rankEmoji: 'gold' }
+  if (totalHours >= 100)  return { rank: 'Appassionato', rankEmoji: 'silver' }
+  return { rank: 'Novizio', rankEmoji: 'bronze' }
 }
 
 // ── Slides ─────────────────────────────────────────────────────────────────────
@@ -106,11 +106,11 @@ function Slide2({ data, onNext }: { data: WrappedData; onNext: () => void }) {
 
 function Slide3({ data, onNext }: { data: WrappedData; onNext: () => void }) {
   const stats = [
-    { emoji: '🎌', label: 'Episodi anime',   value: data.animeEpisodes,  color: 'text-sky-400' },
-    { emoji: '🎮', label: 'Ore di gioco',    value: data.gameHours,      color: 'text-green-400' },
-    { emoji: '📖', label: 'Cap. manga letti',value: data.mangaChapters,  color: 'text-orange-400' },
-    { emoji: '🎬', label: 'Film guardati',   value: data.movieCount,     color: 'text-red-400' },
-    { emoji: '📺', label: 'Ep. serie TV',    value: data.tvEpisodes,     color: 'text-purple-400' },
+    { Icon: Tv,       label: 'Episodi anime',    value: data.animeEpisodes,  color: 'text-sky-400' },
+    { Icon: Gamepad2, label: 'Ore di gioco',     value: data.gameHours,      color: 'text-green-400' },
+    { Icon: BookOpen, label: 'Cap. manga letti', value: data.mangaChapters,  color: 'text-orange-400' },
+    { Icon: Film,     label: 'Film guardati',    value: data.movieCount,     color: 'text-red-400' },
+    { Icon: Tv,       label: 'Ep. serie TV',     value: data.tvEpisodes,     color: 'text-purple-400' },
   ].filter(s => s.value > 0)
 
   return (
@@ -127,7 +127,7 @@ function Slide3({ data, onNext }: { data: WrappedData; onNext: () => void }) {
             className="flex items-center gap-4 bg-white/5 rounded-2xl px-5 py-4 border border-white/10"
             style={{ animationDelay: `${i * 100}ms` }}
           >
-            <span className="text-3xl">{s.emoji}</span>
+            <s.Icon size={28} className={s.color} />
             <div className="flex-1">
               <p className="text-xs text-zinc-500">{s.label}</p>
               <p className={`text-2xl font-black tabular-nums ${s.color}`}>
@@ -265,7 +265,7 @@ export default function WrappedPage() {
 
   const handleShare = useCallback(async () => {
     if (!data) return
-    const text = `🎮 Il mio ${data.year} Wrapped su Geekore!\n${data.rankEmoji} ${data.rank} • ${data.totalHours}h • ${data.mediaCount} titoli\ngeekore.it`
+    const text = `Il mio ${data.year} Wrapped su Geekore!\n[${data.rank}] ${data.totalHours}h • ${data.mediaCount} titoli\ngeekore.it`
     if (navigator.share) {
       await navigator.share({ title: `Geekore Wrapped ${data.year}`, text })
     } else {

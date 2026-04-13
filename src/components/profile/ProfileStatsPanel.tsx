@@ -3,6 +3,7 @@
 // 7.4 — estratto da profile/[username]/page.tsx
 
 import { useMemo } from 'react'
+import { Star } from 'lucide-react'
 
 type UserMedia = {
   id: string
@@ -67,7 +68,7 @@ export function ProfileStatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
           <p className="text-[10px] text-zinc-500 mt-0.5">Cap. manga</p>
         </div>
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2.5 text-center">
-          <p className="text-lg font-bold text-yellow-400">{stats.avgRating ? `★ ${stats.avgRating}` : '—'}</p>
+          <p className="text-lg font-bold text-yellow-400">{stats.avgRating ? <span className="flex items-center justify-center gap-0.5"><Star size={13} fill="currentColor" />{stats.avgRating}</span> : '—'}</p>
           <p className="text-[10px] text-zinc-500 mt-0.5">Voto medio</p>
         </div>
       </div>

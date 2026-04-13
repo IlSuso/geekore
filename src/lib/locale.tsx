@@ -88,7 +88,7 @@ const translations = {
       searchError: 'Errore durante la ricerca. Verifica la connessione o riprova tra qualche secondo.',
       all: 'Tutto', anime: 'Anime', manga: 'Manga', movie: 'Film',
       tv: 'Serie TV', game: 'Videogiochi', boardgame: 'Board Game',
-      added: '✓ Aggiunto', add: 'Aggiungi',
+      added: 'Aggiunto', add: 'Aggiungi',
       wishlistAdd: 'Aggiunto alla wishlist', wishlistRemove: 'Rimosso dalla wishlist',
       addToWishlist: 'Aggiungi alla wishlist', removeFromWishlist: 'Rimuovi dalla wishlist',
       addProgress: 'Aggiungi ai progressi',
@@ -105,8 +105,8 @@ const translations = {
       title: 'Impostazioni',
       language: 'Lingua',
       languageDesc: 'Lingua dell\'interfaccia e delle news (TMDb)',
-      italian: '🇮🇹 Italiano',
-      english: '🇬🇧 English',
+      italian: 'Italiano',
+      english: 'English',
       apiNote: 'Le descrizioni di anime (AniList) e videogiochi (IGDB) sono sempre in inglese per limitazioni delle rispettive API. TMDb supporta l\'italiano per film e serie TV.',
     },
     news: {
@@ -186,7 +186,7 @@ const translations = {
     },
     follow: {
       follow: 'Segui',
-      following: 'Seguito ✓',
+      following: 'Seguito',
     },
     steam: {
       title: 'Steam',
@@ -244,7 +244,7 @@ const translations = {
       terms: 'Termini di Servizio',
       cookies: 'Cookie Policy',
       rights: '© 2025 Geekore. Tutti i diritti riservati.',
-      madeWith: 'Fatto con ❤️ per i nerd',
+      madeWith: 'Fatto con ♥ per i nerd',
     },
     common: {
       loading: 'Caricamento...', save: 'Salva', cancel: 'Annulla',
@@ -335,7 +335,7 @@ const translations = {
       searchError: 'Search error. Check your connection or try again.',
       all: 'All', anime: 'Anime', manga: 'Manga', movie: 'Movies',
       tv: 'TV Shows', game: 'Games', boardgame: 'Board Games',
-      added: '✓ Added', add: 'Add',
+      added: 'Added', add: 'Add',
       wishlistAdd: 'Added to wishlist', wishlistRemove: 'Removed from wishlist',
       addToWishlist: 'Add to wishlist', removeFromWishlist: 'Remove from wishlist',
       addProgress: 'Add to progress',
@@ -352,8 +352,8 @@ const translations = {
       title: 'Settings',
       language: 'Language',
       languageDesc: 'Interface and news language (TMDb)',
-      italian: '🇮🇹 Italian',
-      english: '🇬🇧 English',
+      italian: 'Italian',
+      english: 'English',
       apiNote: 'Anime (AniList) and game (IGDB) descriptions are always in English due to API limitations. TMDb supports Italian for movies and TV shows.',
     },
     news: {
@@ -433,7 +433,7 @@ const translations = {
     },
     follow: {
       follow: 'Follow',
-      following: 'Following ✓',
+      following: 'Following',
     },
     steam: {
       title: 'Steam',
@@ -491,7 +491,7 @@ const translations = {
       terms: 'Terms of Service',
       cookies: 'Cookie Policy',
       rights: '© 2025 Geekore. All rights reserved.',
-      madeWith: 'Made with ❤️ for nerds',
+      madeWith: 'Made with ♥ for nerds',
     },
     common: {
       loading: 'Loading...', save: 'Save', cancel: 'Cancel',
@@ -508,17 +508,41 @@ const LocaleContext = createContext<LocaleContextType>({
   locale: 'it', setLocale: () => {}, t: translations.it,
 })
 
+function getCookieLocale(): Locale | null {
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.match(/(?:^|;\s*)geekore_locale=([^;]+)/)
+  const val = match?.[1]
+  return val === 'it' || val === 'en' ? val : null
+}
+
+function setCookieLocale(l: Locale) {
+  document.cookie = `geekore_locale=${l}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
+}
+
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>('it')
+  // Legge subito il cookie (impostato dal middleware con geo-detection)
+  // così l'initial state è già corretto senza flash.
+  const [locale, setLocaleState] = useState<Locale>(() => {
+    if (typeof document === 'undefined') return 'it'
+    return getCookieLocale() ?? 'it'
+  })
 
   useEffect(() => {
-    const saved = localStorage.getItem('geekore_locale') as Locale | null
-    if (saved === 'it' || saved === 'en') setLocaleState(saved)
+    // Sincronizza con localStorage (compatibilità precedente) e cookie
+    const fromStorage = localStorage.getItem('geekore_locale') as Locale | null
+    const fromCookie = getCookieLocale()
+    // localStorage ha priorità se impostato manualmente dall'utente
+    const resolved = (fromStorage === 'it' || fromStorage === 'en')
+      ? fromStorage
+      : fromCookie ?? 'it'
+    setLocaleState(resolved)
+    setCookieLocale(resolved)
   }, [])
 
   const setLocale = (l: Locale) => {
     setLocaleState(l)
     localStorage.setItem('geekore_locale', l)
+    setCookieLocale(l)
   }
 
   return (

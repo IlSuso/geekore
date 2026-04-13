@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Clock, Gamepad2, Film, BookOpen, Tv, Dices, Share2 } from 'lucide-react'
+import { Clock, Gamepad2, Film, BookOpen, Tv, Dices, Share2, Gem, Globe, Briefcase, Calendar, Plane } from 'lucide-react'
 import Link from 'next/link'
 
 const AVG_ANIME_EP_MINUTES = 24
@@ -171,12 +171,12 @@ export default function StatsPage() {
   const comparisons = useMemo(() => {
     const hours = stats.totalMinutes / 60
     return [
-      { label: 'Volte il Signore degli Anelli (trilogia estesa)', value: (hours / 11.4).toFixed(1), emoji: '💍' },
-      { label: 'Partite complete a scacchi (avg 45 min)', value: Math.round(stats.totalMinutes / 45).toLocaleString('it'), emoji: '♟️' },
-      { label: 'Pizze che potresti aver mangiato (30 min a pizza)', value: Math.round(stats.totalMinutes / 30).toLocaleString('it'), emoji: '🍕' },
-      { label: 'Giri del mondo in aereo (20h di volo)', value: (hours / 20).toFixed(1), emoji: '✈️' },
-      { label: 'Settimane di lavoro a tempo pieno', value: (hours / 40).toFixed(1), emoji: '💼' },
-      { label: 'Giorni di vita', value: (hours / 24).toFixed(1), emoji: '📅' },
+      { label: 'Volte il Signore degli Anelli (trilogia estesa)', value: (hours / 11.4).toFixed(1), Icon: Gem },
+      { label: 'Partite complete a scacchi (avg 45 min)', value: Math.round(stats.totalMinutes / 45).toLocaleString('it'), Icon: Dices },
+      { label: 'Pizze che potresti aver mangiato (30 min a pizza)', value: Math.round(stats.totalMinutes / 30).toLocaleString('it'), Icon: Clock },
+      { label: 'Giri del mondo in aereo (20h di volo)', value: (hours / 20).toFixed(1), Icon: Plane },
+      { label: 'Settimane di lavoro a tempo pieno', value: (hours / 40).toFixed(1), Icon: Briefcase },
+      { label: 'Giorni di vita', value: (hours / 24).toFixed(1), Icon: Calendar },
     ]
   }, [stats.totalMinutes])
 
@@ -256,7 +256,7 @@ export default function StatsPage() {
                 {comparisons.map((c, i) => (
                   <div key={i} className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <span className="text-xl">{c.emoji}</span>
+                      <c.Icon size={18} className="text-zinc-500 flex-shrink-0" />
                       <span className="text-xs text-zinc-400">{c.label}</span>
                     </div>
                     <span className="text-sm font-bold text-white tabular-nums flex-shrink-0">{c.value}×</span>

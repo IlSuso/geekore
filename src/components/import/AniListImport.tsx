@@ -4,7 +4,7 @@
 // Integrare in /settings o /profile/edit
 
 import { useState } from 'react'
-import { Download, CheckCircle, AlertTriangle, Loader2, ExternalLink } from 'lucide-react'
+import { Download, CheckCircle, AlertTriangle, Loader2, ExternalLink, Swords, BookOpen } from 'lucide-react'
 
 interface ImportResult {
   imported: number
@@ -142,7 +142,10 @@ export function AniListImport() {
                 }`}
                 disabled={loading}
               >
-                {type === 'ANIME' ? '🎌 Anime' : '📖 Manga'}
+                {type === 'ANIME'
+                  ? <><Swords size={14} /> Anime</>
+                  : <><BookOpen size={14} /> Manga</>
+                }
               </button>
             ))}
           </div>

@@ -4,7 +4,7 @@
 // Condivisibile via Web Share API — fallback clipboard
 
 import { useCallback, useRef } from 'react'
-import { Share2, Download, X } from 'lucide-react'
+import { Share2, Download, X, Trophy, Star } from 'lucide-react'
 
 interface CertificateProps {
   title: string
@@ -229,7 +229,7 @@ export function CompletionCertificate(props: CertificateProps) {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h3 className="text-lg font-bold text-white">🏆 Completato!</h3>
+            <h3 className="text-lg font-bold text-white flex items-center gap-2"><Trophy size={18} className="text-yellow-400" /> Completato!</h3>
             <p className="text-xs text-zinc-500 mt-0.5">Hai completato {props.title}</p>
           </div>
           <button
@@ -242,7 +242,7 @@ export function CompletionCertificate(props: CertificateProps) {
 
         {/* Preview card */}
         <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5 text-center mb-5">
-          <p className="text-4xl mb-3">🏆</p>
+          <div className="flex justify-center mb-3"><Trophy size={40} className="text-yellow-400" /></div>
           {props.coverImage && (
             <img
               src={props.coverImage}
@@ -255,7 +255,7 @@ export function CompletionCertificate(props: CertificateProps) {
           {props.rating && props.rating > 0 && (
             <div className="flex justify-center gap-0.5 mt-2">
               {[1,2,3,4,5].map(s => (
-                <span key={s} className={`text-sm ${s <= props.rating! ? 'text-yellow-400' : 'text-zinc-700'}`}>★</span>
+                <Star key={s} size={14} className={s <= props.rating! ? 'text-yellow-400 fill-yellow-400' : 'text-zinc-700'} />
               ))}
             </div>
           )}

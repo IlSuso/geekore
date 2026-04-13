@@ -9,7 +9,7 @@ import {
   Sparkles, RefreshCw, SlidersHorizontal, Gamepad2, Tv, Film, BookOpen,
   Zap, Plus, Bookmark, X, Check, ChevronDown, ChevronUp, Users, Compass,
   ThumbsDown, Eye, Flame, Brain, Star, ArrowRight, Clapperboard, Swords,
-  TrendingUp, Search, BookmarkCheck
+  TrendingUp, Search, BookmarkCheck, Sun
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -123,9 +123,9 @@ function TrendingBadge() {
 }
 
 const MOODS = [
-  { id: 'light' as Mood, label: 'Leggero', emoji: '😄', desc: 'Commedia, avventura, feel-good' },
-  { id: 'intense' as Mood, label: 'Adrenalina', emoji: '😤', desc: 'Action, thriller, tensione' },
-  { id: 'deep' as Mood, label: 'Profondo', emoji: '🤔', desc: 'Drama, psicologico, mistero' },
+  { id: 'light' as Mood, label: 'Leggero', Icon: Sun, desc: 'Commedia, avventura, feel-good' },
+  { id: 'intense' as Mood, label: 'Adrenalina', Icon: Zap, desc: 'Action, thriller, tensione' },
+  { id: 'deep' as Mood, label: 'Profondo', Icon: Brain, desc: 'Drama, psicologico, mistero' },
 ]
 
 function MoodSelector({ mood, onChange }: { mood: Mood; onChange: (m: Mood) => void }) {
@@ -136,7 +136,7 @@ function MoodSelector({ mood, onChange }: { mood: Mood; onChange: (m: Mood) => v
         {MOODS.map(m => (
           <button key={m.id} onClick={() => onChange(mood === m.id ? null : m.id)}
             className={`flex-1 flex flex-col items-center gap-1.5 py-3 px-2 rounded-2xl border text-center transition-all ${mood === m.id ? 'bg-violet-600/20 border-violet-500/50 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-600'}`}>
-            <span className="text-2xl">{m.emoji}</span>
+            <m.Icon size={22} className="opacity-80" />
             <span className="text-xs font-semibold">{m.label}</span>
             <span className="text-[10px] text-zinc-500 hidden sm:block">{m.desc}</span>
           </button>
@@ -163,7 +163,7 @@ const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }: { tast
             <p className="text-sm font-bold text-white">Il tuo DNA geek</p>
             <p className="text-xs text-zinc-500">
               {totalEntries} titoli analizzati · finestra {tasteProfile.recentWindow || 6} mesi
-              {binge?.isBinger && ' · 🔥 Binge watcher'}
+              {binge?.isBinger && <span className="inline-flex items-center gap-1 ml-1">· <Flame size={12} className="text-orange-400" /> Binge watcher</span>}
             </p>
           </div>
         </div>
@@ -214,7 +214,7 @@ const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }: { tast
             <div className="grid grid-cols-2 gap-4">
               {binge.bingeGenres.length > 0 && (
                 <div>
-                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">🔥 Binge genres</p>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1"><Flame size={10} className="text-orange-400" /> Binge genres</p>
                   <div className="flex flex-wrap gap-1">
                     {binge.bingeGenres.slice(0, 4).map(g => (
                       <span key={g} className="text-[10px] bg-orange-500/15 text-orange-300 px-2 py-0.5 rounded-full capitalize">{g}</span>
@@ -224,7 +224,7 @@ const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }: { tast
               )}
               {binge.slowGenres.length > 0 && (
                 <div>
-                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">🎭 Gusto raffinato</p>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1"><Sparkles size={10} className="text-violet-400" /> Gusto raffinato</p>
                   <div className="flex flex-wrap gap-1">
                     {binge.slowGenres.slice(0, 4).map(g => (
                       <span key={g} className="text-[10px] bg-violet-500/15 text-violet-300 px-2 py-0.5 rounded-full capitalize">{g}</span>
@@ -262,7 +262,7 @@ const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }: { tast
           {/* V3: Search intent */}
           {tasteProfile.searchIntentGenres && tasteProfile.searchIntentGenres.length > 0 && (
             <div>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">🔍 Stai cercando</p>
+              <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1"><Search size={10} /> Stai cercando</p>
               <div className="flex gap-2">
                 {tasteProfile.searchIntentGenres.map(g => (
                   <span key={g} className="text-[10px] bg-amber-500/15 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/20 flex items-center gap-1">
@@ -276,7 +276,7 @@ const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }: { tast
           {/* V3: Wishlist intent */}
           {tasteProfile.wishlistGenres && tasteProfile.wishlistGenres.length > 0 && (
             <div>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">📌 Wishlist amplifica</p>
+              <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1"><Bookmark size={10} /> Wishlist amplifica</p>
               <div className="flex flex-wrap gap-1">
                 {tasteProfile.wishlistGenres.slice(0, 6).map(g => (
                   <span key={g} className="text-[10px] bg-emerald-500/15 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/20">{g}</span>
@@ -400,7 +400,7 @@ const RecommendationCard = memo(function RecommendationCard({ item, onAdd, onWis
         )}
         {item.score && !item.isDiscovery && !item.creatorBoost && (
           <div className="absolute top-2 right-2 bg-black/70 text-yellow-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-            ★ {Math.min(item.score, 5).toFixed(1)}
+            <Star size={9} fill="currentColor" /> {Math.min(item.score, 5).toFixed(1)}
           </div>
         )}
         <div className={`absolute inset-0 bg-black/75 transition-opacity flex flex-col items-center justify-end pb-3 gap-2 ${showAct ? 'opacity-100' : 'opacity-0'}`}>
@@ -559,7 +559,7 @@ const FriendsWatchingSection = memo(function FriendsWatchingSection({ items }: {
             <div className="relative h-40 rounded-2xl overflow-hidden bg-zinc-800 mb-2">
               {a.mediaCover
                 ? <img src={a.mediaCover} alt={a.mediaTitle} className="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" />
-                : <div className="w-full h-full flex items-center justify-center text-2xl">📺</div>
+                : <div className="w-full h-full flex items-center justify-center text-zinc-600"><Tv size={28} /></div>
               }
               <div className="absolute bottom-2 left-2 ring-2 ring-black rounded-full">
                 <Avatar src={a.avatarUrl} username={a.username} displayName={a.displayName} size={24} />
