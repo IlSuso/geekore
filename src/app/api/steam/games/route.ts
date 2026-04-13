@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
 const STEAM_API_KEY = process.env.STEAM_API_KEY
-const CACHE_HOURS = 24
+const CACHE_HOURS = 1
 
 // Validazione Steam ID64: numero di 17 cifre che inizia con 7656119
 const STEAM_ID64_REGEX = /^7656119\d{10}$/
@@ -141,10 +141,13 @@ export async function GET(request: NextRequest) {
   if (importLog?.imported_at) {
     const hoursSinceImport = (Date.now() - new Date(importLog.imported_at).getTime()) / (1000 * 60 * 60)
     if (hoursSinceImport < CACHE_HOURS) {
-      const remainingHours = Math.ceil(CACHE_HOURS - hoursSinceImport)
+      const remainingMinutes = Math.ceil((CACHE_HOURS * 60) - (hoursSinceImport * 60))
+      const remainingText = remainingMinutes < 60
+        ? `${remainingMinutes} minut${remainingMinutes === 1 ? 'o' : 'i'}`
+        : `${Math.ceil(CACHE_HOURS - hoursSinceImport)} or${Math.ceil(CACHE_HOURS - hoursSinceImport) === 1 ? 'a' : 'e'}`
       return NextResponse.json({
         success: false, cached: true,
-        error: `Hai già importato i giochi di recente. Riprova tra ${remainingHours} ore.`,
+        error: `Hai già importato i giochi di recente. Riprova tra ${remainingText}.`,
         last_import: importLog.imported_at,
         games_count: importLog.games_count,
       }, { status: 429 })
