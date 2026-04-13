@@ -348,6 +348,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: e.message || 'Errore lettura file.' }, { status: 400 })
   }
 
+  // Auto-detect list name from the CSV metadata row (first row where the URI is a /list/ URL,
+  // not a /film/ URL). Letterboxd list exports include this row to describe the list itself.
+  const listMetaRow = listRows.find(r => (r['letterboxd uri'] || '').includes('/list/'))
+  const effectiveListName = listName || listMetaRow?.['name'] || ''
+  if (listMetaRow) listRows = listRows.filter(r => !(r['letterboxd uri'] || '').includes('/list/'))
+
   if (!watchedRows.length && !ratingsRows.length && !watchlistRows.length && !listRows.length) {
     return NextResponse.json({ error: 'Nessun film trovato nei file caricati.' }, { status: 422 })
   }
@@ -412,15 +418,15 @@ export async function POST(request: NextRequest) {
 
         const mainBuilt = mainEntries.map(e => buildEntry(e, user.id, posterMap, titleItMap))
 
-        if (listName) {
+        if (effectiveListName) {
           for (const e of mainBuilt) {
             const matchInList = listRows.find(r => makeExternalId(r) === e.external_id)
-            if (matchInList && !e.tags.includes(listName)) e.tags.push(listName)
+            if (matchInList && !e.tags.includes(effectiveListName)) e.tags.push(effectiveListName)
           }
         }
 
         const watchlistBuilt = watchlistEntries.map(r => buildWatchlistEntry(r, user.id, posterMap, titleItMap))
-        const listBuilt      = listEntries.map(r => buildListEntry(r, listName, user.id, posterMap, titleItMap))
+        const listBuilt      = listEntries.map(r => buildListEntry(r, effectiveListName, user.id, posterMap, titleItMap))
         const allEntries     = [...mainBuilt, ...watchlistBuilt, ...listBuilt]
 
         if (allEntries.length === 0) {
