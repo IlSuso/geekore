@@ -148,7 +148,12 @@ function MediaCard({
             onError={(e) => {
               const img = e.target as HTMLImageElement
               if (!img.src.includes('wsrv.nl')) {
-                img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=jpg`
+                const referer = media.cover_image!.includes('myanimelist.net')
+                  ? '&referer=https://myanimelist.net'
+                  : media.cover_image!.includes('anilist.co')
+                  ? '&referer=https://anilist.co'
+                  : ''
+                img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=jpg${referer}`
               } else {
                 setImgFailed(true)
               }
@@ -246,7 +251,21 @@ function MediaRow({
         {media.is_steam ? (
           <SteamCoverImg appid={media.appid} title={media.title} />
         ) : media.cover_image ? (
-          <img src={(media.cover_image.includes('myanimelist.net') || media.cover_image.includes('anilist.co')) && !media.cover_image.includes('wsrv.nl') ? `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image)}&w=500&output=jpg` : media.cover_image} alt={media.title} className="w-full h-full object-cover" />
+          <img
+            src={media.cover_image}
+            alt={media.title}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              const img = e.target as HTMLImageElement
+              if (img.src.includes('wsrv.nl')) return
+              const referer = media.cover_image!.includes('myanimelist.net')
+                ? '&referer=https://myanimelist.net'
+                : media.cover_image!.includes('anilist.co')
+                ? '&referer=https://anilist.co'
+                : ''
+              img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=jpg${referer}`
+            }}
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-zinc-600 text-lg">📺</div>
         )}

@@ -209,7 +209,12 @@ function MediaCard({
           onError={(e) => {
             const img = e.target as HTMLImageElement
             if (!img.src.includes('wsrv.nl')) {
-              img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=jpg`
+              const referer = media.cover_image!.includes('myanimelist.net')
+                ? '&referer=https://myanimelist.net'
+                : media.cover_image!.includes('anilist.co')
+                ? '&referer=https://anilist.co'
+                : ''
+              img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=jpg${referer}`
             } else {
               setImgFailed(true)
             }
@@ -482,7 +487,12 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
             onError={(e) => {
               const img = e.target as HTMLImageElement
               if (!img.src.includes('wsrv.nl')) {
-                img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=jpg`
+                const referer = media.cover_image!.includes('myanimelist.net')
+                  ? '&referer=https://myanimelist.net'
+                  : media.cover_image!.includes('anilist.co')
+                  ? '&referer=https://anilist.co'
+                  : ''
+                img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=jpg${referer}`
               } else {
                 setRowImgFailed(true)
               }

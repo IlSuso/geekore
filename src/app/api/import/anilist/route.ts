@@ -127,15 +127,6 @@ async function loadMalTitlesIt(
   return result
 }
 
-// ── Proxy immagine AniList ────────────────────────────────────────────────────
-// Passa le immagini AniList attraverso wsrv.nl per uniformità con MAL
-// e per maggiore stabilità in caso di problemi temporanei con il CDN AniList.
-
-function proxyAniListImage(url: string | null | undefined): string | null {
-  if (!url) return null
-  if (url.includes('wsrv.nl')) return url
-  return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=500&output=jpg`
-}
 
 // ── Route ─────────────────────────────────────────────────────────────────────
 
@@ -256,7 +247,7 @@ export async function POST(request: NextRequest) {
               title,
               type,
               // Proxy attraverso wsrv.nl per uniformità con MAL e maggiore stabilità
-              cover_image:     proxyAniListImage(media.coverImage?.extraLarge || media.coverImage?.large),
+              cover_image:     media.coverImage?.extraLarge || media.coverImage?.large || null,
               current_episode: item.progress || 0,
               episodes:        isAnime ? (media.episodes || null) : (media.chapters || null),
               status:          STATUS_MAP[item.status] || 'watching',

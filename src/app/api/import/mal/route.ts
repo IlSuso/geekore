@@ -158,11 +158,8 @@ async function fetchFromMALApi(
     if (!res.ok) return { posterUrl: null, titleIt: null }
     const data = await res.json()
 
-    const rawPoster: string | null =
+    const posterUrl: string | null =
       data.main_picture?.large || data.main_picture?.medium || null
-    const posterUrl: string | null = rawPoster
-      ? `https://wsrv.nl/?url=${encodeURIComponent(rawPoster)}&w=500&output=jpg`
-      : null
 
     // alternative_titles.it contiene il titolo italiano se MAL ce l'ha
     const titleIt: string | null = data.alternative_titles?.it || null
@@ -190,11 +187,8 @@ async function fetchFromJikan(
     const data = json?.data
     if (!data) return { posterUrl: null, titleIt: null }
 
-    const rawPosterJikan: string | null =
+    const posterUrl: string | null =
       data.images?.jpg?.large_image_url || data.images?.jpg?.image_url || null
-    const posterUrl: string | null = rawPosterJikan
-      ? `https://wsrv.nl/?url=${encodeURIComponent(rawPosterJikan)}&w=500&output=jpg`
-      : null
 
     const titles: Array<{ type: string; title: string }> = data.titles || []
     const itTitle = titles.find(t => t.type?.toLowerCase() === 'italian')
