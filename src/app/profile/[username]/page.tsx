@@ -107,61 +107,6 @@ function SteamCoverImg({ appid, title, className }: { appid?: string; title: str
   )
 }
 
-// ─── Platform badge helper ───────────────────────────────────────────────────
-
-function getPlatform(media: UserMedia): 'steam' | 'anilist' | 'mal' | 'letterboxd' | null {
-  if (media.is_steam || media.import_source === 'steam') return 'steam'
-  if (media.import_source === 'mal') return 'mal'
-  if (media.import_source === 'anilist') return 'anilist'
-  if (media.import_source === 'letterboxd') return 'letterboxd'
-  return null
-}
-
-function PlatformBadge({ media }: { media: UserMedia }) {
-  const platform = getPlatform(media)
-  if (!platform) return null
-
-  const badges: Record<string, JSX.Element> = {
-    steam: (
-      <div className="absolute top-3 left-3 z-20 rounded-xl shadow-lg overflow-hidden">
-        <SteamIcon size={32} />
-      </div>
-    ),
-    anilist: (
-      <div className="absolute top-3 left-3 z-20 w-7 h-7 rounded-full overflow-hidden shadow-lg">
-        <svg viewBox="0 0 512 512" width="28" height="28">
-          <rect width="512" height="512" fill="#1e2630"/>
-          <path d="M321.92 323.27V136.6c0-10.698-5.887-16.602-16.558-16.602h-36.433c-10.672 0-16.561 5.904-16.561 16.602v88.651c0 2.497 23.996 14.089 24.623 16.541 18.282 71.61 3.972 128.92-13.359 131.6 28.337 1.405 31.455 15.064 10.348 5.731 3.229-38.209 15.828-38.134 52.049-1.406.31.317 7.427 15.282 7.87 15.282h85.545c10.672 0 16.558-5.9 16.558-16.6v-36.524c0-10.698-5.886-16.602-16.558-16.602z" fill="#02a9ff"/>
-          <path d="M170.68 120 74.999 393h74.338l16.192-47.222h80.96L262.315 393h73.968l-95.314-273zm11.776 165.28 23.183-75.629 25.393 75.629z" fill="#fefefe"/>
-        </svg>
-      </div>
-    ),
-    mal: (
-      <div className="absolute top-3 left-3 z-20 w-7 h-7 rounded-full overflow-hidden shadow-lg">
-        <svg viewBox="0 0 256 256" width="28" height="28">
-          <rect width="256" height="256" fill="#2e51a2"/>
-          <path fill="#ffffff" d="m 30.638616,88.40918 v 68.70703 h 17.759766 v -41.91016 l 15.470703,19.77344 16.67825,-19.77344 v 41.91016 H 98.307101 V 88.40918 H 80.547335 L 63.869085,109.82324 48.398382,88.40918 Z"/>
-          <path fill="#ffffff" d="m 182.49799,88.40918 v 68.70703 h 39.07974 l 3.78365,-14.65739 H 200.25775 V 88.40918 Z"/>
-          <path fill="#ffffff" d="m 149.65186,88.40918 c -21.64279,0 -35.06651,10.210974 -39.36914,25.39258 -4.19953,14.81779 0.34128,34.3715 10.28711,53.78906 l 14.85742,-10.47461 c 0,0 -7.06411,-9.21728 -8.39453,-23.03516 h 21.98437 v 23.03516 h 19.73438 v -51.67969 h -19.73438 v 14.9668 H 130.8003 c 1.71696,-11.1972 8.295,-17.30859 15.46875,-17.30859 h 25.8164 l -5.12304,-14.68555 z"/>
-        </svg>
-      </div>
-    ),
-    letterboxd: (
-      <div className="absolute top-3 left-3 z-20 w-7 h-7 rounded-full overflow-hidden shadow-lg">
-        <svg viewBox="0 0 40 40" width="28" height="28">
-          <rect width="40" height="40" fill="#1a1a1a"/>
-          <ellipse cx="11" cy="20" rx="9" ry="9" fill="#ff8000"/>
-          <ellipse cx="20" cy="20" rx="9" ry="9" fill="#00e054"/>
-          <ellipse cx="29" cy="20" rx="9" ry="9" fill="#40bcf4"/>
-          <ellipse cx="15.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9"/>
-          <ellipse cx="24.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9"/>
-        </svg>
-      </div>
-    ),
-  }
-
-  return badges[platform] || null
-}
 
 // ─── SortableBox ─────────────────────────────────────────────────────────────
 
@@ -280,7 +225,6 @@ function MediaCard({
     <div className="group relative bg-zinc-950 rounded-3xl overflow-hidden h-full flex flex-col">
       {/* Cover */}
       <div className="relative h-60 bg-zinc-900 flex-shrink-0 overflow-hidden">
-        <PlatformBadge media={media} />
         {isOwner && isConfirmingDelete && (
           <div className="absolute top-3 right-3 z-30 flex gap-1.5">
             <button onClick={() => onDeleteCancel?.()} className="px-3 py-1.5 text-xs font-medium bg-zinc-900/95 border border-zinc-600 rounded-full hover:bg-zinc-800 transition">{m.cancel}</button>

@@ -551,11 +551,11 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Merge watched + ratings ─────────────────────────────────────────────
-    const merged = mergeWatchedAndRatings(watchedRows, ratingsRows)
-    const mainEntries = Array.from(merged.values())
+    const mergedRows = mergeWatchedAndRatings(watchedRows, ratingsRows)
+    const mainEntries = Array.from(mergedRows.values())
 
     // Watchlist (solo quelli non già presenti in watched/ratings)
-    const mainIds = new Set(merged.keys())
+    const mainIds = new Set(mergedRows.keys())
     const watchlistEntries = watchlistRows.filter(r => !mainIds.has(makeExternalId(r)))
 
     // Lista
