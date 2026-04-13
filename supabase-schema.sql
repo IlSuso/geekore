@@ -238,20 +238,9 @@ CREATE TABLE IF NOT EXISTS mal_poster_cache (
     PRIMARY KEY (mal_id, media_type)
 );
 
--- Cache globale dati AniList.
--- Memorizza poster URL e titoli (incluso italiano da cross-reference MAL)
--- per evitare lookup ripetuti e arricchire i titoli con la lingua locale.
-CREATE TABLE IF NOT EXISTS anilist_cache (
-    anilist_id    INTEGER NOT NULL,
-    media_type    TEXT NOT NULL CHECK (media_type IN ('anime', 'manga')),
-    poster_url    TEXT,
-    title_romaji  TEXT,
-    title_english TEXT,
-    title_it      TEXT,  -- titolo italiano, ottenuto da mal_poster_cache via idMal
-    found         BOOLEAN NOT NULL DEFAULT true,
-    last_checked  TIMESTAMPTZ DEFAULT now(),
-    PRIMARY KEY (anilist_id, media_type)
-);
+-- Nota: AniList non ha una tabella cache dedicata.
+-- I titoli italiani vengono recuperati da mal_poster_cache via idMal (cross-reference)
+-- senza chiamate API extra. La cover image viene usata direttamente dall'URL AniList.
 
 -- =============================================
 -- INDEXES per performance
@@ -268,7 +257,6 @@ CREATE INDEX IF NOT EXISTS idx_steam_import_log_user ON steam_import_log(user_id
 CREATE INDEX IF NOT EXISTS idx_user_media_entries_genres ON user_media_entries USING GIN(genres);
 CREATE INDEX IF NOT EXISTS idx_recommendations_cache_user ON recommendations_cache(user_id, expires_at);
 CREATE INDEX IF NOT EXISTS idx_mal_poster_cache_type ON mal_poster_cache(media_type, mal_id);
-CREATE INDEX IF NOT EXISTS idx_anilist_cache_type ON anilist_cache(media_type, anilist_id);
 
 -- =============================================
 -- TRIGGER per updated_at

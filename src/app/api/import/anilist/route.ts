@@ -3,18 +3,13 @@ import { logger } from '@/lib/logger'
 //
 // Importa anime e manga da AniList tramite GraphQL (username pubblico).
 //
-// Logica cache (anilist_cache globale, condivisa tra utenti):
-//   1. Dopo aver scaricato la lista dall'API AniList, controlla anilist_cache per ogni media ID
-//   2. Se un item ha già title_it in cache → lo usa direttamente (zero lookup extra)
-//   3. Per item senza title_it: cerca in mal_poster_cache tramite idMal (cross-reference)
-//      → se un altro utente ha già importato lo stesso anime da MAL, il titolo italiano
-//        è già disponibile senza ulteriori chiamate API
-//   4. Salva tutto in anilist_cache (upsert) per i prossimi utenti
+// Titoli:
+//   La query include idMal. Se l'utente ha già importato da MAL in precedenza,
+//   mal_poster_cache contiene il titolo italiano → lo usiamo qui senza chiamate API extra.
+//   Priorità: title_it (da MAL cache) → romaji → english
 //
-// Il titolo finale segue la priorità: title_it → romaji → english
-//
-// La logica duplicati (upsertWithMerge) è invariata: external_id anilist-{type}-{id}
-// garantisce deduplicazione cross-source con MAL e Letterboxd.
+// Cover image: URL diretto AniList, incluso già nella risposta GraphQL.
+// Nessuna cache aggiuntiva necessaria (nessun lookup per-item extra).
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
@@ -37,7 +32,7 @@ const STATUS_MAP: Record<string, string> = {
 }
 
 // ── GraphQL query ─────────────────────────────────────────────────────────────
-// idMal ci permette di cercare il titolo italiano in mal_poster_cache
+// idMal permette di cercare il titolo italiano in mal_poster_cache
 
 const QUERY = `
   query ($username: String, $type: MediaType, $page: Int) {
@@ -94,96 +89,24 @@ async function fetchAniListPage(
   }
 }
 
-// ── Cache AniList (anilist_cache) ─────────────────────────────────────────────
+// ── Cross-reference MAL per titoli italiani ───────────────────────────────────
+//
+// Cerca in mal_poster_cache i titoli italiani usando gli ID MAL che AniList
+// ci fornisce nel campo idMal. Non fa chiamate API esterne: è solo una query DB.
+// Funziona se l'utente (o qualsiasi altro utente) ha già importato da MAL.
+//
+// Restituisce una Map<mal_id, title_it>.
 
-interface AniListCacheRow {
-  anilist_id:    number
-  media_type:    'anime' | 'manga'
-  poster_url:    string | null
-  title_romaji:  string | null
-  title_english: string | null
-  title_it:      string | null
-  found:         boolean
-  last_checked:  string
-}
-
-/**
- * Carica da anilist_cache i record per tutti gli ID richiesti.
- * Restituisce una Map<"tipo-id", AniListCacheRow>.
- */
-async function loadFromAniListCache(
+async function loadMalTitlesIt(
   supabase: any,
-  entries: Array<{ anilist_id: number; media_type: 'anime' | 'manga' }>
-): Promise<Map<string, AniListCacheRow>> {
-  const result = new Map<string, AniListCacheRow>()
+  entries: Array<{ mal_id: number; media_type: 'anime' | 'manga' }>
+): Promise<Map<number, string>> {
+  const result = new Map<number, string>()
   if (entries.length === 0) return result
 
   for (const type of ['anime', 'manga'] as const) {
-    const ids = entries.filter(e => e.media_type === type).map(e => e.anilist_id)
+    const ids = entries.filter(e => e.media_type === type).map(e => e.mal_id)
     if (ids.length === 0) continue
-
-    for (let i = 0; i < ids.length; i += 500) {
-      const { data, error } = await supabase
-        .from('anilist_cache')
-        .select('anilist_id, media_type, poster_url, title_romaji, title_english, title_it, found, last_checked')
-        .eq('media_type', type)
-        .in('anilist_id', ids.slice(i, i + 500))
-
-      if (error) { logger.error('[AniList Import] anilist_cache read error:', error); continue }
-
-      for (const row of (data as AniListCacheRow[] || [])) {
-        result.set(`${row.media_type}-${row.anilist_id}`, row)
-      }
-    }
-  }
-
-  return result
-}
-
-/**
- * Salva (upsert) in bulk nella cache globale anilist_cache.
- */
-async function saveToAniListCache(
-  supabase: any,
-  entries: Array<{
-    anilist_id:    number
-    media_type:    'anime' | 'manga'
-    poster_url:    string | null
-    title_romaji:  string | null
-    title_english: string | null
-    title_it:      string | null
-  }>
-): Promise<void> {
-  if (entries.length === 0) return
-  const now = new Date().toISOString()
-  const rows = entries.map(e => ({ ...e, found: true, last_checked: now }))
-
-  for (let i = 0; i < rows.length; i += 100) {
-    const { error } = await supabase
-      .from('anilist_cache')
-      .upsert(rows.slice(i, i + 100), { onConflict: 'anilist_id,media_type' })
-    if (error) logger.error('[AniList Import] anilist_cache write error:', error)
-  }
-}
-
-/**
- * Cerca titoli italiani in mal_poster_cache usando gli ID MAL cross-referenziati da AniList.
- * Restituisce una Map<"tipo-anilist_id", title_it>.
- *
- * Funziona se l'utente (o qualsiasi altro utente) ha già importato da MAL:
- * la cache MAL è globale, quindi un cross-import da una fonte arricchisce l'altra.
- */
-async function lookupMalTitleIt(
-  supabase: any,
-  entries: Array<{ mal_id: number; media_type: 'anime' | 'manga'; key: string }>
-): Promise<Map<string, string>> {
-  const result = new Map<string, string>()
-  if (entries.length === 0) return result
-
-  for (const type of ['anime', 'manga'] as const) {
-    const forType = entries.filter(e => e.media_type === type)
-    if (forType.length === 0) continue
-    const ids = forType.map(e => e.mal_id)
 
     for (let i = 0; i < ids.length; i += 500) {
       const { data, error } = await supabase
@@ -196,96 +119,12 @@ async function lookupMalTitleIt(
       if (error) { logger.error('[AniList Import] mal_poster_cache lookup error:', error); continue }
 
       for (const row of (data || [])) {
-        if (!row.title_it) continue
-        const match = forType.find(e => e.mal_id === row.mal_id)
-        if (match) result.set(match.key, row.title_it)
+        if (row.title_it) result.set(row.mal_id, row.title_it)
       }
     }
   }
 
   return result
-}
-
-/**
- * Arricchisce gli item AniList con dati dalla cache:
- *   1. Controlla anilist_cache per title_it già noti
- *   2. Per item senza title_it ma con idMal: cerca in mal_poster_cache
- *   3. Salva tutto in anilist_cache (upsert) per i prossimi utenti
- *
- * Restituisce titleItMap e statistiche cache.
- */
-async function enrichFromCache(
-  supabase: any,
-  items: Array<{
-    anilist_id:    number
-    media_type:    'anime' | 'manga'
-    mal_id:        number | null
-    poster_url:    string | null
-    title_romaji:  string | null
-    title_english: string | null
-  }>
-): Promise<{
-  titleItMap:    Map<string, string>
-  fromCache:     number   // item con title_it già in anilist_cache
-  fromMalCache:  number   // item con title_it trovato in mal_poster_cache via idMal
-}> {
-  const titleItMap = new Map<string, string>()
-  let fromCache    = 0
-  let fromMalCache = 0
-
-  // 1. Lookup anilist_cache per tutti gli item
-  const cached = await loadFromAniListCache(
-    supabase,
-    items.map(i => ({ anilist_id: i.anilist_id, media_type: i.media_type }))
-  )
-
-  // 2. Raccoglie title_it già presenti in anilist_cache
-  for (const [key, row] of cached.entries()) {
-    if (row.title_it) {
-      titleItMap.set(key, row.title_it)
-      fromCache++
-    }
-  }
-
-  // 3. Per item senza title_it in anilist_cache, prova mal_poster_cache tramite idMal
-  const needsMalLookup = items.filter(i => {
-    const key = `${i.media_type}-${i.anilist_id}`
-    return i.mal_id !== null && !titleItMap.has(key)
-  })
-
-  if (needsMalLookup.length > 0) {
-    const malEntries = needsMalLookup.map(i => ({
-      mal_id:     i.mal_id!,
-      media_type: i.media_type,
-      key:        `${i.media_type}-${i.anilist_id}`,
-    }))
-
-    const malTitles = await lookupMalTitleIt(supabase, malEntries)
-    for (const [key, titleIt] of malTitles.entries()) {
-      titleItMap.set(key, titleIt)
-      fromMalCache++
-    }
-  }
-
-  // 4. Salva tutto in anilist_cache (upsert):
-  //    - aggiorna poster_url e titoli con i dati freschi dall'API
-  //    - preserva title_it dal cache precedente se non ne abbiamo uno nuovo
-  const toSave = items.map(i => {
-    const key      = `${i.media_type}-${i.anilist_id}`
-    const title_it = titleItMap.get(key) || cached.get(key)?.title_it || null
-    return {
-      anilist_id:    i.anilist_id,
-      media_type:    i.media_type,
-      poster_url:    i.poster_url,
-      title_romaji:  i.title_romaji,
-      title_english: i.title_english,
-      title_it,
-    }
-  })
-
-  await saveToAniListCache(supabase, toSave)
-
-  return { titleItMap, fromCache, fromMalCache }
 }
 
 // ── Route ─────────────────────────────────────────────────────────────────────
@@ -352,53 +191,34 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // ── Raccoglie item unici per arricchimento cache ──────────────────────────
-  // Deduplica per (anilist_id, media_type): uno stesso media può apparire
-  // in più pagine o tipi (raro, ma sicuro).
-  const seenKeys  = new Set<string>()
-  const toEnrich: Array<{
-    anilist_id:    number
-    media_type:    'anime' | 'manga'
-    mal_id:        number | null
-    poster_url:    string | null
-    title_romaji:  string | null
-    title_english: string | null
-  }> = []
+  // ── Cross-reference MAL per titoli italiani (solo query DB, zero API) ────
+  // Raccoglie gli idMal unici presenti nella lista, poi cerca in mal_poster_cache.
+  const malEntries: Array<{ mal_id: number; media_type: 'anime' | 'manga' }> = []
+  const seenMalIds = new Set<string>()
 
   for (const item of allItems) {
     const media = item.media
-    if (!media?.id) continue
-    const isAnime    = item._type === 'ANIME'
-    const media_type = isAnime ? 'anime' : 'manga'
-    const key        = `${media_type}-${media.id}`
-    if (seenKeys.has(key)) continue
-    seenKeys.add(key)
-
-    toEnrich.push({
-      anilist_id:    media.id,
-      media_type,
-      mal_id:        media.idMal || null,
-      poster_url:    media.coverImage?.extraLarge || media.coverImage?.large || null,
-      title_romaji:  media.title?.romaji  || null,
-      title_english: media.title?.english || null,
-    })
+    if (!media?.idMal) continue
+    const media_type = item._type === 'ANIME' ? 'anime' : 'manga'
+    const key = `${media_type}-${media.idMal}`
+    if (!seenMalIds.has(key)) {
+      seenMalIds.add(key)
+      malEntries.push({ mal_id: media.idMal, media_type })
+    }
   }
 
-  // ── Arricchimento cache (anilist_cache + mal_poster_cache cross-ref) ─────
-  const { titleItMap, fromCache, fromMalCache } = await enrichFromCache(supabase, toEnrich)
+  const malTitlesIt = await loadMalTitlesIt(supabase, malEntries)
 
   // ── Build entries finali ─────────────────────────────────────────────────
   const toInsert = allItems
     .filter(item => item.media?.id)
     .map(item => {
-      const media    = item.media
-      const isAnime  = item._type === 'ANIME'
-      const type     = isAnime ? 'anime' : 'manga'
-      const key      = `${type}-${media.id}`
-      const externalId = `anilist-${key}`
+      const media   = item.media
+      const isAnime = item._type === 'ANIME'
+      const type    = isAnime ? 'anime' : 'manga'
 
-      // Priorità titolo: italiano da cache → romaji → english
-      const titleIt = titleItMap.get(key) || null
+      // Priorità titolo: italiano da MAL cache → romaji → english
+      const titleIt = media.idMal ? (malTitlesIt.get(media.idMal) || null) : null
       const title   = titleIt || media.title?.romaji || media.title?.english || 'Senza titolo'
 
       const topTags = (media.tags || [])
@@ -410,21 +230,21 @@ export async function POST(request: NextRequest) {
       const rating = item.score ? Math.round((item.score / 10) * 5 * 2) / 2 : null
 
       return {
-        user_id:          user.id,
-        external_id:      externalId,
+        user_id:         user.id,
+        external_id:     `anilist-${type}-${media.id}`,
         title,
         type,
-        cover_image:      media.coverImage?.extraLarge || media.coverImage?.large || null,
-        current_episode:  item.progress || 0,
-        episodes:         isAnime ? (media.episodes || null) : (media.chapters || null),
-        status:           STATUS_MAP[item.status] || 'watching',
-        rating:           rating && rating > 0 ? rating : null,
-        genres:           media.genres || [],
-        tags:             topTags,
-        notes:            item.notes || null,
-        import_source:    'anilist',
-        display_order:    Date.now(),
-        updated_at:       new Date().toISOString(),
+        cover_image:     media.coverImage?.extraLarge || media.coverImage?.large || null,
+        current_episode: item.progress || 0,
+        episodes:        isAnime ? (media.episodes || null) : (media.chapters || null),
+        status:          STATUS_MAP[item.status] || 'watching',
+        rating:          rating && rating > 0 ? rating : null,
+        genres:          media.genres || [],
+        tags:            topTags,
+        notes:           item.notes || null,
+        import_source:   'anilist',
+        display_order:   Date.now(),
+        updated_at:      new Date().toISOString(),
       }
     })
 
@@ -438,10 +258,8 @@ export async function POST(request: NextRequest) {
   // ── Upsert con merge cross-source ─────────────────────────────────────────
   const { imported, merged, skipped } = await upsertWithMerge(supabase, toInsert, user.id, '[AniList Import]')
 
-  const totalFromCache = fromCache + fromMalCache
-  const cacheMsg = totalFromCache > 0
-    ? ` (${fromCache} titoli da anilist_cache, ${fromMalCache} titoli italiani da MAL)`
-    : ''
+  const italianCount = malTitlesIt.size
+  const italianMsg   = italianCount > 0 ? ` (${italianCount} titoli italiani da MAL)` : ''
 
   return NextResponse.json({
     success: true,
@@ -450,7 +268,6 @@ export async function POST(request: NextRequest) {
     skipped,
     total:  toInsert.length,
     errors: errors.length > 0 ? errors : undefined,
-    cache:  { fromCache, fromMalCache, total: totalFromCache },
-    message: `Importati ${imported} titoli da AniList (@${username})${merged > 0 ? `, ${merged} uniti con duplicati` : ''}${cacheMsg}`,
+    message: `Importati ${imported} titoli da AniList (@${username})${merged > 0 ? `, ${merged} uniti con duplicati` : ''}${italianMsg}`,
   }, { headers: rl.headers })
 }
