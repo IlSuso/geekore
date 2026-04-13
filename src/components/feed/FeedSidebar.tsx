@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { TrendingUp, Users, Award } from 'lucide-react' // usa solo Lucide, niente emoji
+import { TrendingUp, Users, Award } from 'lucide-react'
 
 interface TrendingItem {
   id: string
@@ -23,7 +23,7 @@ export default function FeedSidebar() {
     const fetchSidebarData = async () => {
       setLoading(true)
       try {
-        // ── Trending posts (esempio - adatta alla tua logica reale) ──
+        // ── Trending posts ──
         const { data: postsData, error: postsError } = await supabase
           .from('posts')
           .select('id, content, likes_count, user_id')
@@ -41,11 +41,13 @@ export default function FeedSidebar() {
 
         setTrendingPosts(mappedPosts)
 
-        // ── Suggested users (esempio - adatta alla tua logica) ──
+        // ── Suggested users ──
+        const { data: { user } } = await supabase.auth.getUser()
+
         const { data: usersData } = await supabase
           .from('profiles')
           .select('id, username, avatar_url, followers_count')
-          .neq('id', (await supabase.auth.getUser()).data.user?.id || '')
+          .neq('id', user?.id || '')
           .order('followers_count', { ascending: false })
           .limit(5)
 
