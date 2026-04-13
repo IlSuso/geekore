@@ -49,15 +49,18 @@ function TrendingWidget() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const supabase = createClient()
-    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const fetchTrending = async () => {
+      try {
+        const supabase = createClient()
+        const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
-    supabase
-      .from('user_media_entries')
-      .select('title, type, cover_image, external_id')
-      .gte('updated_at', oneWeekAgo)
-      .then(({ data }) => {
-        if (!data) { setLoading(false); return }
+        const { data } = await supabase
+          .from('user_media_entries')
+          .select('title, type, cover_image, external_id')
+          .gte('updated_at', oneWeekAgo)
+
+        if (!data) return
+
         const map = new Map<string, TrendingItem>()
         for (const row of data) {
           const key = `${row.type}::${row.title}`
@@ -69,9 +72,13 @@ function TrendingWidget() {
         }
         const sorted = [...map.values()].sort((a, b) => b.count - a.count).slice(0, 6)
         setItems(sorted)
+      } catch {
+        // silently fail
+      } finally {
         setLoading(false)
-      })
-      .catch(() => setLoading(false))
+      }
+    }
+    fetchTrending()
   }, [])
 
   if (loading) {
@@ -164,32 +171,36 @@ function SuggestedUsersWidget({ currentUserId }: { currentUserId: string | null 
 
   useEffect(() => {
     if (!currentUserId) { setLoading(false); return }
-    const supabase = createClient()
 
-    // Carica chi già segui
-    supabase
-      .from('follows')
-      .select('following_id')
-      .eq('follower_id', currentUserId)
-      .then(({ data: follows }) => {
+    const fetchSuggested = async () => {
+      try {
+        const supabase = createClient()
+
+        const { data: follows } = await supabase
+          .from('follows')
+          .select('following_id')
+          .eq('follower_id', currentUserId)
+
         const followingIds = new Set((follows || []).map((f: any) => f.following_id))
-        followingIds.add(currentUserId) // escludi se stesso
+        followingIds.add(currentUserId)
 
-        // Carica profili recenti non ancora seguiti
-        supabase
+        const { data } = await supabase
           .from('profiles')
           .select('id, username, display_name, avatar_url')
           .order('created_at', { ascending: false })
           .limit(20)
-          .then(({ data }) => {
-            const filtered = (data || [])
-              .filter((u: any) => !followingIds.has(u.id))
-              .slice(0, 4)
-            setUsers(filtered)
-            setLoading(false)
-          })
-      })
-      .catch(() => setLoading(false))
+
+        const filtered = (data || [])
+          .filter((u: any) => !followingIds.has(u.id))
+          .slice(0, 4)
+        setUsers(filtered)
+      } catch {
+        // silently fail
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchSuggested()
   }, [currentUserId])
 
   const handleFollow = async (userId: string) => {
