@@ -558,6 +558,7 @@ export default function ProfilePage() {
   const { username } = useParams<{ username: string }>()
   const supabase = createClient()
   const { t, locale } = useLocale()
+  const sensors = useDndSensors()
   const { csrfFetch } = useCsrf()
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
