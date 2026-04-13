@@ -70,7 +70,7 @@ export function XboxImport() {
           <p className="text-xs text-zinc-500">Importa i tuoi giochi Xbox tramite XUID</p>
         </div>
         <a
-          href="https://www.xboxgamertag.com"
+          href="https://www.cxkes.me/xbox/xuid"
           target="_blank"
           rel="noopener noreferrer"
           className="ml-auto text-xs text-zinc-500 hover:text-zinc-300 flex items-center gap-1"
@@ -115,9 +115,9 @@ export function XboxImport() {
             </button>
             {showHelp && (
               <div className="px-4 pb-4 text-xs text-zinc-500 space-y-1.5 border-t border-zinc-800 pt-3">
-                <p>1. Vai su <a href="https://www.xboxgamertag.com" target="_blank" rel="noopener noreferrer" className="text-violet-400 underline">xboxgamertag.com</a></p>
-                <p>2. Cerca il tuo Gamertag Xbox nel campo di ricerca</p>
-                <p>3. Copia il numero a 16 cifre sotto il tuo nome</p>
+                <p>1. Vai su <a href="https://www.cxkes.me/xbox/xuid" target="_blank" rel="noopener noreferrer" className="text-violet-400 underline">cxkes.me/xbox/xuid</a></p>
+                <p>2. Inserisci il tuo Gamertag Xbox nel campo di ricerca</p>
+                <p>3. Copia il numero sotto <span className="text-zinc-300 font-medium">XUID (DEC)</span> — non quello HEX</p>
                 <p className="text-zinc-600">Es: <span className="font-mono text-zinc-500">2535416081689610</span></p>
               </div>
             )}

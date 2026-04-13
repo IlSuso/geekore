@@ -97,7 +97,7 @@ export default function NewsPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <div className="pt-8 pb-24 max-w-6xl mx-auto px-6">
+      <div className="pt-8 pb-24 max-w-screen-2xl mx-auto px-6">
 
         {/* Header */}
         <div className="mb-8">

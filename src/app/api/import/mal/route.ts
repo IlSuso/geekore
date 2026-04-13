@@ -83,6 +83,7 @@ function transformAnime(entry: Record<string, string>, userId: string) {
     genres: [],
     tags: [],
     notes: entry['my_comments'] || null,
+    import_source: 'mal',
     display_order: Date.now(),
     updated_at: new Date().toISOString(),
   }
@@ -112,6 +113,7 @@ function transformManga(entry: Record<string, string>, userId: string) {
     genres: [],
     tags: [],
     notes: entry['my_comments'] || null,
+    import_source: 'mal',
     display_order: Date.now(),
     updated_at: new Date().toISOString(),
   }

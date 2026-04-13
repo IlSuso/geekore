@@ -321,7 +321,7 @@ export default function DiscoverPage() {
 
   return (
     <div className="min-h-screen bg-black text-white pb-24">
-      <div className="max-w-5xl mx-auto px-4 pt-8">
+      <div className="max-w-screen-2xl mx-auto px-4 pt-8">
 
         {/* Search bar */}
         <div className="relative mb-4">

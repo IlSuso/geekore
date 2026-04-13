@@ -139,7 +139,7 @@ export default function Navbar() {
       {/* ── Desktop navbar ───────────────────────────────────────────────────── */}
       {/* z-[100]: sopra tutto il contenuto di pagina (modali z-50~z-90, card z-10~z-50) */}
       <nav className="hidden md:flex fixed top-0 left-0 right-0 z-[100] bg-black/80 backdrop-blur-2xl border-b border-zinc-800/60">
-        <div className="max-w-6xl mx-auto w-full px-6 py-4 flex items-center gap-4">
+        <div className="max-w-screen-2xl mx-auto w-full px-6 py-4 flex items-center gap-4">
 
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">

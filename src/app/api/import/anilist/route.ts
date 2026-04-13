@@ -30,7 +30,7 @@ const QUERY = `
           id
           type
           title { romaji english }
-          coverImage { large }
+          coverImage { large extraLarge }
           episodes
           chapters
           genres
@@ -150,7 +150,8 @@ export async function POST(request: NextRequest) {
         external_id: externalId,
         title,
         type,
-        cover_image: media.coverImage?.large || null,
+        // Salva l'URL diretto di AniList — extraLarge per qualità migliore
+        cover_image: media.coverImage?.extraLarge || media.coverImage?.large || null,
         current_episode: item.progress || 0,
         episodes: isAnime ? (media.episodes || null) : (media.chapters || null),
         status: STATUS_MAP[item.status] || 'watching',
@@ -158,6 +159,7 @@ export async function POST(request: NextRequest) {
         genres: media.genres || [],
         tags: topTags,
         notes: item.notes || null,
+        import_source: 'anilist',
         display_order: Date.now(),
         updated_at: new Date().toISOString(),
       }

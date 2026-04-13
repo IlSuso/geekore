@@ -1,7 +1,7 @@
 'use client'
 
 import { logActivity } from '@/lib/activity'
-import { Trash2, Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, List, Grid3X3 } from 'lucide-react'
+import { Trash2, Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, List, Grid3X3, ChevronRight, Download, X as XIcon } from 'lucide-react'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -30,6 +30,10 @@ import { useCsrf } from '@/hooks/useCsrf'
 import Link from 'next/link'
 import { useLocale } from '@/lib/locale'
 import { ProfileStatsPanel } from '@/components/profile/ProfileStatsPanel'
+import { AniListImport } from '@/components/import/AniListImport'
+import { MALImport } from '@/components/import/MALImport'
+import { LetterboxdImport } from '@/components/import/LetterboxdImport'
+import { XboxImport } from '@/components/import/XboxImport'
 import { ProfileActivityFeed } from '@/components/profile/ProfileActivityFeed'
 import { NotesModal } from '@/components/profile/NotesModal'
 import { DeleteAccountModal } from '@/components/profile/DeleteAccountModal'
@@ -48,6 +52,7 @@ type UserMedia = {
   display_order?: number
   updated_at: string
   is_steam?: boolean
+  import_source?: string | null
   appid?: string
   notes?: string
   rating?: number
@@ -100,6 +105,61 @@ function SteamCoverImg({ appid, title, className }: { appid?: string; title: str
       onError={() => setAttempt(a => a + 1)}
     />
   )
+}
+
+// ─── Platform badge helper ───────────────────────────────────────────────────
+
+function getPlatform(media: UserMedia): 'steam' | 'anilist' | 'mal' | 'letterboxd' | null {
+  if (media.is_steam || media.import_source === 'steam') return 'steam'
+  if (media.import_source === 'mal') return 'mal'
+  if (media.import_source === 'anilist') return 'anilist'
+  if (media.import_source === 'letterboxd') return 'letterboxd'
+  return null
+}
+
+function PlatformBadge({ media }: { media: UserMedia }) {
+  const platform = getPlatform(media)
+  if (!platform) return null
+
+  const badges: Record<string, JSX.Element> = {
+    steam: (
+      <div className="absolute top-3 left-3 z-20 bg-[#1b2838]/90 backdrop-blur-sm p-1.5 rounded-xl border border-[#66C0F4]/30 shadow-lg">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 65 65" width="15" height="15" fill="#fff"><path d="M1.305 41.202C5.259 54.386 17.488 64 31.959 64c17.673 0 32-14.327 32-32s-14.327-32-32-32C15.001 0 1.124 13.193.028 29.874c2.074 3.477 2.879 5.628 1.275 11.328z" fill="#1387b8"/><path d="M30.31 23.985l.003.158-7.83 11.375c-1.268-.058-2.54.165-3.748.662a8.14 8.14 0 0 0-1.498.8L.042 29.893s-.398 6.546 1.26 11.424l12.156 5.016c.6 2.728 2.48 5.12 5.242 6.27a8.88 8.88 0 0 0 11.603-4.782 8.89 8.89 0 0 0 .684-3.656L42.18 36.16l.275.005c6.705 0 12.155-5.466 12.155-12.18s-5.44-12.16-12.155-12.174c-6.702 0-12.155 5.46-12.155 12.174zm-1.88 23.05c-1.454 3.5-5.466 5.147-8.953 3.694a6.84 6.84 0 0 1-3.524-3.362l3.957 1.64a5.04 5.04 0 0 0 6.591-2.719 5.05 5.05 0 0 0-2.715-6.601l-4.1-1.695c1.578-.6 3.372-.62 5.05.077 1.7.703 3 2.027 3.696 3.72s.692 3.56-.01 5.246M42.466 32.1a8.12 8.12 0 0 1-8.098-8.113 8.12 8.12 0 0 1 8.098-8.111 8.12 8.12 0 0 1 8.1 8.111 8.12 8.12 0 0 1-8.1 8.113m-6.068-8.126a6.09 6.09 0 0 1 6.08-6.095c3.355 0 6.084 2.73 6.084 6.095a6.09 6.09 0 0 1-6.084 6.093 6.09 6.09 0 0 1-6.081-6.093z"/></svg>
+      </div>
+    ),
+    anilist: (
+      <div className="absolute top-3 left-3 z-20 bg-[#1e2630]/90 backdrop-blur-sm p-1 rounded-xl border border-[#02a9ff]/30 shadow-lg overflow-hidden">
+        <svg viewBox="0 0 512 512" width="17" height="17">
+          <rect width="512" height="512" fill="#1e2630"/>
+          <path d="M321.92 323.27V136.6c0-10.698-5.887-16.602-16.558-16.602h-36.433c-10.672 0-16.561 5.904-16.561 16.602v88.651c0 2.497 23.996 14.089 24.623 16.541 18.282 71.61 3.972 128.92-13.359 131.6 28.337 1.405 31.455 15.064 10.348 5.731 3.229-38.209 15.828-38.134 52.049-1.406.31.317 7.427 15.282 7.87 15.282h85.545c10.672 0 16.558-5.9 16.558-16.6v-36.524c0-10.698-5.886-16.602-16.558-16.602z" fill="#02a9ff"/>
+          <path d="M170.68 120 74.999 393h74.338l16.192-47.222h80.96L262.315 393h73.968l-95.314-273zm11.776 165.28 23.183-75.629 25.393 75.629z" fill="#fefefe"/>
+        </svg>
+      </div>
+    ),
+    mal: (
+      <div className="absolute top-3 left-3 z-20 backdrop-blur-sm p-1 rounded-xl border border-[#2e51a2]/50 shadow-lg overflow-hidden">
+        <svg viewBox="0 0 256 256" width="17" height="17">
+          <rect width="256" height="256" fill="#2e51a2"/>
+          <path fill="#ffffff" d="m 30.638616,88.40918 v 68.70703 h 17.759766 v -41.91016 l 15.470703,19.77344 16.67825,-19.77344 v 41.91016 H 98.307101 V 88.40918 H 80.547335 L 63.869085,109.82324 48.398382,88.40918 Z"/>
+          <path fill="#ffffff" d="m 182.49799,88.40918 v 68.70703 h 39.07974 l 3.78365,-14.65739 H 200.25775 V 88.40918 Z"/>
+          <path fill="#ffffff" d="m 149.65186,88.40918 c -21.64279,0 -35.06651,10.210974 -39.36914,25.39258 -4.19953,14.81779 0.34128,34.3715 10.28711,53.78906 l 14.85742,-10.47461 c 0,0 -7.06411,-9.21728 -8.39453,-23.03516 h 21.98437 v 23.03516 h 19.73438 v -51.67969 h -19.73438 v 14.9668 H 130.8003 c 1.71696,-11.1972 8.295,-17.30859 15.46875,-17.30859 h 25.8164 l -5.12304,-14.68555 z"/>
+        </svg>
+      </div>
+    ),
+    letterboxd: (
+      <div className="absolute top-3 left-3 z-20 bg-[#1a1a1a]/90 backdrop-blur-sm px-1.5 py-1.5 rounded-xl border border-zinc-600/40 shadow-lg">
+        <svg viewBox="0 0 54 24" width="27" height="12">
+          <ellipse cx="12" cy="12" rx="11" ry="11" fill="#ff8000"/>
+          <ellipse cx="27" cy="12" rx="11" ry="11" fill="#00e054"/>
+          <ellipse cx="42" cy="12" rx="11" ry="11" fill="#40bcf4"/>
+          <ellipse cx="19" cy="12" rx="4" ry="11" fill="#ffffff" fillOpacity="0.85"/>
+          <ellipse cx="35" cy="12" rx="4" ry="11" fill="#ffffff" fillOpacity="0.85"/>
+        </svg>
+      </div>
+    ),
+  }
+
+  return badges[platform] || null
 }
 
 // ─── SortableBox ─────────────────────────────────────────────────────────────
@@ -219,11 +279,7 @@ function MediaCard({
     <div className="group relative bg-zinc-950 rounded-3xl overflow-hidden h-full flex flex-col">
       {/* Cover */}
       <div className="relative h-60 bg-zinc-900 flex-shrink-0 overflow-hidden">
-        {media.is_steam && (
-          <div className="absolute top-3 left-3 z-20 bg-[#1b2838]/90 backdrop-blur-sm p-1.5 rounded-xl border border-[#66C0F4]/30 shadow-lg">
-            <SteamIcon size={15} className="text-[#66C0F4]" />
-          </div>
-        )}
+        <PlatformBadge media={media} />
         {isOwner && isConfirmingDelete && (
           <div className="absolute top-3 right-3 z-30 flex gap-1.5">
             <button onClick={() => onDeleteCancel?.()} className="px-3 py-1.5 text-xs font-medium bg-zinc-900/95 border border-zinc-600 rounded-full hover:bg-zinc-800 transition">{m.cancel}</button>
@@ -553,14 +609,30 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<ProfileTab>('collection')
   const [collectionSearch, setCollectionSearch] = useState('')
   const [sortMode, setSortMode] = useState<SortMode>('default')
+  const [importPlatform, setImportPlatform] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [statusFilter, setStatusFilter] = useState('all')
+
+  const RATING_SORTED_TYPES = new Set(['movie', 'manga', 'tv'])
 
   const sortMediaList = (list: UserMedia[]) =>
     [...list].sort((a, b) => {
       if (a.type === 'game' && b.type !== 'game') return -1
       if (b.type === 'game' && a.type !== 'game') return 1
       if (a.type === 'game' && b.type === 'game') return (b.current_episode || 0) - (a.current_episode || 0)
+      // Per movie/manga/tv: ordina per rating desc, con senza-voto in fondo
+      // Se display_order è stato modificato manualmente (diverso tra due item dello stesso tipo),
+      // lo usiamo come override rispettando la scelta dell'utente
+      if (RATING_SORTED_TYPES.has(a.type) && a.type === b.type) {
+        const aOrder = a.display_order || 0
+        const bOrder = b.display_order || 0
+        // Se hanno display_order diversi (drag manuale), rispetta quello
+        if (aOrder !== bOrder) return bOrder - aOrder
+        // Altrimenti ordina per rating: con voto prima, senza voto dopo
+        const aRating = a.rating ?? -1
+        const bRating = b.rating ?? -1
+        return bRating - aRating
+      }
       return (b.display_order || 0) - (a.display_order || 0)
     })
 
@@ -644,7 +716,7 @@ export default function ProfilePage() {
     if (!isOwner) return
     const item = mediaList.find(m => m.id === mediaId)
     await supabase.from('user_media_entries').update({ rating }).eq('id', mediaId)
-    setMediaList(prev => prev.map(item => item.id === mediaId ? { ...item, rating } : item))
+    setMediaList(prev => sortMediaList(prev.map(item => item.id === mediaId ? { ...item, rating } : item)))
     showToast(t.toasts.ratingSaved)
     if (item) await logActivity({ type: 'rating_given', media_id: item.id, media_title: item.title, media_type: item.type, media_cover: item.cover_image, rating_value: rating })
   }
@@ -789,6 +861,15 @@ export default function ProfilePage() {
   }, {})
 
   const categoryOrder = [cats.games, cats.anime, cats.tv, cats.manga, cats.movies, cats.boardgames, cats.other]
+  // Mappa label categoria → slug URL per la pagina dedicata
+  const categoryToType: Record<string, string> = {
+    [cats.games]: 'game',
+    [cats.anime]: 'anime',
+    [cats.tv]: 'tv',
+    [cats.manga]: 'manga',
+    [cats.movies]: 'movie',
+    [cats.boardgames]: 'boardgame',
+  }
   const orderedCategories = categoryOrder.filter(cat => grouped[cat]?.length > 0)
 
   const TABS: { id: ProfileTab; label: string; count?: number }[] = [
@@ -799,10 +880,13 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white pb-20">
-      <div className="pt-8 max-w-6xl mx-auto px-6">
+      <div className="pt-8 max-w-screen-2xl mx-auto px-6">
 
         {/* Header profilo */}
         <div className="flex justify-between items-start mb-10">
+          {/* Spazio sinistro bilanciamento */}
+          <div className="w-12 hidden lg:block" />
+
           <div className="flex flex-col items-center flex-1">
             <div className="w-36 h-36 border-4 border-zinc-700 mb-6 rounded-full overflow-hidden">
               <Avatar
@@ -856,48 +940,82 @@ export default function ProfilePage() {
                 <Trash2 size={12} /> Elimina account
               </button>
             )}
-          </div>
-        </div>
 
-        {/* Steam section (owner only) */}
-        {isOwner && (
-          <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-8 mb-12">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-4">
-                <SteamIcon size={32} className="text-[#66C0F4]" />
-                <h2 className="text-2xl font-semibold">{t.steam.accountTitle}</h2>
-              </div>
-              {steamAccount ? (
-                <div className="text-green-400 flex items-center gap-2"><CheckCircle size={20} /> {t.steam.connected}</div>
-              ) : (
-                <div className="text-amber-400 text-sm">{t.steam.notConnected}</div>
-              )}
-            </div>
-            <div className="flex flex-col sm:flex-row gap-4">
-              {steamAccount ? (
-                <>
-                  <button onClick={importSteamGames} disabled={importingGames} className="flex-1 flex items-center justify-center gap-3 bg-[#1B2838] hover:bg-[#2a475e] border border-[#66C0F4] py-4 rounded-2xl font-medium transition disabled:opacity-50">
-                    <RefreshCw size={20} className={importingGames ? 'animate-spin' : ''} />
-                    {importingGames ? t.steam.updating : t.steam.updateBtn}
+            {/* Riga import piattaforme — orizzontale, solo owner */}
+            {isOwner && (
+              <div className="flex items-center gap-2 mt-5">
+                <span className="text-[10px] text-zinc-600 mr-1">Importa da</span>
+
+                {/* Steam */}
+                {steamAccount ? (
+                  <button
+                    onClick={importSteamGames}
+                    disabled={importingGames}
+                    title={importingGames ? 'Aggiornamento...' : 'Aggiorna Steam'}
+                    className="w-8 h-8 rounded-full bg-[#1B2838] border border-[#66C0F4]/40 hover:border-[#66C0F4] flex items-center justify-center transition-all hover:scale-110 disabled:opacity-50"
+                  >
+                    <SteamIcon size={14} className={`text-[#66C0F4] ${importingGames ? 'animate-spin' : ''}`} />
                   </button>
-                  <button onClick={reorderGamesByHours} disabled={reorderingGames} className="flex-1 flex items-center justify-center gap-3 bg-zinc-900 hover:bg-zinc-800 border border-violet-500/50 hover:border-violet-500 py-4 rounded-2xl font-medium transition disabled:opacity-50">
-                    <RotateCw size={20} className={reorderingGames ? 'animate-spin' : ''} />
-                    {reorderingGames ? t.steam.reordering : t.steam.reorderBtn}
-                  </button>
-                </>
-              ) : (
-                <a href="/api/steam/connect" className="flex-1 flex items-center justify-center gap-3 bg-[#1B2838] hover:bg-[#2a475e] border border-[#66C0F4] py-4 rounded-2xl font-medium transition">
-                  <SteamIcon size={20} /> {t.steam.connectBtn}
-                </a>
-              )}
-            </div>
-            {steamMessage && (
-              <div className={`mt-4 px-5 py-3 rounded-2xl text-sm font-medium ${steamMessage.type === 'error' ? 'bg-red-950/50 border border-red-800 text-red-400' : 'bg-emerald-950/50 border border-emerald-800 text-emerald-400'}`}>
-                {steamMessage.text}
+                ) : (
+                  <a href="/api/steam/connect" title="Connetti Steam"
+                    className="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-700 hover:border-[#66C0F4]/60 flex items-center justify-center transition-all hover:scale-110">
+                    <SteamIcon size={14} className="text-zinc-500" />
+                  </a>
+                )}
+
+                {/* AniList */}
+                <button onClick={() => setImportPlatform('anilist')} title="Importa da AniList"
+                  className="w-8 h-8 rounded-full overflow-hidden border border-zinc-700 hover:border-[#02a9ff]/60 transition-all hover:scale-110">
+                  <svg viewBox="0 0 512 512" width="32" height="32">
+                    <rect width="512" height="512" fill="#1e2630"/>
+                    <path d="M321.92 323.27V136.6c0-10.698-5.887-16.602-16.558-16.602h-36.433c-10.672 0-16.561 5.904-16.561 16.602v88.651c0 2.497 23.996 14.089 24.623 16.541 18.282 71.61 3.972 128.92-13.359 131.6 28.337 1.405 31.455 15.064 10.348 5.731 3.229-38.209 15.828-38.134 52.049-1.406.31.317 7.427 15.282 7.87 15.282h85.545c10.672 0 16.558-5.9 16.558-16.6v-36.524c0-10.698-5.886-16.602-16.558-16.602z" fill="#02a9ff"/>
+                    <path d="M170.68 120 74.999 393h74.338l16.192-47.222h80.96L262.315 393h73.968l-95.314-273zm11.776 165.28 23.183-75.629 25.393 75.629z" fill="#fefefe"/>
+                  </svg>
+                </button>
+
+                {/* MAL */}
+                <button onClick={() => setImportPlatform('mal')} title="Importa da MyAnimeList"
+                  className="w-8 h-8 rounded-full overflow-hidden border border-zinc-700 hover:border-[#2e51a2]/80 transition-all hover:scale-110">
+                  <svg viewBox="0 0 256 256" width="32" height="32">
+                    <rect width="256" height="256" fill="#2e51a2"/>
+                    <path fill="#ffffff" d="m 30.638616,88.40918 v 68.70703 h 17.759766 v -41.91016 l 15.470703,19.77344 16.67825,-19.77344 v 41.91016 H 98.307101 V 88.40918 H 80.547335 L 63.869085,109.82324 48.398382,88.40918 Z"/>
+                    <path fill="#ffffff" d="m 182.49799,88.40918 v 68.70703 h 39.07974 l 3.78365,-14.65739 H 200.25775 V 88.40918 Z"/>
+                    <path fill="#ffffff" d="m 149.65186,88.40918 c -21.64279,0 -35.06651,10.210974 -39.36914,25.39258 -4.19953,14.81779 0.34128,34.3715 10.28711,53.78906 l 14.85742,-10.47461 c 0,0 -7.06411,-9.21728 -8.39453,-23.03516 h 21.98437 v 23.03516 h 19.73438 v -51.67969 h -19.73438 v 14.9668 H 130.8003 c 1.71696,-11.1972 8.295,-17.30859 15.46875,-17.30859 h 25.8164 l -5.12304,-14.68555 z"/>
+                  </svg>
+                </button>
+
+                {/* Letterboxd — tre cerchi sovrapposti ufficiali */}
+                <button onClick={() => setImportPlatform('letterboxd')} title="Importa da Letterboxd"
+                  className="w-8 h-8 rounded-full bg-[#1a1a1a] border border-zinc-700 hover:border-zinc-500 flex items-center justify-center transition-all hover:scale-110">
+                  <svg viewBox="0 0 90 40" width="36" height="16">
+                    <ellipse cx="20" cy="20" rx="18" ry="18" fill="#ff8000"/>
+                    <ellipse cx="45" cy="20" rx="18" ry="18" fill="#00e054"/>
+                    <ellipse cx="70" cy="20" rx="18" ry="18" fill="#40bcf4"/>
+                    <ellipse cx="32" cy="20" rx="6" ry="18" fill="#ffffff" fillOpacity="0.9"/>
+                    <ellipse cx="58" cy="20" rx="6" ry="18" fill="#ffffff" fillOpacity="0.9"/>
+                  </svg>
+                </button>
+
+                {/* Xbox */}
+                <button onClick={() => setImportPlatform('xbox')} title="Importa da Xbox"
+                  className="w-8 h-8 rounded-full overflow-hidden border border-zinc-700 hover:border-[#107c10]/60 transition-all hover:scale-110 bg-black flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 88 88">
+                    <path fill="#107c10" d="M39.73 86.91c-6.628-.635-13.338-3.015-19.102-6.776-4.83-3.15-5.92-4.447-5.92-7.032 0-5.193 5.71-14.29 15.48-24.658 5.547-5.89 13.275-12.79 14.11-12.604 1.626.363 14.616 13.034 19.48 19 7.69 9.43 11.224 17.154 9.428 20.597-1.365 2.617-9.837 7.733-16.06 9.698-5.13 1.62-11.867 2.306-17.416 1.775zM8.184 67.703c-4.014-6.158-6.042-12.22-7.02-20.988-.324-2.895-.21-4.55.733-10.494 1.173-7.4 5.39-15.97 10.46-21.24 2.158-2.24 2.35-2.3 4.982-1.41 3.19 1.08 6.6 3.436 11.89 8.22l3.09 2.794-1.69 2.07c-7.828 9.61-16.09 23.24-19.2 31.67-1.69 4.58-2.37 9.18-1.64 11.095.49 1.294.04.812-1.61-1.714zm70.453 1.047c.397-1.936-.105-5.49-1.28-9.076-2.545-7.765-11.054-22.21-18.867-32.032l-2.46-3.092 2.662-2.443c3.474-3.19 5.886-5.1 8.49-6.723 2.053-1.28 4.988-2.413 6.25-2.413.777 0 3.516 2.85 5.726 5.95 3.424 4.8 5.942 10.63 7.218 16.69.825 3.92.894 12.3.133 16.21-.63 3.208-1.95 7.366-3.23 10.187-.97 2.113-3.36 6.218-4.41 7.554-.54.687-.54.686-.24-.796zM40.44 11.505C36.834 9.675 31.272 7.71 28.2 7.18c-1.076-.185-2.913-.29-4.08-.23-2.536.128-2.423-.004 1.643-1.925 3.38-1.597 6.2-2.536 10.03-3.34C40.098.78 48.193.77 52.43 1.663c4.575.965 9.964 2.97 13 4.84l.904.554-2.07-.104C60.148 6.745 54.15 8.408 47.71 11.54c-1.942.946-3.63 1.7-3.754 1.68-.123-.024-1.706-.795-3.52-1.715z"/>
+                  </svg>
+                </button>
               </div>
             )}
           </div>
-        )}
+
+          {/* Pallini import — orizzontali sotto i bottoni, solo per owner */}
+          {isOwner ? (
+            <div className="hidden lg:block w-12" />
+          ) : (
+            <div className="hidden lg:block w-12" />
+          )}
+        </div>
+
+
 
         {/* Stats */}
         {mediaList.length > 0 && <ProfileStatsPanel mediaList={mediaList} />}
@@ -972,39 +1090,74 @@ export default function ProfilePage() {
                     ))}
                   </div>
                 ) : (
-                  // Grid view (default)
-                  orderedCategories.map((category) => (
-                    <div key={category} className="mb-16">
-                      <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-2xl font-semibold">{category}</h3>
-                        <p className="text-zinc-500">{t.profile.elements(grouped[category].length)}</p>
-                      </div>
-                      {isOwner ? (
-                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-                          <SortableContext items={grouped[category].map(m => m.id)} strategy={rectSortingStrategy}>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                              {grouped[category].map((media) => (
-                                <SortableBox key={media.id} media={media}>
-                                  <MediaCard media={media} isOwner={true} deletingId={deletingId}
-                                    onDelete={handleDelete} onDeleteRequest={setDeletingId} onDeleteCancel={() => setDeletingId(null)}
-                                    onRating={setRating} onNotes={openNotesModal} onSaveProgress={saveProgress}
-                                    onMarkComplete={markAsCompleted} onReset={resetProgress} onStatusChange={changeStatus} />
-                                </SortableBox>
-                              ))}
-                            </div>
-                          </SortableContext>
-                        </DndContext>
-                      ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                          {grouped[category].map((media) => (
-                            <div key={media.id} className="border border-zinc-800 rounded-3xl overflow-hidden h-[520px] flex flex-col">
-                              <MediaCard media={media} isOwner={false} onStatusChange={changeStatus} />
-                            </div>
-                          ))}
+                  // Grid view (default) — mostra 5 card per categoria + "Vedi tutti"
+                  orderedCategories.map((category) => {
+                    const items = grouped[category]
+                    const preview = items.slice(0, 6)
+                    const hasMore = items.length > 6
+                    return (
+                      <div key={category} className="mb-16">
+                        <div className="flex items-center justify-between mb-6">
+                          <h3 className="text-2xl font-semibold">{category}</h3>
+                          <div className="flex items-center gap-3">
+                            <p className="text-zinc-500">{t.profile.elements(items.length)}</p>
+                            {hasMore && (
+                              <Link
+                                href={`/profile/${profile.username}/${categoryToType[category] || category}`}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 border border-zinc-700 hover:border-violet-500/50 rounded-xl text-xs text-zinc-400 hover:text-violet-400 transition-all"
+                              >
+                                Vedi tutti <ChevronRight size={13} />
+                              </Link>
+                            )}
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  ))
+                        {isOwner ? (
+                          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+                            <SortableContext items={preview.map(m => m.id)} strategy={rectSortingStrategy}>
+                              <div className="flex gap-4 items-stretch">
+                                {preview.map((media) => (
+                                  <div key={media.id} className="w-52 flex-shrink-0">
+                                    <SortableBox media={media}>
+                                      <MediaCard media={media} isOwner={true} deletingId={deletingId}
+                                        onDelete={handleDelete} onDeleteRequest={setDeletingId} onDeleteCancel={() => setDeletingId(null)}
+                                        onRating={setRating} onNotes={openNotesModal} onSaveProgress={saveProgress}
+                                        onMarkComplete={markAsCompleted} onReset={resetProgress} onStatusChange={changeStatus} />
+                                    </SortableBox>
+                                  </div>
+                                ))}
+                                {hasMore && (
+                                  <Link
+                                    href={`/profile/${profile.username}/${categoryToType[category] || category}`}
+                                    className="flex-shrink-0 w-14 border border-dashed border-zinc-700 hover:border-violet-500/50 rounded-3xl h-[520px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-violet-400 transition-all group"
+                                  >
+                                    <ChevronRight size={16} />
+                                    <span className="text-xs font-semibold">+{items.length - 6}</span>
+                                  </Link>
+                                )}
+                              </div>
+                            </SortableContext>
+                          </DndContext>
+                        ) : (
+                          <div className="flex gap-4 items-stretch">
+                            {preview.map((media) => (
+                              <div key={media.id} className="w-52 flex-shrink-0 border border-zinc-800 rounded-3xl overflow-hidden h-[520px] flex flex-col">
+                                <MediaCard media={media} isOwner={false} onStatusChange={changeStatus} />
+                              </div>
+                            ))}
+                            {hasMore && (
+                              <Link
+                                href={`/profile/${profile.username}/${categoryToType[category] || category}`}
+                                className="flex-shrink-0 w-14 border border-dashed border-zinc-700 hover:border-violet-500/50 rounded-3xl h-[520px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-violet-400 transition-all group"
+                              >
+                                <ChevronRight size={16} />
+                                <span className="text-xs font-semibold">+{items.length - 6}</span>
+                              </Link>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })
                 )}
               </>
             )}
@@ -1046,6 +1199,38 @@ export default function ProfilePage() {
           onClose={() => setShowDeleteModal(false)}
         />
       )}
+
+      {/* Modal Importa piattaforma specifica */}
+      {importPlatform && isOwner && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-6"
+          onClick={() => setImportPlatform(null)}
+        >
+          <div
+            className="bg-zinc-950 border border-zinc-800 rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg max-h-[90vh] flex flex-col overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 flex-shrink-0">
+              <h2 className="text-base font-bold">
+                {importPlatform === 'anilist' && 'Importa da AniList'}
+                {importPlatform === 'mal' && 'Importa da MyAnimeList'}
+                {importPlatform === 'letterboxd' && 'Importa da Letterboxd'}
+                {importPlatform === 'xbox' && 'Importa da Xbox'}
+              </h2>
+              <button onClick={() => setImportPlatform(null)} className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-zinc-800 transition">
+                <XIcon size={18} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {importPlatform === 'anilist' && <AniListImport />}
+              {importPlatform === 'mal' && <MALImport />}
+              {importPlatform === 'letterboxd' && <LetterboxdImport />}
+              {importPlatform === 'xbox' && <XboxImport />}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

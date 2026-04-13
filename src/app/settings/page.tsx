@@ -11,14 +11,10 @@ import { useTheme } from '@/lib/theme'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import {
-  Settings, Globe, Sun, Moon, Download, List, TrendingUp, BarChart3, Bell,
+  Settings, Globe, Sun, Moon, List, TrendingUp, BarChart3, Bell,
   Shield, KeyRound, LogOut, Eye, EyeOff, Loader2, ChevronDown, ChevronUp,
   Circle, Sparkles, Mail,
 } from 'lucide-react'
-import { AniListImport } from '@/components/import/AniListImport'
-import { MALImport } from '@/components/import/MALImport'
-import { XboxImport } from '@/components/import/XboxImport'
-import { LetterboxdImport } from '@/components/import/LetterboxdImport'
 import { PushNotificationsToggle } from '@/components/notifications/PushNotificationsToggle'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -386,21 +382,6 @@ export default function SettingsPage() {
           <div className="space-y-3">
             <PushNotificationsToggle />
             <DigestToggle />
-          </div>
-        </section>
-
-        {/* Importazione — AniList + MAL + Xbox */}
-        <section>
-          <div className="flex items-center gap-2 mb-3">
-            <Download size={15} className="text-zinc-500" />
-            <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Importazione</h2>
-          </div>
-          <div className="space-y-4">
-            <AniListImport />
-            <MALImport />
-            <LetterboxdImport />
-            {/* #22: Xbox import */}
-            <XboxImport />
           </div>
         </section>
 

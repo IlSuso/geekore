@@ -1,6 +1,6 @@
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-black pt-8 pb-20 max-w-6xl mx-auto px-6">
+    <div className="min-h-screen bg-black pt-8 pb-20 max-w-screen-2xl mx-auto px-6">
       <div className="text-center mb-12">
         <div className="h-12 w-48 bg-zinc-800 rounded animate-pulse mx-auto mb-4" />
         <div className="h-4 w-32 bg-zinc-800 rounded animate-pulse mx-auto" />
@@ -10,7 +10,7 @@ export default function Loading() {
           <div key={i} className="h-10 w-24 bg-zinc-900 rounded-2xl animate-pulse" />
         ))}
       </div>
-      <div className="max-w-2xl mx-auto mb-12">
+      <div className="max-w-screen-2xl mx-auto mb-12">
         <div className="h-16 bg-zinc-900 rounded-3xl animate-pulse" />
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">

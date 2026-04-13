@@ -12,6 +12,7 @@
 //   #9   Contatore caratteri live anche sui commenti (appare sopra 400 char).
 
 import { useState, useEffect, useCallback, memo, useRef } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { User } from '@supabase/supabase-js'
 import { Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X, Loader2, Pin, ArrowUp, Trash2 } from 'lucide-react'
@@ -23,6 +24,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { it } from 'date-fns/locale/it'
 import { enUS } from 'date-fns/locale/en-US'
 import { useLocale } from '@/lib/locale'
+import { FeedSidebar } from '@/components/feed/FeedSidebar'
 
 // ── Tipi ────────────────────────────────────────────────────────────────────
 
@@ -95,6 +97,7 @@ const PostCard = memo(function PostCard({
   onCommentChange,
   onAddComment,
   onDelete,
+  onDeleteComment,
   expandedComments,
   onExpandComments,
 }: {
@@ -109,6 +112,7 @@ const PostCard = memo(function PostCard({
   onCommentChange: (val: string) => void
   onAddComment: (id: string) => void
   onDelete: (id: string) => void
+  onDeleteComment: (commentId: string, postId: string) => void
   expandedComments: Set<string>
   onExpandComments: (id: string) => void
 }) {
@@ -133,7 +137,7 @@ const PostCard = memo(function PostCard({
 
       {/* Header */}
       <div className="flex items-center gap-3 mb-5">
-        <div className="w-11 h-11 rounded-2xl overflow-hidden ring-2 ring-violet-500/20">
+        <Link href={`/profile/${post.profiles.username}`} className="w-11 h-11 rounded-2xl overflow-hidden ring-2 ring-violet-500/20 hover:ring-violet-500/50 transition-all flex-shrink-0">
           <Avatar
             src={post.profiles.avatar_url}
             username={post.profiles.username}
@@ -141,9 +145,11 @@ const PostCard = memo(function PostCard({
             size={44}
             className="rounded-2xl"
           />
-        </div>
+        </Link>
         <div className="flex-1">
-          <p className="font-bold text-white">{post.profiles.display_name || post.profiles.username}</p>
+          <Link href={`/profile/${post.profiles.username}`} className="hover:text-violet-400 transition-colors">
+            <p className="font-bold text-white">{post.profiles.display_name || post.profiles.username}</p>
+          </Link>
           <p className="text-xs text-zinc-500">
             @{post.profiles.username} · {formatDistanceToNow(new Date(post.created_at), {
               addSuffix: true, locale: locale === 'en' ? enUS : it,
@@ -231,9 +237,19 @@ const PostCard = memo(function PostCard({
       {post.comments.length > 0 && (
         <div className="mt-4 pl-3 border-l-2 border-zinc-800 space-y-3 text-sm">
           {visibleComments.map(comment => (
-            <div key={comment.id}>
-              <span className="font-semibold text-violet-400">@{comment.username}</span>
-              <span className="ml-2 text-zinc-300">{comment.content}</span>
+            <div key={comment.id} className="flex items-start justify-between gap-2 group">
+              <div>
+                <Link href={`/profile/${comment.username}`} className="font-semibold text-violet-400 hover:text-violet-300 transition-colors">@{comment.username}</Link>
+                <span className="ml-2 text-zinc-300">{comment.content}</span>
+              </div>
+              {currentUser && currentUser.id === comment.user_id && (
+                <button
+                  onClick={() => onDeleteComment(comment.id, post.id)}
+                  className="text-zinc-600 hover:text-red-400 transition-colors flex-shrink-0 mt-0.5"
+                >
+                  <Trash2 size={11} />
+                </button>
+              )}
             </div>
           ))}
           {!isExpanded && hiddenCount > 0 && (
@@ -711,6 +727,21 @@ export default function FeedPage() {
     setExpandedComments(prev => new Set([...prev, postId]))
   }, [])
 
+  const handleDeleteComment = useCallback(async (commentId: string, postId: string) => {
+    if (!currentUser) return
+    await supabase.from('comments').delete().eq('id', commentId)
+    setPosts(prev => prev.map(p =>
+      p.id === postId
+        ? { ...p, comments_count: p.comments_count - 1, comments: p.comments.filter(c => c.id !== commentId) }
+        : p
+    ))
+    setPinnedPosts(prev => prev.map(p =>
+      p.id === postId
+        ? { ...p, comments_count: p.comments_count - 1, comments: p.comments.filter(c => c.id !== commentId) }
+        : p
+    ))
+  }, [currentUser, supabase])
+
   const handleDeletePost = useCallback(async (postId: string) => {
     if (!currentUser) return
     // Rimozione ottimistica
@@ -731,7 +762,7 @@ export default function FeedPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-black text-white">
-        <div className="pt-8 pb-20 max-w-3xl mx-auto px-6 space-y-8">
+        <div className="pt-8 pb-20 max-w-screen-2xl mx-auto px-6 space-y-8">
           {Array.from({ length: 4 }).map((_, i) => <SkeletonFeedPost key={i} />)}
         </div>
       </div>
@@ -740,7 +771,10 @@ export default function FeedPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <div className="pt-8 pb-20 max-w-3xl mx-auto px-6">
+      <div className="pt-8 pb-20 max-w-screen-2xl mx-auto px-6">
+        <div className="flex gap-8 items-start min-h-screen">
+          {/* ── Colonna principale feed (60%) ─────────────────────── */}
+          <div className="flex-1 min-w-0">
 
         {/* Composer */}
         {currentUser && (
@@ -829,6 +863,7 @@ export default function FeedPage() {
                   onCommentChange={setCommentContent}
                   onAddComment={handleAddComment}
                   onDelete={handleDeletePost}
+                  onDeleteComment={handleDeleteComment}
                   expandedComments={expandedComments}
                   onExpandComments={handleExpandComments}
                 />
@@ -861,6 +896,7 @@ export default function FeedPage() {
                 onCommentChange={setCommentContent}
                 onAddComment={handleAddComment}
                 onDelete={handleDeletePost}
+                onDeleteComment={handleDeleteComment}
                 expandedComments={expandedComments}
                 onExpandComments={handleExpandComments}
               />
@@ -879,6 +915,15 @@ export default function FeedPage() {
             <p className="text-center text-zinc-600 text-sm py-6">Hai visto tutto! 🎉</p>
           )}
         </div>
+          </div>{/* fine colonna principale */}
+
+          {/* ── Sidebar destra (35%) ───────────────────────────────── */}
+          <div className="hidden lg:block w-80 flex-shrink-0">
+            <div className="sticky top-20">
+              <FeedSidebar currentUserId={currentUser?.id || null} />
+            </div>
+          </div>
+        </div>{/* fine flex */}
       </div>
     </div>
   )
