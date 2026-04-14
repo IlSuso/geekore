@@ -7,6 +7,7 @@ import { ServiceWorkerRegistrar } from '@/components/ServiceWorkerRegistrar'
 import { SyncStatusListener } from '@/components/ui/SyncToast'
 import { NavigationProgress } from '@/components/ui/NavigationProgress'
 import { useEffect, useRef } from 'react'
+import { PWAInstallBanner } from '@/components/PWAInstallBanner'
 import { usePathname } from 'next/navigation'
 
 // Preriscalda la cache server-side UNA SOLA VOLTA per sessione.
@@ -44,6 +45,7 @@ export function ClientProviders({ children, initialLocale = 'it' }: { children: 
         <SyncStatusListener />
         <NavigationProgress />
         <RecsWarmer />
+        <PWAInstallBanner />
         {children}
       </LocaleProvider>
     </ThemeProvider>

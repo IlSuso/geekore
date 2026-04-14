@@ -19,6 +19,7 @@ export const SteamIcon: React.FC<SteamIconProps> = ({
       height={size}
       viewBox="0 0 65 65"
       className={className}
+      style={{display:'block'}}
       aria-hidden="true"
     >
       <defs>

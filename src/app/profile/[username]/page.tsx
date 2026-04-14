@@ -1021,13 +1021,13 @@ export default function ProfilePage() {
                   title={steamAccount ? 'Steam (connesso) — clicca per importare' : 'Connetti Steam'}
                   className={`w-9 h-9 rounded-full overflow-hidden border flex items-center justify-center transition-all hover:scale-110 flex-shrink-0 ${steamAccount ? 'border-[#66C0F4]/40 hover:border-[#66C0F4]' : 'border-zinc-700 hover:border-[#66C0F4]/60 opacity-50 hover:opacity-100'}`}
                 >
-                  <SteamIcon size={24} className="block" />
+                  <SteamIcon size={36} className="w-full h-full block" />
                 </button>
 
                 {/* AniList */}
                 <button onClick={() => setImportPlatform('anilist')} title="Importa da AniList"
                   className="w-9 h-9 rounded-full overflow-hidden border border-zinc-700 hover:border-[#02a9ff]/60 transition-all hover:scale-110 flex items-center justify-center flex-shrink-0">
-                  <svg viewBox="0 0 512 512" width="28" height="28" style={{display:"block"}}>
+                  <svg viewBox="0 0 512 512" className="w-full h-full" style={{display:"block"}}>
                     <rect width="512" height="512" fill="#1e2630"/>
                     <path d="M321.92 323.27V136.6c0-10.698-5.887-16.602-16.558-16.602h-36.433c-10.672 0-16.561 5.904-16.561 16.602v88.651c0 2.497 23.996 14.089 24.623 16.541 18.282 71.61 3.972 128.92-13.359 131.6 28.337 1.405 31.455 15.064 10.348 5.731 3.229-38.209 15.828-38.134 52.049-1.406.31.317 7.427 15.282 7.87 15.282h85.545c10.672 0 16.558-5.9 16.558-16.6v-36.524c0-10.698-5.886-16.602-16.558-16.602z" fill="#02a9ff"/>
                     <path d="M170.68 120 74.999 393h74.338l16.192-47.222h80.96L262.315 393h73.968l-95.314-273zm11.776 165.28 23.183-75.629 25.393 75.629z" fill="#fefefe"/>
@@ -1037,7 +1037,7 @@ export default function ProfilePage() {
                 {/* MAL */}
                 <button onClick={() => setImportPlatform('mal')} title="Importa da MyAnimeList"
                   className="w-9 h-9 rounded-full overflow-hidden border border-zinc-700 hover:border-[#2e51a2]/80 transition-all hover:scale-110 flex items-center justify-center flex-shrink-0">
-                  <svg viewBox="0 0 256 256" width="28" height="28" style={{display:"block"}}>
+                  <svg viewBox="0 0 256 256" className="w-full h-full" style={{display:"block"}}>
                     <rect width="256" height="256" fill="#2e51a2"/>
                     <path fill="#ffffff" d="m 30.638616,88.40918 v 68.70703 h 17.759766 v -41.91016 l 15.470703,19.77344 16.67825,-19.77344 v 41.91016 H 98.307101 V 88.40918 H 80.547335 L 63.869085,109.82324 48.398382,88.40918 Z"/>
                     <path fill="#ffffff" d="m 182.49799,88.40918 v 68.70703 h 39.07974 l 3.78365,-14.65739 H 200.25775 V 88.40918 Z"/>
@@ -1048,7 +1048,7 @@ export default function ProfilePage() {
                 {/* Letterboxd — tre cerchi sovrapposti ufficiali */}
                 <button onClick={() => setImportPlatform('letterboxd')} title="Importa da Letterboxd"
                   className="w-9 h-9 rounded-full overflow-hidden border border-zinc-700 hover:border-zinc-500 transition-all hover:scale-110 flex items-center justify-center flex-shrink-0">
-                  <svg viewBox="0 0 40 40" width="28" height="28" style={{display:"block"}}>
+                  <svg viewBox="0 0 40 40" className="w-full h-full" style={{display:"block"}}>
                     <rect width="40" height="40" fill="#1a1a1a"/>
                     <ellipse cx="11" cy="20" rx="9" ry="9" fill="#ff8000"/>
                     <ellipse cx="20" cy="20" rx="9" ry="9" fill="#00e054"/>
