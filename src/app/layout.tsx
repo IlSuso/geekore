@@ -61,7 +61,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               isolation, transform, will-change, filter, opacity<1 crea uno
               stacking context che imprigiona il z-index dei figli */}
           <Navbar />
-          <main className="pt-16 pb-24 md:pb-8">
+          <main className="pt-16 pb-20 md:pb-8">
             {children}
           </main>
           <Footer />

@@ -399,14 +399,15 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
 @media (max-width: 768px) {
   body:has(input:focus) .mobile-nav,
   body:has(textarea:focus) .mobile-nav {
-    transform: translateY(100%);
+    transform: translateY(110%);
     pointer-events: none;
-    transition: transform 0.25s ease;
+    transition: transform 0.2s ease;
   }
   body:not(:has(input:focus)):not(:has(textarea:focus)) .mobile-nav {
     transform: translateY(0);
     pointer-events: auto;
-    transition: transform 0.25s ease;
+    /* Leggero delay sul ritorno per evitare flicker durante focus change */
+    transition: transform 0.2s ease 0.1s;
   }
 }
 
@@ -531,5 +532,66 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
   textarea,
   select {
     font-size: 16px !important;
+  }
+}
+
+/* ── App-like: nessuna scrollbar su mobile ───────────────────────────────── */
+@media (max-width: 767px) {
+  html, body {
+    scrollbar-width: none;          /* Firefox */
+    -ms-overflow-style: none;       /* IE/Edge */
+    overscroll-behavior-y: contain; /* Blocca rubber-band eccessivo */
+  }
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none;                  /* Chrome/Safari/WebKit */
+  }
+}
+
+/* ── App-like: overscroll e selezione testo ──────────────────────────────── */
+@media (max-width: 767px) {
+  /* Previeni selezione testo accidentale durante lo swipe */
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  /* Ma lascia selezionare testo in input, textarea e zone di contenuto */
+  input, textarea, [contenteditable], p, h1, h2, h3, h4, h5, h6, span, a {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
+
+/* ── App-like: comportamento scroll e layout ──────────────────────────────── */
+@media (max-width: 767px) {
+  /* Momentum scroll nativo iOS su tutti i container scrollabili */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Nessun highlight blu al tap su elementi interattivi */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Previeni il pull-to-refresh del browser (interferisce con gesture app) */
+  body {
+    overscroll-behavior-y: contain;
+  }
+
+  /* Testo non sfocato durante le animazioni */
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* ── Previeni flash della vecchia navbar durante hydration ───────────────── */
+/* Prima che React monti, il body non ha classi e la nav è visibile —
+   questo blocco assicura che su mobile parta già nel posto giusto */
+@media (max-width: 767px) {
+  nav.mobile-nav {
+    /* Sempre visible di default, la transition CSS la nasconde se serve */
+    visibility: visible;
   }
 }

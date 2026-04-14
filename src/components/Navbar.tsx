@@ -360,6 +360,14 @@ export default function Navbar() {
   if (isAuthPage) return null
   if (isPublicLanding && isLoggedIn === false) return null
   if (isPublicLanding && isLoggedIn === null) return null
+  // Durante il caricamento iniziale su pagine autenticate, mostra solo
+  // il placeholder della bottom nav mobile per evitare il flash
+  if (isLoggedIn === null) return (
+    <>
+      <nav className="hidden md:flex fixed top-0 left-0 right-0 z-[100] h-16 bg-black/80 backdrop-blur-2xl border-b border-zinc-800/60" />
+      <nav className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100] h-16 bg-black/95 backdrop-blur-2xl border-t border-zinc-800/60" style={{paddingBottom: 'env(safe-area-inset-bottom)'}} />
+    </>
+  )
 
   const isDark = theme === 'dark' || theme === 'oled'
   const currentUsername = username || ''
@@ -598,7 +606,8 @@ export default function Navbar() {
         </div>
       </nav>
 
-      <div className="h-16" />
+      {/* Spacer solo desktop — su mobile il padding è gestito dal layout */}
+      <div className="hidden md:block h-16" />
     </>
   )
 }
