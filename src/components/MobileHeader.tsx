@@ -1,135 +1,113 @@
 'use client'
-// src/components/MobileHeader.tsx
-// Header mobile fisso in cima — stile Instagram/app nativa.
-// Mostra logo/titolo a sinistra e azioni contestuali a destra.
-// Visibile SOLO su mobile (md:hidden). Su desktop c'è la Navbar.
+// MobileHeader — stile Instagram: header fisso, solo su mobile.
+// Feed: logo + cerca + notifiche (con badge)
+// Pagine interne: ← + titolo + eventuale azione destra
+// Niente border-b visibile (solo 1px nero che separa dallo sfondo)
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Zap, Bell, Search, Settings, ArrowLeft, Bookmark } from 'lucide-react'
+import { Zap, Bell, Search } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 const AUTH_PATHS = ['/login', '/register', '/auth/', '/forgot-password', '/onboarding', '/profile/setup']
 
-// Mappa path → { titolo, mostraLogo, azioniDestra }
-function useHeaderConfig(pathname: string) {
-  const { t } = useLocale()
-
-  if (pathname === '/feed' || pathname === '/') return {
-    logo: true,
-    title: null,
-    right: [
-      { icon: Search, href: '/discover', label: 'Cerca' },
-      { icon: Bell, href: '/notifications', label: 'Notifiche' },
-    ],
-  }
-  if (pathname === '/discover') return {
-    logo: false, title: t.nav.discover,
-    right: [],
-  }
-  if (pathname === '/for-you') return {
-    logo: false, title: t.nav.forYou,
-    right: [],
-  }
-  if (pathname === '/notifications') return {
-    logo: false, title: t.nav.notifications,
-    right: [],
-  }
-  if (pathname.startsWith('/profile')) return {
-    logo: false, title: null, // il nome utente è nel profilo stesso
-    right: pathname.includes('/me') || !pathname.includes('/[') ? [
-      { icon: Bookmark, href: '/wishlist', label: 'Wishlist' },
-      { icon: Settings, href: '/settings', label: 'Impostazioni' },
-    ] : [],
-  }
-  if (pathname === '/settings') return {
-    logo: false, title: t.nav.settings,
-    right: [],
-  }
-  if (pathname === '/trending') return {
-    logo: false, title: 'Trending',
-    right: [],
-  }
-  if (pathname === '/explore' || pathname === '/search') return {
-    logo: false, title: t.nav.search,
-    right: [],
-  }
-  if (pathname === '/stats') return {
-    logo: false, title: 'Stats',
-    right: [],
-  }
-  if (pathname === '/wishlist') return {
-    logo: false, title: 'Wishlist',
-    right: [],
-  }
-  if (pathname === '/leaderboard') return {
-    logo: false, title: 'Leaderboard',
-    right: [],
-  }
-  if (pathname.startsWith('/lists')) return {
-    logo: false, title: 'Liste',
-    right: [],
-  }
-  if (pathname === '/news') return {
-    logo: false, title: 'News',
-    right: [],
-  }
-
-  // Default fallback
-  return { logo: true, title: null, right: [] }
+function BackButton() {
+  return (
+    <button onClick={() => window.history.back()}
+      className="flex items-center justify-center w-10 h-10 -ml-2 text-white">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M19 12H5M12 5l-7 7 7 7"/>
+      </svg>
+    </button>
+  )
 }
 
 export function MobileHeader() {
   const pathname = usePathname()
   const { t } = useLocale()
+  const [unread, setUnread] = useState(false)
 
-  // Non mostrare su pagine auth/onboarding
+  // Badge notifiche
+  useEffect(() => {
+    if (pathname === '/feed' || pathname === '/') {
+      const supabase = createClient()
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) return
+        supabase.from('notifications')
+          .select('id', { count: 'exact', head: true })
+          .eq('receiver_id', user.id)
+          .eq('is_read', false)
+          .then(({ count }) => { if (count && count > 0) setUnread(true) })
+      })
+    }
+  }, [pathname])
+
   if (AUTH_PATHS.some(p => pathname.startsWith(p))) return null
-  if (pathname === '/') return null
 
-  const config = useHeaderConfig(pathname)
+  const isFeed = pathname === '/feed' || pathname === '/'
+  const isSubPage = pathname.split('/').length > 3 ||
+    (pathname.startsWith('/stats/') || pathname.startsWith('/lists/'))
 
-  // Pagine con back button (sotto-pagine profilo)
-  const isSubPage = (
-    (pathname.startsWith('/profile/') && pathname !== '/profile/me' && pathname.split('/').length > 3) ||
-    pathname.startsWith('/stats/') ||
-    pathname.startsWith('/lists/')
-  )
+  // Titolo per pagine interne
+  const titles: Record<string, string> = {
+    '/discover': t.nav.discover,
+    '/for-you': t.nav.forYou,
+    '/notifications': 'Notifiche',
+    '/settings': 'Impostazioni',
+    '/trending': 'Trending',
+    '/explore': 'Esplora',
+    '/search': 'Cerca',
+    '/stats': 'Stats',
+    '/wishlist': 'Wishlist',
+    '/leaderboard': 'Leaderboard',
+    '/lists': 'Liste',
+    '/news': 'News',
+  }
+
+  const title = Object.entries(titles).find(([k]) => pathname === k || pathname.startsWith(k + '/'))?.[1]
 
   return (
-    <header className="md:hidden fixed top-0 left-0 right-0 z-[99] bg-black/95 backdrop-blur-xl border-b border-zinc-900"
-      style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-      <div className="flex items-center justify-between h-14 px-4">
+    <header
+      className="md:hidden fixed top-0 left-0 right-0 z-[99] bg-black"
+      style={{ paddingTop: 'env(safe-area-inset-top)' }}
+    >
+      <div className="flex items-center justify-between h-[52px] px-3">
 
-        {/* Sinistra: logo o back o titolo */}
-        <div className="flex items-center gap-3 flex-1 min-w-0">
+        {/* Sinistra */}
+        <div className="flex items-center flex-1 min-w-0">
           {isSubPage ? (
-            <button onClick={() => window.history.back()}
-              className="flex items-center gap-1 text-white -ml-1 p-1">
-              <ArrowLeft size={22} />
-            </button>
-          ) : config.logo ? (
-            <Link href="/feed" className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/30">
-                <Zap size={14} className="text-white" />
+            <BackButton />
+          ) : isFeed ? (
+            <Link href="/feed" className="flex items-center gap-2 py-1">
+              <div className="w-[26px] h-[26px] bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-lg flex items-center justify-center">
+                <Zap size={13} className="text-white" />
               </div>
-              <span className="text-lg font-bold tracking-tighter text-white">geekore</span>
+              <span className="text-[19px] font-bold tracking-tight text-white" style={{fontFamily:'system-ui,-apple-system,sans-serif'}}>
+                geekore
+              </span>
             </Link>
-          ) : config.title ? (
-            <h1 className="text-lg font-bold text-white truncate">{config.title}</h1>
-          ) : null}
+          ) : (
+            <h1 className="text-[17px] font-semibold text-white tracking-tight truncate">{title}</h1>
+          )}
         </div>
 
-        {/* Destra: azioni contestuali */}
-        {config.right.length > 0 && (
+        {/* Destra — solo su feed */}
+        {isFeed && (
           <div className="flex items-center gap-1">
-            {config.right.map(({ icon: Icon, href, label }) => (
-              <Link key={href} href={href}
-                className="w-10 h-10 flex items-center justify-center rounded-xl text-zinc-400 hover:text-white transition-colors"
-                aria-label={label}>
-                <Icon size={22} strokeWidth={1.8} />
-              </Link>
-            ))}
+            <Link href="/discover"
+              className="w-10 h-10 flex items-center justify-center text-white">
+              <Search size={23} strokeWidth={1.8} />
+            </Link>
+            <Link href="/notifications"
+              className="w-10 h-10 flex items-center justify-center text-white relative"
+              onClick={() => setUnread(false)}>
+              <Bell size={23} strokeWidth={1.8} />
+              {unread && (
+                <span className="absolute top-2 right-2 w-[9px] h-[9px] bg-red-500 rounded-full border-[1.5px] border-black" />
+              )}
+            </Link>
           </div>
         )}
 

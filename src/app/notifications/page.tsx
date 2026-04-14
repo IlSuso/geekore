@@ -17,6 +17,7 @@ import { FollowBackButton } from '@/components/notifications/FollowBackButton'
 import { Avatar } from '@/components/ui/Avatar'
 import { SkeletonNotification } from '@/components/ui/SkeletonCard'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
+import { PullWrapper } from '@/components/ui/PullWrapper'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { useLocale } from '@/lib/locale'
 
@@ -91,7 +92,7 @@ export default function NotificationsPage() {
     fetchNotifications()
   }, [fetchNotifications])
 
-  const { pullDistance, isRefreshing } = usePullToRefresh({ onRefresh: fetchNotifications })
+  const { distance: pullDistance, refreshing: isRefreshing } = usePullToRefresh({ onRefresh: fetchNotifications })
 
   function timeAgo(dateStr: string) {
     if (!dateLocale) return ''
@@ -134,7 +135,7 @@ export default function NotificationsPage() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
-      <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
+      <PullToRefreshIndicator distance={pullDistance} refreshing={isRefreshing} />
 
       <div className="max-w-xl mx-auto px-4 pt-8 pb-24">
         <h1 className="text-3xl font-bold tracking-tight mb-8">Notifiche</h1>

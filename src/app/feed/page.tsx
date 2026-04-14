@@ -31,6 +31,9 @@ import { it } from 'date-fns/locale/it'
 import { enUS } from 'date-fns/locale/en-US'
 import { useLocale } from '@/lib/locale'
 import { FeedSidebar } from '@/components/feed/FeedSidebar'
+import { usePullToRefresh } from '@/hooks/usePullToRefresh'
+import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
+import { PullWrapper } from '@/components/ui/PullWrapper'
 
 // ── Macro-categorie ───────────────────────────────────────────────────────────
 
@@ -107,6 +110,10 @@ const cache: {
 } = { posts: null, page: 0, hasMore: true, filter: 'all', ts: 0 }
 
 const CACHE_TTL = 2 * 60 * 1000
+
+function invalidateCache(_filter: 'all' | 'following') {
+  cache.ts = 0
+}
 
 function isCacheValid(filter: 'all' | 'following') {
   return (
@@ -629,6 +636,7 @@ function ConfirmDialog({
         </div>
       </div>
     </div>
+      </PullWrapper>
   )
 }
 
@@ -1017,6 +1025,14 @@ export default function FeedPage() {
     setHasMore(newHasMore)
   }, [supabase, pinnedPosts, getUserTopCategory, loadDiscoveryPosts])
 
+  // Pull-to-refresh su mobile
+  const handlePullRefresh = async () => {
+    if (!currentUser) return
+    invalidateCache(feedFilter)
+    await loadPosts(currentUser.id, 0, false, feedFilter)
+  }
+  const { distance: pullDistance, refreshing: isPullRefreshing } = usePullToRefresh({ onRefresh: handlePullRefresh })
+
   const handleFilterChange = async (filter: 'all' | 'following') => {
     if (!currentUser) return
     setFeedFilter(filter); pageRef.current = 0; setPage(0); setHasMore(true)
@@ -1169,7 +1185,9 @@ export default function FeedPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <div className="pt-4 md:pt-8 pb-24 md:pb-20 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
+      <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
+      <PullWrapper distance={pullDistance} refreshing={isPullRefreshing}>
+      <div className="pt-0 md:pt-8 pb-24 md:pb-20 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
         <div className="flex gap-8 items-start min-h-screen">
 
           {/* ── Colonna principale ─────────────────────────────────── */}

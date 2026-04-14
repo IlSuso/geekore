@@ -3,7 +3,7 @@
 import { logActivity } from '@/lib/activity'
 import { Trash2, Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, List, Grid3X3, ChevronRight, Download, X as XIcon, Gamepad2, Tv } from 'lucide-react'
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   CheckCircle, Clock, X, RotateCw, RotateCcw, Edit3, RefreshCw, Settings, Bookmark,
@@ -38,6 +38,8 @@ import { SteamImport } from '@/components/import/SteamImport'
 import { ProfileActivityFeed } from '@/components/profile/ProfileActivityFeed'
 import { NotesModal } from '@/components/profile/NotesModal'
 import { DeleteAccountModal } from '@/components/profile/DeleteAccountModal'
+import { usePullToRefresh } from '@/hooks/usePullToRefresh'
+import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -161,6 +163,7 @@ function MediaCard({
   onStatusChange?: (id: string, status: string) => void
 }) {
   const { t, locale } = useLocale()
+  const router = useRouter()
   const m = t.media
   const [imgFailed, setImgFailed] = useState(false)
   const displayTitle = locale === 'en' && media.title_en ? media.title_en : media.title
@@ -620,6 +623,19 @@ export default function ProfilePage() {
   const [notesInput, setNotesInput] = useState('')
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const router = useRouter()
+
+  // Pull-to-refresh su mobile — ricarica tutto il profilo
+  const handleProfileRefresh = async () => {
+    setLoading(true)
+    setMediaList([])
+    // router.refresh() ricarica i Server Components senza full page reload
+    router.refresh()
+    // Piccolo delay per dare tempo al refetch
+    await new Promise(r => setTimeout(r, 800))
+    setLoading(false)
+  }
+  const { distance: pullDistance, refreshing: isPullRefreshing } = usePullToRefresh({ onRefresh: handleProfileRefresh })
   // New state
   const [activeTab, setActiveTab] = useState<ProfileTab>('collection')
   const [collectionSearch, setCollectionSearch] = useState('')
@@ -936,6 +952,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white pb-24 md:pb-20">
+      <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
       <div className="pt-6 md:pt-8 max-w-screen-2xl mx-auto px-4 md:px-6">
 
         {/* Header profilo */}

@@ -360,6 +360,14 @@ export default function Navbar() {
   if (isAuthPage) return null
   if (isPublicLanding && isLoggedIn === false) return null
   if (isPublicLanding && isLoggedIn === null) return null
+  // Durante il caricamento iniziale su pagine autenticate, mostra solo
+  // il placeholder della bottom nav mobile per evitare il flash
+  if (isLoggedIn === null) return (
+    <>
+      <nav className="hidden md:flex fixed top-0 left-0 right-0 z-[100] h-16 bg-black/80 backdrop-blur-2xl border-b border-zinc-800/60" />
+      <nav className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100] h-16 bg-black/95 backdrop-blur-2xl border-t border-zinc-800/60" style={{paddingBottom: 'env(safe-area-inset-bottom)'}} />
+    </>
+  )
 
   const isDark = theme === 'dark' || theme === 'oled'
   const currentUsername = username || ''
@@ -543,9 +551,10 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* ── Mobile bottom navbar ─────────────────────────────────────────────── */}
-      <nav className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-black/95 backdrop-blur-2xl border-t border-zinc-800/60" style={{paddingBottom: 'env(safe-area-inset-bottom)'}}>
-        <div className="flex items-center justify-around pt-1 pb-2 px-2">
+      {/* ── Mobile bottom navbar — solo icone, stile Instagram ─────────────── */}
+      <nav className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-black border-t border-zinc-900"
+        style={{paddingBottom: 'env(safe-area-inset-bottom)'}}>
+        <div className="flex items-center justify-around h-[52px] px-2">
           {MOBILE_NAV_ITEMS.map((item) => {
             const isActive = item.href === '/profile/me'
               ? isProfileActive
@@ -553,52 +562,36 @@ export default function Navbar() {
               ? pathname === '/feed' || pathname === '/'
               : pathname === item.href
 
-            if (item.href === '/notifications') {
-              return (
-                <Link key={item.href} href="/notifications" prefetch={true}
-                  data-testid="nav-mobile-notifications"
-                  className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 rounded-2xl transition-all ${isActive ? 'text-violet-400' : 'text-zinc-500'}`}
-                >
-                  <div className="relative">
-                    <Bell size={22} strokeWidth={isActive ? 2.5 : 1.8} />
-                    {hasNewNotifications && (
-                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full border border-black" />
-                    )}
-                  </div>
-                  <span className={`text-[9px] font-medium tracking-wide ${isActive ? 'text-violet-400' : 'text-zinc-600'}`}>
-                    {item.label}
-                  </span>
-                </Link>
-              )
-            }
-
             return (
               <Link key={item.href} href={item.href} prefetch={true}
                 data-testid={`nav-mobile-${item.href.replace('/', '')}`}
-                className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 rounded-2xl transition-all ${isActive ? 'text-violet-400' : 'text-zinc-500'}`}>
-                <div className="relative">
-                  {item.href === '/profile/me' && (avatarUrl || currentUsername) ? (
-                    <div className={`w-6 h-6 rounded-full overflow-hidden ring-2 transition-all ${isActive ? 'ring-violet-400' : 'ring-zinc-700'}`}>
-                      {avatarUrl ? (
-                        <img src={avatarUrl} alt="avatar" width={24} height={24} className="w-full h-full object-cover" />
-                      ) : (
-                        <img src={localAvatarSrc} alt="avatar" width={24} height={24} className="w-full h-full object-cover" />
-                      )}
-                    </div>
-                  ) : (
-                    <item.icon size={22} strokeWidth={isActive ? 2.5 : 1.8} />
-                  )}
-                </div>
-                <span className={`text-[9px] font-medium tracking-wide ${isActive ? 'text-violet-400' : 'text-zinc-600'}`}>
-                  {item.label}
-                </span>
+                className="flex items-center justify-center flex-1 h-full relative">
+                {item.href === '/notifications' ? (
+                  <>
+                    <Bell size={24} strokeWidth={isActive ? 2.2 : 1.6}
+                      className={isActive ? 'text-white' : 'text-zinc-500'}
+                      fill={isActive ? 'white' : 'none'} />
+                    {hasNewNotifications && (
+                      <span className="absolute top-2 right-[calc(50%-14px)] w-[9px] h-[9px] bg-red-500 rounded-full border-[1.5px] border-black" />
+                    )}
+                  </>
+                ) : item.href === '/profile/me' && (avatarUrl || currentUsername) ? (
+                  <div className={`w-[26px] h-[26px] rounded-full overflow-hidden ring-2 transition-all ${isActive ? 'ring-white' : 'ring-transparent'}`}>
+                    <img src={avatarUrl || localAvatarSrc} alt="avatar" width={26} height={26} className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <item.icon size={24} strokeWidth={isActive ? 2.2 : 1.6}
+                    className={isActive ? 'text-white' : 'text-zinc-500'}
+                    fill={isActive && item.href === '/feed' ? 'white' : 'none'} />
+                )}
               </Link>
             )
           })}
         </div>
       </nav>
 
-      <div className="h-16" />
+
+      <div className="hidden md:block h-16" />
     </>
   )
 }

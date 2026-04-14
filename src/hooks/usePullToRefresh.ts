@@ -1,114 +1,74 @@
 'use client'
-// src/hooks/usePullToRefresh.ts
-// Pull-to-refresh nativo su mobile con touch events.
-// Mostra un indicatore visivo quando l'utente tira giù la pagina.
-// Roadmap #10
+// Pull-to-refresh stile Instagram:
+// Restituisce pullDistance per spostare il main con transform
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 
-interface UsePullToRefreshOptions {
+interface Options {
   onRefresh: () => Promise<void>
-  /** Distanza in px necessaria per triggerare il refresh (default 80) */
   threshold?: number
-  /** Disabilita il pull quando la pagina non è in cima (default true) */
-  onlyAtTop?: boolean
 }
 
-interface PullState {
-  isPulling: boolean
-  isRefreshing: boolean
-  pullDistance: number
+interface State {
+  pulling: boolean
+  refreshing: boolean
+  distance: number   // distanza visiva con resistenza
 }
 
-export function usePullToRefresh({
-  onRefresh,
-  threshold = 80,
-  onlyAtTop = true,
-}: UsePullToRefreshOptions) {
-  const [state, setState] = useState<PullState>({
-    isPulling: false,
-    isRefreshing: false,
-    pullDistance: 0,
-  })
+export function usePullToRefresh({ onRefresh, threshold = 70 }: Options) {
+  const [state, setState] = useState<State>({ pulling: false, refreshing: false, distance: 0 })
+  const startY = useRef(0)
+  const active = useRef(false)
+  const loading = useRef(false)
 
-  const startYRef = useRef<number>(0)
-  const currentYRef = useRef<number>(0)
-  const isPullingRef = useRef(false)
-  const isRefreshingRef = useRef(false)
+  const onStart = useCallback((e: TouchEvent) => {
+    if (loading.current) return
+    if (window.scrollY > 4) return
+    startY.current = e.touches[0].clientY
+    active.current = true
+  }, [])
 
-  const handleTouchStart = useCallback((e: TouchEvent) => {
-    if (isRefreshingRef.current) return
-    // Solo se la pagina è in cima
-    if (onlyAtTop && window.scrollY > 10) return
+  const onMove = useCallback((e: TouchEvent) => {
+    if (!active.current || loading.current) return
+    if (window.scrollY > 4) { active.current = false; return }
+    const raw = e.touches[0].clientY - startY.current
+    if (raw <= 0) { setState({ pulling: false, refreshing: false, distance: 0 }); return }
+    // Resistenza logaritmica come Instagram
+    const dist = Math.min(raw * 0.5, threshold * 1.5)
+    setState({ pulling: true, refreshing: false, distance: dist })
+    if (raw > 6) e.preventDefault()
+  }, [threshold])
 
-    startYRef.current = e.touches[0].clientY
-    isPullingRef.current = true
-  }, [onlyAtTop])
-
-  const handleTouchMove = useCallback((e: TouchEvent) => {
-    if (!isPullingRef.current || isRefreshingRef.current) return
-    if (onlyAtTop && window.scrollY > 10) { isPullingRef.current = false; return }
-
-    currentYRef.current = e.touches[0].clientY
-    const delta = currentYRef.current - startYRef.current
-
-    if (delta <= 0) {
-      setState(s => ({ ...s, isPulling: false, pullDistance: 0 }))
-      return
-    }
-
-    // Resistenza: la distanza percepita è minore di quella effettiva
-    const resistance = 0.4
-    const pullDistance = Math.min(delta * resistance, threshold * 1.5)
-
-    setState(s => ({ ...s, isPulling: true, pullDistance }))
-
-    // Previeni lo scroll nativo mentre si sta pulling
-    if (delta > 5) {
-      e.preventDefault()
-    }
-  }, [onlyAtTop, threshold])
-
-  const handleTouchEnd = useCallback(async () => {
-    if (!isPullingRef.current || isRefreshingRef.current) return
-    isPullingRef.current = false
-
-    const { pullDistance } = state
-
-    if (pullDistance < threshold * 0.4) {
-      // Non abbastanza, torna su
-      setState({ isPulling: false, isRefreshing: false, pullDistance: 0 })
-      return
-    }
-
-    // Trigger refresh
-    isRefreshingRef.current = true
-    setState({ isPulling: false, isRefreshing: true, pullDistance: threshold * 0.6 })
-
-    // Haptic feedback
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate(50)
-    }
-
-    try {
-      await onRefresh()
-    } finally {
-      isRefreshingRef.current = false
-      setState({ isPulling: false, isRefreshing: false, pullDistance: 0 })
-    }
-  }, [state, threshold, onRefresh])
+  const onEnd = useCallback(async () => {
+    if (!active.current || loading.current) return
+    active.current = false
+    setState(prev => {
+      if (prev.distance < threshold * 0.6) {
+        return { pulling: false, refreshing: false, distance: 0 }
+      }
+      // Soglia raggiunta: rimane giù mentre carica
+      loading.current = true
+      ;(async () => {
+        if (navigator.vibrate) navigator.vibrate(35)
+        setState({ pulling: false, refreshing: true, distance: threshold * 0.75 })
+        await onRefresh()
+        loading.current = false
+        setState({ pulling: false, refreshing: false, distance: 0 })
+      })()
+      return prev
+    })
+  }, [threshold, onRefresh])
 
   useEffect(() => {
-    document.addEventListener('touchstart', handleTouchStart, { passive: true })
-    document.addEventListener('touchmove', handleTouchMove, { passive: false })
-    document.addEventListener('touchend', handleTouchEnd, { passive: true })
-
+    document.addEventListener('touchstart', onStart, { passive: true })
+    document.addEventListener('touchmove', onMove, { passive: false })
+    document.addEventListener('touchend', onEnd, { passive: true })
     return () => {
-      document.removeEventListener('touchstart', handleTouchStart)
-      document.removeEventListener('touchmove', handleTouchMove)
-      document.removeEventListener('touchend', handleTouchEnd)
+      document.removeEventListener('touchstart', onStart)
+      document.removeEventListener('touchmove', onMove)
+      document.removeEventListener('touchend', onEnd)
     }
-  }, [handleTouchStart, handleTouchMove, handleTouchEnd])
+  }, [onStart, onMove, onEnd])
 
   return state
 }

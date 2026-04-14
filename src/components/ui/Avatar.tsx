@@ -49,10 +49,8 @@ export function Avatar({ src, username, displayName, size = 40, className = '' }
   const [from, to] = getGradient(username)
 
   const style = {
-    width: size,
-    height: size,
-    minWidth: size,
-    minHeight: size,
+    width: '100%',
+    height: '100%',
   }
 
   // Controlla se src è un URL remoto configurato in next.config.js
