@@ -16,6 +16,7 @@ function ConfirmContent() {
 
   useEffect(() => {
     const confirm = async () => {
+      // Se c'è già una sessione attiva, vai direttamente
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {
         setStatus('success')
@@ -26,43 +27,48 @@ function ConfirmContent() {
       const token_hash = searchParams.get('token_hash')
       const type = searchParams.get('type')
       const code = searchParams.get('code')
-      // Salva l'email dai parametri se presente (per il reinvio)
       const emailParam = searchParams.get('email')
-      if (emailParam) setResendEmail(emailParam)
+      if (emailParam) setResendEmail(decodeURIComponent(emailParam))
+
+      // Con flowType: 'implicit', Supabase manda token_hash invece di code.
+      // Gestiamo comunque il code come fallback per retrocompatibilità.
+      if (token_hash) {
+        const finalType = (type && type.trim() !== '') ? type : 'signup'
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash,
+          type: finalType as any,
+        })
+        if (!error) {
+          const { data: { session: s } } = await supabase.auth.getSession()
+          setStatus('success')
+          if (s?.user) await redirectUser(s.user.id)
+          else setTimeout(() => router.push('/feed'), 1500)
+          return
+        }
+        // token_hash fallito → scaduto o già usato
+        setErrorMessage('Il link è scaduto o è già stato usato.')
+        setStatus('error')
+        return
+      }
 
       if (code) {
+        // Fallback PKCE — può fallire se aperto in WebView diversa dal browser originale
         const { error } = await supabase.auth.exchangeCodeForSession(code)
         if (!error) {
           const { data: { session: s } } = await supabase.auth.getSession()
-          if (s?.user) { setStatus('success'); await redirectUser(s.user.id); return }
+          setStatus('success')
+          if (s?.user) await redirectUser(s.user.id)
+          else setTimeout(() => router.push('/feed'), 1500)
+          return
         }
-        setErrorMessage('Il link è scaduto o è già stato usato.')
+        // PKCE fallito — quasi certamente WebView diversa dal browser di registrazione
+        setErrorMessage('Il link non può essere usato in questa app. Aprilo direttamente in Chrome o Safari.')
         setStatus('error')
         return
       }
 
-      if (!token_hash) {
-        setErrorMessage('Link non valido. Prova a registrarti di nuovo.')
-        setStatus('error')
-        return
-      }
-
-      const finalType = (type && type.trim() !== '') ? type : 'email'
-      const { error } = await supabase.auth.verifyOtp({ token_hash, type: finalType as any })
-
-      if (error) {
-        setErrorMessage('Il link è scaduto o è già stato usato.')
-        setStatus('error')
-        return
-      }
-
-      setStatus('success')
-      const { data: { session: newSession } } = await supabase.auth.getSession()
-      if (newSession?.user) {
-        await redirectUser(newSession.user.id)
-      } else {
-        setTimeout(() => router.push('/feed'), 1500)
-      }
+      setErrorMessage('Link non valido. Prova a registrarti di nuovo.')
+      setStatus('error')
     }
 
     const redirectUser = async (userId: string) => {
@@ -90,7 +96,7 @@ function ConfirmContent() {
     const { error } = await supabase.auth.resend({
       type: 'signup',
       email: resendEmail,
-      options: { emailRedirectTo: `https://geekore.it/auth/confirm` }
+      options: { emailRedirectTo: `https://geekore.it/auth/confirm?email=${encodeURIComponent(resendEmail)}` }
     })
     setResendStatus(error ? 'error' : 'sent')
   }
@@ -118,14 +124,13 @@ function ConfirmContent() {
             <h1 className="text-2xl font-bold mb-2">Problema con il link</h1>
             <p className="text-zinc-400 mb-2">{errorMessage}</p>
             <p className="text-zinc-500 text-sm mb-8">
-              Può succedere se il link è già stato aperto, è scaduto, o il tuo client email
-              ha fatto una scansione automatica del link.
+              Se hai aperto il link dall'app Gmail o da un'altra app email,
+              prova a copiare il link e aprirlo direttamente in Chrome.
             </p>
 
-            {/* Reinvio email se abbiamo l'indirizzo */}
-            {resendEmail ? (
-              <div className="flex flex-col gap-3">
-                {resendStatus === 'sent' ? (
+            <div className="flex flex-col gap-3">
+              {resendEmail ? (
+                resendStatus === 'sent' ? (
                   <div className="py-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-emerald-400 text-sm font-medium">
                     ✓ Nuova email inviata a {resendEmail}
                   </div>
@@ -137,27 +142,22 @@ function ConfirmContent() {
                   >
                     {resendStatus === 'sending'
                       ? <><Loader2 size={16} className="animate-spin" /> Invio in corso...</>
-                      : <><RefreshCw size={16} /> Invia un nuovo link di conferma</>
+                      : <><RefreshCw size={16} /> Invia un nuovo link</>
                     }
                   </button>
-                )}
-                {resendStatus === 'error' && (
-                  <p className="text-red-400 text-xs">Errore nell'invio. Prova a registrarti di nuovo.</p>
-                )}
-                <a href="/login" className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition text-sm">
-                  Ho già confermato — accedi
-                </a>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3">
-                <a href="/login" className="w-full py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl font-semibold transition">
-                  Prova ad accedere
-                </a>
-                <a href="/register" className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition">
+                )
+              ) : (
+                <a href="/register" className="w-full py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl font-semibold transition">
                   Registrati di nuovo
                 </a>
-              </div>
-            )}
+              )}
+              {resendStatus === 'error' && (
+                <p className="text-red-400 text-xs">Errore nell'invio. Riprova tra qualche secondo.</p>
+              )}
+              <a href="/login" className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition text-sm">
+                Ho già un account — accedi
+              </a>
+            </div>
           </>
         )}
       </div>
