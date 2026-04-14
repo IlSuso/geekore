@@ -208,25 +208,54 @@ export async function GET(request: NextRequest) {
           }
         })
 
-        const steamMedia = games.map((game: any) => ({
-          user_id: user.id,
-          title: game.name,
-          type: 'game',
-          appid: String(game.appid),
-          cover_image: game.cover_image ?? null,
-          current_episode: Math.floor(game.playtime_forever / 60),
-          is_steam: true,
-          genres: game.genres,
-          themes: game.themes,
-          keywords: game.keywords,
-          player_perspectives: game.player_perspectives,
-          game_modes: game.game_modes,
-          display_order: Date.now(),
-          updated_at: new Date().toISOString(),
-          rating: 0,
-        }))
+        // Recupera i giochi Steam già presenti per preservare rating e note
+        const { data: existingGames } = await supabaseService
+          .from('user_media_entries')
+          .select('appid, rating, notes')
+          .eq('user_id', user.id)
+          .eq('is_steam', true)
 
-        const { error: upsertError } = await supabaseService.from('user_media_entries').upsert(steamMedia, { onConflict: 'user_id,appid' })
+        const existingMap = new Map((existingGames || []).map((g: any) => [String(g.appid), g]))
+
+        const steamMedia = games.map((game: any) => {
+          const existing = existingMap.get(String(game.appid))
+          return {
+            user_id: user.id,
+            title: game.name,
+            type: 'game',
+            appid: String(game.appid),
+            cover_image: game.cover_image ?? null,
+            current_episode: Math.floor(game.playtime_forever / 60),
+            is_steam: true,
+            genres: game.genres,
+            themes: game.themes,
+            keywords: game.keywords,
+            player_perspectives: game.player_perspectives,
+            game_modes: game.game_modes,
+            display_order: Date.now(),
+            updated_at: new Date().toISOString(),
+            rating: existing?.rating ?? 0,
+            notes: existing?.notes ?? null,
+          }
+        })
+
+        // Delete existing steam entries then re-insert (evita problemi con onConflict su partial index)
+        const { error: deleteError } = await supabaseService
+          .from('user_media_entries')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('is_steam', true)
+
+        if (deleteError) {
+          logger.error('Steam delete error:', deleteError)
+          send({ type: 'error', message: `Errore durante l'aggiornamento: ${deleteError.message}` })
+          controller.close()
+          return
+        }
+
+        const { error: upsertError } = await supabaseService
+          .from('user_media_entries')
+          .insert(steamMedia)
 
         if (upsertError) {
           logger.error('Steam upsert error:', upsertError)
@@ -235,13 +264,18 @@ export async function GET(request: NextRequest) {
           return
         }
 
-        const updatedTimestamps = [...recentTimestamps, now].slice(-RATE_LIMIT_MAX * 2) // tieni solo gli ultimi N*2 per pulizia
-        await supabaseService.from('steam_import_log').upsert({
+        const updatedTimestamps = [...recentTimestamps, now].slice(-RATE_LIMIT_MAX * 2)
+        const logData = {
           user_id: user.id,
           imported_at: new Date().toISOString(),
           games_count: games.length,
           import_timestamps: updatedTimestamps,
-        }, { onConflict: 'user_id' })
+        }
+        if (importLog) {
+          await supabaseService.from('steam_import_log').update(logData).eq('user_id', user.id)
+        } else {
+          await supabaseService.from('steam_import_log').insert(logData)
+        }
 
         const totalHours = rawGames.reduce((sum: number, g: any) => sum + Math.floor((g.playtime_forever || 0) / 60), 0)
         const corePower = Math.min(Math.round(totalHours / 10), 9999)
@@ -249,14 +283,22 @@ export async function GET(request: NextRequest) {
         const { data: profileData } = await supabaseService
           .from('profiles').select('username, avatar_url').eq('id', user.id).single()
 
-        await supabaseService.from('leaderboard').upsert({
+        const { data: existingLeaderboard } = await supabaseService
+          .from('leaderboard').select('user_id').eq('user_id', user.id).maybeSingle()
+
+        const leaderboardData = {
           user_id: user.id,
           username: profileData?.username || 'Unknown',
           avatar_url: profileData?.avatar_url || null,
           steam_id: steamid,
           core_power: corePower,
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id' })
+        }
+        if (existingLeaderboard) {
+          await supabaseService.from('leaderboard').update(leaderboardData).eq('user_id', user.id)
+        } else {
+          await supabaseService.from('leaderboard').insert(leaderboardData)
+        }
 
         const enrichedCount = games.filter((g: any) => g.genres.length > 0).length
 
