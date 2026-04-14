@@ -105,7 +105,7 @@ export default function RegisterPage() {
         password,
         options: {
           data: { display_name: displayName || email.split('@')[0] },
-          emailRedirectTo: `https://geekore.it/auth/confirm`
+          emailRedirectTo: `https://geekore.it/auth/confirm?email=${encodeURIComponent(email)}`
         },
       })
       if (error) { setError(error.message); return }
