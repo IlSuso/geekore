@@ -1,15 +1,17 @@
 'use client'
 // DESTINAZIONE: src/app/for-you/page.tsx
-// V3: Continuity Engine cards + Creator badges + DNA V3 (binge/creator) + Wishlist boost indicator
+// V5: Serendipity badge + Award badge + Seasonal badge + Social boost display +
+//     lowConfidence banner + Feedback granulare micro-menu + Anti-ripetizione (recommendations_shown)
 
-import { useState, useEffect, useCallback, memo } from 'react'
+import { useState, useEffect, useCallback, memo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Sparkles, RefreshCw, SlidersHorizontal, Gamepad2, Tv, Film, BookOpen,
   Zap, Plus, Bookmark, X, Check, ChevronDown, ChevronUp, Users, Compass,
   ThumbsDown, Eye, Flame, Brain, Star, ArrowRight, Clapperboard, Swords,
-  TrendingUp, Search, BookmarkCheck, Sun
+  TrendingUp, Search, BookmarkCheck, Sun, Dice5, Trophy, Calendar,
+  MessageCircleQuestion, Tag, MonitorPlay, AlertCircle
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -29,6 +31,11 @@ interface Recommendation {
   isContinuity?: boolean
   continuityFrom?: string
   creatorBoost?: string
+  // V4/V5 fields
+  isSerendipity?: boolean
+  isAwardWinner?: boolean
+  isSeasonal?: boolean
+  socialBoost?: string
 }
 
 interface TasteProfile {
@@ -52,6 +59,7 @@ interface TasteProfile {
   }
   wishlistGenres?: string[]
   searchIntentGenres?: string[]
+  lowConfidence?: boolean
 }
 
 interface FriendActivity {
@@ -306,7 +314,7 @@ const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }: { tast
 const ContinuitySection = memo(function ContinuitySection({ items, onAdd, onFeedback, addedIds, dismissedIds }: {
   items: Recommendation[]
   onAdd: (i: Recommendation) => void
-  onFeedback: (i: Recommendation, a: 'not_interested' | 'already_seen') => void
+  onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
   addedIds: Set<string>
   dismissedIds: Set<string>
 }) {
@@ -369,7 +377,7 @@ const ContinuitySection = memo(function ContinuitySection({ items, onAdd, onFeed
 
 const RecommendationCard = memo(function RecommendationCard({ item, onAdd, onWishlist, onFeedback, alreadyAdded, inWishlist, dismissed }: {
   item: Recommendation; onAdd: (i: Recommendation) => void; onWishlist: (i: Recommendation) => void
-  onFeedback: (i: Recommendation, a: 'not_interested' | 'already_seen') => void
+  onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
   alreadyAdded: boolean; inWishlist: boolean; dismissed: boolean
 }) {
   const { t } = useLocale(); const fy = t.forYou
@@ -434,7 +442,7 @@ const RecommendationCard = memo(function RecommendationCard({ item, onAdd, onWis
 
 const HeroMatchSection = memo(function HeroMatchSection({ items, onAdd, onWishlist, onFeedback, addedIds, wishlistIds, dismissedIds }: {
   items: Recommendation[]; onAdd: (i: Recommendation) => void; onWishlist: (i: Recommendation) => void
-  onFeedback: (i: Recommendation, a: 'not_interested' | 'already_seen') => void
+  onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
   addedIds: Set<string>; wishlistIds: Set<string>; dismissedIds: Set<string>
 }) {
   const { t } = useLocale(); const fy = t.forYou
@@ -505,7 +513,7 @@ const HeroMatchSection = memo(function HeroMatchSection({ items, onAdd, onWishli
 const RecommendationSection = memo(function RecommendationSection({ type, items, label, onAdd, onWishlist, onFeedback, addedIds, wishlistIds, dismissedIds, isDiscovery }: {
   type: MediaType; items: Recommendation[]; label: string; isDiscovery?: boolean
   onAdd: (i: Recommendation) => void; onWishlist: (i: Recommendation) => void
-  onFeedback: (i: Recommendation, a: 'not_interested' | 'already_seen') => void
+  onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
   addedIds: Set<string>; wishlistIds: Set<string>; dismissedIds: Set<string>
 }) {
   const Icon = TYPE_ICONS[type]; const colorClass = TYPE_COLORS[type]
@@ -814,7 +822,7 @@ export default function ForYouPage() {
     }
   }, [supabase, wishlistIds, t])
 
-  const handleFeedback = useCallback(async (item: Recommendation, action: 'not_interested' | 'already_seen') => {
+  const handleFeedback = useCallback(async (item: Recommendation, action: FeedbackAction, reason?: FeedbackReason) => {
     setDismissedIds(prev => new Set([...prev, item.id]))
     await fetch('/api/recommendations/feedback', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
