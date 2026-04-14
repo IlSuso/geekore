@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
 const STEAM_API_KEY = process.env.STEAM_API_KEY
-const CACHE_HOURS = 1
+const RATE_LIMIT_MAX = 3        // max utilizzi
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000  // finestra 1 ora
 
 // Validazione Steam ID64: numero di 17 cifre che inizia con 7656119
 const STEAM_ID64_REGEX = /^7656119\d{10}$/
@@ -134,24 +135,25 @@ export async function GET(request: NextRequest) {
   // Cache 24h
   const { data: importLog } = await supabaseService
     .from('steam_import_log')
-    .select('imported_at, games_count')
+    .select('imported_at, games_count, import_timestamps')
     .eq('user_id', user.id)
     .maybeSingle()
 
-  if (importLog?.imported_at) {
-    const hoursSinceImport = (Date.now() - new Date(importLog.imported_at).getTime()) / (1000 * 60 * 60)
-    if (hoursSinceImport < CACHE_HOURS) {
-      const remainingMinutes = Math.ceil((CACHE_HOURS * 60) - (hoursSinceImport * 60))
-      const remainingText = remainingMinutes < 60
-        ? `${remainingMinutes} minut${remainingMinutes === 1 ? 'o' : 'i'}`
-        : `${Math.ceil(CACHE_HOURS - hoursSinceImport)} or${Math.ceil(CACHE_HOURS - hoursSinceImport) === 1 ? 'a' : 'e'}`
-      return NextResponse.json({
-        success: false, cached: true,
-        error: `Hai già importato i giochi di recente. Riprova tra ${remainingText}.`,
-        last_import: importLog.imported_at,
-        games_count: importLog.games_count,
-      }, { status: 429 })
-    }
+  // Sliding window: tieni solo i timestamp nell'ultima ora
+  const now = Date.now()
+  const rawTimestamps: number[] = importLog?.import_timestamps || []
+  const recentTimestamps = rawTimestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS)
+
+  if (recentTimestamps.length >= RATE_LIMIT_MAX) {
+    const oldestInWindow = Math.min(...recentTimestamps)
+    const msUntilFree = RATE_LIMIT_WINDOW_MS - (now - oldestInWindow)
+    const minutesLeft = Math.ceil(msUntilFree / 60000)
+    return NextResponse.json({
+      success: false, cached: true,
+      error: `Hai già importato ${RATE_LIMIT_MAX} volte nell'ultima ora. Riprova tra ${minutesLeft} minut${minutesLeft === 1 ? 'o' : 'i'}.`,
+      last_import: importLog?.imported_at,
+      games_count: importLog?.games_count,
+    }, { status: 429 })
   }
 
   // ── Streaming response ──────────────────────────────────────────────────────
@@ -224,12 +226,21 @@ export async function GET(request: NextRequest) {
           rating: 0,
         }))
 
-        await supabaseService.from('user_media_entries').upsert(steamMedia, { onConflict: 'user_id,appid' })
+        const { error: upsertError } = await supabaseService.from('user_media_entries').upsert(steamMedia, { onConflict: 'user_id,appid' })
 
+        if (upsertError) {
+          logger.error('Steam upsert error:', upsertError)
+          send({ type: 'error', message: `Errore salvataggio giochi: ${upsertError.message}` })
+          controller.close()
+          return
+        }
+
+        const updatedTimestamps = [...recentTimestamps, now].slice(-RATE_LIMIT_MAX * 2) // tieni solo gli ultimi N*2 per pulizia
         await supabaseService.from('steam_import_log').upsert({
           user_id: user.id,
           imported_at: new Date().toISOString(),
           games_count: games.length,
+          import_timestamps: updatedTimestamps,
         }, { onConflict: 'user_id' })
 
         const totalHours = rawGames.reduce((sum: number, g: any) => sum + Math.floor((g.playtime_forever || 0) / 60), 0)

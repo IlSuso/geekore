@@ -1249,7 +1249,7 @@ export default function ProfilePage() {
               {importPlatform === 'mal' && <MALImport />}
               {importPlatform === 'letterboxd' && <LetterboxdImport />}
               {importPlatform === 'xbox' && <XboxImport />}
-              {importPlatform === 'steam' && <SteamImport onImportDone={() => { if (currentUserId) refreshMedia(currentUserId) }} />}
+              {importPlatform === 'steam' && <SteamImport onImportDone={async () => { if (currentUserId) { await new Promise(r => setTimeout(r, 800)); refreshMedia(currentUserId) } }} />}
             </div>
           </div>
         </div>
