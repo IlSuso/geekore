@@ -3,9 +3,11 @@
 import Link from 'next/link'
 import { Zap } from 'lucide-react'
 import { usePathname } from 'next/navigation'
+import { useLocale } from '@/lib/locale'
 
 export function Footer() {
   const pathname = usePathname()
+  const { t } = useLocale()
 
   if (pathname === '/') return null
 
@@ -19,13 +21,13 @@ export function Footer() {
           <span className="text-sm font-bold tracking-tighter text-zinc-500">geekore</span>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-zinc-600">
-          <Link href="/privacy" className="hover:text-zinc-400 transition-colors">Privacy Policy</Link>
+          <Link href="/privacy" className="hover:text-zinc-400 transition-colors">{t.legal.privacy}</Link>
           <span className="text-zinc-800">·</span>
-          <Link href="/terms" className="hover:text-zinc-400 transition-colors">Termini di Servizio</Link>
+          <Link href="/terms" className="hover:text-zinc-400 transition-colors">{t.legal.terms}</Link>
           <span className="text-zinc-800">·</span>
           <Link href="/cookies" className="hover:text-zinc-400 transition-colors">Cookie Policy</Link>
         </div>
-        <p className="text-xs text-zinc-700">© 2025 Geekore. Tutti i diritti riservati.</p>
+        <p className="text-xs text-zinc-700">{t.legal.rights}</p>
       </div>
     </footer>
   )

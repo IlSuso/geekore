@@ -12,6 +12,7 @@ import Navbar from '@/components/Navbar'
 import { ToastProvider } from '@/components/ui/Toast'
 import { ClientProviders } from '@/components/ClientProviders'
 import { Footer } from '@/components/Footer'
+import { cookies } from 'next/headers'
 
 export const metadata: Metadata = {
   title: { default: 'Geekore', template: '%s — Geekore' },
@@ -43,24 +44,19 @@ export const viewport: Viewport = {
   colorScheme: 'dark light',
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const cookieStore = await cookies()
+  const localeCookie = cookieStore.get('geekore_locale')?.value
+  const initialLocale = localeCookie === 'en' ? 'en' : 'it'
+
   return (
     <html lang="it">
       <head>
         <meta name="view-transition" content="same-origin" />
         <meta name="color-scheme" content="dark light" />
-        {/* Preconnect ai domini API esterni — riduce DNS lookup e TLS handshake */}
-        <link rel="preconnect" href="https://graphql.anilist.co" />
-        <link rel="preconnect" href="https://api.themoviedb.org" />
-        <link rel="preconnect" href="https://image.tmdb.org" />
-        <link rel="preconnect" href="https://images.igdb.com" />
-        <link rel="preconnect" href="https://api.igdb.com" />
-        <link rel="preconnect" href="https://cdn.cloudflare.steamstatic.com" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://s4.anilist.co" />
-        <link rel="dns-prefetch" href="https://api.dicebear.com" />
       </head>
-      <body className="bg-black text-white min-h-screen antialiased">
-        <ClientProviders>
+      <body suppressHydrationWarning className="bg-black text-white min-h-screen antialiased">
+        <ClientProviders initialLocale={initialLocale}>
           {/* Navbar senza wrapper — qualsiasi div/span con viewTransitionName,
               isolation, transform, will-change, filter, opacity<1 crea uno
               stacking context che imprigiona il z-index dei figli */}

@@ -36,10 +36,10 @@ function RecsWarmer() {
   return null
 }
 
-export function ClientProviders({ children }: { children: React.ReactNode }) {
+export function ClientProviders({ children, initialLocale = 'it' }: { children: React.ReactNode; initialLocale?: 'it' | 'en' }) {
   return (
     <ThemeProvider>
-      <LocaleProvider>
+      <LocaleProvider initialLocale={initialLocale}>
         <ServiceWorkerRegistrar />
         <SyncStatusListener />
         <NavigationProgress />

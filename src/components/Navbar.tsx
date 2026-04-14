@@ -12,6 +12,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useTheme } from '@/lib/theme'
 import { Avatar, getLocalAvatarSvg } from '@/components/ui/Avatar'
+import { useLocale } from '@/lib/locale'
 
 const AUTH_PATHS = ['/login', '/register', '/auth/confirm', '/forgot-password', '/auth/reset-password']
 
@@ -96,6 +97,7 @@ function NotificationPopover({
   onRead: () => void
   mobile?: boolean
 }) {
+  const { t } = useLocale()                     // ← spostato in alto, prima di qualsiasi altro hook
   const supabase = createClient()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
@@ -131,7 +133,7 @@ function NotificationPopover({
       .eq('receiver_id', userId)
       .eq('is_read', false)
       .then(() => onRead())
-  }, [open, userId])
+  }, [open, userId, onRead])
 
   if (!open) return null
 
@@ -149,7 +151,7 @@ function NotificationPopover({
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-        <span className="text-sm font-semibold text-white">Notifiche</span>
+        <span className="text-sm font-semibold text-white">{t.nav.notifications}</span>
         <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 transition-colors">
           <X size={15} />
         </button>
@@ -234,6 +236,7 @@ export default function Navbar() {
   const router = useRouter()
   const supabase = createClient()
   const { theme, toggleTheme } = useTheme()
+  const { t } = useLocale()
 
   const [hasNewNotifications, setHasNewNotifications] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
@@ -262,19 +265,19 @@ export default function Navbar() {
   const isPublicLanding = pathname === '/'
 
   const NAV_ITEMS = [
-    { href: '/feed',     label: 'Home',    icon: Home      },
-    { href: '/discover', label: 'Discover', icon: Search   },
-    { href: '/for-you',  label: 'Per te',  icon: Sparkles  },
-    { href: '/news',     label: 'News',    icon: Newspaper },
+    { href: '/feed',     label: t.nav.home,    icon: Home      },
+    { href: '/discover', label: t.nav.discover, icon: Search   },
+    { href: '/for-you',  label: t.nav.forYou,  icon: Sparkles  },
+    { href: '/news',     label: t.nav.news,    icon: Newspaper },
   ]
 
   const MOBILE_NAV_ITEMS = [
-    { href: '/feed',          label: 'Home',          icon: Home,    hasDot: false },
-    { href: '/discover',      label: 'Discover',      icon: Search,  hasDot: false },
-    { href: '/for-you',       label: 'Per te',        icon: Sparkles,hasDot: false },
-    { href: '/notifications', label: 'Notifiche', icon: Bell,    hasDot: true  },
-    { href: '/search',        label: 'Cerca',             icon: Users,   hasDot: false },
-    { href: '/profile/me',    label: 'Profilo',       icon: User,    hasDot: false },
+    { href: '/feed',          label: t.nav.home,          icon: Home,    hasDot: false },
+    { href: '/discover',      label: t.nav.discover,      icon: Search,  hasDot: false },
+    { href: '/for-you',       label: t.nav.forYou,        icon: Sparkles,hasDot: false },
+    { href: '/notifications', label: t.nav.notifications, icon: Bell,    hasDot: true  },
+    { href: '/search',        label: t.nav.search,        icon: Users,   hasDot: false },
+    { href: '/profile/me',    label: t.nav.profile,       icon: User,    hasDot: false },
   ]
 
   useEffect(() => {
@@ -290,7 +293,6 @@ export default function Navbar() {
 
   useEffect(() => {
     if (isAuthPage) return
-    // Usa ref per tenere traccia del channel anche dopo cleanup asincrono
     const channelRef = { current: null as ReturnType<typeof supabase.channel> | null }
     let cancelled = false
 
@@ -312,7 +314,6 @@ export default function Navbar() {
         .eq('receiver_id', user.id).eq('is_read', false)
         .then(({ count }) => { if (!cancelled && count && count > 0) setHasNewNotifications(true) })
 
-      // Rimuovi eventuali channel precedenti con lo stesso nome prima di crearne uno nuovo
       supabase.removeAllChannels()
 
       channelRef.current = supabase.channel('navbar-notifications')
@@ -360,8 +361,6 @@ export default function Navbar() {
   if (isAuthPage) return null
   if (isPublicLanding && isLoggedIn === false) return null
   if (isPublicLanding && isLoggedIn === null) return null
-
-
 
   const isDark = theme === 'dark' || theme === 'oled'
   const currentUsername = username || ''
@@ -512,7 +511,7 @@ export default function Navbar() {
                   <div className="p-1.5 space-y-0.5">
                     <Link href={`/profile/${currentUsername || 'me'}`} onClick={() => setDropdownOpen(false)}
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${isProfileActive ? 'text-violet-400 bg-violet-500/10' : 'text-zinc-300 hover:text-white hover:bg-zinc-800'}`}>
-                      <User size={16} /> Profilo
+                      <User size={16} /> {t.nav.profile}
                     </Link>
                     <Link href="/profile/edit" onClick={() => setDropdownOpen(false)}
                       className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all">
@@ -524,7 +523,7 @@ export default function Navbar() {
                     </Link>
                     <Link href="/settings" onClick={() => setDropdownOpen(false)}
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${pathname === '/settings' ? 'text-violet-400 bg-violet-500/10' : 'text-zinc-300 hover:text-white hover:bg-zinc-800'}`}>
-                      <Settings size={16} /> Impostazioni
+                      <Settings size={16} /> {t.nav.settings}
                     </Link>
                     <button onClick={() => { toggleTheme(); setDropdownOpen(false) }}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all">
@@ -535,7 +534,7 @@ export default function Navbar() {
                   <div className="p-1.5 border-t border-zinc-800">
                     <button data-testid="nav-logout" onClick={() => { setDropdownOpen(false); handleLogout() }}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-all">
-                      <LogOut size={16} /> Esci
+                      <LogOut size={16} /> {t.nav.logout}
                     </button>
                   </div>
                 </div>
