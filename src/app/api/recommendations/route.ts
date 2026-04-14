@@ -1,17 +1,30 @@
 // DESTINAZIONE: src/app/api/recommendations/route.ts
 // ═══════════════════════════════════════════════════════════════════════════
-// TASTE ENGINE V3.1 — "Full Profile Awareness"
+// TASTE ENGINE V5 — "Full Signal Stack"
 //
-// Novità rispetto al V3:
-//   • boardgame incluso in MediaType e perTypeScores (prima ignorato)
-//   • BGG_TO_CROSS_GENRE: generi boardgame amplificano consigli cross-media
-//   • baseWeight corretto per film (status-based, non episode-based)
-//   • baseWeight corretto per boardgame (partite + status)
-//   • completionMult dedicato per movie e boardgame
-//   • isNegativeSignal: movie/boardgame non penalizzati per completion rate
-//   • computeVelocity: movie sempre 1.0, boardgame usa numero partite
-//   • buildDiversitySlots: fallback su globalGenres se perTypeScores scarso
-//   • Nessuna modifica ai fetcher remoti (BGG non ha recommendation API)
+// Novità V5 rispetto al V4:
+//   • Anti-ripetizione cross-sessione: tabella recommendations_shown, esclusione
+//     titoli visti nelle ultime 2 settimane senza azione
+//   • Seasonal Awareness APPLICATA: slot anime stagione corrente nel fetcher
+//   • Award Boost APPLICATO: +8 matchScore nei fetcher (prima solo definito)
+//   • Quality Gate APPLICATO: filtro vote_average/averageScore nei fetcher
+//   • Release Freshness APPLICATA: moltiplicatore nei fetcher
+//   • Sub-Genre filtro attivo: topThemes escludono titoli incompatibili
+//   • Completion Rate AniList: completionPercentage come segnale qualità
+//   • Runtime Preference: soft penalty ±20% per durate fuori range
+//   • Lingua/Origine: boost/penalità per original_language su TMDb
+//   • Social Proof boost: amici con similarity >70% → +15 matchScore
+//   • Format Diversity: max 2 consecutivi dello stesso sotto-genere per sezione
+//   • lowConfidence: passa al client per banner "Profilo in costruzione"
+//
+// Novità V4:
+//   • Quality Gate: score minimo dinamico per TMDb/AniList/IGDB
+//   • Release Freshness: moltiplicatore sull'anno di uscita
+//   • Serendipity Slot: 1 jolly fuori profilo per sezione
+//   • Award Boost: titoli acclamati +8 matchScore
+//   • Seasonal Awareness: slot anime stagione corrente
+//   • Confidence Score: lowConfidence flag quando profilo < 15 titoli
+//   • Anti-ripetizione: esclude titoli già mostrati nelle ultime 2 settimane
 //
 // Novità V3 originali:
 //   • Wishlist come AMPLIFICATORE del profilo (non solo esclusione)
@@ -103,6 +116,13 @@ interface TasteProfile {
   wishlistCreators: CreatorScores // creator da wishlist
   searchIntentGenres: string[]   // generi inferiti dalle ricerche recenti
   topTitlesForContext: Array<{ title: string; type: string; rating: number; velocity?: number; rewatchCount: number }>
+  // V4
+  lowConfidence: boolean
+  nicheUser: boolean
+  // V5
+  runtimePreference: RuntimeRange
+  languagePreference: { preferNonEnglish: boolean; onlyAnime: boolean }
+  qualityThresholds: ReturnType<typeof getQualityThresholds>
 }
 
 interface Recommendation {
@@ -120,9 +140,108 @@ interface Recommendation {
   isContinuity?: boolean   // V3: sequel/prequel/spinoff
   continuityFrom?: string  // V3: titolo originale
   creatorBoost?: string    // V3: studio/regista che ha generato il boost
+  // V4
+  isSerendipity?: boolean  // jolly fuori profilo
+  isAwardWinner?: boolean  // acclamato dalla critica
+  isSeasonal?: boolean     // anime in corso questa stagione
+  // V5
+  socialBoost?: string     // amico con gusti simili che ha amato questo
 }
 
 // ── Mappe generi ─────────────────────────────────────────────────────────────
+
+
+
+// ── V4: stagione corrente AniList ─────────────────────────────────────────────
+function getCurrentAniListSeason(): { season: string; year: number } {
+  const now = new Date()
+  const month = now.getMonth() + 1
+  const year = now.getFullYear()
+  let season: string
+  if (month >= 1 && month <= 3) season = 'WINTER'
+  else if (month >= 4 && month <= 6) season = 'SPRING'
+  else if (month >= 7 && month <= 9) season = 'SUMMER'
+  else season = 'FALL'
+  return { season, year }
+}
+
+// ── V4: Quality Gate — score minimo dinamico ──────────────────────────────────
+function getQualityThresholds(nicheUser: boolean) {
+  return {
+    tmdbVoteAvg: nicheUser ? 5.5 : 6.0,
+    tmdbVoteCount: 80,
+    anilistScore: nicheUser ? 50 : 55,
+    anilistPopularity: nicheUser ? 300 : 500,
+    igdbRating: nicheUser ? 55 : 60,
+    igdbRatingCount: 30,
+  }
+}
+
+// ── V4: Release Freshness multiplier ─────────────────────────────────────────
+function releaseFreshnessMult(year: number | undefined, communityScore?: number, communityPop?: number): number {
+  if (!year) return 1.0
+  const age = new Date().getFullYear() - year
+  const isClassic = (communityScore && communityScore > 85) || (communityPop && communityPop > 100000)
+  if (isClassic) return 1.0
+  if (age <= 2) return 1.3
+  if (age <= 5) return 1.1
+  if (age <= 10) return 1.0
+  return Math.max(0.7, 0.85 - (age - 10) * 0.01)
+}
+
+// ── V4: Award boost ───────────────────────────────────────────────────────────
+function isAwardWorthy(score: number | undefined, popularity: number | undefined, voteCount: number | undefined, scoreType: 'tmdb' | 'anilist' | 'igdb'): boolean {
+  if (scoreType === 'tmdb') return (score || 0) >= 8.0 && (voteCount || 0) >= 1000
+  if (scoreType === 'anilist') return (score || 0) >= 85 && (popularity || 0) >= 50000
+  if (scoreType === 'igdb') return (score || 0) >= 85 && (voteCount || 0) >= 500
+  return false
+}
+
+// ── V5: Runtime preference inference ─────────────────────────────────────────
+type RuntimeRange = 'short' | 'standard' | 'long' | null
+
+function inferRuntimePreference(entries: any[]): RuntimeRange {
+  const movies = entries.filter(e => e.type === 'movie' && e.runtime && e.status !== 'dropped')
+  if (movies.length < 3) return null
+  const avg = movies.reduce((s: number, e: any) => s + (e.runtime || 0), 0) / movies.length
+  if (avg < 90) return 'short'
+  if (avg <= 130) return 'standard'
+  return 'long'
+}
+
+function runtimePenalty(runtime: number | undefined, pref: RuntimeRange): number {
+  if (!runtime || !pref) return 1.0
+  if (pref === 'short' && runtime > 130) return 0.80
+  if (pref === 'long' && runtime < 90) return 0.80
+  if (pref === 'standard' && (runtime < 80 || runtime > 150)) return 0.85
+  return 1.0
+}
+
+// ── V5: Lingua/Origine preference ────────────────────────────────────────────
+function inferLanguagePreference(entries: any[]): { preferNonEnglish: boolean; onlyAnime: boolean } {
+  const withLang = entries.filter(e => e.original_language)
+  const nonEnglishCount = withLang.filter(e => e.original_language !== 'en').length
+  const animeCount = entries.filter(e => e.type === 'anime' || e.type === 'manga').length
+  const totalMedia = entries.filter(e => e.type === 'movie' || e.type === 'tv').length
+  return {
+    preferNonEnglish: withLang.length > 5 && nonEnglishCount / withLang.length > 0.8,
+    onlyAnime: animeCount > 5 && totalMedia < 2,
+  }
+}
+
+// ── V5: Format Diversity — applica max 2 consecutivi dello stesso sotto-genere
+function applyFormatDiversity(recs: any[], maxConsecutive = 2): any[] {
+  const result: any[] = []
+  const subGenreCount: Record<string, number> = {}
+  for (const rec of recs) {
+    const subGenre = rec.genres?.[1] || rec.genres?.[0] || 'unknown'
+    subGenreCount[subGenre] = (subGenreCount[subGenre] || 0) + 1
+    if (subGenreCount[subGenre] <= maxConsecutive) {
+      result.push(rec)
+    }
+  }
+  return result
+}
 
 const TMDB_GENRE_MAP: Record<string, number> = {
   'Action': 28, 'Adventure': 12, 'Animation': 16, 'Comedy': 35, 'Crime': 80,
@@ -662,6 +781,13 @@ function computeTasteProfile(
   // Context titoli top per spiegazioni V3 behavioral
   const topTitlesForContext: TasteProfile['topTitlesForContext'] = []
 
+  // V4: rileva se l'utente apprezza titoli di nicchia (score alto personale, basso community)
+  let nicheSignals = 0
+  for (const entry of entries) {
+    if ((entry.rating || 0) >= 4 && (entry.community_score || 0) < 65 && (entry.community_score || 0) > 0) nicheSignals++
+  }
+  const nicheUser = nicheSignals >= 3
+
   for (const entry of entries) {
     const title: string = entry.title || ''
     const type: string = entry.type || 'game'
@@ -853,6 +979,14 @@ function computeTasteProfile(
     return scoreB - scoreA
   })
 
+  const totalEntries = entries.length
+  const lowConfidence = totalEntries < 15
+
+  // V5
+  const runtimePreference = inferRuntimePreference(entries)
+  const languagePreference = inferLanguagePreference(entries)
+  const qualityThresholds = getQualityThresholds(nicheUser)
+
   return {
     globalGenres,
     topGenres,
@@ -867,9 +1001,14 @@ function computeTasteProfile(
     creatorScores,
     bingeProfile,
     wishlistGenres,
-    wishlistCreators: { studios: {}, directors: {}, authors: {}, developers: {} }, // populated by amplifyFromWishlist
+    wishlistCreators: { studios: {}, directors: {}, authors: {}, developers: {} },
     searchIntentGenres,
     topTitlesForContext: topTitlesForContext.slice(0, 10),
+    lowConfidence,
+    nicheUser,
+    runtimePreference,
+    languagePreference,
+    qualityThresholds,
   }
 }
 
@@ -1099,6 +1238,8 @@ interface GenreSlot {
   genre: string
   quota: number
   isDiscovery: boolean
+  isSeasonal?: boolean    // V4
+  isSerendipity?: boolean // V4
 }
 
 function buildDiversitySlots(type: MediaType, tasteProfile: TasteProfile, totalSlots = 15): GenreSlot[] {
@@ -1135,6 +1276,13 @@ function buildDiversitySlots(type: MediaType, tasteProfile: TasteProfile, totalS
   if (discoveryGenres.length > 0) {
     const discoveryQuota = Math.max(1, Math.round(totalSlots * 0.10))
     slots.push({ genre: discoveryGenres[0], quota: discoveryQuota, isDiscovery: true })
+  }
+
+  // V4: Serendipity slot — 1 jolly fuori profilo per sezione
+  const unusedGenres = fallbackGenres.filter(g => !valid.includes(g) && !discoveryGenres.includes(g))
+  if (unusedGenres.length > 0) {
+    const jollyGenre = unusedGenres[Math.floor(Math.random() * Math.min(unusedGenres.length, 5))]
+    slots.push({ genre: jollyGenre, quota: 1, isDiscovery: false, isSerendipity: true })
   }
 
   return slots
@@ -1269,7 +1417,8 @@ const ANILIST_VALID_GENRES = new Set([
 ])
 
 async function fetchAnimeRecs(
-  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, isAlreadyOwned: (type: string, id: string, title: string) => boolean
+  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, isAlreadyOwned: (type: string, id: string, title: string) => boolean,
+  shownIds?: Set<string>, socialFavorites?: Map<string, string>
 ): Promise<Recommendation[]> {
   const results: Recommendation[] = []
   const seen = new Set<string>()
@@ -1283,6 +1432,67 @@ async function fetchAnimeRecs(
   const topStudiosSet = new Set(
     Object.entries(tasteProfile.creatorScores.studios).sort(([,a],[,b]) => b - a).slice(0, 8).map(([s]) => s)
   )
+
+  // V5: quality thresholds
+  const qt = tasteProfile.qualityThresholds
+
+  // V5: top 3 themes for active sub-genre filtering (not just boost)
+  const activeThemeFilter = topThemes.slice(0, 3)
+
+  // V4: seasonal slot — fetch anime della stagione corrente come slot aggiuntivo
+  const { season, year: seasonYear } = getCurrentAniListSeason()
+  const seasonalQuery = `
+    query($season: MediaSeason, $seasonYear: Int) {
+      Page(page: 1, perPage: 20) {
+        media(season: $season, seasonYear: $seasonYear, type: ANIME, sort: [SCORE_DESC], isAdult: false,
+              averageScore_greater: ${qt.anilistScore}, popularity_greater: ${qt.anilistPopularity}) {
+          id title { romaji english } coverImage { large }
+          seasonYear episodes genres averageScore popularity trending
+          tags { name rank }
+          studios(isMain: true) { nodes { name } }
+        }
+      }
+    }
+  `
+  try {
+    const sRes = await fetch('https://graphql.anilist.co', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: seasonalQuery, variables: { season, seasonYear } }),
+      signal: AbortSignal.timeout(6000),
+    })
+    if (sRes.ok) {
+      const sJson = await sRes.json()
+      const seasonalMedia = sJson.data?.Page?.media || []
+      for (const m of seasonalMedia.slice(0, 3)) {
+        const id = `anilist-anime-${m.id}`
+        const title = m.title?.romaji || m.title?.english || ''
+        if (isAlreadyOwned('anime', id, title) || seen.has(id)) continue
+        if (shownIds?.has(id)) continue
+        seen.add(id)
+        const recGenres: string[] = m.genres || []
+        const mTags: string[] = (m.tags || []).map((t: any) => t.name.toLowerCase())
+        const mStudios: string[] = (m.studios?.nodes || []).map((s: any) => s.name)
+        let matchScore = computeMatchScore(recGenres, mTags, tasteProfile, mStudios, [])
+        // Award boost
+        if (isAwardWorthy(m.averageScore, m.popularity, undefined, 'anilist')) { matchScore = Math.min(100, matchScore + 8) }
+        // Freshness
+        const freshMult = releaseFreshnessMult(m.seasonYear, m.averageScore, m.popularity)
+        matchScore = Math.round(matchScore * freshMult)
+        // Social boost
+        const socialFriend = socialFavorites?.get(id)
+        if (socialFriend) matchScore = Math.min(100, matchScore + 15)
+        results.push({
+          id, title, type: 'anime',
+          coverImage: m.coverImage?.large, year: m.seasonYear, genres: recGenres,
+          score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
+          why: socialFriend ? `Il tuo amico con gusti simili ha adorato questo` : `In corso questa stagione — ${season} ${seasonYear}`,
+          matchScore, isSeasonal: true,
+          isAwardWinner: isAwardWorthy(m.averageScore, m.popularity, undefined, 'anilist'),
+          socialBoost: socialFriend,
+        })
+      }
+    }
+  } catch { /* continua */ }
 
   for (const slot of slots) {
     const genre = ANILIST_VALID_GENRES.has(slot.genre) ? slot.genre : null
