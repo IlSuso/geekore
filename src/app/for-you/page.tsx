@@ -20,6 +20,10 @@ import { useLocale } from '@/lib/locale'
 import { SkeletonForYouRow, SkeletonFriendsWatching } from '@/components/ui/SkeletonCard'
 import { SimilarTasteFriends } from '@/components/social/SimilarTasteFriends'
 
+// V5: Tipi per feedback granulare
+type FeedbackAction = 'not_interested' | 'already_seen' | 'added' | 'wishlist_add';
+type FeedbackReason = 'too_similar' | 'not_my_genre' | 'already_know' | 'bad_rec' | undefined;
+
 type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game'
 type Mood = 'light' | 'intense' | 'deep' | null
 
@@ -103,7 +107,6 @@ function MatchBadge({ score }: { score: number }) {
   )
 }
 
-// V3: Badge per continuity (sequel/prequel)
 function ContinuityBadge({ from }: { from: string }) {
   return (
     <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 text-[9px] font-bold text-amber-300">
@@ -112,7 +115,6 @@ function ContinuityBadge({ from }: { from: string }) {
   )
 }
 
-// V3: Badge per creator boost
 function CreatorBadge({ creator }: { creator: string }) {
   return (
     <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-sky-500/40 bg-sky-500/10 text-[9px] font-bold text-sky-300 truncate max-w-full" title={creator}>
@@ -121,7 +123,6 @@ function CreatorBadge({ creator }: { creator: string }) {
   )
 }
 
-// V3: Badge per trending
 function TrendingBadge() {
   return (
     <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-orange-500/40 bg-orange-500/10 text-[9px] font-bold text-orange-300">
@@ -154,7 +155,7 @@ function MoodSelector({ mood, onChange }: { mood: Mood; onChange: (m: Mood) => v
   )
 }
 
-// V3: DNA Widget aggiornato con creator + binge profile + search intent
+// V3: DNA Widget
 const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }: { tasteProfile: TasteProfile; totalEntries: number }) {
   const [open, setOpen] = useState(false)
   const maxScore = tasteProfile.globalGenres[0]?.score || 1
@@ -196,7 +197,7 @@ const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }: { tast
             </div>
           </div>
 
-          {/* V3: Creator amati */}
+          {/* Creator amati */}
           {tasteProfile.creatorScores && (
             (tasteProfile.creatorScores.topStudios.length > 0 || tasteProfile.creatorScores.topDirectors.length > 0) && (
               <div>
@@ -217,7 +218,7 @@ const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }: { tast
             )
           )}
 
-          {/* V3: Binge profile */}
+          {/* Binge profile */}
           {binge && (binge.bingeGenres.length > 0 || binge.slowGenres.length > 0) && (
             <div className="grid grid-cols-2 gap-4">
               {binge.bingeGenres.length > 0 && (
@@ -267,7 +268,7 @@ const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }: { tast
             )}
           </div>
 
-          {/* V3: Search intent */}
+          {/* Search intent */}
           {tasteProfile.searchIntentGenres && tasteProfile.searchIntentGenres.length > 0 && (
             <div>
               <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1"><Search size={10} /> Stai cercando</p>
@@ -281,7 +282,7 @@ const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }: { tast
             </div>
           )}
 
-          {/* V3: Wishlist intent */}
+          {/* Wishlist intent */}
           {tasteProfile.wishlistGenres && tasteProfile.wishlistGenres.length > 0 && (
             <div>
               <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1"><Bookmark size={10} /> Wishlist amplifica</p>
@@ -310,7 +311,7 @@ const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }: { tast
   )
 })
 
-// V3: Continuity Section — sequel/prequel come prima sezione
+// V3: Continuity Section
 const ContinuitySection = memo(function ContinuitySection({ items, onAdd, onFeedback, addedIds, dismissedIds }: {
   items: Recommendation[]
   onAdd: (i: Recommendation) => void
@@ -343,7 +344,6 @@ const ContinuitySection = memo(function ContinuitySection({ items, onAdd, onFeed
                   ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" />
                   : <div className="w-full h-full flex items-center justify-center"><Icon size={36} className="text-zinc-700" /></div>
                 }
-                {/* Amber border to indicate continuity */}
                 <div className="absolute inset-0 ring-2 ring-amber-500/40 rounded-2xl pointer-events-none" />
                 <div className="absolute top-2 left-2 bg-amber-500/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1">
                   <ArrowRight size={8} />Sequel
@@ -400,7 +400,6 @@ const RecommendationCard = memo(function RecommendationCard({ item, onAdd, onWis
             <Compass size={8} /> Scoperta
           </div>
         )}
-        {/* V3: Creator boost indicator */}
         {item.creatorBoost && !item.isDiscovery && (
           <div className="absolute top-2 right-2 bg-sky-500/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 max-w-[70px] truncate">
             <Clapperboard size={8} />{item.creatorBoost.split(' ')[0]}
@@ -414,7 +413,7 @@ const RecommendationCard = memo(function RecommendationCard({ item, onAdd, onWis
         <div className={`absolute inset-0 bg-black/75 transition-opacity flex flex-col items-center justify-end pb-3 gap-2 ${showAct ? 'opacity-100' : 'opacity-0'}`}>
           <button onClick={() => onAdd(item)} disabled={alreadyAdded}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold w-28 justify-center ${alreadyAdded ? 'bg-zinc-700 text-zinc-400' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}>
-            {alreadyAdded ? <Check size={12} /> : <Plus size={12} />}{alreadyAdded ? t.discover.added : fy.addToCollection}
+            {alreadyAdded ? <Check size={12} /> : <Plus size={12} />}{alreadyAdded ? 'Aggiunto' : fy.addToCollection}
           </button>
           <button onClick={() => onWishlist(item)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold w-28 justify-center ${inWishlist ? 'bg-amber-600/80 text-white' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'}`}>
@@ -428,7 +427,6 @@ const RecommendationCard = memo(function RecommendationCard({ item, onAdd, onWis
       </div>
       <p className="text-xs font-semibold text-white leading-tight line-clamp-2 mb-1">{item.title}</p>
       {item.year && <p className="text-[10px] text-zinc-500 mb-1">{item.year}</p>}
-      {/* V3: badge priority — continuity > creator > match > discovery */}
       {item.isContinuity
         ? <ContinuityBadge from={item.continuityFrom || ''} />
         : item.creatorBoost
@@ -446,7 +444,6 @@ const HeroMatchSection = memo(function HeroMatchSection({ items, onAdd, onWishli
   addedIds: Set<string>; wishlistIds: Set<string>; dismissedIds: Set<string>
 }) {
   const { t } = useLocale(); const fy = t.forYou
-  // V3: esclude le continuity cards dall'hero (hanno la loro sezione)
   const top = items
     .filter(i => i.matchScore >= 75 && !dismissedIds.has(i.id) && !i.isContinuity)
     .sort((a, b) => b.matchScore - a.matchScore)
@@ -482,7 +479,6 @@ const HeroMatchSection = memo(function HeroMatchSection({ items, onAdd, onWishli
                 <div className={`absolute top-2 left-2 bg-gradient-to-r ${colorClass} text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full`}>
                   {TYPE_LABEL[item.type]}
                 </div>
-                {/* V3: creator boost sul hero */}
                 {item.creatorBoost && (
                   <div className="absolute bottom-10 left-2 right-2">
                     <span className="text-[9px] bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded-full border border-sky-500/30 flex items-center gap-0.5 w-fit max-w-full truncate">
@@ -517,7 +513,6 @@ const RecommendationSection = memo(function RecommendationSection({ type, items,
   addedIds: Set<string>; wishlistIds: Set<string>; dismissedIds: Set<string>
 }) {
   const Icon = TYPE_ICONS[type]; const colorClass = TYPE_COLORS[type]
-  // V3: filtra anche le continuity (già mostrate nella loro sezione)
   const visible = items.filter(i => !dismissedIds.has(i.id) && !i.isContinuity)
   if (!visible.length) return null
 
@@ -671,7 +666,6 @@ function applyMood(recs: Record<string, Recommendation[]>, mood: Mood): Record<s
   const result: Record<string, Recommendation[]> = {}
   for (const [type, items] of Object.entries(recs)) {
     result[type] = [...items].sort((a, b) => {
-      // V3: le continuity cards mantengono la priorità anche con il mood
       if (a.isContinuity && !b.isContinuity) return -1
       if (!a.isContinuity && b.isContinuity) return 1
       const ab = a.genres.some(g => boosted.has(g)) ? 20 : 0
@@ -701,8 +695,6 @@ export default function ForYouPage() {
   const fetchRecommendations = useCallback(async (force = false) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
-    // Non passare refresh=1 di default: usa la cache (DB o memoria) per risposta istantanea.
-    // Passa refresh=1 solo quando l'utente clicca "Aggiorna" manualmente.
     const res = await fetch(`/api/recommendations?type=all${force ? '&refresh=1' : ''}`)
     if (!res.ok) return
     const json = await res.json()
@@ -740,7 +732,6 @@ export default function ForYouPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      // Avvia tutte le fetch in parallelo — non aspettiamo in sequenza
       const [
         { data: entries },
         { data: wish },
@@ -748,7 +739,6 @@ export default function ForYouPage() {
       ] = await Promise.all([
         supabase.from('user_media_entries').select('external_id').eq('user_id', user.id),
         supabase.from('wishlist').select('external_id').eq('user_id', user.id),
-        // Prima chiamata: usa la cache (in-memory o DB). Risposta tipicamente <300ms.
         fetch('/api/recommendations?type=all').then(r => r.ok ? r.json() : null),
       ])
 
@@ -756,7 +746,6 @@ export default function ForYouPage() {
       setWishlistIds(new Set((wish || []).map((w: any) => w.external_id).filter(Boolean)))
       setTotalEntries(entries?.length || 0)
 
-      // Mostra subito i dati cached — l'utente vede la pagina istantaneamente
       if (recsPromise) {
         setRecommendations(recsPromise.recommendations || {})
         setTasteProfile(recsPromise.tasteProfile || null)
@@ -764,7 +753,6 @@ export default function ForYouPage() {
       }
       setLoading(false)
 
-      // Avvia friends in background (non blocca il rendering)
       fetchFriends(user.id)
     }
     init()
@@ -787,12 +775,10 @@ export default function ForYouPage() {
     if (!error) {
       setAddedIds(prev => new Set([...prev, item.id]))
       showToast(`"${item.title}" aggiunto`)
-      // Feedback al sistema raccomandazioni
       await fetch('/api/recommendations/feedback', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres, action: 'added' })
       })
-      // V3: aggiorna il profilo gusti in real-time
       if (item.genres.length > 0) {
         triggerTasteDelta({ action: 'status_change', mediaId: item.id, mediaType: item.type, genres: item.genres, status: item.type === 'movie' ? 'completed' : 'watching' })
       }
@@ -806,16 +792,14 @@ export default function ForYouPage() {
       setWishlistIds(prev => { const s = new Set(prev); s.delete(item.id); return s })
       showToast(t.discover.wishlistRemove)
     } else {
-      // V3: salva generi nella wishlist per amplificazione profilo
       await supabase.from('wishlist').upsert({
         user_id: user.id, external_id: item.id, title: item.title,
         type: item.type, cover_image: item.coverImage,
-        genres: item.genres || [],      // V3
-        media_type: item.type,          // V3
+        genres: item.genres || [],
+        media_type: item.type,
       }, { onConflict: 'user_id,external_id' })
       setWishlistIds(prev => new Set([...prev, item.id]))
       showToast(t.discover.wishlistAdd)
-      // V3: amplifica il profilo gusti
       if (item.genres.length > 0) {
         triggerTasteDelta({ action: 'wishlist_add', mediaId: item.id, mediaType: item.type, genres: item.genres })
       }
@@ -834,7 +818,6 @@ export default function ForYouPage() {
   const displayRecs = applyMood(recommendations, mood)
   const allRecs = Object.values(displayRecs).flat()
 
-  // V3: tutte le continuity cards da tutte le categorie
   const allContinuityRecs = allRecs.filter(i => i.isContinuity && !dismissedIds.has(i.id))
 
   const hasEnoughData = totalEntries >= 1
@@ -901,7 +884,6 @@ export default function ForYouPage() {
             {friendsLoading ? <SkeletonFriendsWatching /> : <FriendsWatchingSection items={friendsActivity} />}
             <SimilarTasteFriends />
 
-            {/* V3: Continuity section — PRIMA di tutto il resto */}
             {allContinuityRecs.length > 0 && (
               <ContinuitySection
                 items={allContinuityRecs}
@@ -912,7 +894,6 @@ export default function ForYouPage() {
               />
             )}
 
-            {/* Hero match (esclude continuity) */}
             {allRecs.length > 0 && (
               <HeroMatchSection
                 items={allRecs}
@@ -921,7 +902,6 @@ export default function ForYouPage() {
               />
             )}
 
-            {/* Sezioni per tipo */}
             {SECTIONS.map(({ key, label }) => {
               const items = displayRecs[key] || []
               const mainItems = items.filter(i => !i.isDiscovery)
