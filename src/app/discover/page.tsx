@@ -10,6 +10,8 @@ import { showToast } from '@/components/ui/Toast';
 import { useLocale } from '@/lib/locale';
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer';
 import { SkeletonDiscoverCard } from '@/components/ui/SkeletonCard';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { PullToRefreshIndicator } from '@/components/ui/ErrorState';
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer';
 
 type MediaItem = {
@@ -268,10 +270,23 @@ export default function DiscoverPage() {
     }, {} as Record<string, MediaItem[]>)
   ).sort(([a], [b]) => (TYPE_ORDER[a] ?? 99) - (TYPE_ORDER[b] ?? 99));
 
+  // Pull-to-refresh: ricarica i risultati attuali
+  const handlePullRefresh = async () => {
+    if (searchTerm.trim().length >= 2) {
+      setResults([])
+      // Re-trigger della ricerca tramite re-set del termine
+      const term = searchTerm
+      setSearchTerm('')
+      setTimeout(() => setSearchTerm(term), 50)
+    }
+  }
+  const { pullDistance, isRefreshing: isPullRefreshing } = usePullToRefresh({ onRefresh: handlePullRefresh })
+
   const showingResults = !loading && !searchError && results.length > 0;
 
   return (
     <div className="min-h-screen bg-black text-white pb-24">
+      <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isPullRefreshing} />
       <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 pt-4 md:pt-8">
 
         {/* Search bar */}

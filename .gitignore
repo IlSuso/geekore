@@ -29,8 +29,9 @@ Thumbs.db
 desktop.ini
 *.ini
 
-# Editor
-.vscode/
+# Editor — ignora tutto .vscode tranne settings.json (condiviso col team)
+.vscode/*
+!.vscode/settings.json
 .idea/
 *.swp
 *.swo

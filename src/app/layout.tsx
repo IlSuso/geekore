@@ -36,7 +36,10 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#7c6af7',
+  themeColor: [
+    { media: '(prefers-color-scheme: dark)', color: '#000000' },
+    { media: '(prefers-color-scheme: light)', color: '#000000' },
+  ],
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -53,6 +56,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="it">
       <head>
         <meta name="view-transition" content="same-origin" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="color-scheme" content="dark light" />
       </head>
       <body suppressHydrationWarning className="bg-black text-white min-h-screen antialiased">
@@ -61,7 +67,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               isolation, transform, will-change, filter, opacity<1 crea uno
               stacking context che imprigiona il z-index dei figli */}
           <Navbar />
-          <main className="pt-16 pb-20 md:pb-8">
+          <main className="pt-0 md:pt-16 pb-20 md:pb-8">
             {children}
           </main>
           <Footer />
