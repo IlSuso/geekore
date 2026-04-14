@@ -71,6 +71,20 @@ async function resolveGamertag(gamertag: string): Promise<string | null> {
 
 // Recupera lista giochi per XUID
 async function fetchXboxGames(xuid: string): Promise<any[]> {
+  // Prova endpoint title history (più completo)
+  try {
+    const res = await fetch(`${OPENXBL_BASE}/player/${xuid}/titleHistory`, {
+      headers: openxblHeaders(),
+      signal: AbortSignal.timeout(10000),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      const titles = data?.titles || data?.games || []
+      if (titles.length > 0) return titles
+    }
+  } catch { /* prova fallback */ }
+
+  // Fallback: endpoint achievements
   try {
     const res = await fetch(`${OPENXBL_BASE}/achievements/player/${xuid}`, {
       headers: openxblHeaders(),
@@ -82,6 +96,23 @@ async function fetchXboxGames(xuid: string): Promise<any[]> {
   } catch {
     return []
   }
+}
+
+function extractCoverImage(title: any): string | null {
+  // Prova i campi immagine nell-ordine di preferenza
+  const candidates = [
+    title.displayImage,
+    title.image,
+    title.coverImage,
+    title.thumbnail,
+    title.images?.find((i: any) => i.type === 'BoxArt')?.url,
+    title.images?.find((i: any) => i.type === 'Tile')?.url,
+    title.images?.[0]?.url,
+  ]
+  for (const c of candidates) {
+    if (c && typeof c === 'string' && c.startsWith('http')) return c
+  }
+  return null
 }
 
 export async function GET(request: NextRequest) {
@@ -184,8 +215,8 @@ export async function GET(request: NextRequest) {
             external_id: extId,
             title: title.name,
             type: 'game',
-            cover_image: title.displayImage || title.mediaItemType || null,
-            status: isCompleted ? 'completed' : gamerscore > 0 ? 'playing' : 'wishlist',
+            cover_image: extractCoverImage(title),
+            status: isCompleted ? 'completed' : gamerscore > 0 ? 'watching' : 'wishlist',
             current_episode: estimatedHours,
             genres: [],
             notes: `Gamerscore: ${gamerscore}/${maxGamerscore} (${completionPct}%)`,
@@ -197,7 +228,14 @@ export async function GET(request: NextRequest) {
         if (toInsert.length > 0) {
           const BATCH = 50
           for (let i = 0; i < toInsert.length; i += BATCH) {
-            await supabase.from('user_media_entries').upsert(toInsert.slice(i, i + BATCH), { onConflict: 'user_id,external_id' })
+            const { error: insertError } = await supabase
+              .from('user_media_entries')
+              .insert(toInsert.slice(i, i + BATCH))
+            if (insertError) {
+              send({ type: 'error', message: `Errore salvataggio: ${insertError.message}` })
+              controller.close()
+              return
+            }
           }
         }
 
