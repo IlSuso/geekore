@@ -498,9 +498,10 @@ function sentimentMult(rating: number): number {
   if (rating >= 4.0) return 2.0
   if (rating >= 3.5) return 1.5
   if (rating >= 3.0) return 1.0
-  if (rating >= 2.0) return 0.25
+  if (rating >= 2.5) return 0.3   // leggermente negativo ma non ignorato
+  if (rating >= 1.5) return 0.0   // non contribuisce al profilo positivo
   if (rating >= 1.0) return 0.0
-  return 1.0
+  return 1.0  // nessun rating = neutro
 }
 
 // ── V2: Completion rate multiplier ────────────────────────────────────────────
@@ -563,13 +564,13 @@ function isNegativeSignal(entry: any): boolean {
 
   // Film e boardgame non hanno episodi — la completion rate non è rilevante
   if (type === 'movie' || type === 'boardgame') {
-    return (status === 'dropped') || (rating > 0 && rating <= 2)
+    return (status === 'dropped') || (rating > 0 && rating <= 2.5)
   }
 
   const completionRate = total > 0 ? current / total : 1
   return (
     (status === 'dropped' && completionRate < 0.3) ||
-    (rating > 0 && rating <= 2)
+    (rating > 0 && rating <= 2.5)
   )
 }
 
@@ -885,7 +886,10 @@ function computeTasteProfile(
     }
 
     // V3: peso finale = base × temporal × completion × sentiment × velocity × rewatch
-    const weight = baseWeight * temporal * completion * sentiment * velocity * rewatch
+    // Cap a ×15 per evitare explosion (titolo rewatch+maratona dominava ratio 170:1)
+    const rawMultiplier = temporal * completion * sentiment * velocity * rewatch
+    const cappedMultiplier = Math.min(rawMultiplier, 15)
+    const weight = baseWeight * cappedMultiplier
 
     const isNegative = isNegativeSignal(entry)
 
@@ -894,16 +898,6 @@ function computeTasteProfile(
         addNegative(genre, baseWeight * temporal * 0.8, type)
       } else {
         addScore(genre, weight, type, title, recency, rating, velocity)
-      }
-    }
-
-    // Cross-media per giochi
-    if (type === 'game' && !isNegative) {
-      for (const genre of genres) {
-        const crossGenres = IGDB_TO_CROSS_GENRE[genre] || []
-        for (const cg of crossGenres) {
-          if (!genres.includes(cg)) addScore(cg, weight * 0.35, type, title, recency, rating)
-        }
       }
     }
 
@@ -1021,8 +1015,11 @@ function computeTasteProfile(
     .flatMap(g => ADJACENCY_GRAPH[g.genre] || [])
     .filter(g => !topGenreNames.has(g) && !hardDisliked.has(g) && !softDisliked.has(g))
     .filter(g => {
-      const count = entries.filter(e => (e.genres || []).includes(g)).length
-      return count < 2
+      // Esclude generi dove l'utente ha già segnali forti (anche via cross-expansion)
+      // globalScores > 0 significa che il genere è già presente nel profilo
+      const profileScore = globalScores[g] || 0
+      const maxGlobalScore = globalGenres[0]?.score || 1
+      return profileScore / maxGlobalScore < 0.15  // meno del 15% del genere top → genuinamente nuovo
     })
     .slice(0, 3)
 
@@ -1761,8 +1758,11 @@ async function fetchMangaRecs(
 ): Promise<Recommendation[]> {
   const results: Recommendation[] = []
   const seen = new Set<string>()
+  const qt = tasteProfile.qualityThresholds
   const topThemes = Object.entries(tasteProfile.deepSignals.themes)
-    .sort(([, a], [, b]) => b - a).slice(0, 5).map(([t]) => t)
+    .sort(([, a], [, b]) => b - a).slice(0, 6).map(([t]) => t)
+  const topKeywords = Object.entries(tasteProfile.deepSignals.keywords)
+    .sort(([, a], [, b]) => b - a).slice(0, 8).map(([k]) => k)
 
   const topAuthorsSet = new Set(
     Object.entries(tasteProfile.creatorScores.authors).sort(([,a],[,b]) => b - a).slice(0, 8).map(([a]) => a)
@@ -1773,11 +1773,13 @@ async function fetchMangaRecs(
     if (!genre) continue
 
     const query = `
-      query($genres: [String]) {
-        Page(page: 1, perPage: 35) {
-          media(genre_in: $genres, type: MANGA, format_in: [MANGA, ONE_SHOT], sort: [SCORE_DESC, POPULARITY_DESC]) {
+      query($genres: [String], $minScore: Int, $minPop: Int) {
+        Page(page: 1, perPage: 60) {
+          media(genre_in: $genres, type: MANGA, format_in: [MANGA, ONE_SHOT],
+                sort: [SCORE_DESC, POPULARITY_DESC],
+                averageScore_greater: $minScore, popularity_greater: $minPop) {
             id title { romaji english } coverImage { large }
-            seasonYear chapters genres description(asHtml: false) averageScore trending
+            seasonYear chapters genres description(asHtml: false) averageScore popularity trending
             tags { name rank }
             staff(sort: RELEVANCE) { edges { role node { name { full } } } }
           }
@@ -1787,7 +1789,7 @@ async function fetchMangaRecs(
     try {
       const res = await fetch('https://graphql.anilist.co', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, variables: { genres: [genre] } }),
+        body: JSON.stringify({ query, variables: { genres: [genre], minScore: qt.anilistScore, minPop: qt.anilistPopularity } }),
         signal: AbortSignal.timeout(8000),
       })
       if (!res.ok) continue
@@ -1798,7 +1800,9 @@ async function fetchMangaRecs(
         .filter((m: any) => {
           const id = `anilist-manga-${m.id}`
           const title = m.title?.romaji || m.title?.english || ''
-          return !isAlreadyOwned('manga', id, title) && !seen.has(id) && m.coverImage?.large
+          if (isAlreadyOwned('manga', id, title) || seen.has(id)) return false
+          if (shownIds?.has(id)) return false
+          return !!m.coverImage?.large
         })
         .map((m: any) => {
           const mTags: string[] = (m.tags || []).map((t: any) => t.name.toLowerCase())
@@ -1808,6 +1812,7 @@ async function fetchMangaRecs(
 
           let boost = 0
           for (const theme of topThemes) { if (mTags.some(t => t.includes(theme))) boost += 3 }
+          for (const kw of topKeywords) { if (mTags.some(t => t.includes(kw))) boost += 2 }
 
           let creatorBoost: string | undefined
           for (const author of mAuthors) {
@@ -1817,26 +1822,27 @@ async function fetchMangaRecs(
           const trendingBoost = Math.min(4, (m.trending || 0) / 200)
           boost += trendingBoost
 
+          // Social boost
+          const socialFriend = socialFavorites?.get(`anilist-manga-${m.id}`)
+          if (socialFriend) boost += 15
+
           const recGenres: string[] = m.genres || []
-          const matchScore = computeMatchScore(recGenres, mTags, tasteProfile, [], mAuthors)
-          return { m, boost, matchScore, recGenres, mAuthors, creatorBoost, trendingBoost }
+          let matchScore = computeMatchScore(recGenres, mTags, tasteProfile, [], mAuthors)
+          // Freshness inline
+          matchScore = Math.round(matchScore * releaseFreshnessMult(m.seasonYear, m.averageScore, m.popularity))
+          return { m, boost, matchScore, recGenres, mAuthors, creatorBoost, trendingBoost, socialFriend }
         })
         .filter(({ matchScore }: any) => matchScore >= 20)
         .sort((a: any, b: any) => (b.boost + b.matchScore) - (a.boost + a.matchScore))
-        .slice(0, slot.quota)
+        .slice(0, slot.quota + 5)
 
-      for (const { m, matchScore, recGenres, mAuthors, creatorBoost, trendingBoost } of candidates) {
+      for (const { m, matchScore, recGenres, mAuthors, creatorBoost, trendingBoost, socialFriend } of candidates.slice(0, slot.quota)) {
         const recId = `anilist-manga-${m.id}`
         if (seen.has(recId)) continue
-        if (shownIds?.has(recId)) continue
         seen.add(recId)
-        const socialFriend = socialFavorites?.get(recId)
         let finalScore = matchScore
         if (socialFriend) finalScore = Math.min(100, finalScore + 15)
-        // V4: Award boost
         if (isAwardWorthy(m.averageScore, m.popularity, undefined, 'anilist')) finalScore = Math.min(100, finalScore + 8)
-        // V4: Freshness
-        finalScore = Math.round(finalScore * releaseFreshnessMult(m.seasonYear, m.averageScore, m.popularity))
         results.push({
           id: recId,
           title: m.title.romaji || m.title.english || 'Senza titolo',
@@ -1853,6 +1859,7 @@ async function fetchMangaRecs(
               }),
           matchScore: finalScore,
           isDiscovery: slot.isDiscovery,
+          isSerendipity: slot.isSerendipity,
           creatorBoost,
           isAwardWinner: isAwardWorthy(m.averageScore, m.popularity, undefined, 'anilist'),
           socialBoost: socialFriend,
@@ -1892,12 +1899,10 @@ async function fetchMovieRecs(
 
     try {
       const voteAvgMin = tasteProfile.qualityThresholds.tmdbVoteAvg
-      const langFilter = tasteProfile.languagePreference.preferNonEnglish
-        ? '&with_original_language=!en'
-        : ''
+      const preferNonEn = tasteProfile.languagePreference.preferNonEnglish
 
       const res = await fetch(
-        `https://api.themoviedb.org/3/discover/movie?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=80&vote_average.gte=${voteAvgMin}&language=it-IT&page=1${langFilter}`,
+        `https://api.themoviedb.org/3/discover/movie?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=80&vote_average.gte=${voteAvgMin}&language=it-IT&page=1`,
         { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
       )
       if (!res.ok) continue
@@ -1951,6 +1956,9 @@ async function fetchMovieRecs(
           // #8: platform boost — titolo disponibile sulla piattaforma dell'utente
           const platformMatch = userPlatformIds.length > 0 && userPlatformIds.some(pid => movieProviders.has(pid))
           if (platformMatch) boost += 12
+          // #6: language boost — boost titoli non-inglesi se l'utente li preferisce
+          const NON_ENGLISH_LANGS = new Set(['ja','ko','fr','de','it','es','zh','pt','pl','tr'])
+          if (preferNonEn && m.original_language && NON_ENGLISH_LANGS.has(m.original_language)) boost += 8
           const recGenres = [slot.genre]
           let matchScore = computeMatchScore(recGenres, kws, tasteProfile)
           // V5: runtime penalty
@@ -2038,11 +2046,9 @@ async function fetchTvRecs(
 
     try {
       const voteAvgMin = tasteProfile.qualityThresholds.tmdbVoteAvg
-      const langFilter = tasteProfile.languagePreference.preferNonEnglish
-        ? '&with_original_language=!en'
-        : ''
+      const preferNonEn = tasteProfile.languagePreference.preferNonEnglish
       const res = await fetch(
-        `https://api.themoviedb.org/3/discover/tv?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=40&vote_average.gte=${voteAvgMin}&language=it-IT&page=1${langFilter}`,
+        `https://api.themoviedb.org/3/discover/tv?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=40&vote_average.gte=${voteAvgMin}&language=it-IT&page=1`,
         { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
       )
       if (!res.ok) continue
@@ -2095,6 +2101,9 @@ async function fetchTvRecs(
           // #8: platform boost
           const platformMatch = userPlatformIds.length > 0 && userPlatformIds.some(pid => showProviders.has(pid))
           if (platformMatch) boost += 12
+          // #6: language boost
+          const NON_ENGLISH_LANGS = new Set(['ja','ko','fr','de','it','es','zh','pt','pl','tr'])
+          if (preferNonEn && m.original_language && NON_ENGLISH_LANGS.has(m.original_language)) boost += 8
           const recGenres = [slot.genre]
           let matchScore = computeMatchScore(recGenres, kws, tasteProfile)
           // V4: award boost

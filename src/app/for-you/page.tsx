@@ -810,7 +810,7 @@ export default function ForYouPage() {
     setDismissedIds(prev => new Set([...prev, item.id]))
     await fetch('/api/recommendations/feedback', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres, action })
+      body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres, action, reason: reason || null })
     })
     if (action === 'not_interested') showToast('Rimosso dai consigli')
   }, [])
