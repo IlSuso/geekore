@@ -1,5 +1,4 @@
 // DESTINAZIONE: src/app/register/page.tsx
-// C3: Aggiunta PasswordStrengthBar con 4 livelli + blocco submit se < "media"
 
 'use client'
 
@@ -25,7 +24,6 @@ function LocaleToggle() {
   )
 }
 
-// C3: Calcola forza password: 0=vuota 1=debole 2=media 3=buona 4=forte
 function calcStrength(password: string): number {
   if (!password) return 0
   let score = 0
@@ -38,20 +36,8 @@ function calcStrength(password: string): number {
 
 const STRENGTH_LABELS = ['', 'Debole', 'Media', 'Buona', 'Forte']
 const STRENGTH_LABELS_EN = ['', 'Weak', 'Medium', 'Good', 'Strong']
-const STRENGTH_COLORS = [
-  '',
-  'bg-red-500',
-  'bg-yellow-500',
-  'bg-emerald-400',
-  'bg-emerald-500',
-]
-const STRENGTH_TEXT_COLORS = [
-  '',
-  'text-red-400',
-  'text-yellow-400',
-  'text-emerald-400',
-  'text-emerald-400',
-]
+const STRENGTH_COLORS = ['', 'bg-red-500', 'bg-yellow-500', 'bg-emerald-400', 'bg-emerald-500']
+const STRENGTH_TEXT_COLORS = ['', 'text-red-400', 'text-yellow-400', 'text-emerald-400', 'text-emerald-400']
 
 function PasswordStrengthBar({ password, locale }: { password: string; locale: string }) {
   const strength = calcStrength(password)
@@ -78,6 +64,17 @@ function PasswordStrengthBar({ password, locale }: { password: string; locale: s
   )
 }
 
+function generateUsername(displayName: string, email: string): string {
+  const base = displayName || email.split('@')[0]
+  return base
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')  // sostituisce tutto ciò che non è valido con _
+    .replace(/_{2,}/g, '_')        // collassa underscore multipli
+    .replace(/^_|_$/g, '')         // rimuove underscore iniziali/finali
+    .substring(0, 28)              // max 28 chars (lascia spazio per suffisso numerico nel trigger)
+    || 'user'                      // fallback se tutto viene rimosso
+}
+
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -91,7 +88,6 @@ export default function RegisterPage() {
   const l = t.register
 
   const passwordStrength = useMemo(() => calcStrength(password), [password])
-  // C3: blocca submit se forza < 2 ("media")
   const passwordTooWeak = password.length > 0 && passwordStrength < 2
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -100,11 +96,15 @@ export default function RegisterPage() {
     setLoading(true)
     setError(null)
     try {
+      const username = generateUsername(displayName, email)
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: { display_name: displayName || email.split('@')[0] },
+          data: {
+            display_name: displayName || email.split('@')[0],
+            username,
+          },
           emailRedirectTo: `https://geekore.it/auth/confirm?email=${encodeURIComponent(email)}`
         },
       })
@@ -230,7 +230,6 @@ export default function RegisterPage() {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-              {/* C3: PasswordStrengthBar */}
               <PasswordStrengthBar password={password} locale={locale} />
             </div>
             {error && (
