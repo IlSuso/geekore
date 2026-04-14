@@ -12,6 +12,7 @@ import Navbar from '@/components/Navbar'
 import { ToastProvider } from '@/components/ui/Toast'
 import { ClientProviders } from '@/components/ClientProviders'
 import { Footer } from '@/components/Footer'
+import { MobileHeader } from '@/components/MobileHeader'
 import { cookies } from 'next/headers'
 
 export const metadata: Metadata = {
@@ -66,8 +67,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {/* Navbar senza wrapper — qualsiasi div/span con viewTransitionName,
               isolation, transform, will-change, filter, opacity<1 crea uno
               stacking context che imprigiona il z-index dei figli */}
+          <MobileHeader />
           <Navbar />
-          <main className="pt-0 md:pt-16 pb-20 md:pb-8">
+          <main className="pt-14 md:pt-16 pb-20 md:pb-8">
             {children}
           </main>
           <Footer />

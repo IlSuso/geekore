@@ -97,40 +97,64 @@ interface PullIndicatorProps {
   threshold?: number
 }
 
+// Pull-to-refresh stile Instagram:
+// - Lo spinner appare dall'header mobile e scende con la pagina
+// - L'intera pagina si sposta via transform (gestito dal parent)
 export function PullToRefreshIndicator({
   pullDistance,
   isRefreshing,
-  threshold = 80,
+  threshold = 72,
 }: PullIndicatorProps) {
   if (pullDistance <= 0 && !isRefreshing) return null
 
-  const progress = Math.min(pullDistance / (threshold * 0.4), 1)
-  const isReady = pullDistance >= threshold * 0.4
+  const progress = Math.min(pullDistance / threshold, 1)
+  const isReady = progress >= 0.75
+  // Spinner: ruota col progresso, gira continuo quando refreshing
+  const rotation = isRefreshing ? undefined : progress * 270
 
   return (
-    <div
-      className="fixed top-16 left-0 right-0 z-50 flex justify-center pointer-events-none transition-all duration-150"
-      style={{ transform: `translateY(${Math.min(pullDistance * 0.5, 40)}px)` }}
-    >
-      <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium shadow-lg transition-all ${
-        isRefreshing
-          ? 'bg-violet-600 text-white'
-          : isReady
-            ? 'bg-violet-600/90 text-white'
-            : 'bg-zinc-800 text-zinc-400'
-      }`}>
-        <svg
-          className={`w-4 h-4 transition-transform ${isRefreshing ? 'animate-spin' : ''}`}
-          style={{ transform: isRefreshing ? undefined : `rotate(${progress * 360}deg)` }}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2.5}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-        {isRefreshing ? 'Aggiornamento...' : isReady ? 'Rilascia per aggiornare' : 'Tira per aggiornare'}
+    <>
+      {/* Sposta fisicamente il contenuto della pagina verso il basso */}
+      <div
+        className="fixed inset-0 z-[98] pointer-events-none md:hidden"
+        style={{
+          transform: isRefreshing
+            ? 'translateY(52px)'
+            : `translateY(${pullDistance}px)`,
+          transition: isRefreshing ? 'transform 0.2s ease' : 'none',
+        }}
+      />
+
+      {/* Spinner che appare sotto l'header mentre tiri */}
+      <div
+        className="fixed left-0 right-0 z-[97] flex justify-center pointer-events-none md:hidden"
+        style={{
+          top: '56px', // sotto MobileHeader (h-14)
+          transform: isRefreshing
+            ? 'translateY(4px)'
+            : `translateY(${Math.min(pullDistance * 0.7, 48) - 32}px)`,
+          transition: isRefreshing ? 'transform 0.2s ease' : 'none',
+          opacity: isRefreshing ? 1 : Math.min(progress * 2, 1),
+        }}
+      >
+        <div className={`w-9 h-9 rounded-full flex items-center justify-center shadow-xl transition-colors ${
+          isReady || isRefreshing ? 'bg-white' : 'bg-zinc-800'
+        }`}>
+          <svg
+            width="18" height="18"
+            viewBox="0 0 24 24" fill="none"
+            stroke={isReady || isRefreshing ? '#7c3aed' : '#71717a'}
+            strokeWidth={2.5}
+            strokeLinecap="round" strokeLinejoin="round"
+            style={{
+              transform: isRefreshing ? undefined : `rotate(${rotation}deg)`,
+              animation: isRefreshing ? 'spin 0.7s linear infinite' : 'none',
+            }}
+          >
+            <path d="M21 12a9 9 0 11-6.219-8.56" />
+          </svg>
+        </div>
       </div>
-    </div>
+    </>
   )
 }

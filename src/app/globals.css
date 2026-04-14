@@ -595,3 +595,29 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
     visibility: visible;
   }
 }
+
+/* ── Pull-to-refresh: sposta fisicamente il contenuto con la pagina ───────── */
+/* Il div overlay trasparente in fixed:inset-0 sposta visivamente il contenuto.
+   Usiamo un approccio alternativo: il wrapper del main si trasforma. */
+[data-pull-distance] {
+  transition: transform 0.05s linear;
+}
+
+/* Spin keyframe per lo spinner PTR (non usa Tailwind animate-spin per controllo) */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── MobileHeader safe area ──────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  /* Il main deve scendere sotto MobileHeader (h-14 = 56px) + safe-area-top */
+  main {
+    padding-top: calc(3.5rem + env(safe-area-inset-top, 0px)) !important;
+  }
+}
+@media (min-width: 768px) {
+  main {
+    padding-top: 4rem !important; /* 64px = h-16 navbar desktop */
+  }
+}
