@@ -19,6 +19,42 @@ import { PushNotificationsToggle } from '@/components/notifications/PushNotifica
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
+// ─── Logout semplice ─────────────────────────────────────────────────────────
+
+function LogoutButton() {
+  const [loading, setLoading] = useState(false)
+  const supabase = createClient()
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    setLoading(true)
+    try {
+      await supabase.auth.signOut()
+      router.push('/login')
+    } catch {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <button
+      onClick={handleLogout}
+      disabled={loading}
+      className="w-full flex items-center gap-3 p-4 hover:bg-red-500/5 transition-colors group"
+    >
+      <div className="w-9 h-9 bg-red-500/10 rounded-xl flex items-center justify-center group-hover:bg-red-500/20 transition-colors">
+        {loading
+          ? <Loader2 size={16} className="text-red-400 animate-spin" />
+          : <LogOut size={16} className="text-red-400" />}
+      </div>
+      <div className="text-left">
+        <p className="text-sm font-medium text-white group-hover:text-red-300 transition-colors">Esci dall'account</p>
+        <p className="text-xs text-zinc-500">Disconnettiti da questo dispositivo</p>
+      </div>
+    </button>
+  )
+}
+
 // ─── M5: Sezione cambio password ─────────────────────────────────────────────
 
 function ChangePasswordSheet() {
@@ -405,13 +441,13 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
-      <div className="max-w-xl mx-auto px-6 pt-10 pb-24 space-y-6">
+      <div className="max-w-xl mx-auto px-4 md:px-6 pt-6 md:pt-10 pb-28 space-y-6">
 
         <div className="flex items-center gap-3 mb-2">
           <div className="w-10 h-10 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-center">
             <Settings size={20} className="text-violet-400" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">{t.settings.title}</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t.settings.title}</h1>
         </div>
 
         {/* Lingua */}
@@ -469,6 +505,17 @@ export default function SettingsPage() {
                 </button>
               ))}
             </div>
+          </div>
+        </section>
+
+        {/* Logout rapido */}
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <LogOut size={15} className="text-zinc-500" />
+            <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Account</h2>
+          </div>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+            <LogoutButton />
           </div>
         </section>
 

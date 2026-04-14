@@ -507,3 +507,29 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
     min-width: unset;
   }
 }
+
+/* ── Touch feedback per mobile ───────────────────────────────────────────── */
+@media (max-width: 767px) {
+  /* Active state più visibile su touch */
+  button:active, a:active {
+    opacity: 0.75;
+    transform: scale(0.97);
+    transition: opacity 0.1s, transform 0.1s;
+  }
+  /* Override per bottoni con proprio active state */
+  .no-tap-highlight {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Evita zoom su input iOS (font-size < 16px) */
+@media (max-width: 767px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}

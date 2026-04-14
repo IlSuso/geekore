@@ -119,7 +119,7 @@ export default function NewsPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <div className="pt-8 pb-24 max-w-screen-2xl mx-auto px-6">
+      <div className="pt-4 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
 
         {/* Header */}
         <div className="mb-8">
@@ -181,7 +181,7 @@ export default function NewsPage() {
             <button
               onClick={triggerSync}
               disabled={syncing}
-              className="px-6 py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl text-sm font-semibold transition disabled:opacity-50"
+              className="px-3 sm:px-4 md:px-6 py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl text-sm font-semibold transition disabled:opacity-50"
             >
               {syncing ? t.news.loading : t.news.load}
             </button>

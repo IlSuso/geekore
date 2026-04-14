@@ -853,7 +853,7 @@ export default function ForYouPage() {
   })
 
   if (loading) return (
-    <div className="min-h-screen bg-black text-white pt-8 pb-24 max-w-screen-2xl mx-auto px-6">
+    <div className="min-h-screen bg-black text-white pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-3 sm:px-4 md:px-6">
       <div className="mb-10 animate-pulse">
         <div className="h-10 w-48 bg-zinc-800 rounded-2xl mb-3" />
         <div className="h-5 w-80 bg-zinc-900 rounded-xl" />
@@ -865,7 +865,7 @@ export default function ForYouPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <div className="pt-8 pb-24 max-w-screen-2xl mx-auto px-6">
+      <div className="pt-4 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-3 sm:px-4 md:px-6">
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-end gap-4 mb-10">
@@ -896,7 +896,7 @@ export default function ForYouPage() {
             </div>
             <h2 className="text-xl font-bold text-white mb-3">{fy.title}</h2>
             <p className="text-zinc-400 max-w-md mx-auto mb-8">{fy.emptyState}</p>
-            <Link href="/discover" className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white font-semibold px-6 py-3 rounded-2xl">
+            <Link href="/discover" className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white font-semibold px-3 sm:px-4 md:px-3 sm:px-4 md:px-6 py-3 rounded-2xl">
               <Zap size={18} />{fy.emptyStateCta}
             </Link>
           </div>

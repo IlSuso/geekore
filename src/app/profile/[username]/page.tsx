@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
-  CheckCircle, Clock, X, RotateCw, RotateCcw, Edit3, RefreshCw,
+  CheckCircle, Clock, X, RotateCw, RotateCcw, Edit3, RefreshCw, Settings, Bookmark,
 } from 'lucide-react'
 import { SteamIcon } from '@/components/icons/SteamIcon'
 import { StarRating } from '@/components/ui/StarRating'
@@ -944,12 +944,12 @@ export default function ProfilePage() {
           <div className="w-12 hidden lg:block" />
 
           <div className="flex flex-col items-center flex-1">
-            <div className="w-24 h-24 md:w-36 md:h-36 border-4 border-zinc-700 mb-4 md:mb-6 rounded-full overflow-hidden">
+            <div className="w-20 h-20 md:w-32 md:h-32 border-2 md:border-4 border-zinc-700 mb-4 md:mb-6 rounded-full overflow-hidden flex-shrink-0">
               <Avatar
                 src={profile.avatar_url}
                 username={profile.username}
                 displayName={profile.display_name}
-                size={144}
+                size={128}
                 className="w-full h-full"
               />
             </div>
@@ -992,6 +992,17 @@ export default function ProfilePage() {
             </div>
 
             {isOwner && (
+              {/* Mobile: link rapidi Settings + Logout — visibili solo su schermi piccoli */}
+              <div className="flex md:hidden items-center gap-3 mt-4">
+                <Link href="/settings"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-zinc-400 hover:text-white hover:border-zinc-700 transition-all">
+                  <Settings size={13} /> Impostazioni
+                </Link>
+                <Link href="/wishlist"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-zinc-400 hover:text-white hover:border-zinc-700 transition-all">
+                  <Bookmark size={13} /> Wishlist
+                </Link>
+              </div>
               <button onClick={() => setShowDeleteModal(true)} className="mt-3 text-xs text-zinc-600 hover:text-red-400 transition-colors flex items-center gap-1">
                 <Trash2 size={12} /> Elimina account
               </button>
@@ -1006,15 +1017,15 @@ export default function ProfilePage() {
                 <button
                   onClick={() => setImportPlatform('steam')}
                   title={steamAccount ? 'Steam (connesso) — clicca per importare' : 'Connetti Steam'}
-                  className={`w-8 h-8 rounded-full overflow-hidden border transition-all hover:scale-110 ${steamAccount ? 'border-[#66C0F4]/40 hover:border-[#66C0F4]' : 'border-zinc-700 hover:border-[#66C0F4]/60 opacity-50 hover:opacity-100'}`}
+                  className={`w-9 h-9 rounded-full overflow-hidden border flex items-center justify-center transition-all hover:scale-110 flex-shrink-0 ${steamAccount ? 'border-[#66C0F4]/40 hover:border-[#66C0F4]' : 'border-zinc-700 hover:border-[#66C0F4]/60 opacity-50 hover:opacity-100'}`}
                 >
-                  <SteamIcon size={32} />
+                  <SteamIcon size={24} className="block" />
                 </button>
 
                 {/* AniList */}
                 <button onClick={() => setImportPlatform('anilist')} title="Importa da AniList"
-                  className="w-8 h-8 rounded-full overflow-hidden border border-zinc-700 hover:border-[#02a9ff]/60 transition-all hover:scale-110">
-                  <svg viewBox="0 0 512 512" width="32" height="32">
+                  className="w-9 h-9 rounded-full overflow-hidden border border-zinc-700 hover:border-[#02a9ff]/60 transition-all hover:scale-110 flex items-center justify-center flex-shrink-0">
+                  <svg viewBox="0 0 512 512" width="28" height="28" style={{display:"block"}}>
                     <rect width="512" height="512" fill="#1e2630"/>
                     <path d="M321.92 323.27V136.6c0-10.698-5.887-16.602-16.558-16.602h-36.433c-10.672 0-16.561 5.904-16.561 16.602v88.651c0 2.497 23.996 14.089 24.623 16.541 18.282 71.61 3.972 128.92-13.359 131.6 28.337 1.405 31.455 15.064 10.348 5.731 3.229-38.209 15.828-38.134 52.049-1.406.31.317 7.427 15.282 7.87 15.282h85.545c10.672 0 16.558-5.9 16.558-16.6v-36.524c0-10.698-5.886-16.602-16.558-16.602z" fill="#02a9ff"/>
                     <path d="M170.68 120 74.999 393h74.338l16.192-47.222h80.96L262.315 393h73.968l-95.314-273zm11.776 165.28 23.183-75.629 25.393 75.629z" fill="#fefefe"/>
@@ -1023,8 +1034,8 @@ export default function ProfilePage() {
 
                 {/* MAL */}
                 <button onClick={() => setImportPlatform('mal')} title="Importa da MyAnimeList"
-                  className="w-8 h-8 rounded-full overflow-hidden border border-zinc-700 hover:border-[#2e51a2]/80 transition-all hover:scale-110">
-                  <svg viewBox="0 0 256 256" width="32" height="32">
+                  className="w-9 h-9 rounded-full overflow-hidden border border-zinc-700 hover:border-[#2e51a2]/80 transition-all hover:scale-110 flex items-center justify-center flex-shrink-0">
+                  <svg viewBox="0 0 256 256" width="28" height="28" style={{display:"block"}}>
                     <rect width="256" height="256" fill="#2e51a2"/>
                     <path fill="#ffffff" d="m 30.638616,88.40918 v 68.70703 h 17.759766 v -41.91016 l 15.470703,19.77344 16.67825,-19.77344 v 41.91016 H 98.307101 V 88.40918 H 80.547335 L 63.869085,109.82324 48.398382,88.40918 Z"/>
                     <path fill="#ffffff" d="m 182.49799,88.40918 v 68.70703 h 39.07974 l 3.78365,-14.65739 H 200.25775 V 88.40918 Z"/>
@@ -1034,8 +1045,8 @@ export default function ProfilePage() {
 
                 {/* Letterboxd — tre cerchi sovrapposti ufficiali */}
                 <button onClick={() => setImportPlatform('letterboxd')} title="Importa da Letterboxd"
-                  className="w-8 h-8 rounded-full overflow-hidden border border-zinc-700 hover:border-zinc-500 transition-all hover:scale-110">
-                  <svg viewBox="0 0 40 40" width="32" height="32">
+                  className="w-9 h-9 rounded-full overflow-hidden border border-zinc-700 hover:border-zinc-500 transition-all hover:scale-110 flex items-center justify-center flex-shrink-0">
+                  <svg viewBox="0 0 40 40" width="28" height="28" style={{display:"block"}}>
                     <rect width="40" height="40" fill="#1a1a1a"/>
                     <ellipse cx="11" cy="20" rx="9" ry="9" fill="#ff8000"/>
                     <ellipse cx="20" cy="20" rx="9" ry="9" fill="#00e054"/>
@@ -1047,7 +1058,7 @@ export default function ProfilePage() {
 
                 {/* Xbox */}
                 <button onClick={() => setImportPlatform('xbox')} title="Importa da Xbox"
-                  className="w-8 h-8 rounded-full overflow-hidden border border-zinc-700 hover:border-[#107c10]/60 transition-all hover:scale-110 bg-black flex items-center justify-center">
+                  className="w-9 h-9 rounded-full overflow-hidden border border-zinc-700 hover:border-[#107c10]/60 transition-all hover:scale-110 bg-black flex items-center justify-center flex-shrink-0">
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 88 88">
                     <path fill="#107c10" d="M39.73 86.91c-6.628-.635-13.338-3.015-19.102-6.776-4.83-3.15-5.92-4.447-5.92-7.032 0-5.193 5.71-14.29 15.48-24.658 5.547-5.89 13.275-12.79 14.11-12.604 1.626.363 14.616 13.034 19.48 19 7.69 9.43 11.224 17.154 9.428 20.597-1.365 2.617-9.837 7.733-16.06 9.698-5.13 1.62-11.867 2.306-17.416 1.775zM8.184 67.703c-4.014-6.158-6.042-12.22-7.02-20.988-.324-2.895-.21-4.55.733-10.494 1.173-7.4 5.39-15.97 10.46-21.24 2.158-2.24 2.35-2.3 4.982-1.41 3.19 1.08 6.6 3.436 11.89 8.22l3.09 2.794-1.69 2.07c-7.828 9.61-16.09 23.24-19.2 31.67-1.69 4.58-2.37 9.18-1.64 11.095.49 1.294.04.812-1.61-1.714zm70.453 1.047c.397-1.936-.105-5.49-1.28-9.076-2.545-7.765-11.054-22.21-18.867-32.032l-2.46-3.092 2.662-2.443c3.474-3.19 5.886-5.1 8.49-6.723 2.053-1.28 4.988-2.413 6.25-2.413.777 0 3.516 2.85 5.726 5.95 3.424 4.8 5.942 10.63 7.218 16.69.825 3.92.894 12.3.133 16.21-.63 3.208-1.95 7.366-3.23 10.187-.97 2.113-3.36 6.218-4.41 7.554-.54.687-.54.686-.24-.796zM40.44 11.505C36.834 9.675 31.272 7.71 28.2 7.18c-1.076-.185-2.913-.29-4.08-.23-2.536.128-2.423-.004 1.643-1.925 3.38-1.597 6.2-2.536 10.03-3.34C40.098.78 48.193.77 52.43 1.663c4.575.965 9.964 2.97 13 4.84l.904.554-2.07-.104C60.148 6.745 54.15 8.408 47.71 11.54c-1.942.946-3.63 1.7-3.754 1.68-.123-.024-1.706-.795-3.52-1.715z"/>
                   </svg>

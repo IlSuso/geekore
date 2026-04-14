@@ -273,12 +273,12 @@ export default function ListsPage() {
 
   if (!isLoggedIn && !loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center text-white px-6 text-center">
+      <div className="min-h-screen bg-black flex items-center justify-center text-white px-3 sm:px-4 md:px-6 text-center">
         <div>
           <List size={48} className="mx-auto mb-4 text-zinc-600" />
           <h1 className="text-2xl font-bold mb-3">Le tue liste</h1>
           <p className="text-zinc-400 mb-6">Accedi per creare liste personalizzate</p>
-          <Link href="/login" className="px-6 py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl font-semibold transition">
+          <Link href="/login" className="px-3 sm:px-4 md:px-6 py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl font-semibold transition">
             Accedi
           </Link>
         </div>
@@ -288,7 +288,7 @@ export default function ListsPage() {
 
   return (
     <div className="min-h-screen bg-black text-white pb-24">
-      <div className="max-w-2xl mx-auto px-6 pt-8">
+      <div className="max-w-2xl mx-auto px-3 sm:px-4 md:px-6 pt-8">
 
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -319,7 +319,7 @@ export default function ListsPage() {
             </p>
             <button
               onClick={() => setShowModal(true)}
-              className="px-6 py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl font-semibold transition"
+              className="px-3 sm:px-4 md:px-6 py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl font-semibold transition"
             >
               Crea la prima lista
             </button>

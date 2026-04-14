@@ -17,7 +17,7 @@ export default function FeedError({
   }, [error])
 
   return (
-    <div className="min-h-[60vh] flex flex-col items-center justify-center text-white px-6">
+    <div className="min-h-[60vh] flex flex-col items-center justify-center text-white px-4">
       <div className="text-center max-w-sm">
         <div className="w-16 h-16 bg-amber-950/50 border border-amber-800/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
           <AlertTriangle size={32} className="text-amber-400" />
@@ -29,14 +29,14 @@ export default function FeedError({
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
             onClick={reset}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl font-medium transition-all"
+            className="flex items-center justify-center gap-2 px-4 py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl font-medium transition-all"
           >
             <RefreshCw size={16} />
             Riprova
           </button>
           <a
             href="/"
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl font-medium transition-all"
+            className="flex items-center justify-center gap-2 px-4 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl font-medium transition-all"
           >
             <Home size={16} />
             Home

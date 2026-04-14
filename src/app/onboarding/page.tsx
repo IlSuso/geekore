@@ -56,7 +56,7 @@ export default function OnboardingPage() {
   const progress = ((step + 1) / STEPS.length) * 100
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-6 py-12">
+    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-4 sm:px-6 py-8 sm:py-12">
       <div className="w-full max-w-lg">
 
         {/* Logo */}
