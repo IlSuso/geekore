@@ -1594,7 +1594,8 @@ const ANILIST_MANGA_GENRES = new Set([
 ])
 
 async function fetchMangaRecs(
-  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, isAlreadyOwned: (type: string, id: string, title: string) => boolean
+  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, isAlreadyOwned: (type: string, id: string, title: string) => boolean,
+  shownIds?: Set<string>, socialFavorites?: Map<string, string>
 ): Promise<Recommendation[]> {
   const results: Recommendation[] = []
   const seen = new Set<string>()
@@ -1665,7 +1666,15 @@ async function fetchMangaRecs(
       for (const { m, matchScore, recGenres, mAuthors, creatorBoost, trendingBoost } of candidates) {
         const recId = `anilist-manga-${m.id}`
         if (seen.has(recId)) continue
+        if (shownIds?.has(recId)) continue
         seen.add(recId)
+        const socialFriend = socialFavorites?.get(recId)
+        let finalScore = matchScore
+        if (socialFriend) finalScore = Math.min(100, finalScore + 15)
+        // V4: Award boost
+        if (isAwardWorthy(m.averageScore, m.popularity, undefined, 'anilist')) finalScore = Math.min(100, finalScore + 8)
+        // V4: Freshness
+        finalScore = Math.round(finalScore * releaseFreshnessMult(m.seasonYear, m.averageScore, m.popularity))
         results.push({
           id: recId,
           title: m.title.romaji || m.title.english || 'Senza titolo',
@@ -1675,12 +1684,16 @@ async function fetchMangaRecs(
           genres: recGenres,
           score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
           description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 300) : undefined,
-          why: buildWhyV3(recGenres, recId, m.title.romaji || '', tasteProfile, matchScore, slot.isDiscovery, {
-            recStudios: [], recDirectors: mAuthors, trendingBoost, creatorBoost
-          }),
-          matchScore,
+          why: socialFriend
+            ? `Il tuo amico con gusti simili all'${socialFriend} ha adorato questo`
+            : buildWhyV3(recGenres, recId, m.title.romaji || '', tasteProfile, matchScore, slot.isDiscovery, {
+                recStudios: [], recDirectors: mAuthors, trendingBoost, creatorBoost
+              }),
+          matchScore: finalScore,
           isDiscovery: slot.isDiscovery,
           creatorBoost,
+          isAwardWinner: isAwardWorthy(m.averageScore, m.popularity, undefined, 'anilist'),
+          socialBoost: socialFriend,
         })
       }
     } catch { /* continua */ }
@@ -1691,7 +1704,8 @@ async function fetchMangaRecs(
 
 // ── Fetcher: Film V3 (TMDb con trending) ─────────────────────────────────────
 async function fetchMovieRecs(
-  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, token: string, isAlreadyOwned: (type: string, id: string, title: string) => boolean
+  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, token: string, isAlreadyOwned: (type: string, id: string, title: string) => boolean,
+  shownIds?: Set<string>, socialFavorites?: Map<string, string>
 ): Promise<Recommendation[]> {
   if (!token) return []
   const results: Recommendation[] = []
@@ -1715,8 +1729,13 @@ async function fetchMovieRecs(
     if (!genreId) continue
 
     try {
+      const voteAvgMin = tasteProfile.qualityThresholds.tmdbVoteAvg
+      const langFilter = tasteProfile.languagePreference.preferNonEnglish
+        ? '&with_original_language=!en'
+        : ''
+
       const res = await fetch(
-        `https://api.themoviedb.org/3/discover/movie?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=80&language=it-IT&page=1`,
+        `https://api.themoviedb.org/3/discover/movie?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=80&vote_average.gte=${voteAvgMin}&language=it-IT&page=1${langFilter}`,
         { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
       )
       if (!res.ok) continue
@@ -1747,29 +1766,46 @@ async function fetchMovieRecs(
           const isTrending = trendingIds.has(m.id.toString())
           if (isTrending) boost += 5
           const recGenres = [slot.genre]
-          const matchScore = computeMatchScore(recGenres, kws, tasteProfile)
+          let matchScore = computeMatchScore(recGenres, kws, tasteProfile)
+          // V5: runtime penalty
+          const rtPenalty = runtimePenalty(m.runtime, tasteProfile.runtimePreference)
+          matchScore = Math.round(matchScore * rtPenalty)
+          // V4: award boost
+          if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
+          // V4: freshness
+          const year = m.release_date ? parseInt(m.release_date.substring(0, 4)) : undefined
+          matchScore = Math.round(matchScore * releaseFreshnessMult(year))
           return { m, boost, matchScore, recGenres, kws, trendingBoost: isTrending ? 0.8 : 0 }
         })
         .filter(({ matchScore }: any) => matchScore >= 20)
         .sort((a: any, b: any) => (b.boost + b.matchScore) - (a.boost + a.matchScore))
-        .slice(0, slot.quota)
+        .slice(0, slot.quota + 3)
 
       for (const { m, matchScore, recGenres, trendingBoost } of scored) {
         const recId = m.id.toString()
         if (seen.has(recId)) continue
+        if (shownIds?.has(recId)) continue
         seen.add(recId)
+        const socialFriend = socialFavorites?.get(recId)
+        let finalScore = matchScore
+        if (socialFriend) finalScore = Math.min(100, finalScore + 15)
+        const year = m.release_date ? parseInt(m.release_date.substring(0, 4)) : undefined
         results.push({
           id: recId,
           title: m.title || m.original_title || 'Senza titolo',
           type: 'movie',
           coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
-          year: m.release_date ? parseInt(m.release_date.substring(0, 4)) : undefined,
+          year,
           genres: recGenres,
           score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
           description: m.overview ? m.overview.slice(0, 300) : undefined,
-          why: buildWhyV3(recGenres, recId, m.title || '', tasteProfile, matchScore, slot.isDiscovery, { trendingBoost }),
-          matchScore,
+          why: socialFriend
+            ? `Il tuo amico con gusti simili all'${socialFriend} ha adorato questo`
+            : buildWhyV3(recGenres, recId, m.title || '', tasteProfile, matchScore, slot.isDiscovery, { trendingBoost }),
+          matchScore: finalScore,
           isDiscovery: slot.isDiscovery,
+          isAwardWinner: isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb'),
+          socialBoost: socialFriend,
         })
       }
     } catch { /* continua */ }
@@ -1780,7 +1816,8 @@ async function fetchMovieRecs(
 
 // ── Fetcher: Serie TV V3 ──────────────────────────────────────────────────────
 async function fetchTvRecs(
-  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, token: string, isAlreadyOwned: (type: string, id: string, title: string) => boolean
+  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, token: string, isAlreadyOwned: (type: string, id: string, title: string) => boolean,
+  shownIds?: Set<string>, socialFavorites?: Map<string, string>
 ): Promise<Recommendation[]> {
   if (!token) return []
   const results: Recommendation[] = []
@@ -1803,8 +1840,12 @@ async function fetchTvRecs(
     if (!genreId) continue
 
     try {
+      const voteAvgMin = tasteProfile.qualityThresholds.tmdbVoteAvg
+      const langFilter = tasteProfile.languagePreference.preferNonEnglish
+        ? '&with_original_language=!en'
+        : ''
       const res = await fetch(
-        `https://api.themoviedb.org/3/discover/tv?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=40&language=it-IT&page=1`,
+        `https://api.themoviedb.org/3/discover/tv?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=40&vote_average.gte=${voteAvgMin}&language=it-IT&page=1${langFilter}`,
         { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
       )
       if (!res.ok) continue
@@ -1835,29 +1876,43 @@ async function fetchTvRecs(
           const isTrending = trendingIds.has(m.id.toString())
           if (isTrending) boost += 5
           const recGenres = [slot.genre]
-          const matchScore = computeMatchScore(recGenres, kws, tasteProfile)
+          let matchScore = computeMatchScore(recGenres, kws, tasteProfile)
+          // V4: award boost
+          if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
+          // V4: freshness
+          const year = m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined
+          matchScore = Math.round(matchScore * releaseFreshnessMult(year))
           return { m, boost, matchScore, recGenres, trendingBoost: isTrending ? 0.8 : 0 }
         })
         .filter(({ matchScore }: any) => matchScore >= 20)
         .sort((a: any, b: any) => (b.boost + b.matchScore) - (a.boost + a.matchScore))
-        .slice(0, slot.quota)
+        .slice(0, slot.quota + 3)
 
       for (const { m, matchScore, recGenres, trendingBoost } of scored) {
         const recId = m.id.toString()
         if (seen.has(recId)) continue
+        if (shownIds?.has(recId)) continue
         seen.add(recId)
+        const socialFriend = socialFavorites?.get(recId)
+        let finalScore = matchScore
+        if (socialFriend) finalScore = Math.min(100, finalScore + 15)
+        const year = m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined
         results.push({
           id: recId,
           title: m.name || m.original_name || 'Senza titolo',
           type: 'tv',
           coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
-          year: m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined,
+          year,
           genres: recGenres,
           score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
           description: m.overview ? m.overview.slice(0, 300) : undefined,
-          why: buildWhyV3(recGenres, recId, m.name || '', tasteProfile, matchScore, slot.isDiscovery, { trendingBoost }),
-          matchScore,
+          why: socialFriend
+            ? `Il tuo amico con gusti simili all'${socialFriend} ha adorato questo`
+            : buildWhyV3(recGenres, recId, m.name || '', tasteProfile, matchScore, slot.isDiscovery, { trendingBoost }),
+          matchScore: finalScore,
           isDiscovery: slot.isDiscovery,
+          isAwardWinner: isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb'),
+          socialBoost: socialFriend,
         })
       }
     } catch { /* continua */ }
@@ -1885,7 +1940,8 @@ async function getIgdbToken(clientId: string, secret: string): Promise<string | 
 
 async function fetchGameRecs(
   slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile,
-  clientId: string, secret: string, isAlreadyOwned: (type: string, id: string, title: string) => boolean
+  clientId: string, secret: string, isAlreadyOwned: (type: string, id: string, title: string) => boolean,
+  shownIds?: Set<string>
 ): Promise<Recommendation[]> {
   const token = await getIgdbToken(clientId, secret)
   if (!token) return []
@@ -1901,11 +1957,13 @@ async function fetchGameRecs(
 
   for (const slot of slots) {
     try {
+      const igdbRatingMin = tasteProfile.qualityThresholds.igdbRating
+      const igdbCountMin = tasteProfile.qualityThresholds.igdbRatingCount
       const body = `
         fields name, cover.url, first_release_date, summary, genres.name, themes.name,
                player_perspectives.name, rating, rating_count, keywords.name,
                involved_companies.company.name, involved_companies.developer;
-        where genres.name = ("${slot.genre}") & rating_count > 30 & cover != null;
+        where genres.name = ("${slot.genre}") & rating_count > ${igdbCountMin} & rating >= ${igdbRatingMin} & cover != null;
         sort rating desc;
         limit 30;
       `
@@ -1953,22 +2011,30 @@ async function fetchGameRecs(
       for (const { g, matchScore, recGenres, developer, creatorBoost } of scored) {
         const recId = g.id.toString()
         if (seen.has(recId)) continue
+        if (shownIds?.has(recId)) continue
         seen.add(recId)
+        const year = g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : undefined
+        let finalScore = matchScore
+        // V4: award boost
+        if (isAwardWorthy(g.rating, undefined, g.rating_count, 'igdb')) finalScore = Math.min(100, finalScore + 8)
+        // V4: freshness
+        finalScore = Math.round(finalScore * releaseFreshnessMult(year))
         results.push({
           id: recId,
           title: g.name,
           type: 'game',
           coverImage: `https:${g.cover.url.replace('t_thumb', 't_cover_big')}`,
-          year: g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : undefined,
+          year,
           genres: recGenres,
           score: g.rating ? Math.min(Math.round(g.rating) / 20, 5) : undefined,
           description: g.summary ? g.summary.slice(0, 300) : undefined,
           why: buildWhyV3(recGenres, recId, g.name, tasteProfile, matchScore, slot.isDiscovery, {
             recDeveloper: developer, creatorBoost
           }),
-          matchScore,
+          matchScore: finalScore,
           isDiscovery: slot.isDiscovery,
           creatorBoost,
+          isAwardWinner: isAwardWorthy(g.rating, undefined, g.rating_count, 'igdb'),
         })
       }
     } catch { /* continua */ }
@@ -2192,6 +2258,47 @@ export async function GET(request: NextRequest) {
       ? ['anime', 'manga', 'movie', 'tv', 'game']
       : [requestedType as MediaType]
 
+    // ── V5: Carica shownIds (anti-ripetizione cross-sessione) ─────────────────
+    // Escludi titoli mostrati nelle ultime 2 settimane senza azione
+    const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: shownRows } = await supabase
+      .from('recommendations_shown')
+      .select('rec_id')
+      .eq('user_id', user.id)
+      .gte('shown_at', twoWeeksAgo)
+      .is('action', null)
+
+    const shownIds = new Set<string>((shownRows || []).map((r: any) => r.rec_id))
+
+    // ── V5: Carica socialFavorites (amici con taste similarity >70%) ──────────
+    const { data: similarFriends } = await supabase
+      .from('taste_similarity')
+      .select('other_user_id, similarity_score')
+      .eq('user_id', user.id)
+      .gte('similarity_score', 70)
+      .order('similarity_score', { ascending: false })
+      .limit(5)
+
+    const socialFavorites = new Map<string, string>()
+    if (similarFriends && similarFriends.length > 0) {
+      const friendIds = similarFriends.map((f: any) => f.other_user_id)
+      const { data: friendEntries } = await supabase
+        .from('user_media_entries')
+        .select('user_id, external_id, rating')
+        .in('user_id', friendIds)
+        .gte('rating', 4)
+
+      if (friendEntries) {
+        for (const fe of friendEntries) {
+          if (!fe.external_id || ownedIds.has(fe.external_id)) continue
+          if (!socialFavorites.has(fe.external_id)) {
+            const friend = similarFriends.find((f: any) => f.other_user_id === fe.user_id)
+            if (friend) socialFavorites.set(fe.external_id, `${Math.round(friend.similarity_score)}%`)
+          }
+        }
+      }
+    }
+
     // V3: Continuity engine in parallelo con le altre fetch
     const continuityRecsPromise = (requestedType === 'all' || requestedType === 'anime' || requestedType === 'manga')
       ? fetchContinuityRecs(allEntries, ownedIds, tasteProfile, supabase)
@@ -2204,11 +2311,11 @@ export async function GET(request: NextRequest) {
         if (slots.length === 0) return { type, items: [] }
 
         switch (type) {
-          case 'anime': return { type, items: await fetchAnimeRecs(slots, ownedIds, tasteProfile, isAlreadyOwned) }
-          case 'manga': return { type, items: await fetchMangaRecs(slots, ownedIds, tasteProfile, isAlreadyOwned) }
-          case 'movie': return { type, items: await fetchMovieRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned) }
-          case 'tv':    return { type, items: await fetchTvRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned) }
-          case 'game':  return { type, items: await fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret, isAlreadyOwned) }
+          case 'anime': return { type, items: await fetchAnimeRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, shownIds, socialFavorites) }
+          case 'manga': return { type, items: await fetchMangaRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, shownIds, socialFavorites) }
+          case 'movie': return { type, items: await fetchMovieRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, shownIds, socialFavorites) }
+          case 'tv':    return { type, items: await fetchTvRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, shownIds, socialFavorites) }
+          case 'game':  return { type, items: await fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret, isAlreadyOwned, shownIds) }
           default: return { type, items: [] }
         }
       })
@@ -2218,7 +2325,8 @@ export async function GET(request: NextRequest) {
 
     for (const result of mainResults) {
       if (result && 'type' in result && result.type) {
-        recommendations[result.type] = result.items
+        // V5: #14 Format Diversity — max 2 consecutivi dello stesso sotto-genere
+        recommendations[result.type] = applyFormatDiversity(result.items)
       }
     }
 
@@ -2226,11 +2334,27 @@ export async function GET(request: NextRequest) {
     for (const contRec of continuityRecs) {
       const targetType = contRec.type
       if (!recommendations[targetType]) recommendations[targetType] = []
-      // Rimuovi eventuali duplicati e inserisci in testa
       recommendations[targetType] = [
         contRec,
         ...recommendations[targetType].filter(r => r.id !== contRec.id),
       ]
+    }
+
+    // V5: #5 Registra i titoli mostrati in recommendations_shown (per anti-ripetizione futura)
+    const shownInserts = Object.entries(recommendations).flatMap(([type, recs]) =>
+      recs.slice(0, 10).map(r => ({
+        user_id: user.id,
+        rec_id: r.id,
+        rec_type: type,
+        shown_at: new Date().toISOString(),
+        action: null,
+      }))
+    )
+    if (shownInserts.length > 0) {
+      await supabase.from('recommendations_shown').upsert(shownInserts, {
+        onConflict: 'user_id,rec_id',
+        ignoreDuplicates: true,
+      })
     }
 
     // V3: Salva creator profile aggiornato
@@ -2305,7 +2429,6 @@ export async function GET(request: NextRequest) {
         },
         discoveryGenres: tasteProfile.discoveryGenres,
         negativeGenres: Object.keys(tasteProfile.negativeGenres).slice(0, 5),
-        // V3 additions
         creatorScores: {
           topStudios: topStudios.slice(0, 5).map(([name, score]) => ({ name, score })),
           topDirectors: topDirectors.slice(0, 5).map(([name, score]) => ({ name, score })),
@@ -2313,6 +2436,9 @@ export async function GET(request: NextRequest) {
         bingeProfile: tasteProfile.bingeProfile,
         wishlistGenres: tasteProfile.wishlistGenres,
         searchIntentGenres: tasteProfile.searchIntentGenres,
+        // V5: #15 Confidence Score
+        lowConfidence: tasteProfile.lowConfidence,
+        totalEntries: allEntries.length,
       },
       cached: false,
     })
