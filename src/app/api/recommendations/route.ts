@@ -230,18 +230,64 @@ function inferLanguagePreference(entries: any[]): { preferNonEnglish: boolean; o
 }
 
 // ── V5: Format Diversity — applica max 2 consecutivi dello stesso sotto-genere
-function applyFormatDiversity(recs: any[], maxConsecutive = 2): any[] {
+function applyFormatDiversity(recs: any[], type?: string, maxPerSubGenre = 4): any[] {
+  // Per i giochi non applicare: hanno già pochissimi candidati e generi IGDB sovrapposti
+  if (type === 'game') return recs
+
   const result: any[] = []
   const subGenreCount: Record<string, number> = {}
   for (const rec of recs) {
-    const subGenre = rec.genres?.[1] || rec.genres?.[0] || 'unknown'
+    // Usa il primo genere come chiave (più stabile del secondo)
+    const subGenre = rec.genres?.[0] || 'unknown'
     subGenreCount[subGenre] = (subGenreCount[subGenre] || 0) + 1
-    if (subGenreCount[subGenre] <= maxConsecutive) {
+    // Max 4 per sotto-genere in tutta la sezione (non consecutivo)
+    if (subGenreCount[subGenre] <= maxPerSubGenre) {
       result.push(rec)
     }
   }
   return result
 }
+
+// ── Mappa generi cross-media → generi IGDB reali ─────────────────────────────
+// IGDB accetta solo questi come genres.name. Generi come "Fantasy", "Drama",
+// "Horror" non esistono come generi IGDB — esistono come themes.
+// Questa mappa traduce il profilo utente (basato su anime/film) in generi IGDB validi.
+const CROSS_TO_IGDB_GENRE: Record<string, string[]> = {
+  'Action':           ['Action', "Hack and slash/Beat 'em up", 'Fighting', 'Shooter'],
+  'Adventure':        ['Adventure', 'Role-playing (RPG)'],
+  'Fantasy':          ['Role-playing (RPG)', 'Adventure'],
+  'Science Fiction':  ['Shooter', 'Strategy', 'Role-playing (RPG)'],
+  'Horror':           ['Adventure', 'Shooter'],        // Horror è un theme IGDB, non genere
+  'Mystery':          ['Adventure', 'Puzzle'],
+  'Drama':            ['Adventure', 'Visual Novel', 'Role-playing (RPG)'],
+  'Romance':          ['Visual Novel', 'Adventure'],
+  'Comedy':           ['Adventure', 'Platform'],
+  'Thriller':         ['Shooter', 'Action'],
+  'Psychological':    ['Adventure', 'Visual Novel'],
+  'Supernatural':     ['Role-playing (RPG)', 'Adventure'],
+  'Slice of Life':    ['Simulation', 'Visual Novel'],
+  'Sports':           ['Sport', 'Racing'],
+  'Sci-Fi':           ['Shooter', 'Strategy'],
+  'Mecha':            ['Shooter', 'Action'],
+  'Strategy':         ['Strategy', 'Real Time Strategy (RTS)', 'Turn-based strategy (TBS)'],
+  'Simulation':       ['Simulation', 'Strategy'],
+  'Crime':            ['Shooter', 'Action'],
+  'Survival':         ['Adventure', 'Shooter'],
+  'Role-playing (RPG)': ['Role-playing (RPG)'],
+  'Shooter':          ['Shooter'],
+  'Platform':         ['Platform', 'Adventure'],
+  'Puzzle':           ['Puzzle'],
+  'Indie':            ['Indie', 'Adventure'],
+}
+
+// Generi IGDB validi (whitelist definitiva)
+const IGDB_VALID_GENRES = new Set([
+  'Action', 'Adventure', 'Role-playing (RPG)', 'Shooter', 'Strategy',
+  'Simulation', 'Puzzle', 'Racing', 'Sport', 'Fighting', 'Platform',
+  "Hack and slash/Beat 'em up", 'Real Time Strategy (RTS)', 'Turn-based strategy (TBS)',
+  'Tactical', 'Visual Novel', 'Card & Board Game', 'Massively Multiplayer Online (MMO)',
+  'Battle Royale', 'Indie', 'Arcade', 'Music', 'Point-and-click',
+])
 
 const TMDB_GENRE_MAP: Record<string, number> = {
   'Action': 28, 'Adventure': 12, 'Animation': 16, 'Comedy': 35, 'Crime': 80,
@@ -803,6 +849,17 @@ function computeTasteProfile(
     }
     if (genres.length === 0) continue
 
+    // Per i giochi: espandi i generi IGDB con i loro equivalenti cross-media
+    // così il profilo viene arricchito con "Fantasy" quando il gioco ha "Role-playing (RPG)"
+    if (type === 'game' || entry.is_steam) {
+      const crossExpanded = new Set<string>(genres)
+      for (const g of genres) {
+        const mapped = IGDB_TO_CROSS_GENRE[g]
+        if (mapped) for (const cg of mapped) crossExpanded.add(cg)
+      }
+      genres = [...crossExpanded]
+    }
+
     if (entry.status === 'dropped') droppedTitles.add(title)
 
     const temporal = temporalMultV2(entry.updated_at)
@@ -1025,11 +1082,22 @@ function computeMatchScore(
   const topGenreScores = Object.fromEntries(tasteProfile.globalGenres.map(g => [g.genre, g.score]))
   const maxScore = tasteProfile.globalGenres[0]?.score || 1
 
+  // Espandi i generi della raccomandazione con i loro equivalenti cross-media
+  // es. "Role-playing (RPG)" → ["Fantasy", "Adventure", "Drama"]
+  // Questo permette il match tra generi IGDB e il profilo utente cross-media
+  const expandedGenres = new Set<string>(recGenres)
+  for (const g of recGenres) {
+    const crossEquiv = IGDB_TO_CROSS_GENRE[g]
+    if (crossEquiv) for (const cg of crossEquiv) expandedGenres.add(cg)
+  }
+
   // Genre overlap score (0-55)
   let genreScore = 0
-  for (const g of recGenres) {
+  for (const g of expandedGenres) {
     const s = topGenreScores[g] || 0
-    genreScore += (s / maxScore) * 27
+    // I generi espansi (cross-equivalenti) pesano meno dei generi diretti
+    const isOriginal = recGenres.includes(g)
+    genreScore += (s / maxScore) * (isOriginal ? 27 : 18)
 
     // V3: boost per binge genres
     if (tasteProfile.bingeProfile.bingeGenres.includes(g)) genreScore += 5
@@ -1242,44 +1310,98 @@ interface GenreSlot {
   isSerendipity?: boolean // V4
 }
 
-function buildDiversitySlots(type: MediaType, tasteProfile: TasteProfile, totalSlots = 15): GenreSlot[] {
-  // boardgame non ha un engine di raccomandazione remoto — non genera slot
+function buildDiversitySlots(type: MediaType, tasteProfile: TasteProfile, totalSlots = 20): GenreSlot[] {
   if (type === 'boardgame') return []
 
   const typeGenres = tasteProfile.topGenres[type]?.map(g => g.genre) || []
-
-  // Per i tipi privi di generi propri, usa i globalGenres come fallback
-  // (es. un utente che ha solo boardgame e film: i generi boardgame amplificano i consigli film)
   const fallbackGenres = tasteProfile.globalGenres.map(g => g.genre)
   const sourceGenres = typeGenres.length >= 2 ? typeGenres : fallbackGenres
 
-  const isGameType = type === 'game'
+  // ── Logica specifica per giochi ──────────────────────────────────────────
+  // I generi nel profilo utente sono cross-media (es. Fantasy, Drama, Action).
+  // IGDB non li riconosce tutti come generi — vanno tradotti via CROSS_TO_IGDB_GENRE.
+  if (type === 'game') {
+    // Costruisci lista generi IGDB unici ordinati per rilevanza del genere sorgente
+    const igdbGenreScore: Record<string, number> = {}
+    const sourceScores = Object.fromEntries(
+      (typeGenres.length >= 2 ? tasteProfile.topGenres.game : tasteProfile.globalGenres)
+        .map(g => [g.genre, g.score])
+    )
 
-  const IGDB_ONLY = new Set(['Role-playing (RPG)', "Hack and slash/Beat 'em up", 'Turn-based strategy (TBS)', 'Real Time Strategy (RTS)', 'Massively Multiplayer Online (MMO)', 'Battle Royale', 'Tactical', 'Visual Novel', 'Card & Board Game', 'Arcade', 'Platform'])
-  const valid = isGameType ? sourceGenres : sourceGenres.filter(g => !IGDB_ONLY.has(g))
+    for (const srcGenre of sourceGenres.slice(0, 8)) {
+      const mapped = CROSS_TO_IGDB_GENRE[srcGenre] || (IGDB_VALID_GENRES.has(srcGenre) ? [srcGenre] : [])
+      const score = sourceScores[srcGenre] || 1
+      for (const igdbGenre of mapped) {
+        igdbGenreScore[igdbGenre] = (igdbGenreScore[igdbGenre] || 0) + score
+      }
+    }
+
+    // Ordina per score e prendi i top
+    const rankedIgdbGenres = Object.entries(igdbGenreScore)
+      .sort(([, a], [, b]) => b - a)
+      .map(([g]) => g)
+
+    if (rankedIgdbGenres.length === 0) {
+      // Fallback assoluto: i generi IGDB più popolari
+      return [
+        { genre: 'Action', quota: 5, isDiscovery: false },
+        { genre: 'Adventure', quota: 5, isDiscovery: false },
+        { genre: 'Role-playing (RPG)', quota: 5, isDiscovery: false },
+        { genre: 'Shooter', quota: 3, isDiscovery: false },
+        { genre: 'Indie', quota: 2, isDiscovery: true },
+      ]
+    }
+
+    const slots: GenreSlot[] = []
+    const distributions = [0.30, 0.25, 0.20, 0.15, 0.10]
+    const numSlots = Math.min(rankedIgdbGenres.length, 5)
+
+    for (let i = 0; i < numSlots; i++) {
+      const quota = Math.max(3, Math.round(totalSlots * distributions[i]))
+      slots.push({ genre: rankedIgdbGenres[i], quota, isDiscovery: i >= 4 })
+    }
+
+    // Slot serendipity: genere IGDB non nel profilo
+    const unusedIgdb = [...IGDB_VALID_GENRES].filter(g => !rankedIgdbGenres.includes(g))
+    if (unusedIgdb.length > 0) {
+      const jolly = unusedIgdb[Math.floor(Math.random() * Math.min(unusedIgdb.length, 8))]
+      slots.push({ genre: jolly, quota: 2, isDiscovery: false, isSerendipity: true })
+    }
+
+    return slots
+  }
+
+  // ── Logica per anime / manga / movie / tv ────────────────────────────────
+  const IGDB_ONLY = new Set([
+    'Role-playing (RPG)', "Hack and slash/Beat 'em up", 'Turn-based strategy (TBS)',
+    'Real Time Strategy (RTS)', 'Massively Multiplayer Online (MMO)', 'Battle Royale',
+    'Tactical', 'Visual Novel', 'Card & Board Game', 'Arcade', 'Platform', 'Shooter',
+    'Fighting', 'Sport', 'Racing',
+  ])
+  const valid = sourceGenres.filter(g => !IGDB_ONLY.has(g))
 
   if (valid.length === 0) return []
 
   const slots: GenreSlot[] = []
   const discoveryGenres = tasteProfile.discoveryGenres
-    .filter(g => !valid.includes(g))
-    .filter(g => !isGameType ? !IGDB_ONLY.has(g) : true)
-    .slice(0, 1)
+    .filter(g => !valid.includes(g) && !IGDB_ONLY.has(g))
+    .slice(0, 2)  // fino a 2 slot discovery
 
-  const distributions = [0.40, 0.30, 0.20, 0.10]
+  // Più generi coperti = più titoli totali
+  const distributions = [0.28, 0.22, 0.18, 0.14, 0.10]
+  const numMainSlots = Math.min(valid.length, 5)  // fino a 5 generi principali (era 3)
 
-  for (let i = 0; i < Math.min(valid.length, 3); i++) {
-    const quota = Math.max(1, Math.round(totalSlots * distributions[i]))
+  for (let i = 0; i < numMainSlots; i++) {
+    const quota = Math.max(2, Math.round(totalSlots * distributions[i]))
     slots.push({ genre: valid[i], quota, isDiscovery: false })
   }
 
-  if (discoveryGenres.length > 0) {
-    const discoveryQuota = Math.max(1, Math.round(totalSlots * 0.10))
-    slots.push({ genre: discoveryGenres[0], quota: discoveryQuota, isDiscovery: true })
+  for (const dg of discoveryGenres) {
+    slots.push({ genre: dg, quota: 2, isDiscovery: true })
   }
 
-  // V4: Serendipity slot — 1 jolly fuori profilo per sezione
-  const unusedGenres = fallbackGenres.filter(g => !valid.includes(g) && !discoveryGenres.includes(g))
+  // Serendipity
+  const unusedGenres = fallbackGenres.filter(g => !valid.includes(g) && !discoveryGenres.includes(g) && !IGDB_ONLY.has(g))
   if (unusedGenres.length > 0) {
     const jollyGenre = unusedGenres[Math.floor(Math.random() * Math.min(unusedGenres.length, 5))]
     slots.push({ genre: jollyGenre, quota: 1, isDiscovery: false, isSerendipity: true })
@@ -1516,11 +1638,12 @@ async function fetchAnimeRecs(
 
     // V3: Include studios e staff nella query AniList
     const query = `
-      query($genres: [String]) {
-        Page(page: 1, perPage: 40) {
-          media(genre_in: $genres, type: ANIME, sort: [SCORE_DESC, POPULARITY_DESC], isAdult: false) {
+      query($genres: [String], $minScore: Int, $minPop: Int) {
+        Page(page: 1, perPage: 60) {
+          media(genre_in: $genres, type: ANIME, sort: [SCORE_DESC, POPULARITY_DESC], isAdult: false,
+                averageScore_greater: $minScore, popularity_greater: $minPop) {
             id title { romaji english } coverImage { large }
-            seasonYear episodes genres description(asHtml: false) averageScore trending
+            seasonYear episodes genres description(asHtml: false) averageScore popularity trending
             tags { name rank }
             studios(isMain: true) { nodes { name } }
             staff(sort: RELEVANCE) { edges { role node { name { full } } } }
@@ -1532,7 +1655,7 @@ async function fetchAnimeRecs(
       const res = await fetch('https://graphql.anilist.co', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, variables: { genres: [genre] } }),
+        body: JSON.stringify({ query, variables: { genres: [genre], minScore: qt.anilistScore, minPop: qt.anilistPopularity } }),
         signal: AbortSignal.timeout(8000),
       })
       if (!res.ok) continue
@@ -1543,7 +1666,13 @@ async function fetchAnimeRecs(
         .filter((m: any) => {
           const id = `anilist-anime-${m.id}`
           const title = m.title?.romaji || m.title?.english || ''
-          return !isAlreadyOwned('anime', id, title) && !seen.has(id) && m.coverImage?.large
+          if (isAlreadyOwned('anime', id, title) || seen.has(id)) return false
+          if (shownIds?.has(id)) return false
+          if (!m.coverImage?.large) return false
+          // Quality gate inline
+          if ((m.averageScore || 0) < qt.anilistScore) return false
+          if ((m.popularity || 0) < qt.anilistPopularity) return false
+          return true
         })
         .map((m: any) => {
           const mTags: string[] = (m.tags || []).map((t: any) => t.name.toLowerCase())
@@ -1567,15 +1696,26 @@ async function fetchAnimeRecs(
           const trendingBoost = Math.min(5, trendingScore / 200)
           boost += trendingBoost
 
+          // Social boost
+          const socialFriend = socialFavorites?.get(`anilist-anime-${m.id}`)
+          if (socialFriend) boost += 15
+
+          // Award boost
+          if (isAwardWorthy(m.averageScore, m.popularity, undefined, 'anilist')) boost += 8
+
+          // Freshness
+          const freshMult = releaseFreshnessMult(m.seasonYear, m.averageScore, m.popularity)
+
           const recGenres: string[] = m.genres || []
-          const matchScore = computeMatchScore(recGenres, mTags, tasteProfile, mStudios, mDirectors)
-          return { m, boost, matchScore, recGenres, mTags, mStudios, mDirectors, creatorBoost, trendingBoost }
+          let matchScore = computeMatchScore(recGenres, mTags, tasteProfile, mStudios, mDirectors)
+          matchScore = Math.round(matchScore * freshMult)
+          return { m, boost, matchScore, recGenres, mTags, mStudios, mDirectors, creatorBoost, trendingBoost, socialFriend }
         })
         .filter(({ matchScore }: any) => matchScore >= 20)
         .sort((a: any, b: any) => (b.boost + b.matchScore) - (a.boost + a.matchScore))
-        .slice(0, slot.quota + 2)
+        .slice(0, slot.quota + 5)  // buffer più generoso
 
-      for (const { m, matchScore, recGenres, mTags, mStudios, mDirectors, creatorBoost, trendingBoost } of candidates.slice(0, slot.quota)) {
+      for (const { m, matchScore, recGenres, mTags, mStudios, mDirectors, creatorBoost, trendingBoost, socialFriend } of candidates.slice(0, slot.quota)) {
         const recId = `anilist-anime-${m.id}`
         if (seen.has(recId)) continue
         seen.add(recId)
@@ -1588,11 +1728,17 @@ async function fetchAnimeRecs(
           genres: recGenres,
           score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
           description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 300) : undefined,
-          why: buildWhyV3(recGenres, recId, m.title.romaji || '', tasteProfile, matchScore, slot.isDiscovery, {
-            recStudios: mStudios, recDirectors: mDirectors, trendingBoost, creatorBoost
-          }),
+          why: socialFriend
+            ? `Il tuo amico con gusti simili all'${socialFriend} ha adorato questo`
+            : buildWhyV3(recGenres, recId, m.title.romaji || '', tasteProfile, matchScore, slot.isDiscovery, {
+                recStudios: mStudios, recDirectors: mDirectors, trendingBoost, creatorBoost
+              }),
           matchScore,
           isDiscovery: slot.isDiscovery,
+          isSerendipity: slot.isSerendipity,
+          isSeasonal: false,
+          isAwardWinner: isAwardWorthy(m.averageScore, m.popularity, undefined, 'anilist'),
+          socialBoost: socialFriend,
           creatorBoost,
         })
       }
@@ -2040,7 +2186,18 @@ async function fetchGameRecs(
     Object.entries(tasteProfile.creatorScores.developers).sort(([,a],[,b]) => b - a).slice(0, 5).map(([d]) => d)
   )
 
+  // Mappa generi IGDB → theme IDs per generi che in IGDB sono temi (non generi)
+  // Horror (id:19), Fantasy (id:17), Science Fiction (id:18), Thriller (id:20)
+  // Questi esistono in IGDB come themes, non genres
+  const IGDB_THEME_GENRES: Record<string, number> = {
+    // Non usati direttamente ora che buildDiversitySlots mappa correttamente,
+    // ma tenuti come fallback di sicurezza
+  }
+
   for (const slot of slots) {
+    // slot.genre è ora sempre un genere IGDB valido grazie a buildDiversitySlots
+    if (!IGDB_VALID_GENRES.has(slot.genre)) continue
+
     try {
       const igdbRatingMin = tasteProfile.qualityThresholds.igdbRating
       const igdbCountMin = tasteProfile.qualityThresholds.igdbRatingCount
@@ -2050,7 +2207,7 @@ async function fetchGameRecs(
                involved_companies.company.name, involved_companies.developer;
         where genres.name = ("${slot.genre}") & rating_count > ${igdbCountMin} & rating >= ${igdbRatingMin} & cover != null;
         sort rating desc;
-        limit 30;
+        limit 50;
       `
       const res = await fetch('https://api.igdb.com/v4/games', {
         method: 'POST',
@@ -2062,7 +2219,19 @@ async function fetchGameRecs(
       const games = await res.json()
       if (!Array.isArray(games)) continue
 
-            const scored = games
+      // Top keywords e themes del profilo per il boost
+      const topProfileThemes = new Set(
+        Object.entries(tasteProfile.deepSignals.themes)
+          .sort(([, a], [, b]) => b - a).slice(0, 10).map(([t]) => t.toLowerCase())
+      )
+      const topProfileKeywords = new Set(
+        Object.entries(tasteProfile.deepSignals.keywords)
+          .sort(([, a], [, b]) => b - a).slice(0, 15).map(([k]) => k.toLowerCase())
+      )
+      // Generi cross-media del profilo (per confronto con themes IGDB)
+      const profileCrossGenres = new Set(tasteProfile.globalGenres.slice(0, 8).map(g => g.genre.toLowerCase()))
+
+      const scored = games
         .filter((g: any) => {
           const title = g.name || ''
           return !isAlreadyOwned('game', g.id.toString(), title) && g.cover?.url && !seen.has(g.id.toString())
@@ -2079,7 +2248,25 @@ async function fetchGameRecs(
             .filter(Boolean)[0] as string | undefined
 
           let boost = 0
+
+          // Boost da tones del profilo
           for (const tone of topTones) { if (gameThemes.some(t => t.includes(tone))) boost += 2 }
+
+          // Boost da themes del profilo (es. profilo ha "horror" → gioco ha theme "horror" → +4)
+          for (const theme of topProfileThemes) {
+            if (gameThemes.some(t => t === theme || t.includes(theme))) boost += 4
+          }
+
+          // Boost da keywords profilo
+          for (const kw of topProfileKeywords) {
+            if (gameKws.some(k => k.includes(kw) || kw.includes(k))) boost += 2
+          }
+
+          // Boost se i themes del gioco corrispondono ai generi cross-media del profilo
+          // (es. tema IGDB "fantasy" → genere profilo "Fantasy")
+          for (const theme of gameThemes) {
+            if (profileCrossGenres.has(theme)) boost += 5
+          }
 
           let creatorBoost: string | undefined
           if (developer && topDevsSet.has(developer)) { boost += 10; creatorBoost = developer }
@@ -2089,9 +2276,9 @@ async function fetchGameRecs(
 
           return { g, boost, matchScore, recGenres, developer, creatorBoost }
         })
-        .filter(({ matchScore }: any) => matchScore >= 20)
+        .filter(({ matchScore }: any) => matchScore >= 10)  // soglia più bassa per giochi (generi IGDB meno precisi)
         .sort((a: any, b: any) => (b.boost + b.matchScore) - (a.boost + a.matchScore))
-        .slice(0, slot.quota)
+        .slice(0, slot.quota + 8)  // buffer extra per compensare seen/shownIds
 
       for (const { g, matchScore, recGenres, developer, creatorBoost } of scored) {
         const recId = g.id.toString()
@@ -2395,7 +2582,7 @@ export async function GET(request: NextRequest) {
     const [continuityRecs, ...mainResults] = await Promise.all([
       continuityRecsPromise,
       ...typesToFetch.map(async type => {
-        const slots = buildDiversitySlots(type, tasteProfile, 15)
+        const slots = buildDiversitySlots(type, tasteProfile, 20)
         if (slots.length === 0) return { type, items: [] }
 
         switch (type) {
@@ -2413,8 +2600,8 @@ export async function GET(request: NextRequest) {
 
     for (const result of mainResults) {
       if (result && 'type' in result && result.type) {
-        // V5: #14 Format Diversity — max 2 consecutivi dello stesso sotto-genere
-        recommendations[result.type] = applyFormatDiversity(result.items)
+        // V5: #14 Format Diversity — max 4 per sotto-genere (non applicato ai giochi)
+        recommendations[result.type] = applyFormatDiversity(result.items, result.type)
       }
     }
 
