@@ -992,20 +992,22 @@ export default function ProfilePage() {
             </div>
 
             {isOwner && (
-              {/* Mobile: link rapidi Settings + Logout — visibili solo su schermi piccoli */}
-              <div className="flex md:hidden items-center gap-3 mt-4">
-                <Link href="/settings"
-                  className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-zinc-400 hover:text-white hover:border-zinc-700 transition-all">
-                  <Settings size={13} /> Impostazioni
-                </Link>
-                <Link href="/wishlist"
-                  className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-zinc-400 hover:text-white hover:border-zinc-700 transition-all">
-                  <Bookmark size={13} /> Wishlist
-                </Link>
-              </div>
-              <button onClick={() => setShowDeleteModal(true)} className="mt-3 text-xs text-zinc-600 hover:text-red-400 transition-colors flex items-center gap-1">
-                <Trash2 size={12} /> Elimina account
-              </button>
+              <>
+                {/* Mobile: link rapidi Settings + Wishlist */}
+                <div className="flex md:hidden items-center gap-3 mt-4">
+                  <Link href="/settings"
+                    className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-zinc-400 hover:text-white hover:border-zinc-700 transition-all">
+                    <Settings size={13} /> Impostazioni
+                  </Link>
+                  <Link href="/wishlist"
+                    className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-zinc-400 hover:text-white hover:border-zinc-700 transition-all">
+                    <Bookmark size={13} /> Wishlist
+                  </Link>
+                </div>
+                <button onClick={() => setShowDeleteModal(true)} className="mt-3 text-xs text-zinc-600 hover:text-red-400 transition-colors flex items-center gap-1">
+                  <Trash2 size={12} /> Elimina account
+                </button>
+              </>
             )}
 
             {/* Riga import piattaforme — orizzontale, solo owner */}
