@@ -276,7 +276,6 @@ export default function Navbar() {
     { href: '/discover',      label: t.nav.discover,      icon: Search,  hasDot: false },
     { href: '/for-you',       label: t.nav.forYou,        icon: Sparkles,hasDot: false },
     { href: '/notifications', label: t.nav.notifications, icon: Bell,    hasDot: true  },
-    { href: '/search',        label: t.nav.search,        icon: Users,   hasDot: false },
     { href: '/profile/me',    label: t.nav.profile,       icon: User,    hasDot: false },
   ]
 
@@ -545,59 +544,41 @@ export default function Navbar() {
       </nav>
 
       {/* ── Mobile bottom navbar ─────────────────────────────────────────────── */}
-      <nav className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-black/90 backdrop-blur-2xl border-t border-zinc-800/60">
-        <div className="flex items-center justify-around py-2 px-1">
+      <nav className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-black/95 backdrop-blur-2xl border-t border-zinc-800/60" style={{paddingBottom: 'env(safe-area-inset-bottom)'}}>
+        <div className="flex items-center justify-around pt-1 pb-2 px-2">
           {MOBILE_NAV_ITEMS.map((item) => {
             const isActive = item.href === '/profile/me'
               ? isProfileActive
-              : item.href === '/notifications'
-              ? notifOpen
+              : item.href === '/feed'
+              ? pathname === '/feed' || pathname === '/'
               : pathname === item.href
 
             if (item.href === '/notifications') {
               return (
-                <div key={item.href} className="relative">
-                  <button
-                    onClick={() => { setNotifOpen(v => !v); setDropdownOpen(false) }}
-                    data-testid="nav-mobile-notifications"
-                    className={`flex flex-col items-center gap-0.5 px-2 py-2 rounded-2xl transition-all min-w-[44px] ${isActive ? 'text-violet-400' : 'text-zinc-500'}`}
-                  >
-                    <div className="relative">
-                      <Bell size={22} strokeWidth={isActive ? 2.5 : 1.8} />
-                      {hasNewNotifications && (
-                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full border border-black" />
-                      )}
-                    </div>
-                    <span className={`text-[9px] font-medium tracking-wide transition-all ${isActive ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
-                      {item.label}
-                    </span>
-                  </button>
-
-                  {userId && notifOpen && (
-                    <NotificationPopover
-                      open={notifOpen}
-                      onClose={() => setNotifOpen(false)}
-                      userId={userId}
-                      mobile
-                      onRead={() => {
-                        setHasNewNotifications(false)
-                        if (typeof navigator !== 'undefined' && 'clearAppBadge' in navigator) {
-                          (navigator as any).clearAppBadge().catch(() => {})
-                        }
-                      }}
-                    />
-                  )}
-                </div>
+                <Link key={item.href} href="/notifications" prefetch={true}
+                  data-testid="nav-mobile-notifications"
+                  className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 rounded-2xl transition-all ${isActive ? 'text-violet-400' : 'text-zinc-500'}`}
+                >
+                  <div className="relative">
+                    <Bell size={22} strokeWidth={isActive ? 2.5 : 1.8} />
+                    {hasNewNotifications && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full border border-black" />
+                    )}
+                  </div>
+                  <span className={`text-[9px] font-medium tracking-wide ${isActive ? 'text-violet-400' : 'text-zinc-600'}`}>
+                    {item.label}
+                  </span>
+                </Link>
               )
             }
 
             return (
               <Link key={item.href} href={item.href} prefetch={true}
                 data-testid={`nav-mobile-${item.href.replace('/', '')}`}
-                className={`flex flex-col items-center gap-0.5 px-2 py-2 rounded-2xl transition-all min-w-[44px] ${isActive ? 'text-violet-400' : 'text-zinc-500'}`}>
+                className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 rounded-2xl transition-all ${isActive ? 'text-violet-400' : 'text-zinc-500'}`}>
                 <div className="relative">
                   {item.href === '/profile/me' && (avatarUrl || currentUsername) ? (
-                    <div className={`w-6 h-6 rounded-full overflow-hidden ring-2 ${isActive ? 'ring-violet-400' : 'ring-zinc-700'}`}>
+                    <div className={`w-6 h-6 rounded-full overflow-hidden ring-2 transition-all ${isActive ? 'ring-violet-400' : 'ring-zinc-700'}`}>
                       {avatarUrl ? (
                         <img src={avatarUrl} alt="avatar" width={24} height={24} className="w-full h-full object-cover" />
                       ) : (
@@ -608,16 +589,12 @@ export default function Navbar() {
                     <item.icon size={22} strokeWidth={isActive ? 2.5 : 1.8} />
                   )}
                 </div>
-                <span className={`text-[9px] font-medium tracking-wide transition-all ${isActive ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
+                <span className={`text-[9px] font-medium tracking-wide ${isActive ? 'text-violet-400' : 'text-zinc-600'}`}>
                   {item.label}
                 </span>
               </Link>
             )
           })}
-
-          <button onClick={toggleTheme} className="flex flex-col items-center gap-0.5 px-2 py-2 rounded-2xl transition-all min-w-[44px] text-zinc-500 hover:text-yellow-400">
-            {isDark ? <Sun size={22} strokeWidth={1.8} /> : <Moon size={22} strokeWidth={1.8} />}
-          </button>
         </div>
       </nav>
 

@@ -121,7 +121,7 @@ function SortableBox({ media, children }: { media: UserMedia; children: React.Re
       style={{ transform: CSS.Transform.toString(transform), transition: transition || 'transform 50ms ease' }}
       {...attributes}
       {...listeners}
-      className={`cursor-grab active:cursor-grabbing rounded-3xl overflow-hidden h-[520px] flex flex-col transition-all duration-200 ${
+      className={`cursor-grab active:cursor-grabbing rounded-3xl overflow-hidden h-[400px] sm:h-[460px] md:h-[520px] flex flex-col transition-all duration-200 ${
         isDragging
           ? 'border-2 border-violet-500 shadow-2xl scale-[1.02] z-50'
           : 'border border-zinc-800 hover:border-violet-500/50 hover:shadow-xl'
@@ -935,16 +935,16 @@ export default function ProfilePage() {
   ]
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white pb-20">
-      <div className="pt-8 max-w-screen-2xl mx-auto px-6">
+    <div className="min-h-screen bg-zinc-950 text-white pb-24 md:pb-20">
+      <div className="pt-6 md:pt-8 max-w-screen-2xl mx-auto px-4 md:px-6">
 
         {/* Header profilo */}
-        <div className="flex justify-between items-start mb-10">
+        <div className="flex justify-between items-start mb-8 md:mb-10">
           {/* Spazio sinistro bilanciamento */}
           <div className="w-12 hidden lg:block" />
 
           <div className="flex flex-col items-center flex-1">
-            <div className="w-36 h-36 border-4 border-zinc-700 mb-6 rounded-full overflow-hidden">
+            <div className="w-24 h-24 md:w-36 md:h-36 border-4 border-zinc-700 mb-4 md:mb-6 rounded-full overflow-hidden">
               <Avatar
                 src={profile.avatar_url}
                 username={profile.username}
@@ -953,9 +953,9 @@ export default function ProfilePage() {
                 className="w-full h-full"
               />
             </div>
-            <h1 className="text-5xl font-bold tracking-tighter mb-2">{profile.display_name || profile.username}</h1>
-            <p className="text-xl text-zinc-400">@{profile.username}</p>
-            {profile.bio && <p className="text-zinc-500 mt-3 text-center max-w-md">{profile.bio}</p>}
+            <h1 className="text-3xl md:text-5xl font-bold tracking-tighter mb-2 text-center">{profile.display_name || profile.username}</h1>
+            <p className="text-base md:text-xl text-zinc-400">@{profile.username}</p>
+            {profile.bio && <p className="text-zinc-500 mt-3 text-center max-w-md text-sm md:text-base px-4">{profile.bio}</p>}
 
             <div className="flex items-center gap-6 mt-5">
               <div className="text-center">
@@ -973,7 +973,7 @@ export default function ProfilePage() {
               {isOwner ? (
                 <>
                   <Link href="/profile/edit">
-                    <button data-testid="btn-edit-profile" className="px-8 py-3 bg-white text-black font-semibold rounded-full hover:bg-zinc-200 transition-all">
+                    <button data-testid="btn-edit-profile" className="px-5 md:px-8 py-2.5 md:py-3 bg-white text-black font-semibold rounded-full hover:bg-zinc-200 transition-all text-sm md:text-base">
                       {t.profile.editProfile}
                     </button>
                   </Link>
@@ -999,7 +999,7 @@ export default function ProfilePage() {
 
             {/* Riga import piattaforme — orizzontale, solo owner */}
             {isOwner && (
-              <div className="flex items-center gap-2 mt-5">
+              <div className="flex items-center gap-2 mt-5 overflow-x-auto scrollbar-hide pb-1 max-w-full">
                 <span className="text-[10px] text-zinc-600 mr-1">Importa da</span>
 
                 {/* Steam */}
@@ -1071,7 +1071,7 @@ export default function ProfilePage() {
         {mediaList.length > 0 && <ProfileStatsPanel mediaList={mediaList} />}
 
         {/* ── TABS ─────────────────────────────────────────────────── */}
-        <div className="flex border-b border-zinc-800 mb-8">
+        <div className="flex border-b border-zinc-800 mb-6 md:mb-8 overflow-x-auto scrollbar-hide -mx-4 md:mx-0 px-4 md:px-0">
           {TABS.map(tab => (
             <button
               key={tab.id}
@@ -1146,9 +1146,9 @@ export default function ProfilePage() {
                     const preview = items.slice(0, 6)
                     const hasMore = items.length > 6
                     return (
-                      <div key={category} className="mb-16">
-                        <div className="flex items-center justify-between mb-6">
-                          <h3 className="text-2xl font-semibold">{category}</h3>
+                      <div key={category} className="mb-10 md:mb-16">
+                        <div className="flex items-center justify-between mb-4 md:mb-6">
+                          <h3 className="text-lg md:text-2xl font-semibold">{category}</h3>
                           <div className="flex items-center gap-3">
                             <p className="text-zinc-500">{t.profile.elements(items.length)}</p>
                             {hasMore && (
@@ -1164,9 +1164,9 @@ export default function ProfilePage() {
                         {isOwner ? (
                           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
                             <SortableContext items={preview.map(m => m.id)} strategy={rectSortingStrategy}>
-                              <div className="flex gap-4 items-stretch">
+                              <div className="flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide snap-x snap-mandatory">
                                 {preview.map((media) => (
-                                  <div key={media.id} className="w-52 flex-shrink-0">
+                                  <div key={media.id} className="w-40 sm:w-48 md:w-52 flex-shrink-0 snap-start">
                                     <SortableBox media={media}>
                                       <MediaCard media={media} isOwner={true} deletingId={deletingId}
                                         onDelete={handleDelete} onDeleteRequest={setDeletingId} onDeleteCancel={() => setDeletingId(null)}
@@ -1178,7 +1178,7 @@ export default function ProfilePage() {
                                 {hasMore && (
                                   <Link
                                     href={`/profile/${profile.username}/${categoryToType[category] || category}`}
-                                    className="flex-shrink-0 w-14 border border-dashed border-zinc-700 hover:border-violet-500/50 rounded-3xl h-[520px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-violet-400 transition-all group"
+                                    className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-violet-500/50 rounded-3xl h-[400px] sm:h-[460px] md:h-[520px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-violet-400 transition-all group snap-start"
                                   >
                                     <ChevronRight size={16} />
                                     <span className="text-xs font-semibold">+{items.length - 6}</span>
@@ -1188,16 +1188,16 @@ export default function ProfilePage() {
                             </SortableContext>
                           </DndContext>
                         ) : (
-                          <div className="flex gap-4 items-stretch">
+                          <div className="flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide snap-x snap-mandatory">
                             {preview.map((media) => (
-                              <div key={media.id} className="w-52 flex-shrink-0 border border-zinc-800 rounded-3xl overflow-hidden h-[520px] flex flex-col">
+                              <div key={media.id} className="w-40 sm:w-48 md:w-52 flex-shrink-0 border border-zinc-800 rounded-3xl overflow-hidden h-[400px] sm:h-[460px] md:h-[520px] flex flex-col snap-start">
                                 <MediaCard media={media} isOwner={false} onStatusChange={changeStatus} />
                               </div>
                             ))}
                             {hasMore && (
                               <Link
                                 href={`/profile/${profile.username}/${categoryToType[category] || category}`}
-                                className="flex-shrink-0 w-14 border border-dashed border-zinc-700 hover:border-violet-500/50 rounded-3xl h-[520px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-violet-400 transition-all group"
+                                className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-violet-500/50 rounded-3xl h-[400px] sm:h-[460px] md:h-[520px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-violet-400 transition-all group snap-start"
                               >
                                 <ChevronRight size={16} />
                                 <span className="text-xs font-semibold">+{items.length - 6}</span>

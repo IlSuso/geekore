@@ -272,7 +272,7 @@ export default function DiscoverPage() {
 
   return (
     <div className="min-h-screen bg-black text-white pb-24">
-      <div className="max-w-screen-2xl mx-auto px-4 pt-8">
+      <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 pt-4 md:pt-8">
 
         {/* Search bar */}
         <div className="relative mb-4">
@@ -282,7 +282,7 @@ export default function DiscoverPage() {
             type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
             placeholder={isListening ? 'In ascolto...' : (d.searchPlaceholder || 'Cerca anime, film, giochi, manga...')}
             className={`w-full bg-zinc-900 border rounded-2xl pl-11 py-4 text-base text-white placeholder-zinc-600 focus:outline-none transition-colors ${isListening ? 'border-red-500 pr-20' : 'border-zinc-800 focus:border-violet-500 pr-20'}`}
-            autoFocus
+            autoFocus={typeof window !== "undefined" && window.innerWidth >= 768}
           />
           {searchTerm && !isListening && (
             <button onClick={() => { setSearchTerm(''); setResults([]); setIsPending(false); lastTrackedQueryRef.current = ''; }} className="absolute right-12 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"><X size={16} /></button>

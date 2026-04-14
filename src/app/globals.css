@@ -454,3 +454,56 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
   will-change: transform;
   transform: translateZ(0);
 }
+/* ── Mobile responsive utilities ─────────────────────────────────────────── */
+
+/* Scrollbar nascosta per carousel orizzontali */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Snap scroll per card carousel */
+.snap-x {
+  scroll-snap-type: x mandatory;
+}
+.snap-mandatory {
+  scroll-snap-type: x mandatory;
+}
+.snap-start {
+  scroll-snap-align: start;
+}
+
+/* Padding safe area per notch/home bar iOS */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe-bottom {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* Mobile: assicura contenuto non si sovrappone alla bottom nav */
+@media (max-width: 767px) {
+  main, .page-content {
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  }
+  /* Riduci heading grandi su mobile */
+  h1.text-5xl { font-size: 1.875rem; line-height: 2.25rem; }
+  h1.text-4xl { font-size: 1.5rem; line-height: 2rem; }
+  /* Post image max height ridotto su mobile */
+  .post-image { max-height: 280px; }
+}
+
+/* Touch target minimo 44px (Apple HIG) */
+@media (max-width: 767px) {
+  button, a[role="button"], [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  /* Eccezioni: chip, badge, piccoli controlli inline */
+  button.text-xs, button.text-\[10px\], button.text-\[9px\] {
+    min-height: unset;
+    min-width: unset;
+  }
+}

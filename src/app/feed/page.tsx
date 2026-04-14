@@ -669,7 +669,7 @@ const PostCard = memo(function PostCard({
       onConfirm={() => { if (confirmComment) { onDeleteComment(confirmComment, post.id); setConfirmComment(null) } }}
       onCancel={() => setConfirmComment(null)}
     />
-    <div className={`bg-zinc-950 border rounded-3xl p-6 transition-all duration-300 animate-in fade-in slide-in-from-top-2 ${
+    <div className={`bg-zinc-950 border rounded-2xl md:rounded-3xl p-4 md:p-6 transition-all duration-300 animate-in fade-in slide-in-from-top-2 ${
       post.pinned ? 'border-violet-500/40 ring-1 ring-violet-500/20'
       : post.isDiscovery ? 'border-fuchsia-500/30 ring-1 ring-fuchsia-500/10'
       : 'border-zinc-800'
@@ -725,7 +725,7 @@ const PostCard = memo(function PostCard({
         </div>
       )}
 
-      <div className="flex gap-8 border-t border-zinc-800 pt-5 text-zinc-400">
+      <div className="flex gap-5 md:gap-8 border-t border-zinc-800 pt-4 md:pt-5 text-zinc-400">
         <button onClick={() => onLike(post.id)} className={`flex items-center gap-2 transition-all ${post.liked_by_user ? 'text-red-500' : 'hover:text-red-400'}`}>
           <Heart size={22} fill={post.liked_by_user ? 'currentColor' : 'none'} className={isLiking ? 'animate-heart-burst' : ''} />
           <span className="text-sm font-medium">{post.likes_count}</span>
@@ -1169,7 +1169,7 @@ export default function FeedPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <div className="pt-8 pb-20 max-w-screen-2xl mx-auto px-6">
+      <div className="pt-4 md:pt-8 pb-24 md:pb-20 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
         <div className="flex gap-8 items-start min-h-screen">
 
           {/* ── Colonna principale ─────────────────────────────────── */}
@@ -1177,7 +1177,7 @@ export default function FeedPage() {
 
             {/* Composer */}
             {currentUser && (
-              <div className="mb-8 bg-zinc-950 border border-zinc-800 rounded-3xl p-6">
+              <div className="mb-5 md:mb-8 bg-zinc-950 border border-zinc-800 rounded-2xl md:rounded-3xl p-4 md:p-6">
                 <form onSubmit={handleCreatePost}>
                   <textarea
                     data-testid="post-composer"
@@ -1206,7 +1206,7 @@ export default function FeedPage() {
                       <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
                     </label>
                     <button type="submit" disabled={isPublishing}
-                      className="ml-auto bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-1.5 rounded-xl font-semibold text-sm hover:brightness-110 disabled:opacity-70 transition flex items-center gap-2">
+                      className="ml-auto bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 md:px-5 py-1.5 rounded-xl font-semibold text-sm hover:brightness-110 disabled:opacity-70 transition flex items-center gap-2">
                       {isPublishing ? <><Loader2 size={14} className="animate-spin" /> {f.publishing}</> : f.publish}
                     </button>
                   </div>
@@ -1223,23 +1223,41 @@ export default function FeedPage() {
               </button>
             )}
 
+            {/* Mobile quick nav pills — solo mobile, visibili sopra i filtri */}
+            <div className="flex md:hidden gap-2 overflow-x-auto scrollbar-hide -mx-3 sm:-mx-4 px-3 sm:px-4 pb-1 mb-4">
+              {[
+                { href: '/discover', label: 'Scopri', emoji: '🔍' },
+                { href: '/for-you',  label: 'Per te',  emoji: '✨' },
+                { href: '/trending', label: 'Trending', emoji: '🔥' },
+                { href: '/explore',  label: 'Utenti',  emoji: '👥' },
+                { href: '/stats',    label: 'Stats',   emoji: '📊' },
+              ].map(({ href, label, emoji }) => (
+                <a key={href} href={href}
+                  className="flex items-center gap-1.5 flex-shrink-0 px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-full text-xs font-medium text-zinc-400 hover:text-white hover:border-zinc-600 transition-all">
+                  <span>{emoji}</span>{label}
+                </a>
+              ))}
+            </div>
+
             {/* Filter tabs + filtro categoria */}
             {currentUser && (
-              <div className="flex flex-wrap items-center gap-3 mb-6">
-                <div className="flex gap-2 bg-zinc-950 border border-zinc-800 rounded-2xl p-1.5">
+              <div className="flex items-center gap-2 mb-5 md:mb-6 overflow-x-auto scrollbar-hide -mx-3 sm:-mx-4 md:mx-0 px-3 sm:px-4 md:px-0 pb-1">
+                <div className="flex gap-2 bg-zinc-950 border border-zinc-800 rounded-2xl p-1.5 flex-shrink-0">
                   {(['all', 'following'] as const).map(filter => (
                     <button key={filter} data-testid={`filter-${filter}`} onClick={() => handleFilterChange(filter)}
-                      className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${feedFilter === filter ? 'bg-violet-600 text-white' : 'text-zinc-400 hover:text-white'}`}>
+                      className={`px-4 md:px-5 py-2 rounded-xl text-sm font-semibold transition-all ${feedFilter === filter ? 'bg-violet-600 text-white' : 'text-zinc-400 hover:text-white'}`}>
                       {filter === 'all' ? f.filterAll : f.filterFollowing}
                     </button>
                   ))}
                 </div>
 
-                <CategoryFilter activeFilter={categoryFilter} onFilterChange={setCategoryFilter} />
+                <div className="flex-shrink-0">
+                  <CategoryFilter activeFilter={categoryFilter} onFilterChange={setCategoryFilter} />
+                </div>
 
                 {/* Badge filtro attivo con X rapida */}
                 {categoryFilter && (
-                  <span className="text-xs text-zinc-500">
+                  <span className="text-xs text-zinc-500 flex-shrink-0">
                     {displayedPosts.length} post trovati
                   </span>
                 )}
