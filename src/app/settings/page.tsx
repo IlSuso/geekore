@@ -13,7 +13,7 @@ import { showToast } from '@/components/ui/Toast'
 import {
   Settings, Globe, Sun, Moon, List, TrendingUp, BarChart3, Bell,
   Shield, KeyRound, LogOut, Eye, EyeOff, Loader2, ChevronDown, ChevronUp,
-  Circle, Sparkles, Mail, Check, Heart,
+  Circle, Sparkles, Mail, Check, Heart, Tv, Monitor,
 } from 'lucide-react'
 import { PushNotificationsToggle } from '@/components/notifications/PushNotificationsToggle'
 import Link from 'next/link'
@@ -285,6 +285,120 @@ function DigestToggle() {
 
 // ─── Main Settings Page ───────────────────────────────────────────────────────
 
+// ─── #8 Platform Awareness — selezione piattaforme streaming ────────────────
+// TMDb provider IDs per le principali piattaforme (regione IT)
+const STREAMING_PLATFORMS = [
+  { id: 8,    name: 'Netflix',        color: 'bg-red-600',      textColor: 'text-red-400',     borderColor: 'border-red-500/40',   logo: '🎬' },
+  { id: 119,  name: 'Prime Video',    color: 'bg-sky-600',      textColor: 'text-sky-400',     borderColor: 'border-sky-500/40',   logo: '📦' },
+  { id: 337,  name: 'Disney+',        color: 'bg-blue-700',     textColor: 'text-blue-400',    borderColor: 'border-blue-500/40',  logo: '✨' },
+  { id: 283,  name: 'Crunchyroll',    color: 'bg-orange-600',   textColor: 'text-orange-400',  borderColor: 'border-orange-500/40',logo: '⛩️' },
+  { id: 531,  name: 'Paramount+',     color: 'bg-blue-500',     textColor: 'text-blue-300',    borderColor: 'border-blue-400/40',  logo: '⭐' },
+  { id: 39,   name: 'NOW TV',         color: 'bg-lime-600',     textColor: 'text-lime-400',    borderColor: 'border-lime-500/40',  logo: '📡' },
+  { id: 35,   name: 'Apple TV+',      color: 'bg-zinc-600',     textColor: 'text-zinc-300',    borderColor: 'border-zinc-500/40',  logo: '🍎' },
+  { id: 2,    name: 'Apple iTunes',   color: 'bg-zinc-700',     textColor: 'text-zinc-400',    borderColor: 'border-zinc-600/40',  logo: '💾' },
+  { id: 3,    name: 'Google Play',    color: 'bg-green-600',    textColor: 'text-green-400',   borderColor: 'border-green-500/40', logo: '▶️' },
+  { id: 192,  name: 'YouTube',        color: 'bg-red-700',      textColor: 'text-red-400',     borderColor: 'border-red-600/40',   logo: '📺' },
+  { id: 1773, name: 'MUBI',           color: 'bg-indigo-600',   textColor: 'text-indigo-400',  borderColor: 'border-indigo-500/40',logo: '🎞️' },
+  { id: 188,  name: 'Sky Go',         color: 'bg-violet-700',   textColor: 'text-violet-400',  borderColor: 'border-violet-500/40',logo: '☁️' },
+] as const
+
+function StreamingPlatformsSelector() {
+  const [selected, setSelected] = useState<number[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const supabase = createClient()
+
+  useEffect(() => {
+    const load = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setLoading(false); return }
+      const { data } = await supabase
+        .from('user_preferences')
+        .select('streaming_platforms')
+        .eq('user_id', user.id)
+        .single()
+      if (data?.streaming_platforms) {
+        setSelected(data.streaming_platforms as number[])
+      }
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  const toggle = (id: number) => {
+    setSelected(prev =>
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+    )
+  }
+
+  const save = async () => {
+    setSaving(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setSaving(false); return }
+    await supabase.from('user_preferences').upsert({
+      user_id: user.id,
+      streaming_platforms: selected,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' })
+    setSaving(false)
+    showToast(selected.length === 0 ? 'Filtro piattaforme rimosso' : `${selected.length} piattaforme salvate`)
+  }
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+      <div className="px-5 pt-4 pb-3">
+        <p className="text-sm text-zinc-400 leading-relaxed">
+          Seleziona le piattaforme che hai attivo. I consigli di film e serie verranno
+          <span className="text-violet-400 font-medium"> boostati</span> se disponibili su queste piattaforme.
+        </p>
+        {selected.length === 0 && !loading && (
+          <p className="text-xs text-zinc-600 mt-1">
+            Nessuna piattaforma selezionata — i consigli non terranno conto della disponibilità.
+          </p>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-6">
+          <Loader2 size={18} className="text-zinc-600 animate-spin" />
+        </div>
+      ) : (
+        <div className="px-3 pb-3 grid grid-cols-2 gap-2">
+          {STREAMING_PLATFORMS.map(({ id, name, textColor, borderColor, logo }) => {
+            const isSelected = selected.includes(id)
+            return (
+              <button
+                key={id}
+                onClick={() => toggle(id)}
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                  isSelected
+                    ? `border ${borderColor} bg-zinc-800 ${textColor}`
+                    : 'border-zinc-800 bg-zinc-900 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
+                }`}
+              >
+                <span className="text-base leading-none">{logo}</span>
+                <span className="truncate">{name}</span>
+                {isSelected && <Check size={12} className="ml-auto flex-shrink-0 text-violet-400" />}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      <div className="px-3 pb-3">
+        <button
+          onClick={save}
+          disabled={saving || loading}
+          className="w-full py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2"
+        >
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+          {saving ? 'Salvataggio…' : 'Salva piattaforme'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function SettingsPage() {
   const { locale, setLocale, t } = useLocale()
   const { theme, setTheme } = useTheme()
@@ -383,6 +497,15 @@ export default function SettingsPage() {
             <PushNotificationsToggle />
             <DigestToggle />
           </div>
+        </section>
+
+        {/* #8 Piattaforme Streaming */}
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <Tv size={15} className="text-zinc-500" />
+            <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Piattaforme streaming</h2>
+          </div>
+          <StreamingPlatformsSelector />
         </section>
 
         {/* Link utili */}

@@ -1409,6 +1409,22 @@ async function fetchAniListContinuity(entries: any[], ownedIds: Set<string>): Pr
   return results.sort((a, b) => a.priority - b.priority)
 }
 
+// ── #8 Platform Awareness — mappa ID TMDb → nome piattaforma ─────────────────
+const PLATFORM_NAMES_MAP: Record<number, string> = {
+  8:    'Netflix',
+  119:  'Prime Video',
+  337:  'Disney+',
+  283:  'Crunchyroll',
+  531:  'Paramount+',
+  39:   'NOW TV',
+  35:   'Apple TV+',
+  2:    'Apple iTunes',
+  3:    'Google Play',
+  192:  'YouTube',
+  1773: 'MUBI',
+  188:  'Sky Go',
+}
+
 // ── Fetcher: Anime V3 (con studio/staff data e trending) ─────────────────────
 const ANILIST_VALID_GENRES = new Set([
   'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror',
@@ -1705,7 +1721,7 @@ async function fetchMangaRecs(
 // ── Fetcher: Film V3 (TMDb con trending) ─────────────────────────────────────
 async function fetchMovieRecs(
   slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, token: string, isAlreadyOwned: (type: string, id: string, title: string) => boolean,
-  shownIds?: Set<string>, socialFavorites?: Map<string, string>
+  shownIds?: Set<string>, socialFavorites?: Map<string, string>, userPlatformIds: number[] = []
 ): Promise<Recommendation[]> {
   if (!token) return []
   const results: Recommendation[] = []
@@ -1748,23 +1764,47 @@ async function fetchMovieRecs(
         .slice(0, 20)
 
       const kwMap = new Map<number, string[]>()
+      const providerMap = new Map<number, Set<number>>()  // #8: provider IDs disponibili in IT
+
       await Promise.allSettled(candidates.slice(0, 10).map(async (m: any) => {
         try {
-          const kr = await fetch(`https://api.themoviedb.org/3/movie/${m.id}/keywords`,
-            { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(3000) })
-          if (!kr.ok) return
-          const kj = await kr.json()
-          kwMap.set(m.id, (kj.keywords || []).map((k: any) => k.name.toLowerCase()))
+          const [kr, pr] = await Promise.all([
+            fetch(`https://api.themoviedb.org/3/movie/${m.id}/keywords`,
+              { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(3000) }),
+            userPlatformIds.length > 0
+              ? fetch(`https://api.themoviedb.org/3/movie/${m.id}/watch/providers`,
+                  { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(3000) })
+              : Promise.resolve(null),
+          ])
+          if (kr.ok) {
+            const kj = await kr.json()
+            kwMap.set(m.id, (kj.keywords || []).map((k: any) => k.name.toLowerCase()))
+          }
+          if (pr?.ok) {
+            const pj = await pr.json()
+            // Combina flatrate (abbonamento) + free + ads — priorità abbonamento
+            const itProviders = pj.results?.IT
+            const allProviders: any[] = [
+              ...(itProviders?.flatrate || []),
+              ...(itProviders?.free || []),
+              ...(itProviders?.ads || []),
+            ]
+            providerMap.set(m.id, new Set(allProviders.map((p: any) => p.provider_id)))
+          }
         } catch {}
       }))
 
       const scored = candidates
         .map((m: any) => {
           const kws = kwMap.get(m.id) || []
+          const movieProviders = providerMap.get(m.id) || new Set<number>()
           let boost = 0
           for (const kw of topKeywords) { if (kws.some(k => k.includes(kw))) boost += 2 }
           const isTrending = trendingIds.has(m.id.toString())
           if (isTrending) boost += 5
+          // #8: platform boost — titolo disponibile sulla piattaforma dell'utente
+          const platformMatch = userPlatformIds.length > 0 && userPlatformIds.some(pid => movieProviders.has(pid))
+          if (platformMatch) boost += 12
           const recGenres = [slot.genre]
           let matchScore = computeMatchScore(recGenres, kws, tasteProfile)
           // V5: runtime penalty
@@ -1775,13 +1815,13 @@ async function fetchMovieRecs(
           // V4: freshness
           const year = m.release_date ? parseInt(m.release_date.substring(0, 4)) : undefined
           matchScore = Math.round(matchScore * releaseFreshnessMult(year))
-          return { m, boost, matchScore, recGenres, kws, trendingBoost: isTrending ? 0.8 : 0 }
+          return { m, boost, matchScore, recGenres, kws, trendingBoost: isTrending ? 0.8 : 0, platformMatch }
         })
         .filter(({ matchScore }: any) => matchScore >= 20)
         .sort((a: any, b: any) => (b.boost + b.matchScore) - (a.boost + a.matchScore))
         .slice(0, slot.quota + 3)
 
-      for (const { m, matchScore, recGenres, trendingBoost } of scored) {
+      for (const { m, matchScore, recGenres, trendingBoost, platformMatch } of scored) {
         const recId = m.id.toString()
         if (seen.has(recId)) continue
         if (shownIds?.has(recId)) continue
@@ -1790,6 +1830,15 @@ async function fetchMovieRecs(
         let finalScore = matchScore
         if (socialFriend) finalScore = Math.min(100, finalScore + 15)
         const year = m.release_date ? parseInt(m.release_date.substring(0, 4)) : undefined
+
+        // #8: costruisci badge piattaforma per la spiegazione why
+        let platformWhy: string | undefined
+        if (platformMatch && userPlatformIds.length > 0) {
+          const movieProviders = providerMap.get(m.id) || new Set<number>()
+          const matchedPlatform = PLATFORM_NAMES_MAP[userPlatformIds.find(pid => movieProviders.has(pid))!]
+          if (matchedPlatform) platformWhy = `Disponibile su ${matchedPlatform}`
+        }
+
         results.push({
           id: recId,
           title: m.title || m.original_title || 'Senza titolo',
@@ -1801,7 +1850,9 @@ async function fetchMovieRecs(
           description: m.overview ? m.overview.slice(0, 300) : undefined,
           why: socialFriend
             ? `Il tuo amico con gusti simili all'${socialFriend} ha adorato questo`
-            : buildWhyV3(recGenres, recId, m.title || '', tasteProfile, matchScore, slot.isDiscovery, { trendingBoost }),
+            : platformWhy
+              ? `${platformWhy} · ${buildWhyV3(recGenres, recId, m.title || '', tasteProfile, matchScore, slot.isDiscovery, { trendingBoost })}`
+              : buildWhyV3(recGenres, recId, m.title || '', tasteProfile, matchScore, slot.isDiscovery, { trendingBoost }),
           matchScore: finalScore,
           isDiscovery: slot.isDiscovery,
           isAwardWinner: isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb'),
@@ -1817,7 +1868,7 @@ async function fetchMovieRecs(
 // ── Fetcher: Serie TV V3 ──────────────────────────────────────────────────────
 async function fetchTvRecs(
   slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, token: string, isAlreadyOwned: (type: string, id: string, title: string) => boolean,
-  shownIds?: Set<string>, socialFavorites?: Map<string, string>
+  shownIds?: Set<string>, socialFavorites?: Map<string, string>, userPlatformIds: number[] = []
 ): Promise<Recommendation[]> {
   if (!token) return []
   const results: Recommendation[] = []
@@ -1858,23 +1909,46 @@ async function fetchTvRecs(
         .slice(0, 20)
 
       const kwMap = new Map<number, string[]>()
+      const providerMap = new Map<number, Set<number>>()  // #8: provider IDs disponibili in IT
+
       await Promise.allSettled(candidates.slice(0, 10).map(async (m: any) => {
         try {
-          const kr = await fetch(`https://api.themoviedb.org/3/tv/${m.id}/keywords`,
-            { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(3000) })
-          if (!kr.ok) return
-          const kj = await kr.json()
-          kwMap.set(m.id, (kj.results || []).map((k: any) => k.name.toLowerCase()))
+          const [kr, pr] = await Promise.all([
+            fetch(`https://api.themoviedb.org/3/tv/${m.id}/keywords`,
+              { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(3000) }),
+            userPlatformIds.length > 0
+              ? fetch(`https://api.themoviedb.org/3/tv/${m.id}/watch/providers`,
+                  { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(3000) })
+              : Promise.resolve(null),
+          ])
+          if (kr.ok) {
+            const kj = await kr.json()
+            kwMap.set(m.id, (kj.results || []).map((k: any) => k.name.toLowerCase()))
+          }
+          if (pr?.ok) {
+            const pj = await pr.json()
+            const itProviders = pj.results?.IT
+            const allProviders: any[] = [
+              ...(itProviders?.flatrate || []),
+              ...(itProviders?.free || []),
+              ...(itProviders?.ads || []),
+            ]
+            providerMap.set(m.id, new Set(allProviders.map((p: any) => p.provider_id)))
+          }
         } catch {}
       }))
 
       const scored = candidates
         .map((m: any) => {
           const kws = kwMap.get(m.id) || []
+          const showProviders = providerMap.get(m.id) || new Set<number>()
           let boost = 0
           for (const kw of topKeywords) { if (kws.some(k => k.includes(kw))) boost += 2 }
           const isTrending = trendingIds.has(m.id.toString())
           if (isTrending) boost += 5
+          // #8: platform boost
+          const platformMatch = userPlatformIds.length > 0 && userPlatformIds.some(pid => showProviders.has(pid))
+          if (platformMatch) boost += 12
           const recGenres = [slot.genre]
           let matchScore = computeMatchScore(recGenres, kws, tasteProfile)
           // V4: award boost
@@ -1882,13 +1956,13 @@ async function fetchTvRecs(
           // V4: freshness
           const year = m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined
           matchScore = Math.round(matchScore * releaseFreshnessMult(year))
-          return { m, boost, matchScore, recGenres, trendingBoost: isTrending ? 0.8 : 0 }
+          return { m, boost, matchScore, recGenres, trendingBoost: isTrending ? 0.8 : 0, platformMatch }
         })
         .filter(({ matchScore }: any) => matchScore >= 20)
         .sort((a: any, b: any) => (b.boost + b.matchScore) - (a.boost + a.matchScore))
         .slice(0, slot.quota + 3)
 
-      for (const { m, matchScore, recGenres, trendingBoost } of scored) {
+      for (const { m, matchScore, recGenres, trendingBoost, platformMatch } of scored) {
         const recId = m.id.toString()
         if (seen.has(recId)) continue
         if (shownIds?.has(recId)) continue
@@ -1897,6 +1971,15 @@ async function fetchTvRecs(
         let finalScore = matchScore
         if (socialFriend) finalScore = Math.min(100, finalScore + 15)
         const year = m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined
+
+        // #8: badge piattaforma
+        let platformWhy: string | undefined
+        if (platformMatch && userPlatformIds.length > 0) {
+          const showProviders2 = providerMap.get(m.id) || new Set<number>()
+          const matchedPlatform = PLATFORM_NAMES_MAP[userPlatformIds.find(pid => showProviders2.has(pid))!]
+          if (matchedPlatform) platformWhy = `Disponibile su ${matchedPlatform}`
+        }
+
         results.push({
           id: recId,
           title: m.name || m.original_name || 'Senza titolo',
@@ -1908,7 +1991,9 @@ async function fetchTvRecs(
           description: m.overview ? m.overview.slice(0, 300) : undefined,
           why: socialFriend
             ? `Il tuo amico con gusti simili all'${socialFriend} ha adorato questo`
-            : buildWhyV3(recGenres, recId, m.name || '', tasteProfile, matchScore, slot.isDiscovery, { trendingBoost }),
+            : platformWhy
+              ? `${platformWhy} · ${buildWhyV3(recGenres, recId, m.name || '', tasteProfile, matchScore, slot.isDiscovery, { trendingBoost })}`
+              : buildWhyV3(recGenres, recId, m.name || '', tasteProfile, matchScore, slot.isDiscovery, { trendingBoost }),
           matchScore: finalScore,
           isDiscovery: slot.isDiscovery,
           isAwardWinner: isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb'),
@@ -2152,6 +2237,9 @@ export async function GET(request: NextRequest) {
     const wishlistItems = wishlistRaw || []
     const searches = searchHistory || []
 
+    // #8 Platform Awareness: leggi piattaforme utente dalle preferences
+    const userPlatformIds: number[] = (preferences as any)?.streaming_platforms || []
+
     // V3: Compute taste profile con tutti i segnali
     const tasteProfile = computeTasteProfile(allEntries, preferences, wishlistItems, searches)
 
@@ -2313,8 +2401,8 @@ export async function GET(request: NextRequest) {
         switch (type) {
           case 'anime': return { type, items: await fetchAnimeRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, shownIds, socialFavorites) }
           case 'manga': return { type, items: await fetchMangaRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, shownIds, socialFavorites) }
-          case 'movie': return { type, items: await fetchMovieRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, shownIds, socialFavorites) }
-          case 'tv':    return { type, items: await fetchTvRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, shownIds, socialFavorites) }
+          case 'movie': return { type, items: await fetchMovieRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, shownIds, socialFavorites, userPlatformIds) }
+          case 'tv':    return { type, items: await fetchTvRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, shownIds, socialFavorites, userPlatformIds) }
           case 'game':  return { type, items: await fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret, isAlreadyOwned, shownIds) }
           default: return { type, items: [] }
         }
