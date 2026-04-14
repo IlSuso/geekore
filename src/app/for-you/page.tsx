@@ -506,27 +506,37 @@ const HeroMatchSection = memo(function HeroMatchSection({ items, onAdd, onWishli
   )
 })
 
-const RecommendationSection = memo(function RecommendationSection({ type, items, label, onAdd, onWishlist, onFeedback, addedIds, wishlistIds, dismissedIds, isDiscovery }: {
-  type: MediaType; items: Recommendation[]; label: string; isDiscovery?: boolean
+const RecommendationSection = memo(function RecommendationSection({ type, items, label, onAdd, onWishlist, onFeedback, addedIds, wishlistIds, dismissedIds }: {
+  type: MediaType; items: Recommendation[]; label: string
   onAdd: (i: Recommendation) => void; onWishlist: (i: Recommendation) => void
   onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
   addedIds: Set<string>; wishlistIds: Set<string>; dismissedIds: Set<string>
 }) {
   const Icon = TYPE_ICONS[type]; const colorClass = TYPE_COLORS[type]
-  const visible = items.filter(i => !dismissedIds.has(i.id) && !i.isContinuity)
+  // items già filtrati e ordinati dal parent — mostra tutti
+  const visible = items.filter(i => !dismissedIds.has(i.id))
   if (!visible.length) return null
 
+  const discoveryCount = visible.filter(i => i.isDiscovery).length
+  const topScore = visible[0]?.matchScore || 0
+
   return (
-    <div className="mb-12">
-      <div className="flex items-center gap-3 mb-5">
+    <div className="mb-10">
+      <div className="flex items-center gap-3 mb-4">
         <div className={`w-8 h-8 bg-gradient-to-br ${colorClass} rounded-xl flex items-center justify-center shadow-lg`}>
-          {isDiscovery ? <Compass size={16} className="text-white" /> : <Icon size={16} className="text-white" />}
+          <Icon size={16} className="text-white" />
         </div>
         <div>
           <h2 className="text-base font-bold text-white">{label}</h2>
-          {isDiscovery && <p className="text-[10px] text-emerald-400">Genere adiacente ai tuoi preferiti</p>}
+          <p className="text-[10px] text-zinc-500">
+            {visible.length} titoli{discoveryCount > 0 ? ` · ${discoveryCount} nuovi generi` : ''}
+          </p>
         </div>
-        <span className="text-xs text-zinc-500 ml-auto">{visible.length} titoli</span>
+        {topScore >= 80 && (
+          <span className="ml-auto text-[10px] font-semibold text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+            <Flame size={9} /> Ottimo match
+          </span>
+        )}
       </div>
       <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
         {visible.map(item => (
@@ -821,13 +831,26 @@ export default function ForYouPage() {
   const allContinuityRecs = allRecs.filter(i => i.isContinuity && !dismissedIds.has(i.id))
 
   const hasEnoughData = totalEntries >= 1
-  const SECTIONS: Array<{ key: MediaType; label: string }> = [
-    { key: 'game', label: fy.sections.game },
+
+  // Mostra solo sezioni per tipi che l'utente ha nella collezione
+  // E ordina per numero di titoli consigliati (sezioni più ricche prima)
+  const collectionSize = tasteProfile?.collectionSize || {}
+  const ALL_SECTIONS: Array<{ key: MediaType; label: string }> = [
     { key: 'anime', label: fy.sections.anime },
+    { key: 'game', label: fy.sections.game },
     { key: 'movie', label: fy.sections.movie },
     { key: 'tv', label: fy.sections.tv },
-    { key: 'manga', label: fy.sections.manga }
+    { key: 'manga', label: fy.sections.manga },
   ]
+  // Mostra la sezione se: l'utente ha almeno 1 entry di quel tipo, O ha almeno 3 consigli
+  const SECTIONS = ALL_SECTIONS.filter(({ key }) =>
+    (collectionSize[key] || 0) >= 1 || (displayRecs[key] || []).length >= 3
+  ).sort((a, b) => {
+    // Ordina per: chi ha più consigli disponibili viene prima
+    const countA = (displayRecs[a.key] || []).filter(i => !dismissedIds.has(i.id) && !i.isContinuity).length
+    const countB = (displayRecs[b.key] || []).filter(i => !dismissedIds.has(i.id) && !i.isContinuity).length
+    return countB - countA
+  })
 
   if (loading) return (
     <div className="min-h-screen bg-black text-white pt-8 pb-24 max-w-screen-2xl mx-auto px-6">
@@ -894,40 +917,34 @@ export default function ForYouPage() {
               />
             )}
 
-            {allRecs.length > 0 && (
-              <HeroMatchSection
-                items={allRecs}
-                onAdd={handleAdd} onWishlist={handleWishlist} onFeedback={handleFeedback}
-                addedIds={addedIds} wishlistIds={wishlistIds} dismissedIds={dismissedIds}
-              />
-            )}
-
             {SECTIONS.map(({ key, label }) => {
               const items = displayRecs[key] || []
-              const mainItems = items.filter(i => !i.isDiscovery)
-              const discoveryItems = items.filter(i => i.isDiscovery)
+              // Mescola main + discovery in una sola riga, ordinati per matchScore
+              // I continuity vengono già gestiti sopra separatamente
+              const allItems = items
+                .filter(i => !i.isContinuity && !dismissedIds.has(i.id))
+                .sort((a, b) => b.matchScore - a.matchScore)
+              if (!allItems.length) return null
               return (
-                <div key={key}>
-                  <RecommendationSection
-                    type={key} items={mainItems} label={label}
-                    onAdd={handleAdd} onWishlist={handleWishlist} onFeedback={handleFeedback}
-                    addedIds={addedIds} wishlistIds={wishlistIds} dismissedIds={dismissedIds}
-                  />
-                  {discoveryItems.length > 0 && (
-                    <RecommendationSection
-                      type={key}
-                      items={discoveryItems}
-                      label={`Scopri: ${discoveryItems[0]?.genres[0] || key}`}
-                      onAdd={handleAdd} onWishlist={handleWishlist} onFeedback={handleFeedback}
-                      addedIds={addedIds} wishlistIds={wishlistIds} dismissedIds={dismissedIds}
-                      isDiscovery
-                    />
-                  )}
-                </div>
+                <RecommendationSection
+                  key={key}
+                  type={key}
+                  items={allItems}
+                  label={label}
+                  onAdd={handleAdd}
+                  onWishlist={handleWishlist}
+                  onFeedback={handleFeedback}
+                  addedIds={addedIds}
+                  wishlistIds={wishlistIds}
+                  dismissedIds={dismissedIds}
+                />
               )
             })}
 
-            {SECTIONS.every(({ key }) => !(displayRecs[key] || []).length) && (
+            {SECTIONS.every(({ key }) => {
+              const items = (displayRecs[key] || []).filter(i => !i.isContinuity && !dismissedIds.has(i.id))
+              return !items.length
+            }) && (
               <div className="text-center py-20">
                 <p className="text-zinc-400">{fy.sectionEmpty}</p>
                 <button onClick={handleRefresh} className="mt-4 text-violet-400 text-sm hover:underline">{fy.refresh}</button>

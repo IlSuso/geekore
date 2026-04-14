@@ -1248,12 +1248,40 @@ function buildWhyV3(
   }
 
   // Fallback: V2 logic
+  // Mappa compatibilità tipo raccomandazione → tipi validi di titoli nel profilo da citare
+  const COMPATIBLE_TYPES: Record<string, string[]> = {
+    'anime':  ['anime', 'manga'],
+    'manga':  ['manga', 'anime'],
+    'movie':  ['movie', 'tv'],
+    'tv':     ['tv', 'movie'],
+    'game':   ['game'],
+  }
+  const validSourceTypes = new Set(COMPATIBLE_TYPES[recId.startsWith('anilist-anime') ? 'anime' :
+    recId.startsWith('anilist-manga') ? 'manga' : 'unknown'] ||
+    COMPATIBLE_TYPES[recGenres.length > 0 ? 'tv' : 'movie'] || // fallback generico
+    ['movie', 'tv', 'anime', 'manga', 'game'])
+
+  // Inferisci il tipo della raccomandazione dal contesto (passato come parte di recId o recGenres)
+  // Usiamo il tipo dell'entry che ha chiamato buildWhyV3 — non disponibile qui,
+  // quindi usiamo una euristica: se recId è numerico = TMDb (movie/tv), se anilist = anime/manga
+  let recType = 'unknown'
+  if (recId.startsWith('anilist-anime')) recType = 'anime'
+  else if (recId.startsWith('anilist-manga')) recType = 'manga'
+  else if (!isNaN(Number(recId))) recType = 'tmdb' // movie o tv
+
+  const compatibleTypes = recType === 'anime' ? new Set(['anime', 'manga'])
+    : recType === 'manga' ? new Set(['manga', 'anime'])
+    : recType === 'tmdb' ? new Set(['movie', 'tv'])
+    : new Set(['movie', 'tv', 'anime', 'manga', 'game'])
+
   const candidates: Array<{ title: string; type: string; score: number; recency: number; rating: number }> = []
   for (const genre of recGenres) {
     const titles = tasteProfile.genreToTitles[genre] || []
     const genreScore = tasteProfile.globalGenres.find(g => g.genre === genre)?.score || 1
     for (const t of titles) {
-      if ((t as any).isWishlist) continue // non citare items dalla wishlist nelle spiegazioni
+      if ((t as any).isWishlist) continue
+      // Non citare titoli di tipo incompatibile (es. giochi per spiegare serie TV)
+      if (!compatibleTypes.has(t.type)) continue
       const existing = candidates.find(c => c.title === t.title)
       if (existing) existing.score += genreScore
       else candidates.push({ ...t, score: genreScore })
@@ -1956,9 +1984,11 @@ async function fetchMovieRecs(
           // #8: platform boost — titolo disponibile sulla piattaforma dell'utente
           const platformMatch = userPlatformIds.length > 0 && userPlatformIds.some(pid => movieProviders.has(pid))
           if (platformMatch) boost += 12
-          // #6: language boost — boost titoli non-inglesi se l'utente li preferisce
+          // #6: language boost/penalità
           const NON_ENGLISH_LANGS = new Set(['ja','ko','fr','de','it','es','zh','pt','pl','tr'])
+          const NICHE_LANGS = new Set(['th','vi','id','ar','hi','tl','ms','ro','hu','cs'])
           if (preferNonEn && m.original_language && NON_ENGLISH_LANGS.has(m.original_language)) boost += 8
+          if (!preferNonEn && m.original_language && NICHE_LANGS.has(m.original_language)) boost -= 20
           const recGenres = [slot.genre]
           let matchScore = computeMatchScore(recGenres, kws, tasteProfile)
           // V5: runtime penalty
@@ -2047,8 +2077,10 @@ async function fetchTvRecs(
     try {
       const voteAvgMin = tasteProfile.qualityThresholds.tmdbVoteAvg
       const preferNonEn = tasteProfile.languagePreference.preferNonEnglish
+      // vote_count.gte=200 (era 40 — troppo basso, portava serie tailandesi con 50 voti)
+      // popularity.gte=15 esclude produzioni sconosciute a livello internazionale
       const res = await fetch(
-        `https://api.themoviedb.org/3/discover/tv?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=40&vote_average.gte=${voteAvgMin}&language=it-IT&page=1`,
+        `https://api.themoviedb.org/3/discover/tv?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=200&vote_average.gte=${voteAvgMin}&popularity.gte=15&language=it-IT&page=1`,
         { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
       )
       if (!res.ok) continue
@@ -2101,9 +2133,13 @@ async function fetchTvRecs(
           // #8: platform boost
           const platformMatch = userPlatformIds.length > 0 && userPlatformIds.some(pid => showProviders.has(pid))
           if (platformMatch) boost += 12
-          // #6: language boost
+          // #6: language boost/penalità
           const NON_ENGLISH_LANGS = new Set(['ja','ko','fr','de','it','es','zh','pt','pl','tr'])
+          // Lingue di nicchia: produzioni quasi mai distribuite a livello internazionale
+          const NICHE_LANGS = new Set(['th','vi','id','ar','hi','tl','ms','ro','hu','cs'])
           if (preferNonEn && m.original_language && NON_ENGLISH_LANGS.has(m.original_language)) boost += 8
+          // Penalizza lingue di nicchia se l'utente non ha preferenza non-english
+          if (!preferNonEn && m.original_language && NICHE_LANGS.has(m.original_language)) boost -= 20
           const recGenres = [slot.genre]
           let matchScore = computeMatchScore(recGenres, kws, tasteProfile)
           // V4: award boost
@@ -2591,7 +2627,7 @@ export async function GET(request: NextRequest) {
     const [continuityRecs, ...mainResults] = await Promise.all([
       continuityRecsPromise,
       ...typesToFetch.map(async type => {
-        const slots = buildDiversitySlots(type, tasteProfile, 20)
+        const slots = buildDiversitySlots(type, tasteProfile, 30)
         if (slots.length === 0) return { type, items: [] }
 
         switch (type) {
