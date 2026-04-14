@@ -182,24 +182,6 @@ export function LetterboxdImport() {
     <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
 
       {/* Header */}
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-10 h-10 bg-emerald-500/20 border border-emerald-500/30 rounded-2xl flex items-center justify-center">
-          <span className="text-base font-black text-emerald-400">LB</span>
-        </div>
-        <div>
-          <h3 className="font-semibold text-white">Importa da Letterboxd</h3>
-          <p className="text-xs text-zinc-500">Film visti, voti, watchlist e liste</p>
-        </div>
-        <a
-          href="https://letterboxd.com/settings/data/"
-          target="_blank" rel="noopener noreferrer"
-          className="ml-auto text-zinc-600 hover:text-zinc-400 transition"
-          title="Vai alle impostazioni Letterboxd"
-        >
-          <ExternalLink size={14} />
-        </a>
-      </div>
-
       {/* Come esportare */}
       <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-2xl p-4 mb-5 text-xs text-zinc-500 space-y-2">
         <p className="font-semibold text-zinc-400">Come ottenere i file:</p>

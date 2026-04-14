@@ -60,6 +60,7 @@ type UserMedia = {
   rating?: number
   status?: string
   genres?: string[]
+  achievement_data?: { curr: number; tot: number; gs_curr: number; gs_tot: number } | null
 }
 
 type Profile = {
@@ -263,15 +264,18 @@ function MediaCard({
       <div className="flex flex-col flex-1 px-4 pt-3 pb-4 gap-2">
         <h4 className="font-semibold line-clamp-2 text-sm leading-snug text-white">{displayTitle}</h4>
         <div className="flex items-center gap-2">
-          <StarRating
-            value={rating}
-            onChange={isOwner ? (r) => onRating?.(media.id, r) : undefined}
-            size={15}
-            viewOnly={!isOwner}
-          />
+          <div onPointerDown={isOwner ? e => e.stopPropagation() : undefined}>
+            <StarRating
+              value={rating}
+              onChange={isOwner ? (r) => onRating?.(media.id, r) : undefined}
+              size={15}
+              viewOnly={!isOwner}
+            />
+          </div>
           {isOwner && (
             <button
               onClick={() => onNotes?.(media)}
+              onPointerDown={e => e.stopPropagation()}
               className={`ml-auto p-1.5 rounded-lg border transition-all ${
                 hasNotes
                   ? 'bg-violet-600 border-violet-500 text-white'
@@ -289,6 +293,7 @@ function MediaCard({
               value={media.status || 'watching'}
               onChange={e => onStatusChange?.(media.id, e.target.value)}
               onClick={e => e.stopPropagation()}
+              onPointerDown={e => e.stopPropagation()}
               className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-zinc-900 border-zinc-800 text-zinc-400 focus:outline-none focus:border-violet-500 transition cursor-pointer appearance-none"
             >
               <option value="watching">In corso</option>
@@ -321,11 +326,33 @@ function MediaCard({
                 </div>
               )}
             </div>
-          ) : media.type === 'game' ? (
-            <p className="text-emerald-400 text-sm flex items-center justify-center gap-1.5">
-              <Clock size={14} /> {m.hoursPlayed(media.current_episode)}
-            </p>
-          ) : hasEpisodeData ? (
+          ) : media.type === 'game' ? (() => {
+            const ach = media.achievement_data
+            const hours = media.current_episode || 0
+            return (
+              <div className="space-y-2">
+                {hours > 0 && (
+                  <p className="text-emerald-400 text-sm flex items-center justify-center gap-1.5">
+                    <Clock size={14} /> {m.hoursPlayed(hours)}
+                  </p>
+                )}
+                {ach && ach.tot > 0 && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px] text-zinc-500">
+                      <span>Achievement</span>
+                      <span className="font-mono text-zinc-400">{ach.curr}/{ach.tot}</span>
+                    </div>
+                    <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-[#107c10] rounded-full transition-all duration-300"
+                        style={{ width: `${Math.round((ach.curr / ach.tot) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })() : hasEpisodeData ? (
             isCompleted ? (
               isOwner ? (
                 <div className="flex items-center justify-end">
@@ -524,9 +551,23 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
 
       {/* Progress / hours */}
       <div className="text-right flex-shrink-0">
-        {media.type === 'game' ? (
-          <p className="text-xs text-emerald-400">{media.current_episode}h</p>
-        ) : media.type === 'boardgame' ? (
+        {media.type === 'game' ? (() => {
+          const ach = media.achievement_data
+          const hours = media.current_episode || 0
+          return (
+            <div className="flex flex-col items-end gap-1">
+              {hours > 0 && <p className="text-xs text-emerald-400">{hours}h</p>}
+              {ach && ach.tot > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-zinc-500 font-mono">{ach.curr}/{ach.tot}</span>
+                  <div className="w-12 h-1 bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-[#107c10] rounded-full" style={{ width: `${Math.round((ach.curr / ach.tot) * 100)}%` }} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })() : media.type === 'boardgame' ? (
           <p className="text-xs text-emerald-400">{media.current_episode} partite</p>
         ) : hasEpisodes ? (
           <div className="flex items-center gap-1">
@@ -587,26 +628,13 @@ export default function ProfilePage() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [statusFilter, setStatusFilter] = useState('all')
 
-  const RATING_SORTED_TYPES = new Set(['movie', 'manga', 'tv'])
-
   const sortMediaList = (list: UserMedia[]) =>
     [...list].sort((a, b) => {
+      // Categorie diverse: giochi sempre prima
       if (a.type === 'game' && b.type !== 'game') return -1
       if (b.type === 'game' && a.type !== 'game') return 1
-      if (a.type === 'game' && b.type === 'game') return (b.current_episode || 0) - (a.current_episode || 0)
-      // Per movie/manga/tv: ordina per rating desc, con senza-voto in fondo
-      // Se display_order è stato modificato manualmente (diverso tra due item dello stesso tipo),
-      // lo usiamo come override rispettando la scelta dell'utente
-      if (RATING_SORTED_TYPES.has(a.type) && a.type === b.type) {
-        const aOrder = a.display_order || 0
-        const bOrder = b.display_order || 0
-        // Se hanno display_order diversi (drag manuale), rispetta quello
-        if (aOrder !== bOrder) return bOrder - aOrder
-        // Altrimenti ordina per rating: con voto prima, senza voto dopo
-        const aRating = a.rating ?? -1
-        const bRating = b.rating ?? -1
-        return bRating - aRating
-      }
+      // Stesso tipo: usa sempre display_order desc (impostato al momento
+      // dell'import/aggiunta in base a ore/rating, poi aggiornato dal drag manuale)
       return (b.display_order || 0) - (a.display_order || 0)
     })
 
@@ -1233,13 +1261,38 @@ export default function ProfilePage() {
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 flex-shrink-0">
-              <h2 className="text-base font-bold">
-                {importPlatform === 'anilist' && 'Importa da AniList'}
-                {importPlatform === 'mal' && 'Importa da MyAnimeList'}
-                {importPlatform === 'letterboxd' && 'Importa da Letterboxd'}
-                {importPlatform === 'xbox' && 'Importa da Xbox'}
-                {importPlatform === 'steam' && 'Importa da Steam'}
-              </h2>
+              <div className="flex items-center gap-3">
+                {importPlatform === 'steam' && (
+                  <div className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0"><SteamIcon size={32} /></div>
+                )}
+                {importPlatform === 'anilist' && (
+                  <div className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0">
+                    <svg viewBox="0 0 512 512" width="32" height="32"><rect width="512" height="512" fill="#1e2630"/><path d="M321.92 323.27V136.6c0-10.698-5.887-16.602-16.558-16.602h-36.433c-10.672 0-16.561 5.904-16.561 16.602v88.651c0 2.497 23.996 14.089 24.623 16.541 18.282 71.61 3.972 128.92-13.359 131.6 28.337 1.405 31.455 15.064 10.348 5.731 3.229-38.209 15.828-38.134 52.049-1.406.31.317 7.427 15.282 7.87 15.282h85.545c10.672 0 16.558-5.9 16.558-16.6v-36.524c0-10.698-5.886-16.602-16.558-16.602z" fill="#02a9ff"/><path d="M170.68 120 74.999 393h74.338l16.192-47.222h80.96L262.315 393h73.968l-95.314-273zm11.776 165.28 23.183-75.629 25.393 75.629z" fill="#fefefe"/></svg>
+                  </div>
+                )}
+                {importPlatform === 'mal' && (
+                  <div className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0">
+                    <svg viewBox="0 0 256 256" width="32" height="32"><rect width="256" height="256" fill="#2e51a2"/><path fill="#ffffff" d="m 30.638616,88.40918 v 68.70703 h 17.759766 v -41.91016 l 15.470703,19.77344 16.67825,-19.77344 v 41.91016 H 98.307101 V 88.40918 H 80.547335 L 63.869085,109.82324 48.398382,88.40918 Z"/><path fill="#ffffff" d="m 182.49799,88.40918 v 68.70703 h 39.07974 l 3.78365,-14.65739 H 200.25775 V 88.40918 Z"/><path fill="#ffffff" d="m 149.65186,88.40918 c -21.64279,0 -35.06651,10.210974 -39.36914,25.39258 -4.19953,14.81779 0.34128,34.3715 10.28711,53.78906 l 14.85742,-10.47461 c 0,0 -7.06411,-9.21728 -8.39453,-23.03516 h 21.98437 v 23.03516 h 19.73438 v -51.67969 h -19.73438 v 14.9668 H 130.8003 c 1.71696,-11.1972 8.295,-17.30859 15.46875,-17.30859 h 25.8164 l -5.12304,-14.68555 z"/></svg>
+                  </div>
+                )}
+                {importPlatform === 'letterboxd' && (
+                  <div className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0">
+                    <svg viewBox="0 0 40 40" width="32" height="32"><rect width="40" height="40" fill="#1a1a1a"/><ellipse cx="11" cy="20" rx="9" ry="9" fill="#ff8000"/><ellipse cx="20" cy="20" rx="9" ry="9" fill="#00e054"/><ellipse cx="29" cy="20" rx="9" ry="9" fill="#40bcf4"/><ellipse cx="15.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9"/><ellipse cx="24.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9"/></svg>
+                  </div>
+                )}
+                {importPlatform === 'xbox' && (
+                  <div className="w-8 h-8 rounded-xl bg-black overflow-hidden flex items-center justify-center flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 88 88"><path fill="#107c10" d="M39.73 86.91c-6.628-.635-13.338-3.015-19.102-6.776-4.83-3.15-5.92-4.447-5.92-7.032 0-5.193 5.71-14.29 15.48-24.658 5.547-5.89 13.275-12.79 14.11-12.604 1.626.363 14.616 13.034 19.48 19 7.69 9.43 11.224 17.154 9.428 20.597-1.365 2.617-9.837 7.733-16.06 9.698-5.13 1.62-11.867 2.306-17.416 1.775zM8.184 67.703c-4.014-6.158-6.042-12.22-7.02-20.988-.324-2.895-.21-4.55.733-10.494 1.173-7.4 5.39-15.97 10.46-21.24 2.158-2.24 2.35-2.3 4.982-1.41 3.19 1.08 6.6 3.436 11.89 8.22l3.09 2.794-1.69 2.07c-7.828 9.61-16.09 23.24-19.2 31.67-1.69 4.58-2.37 9.18-1.64 11.095.49 1.294.04.812-1.61-1.714zm70.453 1.047c.397-1.936-.105-5.49-1.28-9.076-2.545-7.765-11.054-22.21-18.867-32.032l-2.46-3.092 2.662-2.443c3.474-3.19 5.886-5.1 8.49-6.723 2.053-1.28 4.988-2.413 6.25-2.413.777 0 3.516 2.85 5.726 5.95 3.424 4.8 5.942 10.63 7.218 16.69.825 3.92.894 12.3.133 16.21-.63 3.208-1.95 7.366-3.23 10.187-.97 2.113-3.36 6.218-4.41 7.554-.54.687-.54.686-.24-.796zM40.44 11.505C36.834 9.675 31.272 7.71 28.2 7.18c-1.076-.185-2.913-.29-4.08-.23-2.536.128-2.423-.004 1.643-1.925 3.38-1.597 6.2-2.536 10.03-3.34C40.098.78 48.193.77 52.43 1.663c4.575.965 9.964 2.97 13 4.84l.904.554-2.07-.104C60.148 6.745 54.15 8.408 47.71 11.54c-1.942.946-3.63 1.7-3.754 1.68-.123-.024-1.706-.795-3.52-1.715z"/></svg>
+                  </div>
+                )}
+                <h2 className="text-base font-bold">
+                  {importPlatform === 'anilist' && 'Importa da AniList'}
+                  {importPlatform === 'mal' && 'Importa da MyAnimeList'}
+                  {importPlatform === 'letterboxd' && 'Importa da Letterboxd'}
+                  {importPlatform === 'xbox' && 'Importa da Xbox'}
+                  {importPlatform === 'steam' && 'Importa da Steam'}
+                </h2>
+              </div>
               <button onClick={() => setImportPlatform(null)} className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-zinc-800 transition">
                 <XIcon size={18} />
               </button>

@@ -1,8 +1,19 @@
 // DESTINAZIONE: src/app/api/recommendations/route.ts
 // ═══════════════════════════════════════════════════════════════════════════
-// TASTE ENGINE V3 — "TikTok Level"
+// TASTE ENGINE V3.1 — "Full Profile Awareness"
 //
-// Novità rispetto al V2:
+// Novità rispetto al V3:
+//   • boardgame incluso in MediaType e perTypeScores (prima ignorato)
+//   • BGG_TO_CROSS_GENRE: generi boardgame amplificano consigli cross-media
+//   • baseWeight corretto per film (status-based, non episode-based)
+//   • baseWeight corretto per boardgame (partite + status)
+//   • completionMult dedicato per movie e boardgame
+//   • isNegativeSignal: movie/boardgame non penalizzati per completion rate
+//   • computeVelocity: movie sempre 1.0, boardgame usa numero partite
+//   • buildDiversitySlots: fallback su globalGenres se perTypeScores scarso
+//   • Nessuna modifica ai fetcher remoti (BGG non ha recommendation API)
+//
+// Novità V3 originali:
 //   • Wishlist come AMPLIFICATORE del profilo (non solo esclusione)
 //   • Session Velocity: quanto velocemente consumi = quanto ami
 //   • Rewatch signal: titolo rivisto = peso ×3-5
@@ -22,7 +33,7 @@ import { rateLimit } from '@/lib/rateLimit'
 
 // ── Tipi ────────────────────────────────────────────────────────────────────
 
-type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game'
+type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame'
 
 interface CreatorScores {
   studios: Record<string, number>
@@ -120,6 +131,30 @@ const IGDB_TO_CROSS_GENRE: Record<string, string[]> = {
   'Indie': ['Drama', 'Adventure'],
 }
 
+// Cross-genre da categorie BGG verso generi universali
+const BGG_TO_CROSS_GENRE: Record<string, string[]> = {
+  'Fantasy': ['Fantasy', 'Adventure', 'Drama'],
+  'Science Fiction': ['Science Fiction', 'Thriller', 'Action'],
+  'Horror': ['Horror', 'Thriller', 'Mystery'],
+  'Adventure': ['Adventure', 'Action', 'Fantasy'],
+  'Mystery': ['Mystery', 'Thriller', 'Crime'],
+  'Thriller': ['Thriller', 'Mystery', 'Crime'],
+  'War': ['Action', 'Drama', 'History'],
+  'Strategy': ['Strategy', 'Psychological'],
+  'Abstract': ['Strategy', 'Psychological'],
+  'Cooperative': ['Adventure', 'Strategy'],
+  'Medieval': ['Fantasy', 'Action', 'History'],
+  'History': ['Drama', 'Action', 'History'],
+  'Political': ['Drama', 'Thriller'],
+  'Comedy': ['Comedy', 'Family'],
+  'Family': ['Comedy', 'Adventure'],
+  'Card Game': ['Strategy'],
+  'Dice': ['Strategy'],
+  'Party': ['Comedy', 'Family'],
+  'Sports': ['Sports', 'Action'],
+  'Nature': ['Adventure', 'Drama'],
+}
+
 const ADJACENCY_GRAPH: Record<string, string[]> = {
   'Action': ['Thriller', 'Adventure', 'Crime'],
   'Adventure': ['Fantasy', 'Action', 'Science Fiction'],
@@ -209,6 +244,20 @@ function inferGenresFromName(name: string): string[] {
 
 // ── V3: Session Velocity — quanto velocemente consumi = quanto ami ────────────
 function computeVelocity(entry: any): number {
+  const type = entry.type || ''
+
+  // Film: singola visione, velocità non applicabile
+  if (type === 'movie') return 1.0
+
+  // Boardgame: usa numero di partite come proxy di engagement
+  if (type === 'boardgame') {
+    const plays = entry.current_episode || 0
+    if (plays >= 10) return 2.0
+    if (plays >= 5) return 1.5
+    if (plays >= 2) return 1.2
+    return 1.0
+  }
+
   const startedAt = entry.started_at
   const updatedAt = entry.updated_at
   const episodes = entry.current_episode || 0
@@ -274,6 +323,23 @@ function completionMult(entry: any): number {
     return 0.5
   }
 
+  if (type === 'boardgame') {
+    // Per i boardgame current_episode = numero di partite giocate
+    if (status === 'dropped') return 0.1
+    if (current >= 10) return 1.6
+    if (current >= 5) return 1.3
+    if (current >= 2) return 1.0
+    if (current >= 1) return 0.8
+    // Nessuna partita registrata ma in collezione: peso base
+    return 0.6
+  }
+
+  if (type === 'movie') {
+    if (status === 'dropped') return 0.15
+    if (status === 'completed') return 1.5
+    return 0.8
+  }
+
   if (status === 'completed') return 1.5
   if (status === 'dropped') {
     if (total > 0 && current / total < 0.2) return 0.05
@@ -295,8 +361,15 @@ function completionMult(entry: any): number {
 function isNegativeSignal(entry: any): boolean {
   const rating = entry.rating || 0
   const status = entry.status || ''
+  const type = entry.type || ''
   const current = entry.current_episode || 0
   const total = entry.episodes || 0
+
+  // Film e boardgame non hanno episodi — la completion rate non è rilevante
+  if (type === 'movie' || type === 'boardgame') {
+    return (status === 'dropped') || (rating > 0 && rating <= 2)
+  }
+
   const completionRate = total > 0 ? current / total : 1
   return (
     (status === 'dropped' && completionRate < 0.3) ||
@@ -314,8 +387,8 @@ function determineActiveWindowForType(entries: any[], type: MediaType): number {
   }).length
 
   // Window adattiva per tipo: i gamer hanno sessioni più lunghe e sparse
-  const minCount = type === 'game' ? 2 : 3
-  const windows = type === 'game'
+  const minCount = (type === 'game' || type === 'boardgame') ? 2 : 3
+  const windows = (type === 'game' || type === 'boardgame')
     ? [90, 180, 365, 24 * 30]
     : [60, 120, 180, 365]
 
@@ -510,7 +583,7 @@ function computeTasteProfile(
   const globalScores: Record<string, number> = {}
   const negativeGenreScores: Record<string, number> = {}
   const perTypeScores: Record<string, Record<string, number>> = {
-    anime: {}, manga: {}, movie: {}, tv: {}, game: {},
+    anime: {}, manga: {}, movie: {}, tv: {}, game: {}, boardgame: {},
   }
   const genreToTitles: Record<string, Array<any>> = {}
   const deepKeywords: Record<string, number> = {}
@@ -548,11 +621,11 @@ function computeTasteProfile(
 
   // Adaptive window per tipo (V3)
   const activeWindowByType: Record<string, number> = {}
-  for (const type of ['anime', 'manga', 'movie', 'tv', 'game']) {
+  for (const type of ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame']) {
     activeWindowByType[type] = determineActiveWindowForType(entries, type as MediaType)
   }
   const activeWindow = Math.round(
-    Object.values(activeWindowByType).reduce((s, v) => s + v, 0) / 5
+    Object.values(activeWindowByType).reduce((s, v) => s + v, 0) / 6
   )
 
   // Context titoli top per spiegazioni V3 behavioral
@@ -585,7 +658,13 @@ function computeTasteProfile(
     let baseWeight: number
     if (entry.is_steam || type === 'game') {
       baseWeight = hoursOrEp === 0 ? 0.5 : Math.min(Math.log10(hoursOrEp + 1) * 10, 25)
+    } else if (type === 'movie' || type === 'boardgame') {
+      // Film e boardgame non hanno episodi — il peso si basa su rating e status
+      const ratingW = rating >= 1 ? rating * 4 : 3
+      const statusBonus = entry.status === 'completed' ? 4 : entry.status === 'dropped' ? 0 : 2
+      baseWeight = ratingW + statusBonus
     } else {
+      // anime, manga, tv, altri
       const ratingW = rating >= 1 ? rating * 3 : 2
       const engW = Math.min(hoursOrEp / 5, 5)
       baseWeight = ratingW + engW
@@ -610,6 +689,16 @@ function computeTasteProfile(
         const crossGenres = IGDB_TO_CROSS_GENRE[genre] || []
         for (const cg of crossGenres) {
           if (!genres.includes(cg)) addScore(cg, weight * 0.35, type, title, recency, rating)
+        }
+      }
+    }
+
+    // Cross-media per boardgame (peso ridotto: segnale indiretto)
+    if (type === 'boardgame' && !isNegative) {
+      for (const genre of genres) {
+        const crossGenres = BGG_TO_CROSS_GENRE[genre] || []
+        for (const cg of crossGenres) {
+          if (!genres.includes(cg)) addScore(cg, weight * 0.25, type, title, recency, rating)
         }
       }
     }
@@ -982,11 +1071,20 @@ interface GenreSlot {
 }
 
 function buildDiversitySlots(type: MediaType, tasteProfile: TasteProfile, totalSlots = 15): GenreSlot[] {
+  // boardgame non ha un engine di raccomandazione remoto — non genera slot
+  if (type === 'boardgame') return []
+
   const typeGenres = tasteProfile.topGenres[type]?.map(g => g.genre) || []
+
+  // Per i tipi privi di generi propri, usa i globalGenres come fallback
+  // (es. un utente che ha solo boardgame e film: i generi boardgame amplificano i consigli film)
+  const fallbackGenres = tasteProfile.globalGenres.map(g => g.genre)
+  const sourceGenres = typeGenres.length >= 2 ? typeGenres : fallbackGenres
+
   const isGameType = type === 'game'
 
   const IGDB_ONLY = new Set(['Role-playing (RPG)', "Hack and slash/Beat 'em up", 'Turn-based strategy (TBS)', 'Real Time Strategy (RTS)', 'Massively Multiplayer Online (MMO)', 'Battle Royale', 'Tactical', 'Visual Novel', 'Card & Board Game', 'Arcade', 'Platform'])
-  const valid = isGameType ? typeGenres : typeGenres.filter(g => !IGDB_ONLY.has(g))
+  const valid = isGameType ? sourceGenres : sourceGenres.filter(g => !IGDB_ONLY.has(g))
 
   if (valid.length === 0) return []
 
@@ -1140,7 +1238,7 @@ const ANILIST_VALID_GENRES = new Set([
 ])
 
 async function fetchAnimeRecs(
-  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile
+  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, isAlreadyOwned: (type: string, id: string, title: string) => boolean
 ): Promise<Recommendation[]> {
   const results: Recommendation[] = []
   const seen = new Set<string>()
@@ -1187,7 +1285,8 @@ async function fetchAnimeRecs(
       const candidates = media
         .filter((m: any) => {
           const id = `anilist-anime-${m.id}`
-          return !ownedIds.has(id) && !ownedIds.has(m.id.toString()) && m.coverImage?.large && !seen.has(id)
+          const title = m.title?.romaji || m.title?.english || ''
+          return !isAlreadyOwned('anime', id, title) && !seen.has(id) && m.coverImage?.large
         })
         .map((m: any) => {
           const mTags: string[] = (m.tags || []).map((t: any) => t.name.toLowerCase())
@@ -1254,7 +1353,7 @@ const ANILIST_MANGA_GENRES = new Set([
 ])
 
 async function fetchMangaRecs(
-  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile
+  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, isAlreadyOwned: (type: string, id: string, title: string) => boolean
 ): Promise<Recommendation[]> {
   const results: Recommendation[] = []
   const seen = new Set<string>()
@@ -1292,7 +1391,11 @@ async function fetchMangaRecs(
       const media = json.data?.Page?.media || []
 
       const candidates = media
-        .filter((m: any) => !ownedIds.has(`anilist-manga-${m.id}`) && m.coverImage?.large && !seen.has(`anilist-manga-${m.id}`))
+        .filter((m: any) => {
+          const id = `anilist-manga-${m.id}`
+          const title = m.title?.romaji || m.title?.english || ''
+          return !isAlreadyOwned('manga', id, title) && !seen.has(id) && m.coverImage?.large
+        })
         .map((m: any) => {
           const mTags: string[] = (m.tags || []).map((t: any) => t.name.toLowerCase())
           const mAuthors: string[] = (m.staff?.edges || [])
@@ -1347,7 +1450,7 @@ async function fetchMangaRecs(
 
 // ── Fetcher: Film V3 (TMDb con trending) ─────────────────────────────────────
 async function fetchMovieRecs(
-  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, token: string
+  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, token: string, isAlreadyOwned: (type: string, id: string, title: string) => boolean
 ): Promise<Recommendation[]> {
   if (!token) return []
   const results: Recommendation[] = []
@@ -1378,7 +1481,10 @@ async function fetchMovieRecs(
       if (!res.ok) continue
       const json = await res.json()
       const candidates = (json.results || [])
-        .filter((m: any) => !ownedIds.has(m.id.toString()) && m.poster_path && !seen.has(m.id.toString()))
+        .filter((m: any) => {
+          const title = m.title || m.original_title || ''
+          return !isAlreadyOwned('movie', m.id.toString(), title) && m.poster_path && !seen.has(m.id.toString())
+        })
         .slice(0, 20)
 
       const kwMap = new Map<number, string[]>()
@@ -1433,7 +1539,7 @@ async function fetchMovieRecs(
 
 // ── Fetcher: Serie TV V3 ──────────────────────────────────────────────────────
 async function fetchTvRecs(
-  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, token: string
+  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, token: string, isAlreadyOwned: (type: string, id: string, title: string) => boolean
 ): Promise<Recommendation[]> {
   if (!token) return []
   const results: Recommendation[] = []
@@ -1463,7 +1569,10 @@ async function fetchTvRecs(
       if (!res.ok) continue
       const json = await res.json()
       const candidates = (json.results || [])
-        .filter((m: any) => !ownedIds.has(m.id.toString()) && m.poster_path && !seen.has(m.id.toString()))
+        .filter((m: any) => {
+          const title = m.name || m.original_name || ''
+          return !isAlreadyOwned('tv', m.id.toString(), title) && m.poster_path && !seen.has(m.id.toString())
+        })
         .slice(0, 20)
 
       const kwMap = new Map<number, string[]>()
@@ -1535,7 +1644,7 @@ async function getIgdbToken(clientId: string, secret: string): Promise<string | 
 
 async function fetchGameRecs(
   slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile,
-  clientId: string, secret: string
+  clientId: string, secret: string, isAlreadyOwned: (type: string, id: string, title: string) => boolean
 ): Promise<Recommendation[]> {
   const token = await getIgdbToken(clientId, secret)
   if (!token) return []
@@ -1570,7 +1679,10 @@ async function fetchGameRecs(
       if (!Array.isArray(games)) continue
 
             const scored = games
-        .filter((g: any) => !ownedIds.has(g.id.toString()) && g.cover?.url && !seen.has(g.id.toString()))
+        .filter((g: any) => {
+          const title = g.name || ''
+          return !isAlreadyOwned('game', g.id.toString(), title) && g.cover?.url && !seen.has(g.id.toString())
+        })
         .map((g: any) => {
           const gameThemes: string[] = (g.themes || []).map((t: any) => t.name.toLowerCase())
           const gameKws: string[] = (g.keywords || []).map((k: any) => k.name.toLowerCase())
@@ -1661,7 +1773,7 @@ export async function GET(request: NextRequest) {
     // Leggi collezione completa (V3: include campi nuovi)
     const { data: entries } = await supabase
       .from('user_media_entries')
-      .select('type, rating, genres, current_episode, episodes, status, is_steam, title, external_id, appid, updated_at, tags, keywords, themes, player_perspectives, studios, directors, authors, developer, rewatch_count, started_at')
+      .select('type, rating, genres, current_episode, episodes, status, is_steam, title, title_en, external_id, appid, updated_at, tags, keywords, themes, player_perspectives, studios, directors, authors, developer, rewatch_count, started_at')
       .eq('user_id', user.id)
 
     const allEntries = entries || []
@@ -1717,10 +1829,99 @@ export async function GET(request: NextRequest) {
     // V3: Compute taste profile con tutti i segnali
     const tasteProfile = computeTasteProfile(allEntries, preferences, wishlistItems, searches)
 
+    // ── Deduplicazione robusta ────────────────────────────────────────────────
+    // Problema: Letterboxd salva external_id proprietari (es. "letterboxd-the-lord-of-the-rings-2001")
+    // mentre i fetcher usano ID numerici TMDb/IGDB. Il confronto per ID quindi fallisce.
+    // Problema 2: TMDb restituisce titoli in italiano, ma in DB il titolo può essere in inglese
+    // (importato da Letterboxd) e viceversa.
+    // Soluzione: triplo livello — ID esatto, titolo normalizzato (it+en), token significativi per tipo.
+
+    const normalizeTitle = (t: string) =>
+      t.toLowerCase()
+       .replace(/^(the|a|an|il|lo|la|i|gli|le|un|uno|una)\s+/i, '')
+       .replace(/[^a-z0-9]/g, '')
+
+    // Parole chiave significative (≥4 chars) per match fuzzy cross-lingua
+    const titleTokens = (t: string): Set<string> =>
+      new Set(
+        t.toLowerCase()
+         .replace(/[^a-z0-9\s]/g, '')
+         .split(/\s+/)
+         .filter(w => w.length >= 4)
+      )
+
+    const hasTokenOverlap = (a: Set<string>, b: Set<string>, threshold = 0.6): boolean => {
+      if (a.size === 0 || b.size === 0) return false
+      let matches = 0
+      for (const token of a) { if (b.has(token)) matches++ }
+      return matches / Math.min(a.size, b.size) >= threshold
+    }
+
+    // Set per tipo: Map<type, { ids: Set, titles: Set, tokenSets: Set<string>[] }>
+    type OwnedByType = { ids: Set<string>; titles: Set<string>; tokenSets: Array<Set<string>> }
+    const ownedByType = new Map<string, OwnedByType>()
+
+    for (const type of ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame']) {
+      ownedByType.set(type, { ids: new Set(), titles: new Set(), tokenSets: [] })
+    }
+
+    for (const e of allEntries) {
+      const type = e.type || 'movie'
+      const bucket = ownedByType.get(type)
+      if (!bucket) continue
+      if (e.external_id) bucket.ids.add(e.external_id)
+      if (e.appid) bucket.ids.add(e.appid)
+      if (e.title) {
+        bucket.titles.add(normalizeTitle(e.title))
+        bucket.tokenSets.push(titleTokens(e.title))
+      }
+      if (e.title_en) {
+        bucket.titles.add(normalizeTitle(e.title_en))
+        bucket.tokenSets.push(titleTokens(e.title_en))
+      }
+    }
+
+    // Aggiungi wishlist per tipo
+    for (const w of (wishlistRaw || [])) {
+      const type = w.media_type || 'movie'
+      const bucket = ownedByType.get(type)
+      if (!bucket) continue
+      if (w.external_id) bucket.ids.add(w.external_id)
+      if (w.title) {
+        bucket.titles.add(normalizeTitle(w.title))
+        bucket.tokenSets.push(titleTokens(w.title))
+      }
+    }
+
+    // Helper: dato un tipo, un id e un titolo, restituisce true se già posseduto
+    const isAlreadyOwned = (type: string, id: string, title: string): boolean => {
+      const bucket = ownedByType.get(type)
+      if (!bucket) return false
+      if (bucket.ids.has(id)) return true
+      const norm = normalizeTitle(title)
+      if (norm && bucket.titles.has(norm)) return true
+      // Fuzzy token match: gestisce titoli cross-lingua (IT vs EN)
+      const tokens = titleTokens(title)
+      if (tokens.size >= 2) {
+        for (const existing of bucket.tokenSets) {
+          if (hasTokenOverlap(tokens, existing)) return true
+        }
+      }
+      return false
+    }
+
+    // Mantieni anche ownedIds flat per compatibilità con fetchContinuityRecs
     const ownedIds = new Set<string>([
       ...allEntries.map(e => e.external_id).filter(Boolean),
       ...allEntries.map(e => e.appid).filter(Boolean),
       ...(wishlistRaw || []).map(w => w.external_id).filter(Boolean),
+    ])
+
+    // ownedTitles flat (usato come fallback nei fetcher che non hanno ancora isAlreadyOwned)
+    const ownedTitles = new Set<string>([
+      ...allEntries.map(e => e.title).filter(Boolean).map(normalizeTitle),
+      ...allEntries.map(e => e.title_en).filter(Boolean).map(normalizeTitle),
+      ...(wishlistRaw || []).map(w => w.title).filter(Boolean).map(normalizeTitle),
     ])
 
     const tmdbToken = process.env.TMDB_API_KEY || ''
@@ -1743,11 +1944,11 @@ export async function GET(request: NextRequest) {
         if (slots.length === 0) return { type, items: [] }
 
         switch (type) {
-          case 'anime': return { type, items: await fetchAnimeRecs(slots, ownedIds, tasteProfile) }
-          case 'manga': return { type, items: await fetchMangaRecs(slots, ownedIds, tasteProfile) }
-          case 'movie': return { type, items: await fetchMovieRecs(slots, ownedIds, tasteProfile, tmdbToken) }
-          case 'tv':    return { type, items: await fetchTvRecs(slots, ownedIds, tasteProfile, tmdbToken) }
-          case 'game':  return { type, items: await fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret) }
+          case 'anime': return { type, items: await fetchAnimeRecs(slots, ownedIds, tasteProfile, isAlreadyOwned) }
+          case 'manga': return { type, items: await fetchMangaRecs(slots, ownedIds, tasteProfile, isAlreadyOwned) }
+          case 'movie': return { type, items: await fetchMovieRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned) }
+          case 'tv':    return { type, items: await fetchTvRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned) }
+          case 'game':  return { type, items: await fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret, isAlreadyOwned) }
           default: return { type, items: [] }
         }
       })

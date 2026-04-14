@@ -219,20 +219,21 @@ export async function GET(request: NextRequest) {
 
         const steamMedia = games.map((game: any) => {
           const existing = existingMap.get(String(game.appid))
+          const hours = Math.floor(game.playtime_forever / 60)
           return {
             user_id: user.id,
             title: game.name,
             type: 'game',
             appid: String(game.appid),
             cover_image: game.cover_image ?? null,
-            current_episode: Math.floor(game.playtime_forever / 60),
+            current_episode: hours,
             is_steam: true,
             genres: game.genres,
             themes: game.themes,
             keywords: game.keywords,
             player_perspectives: game.player_perspectives,
             game_modes: game.game_modes,
-            display_order: Date.now(),
+            display_order: Date.now() + hours * 10_000,
             updated_at: new Date().toISOString(),
             rating: existing?.rating ?? 0,
             notes: existing?.notes ?? null,

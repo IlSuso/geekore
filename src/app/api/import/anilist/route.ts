@@ -256,7 +256,7 @@ export async function POST(request: NextRequest) {
               tags:            topTags,
               notes:           item.notes || null,
               import_source:   'anilist',
-              display_order:   Date.now(),
+              display_order:   Date.now() + Math.round((rating && rating > 0 ? rating : 0) * 1_000_000),
               updated_at:      new Date().toISOString(),
             }
           })

@@ -209,6 +209,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
       directors: media.directors || [],
       authors: media.authors || [],
       developer: media.developers?.[0] || null,
+      display_order: Date.now() + Math.round((opts?.rating ?? 0) * 1_000_000),
     })
     if (!error) {
       setInCollection(true)

@@ -113,25 +113,6 @@ export function MALImport() {
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-10 h-10 bg-blue-600/20 border border-blue-600/30 rounded-2xl flex items-center justify-center">
-          <span className="text-lg font-black text-blue-400">M</span>
-        </div>
-        <div>
-          <h3 className="font-semibold text-white">Importa da MyAnimeList</h3>
-          <p className="text-xs text-zinc-500">Carica il tuo export XML</p>
-        </div>
-        <a
-          href="https://myanimelist.net/panel.php?go=export"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="ml-auto text-zinc-600 hover:text-zinc-400 transition"
-          title="Esporta da MAL"
-        >
-          <ExternalLink size={14} />
-        </a>
-      </div>
-
       {/* Istruzioni */}
       <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-2xl p-4 mb-5">
         <p className="text-xs font-semibold text-zinc-400 mb-2">Come esportare da MAL:</p>

@@ -1,4 +1,4 @@
-// DESTINAZIONE: src/app/api/xbox/games/route.ts
+// src/app/api/xbox/games/route.ts
 // ═══════════════════════════════════════════════════════════════════════════
 // Feature #22: Integrazione Xbox via OpenXBL API
 //
@@ -8,12 +8,10 @@
 // Variabili .env.local:
 // OPENXBL_API_KEY=la-tua-chiave
 //
-// Il flusso è simpler rispetto a Steam: l'utente inserisce il proprio Gamertag
-// e noi lo risolviamo in XUID, poi recuperiamo i giochi.
-//
 // Tabella DB necessaria (aggiungere via SQL Editor Supabase):
 // ALTER TABLE profiles ADD COLUMN IF NOT EXISTS xbox_gamertag text;
 // ALTER TABLE profiles ADD COLUMN IF NOT EXISTS xbox_xuid text;
+// ALTER TABLE user_media_entries ADD COLUMN IF NOT EXISTS achievement_data jsonb;
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -30,10 +28,17 @@ function openxblHeaders() {
   }
 }
 
-// Risolve gamertag → XUID
-// OpenXBL endpoint corretto: GET /profile/gamertag/{gamertag}
+function extractTitles(data: any): any[] {
+  return (
+    data?.content?.titles ||
+    data?.content?.games ||
+    data?.titles ||
+    data?.games ||
+    []
+  )
+}
+
 async function resolveGamertag(gamertag: string): Promise<string | null> {
-  // Strategia 1: endpoint profilo diretto (più affidabile)
   try {
     const res = await fetch(`${OPENXBL_BASE}/profile/gamertag/${encodeURIComponent(gamertag)}`, {
       headers: openxblHeaders(),
@@ -53,7 +58,6 @@ async function resolveGamertag(gamertag: string): Promise<string | null> {
       if (xuid) return String(xuid)
     }
   } catch { /* prova strategia 2 */ }
-  // Strategia 2: endpoint search (fallback)
   try {
     const res = await fetch(`${OPENXBL_BASE}/friends/search?gt=${encodeURIComponent(gamertag)}`, {
       headers: openxblHeaders(),
@@ -69,37 +73,43 @@ async function resolveGamertag(gamertag: string): Promise<string | null> {
   return null
 }
 
-// Recupera lista giochi per XUID
 async function fetchXboxGames(xuid: string): Promise<any[]> {
-  // Prova endpoint title history (più completo)
   try {
     const res = await fetch(`${OPENXBL_BASE}/player/${xuid}/titleHistory`, {
       headers: openxblHeaders(),
       signal: AbortSignal.timeout(10000),
     })
+    console.log('[Xbox] titleHistory status:', res.status)
     if (res.ok) {
       const data = await res.json()
-      const titles = data?.titles || data?.games || []
+      const titles = extractTitles(data)
       if (titles.length > 0) return titles
+    } else {
+      const text = await res.text()
+      console.log('[Xbox] titleHistory error body:', text.slice(0, 300))
     }
-  } catch { /* prova fallback */ }
+  } catch (e) { console.log('[Xbox] titleHistory exception:', e) }
 
-  // Fallback: endpoint achievements
   try {
     const res = await fetch(`${OPENXBL_BASE}/achievements/player/${xuid}`, {
       headers: openxblHeaders(),
       signal: AbortSignal.timeout(10000),
     })
-    if (!res.ok) return []
+    console.log('[Xbox] achievements status:', res.status)
+    if (!res.ok) {
+      const text = await res.text()
+      console.log('[Xbox] achievements error body:', text.slice(0, 300))
+      return []
+    }
     const data = await res.json()
-    return data?.titles || []
-  } catch {
+    return extractTitles(data)
+  } catch (e) {
+    console.log('[Xbox] achievements exception:', e)
     return []
   }
 }
 
 function extractCoverImage(title: any): string | null {
-  // Prova i campi immagine nell-ordine di preferenza
   const candidates = [
     title.displayImage,
     title.image,
@@ -116,10 +126,14 @@ function extractCoverImage(title: any): string | null {
 }
 
 export async function GET(request: NextRequest) {
+  process.stdout.write('[Xbox] GET handler reached\n')
+  console.log('[Xbox] GET handler called', request.url)
+
   const rl = rateLimit(request, { limit: 5, windowMs: 60_000, prefix: 'xbox-games' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste, aspetta un minuto.' }, { status: 429 })
 
   if (!process.env.OPENXBL_API_KEY) {
+    console.log('[Xbox] OPENXBL_API_KEY mancante')
     return NextResponse.json({ error: 'Xbox integration non configurata (OPENXBL_API_KEY mancante)' }, { status: 503 })
   }
 
@@ -129,23 +143,20 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url)
 
-  // Accetta XUID diretto (piano gratuito OpenXBL non supporta ricerca gamertag altrui)
-  // o gamertag come fallback per piani a pagamento
-  let xuid = searchParams.get('xuid')?.trim()
+  let xuid: string | null = searchParams.get('xuid')?.trim() ?? null
+  console.log('[Xbox] xuid ricevuto:', xuid)
   const gamertag = searchParams.get('gamertag')?.trim()
 
   if (!xuid && !gamertag) {
     return NextResponse.json({ error: 'Parametro xuid o gamertag mancante' }, { status: 400 })
   }
 
-  // Valida XUID: deve essere 16 cifre
   if (xuid && !/^\d{16}$/.test(xuid)) {
     return NextResponse.json({ error: 'XUID non valido: deve essere 16 cifre' }, { status: 400 })
   }
 
-  // Se passato gamertag invece di XUID, prova a risolverlo
   if (!xuid && gamertag) {
-    xuid = await resolveGamertag(gamertag) ?? undefined
+    xuid = await resolveGamertag(gamertag)
     if (!xuid) {
       return NextResponse.json({
         error: `Gamertag "${gamertag}" non trovato. Inserisci il tuo XUID (16 cifre) da xboxgamertag.com`,
@@ -153,7 +164,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ── Streaming response ──────────────────────────────────────────────────────
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({
@@ -163,7 +173,6 @@ export async function GET(request: NextRequest) {
       }
 
       try {
-        // Salva xuid sul profilo
         await supabase.from('profiles').update({
           ...(gamertag ? { xbox_gamertag: gamertag } : {}),
           xbox_xuid: xuid,
@@ -171,7 +180,6 @@ export async function GET(request: NextRequest) {
 
         send({ type: 'progress', step: 'fetch', current: 0, total: 0, message: 'Recupero giochi Xbox...' })
 
-        // Recupera giochi
         const titles = await fetchXboxGames(xuid!)
 
         if (!titles.length) {
@@ -181,34 +189,41 @@ export async function GET(request: NextRequest) {
 
         send({ type: 'progress', step: 'save', current: 0, total: 0, message: 'Salvataggio...' })
 
-        // Normalizza e importa nella collezione
         const toInsert: any[] = []
         const skipped: string[] = []
 
-        // Leggi titoli già in collezione per evitare duplicati
         const { data: existing } = await supabase
           .from('user_media_entries')
-          .select('external_id')
+          .select('external_id, rating, notes')
           .eq('user_id', user.id)
           .eq('type', 'game')
 
-        const existingIds = new Set((existing || []).map(e => e.external_id).filter(Boolean))
+        const existingMap = new Map((existing || []).map(e => [e.external_id, e]))
 
         for (const title of titles) {
           const titleId = title.titleId?.toString() || title.id?.toString()
           if (!titleId) continue
 
           const extId = `xbox-${titleId}`
-          if (existingIds.has(extId)) {
+          if (existingMap.has(extId)) {
             skipped.push(title.name)
             continue
           }
 
-          const gamerscore = title.currentGamerscore || 0
-          const estimatedHours = Math.max(1, Math.round(gamerscore / 10))
-          const maxGamerscore = title.maxGamerscore || 0
-          const isCompleted = maxGamerscore > 0 && gamerscore >= maxGamerscore
-          const completionPct = maxGamerscore > 0 ? Math.round((gamerscore / maxGamerscore) * 100) : 0
+          // Dati achievement annidati in title.achievement
+          const ach = title.achievement || {}
+          const currentAch: number = ach.currentAchievements || 0
+          const totalAch: number = ach.totalAchievements || 0
+          const currentGamerscore: number = ach.currentGamerscore || 0
+          const totalGamerscore: number = ach.totalGamerscore || 0
+
+          const hasProgress = currentGamerscore > 0
+          const isCompleted = totalGamerscore > 0 && currentGamerscore >= totalGamerscore
+
+          // achievement_data è un campo jsonb dedicato, separato dalle note utente
+          const achievement_data = totalAch > 0
+            ? { curr: currentAch, tot: totalAch, gs_curr: currentGamerscore, gs_tot: totalGamerscore }
+            : null
 
           toInsert.push({
             user_id: user.id,
@@ -216,10 +231,11 @@ export async function GET(request: NextRequest) {
             title: title.name,
             type: 'game',
             cover_image: extractCoverImage(title),
-            status: isCompleted ? 'completed' : gamerscore > 0 ? 'watching' : 'wishlist',
-            current_episode: estimatedHours,
+            status: isCompleted ? 'completed' : hasProgress ? 'watching' : 'wishlist',
+            current_episode: null,
             genres: [],
-            notes: `Gamerscore: ${gamerscore}/${maxGamerscore} (${completionPct}%)`,
+            notes: null,
+            achievement_data,
             updated_at: new Date().toISOString(),
             display_order: Date.now() - toInsert.length * 1000,
           })

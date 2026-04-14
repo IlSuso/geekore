@@ -93,24 +93,6 @@ export function AniListImport() {
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-10 h-10 bg-blue-500/20 border border-blue-500/30 rounded-2xl flex items-center justify-center">
-          <Download size={18} className="text-blue-400" />
-        </div>
-        <div>
-          <h3 className="font-semibold text-white">Importa da AniList</h3>
-          <p className="text-xs text-zinc-500">Importa la tua lista anime e manga</p>
-        </div>
-        <a
-          href="https://anilist.co"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="ml-auto text-zinc-600 hover:text-zinc-400 transition"
-        >
-          <ExternalLink size={14} />
-        </a>
-      </div>
-
       <div className="space-y-4">
         <div>
           <label className="block text-sm text-zinc-400 mb-2">Username AniList</label>
@@ -143,8 +125,8 @@ export function AniListImport() {
                 disabled={loading}
               >
                 {type === 'ANIME'
-                  ? <><Swords size={14} /> Anime</>
-                  : <><BookOpen size={14} /> Manga</>
+                  ? <span className="flex items-center justify-center gap-1.5"><Swords size={14} /> Anime</span>
+                  : <span className="flex items-center justify-center gap-1.5"><BookOpen size={14} /> Manga</span>
                 }
               </button>
             ))}

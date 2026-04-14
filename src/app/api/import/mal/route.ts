@@ -300,7 +300,7 @@ function transformAnime(
     tags: [],
     notes: entry['my_comments'] || null,
     import_source: 'mal',
-    display_order: Date.now(),
+    display_order: Date.now() + Math.round((rating && rating > 0 ? rating : 0) * 1_000_000),
     updated_at: new Date().toISOString(),
   }
 }
@@ -332,7 +332,7 @@ function transformManga(
     tags: [],
     notes: entry['my_comments'] || null,
     import_source: 'mal',
-    display_order: Date.now(),
+    display_order: Date.now() + Math.round((rating && rating > 0 ? rating : 0) * 1_000_000),
     updated_at: new Date().toISOString(),
   }
 }

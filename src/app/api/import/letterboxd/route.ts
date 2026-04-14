@@ -251,7 +251,7 @@ function buildEntry(
     tags:            merged.tags,
     notes:           null,
     import_source:   'letterboxd',
-    display_order:   Date.now(),
+    display_order:   Date.now() + Math.round((merged.rating && merged.rating > 0 ? merged.rating : 0) * 1_000_000),
     updated_at:      new Date().toISOString(),
   }
 }

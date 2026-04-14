@@ -4,7 +4,7 @@
 // Es: /profile/ilsuso/movie → tutti i film di ilsuso
 // Es: /profile/ilsuso/anime → tutti gli anime di ilsuso
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, memo, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { StarRating } from '@/components/ui/StarRating'
@@ -18,6 +18,15 @@ import {
 } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { NotesModal } from '@/components/profile/NotesModal'
+import {
+  DndContext, closestCenter, DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove, SortableContext, rectSortingStrategy,
+} from '@dnd-kit/sortable'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { useDndSensors } from '@/hooks/useDndSensors'
 
 // ─── Tipi ────────────────────────────────────────────────────────────────────
 
@@ -40,9 +49,10 @@ type UserMedia = {
   status?: string
   genres?: string[]
   external_id?: string
+  achievement_data?: { curr: number; tot: number; gs_curr: number; gs_tot: number } | null
 }
 
-type SortMode = 'rating_desc' | 'rating_asc' | 'title_asc' | 'title_desc' | 'date_desc' | 'progress_desc'
+type SortMode = 'default' | 'rating_desc' | 'rating_asc' | 'title_asc' | 'title_desc' | 'date_desc' | 'progress_desc'
 type ViewMode = 'grid' | 'list'
 type StatusFilter = 'all' | 'completed' | 'watching' | 'paused' | 'dropped' | 'wishlist'
 
@@ -56,6 +66,8 @@ const TYPE_LABELS: Record<string, string> = {
   movie: 'Film',
   boardgame: 'Board Game',
 }
+
+const PAGE_SIZE = 48
 
 const TYPE_COLORS: Record<string, string> = {
   anime: 'bg-sky-500',
@@ -94,9 +106,31 @@ function SteamCoverImg({ appid, title }: { appid?: string; title: string }) {
   )
 }
 
+
+// ─── SortableCard ─────────────────────────────────────────────────────────────
+
+function SortableCard({ media, children }: { media: UserMedia; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: media.id })
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition: transition || 'transform 50ms ease' }}
+      {...attributes}
+      {...listeners}
+      className={`cursor-grab active:cursor-grabbing rounded-3xl overflow-hidden transition-all duration-200 h-full ${
+        isDragging
+          ? 'border-2 border-violet-500 shadow-2xl z-50'
+          : 'border border-zinc-800 hover:border-violet-500/50 hover:shadow-xl'
+      }`}
+    >
+      {children}
+    </div>
+  )
+}
+
 // ─── Card griglia ─────────────────────────────────────────────────────────────
 
-function MediaCard({
+const MediaCard = memo(function MediaCard({
   media, isOwner, onRating, onNotes, onStatusChange, onDelete,
 }: {
   media: UserMedia
@@ -111,7 +145,7 @@ function MediaCard({
   const [imgFailed, setImgFailed] = useState(false)
 
   return (
-    <div className="group relative bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded-3xl overflow-hidden flex flex-col transition-all">
+    <div className="group relative bg-zinc-950 rounded-3xl overflow-hidden flex flex-col h-full">
       {/* Cover */}
       <div className="relative h-64 bg-zinc-900 flex-shrink-0 overflow-hidden">
         {/* Badge tipo */}
@@ -123,12 +157,13 @@ function MediaCard({
           <div className="absolute top-3 right-3 z-30">
             {confirmDelete ? (
               <div className="flex gap-1">
-                <button onClick={() => setConfirmDelete(false)} className="px-2 py-1 text-[10px] bg-zinc-900/95 border border-zinc-600 rounded-full">Annulla</button>
-                <button onClick={() => onDelete?.(media.id)} className="px-2 py-1 text-[10px] bg-red-900/95 border border-red-700 text-red-300 rounded-full">Elimina</button>
+                <button onClick={() => setConfirmDelete(false)} onPointerDown={e => e.stopPropagation()} className="px-2 py-1 text-[10px] bg-zinc-900/95 border border-zinc-600 rounded-full">Annulla</button>
+                <button onClick={() => onDelete?.(media.id)} onPointerDown={e => e.stopPropagation()} className="px-2 py-1 text-[10px] bg-red-900/95 border border-red-700 text-red-300 rounded-full">Elimina</button>
               </div>
             ) : (
               <button
                 onClick={() => setConfirmDelete(true)}
+                onPointerDown={e => e.stopPropagation()}
                 className="opacity-0 group-hover:opacity-100 bg-black/50 hover:bg-red-950/80 border border-white/10 hover:border-red-500/60 p-1.5 rounded-xl transition-all"
               >
                 <X size={14} className="text-white" />
@@ -170,15 +205,18 @@ function MediaCard({
       <div className="flex flex-col flex-1 px-4 pt-3 pb-4 gap-2">
         <h4 className="font-semibold text-sm leading-snug text-white line-clamp-2">{media.title}</h4>
         <div className="flex items-center gap-2">
-          <StarRating
-            value={media.rating || 0}
-            onChange={isOwner ? (r) => onRating?.(media.id, r) : undefined}
-            size={14}
-            viewOnly={!isOwner}
-          />
+          <div onPointerDown={isOwner ? e => e.stopPropagation() : undefined}>
+            <StarRating
+              value={media.rating || 0}
+              onChange={isOwner ? (r) => onRating?.(media.id, r) : undefined}
+              size={14}
+              viewOnly={!isOwner}
+            />
+          </div>
           {isOwner && (
             <button
               onClick={() => onNotes?.(media)}
+              onPointerDown={e => e.stopPropagation()}
               className={`ml-auto p-1.5 rounded-lg border transition-all ${
                 hasNotes
                   ? 'bg-violet-600 border-violet-500 text-white'
@@ -193,6 +231,7 @@ function MediaCard({
           <select
             value={media.status || 'watching'}
             onChange={e => onStatusChange?.(media.id, e.target.value)}
+            onPointerDown={e => e.stopPropagation()}
             className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-zinc-900 border-zinc-800 text-zinc-400 focus:outline-none focus:border-violet-500 transition cursor-pointer appearance-none w-fit"
           >
             <option value="watching">In corso</option>
@@ -213,12 +252,34 @@ function MediaCard({
             </span>
           )
         )}
-        {/* Progress/hours */}
-        {media.type === 'game' && (
-          <p className="text-xs text-emerald-400 flex items-center gap-1 mt-auto">
-            <Clock size={11} /> {media.current_episode}h
-          </p>
-        )}
+        {/* Progress/hours + achievement Xbox */}
+        {media.type === 'game' && (() => {
+          const ach = media.achievement_data
+          const hours = media.current_episode || 0
+          return (
+            <div className="mt-auto space-y-2">
+              {hours > 0 && (
+                <p className="text-xs text-emerald-400 flex items-center gap-1">
+                  <Clock size={11} /> {hours}h
+                </p>
+              )}
+              {ach && ach.tot > 0 && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[11px] text-zinc-500">
+                    <span>Achievement</span>
+                    <span className="font-mono text-zinc-400">{ach.curr}/{ach.tot}</span>
+                  </div>
+                  <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-[#107c10] rounded-full transition-all duration-300"
+                      style={{ width: `${Math.round((ach.curr / ach.tot) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
         {media.type === 'boardgame' && (
           <p className="text-xs text-emerald-400 flex items-center gap-1 mt-auto">
             <Clock size={11} /> {media.current_episode} partite
@@ -232,11 +293,11 @@ function MediaCard({
       </div>
     </div>
   )
-}
+})
 
 // ─── Riga lista compatta ──────────────────────────────────────────────────────
 
-function MediaRow({
+const MediaRow = memo(function MediaRow({
   media, isOwner, onRating, onStatusChange, onDelete,
 }: {
   media: UserMedia
@@ -272,7 +333,23 @@ function MediaRow({
       </div>
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-sm text-white truncate">{media.title}</p>
-        {media.type === 'game' && <p className="text-xs text-emerald-400">{media.current_episode}h</p>}
+        {media.type === 'game' && (() => {
+          const ach = media.achievement_data
+          const hours = media.current_episode || 0
+          return (
+            <div className="flex items-center gap-2 mt-0.5">
+              {hours > 0 && <p className="text-xs text-emerald-400">{hours}h</p>}
+              {ach && ach.tot > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-zinc-500 font-mono">{ach.curr}/{ach.tot}</span>
+                  <div className="w-12 h-1 bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-[#107c10] rounded-full" style={{ width: `${Math.round((ach.curr / ach.tot) * 100)}%` }} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
         {media.episodes && media.episodes > 1 && media.type !== 'game' && (
           <p className="text-xs text-zinc-500">{media.current_episode}/{media.episodes} ep.</p>
         )}
@@ -303,7 +380,7 @@ function MediaRow({
       )}
     </div>
   )
-}
+})
 
 // ─── Pagina principale ────────────────────────────────────────────────────────
 
@@ -311,22 +388,41 @@ export default function ProfileTypePage() {
   const { username, type } = useParams<{ username: string; type: string }>()
   const supabase = createClient()
   const { t } = useLocale()
-
+  const sensors = useDndSensors()
   const [mediaList, setMediaList] = useState<UserMedia[]>([])
   const [loading, setLoading] = useState(true)
   const [isOwner, setIsOwner] = useState(false)
   const [profileId, setProfileId] = useState<string | null>(null)
 
   const [search, setSearch] = useState('')
-  const [sortMode, setSortMode] = useState<SortMode>('rating_desc')
+  const [sortMode, setSortMode] = useState<SortMode>('default')
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
 
   const [notesOpen, setNotesOpen] = useState(false)
   const [selectedMedia, setSelectedMedia] = useState<UserMedia | null>(null)
   const [notesInput, setNotesInput] = useState('')
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const sentinelRef = useRef<HTMLDivElement>(null)
 
   const typeLabel = TYPE_LABELS[type] || type
+
+  const onDragEnd = async (event: DragEndEvent) => {
+    if (!isOwner) return
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = mediaList.findIndex(item => item.id === active.id)
+    const newIndex = mediaList.findIndex(item => item.id === over.id)
+    if (oldIndex === -1 || newIndex === -1) return
+    const newList = arrayMove(mediaList, oldIndex, newIndex).map((item, i) => ({
+      ...item,
+      display_order: Date.now() - i * 10_000,
+    }))
+    setMediaList(newList)
+    await supabase.from('user_media_entries').upsert(
+      newList.map(item => ({ id: item.id, display_order: item.display_order }))
+    )
+  }
 
   useEffect(() => {
     const load = async () => {
@@ -413,12 +509,35 @@ export default function ProfileTypePage() {
         case 'title_desc': return b.title.localeCompare(a.title)
         case 'date_desc': return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
         case 'progress_desc': return (b.current_episode || 0) - (a.current_episode || 0)
-        default: return 0
+        // default: ordine manuale (display_order desc)
+        default: return (b.display_order || 0) - (a.display_order || 0)
       }
     })
 
     return list
   }, [mediaList, search, statusFilter, sortMode])
+
+  // Reset visibleCount quando cambiano i filtri
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE)
+  }, [search, statusFilter, sortMode])
+
+  // IntersectionObserver per scroll infinito
+  // rootMargin 600px: carica le prossime card prima che entrino nel viewport
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount(prev => Math.min(prev + PAGE_SIZE, filtered.length))
+        }
+      },
+      { rootMargin: '600px' }
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [filtered.length])
 
   // Stats rapide
   const completed = mediaList.filter(m => m.status === 'completed').length
@@ -496,6 +615,7 @@ export default function ProfileTypePage() {
             onChange={e => setSortMode(e.target.value as SortMode)}
             className="bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-4 py-2.5 text-sm text-zinc-300 focus:outline-none transition cursor-pointer"
           >
+            <option value="default">Ordine personalizzato</option>
             <option value="rating_desc">Voto (↓)</option>
             <option value="rating_asc">Voto (↑)</option>
             <option value="title_asc">Titolo (A-Z)</option>
@@ -531,39 +651,72 @@ export default function ProfileTypePage() {
             {search && <p className="text-sm mt-1">Prova con un altro termine di ricerca</p>}
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-4">
-            {filtered.map(media => (
-              <MediaCard
-                key={media.id}
-                media={media}
-                isOwner={isOwner}
-                onRating={handleRating}
-                onNotes={openNotes}
-                onStatusChange={handleStatusChange}
-                onDelete={handleDelete}
-              />
-            ))}
-          </div>
+          (() => {
+            const visible = filtered.slice(0, visibleCount)
+            return isOwner ? (
+              <>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+                  <SortableContext items={visible.map(m => m.id)} strategy={rectSortingStrategy}>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-4">
+                      {visible.map(media => (
+                        <SortableCard key={media.id} media={media}>
+                          <MediaCard
+                            media={media}
+                            isOwner={isOwner}
+                            onRating={handleRating}
+                            onNotes={openNotes}
+                            onStatusChange={handleStatusChange}
+                            onDelete={handleDelete}
+                          />
+                        </SortableCard>
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+                <div ref={sentinelRef} />
+              </>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-4">
+                  {visible.map(media => (
+                    <MediaCard
+                      key={media.id}
+                      media={media}
+                      isOwner={isOwner}
+                      onRating={handleRating}
+                      onNotes={openNotes}
+                      onStatusChange={handleStatusChange}
+                      onDelete={handleDelete}
+                    />
+                  ))}
+                </div>
+                <div ref={sentinelRef} />
+              </>
+            )
+          })()
         ) : (
-          <div className="space-y-2">
-            {filtered.map(media => (
-              <MediaRow
-                key={media.id}
-                media={media}
-                isOwner={isOwner}
-                onRating={handleRating}
-                onStatusChange={handleStatusChange}
-                onDelete={handleDelete}
-              />
-            ))}
-          </div>
+          <>
+            <div className="space-y-2">
+              {filtered.slice(0, visibleCount).map(media => (
+                <MediaRow
+                  key={media.id}
+                  media={media}
+                  isOwner={isOwner}
+                  onRating={handleRating}
+                  onStatusChange={handleStatusChange}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+            <div ref={sentinelRef} />
+          </>
         )}
 
         {/* Contatore risultati */}
         {filtered.length > 0 && (
           <p className="text-center text-zinc-700 text-xs mt-8">
-            {filtered.length} {filtered.length === 1 ? 'titolo' : 'titoli'}
-            {filtered.length !== mediaList.length && ` (su ${mediaList.length} totali)`}
+            {Math.min(visibleCount, filtered.length)} di {filtered.length} {filtered.length === 1 ? 'titolo' : 'titoli'}
+            {filtered.length !== mediaList.length && ` (filtrati su ${mediaList.length} totali)`}
           </p>
         )}
       </div>

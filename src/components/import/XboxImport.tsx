@@ -86,24 +86,6 @@ export function XboxImport() {
 
   return (
     <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-6">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-10 h-10 bg-[#107c10] rounded-2xl flex items-center justify-center">
-          <XboxIcon size={22} className="text-white" />
-        </div>
-        <div>
-          <h3 className="text-base font-bold text-white">Xbox</h3>
-          <p className="text-xs text-zinc-500">Importa i tuoi giochi Xbox tramite XUID</p>
-        </div>
-        <a
-          href="https://www.cxkes.me/xbox/xuid"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="ml-auto text-xs text-zinc-500 hover:text-zinc-300 flex items-center gap-1"
-        >
-          Trova il tuo XUID <ExternalLink size={11} />
-        </a>
-      </div>
-
       {result ? (
         <div className="space-y-3">
           <div className="flex items-start gap-3 p-4 bg-emerald-950/30 border border-emerald-800/40 rounded-2xl">

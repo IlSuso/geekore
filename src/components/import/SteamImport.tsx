@@ -122,16 +122,6 @@ export function SteamImport({ onImportDone }: Props) {
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-10 h-10 bg-[#1b2838] border border-[#66C0F4]/30 rounded-2xl flex items-center justify-center overflow-hidden">
-          <SteamIcon size={36} />
-        </div>
-        <div>
-          <h3 className="font-semibold text-white">Importa da Steam</h3>
-          <p className="text-xs text-zinc-500">Giochi giocati con ore e achievement</p>
-        </div>
-      </div>
-
       {steamAccount ? (
         <>
           {/* Account connesso */}
