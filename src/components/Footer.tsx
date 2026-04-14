@@ -12,7 +12,7 @@ export function Footer() {
   if (pathname === '/') return null
 
   return (
-    <footer className="hidden md:block bg-black border-t border-zinc-900 py-8 px-6">
+    <footer className="bg-black border-t border-zinc-900 py-8 px-6 mb-16 md:mb-0">
       <div className="max-w-screen-2xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-lg flex items-center justify-center">

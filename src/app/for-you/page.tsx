@@ -19,8 +19,6 @@ import { Avatar } from '@/components/ui/Avatar'
 import { useLocale } from '@/lib/locale'
 import { SkeletonForYouRow, SkeletonFriendsWatching } from '@/components/ui/SkeletonCard'
 import { SimilarTasteFriends } from '@/components/social/SimilarTasteFriends'
-import { usePullToRefresh } from '@/hooks/usePullToRefresh'
-import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 
 // V5: Tipi per feedback granulare
 type FeedbackAction = 'not_interested' | 'already_seen' | 'added' | 'wishlist_add';
@@ -777,9 +775,6 @@ export default function ForYouPage() {
     setRefreshing(false)
   }
 
-  // Pull-to-refresh su mobile — deve stare DOPO handleRefresh
-  const { pullDistance, isRefreshing: isPulling } = usePullToRefresh({ onRefresh: handleRefresh })
-
   const handleAdd = useCallback(async (item: Recommendation) => {
     const { data: { user } } = await supabase.auth.getUser(); if (!user) return
     const { error } = await supabase.from('user_media_entries').insert({
@@ -870,7 +865,6 @@ export default function ForYouPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isPulling} />
       <div className="pt-4 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-3 sm:px-4 md:px-6">
 
         {/* Header */}
@@ -887,9 +881,8 @@ export default function ForYouPage() {
               className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl text-sm font-medium text-zinc-300 transition-all">
               <SlidersHorizontal size={16} />{fy.preferences}
             </button>
-            {/* Bottone aggiorna: solo desktop, su mobile usa pull-to-refresh */}
             <button onClick={handleRefresh} disabled={refreshing}
-              className="hidden md:flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-2xl text-sm font-medium text-white transition-all">
+              className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-2xl text-sm font-medium text-white transition-all">
               <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
               {refreshing ? fy.refreshing : fy.refresh}
             </button>

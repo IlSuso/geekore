@@ -399,15 +399,14 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
 @media (max-width: 768px) {
   body:has(input:focus) .mobile-nav,
   body:has(textarea:focus) .mobile-nav {
-    transform: translateY(110%);
+    transform: translateY(100%);
     pointer-events: none;
-    transition: transform 0.2s ease;
+    transition: transform 0.25s ease;
   }
   body:not(:has(input:focus)):not(:has(textarea:focus)) .mobile-nav {
     transform: translateY(0);
     pointer-events: auto;
-    /* Leggero delay sul ritorno per evitare flicker durante focus change */
-    transition: transform 0.2s ease 0.1s;
+    transition: transform 0.25s ease;
   }
 }
 
@@ -532,92 +531,5 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
   textarea,
   select {
     font-size: 16px !important;
-  }
-}
-
-/* ── App-like: nessuna scrollbar su mobile ───────────────────────────────── */
-@media (max-width: 767px) {
-  html, body {
-    scrollbar-width: none;          /* Firefox */
-    -ms-overflow-style: none;       /* IE/Edge */
-    overscroll-behavior-y: contain; /* Blocca rubber-band eccessivo */
-  }
-  html::-webkit-scrollbar,
-  body::-webkit-scrollbar {
-    display: none;                  /* Chrome/Safari/WebKit */
-  }
-}
-
-/* ── App-like: overscroll e selezione testo ──────────────────────────────── */
-@media (max-width: 767px) {
-  /* Previeni selezione testo accidentale durante lo swipe */
-  body {
-    -webkit-user-select: none;
-    user-select: none;
-  }
-  /* Ma lascia selezionare testo in input, textarea e zone di contenuto */
-  input, textarea, [contenteditable], p, h1, h2, h3, h4, h5, h6, span, a {
-    -webkit-user-select: text;
-    user-select: text;
-  }
-}
-
-/* ── App-like: comportamento scroll e layout ──────────────────────────────── */
-@media (max-width: 767px) {
-  /* Momentum scroll nativo iOS su tutti i container scrollabili */
-  * {
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Nessun highlight blu al tap su elementi interattivi */
-  * {
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  /* Previeni il pull-to-refresh del browser (interferisce con gesture app) */
-  body {
-    overscroll-behavior-y: contain;
-  }
-
-  /* Testo non sfocato durante le animazioni */
-  * {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-}
-
-/* ── Previeni flash della vecchia navbar durante hydration ───────────────── */
-/* Prima che React monti, il body non ha classi e la nav è visibile —
-   questo blocco assicura che su mobile parta già nel posto giusto */
-@media (max-width: 767px) {
-  nav.mobile-nav {
-    /* Sempre visible di default, la transition CSS la nasconde se serve */
-    visibility: visible;
-  }
-}
-
-/* ── Pull-to-refresh: sposta fisicamente il contenuto con la pagina ───────── */
-/* Il div overlay trasparente in fixed:inset-0 sposta visivamente il contenuto.
-   Usiamo un approccio alternativo: il wrapper del main si trasforma. */
-[data-pull-distance] {
-  transition: transform 0.05s linear;
-}
-
-/* Spin keyframe per lo spinner PTR (non usa Tailwind animate-spin per controllo) */
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-/* ── MobileHeader safe area ──────────────────────────────────────────────── */
-@media (max-width: 767px) {
-  /* Il main deve scendere sotto MobileHeader (h-14 = 56px) + safe-area-top */
-  main {
-    padding-top: calc(3.5rem + env(safe-area-inset-top, 0px)) !important;
-  }
-}
-@media (min-width: 768px) {
-  main {
-    padding-top: 4rem !important; /* 64px = h-16 navbar desktop */
   }
 }

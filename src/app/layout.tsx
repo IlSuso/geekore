@@ -12,7 +12,6 @@ import Navbar from '@/components/Navbar'
 import { ToastProvider } from '@/components/ui/Toast'
 import { ClientProviders } from '@/components/ClientProviders'
 import { Footer } from '@/components/Footer'
-import { MobileHeader } from '@/components/MobileHeader'
 import { cookies } from 'next/headers'
 
 export const metadata: Metadata = {
@@ -37,10 +36,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: '(prefers-color-scheme: dark)', color: '#000000' },
-    { media: '(prefers-color-scheme: light)', color: '#000000' },
-  ],
+  themeColor: '#7c6af7',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -57,9 +53,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="it">
       <head>
         <meta name="view-transition" content="same-origin" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="color-scheme" content="dark light" />
       </head>
       <body suppressHydrationWarning className="bg-black text-white min-h-screen antialiased">
@@ -67,9 +60,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {/* Navbar senza wrapper — qualsiasi div/span con viewTransitionName,
               isolation, transform, will-change, filter, opacity<1 crea uno
               stacking context che imprigiona il z-index dei figli */}
-          <MobileHeader />
           <Navbar />
-          <main className="pt-14 md:pt-16 pb-20 md:pb-8">
+          <main className="pt-16 pb-24 md:pb-8">
             {children}
           </main>
           <Footer />
