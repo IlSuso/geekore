@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Search, X } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export function SearchSection() {
   const [query, setQuery] = useState('')
@@ -75,7 +76,7 @@ export function SearchSection() {
             >
               <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0">
                 {res.avatar_url ? (
-                  <img src={res.avatar_url} className="w-full h-full object-cover" alt="" />
+                  <Image src={res.avatar_url} alt="" fill className="object-cover" sizes="36px" />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-sm">
                     {(res.display_name?.[0] || res.username?.[0] || '?').toUpperCase()}

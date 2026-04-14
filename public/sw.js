@@ -1,34 +1,48 @@
 // public/sw.js
-// Service Worker Geekore — PWA offline support
-// Fix: clone PRIMA di leggere il body, non dopo
+// Service Worker Geekore — PWA offline support + navigation speed
+// v5: stale-while-revalidate per pagine nav, cache-first per static assets
 
-const CACHE_NAME = 'geekore-v4'
-const STATIC_ASSETS = [
-  '/',
+const CACHE_NAME = 'geekore-v5'
+const STATIC_CACHE = 'geekore-static-v5'
+
+// Pagine navigate precachate all'installazione
+const NAV_PAGES = [
   '/feed',
   '/discover',
-  '/manifest.json',
+  '/for-you',
+  '/notifications',
+  '/wishlist',
+  '/trending',
 ]
 
-// ── Install: pre-cacha le pagine statiche ────────────────────────────────────
+// Asset statici
+const STATIC_ASSETS = [
+  '/manifest.json',
+  '/offline.html',
+]
+
+// ── Install ──────────────────────────────────────────────────────────────────
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache =>
-      cache.addAll(STATIC_ASSETS).catch(() => {
-        // Ignora errori su singole risorse (offline durante install)
-      })
-    )
+    Promise.all([
+      caches.open(CACHE_NAME).then(cache =>
+        cache.addAll(NAV_PAGES).catch(() => {})
+      ),
+      caches.open(STATIC_CACHE).then(cache =>
+        cache.addAll(STATIC_ASSETS).catch(() => {})
+      ),
+    ])
   )
   self.skipWaiting()
 })
 
-// ── Activate: elimina cache vecchie ─────────────────────────────────────────
+// ── Activate ─────────────────────────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then(keys =>
       Promise.all(
         keys
-          .filter(key => key !== CACHE_NAME)
+          .filter(key => key !== CACHE_NAME && key !== STATIC_CACHE)
           .map(key => caches.delete(key))
       )
     )
@@ -36,18 +50,29 @@ self.addEventListener('activate', (event) => {
   self.clients.claim()
 })
 
-// ── Fetch: strategia Network-first con fallback cache ───────────────────────
-self.addEventListener('fetch', (event) => {
-  const { request } = event
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-  if (request.method !== 'GET') return
-  const url = new URL(request.url)
-  if (
+function isNavPage(url) {
+  return NAV_PAGES.some(p => url.pathname === p || url.pathname.startsWith(p + '/'))
+}
+
+function isStaticAsset(url) {
+  return (
+    url.pathname.startsWith('/_next/static/') ||
+    url.pathname.startsWith('/icons/') ||
+    url.pathname.endsWith('.png') ||
+    url.pathname.endsWith('.ico') ||
+    url.pathname.endsWith('.svg') ||
+    url.pathname.endsWith('.woff2')
+  )
+}
+
+function isExternal(url) {
+  return (
     url.pathname.startsWith('/api/') ||
     url.hostname.includes('supabase.co') ||
     url.hostname.includes('supabase.in') ||
     url.protocol === 'chrome-extension:' ||
-    // CDN esterni — lascia passare direttamente al browser
     url.hostname.includes('steamstatic.com') ||
     url.hostname.includes('anilist.co') ||
     url.hostname.includes('tmdb.org') ||
@@ -56,30 +81,85 @@ self.addEventListener('fetch', (event) => {
     url.hostname.includes('dicebear.com') ||
     url.hostname.includes('myanimelist.net') ||
     url.hostname.includes('wsrv.nl')
-  ) return
+  )
+}
 
+// ── Fetch ─────────────────────────────────────────────────────────────────────
+self.addEventListener('fetch', (event) => {
+  const { request } = event
+  if (request.method !== 'GET') return
+
+  const url = new URL(request.url)
+  if (isExternal(url)) return
+
+  // Asset statici Next.js: cache-first (hanno hash nel filename, non cambiano mai)
+  if (isStaticAsset(url)) {
+    event.respondWith(cacheFirst(request, STATIC_CACHE))
+    return
+  }
+
+  // Pagine nav principali: stale-while-revalidate
+  // → risponde istantaneamente dalla cache, aggiorna in background
+  if (request.mode === 'navigate' && isNavPage(url)) {
+    event.respondWith(staleWhileRevalidate(request, CACHE_NAME))
+    return
+  }
+
+  // Tutto il resto: network-first con fallback cache
   event.respondWith(networkFirst(request))
 })
+
+// ── Strategie ─────────────────────────────────────────────────────────────────
+
+async function cacheFirst(request, cacheName) {
+  const cached = await caches.match(request)
+  if (cached) return cached
+  try {
+    const response = await fetch(request)
+    if (response.ok) {
+      const cache = await caches.open(cacheName)
+      cache.put(request, response.clone())
+    }
+    return response
+  } catch {
+    return new Response('Offline', { status: 503 })
+  }
+}
+
+async function staleWhileRevalidate(request, cacheName) {
+  const cache = await caches.open(cacheName)
+  const cached = await cache.match(request)
+
+  // Aggiorna in background senza bloccare la risposta
+  const networkPromise = fetch(request).then(response => {
+    if (response.ok) cache.put(request, response.clone())
+    return response
+  }).catch(() => null)
+
+  if (cached) return cached
+
+  const networkResponse = await networkPromise
+  if (networkResponse) return networkResponse
+
+  const offlinePage = await cache.match('/offline.html')
+  return offlinePage || new Response('Offline', { status: 503 })
+}
 
 async function networkFirst(request) {
   try {
     const networkResponse = await fetch(request)
-
     if (networkResponse.ok) {
       const cache = await caches.open(CACHE_NAME)
       cache.put(request, networkResponse.clone())
     }
-
     return networkResponse
   } catch {
     const cached = await caches.match(request)
     if (cached) return cached
-
     if (request.mode === 'navigate') {
-      const root = await caches.match('/')
+      const root = await caches.match('/feed')
       if (root) return root
     }
-
     return new Response('Offline — riprova quando sei connesso', {
       status: 503,
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },

@@ -17,19 +17,17 @@ const CSP = isDev
       "form-action 'self'",
     ].join('; ')
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   // ─── Geo-detection locale ──────────────────────────────────────────────────
-  // Vercel injetta x-vercel-ip-country su ogni request in produzione.
-  // Impostiamo il cookie solo se l'utente non ha già una preferenza salvata.
   const existingLocaleCookie = request.cookies.get('geekore_locale')
   if (!existingLocaleCookie) {
     const country = request.headers.get('x-vercel-ip-country') || ''
     const detectedLocale = country.toUpperCase() === 'IT' ? 'it' : 'en'
     supabaseResponse.cookies.set('geekore_locale', detectedLocale, {
       path: '/',
-      maxAge: 60 * 60 * 24 * 365, // 1 anno
+      maxAge: 60 * 60 * 24 * 365,
       sameSite: 'lax',
     })
   }

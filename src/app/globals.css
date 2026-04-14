@@ -434,3 +434,23 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
   ::view-transition-old(root),
   ::view-transition-new(root) { animation: none; }
 }
+
+/* ── Performance: content-visibility ────────────────────────────────────── */
+/* Salta il rendering delle sezioni fuori viewport — migliora il LCP e FID
+   su pagine con molti elementi (feed, profili, discover).
+   contain-intrinsic-size evita il layout shift quando la sezione appare. */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 400px;
+}
+.cv-auto-sm {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 200px;
+}
+
+/* ── Performance: font-display swap già in next/font, qui forziamo ─────── */
+/* GPU acceleration solo dove serve — non su tutto */
+.gpu-layer {
+  will-change: transform;
+  transform: translateZ(0);
+}

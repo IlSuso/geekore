@@ -10,7 +10,6 @@ import {
 } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useLocale } from '@/lib/locale'
 import { useTheme } from '@/lib/theme'
 import { Avatar, getLocalAvatarSvg } from '@/components/ui/Avatar'
 
@@ -234,7 +233,6 @@ export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
-  const { t } = useLocale()
   const { theme, toggleTheme } = useTheme()
 
   const [hasNewNotifications, setHasNewNotifications] = useState(false)
@@ -264,19 +262,19 @@ export default function Navbar() {
   const isPublicLanding = pathname === '/'
 
   const NAV_ITEMS = [
-    { href: '/feed',     label: t.nav.home,    icon: Home      },
-    { href: '/discover', label: t.nav.discover, icon: Search   },
-    { href: '/for-you',  label: t.nav.forYou,  icon: Sparkles  },
-    { href: '/news',     label: t.nav.news,    icon: Newspaper },
+    { href: '/feed',     label: 'Home',    icon: Home      },
+    { href: '/discover', label: 'Discover', icon: Search   },
+    { href: '/for-you',  label: 'Per te',  icon: Sparkles  },
+    { href: '/news',     label: 'News',    icon: Newspaper },
   ]
 
   const MOBILE_NAV_ITEMS = [
-    { href: '/feed',          label: t.nav.home,          icon: Home,    hasDot: false },
-    { href: '/discover',      label: t.nav.discover,      icon: Search,  hasDot: false },
-    { href: '/for-you',       label: t.nav.forYou,        icon: Sparkles,hasDot: false },
-    { href: '/notifications', label: t.nav.notifications, icon: Bell,    hasDot: true  },
+    { href: '/feed',          label: 'Home',          icon: Home,    hasDot: false },
+    { href: '/discover',      label: 'Discover',      icon: Search,  hasDot: false },
+    { href: '/for-you',       label: 'Per te',        icon: Sparkles,hasDot: false },
+    { href: '/notifications', label: 'Notifiche', icon: Bell,    hasDot: true  },
     { href: '/search',        label: 'Cerca',             icon: Users,   hasDot: false },
-    { href: '/profile/me',    label: t.nav.profile,       icon: User,    hasDot: false },
+    { href: '/profile/me',    label: 'Profilo',       icon: User,    hasDot: false },
   ]
 
   useEffect(() => {
@@ -292,27 +290,32 @@ export default function Navbar() {
 
   useEffect(() => {
     if (isAuthPage) return
-    let channel: ReturnType<typeof supabase.channel> | null = null
+    // Usa ref per tenere traccia del channel anche dopo cleanup asincrono
+    const channelRef = { current: null as ReturnType<typeof supabase.channel> | null }
+    let cancelled = false
 
     supabase.auth.getUser().then(({ data: { user } }) => {
+      if (cancelled) return
       setIsLoggedIn(!!user)
       if (!user) return
       setUserId(user.id)
 
       supabase.from('profiles').select('avatar_url, display_name, username').eq('id', user.id).single()
         .then(({ data }) => {
-          if (data) {
-            setAvatarUrl(data.avatar_url || null)
-            setDisplayName(data.display_name || null)
-            setUsername(data.username || null)
-          }
+          if (cancelled || !data) return
+          setAvatarUrl(data.avatar_url || null)
+          setDisplayName(data.display_name || null)
+          setUsername(data.username || null)
         })
 
       supabase.from('notifications').select('id', { count: 'exact', head: true })
         .eq('receiver_id', user.id).eq('is_read', false)
-        .then(({ count }) => { if (count && count > 0) setHasNewNotifications(true) })
+        .then(({ count }) => { if (!cancelled && count && count > 0) setHasNewNotifications(true) })
 
-      channel = supabase.channel('navbar-notifications')
+      // Rimuovi eventuali channel precedenti con lo stesso nome prima di crearne uno nuovo
+      supabase.removeAllChannels()
+
+      channelRef.current = supabase.channel('navbar-notifications')
         .on('postgres_changes', {
           event: 'INSERT', schema: 'public', table: 'notifications',
           filter: `receiver_id=eq.${user.id}`,
@@ -323,7 +326,13 @@ export default function Navbar() {
         .subscribe()
     })
 
-    return () => { if (channel) supabase.removeChannel(channel) }
+    return () => {
+      cancelled = true
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current)
+        channelRef.current = null
+      }
+    }
   }, [isAuthPage])
 
   const searchUsers = useCallback(async (val: string) => {
@@ -351,6 +360,8 @@ export default function Navbar() {
   if (isAuthPage) return null
   if (isPublicLanding && isLoggedIn === false) return null
   if (isPublicLanding && isLoggedIn === null) return null
+
+
 
   const isDark = theme === 'dark' || theme === 'oled'
   const currentUsername = username || ''
@@ -380,6 +391,9 @@ export default function Navbar() {
                 return (
                   <Link key={item.href} href={item.href} prefetch={true}
                     data-testid={`nav-${item.href.replace('/', '')}`}
+                    onMouseEnter={item.href === '/for-you' && !isActive
+                      ? () => fetch('/api/recommendations?type=all', { credentials: 'include' }).catch(() => {})
+                      : undefined}
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${isActive ? 'bg-violet-500/10 text-violet-400' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'}`}>
                     <item.icon size={18} />
                     {item.label}
@@ -476,9 +490,9 @@ export default function Navbar() {
               >
                 <div className="w-7 h-7 rounded-full overflow-hidden ring-2 ring-violet-500/30 flex-shrink-0">
                   {avatarUrl ? (
-                    <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                    <img src={avatarUrl} alt="avatar" width={28} height={28} className="w-full h-full object-cover" />
                   ) : currentUsername ? (
-                    <img src={localAvatarSrc} alt="avatar" className="w-full h-full object-cover" />
+                    <img src={localAvatarSrc} alt="avatar" width={28} height={28} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-xs">?</div>
                   )}
@@ -498,7 +512,7 @@ export default function Navbar() {
                   <div className="p-1.5 space-y-0.5">
                     <Link href={`/profile/${currentUsername || 'me'}`} onClick={() => setDropdownOpen(false)}
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${isProfileActive ? 'text-violet-400 bg-violet-500/10' : 'text-zinc-300 hover:text-white hover:bg-zinc-800'}`}>
-                      <User size={16} /> {t.nav.profile}
+                      <User size={16} /> Profilo
                     </Link>
                     <Link href="/profile/edit" onClick={() => setDropdownOpen(false)}
                       className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all">
@@ -510,7 +524,7 @@ export default function Navbar() {
                     </Link>
                     <Link href="/settings" onClick={() => setDropdownOpen(false)}
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${pathname === '/settings' ? 'text-violet-400 bg-violet-500/10' : 'text-zinc-300 hover:text-white hover:bg-zinc-800'}`}>
-                      <Settings size={16} /> {t.nav.settings}
+                      <Settings size={16} /> Impostazioni
                     </Link>
                     <button onClick={() => { toggleTheme(); setDropdownOpen(false) }}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all">
@@ -521,7 +535,7 @@ export default function Navbar() {
                   <div className="p-1.5 border-t border-zinc-800">
                     <button data-testid="nav-logout" onClick={() => { setDropdownOpen(false); handleLogout() }}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-all">
-                      <LogOut size={16} /> {t.nav.logout}
+                      <LogOut size={16} /> Esci
                     </button>
                   </div>
                 </div>
@@ -586,9 +600,9 @@ export default function Navbar() {
                   {item.href === '/profile/me' && (avatarUrl || currentUsername) ? (
                     <div className={`w-6 h-6 rounded-full overflow-hidden ring-2 ${isActive ? 'ring-violet-400' : 'ring-zinc-700'}`}>
                       {avatarUrl ? (
-                        <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                        <img src={avatarUrl} alt="avatar" width={24} height={24} className="w-full h-full object-cover" />
                       ) : (
-                        <img src={localAvatarSrc} alt="avatar" className="w-full h-full object-cover" />
+                        <img src={localAvatarSrc} alt="avatar" width={24} height={24} className="w-full h-full object-cover" />
                       )}
                     </div>
                   ) : (

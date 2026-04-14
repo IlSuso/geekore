@@ -862,32 +862,29 @@ export default function FeedPage() {
   const loadPinnedPosts = useCallback(async (userId: string) => {
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
     const { data, error } = await supabase.from('posts')
-      .select(`id, user_id, content, image_url, created_at, category, likes (id, user_id), comments (id, content, created_at, user_id)`)
+      .select('id, user_id, content, image_url, created_at, category, likes (id, user_id), comments (id, content, created_at, user_id)')
       .gte('created_at', since).order('created_at', { ascending: false }).limit(50)
     if (error || !data) return
+    const uids1 = [...new Set(data.map((p: any) => p.user_id))]
+    const { data: profiles1 } = await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', uids1)
+    const pm1: Record<string, any> = {}; (profiles1 || []).forEach((p: any) => { pm1[p.id] = p })
+    const commentUids1 = [...new Set(data.flatMap((p: any) => (p.comments || []).map((c: any) => c.user_id)))]
+    const { data: cProfiles1 } = commentUids1.length ? await supabase.from('profiles').select('id, username, display_name').in('id', commentUids1) : { data: [] }
+    const cpm1: Record<string, any> = {}; (cProfiles1 || []).forEach((p: any) => { cpm1[p.id] = p })
+    const dataWithProfiles = data.map((p: any) => ({
+      ...p,
+      profiles: pm1[p.user_id] || { username: '', display_name: null, avatar_url: null },
+      comments: (p.comments || []).map((c: any) => ({ ...c, profiles: cpm1[c.user_id] || { username: 'utente', display_name: null } }))
+    }))
 
-    const withLikes = data
+    const withLikes = dataWithProfiles
       .map((p: any) => ({ ...p, _likeCount: (p.likes || []).length }))
       .filter((p: any) => p._likeCount >= PINNED_LIKE_THRESHOLD)
       .sort((a: any, b: any) => b._likeCount - a._likeCount).slice(0, 2)
 
-    const postUserIds = [...new Set(withLikes.map((p: any) => p.user_id))]
-    let postProfileMap: Record<string, any> = {}
-    if (postUserIds.length > 0) {
-      const { data: pp } = await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', postUserIds)
-      pp?.forEach((p: any) => { postProfileMap[p.id] = p })
-    }
-    const allCommentsPinned = withLikes.flatMap((p: any) => p.comments || [])
-    const commentUserIds = [...new Set(allCommentsPinned.map((c: any) => c.user_id))]
-    let commentProfileMap: Record<string, any> = {}
-    if (commentUserIds.length > 0) {
-      const { data: cp } = await supabase.from('profiles').select('id, username, display_name').in('id', commentUserIds)
-      cp?.forEach((p: any) => { commentProfileMap[p.id] = p })
-    }
-
     setPinnedPosts(withLikes.map((post: any) => {
       const likes = post.likes || []
-      const profile = postProfileMap[post.user_id]
+      const profile = post.profiles
       return {
         id: post.id, content: post.content, image_url: post.image_url,
         created_at: post.created_at, category: post.category,
@@ -896,8 +893,8 @@ export default function FeedPage() {
         comments_count: (post.comments || []).length,
         comments: (post.comments || []).map((c: any) => ({
           id: c.id, content: c.content, created_at: c.created_at, user_id: c.user_id,
-          username: commentProfileMap[c.user_id]?.username || 'utente',
-          display_name: commentProfileMap[c.user_id]?.display_name,
+          username: c.profiles?.username || 'utente',
+          display_name: c.profiles?.display_name,
         })),
         pinned: true, user_id: post.user_id,
       }
@@ -916,12 +913,15 @@ export default function FeedPage() {
     if (!topAffinity) return []
     const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
 
-    // Cerca per macro-categoria con ilike per coprire tutti i titoli (Film:Forrest Gump, Film:Azione, ecc.)
-    const { data } = await supabase.from('posts')
-      .select(`id, user_id, content, image_url, created_at, category, likes (id, user_id)`)
+    const { data: discPosts } = await supabase.from('posts')
+      .select('id, user_id, content, image_url, created_at, category, likes (id, user_id)')
       .ilike('category', `${topAffinity.category}:%`)
       .gte('created_at', since).limit(50)
-    if (!data) return []
+    if (!discPosts) return []
+    const discUids = [...new Set(discPosts.map((p: any) => p.user_id))]
+    const { data: discProfiles } = await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', discUids)
+    const discPm: Record<string, any> = {}; (discProfiles || []).forEach((p: any) => { discPm[p.id] = p })
+    const data = discPosts.map((p: any) => ({ ...p, profiles: discPm[p.user_id] || { username: '', display_name: null, avatar_url: null } }))
 
     const eligible = data
       .filter((p: any) => p.user_id !== userId && !followingIds.includes(p.user_id))
@@ -929,15 +929,9 @@ export default function FeedPage() {
       .sort((a: any, b: any) => b._likeCount - a._likeCount).slice(0, 5)
     if (eligible.length === 0) return []
 
-    const postUserIds = [...new Set(eligible.map((p: any) => p.user_id))]
-    let ppMap: Record<string, any> = {}
-    if (postUserIds.length > 0) {
-      const { data: pp } = await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', postUserIds)
-      pp?.forEach((p: any) => { ppMap[p.id] = p })
-    }
     return eligible.map((post: any) => {
       const likes = post.likes || []
-      const profile = ppMap[post.user_id]
+      const profile = post.profiles
       return {
         id: post.id, user_id: post.user_id, content: post.content,
         image_url: post.image_url, created_at: post.created_at, category: post.category,
@@ -963,29 +957,26 @@ export default function FeedPage() {
     }
 
     let query = supabase.from('posts')
-      .select(`id, user_id, content, image_url, created_at, category, likes (id, user_id), comments (id, content, created_at, user_id)`)
+      .select('id, user_id, content, image_url, created_at, category, likes (id, user_id), comments (id, content, created_at, user_id)')
       .order('created_at', { ascending: false }).range(from, to)
     if (filter === 'following' && followingIds.length > 0) query = query.in('user_id', followingIds)
 
-    const { data: postsData } = await query
-
-    const allComments = (postsData || []).flatMap((p: any) => p.comments || [])
-    const uniqueCommentUserIds = [...new Set(allComments.map((c: any) => c.user_id))]
-    let profileMap: Record<string, any> = {}
-    if (uniqueCommentUserIds.length > 0) {
-      const { data: pd } = await supabase.from('profiles').select('id, username, display_name').in('id', uniqueCommentUserIds)
-      pd?.forEach((p: any) => { profileMap[p.id] = p })
-    }
-    const postUserIds = [...new Set((postsData || []).map((p: any) => p.user_id))]
-    let ppMap: Record<string, any> = {}
-    if (postUserIds.length > 0) {
-      const { data: ppd } = await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', postUserIds)
-      ppd?.forEach((p: any) => { ppMap[p.id] = p })
-    }
+    const { data: rawPosts } = await query
+    const postUids = [...new Set((rawPosts || []).map((p: any) => p.user_id))]
+    const { data: postProfiles } = postUids.length ? await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', postUids) : { data: [] }
+    const postPm: Record<string, any> = {}; (postProfiles || []).forEach((p: any) => { postPm[p.id] = p })
+    const commentUids = [...new Set((rawPosts || []).flatMap((p: any) => (p.comments || []).map((c: any) => c.user_id)))]
+    const { data: commentProfs } = commentUids.length ? await supabase.from('profiles').select('id, username, display_name').in('id', commentUids) : { data: [] }
+    const commentPm: Record<string, any> = {}; (commentProfs || []).forEach((p: any) => { commentPm[p.id] = p })
+    const postsData = (rawPosts || []).map((p: any) => ({
+      ...p,
+      profiles: postPm[p.user_id] || { username: '', display_name: null, avatar_url: null },
+      comments: (p.comments || []).map((c: any) => ({ ...c, profiles: commentPm[c.user_id] || { username: 'utente', display_name: null } }))
+    }))
 
     const formatted: Post[] = (postsData || []).map((post: any) => {
       const likes = post.likes || []
-      const profile = ppMap[post.user_id]
+      const profile = post.profiles
       return {
         id: post.id, user_id: post.user_id, content: post.content,
         image_url: post.image_url, created_at: post.created_at, category: post.category,
@@ -994,8 +985,8 @@ export default function FeedPage() {
         comments_count: (post.comments || []).length,
         comments: (post.comments || []).map((c: any) => ({
           id: c.id, content: c.content, created_at: c.created_at, user_id: c.user_id,
-          username: profileMap[c.user_id]?.username || 'utente',
-          display_name: profileMap[c.user_id]?.display_name,
+          username: c.profiles?.username || 'utente',
+          display_name: c.profiles?.display_name,
         })),
       }
     })

@@ -693,6 +693,8 @@ export default function ForYouPage() {
   const fetchRecommendations = useCallback(async (force = false) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
+    // Non passare refresh=1 di default: usa la cache (DB o memoria) per risposta istantanea.
+    // Passa refresh=1 solo quando l'utente clicca "Aggiorna" manualmente.
     const res = await fetch(`/api/recommendations?type=all${force ? '&refresh=1' : ''}`)
     if (!res.ok) return
     const json = await res.json()
@@ -729,15 +731,33 @@ export default function ForYouPage() {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-      const [{ data: entries }, { data: wish }] = await Promise.all([
+
+      // Avvia tutte le fetch in parallelo — non aspettiamo in sequenza
+      const [
+        { data: entries },
+        { data: wish },
+        recsPromise,
+      ] = await Promise.all([
         supabase.from('user_media_entries').select('external_id').eq('user_id', user.id),
-        supabase.from('wishlist').select('external_id').eq('user_id', user.id)
+        supabase.from('wishlist').select('external_id').eq('user_id', user.id),
+        // Prima chiamata: usa la cache (in-memory o DB). Risposta tipicamente <300ms.
+        fetch('/api/recommendations?type=all').then(r => r.ok ? r.json() : null),
       ])
-      setAddedIds(new Set((entries || []).map(e => e.external_id).filter(Boolean)))
-      setWishlistIds(new Set((wish || []).map(w => w.external_id).filter(Boolean)))
+
+      setAddedIds(new Set((entries || []).map((e: any) => e.external_id).filter(Boolean)))
+      setWishlistIds(new Set((wish || []).map((w: any) => w.external_id).filter(Boolean)))
       setTotalEntries(entries?.length || 0)
-      await Promise.all([fetchRecommendations(true), fetchFriends(user.id)])
+
+      // Mostra subito i dati cached — l'utente vede la pagina istantaneamente
+      if (recsPromise) {
+        setRecommendations(recsPromise.recommendations || {})
+        setTasteProfile(recsPromise.tasteProfile || null)
+        setIsCached(!!recsPromise.cached)
+      }
       setLoading(false)
+
+      // Avvia friends in background (non blocca il rendering)
+      fetchFriends(user.id)
     }
     init()
   }, [])

@@ -13,7 +13,8 @@ const OPTIMIZED_DOMAINS = [
   'images.igdb.com',
   'cdn.cloudflare.steamstatic.com',
   'cf.geekdo-images.com',
-  'api.dicebear.com',
+  // api.dicebear.com escluso: gli avatar DiceBear vanno gestiti da Avatar component
+  // (non sono cover, e i loro container non hanno position: relative)
 ]
 
 function isOptimizable(src: string): boolean {

@@ -3,8 +3,13 @@ import React from 'react'
 // src/app/leaderboard/page.tsx
 // A7: Usa RPC get_leaderboard() server-side invece del full-scan client
 // P5: SkeletonLeaderboardRow durante il loading
+// PERF: cache in-memory lato client (3 min TTL) — evita spinner ad ogni visita
 
 import { useEffect, useState } from 'react'
+
+// Cache modulo-level: sopravvive alle navigazioni SPA
+let leaderboardCache: { data: any[]; ts: number } | null = null
+const LEADERBOARD_CACHE_TTL = 3 * 60 * 1000 // 3 minuti
 import { createClient } from '@/lib/supabase/client'
 import { Loader2, Zap, Gamepad2, Tv, Trophy, Medal } from 'lucide-react'
 import Link from 'next/link'
@@ -31,10 +36,17 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     const load = async () => {
+      // Cache hit: mostra subito i dati senza spinner
+      if (leaderboardCache && Date.now() - leaderboardCache.ts < LEADERBOARD_CACHE_TTL) {
+        setLeaders(leaderboardCache.data as Leader[])
+        setLoading(false)
+        return
+      }
       // A7: RPC server-side — nessun full-scan client-side
       const { data, error } = await supabase.rpc('get_leaderboard', { limit_count: 50 })
       if (!error && data) {
         setLeaders(data as Leader[])
+        leaderboardCache = { data: data as Leader[], ts: Date.now() }
       }
       setLoading(false)
     }

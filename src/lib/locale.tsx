@@ -519,24 +519,19 @@ function setCookieLocale(l: Locale) {
   document.cookie = `geekore_locale=${l}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
 }
 
-export function LocaleProvider({ children }: { children: ReactNode }) {
-  // Legge subito il cookie (impostato dal middleware con geo-detection)
-  // così l'initial state è già corretto senza flash.
-  const [locale, setLocaleState] = useState<Locale>(() => {
-    if (typeof document === 'undefined') return 'it'
-    return getCookieLocale() ?? 'it'
-  })
+export function LocaleProvider({ children, initialLocale }: { children: ReactNode; initialLocale?: Locale }) {
+  // Usa initialLocale (passato dal Server Component layout) se disponibile,
+  // altrimenti legge il cookie lato client. Questo evita mismatch SSR/client.
+  const [locale, setLocaleState] = useState<Locale>(initialLocale ?? 'it')
 
   useEffect(() => {
-    // Sincronizza con localStorage (compatibilità precedente) e cookie
+    // Solo dopo il mount: sincronizza con localStorage se l'utente ha scelto manualmente
     const fromStorage = localStorage.getItem('geekore_locale') as Locale | null
-    const fromCookie = getCookieLocale()
-    // localStorage ha priorità se impostato manualmente dall'utente
-    const resolved = (fromStorage === 'it' || fromStorage === 'en')
-      ? fromStorage
-      : fromCookie ?? 'it'
-    setLocaleState(resolved)
-    setCookieLocale(resolved)
+    const resolved = (fromStorage === 'it' || fromStorage === 'en') ? fromStorage : (initialLocale ?? getCookieLocale() ?? 'it')
+    if (resolved !== locale) {
+      setLocaleState(resolved)
+      setCookieLocale(resolved)
+    }
   }, [])
 
   const setLocale = (l: Locale) => {

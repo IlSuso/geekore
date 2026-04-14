@@ -1,15 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { useLocale } from '@/lib/locale'
 import { Zap } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 
 export function Footer() {
-  const { t } = useLocale()
   const pathname = usePathname()
 
-  // La landing ha il suo footer inline, il global Footer non serve lì
   if (pathname === '/') return null
 
   return (
@@ -22,13 +19,13 @@ export function Footer() {
           <span className="text-sm font-bold tracking-tighter text-zinc-500">geekore</span>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-zinc-600">
-          <Link href="/privacy" className="hover:text-zinc-400 transition-colors">{t.legal.privacy}</Link>
+          <Link href="/privacy" className="hover:text-zinc-400 transition-colors">Privacy Policy</Link>
           <span className="text-zinc-800">·</span>
-          <Link href="/terms" className="hover:text-zinc-400 transition-colors">{t.legal.terms}</Link>
+          <Link href="/terms" className="hover:text-zinc-400 transition-colors">Termini di Servizio</Link>
           <span className="text-zinc-800">·</span>
           <Link href="/cookies" className="hover:text-zinc-400 transition-colors">Cookie Policy</Link>
         </div>
-        <p className="text-xs text-zinc-700">{t.legal.rights}</p>
+        <p className="text-xs text-zinc-700">© 2025 Geekore. Tutti i diritti riservati.</p>
       </div>
     </footer>
   )

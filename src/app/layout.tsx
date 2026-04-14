@@ -49,6 +49,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <meta name="view-transition" content="same-origin" />
         <meta name="color-scheme" content="dark light" />
+        {/* Preconnect ai domini API esterni — riduce DNS lookup e TLS handshake */}
+        <link rel="preconnect" href="https://graphql.anilist.co" />
+        <link rel="preconnect" href="https://api.themoviedb.org" />
+        <link rel="preconnect" href="https://image.tmdb.org" />
+        <link rel="preconnect" href="https://images.igdb.com" />
+        <link rel="preconnect" href="https://api.igdb.com" />
+        <link rel="preconnect" href="https://cdn.cloudflare.steamstatic.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://s4.anilist.co" />
+        <link rel="dns-prefetch" href="https://api.dicebear.com" />
       </head>
       <body className="bg-black text-white min-h-screen antialiased">
         <ClientProviders>

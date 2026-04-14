@@ -62,9 +62,26 @@ export function Avatar({ src, username, displayName, size = 40, className = '' }
   )
 
   if (isRemoteUrl) {
+    // DiceBear (SVG e PNG generativi) → <img> standard, next/image crea problemi
+    // con SVG (dangerouslyAllowSVG) e con PNG in container senza position:relative
+    const isDicebear = src!.includes('dicebear.com')
+    if (isDicebear) {
+      return (
+        <div className={`overflow-hidden rounded-full flex-shrink-0 ${className}`} style={style}>
+          <img
+            src={src!}
+            alt={`Avatar di ${name}`}
+            width={size}
+            height={size}
+            className="w-full h-full object-cover"
+            onError={() => setImgError(true)}
+            loading="lazy"
+          />
+        </div>
+      )
+    }
     return (
       <div className={`overflow-hidden rounded-full flex-shrink-0 ${className}`} style={style}>
-        {/* P3: next/image con sizes responsivi per ottimizzazione automatica */}
         <Image
           src={src!}
           alt={`Avatar di ${name}`}

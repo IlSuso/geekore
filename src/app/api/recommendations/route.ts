@@ -31,6 +31,37 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
 
+// ── In-memory cache (server-side, per worker process) ────────────────────────
+// Evita round-trip Supabase per utenti che navigano frequentemente sulla pagina.
+// TTL: 10 minuti. Al restart del processo il cache si svuota (OK per Vercel).
+interface MemCacheEntry {
+  data: Record<string, any[]>
+  tasteProfile: any
+  expiresAt: number
+}
+const MEM_CACHE = new Map<string, MemCacheEntry>()
+const MEM_CACHE_TTL_MS = 10 * 60 * 1000 // 10 min
+
+function memCacheGet(userId: string): MemCacheEntry | null {
+  const entry = MEM_CACHE.get(userId)
+  if (!entry) return null
+  if (entry.expiresAt < Date.now()) { MEM_CACHE.delete(userId); return null }
+  return entry
+}
+
+function memCacheSet(userId: string, data: Record<string, any[]>, tasteProfile: any) {
+  // Evita memory leak: max 500 entries in cache
+  if (MEM_CACHE.size >= 500) {
+    const first = MEM_CACHE.keys().next().value
+    if (first) MEM_CACHE.delete(first)
+  }
+  MEM_CACHE.set(userId, { data, tasteProfile, expiresAt: Date.now() + MEM_CACHE_TTL_MS })
+}
+
+function memCacheInvalidate(userId: string) {
+  MEM_CACHE.delete(userId)
+}
+
 // ── Tipi ────────────────────────────────────────────────────────────────────
 
 type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame'
@@ -1770,6 +1801,19 @@ export async function GET(request: NextRequest) {
     const requestedType = searchParams.get('type') || 'all'
     const forceRefresh = searchParams.get('refresh') === '1'
 
+    // ── In-memory cache check (hit istantaneo, 0 DB queries) ─────────────────
+    if (!forceRefresh) {
+      const memHit = memCacheGet(user.id)
+      if (memHit) {
+        const recs = requestedType === 'all'
+          ? memHit.data
+          : { [requestedType]: memHit.data[requestedType] || [] }
+        return NextResponse.json({ recommendations: recs, tasteProfile: memHit.tasteProfile, cached: true }, {
+          headers: { 'X-Cache': 'MEM_HIT' }
+        })
+      }
+    }
+
     // Leggi collezione completa (V3: include campi nuovi)
     const { data: entries } = await supabase
       .from('user_media_entries')
@@ -1803,10 +1847,16 @@ export async function GET(request: NextRequest) {
             if (allCached && allCached.length > 0) {
               const recommendations: Record<string, any[]> = {}
               for (const c of allCached) recommendations[c.media_type] = c.data
-              return NextResponse.json({ recommendations, cached: true })
+              // Popola in-memory cache così la prossima richiesta non tocca il DB
+              memCacheSet(user.id, recommendations, null)
+              return NextResponse.json({ recommendations, cached: true }, {
+                headers: { 'Cache-Control': 'private, max-age=0, must-revalidate', 'X-Cache': 'DB_HIT' }
+              })
             }
           } else {
-            return NextResponse.json({ recommendations: { [requestedType]: cached.data }, cached: true })
+            return NextResponse.json({ recommendations: { [requestedType]: cached.data }, cached: true }, {
+              headers: { 'Cache-Control': 'private, max-age=0, must-revalidate', 'X-Cache': 'DB_HIT' }
+            })
           }
         }
       }
@@ -2001,6 +2051,32 @@ export async function GET(request: NextRequest) {
         }, { onConflict: 'user_id,media_type' })
       )
     )
+
+    // ── Popola in-memory cache ────────────────────────────────────────────────
+    const tasteProfileResponse = {
+      globalGenres: tasteProfile.globalGenres,
+      topGenres: tasteProfile.topGenres,
+      collectionSize: tasteProfile.collectionSize,
+      recentWindow: tasteProfile.recentWindow,
+      deepSignals: {
+        topThemes: Object.entries(tasteProfile.deepSignals.themes)
+          .sort(([, a], [, b]) => b - a).slice(0, 5).map(([k]) => k),
+        topTones: Object.entries(tasteProfile.deepSignals.tones)
+          .sort(([, a], [, b]) => b - a).slice(0, 5).map(([k]) => k),
+        topSettings: Object.entries(tasteProfile.deepSignals.settings)
+          .sort(([, a], [, b]) => b - a).slice(0, 4).map(([k]) => k),
+      },
+      discoveryGenres: tasteProfile.discoveryGenres,
+      negativeGenres: Object.keys(tasteProfile.negativeGenres).slice(0, 5),
+      creatorScores: {
+        topStudios: topStudios.slice(0, 5).map(([name, score]) => ({ name, score })),
+        topDirectors: topDirectors.slice(0, 5).map(([name, score]) => ({ name, score })),
+      },
+      bingeProfile: tasteProfile.bingeProfile,
+      wishlistGenres: tasteProfile.wishlistGenres,
+      searchIntentGenres: tasteProfile.searchIntentGenres,
+    }
+    memCacheSet(user.id, recommendations, tasteProfileResponse)
 
     return NextResponse.json({
       recommendations,

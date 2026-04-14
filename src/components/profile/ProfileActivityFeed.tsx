@@ -3,6 +3,7 @@
 // 7.4 — estratto da profile/[username]/page.tsx
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { Star } from 'lucide-react'
 
 const TYPE_COLORS: Record<string, string> = {
@@ -71,7 +72,7 @@ export function ProfileActivityFeed({ userId }: { userId: string }) {
           className="flex items-center gap-4 p-4 bg-zinc-900 border border-zinc-800 rounded-2xl hover:border-zinc-700 transition-colors"
         >
           {a.media_cover
-            ? <img src={a.media_cover} alt={a.media_title} className="w-10 h-14 object-cover rounded-xl flex-shrink-0" />
+            ? <div className="relative w-10 h-14 rounded-xl overflow-hidden flex-shrink-0"><Image src={a.media_cover} alt={a.media_title} fill className="object-cover" sizes="40px" /></div>
             : <div className="w-10 h-14 bg-zinc-800 rounded-xl flex-shrink-0" />
           }
           <div className="flex-1 min-w-0">

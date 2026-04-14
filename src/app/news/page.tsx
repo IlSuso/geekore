@@ -1,7 +1,12 @@
 'use client'
 // A5: distingue fetchError da lista vuota — usa ErrorState con retry
+// PERF: cache in-memory lato client (5 min TTL) — evita spinner ad ogni visita
 
 import { useState, useEffect } from 'react'
+
+// Cache in-memory: sopravvive alle navigazioni SPA ma si svuota al reload
+const newsCache = new Map<string, { data: any[]; ts: number }>()
+const NEWS_CACHE_TTL = 5 * 60 * 1000 // 5 minuti
 import { Gamepad2, Film, Tv, BookOpen, Loader2, ExternalLink, CalendarDays, RefreshCw } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { ErrorState } from '@/components/ui/ErrorState'
@@ -57,7 +62,20 @@ export default function NewsPage() {
     gaming: t.news.gaming,
   }
 
-  const fetchNews = async (cat: string) => {
+  const fetchNews = async (cat: string, forceRefresh = false) => {
+    const cacheKey = `${cat}-${locale}`
+
+    // Cache hit: mostra subito i dati, nessun spinner
+    if (!forceRefresh) {
+      const cached = newsCache.get(cacheKey)
+      if (cached && Date.now() - cached.ts < NEWS_CACHE_TTL) {
+        setNews(cached.data)
+        setLoading(false)
+        setFetchError(false)
+        return
+      }
+    }
+
     setLoading(true)
     setFetchError(false) // reset error
     try {
@@ -68,7 +86,10 @@ export default function NewsPage() {
         setNews([])
       } else {
         const data = await res.json()
-        setNews(Array.isArray(data) ? data : [])
+        const items = Array.isArray(data) ? data : []
+        setNews(items)
+        // Salva in cache
+        newsCache.set(cacheKey, { data: items, ts: Date.now() })
       }
     } catch {
       // A5: errore di rete → mostra ErrorState
@@ -87,7 +108,8 @@ export default function NewsPage() {
     setSyncing(true)
     try {
       await fetch(`/api/news/sync?lang=${locale}`, { method: 'GET' })
-      await fetchNews(activeCategory)
+      // forceRefresh=true per bypassare la cache dopo sync
+      await fetchNews(activeCategory, true)
       setLastSync(new Date().toLocaleTimeString(locale === 'en' ? 'en-US' : 'it-IT', {
         hour: '2-digit', minute: '2-digit',
       }))

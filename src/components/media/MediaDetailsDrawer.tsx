@@ -3,6 +3,7 @@
 // V3: salva studios/directors/authors in user_media_entries + taste delta real-time + wishlist genres
 
 import { useEffect, useState, useCallback } from 'react'
+import Image from 'next/image'
 import {
   X, ExternalLink, Star, Clock, Users, Layers,
   Gamepad2, BookOpen, Film, Tv, Dices, Clapperboard, Check, Bookmark,
@@ -316,7 +317,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
           {/* Banner sfocato in background */}
           {media.coverImage && (
             <div className="absolute inset-0 overflow-hidden">
-              <img src={media.coverImage} alt="" className="w-full h-full object-cover scale-110 blur-xl opacity-30" aria-hidden />
+              <Image src={media.coverImage} alt="" fill className="object-cover scale-110 blur-xl opacity-30" aria-hidden unoptimized={media.coverImage.startsWith('data:')} />
               <div className="absolute inset-0 bg-gradient-to-b from-zinc-900/60 to-zinc-950" />
             </div>
           )}
@@ -326,7 +327,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             {/* Cover verticale */}
             <div className="flex-shrink-0 w-28 h-40 rounded-2xl overflow-hidden bg-zinc-800 shadow-2xl ring-1 ring-white/10">
               {media.coverImage ? (
-                <img src={media.coverImage} alt={media.title} className="w-full h-full object-cover" />
+                <Image src={media.coverImage} alt={media.title} fill className="object-cover" sizes="112px" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <Icon size={40} className="text-zinc-600" />
@@ -493,7 +494,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                   <div key={rel.id} className="flex-shrink-0 w-20">
                     <div className="relative h-28 rounded-xl overflow-hidden bg-zinc-800 mb-1.5">
                       {rel.coverImage
-                        ? <img src={rel.coverImage} alt={rel.title} className="w-full h-full object-cover" loading="lazy" />
+                        ? <Image src={rel.coverImage} alt={rel.title} fill className="object-cover" sizes="80px" loading="lazy" />
                         : <div className="w-full h-full flex items-center justify-center text-zinc-700"><Tv size={36} /></div>
                       }
                       <div className="absolute top-1 left-1 bg-amber-500/90 text-[8px] font-bold px-1 py-0.5 rounded text-white">

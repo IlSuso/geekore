@@ -1,87 +1,82 @@
-const withBundleAnalyzer = process.env.ANALYZE === 'true'
-  ? require('@next/bundle-analyzer')({ enabled: true })
-  : (config) => config
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  turbopack: {},
-
+  // Ottimizzazione immagini: domini esterni autorizzati per next/image
   images: {
     remotePatterns: [
-      { protocol: 'https', hostname: 's4.anilist.co', pathname: '/file/**' },
-      { protocol: 'https', hostname: 'image.tmdb.org', pathname: '/t/p/**' },
-      { protocol: 'https', hostname: 'images.igdb.com', pathname: '/igdb/image/upload/**' },
-      { protocol: 'https', hostname: 'cdn.cloudflare.steamstatic.com', pathname: '/steam/apps/**' },
+      { protocol: 'https', hostname: 'image.tmdb.org' },
+      { protocol: 'https', hostname: 'images.igdb.com' },
+      { protocol: 'https', hostname: 'cdn.cloudflare.steamstatic.com' },
+      { protocol: 'https', hostname: 's4.anilist.co' },
+      { protocol: 'https', hostname: 'media.kitsu.app' },
+      { protocol: 'https', hostname: 'cdn.myanimelist.net' },
+      { protocol: 'https', hostname: '*.boardgamegeek.com' },
       { protocol: 'https', hostname: 'cf.geekdo-images.com' },
-      { protocol: 'https', hostname: 'www.boardgamegeek.com' },
-      { protocol: 'https', hostname: '*.supabase.co', pathname: '/storage/v1/object/public/**' },
-      { protocol: 'https', hostname: 'api.dicebear.com', pathname: '/7.x/**' },
-      { protocol: 'https', hostname: 'via.placeholder.com' },
-      { protocol: 'https', hostname: 'wsrv.nl' },
+      // Supabase Storage (wildcard per project-id variabile)
+      { protocol: 'https', hostname: '*.supabase.co' },
+      // Avatar generativi DiceBear (SVG e PNG)
+      { protocol: 'https', hostname: 'api.dicebear.com', pathname: '/**' },
     ],
+    // Formati moderni: WebP e AVIF (AVIF ~50% più leggero di WebP)
     formats: ['image/avif', 'image/webp'],
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    minimumCacheTTL: 60 * 60 * 24 * 30,
+    // Abilita SVG da DiceBear (avatar generativi)
     dangerouslyAllowSVG: true,
-    contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    // Cache immagini ottimizzate per 30 giorni (default 60s è troppo basso)
+    minimumCacheTTL: 60 * 60 * 24 * 30,
+    // Dimensioni device comuni — evita di generare varianti inutili
+    deviceSizes: [640, 750, 828, 1080, 1200],
+    imageSizes: [64, 96, 128, 256, 384],
   },
 
+  // Header HTTP per cache aggressiva su asset statici e API pubbliche
   async headers() {
-    const isDev = process.env.NODE_ENV === 'development'
     return [
+      // API news — cambiano raramente, cache 5 min con SWR 10 min
       {
-        source: '/(.*)',
+        source: '/api/news/:path*',
         headers: [
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'X-DNS-Prefetch-Control', value: 'on' },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-          ...(!isDev ? [{
-            key: 'Strict-Transport-Security',
-            value: 'max-age=31536000; includeSubDomains; preload',
-          }] : []),
-          {
-            key: 'Content-Security-Policy',
-            value: isDev
-              ? "default-src 'self' 'unsafe-inline' 'unsafe-eval' *; img-src * data: blob:;"
-              : [
-                  "default-src 'self'",
-                  "script-src 'self' 'unsafe-inline'",
-                  "style-src 'self' 'unsafe-inline'",
-                  "img-src * data: blob:",
-                  "font-src 'self' data:",
-                  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.steampowered.com https://graphql.anilist.co https://api.themoviedb.org https://api.igdb.com https://cdn.cloudflare.steamstatic.com https://s4.anilist.co https://image.tmdb.org https://images.igdb.com https://cf.geekdo-images.com https://wsrv.nl",
-                  "frame-ancestors 'none'",
-                  "base-uri 'self'",
-                  "form-action 'self'",
-                ].join('; '),
-          },
+          { key: 'Cache-Control', value: 's-maxage=300, stale-while-revalidate=600' },
+        ],
+      },
+      // API search (TMDB, IGDB, Anilist ecc.) — cache 2 min, SWR 5 min
+      {
+        source: '/api/:path(tmdb|igdb|anilist|boardgames|steam)',
+        headers: [
+          { key: 'Cache-Control', value: 's-maxage=120, stale-while-revalidate=300' },
+        ],
+      },
+      // Font e immagini pubbliche in /public
+      {
+        source: '/fonts/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
         ],
       },
     ]
   },
 
-  async redirects() {
-    return [
-      { source: '/profile/', destination: '/profile/me', permanent: false },
-    ]
+  // Compressione risposta (gzip/brotli) — abilitata di default ma esplicitiamo
+  compress: true,
+
+  // Abilita React strict mode per rilevare problemi in dev
+  reactStrictMode: true,
+
+  // Rimuove X-Powered-By header (leggero miglioramento sicurezza)
+  poweredByHeader: false,
+
+  // Ottimizzazioni sperimentali per navigazione più veloce
+  experimental: {
+    // Mantiene in cache il payload delle pagine lato client tra navigazioni.
+    // Evita re-fetch dei dati quando l'utente torna indietro (back button).
+    optimisticClientCache: true,
   },
 
-  webpack(config, { isServer }) {
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        net: false,
-        tls: false,
-        crypto: false,
-      }
-    }
-    return config
+  // Logging ridotto in produzione
+  logging: {
+    fetches: {
+      fullUrl: false,
+    },
   },
 }
 
-module.exports = withBundleAnalyzer(nextConfig)
+module.exports = nextConfig

@@ -63,7 +63,7 @@ function isOnboardingExempt(pathname: string): boolean {
   return ONBOARDING_EXEMPT.some(p => pathname === p || pathname.startsWith(p))
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Bypass per assets statici e path pubblici
@@ -104,8 +104,8 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { session } } = await supabase.auth.getSession()
-  const isLoggedIn = !!session?.user
+  const { data: { user } } = await supabase.auth.getUser()
+  const isLoggedIn = !!user
 
   // Route protetta + non autenticato → login
   if (isProtected(pathname) && !isLoggedIn) {
@@ -125,14 +125,14 @@ export async function middleware(request: NextRequest) {
   }
 
   // #24: Check onboarding per utenti autenticati su route protette
-  // Usa solo getSession() per non fare query DB aggiuntive su ogni request —
+  // Usa getUser() (autenticato server-side) per non fare query DB aggiuntive su ogni request —
   // il profilo viene letto solo quando strettamente necessario (route protetta).
   if (isLoggedIn && isProtected(pathname) && !isOnboardingExempt(pathname)) {
     try {
       const { data: profile } = await supabase
         .from('profiles')
         .select('onboarding_done')
-        .eq('id', session.user.id)
+        .eq('id', user!.id)
         .single()
 
       // Se onboarding non completato → redirect a /onboarding
