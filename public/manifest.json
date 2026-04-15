@@ -6,13 +6,21 @@
   "start_url": "/feed",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait-primary",
   "background_color": "#000000",
-  "theme_color": "#7c6af7",
+  "theme_color": "#000000",
   "lang": "it",
   "dir": "ltr",
-  "categories": ["entertainment", "social", "lifestyle"],
+  "categories": [
+    "entertainment",
+    "social",
+    "lifestyle"
+  ],
   "icons": [
     {
       "src": "/icons/icon-72x72.png",
@@ -105,8 +113,14 @@
       "description": "Vai al feed della community",
       "url": "/feed",
       "icons": [
-        { "src": "/icons/shortcut-feed.png", "sizes": "96x96" },
-        { "src": "/icons/icon-96x96.png", "sizes": "96x96" }
+        {
+          "src": "/icons/shortcut-feed.png",
+          "sizes": "96x96"
+        },
+        {
+          "src": "/icons/icon-96x96.png",
+          "sizes": "96x96"
+        }
       ]
     },
     {
@@ -115,8 +129,14 @@
       "description": "Cerca nuovi media",
       "url": "/discover",
       "icons": [
-        { "src": "/icons/shortcut-discover.png", "sizes": "96x96" },
-        { "src": "/icons/icon-96x96.png", "sizes": "96x96" }
+        {
+          "src": "/icons/shortcut-discover.png",
+          "sizes": "96x96"
+        },
+        {
+          "src": "/icons/icon-96x96.png",
+          "sizes": "96x96"
+        }
       ]
     },
     {
@@ -125,8 +145,14 @@
       "description": "Vedi i tuoi progressi",
       "url": "/profile/me",
       "icons": [
-        { "src": "/icons/shortcut-profile.png", "sizes": "96x96" },
-        { "src": "/icons/icon-96x96.png", "sizes": "96x96" }
+        {
+          "src": "/icons/shortcut-profile.png",
+          "sizes": "96x96"
+        },
+        {
+          "src": "/icons/icon-96x96.png",
+          "sizes": "96x96"
+        }
       ]
     },
     {
@@ -135,7 +161,10 @@
       "description": "Vedi le tue notifiche",
       "url": "/notifications",
       "icons": [
-        { "src": "/icons/icon-96x96.png", "sizes": "96x96" }
+        {
+          "src": "/icons/icon-96x96.png",
+          "sizes": "96x96"
+        }
       ]
     }
   ],
