@@ -9,7 +9,6 @@ export async function POST(request: NextRequest) {
   const rl = rateLimit(request, { limit: 20, windowMs: 60_000, prefix: 'comment' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppi commenti. Rallenta.' }, { status: 429, headers: rl.headers })
 
-  // Client autenticato — solo per verificare chi è l'utente loggato
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
@@ -17,13 +16,26 @@ export async function POST(request: NextRequest) {
   let body: any
   try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400 }) }
 
-  const { post_id, content } = body
+  const { post_id, action, content } = body
   if (!post_id || typeof post_id !== 'string') return NextResponse.json({ error: 'post_id mancante' }, { status: 400 })
+
+  const service = createServiceClient()
+
+  // push_only: FeedCard ha già inserito commento e notifica in-app, manda solo la push
+  if (action === 'push_only') {
+    const { data: post } = await service.from('posts').select('user_id').eq('id', post_id).single()
+    if (post && post.user_id !== user.id) {
+      const { data: sender } = await service.from('profiles').select('username').eq('id', user.id).single()
+      if (sender?.username) {
+        await sendPushToUser(post.user_id, commentPayload(sender.username, post_id))
+      }
+    }
+    return NextResponse.json({ success: true }, { headers: rl.headers })
+  }
+
+  // Azione completa (fallback)
   if (!content || typeof content !== 'string' || content.trim().length < 1) return NextResponse.json({ error: 'Contenuto vuoto' }, { status: 400 })
   if (content.trim().length > 1000) return NextResponse.json({ error: 'Commento troppo lungo (max 1000)' }, { status: 400 })
-
-  // Service client — bypassa RLS
-  const service = createServiceClient()
 
   const { data, error } = await service
     .from('comments')
@@ -33,23 +45,11 @@ export async function POST(request: NextRequest) {
 
   if (error) return NextResponse.json({ error: 'Errore nel salvataggio' }, { status: 500 })
 
-  // Legge il proprietario del post
   const { data: post } = await service.from('posts').select('user_id').eq('id', post_id).single()
-
   if (post && post.user_id !== user.id) {
-    // Inserisce notifica in-app
-    await service.from('notifications').insert({
-      type: 'comment',
-      sender_id: user.id,
-      receiver_id: post.user_id,
-      post_id,
-    })
-
-    // Notifica push
+    await service.from('notifications').insert({ type: 'comment', sender_id: user.id, receiver_id: post.user_id, post_id })
     const { data: sender } = await service.from('profiles').select('username').eq('id', user.id).single()
-    if (sender?.username) {
-      await sendPushToUser(post.user_id, commentPayload(sender.username, post_id))
-    }
+    if (sender?.username) await sendPushToUser(post.user_id, commentPayload(sender.username, post_id))
   }
 
   return NextResponse.json({ success: true, comment: data }, { headers: rl.headers })

@@ -13,7 +13,6 @@ import { ReportButton } from '@/components/ui/ReportButton'
 import { Avatar } from '@/components/ui/Avatar'
 import { useLocale } from '@/lib/locale'
 
-// M6/A6: import lazy delle locale — carica solo quella necessaria
 async function getDateLocale(locale: string) {
   if (locale === 'en') {
     const { enUS } = await import('date-fns/locale/en-US')
@@ -61,9 +60,9 @@ export interface FeedPost {
   likes?: PostLike[]
   comments?: PostComment[]
 }
+
 export interface FeedCardProps {
   post: FeedPost
-  /** Callback per aggiornare il contatore like nel parent (opzionale) */
   onLikeChange?: (postId: string, delta: number) => void
 }
 
@@ -71,14 +70,11 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
   const supabase = createClient()
   const { locale } = useLocale()
 
-  // Normalizza profiles: Supabase può restituire oggetto o array
   const profile: PostProfile | null = Array.isArray(post.profiles)
     ? (post.profiles[0] ?? null)
     : (post.profiles ?? null)
 
-  const [likesCount, setLikesCount] = useState<number>(
-    post.likes_count ?? post.likes?.length ?? 0
-  )
+  const [likesCount, setLikesCount] = useState<number>(post.likes_count ?? post.likes?.length ?? 0)
   const [hasLiked, setHasLiked] = useState(post.liked_by_user ?? false)
   const [likeAnimating, setLikeAnimating] = useState(false)
   const [user, setUser] = useState<{ id: string } | null>(null)
@@ -105,7 +101,6 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
     return () => subscription.unsubscribe()
   }, [])
 
-  // M6: aggiorna timeAgo con la locale corretta in modo asincrono
   useEffect(() => {
     if (!post.created_at) return
     let cancelled = false
@@ -127,18 +122,24 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
       setHasLiked(false)
       setLikesCount(prev => prev - 1)
       onLikeChange?.(post.id, -1)
-      // unlike diretto — non serve notifica
       await supabase.from('likes').delete().match({ user_id: user.id, post_id: post.id })
     } else {
       setHasLiked(true)
       setLikesCount(prev => prev + 1)
       onLikeChange?.(post.id, 1)
-      // FIX: usa API route che gestisce notifica in-app + push via service client
-      await fetch('/api/social/like', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ post_id: post.id, action: 'like' }),
-      })
+      // Inserisce like e notifica in-app direttamente (come ProfileComments)
+      await supabase.from('likes').insert([{ user_id: user.id, post_id: post.id }])
+      if (user.id !== post.user_id) {
+        await supabase.from('notifications').insert([{
+          type: 'like', sender_id: user.id, receiver_id: post.user_id, post_id: post.id,
+        }])
+        // Trigger push server-side (fire and forget)
+        fetch('/api/social/like', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ post_id: post.id, action: 'push_only' }),
+        }).catch(() => {})
+      }
     }
   }
 
@@ -158,9 +159,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
     const next = !showComments
     setShowComments(next)
     haptic(20)
-    if (next && !commentsFetched) {
-      fetchComments()
-    }
+    if (next && !commentsFetched) fetchComments()
   }
 
   const handleCommentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -177,17 +176,24 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
     setIsSubmitting(true)
     haptic(30)
 
-    // FIX: usa API route che gestisce notifica in-app + push via service client
-    const res = await fetch('/api/social/comment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ post_id: post.id, content: newComment.trim() }),
-    })
+    const { data, error } = await supabase
+      .from('comments')
+      .insert([{ content: newComment.trim(), post_id: post.id, user_id: user.id }])
+      .select('*, profiles(username, display_name, avatar_url)')
+      .single()
 
-    if (res.ok) {
-      const { comment } = await res.json()
-      if (comment) {
-        setComments(prev => [...prev, comment])
+    if (!error && data) {
+      setComments(prev => [...prev, data])
+      if (user.id !== post.user_id) {
+        await supabase.from('notifications').insert([{
+          type: 'comment', sender_id: user.id, receiver_id: post.user_id, post_id: post.id,
+        }])
+        // Trigger push server-side (fire and forget)
+        fetch('/api/social/comment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ post_id: post.id, action: 'push_only' }),
+        }).catch(() => {})
       }
       setNewComment('')
       setCommentCharCount(0)
@@ -209,7 +215,6 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
         : 'border-zinc-800 hover:border-violet-500/30'
     }`}>
 
-      {/* C5: Pinned badge (da PostCard inline) */}
       {post.pinned && (
         <div className="flex items-center gap-1.5 px-6 pt-4 text-violet-400">
           <Pin size={12} className="rotate-45" />
@@ -217,7 +222,6 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
         </div>
       )}
 
-      {/* Header */}
       <div className="p-6 pb-4 flex items-center gap-3">
         <Link href={`/profile/${profile?.username}`} className="group shrink-0">
           <div className="w-11 h-11 rounded-2xl overflow-hidden ring-2 ring-violet-500/20 group-hover:ring-violet-500/50 transition-all">
@@ -250,12 +254,10 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
         )}
       </div>
 
-      {/* Content */}
       <div className="px-6 pb-4">
         <p className="text-zinc-200 text-sm leading-relaxed whitespace-pre-wrap">{post.content}</p>
       </div>
 
-      {/* Image */}
       {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
         <div className="mx-4 mb-4 rounded-2xl overflow-hidden border border-zinc-800">
           <img
@@ -266,7 +268,6 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
         </div>
       )}
 
-      {/* Actions */}
       <div className="px-6 py-4 border-t border-zinc-800/60 flex items-center gap-6">
         <button
           onClick={handleLike}
@@ -300,7 +301,6 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
         )}
       </div>
 
-      {/* Comments section */}
       {showComments && (
         <div className="px-6 pb-6 border-t border-zinc-800/60 pt-4 bg-black/20">
           {comments.length > 0 && (
