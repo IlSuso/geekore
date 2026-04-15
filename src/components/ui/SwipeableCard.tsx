@@ -16,6 +16,7 @@ function haptic(pattern: number | number[] = 40) {
 
 const SWIPE_THRESHOLD = 80   // px minimi per attivare
 const MAX_SWIPE = 120        // px massimi di offset visivo
+const DIRECTION_LOCK_THRESHOLD = 8  // px prima di decidere la direzione
 
 interface SwipeableCardProps {
   children: ReactNode
@@ -77,8 +78,14 @@ export function SwipeableCard({
     const dx = touch.clientX - startXRef.current
     const dy = touch.clientY - startYRef.current
 
-    // Se movimento verticale dominante → scroll normale
-    if (!isDraggingRef.current && Math.abs(dy) > Math.abs(dx) * 1.5) return
+    // Aspetta abbastanza movimento prima di decidere la direzione
+    if (!isDraggingRef.current && Math.abs(dx) < DIRECTION_LOCK_THRESHOLD && Math.abs(dy) < DIRECTION_LOCK_THRESHOLD) return
+
+    // Se movimento verticale dominante → scroll normale, non intercettare
+    if (!isDraggingRef.current && Math.abs(dy) >= Math.abs(dx)) return
+
+    // Solo swipe orizzontale chiaro (dx deve essere dominante)
+    if (!isDraggingRef.current && Math.abs(dx) < Math.abs(dy) * 2) return
 
     isDraggingRef.current = true
     currentXRef.current = dx
@@ -96,8 +103,8 @@ export function SwipeableCard({
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
     rafRef.current = requestAnimationFrame(() => applyTransform(dx))
 
-    // Previeni scroll se stiamo swipando orizzontalmente
-    if (Math.abs(dx) > 10) e.preventDefault()
+    // Previeni scroll solo se stiamo swipando orizzontalmente con sicurezza
+    if (Math.abs(dx) > DIRECTION_LOCK_THRESHOLD) e.preventDefault()
   }, [disabled, onDelete, onComplete, applyTransform])
 
   const onTouchEnd = useCallback(() => {

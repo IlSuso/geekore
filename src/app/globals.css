@@ -375,13 +375,13 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
 
 /* ── iOS keyboard: hide mobile navbar ─────────────────────────────────────── */
 @media (max-width: 768px) {
-  body:has(input:focus) .mobile-nav,
-  body:has(textarea:focus) .mobile-nav {
+  body:has(input:focus:not(.no-nav-hide)) .mobile-nav,
+  body:has(textarea:focus:not(.no-nav-hide)) .mobile-nav {
     transform: translateY(110%);
     pointer-events: none;
     transition: transform 0.2s cubic-bezier(0.2,0,0,1);
   }
-  body:not(:has(input:focus)):not(:has(textarea:focus)) .mobile-nav {
+  body:not(:has(input:focus:not(.no-nav-hide))):not(:has(textarea:focus:not(.no-nav-hide))) .mobile-nav {
     transform: translateY(0);
     pointer-events: auto;
     transition: transform 0.2s cubic-bezier(0.2,0,0,1) 0.08s;

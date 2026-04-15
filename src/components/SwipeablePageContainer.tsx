@@ -10,8 +10,9 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useRef, useState, useCallback, useEffect, type ReactNode } from 'react'
 
 const TAB_ORDER = ['/feed', '/discover', '/for-you', '/trending', '/profile/me']
-const CONFIRM_THRESHOLD = 72   // px
-const VELOCITY_THRESHOLD = 0.28 // px/ms
+const CONFIRM_THRESHOLD = 120  // px — alzato per evitare conflitti con gesture OS
+const VELOCITY_THRESHOLD = 0.35 // px/ms
+const EDGE_DEAD_ZONE = 28       // px dai bordi: riservato alle gesture OS (back swipe)
 
 // Ease identico a iOS spring navigation
 const EASE_OUT  = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
@@ -59,7 +60,10 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
 
   const onTouchStart = useCallback((e: TouchEvent) => {
     if (!isMain) return
-    touchStartX.current = e.touches[0].clientX
+    const x = e.touches[0].clientX
+    // Dead-zone: ignora i touch che partono troppo vicini al bordo (gesture OS)
+    if (x <= EDGE_DEAD_ZONE || x >= (vw.current || window.innerWidth) - EDGE_DEAD_ZONE) return
+    touchStartX.current = x
     touchStartY.current = e.touches[0].clientY
     touchStartT.current = performance.now()
     lastDeltaX.current  = 0

@@ -133,9 +133,6 @@ export function MobileHeader() {
         <div className="flex items-center">
           {isFeed && (
             <>
-              <Link href="/discover" className={iconCls}>
-                <Search size={24} strokeWidth={1.6} />
-              </Link>
               <Link
                 href="/notifications"
                 className={`${iconCls} relative`}

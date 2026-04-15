@@ -875,6 +875,7 @@ export default function FeedPage() {
   const [newPostsCount, setNewPostsCount] = useState(0)
   const [categoryFilter, setCategoryFilter] = useState<string>('')
   const [composerOpen, setComposerOpen] = useState(false)
+  const scrollPositionRef = useRef(0)
 
   const latestPostIdRef = useRef<string | null>(null)
   const pageRef = useRef(0)
@@ -1093,6 +1094,28 @@ export default function FeedPage() {
     setHasMore(newHasMore)
   }, [supabase, pinnedPosts, getUserTopCategory, loadDiscoveryPosts])
 
+  const openComposer = () => {
+    scrollPositionRef.current = window.scrollY
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollPositionRef.current}px`
+    document.body.style.width = '100%'
+    document.body.style.overflow = 'hidden'
+    setComposerOpen(true)
+  }
+
+  const closeComposer = () => {
+    document.body.style.position = ''
+    document.body.style.top = ''
+    document.body.style.width = ''
+    document.body.style.overflow = ''
+    window.scrollTo(0, scrollPositionRef.current)
+    setComposerOpen(false)
+    setNewPostContent('')
+    setNewPostCategory('')
+    setSelectedImage(null)
+    setImagePreview(null)
+  }
+
   // Pull-to-refresh su mobile
   const handlePullRefresh = async () => {
     if (!currentUser) return
@@ -1269,7 +1292,7 @@ export default function FeedPage() {
                 {/* Barra statica — sempre visibile, poco invasiva */}
                 <div
                   className="mx-4 my-4 rounded-2xl border border-zinc-800 bg-zinc-900/60 cursor-pointer hover:border-violet-500/30 hover:bg-zinc-900 transition-all duration-200"
-                  onClick={() => setComposerOpen(true)}
+                  onClick={openComposer}
                 >
                   <div className="flex items-center gap-3 px-4 py-3.5">
                     <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-zinc-800">
@@ -1301,7 +1324,7 @@ export default function FeedPage() {
                     {/* Overlay backdrop */}
                     <div
                       className="fixed inset-0 z-[250] bg-black/60 backdrop-blur-sm"
-                      onClick={() => { setComposerOpen(false); setNewPostContent(''); setNewPostCategory(''); setSelectedImage(null); setImagePreview(null) }}
+                      onClick={closeComposer}
                     />
 
                     {/* Modal: popup centrato su desktop, fullscreen su mobile */}
@@ -1320,14 +1343,14 @@ export default function FeedPage() {
                     {/* Header modal */}
                     <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 flex-shrink-0">
                       <button
-                        onClick={() => { setComposerOpen(false); setNewPostContent(''); setNewPostCategory(''); setSelectedImage(null); setImagePreview(null) }}
+                        onClick={closeComposer}
                         className="text-zinc-400 hover:text-white transition-colors font-medium text-[15px]"
                       >
                         Annulla
                       </button>
                       <span className="text-[15px] font-semibold text-white">Nuovo post</span>
                       <button
-                        onClick={async (e) => { await handleCreatePost(e as any); setComposerOpen(false) }}
+                        onClick={async (e) => { await handleCreatePost(e as any); closeComposer() }}
                         disabled={isPublishing || (!newPostContent.trim() && !selectedImage)}
                         className="px-4 py-1.5 rounded-full text-[13px] font-semibold disabled:opacity-40 transition-all"
                         style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)', color: 'white' }}
@@ -1355,11 +1378,18 @@ export default function FeedPage() {
                             data-testid="post-composer"
                             autoFocus
                             value={newPostContent}
-                            onChange={e => setNewPostContent(e.target.value.slice(0, 500))}
+                            onChange={e => {
+                              setNewPostContent(e.target.value.slice(0, 500))
+                              // auto-grow
+                              const el = e.target
+                              el.style.height = 'auto'
+                              el.style.height = el.scrollHeight + 'px'
+                            }}
                             placeholder={f.placeholder}
                             maxLength={500}
-                            rows={8}
-                            className="w-full bg-transparent text-[16px] text-white placeholder-zinc-400 outline-none resize-none leading-relaxed mt-1"
+                            rows={3}
+                            className="no-nav-hide w-full bg-transparent text-[16px] text-white placeholder-zinc-400 outline-none resize-none leading-relaxed mt-1 overflow-hidden"
+                            style={{ minHeight: '72px' }}
                           />
                           {newPostContent.length >= 450 && (
                             <p className={`text-right text-[11px] mt-1 ${newPostContent.length >= 490 ? 'text-red-400' : 'text-orange-400'}`}>
