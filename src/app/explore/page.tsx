@@ -173,11 +173,11 @@ export default async function ExplorePage() {
 
   return (
     <div className="min-h-screen bg-black text-white pb-24">
-      <div className="max-w-screen-2xl mx-auto px-4 pt-8">
+      <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 pt-2 md:pt-8">
 
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-black tracking-tighter">Esplora</h1>
+          <h1 className="hidden md:block text-4xl font-black tracking-tighter">Esplora</h1>
           <p className="text-zinc-500 text-sm mt-1">Scopri la community Geekore</p>
         </div>
 

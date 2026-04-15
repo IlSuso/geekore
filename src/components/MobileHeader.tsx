@@ -6,7 +6,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bell, Search, Settings, Edit3 } from 'lucide-react'
+import { Bell, Search, Settings, Edit3, SlidersHorizontal, Bookmark, TrendingUp, Filter } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -107,33 +107,44 @@ export function MobileHeader() {
           )}
         </div>
 
-        {/* Destra contestuale per sezione */}
-        {isFeed && (
-          <div className="flex items-center gap-1">
-            <Link href="/discover" className="w-10 h-10 flex items-center justify-center text-white">
-              <Search size={23} strokeWidth={1.8} />
+        {/* Destra contestuale */}
+        <div className="flex items-center gap-1">
+          {isFeed && (<>
+            <Link href="/discover" className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
+              <Search size={22} strokeWidth={1.8} />
             </Link>
-            <Link href="/notifications" className="w-10 h-10 flex items-center justify-center text-white relative"
+            <Link href="/notifications" className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors relative"
               onClick={() => setUnread(false)}>
-              <Bell size={23} strokeWidth={1.8} />
-              {unread && <span className="absolute top-2 right-2 w-[9px] h-[9px] bg-red-500 rounded-full border-[1.5px] border-black" />}
+              <Bell size={22} strokeWidth={1.8} />
+              {unread && <span className="absolute top-2.5 right-2 w-[8px] h-[8px] bg-red-500 rounded-full border-[1.5px] border-black" />}
             </Link>
-          </div>
-        )}
-        {(isOwnProfile || isOtherProfile) && (
-          <div className="flex items-center gap-1">
+          </>)}
+          {(isOwnProfile || isOtherProfile) && (<>
             {isOwnProfile && (
-              <Link href="/profile/edit" className="w-10 h-10 flex items-center justify-center text-white">
+              <Link href="/profile/edit" className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
                 <Edit3 size={21} strokeWidth={1.8} />
               </Link>
             )}
-            {isOwnProfile && (
-              <Link href="/settings" className="w-10 h-10 flex items-center justify-center text-white">
-                <Settings size={21} strokeWidth={1.8} />
-              </Link>
-            )}
-          </div>
-        )}
+            <Link href="/settings" className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
+              <Settings size={21} strokeWidth={1.8} />
+            </Link>
+          </>)}
+          {pathname === '/notifications' && (
+            <Link href="/settings" className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
+              <Settings size={21} strokeWidth={1.8} />
+            </Link>
+          )}
+          {pathname === '/wishlist' && (
+            <Link href="/discover" className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
+              <Search size={22} strokeWidth={1.8} />
+            </Link>
+          )}
+          {pathname === '/leaderboard' && (
+            <Link href="/trending" className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
+              <TrendingUp size={21} strokeWidth={1.8} />
+            </Link>
+          )}
+        </div>
 
       </div>
     </header>

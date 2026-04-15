@@ -119,13 +119,13 @@ export default function NewsPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <div className="pt-4 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
+      <div className="pt-2 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
 
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-5xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-cyan-400 mb-2">
+              <h1 className="hidden md:block text-5xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-cyan-400 mb-2">
                 {t.news.title}
               </h1>
               <p className="text-zinc-500 text-sm">{t.news.subtitle}</p>

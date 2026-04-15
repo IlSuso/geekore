@@ -197,9 +197,9 @@ export default function StatsPage() {
 
   return (
     <div className="min-h-screen bg-black text-white pb-24">
-      <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 pt-4 md:pt-8">
+      <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 pt-2 md:pt-8">
         <div className="mb-8">
-          <h1 className="text-5xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-cyan-400">
+          <h1 className="hidden md:block text-5xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-cyan-400">
             Tempo sprecato
           </h1>
           <p className="text-zinc-500 text-sm mt-1">Quanto della tua vita hai dedicato ai media?</p>

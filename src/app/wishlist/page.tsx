@@ -88,14 +88,14 @@ export default function WishlistPage() {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 pt-6 pb-24 px-4 text-white">
+    <main className="min-h-screen bg-zinc-950 pt-2 md:pt-6 pb-24 px-4 text-white">
       <div className="max-w-xl mx-auto">
 
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Wishlist</h1>
+              <h1 className="hidden md:block text-3xl font-bold tracking-tight">Wishlist</h1>
               <p className="text-zinc-500 text-sm mt-1">
                 {wishlist.length > 0
                   ? `${wishlist.length} ${wishlist.length === 1 ? 'titolo' : 'titoli'} nella lista`

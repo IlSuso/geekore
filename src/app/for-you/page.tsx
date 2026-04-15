@@ -872,29 +872,34 @@ export default function ForYouPage() {
   return (
     <div className="min-h-screen bg-black text-white">
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPulling} />
-      <div className="pt-4 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-3 sm:px-4 md:px-6">
+      <div className="pt-2 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-end gap-4 mb-10">
+        {/* Header — titolo solo desktop, su mobile c'è MobileHeader */}
+        <div className="hidden md:flex flex-row items-end gap-4 mb-10">
           <div className="flex-1">
             <h1 className="text-5xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-fuchsia-400">
               {fy.title}
             </h1>
             <p className="text-zinc-400 mt-2">{fy.subtitle}</p>
-            {isCached && <p className="text-xs text-zinc-600 mt-1">Dalla cache</p>}
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => setShowPrefs(true)}
               className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl text-sm font-medium text-zinc-300 transition-all">
               <SlidersHorizontal size={16} />{fy.preferences}
             </button>
-            {/* Bottone aggiorna: solo desktop, su mobile usa pull-to-refresh */}
             <button onClick={handleRefresh} disabled={refreshing}
-              className="hidden md:flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-2xl text-sm font-medium text-white transition-all">
+              className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-2xl text-sm font-medium text-white transition-all">
               <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
               {refreshing ? fy.refreshing : fy.refresh}
             </button>
           </div>
+        </div>
+        {/* Mobile: solo bottone preferenze in alto a destra */}
+        <div className="flex md:hidden justify-end mb-4">
+          <button onClick={() => setShowPrefs(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-400 transition-all">
+            <SlidersHorizontal size={15} />{fy.preferences}
+          </button>
         </div>
 
         {!hasEnoughData ? (
@@ -902,7 +907,7 @@ export default function ForYouPage() {
             <div className="w-16 h-16 bg-zinc-900 rounded-3xl flex items-center justify-center mx-auto mb-6">
               <Sparkles size={28} className="text-zinc-600" />
             </div>
-            <h2 className="text-xl font-bold text-white mb-3">{fy.title}</h2>
+            <h2 className="text-xl font-bold text-white mb-3">{fy.emptyStateTitle || fy.title}</h2>
             <p className="text-zinc-400 max-w-md mx-auto mb-8">{fy.emptyState}</p>
             <Link href="/discover" className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white font-semibold px-3 sm:px-4 md:px-3 sm:px-4 md:px-6 py-3 rounded-2xl">
               <Zap size={18} />{fy.emptyStateCta}
