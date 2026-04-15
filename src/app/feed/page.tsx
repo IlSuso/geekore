@@ -1560,7 +1560,7 @@ export default function FeedPage() {
                     <div
                       className={modalPos
                         ? "fixed z-[260] flex flex-col rounded-2xl shadow-2xl shadow-black/70 border border-zinc-700/60"
-                        : "fixed z-[260] flex flex-col inset-0"}
+                        : "fixed z-[260] flex flex-col"}
                       style={modalPos ? {
                         top: modalPos.top,
                         left: modalPos.left,
@@ -1568,15 +1568,17 @@ export default function FeedPage() {
                         maxHeight: modalPos.maxHeight,
                         background: 'var(--bg-primary)',
                       } : {
-                        background: 'var(--bg-primary)',
-                        paddingTop: 'env(safe-area-inset-top)',
-                        display: 'flex',
-                        flexDirection: 'column',
+                        position: 'fixed',
                         top: 0,
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        height: '100dvh',
+                        width: '100%',
+                        height: '100%',
+                        background: 'var(--bg-primary)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        zIndex: 260,
                       }}
                       onClick={e => e.stopPropagation()}
                     >
