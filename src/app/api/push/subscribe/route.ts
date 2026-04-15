@@ -12,7 +12,9 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
 
   let body: any
-  try { body = await request.json() } catch {
+  try { 
+    body = await request.json() 
+  } catch {
     return NextResponse.json({ error: 'Body non valido' }, { status: 400 })
   }
 
@@ -30,7 +32,9 @@ export async function POST(request: NextRequest) {
       p256dh: subscription.keys?.p256dh || null,
       auth: subscription.keys?.auth || null,
       updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id,endpoint' })
+    }, { 
+      onConflict: 'user_id,endpoint' 
+    })
 
   if (error) {
     logger.error('[Push Subscribe]', error)
@@ -46,7 +50,9 @@ export async function DELETE(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
 
   let body: any
-  try { body = await request.json() } catch {
+  try { 
+    body = await request.json() 
+  } catch {
     return NextResponse.json({ error: 'Body non valido' }, { status: 400 })
   }
 

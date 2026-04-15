@@ -10,6 +10,8 @@ import { useEffect, useRef } from 'react'
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation'
 import { PWAInstallBanner } from '@/components/PWAInstallBanner'
 import { usePathname } from 'next/navigation'
+import { PushNotificationsBanner } from '@/components/notifications/PushNotificationsBanner'
+
 
 // Preriscalda la cache server-side UNA SOLA VOLTA per sessione.
 // Non ripete la chiamata se l'utente naviga — serve solo per la prima apertura.
@@ -71,6 +73,7 @@ export function ClientProviders({ children, initialLocale = 'it' }: { children: 
         <NavigationProgress />
         <RecsWarmer />
         <PWAInstallBanner />
+        <PushNotificationsBanner />
         {children}
       </LocaleProvider>
     </ThemeProvider>
