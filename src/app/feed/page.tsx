@@ -14,6 +14,7 @@
 //   FLT  Filtro feed per macro-categoria + ricerca sottocategoria libera
 
 import { useState, useEffect, useCallback, memo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { User } from '@supabase/supabase-js'
@@ -86,6 +87,7 @@ type Post = {
   content: string
   image_url?: string | null
   created_at: string
+  is_edited?: boolean
   category?: string | null
   profiles: {
     username: string
@@ -221,7 +223,7 @@ async function searchByCategory(category: string, query: string): Promise<Search
         id: String(item.id || item.anilistId),
         title: item.title?.english || item.title?.romaji || item.title || '',
         subtitle: item.seasonYear ? String(item.seasonYear) : undefined,
-        image: item.coverImage?.large || item.cover,
+        image: item.coverImage?.large || item.coverImage || item.cover,
       })).filter((i: SearchResult) => i.title)
     }
 
@@ -234,7 +236,7 @@ async function searchByCategory(category: string, query: string): Promise<Search
         id: String(item.id || item.name),
         title: item.name || item.title || '',
         subtitle: item.year ? String(item.year) : item.yearPublished ? String(item.yearPublished) : undefined,
-        image: item.image || item.cover,
+        image: item.coverImage || item.image || item.cover || item.thumbnail,
       })).filter((i: SearchResult) => i.title)
     }
 
@@ -259,6 +261,11 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
   const inputRef = useRef<HTMLInputElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const openAboveRef = useRef(false)
+  const [openAbove, setOpenAbove] = useState(false)
+  const [panelPos, setPanelPos] = useState({ top: 0, left: 0 })
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
 
   const API_CATEGORIES = new Set(['Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga', 'Board Game'])
 
@@ -266,8 +273,13 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
   useEffect(() => {
     if (!open) return
     const handler = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setOpen(false)
+      const target = e.target as Node
+      if (wrapRef.current && !wrapRef.current.contains(target)) {
+        // Check if click is inside the portal panel
+        const portalPanel = document.getElementById('category-portal-panel')
+        if (!portalPanel || !portalPanel.contains(target)) {
+          setOpen(false)
+        }
       }
     }
     document.addEventListener('mousedown', handler)
@@ -291,7 +303,31 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [subInput, selectedCat, step])
 
-  const openDropup = () => { setOpen(true); setStep('macro') }
+  const openDropup = (e: React.MouseEvent<HTMLButtonElement>) => {
+    {
+      const rect = e.currentTarget.getBoundingClientRect()
+      const panelWidth = 300
+      const panelHeight = 340
+
+      // Sempre a destra del tag
+      const left = rect.right + 6
+
+      // Metà superiore → dropdown: top pannello = top trigger
+      // Metà inferiore → dropup: bottom pannello = bottom trigger
+      const triggerMidY = rect.top + rect.height / 2
+      const above = triggerMidY > window.innerHeight / 2
+      // Per il dropup usiamo bottom come riferimento via CSS, non top
+      const top = above
+        ? rect.bottom   // useremo translateY(-100%) via style
+        : rect.top
+
+      openAboveRef.current = above
+      setOpenAbove(above)
+      setPanelPos({ top, left })
+    }
+    setOpen(true)
+    setStep('macro')
+  }
   const close = () => { setOpen(false); setSubInput(''); setSuggestions([]) }
 
   const selectMacro = (cat: string) => {
@@ -345,17 +381,18 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
         )}
       </button>
 
-      {/* Dropup panel */}
-      {open && (
+      {/* Category panel — portal per evitare clipping da overflow */}
+      {open && mounted && typeof document !== 'undefined' && createPortal(
         <div
-          className="absolute bottom-full left-0 mb-2 z-[300] bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-2xl shadow-black/70 overflow-hidden"
-          style={{ width: '300px', maxHeight: '60vh' }}
+          id="category-portal-panel"
+          className="fixed z-[700] bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-2xl shadow-black/70 overflow-hidden"
+          style={{ top: panelPos.top, left: panelPos.left, width: '300px', transform: openAboveRef.current ? 'translateY(-100%)' : 'none' }}
         >
-          {/* Step 1: griglia macro-categorie */}
+          {/* Step 1: griglia macro-categorie — specchiata se dropup */}
           {step === 'macro' && (
-            <div className="p-3">
-              <div className="flex items-center justify-between mb-2.5">
-                <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Seleziona categoria</span>
+            <div className={`p-3 flex flex-col ${openAboveRef.current ? 'flex-col-reverse' : ''}`}>
+              <div className={`flex items-center justify-between ${openAboveRef.current ? 'mb-1' : 'mb-2.5'}`}>
+                <span className={`text-[11px] font-semibold text-zinc-500 uppercase tracking-wider ${openAboveRef.current ? 'mt-3' : ''}`}>Seleziona categoria</span>
                 <button type="button" onClick={close} className="text-zinc-600 hover:text-zinc-400 transition-colors p-0.5"><X size={13} /></button>
               </div>
               <div className="grid grid-cols-3 gap-1.5">
@@ -371,10 +408,10 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
           )}
 
           {/* Step 2: cerca titolo */}
-          {step === 'search' && (
-            <div className="p-3">
-              {/* Header */}
-              <div className="flex items-center gap-2 mb-2.5">
+          {step === 'search' && (() => {
+            const isAbove = openAboveRef.current
+            const header = (
+              <div className="flex items-center gap-2 mb-2">
                 <button type="button" onClick={() => { setStep('macro'); setSuggestions([]) }}
                   className="w-7 h-7 flex items-center justify-center rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all flex-shrink-0">
                   <ArrowLeft size={13} />
@@ -383,8 +420,8 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
                 <span className="text-sm font-semibold text-white flex-1 truncate">{selectedCat}</span>
                 <button type="button" onClick={close} className="text-zinc-600 hover:text-zinc-400 p-0.5"><X size={13} /></button>
               </div>
-
-              {/* Input */}
+            )
+            const inputEl = (
               <div className="relative mb-2">
                 <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
                 <input
@@ -403,65 +440,68 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
                   </button>
                 )}
               </div>
-
-              {/* Risultati */}
-              {suggestions.length > 0 && (
-                <div className="rounded-xl overflow-hidden border border-zinc-700/50 bg-zinc-950 max-h-[200px] overflow-y-auto">
-                  {suggestions.map((result, idx) => (
-                    <button key={result.id} type="button" onClick={() => selectSuggestion(result)}
-                      className={`w-full flex items-center gap-3 px-3 py-2 text-left border-b border-zinc-800/60 last:border-0 transition-colors ${
-                        idx === activeSuggestion ? 'bg-violet-600/20' : 'hover:bg-zinc-800/80'
-                      }`}>
-                      {result.image ? (
-                        <img src={result.image} alt="" className="w-7 h-10 object-cover rounded-lg flex-shrink-0 bg-zinc-800"
-                          onError={e => { e.currentTarget.style.display = 'none' }} />
-                      ) : (
-                        <div className="w-7 h-10 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                          <CategoryIcon category={selectedCat} size={12} className="text-zinc-600" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-semibold text-white truncate">{result.title}</p>
-                        {result.subtitle && <p className="text-[11px] text-zinc-500">{result.subtitle}</p>}
+            )
+            const results = suggestions.length > 0 ? (
+              <div className="rounded-xl overflow-hidden border border-zinc-700/50 bg-zinc-950 max-h-[200px] overflow-y-auto mb-2">
+                {suggestions.map((result, idx) => (
+                  <button key={result.id} type="button" onClick={() => selectSuggestion(result)}
+                    className={`w-full flex items-center gap-3 px-3 py-2 text-left border-b border-zinc-800/60 last:border-0 transition-colors ${
+                      idx === activeSuggestion ? 'bg-violet-600/20' : 'hover:bg-zinc-800/80'
+                    }`}>
+                    {result.image ? (
+                      <img src={result.image} alt="" className="w-7 h-10 object-cover rounded-lg flex-shrink-0 bg-zinc-800"
+                        onError={e => { e.currentTarget.style.display = 'none' }} />
+                    ) : (
+                      <div className="w-7 h-10 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                        <CategoryIcon category={selectedCat} size={12} className="text-zinc-600" />
                       </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Quick chips */}
-              {!hasApiSupport && !subInput && (
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  {(QUICK_SUBS[selectedCat] || []).map(sub => (
-                    <button key={sub} type="button" onClick={() => { onChange(`${selectedCat}:${sub}`); close() }}
-                      className="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700/80 text-[11px] text-zinc-300 hover:border-violet-500/50 hover:text-violet-300 transition-all">
-                      {sub}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Usa testo libero */}
-              {subInput.trim() && !isSearching && (
-                <button type="button" onClick={() => { onChange(`${selectedCat}:${subInput.trim()}`); close() }}
-                  className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-violet-600/15 border border-violet-500/30 text-violet-300 text-[13px] font-medium hover:bg-violet-600/25 transition">
-                  <Check size={13} />
-                  Usa <strong className="font-semibold">"{subInput.trim()}"</strong>
-                </button>
-              )}
-
-              {hasApiSupport && subInput.length >= 2 && !isSearching && suggestions.length === 0 && (
-                <p className="text-[12px] text-zinc-600 text-center py-2">Nessun risultato</p>
-              )}
-
-              {/* Usa solo macro */}
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-semibold text-white truncate">{result.title}</p>
+                      {result.subtitle && <p className="text-[11px] text-zinc-500">{result.subtitle}</p>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : null
+            const usaLibero = subInput.trim() && !isSearching ? (
+              <button type="button" onClick={() => { onChange(`${selectedCat}:${subInput.trim()}`); close() }}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-violet-600/15 border border-violet-500/30 text-violet-300 text-[13px] font-medium hover:bg-violet-600/25 transition mb-2">
+                <Check size={13} />
+                Usa <strong className="font-semibold">"{subInput.trim()}"</strong>
+              </button>
+            ) : null
+            const nessunRis = hasApiSupport && subInput.length >= 2 && !isSearching && suggestions.length === 0 ? (
+              <p className="text-[12px] text-zinc-600 text-center py-2">Nessun risultato</p>
+            ) : null
+            const chips = !hasApiSupport && !subInput ? (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {(QUICK_SUBS[selectedCat] || []).map(sub => (
+                  <button key={sub} type="button" onClick={() => { onChange(`${selectedCat}:${sub}`); close() }}
+                    className="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700/80 text-[11px] text-zinc-300 hover:border-violet-500/50 hover:text-violet-300 transition-all">
+                    {sub}
+                  </button>
+                ))}
+              </div>
+            ) : null
+            const usaSoloMacro = (
               <button type="button" onClick={() => { onChange(selectedCat); close() }}
-                className="mt-2 w-full text-center text-[12px] text-zinc-600 hover:text-zinc-400 transition py-1">
+                className="mt-1 w-full text-center text-[12px] text-zinc-600 hover:text-zinc-400 transition py-1">
                 Usa solo "{selectedCat}" senza titolo
               </button>
-            </div>
-          )}
+            )
+            return isAbove ? (
+              <div className="p-3">
+                {usaSoloMacro}{results}{usaLibero}{nessunRis}{chips}{inputEl}{header}
+              </div>
+            ) : (
+              <div className="p-3">
+                {header}{inputEl}{results}{usaLibero}{nessunRis}{chips}{usaSoloMacro}
+              </div>
+            )
+          })()}
         </div>
+        , document.body
       )}
     </div>
   )
@@ -786,7 +826,10 @@ const PostCard = memo(function PostCard({
 
       {/* Testo del post — prominente, ben separato */}
       <div className="px-5 pb-4">
-        <p className="text-[var(--text-primary)] text-sm leading-relaxed whitespace-pre-wrap">{post.content}</p>
+        <p className="text-[var(--text-primary)] text-sm leading-relaxed whitespace-pre-wrap">{post.content.replace(/\n{3,}/g, '\n\n')}</p>
+        {post.is_edited && (
+          <p className="text-[11px] text-zinc-600 mt-1">modificato</p>
+        )}
       </div>
 
       {/* Immagine */}
@@ -864,19 +907,21 @@ const PostCard = memo(function PostCard({
           {post.comments.length > 0 && (
             <div className="px-5 pt-3 pb-2 space-y-2.5 max-h-52 overflow-y-auto">
               {visibleComments.map(comment => (
-                <div key={comment.id} className="flex items-start gap-1 group/ec">
-                  <Link href={`/profile/${comment.username}`} className="flex-shrink-0 mt-0.5">
-                    <Avatar src={undefined} username={comment.username || 'user'} displayName={comment.display_name} size={22} className="rounded-full" />
+                <div key={comment.id} className="flex items-center gap-2.5 py-1.5 border-b border-zinc-800/20 last:border-0 group/ec">
+                  <Link href={`/profile/${comment.username}`} className="flex-shrink-0">
+                    <div className="w-7 h-7 rounded-full overflow-hidden">
+                      <Avatar src={undefined} username={comment.username || 'user'} displayName={comment.display_name} size={28} className="rounded-full" />
+                    </div>
                   </Link>
-                  <p className="text-sm text-zinc-200 leading-snug flex-1 min-w-0 ml-1.5">
+                  <p className="text-sm text-zinc-200 leading-snug flex-1 min-w-0">
                     <Link href={`/profile/${comment.username}`} className="font-semibold text-white hover:text-violet-400 transition-colors mr-1.5">
                       {comment.username}
                     </Link>
                     {comment.content}
                   </p>
                   {currentUser?.id === comment.user_id && (
-                    <button onClick={() => onCommentOptions(comment.id, post.id)} className="opacity-0 group-hover/ec:opacity-100 text-zinc-600 hover:text-white transition-all flex-shrink-0 mt-0.5">
-                      <MoreHorizontal size={13} />
+                    <button onClick={() => onCommentOptions(comment.id, post.id)} className="text-zinc-600 hover:text-white transition-all flex-shrink-0 opacity-40 group-hover/ec:opacity-100">
+                      <MoreHorizontal size={15} />
                     </button>
                   )}
                 </div>
@@ -888,16 +933,13 @@ const PostCard = memo(function PostCard({
               )}
             </div>
           )}
-          {/* Input commento — leggero, niente bordi pesanti */}
+          {/* Input commento */}
           <div className="px-5 py-3 flex items-center gap-3 border-t border-zinc-800/40">
-            {currentUser && (
-              <Avatar src={undefined} username={currentUser.email || 'user'} displayName={null} size={26} className="rounded-full flex-shrink-0" />
-            )}
             <input
               type="text" value={commentContent}
               onChange={e => onCommentChange(e.target.value.slice(0, 500))}
               placeholder="Aggiungi un commento..." maxLength={500}
-              className="flex-1 bg-transparent text-sm text-white placeholder-zinc-600 focus:outline-none"
+              className="flex-1 bg-transparent text-sm text-white placeholder-zinc-600 focus:outline-none min-w-0"
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onAddComment(post.id) } }}
             />
             {commentContent.trim() && (
@@ -1015,7 +1057,7 @@ export default function FeedPage() {
   const loadPinnedPosts = useCallback(async (userId: string) => {
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
     const { data, error } = await supabase.from('posts')
-      .select('id, user_id, content, image_url, created_at, category, likes (id, user_id), comments (id, content, created_at, user_id)')
+      .select('id, user_id, content, image_url, created_at, category, is_edited, likes (id, user_id), comments (id, content, created_at, user_id)')
       .gte('created_at', since).order('created_at', { ascending: false }).limit(50)
     if (error || !data) return
     const uids1 = [...new Set(data.map((p: any) => p.user_id))]
@@ -1087,7 +1129,7 @@ export default function FeedPage() {
       const profile = post.profiles
       return {
         id: post.id, user_id: post.user_id, content: post.content,
-        image_url: post.image_url, created_at: post.created_at, category: post.category,
+        image_url: post.image_url, created_at: post.created_at, category: post.category, is_edited: post.is_edited,
         profiles: { username: profile?.username || '', display_name: profile?.display_name, avatar_url: profile?.avatar_url },
         likes_count: likes.length, liked_by_user: likes.some((l: any) => l.user_id === userId),
         comments_count: 0, comments: [], isDiscovery: true,
@@ -1110,7 +1152,7 @@ export default function FeedPage() {
     }
 
     let query = supabase.from('posts')
-      .select('id, user_id, content, image_url, created_at, category, likes (id, user_id), comments (id, content, created_at, user_id)')
+      .select('id, user_id, content, image_url, created_at, category, is_edited, likes (id, user_id), comments (id, content, created_at, user_id)')
       .order('created_at', { ascending: false }).range(from, to)
     if (filter === 'following' && followingIds.length > 0) query = query.in('user_id', followingIds)
 
@@ -1132,7 +1174,7 @@ export default function FeedPage() {
       const profile = post.profiles
       return {
         id: post.id, user_id: post.user_id, content: post.content,
-        image_url: post.image_url, created_at: post.created_at, category: post.category,
+        image_url: post.image_url, created_at: post.created_at, category: post.category, is_edited: post.is_edited,
         profiles: { username: profile?.username || '', display_name: profile?.display_name, avatar_url: profile?.avatar_url },
         likes_count: likes.length, liked_by_user: likes.some((l: any) => l.user_id === userId),
         comments_count: (post.comments || []).length,
@@ -1177,7 +1219,7 @@ export default function FeedPage() {
     const vh = window.innerHeight
     if (vw >= 640) {
       const modalW = Math.min(548, vw - 48)
-      const top = 72  // vicino alla navbar
+      const top = 25  // vicino alla navbar
       const bottomMargin = 80  // margine generoso dal fondo
       setModalPos({
         top,
@@ -1216,7 +1258,9 @@ export default function FeedPage() {
 
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault()
-    if ((!newPostContent.trim() && !selectedImage) || !currentUser || isPublishing) return
+    if (!currentUser || isPublishing) return
+    if (!newPostContent.trim() && !selectedImage) return
+    if (newPostContent.trim().length > 0 && newPostContent.trim().length < 1) return // minimo 1 char visibile
     setIsPublishing(true); haptic(50)
 
     let imageUrl = null
@@ -1232,7 +1276,7 @@ export default function FeedPage() {
     }
 
     const { data: newPostData, error } = await supabase.from('posts')
-      .insert({ user_id: currentUser.id, content: newPostContent.trim(), image_url: imageUrl, category: newPostCategory || null })
+      .insert({ user_id: currentUser.id, content: newPostContent.trim().replace(/\n{3,}/g, '\n\n'), image_url: imageUrl, category: newPostCategory || null })
       .select('id, content, image_url, created_at, category').single()
 
     if (!error && newPostData) {
@@ -1327,6 +1371,29 @@ export default function FeedPage() {
     await supabase.from('posts').delete().eq('id', postId).eq('user_id', currentUser.id)
   }, [currentUser, supabase])
 
+  // ── Edit post ─────────────────────────────────────────────────────────────
+  const [editingPostId, setEditingPostId] = useState<string | null>(null)
+  const [editContent, setEditContent] = useState('')
+
+  const startEditPost = useCallback((postId: string) => {
+    const post = [...posts, ...pinnedPosts].find(p => p.id === postId)
+    if (!post) return
+    setEditingPostId(postId)
+    setEditContent(post.content)
+    closeSheet()
+  }, [posts, pinnedPosts])
+
+  const handleEditPost = useCallback(async () => {
+    if (!currentUser || !editingPostId || !editContent.trim()) return
+    const newContent = editContent.trim()
+    await supabase.from('posts').update({ content: newContent, is_edited: true }).eq('id', editingPostId).eq('user_id', currentUser.id)
+    const update = (p: Post) => p.id === editingPostId ? { ...p, content: newContent, is_edited: true } : p
+    setPosts(prev => { const updated = prev.map(update); cache.posts = updated; cache.ts = Date.now(); return updated })
+    setPinnedPosts(prev => prev.map(update))
+    setEditingPostId(null)
+    setEditContent('')
+  }, [currentUser, editingPostId, editContent, supabase])
+
   // Filtro client-side: supporta sia "Film" (solo macro) che "Film:Forrest Gump" (match esatto sottocategoria)
   const displayedPosts = categoryFilter
     ? posts.filter(p => {
@@ -1363,7 +1430,7 @@ export default function FeedPage() {
   const sheetActions: BottomSheetAction[] = (() => {
     if (!sheet.open) return []
     if (sheet.type === 'post') return [
-      { label: 'Modifica post', onClick: () => {} }, // TODO: edit
+      { label: 'Modifica post', onClick: () => startEditPost(sheet.postId) },
       { label: 'Elimina post', danger: true, onClick: () => setSheet({ open: true, type: 'confirm-post', postId: sheet.postId }) },
     ]
     if (sheet.type === 'comment') return [
@@ -1387,6 +1454,33 @@ export default function FeedPage() {
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
       {/* Bottom Sheet globale — fuori da qualsiasi overflow/transform */}
       <BottomSheet open={sheet.open} title={sheetTitle} actions={sheetActions} onClose={closeSheet} />
+
+      {/* Modal modifica post */}
+      {editingPostId && (
+        <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/80 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget && !window.getSelection()?.toString()) setEditingPostId(null) }}>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-lg p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-white">Modifica post</h3>
+              <button onClick={() => setEditingPostId(null)} className="text-zinc-500 hover:text-white transition"><X size={18} /></button>
+            </div>
+            <textarea
+              value={editContent}
+              onChange={e => setEditContent(e.target.value.slice(0, 2000))}
+              rows={5}
+              autoFocus
+              className="w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500 rounded-2xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none resize-none transition mb-4"
+            />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setEditingPostId(null)} className="px-5 py-2.5 rounded-xl border border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-sm font-semibold transition">
+                Annulla
+              </button>
+              <button onClick={handleEditPost} disabled={!editContent.trim()} className="px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white text-sm font-semibold transition">
+                Salva
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
       <PullWrapper distance={pullDistance} refreshing={isPullRefreshing}>
       {/* Layout: full-bleed su mobile, due colonne su desktop */}
@@ -1434,7 +1528,7 @@ export default function FeedPage() {
                     <div className="fixed inset-0 z-[250] bg-black/70 backdrop-blur-sm" onClick={closeComposer} />
                     <div
                       className={modalPos
-                        ? "fixed z-[260] flex flex-col rounded-2xl shadow-2xl shadow-black/70 border border-zinc-700/60 overflow-hidden"
+                        ? "fixed z-[260] flex flex-col rounded-2xl shadow-2xl shadow-black/70 border border-zinc-700/60"
                         : "fixed z-[260] flex flex-col inset-0"}
                       style={modalPos ? {
                         top: modalPos.top,
