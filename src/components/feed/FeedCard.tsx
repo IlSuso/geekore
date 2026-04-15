@@ -127,17 +127,18 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
       setHasLiked(false)
       setLikesCount(prev => prev - 1)
       onLikeChange?.(post.id, -1)
+      // unlike diretto — non serve notifica
       await supabase.from('likes').delete().match({ user_id: user.id, post_id: post.id })
     } else {
       setHasLiked(true)
       setLikesCount(prev => prev + 1)
       onLikeChange?.(post.id, 1)
-      await supabase.from('likes').insert([{ user_id: user.id, post_id: post.id }])
-      if (user.id !== post.user_id) {
-        await supabase.from('notifications').insert([{
-          type: 'like', sender_id: user.id, receiver_id: post.user_id, post_id: post.id,
-        }])
-      }
+      // FIX: usa API route che gestisce notifica in-app + push via service client
+      await fetch('/api/social/like', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: post.id, action: 'like' }),
+      })
     }
   }
 
@@ -175,17 +176,18 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
     if (!newComment.trim() || !user) return
     setIsSubmitting(true)
     haptic(30)
-    const { data, error } = await supabase
-      .from('comments')
-      .insert([{ content: newComment, post_id: post.id, user_id: user.id }])
-      .select('*, profiles(username, display_name, avatar_url)')
-      .single()
-    if (!error && data) {
-      setComments(prev => [...prev, data])
-      if (user.id !== post.user_id) {
-        await supabase.from('notifications').insert([{
-          type: 'comment', sender_id: user.id, receiver_id: post.user_id, post_id: post.id,
-        }])
+
+    // FIX: usa API route che gestisce notifica in-app + push via service client
+    const res = await fetch('/api/social/comment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post_id: post.id, content: newComment.trim() }),
+    })
+
+    if (res.ok) {
+      const { comment } = await res.json()
+      if (comment) {
+        setComments(prev => [...prev, comment])
       }
       setNewComment('')
       setCommentCharCount(0)
