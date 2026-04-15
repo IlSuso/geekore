@@ -1186,7 +1186,7 @@ export default function FeedPage() {
     <div className="min-h-screen bg-black text-white">
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
       <PullWrapper distance={pullDistance} refreshing={isPullRefreshing}>
-      <div className="pt-0 md:pt-8 pb-24 md:pb-20 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
+      <div className="pt-2 md:pt-8 pb-24 md:pb-20 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
         <div className="flex gap-8 items-start min-h-screen">
 
           {/* ── Colonna principale ─────────────────────────────────── */}
@@ -1194,7 +1194,7 @@ export default function FeedPage() {
 
             {/* Composer */}
             {currentUser && (
-              <div className="mb-5 md:mb-8 bg-zinc-950 border border-zinc-800 rounded-2xl md:rounded-3xl p-4 md:p-6">
+              <div className="mb-4 md:mb-8 bg-zinc-950 border border-zinc-800 rounded-2xl md:rounded-3xl p-3 md:p-6">
                 <form onSubmit={handleCreatePost}>
                   <textarea
                     data-testid="post-composer"
@@ -1202,7 +1202,7 @@ export default function FeedPage() {
                     onChange={e => setNewPostContent(e.target.value.slice(0, 500))}
                     placeholder={f.placeholder}
                     maxLength={500}
-                    className="w-full bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-2xl p-5 text-base min-h-[120px] resize-none focus:outline-none transition-colors"
+                    className="w-full bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-2xl p-3 md:p-5 text-sm md:text-base min-h-[80px] md:min-h-[120px] resize-none focus:outline-none transition-colors"
                   />
                   <div className={`text-right text-xs mt-1 ${newPostContent.length >= 480 ? 'text-orange-400' : 'text-zinc-600'}`}>
                     {newPostContent.length}/500
@@ -1239,22 +1239,6 @@ export default function FeedPage() {
                 {newPostsCount === 1 ? '1 nuovo post' : `${newPostsCount} nuovi post`} — clicca per vedere
               </button>
             )}
-
-            {/* Mobile quick nav pills — solo mobile, visibili sopra i filtri */}
-            <div className="flex md:hidden gap-2 overflow-x-auto scrollbar-hide -mx-3 sm:-mx-4 px-3 sm:px-4 pb-1 mb-4">
-              {[
-                { href: '/discover', label: 'Scopri', emoji: '🔍' },
-                { href: '/for-you',  label: 'Per te',  emoji: '✨' },
-                { href: '/trending', label: 'Trending', emoji: '🔥' },
-                { href: '/explore',  label: 'Utenti',  emoji: '👥' },
-                { href: '/stats',    label: 'Stats',   emoji: '📊' },
-              ].map(({ href, label, emoji }) => (
-                <a key={href} href={href}
-                  className="flex items-center gap-1.5 flex-shrink-0 px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-full text-xs font-medium text-zinc-400 hover:text-white hover:border-zinc-600 transition-all">
-                  <span>{emoji}</span>{label}
-                </a>
-              ))}
-            </div>
 
             {/* Filter tabs + filtro categoria */}
             {currentUser && (

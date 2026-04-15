@@ -6,7 +6,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Zap, Bell, Search, Settings, Edit3 } from 'lucide-react'
+import { Bell, Search, Settings, Edit3 } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -92,13 +92,11 @@ export function MobileHeader() {
           {isSubPage ? (
             <BackButton />
           ) : isFeed ? (
-            <Link href="/feed" className="flex items-center gap-2 py-1">
-              <div className="w-[26px] h-[26px] bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-lg flex items-center justify-center">
-                <Zap size={13} className="text-white" />
-              </div>
-              <span className="text-[19px] font-bold tracking-tight text-white" style={{fontFamily:'system-ui,-apple-system,sans-serif'}}>
+            <Link href="/feed" className="flex items-center gap-1.5 py-1">
+              <span className="text-[22px] font-bold text-white" style={{fontFamily:'system-ui,-apple-system,BlinkMacSystemFont,sans-serif',letterSpacing:'-0.5px'}}>
                 geekore
               </span>
+              <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mb-0.5 flex-shrink-0" />
             </Link>
           ) : isOwnProfile ? (
             <h1 className="text-[17px] font-semibold text-white tracking-tight">Profilo</h1>

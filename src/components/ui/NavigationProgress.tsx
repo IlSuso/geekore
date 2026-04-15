@@ -69,7 +69,7 @@ export function NavigationProgress() {
 
   return (
     <div
-      className="fixed top-14 md:top-0 left-0 right-0 z-[200] h-[2px] pointer-events-none"
+      className="hidden md:block fixed top-0 left-0 right-0 z-[200] h-[2px] pointer-events-none"
       aria-hidden
     >
       <div
