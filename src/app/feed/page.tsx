@@ -21,7 +21,7 @@ import {
   Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X,
   Loader2, Pin, ArrowUp, Trash2, Tag, ChevronDown, Filter, Search,
   Film, Tv, Gamepad2, BookOpen, Dices, Swords, Check, PartyPopper,
-  Bell, ChevronRight, ArrowLeft, MoreHorizontal, Bookmark, Zap
+  Bell, ChevronRight, ArrowLeft, Flame
 } from 'lucide-react'
 import { SkeletonFeedPost } from '@/components/ui/SkeletonCard'
 import { Avatar } from '@/components/ui/Avatar'
@@ -34,6 +34,7 @@ import { FeedSidebar } from '@/components/feed/FeedSidebar'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 import { PullWrapper } from '@/components/ui/PullWrapper'
+import { ReportButton } from '@/components/ui/ReportButton'
 
 // ── Macro-categorie ───────────────────────────────────────────────────────────
 
@@ -654,21 +655,17 @@ const PostCard = memo(function PostCard({
 }) {
   const isCommenting = commentingPostId === post.id
   const isExpanded = expandedComments.has(post.id)
-  const visibleComments = isExpanded ? post.comments : post.comments.slice(0, 2)
-  const hiddenCount = post.comments.length - 2
+  const visibleComments = isExpanded ? post.comments : post.comments.slice(0, 3)
+  const hiddenCount = post.comments.length - 3
   const [confirmPost, setConfirmPost] = useState(false)
   const [confirmComment, setConfirmComment] = useState<string | null>(null)
-  const [isSaved, setIsSaved] = useState(false)
-
-  const timeStr = formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })
-  const parsed = parseCategoryString(post.category)
 
   return (
     <>
     <ConfirmDialog
       open={confirmPost}
       title="Eliminare il post?"
-      message="Questa azione è irreversibile."
+      message="Questa azione è irreversibile. Il post verrà rimosso definitivamente."
       onConfirm={() => { setConfirmPost(false); onDelete(post.id) }}
       onCancel={() => setConfirmPost(false)}
     />
@@ -679,160 +676,149 @@ const PostCard = memo(function PostCard({
       onConfirm={() => { if (confirmComment) { onDeleteComment(confirmComment, post.id); setConfirmComment(null) } }}
       onCancel={() => setConfirmComment(null)}
     />
-    <article className="animate-fade-in" style={{ borderBottom: '0.5px solid var(--border)' }}>
 
-      {/* Discovery / pinned label */}
-      {post.isDiscovery && !post.pinned && (
-        <div className="flex items-center gap-1.5 px-4 pt-3 pb-0.5">
-          <Sparkles size={11} className="text-violet-400" />
-          <span className="text-[11px] font-semibold text-violet-400 tracking-widest uppercase">Consigliato per te</span>
+    {/* Card Geekore — bordi arrotondati, contenuto sopra le azioni */}
+    <div className={`bg-zinc-900 border rounded-2xl md:rounded-3xl overflow-hidden transition-all duration-300 animate-fade-in ${
+      post.pinned ? 'border-violet-500/40 ring-1 ring-violet-500/20'
+      : post.isDiscovery ? 'border-fuchsia-500/20 ring-1 ring-fuchsia-500/10'
+      : 'border-zinc-800 hover:border-violet-500/25'
+    }`}>
+
+      {post.pinned && (
+        <div className="flex items-center gap-1.5 px-5 pt-4 pb-0 text-violet-400">
+          <Pin size={11} className="rotate-45" />
+          <span className="text-[10px] font-bold uppercase tracking-widest">In evidenza</span>
         </div>
       )}
-      {post.pinned && (
-        <div className="flex items-center gap-1.5 px-4 pt-3 pb-0.5">
-          <Pin size={11} className="text-violet-400 rotate-45" />
-          <span className="text-[11px] font-semibold text-violet-400 tracking-widest uppercase">In evidenza</span>
+      {post.isDiscovery && !post.pinned && (
+        <div className="flex items-center gap-1.5 px-5 pt-4 pb-0 text-fuchsia-400">
+          <Sparkles size={11} />
+          <span className="text-[10px] font-bold uppercase tracking-widest">Consigliato per te</span>
         </div>
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3">
-        <Link href={`/profile/${post.profiles.username}`} className="flex items-center gap-3 min-w-0">
-          <div
-            className={`flex-shrink-0 rounded-full p-[2.5px] transition-all ${post.liked_by_user ? 'gk-avatar-ring' : 'gk-avatar-ring-muted'}`}
-          >
-            <div className="rounded-full overflow-hidden bg-[var(--bg-primary)] p-[2px]">
-              <div className="w-8 h-8 rounded-full overflow-hidden">
-                <Avatar src={post.profiles.avatar_url} username={post.profiles.username} displayName={post.profiles.display_name} size={32} />
-              </div>
-            </div>
-          </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-[13px] text-[var(--text-primary)] leading-tight truncate">{post.profiles.username}</p>
-            {parsed && (
-              <button
-                onClick={() => onCategoryClick?.(post.category!)}
-                className="text-[11px] text-violet-400 hover:text-violet-300 transition-colors leading-tight flex items-center gap-1"
-              >
-                <CategoryIcon category={parsed.category} size={10} />
-                {parsed.subcategory || parsed.category}
-              </button>
-            )}
+      <div className="flex items-center gap-3 px-5 pt-4 pb-3">
+        <Link href={`/profile/${post.profiles.username}`} className="group shrink-0">
+          <div className="w-10 h-10 rounded-2xl overflow-hidden ring-2 ring-violet-500/20 group-hover:ring-violet-500/50 transition-all">
+            <Avatar src={post.profiles.avatar_url} username={post.profiles.username} displayName={post.profiles.display_name} size={40} className="rounded-2xl" />
           </div>
         </Link>
-        <div className="flex items-center gap-0.5 flex-shrink-0">
-          {currentUser?.id === post.user_id && (
-            <button onClick={() => setConfirmPost(true)} className="w-9 h-9 flex items-center justify-center text-[var(--text-muted)] hover:text-red-400 transition-colors">
-              <Trash2 size={15} strokeWidth={1.6} />
-            </button>
-          )}
-          <button className="w-9 h-9 flex items-center justify-center text-[var(--text-primary)]">
-            <MoreHorizontal size={20} strokeWidth={1.5} />
-          </button>
+        <div className="flex-1 min-w-0">
+          <Link href={`/profile/${post.profiles.username}`} className="hover:text-violet-400 transition-colors">
+            <p className="font-semibold text-[var(--text-primary)] text-sm leading-tight truncate">
+              {post.profiles.display_name || post.profiles.username}
+            </p>
+          </Link>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <p className="text-xs text-[var(--text-muted)]">
+              @{post.profiles.username} · {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })}
+            </p>
+            {post.category && (
+              <CategoryBadge category={post.category} onClick={onCategoryClick ? () => onCategoryClick(post.category!) : undefined} />
+            )}
+          </div>
         </div>
+        {currentUser?.id === post.user_id && (
+          <button onClick={() => setConfirmPost(true)} className="p-2 rounded-xl text-zinc-600 hover:text-red-400 hover:bg-red-400/10 transition-all">
+            <Trash2 size={14} />
+          </button>
+        )}
       </div>
 
-      {/* Image */}
+      {/* Testo del post — sopra tutto il resto */}
+      <div className="px-5 pb-4">
+        <p className="text-[var(--text-primary)] text-sm leading-relaxed whitespace-pre-wrap">{post.content}</p>
+      </div>
+
+      {/* Immagine */}
       {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
-        <div className="w-full bg-zinc-950 overflow-hidden">
+        <div className="mx-4 mb-4 rounded-2xl overflow-hidden border border-zinc-800">
           <img src={post.image_url} alt={`Post di ${post.profiles.username}`}
-            className="w-full max-h-[500px] object-cover select-none" loading="lazy" draggable={false} />
+            className="w-full max-h-[420px] object-cover hover:scale-[1.02] transition-transform duration-500"
+            loading="lazy" />
         </div>
       )}
 
-      {/* Action bar */}
-      <div className="px-4 pt-3 pb-2">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-4">
-            <button onClick={() => onLike(post.id)} className="-ml-1 p-1" aria-label={post.liked_by_user ? 'Rimuovi like' : 'Metti like'}>
-              <Heart size={26} strokeWidth={1.8}
-                className={`transition-all duration-200 ${isLiking ? 'animate-heart-burst' : ''} ${post.liked_by_user ? 'fill-red-500 text-red-500' : 'text-[var(--text-primary)]'}`} />
-            </button>
-            <button onClick={() => onToggleComment(post.id)} className="p-1">
-              <MessageCircle size={26} strokeWidth={1.8}
-                className={`transition-colors ${isCommenting ? 'fill-[var(--text-primary)] text-[var(--text-primary)]' : 'text-[var(--text-primary)]'}`} />
-            </button>
-            <button className="p-1">
-              <Zap size={22} strokeWidth={1.8} className="text-[var(--text-primary)] hover:text-yellow-400 transition-colors" />
-            </button>
+      {/* Azioni — Flame + MessageSquare, stile Geekore */}
+      <div className="px-5 py-3.5 border-t border-zinc-800/60 flex items-center gap-5">
+        <button
+          onClick={() => onLike(post.id)}
+          aria-label={post.liked_by_user ? 'Rimuovi like' : 'Metti like'}
+          className={`flex items-center gap-2 group transition-all ${post.liked_by_user ? 'text-orange-500' : 'text-zinc-500 hover:text-orange-400'}`}
+        >
+          <div className={`p-1.5 rounded-xl transition-colors ${post.liked_by_user ? 'bg-orange-500/15' : 'group-hover:bg-orange-500/10'}`}>
+            <Flame size={19} className={`transition-transform ${post.liked_by_user ? 'fill-orange-500' : ''} ${isLiking ? 'animate-heart-burst' : ''}`} />
           </div>
-          <button onClick={() => { setIsSaved(v => !v); haptic(18) }} className="p-1">
-            <Bookmark size={24} strokeWidth={1.8}
-              className={`transition-all ${isSaved ? 'fill-violet-500 text-violet-500' : 'text-[var(--text-primary)] hover:text-violet-400'}`} />
-          </button>
-        </div>
-
-        {post.likes_count > 0 && (
-          <p className="font-semibold text-[13px] text-[var(--text-primary)] leading-tight mb-1.5">
-            {post.likes_count.toLocaleString()} {post.likes_count === 1 ? 'apprezzamento' : 'apprezzamenti'}
-          </p>
-        )}
-
-        {post.content && (
-          <p className="text-[14px] text-[var(--text-primary)] leading-snug mb-1.5">
-            <Link href={`/profile/${post.profiles.username}`} className="font-semibold mr-1.5 hover:opacity-70 transition-opacity">
-              {post.profiles.username}
-            </Link>
-            <span className="font-normal">{post.content}</span>
-          </p>
-        )}
-
-        {post.comments.length > 0 && (
-          <div className="mb-1.5">
-            {!isExpanded && hiddenCount > 0 && (
-              <button onClick={() => onExpandComments(post.id)}
-                className="text-[14px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors block mb-1">
-                Visualizza tutti i {post.comments.length} commenti
-              </button>
-            )}
-            <div className="space-y-0.5">
-              {visibleComments.map(comment => (
-                <div key={comment.id} className="flex items-start justify-between gap-2 group">
-                  <p className="text-[14px] text-[var(--text-primary)] leading-snug">
-                    <Link href={`/profile/${comment.username}`} className="font-semibold mr-1.5 hover:opacity-70 transition-opacity">
-                      {comment.username}
-                    </Link>
-                    <span>{comment.content}</span>
-                  </p>
-                  {currentUser?.id === comment.user_id && (
-                    <button onClick={() => setConfirmComment(comment.id)}
-                      className="opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-red-400 transition-all flex-shrink-0 mt-0.5">
-                      <Trash2 size={12} />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {isCommenting && (
-          <div className="flex items-center gap-3 pt-2 border-t border-[var(--border-subtle)]">
-            <input type="text" value={commentContent} onChange={e => onCommentChange(e.target.value.slice(0, 500))}
-              placeholder="Aggiungi un commento..." maxLength={500} autoFocus
-              className="flex-1 bg-transparent text-[14px] text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none"
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onAddComment(post.id) } }} />
-            {commentContent.trim() && (
-              <button onClick={() => onAddComment(post.id)}
-                className="flex-shrink-0 text-[13px] font-semibold text-violet-400 hover:text-violet-300 transition-colors">
-                Pubblica
-              </button>
-            )}
-          </div>
-        )}
-
-        <button onClick={() => onToggleComment(post.id)}
-          className="text-[14px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors block mt-1">
-          Aggiungi un commento...
+          <span className="text-xs font-bold">{post.likes_count}</span>
         </button>
 
-        <p className="text-[11px] text-[var(--text-muted)] uppercase tracking-[0.04em] mt-1 pb-1">{timeStr}</p>
+        <button
+          onClick={() => onToggleComment(post.id)}
+          aria-label={isCommenting ? 'Chiudi commenti' : 'Commenta'}
+          className={`flex items-center gap-2 group transition-all ${isCommenting ? 'text-violet-400' : 'text-zinc-500 hover:text-violet-400'}`}
+        >
+          <div className={`p-1.5 rounded-xl transition-colors ${isCommenting ? 'bg-violet-500/15' : 'group-hover:bg-violet-500/10'}`}>
+            <MessageCircle size={19} />
+          </div>
+          <span className="text-xs font-bold">{post.comments_count}</span>
+        </button>
+
+        {currentUser && currentUser.id !== post.user_id && (
+          <div className="ml-auto">
+            <ReportButton targetType="post" targetId={post.id} iconOnly />
+          </div>
+        )}
       </div>
-    </article>
+
+      {/* Commenti */}
+      {isCommenting && (
+        <div className="px-5 pb-5 border-t border-zinc-800/60 pt-4 bg-black/20">
+          {post.comments.length > 0 && (
+            <div className="space-y-3 mb-4 max-h-56 overflow-y-auto">
+              {visibleComments.map(comment => (
+                <div key={comment.id} className="flex gap-3">
+                  <Link href={`/profile/${comment.username}`} className="w-7 h-7 rounded-xl overflow-hidden flex-shrink-0 hover:ring-2 hover:ring-violet-500/50 transition-all">
+                    <Avatar src={undefined} username={comment.username || 'user'} displayName={comment.display_name} size={28} className="rounded-xl" />
+                  </Link>
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-2 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <Link href={`/profile/${comment.username}`} className="text-[10px] font-bold text-violet-400 uppercase tracking-wider hover:text-violet-300">
+                        @{comment.username}
+                      </Link>
+                      {currentUser?.id === comment.user_id && (
+                        <button onClick={() => setConfirmComment(comment.id)} className="text-zinc-600 hover:text-red-400 transition-colors">
+                          <Trash2 size={11} />
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-zinc-300 text-xs mt-0.5">{comment.content}</p>
+                  </div>
+                </div>
+              ))}
+              {!isExpanded && hiddenCount > 0 && (
+                <button onClick={() => onExpandComments(post.id)} className="text-xs text-zinc-500 hover:text-violet-400 transition-colors">
+                  +{hiddenCount} {hiddenCount === 1 ? 'altro commento' : 'altri commenti'}
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <input type="text" value={commentContent} onChange={e => onCommentChange(e.target.value.slice(0, 500))}
+              placeholder="Scrivi un commento..." maxLength={500}
+              className="flex-1 bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition"
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onAddComment(post.id) } }} />
+            <button onClick={() => onAddComment(post.id)} className="bg-violet-600 hover:bg-violet-500 px-4 rounded-2xl transition">
+              <Send size={15} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
     </>
   )
 })
-
 
 // ── Pagina principale ────────────────────────────────────────────────────────
 

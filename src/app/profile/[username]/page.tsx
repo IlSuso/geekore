@@ -955,52 +955,63 @@ export default function ProfilePage() {
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
       <div className="pt-4 md:pt-8 max-w-screen-2xl mx-auto px-4 md:px-6">
 
-        {/* ── Header profilo — Instagram layout ────────────────────────── */}
-        <div className="mb-6 md:mb-10">
+        {/* ── Header profilo — centrato, pulito, identità Geekore ── */}
+        <div className="flex flex-col items-center text-center mb-8 md:mb-10">
 
-          {/* Row 1: avatar + stats (Instagram desktop/tablet) */}
-          <div className="flex items-start gap-6 md:gap-12 mb-4 md:mb-6">
+          {/* Avatar grande centrato */}
+          <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden ring-4 ring-violet-500/30 hover:ring-violet-500/60 transition-all mb-4 flex-shrink-0">
+            <Avatar
+              src={profile.avatar_url}
+              username={profile.username}
+              displayName={profile.display_name}
+              size={128}
+              className="w-full h-full"
+            />
+          </div>
 
-            {/* Avatar with gradient ring */}
-            <div className="flex-shrink-0">
-              <div className="rounded-full p-[2.5px] gk-avatar-ring">
-                <div className="rounded-full p-[2.5px] bg-[var(--bg-primary)]">
-                  <div className="w-20 h-20 md:w-28 md:h-28 rounded-full overflow-hidden">
-                    <Avatar
-                      src={profile.avatar_url}
-                      username={profile.username}
-                      displayName={profile.display_name}
-                      size={112}
-                      className="w-full h-full"
-                    />
-                  </div>
-                </div>
-              </div>
+          {/* Nome + username */}
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-[var(--text-primary)] mb-1">
+            {profile.display_name || profile.username}
+          </h1>
+          <p className="text-sm text-zinc-500 mb-3">@{profile.username}</p>
+
+          {/* Bio */}
+          {profile.bio && (
+            <p className="text-sm text-zinc-400 max-w-sm leading-relaxed mb-4 px-4">
+              {profile.bio}
+            </p>
+          )}
+
+          {/* Follower / Following — compatti */}
+          <div className="flex items-center gap-6 mb-5">
+            <div className="text-center">
+              <p className="text-lg font-bold text-[var(--text-primary)]">{followersCount}</p>
+              <p className="text-xs text-zinc-500 uppercase tracking-widest">{t.profile.follower}</p>
             </div>
+            <div className="w-px h-8 bg-zinc-800" />
+            <div className="text-center">
+              <p className="text-lg font-bold text-[var(--text-primary)]">{followingCount}</p>
+              <p className="text-xs text-zinc-500 uppercase tracking-widest">{t.profile.following}</p>
+            </div>
+          </div>
 
-            {/* Right: name + stats + actions */}
-            <div className="flex-1 min-w-0 pt-1">
-              {/* Username row */}
-              <div className="flex items-center gap-3 flex-wrap mb-3">
-                <h1 className="text-[20px] md:text-[22px] font-light text-[var(--text-primary)] tracking-tight">
-                  {profile.username}
-                </h1>
-                {isOwner && (
-                  <Link href="/profile/edit">
-                    <button
-                      data-testid="btn-edit-profile"
-                      className="px-4 py-1.5 rounded-lg text-[13px] font-semibold transition-colors"
-                      style={{
-                        background: 'var(--bg-card)',
-                        color: 'var(--text-primary)',
-                        border: '1px solid var(--border)',
-                      }}
-                    >
-                      {t.profile.editProfile}
-                    </button>
-                  </Link>
-                )}
-                {!isOwner && currentUserId && profile && (
+          {/* Azioni principali */}
+          <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
+            {isOwner ? (
+              <>
+                <Link href="/profile/edit">
+                  <button
+                    data-testid="btn-edit-profile"
+                    className="px-6 py-2 rounded-2xl text-sm font-semibold bg-zinc-800 text-white hover:bg-zinc-700 border border-zinc-700 transition-all"
+                  >
+                    {t.profile.editProfile}
+                  </button>
+                </Link>
+                <CopyProfileLink username={profile.username} />
+              </>
+            ) : (
+              <>
+                {currentUserId && profile && (
                   <FollowButton
                     targetId={profile.id}
                     currentUserId={currentUserId}
@@ -1008,127 +1019,64 @@ export default function ProfilePage() {
                     onFollowChange={(nowFollowing) => setFollowersCount(prev => nowFollowing ? prev + 1 : Math.max(0, prev - 1))}
                   />
                 )}
+                <TasteSimilarityBadge targetUserId={profile.id} />
                 <CopyProfileLink username={profile.username} />
-              </div>
-
-              {/* Stats row — Instagram: posts/followers/following inline */}
-              <div className="hidden md:flex items-center gap-8 mb-3">
-                <div className="text-center md:text-left">
-                  <span className="text-[15px] font-semibold text-[var(--text-primary)]">{mediaList.length}</span>
-                  <span className="text-[15px] text-[var(--text-secondary)] ml-1.5">nella collezione</span>
-                </div>
-                <button className="text-[15px] text-[var(--text-primary)] hover:opacity-70 transition-opacity">
-                  <span className="font-semibold">{followersCount}</span>
-                  <span className="text-[var(--text-secondary)] ml-1.5">{t.profile.follower}</span>
-                </button>
-                <button className="text-[15px] text-[var(--text-primary)] hover:opacity-70 transition-opacity">
-                  <span className="font-semibold">{followingCount}</span>
-                  <span className="text-[var(--text-secondary)] ml-1.5">{t.profile.following}</span>
-                </button>
-              </div>
-
-              {/* Display name + bio */}
-              {profile.display_name && profile.display_name !== profile.username && (
-                <p className="text-[14px] font-semibold text-[var(--text-primary)] leading-tight mb-1">
-                  {profile.display_name}
-                </p>
-              )}
-              {profile.bio && (
-                <p className="text-[14px] text-[var(--text-primary)] leading-snug max-w-sm whitespace-pre-wrap">
-                  {profile.bio}
-                </p>
-              )}
-
-              {!isOwner && (
-                <div className="mt-2">
-                  <TasteSimilarityBadge targetUserId={profile.id} />
-                </div>
-              )}
-            </div>
+              </>
+            )}
           </div>
 
-          {/* Mobile stats row — Instagram style: 3 cols */}
-          <div className="flex md:hidden border-t border-b border-[var(--border)] py-3 mb-4">
-            <div className="flex-1 text-center">
-              <p className="text-[15px] font-semibold text-[var(--text-primary)]">{mediaList.length}</p>
-              <p className="text-[12px] text-[var(--text-secondary)]">Collezione</p>
-            </div>
-            <div className="flex-1 text-center border-l border-r border-[var(--border)]">
-              <p className="text-[15px] font-semibold text-[var(--text-primary)]">{followersCount}</p>
-              <p className="text-[12px] text-[var(--text-secondary)]">{t.profile.follower}</p>
-            </div>
-            <div className="flex-1 text-center">
-              <p className="text-[15px] font-semibold text-[var(--text-primary)]">{followingCount}</p>
-              <p className="text-[12px] text-[var(--text-secondary)]">{t.profile.following}</p>
-            </div>
-          </div>
-
-          {/* Owner tools: import + secondary links */}
+          {/* Import piattaforme — solo owner, riga discreta */}
           {isOwner && (
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              {/* Import platforms */}
-              <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
-                <span className="text-[11px] text-[var(--text-muted)] mr-1 flex-shrink-0">Importa</span>
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1 max-w-full">
+              <span className="text-[10px] text-zinc-600 mr-1 flex-shrink-0">Importa da</span>
 
-                <button
-                  onClick={() => setImportPlatform('steam')}
-                  title={steamAccount ? 'Steam (connesso)' : 'Connetti Steam'}
-                  className={`w-9 h-9 rounded-full overflow-hidden border flex items-center justify-center transition-all hover:scale-105 flex-shrink-0 ${steamAccount ? 'border-[#66C0F4]/60' : 'border-[var(--border)] opacity-50 hover:opacity-100'}`}
-                >
-                  <SteamIcon size={36} className="w-full h-full block" />
-                </button>
+              <button onClick={() => setImportPlatform('steam')} title={steamAccount ? 'Steam (connesso)' : 'Connetti Steam'}
+                className={`w-8 h-8 rounded-full overflow-hidden border flex items-center justify-center transition-all hover:scale-110 flex-shrink-0 ${steamAccount ? 'border-[#66C0F4]/40' : 'border-zinc-700 opacity-50 hover:opacity-100'}`}>
+                <SteamIcon size={32} className="w-full h-full block" />
+              </button>
 
-                <button onClick={() => setImportPlatform('anilist')} title="AniList"
-                  className="w-9 h-9 rounded-full overflow-hidden border border-[var(--border)] hover:border-[#02a9ff]/60 transition-all hover:scale-105 flex items-center justify-center flex-shrink-0">
-                  <svg viewBox="0 0 512 512" className="w-full h-full" style={{display:"block"}}>
-                    <rect width="512" height="512" fill="#1e2630"/>
-                    <path d="M321.92 323.27V136.6c0-10.698-5.887-16.602-16.558-16.602h-36.433c-10.672 0-16.561 5.904-16.561 16.602v88.651c0 2.497 23.996 14.089 24.623 16.541 18.282 71.61 3.972 128.92-13.359 131.6 28.337 1.405 31.455 15.064 10.348 5.731 3.229-38.209 15.828-38.134 52.049-1.406.31.317 7.427 15.282 7.87 15.282h85.545c10.672 0 16.558-5.9 16.558-16.6v-36.524c0-10.698-5.886-16.602-16.558-16.602z" fill="#02a9ff"/>
-                    <path d="M170.68 120 74.999 393h74.338l16.192-47.222h80.96L262.315 393h73.968l-95.314-273zm11.776 165.28 23.183-75.629 25.393 75.629z" fill="#fefefe"/>
-                  </svg>
-                </button>
+              <button onClick={() => setImportPlatform('anilist')} title="AniList"
+                className="w-8 h-8 rounded-full overflow-hidden border border-zinc-700 hover:border-[#02a9ff]/60 transition-all hover:scale-110 flex-shrink-0">
+                <svg viewBox="0 0 512 512" className="w-full h-full" style={{display:"block"}}>
+                  <rect width="512" height="512" fill="#1e2630"/>
+                  <path d="M321.92 323.27V136.6c0-10.698-5.887-16.602-16.558-16.602h-36.433c-10.672 0-16.561 5.904-16.561 16.602v88.651c0 2.497 23.996 14.089 24.623 16.541 18.282 71.61 3.972 128.92-13.359 131.6 28.337 1.405 31.455 15.064 10.348 5.731 3.229-38.209 15.828-38.134 52.049-1.406.31.317 7.427 15.282 7.87 15.282h85.545c10.672 0 16.558-5.9 16.558-16.6v-36.524c0-10.698-5.886-16.602-16.558-16.602z" fill="#02a9ff"/>
+                  <path d="M170.68 120 74.999 393h74.338l16.192-47.222h80.96L262.315 393h73.968l-95.314-273zm11.776 165.28 23.183-75.629 25.393 75.629z" fill="#fefefe"/>
+                </svg>
+              </button>
 
-                <button onClick={() => setImportPlatform('mal')} title="MyAnimeList"
-                  className="w-9 h-9 rounded-full overflow-hidden border border-[var(--border)] hover:border-[#2e51a2]/80 transition-all hover:scale-105 flex items-center justify-center flex-shrink-0">
-                  <svg viewBox="0 0 256 256" className="w-full h-full" style={{display:"block"}}>
-                    <rect width="256" height="256" fill="#2e51a2"/>
-                    <path fill="#ffffff" d="m 30.638616,88.40918 v 68.70703 h 17.759766 v -41.91016 l 15.470703,19.77344 16.67825,-19.77344 v 41.91016 H 98.307101 V 88.40918 H 80.547335 L 63.869085,109.82324 48.398382,88.40918 Z"/>
-                    <path fill="#ffffff" d="m 182.49799,88.40918 v 68.70703 h 39.07974 l 3.78365,-14.65739 H 200.25775 V 88.40918 Z"/>
-                    <path fill="#ffffff" d="m 149.65186,88.40918 c -21.64279,0 -35.06651,10.210974 -39.36914,25.39258 -4.19953,14.81779 0.34128,34.3715 10.28711,53.78906 l 14.85742,-10.47461 c 0,0 -7.06411,-9.21728 -8.39453,-23.03516 h 21.98437 v 23.03516 h 19.73438 v -51.67969 h -19.73438 v 14.9668 H 130.8003 c 1.71696,-11.1972 8.295,-17.30859 15.46875,-17.30859 h 25.8164 l -5.12304,-14.68555 z"/>
-                  </svg>
-                </button>
+              <button onClick={() => setImportPlatform('mal')} title="MyAnimeList"
+                className="w-8 h-8 rounded-full overflow-hidden border border-zinc-700 hover:border-[#2e51a2]/80 transition-all hover:scale-110 flex-shrink-0">
+                <svg viewBox="0 0 256 256" className="w-full h-full" style={{display:"block"}}>
+                  <rect width="256" height="256" fill="#2e51a2"/>
+                  <path fill="#ffffff" d="m 30.638616,88.40918 v 68.70703 h 17.759766 v -41.91016 l 15.470703,19.77344 16.67825,-19.77344 v 41.91016 H 98.307101 V 88.40918 H 80.547335 L 63.869085,109.82324 48.398382,88.40918 Z"/>
+                  <path fill="#ffffff" d="m 182.49799,88.40918 v 68.70703 h 39.07974 l 3.78365,-14.65739 H 200.25775 V 88.40918 Z"/>
+                  <path fill="#ffffff" d="m 149.65186,88.40918 c -21.64279,0 -35.06651,10.210974 -39.36914,25.39258 -4.19953,14.81779 0.34128,34.3715 10.28711,53.78906 l 14.85742,-10.47461 c 0,0 -7.06411,-9.21728 -8.39453,-23.03516 h 21.98437 v 23.03516 h 19.73438 v -51.67969 h -19.73438 v 14.9668 H 130.8003 c 1.71696,-11.1972 8.295,-17.30859 15.46875,-17.30859 h 25.8164 l -5.12304,-14.68555 z"/>
+                </svg>
+              </button>
 
-                <button onClick={() => setImportPlatform('letterboxd')} title="Letterboxd"
-                  className="w-9 h-9 rounded-full overflow-hidden border border-[var(--border)] hover:border-zinc-500 transition-all hover:scale-105 flex items-center justify-center flex-shrink-0">
-                  <svg viewBox="0 0 40 40" className="w-full h-full" style={{display:"block"}}>
-                    <rect width="40" height="40" fill="#1a1a1a"/>
-                    <ellipse cx="11" cy="20" rx="9" ry="9" fill="#ff8000"/>
-                    <ellipse cx="20" cy="20" rx="9" ry="9" fill="#00e054"/>
-                    <ellipse cx="29" cy="20" rx="9" ry="9" fill="#40bcf4"/>
-                    <ellipse cx="15.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9"/>
-                    <ellipse cx="24.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9"/>
-                  </svg>
-                </button>
+              <button onClick={() => setImportPlatform('letterboxd')} title="Letterboxd"
+                className="w-8 h-8 rounded-full overflow-hidden border border-zinc-700 hover:border-zinc-500 transition-all hover:scale-110 flex-shrink-0">
+                <svg viewBox="0 0 40 40" className="w-full h-full" style={{display:"block"}}>
+                  <rect width="40" height="40" fill="#1a1a1a"/>
+                  <ellipse cx="11" cy="20" rx="9" ry="9" fill="#ff8000"/>
+                  <ellipse cx="20" cy="20" rx="9" ry="9" fill="#00e054"/>
+                  <ellipse cx="29" cy="20" rx="9" ry="9" fill="#40bcf4"/>
+                  <ellipse cx="15.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9"/>
+                  <ellipse cx="24.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9"/>
+                </svg>
+              </button>
 
-                <button onClick={() => setImportPlatform('xbox')} title="Xbox"
-                  className="w-9 h-9 rounded-full overflow-hidden border border-[var(--border)] hover:border-[#107c10]/60 transition-all hover:scale-105 bg-black flex items-center justify-center flex-shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 88 88">
-                    <path fill="#107c10" d="M39.73 86.91c-6.628-.635-13.338-3.015-19.102-6.776-4.83-3.15-5.92-4.447-5.92-7.032 0-5.193 5.71-14.29 15.48-24.658 5.547-5.89 13.275-12.79 14.11-12.604 1.626.363 14.616 13.034 19.48 19 7.69 9.43 11.224 17.154 9.428 20.597-1.365 2.617-9.837 7.733-16.06 9.698-5.13 1.62-11.867 2.306-17.416 1.775zM8.184 67.703c-4.014-6.158-6.042-12.22-7.02-20.988-.324-2.895-.21-4.55.733-10.494 1.173-7.4 5.39-15.97 10.46-21.24 2.158-2.24 2.35-2.3 4.982-1.41 3.19 1.08 6.6 3.436 11.89 8.22l3.09 2.794-1.69 2.07c-7.828 9.61-16.09 23.24-19.2 31.67-1.69 4.58-2.37 9.18-1.64 11.095.49 1.294.04.812-1.61-1.714zm70.453 1.047c.397-1.936-.105-5.49-1.28-9.076-2.545-7.765-11.054-22.21-18.867-32.032l-2.46-3.092 2.662-2.443c3.474-3.19 5.886-5.1 8.49-6.723 2.053-1.28 4.988-2.413 6.25-2.413.777 0 3.516 2.85 5.726 5.95 3.424 4.8 5.942 10.63 7.218 16.69.825 3.92.894 12.3.133 16.21-.63 3.208-1.95 7.366-3.23 10.187-.97 2.113-3.36 6.218-4.41 7.554-.54.687-.54.686-.24-.796zM40.44 11.505C36.834 9.675 31.272 7.71 28.2 7.18c-1.076-.185-2.913-.29-4.08-.23-2.536.128-2.423-.004 1.643-1.925 3.38-1.597 6.2-2.536 10.03-3.34C40.098.78 48.193.77 52.43 1.663c4.575.965 9.964 2.97 13 4.84l.904.554-2.07-.104C60.148 6.745 54.15 8.408 47.71 11.54c-1.942.946-3.63 1.7-3.754 1.68-.123-.024-1.706-.795-3.52-1.715z"/>
-                  </svg>
-                </button>
-              </div>
+              <button onClick={() => setImportPlatform('xbox')} title="Xbox"
+                className="w-8 h-8 rounded-full overflow-hidden border border-zinc-700 hover:border-[#107c10]/60 transition-all hover:scale-110 bg-black flex items-center justify-center flex-shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 88 88">
+                  <path fill="#107c10" d="M39.73 86.91c-6.628-.635-13.338-3.015-19.102-6.776-4.83-3.15-5.92-4.447-5.92-7.032 0-5.193 5.71-14.29 15.48-24.658 5.547-5.89 13.275-12.79 14.11-12.604 1.626.363 14.616 13.034 19.48 19 7.69 9.43 11.224 17.154 9.428 20.597-1.365 2.617-9.837 7.733-16.06 9.698-5.13 1.62-11.867 2.306-17.416 1.775zM8.184 67.703c-4.014-6.158-6.042-12.22-7.02-20.988-.324-2.895-.21-4.55.733-10.494 1.173-7.4 5.39-15.97 10.46-21.24 2.158-2.24 2.35-2.3 4.982-1.41 3.19 1.08 6.6 3.436 11.89 8.22l3.09 2.794-1.69 2.07c-7.828 9.61-16.09 23.24-19.2 31.67-1.69 4.58-2.37 9.18-1.64 11.095.49 1.294.04.812-1.61-1.714zm70.453 1.047c.397-1.936-.105-5.49-1.28-9.076-2.545-7.765-11.054-22.21-18.867-32.032l-2.46-3.092 2.662-2.443c3.474-3.19 5.886-5.1 8.49-6.723 2.053-1.28 4.988-2.413 6.25-2.413.777 0 3.516 2.85 5.726 5.95 3.424 4.8 5.942 10.63 7.218 16.69.825 3.92.894 12.3.133 16.21-.63 3.208-1.95 7.366-3.23 10.187-.97 2.113-3.36 6.218-4.41 7.554-.54.687-.54.686-.24-.796zM40.44 11.505C36.834 9.675 31.272 7.71 28.2 7.18c-1.076-.185-2.913-.29-4.08-.23-2.536.128-2.423-.004 1.643-1.925 3.38-1.597 6.2-2.536 10.03-3.34C40.098.78 48.193.77 52.43 1.663c4.575.965 9.964 2.97 13 4.84l.904.554-2.07-.104C60.148 6.745 54.15 8.408 47.71 11.54c-1.942.946-3.63 1.7-3.754 1.68-.123-.024-1.706-.795-3.52-1.715z"/>
+                </svg>
+              </button>
 
-              {/* Secondary links */}
-              <div className="flex items-center gap-2">
-                <Link href="/wishlist"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-                  style={{ border: '1px solid var(--border)' }}
-                >
-                  <Bookmark size={13} /> Wishlist
-                </Link>
-                <button onClick={() => setShowDeleteModal(true)} className="px-3 py-1.5 rounded-lg text-[12px] text-[var(--text-muted)] hover:text-red-400 transition-colors" style={{ border: '1px solid var(--border)' }}>
-                  <Trash2 size={13} />
-                </button>
-              </div>
+              {/* Eliminazione account — nascosta, non in primo piano */}
+              <button onClick={() => setShowDeleteModal(true)} className="ml-2 text-[10px] text-zinc-700 hover:text-red-400 transition-colors flex-shrink-0">
+                <Trash2 size={13} />
+              </button>
             </div>
           )}
         </div>
@@ -1138,29 +1086,23 @@ export default function ProfilePage() {
         {/* Stats */}
         {mediaList.length > 0 && <ProfileStatsPanel mediaList={mediaList} />}
 
-        {/* ── TABS — Instagram: icone, bordo top, no label su mobile ────── */}
-        <div
-          className="flex border-t border-b border-[var(--border)] mb-6 md:mb-8 -mx-4 md:mx-0"
-          style={{ borderTop: '0.5px solid var(--border)' }}
-        >
+        {/* ── TABS ─────────────────────────────────────────────────── */}
+        <div className="flex border-b border-zinc-800 mb-6 md:mb-8 overflow-x-auto scrollbar-hide -mx-4 md:mx-0 px-4 md:px-0">
           {TABS.map(tab => (
             <button
               key={tab.id}
               data-testid={`tab-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center justify-center gap-2 flex-1 py-3 text-[12px] font-semibold tracking-[0.06em] uppercase transition-all border-t-[1px] -mt-px ${
+              className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-all border-b-2 -mb-px whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'border-violet-500 text-violet-400'
-                  : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                  : 'border-transparent text-zinc-500 hover:text-zinc-300'
               }`}
             >
-              <span className="hidden sm:inline">{tab.label}</span>
-              <span className="sm:hidden text-[11px]">{tab.label}</span>
-              {tab.count !== undefined && tab.count > 0 && (
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                  activeTab === tab.id
-                    ? 'bg-violet-600 text-white'
-                    : 'bg-[var(--bg-card)] text-[var(--text-muted)]'
+              {tab.label}
+              {tab.count !== undefined && (
+                <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                  activeTab === tab.id ? 'bg-violet-500/20 text-violet-300' : 'bg-zinc-800 text-zinc-500'
                 }`}>
                   {tab.count}
                 </span>
