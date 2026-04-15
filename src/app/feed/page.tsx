@@ -621,35 +621,57 @@ async function trackAffinity(supabase: any, userId: string, category: string | n
 // ── PostCard ──────────────────────────────────────────────────────────────────
 
 // ── Popup conferma eliminazione ───────────────────────────────────────────────
-function ConfirmDialog({
-  open, title, message, onConfirm, onCancel,
+// ── Bottom Sheet globale stile Instagram ─────────────────────────────────────
+// Usato per opzioni post/commento — viene montato a livello di pagina (fuori dal PostCard)
+// per evitare che transform/overflow dei parent rompano il fixed positioning.
+
+type BottomSheetAction = {
+  label: string
+  onClick: () => void
+  danger?: boolean
+}
+
+function BottomSheet({
+  open, title, actions, onClose,
 }: {
-  open: boolean; title: string; message: string
-  onConfirm: () => void; onCancel: () => void
+  open: boolean
+  title?: string
+  actions: BottomSheetAction[]
+  onClose: () => void
 }) {
   if (!open) return null
   return (
     <div
-      className="fixed inset-0 z-[300] bg-black/60 animate-in fade-in duration-150"
+      className="fixed inset-0 z-[500] bg-black/60 animate-in fade-in duration-150"
       style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
-      onClick={onCancel}
+      onClick={onClose}
     >
       <div
         className="w-full max-w-sm mb-4 mx-4 animate-in slide-in-from-bottom-4 duration-200"
         onClick={e => e.stopPropagation()}
       >
         <div className="bg-zinc-800 rounded-2xl overflow-hidden mb-2">
-          <div className="px-4 py-3 border-b border-zinc-700/50">
-            <p className="text-white font-semibold text-sm text-center">{title}</p>
-            <p className="text-zinc-400 text-xs text-center mt-0.5">{message}</p>
-          </div>
-          <button onClick={onConfirm}
-            className="w-full py-3.5 text-red-400 font-semibold text-sm hover:bg-zinc-700/50 transition-colors">
-            Elimina
-          </button>
+          {title && (
+            <div className="px-4 py-3 border-b border-zinc-700/50">
+              <p className="text-zinc-400 text-xs text-center">{title}</p>
+            </div>
+          )}
+          {actions.map((action, i) => (
+            <button
+              key={i}
+              onClick={() => { action.onClick(); onClose() }}
+              className={`w-full py-3.5 font-semibold text-sm transition-colors border-b border-zinc-700/30 last:border-0 hover:bg-zinc-700/50 ${
+                action.danger ? 'text-red-400' : 'text-white'
+              }`}
+            >
+              {action.label}
+            </button>
+          ))}
         </div>
-        <button onClick={onCancel}
-          className="w-full bg-zinc-800 rounded-2xl py-3.5 text-white font-semibold text-sm hover:bg-zinc-700 transition-colors">
+        <button
+          onClick={onClose}
+          className="w-full bg-zinc-800 rounded-2xl py-3.5 text-white font-semibold text-sm hover:bg-zinc-700 transition-colors"
+        >
           Annulla
         </button>
       </div>
@@ -660,7 +682,7 @@ function ConfirmDialog({
 const PostCard = memo(function PostCard({
   post, currentUser, isLiking, commentingPostId, commentContent, locale,
   onLike, onToggleComment, onCommentChange, onAddComment, onDelete, onDeleteComment,
-  expandedComments, onExpandComments, onCategoryClick,
+  expandedComments, onExpandComments, onCategoryClick, onPostOptions, onCommentOptions,
 }: {
   post: Post; currentUser: User | null; isLiking: boolean
   commentingPostId: string | null; commentContent: string; locale: string
@@ -669,30 +691,16 @@ const PostCard = memo(function PostCard({
   onDelete: (id: string) => void; onDeleteComment: (commentId: string, postId: string) => void
   expandedComments: Set<string>; onExpandComments: (id: string) => void
   onCategoryClick?: (category: string) => void
+  onPostOptions: (postId: string) => void
+  onCommentOptions: (commentId: string, postId: string) => void
 }) {
   const isCommenting = commentingPostId === post.id
   const isExpanded = expandedComments.has(post.id)
   const visibleComments = isExpanded ? post.comments : post.comments.slice(0, 3)
   const hiddenCount = post.comments.length - 3
-  const [confirmPost, setConfirmPost] = useState(false)
-  const [confirmComment, setConfirmComment] = useState<string | null>(null)
 
   return (
     <>
-    <ConfirmDialog
-      open={confirmPost}
-      title="Eliminare il post?"
-      message="Questa azione è irreversibile. Il post verrà rimosso definitivamente."
-      onConfirm={() => { setConfirmPost(false); onDelete(post.id) }}
-      onCancel={() => setConfirmPost(false)}
-    />
-    <ConfirmDialog
-      open={!!confirmComment}
-      title="Eliminare il commento?"
-      message="Il commento verrà rimosso definitivamente."
-      onConfirm={() => { if (confirmComment) { onDeleteComment(confirmComment, post.id); setConfirmComment(null) } }}
-      onCancel={() => setConfirmComment(null)}
-    />
 
     {/* Card Geekore — bordi arrotondati, contenuto sopra le azioni */}
     <div className={`bg-zinc-900 border rounded-2xl md:rounded-3xl overflow-hidden transition-all duration-300 animate-fade-in ${
@@ -737,7 +745,7 @@ const PostCard = memo(function PostCard({
           </div>
         </div>
         {currentUser?.id === post.user_id && (
-          <button onClick={() => setConfirmPost(true)} className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all">
+          <button onClick={() => onPostOptions(post.id)} className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all">
             <MoreHorizontal size={18} />
           </button>
         )}
@@ -803,8 +811,8 @@ const PostCard = memo(function PostCard({
                   </Link>
                   {currentUser?.id === comment.user_id && (
                     <button
-                      onClick={() => setConfirmComment(comment.id)}
-                      className="opacity-0 group-hover/previewcomment:opacity-100 text-zinc-600 hover:text-red-400 transition-all p-0.5"
+                      onClick={() => onCommentOptions(comment.id, post.id)}
+                      className="opacity-0 group-hover/previewcomment:opacity-100 text-zinc-600 hover:text-white transition-all p-0.5"
                     >
                       <MoreHorizontal size={12} />
                     </button>
@@ -838,7 +846,7 @@ const PostCard = memo(function PostCard({
                         @{comment.username}
                       </Link>
                       {currentUser?.id === comment.user_id && (
-                        <button onClick={() => setConfirmComment(comment.id)} className="text-zinc-600 hover:text-red-400 transition-colors p-0.5">
+                        <button onClick={() => onCommentOptions(comment.id, post.id)} className="text-zinc-600 hover:text-white transition-colors p-0.5">
                           <MoreHorizontal size={13} />
                         </button>
                       )}
@@ -889,6 +897,19 @@ export default function FeedPage() {
   const [currentProfile, setCurrentProfile] = useState<any>(null)
   const [commentContent, setCommentContent] = useState('')
   const [commentingPostId, setCommentingPostId] = useState<string | null>(null)
+
+  // ── Bottom Sheet globale ──────────────────────────────────────────────────
+  type SheetState = { open: false } | { open: true; type: 'post'; postId: string } | { open: true; type: 'comment'; commentId: string; postId: string } | { open: true; type: 'confirm-post'; postId: string } | { open: true; type: 'confirm-comment'; commentId: string; postId: string }
+  const [sheet, setSheet] = useState<SheetState>({ open: false })
+  const closeSheet = useCallback(() => setSheet({ open: false }), [])
+
+  const handlePostOptions = useCallback((postId: string) => {
+    setSheet({ open: true, type: 'post', postId })
+  }, [])
+
+  const handleCommentOptions = useCallback((commentId: string, postId: string) => {
+    setSheet({ open: true, type: 'comment', commentId, postId })
+  }, [])
   const [feedFilter, setFeedFilter] = useState<'all' | 'following'>('all')
   const [likingIds, setLikingIds] = useState<Set<string>>(new Set())
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set())
@@ -1304,8 +1325,34 @@ export default function FeedPage() {
     )
   }
 
+  // Sheet actions
+  const sheetActions: BottomSheetAction[] = (() => {
+    if (!sheet.open) return []
+    if (sheet.type === 'post') return [
+      { label: 'Modifica post', onClick: () => {} }, // TODO: edit
+      { label: 'Elimina post', danger: true, onClick: () => setSheet({ open: true, type: 'confirm-post', postId: sheet.postId }) },
+    ]
+    if (sheet.type === 'comment') return [
+      { label: 'Elimina commento', danger: true, onClick: () => setSheet({ open: true, type: 'confirm-comment', commentId: sheet.commentId, postId: sheet.postId }) },
+    ]
+    if (sheet.type === 'confirm-post') return [
+      { label: 'Conferma eliminazione', danger: true, onClick: () => { handleDeletePost(sheet.postId); closeSheet() } },
+    ]
+    if (sheet.type === 'confirm-comment') return [
+      { label: 'Conferma eliminazione', danger: true, onClick: () => { handleDeleteComment(sheet.commentId, sheet.postId); closeSheet() } },
+    ]
+    return []
+  })()
+
+  const sheetTitle = !sheet.open ? undefined
+    : sheet.type === 'confirm-post' ? 'Eliminare il post? Questa azione è irreversibile.'
+    : sheet.type === 'confirm-comment' ? 'Eliminare il commento?'
+    : undefined
+
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
+      {/* Bottom Sheet globale — fuori da qualsiasi overflow/transform */}
+      <BottomSheet open={sheet.open} title={sheetTitle} actions={sheetActions} onClose={closeSheet} />
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
       <PullWrapper distance={pullDistance} refreshing={isPullRefreshing}>
       {/* Layout: full-bleed su mobile, due colonne su desktop */}
@@ -1536,7 +1583,8 @@ export default function FeedPage() {
                       onCommentChange={setCommentContent} onAddComment={handleAddComment}
                       onDelete={handleDeletePost} onDeleteComment={handleDeleteComment}
                       expandedComments={expandedComments} onExpandComments={handleExpandComments}
-                      onCategoryClick={handleCategoryClick} />
+                      onCategoryClick={handleCategoryClick}
+                      onPostOptions={handlePostOptions} onCommentOptions={handleCommentOptions} />
                   ))}
                 </div>
                 <div className="h-px bg-zinc-800 mt-5" />
@@ -1577,7 +1625,8 @@ export default function FeedPage() {
                     onCommentChange={setCommentContent} onAddComment={handleAddComment}
                     onDelete={handleDeletePost} onDeleteComment={handleDeleteComment}
                     expandedComments={expandedComments} onExpandComments={handleExpandComments}
-                    onCategoryClick={handleCategoryClick} />
+                    onCategoryClick={handleCategoryClick}
+                    onPostOptions={handlePostOptions} onCommentOptions={handleCommentOptions} />
                 ))
               )}
 
