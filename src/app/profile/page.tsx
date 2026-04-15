@@ -635,7 +635,7 @@ export default function ProfilePage() {
     await new Promise(r => setTimeout(r, 800))
     setLoading(false)
   }
-  const { pullDistance, isRefreshing: isPullRefreshing } = usePullToRefresh({ onRefresh: handleProfileRefresh })
+  const { distance: pullDistance, refreshing: isPullRefreshing } = usePullToRefresh({ onRefresh: handleProfileRefresh })
   // New state
   const [activeTab, setActiveTab] = useState<ProfileTab>('collection')
   const [collectionSearch, setCollectionSearch] = useState('')
@@ -952,7 +952,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white pb-24 md:pb-20">
-      <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isPullRefreshing} />
+      <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
       <div className="pt-6 md:pt-8 max-w-screen-2xl mx-auto px-4 md:px-6">
 
         {/* Header profilo */}

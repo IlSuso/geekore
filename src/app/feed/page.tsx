@@ -636,7 +636,6 @@ function ConfirmDialog({
         </div>
       </div>
     </div>
-      </PullWrapper>
   )
 }
 
@@ -1363,6 +1362,7 @@ export default function FeedPage() {
 
         </div>
       </div>
+      </PullWrapper>
     </div>
   )
 }
