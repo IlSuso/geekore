@@ -168,26 +168,28 @@ async function searchByCategory(category: string, query: string): Promise<Search
   try {
     if (category === 'Film') {
       const res = await fetch(`/api/tmdb?q=${q}&type=movie`, { signal: AbortSignal.timeout(5000) })
-      if (!res.ok) return []
+      if (!res.ok) { console.warn('[CategorySearch] TMDB film error:', res.status); return [] }
       const data = await res.json()
-      return (data || []).slice(0, 8).map((item: any) => ({
-        id: String(item.id || item.tmdbId || item.title),
+      const items = Array.isArray(data) ? data : []
+      return items.slice(0, 8).map((item: any) => ({
+        id: String(item.id || item.title),
         title: item.title || item.name || '',
         subtitle: item.year ? String(item.year) : item.releaseDate?.slice(0, 4),
-        image: item.poster || item.cover,
-      }))
+        image: item.coverImage || item.poster || item.cover,
+      })).filter((i: SearchResult) => i.title)
     }
 
     if (category === 'Serie TV') {
       const res = await fetch(`/api/tmdb?q=${q}&type=tv`, { signal: AbortSignal.timeout(5000) })
-      if (!res.ok) return []
+      if (!res.ok) { console.warn('[CategorySearch] TMDB tv error:', res.status); return [] }
       const data = await res.json()
-      return (data || []).slice(0, 8).map((item: any) => ({
-        id: String(item.id || item.tmdbId || item.title),
+      const items = Array.isArray(data) ? data : []
+      return items.slice(0, 8).map((item: any) => ({
+        id: String(item.id || item.title),
         title: item.title || item.name || '',
         subtitle: item.year ? String(item.year) : item.releaseDate?.slice(0, 4),
-        image: item.poster || item.cover,
-      }))
+        image: item.coverImage || item.poster || item.cover,
+      })).filter((i: SearchResult) => i.title)
     }
 
     if (category === 'Videogiochi') {
@@ -197,7 +199,7 @@ async function searchByCategory(category: string, query: string): Promise<Search
         body: JSON.stringify({ search: query.trim(), limit: 8 }),
         signal: AbortSignal.timeout(6000),
       })
-      if (!res.ok) return []
+      if (!res.ok) { console.warn('[CategorySearch] IGDB error:', res.status); return [] }
       const data = await res.json()
       const items = Array.isArray(data) ? data : (data.results || data.games || [])
       return items.slice(0, 8).map((item: any) => ({
@@ -206,13 +208,13 @@ async function searchByCategory(category: string, query: string): Promise<Search
         subtitle: item.first_release_date ? new Date(item.first_release_date * 1000).getFullYear().toString()
           : item.year ? String(item.year) : undefined,
         image: item.cover?.url ? `https:${item.cover.url.replace('t_thumb', 't_cover_small')}` : item.cover,
-      }))
+      })).filter((i: SearchResult) => i.title)
     }
 
     if (category === 'Anime' || category === 'Manga') {
       const type = category === 'Anime' ? 'ANIME' : 'MANGA'
       const res = await fetch(`/api/anilist?search=${q}&type=${type}`, { signal: AbortSignal.timeout(5000) })
-      if (!res.ok) return []
+      if (!res.ok) { console.warn('[CategorySearch] AniList error:', res.status); return [] }
       const data = await res.json()
       const items = Array.isArray(data) ? data : (data.results || data.media || [])
       return items.slice(0, 8).map((item: any) => ({
@@ -220,12 +222,12 @@ async function searchByCategory(category: string, query: string): Promise<Search
         title: item.title?.english || item.title?.romaji || item.title || '',
         subtitle: item.seasonYear ? String(item.seasonYear) : undefined,
         image: item.coverImage?.large || item.cover,
-      }))
+      })).filter((i: SearchResult) => i.title)
     }
 
     if (category === 'Board Game') {
       const res = await fetch(`/api/boardgames?q=${q}`, { signal: AbortSignal.timeout(5000) })
-      if (!res.ok) return []
+      if (!res.ok) { console.warn('[CategorySearch] BoardGame error:', res.status); return [] }
       const data = await res.json()
       const items = Array.isArray(data) ? data : (data.results || data.games || [])
       return items.slice(0, 8).map((item: any) => ({
@@ -233,10 +235,12 @@ async function searchByCategory(category: string, query: string): Promise<Search
         title: item.name || item.title || '',
         subtitle: item.year ? String(item.year) : item.yearPublished ? String(item.yearPublished) : undefined,
         image: item.image || item.cover,
-      }))
+      })).filter((i: SearchResult) => i.title)
     }
 
-  } catch {}
+  } catch (err) {
+    console.warn('[CategorySearch] fetch error:', err)
+  }
   return []
 }
 
@@ -397,10 +401,18 @@ function CategorySelector({ value, onChange }: { value: string; onChange: (val: 
                         key={result.id}
                         type="button"
                         onClick={() => handleSelectSuggestion(result)}
-                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors border-b border-zinc-800/60 last:border-0 ${
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors border-b border-zinc-800/60 last:border-0 ${
                           idx === activeSuggestion ? 'bg-violet-600/20 text-white' : 'hover:bg-zinc-800 text-zinc-200'
                         }`}
                       >
+                        {result.image && (
+                          <img
+                            src={result.image}
+                            alt=""
+                            className="w-8 h-11 object-cover rounded-lg flex-shrink-0 bg-zinc-800"
+                            onError={(e) => { e.currentTarget.style.display = 'none' }}
+                          />
+                        )}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{result.title}</p>
                           {result.subtitle && <p className="text-[11px] text-zinc-500">{result.subtitle}</p>}
@@ -1327,17 +1339,13 @@ export default function FeedPage() {
                       onClick={closeComposer}
                     />
 
-                    {/* Modal: popup centrato su desktop, fullscreen su mobile */}
+                    {/* Modal: fullscreen su mobile, popup centrato sulla viewport su desktop */}
                     <div
-                      className={[
-                        'fixed z-[260] bg-[var(--bg-primary)] flex flex-col',
-                        // Mobile: fullscreen
-                        'inset-0',
-                        // Desktop: popup centrato
-                        'sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2',
-                        'sm:w-[560px] sm:max-h-[80vh] sm:rounded-2xl sm:shadow-2xl sm:border sm:border-zinc-700/60',
-                      ].join(' ')}
-                      style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+                      className="composer-modal fixed z-[260] bg-[var(--bg-primary)] flex flex-col inset-0 sm:inset-auto sm:rounded-2xl sm:shadow-2xl sm:border sm:border-zinc-700/60 sm:w-[560px] sm:max-h-[80vh]"
+                      style={{
+                        paddingTop: 'env(safe-area-inset-top)',
+                        paddingBottom: 'env(safe-area-inset-bottom)',
+                      }}
                       onClick={e => e.stopPropagation()}
                     >
                     {/* Header modal */}

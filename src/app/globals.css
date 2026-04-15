@@ -504,3 +504,13 @@ html, body { background-color: #000000 !important; }
 .gk-body { font-size: 14px; line-height: 1.55; color: var(--text-primary); }
 .gk-meta { font-size: 11px; color: var(--text-muted); letter-spacing: 0.03em; }
 .gk-separator { height: 0.5px; background: var(--border); }
+/* ── Composer modal: centrato sulla viewport visibile su desktop ──────────── */
+@media (min-width: 640px) {
+  .composer-modal {
+    position: fixed !important;
+    top: 50vh !important;
+    left: 50vw !important;
+    transform: translate(-50%, -50%) !important;
+    inset: auto !important;
+  }
+}
