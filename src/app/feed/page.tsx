@@ -1245,7 +1245,7 @@ export default function FeedPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
-        <div className="max-w-xl mx-auto pt-4 pb-20">
+        <div className="max-w-screen-2xl mx-auto pt-4 pb-20">
           {Array.from({ length: 3 }).map((_, i) => <SkeletonFeedPost key={i} />)}
         </div>
       </div>
@@ -1257,11 +1257,11 @@ export default function FeedPage() {
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
       <PullWrapper distance={pullDistance} refreshing={isPullRefreshing}>
       {/* Layout: full-bleed su mobile, due colonne su desktop */}
-      <div className="pt-0 pb-24 max-w-5xl mx-auto px-0 lg:px-6">
+      <div className="pt-0 pb-24 max-w-screen-2xl mx-auto px-0 sm:px-4 md:px-6">
         <div className="flex gap-8 items-start min-h-screen">
 
           {/* ── Colonna principale ─────────────────────────────────── */}
-          <div className="flex-1 min-w-0 max-w-xl w-full mx-auto lg:mx-0">
+          <div className="flex-1 min-w-0">
 
             {/* Composer — barra statica non invasiva, modal fullscreen al tap */}
             {currentUser && (
@@ -1504,7 +1504,7 @@ export default function FeedPage() {
           </div>
 
           {/* ── Sidebar desktop ─────────────────────────────────────── */}
-          <div className="hidden lg:block w-72 flex-shrink-0 sticky top-16">
+          <div className="hidden lg:block w-80 flex-shrink-0 sticky top-16">
             <FeedSidebar currentUserId={currentUser?.id ?? null} />
           </div>
 
