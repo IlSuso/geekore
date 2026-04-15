@@ -55,7 +55,7 @@ export function ProfileStatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
     { key: 'game',      value: stats.games },
     { key: 'movie',     value: stats.movies },
     { key: 'boardgame', value: stats.boards },
-  ].filter(r => r.value > 0)
+  ] // tutti e 6 sempre visibili, anche a 0
 
   const metrics = [
     stats.steamHours > 0  && { icon: <Tv size={13} />,       label: 'Ore su Steam',  value: `${stats.steamHours}h` },
@@ -64,20 +64,29 @@ export function ProfileStatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
     stats.avgRating       && { icon: <Star size={13} />,      label: 'Voto medio',   value: stats.avgRating },
   ].filter(Boolean) as { icon: JSX.Element; label: string; value: string }[]
 
-  if (typeRows.length === 0) return null
+  if (stats.total === 0) return null
 
   return (
     <div className="mb-8 space-y-4">
 
-      {/* Griglia tipi media — simmetrica, max 3 per riga */}
+      {/* Griglia tipi media — sempre 6, 3×2 su mobile, 6×1 su desktop */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
-        <div className={`grid ${typeRows.length <= 3 ? 'grid-cols-3' : 'grid-cols-3 md:grid-cols-6'} divide-x divide-zinc-800`}>
-          {typeRows.map(({ key, value }) => {
+        <div className="grid grid-cols-3 md:grid-cols-6">
+          {typeRows.map(({ key, value }, i) => {
             const cfg = TYPE_CONFIG[key]
+            const isEmpty = value === 0
+            // bordi: destra sulle col 1 e 2 (0-indexed: 0 e 1), sotto sulla prima riga (0-2)
+            const borderRight = (i % 3 !== 2) ? 'border-r border-zinc-800' : ''
+            const borderBottom = (i < 3) ? 'border-b border-zinc-800 md:border-b-0' : ''
+            const borderRightDesktop = (i < 5) ? 'md:border-r md:border-zinc-800' : ''
             return (
-              <div key={key} className="flex flex-col items-center justify-center py-4 px-2 gap-1">
-                <span className={`text-xl font-bold ${cfg.color}`}>{value}</span>
-                <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide">{cfg.label}</span>
+              <div key={key} className={`flex flex-col items-center justify-center py-4 px-2 gap-1 ${borderRight} ${borderBottom} ${borderRightDesktop}`}>
+                <span className={`text-xl font-bold ${isEmpty ? 'text-zinc-700' : cfg.color}`}>
+                  {value}
+                </span>
+                <span className={`text-[10px] font-medium uppercase tracking-wide ${isEmpty ? 'text-zinc-700' : 'text-zinc-500'}`}>
+                  {cfg.label}
+                </span>
               </div>
             )
           })}

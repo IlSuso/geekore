@@ -726,29 +726,10 @@ const PostCard = memo(function PostCard({
         )}
       </div>
 
-      {/* Testo del post — sopra tutto il resto */}
-      <div className="px-5 pb-3">
+      {/* Testo del post — prominente, ben separato */}
+      <div className="px-5 pb-4">
         <p className="text-[var(--text-primary)] text-sm leading-relaxed whitespace-pre-wrap">{post.content}</p>
       </div>
-
-      {/* Anteprima commenti — max 2, inline, leggeri */}
-      {post.comments.length > 0 && !isCommenting && (
-        <div className="px-5 pb-3 space-y-1">
-          {post.comments.slice(0, 2).map(comment => (
-            <p key={comment.id} className="text-xs text-zinc-400 leading-snug line-clamp-1">
-              <Link href={`/profile/${comment.username}`} className="font-semibold text-zinc-300 hover:text-violet-400 transition-colors mr-1">
-                {comment.username}
-              </Link>
-              {comment.content}
-            </p>
-          ))}
-          {post.comments.length > 2 && (
-            <button onClick={() => onToggleComment(post.id)} className="text-[11px] text-zinc-600 hover:text-zinc-400 transition-colors">
-              Vedi tutti i {post.comments.length} commenti
-            </button>
-          )}
-        </div>
-      )}
 
       {/* Immagine */}
       {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
@@ -789,6 +770,30 @@ const PostCard = memo(function PostCard({
           </div>
         )}
       </div>
+
+      {/* Commenti — preview sempre visibile (max 2) con lo stesso stile dei commenti aperti */}
+      {post.comments.length > 0 && !isCommenting && (
+        <div className="px-5 pb-4 border-t border-zinc-800/40 pt-3 bg-black/10 space-y-2">
+          {post.comments.slice(0, 2).map(comment => (
+            <div key={comment.id} className="flex gap-2.5">
+              <Link href={`/profile/${comment.username}`} className="w-7 h-7 rounded-xl overflow-hidden flex-shrink-0 hover:ring-2 hover:ring-violet-500/50 transition-all mt-0.5">
+                <Avatar src={undefined} username={comment.username || 'user'} displayName={comment.display_name} size={28} className="rounded-xl" />
+              </Link>
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3.5 py-2 flex-1 min-w-0">
+                <Link href={`/profile/${comment.username}`} className="text-[10px] font-bold text-violet-400 uppercase tracking-wider hover:text-violet-300">
+                  @{comment.username}
+                </Link>
+                <p className="text-zinc-300 text-xs mt-0.5 leading-snug">{comment.content}</p>
+              </div>
+            </div>
+          ))}
+          {post.comments.length > 2 && (
+            <button onClick={() => onToggleComment(post.id)} className="text-xs text-zinc-500 hover:text-violet-400 transition-colors pl-9">
+              +{post.comments.length - 2} {post.comments.length - 2 === 1 ? 'altro commento' : 'altri commenti'}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Commenti */}
       {isCommenting && (

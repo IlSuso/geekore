@@ -1,151 +1,167 @@
 'use client'
 // SwipeablePageContainer.tsx
-// Navigazione orizzontale stile Instagram: le pagine scorrono con il dito,
-// la pagina adiacente compare progressivamente mentre si trascina.
+// Swipe identico a Instagram:
+// - Le pagine si muovono in sincronia 1:1 con il dito
+// - Snap verso la pagina target se supera soglia, altrimenti torna indietro
+// - Curve di animazione identiche (cubic-bezier di iOS)
+// - Overflow clip per nascondere i bordi
 
 import { usePathname, useRouter } from 'next/navigation'
 import { useRef, useState, useCallback, useEffect, type ReactNode } from 'react'
 
-// Ordine delle tab principali (stesso di MOBILE_NAV_ITEMS in Navbar)
 const TAB_ORDER = ['/feed', '/discover', '/for-you', '/trending', '/profile/me']
+const CONFIRM_THRESHOLD = 72   // px
+const VELOCITY_THRESHOLD = 0.28 // px/ms
 
-// Soglia minima in px per confermare il cambio pagina
-const CONFIRM_THRESHOLD = 80
-// Soglia velocità (px/ms) per confermare con gesto veloce
-const VELOCITY_THRESHOLD = 0.3
+// Ease identico a iOS spring navigation
+const EASE_OUT  = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+const EASE_SNAP = 'cubic-bezier(0.22, 1, 0.36, 1)'  // spring-ish snap back
 
 export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
+  const wrapRef = useRef<HTMLDivElement>(null)
 
-  const containerRef = useRef<HTMLDivElement>(null)
-  const touchStartX = useRef(0)
-  const touchStartY = useRef(0)
-  const touchStartTime = useRef(0)
-  const currentDeltaX = useRef(0)
-  const isSwipingHorizontal = useRef<boolean | null>(null) // null = non ancora deciso
+  const touchStartX   = useRef(0)
+  const touchStartY   = useRef(0)
+  const touchStartT   = useRef(0)
+  const lastDeltaX    = useRef(0)
+  const isH           = useRef<boolean | null>(null) // horizontal swipe detected?
+  const vw            = useRef(0)
+  const isDragging    = useRef(false)
 
-  const [dragX, setDragX] = useState(0) // px di traslazione durante il drag
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [direction, setDirection] = useState<'left' | 'right' | null>(null)
+  const [offset, setOffset] = useState(0)        // current translateX in px
+  const [animate, setAnimate] = useState(false)  // apply CSS transition?
 
-  // Trova indice corrente nell'ordine delle tab
-  const currentIndex = TAB_ORDER.findIndex(tab => {
-    if (tab === '/profile/me') return pathname.startsWith('/profile/')
-    if (tab === '/feed') return pathname === '/feed' || pathname === '/'
-    return pathname === tab
+  const currentIdx = TAB_ORDER.findIndex(t => {
+    if (t === '/profile/me') return pathname.startsWith('/profile/')
+    if (t === '/feed')       return pathname === '/feed' || pathname === '/'
+    return pathname === t
   })
 
-  // Non attivare lo swipe se non siamo in una tab principale
-  const isMainTab = currentIndex !== -1
+  const isMain  = currentIdx !== -1
+  const prevTab = currentIdx > 0 ? TAB_ORDER[currentIdx - 1] : null
+  const nextTab = currentIdx < TAB_ORDER.length - 1 ? TAB_ORDER[currentIdx + 1] : null
 
-  const prevPage = currentIndex > 0 ? TAB_ORDER[currentIndex - 1] : null
-  const nextPage = currentIndex < TAB_ORDER.length - 1 ? TAB_ORDER[currentIndex + 1] : null
+  useEffect(() => {
+    vw.current = window.innerWidth
+    const fn = () => { vw.current = window.innerWidth }
+    window.addEventListener('resize', fn)
+    return () => window.removeEventListener('resize', fn)
+  }, [])
+
+  // Reset when pathname changes
+  useEffect(() => {
+    isDragging.current = false
+    setAnimate(false)
+    setOffset(0)
+  }, [pathname])
 
   const onTouchStart = useCallback((e: TouchEvent) => {
-    if (!isMainTab) return
+    if (!isMain) return
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
-    touchStartTime.current = Date.now()
-    currentDeltaX.current = 0
-    isSwipingHorizontal.current = null
-  }, [isMainTab])
+    touchStartT.current = performance.now()
+    lastDeltaX.current  = 0
+    isH.current         = null
+    isDragging.current  = false
+    setAnimate(false)
+  }, [isMain])
 
   const onTouchMove = useCallback((e: TouchEvent) => {
-    if (!isMainTab || isAnimating) return
+    if (!isMain) return
 
-    const deltaX = e.touches[0].clientX - touchStartX.current
-    const deltaY = e.touches[0].clientY - touchStartY.current
+    const dx = e.touches[0].clientX - touchStartX.current
+    const dy = e.touches[0].clientY - touchStartY.current
 
-    // Prima determinazione: orizzontale o verticale?
-    if (isSwipingHorizontal.current === null) {
-      if (Math.abs(deltaX) < 8 && Math.abs(deltaY) < 8) return // aspetta
-      isSwipingHorizontal.current = Math.abs(deltaX) > Math.abs(deltaY) * 1.2
+    // Determina direzione al primo movimento rilevante
+    if (isH.current === null) {
+      if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return
+      isH.current = Math.abs(dx) > Math.abs(dy) * 1.4
+      if (!isH.current) return
     }
+    if (!isH.current) return
 
-    if (!isSwipingHorizontal.current) return
-
-    // Blocca lo scroll verticale quando stiamo swippando orizzontalmente
     e.preventDefault()
+    isDragging.current = true
+    lastDeltaX.current = dx
 
-    currentDeltaX.current = deltaX
+    // Bordi: nessuna pagina in quella direzione → resistenza elastica forte
+    if (dx > 0 && !prevTab) { setOffset(Math.pow(dx, 0.6) * 0.5); return }
+    if (dx < 0 && !nextTab) { setOffset(-Math.pow(-dx, 0.6) * 0.5); return }
 
-    // Non far scorrere se non c'è pagina in quella direzione
-    if (deltaX > 0 && !prevPage) return
-    if (deltaX < 0 && !nextPage) return
-
-    // Resistenza elastica ai bordi
-    const resistance = 0.35
-    const clampedDelta = deltaX > 0
-      ? Math.min(deltaX * resistance, 60)
-      : Math.max(deltaX * resistance, -60)
-
-    setDragX(clampedDelta)
-  }, [isMainTab, isAnimating, prevPage, nextPage])
+    // Segue il dito 1:1
+    setOffset(dx)
+  }, [isMain, prevTab, nextTab])
 
   const onTouchEnd = useCallback(() => {
-    if (!isMainTab || isSwipingHorizontal.current !== true) {
-      setDragX(0)
-      isSwipingHorizontal.current = null
+    if (!isMain || !isDragging.current) {
+      setAnimate(true); setOffset(0)
+      isH.current = null; isDragging.current = false
       return
     }
 
-    const deltaX = currentDeltaX.current
-    const elapsed = Date.now() - touchStartTime.current
-    const velocity = Math.abs(deltaX) / elapsed
+    const dx       = lastDeltaX.current
+    const elapsed  = Math.max(performance.now() - touchStartT.current, 1)
+    const velocity = Math.abs(dx) / elapsed
+    const w        = vw.current || window.innerWidth
 
-    const shouldNavigate =
-      Math.abs(deltaX) > CONFIRM_THRESHOLD || velocity > VELOCITY_THRESHOLD
+    const shouldNav = Math.abs(dx) > CONFIRM_THRESHOLD || velocity > VELOCITY_THRESHOLD
 
-    if (shouldNavigate) {
-      if (deltaX > 0 && prevPage) {
-        setDirection('right')
-        setIsAnimating(true)
-        router.push(prevPage)
-      } else if (deltaX < 0 && nextPage) {
-        setDirection('left')
-        setIsAnimating(true)
-        router.push(nextPage)
-      }
+    if (shouldNav && dx > 0 && prevTab) {
+      // Completa l'uscita verso destra, poi naviga
+      setAnimate(true)
+      setOffset(w)
+      setTimeout(() => {
+        router.push(prevTab)
+      }, 260)
+    } else if (shouldNav && dx < 0 && nextTab) {
+      // Completa l'uscita verso sinistra, poi naviga
+      setAnimate(true)
+      setOffset(-w)
+      setTimeout(() => {
+        router.push(nextTab)
+      }, 260)
+    } else {
+      // Snap back
+      setAnimate(true)
+      setOffset(0)
     }
 
-    setDragX(0)
-    isSwipingHorizontal.current = null
-  }, [isMainTab, prevPage, nextPage, router])
+    isH.current = null
+    isDragging.current = false
+  }, [isMain, prevTab, nextTab, router])
 
-  // Reset animazione quando cambia pagina
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsAnimating(false)
-      setDirection(null)
-    }, 350)
-    return () => clearTimeout(timer)
-  }, [pathname])
-
-  // Attacca/rimuovi listeners
-  useEffect(() => {
-    const el = containerRef.current
+    const el = wrapRef.current
     if (!el) return
-
     el.addEventListener('touchstart', onTouchStart, { passive: true })
-    el.addEventListener('touchmove', onTouchMove, { passive: false })
-    el.addEventListener('touchend', onTouchEnd, { passive: true })
-
+    el.addEventListener('touchmove',  onTouchMove,  { passive: false })
+    el.addEventListener('touchend',   onTouchEnd,   { passive: true })
     return () => {
       el.removeEventListener('touchstart', onTouchStart)
-      el.removeEventListener('touchmove', onTouchMove)
-      el.removeEventListener('touchend', onTouchEnd)
+      el.removeEventListener('touchmove',  onTouchMove)
+      el.removeEventListener('touchend',   onTouchEnd)
     }
   }, [onTouchStart, onTouchMove, onTouchEnd])
 
+  const translateX  = offset !== 0 ? `translateX(${offset}px)` : 'none'
+  const transition  = animate
+    ? `transform 0.28s ${offset === 0 ? EASE_SNAP : EASE_OUT}`
+    : 'none'
+
   return (
     <div
-      ref={containerRef}
+      ref={wrapRef}
       style={{
-        transform: dragX !== 0 ? `translateX(${dragX}px)` : undefined,
-        transition: dragX === 0 ? 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
-        willChange: dragX !== 0 ? 'transform' : 'auto',
-        minHeight: '100%',
+        transform:          translateX,
+        transition,
+        willChange:         offset !== 0 ? 'transform' : 'auto',
+        backfaceVisibility: 'hidden',
+        WebkitBackfaceVisibility: 'hidden',
+        minHeight:          '100%',
+        // Clip per nascondere il bordo della pagina adiacente che "sporge" lateralmente
+        overflow:           isMain && offset !== 0 ? 'hidden' : undefined,
       }}
     >
       {children}
