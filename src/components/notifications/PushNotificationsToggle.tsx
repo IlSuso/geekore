@@ -16,12 +16,10 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 type PushState = 'unsupported' | 'default' | 'granted' | 'denied' | 'loading'
 
-// Rileva se siamo su Android
 function isAndroid(): boolean {
   return typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent)
 }
 
-// Rileva se l'app è installata come PWA (standalone)
 function isPWA(): boolean {
   return (
     typeof window !== 'undefined' &&
@@ -53,6 +51,15 @@ export function PushNotificationsToggle() {
       if (sub) {
         setSubscription(sub)
         setState('granted')
+        // FIX: ri-sincronizza sempre la subscription con il DB ad ogni mount.
+        // Se l'endpoint è cambiato (reinstall PWA, browser aggiornato, Chrome
+        // ha rigenerato le chiavi) il DB viene aggiornato silenziosamente,
+        // così sendPushToUser non invia mai verso un endpoint morto.
+        await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subscription: sub.toJSON() }),
+        }).catch(() => {}) // ignora errori di rete, non bloccare l'UI
       } else {
         setState(permission === 'denied' ? 'denied' : 'default')
       }
@@ -92,7 +99,6 @@ export function PushNotificationsToggle() {
         setSubscription(sub)
         setState('granted')
         showToast('Notifiche attivate!')
-        // Su Android non-PWA mostra il tip
         if (isAndroid() && !isPWA()) {
           setShowAndroidTip(true)
         }
@@ -186,7 +192,6 @@ export function PushNotificationsToggle() {
         </button>
       </div>
 
-      {/* FIX: tip Android per installare la PWA e ricevere notifiche native */}
       {state === 'granted' && isAndroid() && !isPWA() && (
         <div className="flex items-start gap-3 p-3 bg-amber-950/40 border border-amber-800/40 rounded-xl">
           <AlertTriangle size={15} className="text-amber-400 flex-shrink-0 mt-0.5" />
