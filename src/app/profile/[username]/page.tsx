@@ -628,15 +628,43 @@ export default function ProfilePage() {
   const router = useRouter()
 
   // Pull-to-refresh su mobile — ricarica tutto il profilo
-  const handleProfileRefresh = async () => {
+  const fetchProfileData = useCallback(async () => {
     setLoading(true)
-    setMediaList([])
-    // router.refresh() ricarica i Server Components senza full page reload
-    router.refresh()
-    // Piccolo delay per dare tempo al refetch
-    await new Promise(r => setTimeout(r, 800))
+    const { data: { user } } = await supabase.auth.getUser()
+    setCurrentUserId(user?.id || null)
+
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url, bio')
+      .ilike('username', username)
+      .single()
+
+    if (profileError || !profileData) { setLoading(false); return }
+    setProfile(profileData)
+
+    const ownerCheck = !!user && user.id === profileData.id
+    setIsOwner(ownerCheck)
+
+    const [steamResult, mediaResult, fwersResult, fwingResult, followResult] = await Promise.all([
+      ownerCheck ? supabase.from('steam_accounts').select('*').eq('user_id', user!.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+      supabase.from('user_media_entries').select('*').eq('user_id', profileData.id),
+      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profileData.id),
+      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profileData.id),
+      (user && !ownerCheck) ? supabase.from('follows').select('follower_id').eq('follower_id', user.id).eq('following_id', profileData.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    ])
+
+    if (ownerCheck) setSteamAccount(steamResult.data)
+    if (mediaResult.data) setMediaList(sortMediaList(mediaResult.data))
+    setFollowersCount(fwersResult.count || 0)
+    setFollowingCount(fwingResult.count || 0)
+    if (user && !ownerCheck) setIsFollowing(!!followResult.data)
     setLoading(false)
-  }
+  }, [username])
+
+  const handleProfileRefresh = useCallback(async () => {
+    await fetchProfileData()
+  }, [fetchProfileData])
+
   const { distance: pullDistance, refreshing: isPullRefreshing } = usePullToRefresh({ onRefresh: handleProfileRefresh })
   // New state
   const [activeTab, setActiveTab] = useState<ProfileTab>('collection')
@@ -837,48 +865,8 @@ export default function ProfilePage() {
   }
 
   useEffect(() => {
-    const fetchData = async () => {
-      const { data: { user }, error: authError } = await supabase.auth.getUser()
-      if (authError) {
-        if (process.env.NODE_ENV === 'development') console.error('[Profile] Errore autenticazione:', authError)
-        setLoading(false)
-        return
-      }
-      setCurrentUserId(user?.id || null)
-
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, username, display_name, avatar_url, bio')
-        .ilike('username', username)
-        .single()
-
-      if (profileError || !profileData) { setLoading(false); return }
-      setProfile(profileData)
-
-      const ownerCheck = !!user && user.id === profileData.id
-      setIsOwner(ownerCheck)
-
-      const [steamResult, mediaResult, fwersResult, fwingResult, followResult] = await Promise.all([
-        ownerCheck ? supabase.from('steam_accounts').select('*').eq('user_id', user!.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
-        supabase.from('user_media_entries').select('*').eq('user_id', profileData.id),
-        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profileData.id),
-        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profileData.id),
-        (user && !ownerCheck) ? supabase.from('follows').select('follower_id').eq('follower_id', user.id).eq('following_id', profileData.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
-      ])
-
-      if (ownerCheck) setSteamAccount(steamResult.data)
-      if (mediaResult.error) {
-        if (process.env.NODE_ENV === 'development') console.error('[Profile] Errore caricamento media:', mediaResult.error)
-      } else if (mediaResult.data) {
-        setMediaList(sortMediaList(mediaResult.data))
-      }
-      setFollowersCount(fwersResult.count || 0)
-      setFollowingCount(fwingResult.count || 0)
-      if (user && !ownerCheck) setIsFollowing(!!followResult.data)
-      setLoading(false)
-    }
-    fetchData()
-  }, [username])
+    fetchProfileData()
+  }, [fetchProfileData])
 
   useEffect(() => {
     if (!steamMessage) return

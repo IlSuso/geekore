@@ -874,6 +874,7 @@ export default function FeedPage() {
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set())
   const [newPostsCount, setNewPostsCount] = useState(0)
   const [categoryFilter, setCategoryFilter] = useState<string>('')
+  const [composerOpen, setComposerOpen] = useState(false)
 
   const latestPostIdRef = useRef<string | null>(null)
   const pageRef = useRef(0)
@@ -1136,6 +1137,7 @@ export default function FeedPage() {
       }
       setPosts(prev => { const updated = [optimisticPost, ...prev]; cache.posts = updated; cache.ts = Date.now(); return updated })
       setNewPostContent(''); setNewPostCategory(''); setSelectedImage(null); setImagePreview(null)
+      setComposerOpen(false)
     }
     setIsPublishing(false)
   }
@@ -1261,15 +1263,16 @@ export default function FeedPage() {
           {/* ── Colonna principale ─────────────────────────────────── */}
           <div className="flex-1 min-w-0">
 
-            {/* Composer — Instagram style: avatar + input inline, no heavy card */}
+            {/* Composer — barra statica non invasiva, modal fullscreen al tap */}
             {currentUser && (
-              <div
-                className="mb-0 md:mb-4"
-                style={{ borderBottom: '0.5px solid var(--border)' }}
-              >
-                {/* Quick composer row */}
-                <div className="flex items-center gap-3 px-4 py-3">
-                  <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-[var(--bg-card)]">
+              <>
+                {/* Barra statica — sempre visibile, poco invasiva */}
+                <div
+                  className="flex items-center gap-3 px-4 py-3 cursor-pointer"
+                  style={{ borderBottom: '0.5px solid var(--border)' }}
+                  onClick={() => setComposerOpen(true)}
+                >
+                  <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-zinc-800">
                     {currentProfile?.avatar_url ? (
                       <img src={currentProfile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
                     ) : (
@@ -1278,65 +1281,104 @@ export default function FeedPage() {
                       </div>
                     )}
                   </div>
-                  <input
-                    data-testid="post-composer"
-                    value={newPostContent}
-                    onChange={e => setNewPostContent(e.target.value.slice(0, 500))}
-                    onFocus={() => {/* expand handled by textarea below */}}
-                    placeholder={f.placeholder}
-                    className="flex-1 bg-transparent text-[15px] text-[var(--text-secondary)] placeholder-[var(--text-muted)] outline-none cursor-pointer"
-                    readOnly
-                    onClick={e => (e.target as HTMLInputElement).blur()}
-                  />
+                  <span className="flex-1 text-[15px] text-zinc-500 select-none">{f.placeholder}</span>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <ImageIcon size={20} strokeWidth={1.6} className="text-zinc-500" />
+                    <Tag size={18} strokeWidth={1.6} className="text-zinc-500" />
+                  </div>
                 </div>
 
-                {/* Expanded composer — shown when user starts typing */}
-                <form onSubmit={handleCreatePost} className="px-4 pb-3">
-                  <textarea
-                    data-testid="post-composer-full"
-                    value={newPostContent}
-                    onChange={e => setNewPostContent(e.target.value.slice(0, 500))}
-                    placeholder={f.placeholder}
-                    maxLength={500}
-                    rows={newPostContent ? 4 : 1}
-                    className="w-full bg-transparent text-[15px] text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none resize-none transition-all"
-                  />
-                  {newPostContent.length >= 400 && (
-                    <p className={`text-right text-[11px] mb-2 ${newPostContent.length >= 480 ? 'text-orange-400' : 'text-[var(--text-muted)]'}`}>
-                      {500 - newPostContent.length}
-                    </p>
-                  )}
-
-                  {imagePreview && (
-                    <div className="mb-3 relative rounded-2xl overflow-hidden border border-[var(--border)]">
-                      <img src={imagePreview} alt="preview" className="max-h-72 w-full object-contain bg-black" />
-                      <button type="button" onClick={() => { setSelectedImage(null); setImagePreview(null) }}
-                        className="absolute top-2 right-2 bg-black/70 p-1.5 rounded-full hover:bg-red-600 transition">
-                        <X size={14} />
+                {/* Modal composer fullscreen — si apre al tap */}
+                {composerOpen && (
+                  <div
+                    className="fixed inset-0 z-[250] flex flex-col bg-[var(--bg-primary)]"
+                    style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+                  >
+                    {/* Header modal */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 flex-shrink-0">
+                      <button
+                        onClick={() => { setComposerOpen(false); setNewPostContent(''); setNewPostCategory(''); setSelectedImage(null); setImagePreview(null) }}
+                        className="text-zinc-400 hover:text-white transition-colors font-medium text-[15px]"
+                      >
+                        Annulla
+                      </button>
+                      <span className="text-[15px] font-semibold text-white">Nuovo post</span>
+                      <button
+                        onClick={async (e) => { await handleCreatePost(e as any); setComposerOpen(false) }}
+                        disabled={isPublishing || (!newPostContent.trim() && !selectedImage)}
+                        className="px-4 py-1.5 rounded-full text-[13px] font-semibold disabled:opacity-40 transition-all"
+                        style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)', color: 'white' }}
+                      >
+                        {isPublishing ? <Loader2 size={14} className="animate-spin" /> : f.publish}
                       </button>
                     </div>
-                  )}
 
-                  <div className="flex items-center gap-2">
-                    <label className="cursor-pointer p-1.5 rounded-full text-[var(--text-secondary)] hover:text-violet-400 hover:bg-violet-500/10 transition-all">
-                      <ImageIcon size={20} strokeWidth={1.6} />
-                      <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
-                    </label>
-                    <CategorySelector value={newPostCategory} onChange={setNewPostCategory} />
-                    <button
-                      type="submit"
-                      disabled={isPublishing || (!newPostContent.trim() && !selectedImage)}
-                      className="ml-auto px-5 py-1.5 rounded-full text-[13px] font-semibold transition-all disabled:opacity-40"
-                      style={{
-                        background: 'linear-gradient(135deg, #7c3aed, #db2777)',
-                        color: 'white',
-                      }}
-                    >
-                      {isPublishing ? <Loader2 size={14} className="animate-spin" /> : f.publish}
-                    </button>
+                    {/* Body del composer */}
+                    <div className="flex-1 overflow-y-auto px-4 pt-4">
+                      {/* Avatar + textarea */}
+                      <div className="flex gap-3">
+                        <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-zinc-800">
+                          {currentProfile?.avatar_url ? (
+                            <img src={currentProfile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-violet-600 to-fuchsia-600 flex items-center justify-center text-white text-sm font-bold">
+                              {(currentProfile?.username?.[0] || '?').toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-white mb-2">{currentProfile?.display_name || currentProfile?.username}</p>
+                          <textarea
+                            data-testid="post-composer"
+                            value={newPostContent}
+                            onChange={e => setNewPostContent(e.target.value.slice(0, 500))}
+                            placeholder={f.placeholder}
+                            maxLength={500}
+                            autoFocus
+                            rows={6}
+                            className="w-full bg-transparent text-[16px] text-white placeholder-zinc-500 outline-none resize-none leading-relaxed"
+                          />
+                          {newPostContent.length >= 400 && (
+                            <p className={`text-right text-[11px] mt-1 ${newPostContent.length >= 480 ? 'text-orange-400' : 'text-zinc-600'}`}>
+                              {500 - newPostContent.length}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Anteprima immagine */}
+                      {imagePreview && (
+                        <div className="mt-4 relative rounded-2xl overflow-hidden border border-zinc-800">
+                          <img src={imagePreview} alt="preview" className="max-h-72 w-full object-contain bg-black" />
+                          <button type="button" onClick={() => { setSelectedImage(null); setImagePreview(null) }}
+                            className="absolute top-2 right-2 bg-black/70 p-1.5 rounded-full hover:bg-red-600 transition">
+                            <X size={14} />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Categoria selezionata */}
+                      {newPostCategory && (
+                        <div className="mt-3">
+                          <CategoryBadge category={newPostCategory} onClick={() => setNewPostCategory('')} />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Footer con azioni — fisso in basso */}
+                    <div className="flex-shrink-0 border-t border-zinc-800 px-4 py-3 flex items-center gap-4">
+                      <label className="cursor-pointer flex items-center gap-2 text-zinc-400 hover:text-violet-400 transition-colors">
+                        <ImageIcon size={22} strokeWidth={1.6} />
+                        <span className="text-sm">Foto</span>
+                        <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+                      </label>
+                      <div>
+                        <CategorySelector value={newPostCategory} onChange={setNewPostCategory} />
+                      </div>
+                    </div>
                   </div>
-                </form>
-              </div>
+                )}
+              </>
             )}
 
             {/* Banner nuovi post — Instagram "Nuovi post" pill */}
