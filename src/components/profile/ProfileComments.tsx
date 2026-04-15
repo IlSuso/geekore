@@ -159,7 +159,8 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
 
   const handleDelete = async (commentId: string, authorId: string) => {
     if (!currentUserId) return
-    if (currentUserId !== authorId) return
+    // Può eliminare l'autore del commento OPPURE il proprietario del profilo
+    if (currentUserId !== authorId && !isOwner) return
 
     await supabase
       .from('profile_comments')
@@ -245,7 +246,7 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
                         locale: it,
                       })}
                     </span>
-                    {currentUserId === comment.author_id && (
+                    {(currentUserId === comment.author_id || isOwner) && (
                       <button
                         onClick={() => handleDelete(comment.id, comment.author_id)}
                         className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 transition-all"

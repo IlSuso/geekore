@@ -4,8 +4,14 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useLocale } from '@/lib/locale'
 
-export function FollowBackButton({ targetId }: { targetId: string }) {
-  const [isFollowing, setIsFollowing] = useState<boolean | null>(null)
+export function FollowBackButton({
+  targetId,
+  isFollowingInitial,
+}: {
+  targetId: string
+  isFollowingInitial?: boolean
+}) {
+  const [isFollowing, setIsFollowing] = useState<boolean | null>(isFollowingInitial ?? null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
@@ -17,13 +23,15 @@ export function FollowBackButton({ targetId }: { targetId: string }) {
       if (!user) return
       setCurrentUserId(user.id)
       if (user.id === targetId) return
+      // Se isFollowingInitial è già stato passato, non fare la query
+      if (isFollowingInitial !== undefined) return
       const { data } = await supabase
         .from('follows').select('follower_id')
         .eq('follower_id', user.id).eq('following_id', targetId).maybeSingle()
       setIsFollowing(!!data)
     }
     check()
-  }, [targetId])
+  }, [targetId, isFollowingInitial])
 
   if (isFollowing === null || !currentUserId || currentUserId === targetId) return null
 

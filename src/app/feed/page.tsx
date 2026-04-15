@@ -19,7 +19,7 @@ import { createClient } from '@/lib/supabase/client'
 import { User } from '@supabase/supabase-js'
 import {
   Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X,
-  Loader2, Pin, ArrowUp, Trash2, Tag, ChevronDown, Filter, Search,
+  Loader2, Pin, ArrowUp, Trash2, Tag, ChevronDown, Filter, Search, MoreHorizontal,
   Film, Tv, Gamepad2, BookOpen, Dices, Swords, Check, PartyPopper,
   Bell, ChevronRight, ArrowLeft, Flame
 } from 'lucide-react'
@@ -630,29 +630,28 @@ function ConfirmDialog({
   if (!open) return null
   return (
     <div
-      className="fixed inset-0 z-[300] bg-black/70 animate-in fade-in duration-150"
-      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+      className="fixed inset-0 z-[300] bg-black/60 animate-in fade-in duration-150"
+      style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
       onClick={onCancel}
     >
       <div
-        className="bg-zinc-900 border border-zinc-700 rounded-3xl w-full max-w-xs p-6 shadow-2xl animate-in zoom-in-95 duration-150"
+        className="w-full max-w-sm mb-4 mx-4 animate-in slide-in-from-bottom-4 duration-200"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 mx-auto mb-4">
-          <Trash2 size={20} className="text-red-400" />
-        </div>
-        <h3 className="text-white font-bold text-center mb-1">{title}</h3>
-        <p className="text-zinc-500 text-sm text-center mb-6">{message}</p>
-        <div className="flex gap-2">
-          <button onClick={onCancel}
-            className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-sm font-semibold transition">
-            Annulla
-          </button>
+        <div className="bg-zinc-800 rounded-2xl overflow-hidden mb-2">
+          <div className="px-4 py-3 border-b border-zinc-700/50">
+            <p className="text-white font-semibold text-sm text-center">{title}</p>
+            <p className="text-zinc-400 text-xs text-center mt-0.5">{message}</p>
+          </div>
           <button onClick={onConfirm}
-            className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition">
+            className="w-full py-3.5 text-red-400 font-semibold text-sm hover:bg-zinc-700/50 transition-colors">
             Elimina
           </button>
         </div>
+        <button onClick={onCancel}
+          className="w-full bg-zinc-800 rounded-2xl py-3.5 text-white font-semibold text-sm hover:bg-zinc-700 transition-colors">
+          Annulla
+        </button>
       </div>
     </div>
   )
@@ -738,8 +737,8 @@ const PostCard = memo(function PostCard({
           </div>
         </div>
         {currentUser?.id === post.user_id && (
-          <button onClick={() => setConfirmPost(true)} className="p-2 rounded-xl text-zinc-600 hover:text-red-400 hover:bg-red-400/10 transition-all">
-            <Trash2 size={14} />
+          <button onClick={() => setConfirmPost(true)} className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all">
+            <MoreHorizontal size={18} />
           </button>
         )}
       </div>
@@ -793,14 +792,24 @@ const PostCard = memo(function PostCard({
       {post.comments.length > 0 && !isCommenting && (
         <div className="px-5 pb-4 border-t border-zinc-800/40 pt-3 bg-black/10 space-y-2">
           {post.comments.slice(0, 2).map(comment => (
-            <div key={comment.id} className="flex gap-2.5">
+            <div key={comment.id} className="flex gap-2.5 group/previewcomment">
               <Link href={`/profile/${comment.username}`} className="w-7 h-7 rounded-xl overflow-hidden flex-shrink-0 hover:ring-2 hover:ring-violet-500/50 transition-all mt-0.5">
                 <Avatar src={undefined} username={comment.username || 'user'} displayName={comment.display_name} size={28} className="rounded-xl" />
               </Link>
               <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3.5 py-2 flex-1 min-w-0">
-                <Link href={`/profile/${comment.username}`} className="text-[10px] font-bold text-violet-400 uppercase tracking-wider hover:text-violet-300">
-                  @{comment.username}
-                </Link>
+                <div className="flex items-center justify-between gap-2">
+                  <Link href={`/profile/${comment.username}`} className="text-[10px] font-bold text-violet-400 uppercase tracking-wider hover:text-violet-300">
+                    @{comment.username}
+                  </Link>
+                  {currentUser?.id === comment.user_id && (
+                    <button
+                      onClick={() => setConfirmComment(comment.id)}
+                      className="opacity-0 group-hover/previewcomment:opacity-100 text-zinc-600 hover:text-red-400 transition-all p-0.5"
+                    >
+                      <MoreHorizontal size={12} />
+                    </button>
+                  )}
+                </div>
                 <p className="text-zinc-300 text-xs mt-0.5 leading-snug">{comment.content}</p>
               </div>
             </div>
@@ -829,8 +838,8 @@ const PostCard = memo(function PostCard({
                         @{comment.username}
                       </Link>
                       {currentUser?.id === comment.user_id && (
-                        <button onClick={() => setConfirmComment(comment.id)} className="text-zinc-600 hover:text-red-400 transition-colors">
-                          <Trash2 size={11} />
+                        <button onClick={() => setConfirmComment(comment.id)} className="text-zinc-600 hover:text-red-400 transition-colors p-0.5">
+                          <MoreHorizontal size={13} />
                         </button>
                       )}
                     </div>
@@ -1203,21 +1212,8 @@ export default function FeedPage() {
       if (current.category) trackAffinity(supabase, currentUser.id, current.category)
     } else { haptic(20) }
     setPosts(prev => prev.map((p, i) => i === postIndex ? { ...p, likes_count: willLike ? p.likes_count + 1 : p.likes_count - 1, liked_by_user: willLike } : p))
-    if (willLike) {
-      await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id })
-      if (current.user_id && current.user_id !== currentUser.id) {
-        await supabase.from('notifications').insert({
-          type: 'like', sender_id: currentUser.id, receiver_id: current.user_id, post_id: postId,
-        })
-        fetch('/api/social/like', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ post_id: postId, action: 'push_only' }),
-        }).catch(() => {})
-      }
-    } else {
-      await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
-    }
+    if (willLike) await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id })
+    else await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
   }, [currentUser, posts, supabase])
 
   const toggleLikePinned = useCallback(async (postId: string) => {
@@ -1233,21 +1229,8 @@ export default function FeedPage() {
       if (current.category) trackAffinity(supabase, currentUser.id, current.category)
     }
     setPinnedPosts(prev => prev.map((p, i) => i === postIndex ? { ...p, likes_count: willLike ? p.likes_count + 1 : p.likes_count - 1, liked_by_user: willLike } : p))
-    if (willLike) {
-      await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id })
-      if (current.user_id && current.user_id !== currentUser.id) {
-        await supabase.from('notifications').insert({
-          type: 'like', sender_id: currentUser.id, receiver_id: current.user_id, post_id: postId,
-        })
-        fetch('/api/social/like', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ post_id: postId, action: 'push_only' }),
-        }).catch(() => {})
-      }
-    } else {
-      await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
-    }
+    if (willLike) await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id })
+    else await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
   }, [currentUser, pinnedPosts, supabase])
 
   const handleAddComment = useCallback(async (postId: string) => {
@@ -1262,16 +1245,6 @@ export default function FeedPage() {
     }
     setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments_count: p.comments_count + 1, comments: [newCommentTemp, ...p.comments] } : p))
     await supabase.from('comments').insert({ post_id: postId, user_id: currentUser.id, content: commentContent.trim() })
-    if (post?.user_id && post.user_id !== currentUser.id) {
-      await supabase.from('notifications').insert({
-        type: 'comment', sender_id: currentUser.id, receiver_id: post.user_id, post_id: postId,
-      })
-      fetch('/api/social/comment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ post_id: postId, action: 'push_only' }),
-      }).catch(() => {})
-    }
     setCommentContent(''); setCommentingPostId(null)
   }, [commentContent, currentUser, currentProfile, posts, supabase])
 

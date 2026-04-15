@@ -66,7 +66,28 @@ export default function NotificationsPage() {
       .limit(50)
 
     const list = data || []
-    setNotifications(list)
+
+    // Batch-load follow status per tutti i sender di notifiche follow
+    // Evita N query separate nel FollowBackButton
+    const followSenderIds = [...new Set(
+      list.filter((n: any) => n.type === 'follow' && n.sender_id).map((n: any) => n.sender_id)
+    )]
+    let followingSet = new Set<string>()
+    if (followSenderIds.length > 0) {
+      const { data: followData } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', user.id)
+        .in('following_id', followSenderIds)
+      followingSet = new Set((followData || []).map((f: any) => f.following_id))
+    }
+
+    const listWithFollow = list.map((n: any) => ({
+      ...n,
+      _isFollowing: n.type === 'follow' && n.sender_id ? followingSet.has(n.sender_id) : undefined,
+    }))
+
+    setNotifications(listWithFollow)
     setLoading(false)
 
     const unread = list.filter((n: any) => !n.is_read).length
@@ -206,16 +227,10 @@ export default function NotificationsPage() {
                         </p>
                       </div>
 
-                      {/* Right side: follow back button or post preview */}
+                      {/* Right side: follow back button */}
                       <div className="flex-shrink-0">
                         {n.type === 'follow' && n.sender_id ? (
-                          <FollowBackButton targetId={n.sender_id} />
-                        ) : n.post_id ? (
-                          <Link href={`/feed#${n.post_id}`}>
-                            <div className="w-10 h-10 bg-[var(--bg-card)] rounded-lg border border-[var(--border)] flex items-center justify-center">
-                              <div className="w-5 h-5 bg-[var(--border)] rounded" />
-                            </div>
-                          </Link>
+                          <FollowBackButton targetId={n.sender_id} isFollowingInitial={n._isFollowing} />
                         ) : null}
                       </div>
                     </div>

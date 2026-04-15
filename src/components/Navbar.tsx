@@ -99,6 +99,7 @@ function NotificationPopover({
 }) {
   const { t } = useLocale()                     // ← spostato in alto, prima di qualsiasi altro hook
   const supabase = createClient()
+  const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const ref = useRef<HTMLDivElement>(null)
@@ -107,7 +108,14 @@ function NotificationPopover({
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose()
     }
-    if (open) document.addEventListener('mousedown', handler)
+    if (open) {
+      // Delay to avoid the same click that opened the popover closing it immediately
+      const timer = setTimeout(() => document.addEventListener('mousedown', handler), 10)
+      return () => {
+        clearTimeout(timer)
+        document.removeEventListener('mousedown', handler)
+      }
+    }
     return () => document.removeEventListener('mousedown', handler)
   }, [open, onClose])
 
@@ -184,17 +192,13 @@ function NotificationPopover({
             >
               <div className="relative flex-shrink-0">
                 <div className="w-9 h-9 rounded-full overflow-hidden bg-zinc-800">
-                  {n.sender ? (
+                  {n.sender && (
                     <Avatar
                       src={n.sender.avatar_url}
                       username={n.sender.username}
                       displayName={n.sender.display_name}
                       size={36}
                     />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Bell size={14} className="text-zinc-500" />
-                    </div>
                   )}
                 </div>
                 <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-zinc-900 border border-zinc-800 rounded-full flex items-center justify-center">
@@ -217,13 +221,12 @@ function NotificationPopover({
 
       {/* Footer */}
       {preview.length > 0 && (
-        <Link
-          href="/notifications"
-          onClick={onClose}
-          className="flex items-center justify-center gap-1.5 px-4 py-3 border-t border-zinc-800 text-xs font-medium text-violet-400 hover:text-violet-300 hover:bg-zinc-800/40 transition-all"
+        <button
+          onClick={() => { onClose(); router.push('/notifications') }}
+          className="w-full flex items-center justify-center gap-1.5 px-4 py-3 border-t border-zinc-800 text-xs font-medium text-violet-400 hover:text-violet-300 hover:bg-zinc-800/40 transition-all"
         >
           {hasMore ? `Altre notifiche →` : 'Vedi tutte →'}
-        </Link>
+        </button>
       )}
     </div>
   )
