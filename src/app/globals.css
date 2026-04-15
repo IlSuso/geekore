@@ -628,25 +628,36 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
   to   { transform: rotate(360deg); }
 }
 
-/* ── Samsung/Android: navigation bar (gesture bar) nera ─────────────────── */
-/* Su Android la gesture bar prende il colore dal background dell'elemento
-   più in basso nel viewport. Forziamo nero su tutto il body. */
+/* ── Android/Samsung: forza sfondo nero ovunque ─────────────────────────── */
 html, body {
   background-color: #000000 !important;
+  /* Android edge-to-edge: il contenuto va sotto la nav bar di sistema */
 }
 
-/* Safe area bottom: assicura che lo sfondo nero continui sotto la gesture bar */
-@supports (padding-bottom: env(safe-area-inset-bottom)) {
-  body::after {
+/* Estende la bottom nav fino al bordo fisico dello schermo */
+@media (max-width: 767px) {
+  /* La bottom nav copre tutta la zona bassa inclusa safe area */
+  nav.mobile-nav {
+    background-color: #000000 !important;
+    /* Estende il nero sotto la gesture bar */
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    /* Usa box-shadow verso il basso per riempire qualsiasi gap */
+    box-shadow: 0 20px 0 20px #000000;
+  }
+
+  /* Overlay nero fisso che copre esattamente la zona safe-area-bottom */
+  body::before {
     content: '';
-    display: block;
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    height: env(safe-area-inset-bottom);
+    height: calc(env(safe-area-inset-bottom, 0px) + 60px);
     background: #000000;
-    z-index: 99;
+    z-index: 98; /* sotto la nav ma sopra il contenuto */
     pointer-events: none;
   }
+
+  /* Il MobileHeader con bg-black e paddingTop:env(safe-area-inset-top)
+     copre già la status bar — non serve un overlay aggiuntivo */
 }
