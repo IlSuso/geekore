@@ -1,7 +1,7 @@
 // src/lib/push.ts
 
 import webpush from 'web-push'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
@@ -22,26 +22,26 @@ export interface PushPayload {
 export async function sendPushToUser(userId: string, payload: PushPayload): Promise<void> {
   const tag = `[Push:${payload.tag || 'notif'}]`
 
-  // 1. VAPID keys
   if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
-    console.error(`${tag} ❌ VAPID keys mancanti sul server — notifica non inviata`)
+    console.error(`${tag} ❌ VAPID keys mancanti sul server`)
     return
   }
 
-  // 2. Cerca subscription nel DB
-  const supabase = await createClient()
+  // FIX: usa service client per bypassare la RLS su push_subscriptions
+  const supabase = createServiceClient()
+
   const { data: subscriptions, error: dbError } = await supabase
     .from('push_subscriptions')
     .select('endpoint, p256dh, auth')
     .eq('user_id', userId)
 
   if (dbError) {
-    console.error(`${tag} ❌ Errore DB cercando subscription per user ${userId}:`, dbError.message)
+    console.error(`${tag} ❌ Errore DB per user ${userId}:`, dbError.message)
     return
   }
 
   if (!subscriptions || subscriptions.length === 0) {
-    console.warn(`${tag} ⚠️ Nessuna subscription trovata nel DB per user ${userId} — l'utente non ha attivato le notifiche o la subscription è scaduta`)
+    console.warn(`${tag} ⚠️ Nessuna subscription trovata nel DB per user ${userId}`)
     return
   }
 
@@ -70,15 +70,14 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
           console.warn(`${tag} ♻️ Subscription scaduta (${err.statusCode}), verrà rimossa: ${endpointShort}`)
           expiredEndpoints.push(sub.endpoint)
         } else {
-          console.error(`${tag} ❌ Errore invio dispositivo #${i + 1} (status ${err.statusCode}): ${err.message} — endpoint: ${endpointShort}`)
+          console.error(`${tag} ❌ Errore invio #${i + 1} (status ${err.statusCode}): ${err.message}`)
         }
       }
     })
   )
 
-  // Pulisci subscription scadute
   if (expiredEndpoints.length > 0) {
-    console.log(`${tag} 🗑️ Rimozione ${expiredEndpoints.length} subscription scadute per user ${userId}`)
+    console.log(`${tag} 🗑️ Rimozione ${expiredEndpoints.length} subscription scadute`)
     await supabase
       .from('push_subscriptions')
       .delete()
