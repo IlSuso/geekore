@@ -33,17 +33,17 @@ export function MobileHeader() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const isProfilePage = pathname.startsWith('/profile/')
 
-  // Dati utente per header profilo + badge notifiche
+  // Dati utente per header profilo + badge notifiche (su tutte le pagine)
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
-      if (pathname === '/feed' || pathname === '/') {
-        supabase.from('notifications')
-          .select('id', { count: 'exact', head: true })
-          .eq('receiver_id', user.id).eq('is_read', false)
-          .then(({ count }) => { if (count && count > 0) setUnread(true) })
-      }
+      // Badge notifiche sempre
+      supabase.from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('receiver_id', user.id).eq('is_read', false)
+        .then(({ count }) => { if (count && count > 0) setUnread(true) })
+      // Dati profilo
       if (isProfilePage) {
         supabase.from('profiles').select('username, avatar_url').eq('id', user.id).single()
           .then(({ data }) => { if (data) { setUsername(data.username); setAvatarUrl(data.avatar_url) } })
@@ -129,6 +129,15 @@ export function MobileHeader() {
               <Settings size={21} strokeWidth={1.8} />
             </Link>
           </>)}
+          {/* Campanella con badge su tutte le pagine (tranne feed che ce l'ha già, e notifiche stessa) */}
+          {!isFeed && !isOwnProfile && !isOtherProfile && pathname !== '/notifications' && (
+            <Link href="/notifications"
+              className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors relative"
+              onClick={() => setUnread(false)}>
+              <Bell size={22} strokeWidth={1.8} />
+              {unread && <span className="absolute top-2.5 right-2 w-[8px] h-[8px] bg-red-500 rounded-full border-[1.5px] border-black" />}
+            </Link>
+          )}
           {pathname === '/notifications' && (
             <Link href="/settings" className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
               <Settings size={21} strokeWidth={1.8} />

@@ -4,7 +4,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  Home, Search, Bell, Zap, Newspaper, Sparkles,
+  Home, Search, Bell, Zap, Newspaper, Sparkles, TrendingUp,
   ChevronDown, Edit3, Bookmark, User, Settings, LogOut,
   X, Sun, Moon, Users, Heart, UserPlus, MessageSquare, Star,
 } from 'lucide-react'
@@ -272,11 +272,11 @@ export default function Navbar() {
   ]
 
   const MOBILE_NAV_ITEMS = [
-    { href: '/feed',          label: t.nav.home,          icon: Home,    hasDot: false },
-    { href: '/discover',      label: t.nav.discover,      icon: Search,  hasDot: false },
-    { href: '/for-you',       label: t.nav.forYou,        icon: Sparkles,hasDot: false },
-    { href: '/notifications', label: t.nav.notifications, icon: Bell,    hasDot: true  },
-    { href: '/profile/me',    label: t.nav.profile,       icon: User,    hasDot: false },
+    { href: '/feed',       label: t.nav.home,     icon: Home,     hasDot: false },
+    { href: '/discover',   label: t.nav.discover, icon: Search,   hasDot: false },
+    { href: '/for-you',    label: t.nav.forYou,   icon: Sparkles, hasDot: false },
+    { href: '/trending',   label: 'Trending',     icon: TrendingUp, hasDot: false },
+    { href: '/profile/me', label: t.nav.profile,  icon: User,     hasDot: false },
   ]
 
   useEffect(() => {

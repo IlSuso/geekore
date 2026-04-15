@@ -859,13 +859,15 @@ export default function ForYouPage() {
   })
 
   if (loading) return (
-    <div className="min-h-screen bg-black text-white pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-3 sm:px-4 md:px-6">
-      <div className="mb-10 animate-pulse">
-        <div className="h-10 w-48 bg-zinc-800 rounded-2xl mb-3" />
-        <div className="h-5 w-80 bg-zinc-900 rounded-xl" />
+    <div className="min-h-screen bg-black text-white">
+      <div className="pt-2 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
+        <div className="mb-10 animate-pulse">
+          <div className="h-10 w-48 bg-zinc-800 rounded-2xl mb-3" />
+          <div className="h-5 w-80 bg-zinc-900 rounded-xl" />
+        </div>
+        <SkeletonFriendsWatching />
+        {[1, 2, 3].map(i => <SkeletonForYouRow key={i} />)}
       </div>
-      <SkeletonFriendsWatching />
-      {[1, 2, 3].map(i => <SkeletonForYouRow key={i} />)}
     </div>
   )
 
