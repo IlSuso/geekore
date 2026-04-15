@@ -27,110 +27,12 @@ const TYPE_ICON: Record<string, React.ElementType> = {
   tv: Tv, movie: Film, boardgame: Dices,
 }
 
-// ── Suggested Users — Instagram style ─────────────────────────────────────────
-
-function SuggestedUsers({ currentUserId }: { currentUserId: string | null }) {
-  const [users, setUsers] = useState<SuggestedUser[]>([])
-  const [followed, setFollowed] = useState<Set<string>>(new Set())
-  const [currentProfile, setCurrentProfile] = useState<any>(null)
-
-  useEffect(() => {
-    if (!currentUserId) return
-    const supabase = createClient()
-
-    supabase.from('profiles').select('username, display_name, avatar_url').eq('id', currentUserId).single()
-      .then(({ data }) => setCurrentProfile(data))
-
-    const fetchSuggested = async () => {
-      const { data: follows } = await supabase.from('follows').select('following_id').eq('follower_id', currentUserId)
-      const followingIds = new Set((follows || []).map((f: any) => f.following_id))
-      followingIds.add(currentUserId)
-      const { data } = await supabase.from('profiles').select('id, username, display_name, avatar_url')
-        .order('created_at', { ascending: false }).limit(20)
-      setUsers(((data || []).filter((u: any) => !followingIds.has(u.id)).slice(0, 5)))
-    }
-    fetchSuggested()
-  }, [currentUserId])
-
-  const handleFollow = async (userId: string) => {
-    if (!currentUserId) return
-    const supabase = createClient()
-    await supabase.from('follows').insert({ follower_id: currentUserId, following_id: userId })
-    setFollowed(prev => new Set([...prev, userId]))
-  }
-
-  if (!currentProfile) return null
-
-  return (
-    <div>
-      {/* Current user card */}
-      <div className="flex items-center gap-3 mb-5 px-1">
-        <Link href="/profile/me" className="flex-shrink-0">
-          <div className="w-11 h-11 rounded-full overflow-hidden ring-[1.5px] ring-[var(--border)]">
-            <Avatar src={currentProfile.avatar_url} username={currentProfile.username} displayName={currentProfile.display_name} size={44} />
-          </div>
-        </Link>
-        <div className="flex-1 min-w-0">
-          <Link href="/profile/me">
-            <p className="text-[14px] font-semibold text-[var(--text-primary)] truncate hover:opacity-70 transition-opacity">
-              {currentProfile.username}
-            </p>
-          </Link>
-          <p className="text-[12px] text-[var(--text-secondary)] truncate">{currentProfile.display_name}</p>
-        </div>
-        <Link href="/settings" className="text-[12px] font-semibold text-violet-400 hover:text-violet-300 transition-colors flex-shrink-0">
-          Impostazioni
-        </Link>
-      </div>
-
-      {/* Suggested */}
-      {users.length > 0 && (
-        <>
-          <div className="flex items-center justify-between mb-3 px-1">
-            <p className="text-[12px] font-semibold text-[var(--text-secondary)]">Suggeriti per te</p>
-            <Link href="/explore" className="text-[11px] font-semibold text-[var(--text-primary)] hover:opacity-70 transition-opacity">
-              Vedi tutti
-            </Link>
-          </div>
-
-          <div className="space-y-3">
-            {users.map(user => (
-              <div key={user.id} className="flex items-center gap-3 px-1">
-                <Link href={`/profile/${user.username}`} className="flex-shrink-0">
-                  <div className="w-9 h-9 rounded-full overflow-hidden">
-                    <Avatar src={user.avatar_url} username={user.username} displayName={user.display_name} size={36} />
-                  </div>
-                </Link>
-                <div className="flex-1 min-w-0">
-                  <Link href={`/profile/${user.username}`}>
-                    <p className="text-[13px] font-semibold text-[var(--text-primary)] truncate hover:opacity-70 transition-opacity">
-                      {user.username}
-                    </p>
-                  </Link>
-                  <p className="text-[11px] text-[var(--text-secondary)] truncate">
-                    {user.display_name || 'Nuovo su Geekore'}
-                  </p>
-                </div>
-                {followed.has(user.id) ? (
-                  <span className="text-[12px] font-semibold text-[var(--text-secondary)] flex-shrink-0">Seguito ✓</span>
-                ) : (
-                  <button
-                    onClick={() => handleFollow(user.id)}
-                    className="flex-shrink-0 text-[12px] font-semibold text-violet-400 hover:text-violet-300 transition-colors"
-                  >
-                    Segui
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
 // ── Trending minimal ──────────────────────────────────────────────────────────
+
+const CATEGORY_LABEL: Record<string, string> = {
+  anime: 'Anime', manga: 'Manga', game: 'Videogioco',
+  tv: 'Serie TV', movie: 'Film', boardgame: 'Board Game',
+}
 
 function TrendingMini() {
   const [items, setItems] = useState<TrendingItem[]>([])
@@ -148,35 +50,43 @@ function TrendingMini() {
           if (map.has(key)) map.get(key)!.count++
           else map.set(key, { title: row.title, type: row.type, cover_image: row.cover_image, count: 1 })
         }
-        setItems([...map.values()].sort((a, b) => b.count - a.count).slice(0, 5))
+        setItems([...map.values()].sort((a, b) => b.count - a.count).slice(0, 7))
       })
   }, [])
 
   if (!items.length) return null
 
   return (
-    <div className="mt-6 px-1">
+    <div className="px-1">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-[12px] font-semibold text-[var(--text-secondary)]">Trending questa settimana</p>
-        <Link href="/trending" className="text-[11px] font-semibold text-[var(--text-primary)] hover:opacity-70 transition-opacity">
+        <div className="flex items-center gap-1.5">
+          <TrendingUp size={13} className="text-fuchsia-400" />
+          <p className="text-[12px] font-semibold text-[var(--text-secondary)]">Trending questa settimana</p>
+        </div>
+        <Link href="/trending" className="text-[11px] font-semibold text-violet-400 hover:text-violet-300 transition-colors">
           Vedi tutti
         </Link>
       </div>
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {items.map((item, i) => {
           const Icon = TYPE_ICON[item.type] || Film
           return (
-            <div key={`${item.type}-${item.title}`} className="flex items-center gap-3">
-              <span className="text-[12px] font-semibold text-[var(--text-muted)] w-4 text-center flex-shrink-0">{i + 1}</span>
-              <div className="w-8 h-11 rounded-md overflow-hidden bg-[var(--bg-card)] flex-shrink-0">
+            <div key={`${item.type}-${item.title}`} className="flex items-center gap-3 group">
+              <span className="text-[11px] font-bold text-[var(--text-muted)] w-4 text-center flex-shrink-0 tabular-nums">{i + 1}</span>
+              <div className="w-9 h-12 rounded-lg overflow-hidden bg-zinc-800 flex-shrink-0 ring-1 ring-zinc-700/50">
                 {item.cover_image
-                  ? <img src={item.cover_image} alt={item.title} className="w-full h-full object-cover" />
-                  : <div className="w-full h-full flex items-center justify-center"><Icon size={14} className="text-[var(--text-muted)]" /></div>
+                  ? <img src={item.cover_image} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  : <div className="w-full h-full flex items-center justify-center"><Icon size={15} className="text-[var(--text-muted)]" /></div>
                 }
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium text-[var(--text-primary)] truncate leading-tight">{item.title}</p>
-                <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{item.count} {item.count === 1 ? 'aggiunta' : 'aggiunte'}</p>
+                <p className="text-[13px] font-semibold text-[var(--text-primary)] truncate leading-tight">{item.title}</p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[10px] font-medium text-fuchsia-400/80 bg-fuchsia-500/10 px-1.5 py-px rounded-full">
+                    {CATEGORY_LABEL[item.type] || item.type}
+                  </span>
+                  <span className="text-[10px] text-[var(--text-muted)]">{item.count} {item.count === 1 ? 'aggiunta' : 'aggiunte'}</span>
+                </div>
               </div>
             </div>
           )
@@ -210,9 +120,79 @@ function FooterLinks() {
 export function FeedSidebar({ currentUserId }: { currentUserId: string | null }) {
   return (
     <aside className="py-4">
-      <SuggestedUsers currentUserId={currentUserId} />
       <TrendingMini />
+      {currentUserId && <SuggestedUsersCompact currentUserId={currentUserId} />}
       <FooterLinks />
     </aside>
+  )
+}
+
+// ── Suggested Users (compact, senza user card in cima) ────────────────────────
+
+function SuggestedUsersCompact({ currentUserId }: { currentUserId: string }) {
+  const [users, setUsers] = useState<SuggestedUser[]>([])
+  const [followed, setFollowed] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    const supabase = createClient()
+    const fetchSuggested = async () => {
+      const { data: follows } = await supabase.from('follows').select('following_id').eq('follower_id', currentUserId)
+      const followingIds = new Set((follows || []).map((f: any) => f.following_id))
+      followingIds.add(currentUserId)
+      const { data } = await supabase.from('profiles').select('id, username, display_name, avatar_url')
+        .order('created_at', { ascending: false }).limit(20)
+      setUsers(((data || []).filter((u: any) => !followingIds.has(u.id)).slice(0, 5)))
+    }
+    fetchSuggested()
+  }, [currentUserId])
+
+  const handleFollow = async (userId: string) => {
+    const supabase = createClient()
+    await supabase.from('follows').insert({ follower_id: currentUserId, following_id: userId })
+    setFollowed(prev => new Set([...prev, userId]))
+  }
+
+  if (!users.length) return null
+
+  return (
+    <div className="mt-6 px-1">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[12px] font-semibold text-[var(--text-secondary)]">Suggeriti per te</p>
+        <Link href="/explore" className="text-[11px] font-semibold text-[var(--text-primary)] hover:opacity-70 transition-opacity">
+          Vedi tutti
+        </Link>
+      </div>
+      <div className="space-y-3">
+        {users.map(user => (
+          <div key={user.id} className="flex items-center gap-3">
+            <Link href={`/profile/${user.username}`} className="flex-shrink-0">
+              <div className="w-9 h-9 rounded-full overflow-hidden">
+                <Avatar src={user.avatar_url} username={user.username} displayName={user.display_name} size={36} />
+              </div>
+            </Link>
+            <div className="flex-1 min-w-0">
+              <Link href={`/profile/${user.username}`}>
+                <p className="text-[13px] font-semibold text-[var(--text-primary)] truncate hover:opacity-70 transition-opacity">
+                  {user.username}
+                </p>
+              </Link>
+              <p className="text-[11px] text-[var(--text-secondary)] truncate">
+                {user.display_name || 'Nuovo su Geekore'}
+              </p>
+            </div>
+            {followed.has(user.id) ? (
+              <span className="text-[12px] font-semibold text-[var(--text-secondary)] flex-shrink-0">Seguito ✓</span>
+            ) : (
+              <button
+                onClick={() => handleFollow(user.id)}
+                className="flex-shrink-0 text-[12px] font-semibold text-violet-400 hover:text-violet-300 transition-colors"
+              >
+                Segui
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }

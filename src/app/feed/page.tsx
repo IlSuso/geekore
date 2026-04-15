@@ -343,8 +343,8 @@ function CategorySelector({ value, onChange }: { value: string; onChange: (val: 
       </button>
 
       {open && (
-        <div className="absolute top-full mt-2 left-0 z-50 bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
-          style={{ minWidth: selectedCat ? 320 : 280 }}>
+        <div className="fixed sm:absolute inset-x-0 sm:inset-x-auto bottom-0 sm:bottom-auto top-auto sm:top-full left-0 sm:left-0 mt-0 sm:mt-2 z-[270] bg-zinc-900 border-t sm:border border-zinc-700 rounded-t-3xl sm:rounded-2xl shadow-2xl shadow-black/60 w-full sm:w-auto overflow-hidden pb-6 sm:pb-0"
+          style={{ minWidth: selectedCat ? 'min(320px, 100vw)' : 'min(280px, 100vw)' }}>
           <div className="p-3">
             {!selectedCat ? (
               <>
@@ -517,7 +517,7 @@ function CategoryFilter({
       </button>
 
       {open && (
-        <div className="absolute top-full mt-2 left-0 z-50 bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl shadow-black/60 w-[300px] p-3">
+        <div className="fixed sm:absolute top-auto sm:top-full left-0 right-0 sm:left-auto sm:right-auto bottom-0 sm:bottom-auto mt-0 sm:mt-2 z-50 bg-zinc-900 border border-zinc-700 rounded-t-3xl sm:rounded-2xl shadow-2xl shadow-black/60 w-full sm:w-[300px] p-3 pb-6 sm:pb-3">
           <p className="text-[10px] text-zinc-500 font-semibold px-1 pb-2 uppercase tracking-wider">Filtra per categoria</p>
 
           {/* Macro chips */}
@@ -1297,10 +1297,26 @@ export default function FeedPage() {
 
                 {/* Modal composer fullscreen — si apre al tap */}
                 {composerOpen && (
-                  <div
-                    className="fixed inset-0 z-[250] flex flex-col bg-[var(--bg-primary)]"
-                    style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
-                  >
+                  <>
+                    {/* Overlay backdrop */}
+                    <div
+                      className="fixed inset-0 z-[250] bg-black/60 backdrop-blur-sm"
+                      onClick={() => { setComposerOpen(false); setNewPostContent(''); setNewPostCategory(''); setSelectedImage(null); setImagePreview(null) }}
+                    />
+
+                    {/* Modal: popup centrato su desktop, fullscreen su mobile */}
+                    <div
+                      className={[
+                        'fixed z-[260] bg-[var(--bg-primary)] flex flex-col',
+                        // Mobile: fullscreen
+                        'inset-0',
+                        // Desktop: popup centrato
+                        'sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2',
+                        'sm:w-[560px] sm:max-h-[80vh] sm:rounded-2xl sm:shadow-2xl sm:border sm:border-zinc-700/60',
+                      ].join(' ')}
+                      style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+                      onClick={e => e.stopPropagation()}
+                    >
                     {/* Header modal */}
                     <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 flex-shrink-0">
                       <button
@@ -1337,6 +1353,7 @@ export default function FeedPage() {
                           <p className="text-[15px] font-bold text-white mb-3">{currentProfile?.display_name || currentProfile?.username}</p>
                           <textarea
                             data-testid="post-composer"
+                            autoFocus
                             value={newPostContent}
                             onChange={e => setNewPostContent(e.target.value.slice(0, 500))}
                             placeholder={f.placeholder}
@@ -1371,21 +1388,25 @@ export default function FeedPage() {
                       )}
                     </div>
 
-                    {/* Footer con azioni — fisso in basso */}
-                    <div className="flex-shrink-0 border-t border-zinc-800 px-4 py-4 flex items-center gap-2">
-                      <label className="cursor-pointer flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-800 border border-zinc-700 hover:border-violet-500/50 text-zinc-300 hover:text-violet-300 transition-all text-[13px] font-medium">
+                    {/* Footer con azioni — fisso in basso, rimane visibile sopra la tastiera */}
+                    <div
+                      className="flex-shrink-0 border-t border-zinc-800 px-4 py-3 flex items-center gap-2 bg-[var(--bg-primary)]"
+                      style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
+                    >
+                      <label className="cursor-pointer flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-zinc-800/80 active:bg-zinc-700 border border-zinc-700 text-zinc-300 transition-all text-[13px] font-medium select-none">
                         <ImageIcon size={17} strokeWidth={1.6} />
-                        <span>Foto</span>
+                        <span className="hidden sm:inline">Foto</span>
                         <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
                       </label>
-                      <div>
+                      <div className="relative z-[280]">
                         <CategorySelector value={newPostCategory} onChange={setNewPostCategory} />
                       </div>
-                      <div className="ml-auto text-[12px] text-zinc-600 font-medium">
+                      <div className="ml-auto text-[12px] text-zinc-500 font-medium tabular-nums">
                         {newPostContent.length}/500
                       </div>
                     </div>
                   </div>
+                  </>
                 )}
               </>
             )}
