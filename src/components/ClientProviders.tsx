@@ -37,10 +37,27 @@ function RecsWarmer() {
   return null
 }
 
+// Forza theme-color nero via JS — più affidabile del solo meta tag su Android PWA
+function ThemeColorEnforcer() {
+  useEffect(() => {
+    const setBlack = () => {
+      document.querySelectorAll('meta[name="theme-color"]').forEach(m => {
+        (m as HTMLMetaElement).content = '#000000'
+      })
+    }
+    setBlack()
+    // Ripeti ad ogni navigazione (Next.js router)
+    window.addEventListener('popstate', setBlack)
+    return () => window.removeEventListener('popstate', setBlack)
+  }, [])
+  return null
+}
+
 export function ClientProviders({ children, initialLocale = 'it' }: { children: React.ReactNode; initialLocale?: 'it' | 'en' }) {
   return (
     <ThemeProvider>
       <LocaleProvider initialLocale={initialLocale}>
+        <ThemeColorEnforcer />
         <ServiceWorkerRegistrar />
         <SyncStatusListener />
         <NavigationProgress />
