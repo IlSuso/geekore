@@ -1,9 +1,9 @@
 // public/sw.js
 // Service Worker Geekore — PWA offline support + navigation speed
-// v5: stale-while-revalidate per pagine nav, cache-first per static assets
+// v6: fix push notifications Android (silent:false, renotify, tag)
 
-const CACHE_NAME = 'geekore-v5'
-const STATIC_CACHE = 'geekore-static-v5'
+const CACHE_NAME = 'geekore-v6'
+const STATIC_CACHE = 'geekore-static-v6'
 
 // Pagine navigate precachate all'installazione
 const NAV_PAGES = [
@@ -99,7 +99,6 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Pagine nav principali: stale-while-revalidate
-  // → risponde istantaneamente dalla cache, aggiorna in background
   if (request.mode === 'navigate' && isNavPage(url)) {
     event.respondWith(staleWhileRevalidate(request, CACHE_NAME))
     return
@@ -130,7 +129,6 @@ async function staleWhileRevalidate(request, cacheName) {
   const cache = await caches.open(cacheName)
   const cached = await cache.match(request)
 
-  // Aggiorna in background senza bloccare la risposta
   const networkPromise = fetch(request).then(response => {
     if (response.ok) cache.put(request, response.clone())
     return response
@@ -170,7 +168,15 @@ async function networkFirst(request) {
 // ── Push notifications ───────────────────────────────────────────────────────
 self.addEventListener('push', (event) => {
   if (!event.data) return
-  let payload = { title: 'Geekore', body: 'Hai una nuova notifica', icon: '/icons/icon-192x192.png' }
+
+  let payload = {
+    title: 'Geekore',
+    body: 'Hai una nuova notifica',
+    icon: '/icons/icon-192x192.png',
+    tag: 'geekore-default',
+    url: '/notifications',
+  }
+
   try { payload = { ...payload, ...event.data.json() } } catch {}
 
   event.waitUntil(
@@ -178,7 +184,14 @@ self.addEventListener('push', (event) => {
       body: payload.body,
       icon: payload.icon || '/icons/icon-192x192.png',
       badge: '/icons/icon-72x72.png',
-      vibrate: [100, 50, 100],
+      // FIX: queste opzioni sono fondamentali per far suonare/vibrare Android
+      silent: false,
+      vibrate: [200, 100, 200],
+      // FIX: tag + renotify → forza la notifica anche se stessa tag è già presente
+      tag: payload.tag || 'geekore-default',
+      renotify: true,
+      // Non richiedere interazione obbligatoria (si chiude da sola)
+      requireInteraction: false,
       data: payload,
     })
   )
