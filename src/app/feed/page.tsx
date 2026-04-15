@@ -728,7 +728,7 @@ function BottomSheet({
         <div className="bg-[#262626] rounded-2xl overflow-hidden w-[400px] shadow-2xl" onClick={e => e.stopPropagation()}>
           {title && <div className="px-6 py-4 border-b border-zinc-700/50"><p className="text-zinc-400 text-xs text-center leading-relaxed">{title}</p></div>}
           {actions.map((action, i) => (
-            <button key={i} onClick={() => { action.onClick(); onClose() }}
+            <button key={i} onClick={() => { action.onClick() }}
               className={`w-full py-4 font-semibold text-[15px] transition-colors border-b border-zinc-700/40 last:border-0 hover:bg-zinc-700/30 ${action.danger ? 'text-red-400' : 'text-white'}`}>
               {action.label}
             </button>
@@ -743,7 +743,7 @@ function BottomSheet({
           <div className="bg-zinc-800 rounded-2xl overflow-hidden mb-2">
             {title && <div className="px-4 py-3 border-b border-zinc-700/50"><p className="text-zinc-400 text-xs text-center leading-relaxed">{title}</p></div>}
             {actions.map((action, i) => (
-              <button key={i} onClick={() => { action.onClick(); onClose() }}
+              <button key={i} onClick={() => { action.onClick() }}
                 className={`w-full py-4 font-semibold text-[15px] border-b border-zinc-700/30 last:border-0 active:bg-zinc-700/50 ${action.danger ? 'text-red-400' : 'text-white'}`}>
                 {action.label}
               </button>
