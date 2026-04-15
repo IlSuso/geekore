@@ -1,8 +1,9 @@
 'use client'
-// Pull-to-refresh stile Instagram:
-// Restituisce pullDistance per spostare il main con transform
+// src/hooks/usePullToRefresh.ts
+// Pull-to-refresh stile Instagram con mutex — non si attiva se swipe orizzontale è attivo
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { gestureState } from './gestureState'
 
 interface Options {
   onRefresh: () => Promise<void>
@@ -12,7 +13,7 @@ interface Options {
 interface State {
   pulling: boolean
   refreshing: boolean
-  distance: number   // distanza visiva con resistenza
+  distance: number
 }
 
 export function usePullToRefresh({ onRefresh, threshold = 70 }: Options) {
@@ -23,6 +24,7 @@ export function usePullToRefresh({ onRefresh, threshold = 70 }: Options) {
 
   const onStart = useCallback((e: TouchEvent) => {
     if (loading.current) return
+    if (gestureState.swipeActive) return  // swipe orizzontale attivo → no pull
     if (window.scrollY > 4) return
     startY.current = e.touches[0].clientY
     active.current = true
@@ -30,23 +32,30 @@ export function usePullToRefresh({ onRefresh, threshold = 70 }: Options) {
 
   const onMove = useCallback((e: TouchEvent) => {
     if (!active.current || loading.current) return
+    if (gestureState.swipeActive) { active.current = false; return }
     if (window.scrollY > 4) { active.current = false; return }
+
     const raw = e.touches[0].clientY - startY.current
+    const dx = Math.abs(e.touches[0].clientX - (e.touches[0].clientX)) // just for reference
+
     if (raw <= 0) { setState({ pulling: false, refreshing: false, distance: 0 }); return }
+
     // Resistenza logaritmica come Instagram
     const dist = Math.min(raw * 0.5, threshold * 1.5)
     setState({ pulling: true, refreshing: false, distance: dist })
+    gestureState.pullActive = true
     if (raw > 6) e.preventDefault()
   }, [threshold])
 
   const onEnd = useCallback(async () => {
     if (!active.current || loading.current) return
     active.current = false
+    gestureState.pullActive = false
+
     setState(prev => {
       if (prev.distance < threshold * 0.6) {
         return { pulling: false, refreshing: false, distance: 0 }
       }
-      // Soglia raggiunta: rimane giù mentre carica
       loading.current = true
       ;(async () => {
         if (navigator.vibrate) navigator.vibrate(35)
@@ -59,16 +68,24 @@ export function usePullToRefresh({ onRefresh, threshold = 70 }: Options) {
     })
   }, [threshold, onRefresh])
 
+  const onCancel = useCallback(() => {
+    active.current = false
+    gestureState.pullActive = false
+    setState({ pulling: false, refreshing: false, distance: 0 })
+  }, [])
+
   useEffect(() => {
     document.addEventListener('touchstart', onStart, { passive: true })
     document.addEventListener('touchmove', onMove, { passive: false })
     document.addEventListener('touchend', onEnd, { passive: true })
+    document.addEventListener('touchcancel', onCancel, { passive: true })
     return () => {
       document.removeEventListener('touchstart', onStart)
       document.removeEventListener('touchmove', onMove)
       document.removeEventListener('touchend', onEnd)
+      document.removeEventListener('touchcancel', onCancel)
     }
-  }, [onStart, onMove, onEnd])
+  }, [onStart, onMove, onEnd, onCancel])
 
   return state
 }

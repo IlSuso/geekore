@@ -385,7 +385,7 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
       {open && mounted && typeof document !== 'undefined' && createPortal(
         <div
           id="category-portal-panel"
-          className="fixed z-[700] bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-2xl shadow-black/70 overflow-hidden"
+          className="fixed z-[10000] bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-2xl shadow-black/70 overflow-hidden"
           style={{ top: panelPos.top, left: panelPos.left, width: '300px', transform: openAboveRef.current ? 'translateY(-100%)' : 'none' }}
         >
           {/* Step 1: griglia macro-categorie — specchiata se dropup */}
@@ -828,13 +828,13 @@ const PostCard = memo(function PostCard({
 
       {/* Header */}
       <div className="flex items-center gap-3 px-5 pt-4 pb-3">
-        <Link href={`/profile/${post.profiles.username}`} className="group shrink-0">
+        <Link href={`/profile/${post.profiles.username}`} className="group shrink-0" onClick={e => e.stopPropagation()}>
           <div className="w-10 h-10 rounded-2xl overflow-hidden ring-2 ring-violet-500/20 group-hover:ring-violet-500/50 transition-all">
             <Avatar src={post.profiles.avatar_url} username={post.profiles.username} displayName={post.profiles.display_name} size={40} className="rounded-2xl" />
           </div>
         </Link>
         <div className="flex-1 min-w-0">
-          <Link href={`/profile/${post.profiles.username}`} className="hover:text-violet-400 transition-colors">
+          <Link href={`/profile/${post.profiles.username}`} className="hover:text-violet-400 transition-colors" onClick={e => e.stopPropagation()}>
             <p className="font-semibold text-[var(--text-primary)] text-sm leading-tight truncate">
               {post.profiles.display_name || post.profiles.username}
             </p>
@@ -907,7 +907,7 @@ const PostCard = memo(function PostCard({
       {post.comments.length > 0 && !isCommenting && (
         <div className="px-5 pb-3 space-y-1.5">
           {post.comments.slice(0, 2).map(comment => (
-            <div key={comment.id} className="flex items-start gap-1 group/pc">
+            <div key={comment.id} className="flex items-center gap-1 group/pc">
               <p className="text-sm text-zinc-200 leading-snug flex-1 min-w-0">
                 <Link href={`/profile/${comment.username}`} className="font-semibold text-white hover:text-violet-400 transition-colors mr-1.5">
                   {comment.username}
@@ -917,7 +917,7 @@ const PostCard = memo(function PostCard({
               {currentUser?.id === comment.user_id && (
                 <button
                   onClick={() => onCommentOptions(comment.id, post.id)}
-                  className="opacity-0 group-hover/pc:opacity-100 text-zinc-600 hover:text-white transition-all flex-shrink-0 mt-0.5"
+                  className="opacity-0 group-hover/pc:opacity-100 text-zinc-600 hover:text-white transition-all flex-shrink-0"
                 >
                   <MoreHorizontal size={13} />
                 </button>
@@ -1646,7 +1646,7 @@ export default function FeedPage() {
                                 placeholder={f.placeholder}
                                 maxLength={500}
                                 rows={4}
-                                style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', resize: 'none', color: 'white', fontSize: 16, lineHeight: 1.6, minHeight: 100, fontFamily: 'inherit' }}
+                                style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '12px', outline: 'none', resize: 'none', color: 'white', fontSize: 16, lineHeight: 1.6, minHeight: 100, fontFamily: 'inherit' }}
                               />
                             </div>
                           </div>

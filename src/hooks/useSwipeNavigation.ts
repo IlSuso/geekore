@@ -1,11 +1,15 @@
 'use client'
 // Swipe orizzontale tra le tab principali — stile Instagram
 // Sinistra → pagina successiva, Destra → pagina precedente
+// Safe zone 24px sui bordi laterali per non conflittare con Android back gesture
 
 import { useEffect, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 
 const TAB_ORDER = ['/feed', '/discover', '/for-you', '/trending', '/profile/me']
+
+// Larghezza safe zone laterale in px — Android usa ~20-24px per le gesture di sistema
+const EDGE_SAFE_ZONE = 24
 
 export function useSwipeNavigation() {
   const router = useRouter()
@@ -16,13 +20,32 @@ export function useSwipeNavigation() {
 
   useEffect(() => {
     const onStart = (e: TouchEvent) => {
-      // Non attivare se si sta tirando giù (pull-to-refresh) o su elementi scrollabili
+      const touch = e.touches[0]
+      const x = touch.clientX
+      const screenW = window.innerWidth
+
+      // ── Safe zone ──────────────────────────────────────────────────────────
+      // Se il touch inizia entro EDGE_SAFE_ZONE px dal bordo sinistro o destro,
+      // lasciamo passare l'evento al sistema (Android back gesture / system nav).
+      if (x <= EDGE_SAFE_ZONE || x >= screenW - EDGE_SAFE_ZONE) return
+
+      // Non attivare su elementi non-swipeable
       const target = e.target as HTMLElement
-      const isScrollable = target.closest('[data-no-swipe], input, textarea, select, [role="slider"]')
-      if (isScrollable) return
-      startX.current = e.touches[0].clientX
-      startY.current = e.touches[0].clientY
+      if (target.closest('[data-no-swipe], input, textarea, select, [role="slider"]')) return
+
+      startX.current = x
+      startY.current = touch.clientY
       active.current = true
+    }
+
+    const onMove = (e: TouchEvent) => {
+      if (!active.current) return
+      const dx = e.touches[0].clientX - startX.current
+      const dy = e.touches[0].clientY - startY.current
+      // Se il movimento è prevalentemente verticale, disattiva swipe
+      if (Math.abs(dy) > Math.abs(dx) * 1.2 && Math.abs(dy) > 10) {
+        active.current = false
+      }
     }
 
     const onEnd = (e: TouchEvent) => {
@@ -41,21 +64,9 @@ export function useSwipeNavigation() {
       if (currentIndex === -1) return
 
       if (dx < -60 && currentIndex < TAB_ORDER.length - 1) {
-        // Swipe sinistra → pagina successiva
         router.push(TAB_ORDER[currentIndex + 1])
       } else if (dx > 60 && currentIndex > 0) {
-        // Swipe destra → pagina precedente
         router.push(TAB_ORDER[currentIndex - 1])
-      }
-    }
-
-    const onMove = (e: TouchEvent) => {
-      if (!active.current) return
-      const dx = e.touches[0].clientX - startX.current
-      const dy = e.touches[0].clientY - startY.current
-      // Se il movimento è prevalentemente verticale, disattiva swipe
-      if (Math.abs(dy) > Math.abs(dx) * 1.2 && Math.abs(dy) > 10) {
-        active.current = false
       }
     }
 

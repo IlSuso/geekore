@@ -7,7 +7,6 @@ import { ServiceWorkerRegistrar } from '@/components/ServiceWorkerRegistrar'
 import { SyncStatusListener } from '@/components/ui/SyncToast'
 import { NavigationProgress } from '@/components/ui/NavigationProgress'
 import { useEffect, useRef } from 'react'
-import { useSwipeNavigation } from '@/hooks/useSwipeNavigation'
 import { PWAInstallBanner } from '@/components/PWAInstallBanner'
 import { usePathname } from 'next/navigation'
 import { PushNotificationsBanner } from '@/components/notifications/PushNotificationsBanner'
@@ -40,12 +39,6 @@ function RecsWarmer() {
   return null
 }
 
-// Swipe orizzontale tra tab — stile Instagram
-function SwipeNav() {
-  useSwipeNavigation()
-  return null
-}
-
 // Forza theme-color nero via JS — più affidabile del solo meta tag su Android PWA
 function ThemeColorEnforcer() {
   useEffect(() => {
@@ -67,7 +60,6 @@ export function ClientProviders({ children, initialLocale = 'it' }: { children: 
     <ThemeProvider>
       <LocaleProvider initialLocale={initialLocale}>
         <ThemeColorEnforcer />
-        <SwipeNav />
         <ServiceWorkerRegistrar />
         <SyncStatusListener />
         <NavigationProgress />

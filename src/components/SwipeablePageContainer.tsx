@@ -5,9 +5,11 @@
 // - Snap verso la pagina target se supera soglia, altrimenti torna indietro
 // - Curve di animazione identiche (cubic-bezier di iOS)
 // - Overflow clip per nascondere i bordi
+// - Mutex con pull-to-refresh
 
 import { usePathname, useRouter } from 'next/navigation'
 import { useRef, useState, useCallback, useEffect, type ReactNode } from 'react'
+import { gestureState } from '@/hooks/gestureState'
 
 const TAB_ORDER = ['/feed', '/discover', '/for-you', '/trending', '/profile/me']
 const CONFIRM_THRESHOLD = 120  // px — alzato per evitare conflitti con gesture OS
@@ -27,12 +29,12 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   const touchStartY   = useRef(0)
   const touchStartT   = useRef(0)
   const lastDeltaX    = useRef(0)
-  const isH           = useRef<boolean | null>(null) // horizontal swipe detected?
+  const isH           = useRef<boolean | null>(null)
   const vw            = useRef(0)
   const isDragging    = useRef(false)
 
-  const [offset, setOffset] = useState(0)        // current translateX in px
-  const [animate, setAnimate] = useState(false)  // apply CSS transition?
+  const [offset, setOffset] = useState(0)
+  const [animate, setAnimate] = useState(false)
 
   const currentIdx = TAB_ORDER.findIndex(t => {
     if (t === '/profile/me') return pathname.startsWith('/profile/')
@@ -51,18 +53,20 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('resize', fn)
   }, [])
 
-  // Reset when pathname changes
   useEffect(() => {
     isDragging.current = false
+    gestureState.swipeActive = false
     setAnimate(false)
     setOffset(0)
   }, [pathname])
 
   const onTouchStart = useCallback((e: TouchEvent) => {
     if (!isMain) return
+    if (gestureState.pullActive) return  // pull-to-refresh attivo → no swipe
+
     const x = e.touches[0].clientX
-    // Dead-zone: ignora i touch che partono troppo vicini al bordo (gesture OS)
     if (x <= EDGE_DEAD_ZONE || x >= (vw.current || window.innerWidth) - EDGE_DEAD_ZONE) return
+
     touchStartX.current = x
     touchStartY.current = e.touches[0].clientY
     touchStartT.current = performance.now()
@@ -74,11 +78,11 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
 
   const onTouchMove = useCallback((e: TouchEvent) => {
     if (!isMain) return
+    if (gestureState.pullActive) return  // pull attivo → cedi
 
     const dx = e.touches[0].clientX - touchStartX.current
     const dy = e.touches[0].clientY - touchStartY.current
 
-    // Determina direzione al primo movimento rilevante
     if (isH.current === null) {
       if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return
       isH.current = Math.abs(dx) > Math.abs(dy) * 1.4
@@ -88,17 +92,18 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
 
     e.preventDefault()
     isDragging.current = true
+    gestureState.swipeActive = true
     lastDeltaX.current = dx
 
-    // Bordi: nessuna pagina in quella direzione → resistenza elastica forte
     if (dx > 0 && !prevTab) { setOffset(Math.pow(dx, 0.6) * 0.5); return }
     if (dx < 0 && !nextTab) { setOffset(-Math.pow(-dx, 0.6) * 0.5); return }
 
-    // Segue il dito 1:1
     setOffset(dx)
   }, [isMain, prevTab, nextTab])
 
   const onTouchEnd = useCallback(() => {
+    gestureState.swipeActive = false
+
     if (!isMain || !isDragging.current) {
       setAnimate(true); setOffset(0)
       isH.current = null; isDragging.current = false
@@ -113,21 +118,14 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     const shouldNav = Math.abs(dx) > CONFIRM_THRESHOLD || velocity > VELOCITY_THRESHOLD
 
     if (shouldNav && dx > 0 && prevTab) {
-      // Completa l'uscita verso destra, poi naviga
       setAnimate(true)
       setOffset(w)
-      setTimeout(() => {
-        router.push(prevTab)
-      }, 260)
+      setTimeout(() => { router.push(prevTab) }, 260)
     } else if (shouldNav && dx < 0 && nextTab) {
-      // Completa l'uscita verso sinistra, poi naviga
       setAnimate(true)
       setOffset(-w)
-      setTimeout(() => {
-        router.push(nextTab)
-      }, 260)
+      setTimeout(() => { router.push(nextTab) }, 260)
     } else {
-      // Snap back
       setAnimate(true)
       setOffset(0)
     }
@@ -136,21 +134,31 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     isDragging.current = false
   }, [isMain, prevTab, nextTab, router])
 
+  const onTouchCancel = useCallback(() => {
+    gestureState.swipeActive = false
+    isDragging.current = false
+    isH.current = null
+    setAnimate(true)
+    setOffset(0)
+  }, [])
+
   useEffect(() => {
     const el = wrapRef.current
     if (!el) return
     el.addEventListener('touchstart', onTouchStart, { passive: true })
     el.addEventListener('touchmove',  onTouchMove,  { passive: false })
     el.addEventListener('touchend',   onTouchEnd,   { passive: true })
+    el.addEventListener('touchcancel', onTouchCancel, { passive: true })
     return () => {
       el.removeEventListener('touchstart', onTouchStart)
       el.removeEventListener('touchmove',  onTouchMove)
       el.removeEventListener('touchend',   onTouchEnd)
+      el.removeEventListener('touchcancel', onTouchCancel)
     }
-  }, [onTouchStart, onTouchMove, onTouchEnd])
+  }, [onTouchStart, onTouchMove, onTouchEnd, onTouchCancel])
 
-  const translateX  = offset !== 0 ? `translateX(${offset}px)` : 'none'
-  const transition  = animate
+  const translateX = offset !== 0 ? `translateX(${offset}px)` : 'none'
+  const transition = animate
     ? `transform 0.28s ${offset === 0 ? EASE_SNAP : EASE_OUT}`
     : 'none'
 
@@ -164,7 +172,6 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
         backfaceVisibility: 'hidden',
         WebkitBackfaceVisibility: 'hidden',
         minHeight:          '100%',
-        // Clip per nascondere il bordo della pagina adiacente che "sporge" lateralmente
         overflow:           isMain && offset !== 0 ? 'hidden' : undefined,
       }}
     >
