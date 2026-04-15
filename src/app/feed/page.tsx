@@ -727,9 +727,28 @@ const PostCard = memo(function PostCard({
       </div>
 
       {/* Testo del post — sopra tutto il resto */}
-      <div className="px-5 pb-4">
+      <div className="px-5 pb-3">
         <p className="text-[var(--text-primary)] text-sm leading-relaxed whitespace-pre-wrap">{post.content}</p>
       </div>
+
+      {/* Anteprima commenti — max 2, inline, leggeri */}
+      {post.comments.length > 0 && !isCommenting && (
+        <div className="px-5 pb-3 space-y-1">
+          {post.comments.slice(0, 2).map(comment => (
+            <p key={comment.id} className="text-xs text-zinc-400 leading-snug line-clamp-1">
+              <Link href={`/profile/${comment.username}`} className="font-semibold text-zinc-300 hover:text-violet-400 transition-colors mr-1">
+                {comment.username}
+              </Link>
+              {comment.content}
+            </p>
+          ))}
+          {post.comments.length > 2 && (
+            <button onClick={() => onToggleComment(post.id)} className="text-[11px] text-zinc-600 hover:text-zinc-400 transition-colors">
+              Vedi tutti i {post.comments.length} commenti
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Immagine */}
       {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
@@ -1356,26 +1375,29 @@ export default function FeedPage() {
 
             {/* Post in evidenza */}
             {feedFilter === 'all' && !categoryFilter && pinnedPosts.length > 0 && (
-              <div className="mb-0">
-                <div className="flex items-center gap-2 px-4 pt-4 pb-2" style={{ borderBottom: '0.5px solid var(--border)' }}>
+              <div className="mb-5">
+                <div className="flex items-center gap-2 mb-3">
                   <Sparkles size={13} className="text-violet-400" />
-                  <span className="text-[12px] font-semibold text-violet-400 uppercase tracking-widest">In evidenza questa settimana</span>
+                  <span className="text-xs font-bold text-violet-400 uppercase tracking-widest">In evidenza questa settimana</span>
                 </div>
-                {pinnedPosts.map(post => (
-                  <PostCard key={`pinned-${post.id}`} post={post} currentUser={currentUser}
-                    isLiking={likingIds.has(post.id)} commentingPostId={commentingPostId}
-                    commentContent={commentContent} locale={locale}
-                    onLike={toggleLikePinned} onToggleComment={handleToggleComment}
-                    onCommentChange={setCommentContent} onAddComment={handleAddComment}
-                    onDelete={handleDeletePost} onDeleteComment={handleDeleteComment}
-                    expandedComments={expandedComments} onExpandComments={handleExpandComments}
-                    onCategoryClick={handleCategoryClick} />
-                ))}
+                <div className="space-y-4">
+                  {pinnedPosts.map(post => (
+                    <PostCard key={`pinned-${post.id}`} post={post} currentUser={currentUser}
+                      isLiking={likingIds.has(post.id)} commentingPostId={commentingPostId}
+                      commentContent={commentContent} locale={locale}
+                      onLike={toggleLikePinned} onToggleComment={handleToggleComment}
+                      onCommentChange={setCommentContent} onAddComment={handleAddComment}
+                      onDelete={handleDeletePost} onDeleteComment={handleDeleteComment}
+                      expandedComments={expandedComments} onExpandComments={handleExpandComments}
+                      onCategoryClick={handleCategoryClick} />
+                  ))}
+                </div>
+                <div className="h-px bg-zinc-800 mt-6" />
               </div>
             )}
 
-            {/* Feed posts — no gap, separated by 0.5px borders like Instagram */}
-            <div>
+            {/* Feed posts — respiro tra le card */}
+            <div className="space-y-4 md:space-y-5">
               {displayedPosts.length === 0 ? (
                 <div className="text-center py-24 px-8">
                   <div className="w-16 h-16 rounded-full border-2 border-[var(--border)] flex items-center justify-center mx-auto mb-4">
