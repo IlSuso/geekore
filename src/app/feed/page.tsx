@@ -306,24 +306,26 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
   const openDropup = (e: React.MouseEvent<HTMLButtonElement>) => {
     {
       const rect = e.currentTarget.getBoundingClientRect()
+      const isMobile = window.innerWidth < 768
       const panelWidth = 300
       const panelHeight = 340
 
-      // Sempre a destra del tag
-      const left = rect.right + 6
-
-      // Metà superiore → dropdown: top pannello = top trigger
-      // Metà inferiore → dropup: bottom pannello = bottom trigger
-      const triggerMidY = rect.top + rect.height / 2
-      const above = triggerMidY > window.innerHeight / 2
-      // Per il dropup usiamo bottom come riferimento via CSS, non top
-      const top = above
-        ? rect.bottom   // useremo translateY(-100%) via style
-        : rect.top
-
-      openAboveRef.current = above
-      setOpenAbove(above)
-      setPanelPos({ top, left })
+      if (isMobile) {
+        // Mobile: panel fisso in basso a sinistra, sopra il footer del composer
+        // Ancorato al bottom del trigger, parte da sinistra
+        openAboveRef.current = true
+        setOpenAbove(true)
+        setPanelPos({ top: rect.bottom, left: 12 })
+      } else {
+        // Desktop: a destra del tag
+        const left = rect.right + 6
+        const triggerMidY = rect.top + rect.height / 2
+        const above = triggerMidY > window.innerHeight / 2
+        const top = above ? rect.bottom : rect.top
+        openAboveRef.current = above
+        setOpenAbove(above)
+        setPanelPos({ top, left })
+      }
     }
     setOpen(true)
     setStep('macro')
@@ -577,7 +579,7 @@ function CategoryFilter({
       </button>
 
       {open && (
-        <div className="fixed sm:absolute top-auto sm:top-full left-0 right-0 sm:left-auto sm:right-auto bottom-0 sm:bottom-auto mt-0 sm:mt-2 z-50 bg-zinc-900 border border-zinc-700 rounded-t-3xl sm:rounded-2xl shadow-2xl shadow-black/60 w-full sm:w-[300px] p-3 pb-6 sm:pb-3">
+        <div className="fixed sm:absolute top-auto sm:top-full left-0 right-0 sm:left-auto sm:right-auto bottom-0 sm:bottom-auto mt-0 sm:mt-2 bg-zinc-900 border border-zinc-700 rounded-t-3xl sm:rounded-2xl shadow-2xl shadow-black/60 w-full sm:w-[300px] p-3 pb-6 sm:pb-3" style={{ zIndex: 20000 }}>
           <p className="text-[10px] text-zinc-500 font-semibold px-1 pb-2 uppercase tracking-wider">Filtra per categoria</p>
 
           {/* Macro chips */}
@@ -710,77 +712,50 @@ function BottomSheet({
   actions: BottomSheetAction[]
   onClose: () => void
 }) {
-  if (!open) return null
-  return (
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+  if (!open || !mounted) return null
+
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+
+  const content = (
     <div
-      className="fixed inset-0 z-[500] bg-black/60 animate-in fade-in duration-150"
+      style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.6)' }}
       onClick={onClose}
     >
-      {/* Desktop: modale centrato stile Instagram */}
+      {/* Desktop: modale centrato */}
       <div className="hidden md:flex items-center justify-center h-full">
-        <div
-          className="bg-[#262626] rounded-2xl overflow-hidden w-[400px] animate-in zoom-in-95 duration-150 shadow-2xl"
-          onClick={e => e.stopPropagation()}
-        >
-          {title && (
-            <div className="px-6 py-4 border-b border-zinc-700/50">
-              <p className="text-zinc-400 text-xs text-center leading-relaxed">{title}</p>
-            </div>
-          )}
+        <div className="bg-[#262626] rounded-2xl overflow-hidden w-[400px] shadow-2xl" onClick={e => e.stopPropagation()}>
+          {title && <div className="px-6 py-4 border-b border-zinc-700/50"><p className="text-zinc-400 text-xs text-center leading-relaxed">{title}</p></div>}
           {actions.map((action, i) => (
-            <button
-              key={i}
-              onClick={() => { action.onClick(); onClose() }}
-              className={`w-full py-4 font-semibold text-[15px] transition-colors border-b border-zinc-700/40 last:border-0 hover:bg-zinc-700/30 ${
-                action.danger ? 'text-red-400' : 'text-white'
-              }`}
-            >
+            <button key={i} onClick={() => { action.onClick(); onClose() }}
+              className={`w-full py-4 font-semibold text-[15px] transition-colors border-b border-zinc-700/40 last:border-0 hover:bg-zinc-700/30 ${action.danger ? 'text-red-400' : 'text-white'}`}>
               {action.label}
             </button>
           ))}
-          <button
-            onClick={onClose}
-            className="w-full py-4 text-white text-[15px] font-normal hover:bg-zinc-700/30 transition-colors border-t border-zinc-700/40"
-          >
-            Annulla
-          </button>
+          <button onClick={onClose} className="w-full py-4 text-white text-[15px] font-normal hover:bg-zinc-700/30 transition-colors border-t border-zinc-700/40">Annulla</button>
         </div>
       </div>
 
-      {/* Mobile: bottom sheet che sale dal basso */}
+      {/* Mobile: bottom sheet */}
       <div className="md:hidden flex items-end justify-center h-full">
-        <div
-          className="w-full max-w-sm mb-4 mx-4 animate-in slide-in-from-bottom-4 duration-200"
-          onClick={e => e.stopPropagation()}
-        >
+        <div className="w-full max-w-sm mb-4 mx-4" onClick={e => e.stopPropagation()}>
           <div className="bg-zinc-800 rounded-2xl overflow-hidden mb-2">
-            {title && (
-              <div className="px-4 py-3 border-b border-zinc-700/50">
-                <p className="text-zinc-400 text-xs text-center leading-relaxed">{title}</p>
-              </div>
-            )}
+            {title && <div className="px-4 py-3 border-b border-zinc-700/50"><p className="text-zinc-400 text-xs text-center leading-relaxed">{title}</p></div>}
             {actions.map((action, i) => (
-              <button
-                key={i}
-                onClick={() => { action.onClick(); onClose() }}
-                className={`w-full py-4 font-semibold text-[15px] transition-colors border-b border-zinc-700/30 last:border-0 active:bg-zinc-700/50 ${
-                  action.danger ? 'text-red-400' : 'text-white'
-                }`}
-              >
+              <button key={i} onClick={() => { action.onClick(); onClose() }}
+                className={`w-full py-4 font-semibold text-[15px] border-b border-zinc-700/30 last:border-0 active:bg-zinc-700/50 ${action.danger ? 'text-red-400' : 'text-white'}`}>
                 {action.label}
               </button>
             ))}
           </div>
-          <button
-            onClick={onClose}
-            className="w-full bg-zinc-800 rounded-2xl py-4 text-white font-semibold text-[15px] active:bg-zinc-700 transition-colors"
-          >
-            Annulla
-          </button>
+          <button onClick={onClose} className="w-full bg-zinc-800 rounded-2xl py-4 text-white font-semibold text-[15px] active:bg-zinc-700">Annulla</button>
         </div>
       </div>
     </div>
   )
+
+  return createPortal(content, document.body)
 }
 
 const PostCard = memo(function PostCard({
@@ -1388,7 +1363,10 @@ export default function FeedPage() {
 
   const handleDeleteComment = useCallback(async (commentId: string, postId: string) => {
     if (!currentUser) return
-    await supabase.from('comments').delete().eq('id', commentId)
+    console.log('[DELETE comment]', { commentId, userId: currentUser.id })
+    const { error } = await supabase.from('comments').delete().eq('id', commentId)
+    console.log('[DELETE result]', { error })
+    if (error) { console.error('[DELETE error]', error.message, error.code); return }
     const remove = (p: Post) => p.id === postId ? { ...p, comments_count: p.comments_count - 1, comments: p.comments.filter(c => c.id !== commentId) } : p
     setPosts(prev => prev.map(remove)); setPinnedPosts(prev => prev.map(remove))
   }, [currentUser, supabase])

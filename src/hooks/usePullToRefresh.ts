@@ -41,7 +41,8 @@ export function usePullToRefresh({ onRefresh, threshold = 70 }: Options) {
     if (raw <= 0) { setState({ pulling: false, refreshing: false, distance: 0 }); return }
 
     // Resistenza logaritmica come Instagram
-    const dist = Math.min(raw * 0.5, threshold * 1.5)
+    // Resistenza progressiva: più trascini, più diventa lenta (come IG)
+    const dist = Math.min(Math.pow(raw, 0.72) * 1.8, threshold * 1.4)
     setState({ pulling: true, refreshing: false, distance: dist })
     gestureState.pullActive = true
     if (raw > 6) e.preventDefault()
@@ -58,7 +59,6 @@ export function usePullToRefresh({ onRefresh, threshold = 70 }: Options) {
       }
       loading.current = true
       ;(async () => {
-        if (navigator.vibrate) navigator.vibrate(35)
         setState({ pulling: false, refreshing: true, distance: threshold * 0.75 })
         await onRefresh()
         loading.current = false

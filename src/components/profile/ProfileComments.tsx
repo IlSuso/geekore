@@ -159,14 +159,14 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
 
   const handleDelete = async (commentId: string, authorId: string) => {
     if (!currentUserId) return
-    // Può eliminare l'autore del commento OPPURE il proprietario del profilo
     if (currentUserId !== authorId && !isOwner) return
-
-    await supabase
+    console.log('[DELETE profile_comment]', { commentId, currentUserId, authorId, isOwner })
+    const { error } = await supabase
       .from('profile_comments')
       .update({ is_deleted: true })
       .eq('id', commentId)
-
+    console.log('[DELETE profile_comment result]', { error })
+    if (error) { console.error('[DELETE error]', error.message, error.code); return }
     setComments(prev => prev.filter(c => c.id !== commentId))
     showToast('Commento rimosso')
   }
@@ -249,7 +249,7 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
                     {(currentUserId === comment.author_id || isOwner) && (
                       <button
                         onClick={() => handleDelete(comment.id, comment.author_id)}
-                        className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 transition-all"
+                        className="opacity-40 hover:opacity-100 text-zinc-500 hover:text-red-400 transition-all"
                       >
                         <Trash2 size={13} />
                       </button>

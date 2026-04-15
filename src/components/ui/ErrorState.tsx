@@ -97,49 +97,46 @@ interface PullIndicatorProps {
   threshold?: number
 }
 
-// Spinner Instagram-style: appare sotto l'header mentre la pagina scende
+// Spinner fluido — nessun box bianco, solo spinner viola che appare gradualmente
 export function PullToRefreshIndicator({
   distance,
   refreshing,
   threshold = 70,
 }: PullIndicatorProps) {
-  const visible = distance > 4 || refreshing
+  const visible = distance > 2 || refreshing
   if (!visible) return null
 
   const progress = Math.min(distance / threshold, 1)
-  const ready = progress > 0.75
-  const strokeDash = 2 * Math.PI * 9 // circonferenza r=9
-  const strokeOffset = strokeDash * (1 - (refreshing ? 1 : progress * 0.85))
+  const strokeDash = 2 * Math.PI * 10
+  const strokeOffset = strokeDash * (1 - (refreshing ? 1 : progress * 0.9))
+  // Appare in modo graduale — invisibile fino al 20% del pull, poi sale smooth
+  const opacity = Math.min(Math.max((progress - 0.2) / 0.8, 0), 1)
 
   return (
     <div
       className="fixed left-0 right-0 z-[98] flex justify-center pointer-events-none md:hidden"
       style={{
-        top: 56,
-        transform: `translateY(${refreshing ? Math.min(distance, threshold * 0.9) : distance * 0.9}px)`,
-        transition: refreshing ? 'none' : 'none',
-        opacity: Math.min(progress * 2.5, 1),
+        top: 52,
+        transform: `translateY(${refreshing ? Math.min(distance, threshold * 0.85) : distance * 0.85}px)`,
+        opacity,
       }}
     >
-      <div className="w-8 h-8 rounded-full bg-white shadow-md flex items-center justify-center"
-        style={{ marginTop: -16 }}>
-        <svg width="20" height="20" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="9" fill="none" stroke="#e4e4e7" strokeWidth="2.5" />
-          <circle
-            cx="12" cy="12" r="9" fill="none"
-            stroke={ready || refreshing ? '#7c3aed' : '#a1a1aa'}
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeDasharray={strokeDash}
-            strokeDashoffset={strokeOffset}
-            transform="rotate(-90 12 12)"
-            style={{
-              animation: refreshing ? 'ptr-spin 0.7s linear infinite' : 'none',
-              transformOrigin: '12px 12px',
-            }}
-          />
-        </svg>
-      </div>
+      <svg width="24" height="24" viewBox="0 0 24 24" style={{ marginTop: -12 }}>
+        <circle cx="12" cy="12" r="10" fill="none" stroke="rgba(124,58,237,0.15)" strokeWidth="2" />
+        <circle
+          cx="12" cy="12" r="10" fill="none"
+          stroke="#7c3aed"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeDasharray={strokeDash}
+          strokeDashoffset={strokeOffset}
+          transform="rotate(-90 12 12)"
+          style={{
+            animation: refreshing ? 'ptr-spin 0.8s linear infinite' : 'none',
+            transformOrigin: '12px 12px',
+          }}
+        />
+      </svg>
     </div>
   )
 }
