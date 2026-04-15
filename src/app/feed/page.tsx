@@ -244,230 +244,229 @@ async function searchByCategory(category: string, query: string): Promise<Search
   return []
 }
 
-// ── Selettore categoria (composer) con autocomplete API ──────────────────────
-// Step 1: scegli macro-categoria
-// Step 2: digita → autocomplete live via API → clicca per selezionare
+// ── Selettore categoria — dropup nel footer del composer ────────────────────
 
-function CategorySelector({ value, onChange }: { value: string; onChange: (val: string) => void }) {
+function CategorySelector({ value, onChange, alwaysExpanded = false }: {
+  value: string; onChange: (val: string) => void; alwaysExpanded?: boolean
+}) {
   const [open, setOpen] = useState(false)
+  const [step, setStep] = useState<'macro' | 'search'>('macro')
   const [selectedCat, setSelectedCat] = useState('')
   const [subInput, setSubInput] = useState('')
   const [suggestions, setSuggestions] = useState<SearchResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [activeSuggestion, setActiveSuggestion] = useState(-1)
   const inputRef = useRef<HTMLInputElement>(null)
-  const ref = useRef<HTMLDivElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Categorie con API support
   const API_CATEGORIES = new Set(['Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga', 'Board Game'])
 
+  // Chiudi cliccando fuori
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
     }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
 
   useEffect(() => {
-    if (open && selectedCat) setTimeout(() => inputRef.current?.focus(), 50)
-  }, [open, selectedCat])
+    if (open && step === 'search') setTimeout(() => inputRef.current?.focus(), 60)
+  }, [open, step])
 
   // Debounced search
   useEffect(() => {
-    if (!selectedCat || !API_CATEGORIES.has(selectedCat)) return
+    if (!selectedCat || !API_CATEGORIES.has(selectedCat) || step !== 'search') return
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (!subInput.trim() || subInput.trim().length < 2) {
-      setSuggestions([]); setIsSearching(false); return
-    }
+    if (!subInput.trim() || subInput.trim().length < 2) { setSuggestions([]); setIsSearching(false); return }
     setIsSearching(true)
     debounceRef.current = setTimeout(async () => {
       const results = await searchByCategory(selectedCat, subInput)
-      setSuggestions(results)
-      setIsSearching(false)
-      setActiveSuggestion(-1)
-    }, 320)
+      setSuggestions(results); setIsSearching(false); setActiveSuggestion(-1)
+    }, 300)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
-  }, [subInput, selectedCat])
+  }, [subInput, selectedCat, step])
 
-  const handleSelectMacro = (cat: string) => {
-    setSelectedCat(cat); setSubInput(''); setSuggestions([]); onChange(cat)
+  const openDropup = () => { setOpen(true); setStep('macro') }
+  const close = () => { setOpen(false); setSubInput(''); setSuggestions([]) }
+
+  const selectMacro = (cat: string) => {
+    setSelectedCat(cat); setSubInput(''); setSuggestions([]); onChange(cat); setStep('search')
   }
 
-  const handleSelectSuggestion = (result: SearchResult) => {
-    setSubInput(result.title)
-    onChange(`${selectedCat}:${result.title}`)
-    setSuggestions([])
-    setOpen(false)
+  const selectSuggestion = (result: SearchResult) => {
+    onChange(`${selectedCat}:${result.title}`); close()
   }
 
-  const handleClear = () => {
-    setSelectedCat(''); setSubInput(''); setSuggestions([]); onChange(''); setOpen(false)
-  }
+  const clearValue = () => { setSelectedCat(''); setSubInput(''); setSuggestions([]); onChange(''); close() }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (suggestions.length === 0) return
     if (e.key === 'ArrowDown') { e.preventDefault(); setActiveSuggestion(i => Math.min(i + 1, suggestions.length - 1)) }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveSuggestion(i => Math.max(i - 1, 0)) }
-    else if (e.key === 'Enter') {
-      e.preventDefault()
-      if (activeSuggestion >= 0) handleSelectSuggestion(suggestions[activeSuggestion])
-    }
-    else if (e.key === 'Escape') { setSuggestions([]); setActiveSuggestion(-1) }
+    else if (e.key === 'Enter') { e.preventDefault(); if (activeSuggestion >= 0) selectSuggestion(suggestions[activeSuggestion]) }
+    else if (e.key === 'Escape') close()
   }
 
   const parsed = parseCategoryString(value)
-  const displayLabel = parsed?.subcategory
-    ? `${parsed.category}: ${parsed.subcategory}`
-    : parsed?.category || 'Aggiungi categoria'
-
   const hasApiSupport = API_CATEGORIES.has(selectedCat)
 
+  const searchPlaceholder = selectedCat === 'Film' ? 'Cerca un film...'
+    : selectedCat === 'Serie TV' ? 'Cerca una serie...'
+    : selectedCat === 'Videogiochi' ? 'Cerca un videogioco...'
+    : selectedCat === 'Anime' ? 'Cerca un anime...'
+    : selectedCat === 'Manga' ? 'Cerca un manga...'
+    : 'Cerca un titolo...'
+
   return (
-    <div ref={ref} className="relative">
+    <div ref={wrapRef} className="relative">
+      {/* Trigger button */}
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+        onClick={value ? clearValue : openDropup}
+        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-medium border transition-all ${
           value
-            ? 'bg-violet-600/20 border-violet-500/40 text-violet-300'
-            : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-600'
+            ? 'bg-violet-600/20 border-violet-500/40 text-violet-300 hover:border-red-500/40 hover:text-red-400'
+            : 'bg-zinc-800/80 border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-600'
         }`}
       >
-        <Tag size={12} />
-        {value && <CategoryIcon category={parsed?.category || ''} size={11} />}
-        {displayLabel}
-        <ChevronDown size={11} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
-        {value && (
-          <span onClick={e => { e.stopPropagation(); handleClear() }} className="ml-1 text-zinc-400 hover:text-red-400 transition-colors">
-            <X size={11} />
+        <Tag size={14} strokeWidth={1.6} />
+        {value ? (
+          <span className="flex items-center gap-1 max-w-[160px] truncate">
+            <CategoryIcon category={parsed?.category || ''} size={12} />
+            {parsed?.subcategory ? `${parsed.category}: ${parsed.subcategory}` : parsed?.category}
+            <X size={11} className="flex-shrink-0 ml-0.5" />
           </span>
+        ) : (
+          <span>Categoria</span>
         )}
       </button>
 
+      {/* Dropup panel */}
       {open && (
-        <div className="fixed sm:absolute inset-x-0 sm:inset-x-auto bottom-0 sm:bottom-auto top-auto sm:top-full left-0 sm:left-0 mt-0 sm:mt-2 z-[270] bg-zinc-900 border-t sm:border border-zinc-700 rounded-t-3xl sm:rounded-2xl shadow-2xl shadow-black/60 w-full sm:w-auto overflow-hidden pb-6 sm:pb-0"
-          style={{ minWidth: selectedCat ? 'min(320px, 100vw)' : 'min(280px, 100vw)' }}>
-          <div className="p-3">
-            {!selectedCat ? (
-              <>
-                <p className="text-[10px] text-zinc-500 font-semibold px-1 pb-2 uppercase tracking-wider">Scegli categoria</p>
-                <div className="grid grid-cols-2 gap-1">
-                  {MACRO_CATEGORIES.map(cat => (
-                    <button key={cat} type="button" onClick={() => handleSelectMacro(cat)}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all text-left group">
-                      <CategoryIcon category={cat} size={14} className="text-zinc-500 group-hover:text-violet-400 transition-colors" />
-                      <span className="flex-1">{cat}</span>
+        <div
+          className="absolute bottom-full left-0 mb-2 z-[300] bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-2xl shadow-black/70 overflow-hidden"
+          style={{ width: '300px', maxHeight: '60vh' }}
+        >
+          {/* Step 1: griglia macro-categorie */}
+          {step === 'macro' && (
+            <div className="p-3">
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Seleziona categoria</span>
+                <button type="button" onClick={close} className="text-zinc-600 hover:text-zinc-400 transition-colors p-0.5"><X size={13} /></button>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {MACRO_CATEGORIES.map(cat => (
+                  <button key={cat} type="button" onClick={() => selectMacro(cat)}
+                    className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 hover:bg-zinc-800 hover:border-violet-500/50 transition-all group">
+                    <CategoryIcon category={cat} size={18} className="text-zinc-400 group-hover:text-violet-400 transition-colors" />
+                    <span className="text-[11px] font-medium text-zinc-300 group-hover:text-white leading-tight text-center">{cat}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: cerca titolo */}
+          {step === 'search' && (
+            <div className="p-3">
+              {/* Header */}
+              <div className="flex items-center gap-2 mb-2.5">
+                <button type="button" onClick={() => { setStep('macro'); setSuggestions([]) }}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all flex-shrink-0">
+                  <ArrowLeft size={13} />
+                </button>
+                <CategoryIcon category={selectedCat} size={14} className="text-violet-400 flex-shrink-0" />
+                <span className="text-sm font-semibold text-white flex-1 truncate">{selectedCat}</span>
+                <button type="button" onClick={close} className="text-zinc-600 hover:text-zinc-400 p-0.5"><X size={13} /></button>
+              </div>
+
+              {/* Input */}
+              <div className="relative mb-2">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={subInput}
+                  onChange={e => setSubInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={hasApiSupport ? searchPlaceholder : 'Titolo specifico...'}
+                  className="no-nav-hide w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500/70 rounded-xl pl-8 pr-8 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
+                />
+                {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-violet-400 animate-spin" />}
+                {!isSearching && subInput && (
+                  <button type="button" onClick={() => setSubInput('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400">
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
+
+              {/* Risultati */}
+              {suggestions.length > 0 && (
+                <div className="rounded-xl overflow-hidden border border-zinc-700/50 bg-zinc-950 max-h-[200px] overflow-y-auto">
+                  {suggestions.map((result, idx) => (
+                    <button key={result.id} type="button" onClick={() => selectSuggestion(result)}
+                      className={`w-full flex items-center gap-3 px-3 py-2 text-left border-b border-zinc-800/60 last:border-0 transition-colors ${
+                        idx === activeSuggestion ? 'bg-violet-600/20' : 'hover:bg-zinc-800/80'
+                      }`}>
+                      {result.image ? (
+                        <img src={result.image} alt="" className="w-7 h-10 object-cover rounded-lg flex-shrink-0 bg-zinc-800"
+                          onError={e => { e.currentTarget.style.display = 'none' }} />
+                      ) : (
+                        <div className="w-7 h-10 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                          <CategoryIcon category={selectedCat} size={12} className="text-zinc-600" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-semibold text-white truncate">{result.title}</p>
+                        {result.subtitle && <p className="text-[11px] text-zinc-500">{result.subtitle}</p>}
+                      </div>
                     </button>
                   ))}
                 </div>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center gap-2 mb-3 pb-2.5 border-b border-zinc-800">
-                  <button type="button" onClick={() => { setSelectedCat(''); setSuggestions([]) }}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all">
-                    <ArrowLeft size={14} />
-                  </button>
-                  <CategoryIcon category={selectedCat} size={15} className="text-violet-400" />
-                  <p className="text-sm font-semibold text-white flex-1">{selectedCat}</p>
+              )}
+
+              {/* Quick chips */}
+              {!hasApiSupport && !subInput && (
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {(QUICK_SUBS[selectedCat] || []).map(sub => (
+                    <button key={sub} type="button" onClick={() => { onChange(`${selectedCat}:${sub}`); close() }}
+                      className="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700/80 text-[11px] text-zinc-300 hover:border-violet-500/50 hover:text-violet-300 transition-all">
+                      {sub}
+                    </button>
+                  ))}
                 </div>
+              )}
 
-                {/* Input ricerca */}
-                <div className="relative mb-1">
-                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={subInput}
-                    onChange={e => setSubInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={hasApiSupport
-                      ? `Cerca ${selectedCat === 'Film' ? 'un film...' : selectedCat === 'Serie TV' ? 'una serie...' : selectedCat === 'Videogiochi' ? 'un videogioco...' : selectedCat === 'Anime' ? 'un anime...' : selectedCat === 'Manga' ? 'un manga...' : 'un titolo...'}`
-                      : `titolo specifico...`}
-                    className="w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500 rounded-xl pl-8 pr-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
-                  />
-                  {isSearching && (
-                    <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-violet-400 animate-spin" />
-                  )}
-                </div>
-
-                {/* Suggerimenti API */}
-                {suggestions.length > 0 && (
-                  <div className="mt-1 rounded-xl overflow-hidden border border-zinc-700/60 bg-zinc-950 max-h-[260px] overflow-y-auto">
-                    {suggestions.map((result, idx) => (
-                      <button
-                        key={result.id}
-                        type="button"
-                        onClick={() => handleSelectSuggestion(result)}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors border-b border-zinc-800/60 last:border-0 ${
-                          idx === activeSuggestion ? 'bg-violet-600/20 text-white' : 'hover:bg-zinc-800 text-zinc-200'
-                        }`}
-                      >
-                        {result.image && (
-                          <img
-                            src={result.image}
-                            alt=""
-                            className="w-8 h-11 object-cover rounded-lg flex-shrink-0 bg-zinc-800"
-                            onError={(e) => { e.currentTarget.style.display = 'none' }}
-                          />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{result.title}</p>
-                          {result.subtitle && <p className="text-[11px] text-zinc-500">{result.subtitle}</p>}
-                        </div>
-                        <ChevronDown size={12} className="text-zinc-600 -rotate-90 flex-shrink-0" />
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Stato vuoto o hint */}
-                {!hasApiSupport && !suggestions.length && (
-                  <>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {(QUICK_SUBS[selectedCat] || []).map(sub => (
-                        <button key={sub} type="button"
-                          onClick={() => { onChange(`${selectedCat}:${sub}`); setOpen(false) }}
-                          className="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-xs text-zinc-300 hover:border-violet-500/60 hover:text-violet-300 transition-all">
-                          {sub}
-                        </button>
-                      ))}
-                    </div>
-                    {subInput.trim() && (
-                      <button type="button"
-                        onClick={() => { onChange(`${selectedCat}:${subInput.trim()}`); setOpen(false) }}
-                        className="mt-2 w-full px-3 py-2.5 rounded-xl bg-violet-600/20 border border-violet-500/50 text-violet-200 text-sm font-semibold hover:bg-violet-600/30 hover:border-violet-500 transition flex items-center justify-center gap-1.5">
-                        <Check size={13} /> Usa <span className="font-bold">«{subInput.trim()}»</span>
-                      </button>
-                    )}
-                  </>
-                )}
-
-                {hasApiSupport && subInput.trim().length >= 2 && !isSearching && suggestions.length === 0 && (
-                  <p className="text-xs text-zinc-600 text-center py-3">Nessun risultato trovato</p>
-                )}
-
-                {hasApiSupport && subInput.trim().length < 2 && !suggestions.length && (
-                  <p className="text-[11px] text-zinc-600 text-center py-2">
-                    Digita almeno 2 caratteri per cercare
-                  </p>
-                )}
-
-                <button type="button" onClick={() => { onChange(selectedCat); setOpen(false) }}
-                  className="mt-3 w-full text-center text-sm text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 hover:border-zinc-500 rounded-xl py-2 font-medium transition-all flex items-center justify-center gap-1.5">
-                  Usa solo <span className="text-violet-300 font-semibold">«{selectedCat}»</span> senza titolo
-                  <ChevronRight size={13} className="text-zinc-500" />
+              {/* Usa testo libero */}
+              {subInput.trim() && !isSearching && (
+                <button type="button" onClick={() => { onChange(`${selectedCat}:${subInput.trim()}`); close() }}
+                  className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-violet-600/15 border border-violet-500/30 text-violet-300 text-[13px] font-medium hover:bg-violet-600/25 transition">
+                  <Check size={13} />
+                  Usa <strong className="font-semibold">"{subInput.trim()}"</strong>
                 </button>
-              </>
-            )}
-          </div>
+              )}
+
+              {hasApiSupport && subInput.length >= 2 && !isSearching && suggestions.length === 0 && (
+                <p className="text-[12px] text-zinc-600 text-center py-2">Nessun risultato</p>
+              )}
+
+              {/* Usa solo macro */}
+              <button type="button" onClick={() => { onChange(selectedCat); close() }}
+                className="mt-2 w-full text-center text-[12px] text-zinc-600 hover:text-zinc-400 transition py-1">
+                Usa solo "{selectedCat}" senza titolo
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
   )
 }
+
 
 // ── Filtro feed per categoria ─────────────────────────────────────────────────
 // Permette di filtrare per macro + cercare sottocategoria specifica
@@ -887,6 +886,7 @@ export default function FeedPage() {
   const [newPostsCount, setNewPostsCount] = useState(0)
   const [categoryFilter, setCategoryFilter] = useState<string>('')
   const [composerOpen, setComposerOpen] = useState(false)
+  const [modalPos, setModalPos] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null)
   const scrollPositionRef = useRef(0)
 
   const latestPostIdRef = useRef<string | null>(null)
@@ -1108,19 +1108,27 @@ export default function FeedPage() {
 
   const openComposer = () => {
     scrollPositionRef.current = window.scrollY
-    document.body.style.position = 'fixed'
-    document.body.style.top = `-${scrollPositionRef.current}px`
-    document.body.style.width = '100%'
     document.body.style.overflow = 'hidden'
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    if (vw >= 640) {
+      const modalW = Math.min(548, vw - 48)
+      const top = 40  // vicino alla navbar
+      const bottomMargin = 80  // margine generoso dal fondo
+      setModalPos({
+        top,
+        left: Math.round((vw - modalW) / 2),
+        width: modalW,
+        maxHeight: vh - top - bottomMargin,
+      })
+    } else {
+      setModalPos(null)
+    }
     setComposerOpen(true)
   }
 
   const closeComposer = () => {
-    document.body.style.position = ''
-    document.body.style.top = ''
-    document.body.style.width = ''
     document.body.style.overflow = ''
-    window.scrollTo(0, scrollPositionRef.current)
     setComposerOpen(false)
     setNewPostContent('')
     setNewPostCategory('')
@@ -1330,120 +1338,129 @@ export default function FeedPage() {
                   </div>
                 </div>
 
-                {/* Modal composer fullscreen — si apre al tap */}
+                {/* Modal composer */}
                 {composerOpen && (
                   <>
-                    {/* Overlay backdrop */}
+                    <div className="fixed inset-0 z-[250] bg-black/70 backdrop-blur-sm" onClick={closeComposer} />
                     <div
-                      className="fixed inset-0 z-[250] bg-black/60 backdrop-blur-sm"
-                      onClick={closeComposer}
-                    />
-
-                    {/* Modal: fullscreen su mobile, popup centrato sulla viewport su desktop */}
-                    <div
-                      className="composer-modal fixed z-[260] bg-[var(--bg-primary)] flex flex-col inset-0 sm:inset-auto sm:rounded-2xl sm:shadow-2xl sm:border sm:border-zinc-700/60 sm:w-[560px] sm:max-h-[80vh]"
-                      style={{
+                      className={modalPos
+                        ? "fixed z-[260] flex flex-col rounded-2xl shadow-2xl shadow-black/70 border border-zinc-700/60 overflow-hidden"
+                        : "fixed z-[260] flex flex-col inset-0"}
+                      style={modalPos ? {
+                        top: modalPos.top,
+                        left: modalPos.left,
+                        width: modalPos.width,
+                        maxHeight: modalPos.maxHeight,
+                        background: 'var(--bg-primary)',
+                      } : {
+                        background: 'var(--bg-primary)',
                         paddingTop: 'env(safe-area-inset-top)',
                         paddingBottom: 'env(safe-area-inset-bottom)',
                       }}
                       onClick={e => e.stopPropagation()}
                     >
-                    {/* Header modal */}
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 flex-shrink-0">
-                      <button
-                        onClick={closeComposer}
-                        className="text-zinc-400 hover:text-white transition-colors font-medium text-[15px]"
-                      >
-                        Annulla
-                      </button>
-                      <span className="text-[15px] font-semibold text-white">Nuovo post</span>
-                      <button
-                        onClick={async (e) => { await handleCreatePost(e as any); closeComposer() }}
-                        disabled={isPublishing || (!newPostContent.trim() && !selectedImage)}
-                        className="px-4 py-1.5 rounded-full text-[13px] font-semibold disabled:opacity-40 transition-all"
-                        style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)', color: 'white' }}
-                      >
-                        {isPublishing ? <Loader2 size={14} className="animate-spin" /> : f.publish}
-                      </button>
-                    </div>
+                      {/* ── Header ── */}
+                      <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800/80 flex-shrink-0">
+                        <button onClick={closeComposer} className="text-[14px] font-medium text-zinc-400 hover:text-white transition-colors">
+                          Annulla
+                        </button>
+                        <span className="text-[16px] font-bold text-white tracking-tight">Nuovo post</span>
+                        <button
+                          onClick={async (e) => { await handleCreatePost(e as any); closeComposer() }}
+                          disabled={isPublishing || (!newPostContent.trim() && !selectedImage)}
+                          className="px-5 py-2 rounded-full text-[13px] font-bold disabled:opacity-30 transition-all"
+                          style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #db2777 100%)', color: 'white', boxShadow: '0 2px 16px rgba(124,58,237,0.45)' }}
+                        >
+                          {isPublishing ? <Loader2 size={14} className="animate-spin" /> : 'Pubblica'}
+                        </button>
+                      </div>
 
-                    {/* Body del composer */}
-                    <div className="flex-1 overflow-y-auto px-4 pt-4">
-                      {/* Avatar + textarea */}
-                      <div className="flex gap-3">
-                        <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-zinc-800">
-                          {currentProfile?.avatar_url ? (
-                            <img src={currentProfile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-violet-600 to-fuchsia-600 flex items-center justify-center text-white text-sm font-bold">
-                              {(currentProfile?.username?.[0] || '?').toUpperCase()}
+                      {/* ── Body: cresce con il contenuto, scorre se supera maxHeight ── */}
+                      <div className="overflow-y-auto">
+
+                        {/* Avatar + nome + textarea */}
+                        <div className="flex gap-3 px-5 pt-5 pb-3">
+                          <div className="flex-shrink-0">
+                            <div className="w-10 h-10 rounded-full overflow-hidden bg-zinc-800 ring-2 ring-zinc-700/50">
+                              {currentProfile?.avatar_url ? (
+                                <img src={currentProfile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full bg-gradient-to-br from-violet-600 to-fuchsia-600 flex items-center justify-center text-white font-bold text-sm">
+                                  {(currentProfile?.username?.[0] || '?').toUpperCase()}
+                                </div>
+                              )}
                             </div>
-                          )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[14px] font-bold text-white mb-1.5 leading-none">{currentProfile?.display_name || currentProfile?.username}</p>
+                            <textarea
+                              data-testid="post-composer"
+                              autoFocus
+                              value={newPostContent}
+                              onChange={e => {
+                                setNewPostContent(e.target.value.slice(0, 500))
+                                const el = e.target
+                                el.style.height = 'auto'
+                                el.style.height = el.scrollHeight + 'px'
+                              }}
+                              placeholder={f.placeholder}
+                              maxLength={500}
+                              rows={3}
+                              className="no-nav-hide w-full bg-transparent text-[16px] text-white placeholder-zinc-500 outline-none resize-none leading-relaxed"
+                              style={{ minHeight: '80px' }}
+                            />
+                          </div>
                         </div>
-                        <div className="flex-1">
-                          <p className="text-[15px] font-bold text-white mb-3">{currentProfile?.display_name || currentProfile?.username}</p>
-                          <textarea
-                            data-testid="post-composer"
-                            autoFocus
-                            value={newPostContent}
-                            onChange={e => {
-                              setNewPostContent(e.target.value.slice(0, 500))
-                              // auto-grow
-                              const el = e.target
-                              el.style.height = 'auto'
-                              el.style.height = el.scrollHeight + 'px'
-                            }}
-                            placeholder={f.placeholder}
-                            maxLength={500}
-                            rows={3}
-                            className="no-nav-hide w-full bg-transparent text-[16px] text-white placeholder-zinc-400 outline-none resize-none leading-relaxed mt-1 overflow-hidden"
-                            style={{ minHeight: '72px' }}
-                          />
-                          {newPostContent.length >= 450 && (
-                            <p className={`text-right text-[11px] mt-1 ${newPostContent.length >= 490 ? 'text-red-400' : 'text-orange-400'}`}>
-                              {500 - newPostContent.length} rimasti
-                            </p>
-                          )}
-                        </div>
+
+                        {/* Immagine: piena larghezza, sotto il testo, come Facebook */}
+                        {imagePreview && (
+                          <div className="relative bg-zinc-950 border-t border-b border-zinc-800/60">
+                            <img src={imagePreview} alt="preview" className="w-full object-contain" style={{ maxHeight: '400px' }} />
+                            <button type="button" onClick={() => { setSelectedImage(null); setImagePreview(null) }}
+                              className="absolute top-3 right-3 w-8 h-8 bg-black/75 hover:bg-red-600 rounded-full flex items-center justify-center transition-colors shadow-lg">
+                              <X size={14} />
+                            </button>
+                          </div>
+                        )}
+
                       </div>
 
-                      {/* Anteprima immagine */}
-                      {imagePreview && (
-                        <div className="mt-4 relative rounded-2xl overflow-hidden border border-zinc-800">
-                          <img src={imagePreview} alt="preview" className="max-h-72 w-full object-contain bg-black" />
-                          <button type="button" onClick={() => { setSelectedImage(null); setImagePreview(null) }}
-                            className="absolute top-2 right-2 bg-black/70 p-1.5 rounded-full hover:bg-red-600 transition">
-                            <X size={14} />
-                          </button>
-                        </div>
-                      )}
+                      {/* ── Footer ── */}
+                      <div
+                        className="flex-shrink-0 border-t border-zinc-800/80 px-5 flex items-center gap-2.5 h-[56px] relative"
+                        style={{ background: 'var(--bg-primary)', paddingBottom: 'max(0px, env(safe-area-inset-bottom))' }}
+                      >
+                        {/* Foto */}
+                        <label className="cursor-pointer w-9 h-9 flex items-center justify-center rounded-xl text-zinc-400 hover:text-violet-400 hover:bg-zinc-800 transition-all select-none" title="Aggiungi foto">
+                          <ImageIcon size={21} strokeWidth={1.6} />
+                          <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+                        </label>
 
-                      {/* Categoria selezionata */}
-                      {newPostCategory && (
-                        <div className="mt-3">
-                          <CategoryBadge category={newPostCategory} onClick={() => setNewPostCategory('')} />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Footer con azioni — fisso in basso, rimane visibile sopra la tastiera */}
-                    <div
-                      className="flex-shrink-0 border-t border-zinc-800 px-4 py-3 flex items-center gap-2 bg-[var(--bg-primary)]"
-                      style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
-                    >
-                      <label className="cursor-pointer flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-zinc-800/80 active:bg-zinc-700 border border-zinc-700 text-zinc-300 transition-all text-[13px] font-medium select-none">
-                        <ImageIcon size={17} strokeWidth={1.6} />
-                        <span className="hidden sm:inline">Foto</span>
-                        <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
-                      </label>
-                      <div className="relative z-[280]">
+                        {/* Tag dropup */}
                         <CategorySelector value={newPostCategory} onChange={setNewPostCategory} />
-                      </div>
-                      <div className="ml-auto text-[12px] text-zinc-500 font-medium tabular-nums">
-                        {newPostContent.length}/500
+
+                        {/* Contatore */}
+                        <div className="ml-auto flex items-center gap-2.5">
+                          {newPostContent.length >= 400 && (
+                            <span className={`text-[12px] font-semibold tabular-nums ${newPostContent.length >= 490 ? 'text-red-400' : 'text-zinc-500'}`}>
+                              {500 - newPostContent.length}
+                            </span>
+                          )}
+                          {newPostContent.length > 0 && (
+                            <svg width="24" height="24" viewBox="0 0 24 24">
+                              <circle cx="12" cy="12" r="9" fill="none" stroke="#27272a" strokeWidth="2.5" />
+                              <circle cx="12" cy="12" r="9" fill="none"
+                                stroke={newPostContent.length >= 490 ? '#f87171' : newPostContent.length >= 450 ? '#fb923c' : '#7c3aed'}
+                                strokeWidth="2.5"
+                                strokeDasharray={`${(newPostContent.length / 500) * 56.55} 56.55`}
+                                strokeLinecap="round"
+                                transform="rotate(-90 12 12)"
+                              />
+                            </svg>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
                   </>
                 )}
               </>
