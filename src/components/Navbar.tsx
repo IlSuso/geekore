@@ -365,7 +365,19 @@ export default function Navbar() {
   if (isLoggedIn === null) return (
     <>
       <nav className="hidden md:flex fixed top-0 left-0 right-0 z-[100] h-16 bg-black/80 backdrop-blur-2xl border-b border-zinc-800/60" />
-      <nav className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100] h-16 bg-black" style={{paddingBottom: 'env(safe-area-inset-bottom)'}} />
+      {/* Mobile bottom nav sempre presente per evitare layout shift — icone invisibili */}
+      <nav
+        className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-black"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        <div className="flex items-center justify-around h-[52px] px-2 opacity-0">
+          {MOBILE_NAV_ITEMS.map((item) => (
+            <div key={item.href} className="flex items-center justify-center flex-1 h-full">
+              <item.icon size={24} strokeWidth={1.6} className="text-zinc-500" />
+            </div>
+          ))}
+        </div>
+      </nav>
     </>
   )
 
@@ -565,7 +577,17 @@ export default function Navbar() {
             return (
               <Link key={item.href} href={item.href} prefetch={true}
                 data-testid={`nav-mobile-${item.href.replace('/', '')}`}
-                className="flex items-center justify-center flex-1 h-full relative">
+                className="flex flex-col items-center justify-center flex-1 h-full relative gap-[3px]"
+                onClick={() => {
+                  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                    navigator.vibrate(8)
+                  }
+                }}
+              >
+                {/* Indicatore attivo — linea sottile in cima */}
+                {isActive && (
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-[2px] rounded-full bg-white" />
+                )}
                 {item.href === '/notifications' ? (
                   <>
                     <Bell size={24} strokeWidth={isActive ? 2.2 : 1.6}
@@ -589,9 +611,6 @@ export default function Navbar() {
           })}
         </div>
       </nav>
-
-
-      <div className="hidden md:block h-16" />
     </>
   )
 }
