@@ -1,19 +1,8 @@
 // src/lib/push.ts
-// Utility server-side per inviare notifiche push via Web Push API.
-// Usa la libreria `web-push`. Installa con: npm install web-push @types/web-push
-//
-// Variabili d'ambiente richieste in .env.local:
-//   VAPID_PUBLIC_KEY=...
-//   VAPID_PRIVATE_KEY=...
-//   VAPID_EMAIL=mailto:admin@geekore.it
-//   NEXT_PUBLIC_VAPID_PUBLIC_KEY=... (stessa di VAPID_PUBLIC_KEY, esposta al client)
-//
-// Genera le chiavi con: npx web-push generate-vapid-keys
 
 import webpush from 'web-push'
 import { createClient } from '@/lib/supabase/server'
 
-// Configura VAPID solo se le chiavi sono presenti (evita crash in dev senza .env)
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
     process.env.VAPID_EMAIL || 'mailto:admin@geekore.it',
@@ -30,29 +19,39 @@ export interface PushPayload {
   tag?: string
 }
 
-/**
- * Invia una notifica push a tutti i dispositivi di un utente.
- * Rimuove automaticamente le subscription scadute.
- */
 export async function sendPushToUser(userId: string, payload: PushPayload): Promise<void> {
+  const tag = `[Push:${payload.tag || 'notif'}]`
+
+  // 1. VAPID keys
   if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
-    console.warn('[Push] VAPID keys non configurate — notifica non inviata')
+    console.error(`${tag} ❌ VAPID keys mancanti sul server — notifica non inviata`)
     return
   }
 
+  // 2. Cerca subscription nel DB
   const supabase = await createClient()
-
-  const { data: subscriptions } = await supabase
+  const { data: subscriptions, error: dbError } = await supabase
     .from('push_subscriptions')
     .select('endpoint, p256dh, auth')
     .eq('user_id', userId)
 
-  if (!subscriptions?.length) return
+  if (dbError) {
+    console.error(`${tag} ❌ Errore DB cercando subscription per user ${userId}:`, dbError.message)
+    return
+  }
+
+  if (!subscriptions || subscriptions.length === 0) {
+    console.warn(`${tag} ⚠️ Nessuna subscription trovata nel DB per user ${userId} — l'utente non ha attivato le notifiche o la subscription è scaduta`)
+    return
+  }
+
+  console.log(`${tag} 📤 Invio a ${subscriptions.length} dispositivo/i per user ${userId} — payload: "${payload.body}"`)
 
   const expiredEndpoints: string[] = []
 
   await Promise.allSettled(
-    subscriptions.map(async (sub) => {
+    subscriptions.map(async (sub, i) => {
+      const endpointShort = sub.endpoint.slice(0, 60) + '...'
       try {
         await webpush.sendNotification(
           {
@@ -63,14 +62,15 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
             },
           },
           JSON.stringify(payload),
-          { TTL: 60 * 60 * 24 } // 24 ore
+          { TTL: 60 * 60 * 24 }
         )
+        console.log(`${tag} ✅ Inviato dispositivo #${i + 1}: ${endpointShort}`)
       } catch (err: any) {
-        // 410 Gone = subscription scaduta/revocata
         if (err.statusCode === 410 || err.statusCode === 404) {
+          console.warn(`${tag} ♻️ Subscription scaduta (${err.statusCode}), verrà rimossa: ${endpointShort}`)
           expiredEndpoints.push(sub.endpoint)
         } else {
-          console.error('[Push] Errore invio:', err.message)
+          console.error(`${tag} ❌ Errore invio dispositivo #${i + 1} (status ${err.statusCode}): ${err.message} — endpoint: ${endpointShort}`)
         }
       }
     })
@@ -78,6 +78,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
 
   // Pulisci subscription scadute
   if (expiredEndpoints.length > 0) {
+    console.log(`${tag} 🗑️ Rimozione ${expiredEndpoints.length} subscription scadute per user ${userId}`)
     await supabase
       .from('push_subscriptions')
       .delete()
@@ -86,9 +87,6 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
   }
 }
 
-/**
- * Payload helper — notifica di like su un post.
- */
 export function likePayload(senderUsername: string, postId: string): PushPayload {
   return {
     title: 'Geekore',
@@ -98,9 +96,6 @@ export function likePayload(senderUsername: string, postId: string): PushPayload
   }
 }
 
-/**
- * Payload helper — notifica di nuovo follower.
- */
 export function followPayload(senderUsername: string): PushPayload {
   return {
     title: 'Geekore',
@@ -110,9 +105,6 @@ export function followPayload(senderUsername: string): PushPayload {
   }
 }
 
-/**
- * Payload helper — notifica di commento.
- */
 export function commentPayload(senderUsername: string, postId?: string): PushPayload {
   return {
     title: 'Geekore',
