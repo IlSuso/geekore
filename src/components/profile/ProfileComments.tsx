@@ -70,7 +70,6 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
       return
     }
 
-    // Carica i profili degli autori separatamente
     const authorIds = [...new Set(data.map((c: any) => c.author_id))]
     const { data: profiles } = await supabase
       .from('profiles')
@@ -126,7 +125,6 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
       setComments(prev => prev.filter(c => c.id !== optimistic.id))
       showToast('Errore nell\'invio del commento', 'error')
     } else {
-      // Sostituisce l'optimistic con il record reale (id vero dal DB)
       const { data: authorProfile } = await supabase
         .from('profiles')
         .select('username, display_name, avatar_url')
@@ -139,13 +137,20 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
           : c
       ))
 
-      // Notifica al proprietario del profilo
+      // Notifica in-app + push al proprietario del profilo
       if (profileId !== currentUserId) {
         await supabase.from('notifications').insert({
           receiver_id: profileId,
           sender_id: currentUserId,
           type: 'comment',
         }).then(() => {})
+
+        // FIX: trigger push server-side (fire and forget)
+        fetch('/api/social/profile-comment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ profile_id: profileId }),
+        }).catch(() => {})
       }
     }
 
@@ -175,7 +180,6 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
         </span>
       </div>
 
-      {/* Input nuovo commento */}
       {currentUserId && (
         <div className="mb-6 flex gap-3">
           <textarea
@@ -195,7 +199,6 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
         </div>
       )}
 
-      {/* Lista commenti */}
       {loading ? (
         <div className="flex justify-center py-8">
           <Loader2 size={24} className="animate-spin text-violet-400" />
@@ -211,7 +214,6 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
               key={comment.id}
               className="flex gap-3 p-4 bg-zinc-900 border border-zinc-800 rounded-2xl group"
             >
-              {/* Avatar */}
               <Link href={`/profile/${comment.author?.username}`} className="flex-shrink-0">
                 <div className="w-9 h-9 rounded-xl overflow-hidden bg-zinc-800">
                   {comment.author?.avatar_url ? (
@@ -228,7 +230,6 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
                 </div>
               </Link>
 
-              {/* Contenuto */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
                   <Link
@@ -244,7 +245,6 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
                         locale: it,
                       })}
                     </span>
-                    {/* Delete button — visible solo all'autore o al proprietario del profilo */}
                     {currentUserId === comment.author_id && (
                       <button
                         onClick={() => handleDelete(comment.id, comment.author_id)}
