@@ -1570,10 +1570,13 @@ export default function FeedPage() {
                       } : {
                         background: 'var(--bg-primary)',
                         paddingTop: 'env(safe-area-inset-top)',
-                        paddingBottom: 'env(safe-area-inset-bottom)',
                         display: 'flex',
                         flexDirection: 'column',
-                        height: '100%',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        height: '100dvh',
                       }}
                       onClick={e => e.stopPropagation()}
                     >
