@@ -21,7 +21,7 @@ import {
   Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X,
   Loader2, Pin, ArrowUp, Trash2, Tag, ChevronDown, Filter, Search,
   Film, Tv, Gamepad2, BookOpen, Dices, Swords, Check, PartyPopper,
-  Bell, ChevronRight, ArrowLeft
+  Bell, ChevronRight, ArrowLeft, MoreHorizontal, Bookmark
 } from 'lucide-react'
 import { SkeletonFeedPost } from '@/components/ui/SkeletonCard'
 import { Avatar } from '@/components/ui/Avatar'
@@ -654,18 +654,21 @@ const PostCard = memo(function PostCard({
 }) {
   const isCommenting = commentingPostId === post.id
   const isExpanded = expandedComments.has(post.id)
-  const visibleComments = isExpanded ? post.comments : post.comments.slice(0, 3)
-  const hiddenCount = post.comments.length - 3
-
+  const visibleComments = isExpanded ? post.comments : post.comments.slice(0, 2)
+  const hiddenCount = post.comments.length - 2
   const [confirmPost, setConfirmPost] = useState(false)
   const [confirmComment, setConfirmComment] = useState<string | null>(null)
+  const [isSaved, setIsSaved] = useState(false)
+
+  const timeStr = formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })
+  const parsed = parseCategoryString(post.category)
 
   return (
     <>
     <ConfirmDialog
       open={confirmPost}
       title="Eliminare il post?"
-      message="Questa azione è irreversibile. Il post verrà rimosso definitivamente."
+      message="Questa azione è irreversibile."
       onConfirm={() => { setConfirmPost(false); onDelete(post.id) }}
       onCancel={() => setConfirmPost(false)}
     />
@@ -676,112 +679,161 @@ const PostCard = memo(function PostCard({
       onConfirm={() => { if (confirmComment) { onDeleteComment(confirmComment, post.id); setConfirmComment(null) } }}
       onCancel={() => setConfirmComment(null)}
     />
-    <div className={`bg-zinc-950 border rounded-2xl md:rounded-3xl p-4 md:p-6 transition-all duration-300 animate-in fade-in slide-in-from-top-2 ${
-      post.pinned ? 'border-violet-500/40 ring-1 ring-violet-500/20'
-      : post.isDiscovery ? 'border-fuchsia-500/30 ring-1 ring-fuchsia-500/10'
-      : 'border-zinc-800'
-    }`}>
+    <article className="animate-fade-in" style={{ borderBottom: '0.5px solid var(--border)' }}>
 
-      {post.pinned && (
-        <div className="flex items-center gap-1.5 mb-4 text-violet-400">
-          <Pin size={12} className="rotate-45" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">In evidenza</span>
-        </div>
-      )}
-
+      {/* Discovery / pinned label */}
       {post.isDiscovery && !post.pinned && (
-        <div className="flex items-center gap-1.5 mb-4 text-fuchsia-400">
-          <Sparkles size={12} />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Consigliato per te</span>
+        <div className="flex items-center gap-1.5 px-4 pt-3 pb-0.5">
+          <Sparkles size={11} className="text-violet-400" />
+          <span className="text-[11px] font-semibold text-violet-400 tracking-widest uppercase">Consigliato per te</span>
+        </div>
+      )}
+      {post.pinned && (
+        <div className="flex items-center gap-1.5 px-4 pt-3 pb-0.5">
+          <Pin size={11} className="text-violet-400 rotate-45" />
+          <span className="text-[11px] font-semibold text-violet-400 tracking-widest uppercase">In evidenza</span>
         </div>
       )}
 
-      <div className="flex items-center gap-3 mb-4">
-        <Link href={`/profile/${post.profiles.username}`} className="w-11 h-11 rounded-2xl overflow-hidden ring-2 ring-violet-500/20 hover:ring-violet-500/50 transition-all flex-shrink-0">
-          <Avatar src={post.profiles.avatar_url} username={post.profiles.username} displayName={post.profiles.display_name} size={44} className="rounded-2xl" />
-        </Link>
-        <div className="flex-1">
-          <Link href={`/profile/${post.profiles.username}`} className="hover:text-violet-400 transition-colors">
-            <p className="font-bold text-white">{post.profiles.display_name || post.profiles.username}</p>
-          </Link>
-          <p className="text-xs text-zinc-500">
-            @{post.profiles.username} · {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })}
-          </p>
-        </div>
-        {currentUser && currentUser.id === post.user_id && (
-          <button onClick={() => setConfirmPost(true)} className="p-2 rounded-xl text-zinc-600 hover:text-red-400 hover:bg-red-400/10 transition-all" title="Elimina post">
-            <Trash2 size={15} />
-          </button>
-        )}
-      </div>
-
-      {post.category && (
-        <div className="mb-3">
-          <CategoryBadge
-            category={post.category}
-            onClick={onCategoryClick ? () => onCategoryClick(post.category!) : undefined}
-          />
-        </div>
-      )}
-
-      <p className="text-[16px] leading-relaxed mb-5 whitespace-pre-wrap text-zinc-100">{post.content}</p>
-
-      {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
-        <div className="mb-5 rounded-2xl overflow-hidden border border-zinc-700">
-          <img src={post.image_url} alt="post" className="w-full max-h-[400px] object-contain bg-black" loading="lazy" />
-        </div>
-      )}
-
-      <div className="flex gap-5 md:gap-8 border-t border-zinc-800 pt-4 md:pt-5 text-zinc-400">
-        <button onClick={() => onLike(post.id)} className={`flex items-center gap-2 transition-all ${post.liked_by_user ? 'text-red-500' : 'hover:text-red-400'}`}>
-          <Heart size={22} fill={post.liked_by_user ? 'currentColor' : 'none'} className={isLiking ? 'animate-heart-burst' : ''} />
-          <span className="text-sm font-medium">{post.likes_count}</span>
-        </button>
-        <button onClick={() => onToggleComment(post.id)} className={`flex items-center gap-2 transition-all ${isCommenting ? 'text-violet-400' : 'hover:text-violet-400'}`}>
-          <MessageCircle size={22} />
-          <span className="text-sm font-medium">{post.comments_count}</span>
-        </button>
-      </div>
-
-      {isCommenting && (
-        <div className="mt-4 flex flex-col gap-1">
-          <div className="flex gap-2">
-            <input type="text" value={commentContent} onChange={e => onCommentChange(e.target.value.slice(0, 500))}
-              placeholder="Scrivi un commento..." maxLength={500}
-              className="flex-1 bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-2xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition"
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onAddComment(post.id) } }} />
-            <button onClick={() => onAddComment(post.id)} className="bg-violet-600 hover:bg-violet-500 px-4 rounded-2xl transition"><Send size={16} /></button>
-          </div>
-          {commentContent.length > 400 && (
-            <div className={`text-right text-xs pr-14 ${commentContent.length >= 480 ? 'text-orange-400' : 'text-zinc-600'}`}>{commentContent.length}/500</div>
-          )}
-        </div>
-      )}
-
-      {post.comments.length > 0 && (
-        <div className="mt-4 pl-3 border-l-2 border-zinc-800 space-y-3 text-sm">
-          {visibleComments.map(comment => (
-            <div key={comment.id} className="flex items-start justify-between gap-2 group">
-              <div>
-                <Link href={`/profile/${comment.username}`} className="font-semibold text-violet-400 hover:text-violet-300 transition-colors">@{comment.username}</Link>
-                <span className="ml-2 text-zinc-300">{comment.content}</span>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3">
+        <Link href={`/profile/${post.profiles.username}`} className="flex items-center gap-3 min-w-0">
+          <div
+            className="flex-shrink-0 rounded-full p-[2px]"
+            style={{ background: post.liked_by_user ? 'linear-gradient(135deg, #7c3aed, #db2777)' : 'var(--border)' }}
+          >
+            <div className="rounded-full overflow-hidden bg-[var(--bg-primary)] p-[2px]">
+              <div className="w-8 h-8 rounded-full overflow-hidden">
+                <Avatar src={post.profiles.avatar_url} username={post.profiles.username} displayName={post.profiles.display_name} size={32} />
               </div>
-              {currentUser && currentUser.id === comment.user_id && (
-                <button onClick={() => setConfirmComment(comment.id)} className="text-zinc-600 hover:text-red-400 transition-colors flex-shrink-0 mt-0.5"><Trash2 size={11} /></button>
-              )}
             </div>
-          ))}
-          {!isExpanded && hiddenCount > 0 && (
-            <button onClick={() => onExpandComments(post.id)} className="text-xs text-zinc-500 hover:text-violet-400 transition-colors">
-              +{hiddenCount} {hiddenCount === 1 ? 'altro commento' : 'altri commenti'}
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-[13px] text-[var(--text-primary)] leading-tight truncate">{post.profiles.username}</p>
+            {parsed && (
+              <button
+                onClick={() => onCategoryClick?.(post.category!)}
+                className="text-[11px] text-violet-400 hover:text-violet-300 transition-colors leading-tight flex items-center gap-1"
+              >
+                <CategoryIcon category={parsed.category} size={10} />
+                {parsed.subcategory || parsed.category}
+              </button>
+            )}
+          </div>
+        </Link>
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          {currentUser?.id === post.user_id && (
+            <button onClick={() => setConfirmPost(true)} className="w-9 h-9 flex items-center justify-center text-[var(--text-muted)] hover:text-red-400 transition-colors">
+              <Trash2 size={15} strokeWidth={1.6} />
             </button>
           )}
+          <button className="w-9 h-9 flex items-center justify-center text-[var(--text-primary)]">
+            <MoreHorizontal size={20} strokeWidth={1.5} />
+          </button>
+        </div>
+      </div>
+
+      {/* Image */}
+      {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
+        <div className="w-full bg-zinc-950 overflow-hidden">
+          <img src={post.image_url} alt={`Post di ${post.profiles.username}`}
+            className="w-full max-h-[500px] object-cover select-none" loading="lazy" draggable={false} />
         </div>
       )}
-    </div>
+
+      {/* Action bar */}
+      <div className="px-4 pt-3 pb-2">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-4">
+            <button onClick={() => onLike(post.id)} className="-ml-1 p-1" aria-label={post.liked_by_user ? 'Rimuovi like' : 'Metti like'}>
+              <Heart size={26} strokeWidth={1.8}
+                className={`transition-all duration-200 ${isLiking ? 'animate-heart-burst' : ''} ${post.liked_by_user ? 'fill-red-500 text-red-500' : 'text-[var(--text-primary)]'}`} />
+            </button>
+            <button onClick={() => onToggleComment(post.id)} className="p-1">
+              <MessageCircle size={26} strokeWidth={1.8}
+                className={`transition-colors ${isCommenting ? 'fill-[var(--text-primary)] text-[var(--text-primary)]' : 'text-[var(--text-primary)]'}`} />
+            </button>
+            <button className="p-1">
+              <Send size={24} strokeWidth={1.8} className="text-[var(--text-primary)] -rotate-12" />
+            </button>
+          </div>
+          <button onClick={() => { setIsSaved(v => !v); haptic(20) }} className="p-1">
+            <Bookmark size={24} strokeWidth={1.8}
+              className={`transition-all ${isSaved ? 'fill-[var(--text-primary)] text-[var(--text-primary)]' : 'text-[var(--text-primary)]'}`} />
+          </button>
+        </div>
+
+        {post.likes_count > 0 && (
+          <p className="font-semibold text-[13px] text-[var(--text-primary)] leading-tight mb-1.5">
+            {post.likes_count.toLocaleString()} Mi piace
+          </p>
+        )}
+
+        {post.content && (
+          <p className="text-[14px] text-[var(--text-primary)] leading-snug mb-1.5">
+            <Link href={`/profile/${post.profiles.username}`} className="font-semibold mr-1.5 hover:opacity-70 transition-opacity">
+              {post.profiles.username}
+            </Link>
+            <span className="font-normal">{post.content}</span>
+          </p>
+        )}
+
+        {post.comments.length > 0 && (
+          <div className="mb-1.5">
+            {!isExpanded && hiddenCount > 0 && (
+              <button onClick={() => onExpandComments(post.id)}
+                className="text-[14px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors block mb-1">
+                Visualizza tutti i {post.comments.length} commenti
+              </button>
+            )}
+            <div className="space-y-0.5">
+              {visibleComments.map(comment => (
+                <div key={comment.id} className="flex items-start justify-between gap-2 group">
+                  <p className="text-[14px] text-[var(--text-primary)] leading-snug">
+                    <Link href={`/profile/${comment.username}`} className="font-semibold mr-1.5 hover:opacity-70 transition-opacity">
+                      {comment.username}
+                    </Link>
+                    <span>{comment.content}</span>
+                  </p>
+                  {currentUser?.id === comment.user_id && (
+                    <button onClick={() => setConfirmComment(comment.id)}
+                      className="opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-red-400 transition-all flex-shrink-0 mt-0.5">
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {isCommenting && (
+          <div className="flex items-center gap-3 pt-2 border-t border-[var(--border-subtle)]">
+            <input type="text" value={commentContent} onChange={e => onCommentChange(e.target.value.slice(0, 500))}
+              placeholder="Aggiungi un commento..." maxLength={500} autoFocus
+              className="flex-1 bg-transparent text-[14px] text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none"
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onAddComment(post.id) } }} />
+            {commentContent.trim() && (
+              <button onClick={() => onAddComment(post.id)}
+                className="flex-shrink-0 text-[13px] font-semibold text-violet-400 hover:text-violet-300 transition-colors">
+                Pubblica
+              </button>
+            )}
+          </div>
+        )}
+
+        <button onClick={() => onToggleComment(post.id)}
+          className="text-[14px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors block mt-1">
+          Aggiungi un commento...
+        </button>
+
+        <p className="text-[11px] text-[var(--text-muted)] uppercase tracking-[0.04em] mt-1 pb-1">{timeStr}</p>
+      </div>
+    </article>
     </>
   )
 })
+
 
 // ── Pagina principale ────────────────────────────────────────────────────────
 
@@ -1174,138 +1226,194 @@ export default function FeedPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black text-white">
-        <div className="pt-8 pb-20 max-w-screen-2xl mx-auto px-6 space-y-8">
-          {Array.from({ length: 4 }).map((_, i) => <SkeletonFeedPost key={i} />)}
+      <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
+        <div className="max-w-xl mx-auto pt-4 pb-20">
+          {Array.from({ length: 3 }).map((_, i) => <SkeletonFeedPost key={i} />)}
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
       <PullWrapper distance={pullDistance} refreshing={isPullRefreshing}>
-      <div className="pt-2 md:pt-8 pb-24 md:pb-20 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
-        <div className="flex gap-8 items-start min-h-screen">
+      {/* Instagram layout: max-w-xl centrato su desktop, full-bleed su mobile */}
+      <div className="pt-0 pb-24 max-w-xl mx-auto">
+        <div className="flex gap-0 items-start min-h-screen">
 
           {/* ── Colonna principale ─────────────────────────────────── */}
           <div className="flex-1 min-w-0">
 
-            {/* Composer */}
+            {/* Composer — Instagram style: avatar + input inline, no heavy card */}
             {currentUser && (
-              <div className="mb-4 md:mb-8 bg-zinc-950 border border-zinc-800 rounded-2xl md:rounded-3xl p-3 md:p-6">
-                <form onSubmit={handleCreatePost}>
-                  <textarea
+              <div
+                className="mb-0 md:mb-4"
+                style={{ borderBottom: '0.5px solid var(--border)' }}
+              >
+                {/* Quick composer row */}
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-[var(--bg-card)]">
+                    {currentProfile?.avatar_url ? (
+                      <img src={currentProfile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-violet-600 to-fuchsia-600 flex items-center justify-center text-white text-xs font-bold">
+                        {(currentProfile?.username?.[0] || '?').toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <input
                     data-testid="post-composer"
+                    value={newPostContent}
+                    onChange={e => setNewPostContent(e.target.value.slice(0, 500))}
+                    onFocus={() => {/* expand handled by textarea below */}}
+                    placeholder={f.placeholder}
+                    className="flex-1 bg-transparent text-[15px] text-[var(--text-secondary)] placeholder-[var(--text-muted)] outline-none cursor-pointer"
+                    readOnly
+                    onClick={e => (e.target as HTMLInputElement).blur()}
+                  />
+                </div>
+
+                {/* Expanded composer — shown when user starts typing */}
+                <form onSubmit={handleCreatePost} className="px-4 pb-3">
+                  <textarea
+                    data-testid="post-composer-full"
                     value={newPostContent}
                     onChange={e => setNewPostContent(e.target.value.slice(0, 500))}
                     placeholder={f.placeholder}
                     maxLength={500}
-                    className="w-full bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-2xl p-3 md:p-5 text-sm md:text-base min-h-[80px] md:min-h-[120px] resize-none focus:outline-none transition-colors"
+                    rows={newPostContent ? 4 : 1}
+                    className="w-full bg-transparent text-[15px] text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none resize-none transition-all"
                   />
-                  <div className={`text-right text-xs mt-1 ${newPostContent.length >= 480 ? 'text-orange-400' : 'text-zinc-600'}`}>
-                    {newPostContent.length}/500
-                  </div>
+                  {newPostContent.length >= 400 && (
+                    <p className={`text-right text-[11px] mb-2 ${newPostContent.length >= 480 ? 'text-orange-400' : 'text-[var(--text-muted)]'}`}>
+                      {500 - newPostContent.length}
+                    </p>
+                  )}
+
                   {imagePreview && (
-                    <div className="mt-3 relative rounded-2xl overflow-hidden border border-zinc-700">
+                    <div className="mb-3 relative rounded-2xl overflow-hidden border border-[var(--border)]">
                       <img src={imagePreview} alt="preview" className="max-h-72 w-full object-contain bg-black" />
                       <button type="button" onClick={() => { setSelectedImage(null); setImagePreview(null) }}
-                        className="absolute top-3 right-3 bg-black/80 p-2 rounded-full hover:bg-red-600 transition">
-                        <X size={16} />
+                        className="absolute top-2 right-2 bg-black/70 p-1.5 rounded-full hover:bg-red-600 transition">
+                        <X size={14} />
                       </button>
                     </div>
                   )}
-                  <div className="flex flex-wrap items-center gap-2 mt-4">
-                    <CategorySelector value={newPostCategory} onChange={setNewPostCategory} />
-                    <label className="cursor-pointer bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 px-3 py-1.5 rounded-xl flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition">
-                      <ImageIcon size={14} /> {f.addImage}
+
+                  <div className="flex items-center gap-2">
+                    <label className="cursor-pointer p-1.5 rounded-full text-[var(--text-secondary)] hover:text-violet-400 hover:bg-violet-500/10 transition-all">
+                      <ImageIcon size={20} strokeWidth={1.6} />
                       <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
                     </label>
-                    <button type="submit" disabled={isPublishing}
-                      className="ml-auto bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 md:px-5 py-1.5 rounded-xl font-semibold text-sm hover:brightness-110 disabled:opacity-70 transition flex items-center gap-2">
-                      {isPublishing ? <><Loader2 size={14} className="animate-spin" /> {f.publishing}</> : f.publish}
+                    <CategorySelector value={newPostCategory} onChange={setNewPostCategory} />
+                    <button
+                      type="submit"
+                      disabled={isPublishing || (!newPostContent.trim() && !selectedImage)}
+                      className="ml-auto px-5 py-1.5 rounded-full text-[13px] font-semibold transition-all disabled:opacity-40"
+                      style={{
+                        background: 'linear-gradient(135deg, #7c3aed, #db2777)',
+                        color: 'white',
+                      }}
+                    >
+                      {isPublishing ? <Loader2 size={14} className="animate-spin" /> : f.publish}
                     </button>
                   </div>
                 </form>
               </div>
             )}
 
-            {/* Banner nuovi post */}
+            {/* Banner nuovi post — Instagram "Nuovi post" pill */}
             {newPostsCount > 0 && (
-              <button onClick={handleShowNewPosts}
-                className="flex items-center gap-2 mx-auto mb-4 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-full text-sm font-semibold text-white shadow-lg shadow-violet-500/30 transition-all hover:scale-105 animate-in fade-in slide-in-from-top-2">
-                <Bell size={14} />
-                {newPostsCount === 1 ? '1 nuovo post' : `${newPostsCount} nuovi post`} — clicca per vedere
-              </button>
+              <div className="sticky top-[52px] z-10 flex justify-center py-2">
+                <button
+                  onClick={handleShowNewPosts}
+                  className="flex items-center gap-2 px-5 py-2 rounded-full text-[13px] font-semibold shadow-lg transition-all hover:scale-105 animate-bounce-in"
+                  style={{
+                    background: 'var(--bg-card)',
+                    color: 'var(--text-primary)',
+                    border: '0.5px solid var(--border)',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+                  }}
+                >
+                  <ArrowUp size={14} />
+                  {newPostsCount === 1 ? '1 nuovo post' : `${newPostsCount} nuovi post`}
+                </button>
+              </div>
             )}
 
-            {/* Filter tabs + filtro categoria */}
+            {/* Filter tabs — Instagram: "Per te" / "Seguiti" stile tab */}
             {currentUser && (
-              <div className="flex items-center gap-2 mb-5 md:mb-6 overflow-x-auto scrollbar-hide -mx-3 sm:-mx-4 md:mx-0 px-3 sm:px-4 md:px-0 pb-1">
-                <div className="flex gap-2 bg-zinc-950 border border-zinc-800 rounded-2xl p-1.5 flex-shrink-0">
-                  {(['all', 'following'] as const).map(filter => (
-                    <button key={filter} data-testid={`filter-${filter}`} onClick={() => handleFilterChange(filter)}
-                      className={`px-4 md:px-5 py-2 rounded-xl text-sm font-semibold transition-all ${feedFilter === filter ? 'bg-violet-600 text-white' : 'text-zinc-400 hover:text-white'}`}>
-                      {filter === 'all' ? f.filterAll : f.filterFollowing}
-                    </button>
-                  ))}
-                </div>
+              <div
+                className="flex items-stretch mb-0"
+                style={{ borderBottom: '0.5px solid var(--border)' }}
+              >
+                {(['all', 'following'] as const).map(filter => (
+                  <button
+                    key={filter}
+                    data-testid={`filter-${filter}`}
+                    onClick={() => handleFilterChange(filter)}
+                    className="flex-1 py-3 text-[14px] font-semibold transition-all relative"
+                    style={{ color: feedFilter === filter ? 'var(--text-primary)' : 'var(--text-muted)' }}
+                  >
+                    {filter === 'all' ? f.filterAll : f.filterFollowing}
+                    {feedFilter === filter && (
+                      <span
+                        className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-[1px]"
+                        style={{ background: 'var(--text-primary)' }}
+                      />
+                    )}
+                  </button>
+                ))}
 
-                <div className="flex-shrink-0">
+                {/* Category filter button */}
+                <div className="flex items-center pr-2">
                   <CategoryFilter activeFilter={categoryFilter} onFilterChange={setCategoryFilter} />
                 </div>
-
-                {/* Badge filtro attivo con X rapida */}
-                {categoryFilter && (
-                  <span className="text-xs text-zinc-500 flex-shrink-0">
-                    {displayedPosts.length} post trovati
-                  </span>
-                )}
               </div>
             )}
 
             {/* Post in evidenza */}
             {feedFilter === 'all' && !categoryFilter && pinnedPosts.length > 0 && (
-              <div className="mb-8">
-                <div className="flex items-center gap-2 mb-3">
-                  <Sparkles size={14} className="text-violet-400" />
-                  <span className="text-xs font-bold text-violet-400 uppercase tracking-widest">In evidenza questa settimana</span>
+              <div className="mb-0">
+                <div className="flex items-center gap-2 px-4 pt-4 pb-2" style={{ borderBottom: '0.5px solid var(--border)' }}>
+                  <Sparkles size={13} className="text-violet-400" />
+                  <span className="text-[12px] font-semibold text-violet-400 uppercase tracking-widest">In evidenza questa settimana</span>
                 </div>
-                <div className="space-y-4">
-                  {pinnedPosts.map(post => (
-                    <PostCard key={`pinned-${post.id}`} post={post} currentUser={currentUser}
-                      isLiking={likingIds.has(post.id)} commentingPostId={commentingPostId}
-                      commentContent={commentContent} locale={locale}
-                      onLike={toggleLikePinned} onToggleComment={handleToggleComment}
-                      onCommentChange={setCommentContent} onAddComment={handleAddComment}
-                      onDelete={handleDeletePost} onDeleteComment={handleDeleteComment}
-                      expandedComments={expandedComments} onExpandComments={handleExpandComments}
-                      onCategoryClick={handleCategoryClick} />
-                  ))}
-                </div>
-                <div className="h-px bg-zinc-800 my-8" />
+                {pinnedPosts.map(post => (
+                  <PostCard key={`pinned-${post.id}`} post={post} currentUser={currentUser}
+                    isLiking={likingIds.has(post.id)} commentingPostId={commentingPostId}
+                    commentContent={commentContent} locale={locale}
+                    onLike={toggleLikePinned} onToggleComment={handleToggleComment}
+                    onCommentChange={setCommentContent} onAddComment={handleAddComment}
+                    onDelete={handleDeletePost} onDeleteComment={handleDeleteComment}
+                    expandedComments={expandedComments} onExpandComments={handleExpandComments}
+                    onCategoryClick={handleCategoryClick} />
+                ))}
               </div>
             )}
 
-            {/* Feed posts */}
-            <div className="space-y-6">
+            {/* Feed posts — no gap, separated by 0.5px borders like Instagram */}
+            <div>
               {displayedPosts.length === 0 ? (
-                <div className="text-center py-24">
-                  <Sparkles className="mx-auto mb-6 text-violet-500" size={56} />
-                  <p className="text-xl font-medium">
+                <div className="text-center py-24 px-8">
+                  <div className="w-16 h-16 rounded-full border-2 border-[var(--border)] flex items-center justify-center mx-auto mb-4">
+                    <Sparkles size={28} className="text-violet-400" />
+                  </div>
+                  <p className="text-[16px] font-semibold text-[var(--text-primary)] mb-1">
                     {categoryFilter
                       ? `Nessun post per "${parseCategoryString(categoryFilter)?.subcategory || categoryFilter}"`
                       : feedFilter === 'following' ? f.noFollowingTitle : f.emptyTitle}
                   </p>
-                  <p className="text-zinc-500 mt-2">
+                  <p className="text-[14px] text-[var(--text-secondary)]">
                     {categoryFilter
                       ? 'Sii il primo a pubblicare in questa categoria!'
                       : feedFilter === 'following' ? f.noFollowingHint : f.emptyHint}
                   </p>
                   {categoryFilter && (
                     <button onClick={() => setCategoryFilter('')}
-                      className="mt-4 px-4 py-2 rounded-xl border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 text-sm transition">
+                      className="mt-4 px-5 py-2 rounded-full text-[13px] font-semibold transition-all"
+                      style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
                       Rimuovi filtro
                     </button>
                   )}
@@ -1326,21 +1434,19 @@ export default function FeedPage() {
               <div ref={sentinelRef} className="h-4" />
 
               {loadingMore && (
-                <div className="flex justify-center py-6"><Loader2 size={24} className="animate-spin text-violet-400" /></div>
+                <div className="flex justify-center py-8">
+                  <Loader2 size={22} className="animate-spin text-violet-400" />
+                </div>
               )}
 
               {!hasMore && posts.length > 0 && (
-                <p className="text-center text-zinc-600 text-sm py-6 flex items-center justify-center gap-2">
-                  <PartyPopper size={14} /> Hai visto tutto!
-                </p>
+                <div className="text-center py-10 flex flex-col items-center gap-2">
+                  <div className="w-12 h-12 rounded-full border border-[var(--border)] flex items-center justify-center">
+                    <PartyPopper size={20} className="text-violet-400" />
+                  </div>
+                  <p className="text-[13px] text-[var(--text-muted)]">Hai visto tutto!</p>
+                </div>
               )}
-            </div>
-          </div>
-
-          {/* ── Sidebar ────────────────────────────────────────────── */}
-          <div className="hidden lg:block w-80 flex-shrink-0">
-            <div className="sticky top-20">
-              <FeedSidebar currentUserId={currentUser?.id || null} />
             </div>
           </div>
 

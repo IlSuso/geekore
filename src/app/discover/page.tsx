@@ -285,134 +285,186 @@ export default function DiscoverPage() {
   const showingResults = !loading && !searchError && results.length > 0;
 
   return (
-    <div className="min-h-screen bg-black text-white pb-24">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] pb-24">
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
-      <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 pt-4 md:pt-8">
+      <div className="max-w-xl mx-auto px-4 pt-2 md:pt-6">
 
-        {/* Search bar */}
+        {/* Instagram-style search bar: full-width, pill-shaped, muted bg */}
         <div className="relative mb-4">
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+          <Search
+            size={16}
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none"
+          />
           <input
             data-testid="search-input"
-            type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-            placeholder={isListening ? 'In ascolto...' : (d.searchPlaceholder || 'Cerca anime, film, giochi, manga...')}
-            className={`w-full bg-zinc-900 border rounded-2xl pl-11 py-4 text-base text-white placeholder-zinc-600 focus:outline-none transition-colors ${isListening ? 'border-red-500 pr-20' : 'border-zinc-800 focus:border-violet-500 pr-20'}`}
-            autoFocus={typeof window !== "undefined" && window.innerWidth >= 768}
+            type="text"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder={isListening ? 'In ascolto...' : (d.searchPlaceholder || 'Cerca anime, film, giochi...')}
+            className={`w-full rounded-xl pl-10 pr-20 py-2.5 text-[15px] outline-none transition-colors ${
+              isListening
+                ? 'bg-red-500/10 border border-red-500/40 text-[var(--text-primary)] placeholder-red-400/60'
+                : 'bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-violet-500/60'
+            }`}
+            autoFocus={typeof window !== 'undefined' && window.innerWidth >= 768}
           />
-          {searchTerm && !isListening && (
-            <button onClick={() => { setSearchTerm(''); setResults([]); setIsPending(false); lastTrackedQueryRef.current = ''; }} className="absolute right-12 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"><X size={16} /></button>
-          )}
-          {voiceSupported && (
-            <button onClick={toggleVoice} title={isListening ? 'Ferma' : 'Ricerca vocale'}
-              className={`absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-xl flex items-center justify-center transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-violet-400'}`}>
-              {isListening ? <MicOff size={16} /> : <Mic size={16} />}
-            </button>
-          )}
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            {searchTerm && !isListening && (
+              <button
+                onClick={() => { setSearchTerm(''); setResults([]); setIsPending(false); lastTrackedQueryRef.current = ''; }}
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-[var(--text-muted)] text-[var(--bg-primary)]"
+              >
+                <X size={12} strokeWidth={2.5} />
+              </button>
+            )}
+            {voiceSupported && (
+              <button
+                onClick={toggleVoice}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${
+                  isListening ? 'bg-red-500 text-white' : 'text-[var(--text-secondary)] hover:text-violet-400'
+                }`}
+              >
+                {isListening ? <MicOff size={15} /> : <Mic size={15} />}
+              </button>
+            )}
+          </div>
         </div>
 
-        {isPending && !loading && searchTerm.trim().length >= 2 && (
-          <div className="flex items-center gap-2 mb-4 px-4 py-2 bg-zinc-900/60 border border-zinc-800 rounded-xl w-fit">
-            <Loader2 size={13} className="animate-spin text-violet-400" />
-            <span className="text-xs text-zinc-500">Ricerca in corso…</span>
-          </div>
-        )}
-
+        {/* Listening indicator — compact */}
         {isListening && (
-          <div className="flex items-center gap-3 mb-4 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-2xl">
-            <div className="flex gap-1 items-end">
-              {[12, 18, 14].map((h, i) => <div key={i} className="w-1 bg-red-400 rounded-full animate-bounce" style={{ height: h, animationDelay: `${i * 0.1}s` }} />)}
+          <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-red-500/8 border border-red-500/20 rounded-xl">
+            <div className="flex gap-0.5 items-end">
+              {[10, 16, 12].map((h, i) => (
+                <div key={i} className="w-0.5 bg-red-400 rounded-full animate-bounce" style={{ height: h, animationDelay: `${i * 0.12}s` }} />
+              ))}
             </div>
-            <span className="text-sm text-red-300 font-medium">In ascolto... parla ora</span>
-            <button onClick={toggleVoice} className="ml-auto text-xs text-red-400 hover:text-red-300">Annulla</button>
+            <span className="text-[13px] text-red-400 font-medium flex-1">In ascolto...</span>
+            <button onClick={toggleVoice} className="text-[12px] text-red-400 hover:text-red-300">Annulla</button>
           </div>
         )}
 
-        {/* Filters */}
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-6">
+        {/* Type filter chips — horizontal scroll, pill style */}
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 mb-5 -mx-4 px-4">
           {FILTERS.map(tf => (
-            <button key={tf.id} data-testid={`filter-${tf.id}`} onClick={() => { haptic(30); setActiveType(tf.id); }}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap border transition-all flex-shrink-0 ${activeType === tf.id ? 'bg-violet-600 border-violet-500 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'}`}>
+            <button
+              key={tf.id}
+              data-testid={`filter-${tf.id}`}
+              onClick={() => { haptic(30); setActiveType(tf.id); }}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all flex-shrink-0"
+              style={activeType === tf.id
+                ? { background: 'var(--text-primary)', color: 'var(--bg-primary)' }
+                : { background: 'var(--bg-card)', color: 'var(--text-secondary)', border: '0.5px solid var(--border)' }
+              }
+            >
               {tf.icon}{tf.label}
             </button>
           ))}
         </div>
 
-        {/* Skeleton loading */}
+        {/* Loading skeleton */}
         {loading && (
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <SkeletonDiscoverCard key={i} />
-            ))}
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-1">
+            {Array.from({ length: 12 }).map((_, i) => <SkeletonDiscoverCard key={i} />)}
           </div>
         )}
 
-        {searchError && !loading && <div className="text-center py-12 text-zinc-500">{searchError}</div>}
-
-        {!loading && !searchError && results.length === 0 && searchTerm.trim().length >= 2 && !isPending && (
-          <div className="text-center py-20 text-zinc-600">
-            <Search size={40} className="mx-auto mb-4 opacity-30" />
-            <p>{d.noResults}</p>
+        {/* Pending search indicator */}
+        {isPending && !loading && searchTerm.trim().length >= 2 && (
+          <div className="flex items-center justify-center gap-2 py-4">
+            <Loader2 size={16} className="animate-spin text-violet-400" />
+            <span className="text-[13px] text-[var(--text-secondary)]">Ricerca in corso…</span>
           </div>
         )}
 
+        {searchError && !loading && (
+          <p className="text-center py-12 text-[var(--text-muted)] text-[14px]">{searchError}</p>
+        )}
+
+        {/* Empty state — search prompt */}
         {!loading && !searchTerm.trim() && (
-          <div className="text-center py-20 text-zinc-600">
-            <Search size={48} className="mx-auto mb-4 opacity-20" />
-            <p className="text-lg font-medium text-zinc-500">{'Inizia a cercare'}</p>
-            <p className="text-sm mt-1">{'Cerca tra anime, manga, film, serie TV, giochi e board game…'}</p>
+          <div className="flex flex-col items-center justify-center py-20 text-center px-8">
+            <div className="w-16 h-16 rounded-full bg-[var(--bg-card)] border border-[var(--border)] flex items-center justify-center mb-4">
+              <Search size={26} className="text-[var(--text-muted)]" />
+            </div>
+            <p className="text-[16px] font-semibold text-[var(--text-primary)] mb-1">Cerca qualcosa</p>
+            <p className="text-[14px] text-[var(--text-secondary)]">Anime, manga, film, serie TV, giochi e board game.</p>
           </div>
         )}
 
-        {/* Results */}
+        {/* No results */}
+        {!loading && !searchError && results.length === 0 && searchTerm.trim().length >= 2 && !isPending && (
+          <div className="flex flex-col items-center justify-center py-20 text-center px-8">
+            <p className="text-[16px] font-semibold text-[var(--text-primary)] mb-1">Nessun risultato</p>
+            <p className="text-[14px] text-[var(--text-secondary)]">{d.noResults}</p>
+          </div>
+        )}
+
+        {/* Results — Instagram explore grid style: 3 cols, tight gap */}
         {showingResults && grouped.map(([type, items]) => items.length === 0 ? null : (
-          <div key={type} className="mb-10">
-            <div className="flex items-center gap-2 mb-4">
-              <span className={`px-3 py-1 rounded-full text-xs font-bold border ${TYPE_COLORS[type] || 'text-zinc-400 border-zinc-700 bg-zinc-800'}`}>
+          <div key={type} className="mb-8">
+            {/* Section header */}
+            <div className="flex items-center gap-2 mb-3">
+              <span
+                className="text-[12px] font-semibold px-2.5 py-1 rounded-full"
+                style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)', border: '0.5px solid var(--border)' }}
+              >
                 {TYPE_LABELS[type] || type}
               </span>
-              <span className="text-zinc-600 text-xs">{items.length} risultati</span>
+              <span className="text-[12px] text-[var(--text-muted)]">{items.length} risultati</span>
             </div>
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+
+            {/* 3-col tight grid */}
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-1">
               {items.map((item, i) => (
                 <div
                   key={item.id}
-                  className="group cursor-pointer"
-                  style={{ animationDelay: `${i * 40}ms` }}
-                  onClick={() => handleResultClick(item)}  // V3: usa handleResultClick con tracking
+                  className="group cursor-pointer relative"
+                  style={{ animationDelay: `${i * 30}ms` }}
+                  onClick={() => handleResultClick(item)}
                 >
-                  <div className="relative aspect-[2/3] rounded-2xl overflow-hidden bg-zinc-800 mb-2">
+                  <div className="aspect-[2/3] overflow-hidden bg-[var(--bg-card)]">
                     {hasValidCover(item)
-                      ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
-                      : <div className="w-full h-full flex items-center justify-center text-zinc-700">
-                          {type === 'game' ? <Gamepad2 size={32} /> : type === 'boardgame' ? <Dices size={32} /> : type === 'manga' ? <BookOpen size={32} /> : <Tv size={32} />}
+                      ? <img src={item.coverImage} alt={item.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                      : <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)]">
+                          {type === 'game' ? <Gamepad2 size={28} /> : type === 'boardgame' ? <Dices size={28} /> : type === 'manga' ? <BookOpen size={28} /> : <Tv size={28} />}
                         </div>
                     }
-                    {/* Wishlist button */}
-                    <button
-                      onClick={e => { e.stopPropagation(); toggleWishlist(item); }}
-                      className="absolute top-2 right-2 w-7 h-7 bg-black/60 backdrop-blur-sm rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      {wishlistIds.includes(item.id)
-                        ? <BookmarkCheck size={13} className="text-violet-400" />
-                        : <Bookmark size={13} className="text-white" />}
-                    </button>
-                    {/* Add button */}
-                    {!alreadyAdded.includes(item.id) && (
-                      <button
-                        onClick={e => { e.stopPropagation(); setDrawerMedia(item as any); }}
-                        className="absolute bottom-2 right-2 w-7 h-7 bg-violet-600 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Plus size={13} className="text-white" />
-                      </button>
-                    )}
-                    {alreadyAdded.includes(item.id) && (
-                      <div className="absolute bottom-2 right-2 w-7 h-7 bg-emerald-500/20 border border-emerald-500/40 rounded-lg flex items-center justify-center">
-                        <Check size={13} className="text-emerald-400" />
+                    {/* Hover overlay */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                    {/* Action buttons on hover */}
+                    <div className="absolute inset-0 flex flex-col justify-between p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex justify-end">
+                        <button
+                          onClick={e => { e.stopPropagation(); toggleWishlist(item); }}
+                          className="w-6 h-6 bg-black/70 backdrop-blur-sm rounded-md flex items-center justify-center"
+                        >
+                          {wishlistIds.includes(item.id)
+                            ? <BookmarkCheck size={11} className="text-violet-400" />
+                            : <Bookmark size={11} className="text-white" />}
+                        </button>
                       </div>
-                    )}
+                      <div className="flex justify-end">
+                        {!alreadyAdded.includes(item.id) ? (
+                          <button
+                            onClick={e => { e.stopPropagation(); setDrawerMedia(item as any); }}
+                            className="w-6 h-6 bg-violet-600 rounded-md flex items-center justify-center"
+                          >
+                            <Plus size={11} className="text-white" />
+                          </button>
+                        ) : (
+                          <div className="w-6 h-6 bg-emerald-500/30 border border-emerald-500/50 rounded-md flex items-center justify-center">
+                            <Check size={11} className="text-emerald-400" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-xs font-medium text-zinc-300 line-clamp-2 leading-snug">{locale === 'en' && item.title_en ? item.title_en : item.title}</p>
-                  {item.year && <p className="text-[10px] text-zinc-600 mt-0.5">{item.year}</p>}
+                  {/* Title below image */}
+                  <p className="text-[11px] font-medium text-[var(--text-primary)] line-clamp-2 leading-snug mt-1 px-0.5">
+                    {locale === 'en' && item.title_en ? item.title_en : item.title}
+                  </p>
+                  {item.year && <p className="text-[10px] text-[var(--text-muted)] px-0.5">{item.year}</p>}
                 </div>
               ))}
             </div>
@@ -420,7 +472,6 @@ export default function DiscoverPage() {
         ))}
       </div>
 
-      {/* MediaDetailsDrawer */}
       {drawerMedia && (
         <MediaDetailsDrawer
           media={drawerMedia}
