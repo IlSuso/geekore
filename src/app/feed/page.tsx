@@ -643,37 +643,70 @@ function BottomSheet({
   return (
     <div
       className="fixed inset-0 z-[500] bg-black/60 animate-in fade-in duration-150"
-      style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
       onClick={onClose}
     >
-      <div
-        className="w-full max-w-sm mb-4 mx-4 animate-in slide-in-from-bottom-4 duration-200"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="bg-zinc-800 rounded-2xl overflow-hidden mb-2">
+      {/* Desktop: modale centrato stile Instagram */}
+      <div className="hidden md:flex items-center justify-center h-full">
+        <div
+          className="bg-[#262626] rounded-2xl overflow-hidden w-[400px] animate-in zoom-in-95 duration-150 shadow-2xl"
+          onClick={e => e.stopPropagation()}
+        >
           {title && (
-            <div className="px-4 py-3 border-b border-zinc-700/50">
-              <p className="text-zinc-400 text-xs text-center">{title}</p>
+            <div className="px-6 py-4 border-b border-zinc-700/50">
+              <p className="text-zinc-400 text-xs text-center leading-relaxed">{title}</p>
             </div>
           )}
           {actions.map((action, i) => (
             <button
               key={i}
               onClick={() => { action.onClick(); onClose() }}
-              className={`w-full py-3.5 font-semibold text-sm transition-colors border-b border-zinc-700/30 last:border-0 hover:bg-zinc-700/50 ${
+              className={`w-full py-4 font-semibold text-[15px] transition-colors border-b border-zinc-700/40 last:border-0 hover:bg-zinc-700/30 ${
                 action.danger ? 'text-red-400' : 'text-white'
               }`}
             >
               {action.label}
             </button>
           ))}
+          <button
+            onClick={onClose}
+            className="w-full py-4 text-white text-[15px] font-normal hover:bg-zinc-700/30 transition-colors border-t border-zinc-700/40"
+          >
+            Annulla
+          </button>
         </div>
-        <button
-          onClick={onClose}
-          className="w-full bg-zinc-800 rounded-2xl py-3.5 text-white font-semibold text-sm hover:bg-zinc-700 transition-colors"
+      </div>
+
+      {/* Mobile: bottom sheet che sale dal basso */}
+      <div className="md:hidden flex items-end justify-center h-full">
+        <div
+          className="w-full max-w-sm mb-4 mx-4 animate-in slide-in-from-bottom-4 duration-200"
+          onClick={e => e.stopPropagation()}
         >
-          Annulla
-        </button>
+          <div className="bg-zinc-800 rounded-2xl overflow-hidden mb-2">
+            {title && (
+              <div className="px-4 py-3 border-b border-zinc-700/50">
+                <p className="text-zinc-400 text-xs text-center leading-relaxed">{title}</p>
+              </div>
+            )}
+            {actions.map((action, i) => (
+              <button
+                key={i}
+                onClick={() => { action.onClick(); onClose() }}
+                className={`w-full py-4 font-semibold text-[15px] transition-colors border-b border-zinc-700/30 last:border-0 active:bg-zinc-700/50 ${
+                  action.danger ? 'text-red-400' : 'text-white'
+                }`}
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={onClose}
+            className="w-full bg-zinc-800 rounded-2xl py-4 text-white font-semibold text-[15px] active:bg-zinc-700 transition-colors"
+          >
+            Annulla
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -796,81 +829,82 @@ const PostCard = memo(function PostCard({
         )}
       </div>
 
-      {/* Commenti — preview sempre visibile (max 2) con lo stesso stile dei commenti aperti */}
+      {/* Commenti preview — stile Instagram: testo inline, niente box */}
       {post.comments.length > 0 && !isCommenting && (
-        <div className="px-5 pb-4 border-t border-zinc-800/40 pt-3 bg-black/10 space-y-2">
+        <div className="px-5 pb-3 space-y-1.5">
           {post.comments.slice(0, 2).map(comment => (
-            <div key={comment.id} className="flex gap-2.5 group/previewcomment">
-              <Link href={`/profile/${comment.username}`} className="w-7 h-7 rounded-xl overflow-hidden flex-shrink-0 hover:ring-2 hover:ring-violet-500/50 transition-all mt-0.5">
-                <Avatar src={undefined} username={comment.username || 'user'} displayName={comment.display_name} size={28} className="rounded-xl" />
-              </Link>
-              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3.5 py-2 flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <Link href={`/profile/${comment.username}`} className="text-[10px] font-bold text-violet-400 uppercase tracking-wider hover:text-violet-300">
-                    @{comment.username}
-                  </Link>
-                  {currentUser?.id === comment.user_id && (
-                    <button
-                      onClick={() => onCommentOptions(comment.id, post.id)}
-                      className="opacity-0 group-hover/previewcomment:opacity-100 text-zinc-600 hover:text-white transition-all p-0.5"
-                    >
-                      <MoreHorizontal size={12} />
-                    </button>
-                  )}
-                </div>
-                <p className="text-zinc-300 text-xs mt-0.5 leading-snug">{comment.content}</p>
-              </div>
+            <div key={comment.id} className="flex items-start gap-1 group/pc">
+              <p className="text-sm text-zinc-200 leading-snug flex-1 min-w-0">
+                <Link href={`/profile/${comment.username}`} className="font-semibold text-white hover:text-violet-400 transition-colors mr-1.5">
+                  {comment.username}
+                </Link>
+                {comment.content}
+              </p>
+              {currentUser?.id === comment.user_id && (
+                <button
+                  onClick={() => onCommentOptions(comment.id, post.id)}
+                  className="opacity-0 group-hover/pc:opacity-100 text-zinc-600 hover:text-white transition-all flex-shrink-0 mt-0.5"
+                >
+                  <MoreHorizontal size={13} />
+                </button>
+              )}
             </div>
           ))}
           {post.comments.length > 2 && (
-            <button onClick={() => onToggleComment(post.id)} className="text-xs text-zinc-500 hover:text-violet-400 transition-colors pl-9">
-              +{post.comments.length - 2} {post.comments.length - 2 === 1 ? 'altro commento' : 'altri commenti'}
+            <button onClick={() => onToggleComment(post.id)} className="text-xs text-zinc-500 hover:text-violet-400 transition-colors">
+              Vedi tutti i {post.comments.length} commenti
             </button>
           )}
         </div>
       )}
 
-      {/* Commenti */}
+      {/* Commenti espansi — stile Instagram */}
       {isCommenting && (
-        <div className="px-5 pb-5 border-t border-zinc-800/60 pt-4 bg-black/20">
+        <div className="border-t border-zinc-800/40">
           {post.comments.length > 0 && (
-            <div className="space-y-3 mb-4 max-h-56 overflow-y-auto">
+            <div className="px-5 pt-3 pb-2 space-y-2.5 max-h-52 overflow-y-auto">
               {visibleComments.map(comment => (
-                <div key={comment.id} className="flex gap-3">
-                  <Link href={`/profile/${comment.username}`} className="w-7 h-7 rounded-xl overflow-hidden flex-shrink-0 hover:ring-2 hover:ring-violet-500/50 transition-all">
-                    <Avatar src={undefined} username={comment.username || 'user'} displayName={comment.display_name} size={28} className="rounded-xl" />
+                <div key={comment.id} className="flex items-start gap-1 group/ec">
+                  <Link href={`/profile/${comment.username}`} className="flex-shrink-0 mt-0.5">
+                    <Avatar src={undefined} username={comment.username || 'user'} displayName={comment.display_name} size={22} className="rounded-full" />
                   </Link>
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-2 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <Link href={`/profile/${comment.username}`} className="text-[10px] font-bold text-violet-400 uppercase tracking-wider hover:text-violet-300">
-                        @{comment.username}
-                      </Link>
-                      {currentUser?.id === comment.user_id && (
-                        <button onClick={() => onCommentOptions(comment.id, post.id)} className="text-zinc-600 hover:text-white transition-colors p-0.5">
-                          <MoreHorizontal size={13} />
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-zinc-300 text-xs mt-0.5">{comment.content}</p>
-                  </div>
+                  <p className="text-sm text-zinc-200 leading-snug flex-1 min-w-0 ml-1.5">
+                    <Link href={`/profile/${comment.username}`} className="font-semibold text-white hover:text-violet-400 transition-colors mr-1.5">
+                      {comment.username}
+                    </Link>
+                    {comment.content}
+                  </p>
+                  {currentUser?.id === comment.user_id && (
+                    <button onClick={() => onCommentOptions(comment.id, post.id)} className="opacity-0 group-hover/ec:opacity-100 text-zinc-600 hover:text-white transition-all flex-shrink-0 mt-0.5">
+                      <MoreHorizontal size={13} />
+                    </button>
+                  )}
                 </div>
               ))}
               {!isExpanded && hiddenCount > 0 && (
                 <button onClick={() => onExpandComments(post.id)} className="text-xs text-zinc-500 hover:text-violet-400 transition-colors">
-                  +{hiddenCount} {hiddenCount === 1 ? 'altro commento' : 'altri commenti'}
+                  Vedi altri {hiddenCount} commenti
                 </button>
               )}
             </div>
           )}
-
-          <div className="flex gap-2">
-            <input type="text" value={commentContent} onChange={e => onCommentChange(e.target.value.slice(0, 500))}
-              placeholder="Scrivi un commento..." maxLength={500}
-              className="flex-1 bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition"
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onAddComment(post.id) } }} />
-            <button onClick={() => onAddComment(post.id)} className="bg-violet-600 hover:bg-violet-500 px-4 rounded-2xl transition">
-              <Send size={15} />
-            </button>
+          {/* Input commento — leggero, niente bordi pesanti */}
+          <div className="px-5 py-3 flex items-center gap-3 border-t border-zinc-800/40">
+            {currentUser && (
+              <Avatar src={undefined} username={currentUser.email || 'user'} displayName={null} size={26} className="rounded-full flex-shrink-0" />
+            )}
+            <input
+              type="text" value={commentContent}
+              onChange={e => onCommentChange(e.target.value.slice(0, 500))}
+              placeholder="Aggiungi un commento..." maxLength={500}
+              className="flex-1 bg-transparent text-sm text-white placeholder-zinc-600 focus:outline-none"
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onAddComment(post.id) } }}
+            />
+            {commentContent.trim() && (
+              <button onClick={() => onAddComment(post.id)} className="text-violet-400 font-semibold text-sm hover:text-violet-300 transition-colors flex-shrink-0">
+                Pubblica
+              </button>
+            )}
           </div>
         </div>
       )}
