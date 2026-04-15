@@ -183,7 +183,7 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(payload.title, {
       body: payload.body,
       icon: payload.icon || '/icons/icon-192x192.png',
-      badge: '/icons/icon-72x72.png',
+      badge: '/icons/icon-badge.svg',
       // FIX: queste opzioni sono fondamentali per far suonare/vibrare Android
       silent: false,
       vibrate: [200, 100, 200],
