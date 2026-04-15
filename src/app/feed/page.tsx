@@ -618,8 +618,15 @@ function ConfirmDialog({
 }) {
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 p-4 animate-in fade-in duration-150">
-      <div className="bg-zinc-900 border border-zinc-700 rounded-3xl w-full max-w-xs p-6 shadow-2xl animate-in zoom-in-95 duration-150">
+    <div
+      className="fixed inset-0 z-[300] bg-black/70 animate-in fade-in duration-150"
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+      onClick={onCancel}
+    >
+      <div
+        className="bg-zinc-900 border border-zinc-700 rounded-3xl w-full max-w-xs p-6 shadow-2xl animate-in zoom-in-95 duration-150"
+        onClick={e => e.stopPropagation()}
+      >
         <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 mx-auto mb-4">
           <Trash2 size={20} className="text-red-400" />
         </div>
@@ -1378,13 +1385,9 @@ export default function FeedPage() {
               </div>
             )}
 
-            {/* Post in evidenza */}
+            {/* Post in evidenza — il badge "In evidenza" è già dentro la card */}
             {feedFilter === 'all' && !categoryFilter && pinnedPosts.length > 0 && (
               <div className="mb-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <Sparkles size={13} className="text-violet-400" />
-                  <span className="text-xs font-bold text-violet-400 uppercase tracking-widest">In evidenza questa settimana</span>
-                </div>
                 <div className="space-y-4">
                   {pinnedPosts.map(post => (
                     <PostCard key={`pinned-${post.id}`} post={post} currentUser={currentUser}
@@ -1397,7 +1400,7 @@ export default function FeedPage() {
                       onCategoryClick={handleCategoryClick} />
                   ))}
                 </div>
-                <div className="h-px bg-zinc-800 mt-6" />
+                <div className="h-px bg-zinc-800 mt-5" />
               </div>
             )}
 

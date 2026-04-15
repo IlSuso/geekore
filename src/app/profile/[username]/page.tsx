@@ -431,16 +431,17 @@ function CollectionControls({
   statusFilter: string; onStatusFilter: (v: string) => void
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-3 mb-6">
-      {/* Search */}
-      <div className="relative flex-1 min-w-[180px] max-w-xs">
-        <SearchIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+    <div className="space-y-2 mb-6">
+
+      {/* Riga 1: search bar full width */}
+      <div className="relative">
+        <SearchIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
         <input
           type="text"
           value={search}
           onChange={e => onSearch(e.target.value)}
-          placeholder="Cerca..."
-          className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl pl-8 pr-8 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
+          placeholder="Cerca nella collezione…"
+          className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl pl-9 pr-8 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
         />
         {search && (
           <button onClick={() => onSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
@@ -449,41 +450,42 @@ function CollectionControls({
         )}
       </div>
 
-      {/* Status filter */}
-      <select
-        value={statusFilter}
-        onChange={e => onStatusFilter(e.target.value)}
-        className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2 text-sm text-zinc-300 focus:outline-none focus:border-violet-500 transition-colors appearance-none"
-      >
-        <option value="all">Tutti gli stati</option>
-        <option value="watching">In corso</option>
-        <option value="completed">Completati</option>
-        <option value="paused">In pausa</option>
-        <option value="dropped">Abbandonati</option>
-      </select>
+      {/* Riga 2: filtri + view toggle — scrollabile su mobile */}
+      <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-0.5">
+        <select
+          value={statusFilter}
+          onChange={e => onStatusFilter(e.target.value)}
+          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-violet-500 transition-colors appearance-none flex-shrink-0"
+        >
+          <option value="all">Tutti</option>
+          <option value="watching">In corso</option>
+          <option value="completed">Completati</option>
+          <option value="paused">In pausa</option>
+          <option value="dropped">Abbandonati</option>
+        </select>
 
-      {/* Sort */}
-      <select
-        value={sort}
-        onChange={e => onSort(e.target.value as SortMode)}
-        className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2 text-sm text-zinc-300 focus:outline-none focus:border-violet-500 transition-colors appearance-none"
-      >
-        <option value="default">Ordine default</option>
-        <option value="rating_desc">Voto (↓)</option>
-        <option value="title_asc">Titolo (A-Z)</option>
-        <option value="title_desc">Titolo (Z-A)</option>
-        <option value="progress_desc">Progresso (↓)</option>
-        <option value="date_desc">Aggiunto recentemente</option>
-      </select>
+        <select
+          value={sort}
+          onChange={e => onSort(e.target.value as SortMode)}
+          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-violet-500 transition-colors appearance-none flex-shrink-0"
+        >
+          <option value="default">Default</option>
+          <option value="rating_desc">Voto ↓</option>
+          <option value="title_asc">A → Z</option>
+          <option value="title_desc">Z → A</option>
+          <option value="progress_desc">Progresso ↓</option>
+          <option value="date_desc">Recenti</option>
+        </select>
 
-      {/* View toggle */}
-      <div className="flex bg-zinc-900 border border-zinc-800 rounded-xl p-1 gap-1 ml-auto">
-        <button onClick={() => onView('grid')} className={`p-1.5 rounded-lg transition-colors ${view === 'grid' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
-          <Grid3X3 size={14} />
-        </button>
-        <button onClick={() => onView('compact')} className={`p-1.5 rounded-lg transition-colors ${view === 'compact' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
-          <List size={14} />
-        </button>
+        {/* View toggle — pushed right */}
+        <div className="flex bg-zinc-900 border border-zinc-800 rounded-xl p-1 gap-0.5 ml-auto flex-shrink-0">
+          <button onClick={() => onView('grid')} className={`p-1.5 rounded-lg transition-colors ${view === 'grid' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
+            <Grid3X3 size={13} />
+          </button>
+          <button onClick={() => onView('compact')} className={`p-1.5 rounded-lg transition-colors ${view === 'compact' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
+            <List size={13} />
+          </button>
+        </div>
       </div>
     </div>
   )
