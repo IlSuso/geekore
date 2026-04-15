@@ -27,13 +27,24 @@ export function FollowButton({
     try {
       if (isFollowing) {
         await supabase.from('follows').delete().eq('follower_id', currentUserId).eq('following_id', targetId)
-        setIsFollowing(false); onFollowChange?.(false)
+        setIsFollowing(false)
+        onFollowChange?.(false)
       } else {
+        // Inserisce follow e notifica in-app direttamente (RLS permette sender_id = auth.uid())
         await supabase.from('follows').insert({ follower_id: currentUserId, following_id: targetId })
         await supabase.from('notifications').insert({ receiver_id: targetId, sender_id: currentUserId, type: 'follow' })
-        setIsFollowing(true); onFollowChange?.(true)
+        setIsFollowing(true)
+        onFollowChange?.(true)
+        // FIX: trigger push server-side (fire and forget)
+        fetch('/api/social/follow', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target_id: targetId, action: 'push_only' }),
+        }).catch(() => {})
       }
-    } finally { setLoading(false) }
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
