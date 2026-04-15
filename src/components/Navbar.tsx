@@ -563,10 +563,16 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* ── Mobile bottom navbar — solo icone, stile Instagram ─────────────── */}
-      <nav className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-black"
-        style={{paddingBottom: 'env(safe-area-inset-bottom)'}}>
-        <div className="flex items-center justify-around h-[52px] px-2">
+      {/* ── Mobile bottom navbar — Instagram exact style ─────────────────── */}
+      <nav
+        className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100]"
+        style={{
+          paddingBottom: 'env(safe-area-inset-bottom)',
+          background: 'rgba(0,0,0,0.96)',
+          borderTop: '0.5px solid #262626',
+        }}
+      >
+        <div className="flex items-center h-[49px]">
           {MOBILE_NAV_ITEMS.map((item) => {
             const isActive = item.href === '/profile/me'
               ? isProfileActive
@@ -575,36 +581,60 @@ export default function Navbar() {
               : pathname === item.href
 
             return (
-              <Link key={item.href} href={item.href} prefetch={true}
+              <Link
+                key={item.href}
+                href={item.href}
+                prefetch={true}
                 data-testid={`nav-mobile-${item.href.replace('/', '')}`}
-                className="flex flex-col items-center justify-center flex-1 h-full relative gap-[3px]"
+                className="flex items-center justify-center flex-1 h-full relative"
                 onClick={() => {
                   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
                     navigator.vibrate(8)
                   }
                 }}
               >
-                {/* Indicatore attivo — linea sottile in cima */}
-                {isActive && (
-                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-[2px] rounded-full bg-white" />
-                )}
                 {item.href === '/notifications' ? (
-                  <>
-                    <Bell size={24} strokeWidth={isActive ? 2.2 : 1.6}
+                  <div className="relative">
+                    <Bell
+                      size={26}
+                      strokeWidth={isActive ? 2 : 1.6}
                       className={isActive ? 'text-white' : 'text-zinc-500'}
-                      fill={isActive ? 'white' : 'none'} />
+                      fill={isActive ? 'white' : 'none'}
+                    />
                     {hasNewNotifications && (
-                      <span className="absolute top-2 right-[calc(50%-14px)] w-[9px] h-[9px] bg-red-500 rounded-full border-[1.5px] border-black" />
+                      <span className="absolute -top-0.5 -right-0.5 w-[8px] h-[8px] bg-red-500 rounded-full border-[1.5px] border-black" />
                     )}
-                  </>
+                  </div>
                 ) : item.href === '/profile/me' && (avatarUrl || currentUsername) ? (
-                  <div className={`w-[26px] h-[26px] rounded-full overflow-hidden ring-2 transition-all ${isActive ? 'ring-white' : 'ring-transparent'}`}>
-                    <img src={avatarUrl || localAvatarSrc} alt="avatar" width={26} height={26} className="w-full h-full object-cover" />
+                  /* Avatar with ring — Instagram's most recognizable detail */
+                  <div
+                    className="rounded-full p-[2px]"
+                    style={{
+                      background: isActive
+                        ? 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)'
+                        : 'transparent',
+                      border: isActive ? 'none' : '1.5px solid #555',
+                    }}
+                  >
+                    <div className="rounded-full overflow-hidden bg-black p-[1.5px]">
+                      <div className="w-[24px] h-[24px] rounded-full overflow-hidden">
+                        <img
+                          src={avatarUrl || localAvatarSrc}
+                          alt="avatar"
+                          width={24}
+                          height={24}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
                   </div>
                 ) : (
-                  <item.icon size={24} strokeWidth={isActive ? 2.2 : 1.6}
+                  <item.icon
+                    size={26}
+                    strokeWidth={isActive ? 2 : 1.6}
                     className={isActive ? 'text-white' : 'text-zinc-500'}
-                    fill={isActive && item.href === '/feed' ? 'white' : 'none'} />
+                    fill={isActive && (item.href === '/feed' || item.href === '/for-you') ? 'white' : 'none'}
+                  />
                 )}
               </Link>
             )

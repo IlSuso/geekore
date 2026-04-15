@@ -1,11 +1,9 @@
 "use client"
 // src/components/feed/FeedCard.tsx
-// C5: Componente unificato — rimpiazza sia FeedCard.tsx che PostCard inline in feed/page.tsx
-// M6: locale dinamica via useLocale() invece di { it } hardcoded
-// A6: fix locale lazy import
+// Instagram-style redesign: edge-to-edge images, clean action bar, story-ring avatar
 
 import { useState, useEffect, memo } from 'react'
-import { Flame, MessageSquare, Send, Loader2, Pin, Trash2 } from 'lucide-react'
+import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Loader2, Trash2, Pin } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
@@ -13,7 +11,6 @@ import { ReportButton } from '@/components/ui/ReportButton'
 import { Avatar } from '@/components/ui/Avatar'
 import { useLocale } from '@/lib/locale'
 
-// M6/A6: import lazy delle locale — carica solo quella necessaria
 async function getDateLocale(locale: string) {
   if (locale === 'en') {
     const { enUS } = await import('date-fns/locale/en-US')
@@ -61,9 +58,9 @@ export interface FeedPost {
   likes?: PostLike[]
   comments?: PostComment[]
 }
+
 export interface FeedCardProps {
   post: FeedPost
-  /** Callback per aggiornare il contatore like nel parent (opzionale) */
   onLikeChange?: (postId: string, delta: number) => void
 }
 
@@ -71,7 +68,6 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
   const supabase = createClient()
   const { locale } = useLocale()
 
-  // Normalizza profiles: Supabase può restituire oggetto o array
   const profile: PostProfile | null = Array.isArray(post.profiles)
     ? (post.profiles[0] ?? null)
     : (post.profiles ?? null)
@@ -81,6 +77,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
   )
   const [hasLiked, setHasLiked] = useState(post.liked_by_user ?? false)
   const [likeAnimating, setLikeAnimating] = useState(false)
+  const [isSaved, setIsSaved] = useState(false)
   const [user, setUser] = useState<{ id: string } | null>(null)
   const [showComments, setShowComments] = useState(false)
   const [comments, setComments] = useState<PostComment[]>((post.comments as PostComment[]) || [])
@@ -105,7 +102,6 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
     return () => subscription.unsubscribe()
   }, [])
 
-  // M6: aggiorna timeAgo con la locale corretta in modo asincrono
   useEffect(() => {
     if (!post.created_at) return
     let cancelled = false
@@ -118,10 +114,9 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
 
   const handleLike = async () => {
     if (!user) return
-
     setLikeAnimating(true)
     haptic(hasLiked ? 20 : [40, 20, 40])
-    setTimeout(() => setLikeAnimating(false), 400)
+    setTimeout(() => setLikeAnimating(false), 500)
 
     if (hasLiked) {
       setHasLiked(false)
@@ -157,9 +152,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
     const next = !showComments
     setShowComments(next)
     haptic(20)
-    if (next && !commentsFetched) {
-      fetchComments()
-    }
+    if (next && !commentsFetched) fetchComments()
   }
 
   const handleCommentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -201,172 +194,233 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
   const showReport = user && user.id !== post.user_id
 
   return (
-    <div className={`bg-zinc-900 border rounded-3xl overflow-hidden transition-all duration-300 ${
-      post.pinned
-        ? 'border-violet-500/40 ring-1 ring-violet-500/20'
-        : 'border-zinc-800 hover:border-violet-500/30'
-    }`}>
+    <article className="bg-[var(--bg-primary)] border-b border-[var(--border)] last:border-b-0">
 
-      {/* C5: Pinned badge (da PostCard inline) */}
+      {/* Pinned indicator */}
       {post.pinned && (
-        <div className="flex items-center gap-1.5 px-6 pt-4 text-violet-400">
-          <Pin size={12} className="rotate-45" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">In evidenza</span>
+        <div className="flex items-center gap-2 px-4 pt-3 pb-1">
+          <Pin size={11} className="text-[var(--text-muted)] rotate-45" />
+          <span className="text-[11px] text-[var(--text-muted)] font-medium tracking-wide">In evidenza</span>
         </div>
       )}
 
-      {/* Header */}
-      <div className="p-6 pb-4 flex items-center gap-3">
-        <Link href={`/profile/${profile?.username}`} className="group shrink-0">
-          <div className="w-11 h-11 rounded-2xl overflow-hidden ring-2 ring-violet-500/20 group-hover:ring-violet-500/50 transition-all">
-            <Avatar
-              src={profile?.avatar_url}
-              username={profile?.username || 'user'}
-              displayName={profile?.display_name}
-              size={44}
-              className="rounded-2xl"
-            />
+      {/* Header — Instagram style: avatar + username + more */}
+      <div className="flex items-center justify-between px-4 py-3">
+        <Link href={`/profile/${profile?.username}`} className="flex items-center gap-3 min-w-0">
+          {/* Story-ring avatar */}
+          <div className={`flex-shrink-0 rounded-full p-[2px] ${hasLiked ? 'story-ring' : 'bg-[var(--border)]'}`}>
+            <div className="rounded-full overflow-hidden bg-[var(--bg-primary)] p-[2px]">
+              <div className="w-8 h-8 rounded-full overflow-hidden">
+                <Avatar
+                  src={profile?.avatar_url}
+                  username={profile?.username || 'user'}
+                  displayName={profile?.display_name}
+                  size={32}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-[13px] text-[var(--text-primary)] leading-tight truncate">
+              {profile?.username || 'utente'}
+            </p>
+            {profile?.display_name && profile.display_name !== profile.username && (
+              <p className="text-[11px] text-[var(--text-secondary)] leading-tight truncate">{profile.display_name}</p>
+            )}
           </div>
         </Link>
-        <div className="flex-1 min-w-0">
-          <Link href={`/profile/${profile?.username}`} className="hover:text-violet-400 transition-colors">
-            <p className="font-semibold text-white text-sm leading-tight truncate">
-              {profile?.display_name || profile?.username || 'Utente'}
-            </p>
-          </Link>
-          <p className="text-xs text-zinc-500 mt-0.5">
-            @{profile?.username || 'anon'} · {timeAgo}
-          </p>
+
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {showReport && (
+            <ReportButton targetType="post" targetId={post.id} iconOnly />
+          )}
+          <button className="w-9 h-9 flex items-center justify-center text-[var(--text-primary)]">
+            <MoreHorizontal size={20} strokeWidth={1.5} />
+          </button>
         </div>
-        {showReport && (
-          <ReportButton
-            targetType="post"
-            targetId={post.id}
-            iconOnly
-            className="opacity-0 group-hover:opacity-100 transition-opacity"
-          />
-        )}
       </div>
 
-      {/* Content */}
-      <div className="px-6 pb-4">
-        <p className="text-zinc-200 text-sm leading-relaxed whitespace-pre-wrap">{post.content}</p>
-      </div>
-
-      {/* Image */}
+      {/* Image — full width, no border-radius */}
       {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
-        <div className="mx-4 mb-4 rounded-2xl overflow-hidden border border-zinc-800">
+        <div className="relative w-full bg-[var(--bg-secondary)] overflow-hidden">
           <img
             src={post.image_url}
-            alt={`Immagine del post di ${profile?.username || 'utente'}`}
-            className="w-full max-h-[420px] object-cover hover:scale-[1.02] transition-transform duration-500"
+            alt={`Post di ${profile?.username || 'utente'}`}
+            className="w-full max-h-[500px] object-cover select-none"
+            draggable={false}
           />
         </div>
       )}
 
-      {/* Actions */}
-      <div className="px-6 py-4 border-t border-zinc-800/60 flex items-center gap-6">
-        <button
-          onClick={handleLike}
-          aria-label={hasLiked ? 'Rimuovi like' : 'Metti like'}
-          className={`flex items-center gap-2 group transition-all ${hasLiked ? 'text-orange-500' : 'text-zinc-500 hover:text-orange-400'}`}
-        >
-          <div className={`p-1.5 rounded-xl transition-colors ${hasLiked ? 'bg-orange-500/15' : 'group-hover:bg-orange-500/10'}`}>
-            <Flame
-              size={20}
-              className={`transition-transform ${hasLiked ? 'fill-orange-500' : ''} ${likeAnimating ? 'animate-heart-burst' : ''}`}
+      {/* Action bar — Instagram icons */}
+      <div className="px-4 pt-3 pb-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {/* Like */}
+            <button
+              onClick={handleLike}
+              aria-label={hasLiked ? 'Rimuovi like' : 'Metti like'}
+              className="flex items-center justify-center -ml-1 p-1"
+            >
+              <Heart
+                size={26}
+                strokeWidth={1.8}
+                className={`transition-all duration-200 ${
+                  likeAnimating ? 'animate-heart-burst' : ''
+                } ${hasLiked ? 'fill-red-500 text-red-500 scale-110' : 'text-[var(--text-primary)]'}`}
+              />
+            </button>
+
+            {/* Comment */}
+            <button
+              onClick={handleToggleComments}
+              aria-label="Commenta"
+              className="flex items-center justify-center p-1"
+            >
+              <MessageCircle
+                size={26}
+                strokeWidth={1.8}
+                className={`transition-colors ${showComments ? 'fill-[var(--text-primary)] text-[var(--text-primary)]' : 'text-[var(--text-primary)]'}`}
+              />
+            </button>
+
+            {/* Share */}
+            <button aria-label="Condividi" className="flex items-center justify-center p-1">
+              <Send size={24} strokeWidth={1.8} className="text-[var(--text-primary)] -rotate-12" />
+            </button>
+          </div>
+
+          {/* Save */}
+          <button
+            onClick={() => { setIsSaved(v => !v); haptic(20) }}
+            aria-label={isSaved ? 'Rimuovi dai salvati' : 'Salva'}
+            className="flex items-center justify-center p-1"
+          >
+            <Bookmark
+              size={24}
+              strokeWidth={1.8}
+              className={`transition-all ${isSaved ? 'fill-[var(--text-primary)] text-[var(--text-primary)]' : 'text-[var(--text-primary)]'}`}
             />
-          </div>
-          <span className="text-xs font-bold">{likesCount}</span>
-        </button>
+          </button>
+        </div>
 
-        <button
-          onClick={handleToggleComments}
-          aria-label={showComments ? 'Nascondi commenti' : 'Mostra commenti'}
-          className={`flex items-center gap-2 group transition-all ${showComments ? 'text-violet-400' : 'text-zinc-500 hover:text-violet-400'}`}
-        >
-          <div className={`p-1.5 rounded-xl transition-colors ${showComments ? 'bg-violet-500/15' : 'group-hover:bg-violet-500/10'}`}>
-            <MessageSquare size={20} />
-          </div>
-          <span className="text-xs font-bold">{comments.length}</span>
-        </button>
+        {/* Like count */}
+        {likesCount > 0 && (
+          <p className="font-semibold text-[13px] text-[var(--text-primary)] mt-2 leading-tight">
+            {likesCount.toLocaleString()} {likesCount === 1 ? 'Mi piace' : 'Mi piace'}
+          </p>
+        )}
 
-        {showReport && (
-          <div className="ml-auto">
-            <ReportButton targetType="post" targetId={post.id} iconOnly />
+        {/* Caption */}
+        {post.content && (
+          <div className="mt-1.5">
+            <p className="text-[14px] text-[var(--text-primary)] leading-snug">
+              <Link
+                href={`/profile/${profile?.username}`}
+                className="font-semibold hover:opacity-70 transition-opacity mr-1.5"
+              >
+                {profile?.username || 'utente'}
+              </Link>
+              <span className="font-normal">{post.content}</span>
+            </p>
           </div>
         )}
+
+        {/* Comments count link */}
+        {comments.length > 0 && !showComments && (
+          <button
+            onClick={handleToggleComments}
+            className="mt-1.5 text-[14px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors block"
+          >
+            Visualizza tutti i {comments.length} commenti
+          </button>
+        )}
+        {comments.length === 0 && (
+          <button
+            onClick={handleToggleComments}
+            className="mt-1 text-[14px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors block"
+          >
+            Aggiungi un commento...
+          </button>
+        )}
+
+        {/* Timestamp */}
+        <p className="mt-2 text-[11px] text-[var(--text-muted)] uppercase tracking-[0.04em] leading-tight">
+          {timeAgo}
+        </p>
       </div>
 
       {/* Comments section */}
       {showComments && (
-        <div className="px-6 pb-6 border-t border-zinc-800/60 pt-4 bg-black/20">
+        <div className="border-t border-[var(--border-subtle)] px-4 pt-3 pb-4">
+          {/* Comments list */}
           {comments.length > 0 && (
-            <div className="space-y-3 mb-4 max-h-56 overflow-y-auto">
+            <div className="space-y-3 mb-3 max-h-56 overflow-y-auto">
               {comments.map((comment) => (
-                <div key={comment.id} className="flex gap-3">
-                  <Link href={`/profile/${comment.profiles?.username}`} className="w-7 h-7 rounded-xl overflow-hidden flex-shrink-0 hover:ring-2 hover:ring-violet-500/50 transition-all">
+                <div key={comment.id} className="flex gap-3 items-start">
+                  <Link href={`/profile/${comment.profiles?.username}`} className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden mt-0.5">
                     <Avatar
                       src={comment.profiles?.avatar_url}
                       username={comment.profiles?.username || 'user'}
                       displayName={comment.profiles?.display_name}
-                      size={28}
-                      className="rounded-xl"
+                      size={32}
                     />
                   </Link>
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-2 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <Link href={`/profile/${comment.profiles?.username}`} className="text-[10px] font-bold text-violet-400 uppercase tracking-wider hover:text-violet-300">
-                        @{comment.profiles?.username || 'user'}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] text-[var(--text-primary)] leading-snug">
+                      <Link href={`/profile/${comment.profiles?.username}`} className="font-semibold mr-1.5 hover:opacity-70 transition-opacity">
+                        {comment.profiles?.username || 'user'}
                       </Link>
-                      <div className="flex items-center gap-1">
-                        {user?.id === comment.user_id ? (
-                          <button
-                            onClick={() => handleDeleteComment(comment.id)}
-                            className="text-zinc-600 hover:text-red-400 transition-colors"
-                          >
-                            <Trash2 size={11} />
-                          </button>
-                        ) : user ? (
-                          <ReportButton targetType="comment" targetId={comment.id} iconOnly />
-                        ) : null}
-                      </div>
-                    </div>
-                    <p className="text-zinc-300 text-xs mt-0.5">{comment.content}</p>
+                      <span className="font-normal">{comment.content}</span>
+                    </p>
                   </div>
+                  {(user?.id === comment.user_id || user) && (
+                    <div className="flex-shrink-0 mt-0.5">
+                      {user?.id === comment.user_id ? (
+                        <button onClick={() => handleDeleteComment(comment.id)} className="text-[var(--text-muted)] hover:text-red-400 transition-colors">
+                          <Trash2 size={13} />
+                        </button>
+                      ) : (
+                        <ReportButton targetType="comment" targetId={comment.id} iconOnly />
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           )}
 
-          <form onSubmit={handleSendComment} className="relative">
-            <input
-              type="text"
-              value={newComment}
-              onChange={handleCommentChange}
-              placeholder="Scrivi un commento..."
-              maxLength={MAX_COMMENT_LENGTH}
-              className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl py-3 px-5 pr-20 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
-            />
-            {commentCharCount > 0 && (
-              <span className={`absolute right-11 top-1/2 -translate-y-1/2 text-[10px] font-medium transition-colors ${
-                commentCharCount > MAX_COMMENT_LENGTH * 0.9
-                  ? commentCharCount >= MAX_COMMENT_LENGTH ? 'text-red-400' : 'text-yellow-400'
-                  : 'text-zinc-600'
-              }`}>
-                {MAX_COMMENT_LENGTH - commentCharCount}
-              </span>
+          {/* Comment input */}
+          <form onSubmit={handleSendComment} className="flex items-center gap-3 pt-2 border-t border-[var(--border-subtle)]">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden bg-[var(--bg-card)]">
+              {user && (
+                <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+                  <span className="text-[10px] font-bold text-white">TU</span>
+                </div>
+              )}
+            </div>
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={newComment}
+                onChange={handleCommentChange}
+                placeholder="Aggiungi un commento..."
+                maxLength={MAX_COMMENT_LENGTH}
+                className="w-full bg-transparent text-[14px] text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none"
+              />
+            </div>
+            {newComment.trim() && (
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-shrink-0 text-[13px] font-semibold text-blue-400 hover:text-blue-300 disabled:opacity-50 transition-colors"
+              >
+                {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : 'Pubblica'}
+              </button>
             )}
-            <button
-              type="submit"
-              disabled={isSubmitting || !newComment.trim()}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-violet-400 hover:text-violet-300 disabled:opacity-40 transition-colors"
-            >
-              {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-            </button>
           </form>
         </div>
       )}
-    </div>
+    </article>
   )
 })

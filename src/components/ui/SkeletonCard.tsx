@@ -39,23 +39,30 @@ export function SkeletonMediaGrid({ count = 10 }: { count?: number }) {
 // ── Post del feed skeleton ────────────────────────────────────────────────────
 export function SkeletonFeedPost() {
   return (
-    <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-8 animate-pulse">
-      <div className="flex items-center gap-4 mb-6">
-        <div className="w-12 h-12 skeleton rounded-2xl flex-shrink-0" />
-        <div className="flex-1 space-y-2">
-          <div className="h-4 skeleton rounded-full w-32" />
-          <div className="h-3 skeleton rounded-full w-24" />
+    <div className="border-b border-[var(--border)] animate-pulse">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3">
+        <div className="w-9 h-9 skeleton rounded-full flex-shrink-0" />
+        <div className="flex-1 space-y-1.5">
+          <div className="h-3 skeleton rounded-full w-28" />
+          <div className="h-2.5 skeleton rounded-full w-20" />
         </div>
+        <div className="w-7 h-7 skeleton rounded-full" />
       </div>
-      <div className="space-y-2 mb-6">
-        <div className="h-4 skeleton rounded-full" />
-        <div className="h-4 skeleton rounded-full w-4/5" />
-        <div className="h-4 skeleton rounded-full w-3/5" />
-      </div>
-      <div className="h-px skeleton mb-6" />
-      <div className="flex gap-8">
-        <div className="h-6 skeleton rounded-full w-16" />
-        <div className="h-6 skeleton rounded-full w-16" />
+      {/* Image placeholder */}
+      <div className="w-full aspect-square skeleton" />
+      {/* Actions */}
+      <div className="px-4 pt-3 pb-4">
+        <div className="flex items-center gap-4 mb-3">
+          <div className="w-6 h-6 skeleton rounded-full" />
+          <div className="w-6 h-6 skeleton rounded-full" />
+          <div className="w-6 h-6 skeleton rounded-full" />
+          <div className="ml-auto w-6 h-6 skeleton rounded-full" />
+        </div>
+        <div className="h-3 skeleton rounded-full w-24 mb-2" />
+        <div className="h-3 skeleton rounded-full w-3/4 mb-1" />
+        <div className="h-3 skeleton rounded-full w-1/2 mb-3" />
+        <div className="h-2.5 skeleton rounded-full w-20" />
       </div>
     </div>
   )
@@ -88,12 +95,13 @@ export function SkeletonProfile() {
 // ── Notification skeleton ─────────────────────────────────────────────────────
 export function SkeletonNotification() {
   return (
-    <div className="flex items-center gap-4 p-4 rounded-2xl border border-zinc-800 animate-pulse">
-      <div className="w-11 h-11 skeleton rounded-2xl flex-shrink-0" />
-      <div className="flex-1 space-y-2">
-        <div className="h-4 skeleton rounded-full w-3/4" />
-        <div className="h-3 skeleton rounded-full w-1/3" />
+    <div className="flex items-center gap-3 px-4 py-2.5 animate-pulse">
+      <div className="w-11 h-11 skeleton rounded-full flex-shrink-0" />
+      <div className="flex-1 space-y-1.5">
+        <div className="h-3 skeleton rounded-full w-3/4" />
+        <div className="h-2.5 skeleton rounded-full w-1/3" />
       </div>
+      <div className="w-10 h-10 skeleton rounded-lg flex-shrink-0" />
     </div>
   )
 }

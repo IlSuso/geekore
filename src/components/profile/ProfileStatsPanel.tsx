@@ -1,6 +1,6 @@
 'use client'
 // src/components/profile/ProfileStatsPanel.tsx
-// 7.4 — estratto da profile/[username]/page.tsx
+// Instagram-style: compact horizontal stats bar + genre chips
 
 import { useMemo } from 'react'
 import { Star } from 'lucide-react'
@@ -36,50 +36,76 @@ export function ProfileStatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
     }
   }, [mediaList])
 
+  const typeStats = [
+    { label: 'Anime', value: stats.anime },
+    { label: 'Serie', value: stats.tv },
+    { label: 'Manga', value: stats.manga },
+    { label: 'Giochi', value: stats.games },
+    { label: 'Film', value: stats.movies },
+    { label: 'Board', value: stats.boards },
+  ].filter(s => s.value > 0)
+
   return (
-    <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-6 mb-10">
-      <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-widest mb-4">Statistiche</h3>
-      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-4">
-        {[
-          { label: 'Anime', value: stats.anime, color: 'text-sky-400' },
-          { label: 'Serie TV', value: stats.tv, color: 'text-purple-400' },
-          { label: 'Manga', value: stats.manga, color: 'text-orange-400' },
-          { label: 'Giochi', value: stats.games, color: 'text-green-400' },
-          { label: 'Film', value: stats.movies, color: 'text-red-400' },
-          { label: 'Board', value: stats.boards, color: 'text-yellow-400' },
-        ].map(s => (
-          <div key={s.label} className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2.5 text-center">
-            <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
-            <p className="text-[10px] text-zinc-500 mt-0.5">{s.label}</p>
+    <div className="mb-8">
+      {/* Type counts — Instagram-like horizontal row */}
+      {typeStats.length > 0 && (
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-px bg-[var(--border)] rounded-2xl overflow-hidden mb-4">
+          {typeStats.map(s => (
+            <div key={s.label} className="bg-[var(--bg-primary)] text-center py-3 px-2">
+              <p className="text-[17px] font-semibold text-[var(--text-primary)] leading-tight">{s.value}</p>
+              <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">{s.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Quick metrics — compact, no border cards */}
+      <div className="flex items-center gap-4 overflow-x-auto scrollbar-hide px-0.5 pb-1">
+        {stats.steamHours > 0 && (
+          <div className="flex-shrink-0 text-center">
+            <p className="text-[14px] font-semibold text-[var(--text-primary)]">{stats.steamHours}h</p>
+            <p className="text-[11px] text-[var(--text-muted)]">Steam</p>
           </div>
-        ))}
+        )}
+        {stats.animeHours > 0 && (
+          <div className="flex-shrink-0 text-center">
+            <p className="text-[14px] font-semibold text-[var(--text-primary)]">~{stats.animeHours}h</p>
+            <p className="text-[11px] text-[var(--text-muted)]">Anime</p>
+          </div>
+        )}
+        {stats.mangaChapters > 0 && (
+          <div className="flex-shrink-0 text-center">
+            <p className="text-[14px] font-semibold text-[var(--text-primary)]">{stats.mangaChapters}</p>
+            <p className="text-[11px] text-[var(--text-muted)]">Cap. manga</p>
+          </div>
+        )}
+        {stats.avgRating && (
+          <div className="flex-shrink-0 text-center">
+            <p className="text-[14px] font-semibold text-[var(--text-primary)] flex items-center gap-0.5 justify-center">
+              <Star size={12} fill="currentColor" />
+              {stats.avgRating}
+            </p>
+            <p className="text-[11px] text-[var(--text-muted)]">Media voti</p>
+          </div>
+        )}
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2.5 text-center">
-          <p className="text-lg font-bold text-violet-400">{stats.steamHours}h</p>
-          <p className="text-[10px] text-zinc-500 mt-0.5">Ore Steam</p>
-        </div>
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2.5 text-center">
-          <p className="text-lg font-bold text-sky-400">~{stats.animeHours}h</p>
-          <p className="text-[10px] text-zinc-500 mt-0.5">Ore anime</p>
-        </div>
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2.5 text-center">
-          <p className="text-lg font-bold text-orange-400">{stats.mangaChapters}</p>
-          <p className="text-[10px] text-zinc-500 mt-0.5">Cap. manga</p>
-        </div>
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2.5 text-center">
-          <p className="text-lg font-bold text-yellow-400">{stats.avgRating ? <span className="flex items-center justify-center gap-0.5"><Star size={13} fill="currentColor" />{stats.avgRating}</span> : '—'}</p>
-          <p className="text-[10px] text-zinc-500 mt-0.5">Voto medio</p>
-        </div>
-      </div>
+
+      {/* Top genres — small pills */}
       {stats.topGenres.length > 0 && (
-        <div>
-          <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">Generi più seguiti</p>
-          <div className="flex flex-wrap gap-1.5">
-            {stats.topGenres.map(g => (
-              <span key={g} className="text-[10px] bg-violet-500/15 text-violet-300 px-2.5 py-1 rounded-full font-medium border border-violet-500/20">{g}</span>
-            ))}
-          </div>
+        <div className="flex flex-wrap gap-1.5 mt-3">
+          {stats.topGenres.map(g => (
+            <span
+              key={g}
+              className="text-[11px] px-2.5 py-1 rounded-full font-medium"
+              style={{
+                background: 'var(--bg-card)',
+                color: 'var(--text-secondary)',
+                border: '0.5px solid var(--border)',
+              }}
+            >
+              {g}
+            </span>
+          ))}
         </div>
       )}
     </div>

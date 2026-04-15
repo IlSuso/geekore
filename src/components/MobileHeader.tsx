@@ -1,12 +1,10 @@
 'use client'
-// MobileHeader — stile Instagram: header fisso, solo su mobile.
-// Feed: logo + cerca + notifiche (con badge)
-// Pagine interne: ← + titolo + eventuale azione destra
-// Niente border-b visibile (solo 1px nero che separa dallo sfondo)
+// MobileHeader — Instagram-style: wordmark on feed, back arrow on inner pages.
+// Edge-to-edge, no visible border, clean black bg.
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bell, Search, Settings, Edit3, SlidersHorizontal, Bookmark, TrendingUp, Filter } from 'lucide-react'
+import { Bell, Search, Settings, Edit3, ChevronLeft } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -15,12 +13,31 @@ const AUTH_PATHS = ['/login', '/register', '/auth/', '/forgot-password', '/onboa
 
 function BackButton() {
   return (
-    <button onClick={() => window.history.back()}
-      className="flex items-center justify-center w-10 h-10 -ml-2 text-white">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M19 12H5M12 5l-7 7 7 7"/>
-      </svg>
+    <button
+      onClick={() => window.history.back()}
+      className="flex items-center justify-center w-10 h-10 -ml-2 text-[var(--text-primary)]"
+    >
+      <ChevronLeft size={28} strokeWidth={1.6} />
     </button>
+  )
+}
+
+// Instagram-style wordmark with gradient dot
+function GeekoreWordmark() {
+  return (
+    <Link href="/feed" className="flex items-center gap-1 py-1 group">
+      <span
+        className="text-[24px] font-bold text-white tracking-tight"
+        style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif', letterSpacing: '-0.5px' }}
+      >
+        geekore
+      </span>
+      {/* Instagram-style gradient dot */}
+      <span
+        className="w-[6px] h-[6px] rounded-full mb-[1px] flex-shrink-0"
+        style={{ background: 'linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)' }}
+      />
+    </Link>
   )
 }
 
@@ -28,25 +45,20 @@ export function MobileHeader() {
   const pathname = usePathname()
   const { t } = useLocale()
   const [unread, setUnread] = useState(false)
-
   const [username, setUsername] = useState<string | null>(null)
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const isProfilePage = pathname.startsWith('/profile/')
 
-  // Dati utente per header profilo + badge notifiche (su tutte le pagine)
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
-      // Badge notifiche sempre
       supabase.from('notifications')
         .select('id', { count: 'exact', head: true })
         .eq('receiver_id', user.id).eq('is_read', false)
         .then(({ count }) => { if (count && count > 0) setUnread(true) })
-      // Dati profilo
       if (isProfilePage) {
-        supabase.from('profiles').select('username, avatar_url').eq('id', user.id).single()
-          .then(({ data }) => { if (data) { setUsername(data.username); setAvatarUrl(data.avatar_url) } })
+        supabase.from('profiles').select('username').eq('id', user.id).single()
+          .then(({ data }) => { if (data) setUsername(data.username) })
       }
     })
   }, [pathname])
@@ -59,26 +71,25 @@ export function MobileHeader() {
   const isSubPage = (pathname.split('/').length > 3 && !isOtherProfile) ||
     pathname.startsWith('/stats/') || pathname.startsWith('/lists/')
 
-  // Titolo per pagine interne
   const titles: Record<string, string> = {
-    '/discover': t.nav.discover,
-    '/for-you': t.nav.forYou,
+    '/discover': 'Cerca',
+    '/for-you': 'Per te',
     '/notifications': 'Notifiche',
     '/settings': 'Impostazioni',
     '/trending': 'Trending',
     '/explore': 'Esplora',
     '/search': 'Cerca',
-    '/stats': 'Stats',
+    '/stats': 'Statistiche',
     '/wishlist': 'Wishlist',
-    '/leaderboard': 'Leaderboard',
+    '/leaderboard': 'Classifica',
     '/lists': 'Liste',
     '/news': 'News',
   }
 
   const title = Object.entries(titles).find(([k]) => pathname === k || pathname.startsWith(k + '/'))?.[1]
-
-  // Estrai username dalla URL per profili altrui
   const profileUsername = isProfilePage ? pathname.split('/')[2] : null
+
+  const iconCls = "w-10 h-10 flex items-center justify-center text-[var(--text-primary)] hover:opacity-70 transition-opacity"
 
   return (
     <header
@@ -87,75 +98,90 @@ export function MobileHeader() {
     >
       <div className="flex items-center justify-between h-[52px] px-3">
 
-        {/* Sinistra */}
+        {/* Left */}
         <div className="flex items-center flex-1 min-w-0">
           {isSubPage ? (
             <BackButton />
           ) : isFeed ? (
-            <Link href="/feed" className="flex items-center gap-1.5 py-1">
-              <span className="text-[22px] font-bold text-white" style={{fontFamily:'system-ui,-apple-system,BlinkMacSystemFont,sans-serif',letterSpacing:'-0.5px'}}>
-                geekore
-              </span>
-              <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mb-0.5 flex-shrink-0" />
-            </Link>
+            <GeekoreWordmark />
           ) : isOwnProfile ? (
-            <h1 className="text-[17px] font-semibold text-white tracking-tight">Profilo</h1>
-          ) : isOtherProfile && profileUsername ? (
-            <h1 className="text-[17px] font-semibold text-white tracking-tight truncate">@{profileUsername}</h1>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[17px] font-semibold text-white tracking-tight">
+                {username || 'Profilo'}
+              </span>
+              {/* small lock icon for private feel */}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="white" className="opacity-80 mt-0.5">
+                <path d="M18 11H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/>
+                <path d="M8 11V7a4 4 0 0 1 8 0v4" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </div>
+          ) : isOtherProfile && profileUsername && profileUsername !== 'me' ? (
+            <div className="flex items-center gap-2">
+              <ChevronLeft
+                size={26}
+                strokeWidth={1.6}
+                className="text-[var(--text-primary)] -ml-1 cursor-pointer"
+                onClick={() => window.history.back()}
+              />
+              <h1 className="text-[16px] font-semibold text-white truncate">{profileUsername}</h1>
+            </div>
           ) : (
-            <h1 className="text-[17px] font-semibold text-white tracking-tight truncate">{title}</h1>
+            <div className="flex items-center gap-2">
+              {isSubPage && <BackButton />}
+              <h1 className="text-[17px] font-semibold text-white truncate">{title}</h1>
+            </div>
           )}
         </div>
 
-        {/* Destra contestuale */}
-        <div className="flex items-center gap-1">
-          {isFeed && (<>
-            <Link href="/discover" className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
-              <Search size={22} strokeWidth={1.8} />
-            </Link>
-            <Link href="/notifications" className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors relative"
-              onClick={() => setUnread(false)}>
-              <Bell size={22} strokeWidth={1.8} />
-              {unread && <span className="absolute top-2.5 right-2 w-[8px] h-[8px] bg-red-500 rounded-full border-[1.5px] border-black" />}
-            </Link>
-          </>)}
-          {(isOwnProfile || isOtherProfile) && (<>
-            {isOwnProfile && (
-              <Link href="/profile/edit" className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
-                <Edit3 size={21} strokeWidth={1.8} />
+        {/* Right — contextual actions */}
+        <div className="flex items-center">
+          {isFeed && (
+            <>
+              <Link href="/discover" className={iconCls}>
+                <Search size={24} strokeWidth={1.6} />
               </Link>
-            )}
-            <Link href="/settings" className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
-              <Settings size={21} strokeWidth={1.8} />
-            </Link>
-          </>)}
-          {/* Campanella con badge su tutte le pagine (tranne feed che ce l'ha già, e notifiche stessa) */}
+              <Link
+                href="/notifications"
+                className={`${iconCls} relative`}
+                onClick={() => setUnread(false)}
+              >
+                <Bell size={24} strokeWidth={1.6} />
+                {unread && (
+                  <span className="absolute top-2.5 right-2 w-[9px] h-[9px] bg-red-500 rounded-full border-[1.5px] border-black notif-badge-pulse" />
+                )}
+              </Link>
+            </>
+          )}
+
+          {isOwnProfile && (
+            <>
+              <Link href="/profile/edit" className={iconCls}>
+                <Edit3 size={22} strokeWidth={1.6} />
+              </Link>
+              <Link href="/settings" className={iconCls}>
+                <Settings size={22} strokeWidth={1.6} />
+              </Link>
+            </>
+          )}
+
           {!isFeed && !isOwnProfile && !isOtherProfile && pathname !== '/notifications' && (
-            <Link href="/notifications"
-              className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors relative"
-              onClick={() => setUnread(false)}>
-              <Bell size={22} strokeWidth={1.8} />
-              {unread && <span className="absolute top-2.5 right-2 w-[8px] h-[8px] bg-red-500 rounded-full border-[1.5px] border-black" />}
+            <Link href="/notifications" className={`${iconCls} relative`} onClick={() => setUnread(false)}>
+              <Bell size={24} strokeWidth={1.6} />
+              {unread && <span className="absolute top-2.5 right-2 w-[9px] h-[9px] bg-red-500 rounded-full border-[1.5px] border-black" />}
             </Link>
           )}
+
           {pathname === '/notifications' && (
-            <Link href="/settings" className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
-              <Settings size={21} strokeWidth={1.8} />
-            </Link>
-          )}
-          {pathname === '/wishlist' && (
-            <Link href="/discover" className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
-              <Search size={22} strokeWidth={1.8} />
-            </Link>
-          )}
-          {pathname === '/leaderboard' && (
-            <Link href="/trending" className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
-              <TrendingUp size={21} strokeWidth={1.8} />
+            <Link href="/settings" className={iconCls}>
+              <Settings size={22} strokeWidth={1.6} />
             </Link>
           )}
         </div>
 
       </div>
+
+      {/* Ultra-thin separator — barely visible, like Instagram */}
+      <div className="h-[0.5px] bg-[var(--border)]" />
     </header>
   )
 }

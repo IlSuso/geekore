@@ -1,8 +1,8 @@
 "use client"
+// follow-button.tsx — Instagram-style: "Segui" blu pieno, "Seguendo" outline sottile
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { UserPlus, UserCheck } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 
 export function FollowButton({
@@ -44,16 +44,30 @@ export function FollowButton({
 
   return (
     <button
-      onClick={toggleFollow} disabled={loading}
-      className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold transition-all disabled:opacity-60 ${
-        isFollowing
-          ? 'bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700 hover:border-zinc-600'
-          : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:brightness-110 shadow-lg shadow-violet-500/20'
-      }`}
+      onClick={toggleFollow}
+      disabled={loading}
+      className="transition-all disabled:opacity-50"
+      style={{
+        padding: '7px 24px',
+        borderRadius: '8px',
+        fontSize: '14px',
+        fontWeight: 600,
+        lineHeight: '18px',
+        ...(isFollowing
+          ? {
+              background: 'transparent',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
+            }
+          : {
+              background: '#0095f6',
+              color: '#ffffff',
+              border: '1px solid #0095f6',
+            }
+        ),
+      }}
     >
-      {isFollowing
-        ? <><UserCheck size={16} /> {t.follow.following}</>
-        : <><UserPlus size={16} /> {t.follow.follow}</>}
+      {isFollowing ? t.follow.following : t.follow.follow}
     </button>
   )
 }
