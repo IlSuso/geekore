@@ -521,7 +521,11 @@ function CategoryFilter({
   const [open, setOpen] = useState(false)
   const [activeMacro, setActiveMacro] = useState('')
   const [subSearch, setSubSearch] = useState('')
+  const [suggestions, setSuggestions] = useState<SearchResult[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const API_CATEGORIES = new Set(['Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga', 'Board Game'])
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -531,20 +535,25 @@ function CategoryFilter({
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
+  useEffect(() => {
+    if (!activeMacro || !API_CATEGORIES.has(activeMacro)) { setSuggestions([]); return }
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (!subSearch.trim() || subSearch.trim().length < 2) { setSuggestions([]); setIsSearching(false); return }
+    setIsSearching(true)
+    debounceRef.current = setTimeout(async () => {
+      const results = await searchByCategory(activeMacro, subSearch)
+      setSuggestions(results)
+      setIsSearching(false)
+    }, 300)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [subSearch, activeMacro])
+
   const handleMacro = (cat: string) => {
-    if (activeMacro === cat) {
-      setActiveMacro('')
-      setSubSearch('')
-    } else {
-      setActiveMacro(cat)
-      setSubSearch('')
-    }
+    if (activeMacro === cat) { setActiveMacro(''); setSubSearch(''); setSuggestions([]) }
+    else { setActiveMacro(cat); setSubSearch(''); setSuggestions([]) }
   }
 
-  const applyFilter = (val: string) => {
-    onFilterChange(val)
-    setOpen(false)
-  }
+  const applyFilter = (val: string) => { onFilterChange(val); setOpen(false) }
 
   const parsed = parseCategoryString(activeFilter)
   const displayLabel = activeFilter
@@ -588,13 +597,11 @@ function CategoryFilter({
 
           {activeMacro && (
             <>
-              {/* Applica solo macro */}
               <button onClick={() => applyFilter(activeMacro)}
                 className="w-full text-left px-3 py-2 rounded-xl text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition mb-2">
                 Tutti i post di <strong>{activeMacro}</strong>
               </button>
 
-              {/* Ricerca titolo specifico */}
               <div className="relative mb-2">
                 <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
                 <input
@@ -604,11 +611,35 @@ function CategoryFilter({
                   onChange={e => setSubSearch(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && subSearch.trim()) applyFilter(`${activeMacro}:${subSearch.trim()}`) }}
                   placeholder={`Cerca titolo in ${activeMacro}...`}
-                  className="w-full bg-zinc-800 border border-zinc-700 focus:border-fuchsia-500 rounded-xl pl-8 pr-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
+                  className="w-full bg-zinc-800 border border-zinc-700 focus:border-fuchsia-500 rounded-xl pl-8 pr-8 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
                 />
+                {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-fuchsia-400 animate-spin" />}
               </div>
 
-              {subSearch.trim() && (
+              {/* Risultati API */}
+              {suggestions.length > 0 && (
+                <div className="rounded-xl overflow-hidden border border-zinc-700/50 bg-zinc-950 max-h-[200px] overflow-y-auto mb-2">
+                  {suggestions.map(result => (
+                    <button key={result.id} onClick={() => applyFilter(`${activeMacro}:${result.title}`)}
+                      className="w-full flex items-center gap-3 px-3 py-2 text-left border-b border-zinc-800/60 last:border-0 hover:bg-zinc-800/80 transition-colors">
+                      {result.image ? (
+                        <img src={result.image} alt="" className="w-7 h-10 object-cover rounded-lg flex-shrink-0 bg-zinc-800"
+                          onError={e => { e.currentTarget.style.display = 'none' }} />
+                      ) : (
+                        <div className="w-7 h-10 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                          <CategoryIcon category={activeMacro} size={12} className="text-zinc-600" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-semibold text-white truncate">{result.title}</p>
+                        {result.subtitle && <p className="text-[11px] text-zinc-500">{result.subtitle}</p>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {subSearch.trim() && !isSearching && (
                 <button onClick={() => applyFilter(`${activeMacro}:${subSearch.trim()}`)}
                   className="w-full px-3 py-2 rounded-xl bg-fuchsia-600/20 border border-fuchsia-500/40 text-fuchsia-300 text-sm font-semibold hover:bg-fuchsia-600/30 transition">
                   Cerca «{subSearch.trim()}» in {activeMacro}
@@ -1612,18 +1643,25 @@ export default function FeedPage() {
 
                       </div>
 
-                      {/* ── Footer ── */}
+                      {/* ── Footer — sempre visibile, anche con tastiera aperta ── */}
                       <div
-                        className="flex-shrink-0 border-t border-zinc-800/80 px-4 flex items-center gap-2.5 relative"
-                        style={{ background: 'var(--bg-primary)', minHeight: '56px', paddingTop: '8px', paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}
+                        className="flex-shrink-0 border-t border-zinc-800/60 px-4 flex items-center gap-3"
+                        style={{
+                          background: 'var(--bg-primary)',
+                          minHeight: '54px',
+                          paddingTop: '10px',
+                          paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
+                          position: 'sticky',
+                          bottom: 0,
+                        }}
                       >
                         {/* Foto */}
-                        <label className="cursor-pointer w-9 h-9 flex items-center justify-center rounded-xl text-zinc-400 hover:text-violet-400 hover:bg-zinc-800 transition-all select-none" title="Aggiungi foto">
-                          <ImageIcon size={21} strokeWidth={1.6} />
+                        <label className="cursor-pointer flex items-center justify-center w-10 h-10 rounded-2xl text-zinc-400 hover:text-violet-400 active:bg-zinc-800 transition-all select-none">
+                          <ImageIcon size={22} strokeWidth={1.5} />
                           <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
                         </label>
 
-                        {/* Tag dropup */}
+                        {/* Tag categoria */}
                         <CategorySelector value={newPostCategory} onChange={setNewPostCategory} />
 
                         {/* Contatore */}
@@ -1634,14 +1672,14 @@ export default function FeedPage() {
                             </span>
                           )}
                           {newPostContent.length > 0 && (
-                            <svg width="24" height="24" viewBox="0 0 24 24">
-                              <circle cx="12" cy="12" r="9" fill="none" stroke="#27272a" strokeWidth="2.5" />
-                              <circle cx="12" cy="12" r="9" fill="none"
+                            <svg width="26" height="26" viewBox="0 0 26 26">
+                              <circle cx="13" cy="13" r="10" fill="none" stroke="#27272a" strokeWidth="2.5" />
+                              <circle cx="13" cy="13" r="10" fill="none"
                                 stroke={newPostContent.length >= 490 ? '#f87171' : newPostContent.length >= 450 ? '#fb923c' : '#7c3aed'}
                                 strokeWidth="2.5"
-                                strokeDasharray={`${(newPostContent.length / 500) * 56.55} 56.55`}
+                                strokeDasharray={`${(newPostContent.length / 500) * 62.83} 62.83`}
                                 strokeLinecap="round"
-                                transform="rotate(-90 12 12)"
+                                transform="rotate(-90 13 13)"
                               />
                             </svg>
                           )}
