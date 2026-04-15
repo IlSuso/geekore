@@ -6,7 +6,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Zap, Bell, Search } from 'lucide-react'
+import { Zap, Bell, Search, Settings, Edit3 } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -29,26 +29,35 @@ export function MobileHeader() {
   const { t } = useLocale()
   const [unread, setUnread] = useState(false)
 
-  // Badge notifiche
+  const [username, setUsername] = useState<string | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const isProfilePage = pathname.startsWith('/profile/')
+
+  // Dati utente per header profilo + badge notifiche
   useEffect(() => {
-    if (pathname === '/feed' || pathname === '/') {
-      const supabase = createClient()
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        if (!user) return
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      if (pathname === '/feed' || pathname === '/') {
         supabase.from('notifications')
           .select('id', { count: 'exact', head: true })
-          .eq('receiver_id', user.id)
-          .eq('is_read', false)
+          .eq('receiver_id', user.id).eq('is_read', false)
           .then(({ count }) => { if (count && count > 0) setUnread(true) })
-      })
-    }
+      }
+      if (isProfilePage) {
+        supabase.from('profiles').select('username, avatar_url').eq('id', user.id).single()
+          .then(({ data }) => { if (data) { setUsername(data.username); setAvatarUrl(data.avatar_url) } })
+      }
+    })
   }, [pathname])
 
   if (AUTH_PATHS.some(p => pathname.startsWith(p))) return null
 
   const isFeed = pathname === '/feed' || pathname === '/'
-  const isSubPage = pathname.split('/').length > 3 ||
-    (pathname.startsWith('/stats/') || pathname.startsWith('/lists/'))
+  const isOwnProfile = pathname === '/profile/me' || (username && pathname === `/profile/${username}`)
+  const isOtherProfile = isProfilePage && !isOwnProfile && pathname.split('/').length === 3
+  const isSubPage = (pathname.split('/').length > 3 && !isOtherProfile) ||
+    pathname.startsWith('/stats/') || pathname.startsWith('/lists/')
 
   // Titolo per pagine interne
   const titles: Record<string, string> = {
@@ -67,6 +76,9 @@ export function MobileHeader() {
   }
 
   const title = Object.entries(titles).find(([k]) => pathname === k || pathname.startsWith(k + '/'))?.[1]
+
+  // Estrai username dalla URL per profili altrui
+  const profileUsername = isProfilePage ? pathname.split('/')[2] : null
 
   return (
     <header
@@ -88,26 +100,40 @@ export function MobileHeader() {
                 geekore
               </span>
             </Link>
+          ) : isOwnProfile ? (
+            <h1 className="text-[17px] font-semibold text-white tracking-tight">Profilo</h1>
+          ) : isOtherProfile && profileUsername ? (
+            <h1 className="text-[17px] font-semibold text-white tracking-tight truncate">@{profileUsername}</h1>
           ) : (
             <h1 className="text-[17px] font-semibold text-white tracking-tight truncate">{title}</h1>
           )}
         </div>
 
-        {/* Destra — solo su feed */}
+        {/* Destra contestuale per sezione */}
         {isFeed && (
           <div className="flex items-center gap-1">
-            <Link href="/discover"
-              className="w-10 h-10 flex items-center justify-center text-white">
+            <Link href="/discover" className="w-10 h-10 flex items-center justify-center text-white">
               <Search size={23} strokeWidth={1.8} />
             </Link>
-            <Link href="/notifications"
-              className="w-10 h-10 flex items-center justify-center text-white relative"
+            <Link href="/notifications" className="w-10 h-10 flex items-center justify-center text-white relative"
               onClick={() => setUnread(false)}>
               <Bell size={23} strokeWidth={1.8} />
-              {unread && (
-                <span className="absolute top-2 right-2 w-[9px] h-[9px] bg-red-500 rounded-full border-[1.5px] border-black" />
-              )}
+              {unread && <span className="absolute top-2 right-2 w-[9px] h-[9px] bg-red-500 rounded-full border-[1.5px] border-black" />}
             </Link>
+          </div>
+        )}
+        {(isOwnProfile || isOtherProfile) && (
+          <div className="flex items-center gap-1">
+            {isOwnProfile && (
+              <Link href="/profile/edit" className="w-10 h-10 flex items-center justify-center text-white">
+                <Edit3 size={21} strokeWidth={1.8} />
+              </Link>
+            )}
+            {isOwnProfile && (
+              <Link href="/settings" className="w-10 h-10 flex items-center justify-center text-white">
+                <Settings size={21} strokeWidth={1.8} />
+              </Link>
+            )}
           </div>
         )}
 

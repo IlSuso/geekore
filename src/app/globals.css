@@ -627,3 +627,26 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
+
+/* ── Samsung/Android: navigation bar (gesture bar) nera ─────────────────── */
+/* Su Android la gesture bar prende il colore dal background dell'elemento
+   più in basso nel viewport. Forziamo nero su tutto il body. */
+html, body {
+  background-color: #000000 !important;
+}
+
+/* Safe area bottom: assicura che lo sfondo nero continui sotto la gesture bar */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  body::after {
+    content: '';
+    display: block;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-bottom);
+    background: #000000;
+    z-index: 99;
+    pointer-events: none;
+  }
+}

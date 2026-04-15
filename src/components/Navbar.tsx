@@ -365,7 +365,7 @@ export default function Navbar() {
   if (isLoggedIn === null) return (
     <>
       <nav className="hidden md:flex fixed top-0 left-0 right-0 z-[100] h-16 bg-black/80 backdrop-blur-2xl border-b border-zinc-800/60" />
-      <nav className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100] h-16 bg-black/95 backdrop-blur-2xl border-t border-zinc-800/60" style={{paddingBottom: 'env(safe-area-inset-bottom)'}} />
+      <nav className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100] h-16 bg-black" style={{paddingBottom: 'env(safe-area-inset-bottom)'}} />
     </>
   )
 
@@ -552,7 +552,7 @@ export default function Navbar() {
       </nav>
 
       {/* ── Mobile bottom navbar — solo icone, stile Instagram ─────────────── */}
-      <nav className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-black border-t border-zinc-900"
+      <nav className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-black"
         style={{paddingBottom: 'env(safe-area-inset-bottom)'}}>
         <div className="flex items-center justify-around h-[52px] px-2">
           {MOBILE_NAV_ITEMS.map((item) => {
