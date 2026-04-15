@@ -34,8 +34,7 @@ function GeekoreWordmark() {
       </span>
       {/* Instagram-style gradient dot */}
       <span
-        className="w-[6px] h-[6px] rounded-full mb-[1px] flex-shrink-0"
-        style={{ background: 'linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)' }}
+        className="w-[7px] h-[7px] rounded-full mb-[1px] flex-shrink-0 bg-violet-500"
       />
     </Link>
   )
@@ -110,10 +109,7 @@ export function MobileHeader() {
                 {username || 'Profilo'}
               </span>
               {/* small lock icon for private feel */}
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="white" className="opacity-80 mt-0.5">
-                <path d="M18 11H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/>
-                <path d="M8 11V7a4 4 0 0 1 8 0v4" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
+
             </div>
           ) : isOtherProfile && profileUsername && profileUsername !== 'me' ? (
             <div className="flex items-center gap-2">

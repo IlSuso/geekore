@@ -350,11 +350,11 @@ export default function DiscoverPage() {
               key={tf.id}
               data-testid={`filter-${tf.id}`}
               onClick={() => { haptic(30); setActiveType(tf.id); }}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all flex-shrink-0"
-              style={activeType === tf.id
-                ? { background: 'var(--text-primary)', color: 'var(--bg-primary)' }
-                : { background: 'var(--bg-card)', color: 'var(--text-secondary)', border: '0.5px solid var(--border)' }
-              }
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all flex-shrink-0 border ${
+                activeType === tf.id
+                  ? 'bg-violet-600 border-violet-500 text-white'
+                  : 'bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-violet-500/40 hover:text-[var(--text-primary)]'
+              }`}
             >
               {tf.icon}{tf.label}
             </button>
@@ -363,7 +363,7 @@ export default function DiscoverPage() {
 
         {/* Loading skeleton */}
         {loading && (
-          <div className="grid grid-cols-3 sm:grid-cols-4 gap-1">
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
             {Array.from({ length: 12 }).map((_, i) => <SkeletonDiscoverCard key={i} />)}
           </div>
         )}
@@ -414,7 +414,7 @@ export default function DiscoverPage() {
             </div>
 
             {/* 3-col tight grid */}
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-1">
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
               {items.map((item, i) => (
                 <div
                   key={item.id}
@@ -422,7 +422,7 @@ export default function DiscoverPage() {
                   style={{ animationDelay: `${i * 30}ms` }}
                   onClick={() => handleResultClick(item)}
                 >
-                  <div className="aspect-[2/3] overflow-hidden bg-[var(--bg-card)]">
+                  <div className="aspect-[2/3] overflow-hidden bg-[var(--bg-card)] rounded-xl">
                     {hasValidCover(item)
                       ? <img src={item.coverImage} alt={item.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />

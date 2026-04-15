@@ -1,1392 +1,1453 @@
 'use client'
+// src/app/feed/page.tsx
+// ── Implementazioni ──────────────────────────────────────────────────────────
+//   #13  Cache client-side in-memory (2 min TTL)
+//   #25  Post in evidenza: i 2 con più like negli ultimi 7 giorni
+//   #7   Skeleton loaders
+//   P2   React.memo su PostCard
+//   #31  Haptic feedback su like e pubblicazione
+//   P5   Import condizionale locale date-fns
+//   #9   Contatore caratteri live sui commenti (>400 char)
+//   CAT  Categoria post: macro fissa + titolo specifico libero (es: Film:Forrest Gump)
+//   AFF  Tracking affinità utente per categoria su like/commento
+//   IGF  Algoritmo feed Instagram-like: ogni 5 post dei seguiti → 1 post discovery
+//   FLT  Filtro feed per macro-categoria + ricerca sottocategoria libera
 
-import { logActivity } from '@/lib/activity'
-import { Trash2, Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, List, Grid3X3, ChevronRight, Download, X as XIcon, Gamepad2, Tv } from 'lucide-react'
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import {
-  CheckCircle, Clock, X, RotateCw, RotateCcw, Edit3, RefreshCw, Settings, Bookmark,
-} from 'lucide-react'
-import { SteamIcon } from '@/components/icons/SteamIcon'
-import { StarRating } from '@/components/ui/StarRating'
-import { Spinner } from '@/components/ui/Spinner'
-import { showToast } from '@/components/ui/Toast'
-import { FollowButton } from '@/components/profile/follow-button'
-import { TasteSimilarityBadge } from '@/components/social/TasteSimilarityBadge'
-import { ProfileComments } from '@/components/profile/ProfileComments'
-import { Avatar, getLocalAvatarSvg } from '@/components/ui/Avatar'
-import {
-  DndContext, closestCenter,
-  DragEndEvent,
-} from '@dnd-kit/core'
-import {
-  arrayMove, SortableContext, rectSortingStrategy,
-} from '@dnd-kit/sortable'
-import { useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { useDndSensors } from '@/hooks/useDndSensors'
-import { useCsrf } from '@/hooks/useCsrf'
+import { useState, useEffect, useCallback, memo, useRef } from 'react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
+import { User } from '@supabase/supabase-js'
+import {
+  Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X,
+  Loader2, Pin, ArrowUp, Trash2, Tag, ChevronDown, Filter, Search,
+  Film, Tv, Gamepad2, BookOpen, Dices, Swords, Check, PartyPopper,
+  Bell, ChevronRight, ArrowLeft, MoreHorizontal, Bookmark, Zap
+} from 'lucide-react'
+import { SkeletonFeedPost } from '@/components/ui/SkeletonCard'
+import { Avatar } from '@/components/ui/Avatar'
+import { useInfiniteScroll } from '@/hooks/useInfiniteScroll'
+import { formatDistanceToNow } from 'date-fns'
+import { it } from 'date-fns/locale/it'
+import { enUS } from 'date-fns/locale/en-US'
 import { useLocale } from '@/lib/locale'
-import { ProfileStatsPanel } from '@/components/profile/ProfileStatsPanel'
-import { AniListImport } from '@/components/import/AniListImport'
-import { MALImport } from '@/components/import/MALImport'
-import { LetterboxdImport } from '@/components/import/LetterboxdImport'
-import { XboxImport } from '@/components/import/XboxImport'
-import { SteamImport } from '@/components/import/SteamImport'
-import { ProfileActivityFeed } from '@/components/profile/ProfileActivityFeed'
-import { NotesModal } from '@/components/profile/NotesModal'
-import { DeleteAccountModal } from '@/components/profile/DeleteAccountModal'
+import { FeedSidebar } from '@/components/feed/FeedSidebar'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
+import { PullWrapper } from '@/components/ui/PullWrapper'
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ── Macro-categorie ───────────────────────────────────────────────────────────
 
-type UserMedia = {
-  id: string
-  title: string
-  title_en?: string  // titolo inglese per switch lingua real-time
-  type: 'anime' | 'tv' | 'movie' | 'game' | 'manga' | 'boardgame'
-  cover_image?: string
-  current_episode: number
-  current_season?: number
-  season_episodes?: Record<number, { episode_count: number }>
-  episodes?: number
-  display_order?: number
-  updated_at: string
-  is_steam?: boolean
-  import_source?: string | null
-  appid?: string
-  notes?: string
-  rating?: number
-  status?: string
-  genres?: string[]
-  achievement_data?: { curr: number; tot: number; gs_curr: number; gs_tot: number } | null
+const MACRO_CATEGORIES = [
+  'Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga', 'Board Game',
+]
+
+// ── Icone categoria (Lucide) ──────────────────────────────────────────────────
+import type { LucideIcon } from 'lucide-react'
+
+const CATEGORY_ICON_MAP: Record<string, LucideIcon> = {
+  'Film': Film,
+  'Serie TV': Tv,
+  'Videogiochi': Gamepad2,
+  'Anime': Swords,
+  'Manga': BookOpen,
+  'Board Game': Dices,
 }
 
-type Profile = {
+function CategoryIcon({ category, size = 13, className = '' }: { category: string; size?: number; className?: string }) {
+  const Icon = CATEGORY_ICON_MAP[category] || Tag
+  return <Icon size={size} className={className} />
+}
+
+// Suggerimenti rapidi per sottocategoria — mostrati come chip nel composer
+const QUICK_SUBS: Record<string, string[]> = {
+  'Film': ['Azione', 'Commedia', 'Horror', 'Fantascienza', 'Animazione'],
+  'Serie TV': ['Drama', 'Commedia', 'Thriller', 'Fantascienza', 'Reality'],
+  'Videogiochi': ['RPG', 'FPS', 'Battle Royale', 'Strategia', 'Indie'],
+  'Anime': ['Shonen', 'Shojo', 'Seinen', 'Isekai', 'Slice of Life'],
+  'Manga': ['Shonen', 'Shojo', 'Seinen', 'Josei', 'Webtoon'],
+  'Board Game': ['Strategia', 'Party', 'Cooperativo', 'Deck Building'],
+}
+
+// ── Tipi ─────────────────────────────────────────────────────────────────────
+
+type Comment = {
   id: string
-  username: string
+  content: string
+  created_at: string
+  user_id: string
+  username?: string
   display_name?: string
-  avatar_url?: string
-  bio?: string
 }
 
-type SortMode = 'default' | 'rating_desc' | 'title_asc' | 'title_desc' | 'progress_desc' | 'date_desc'
-type ViewMode = 'grid' | 'compact'
-type ProfileTab = 'collection' | 'activity' | 'comments'
-
-// ─── Steam cover with fallbacks ──────────────────────────────────────────────
-
-function getSteamCover(appid: string | undefined, cover_image?: string): string | undefined {
-  if (!appid) return cover_image
-  // Try library portrait first, fallback to header, then capsule
-  return cover_image || undefined
-}
-
-function SteamCoverImg({ appid, title, className }: { appid?: string; title: string; className?: string }) {
-  const [attempt, setAttempt] = useState(0)
-  const urls = appid ? [
-    `https://cdn.cloudflare.steamstatic.com/steam/apps/${appid}/library_600x900.jpg`,
-    `https://cdn.cloudflare.steamstatic.com/steam/apps/${appid}/header.jpg`,
-    `https://cdn.cloudflare.steamstatic.com/steam/apps/${appid}/capsule_231x87.jpg`,
-  ] : []
-
-  if (!appid || attempt >= urls.length) {
-    return (
-      <div className={`w-full h-full flex flex-col items-center justify-center bg-zinc-800 text-white gap-2 ${className}`}>
-        <Gamepad2 size={32} className="text-zinc-600" />
-        <p className="text-xs font-medium text-center px-3 text-zinc-400 line-clamp-2">{title}</p>
-      </div>
-    )
+type Post = {
+  id: string
+  user_id: string
+  content: string
+  image_url?: string | null
+  created_at: string
+  category?: string | null
+  profiles: {
+    username: string
+    display_name?: string
+    avatar_url?: string
   }
+  likes_count: number
+  comments_count: number
+  liked_by_user: boolean
+  comments: Comment[]
+  pinned?: boolean
+  isDiscovery?: boolean
+}
 
+// ── Cache in-memory ──────────────────────────────────────────────────────────
+
+const cache: {
+  posts: Post[] | null
+  page: number
+  hasMore: boolean
+  filter: 'all' | 'following'
+  ts: number
+} = { posts: null, page: 0, hasMore: true, filter: 'all', ts: 0 }
+
+const CACHE_TTL = 2 * 60 * 1000
+
+function invalidateCache(_filter: 'all' | 'following') {
+  cache.ts = 0
+}
+
+function isCacheValid(filter: 'all' | 'following') {
   return (
-    <img
-      src={urls[attempt]}
-      alt={title}
-      className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${className}`}
-      onError={() => setAttempt(a => a + 1)}
-    />
+    cache.posts !== null &&
+    cache.filter === filter &&
+    Date.now() - cache.ts < CACHE_TTL
   )
 }
 
+function haptic(pattern: number | number[] = 30) {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(pattern)
+}
 
-// ─── SortableBox ─────────────────────────────────────────────────────────────
+const PAGE_SIZE = 20
+const PINNED_LIKE_THRESHOLD = 3
+const DISCOVERY_INTERVAL = 5
 
-function SortableBox({ media, children }: { media: UserMedia; children: React.ReactNode }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: media.id })
+// ── Helpers categoria ────────────────────────────────────────────────────────
+
+function parseCategoryString(cat: string | null | undefined): { category: string; subcategory: string } | null {
+  if (!cat) return null
+  const idx = cat.indexOf(':')
+  if (idx === -1) return { category: cat, subcategory: '' }
+  return { category: cat.slice(0, idx), subcategory: cat.slice(idx + 1) }
+}
+
+function CategoryBadge({ category, onClick }: { category: string | null | undefined; onClick?: () => void }) {
+  if (!category) return null
+  const parsed = parseCategoryString(category)
+  if (!parsed) return null
+  const label = parsed.subcategory ? `${parsed.category}: ${parsed.subcategory}` : parsed.category
   return (
-    <div
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition: transition || 'transform 50ms ease' }}
-      {...attributes}
-      {...listeners}
-      className={`cursor-grab active:cursor-grabbing rounded-3xl overflow-hidden h-[400px] sm:h-[460px] md:h-[520px] flex flex-col transition-all duration-200 ${
-        isDragging
-          ? 'border-2 border-violet-500 shadow-2xl scale-[1.02] z-50'
-          : 'border border-zinc-800 hover:border-violet-500/50 hover:shadow-xl'
-      }`}
+    <span
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-[10px] font-semibold text-zinc-300 ${onClick ? 'cursor-pointer hover:border-fuchsia-500/60 hover:text-fuchsia-300 transition-colors' : ''}`}
     >
-      {children}
-    </div>
+      <CategoryIcon category={parsed.category} size={10} />
+      {label}
+    </span>
   )
 }
 
-// ─── MediaCard ────────────────────────────────────────────────────────────────
+// ── API search per categoria ─────────────────────────────────────────────────
 
-const TYPE_COLORS: Record<string, string> = {
-  anime: 'bg-sky-500',
-  manga: 'bg-orange-500',
-  game: 'bg-green-500',
-  tv: 'bg-purple-500',
-  movie: 'bg-red-500',
-  boardgame: 'bg-yellow-500',
-}
+type SearchResult = { id: string; title: string; subtitle?: string; image?: string }
 
-function MediaCard({
-  media, isOwner, deletingId,
-  onDelete, onDeleteRequest, onDeleteCancel, onRating, onNotes, onSaveProgress, onMarkComplete, onReset, onStatusChange,
-}: {
-  media: UserMedia
-  isOwner: boolean
-  deletingId?: string | null
-  onDelete?: (id: string) => void
-  onDeleteRequest?: (id: string) => void
-  onDeleteCancel?: () => void
-  onRating?: (id: string, r: number) => void
-  onNotes?: (media: UserMedia) => void
-  onSaveProgress?: (id: string, val: number, field?: 'current_episode' | 'current_season') => void
-  onMarkComplete?: (id: string, media: UserMedia) => void
-  onReset?: (id: string) => void
-  onStatusChange?: (id: string, status: string) => void
-}) {
-  const { t, locale } = useLocale()
-  const router = useRouter()
-  const m = t.media
-  const [imgFailed, setImgFailed] = useState(false)
-  const displayTitle = locale === 'en' && media.title_en ? media.title_en : media.title
+async function searchByCategory(category: string, query: string): Promise<SearchResult[]> {
+  if (!query || query.trim().length < 2) return []
+  const q = encodeURIComponent(query.trim())
 
-  const isConfirmingDelete = deletingId === media.id
-  const hasSeasonData = !!media.season_episodes && Object.keys(media.season_episodes).length > 0
-  const hasEpisodeData = !!(media.episodes && media.episodes > 1)
-  const currentSeasonNum = media.current_season || 1
-  const maxEpisodesThisSeason = media.season_episodes?.[currentSeasonNum]?.episode_count || media.episodes || 0
-  const maxSeasons = hasSeasonData && media.season_episodes
-    ? Math.max(...Object.keys(media.season_episodes).map(Number)) : 1
-
-  const isCompleted = media.status === 'completed' || (
-    hasEpisodeData &&
-    media.current_episode >= maxEpisodesThisSeason &&
-    (!hasSeasonData || currentSeasonNum >= maxSeasons)
-  )
-
-  let totalProgress = 0
-  if (hasSeasonData && media.season_episodes) {
-    const totalEp = Object.values(media.season_episodes).reduce((s, v) => s + (v.episode_count || 0), 0)
-    let done = media.current_episode
-    for (let s = 1; s < currentSeasonNum; s++) done += media.season_episodes[s]?.episode_count || 0
-    totalProgress = totalEp > 0 ? Math.min(Math.round((done / totalEp) * 100), 100) : 0
-  } else if (hasEpisodeData && maxEpisodesThisSeason > 0) {
-    totalProgress = Math.min(Math.round((media.current_episode / maxEpisodesThisSeason) * 100), 100)
-  }
-
-  const rating = media.rating || 0
-  const hasNotes = !!media.notes?.trim()
-
-  const statusBadge: Record<string, { label: string; cls: string }> = {
-    completed: { label: 'Completato', cls: 'bg-emerald-500/20 text-emerald-400' },
-    paused:    { label: 'In pausa',   cls: 'bg-yellow-500/20 text-yellow-400' },
-    dropped:   { label: 'Abbandonato',cls: 'bg-red-500/20 text-red-400' },
-    watching:  { label: 'In corso',   cls: 'bg-zinc-700/40 text-zinc-400' },
-  }
-
-  // Cover rendering
-  const renderCover = () => {
-    if (media.is_steam) {
-      return <SteamCoverImg appid={media.appid} title={displayTitle} />
+  try {
+    if (category === 'Film') {
+      const res = await fetch(`/api/tmdb?q=${q}&type=movie`, { signal: AbortSignal.timeout(5000) })
+      if (!res.ok) return []
+      const data = await res.json()
+      return (data || []).slice(0, 8).map((item: any) => ({
+        id: String(item.id || item.tmdbId || item.title),
+        title: item.title || item.name || '',
+        subtitle: item.year ? String(item.year) : item.releaseDate?.slice(0, 4),
+        image: item.poster || item.cover,
+      }))
     }
-    if (media.cover_image && !imgFailed) {
-      return (
-        <img
-          src={media.cover_image}
-          alt={displayTitle}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          onError={(e) => {
-            const img = e.target as HTMLImageElement
-            if (!img.src.includes('wsrv.nl')) {
-              const referer = media.cover_image!.includes('myanimelist.net')
-                ? '&referer=https://myanimelist.net'
-                : media.cover_image!.includes('anilist.co')
-                ? '&referer=https://anilist.co'
-                : ''
-              img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=jpg${referer}`
-            } else {
-              setImgFailed(true)
-            }
-          }}
-        />
-      )
+
+    if (category === 'Serie TV') {
+      const res = await fetch(`/api/tmdb?q=${q}&type=tv`, { signal: AbortSignal.timeout(5000) })
+      if (!res.ok) return []
+      const data = await res.json()
+      return (data || []).slice(0, 8).map((item: any) => ({
+        id: String(item.id || item.tmdbId || item.title),
+        title: item.title || item.name || '',
+        subtitle: item.year ? String(item.year) : item.releaseDate?.slice(0, 4),
+        image: item.poster || item.cover,
+      }))
     }
-    return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-800 text-white gap-2">
-        <Tv size={36} className="text-zinc-600" />
-        <p className="text-xs font-medium text-center px-4 text-zinc-400 line-clamp-2">{displayTitle}</p>
-      </div>
-    )
+
+    if (category === 'Videogiochi') {
+      const res = await fetch(`/api/igdb`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ search: query.trim(), limit: 8 }),
+        signal: AbortSignal.timeout(6000),
+      })
+      if (!res.ok) return []
+      const data = await res.json()
+      const items = Array.isArray(data) ? data : (data.results || data.games || [])
+      return items.slice(0, 8).map((item: any) => ({
+        id: String(item.id || item.name),
+        title: item.name || item.title || '',
+        subtitle: item.first_release_date ? new Date(item.first_release_date * 1000).getFullYear().toString()
+          : item.year ? String(item.year) : undefined,
+        image: item.cover?.url ? `https:${item.cover.url.replace('t_thumb', 't_cover_small')}` : item.cover,
+      }))
+    }
+
+    if (category === 'Anime' || category === 'Manga') {
+      const type = category === 'Anime' ? 'ANIME' : 'MANGA'
+      const res = await fetch(`/api/anilist?search=${q}&type=${type}`, { signal: AbortSignal.timeout(5000) })
+      if (!res.ok) return []
+      const data = await res.json()
+      const items = Array.isArray(data) ? data : (data.results || data.media || [])
+      return items.slice(0, 8).map((item: any) => ({
+        id: String(item.id || item.anilistId),
+        title: item.title?.english || item.title?.romaji || item.title || '',
+        subtitle: item.seasonYear ? String(item.seasonYear) : undefined,
+        image: item.coverImage?.large || item.cover,
+      }))
+    }
+
+    if (category === 'Board Game') {
+      const res = await fetch(`/api/boardgames?q=${q}`, { signal: AbortSignal.timeout(5000) })
+      if (!res.ok) return []
+      const data = await res.json()
+      const items = Array.isArray(data) ? data : (data.results || data.games || [])
+      return items.slice(0, 8).map((item: any) => ({
+        id: String(item.id || item.name),
+        title: item.name || item.title || '',
+        subtitle: item.year ? String(item.year) : item.yearPublished ? String(item.yearPublished) : undefined,
+        image: item.image || item.cover,
+      }))
+    }
+
+  } catch {}
+  return []
+}
+
+// ── Selettore categoria (composer) con autocomplete API ──────────────────────
+// Step 1: scegli macro-categoria
+// Step 2: digita → autocomplete live via API → clicca per selezionare
+
+function CategorySelector({ value, onChange }: { value: string; onChange: (val: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [selectedCat, setSelectedCat] = useState('')
+  const [subInput, setSubInput] = useState('')
+  const [suggestions, setSuggestions] = useState<SearchResult[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [activeSuggestion, setActiveSuggestion] = useState(-1)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const ref = useRef<HTMLDivElement>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Categorie con API support
+  const API_CATEGORIES = new Set(['Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga', 'Board Game'])
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  useEffect(() => {
+    if (open && selectedCat) setTimeout(() => inputRef.current?.focus(), 50)
+  }, [open, selectedCat])
+
+  // Debounced search
+  useEffect(() => {
+    if (!selectedCat || !API_CATEGORIES.has(selectedCat)) return
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (!subInput.trim() || subInput.trim().length < 2) {
+      setSuggestions([]); setIsSearching(false); return
+    }
+    setIsSearching(true)
+    debounceRef.current = setTimeout(async () => {
+      const results = await searchByCategory(selectedCat, subInput)
+      setSuggestions(results)
+      setIsSearching(false)
+      setActiveSuggestion(-1)
+    }, 320)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [subInput, selectedCat])
+
+  const handleSelectMacro = (cat: string) => {
+    setSelectedCat(cat); setSubInput(''); setSuggestions([]); onChange(cat)
   }
 
-  return (
-    <div className="group relative bg-zinc-950 rounded-3xl overflow-hidden h-full flex flex-col">
-      {/* Cover */}
-      <div className="relative h-60 bg-zinc-900 flex-shrink-0 overflow-hidden">
-        {isOwner && isConfirmingDelete && (
-          <div className="absolute top-3 right-3 z-30 flex gap-1.5">
-            <button onClick={() => onDeleteCancel?.()} className="px-3 py-1.5 text-xs font-medium bg-zinc-900/95 border border-zinc-600 rounded-full hover:bg-zinc-800 transition">{m.cancel}</button>
-            <button onClick={() => onDelete?.(media.id)} className="px-3 py-1.5 text-xs font-medium bg-red-900/95 border border-red-700 text-red-300 rounded-full hover:bg-red-800 transition">{m.delete}</button>
-          </div>
-        )}
-        {isOwner && !isConfirmingDelete && (
-          <button
-            onClick={() => onDeleteRequest?.(media.id)}
-            aria-label={`Elimina ${media.title}`}
-            className="absolute top-3 right-3 z-30 opacity-30 group-hover:opacity-100 bg-black/50 hover:bg-red-950/80 border border-white/10 hover:border-red-500/60 p-1.5 rounded-xl transition-all duration-200"
-          >
-            <X className="w-4 h-4 text-white group-hover:text-red-400 transition-colors" />
-          </button>
-        )}
-        <div className="absolute bottom-0 inset-x-0 h-14 bg-gradient-to-t from-black/70 to-transparent z-10 pointer-events-none" />
-        <div className={`absolute bottom-3 left-3 z-20 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white tracking-wide ${TYPE_COLORS[media.type] || 'bg-zinc-700'}`}>
-          {(m.typeLabels as Record<string, string>)[media.type] || media.type}
-        </div>
-        {renderCover()}
-      </div>
-
-      {/* Info */}
-      <div className="flex flex-col flex-1 px-4 pt-3 pb-4 gap-2">
-        <h4 className="font-semibold line-clamp-2 text-sm leading-snug text-white">{displayTitle}</h4>
-        <div className="flex items-center gap-2">
-          <div onPointerDown={isOwner ? e => e.stopPropagation() : undefined}>
-            <StarRating
-              value={rating}
-              onChange={isOwner ? (r) => onRating?.(media.id, r) : undefined}
-              size={15}
-              viewOnly={!isOwner}
-            />
-          </div>
-          {isOwner && (
-            <button
-              onClick={() => onNotes?.(media)}
-              onPointerDown={e => e.stopPropagation()}
-              className={`ml-auto p-1.5 rounded-lg border transition-all ${
-                hasNotes
-                  ? 'bg-violet-600 border-violet-500 text-white'
-                  : 'bg-zinc-900 border-zinc-800 hover:border-violet-500/60 text-zinc-600 hover:text-violet-400'
-              }`}
-            >
-              <Edit3 size={13} />
-            </button>
-          )}
-        </div>
-
-        {isOwner ? (
-          <div className="flex">
-            <select
-              value={media.status || 'watching'}
-              onChange={e => onStatusChange?.(media.id, e.target.value)}
-              onClick={e => e.stopPropagation()}
-              onPointerDown={e => e.stopPropagation()}
-              className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-zinc-900 border-zinc-800 text-zinc-400 focus:outline-none focus:border-violet-500 transition cursor-pointer appearance-none"
-            >
-              <option value="watching">In corso</option>
-              <option value="completed">Completato</option>
-              <option value="paused">In pausa</option>
-              <option value="dropped">Abbandonato</option>
-            </select>
-          </div>
-        ) : (
-          (() => {
-            const badge = statusBadge[media.status || 'watching']
-            return badge ? (
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit ${badge.cls}`}>
-                {badge.label}
-              </span>
-            ) : null
-          })()
-        )}
-
-        <div className="mt-auto pt-1">
-          {media.type === 'boardgame' ? (
-            <div className="flex items-center justify-between">
-              <p className="text-emerald-400 text-sm flex items-center gap-1.5">
-                <Clock size={14} /> {m.gamesPlayed(media.current_episode)}
-              </p>
-              {isOwner && (
-                <div className="flex gap-1">
-                  <button onClick={() => onSaveProgress?.(media.id, Math.max(0, media.current_episode - 1))} disabled={media.current_episode <= 0} className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30">−</button>
-                  <button onClick={() => onSaveProgress?.(media.id, media.current_episode + 1)} className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold">+</button>
-                </div>
-              )}
-            </div>
-          ) : media.type === 'game' ? (() => {
-            const ach = media.achievement_data
-            const hours = media.current_episode || 0
-            return (
-              <div className="space-y-2">
-                {hours > 0 && (
-                  <p className="text-emerald-400 text-sm flex items-center justify-center gap-1.5">
-                    <Clock size={14} /> {m.hoursPlayed(hours)}
-                  </p>
-                )}
-                {ach && ach.tot > 0 && (
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[11px] text-zinc-500">
-                      <span>Achievement</span>
-                      <span className="font-mono text-zinc-400">{ach.curr}/{ach.tot}</span>
-                    </div>
-                    <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-[#107c10] rounded-full transition-all duration-300"
-                        style={{ width: `${Math.round((ach.curr / ach.tot) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })() : hasEpisodeData ? (
-            isCompleted ? (
-              isOwner ? (
-                <div className="flex items-center justify-end">
-                  <button onClick={() => onReset?.(media.id)} className="p-2 text-zinc-500 hover:text-zinc-300 transition-colors" title="Ripristina progresso"><RotateCcw size={18} /></button>
-                </div>
-              ) : null
-            ) : (
-              <div className="space-y-4">
-                {hasSeasonData && (
-                  <div className="flex items-center justify-between gap-2">
-                    {isOwner && <button onClick={() => onSaveProgress?.(media.id, Math.max(1, currentSeasonNum - 1), 'current_season')} disabled={currentSeasonNum <= 1} className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30">−</button>}
-                    <div className="flex-1 text-emerald-400 text-sm flex items-center justify-center">{m.season(currentSeasonNum)}</div>
-                    {isOwner && <button onClick={() => { if (currentSeasonNum + 1 <= maxSeasons) onSaveProgress?.(media.id, currentSeasonNum + 1, 'current_season') }} disabled={currentSeasonNum >= maxSeasons} className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30">+</button>}
-                  </div>
-                )}
-                <div className="flex items-center justify-between gap-3">
-                  {isOwner && <button onClick={() => onSaveProgress?.(media.id, Math.max(1, media.current_episode - 1))} disabled={media.current_episode <= 1} className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30">−</button>}
-                  <div className="flex-1 text-emerald-400 text-sm flex items-center justify-center gap-1.5">
-                    <span>{m.ep(media.current_episode)}</span>
-                    <span className="text-zinc-500">/ {maxEpisodesThisSeason}</span>
-                  </div>
-                  {isOwner && <button onClick={() => { const next = media.current_episode + 1; next <= maxEpisodesThisSeason ? onSaveProgress?.(media.id, next) : onMarkComplete?.(media.id, media) }} className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold">+</button>}
-                </div>
-                <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 transition-all duration-300 rounded-full" style={{ width: `${totalProgress}%` }} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-500">{m.progress(totalProgress)}</span>
-                  {isOwner && <button onClick={() => onMarkComplete?.(media.id, media)} className="p-1.5 text-emerald-400 hover:text-emerald-300 transition-colors"><CheckCircle size={20} /></button>}
-                </div>
-              </div>
-            )
-          ) : null}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── StatsPanel ───────────────────────────────────────────────────────────────
-
-
-// ─── ActivityFeed ─────────────────────────────────────────────────────────────
-
-
-// ─── CopyProfileLink ─────────────────────────────────────────────────────────
-
-function CopyProfileLink({ username }: { username: string }) {
-  const [copied, setCopied] = useState(false)
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(`https://geekore.it/profile/${username}`)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {}
+  const handleSelectSuggestion = (result: SearchResult) => {
+    setSubInput(result.title)
+    onChange(`${selectedCat}:${result.title}`)
+    setSuggestions([])
+    setOpen(false)
   }
+
+  const handleClear = () => {
+    setSelectedCat(''); setSubInput(''); setSuggestions([]); onChange(''); setOpen(false)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (suggestions.length === 0) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActiveSuggestion(i => Math.min(i + 1, suggestions.length - 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveSuggestion(i => Math.max(i - 1, 0)) }
+    else if (e.key === 'Enter') {
+      e.preventDefault()
+      if (activeSuggestion >= 0) handleSelectSuggestion(suggestions[activeSuggestion])
+    }
+    else if (e.key === 'Escape') { setSuggestions([]); setActiveSuggestion(-1) }
+  }
+
+  const parsed = parseCategoryString(value)
+  const displayLabel = parsed?.subcategory
+    ? `${parsed.category}: ${parsed.subcategory}`
+    : parsed?.category || 'Aggiungi categoria'
+
+  const hasApiSupport = API_CATEGORIES.has(selectedCat)
+
   return (
-    <button onClick={handleCopy} title="Copia link profilo" className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium border transition-all ${copied ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500'}`}>
-      {copied ? <Check size={12} /> : <Copy size={12} />}
-      {copied ? 'Link copiato!' : 'Copia link'}
-    </button>
-  )
-}
-
-// ─── CollectionControls ───────────────────────────────────────────────────────
-
-function CollectionControls({
-  search, onSearch, sort, onSort, view, onView, statusFilter, onStatusFilter,
-}: {
-  search: string; onSearch: (v: string) => void
-  sort: SortMode; onSort: (v: SortMode) => void
-  view: ViewMode; onView: (v: ViewMode) => void
-  statusFilter: string; onStatusFilter: (v: string) => void
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-3 mb-6">
-      {/* Search */}
-      <div className="relative flex-1 min-w-[180px] max-w-xs">
-        <SearchIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-        <input
-          type="text"
-          value={search}
-          onChange={e => onSearch(e.target.value)}
-          placeholder="Cerca..."
-          className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl pl-8 pr-8 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
-        />
-        {search && (
-          <button onClick={() => onSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
-            <X size={13} />
-          </button>
-        )}
-      </div>
-
-      {/* Status filter */}
-      <select
-        value={statusFilter}
-        onChange={e => onStatusFilter(e.target.value)}
-        className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2 text-sm text-zinc-300 focus:outline-none focus:border-violet-500 transition-colors appearance-none"
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+          value
+            ? 'bg-violet-600/20 border-violet-500/40 text-violet-300'
+            : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-600'
+        }`}
       >
-        <option value="all">Tutti gli stati</option>
-        <option value="watching">In corso</option>
-        <option value="completed">Completati</option>
-        <option value="paused">In pausa</option>
-        <option value="dropped">Abbandonati</option>
-      </select>
-
-      {/* Sort */}
-      <select
-        value={sort}
-        onChange={e => onSort(e.target.value as SortMode)}
-        className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2 text-sm text-zinc-300 focus:outline-none focus:border-violet-500 transition-colors appearance-none"
-      >
-        <option value="default">Ordine default</option>
-        <option value="rating_desc">Voto (↓)</option>
-        <option value="title_asc">Titolo (A-Z)</option>
-        <option value="title_desc">Titolo (Z-A)</option>
-        <option value="progress_desc">Progresso (↓)</option>
-        <option value="date_desc">Aggiunto recentemente</option>
-      </select>
-
-      {/* View toggle */}
-      <div className="flex bg-zinc-900 border border-zinc-800 rounded-xl p-1 gap-1 ml-auto">
-        <button onClick={() => onView('grid')} className={`p-1.5 rounded-lg transition-colors ${view === 'grid' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
-          <Grid3X3 size={14} />
-        </button>
-        <button onClick={() => onView('compact')} className={`p-1.5 rounded-lg transition-colors ${view === 'compact' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
-          <List size={14} />
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ─── CompactMediaRow ──────────────────────────────────────────────────────────
-
-function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, onStatusChange }: {
-  media: UserMedia; isOwner: boolean
-  onDelete?: (id: string) => void
-  onRating?: (id: string, r: number) => void
-  onSaveProgress?: (id: string, val: number) => void
-  onStatusChange?: (id: string, status: string) => void
-}) {
-  const { t, locale } = useLocale()
-  const hasEpisodes = !!(media.episodes && media.episodes > 1)
-  const maxEp = media.episodes || 0
-  const [rowImgFailed, setRowImgFailed] = useState(false)
-  const displayTitle = locale === 'en' && media.title_en ? media.title_en : media.title
-
-  return (
-    <div className="flex items-center gap-3 p-3 bg-zinc-900 border border-zinc-800 rounded-2xl hover:border-zinc-700 transition-colors group">
-      {/* Cover mini */}
-      <div className="w-10 h-14 bg-zinc-800 rounded-xl overflow-hidden flex-shrink-0">
-        {media.is_steam ? (
-          <SteamCoverImg appid={media.appid} title={displayTitle} />
-        ) : media.cover_image && !rowImgFailed ? (
-          <img
-            src={media.cover_image}
-            alt={displayTitle}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              const img = e.target as HTMLImageElement
-              if (!img.src.includes('wsrv.nl')) {
-                const referer = media.cover_image!.includes('myanimelist.net')
-                  ? '&referer=https://myanimelist.net'
-                  : media.cover_image!.includes('anilist.co')
-                  ? '&referer=https://anilist.co'
-                  : ''
-                img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=jpg${referer}`
-              } else {
-                setRowImgFailed(true)
-              }
-            }}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-zinc-700"><Tv size={20} /></div>
-        )}
-      </div>
-
-      {/* Title + type */}
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold text-sm text-white truncate">{displayTitle}</p>
-        <div className="flex items-center gap-2 mt-0.5">
-          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white ${TYPE_COLORS[media.type] || 'bg-zinc-700'}`}>
-            {media.type.toUpperCase()}
+        <Tag size={12} />
+        {value && <CategoryIcon category={parsed?.category || ''} size={11} />}
+        {displayLabel}
+        <ChevronDown size={11} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        {value && (
+          <span onClick={e => { e.stopPropagation(); handleClear() }} className="ml-1 text-zinc-400 hover:text-red-400 transition-colors">
+            <X size={11} />
           </span>
-          {isOwner && (
-            <select value={media.status || 'watching'} onChange={e => onStatusChange?.(media.id, e.target.value)} className="text-[10px] bg-transparent text-zinc-500 focus:outline-none cursor-pointer">
-              <option value="watching">In corso</option>
-              <option value="completed">Completato</option>
-              <option value="paused">Pausa</option>
-              <option value="dropped">Abbandonato</option>
-            </select>
-          )}
-        </div>
-      </div>
+        )}
+      </button>
 
-      {/* Progress / hours */}
-      <div className="text-right flex-shrink-0">
-        {media.type === 'game' ? (() => {
-          const ach = media.achievement_data
-          const hours = media.current_episode || 0
-          return (
-            <div className="flex flex-col items-end gap-1">
-              {hours > 0 && <p className="text-xs text-emerald-400">{hours}h</p>}
-              {ach && ach.tot > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-zinc-500 font-mono">{ach.curr}/{ach.tot}</span>
-                  <div className="w-12 h-1 bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-[#107c10] rounded-full" style={{ width: `${Math.round((ach.curr / ach.tot) * 100)}%` }} />
-                  </div>
-                </div>
-              )}
-            </div>
-          )
-        })() : media.type === 'boardgame' ? (
-          <p className="text-xs text-emerald-400">{media.current_episode} partite</p>
-        ) : hasEpisodes ? (
-          <div className="flex items-center gap-1">
-            {isOwner && <button onClick={() => onSaveProgress?.(media.id, Math.max(1, media.current_episode - 1))} className="w-5 h-5 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded text-xs text-emerald-400">−</button>}
-            <span className="text-xs text-emerald-400 min-w-[60px] text-center">{media.current_episode}/{maxEp}</span>
-            {isOwner && <button onClick={() => onSaveProgress?.(media.id, Math.min(maxEp, media.current_episode + 1))} className="w-5 h-5 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded text-xs text-emerald-400">+</button>}
-          </div>
-        ) : null}
-      </div>
-
-      {/* Rating */}
-      <div className="flex-shrink-0">
-        <StarRating value={media.rating || 0} onChange={isOwner ? (r) => onRating?.(media.id, r) : undefined} size={12} viewOnly={!isOwner} />
-      </div>
-
-      {/* Delete */}
-      {isOwner && (
-        <button onClick={() => onDelete?.(media.id)} className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 transition-all flex-shrink-0">
-          <X size={14} />
-        </button>
-      )}
-    </div>
-  )
-}
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
-
-export default function ProfilePage() {
-  const { username } = useParams<{ username: string }>()
-  const supabase = createClient()
-  const { t, locale } = useLocale()
-  const sensors = useDndSensors()
-  const { csrfFetch } = useCsrf()
-
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
-  const [isOwner, setIsOwner] = useState(false)
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [steamAccount, setSteamAccount] = useState<any>(null)
-  const [mediaList, setMediaList] = useState<UserMedia[]>([])
-  const [loading, setLoading] = useState(true)
-  const [importingGames, setImportingGames] = useState(false)
-  const [reorderingGames, setReorderingGames] = useState(false)
-  const [steamMessage, setSteamMessage] = useState<{ text: string; type: 'error' | 'success' } | null>(null)
-  const [steamProgressMsg, setSteamProgressMsg] = useState<string | null>(null)
-  const [followersCount, setFollowersCount] = useState(0)
-  const [followingCount, setFollowingCount] = useState(0)
-  const [isFollowing, setIsFollowing] = useState(false)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [selectedMedia, setSelectedMedia] = useState<UserMedia | null>(null)
-  const [notesInput, setNotesInput] = useState('')
-  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const router = useRouter()
-
-  // Pull-to-refresh su mobile — ricarica tutto il profilo
-  const handleProfileRefresh = async () => {
-    setLoading(true)
-    setMediaList([])
-    // router.refresh() ricarica i Server Components senza full page reload
-    router.refresh()
-    // Piccolo delay per dare tempo al refetch
-    await new Promise(r => setTimeout(r, 800))
-    setLoading(false)
-  }
-  const { distance: pullDistance, refreshing: isPullRefreshing } = usePullToRefresh({ onRefresh: handleProfileRefresh })
-  // New state
-  const [activeTab, setActiveTab] = useState<ProfileTab>('collection')
-  const [collectionSearch, setCollectionSearch] = useState('')
-  const [sortMode, setSortMode] = useState<SortMode>('default')
-  const [importPlatform, setImportPlatform] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<ViewMode>('grid')
-  const [statusFilter, setStatusFilter] = useState('all')
-
-  const sortMediaList = (list: UserMedia[]) =>
-    [...list].sort((a, b) => {
-      // Categorie diverse: giochi sempre prima
-      if (a.type === 'game' && b.type !== 'game') return -1
-      if (b.type === 'game' && a.type !== 'game') return 1
-      // Stesso tipo: usa sempre display_order desc (impostato al momento
-      // dell'import/aggiunta in base a ore/rating, poi aggiornato dal drag manuale)
-      return (b.display_order || 0) - (a.display_order || 0)
-    })
-
-  const refreshMedia = async (userId: string) => {
-    const { data, error } = await supabase.from('user_media_entries').select('*').eq('user_id', userId)
-    if (error) { console.error('[Profile] Errore refresh media:', error); return }
-    if (data) setMediaList(sortMediaList(data))
-  }
-
-  const importSteamGames = async () => {
-    if (!steamAccount?.steam_id64 || !currentUserId || importingGames) return
-    setImportingGames(true)
-    setSteamMessage(null)
-    setSteamProgressMsg(null)
-
-    try {
-      const res = await fetch(`/api/steam/games?steamid=${steamAccount.steam_id64}`)
-
-      if (!res.ok) {
-        try {
-          const data = await res.json()
-          if (res.status === 429 && data.cached) { setSteamMessage({ text: data.error, type: 'error' }); return }
-          setSteamMessage({ text: data.error || t.toasts.steamNoGames, type: 'error' })
-        } catch { setSteamMessage({ text: t.toasts.steamNoGames, type: 'error' }) }
-        return
-      }
-
-      const reader = res.body!.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-        for (const line of lines) {
-          if (!line.trim()) continue
-          try {
-            const event = JSON.parse(line)
-            if (event.type === 'progress') {
-              setSteamProgressMsg(event.message)
-            } else if (event.type === 'done') {
-              setSteamProgressMsg(null)
-              if (!event.success || !event.count) {
-                setSteamMessage({ text: t.toasts.steamNoGames, type: 'error' })
-              } else {
-                await refreshMedia(currentUserId)
-                const cpMsg = event.core_power != null ? ` Core Power: ${event.core_power}.` : ''
-                setSteamMessage({ text: `${t.toasts.steamImported(event.count)}${cpMsg}`, type: 'success' })
-              }
-            } else if (event.type === 'error') {
-              setSteamProgressMsg(null)
-              setSteamMessage({ text: event.message || t.toasts.steamNoGames, type: 'error' })
-            }
-          } catch {}
-        }
-      }
-    } catch {
-      setSteamMessage({ text: t.toasts.steamNoGames, type: 'error' })
-    } finally {
-      setImportingGames(false)
-      setSteamProgressMsg(null)
-    }
-  }
-
-  const reorderGamesByHours = async () => {
-    if (!currentUserId || reorderingGames) return
-    setReorderingGames(true)
-    try {
-      const { data, error } = await supabase.from('user_media_entries').select('*').eq('user_id', currentUserId).eq('type', 'game')
-      if (error) { if (process.env.NODE_ENV === 'development') console.error('[Profile] Errore reorder games:', error); return }
-      if (!data?.length) return
-      const sorted = [...data].sort((a, b) => (b.current_episode || 0) - (a.current_episode || 0))
-      const updates = sorted.map((g, i) => ({ id: g.id, display_order: Date.now() - i * 10000 }))
-      await supabase.from('user_media_entries').upsert(updates)
-      await refreshMedia(currentUserId)
-    } finally { setReorderingGames(false) }
-  }
-
-  const handleDelete = async (id: string) => {
-    if (!isOwner) return
-    await supabase.from('user_media_entries').delete().eq('id', id)
-    setMediaList(prev => prev.filter(item => item.id !== id))
-    setDeletingId(null)
-    showToast(t.toasts.deleted)
-  }
-
-  const markAsCompleted = async (id: string, media: UserMedia) => {
-    if (!isOwner) return
-    let update: any = {}
-    if (media.season_episodes) {
-      const maxS = Math.max(...Object.keys(media.season_episodes).map(Number))
-      update = { current_season: maxS, current_episode: media.season_episodes[maxS]?.episode_count || 1, status: 'completed' }
-    } else if (media.episodes) {
-      update = { current_episode: media.episodes, status: 'completed' }
-    } else {
-      update = { current_episode: 1, status: 'completed' }
-    }
-    await supabase.from('user_media_entries').update(update).eq('id', id)
-    setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
-    showToast(t.toasts.completed)
-    await logActivity({ type: 'media_completed', media_id: media.id, media_title: media.title, media_type: media.type, media_cover: media.cover_image })
-  }
-
-  const resetProgress = async (id: string) => {
-    if (!isOwner) return
-    const update = { current_season: 1, current_episode: 1, status: 'watching' }
-    await supabase.from('user_media_entries').update(update).eq('id', id)
-    setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
-    showToast(t.toasts.progressReset)
-  }
-
-  const saveProgress = async (id: string, val: number, field: 'current_episode' | 'current_season' = 'current_episode') => {
-    if (!isOwner) return
-    const update = field === 'current_season' ? { current_season: val, current_episode: 1 } : { current_episode: val }
-    await supabase.from('user_media_entries').update(update).eq('id', id)
-    setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
-    showToast(t.toasts.progressSaved)
-  }
-
-  const setRating = async (mediaId: string, rating: number) => {
-    if (!isOwner) return
-    const item = mediaList.find(m => m.id === mediaId)
-    await supabase.from('user_media_entries').update({ rating }).eq('id', mediaId)
-    setMediaList(prev => sortMediaList(prev.map(item => item.id === mediaId ? { ...item, rating } : item)))
-    showToast(t.toasts.ratingSaved)
-    if (item) await logActivity({ type: 'rating_given', media_id: item.id, media_title: item.title, media_type: item.type, media_cover: item.cover_image, rating_value: rating })
-  }
-
-  const openNotesModal = (media: UserMedia) => {
-    if (!isOwner) return
-    setSelectedMedia(media)
-    setNotesInput(media.notes || '')
-    setIsNotesModalOpen(true)
-  }
-
-  const saveNotes = async () => {
-    if (!selectedMedia || !isOwner) return
-    await supabase.from('user_media_entries').update({ notes: notesInput.trim() }).eq('id', selectedMedia.id)
-    setMediaList(prev => prev.map(item => item.id === selectedMedia.id ? { ...item, notes: notesInput.trim() } : item))
-    setIsNotesModalOpen(false)
-    setSelectedMedia(null)
-    showToast(t.toasts.notesSaved)
-  }
-
-  const changeStatus = async (id: string, status: string) => {
-    if (!isOwner) return
-    await supabase.from('user_media_entries').update({ status }).eq('id', id)
-    setMediaList(prev => prev.map(item => item.id === id ? { ...item, status } : item))
-    if (status === 'completed') {
-      const item = mediaList.find(m => m.id === id)
-      if (item) await logActivity({ type: 'media_completed', media_id: item.id, media_title: item.title, media_type: item.type, media_cover: item.cover_image })
-    }
-  }
-
-  const deleteAccount = async () => {
-    if (!isOwner) return
-    // S1: usa csrfFetch che allega X-CSRF-Token automaticamente
-    const res = await csrfFetch('/api/user/delete', { method: 'DELETE' })
-    if (res.ok) {
-      await supabase.auth.signOut()
-      window.location.href = '/'
-    } else {
-      showToast('Errore nella cancellazione. Riprova.', 'error')
-    }
-  }
-
-  const onDragEnd = async (event: DragEndEvent) => {
-    if (!isOwner) return
-    const { active, over } = event
-    if (!over || active.id === over.id) return
-    const oldIndex = mediaList.findIndex(item => item.id === active.id)
-    const newIndex = mediaList.findIndex(item => item.id === over.id)
-    if (oldIndex === -1 || newIndex === -1) return
-    const newList = arrayMove(mediaList, oldIndex, newIndex).map((item, i) => ({
-      ...item, display_order: Date.now() - i * 10000,
-    }))
-    setMediaList(newList)
-    await supabase.from('user_media_entries').upsert(newList.map(item => ({ id: item.id, display_order: item.display_order })))
-  }
-
-  useEffect(() => {
-    const fetchData = async () => {
-      const { data: { user }, error: authError } = await supabase.auth.getUser()
-      if (authError) {
-        if (process.env.NODE_ENV === 'development') console.error('[Profile] Errore autenticazione:', authError)
-        setLoading(false)
-        return
-      }
-      setCurrentUserId(user?.id || null)
-
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, username, display_name, avatar_url, bio')
-        .ilike('username', username)
-        .single()
-
-      if (profileError || !profileData) { setLoading(false); return }
-      setProfile(profileData)
-
-      const ownerCheck = !!user && user.id === profileData.id
-      setIsOwner(ownerCheck)
-
-      const [steamResult, mediaResult, fwersResult, fwingResult, followResult] = await Promise.all([
-        ownerCheck ? supabase.from('steam_accounts').select('*').eq('user_id', user!.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
-        supabase.from('user_media_entries').select('*').eq('user_id', profileData.id),
-        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profileData.id),
-        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profileData.id),
-        (user && !ownerCheck) ? supabase.from('follows').select('follower_id').eq('follower_id', user.id).eq('following_id', profileData.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
-      ])
-
-      if (ownerCheck) setSteamAccount(steamResult.data)
-      if (mediaResult.error) {
-        if (process.env.NODE_ENV === 'development') console.error('[Profile] Errore caricamento media:', mediaResult.error)
-      } else if (mediaResult.data) {
-        setMediaList(sortMediaList(mediaResult.data))
-      }
-      setFollowersCount(fwersResult.count || 0)
-      setFollowingCount(fwingResult.count || 0)
-      if (user && !ownerCheck) setIsFollowing(!!followResult.data)
-      setLoading(false)
-    }
-    fetchData()
-  }, [username])
-
-  useEffect(() => {
-    if (!steamMessage) return
-    const timer = setTimeout(() => setSteamMessage(null), 5000)
-    return () => clearTimeout(timer)
-  }, [steamMessage])
-
-  if (loading) return <Spinner />
-  if (!profile) return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white">{t.profile.notFound}</div>
-
-  const cats = t.profile.categories
-
-  // Apply filters + sort
-  const filteredList = mediaList.filter(m => {
-    const searchLower = collectionSearch.toLowerCase().trim()
-    const matchSearch = !collectionSearch.trim() ||
-      m.title.toLowerCase().includes(searchLower) ||
-      (m.title_en && m.title_en.toLowerCase().includes(searchLower))
-    const matchStatus = statusFilter === 'all' || m.status === statusFilter
-    return matchSearch && matchStatus
-  })
-
-  const sortedList = [...filteredList].sort((a, b) => {
-    switch (sortMode) {
-      case 'rating_desc': return (b.rating || 0) - (a.rating || 0)
-      case 'title_asc': {
-        const aT = locale === 'en' && a.title_en ? a.title_en : a.title
-        const bT = locale === 'en' && b.title_en ? b.title_en : b.title
-        return aT.localeCompare(bT)
-      }
-      case 'title_desc': {
-        const aT = locale === 'en' && a.title_en ? a.title_en : a.title
-        const bT = locale === 'en' && b.title_en ? b.title_en : b.title
-        return bT.localeCompare(aT)
-      }
-      case 'progress_desc': return (b.current_episode || 0) - (a.current_episode || 0)
-      case 'date_desc': return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-      default: return 0 // keep original sort
-    }
-  })
-
-  const grouped = sortedList.reduce((acc: Record<string, UserMedia[]>, item) => {
-    let cat: string
-    if (item.type === 'game') cat = cats.games
-    else if (item.type === 'manga') cat = cats.manga
-    else if (item.type === 'anime') cat = cats.anime
-    else if (item.type === 'tv') cat = cats.tv
-    else if (item.type === 'movie') cat = cats.movies
-    else if (item.type === 'boardgame') cat = cats.boardgames
-    else cat = cats.other
-    if (!acc[cat]) acc[cat] = []
-    acc[cat].push(item)
-    return acc
-  }, {})
-
-  const categoryOrder = [cats.games, cats.anime, cats.tv, cats.manga, cats.movies, cats.boardgames, cats.other]
-  // Mappa label categoria → slug URL per la pagina dedicata
-  const categoryToType: Record<string, string> = {
-    [cats.games]: 'game',
-    [cats.anime]: 'anime',
-    [cats.tv]: 'tv',
-    [cats.manga]: 'manga',
-    [cats.movies]: 'movie',
-    [cats.boardgames]: 'boardgame',
-  }
-  const orderedCategories = categoryOrder.filter(cat => grouped[cat]?.length > 0)
-
-  const TABS: { id: ProfileTab; label: string; count?: number }[] = [
-    { id: 'collection', label: 'Collezione', count: mediaList.length },
-    { id: 'activity', label: 'Attività' },
-    { id: 'comments', label: 'Bacheca' },
-  ]
-
-  return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] pb-24 md:pb-20">
-      <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
-      <div className="pt-4 md:pt-8 max-w-screen-2xl mx-auto px-4 md:px-6">
-
-        {/* ── Header profilo — Instagram layout ────────────────────────── */}
-        <div className="mb-6 md:mb-10">
-
-          {/* Row 1: avatar + stats (Instagram desktop/tablet) */}
-          <div className="flex items-start gap-6 md:gap-12 mb-4 md:mb-6">
-
-            {/* Avatar with gradient ring */}
-            <div className="flex-shrink-0">
-              <div
-                className="rounded-full p-[2.5px]"
-                style={{ background: 'linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)' }}
-              >
-                <div className="rounded-full p-[2.5px] bg-[var(--bg-primary)]">
-                  <div className="w-20 h-20 md:w-28 md:h-28 rounded-full overflow-hidden">
-                    <Avatar
-                      src={profile.avatar_url}
-                      username={profile.username}
-                      displayName={profile.display_name}
-                      size={112}
-                      className="w-full h-full"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Right: name + stats + actions */}
-            <div className="flex-1 min-w-0 pt-1">
-              {/* Username row */}
-              <div className="flex items-center gap-3 flex-wrap mb-3">
-                <h1 className="text-[20px] md:text-[22px] font-light text-[var(--text-primary)] tracking-tight">
-                  {profile.username}
-                </h1>
-                {isOwner && (
-                  <Link href="/profile/edit">
-                    <button
-                      data-testid="btn-edit-profile"
-                      className="px-4 py-1.5 rounded-lg text-[13px] font-semibold transition-colors"
-                      style={{
-                        background: 'var(--bg-card)',
-                        color: 'var(--text-primary)',
-                        border: '1px solid var(--border)',
-                      }}
-                    >
-                      {t.profile.editProfile}
+      {open && (
+        <div className="absolute top-full mt-2 left-0 z-50 bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
+          style={{ minWidth: selectedCat ? 320 : 280 }}>
+          <div className="p-3">
+            {!selectedCat ? (
+              <>
+                <p className="text-[10px] text-zinc-500 font-semibold px-1 pb-2 uppercase tracking-wider">Scegli categoria</p>
+                <div className="grid grid-cols-2 gap-1">
+                  {MACRO_CATEGORIES.map(cat => (
+                    <button key={cat} type="button" onClick={() => handleSelectMacro(cat)}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all text-left group">
+                      <CategoryIcon category={cat} size={14} className="text-zinc-500 group-hover:text-violet-400 transition-colors" />
+                      <span className="flex-1">{cat}</span>
                     </button>
-                  </Link>
-                )}
-                {!isOwner && currentUserId && profile && (
-                  <FollowButton
-                    targetId={profile.id}
-                    currentUserId={currentUserId}
-                    isFollowingInitial={isFollowing}
-                    onFollowChange={(nowFollowing) => setFollowersCount(prev => nowFollowing ? prev + 1 : Math.max(0, prev - 1))}
-                  />
-                )}
-                <CopyProfileLink username={profile.username} />
-              </div>
-
-              {/* Stats row — Instagram: posts/followers/following inline */}
-              <div className="hidden md:flex items-center gap-8 mb-3">
-                <div className="text-center md:text-left">
-                  <span className="text-[15px] font-semibold text-[var(--text-primary)]">{mediaList.length}</span>
-                  <span className="text-[15px] text-[var(--text-secondary)] ml-1.5">nella collezione</span>
+                  ))}
                 </div>
-                <button className="text-[15px] text-[var(--text-primary)] hover:opacity-70 transition-opacity">
-                  <span className="font-semibold">{followersCount}</span>
-                  <span className="text-[var(--text-secondary)] ml-1.5">{t.profile.follower}</span>
-                </button>
-                <button className="text-[15px] text-[var(--text-primary)] hover:opacity-70 transition-opacity">
-                  <span className="font-semibold">{followingCount}</span>
-                  <span className="text-[var(--text-secondary)] ml-1.5">{t.profile.following}</span>
-                </button>
-              </div>
-
-              {/* Display name + bio */}
-              {profile.display_name && profile.display_name !== profile.username && (
-                <p className="text-[14px] font-semibold text-[var(--text-primary)] leading-tight mb-1">
-                  {profile.display_name}
-                </p>
-              )}
-              {profile.bio && (
-                <p className="text-[14px] text-[var(--text-primary)] leading-snug max-w-sm whitespace-pre-wrap">
-                  {profile.bio}
-                </p>
-              )}
-
-              {!isOwner && (
-                <div className="mt-2">
-                  <TasteSimilarityBadge targetUserId={profile.id} />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Mobile stats row — Instagram style: 3 cols */}
-          <div className="flex md:hidden border-t border-b border-[var(--border)] py-3 mb-4">
-            <div className="flex-1 text-center">
-              <p className="text-[15px] font-semibold text-[var(--text-primary)]">{mediaList.length}</p>
-              <p className="text-[12px] text-[var(--text-secondary)]">Collezione</p>
-            </div>
-            <div className="flex-1 text-center border-l border-r border-[var(--border)]">
-              <p className="text-[15px] font-semibold text-[var(--text-primary)]">{followersCount}</p>
-              <p className="text-[12px] text-[var(--text-secondary)]">{t.profile.follower}</p>
-            </div>
-            <div className="flex-1 text-center">
-              <p className="text-[15px] font-semibold text-[var(--text-primary)]">{followingCount}</p>
-              <p className="text-[12px] text-[var(--text-secondary)]">{t.profile.following}</p>
-            </div>
-          </div>
-
-          {/* Owner tools: import + secondary links */}
-          {isOwner && (
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              {/* Import platforms */}
-              <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
-                <span className="text-[11px] text-[var(--text-muted)] mr-1 flex-shrink-0">Importa</span>
-
-                <button
-                  onClick={() => setImportPlatform('steam')}
-                  title={steamAccount ? 'Steam (connesso)' : 'Connetti Steam'}
-                  className={`w-9 h-9 rounded-full overflow-hidden border flex items-center justify-center transition-all hover:scale-105 flex-shrink-0 ${steamAccount ? 'border-[#66C0F4]/60' : 'border-[var(--border)] opacity-50 hover:opacity-100'}`}
-                >
-                  <SteamIcon size={36} className="w-full h-full block" />
-                </button>
-
-                <button onClick={() => setImportPlatform('anilist')} title="AniList"
-                  className="w-9 h-9 rounded-full overflow-hidden border border-[var(--border)] hover:border-[#02a9ff]/60 transition-all hover:scale-105 flex items-center justify-center flex-shrink-0">
-                  <svg viewBox="0 0 512 512" className="w-full h-full" style={{display:"block"}}>
-                    <rect width="512" height="512" fill="#1e2630"/>
-                    <path d="M321.92 323.27V136.6c0-10.698-5.887-16.602-16.558-16.602h-36.433c-10.672 0-16.561 5.904-16.561 16.602v88.651c0 2.497 23.996 14.089 24.623 16.541 18.282 71.61 3.972 128.92-13.359 131.6 28.337 1.405 31.455 15.064 10.348 5.731 3.229-38.209 15.828-38.134 52.049-1.406.31.317 7.427 15.282 7.87 15.282h85.545c10.672 0 16.558-5.9 16.558-16.6v-36.524c0-10.698-5.886-16.602-16.558-16.602z" fill="#02a9ff"/>
-                    <path d="M170.68 120 74.999 393h74.338l16.192-47.222h80.96L262.315 393h73.968l-95.314-273zm11.776 165.28 23.183-75.629 25.393 75.629z" fill="#fefefe"/>
-                  </svg>
-                </button>
-
-                <button onClick={() => setImportPlatform('mal')} title="MyAnimeList"
-                  className="w-9 h-9 rounded-full overflow-hidden border border-[var(--border)] hover:border-[#2e51a2]/80 transition-all hover:scale-105 flex items-center justify-center flex-shrink-0">
-                  <svg viewBox="0 0 256 256" className="w-full h-full" style={{display:"block"}}>
-                    <rect width="256" height="256" fill="#2e51a2"/>
-                    <path fill="#ffffff" d="m 30.638616,88.40918 v 68.70703 h 17.759766 v -41.91016 l 15.470703,19.77344 16.67825,-19.77344 v 41.91016 H 98.307101 V 88.40918 H 80.547335 L 63.869085,109.82324 48.398382,88.40918 Z"/>
-                    <path fill="#ffffff" d="m 182.49799,88.40918 v 68.70703 h 39.07974 l 3.78365,-14.65739 H 200.25775 V 88.40918 Z"/>
-                    <path fill="#ffffff" d="m 149.65186,88.40918 c -21.64279,0 -35.06651,10.210974 -39.36914,25.39258 -4.19953,14.81779 0.34128,34.3715 10.28711,53.78906 l 14.85742,-10.47461 c 0,0 -7.06411,-9.21728 -8.39453,-23.03516 h 21.98437 v 23.03516 h 19.73438 v -51.67969 h -19.73438 v 14.9668 H 130.8003 c 1.71696,-11.1972 8.295,-17.30859 15.46875,-17.30859 h 25.8164 l -5.12304,-14.68555 z"/>
-                  </svg>
-                </button>
-
-                <button onClick={() => setImportPlatform('letterboxd')} title="Letterboxd"
-                  className="w-9 h-9 rounded-full overflow-hidden border border-[var(--border)] hover:border-zinc-500 transition-all hover:scale-105 flex items-center justify-center flex-shrink-0">
-                  <svg viewBox="0 0 40 40" className="w-full h-full" style={{display:"block"}}>
-                    <rect width="40" height="40" fill="#1a1a1a"/>
-                    <ellipse cx="11" cy="20" rx="9" ry="9" fill="#ff8000"/>
-                    <ellipse cx="20" cy="20" rx="9" ry="9" fill="#00e054"/>
-                    <ellipse cx="29" cy="20" rx="9" ry="9" fill="#40bcf4"/>
-                    <ellipse cx="15.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9"/>
-                    <ellipse cx="24.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9"/>
-                  </svg>
-                </button>
-
-                <button onClick={() => setImportPlatform('xbox')} title="Xbox"
-                  className="w-9 h-9 rounded-full overflow-hidden border border-[var(--border)] hover:border-[#107c10]/60 transition-all hover:scale-105 bg-black flex items-center justify-center flex-shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 88 88">
-                    <path fill="#107c10" d="M39.73 86.91c-6.628-.635-13.338-3.015-19.102-6.776-4.83-3.15-5.92-4.447-5.92-7.032 0-5.193 5.71-14.29 15.48-24.658 5.547-5.89 13.275-12.79 14.11-12.604 1.626.363 14.616 13.034 19.48 19 7.69 9.43 11.224 17.154 9.428 20.597-1.365 2.617-9.837 7.733-16.06 9.698-5.13 1.62-11.867 2.306-17.416 1.775zM8.184 67.703c-4.014-6.158-6.042-12.22-7.02-20.988-.324-2.895-.21-4.55.733-10.494 1.173-7.4 5.39-15.97 10.46-21.24 2.158-2.24 2.35-2.3 4.982-1.41 3.19 1.08 6.6 3.436 11.89 8.22l3.09 2.794-1.69 2.07c-7.828 9.61-16.09 23.24-19.2 31.67-1.69 4.58-2.37 9.18-1.64 11.095.49 1.294.04.812-1.61-1.714zm70.453 1.047c.397-1.936-.105-5.49-1.28-9.076-2.545-7.765-11.054-22.21-18.867-32.032l-2.46-3.092 2.662-2.443c3.474-3.19 5.886-5.1 8.49-6.723 2.053-1.28 4.988-2.413 6.25-2.413.777 0 3.516 2.85 5.726 5.95 3.424 4.8 5.942 10.63 7.218 16.69.825 3.92.894 12.3.133 16.21-.63 3.208-1.95 7.366-3.23 10.187-.97 2.113-3.36 6.218-4.41 7.554-.54.687-.54.686-.24-.796zM40.44 11.505C36.834 9.675 31.272 7.71 28.2 7.18c-1.076-.185-2.913-.29-4.08-.23-2.536.128-2.423-.004 1.643-1.925 3.38-1.597 6.2-2.536 10.03-3.34C40.098.78 48.193.77 52.43 1.663c4.575.965 9.964 2.97 13 4.84l.904.554-2.07-.104C60.148 6.745 54.15 8.408 47.71 11.54c-1.942.946-3.63 1.7-3.754 1.68-.123-.024-1.706-.795-3.52-1.715z"/>
-                  </svg>
-                </button>
-              </div>
-
-              {/* Secondary links */}
-              <div className="flex items-center gap-2">
-                <Link href="/wishlist"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-                  style={{ border: '1px solid var(--border)' }}
-                >
-                  <Bookmark size={13} /> Wishlist
-                </Link>
-                <button onClick={() => setShowDeleteModal(true)} className="px-3 py-1.5 rounded-lg text-[12px] text-[var(--text-muted)] hover:text-red-400 transition-colors" style={{ border: '1px solid var(--border)' }}>
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-
-
-        {/* Stats */}
-        {mediaList.length > 0 && <ProfileStatsPanel mediaList={mediaList} />}
-
-        {/* ── TABS — Instagram: icone, bordo top, no label su mobile ────── */}
-        <div
-          className="flex border-t border-b border-[var(--border)] mb-6 md:mb-8 -mx-4 md:mx-0"
-          style={{ borderTop: '0.5px solid var(--border)', borderBottom: 'none' }}
-        >
-          {TABS.map(tab => (
-            <button
-              key={tab.id}
-              data-testid={`tab-${tab.id}`}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center justify-center gap-2 flex-1 py-3 text-[12px] font-semibold tracking-[0.06em] uppercase transition-all border-t-[1px] -mt-px ${
-                activeTab === tab.id
-                  ? 'border-[var(--text-primary)] text-[var(--text-primary)]'
-                  : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
-              }`}
-            >
-              <span className="hidden sm:inline">{tab.label}</span>
-              <span className="sm:hidden text-[11px]">{tab.label}</span>
-              {tab.count !== undefined && tab.count > 0 && (
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                  activeTab === tab.id
-                    ? 'bg-[var(--text-primary)] text-[var(--bg-primary)]'
-                    : 'bg-[var(--bg-card)] text-[var(--text-muted)]'
-                }`}>
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* ── TAB: COLLECTION ─────────────────────────────────────── */}
-        {activeTab === 'collection' && (
-          <>
-            {mediaList.length === 0 ? (
-              <div className="text-center py-20 text-zinc-500">{isOwner ? t.profile.emptyOwner : t.profile.emptyOther}</div>
+              </>
             ) : (
               <>
-                {mediaList.length > 3 && (
-                  <CollectionControls
-                    search={collectionSearch} onSearch={setCollectionSearch}
-                    sort={sortMode} onSort={setSortMode}
-                    view={viewMode} onView={setViewMode}
-                    statusFilter={statusFilter} onStatusFilter={setStatusFilter}
-                  />
-                )}
+                <div className="flex items-center gap-2 mb-3 pb-2.5 border-b border-zinc-800">
+                  <button type="button" onClick={() => { setSelectedCat(''); setSuggestions([]) }}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all">
+                    <ArrowLeft size={14} />
+                  </button>
+                  <CategoryIcon category={selectedCat} size={15} className="text-violet-400" />
+                  <p className="text-sm font-semibold text-white flex-1">{selectedCat}</p>
+                </div>
 
-                {sortedList.length === 0 ? (
-                  <div className="text-center py-16 text-zinc-500">
-                    <SearchIcon size={36} className="mx-auto mb-3 opacity-30" />
-                    <p>Nessun titolo trovato</p>
-                  </div>
-                ) : viewMode === 'compact' ? (
-                  // Compact list view
-                  <div className="space-y-2">
-                    {orderedCategories.map(category => (
-                      <div key={category} className="mb-8">
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-lg font-semibold">{category}</h3>
-                          <span className="text-xs text-zinc-500">{grouped[category].length}</span>
+                {/* Input ricerca */}
+                <div className="relative mb-1">
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={subInput}
+                    onChange={e => setSubInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={hasApiSupport
+                      ? `Cerca ${selectedCat === 'Film' ? 'un film...' : selectedCat === 'Serie TV' ? 'una serie...' : selectedCat === 'Videogiochi' ? 'un videogioco...' : selectedCat === 'Anime' ? 'un anime...' : selectedCat === 'Manga' ? 'un manga...' : 'un titolo...'}`
+                      : `titolo specifico...`}
+                    className="w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500 rounded-xl pl-8 pr-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
+                  />
+                  {isSearching && (
+                    <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-violet-400 animate-spin" />
+                  )}
+                </div>
+
+                {/* Suggerimenti API */}
+                {suggestions.length > 0 && (
+                  <div className="mt-1 rounded-xl overflow-hidden border border-zinc-700/60 bg-zinc-950 max-h-[260px] overflow-y-auto">
+                    {suggestions.map((result, idx) => (
+                      <button
+                        key={result.id}
+                        type="button"
+                        onClick={() => handleSelectSuggestion(result)}
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors border-b border-zinc-800/60 last:border-0 ${
+                          idx === activeSuggestion ? 'bg-violet-600/20 text-white' : 'hover:bg-zinc-800 text-zinc-200'
+                        }`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{result.title}</p>
+                          {result.subtitle && <p className="text-[11px] text-zinc-500">{result.subtitle}</p>}
                         </div>
-                        <div className="space-y-1.5">
-                          {grouped[category].map(media => (
-                            <CompactMediaRow
-                              key={media.id}
-                              media={media}
-                              isOwner={isOwner}
-                              onDelete={handleDelete}
-                              onRating={setRating}
-                              onSaveProgress={saveProgress}
-                              onStatusChange={changeStatus}
-                            />
-                          ))}
-                        </div>
-                      </div>
+                        <ChevronDown size={12} className="text-zinc-600 -rotate-90 flex-shrink-0" />
+                      </button>
                     ))}
                   </div>
-                ) : (
-                  // Grid view (default) — mostra 5 card per categoria + "Vedi tutti"
-                  orderedCategories.map((category) => {
-                    const items = grouped[category]
-                    const preview = items.slice(0, 6)
-                    const hasMore = items.length > 6
-                    return (
-                      <div key={category} className="mb-10 md:mb-16">
-                        <div className="flex items-center justify-between mb-4 md:mb-6">
-                          <h3 className="text-lg md:text-2xl font-semibold">{category}</h3>
-                          <div className="flex items-center gap-3">
-                            <p className="text-zinc-500">{t.profile.elements(items.length)}</p>
-                            {hasMore && (
-                              <Link
-                                href={`/profile/${profile.username}/${categoryToType[category] || category}`}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 border border-zinc-700 hover:border-violet-500/50 rounded-xl text-xs text-zinc-400 hover:text-violet-400 transition-all"
-                              >
-                                Vedi tutti <ChevronRight size={13} />
-                              </Link>
-                            )}
-                          </div>
-                        </div>
-                        {isOwner ? (
-                          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-                            <SortableContext items={preview.map(m => m.id)} strategy={rectSortingStrategy}>
-                              <div className="flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide snap-x snap-mandatory">
-                                {preview.map((media) => (
-                                  <div key={media.id} className="w-40 sm:w-48 md:w-52 flex-shrink-0 snap-start">
-                                    <SortableBox media={media}>
-                                      <MediaCard media={media} isOwner={true} deletingId={deletingId}
-                                        onDelete={handleDelete} onDeleteRequest={setDeletingId} onDeleteCancel={() => setDeletingId(null)}
-                                        onRating={setRating} onNotes={openNotesModal} onSaveProgress={saveProgress}
-                                        onMarkComplete={markAsCompleted} onReset={resetProgress} onStatusChange={changeStatus} />
-                                    </SortableBox>
-                                  </div>
-                                ))}
-                                {hasMore && (
-                                  <Link
-                                    href={`/profile/${profile.username}/${categoryToType[category] || category}`}
-                                    className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-violet-500/50 rounded-3xl h-[400px] sm:h-[460px] md:h-[520px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-violet-400 transition-all group snap-start"
-                                  >
-                                    <ChevronRight size={16} />
-                                    <span className="text-xs font-semibold">+{items.length - 6}</span>
-                                  </Link>
-                                )}
-                              </div>
-                            </SortableContext>
-                          </DndContext>
-                        ) : (
-                          <div className="flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide snap-x snap-mandatory">
-                            {preview.map((media) => (
-                              <div key={media.id} className="w-40 sm:w-48 md:w-52 flex-shrink-0 border border-zinc-800 rounded-3xl overflow-hidden h-[400px] sm:h-[460px] md:h-[520px] flex flex-col snap-start">
-                                <MediaCard media={media} isOwner={false} onStatusChange={changeStatus} />
-                              </div>
-                            ))}
-                            {hasMore && (
-                              <Link
-                                href={`/profile/${profile.username}/${categoryToType[category] || category}`}
-                                className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-violet-500/50 rounded-3xl h-[400px] sm:h-[460px] md:h-[520px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-violet-400 transition-all group snap-start"
-                              >
-                                <ChevronRight size={16} />
-                                <span className="text-xs font-semibold">+{items.length - 6}</span>
-                              </Link>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })
                 )}
+
+                {/* Stato vuoto o hint */}
+                {!hasApiSupport && !suggestions.length && (
+                  <>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {(QUICK_SUBS[selectedCat] || []).map(sub => (
+                        <button key={sub} type="button"
+                          onClick={() => { onChange(`${selectedCat}:${sub}`); setOpen(false) }}
+                          className="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-xs text-zinc-300 hover:border-violet-500/60 hover:text-violet-300 transition-all">
+                          {sub}
+                        </button>
+                      ))}
+                    </div>
+                    {subInput.trim() && (
+                      <button type="button"
+                        onClick={() => { onChange(`${selectedCat}:${subInput.trim()}`); setOpen(false) }}
+                        className="mt-2 w-full px-3 py-2.5 rounded-xl bg-violet-600/20 border border-violet-500/50 text-violet-200 text-sm font-semibold hover:bg-violet-600/30 hover:border-violet-500 transition flex items-center justify-center gap-1.5">
+                        <Check size={13} /> Usa <span className="font-bold">«{subInput.trim()}»</span>
+                      </button>
+                    )}
+                  </>
+                )}
+
+                {hasApiSupport && subInput.trim().length >= 2 && !isSearching && suggestions.length === 0 && (
+                  <p className="text-xs text-zinc-600 text-center py-3">Nessun risultato trovato</p>
+                )}
+
+                {hasApiSupport && subInput.trim().length < 2 && !suggestions.length && (
+                  <p className="text-[11px] text-zinc-600 text-center py-2">
+                    Digita almeno 2 caratteri per cercare
+                  </p>
+                )}
+
+                <button type="button" onClick={() => { onChange(selectedCat); setOpen(false) }}
+                  className="mt-3 w-full text-center text-sm text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 hover:border-zinc-500 rounded-xl py-2 font-medium transition-all flex items-center justify-center gap-1.5">
+                  Usa solo <span className="text-violet-300 font-semibold">«{selectedCat}»</span> senza titolo
+                  <ChevronRight size={13} className="text-zinc-500" />
+                </button>
               </>
             )}
-          </>
-        )}
-
-        {/* ── TAB: ACTIVITY ───────────────────────────────────────── */}
-        {activeTab === 'activity' && (
-          <div>
-            <h3 className="text-xl font-semibold mb-5">Attività recente</h3>
-            <ProfileActivityFeed userId={profile.id} />
-          </div>
-        )}
-
-        {/* ── TAB: COMMENTS ───────────────────────────────────────── */}
-        {activeTab === 'comments' && profile && (
-          <ProfileComments profileId={profile.id} profileUsername={profile.username} isOwner={isOwner} />
-        )}
-      </div>
-
-      {/* Modal Note */}
-      {isNotesModalOpen && selectedMedia && isOwner && (
-        <NotesModal
-          title={t.profile.notesTitle(selectedMedia.title)}
-          value={notesInput}
-          onChange={(val) => { setNotesInput(val) }}
-          onSave={saveNotes}
-          onClose={() => setIsNotesModalOpen(false)}
-          saveLabel={t.common.save}
-          cancelLabel={t.media.cancel}
-          placeholder={t.profile.notesPlaceholder}
-        />
-      )}
-
-      {/* Modal Cancellazione Account */}
-      {showDeleteModal && isOwner && (
-        <DeleteAccountModal
-          onConfirm={deleteAccount}
-          onClose={() => setShowDeleteModal(false)}
-        />
-      )}
-
-      {/* Modal Importa piattaforma specifica */}
-      {importPlatform && isOwner && (
-        <div
-          className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-6"
-          onClick={() => setImportPlatform(null)}
-        >
-          <div
-            className="bg-zinc-950 border border-zinc-800 rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg max-h-[90vh] flex flex-col overflow-hidden"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 flex-shrink-0">
-              <div className="flex items-center gap-3">
-                {importPlatform === 'steam' && (
-                  <div className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0"><SteamIcon size={32} /></div>
-                )}
-                {importPlatform === 'anilist' && (
-                  <div className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0">
-                    <svg viewBox="0 0 512 512" width="32" height="32"><rect width="512" height="512" fill="#1e2630"/><path d="M321.92 323.27V136.6c0-10.698-5.887-16.602-16.558-16.602h-36.433c-10.672 0-16.561 5.904-16.561 16.602v88.651c0 2.497 23.996 14.089 24.623 16.541 18.282 71.61 3.972 128.92-13.359 131.6 28.337 1.405 31.455 15.064 10.348 5.731 3.229-38.209 15.828-38.134 52.049-1.406.31.317 7.427 15.282 7.87 15.282h85.545c10.672 0 16.558-5.9 16.558-16.6v-36.524c0-10.698-5.886-16.602-16.558-16.602z" fill="#02a9ff"/><path d="M170.68 120 74.999 393h74.338l16.192-47.222h80.96L262.315 393h73.968l-95.314-273zm11.776 165.28 23.183-75.629 25.393 75.629z" fill="#fefefe"/></svg>
-                  </div>
-                )}
-                {importPlatform === 'mal' && (
-                  <div className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0">
-                    <svg viewBox="0 0 256 256" width="32" height="32"><rect width="256" height="256" fill="#2e51a2"/><path fill="#ffffff" d="m 30.638616,88.40918 v 68.70703 h 17.759766 v -41.91016 l 15.470703,19.77344 16.67825,-19.77344 v 41.91016 H 98.307101 V 88.40918 H 80.547335 L 63.869085,109.82324 48.398382,88.40918 Z"/><path fill="#ffffff" d="m 182.49799,88.40918 v 68.70703 h 39.07974 l 3.78365,-14.65739 H 200.25775 V 88.40918 Z"/><path fill="#ffffff" d="m 149.65186,88.40918 c -21.64279,0 -35.06651,10.210974 -39.36914,25.39258 -4.19953,14.81779 0.34128,34.3715 10.28711,53.78906 l 14.85742,-10.47461 c 0,0 -7.06411,-9.21728 -8.39453,-23.03516 h 21.98437 v 23.03516 h 19.73438 v -51.67969 h -19.73438 v 14.9668 H 130.8003 c 1.71696,-11.1972 8.295,-17.30859 15.46875,-17.30859 h 25.8164 l -5.12304,-14.68555 z"/></svg>
-                  </div>
-                )}
-                {importPlatform === 'letterboxd' && (
-                  <div className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0">
-                    <svg viewBox="0 0 40 40" width="32" height="32"><rect width="40" height="40" fill="#1a1a1a"/><ellipse cx="11" cy="20" rx="9" ry="9" fill="#ff8000"/><ellipse cx="20" cy="20" rx="9" ry="9" fill="#00e054"/><ellipse cx="29" cy="20" rx="9" ry="9" fill="#40bcf4"/><ellipse cx="15.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9"/><ellipse cx="24.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9"/></svg>
-                  </div>
-                )}
-                {importPlatform === 'xbox' && (
-                  <div className="w-8 h-8 rounded-xl bg-black overflow-hidden flex items-center justify-center flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 88 88"><path fill="#107c10" d="M39.73 86.91c-6.628-.635-13.338-3.015-19.102-6.776-4.83-3.15-5.92-4.447-5.92-7.032 0-5.193 5.71-14.29 15.48-24.658 5.547-5.89 13.275-12.79 14.11-12.604 1.626.363 14.616 13.034 19.48 19 7.69 9.43 11.224 17.154 9.428 20.597-1.365 2.617-9.837 7.733-16.06 9.698-5.13 1.62-11.867 2.306-17.416 1.775zM8.184 67.703c-4.014-6.158-6.042-12.22-7.02-20.988-.324-2.895-.21-4.55.733-10.494 1.173-7.4 5.39-15.97 10.46-21.24 2.158-2.24 2.35-2.3 4.982-1.41 3.19 1.08 6.6 3.436 11.89 8.22l3.09 2.794-1.69 2.07c-7.828 9.61-16.09 23.24-19.2 31.67-1.69 4.58-2.37 9.18-1.64 11.095.49 1.294.04.812-1.61-1.714zm70.453 1.047c.397-1.936-.105-5.49-1.28-9.076-2.545-7.765-11.054-22.21-18.867-32.032l-2.46-3.092 2.662-2.443c3.474-3.19 5.886-5.1 8.49-6.723 2.053-1.28 4.988-2.413 6.25-2.413.777 0 3.516 2.85 5.726 5.95 3.424 4.8 5.942 10.63 7.218 16.69.825 3.92.894 12.3.133 16.21-.63 3.208-1.95 7.366-3.23 10.187-.97 2.113-3.36 6.218-4.41 7.554-.54.687-.54.686-.24-.796zM40.44 11.505C36.834 9.675 31.272 7.71 28.2 7.18c-1.076-.185-2.913-.29-4.08-.23-2.536.128-2.423-.004 1.643-1.925 3.38-1.597 6.2-2.536 10.03-3.34C40.098.78 48.193.77 52.43 1.663c4.575.965 9.964 2.97 13 4.84l.904.554-2.07-.104C60.148 6.745 54.15 8.408 47.71 11.54c-1.942.946-3.63 1.7-3.754 1.68-.123-.024-1.706-.795-3.52-1.715z"/></svg>
-                  </div>
-                )}
-                <h2 className="text-base font-bold">
-                  {importPlatform === 'anilist' && 'Importa da AniList'}
-                  {importPlatform === 'mal' && 'Importa da MyAnimeList'}
-                  {importPlatform === 'letterboxd' && 'Importa da Letterboxd'}
-                  {importPlatform === 'xbox' && 'Importa da Xbox'}
-                  {importPlatform === 'steam' && 'Importa da Steam'}
-                </h2>
-              </div>
-              <button onClick={() => setImportPlatform(null)} className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-zinc-800 transition">
-                <XIcon size={18} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6">
-              {importPlatform === 'anilist' && <AniListImport />}
-              {importPlatform === 'mal' && <MALImport />}
-              {importPlatform === 'letterboxd' && <LetterboxdImport />}
-              {importPlatform === 'xbox' && <XboxImport />}
-              {importPlatform === 'steam' && <SteamImport onImportDone={async () => { if (currentUserId) { await new Promise(r => setTimeout(r, 800)); refreshMedia(currentUserId) } }} />}
-            </div>
           </div>
         </div>
       )}
+    </div>
+  )
+}
 
+// ── Filtro feed per categoria ─────────────────────────────────────────────────
+// Permette di filtrare per macro + cercare sottocategoria specifica
+
+function CategoryFilter({
+  activeFilter,
+  onFilterChange,
+}: {
+  activeFilter: string
+  onFilterChange: (val: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [activeMacro, setActiveMacro] = useState('')
+  const [subSearch, setSubSearch] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const handleMacro = (cat: string) => {
+    if (activeMacro === cat) {
+      setActiveMacro('')
+      setSubSearch('')
+    } else {
+      setActiveMacro(cat)
+      setSubSearch('')
+    }
+  }
+
+  const applyFilter = (val: string) => {
+    onFilterChange(val)
+    setOpen(false)
+  }
+
+  const parsed = parseCategoryString(activeFilter)
+  const displayLabel = activeFilter
+    ? (parsed?.subcategory ? `${parsed.category}: ${parsed.subcategory}` : parsed?.category || 'Filtra categoria')
+    : 'Filtra categoria'
+
+  return (
+    <div ref={ref} className="relative">
+      <button onClick={() => setOpen(o => !o)}
+        className={`flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm font-semibold border transition-all ${
+          activeFilter ? 'bg-fuchsia-600/20 border-fuchsia-500/40 text-fuchsia-300' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'
+        }`}>
+        <Filter size={14} />
+        {activeFilter && <CategoryIcon category={parsed?.category || ''} size={13} />}
+        {displayLabel}
+        {activeFilter && (
+          <span onClick={e => { e.stopPropagation(); applyFilter(''); setActiveMacro(''); setSubSearch('') }} className="ml-1 hover:text-red-400 transition-colors">
+            <X size={12} />
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute top-full mt-2 left-0 z-50 bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl shadow-black/60 w-[300px] p-3">
+          <p className="text-[10px] text-zinc-500 font-semibold px-1 pb-2 uppercase tracking-wider">Filtra per categoria</p>
+
+          {/* Macro chips */}
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {MACRO_CATEGORIES.map(cat => (
+              <button key={cat} onClick={() => handleMacro(cat)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                  activeMacro === cat
+                    ? 'bg-fuchsia-600/30 border-fuchsia-500/60 text-fuchsia-300'
+                    : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-500'
+                }`}>
+                <CategoryIcon category={cat} size={11} />
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {activeMacro && (
+            <>
+              {/* Applica solo macro */}
+              <button onClick={() => applyFilter(activeMacro)}
+                className="w-full text-left px-3 py-2 rounded-xl text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition mb-2">
+                Tutti i post di <strong>{activeMacro}</strong>
+              </button>
+
+              {/* Ricerca titolo specifico */}
+              <div className="relative mb-2">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <input
+                  autoFocus
+                  type="text"
+                  value={subSearch}
+                  onChange={e => setSubSearch(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && subSearch.trim()) applyFilter(`${activeMacro}:${subSearch.trim()}`) }}
+                  placeholder={`Cerca titolo in ${activeMacro}...`}
+                  className="w-full bg-zinc-800 border border-zinc-700 focus:border-fuchsia-500 rounded-xl pl-8 pr-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
+                />
+              </div>
+
+              {subSearch.trim() && (
+                <button onClick={() => applyFilter(`${activeMacro}:${subSearch.trim()}`)}
+                  className="w-full px-3 py-2 rounded-xl bg-fuchsia-600/20 border border-fuchsia-500/40 text-fuchsia-300 text-sm font-semibold hover:bg-fuchsia-600/30 transition">
+                  Cerca «{subSearch.trim()}» in {activeMacro}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Smart feed (algoritmo IG-like) ───────────────────────────────────────────
+
+function buildSmartFeed(followingPosts: Post[], discoveryPosts: Post[]): Post[] {
+  if (discoveryPosts.length === 0) return followingPosts
+  const result: Post[] = []
+  let discIdx = 0
+  for (let i = 0; i < followingPosts.length; i++) {
+    result.push(followingPosts[i])
+    if ((i + 1) % DISCOVERY_INTERVAL === 0 && discIdx < discoveryPosts.length) {
+      result.push({ ...discoveryPosts[discIdx], isDiscovery: true })
+      discIdx++
+    }
+  }
+  return result
+}
+
+// ── Tracking affinità ────────────────────────────────────────────────────────
+
+async function trackAffinity(supabase: any, userId: string, category: string | null | undefined) {
+  if (!category) return
+  const parsed = parseCategoryString(category)
+  if (!parsed) return
+  const { category: cat, subcategory: sub } = parsed
+  try {
+    const { error } = await supabase.from('user_category_affinity')
+      .upsert(
+        { user_id: userId, category: cat, subcategory: sub || 'Generico', score: 1, last_interacted_at: new Date().toISOString() },
+        { onConflict: 'user_id,category,subcategory' }
+      )
+    if (!error) {
+      await supabase.rpc('increment_category_score', { p_user_id: userId, p_category: cat, p_subcategory: sub || 'Generico' })
+        .catch(() => {})
+    }
+  } catch {}
+}
+
+// ── PostCard ──────────────────────────────────────────────────────────────────
+
+// ── Popup conferma eliminazione ───────────────────────────────────────────────
+function ConfirmDialog({
+  open, title, message, onConfirm, onCancel,
+}: {
+  open: boolean; title: string; message: string
+  onConfirm: () => void; onCancel: () => void
+}) {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 p-4 animate-in fade-in duration-150">
+      <div className="bg-zinc-900 border border-zinc-700 rounded-3xl w-full max-w-xs p-6 shadow-2xl animate-in zoom-in-95 duration-150">
+        <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 mx-auto mb-4">
+          <Trash2 size={20} className="text-red-400" />
+        </div>
+        <h3 className="text-white font-bold text-center mb-1">{title}</h3>
+        <p className="text-zinc-500 text-sm text-center mb-6">{message}</p>
+        <div className="flex gap-2">
+          <button onClick={onCancel}
+            className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-sm font-semibold transition">
+            Annulla
+          </button>
+          <button onClick={onConfirm}
+            className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition">
+            Elimina
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const PostCard = memo(function PostCard({
+  post, currentUser, isLiking, commentingPostId, commentContent, locale,
+  onLike, onToggleComment, onCommentChange, onAddComment, onDelete, onDeleteComment,
+  expandedComments, onExpandComments, onCategoryClick,
+}: {
+  post: Post; currentUser: User | null; isLiking: boolean
+  commentingPostId: string | null; commentContent: string; locale: string
+  onLike: (id: string) => void; onToggleComment: (id: string) => void
+  onCommentChange: (val: string) => void; onAddComment: (id: string) => void
+  onDelete: (id: string) => void; onDeleteComment: (commentId: string, postId: string) => void
+  expandedComments: Set<string>; onExpandComments: (id: string) => void
+  onCategoryClick?: (category: string) => void
+}) {
+  const isCommenting = commentingPostId === post.id
+  const isExpanded = expandedComments.has(post.id)
+  const visibleComments = isExpanded ? post.comments : post.comments.slice(0, 2)
+  const hiddenCount = post.comments.length - 2
+  const [confirmPost, setConfirmPost] = useState(false)
+  const [confirmComment, setConfirmComment] = useState<string | null>(null)
+  const [isSaved, setIsSaved] = useState(false)
+
+  const timeStr = formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })
+  const parsed = parseCategoryString(post.category)
+
+  return (
+    <>
+    <ConfirmDialog
+      open={confirmPost}
+      title="Eliminare il post?"
+      message="Questa azione è irreversibile."
+      onConfirm={() => { setConfirmPost(false); onDelete(post.id) }}
+      onCancel={() => setConfirmPost(false)}
+    />
+    <ConfirmDialog
+      open={!!confirmComment}
+      title="Eliminare il commento?"
+      message="Il commento verrà rimosso definitivamente."
+      onConfirm={() => { if (confirmComment) { onDeleteComment(confirmComment, post.id); setConfirmComment(null) } }}
+      onCancel={() => setConfirmComment(null)}
+    />
+    <article className="animate-fade-in" style={{ borderBottom: '0.5px solid var(--border)' }}>
+
+      {/* Discovery / pinned label */}
+      {post.isDiscovery && !post.pinned && (
+        <div className="flex items-center gap-1.5 px-4 pt-3 pb-0.5">
+          <Sparkles size={11} className="text-violet-400" />
+          <span className="text-[11px] font-semibold text-violet-400 tracking-widest uppercase">Consigliato per te</span>
+        </div>
+      )}
+      {post.pinned && (
+        <div className="flex items-center gap-1.5 px-4 pt-3 pb-0.5">
+          <Pin size={11} className="text-violet-400 rotate-45" />
+          <span className="text-[11px] font-semibold text-violet-400 tracking-widest uppercase">In evidenza</span>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3">
+        <Link href={`/profile/${post.profiles.username}`} className="flex items-center gap-3 min-w-0">
+          <div
+            className={`flex-shrink-0 rounded-full p-[2.5px] transition-all ${post.liked_by_user ? 'gk-avatar-ring' : 'gk-avatar-ring-muted'}`}
+          >
+            <div className="rounded-full overflow-hidden bg-[var(--bg-primary)] p-[2px]">
+              <div className="w-8 h-8 rounded-full overflow-hidden">
+                <Avatar src={post.profiles.avatar_url} username={post.profiles.username} displayName={post.profiles.display_name} size={32} />
+              </div>
+            </div>
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-[13px] text-[var(--text-primary)] leading-tight truncate">{post.profiles.username}</p>
+            {parsed && (
+              <button
+                onClick={() => onCategoryClick?.(post.category!)}
+                className="text-[11px] text-violet-400 hover:text-violet-300 transition-colors leading-tight flex items-center gap-1"
+              >
+                <CategoryIcon category={parsed.category} size={10} />
+                {parsed.subcategory || parsed.category}
+              </button>
+            )}
+          </div>
+        </Link>
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          {currentUser?.id === post.user_id && (
+            <button onClick={() => setConfirmPost(true)} className="w-9 h-9 flex items-center justify-center text-[var(--text-muted)] hover:text-red-400 transition-colors">
+              <Trash2 size={15} strokeWidth={1.6} />
+            </button>
+          )}
+          <button className="w-9 h-9 flex items-center justify-center text-[var(--text-primary)]">
+            <MoreHorizontal size={20} strokeWidth={1.5} />
+          </button>
+        </div>
+      </div>
+
+      {/* Image */}
+      {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
+        <div className="w-full bg-zinc-950 overflow-hidden">
+          <img src={post.image_url} alt={`Post di ${post.profiles.username}`}
+            className="w-full max-h-[500px] object-cover select-none" loading="lazy" draggable={false} />
+        </div>
+      )}
+
+      {/* Action bar */}
+      <div className="px-4 pt-3 pb-2">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-4">
+            <button onClick={() => onLike(post.id)} className="-ml-1 p-1" aria-label={post.liked_by_user ? 'Rimuovi like' : 'Metti like'}>
+              <Heart size={26} strokeWidth={1.8}
+                className={`transition-all duration-200 ${isLiking ? 'animate-heart-burst' : ''} ${post.liked_by_user ? 'fill-red-500 text-red-500' : 'text-[var(--text-primary)]'}`} />
+            </button>
+            <button onClick={() => onToggleComment(post.id)} className="p-1">
+              <MessageCircle size={26} strokeWidth={1.8}
+                className={`transition-colors ${isCommenting ? 'fill-[var(--text-primary)] text-[var(--text-primary)]' : 'text-[var(--text-primary)]'}`} />
+            </button>
+            <button className="p-1">
+              <Zap size={22} strokeWidth={1.8} className="text-[var(--text-primary)] hover:text-yellow-400 transition-colors" />
+            </button>
+          </div>
+          <button onClick={() => { setIsSaved(v => !v); haptic(18) }} className="p-1">
+            <Bookmark size={24} strokeWidth={1.8}
+              className={`transition-all ${isSaved ? 'fill-violet-500 text-violet-500' : 'text-[var(--text-primary)] hover:text-violet-400'}`} />
+          </button>
+        </div>
+
+        {post.likes_count > 0 && (
+          <p className="font-semibold text-[13px] text-[var(--text-primary)] leading-tight mb-1.5">
+            {post.likes_count.toLocaleString()} {post.likes_count === 1 ? 'apprezzamento' : 'apprezzamenti'}
+          </p>
+        )}
+
+        {post.content && (
+          <p className="text-[14px] text-[var(--text-primary)] leading-snug mb-1.5">
+            <Link href={`/profile/${post.profiles.username}`} className="font-semibold mr-1.5 hover:opacity-70 transition-opacity">
+              {post.profiles.username}
+            </Link>
+            <span className="font-normal">{post.content}</span>
+          </p>
+        )}
+
+        {post.comments.length > 0 && (
+          <div className="mb-1.5">
+            {!isExpanded && hiddenCount > 0 && (
+              <button onClick={() => onExpandComments(post.id)}
+                className="text-[14px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors block mb-1">
+                Visualizza tutti i {post.comments.length} commenti
+              </button>
+            )}
+            <div className="space-y-0.5">
+              {visibleComments.map(comment => (
+                <div key={comment.id} className="flex items-start justify-between gap-2 group">
+                  <p className="text-[14px] text-[var(--text-primary)] leading-snug">
+                    <Link href={`/profile/${comment.username}`} className="font-semibold mr-1.5 hover:opacity-70 transition-opacity">
+                      {comment.username}
+                    </Link>
+                    <span>{comment.content}</span>
+                  </p>
+                  {currentUser?.id === comment.user_id && (
+                    <button onClick={() => setConfirmComment(comment.id)}
+                      className="opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-red-400 transition-all flex-shrink-0 mt-0.5">
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {isCommenting && (
+          <div className="flex items-center gap-3 pt-2 border-t border-[var(--border-subtle)]">
+            <input type="text" value={commentContent} onChange={e => onCommentChange(e.target.value.slice(0, 500))}
+              placeholder="Aggiungi un commento..." maxLength={500} autoFocus
+              className="flex-1 bg-transparent text-[14px] text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none"
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onAddComment(post.id) } }} />
+            {commentContent.trim() && (
+              <button onClick={() => onAddComment(post.id)}
+                className="flex-shrink-0 text-[13px] font-semibold text-violet-400 hover:text-violet-300 transition-colors">
+                Pubblica
+              </button>
+            )}
+          </div>
+        )}
+
+        <button onClick={() => onToggleComment(post.id)}
+          className="text-[14px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors block mt-1">
+          Aggiungi un commento...
+        </button>
+
+        <p className="text-[11px] text-[var(--text-muted)] uppercase tracking-[0.04em] mt-1 pb-1">{timeStr}</p>
+      </div>
+    </article>
+    </>
+  )
+})
+
+
+// ── Pagina principale ────────────────────────────────────────────────────────
+
+export default function FeedPage() {
+  const [posts, setPosts] = useState<Post[]>([])
+  const [pinnedPosts, setPinnedPosts] = useState<Post[]>([])
+  const [newPostContent, setNewPostContent] = useState('')
+  const [newPostCategory, setNewPostCategory] = useState('')
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [isPublishing, setIsPublishing] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const [page, setPage] = useState(0)
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [currentProfile, setCurrentProfile] = useState<any>(null)
+  const [commentContent, setCommentContent] = useState('')
+  const [commentingPostId, setCommentingPostId] = useState<string | null>(null)
+  const [feedFilter, setFeedFilter] = useState<'all' | 'following'>('all')
+  const [likingIds, setLikingIds] = useState<Set<string>>(new Set())
+  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set())
+  const [newPostsCount, setNewPostsCount] = useState(0)
+  const [categoryFilter, setCategoryFilter] = useState<string>('')
+
+  const latestPostIdRef = useRef<string | null>(null)
+  const pageRef = useRef(0)
+  const supabase = createClient()
+  const { locale, t } = useLocale()
+  const f = t.feed
+
+  const sentinelRef = useInfiniteScroll({
+    onLoadMore: () => {
+      if (!currentUser || loadingMore || !hasMore) return
+      const nextPage = pageRef.current + 1
+      pageRef.current = nextPage
+      setPage(nextPage)
+      loadPosts(currentUser.id, nextPage, true, feedFilter)
+    },
+    hasMore,
+    isLoading: loadingMore,
+  })
+
+  useEffect(() => {
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setCurrentUser(user)
+      if (user) {
+        const { data: profile } = await supabase.from('profiles').select('username, display_name, avatar_url').eq('id', user.id).single()
+        setCurrentProfile(profile)
+        if (isCacheValid('all')) {
+          setPosts(cache.posts!); setPage(cache.page); setHasMore(cache.hasMore); setLoading(false)
+          loadPinnedPosts(user.id); return
+        }
+        await loadPosts(user.id, 0, false)
+        await loadPinnedPosts(user.id)
+      } else {
+        setLoading(false)
+      }
+    }
+    init()
+  }, [])
+
+  useEffect(() => {
+    const channel = supabase.channel('public:posts')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, (payload) => {
+        const newId = payload.new?.id
+        if (!newId || newId === latestPostIdRef.current) return
+        setNewPostsCount(prev => prev + 1)
+      }).subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [supabase])
+
+  useEffect(() => {
+    if (posts.length > 0) latestPostIdRef.current = posts[0].id
+  }, [posts])
+
+  const handleShowNewPosts = async () => {
+    if (!currentUser) return
+    setNewPostsCount(0); pageRef.current = 0; setPage(0); setHasMore(true)
+    await loadPosts(currentUser.id, 0, false, feedFilter)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const loadPinnedPosts = useCallback(async (userId: string) => {
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const { data, error } = await supabase.from('posts')
+      .select('id, user_id, content, image_url, created_at, category, likes (id, user_id), comments (id, content, created_at, user_id)')
+      .gte('created_at', since).order('created_at', { ascending: false }).limit(50)
+    if (error || !data) return
+    const uids1 = [...new Set(data.map((p: any) => p.user_id))]
+    const { data: profiles1 } = await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', uids1)
+    const pm1: Record<string, any> = {}; (profiles1 || []).forEach((p: any) => { pm1[p.id] = p })
+    const commentUids1 = [...new Set(data.flatMap((p: any) => (p.comments || []).map((c: any) => c.user_id)))]
+    const { data: cProfiles1 } = commentUids1.length ? await supabase.from('profiles').select('id, username, display_name').in('id', commentUids1) : { data: [] }
+    const cpm1: Record<string, any> = {}; (cProfiles1 || []).forEach((p: any) => { cpm1[p.id] = p })
+    const dataWithProfiles = data.map((p: any) => ({
+      ...p,
+      profiles: pm1[p.user_id] || { username: '', display_name: null, avatar_url: null },
+      comments: (p.comments || []).map((c: any) => ({ ...c, profiles: cpm1[c.user_id] || { username: 'utente', display_name: null } }))
+    }))
+
+    const withLikes = dataWithProfiles
+      .map((p: any) => ({ ...p, _likeCount: (p.likes || []).length }))
+      .filter((p: any) => p._likeCount >= PINNED_LIKE_THRESHOLD)
+      .sort((a: any, b: any) => b._likeCount - a._likeCount).slice(0, 2)
+
+    setPinnedPosts(withLikes.map((post: any) => {
+      const likes = post.likes || []
+      const profile = post.profiles
+      return {
+        id: post.id, content: post.content, image_url: post.image_url,
+        created_at: post.created_at, category: post.category,
+        profiles: { username: profile?.username || '', display_name: profile?.display_name, avatar_url: profile?.avatar_url },
+        likes_count: likes.length, liked_by_user: likes.some((l: any) => l.user_id === userId),
+        comments_count: (post.comments || []).length,
+        comments: (post.comments || []).map((c: any) => ({
+          id: c.id, content: c.content, created_at: c.created_at, user_id: c.user_id,
+          username: c.profiles?.username || 'utente',
+          display_name: c.profiles?.display_name,
+        })),
+        pinned: true, user_id: post.user_id,
+      }
+    }))
+  }, [supabase])
+
+  const getUserTopCategory = useCallback(async (userId: string) => {
+    const { data } = await supabase.from('user_category_affinity')
+      .select('category, subcategory, score').eq('user_id', userId)
+      .order('score', { ascending: false }).limit(1)
+    if (!data || data.length === 0) return null
+    return { category: data[0].category, subcategory: data[0].subcategory }
+  }, [supabase])
+
+  const loadDiscoveryPosts = useCallback(async (userId: string, followingIds: string[], topAffinity: { category: string; subcategory: string } | null): Promise<Post[]> => {
+    if (!topAffinity) return []
+    const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+
+    const { data: discPosts } = await supabase.from('posts')
+      .select('id, user_id, content, image_url, created_at, category, likes (id, user_id)')
+      .ilike('category', `${topAffinity.category}:%`)
+      .gte('created_at', since).limit(50)
+    if (!discPosts) return []
+    const discUids = [...new Set(discPosts.map((p: any) => p.user_id))]
+    const { data: discProfiles } = await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', discUids)
+    const discPm: Record<string, any> = {}; (discProfiles || []).forEach((p: any) => { discPm[p.id] = p })
+    const data = discPosts.map((p: any) => ({ ...p, profiles: discPm[p.user_id] || { username: '', display_name: null, avatar_url: null } }))
+
+    const eligible = data
+      .filter((p: any) => p.user_id !== userId && !followingIds.includes(p.user_id))
+      .map((p: any) => ({ ...p, _likeCount: (p.likes || []).length }))
+      .sort((a: any, b: any) => b._likeCount - a._likeCount).slice(0, 5)
+    if (eligible.length === 0) return []
+
+    return eligible.map((post: any) => {
+      const likes = post.likes || []
+      const profile = post.profiles
+      return {
+        id: post.id, user_id: post.user_id, content: post.content,
+        image_url: post.image_url, created_at: post.created_at, category: post.category,
+        profiles: { username: profile?.username || '', display_name: profile?.display_name, avatar_url: profile?.avatar_url },
+        likes_count: likes.length, liked_by_user: likes.some((l: any) => l.user_id === userId),
+        comments_count: 0, comments: [], isDiscovery: true,
+      }
+    })
+  }, [supabase])
+
+  const loadPosts = useCallback(async (userId: string, pageIndex = 0, append = false, filter: 'all' | 'following' = 'all') => {
+    if (append) setLoadingMore(true); else setLoading(true)
+    const from = pageIndex * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+
+    let followingIds: string[] = []
+    const { data: followsData } = await supabase.from('follows').select('following_id').eq('follower_id', userId)
+    followingIds = (followsData || []).map((f: any) => f.following_id)
+
+    if (filter === 'following' && followingIds.length === 0) {
+      setPosts(append ? (prev => prev) : []); setHasMore(false)
+      if (append) setLoadingMore(false); else setLoading(false); return
+    }
+
+    let query = supabase.from('posts')
+      .select('id, user_id, content, image_url, created_at, category, likes (id, user_id), comments (id, content, created_at, user_id)')
+      .order('created_at', { ascending: false }).range(from, to)
+    if (filter === 'following' && followingIds.length > 0) query = query.in('user_id', followingIds)
+
+    const { data: rawPosts } = await query
+    const postUids = [...new Set((rawPosts || []).map((p: any) => p.user_id))]
+    const { data: postProfiles } = postUids.length ? await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', postUids) : { data: [] }
+    const postPm: Record<string, any> = {}; (postProfiles || []).forEach((p: any) => { postPm[p.id] = p })
+    const commentUids = [...new Set((rawPosts || []).flatMap((p: any) => (p.comments || []).map((c: any) => c.user_id)))]
+    const { data: commentProfs } = commentUids.length ? await supabase.from('profiles').select('id, username, display_name').in('id', commentUids) : { data: [] }
+    const commentPm: Record<string, any> = {}; (commentProfs || []).forEach((p: any) => { commentPm[p.id] = p })
+    const postsData = (rawPosts || []).map((p: any) => ({
+      ...p,
+      profiles: postPm[p.user_id] || { username: '', display_name: null, avatar_url: null },
+      comments: (p.comments || []).map((c: any) => ({ ...c, profiles: commentPm[c.user_id] || { username: 'utente', display_name: null } }))
+    }))
+
+    const formatted: Post[] = (postsData || []).map((post: any) => {
+      const likes = post.likes || []
+      const profile = post.profiles
+      return {
+        id: post.id, user_id: post.user_id, content: post.content,
+        image_url: post.image_url, created_at: post.created_at, category: post.category,
+        profiles: { username: profile?.username || '', display_name: profile?.display_name, avatar_url: profile?.avatar_url },
+        likes_count: likes.length, liked_by_user: likes.some((l: any) => l.user_id === userId),
+        comments_count: (post.comments || []).length,
+        comments: (post.comments || []).map((c: any) => ({
+          id: c.id, content: c.content, created_at: c.created_at, user_id: c.user_id,
+          username: c.profiles?.username || 'utente',
+          display_name: c.profiles?.display_name,
+        })),
+      }
+    })
+
+    const newHasMore = (postsData || []).length === PAGE_SIZE
+    const pinnedIds = new Set(pinnedPosts.map(p => p.id))
+    const filteredFormatted = formatted.filter(p => !pinnedIds.has(p.id))
+
+    let finalPosts = filteredFormatted
+    if (filter === 'following' && pageIndex === 0) {
+      const topAffinity = await getUserTopCategory(userId)
+      const discoveryPosts = await loadDiscoveryPosts(userId, followingIds, topAffinity)
+      finalPosts = buildSmartFeed(filteredFormatted, discoveryPosts)
+    }
+
+    if (append) {
+      setPosts(prev => {
+        const merged = [...prev, ...finalPosts]
+        cache.posts = merged; cache.page = pageIndex; cache.hasMore = newHasMore; cache.filter = filter; cache.ts = Date.now()
+        return merged
+      })
+      setLoadingMore(false)
+    } else {
+      setPosts(finalPosts)
+      cache.posts = finalPosts; cache.page = pageIndex; cache.hasMore = newHasMore; cache.filter = filter; cache.ts = Date.now()
+      setLoading(false)
+    }
+    setHasMore(newHasMore)
+  }, [supabase, pinnedPosts, getUserTopCategory, loadDiscoveryPosts])
+
+  // Pull-to-refresh su mobile
+  const handlePullRefresh = async () => {
+    if (!currentUser) return
+    invalidateCache(feedFilter)
+    await loadPosts(currentUser.id, 0, false, feedFilter)
+  }
+  const { distance: pullDistance, refreshing: isPullRefreshing } = usePullToRefresh({ onRefresh: handlePullRefresh })
+
+  const handleFilterChange = async (filter: 'all' | 'following') => {
+    if (!currentUser) return
+    setFeedFilter(filter); pageRef.current = 0; setPage(0); setHasMore(true)
+    await loadPosts(currentUser.id, 0, false, filter)
+  }
+
+  const handleCreatePost = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if ((!newPostContent.trim() && !selectedImage) || !currentUser || isPublishing) return
+    setIsPublishing(true); haptic(50)
+
+    let imageUrl = null
+    if (selectedImage) {
+      const ALLOWED = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+      if (!ALLOWED.includes(selectedImage.type)) { setIsPublishing(false); return }
+      const fileName = `${Date.now()}-${selectedImage.name}`
+      const { error: uploadErr } = await supabase.storage.from('post-images').upload(fileName, selectedImage, { contentType: selectedImage.type })
+      if (!uploadErr) {
+        const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(fileName)
+        imageUrl = urlData.publicUrl
+      }
+    }
+
+    const { data: newPostData, error } = await supabase.from('posts')
+      .insert({ user_id: currentUser.id, content: newPostContent.trim(), image_url: imageUrl, category: newPostCategory || null })
+      .select('id, content, image_url, created_at, category').single()
+
+    if (!error && newPostData) {
+      const optimisticPost: Post = {
+        id: newPostData.id, user_id: currentUser.id, content: newPostData.content,
+        image_url: newPostData.image_url, created_at: newPostData.created_at, category: newPostData.category,
+        profiles: { username: currentProfile?.username || '', display_name: currentProfile?.display_name, avatar_url: currentProfile?.avatar_url },
+        likes_count: 0, comments_count: 0, liked_by_user: false, comments: [],
+      }
+      setPosts(prev => { const updated = [optimisticPost, ...prev]; cache.posts = updated; cache.ts = Date.now(); return updated })
+      setNewPostContent(''); setNewPostCategory(''); setSelectedImage(null); setImagePreview(null)
+    }
+    setIsPublishing(false)
+  }
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) { setSelectedImage(file); setImagePreview(URL.createObjectURL(file)) }
+  }
+
+  const toggleLike = useCallback(async (postId: string) => {
+    if (!currentUser) return
+    const postIndex = posts.findIndex(p => p.id === postId)
+    if (postIndex === -1) return
+    const current = posts[postIndex]
+    const willLike = !current.liked_by_user
+    if (willLike) {
+      haptic([40, 20, 40])
+      setLikingIds(prev => new Set([...prev, postId]))
+      setTimeout(() => setLikingIds(prev => { const s = new Set(prev); s.delete(postId); return s }), 400)
+      if (current.category) trackAffinity(supabase, currentUser.id, current.category)
+    } else { haptic(20) }
+    setPosts(prev => prev.map((p, i) => i === postIndex ? { ...p, likes_count: willLike ? p.likes_count + 1 : p.likes_count - 1, liked_by_user: willLike } : p))
+    if (willLike) await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id })
+    else await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
+  }, [currentUser, posts, supabase])
+
+  const toggleLikePinned = useCallback(async (postId: string) => {
+    if (!currentUser) return
+    const postIndex = pinnedPosts.findIndex(p => p.id === postId)
+    if (postIndex === -1) return
+    const current = pinnedPosts[postIndex]
+    const willLike = !current.liked_by_user
+    if (willLike) {
+      haptic([40, 20, 40])
+      setLikingIds(prev => new Set([...prev, postId]))
+      setTimeout(() => setLikingIds(prev => { const s = new Set(prev); s.delete(postId); return s }), 400)
+      if (current.category) trackAffinity(supabase, currentUser.id, current.category)
+    }
+    setPinnedPosts(prev => prev.map((p, i) => i === postIndex ? { ...p, likes_count: willLike ? p.likes_count + 1 : p.likes_count - 1, liked_by_user: willLike } : p))
+    if (willLike) await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id })
+    else await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
+  }, [currentUser, pinnedPosts, supabase])
+
+  const handleAddComment = useCallback(async (postId: string) => {
+    if (!commentContent.trim() || !currentUser) return
+    haptic(30)
+    const post = posts.find(p => p.id === postId)
+    if (post?.category) trackAffinity(supabase, currentUser.id, post.category)
+    const newCommentTemp: Comment = {
+      id: 'temp-' + Date.now(), content: commentContent.trim(),
+      created_at: new Date().toISOString(), user_id: currentUser.id,
+      username: currentProfile?.username || 'utente', display_name: currentProfile?.display_name,
+    }
+    setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments_count: p.comments_count + 1, comments: [newCommentTemp, ...p.comments] } : p))
+    await supabase.from('comments').insert({ post_id: postId, user_id: currentUser.id, content: commentContent.trim() })
+    setCommentContent(''); setCommentingPostId(null)
+  }, [commentContent, currentUser, currentProfile, posts, supabase])
+
+  const handleToggleComment = useCallback((postId: string) => {
+    setCommentingPostId(prev => prev === postId ? null : postId); setCommentContent('')
+  }, [])
+
+  const handleExpandComments = useCallback((postId: string) => {
+    setExpandedComments(prev => new Set([...prev, postId]))
+  }, [])
+
+  const handleDeleteComment = useCallback(async (commentId: string, postId: string) => {
+    if (!currentUser) return
+    await supabase.from('comments').delete().eq('id', commentId)
+    const remove = (p: Post) => p.id === postId ? { ...p, comments_count: p.comments_count - 1, comments: p.comments.filter(c => c.id !== commentId) } : p
+    setPosts(prev => prev.map(remove)); setPinnedPosts(prev => prev.map(remove))
+  }, [currentUser, supabase])
+
+  const handleDeletePost = useCallback(async (postId: string) => {
+    if (!currentUser) return
+    setPosts(prev => { const updated = prev.filter(p => p.id !== postId); cache.posts = updated; cache.ts = Date.now(); return updated })
+    setPinnedPosts(prev => prev.filter(p => p.id !== postId))
+    await supabase.from('comments').delete().eq('post_id', postId)
+    await supabase.from('likes').delete().eq('post_id', postId)
+    await supabase.from('posts').delete().eq('id', postId).eq('user_id', currentUser.id)
+  }, [currentUser, supabase])
+
+  // Filtro client-side: supporta sia "Film" (solo macro) che "Film:Forrest Gump" (match esatto sottocategoria)
+  const displayedPosts = categoryFilter
+    ? posts.filter(p => {
+        if (!p.category) return false
+        const filterParsed = parseCategoryString(categoryFilter)
+        const postParsed = parseCategoryString(p.category)
+        if (!filterParsed || !postParsed) return false
+        if (filterParsed.category !== postParsed.category) return false
+        // Se il filtro ha una sottocategoria, controlla match case-insensitive
+        if (filterParsed.subcategory) {
+          return postParsed.subcategory.toLowerCase().includes(filterParsed.subcategory.toLowerCase())
+        }
+        return true // solo macro, mostra tutto
+      })
+    : posts
+
+  // Click su un badge categoria in un post → attiva il filtro per quella categoria
+  const handleCategoryClick = useCallback((category: string) => {
+    setCategoryFilter(prev => prev === category ? '' : category)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
+        <div className="max-w-xl mx-auto pt-4 pb-20">
+          {Array.from({ length: 3 }).map((_, i) => <SkeletonFeedPost key={i} />)}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
+      <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
+      <PullWrapper distance={pullDistance} refreshing={isPullRefreshing}>
+      {/* Instagram layout: max-w-xl centrato su desktop, full-bleed su mobile */}
+      <div className="pt-0 pb-24 max-w-xl mx-auto">
+        <div className="flex gap-0 items-start min-h-screen">
+
+          {/* ── Colonna principale ─────────────────────────────────── */}
+          <div className="flex-1 min-w-0">
+
+            {/* Composer — Instagram style: avatar + input inline, no heavy card */}
+            {currentUser && (
+              <div
+                className="mb-0 md:mb-4"
+                style={{ borderBottom: '0.5px solid var(--border)' }}
+              >
+                {/* Quick composer row */}
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-[var(--bg-card)]">
+                    {currentProfile?.avatar_url ? (
+                      <img src={currentProfile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-violet-600 to-fuchsia-600 flex items-center justify-center text-white text-xs font-bold">
+                        {(currentProfile?.username?.[0] || '?').toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    data-testid="post-composer"
+                    value={newPostContent}
+                    onChange={e => setNewPostContent(e.target.value.slice(0, 500))}
+                    onFocus={() => {/* expand handled by textarea below */}}
+                    placeholder={f.placeholder}
+                    className="flex-1 bg-transparent text-[15px] text-[var(--text-secondary)] placeholder-[var(--text-muted)] outline-none cursor-pointer"
+                    readOnly
+                    onClick={e => (e.target as HTMLInputElement).blur()}
+                  />
+                </div>
+
+                {/* Expanded composer — shown when user starts typing */}
+                <form onSubmit={handleCreatePost} className="px-4 pb-3">
+                  <textarea
+                    data-testid="post-composer-full"
+                    value={newPostContent}
+                    onChange={e => setNewPostContent(e.target.value.slice(0, 500))}
+                    placeholder={f.placeholder}
+                    maxLength={500}
+                    rows={newPostContent ? 4 : 1}
+                    className="w-full bg-transparent text-[15px] text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none resize-none transition-all"
+                  />
+                  {newPostContent.length >= 400 && (
+                    <p className={`text-right text-[11px] mb-2 ${newPostContent.length >= 480 ? 'text-orange-400' : 'text-[var(--text-muted)]'}`}>
+                      {500 - newPostContent.length}
+                    </p>
+                  )}
+
+                  {imagePreview && (
+                    <div className="mb-3 relative rounded-2xl overflow-hidden border border-[var(--border)]">
+                      <img src={imagePreview} alt="preview" className="max-h-72 w-full object-contain bg-black" />
+                      <button type="button" onClick={() => { setSelectedImage(null); setImagePreview(null) }}
+                        className="absolute top-2 right-2 bg-black/70 p-1.5 rounded-full hover:bg-red-600 transition">
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <label className="cursor-pointer p-1.5 rounded-full text-[var(--text-secondary)] hover:text-violet-400 hover:bg-violet-500/10 transition-all">
+                      <ImageIcon size={20} strokeWidth={1.6} />
+                      <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+                    </label>
+                    <CategorySelector value={newPostCategory} onChange={setNewPostCategory} />
+                    <button
+                      type="submit"
+                      disabled={isPublishing || (!newPostContent.trim() && !selectedImage)}
+                      className="ml-auto px-5 py-1.5 rounded-full text-[13px] font-semibold transition-all disabled:opacity-40"
+                      style={{
+                        background: 'linear-gradient(135deg, #7c3aed, #db2777)',
+                        color: 'white',
+                      }}
+                    >
+                      {isPublishing ? <Loader2 size={14} className="animate-spin" /> : f.publish}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* Banner nuovi post — Instagram "Nuovi post" pill */}
+            {newPostsCount > 0 && (
+              <div className="sticky top-[52px] z-10 flex justify-center py-2">
+                <button
+                  onClick={handleShowNewPosts}
+                  className="flex items-center gap-2 px-5 py-2 rounded-full text-[13px] font-semibold shadow-lg transition-all hover:scale-105 animate-bounce-in"
+                  style={{
+                    background: 'var(--bg-card)',
+                    color: 'var(--text-primary)',
+                    border: '0.5px solid var(--border)',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+                  }}
+                >
+                  <ArrowUp size={14} />
+                  {newPostsCount === 1 ? '1 nuovo post' : `${newPostsCount} nuovi post`}
+                </button>
+              </div>
+            )}
+
+            {/* Filter tabs — Instagram: "Per te" / "Seguiti" stile tab */}
+            {currentUser && (
+              <div
+                className="flex items-stretch mb-0"
+                style={{ borderBottom: '0.5px solid var(--border)' }}
+              >
+                {(['all', 'following'] as const).map(filter => (
+                  <button
+                    key={filter}
+                    data-testid={`filter-${filter}`}
+                    onClick={() => handleFilterChange(filter)}
+                    className={`flex-1 py-3 text-[14px] font-semibold transition-all relative ${feedFilter === filter ? 'text-violet-400' : 'text-[var(--text-muted)]'}`}
+                  >
+                    {filter === 'all' ? f.filterAll : f.filterFollowing}
+                    {feedFilter === filter && (
+                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-violet-500" />
+                    )}
+                  </button>
+                ))}
+
+                {/* Category filter button */}
+                <div className="flex items-center pr-2">
+                  <CategoryFilter activeFilter={categoryFilter} onFilterChange={setCategoryFilter} />
+                </div>
+              </div>
+            )}
+
+            {/* Post in evidenza */}
+            {feedFilter === 'all' && !categoryFilter && pinnedPosts.length > 0 && (
+              <div className="mb-0">
+                <div className="flex items-center gap-2 px-4 pt-4 pb-2" style={{ borderBottom: '0.5px solid var(--border)' }}>
+                  <Sparkles size={13} className="text-violet-400" />
+                  <span className="text-[12px] font-semibold text-violet-400 uppercase tracking-widest">In evidenza questa settimana</span>
+                </div>
+                {pinnedPosts.map(post => (
+                  <PostCard key={`pinned-${post.id}`} post={post} currentUser={currentUser}
+                    isLiking={likingIds.has(post.id)} commentingPostId={commentingPostId}
+                    commentContent={commentContent} locale={locale}
+                    onLike={toggleLikePinned} onToggleComment={handleToggleComment}
+                    onCommentChange={setCommentContent} onAddComment={handleAddComment}
+                    onDelete={handleDeletePost} onDeleteComment={handleDeleteComment}
+                    expandedComments={expandedComments} onExpandComments={handleExpandComments}
+                    onCategoryClick={handleCategoryClick} />
+                ))}
+              </div>
+            )}
+
+            {/* Feed posts — no gap, separated by 0.5px borders like Instagram */}
+            <div>
+              {displayedPosts.length === 0 ? (
+                <div className="text-center py-24 px-8">
+                  <div className="w-16 h-16 rounded-full border-2 border-[var(--border)] flex items-center justify-center mx-auto mb-4">
+                    <Sparkles size={28} className="text-violet-400" />
+                  </div>
+                  <p className="text-[16px] font-semibold text-[var(--text-primary)] mb-1">
+                    {categoryFilter
+                      ? `Nessun post per "${parseCategoryString(categoryFilter)?.subcategory || categoryFilter}"`
+                      : feedFilter === 'following' ? f.noFollowingTitle : f.emptyTitle}
+                  </p>
+                  <p className="text-[14px] text-[var(--text-secondary)]">
+                    {categoryFilter
+                      ? 'Sii il primo a pubblicare in questa categoria!'
+                      : feedFilter === 'following' ? f.noFollowingHint : f.emptyHint}
+                  </p>
+                  {categoryFilter && (
+                    <button onClick={() => setCategoryFilter('')}
+                      className="mt-4 px-5 py-2 rounded-full text-[13px] font-semibold transition-all"
+                      style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+                      Rimuovi filtro
+                    </button>
+                  )}
+                </div>
+              ) : (
+                displayedPosts.map(post => (
+                  <PostCard key={post.id} post={post} currentUser={currentUser}
+                    isLiking={likingIds.has(post.id)} commentingPostId={commentingPostId}
+                    commentContent={commentContent} locale={locale}
+                    onLike={toggleLike} onToggleComment={handleToggleComment}
+                    onCommentChange={setCommentContent} onAddComment={handleAddComment}
+                    onDelete={handleDeletePost} onDeleteComment={handleDeleteComment}
+                    expandedComments={expandedComments} onExpandComments={handleExpandComments}
+                    onCategoryClick={handleCategoryClick} />
+                ))
+              )}
+
+              <div ref={sentinelRef} className="h-4" />
+
+              {loadingMore && (
+                <div className="flex justify-center py-8">
+                  <Loader2 size={22} className="animate-spin text-violet-400" />
+                </div>
+              )}
+
+              {!hasMore && posts.length > 0 && (
+                <div className="text-center py-10 flex flex-col items-center gap-2">
+                  <div className="w-12 h-12 rounded-full border border-[var(--border)] flex items-center justify-center">
+                    <PartyPopper size={20} className="text-violet-400" />
+                  </div>
+                  <p className="text-[13px] text-[var(--text-muted)]">Hai visto tutto!</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>
+      </div>
+      </PullWrapper>
     </div>
   )
 }

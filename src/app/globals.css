@@ -16,7 +16,7 @@
   --text-muted:     #555555;
   --border:         #262626;
   --border-subtle:  #1a1a1a;
-  --ig-gradient: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+  /* Geekore brand gradient — violet to fuchsia */
   --violet:         #8b5cf6;
   --violet-light:   #a78bfa;
   --skeleton-from:  #1a1a1a;
@@ -258,19 +258,17 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
 }
 
 /* ── Instagram story ring ────────────────────────────────────────────────── */
-.story-ring {
-  background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+.gk-avatar-ring {
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #db2777 100%);
   padding: 2px;
   border-radius: 50%;
 }
-.story-ring-inner {
-  background: #000;
+.gk-avatar-ring-inner {
+  background: var(--bg-primary);
   border-radius: 50%;
   padding: 2px;
 }
-html.light .story-ring-inner { background: #fafafa; }
-.story-ring-seen { background: #262626; }
-html.light .story-ring-seen { background: #dbdbdb; }
+.gk-avatar-ring-muted { background: var(--border); }
 
 /* ── Animations ───────────────────────────────────────────────────────────── */
 
@@ -365,14 +363,14 @@ html.light .story-ring-seen { background: #dbdbdb; }
   transition: transform 0.08s ease;
 }
 
-/* Instagram-style tab: top border indicator (icon tabs) */
 .profile-tab-active {
-  border-bottom: 1px solid var(--text-primary);
-  color: var(--text-primary);
+  border-bottom: 2px solid var(--violet);
+  color: var(--violet-light);
 }
 
-.ig-tab-active {
-  border-top: 1px solid var(--text-primary);
+.gk-tab-active {
+  border-bottom: 2px solid var(--violet);
+  color: var(--violet-light);
 }
 
 /* ── iOS keyboard: hide mobile navbar ─────────────────────────────────────── */
@@ -502,7 +500,7 @@ html, body { background-color: #000000 !important; }
 }
 
 /* ── Instagram-style type utilities ──────────────────────────────────────── */
-.ig-username { font-weight: 600; font-size: 13px; color: var(--text-primary); }
-.ig-caption  { font-size: 14px; line-height: 1.5; color: var(--text-primary); }
-.ig-meta     { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.02em; }
-.ig-divider  { height: 1px; background: var(--border); }
+.gk-username { font-weight: 600; font-size: 13px; color: var(--text-primary); letter-spacing: -0.01em; }
+.gk-body { font-size: 14px; line-height: 1.55; color: var(--text-primary); }
+.gk-meta { font-size: 11px; color: var(--text-muted); letter-spacing: 0.03em; }
+.gk-separator { height: 0.5px; background: var(--border); }

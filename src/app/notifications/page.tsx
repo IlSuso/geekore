@@ -97,7 +97,7 @@ export default function NotificationsPage() {
       <span className={`${base} bg-red-500`}><Heart size={10} fill="white" color="white" /></span>
     )
     if (type === 'follow') return (
-      <span className={`${base}`} style={{ background: '#0095f6' }}><UserPlus size={10} color="white" /></span>
+      <span className={`${base} bg-violet-600`}><UserPlus size={10} color="white" /></span>
     )
     if (type === 'comment') return (
       <span className={`${base}`} style={{ background: '#8b5cf6' }}><MessageCircle size={10} color="white" /></span>
