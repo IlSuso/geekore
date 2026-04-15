@@ -18,6 +18,7 @@ import {
 import { PushNotificationsToggle } from '@/components/notifications/PushNotificationsToggle'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { PushDebugPanel } from '@/components/PushDebugPanel'
 
 // ─── Logout semplice ─────────────────────────────────────────────────────────
 
@@ -541,6 +542,7 @@ export default function SettingsPage() {
             <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Notifiche</h2>
           </div>
           <div className="space-y-3">
+            <PushDebugPanel />
             <PushNotificationsToggle />
             <DigestToggle />
           </div>
