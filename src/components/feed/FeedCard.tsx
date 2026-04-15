@@ -129,6 +129,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
       onLikeChange?.(post.id, 1)
       // Inserisce like e notifica in-app direttamente (come ProfileComments)
       await supabase.from('likes').insert([{ user_id: user.id, post_id: post.id }])
+      console.log('[DEBUG like]', { post_id: post.id, post_user_id: post.user_id, current_user: user.id })
       if (user.id !== post.user_id) {
         await supabase.from('notifications').insert([{
           type: 'like', sender_id: user.id, receiver_id: post.user_id, post_id: post.id,
@@ -184,6 +185,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
 
     if (!error && data) {
       setComments(prev => [...prev, data])
+      console.log('[DEBUG comment]', { post_id: post.id, post_user_id: post.user_id, current_user: user.id })
       if (user.id !== post.user_id) {
         await supabase.from('notifications').insert([{
           type: 'comment', sender_id: user.id, receiver_id: post.user_id, post_id: post.id,
