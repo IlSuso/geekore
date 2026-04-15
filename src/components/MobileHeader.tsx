@@ -121,6 +121,16 @@ export function MobileHeader() {
               />
               <h1 className="text-[16px] font-semibold text-white truncate">{profileUsername}</h1>
             </div>
+          ) : pathname === '/notifications' ? (
+            <div className="flex items-center gap-2">
+              <ChevronLeft
+                size={26}
+                strokeWidth={1.6}
+                className="text-[var(--text-primary)] -ml-1 cursor-pointer"
+                onClick={() => window.history.back()}
+              />
+              <h1 className="text-[17px] font-semibold text-white">Notifiche</h1>
+            </div>
           ) : (
             <div className="flex items-center gap-2">
               {isSubPage && <BackButton />}
@@ -164,11 +174,7 @@ export function MobileHeader() {
             </Link>
           )}
 
-          {pathname === '/notifications' && (
-            <Link href="/settings" className={iconCls}>
-              <Settings size={22} strokeWidth={1.6} />
-            </Link>
-          )}
+          {/* nessuna azione destra su /notifications */}
         </div>
 
       </div>

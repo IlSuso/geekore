@@ -1113,7 +1113,7 @@ export default function FeedPage() {
     const vh = window.innerHeight
     if (vw >= 640) {
       const modalW = Math.min(548, vw - 48)
-      const top = 40  // vicino alla navbar
+      const top = 72  // vicino alla navbar
       const bottomMargin = 80  // margine generoso dal fondo
       setModalPos({
         top,
@@ -1356,6 +1356,9 @@ export default function FeedPage() {
                         background: 'var(--bg-primary)',
                         paddingTop: 'env(safe-area-inset-top)',
                         paddingBottom: 'env(safe-area-inset-bottom)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        height: '100%',
                       }}
                       onClick={e => e.stopPropagation()}
                     >
@@ -1375,8 +1378,8 @@ export default function FeedPage() {
                         </button>
                       </div>
 
-                      {/* ── Body: cresce con il contenuto, scorre se supera maxHeight ── */}
-                      <div className="overflow-y-auto">
+                      {/* ── Body: scorre internamente, footer sempre visibile ── */}
+                      <div className="flex-1 min-h-0 overflow-y-auto">
 
                         {/* Avatar + nome + textarea */}
                         <div className="flex gap-3 px-5 pt-5 pb-3">
@@ -1427,8 +1430,8 @@ export default function FeedPage() {
 
                       {/* ── Footer ── */}
                       <div
-                        className="flex-shrink-0 border-t border-zinc-800/80 px-5 flex items-center gap-2.5 h-[56px] relative"
-                        style={{ background: 'var(--bg-primary)', paddingBottom: 'max(0px, env(safe-area-inset-bottom))' }}
+                        className="flex-shrink-0 border-t border-zinc-800/80 px-4 flex items-center gap-2.5 relative"
+                        style={{ background: 'var(--bg-primary)', minHeight: '56px', paddingTop: '8px', paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}
                       >
                         {/* Foto */}
                         <label className="cursor-pointer w-9 h-9 flex items-center justify-center rounded-xl text-zinc-400 hover:text-violet-400 hover:bg-zinc-800 transition-all select-none" title="Aggiungi foto">
