@@ -99,7 +99,7 @@ export default function SearchPage() {
 
   return (
     <main className="min-h-screen bg-zinc-950 pb-24 text-white">
-      <div className="max-w-xl mx-auto px-4 pt-8">
+      <div className="max-w-4xl mx-auto px-4 pt-8">
 
         {/* Header */}
         <div className="mb-6">

@@ -287,7 +287,7 @@ export default function DiscoverPage() {
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] pb-24">
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
-      <div className="max-w-xl mx-auto px-4 pt-2 md:pt-6">
+      <div className="max-w-4xl mx-auto px-4 pt-2 md:pt-6">
 
         {/* Instagram-style search bar: full-width, pill-shaped, muted bg */}
         <div className="relative mb-4">

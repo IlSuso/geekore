@@ -89,7 +89,7 @@ export default function WishlistPage() {
 
   return (
     <main className="min-h-screen bg-zinc-950 pt-2 md:pt-6 pb-24 px-4 text-white">
-      <div className="max-w-xl mx-auto">
+      <div className="max-w-4xl mx-auto">
 
         {/* Header */}
         <div className="mb-6">

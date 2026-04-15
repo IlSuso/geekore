@@ -1256,12 +1256,12 @@ export default function FeedPage() {
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
       <PullWrapper distance={pullDistance} refreshing={isPullRefreshing}>
-      {/* Instagram layout: max-w-xl centrato su desktop, full-bleed su mobile */}
-      <div className="pt-0 pb-24 max-w-xl mx-auto">
-        <div className="flex gap-0 items-start min-h-screen">
+      {/* Layout: full-bleed su mobile, due colonne su desktop */}
+      <div className="pt-0 pb-24 max-w-5xl mx-auto px-0 lg:px-6">
+        <div className="flex gap-8 items-start min-h-screen">
 
           {/* ── Colonna principale ─────────────────────────────────── */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 max-w-xl w-full mx-auto lg:mx-0">
 
             {/* Composer — barra statica non invasiva, modal fullscreen al tap */}
             {currentUser && (
@@ -1501,6 +1501,11 @@ export default function FeedPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* ── Sidebar desktop ─────────────────────────────────────── */}
+          <div className="hidden lg:block w-72 flex-shrink-0 sticky top-16">
+            <FeedSidebar currentUserId={currentUser?.id ?? null} />
           </div>
 
         </div>
