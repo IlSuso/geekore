@@ -62,6 +62,18 @@ const IGDB_VALID = new Set([
   'Massively Multiplayer Online (MMO)','Indie','Arcade',
 ])
 
+// Meta-keyword TMDb: descrivono formato/origine, NON il tema — da escludere dalla keyword discovery
+const TMDB_META_KW_BLOCKLIST = new Set([
+  'based on novel or book','based on novel','based on book','based on true story',
+  'based on true events','based on real events','based on comic','based on comic book',
+  'based on manga','based on video game','based on tv series','based on play',
+  'based on short story','based on anime','independent film',
+  'duringcreditsstinger','aftercreditsstinger','female protagonist','male protagonist',
+])
+
+// Lingue di nicchia escluse dai risultati TMDb keyword (contenuto non pertinente per utenti occidentali)
+const NICHE_LANGS = new Set(['th','vi','id','ar','hi','tl','ms','te','ta','ml','bn','uk','ro','hu','cs','sr','hr','sk','bg','el'])
+
 const GENRE_TO_TMDB_MOVIE: Record<string, number> = {
   'Action':28,'Adventure':12,'Animation':16,'Comedy':35,'Crime':80,
   'Drama':18,'Fantasy':14,'Horror':27,'Mystery':9648,'Romance':10749,
@@ -189,6 +201,8 @@ export async function GET(request: NextRequest) {
   // Combina keywords (da film TMDb) + tags (da anime/manga AniList) per keyword TMDb lookup
   // In questo modo anche sorgenti anime/manga trovano film TMDb tramite keyword query
   const allSourceKeywords = [...new Set([...rawKeywords, ...rawTags])]
+  // Filtra i meta-keyword (formato/origine) che inquinano la discovery — solo keyword tematiche
+  const thematicKeywords = allSourceKeywords.filter(kw => !TMDB_META_KW_BLOCKLIST.has(kw.toLowerCase()))
 
   // [DEBUG] Input ricevuto
   console.log('[SIMILAR] ── INPUT ──────────────────────────────')
@@ -196,7 +210,7 @@ export async function GET(request: NextRequest) {
   console.log('[SIMILAR] rawGenres:', rawGenres)
   console.log('[SIMILAR] rawKeywords:', rawKeywords)
   console.log('[SIMILAR] rawTags:', rawTags)
-  console.log('[SIMILAR] allSourceKeywords:', allSourceKeywords)
+  console.log('[SIMILAR] thematicKeywords:', thematicKeywords)
   console.log('[SIMILAR] igdbGenres:', igdbGenres)
   console.log('[SIMILAR] crossGenres:', crossGenres)
   console.log('[SIMILAR] anilistGenres:', anilistGenres)
@@ -204,8 +218,8 @@ export async function GET(request: NextRequest) {
   console.log('[SIMILAR] tmdbTvIds:', tmdbTvIds)
 
   // Keyword IDs TMDb — li risolviamo in parallelo con le altre fetch
-  const tmdbKeywordIdsPromise = (tmdbToken && allSourceKeywords.length > 0)
-    ? resolveTmdbKeywordIds(allSourceKeywords, tmdbToken)
+  const tmdbKeywordIdsPromise = (tmdbToken && thematicKeywords.length > 0)
+    ? resolveTmdbKeywordIds(thematicKeywords, tmdbToken)
     : Promise.resolve([] as number[])
 
   const results: any[] = []
@@ -400,7 +414,8 @@ export async function GET(request: NextRequest) {
           if (kwRes.ok) {
             const kwJson = await kwRes.json()
             console.log('[SIMILAR] TMDb movie kw discover returned:', kwJson.results?.length ?? 0, 'results, total_results:', kwJson.total_results)
-            for (const m of (kwJson.results || []).slice(0, 15)) {
+            for (const m of (kwJson.results || []).slice(0, 20)) {
+              if (NICHE_LANGS.has(m.original_language || '')) continue
               const id = m.id.toString()
               const recGenres = movieGenres(m.genre_ids || [])
               add({ id, title: m.title || '', type: 'movie',
@@ -421,6 +436,7 @@ export async function GET(request: NextRequest) {
         if (res.ok) {
           const json = await res.json()
           for (const m of (json.results || []).slice(0, 20)) {
+            if (NICHE_LANGS.has(m.original_language || '')) continue
             const id = m.id.toString()
             const recGenres = movieGenres(m.genre_ids || [])
             add({ id, title: m.title || '', type: 'movie',
@@ -450,7 +466,8 @@ export async function GET(request: NextRequest) {
           const kwRes = await fetch(`${TMDB_BASE}/discover/tv?${kwParams}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
           if (kwRes.ok) {
             const kwJson = await kwRes.json()
-            for (const m of (kwJson.results || []).slice(0, 15)) {
+            for (const m of (kwJson.results || []).slice(0, 20)) {
+              if (NICHE_LANGS.has(m.original_language || '')) continue
               const id = m.id.toString()
               const recGenres = tvGenres(m.genre_ids || [])
               add({ id, title: m.name || '', type: 'tv',
@@ -472,6 +489,7 @@ export async function GET(request: NextRequest) {
         if (res.ok) {
           const json = await res.json()
           for (const m of (json.results || []).slice(0, 20)) {
+            if (NICHE_LANGS.has(m.original_language || '')) continue
             const id = m.id.toString()
             const recGenres = tvGenres(m.genre_ids || [])
             add({ id, title: m.name || '', type: 'tv',
