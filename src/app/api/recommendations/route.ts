@@ -2041,6 +2041,20 @@ async function fetchMangaRecs(
 }
 
 // ── Fetcher: Film V3 (TMDb con trending) ─────────────────────────────────────
+// Mappa ID genere TMDb → nome cross-media (usata per popolare recGenres correttamente)
+const TMDB_MOVIE_GENRE_NAMES: Record<number, string> = {
+  28:'Action', 12:'Adventure', 16:'Animation', 35:'Comedy', 80:'Crime',
+  99:'Documentary', 18:'Drama', 10751:'Family', 14:'Fantasy', 36:'History',
+  27:'Horror', 10402:'Music', 9648:'Mystery', 10749:'Romance', 878:'Science Fiction',
+  10770:'TV Movie', 53:'Thriller', 10752:'War', 37:'Western',
+}
+const TMDB_TV_GENRE_NAMES: Record<number, string> = {
+  10759:'Action', 16:'Animation', 35:'Comedy', 80:'Crime', 99:'Documentary',
+  18:'Drama', 10751:'Family', 10762:'Kids', 9648:'Mystery', 10763:'News',
+  10764:'Reality', 10765:'Science Fiction', 10766:'Soap', 10767:'Talk',
+  10768:'War', 37:'Western',
+}
+
 async function fetchMovieRecs(
   slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, token: string, isAlreadyOwned: (type: string, id: string, title: string) => boolean,
   shownIds?: Set<string>, socialFavorites?: Map<string, string>, userPlatformIds: number[] = []
@@ -2130,8 +2144,11 @@ async function fetchMovieRecs(
           const NICHE_LANGS = new Set(['th','vi','id','ar','hi','tl','ms','ro','hu','cs'])
           if (preferNonEn && m.original_language && NON_ENGLISH_LANGS.has(m.original_language)) boost += 8
           if (!preferNonEn && m.original_language && NICHE_LANGS.has(m.original_language)) boost -= 20
-          const recGenres = [slot.genre]
-          let matchScore = computeMatchScore(recGenres, kws, tasteProfile)
+          // Usa i generi reali del film (non solo lo slot) — serve per "Simili a questo"
+          const recGenres = m.genre_ids
+            ? m.genre_ids.map((id: number) => TMDB_MOVIE_GENRE_NAMES[id]).filter(Boolean)
+            : [slot.genre]
+          let matchScore = computeMatchScore(recGenres.length > 0 ? recGenres : [slot.genre], kws, tasteProfile)
           // V5: runtime penalty
           const rtPenalty = runtimePenalty(m.runtime, tasteProfile.runtimePreference)
           matchScore = Math.round(matchScore * rtPenalty)
@@ -2281,8 +2298,11 @@ async function fetchTvRecs(
           if (preferNonEn && m.original_language && NON_ENGLISH_LANGS.has(m.original_language)) boost += 8
           // Penalizza lingue di nicchia se l'utente non ha preferenza non-english
           if (!preferNonEn && m.original_language && NICHE_LANGS.has(m.original_language)) boost -= 20
-          const recGenres = [slot.genre]
-          let matchScore = computeMatchScore(recGenres, kws, tasteProfile)
+          // Usa i generi reali del film (non solo lo slot) — serve per "Simili a questo"
+          const recGenres = m.genre_ids
+            ? m.genre_ids.map((id: number) => TMDB_TV_GENRE_NAMES[id]).filter(Boolean)
+            : [slot.genre]
+          let matchScore = computeMatchScore(recGenres.length > 0 ? recGenres : [slot.genre], kws, tasteProfile)
           // V4: award boost
           if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
           // V4: freshness
