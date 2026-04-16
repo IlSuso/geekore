@@ -378,8 +378,8 @@ export async function GET(request: NextRequest) {
                 genres: recGenres, keywords: rawKeywords,
                 score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
                 description: m.overview ? m.overview.slice(0, 200) : undefined,
-                matchScore: 60 + profileBoost(recGenres), why: whyText(recGenres, rawKeywords),
-                _pop: m.popularity || 0 })
+                matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres, rawKeywords),
+                _foundByKeyword: true, _pop: m.popularity || 0 })
             }
           }
         }
@@ -425,8 +425,8 @@ export async function GET(request: NextRequest) {
                 score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
                 description: m.overview ? m.overview.slice(0, 200) : undefined,
                 episodes: m.number_of_episodes ?? undefined,
-                matchScore: 60 + profileBoost(recGenres), why: whyText(recGenres, rawKeywords),
-                _pop: m.popularity || 0 })
+                matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres, rawKeywords),
+                _foundByKeyword: true, _pop: m.popularity || 0 })
             }
           }
         }
@@ -495,26 +495,49 @@ export async function GET(request: NextRequest) {
   await Promise.allSettled(fetches)
 
   // ── Ranking per similarità reale ─────────────────────────────────────────
-  // Peso: tag/keyword in comune (3pt ciascuno) + generi in comune (1pt ciascuno) + score normalizzato
-  const sourceTagsSet = new Set([...rawTags, ...rawKeywords].map(s => s.toLowerCase()))
+  // Keywords = segnale primario (peso alto), generi = segnale secondario (peso basso)
+  const sourceTagsNorm = [...rawTags, ...rawKeywords].map(s => s.toLowerCase())
+  const sourceTagsSet = new Set(sourceTagsNorm)
   const sourceGenresSet = new Set(rawGenres.map(s => s.toLowerCase()))
 
   const scored = results.map(item => {
     const itemTags = ((item.tags || []) as string[]).map((s: string) => s.toLowerCase())
     const itemKeywords = ((item.keywords || []) as string[]).map((s: string) => s.toLowerCase())
     const itemGenres = ((item.genres || []) as string[]).map((s: string) => s.toLowerCase())
+    const itemTagsAll = [...new Set([...itemTags, ...itemKeywords])]
 
-    // Match esatto + partial match (es. "space" matcha "space opera")
-    const sourceTagsArr = [...sourceTagsSet]
-    const itemTagsAll = [...itemTags, ...itemKeywords]
-    const tagMatches = itemTagsAll.filter(t =>
-      sourceTagsSet.has(t) || sourceTagsArr.some(s => t.includes(s) || s.includes(t))
-    ).length
-    const genreMatches = itemGenres.filter(g => sourceGenresSet.has(g)).length
+    // Match esatto keyword/tag — segnale più forte
+    const exactMatched = itemTagsAll.filter(t => sourceTagsSet.has(t))
+    // Match parziale — solo se la keyword sorgente è lunga almeno 4 char (evita falsi positivi)
+    const partialMatched = itemTagsAll.filter(t =>
+      !sourceTagsSet.has(t) &&
+      sourceTagsNorm.some(s => s.length >= 4 && (t.includes(s) || s.includes(t)))
+    )
+    const genreMatched = itemGenres.filter(g => sourceGenresSet.has(g))
+
     const scoreBonus = item.score ? item.score / 5 : 0  // 0–1
+    // Bonus per item trovati via keyword query (TMDb non restituisce le keywords dell'item)
+    const kwQueryBoost = item._foundByKeyword ? 3 : 0
 
-    const similarity = tagMatches * 3 + genreMatches * 1 + scoreBonus
-    return { ...item, _similarity: similarity }
+    // Score interno per ordinamento: keywords >> genres
+    const similarity = exactMatched.length * 5 + partialMatched.length * 1 + genreMatched.length * 1 + scoreBonus + kwQueryBoost
+
+    // matchScore per il client: calcolato dai match reali (non hardcoded)
+    const kwPts    = Math.min(35, exactMatched.length * 10 + partialMatched.length * 2)
+    const genrePts = Math.min(15, genreMatched.length * 4)
+    const profPts  = Math.min(10, Math.round(profileBoost(item.genres || []) / 2.5))
+    const scorePts = Math.round(scoreBonus * 5)
+    const computedMatch = Math.min(97, Math.max(30, 30 + kwPts + genrePts + profPts + scorePts + kwQueryBoost * 2))
+
+    // Testo why aggiornato con i keyword effettivamente matchati
+    const matchedKwDisplay = exactMatched.slice(0, 2).map(t =>
+      [...rawTags, ...rawKeywords].find(k => k.toLowerCase() === t) || t
+    )
+    const updatedWhy = matchedKwDisplay.length > 0
+      ? `Temi simili: ${matchedKwDisplay.join(', ')}`
+      : item.why
+
+    return { ...item, matchScore: computedMatch, why: updatedWhy, _similarity: similarity }
   })
 
   scored.sort((a, b) => {
@@ -522,9 +545,8 @@ export async function GET(request: NextRequest) {
     return b._pop - a._pop
   })
 
-  // Cap a 20 risultati
   const top30 = scored.slice(0, 30)
-  const clean = top30.map(({ _pop, _similarity, ...r }) => r)
+  const clean = top30.map(({ _pop, _similarity, _foundByKeyword, ...r }) => r)
 
   return NextResponse.json({ items: clean, total: clean.length }, { headers: rl.headers })
 }
