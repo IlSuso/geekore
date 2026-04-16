@@ -1480,8 +1480,57 @@ export default function FeedPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
-        <div className="max-w-screen-2xl mx-auto px-4 pt-6 pb-20 flex flex-col gap-2" style={{maxWidth: '680px'}}>
-          {Array.from({ length: 4 }).map((_, i) => <SkeletonFeedPost key={i} />)}
+        <div className="pt-0 pb-24 max-w-screen-2xl mx-auto px-0 sm:px-4 md:px-6">
+          <div className="flex gap-8 items-start min-h-screen">
+            {/* Colonna principale */}
+            <div className="flex-1 min-w-0">
+              {/* Composer skeleton */}
+              <div className="mx-4 my-4 rounded-2xl border border-zinc-800 bg-zinc-900/60 px-4 py-3.5 flex items-center gap-3 animate-pulse">
+                <div className="w-9 h-9 rounded-full bg-zinc-800 flex-shrink-0" />
+                <div className="h-3.5 bg-zinc-800 rounded-full w-48" />
+              </div>
+              {/* Tab bar skeleton */}
+              <div className="flex items-stretch mb-0 mt-1">
+                <div className="flex-1 py-3 flex justify-center">
+                  <div className="h-3.5 w-10 bg-zinc-800 rounded-full animate-pulse" />
+                </div>
+                <div className="flex-1 py-3 flex justify-center">
+                  <div className="h-3.5 w-20 bg-zinc-800 rounded-full animate-pulse" />
+                </div>
+              </div>
+              {/* Post skeletons */}
+              <div className="flex flex-col gap-2 pt-3 px-0 sm:px-0">
+                {Array.from({ length: 4 }).map((_, i) => <SkeletonFeedPost key={i} />)}
+              </div>
+            </div>
+            {/* Sidebar skeleton */}
+            <div className="hidden lg:block w-80 flex-shrink-0 sticky top-16 pt-4 space-y-6 animate-pulse">
+              <div>
+                <div className="h-4 w-40 bg-zinc-800 rounded-full mb-4" />
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 py-2.5">
+                    <div className="w-10 h-14 bg-zinc-800 rounded-xl flex-shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3.5 bg-zinc-800 rounded-full w-3/4" />
+                      <div className="h-2.5 bg-zinc-800 rounded-full w-1/3" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <div className="h-4 w-32 bg-zinc-800 rounded-full mb-4" />
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between py-2.5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 bg-zinc-800 rounded-full flex-shrink-0" />
+                      <div className="h-3 bg-zinc-800 rounded-full w-20" />
+                    </div>
+                    <div className="w-14 h-7 bg-zinc-800 rounded-xl" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     )
