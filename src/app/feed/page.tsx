@@ -1331,6 +1331,12 @@ export default function FeedPage() {
       }
     } else {
       await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
+      // Rimuove la notifica like lato server (bypassa RLS)
+      fetch('/api/social/like', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: postId, action: 'unlike' }),
+      }).catch(() => {})
     }
   }, [currentUser, posts, supabase])
 
@@ -1361,6 +1367,11 @@ export default function FeedPage() {
       }
     } else {
       await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
+      fetch('/api/social/like', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: postId, action: 'unlike' }),
+      }).catch(() => {})
     }
   }, [currentUser, pinnedPosts, supabase])
 
@@ -1401,12 +1412,16 @@ export default function FeedPage() {
 
   const handleDeleteComment = useCallback(async (commentId: string, postId: string) => {
     if (!currentUser) return
-    console.log('[DELETE comment]', { commentId, userId: currentUser.id })
     const { error } = await supabase.from('comments').delete().eq('id', commentId)
-    console.log('[DELETE result]', { error })
-    if (error) { console.error('[DELETE error]', error.message, error.code); return }
+    if (error) return
     const remove = (p: Post) => p.id === postId ? { ...p, comments_count: p.comments_count - 1, comments: p.comments.filter(c => c.id !== commentId) } : p
     setPosts(prev => prev.map(remove)); setPinnedPosts(prev => prev.map(remove))
+    // Rimuove la notifica commento lato server se non ci sono altri commenti sul post
+    fetch('/api/social/comment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post_id: postId, action: 'delete' }),
+    }).catch(() => {})
   }, [currentUser, supabase])
 
   const handleDeletePost = useCallback(async (postId: string) => {

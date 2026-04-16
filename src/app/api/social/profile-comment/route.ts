@@ -23,13 +23,22 @@ export async function POST(request: NextRequest) {
   const service = createServiceClient()
 
   if (action === 'delete') {
-    // Elimina la notifica commento bacheca lato server (bypassa RLS)
-    await service.from('notifications')
-      .delete()
-      .eq('type', 'comment')
-      .eq('sender_id', user.id)
-      .eq('receiver_id', profile_id)
-      .is('post_id', null)
+    // Conta quanti commenti di questo utente rimangono sulla bacheca
+    const { count } = await service
+      .from('profile_comments')
+      .select('id', { count: 'exact', head: true })
+      .eq('profile_id', profile_id)
+      .eq('author_id', user.id)
+      .eq('is_deleted', false)
+    // Rimuove la notifica solo se non ci sono più commenti rimasti
+    if (count === 0) {
+      await service.from('notifications')
+        .delete()
+        .eq('type', 'comment')
+        .eq('sender_id', user.id)
+        .eq('receiver_id', profile_id)
+        .is('post_id', null)
+    }
     return NextResponse.json({ success: true }, { headers: rl.headers })
   }
 
