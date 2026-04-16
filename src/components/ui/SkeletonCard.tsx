@@ -39,31 +39,32 @@ export function SkeletonMediaGrid({ count = 10 }: { count?: number }) {
 // ── Post del feed skeleton ────────────────────────────────────────────────────
 export function SkeletonFeedPost() {
   return (
-    <div className="border-b border-[var(--border)] animate-pulse">
+    <div className="bg-zinc-900 rounded-2xl animate-pulse">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3">
-        <div className="w-9 h-9 skeleton rounded-full flex-shrink-0" />
+      <div className="flex items-center gap-3 px-5 pt-4 pb-2.5">
+        <div className="w-10 h-10 skeleton rounded-full flex-shrink-0" />
         <div className="flex-1 space-y-1.5">
-          <div className="h-3 skeleton rounded-full w-28" />
+          <div className="h-3.5 skeleton rounded-full w-28" />
           <div className="h-2.5 skeleton rounded-full w-20" />
         </div>
-        <div className="w-7 h-7 skeleton rounded-full" />
       </div>
-      {/* Image placeholder */}
-      <div className="w-full aspect-square skeleton" />
-      {/* Actions */}
-      <div className="px-4 pt-3 pb-4">
-        <div className="flex items-center gap-4 mb-3">
-          <div className="w-6 h-6 skeleton rounded-full" />
-          <div className="w-6 h-6 skeleton rounded-full" />
-          <div className="w-6 h-6 skeleton rounded-full" />
-          <div className="ml-auto w-6 h-6 skeleton rounded-full" />
+      {/* Testo — indentato come il post reale */}
+      <div className="pr-5 pb-3" style={{paddingLeft: "68px"}}>
+        <div className="h-3.5 skeleton rounded-full w-3/4 mb-2" />
+        <div className="h-3.5 skeleton rounded-full w-1/2" />
+      </div>
+      {/* Azioni */}
+      <div className="px-5 py-2.5 flex items-center gap-6">
+        <div className="flex items-center gap-2">
+          <div className="w-5 h-5 skeleton rounded-full" />
+          <div className="w-5 h-2.5 skeleton rounded-full" />
         </div>
-        <div className="h-3 skeleton rounded-full w-24 mb-2" />
-        <div className="h-3 skeleton rounded-full w-3/4 mb-1" />
-        <div className="h-3 skeleton rounded-full w-1/2 mb-3" />
-        <div className="h-2.5 skeleton rounded-full w-20" />
+        <div className="flex items-center gap-2">
+          <div className="w-5 h-5 skeleton rounded-full" />
+          <div className="w-5 h-2.5 skeleton rounded-full" />
+        </div>
       </div>
+      <div className="pb-1" />
     </div>
   )
 }

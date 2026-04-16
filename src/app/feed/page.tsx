@@ -1480,8 +1480,8 @@ export default function FeedPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
-        <div className="max-w-screen-2xl mx-auto pt-4 pb-20">
-          {Array.from({ length: 3 }).map((_, i) => <SkeletonFeedPost key={i} />)}
+        <div className="max-w-screen-2xl mx-auto px-4 pt-6 pb-20 flex flex-col gap-2" style={{maxWidth: '680px'}}>
+          {Array.from({ length: 4 }).map((_, i) => <SkeletonFeedPost key={i} />)}
         </div>
       </div>
     )
