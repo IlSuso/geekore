@@ -290,14 +290,14 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-x-0 top-16 bottom-0 z-[80] bg-black/70 backdrop-blur-sm"
+        className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden
       />
 
       {/* Drawer */}
       <div
-        className="fixed right-0 top-16 bottom-0 z-[90] w-full max-w-md bg-zinc-950 border-l border-zinc-800 overflow-y-auto
+        className="fixed right-0 top-0 bottom-0 z-[90] w-full max-w-md bg-zinc-950 border-l border-zinc-800 overflow-y-auto
                    animate-in slide-in-from-right duration-300"
         role="dialog"
         aria-modal
@@ -312,44 +312,31 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
           <X size={18} />
         </button>
 
-        {/* Header con cover — layout orizzontale */}
-        <div className="relative bg-zinc-900 flex-shrink-0">
-          {/* Banner sfocato in background */}
-          {media.coverImage && (
-            <div className="absolute inset-0 overflow-hidden">
-              <Image src={media.coverImage} alt="" fill className="object-cover scale-110 blur-xl opacity-30" aria-hidden unoptimized={media.coverImage.startsWith('data:')} />
-              <div className="absolute inset-0 bg-gradient-to-b from-zinc-900/60 to-zinc-950" />
-            </div>
-          )}
-
-          {/* Contenuto header */}
-          <div className="relative z-10 flex gap-4 p-5 pt-6 pr-14">
-            {/* Cover verticale */}
-            <div className="flex-shrink-0 w-28 h-40 rounded-2xl overflow-hidden bg-zinc-800 shadow-2xl ring-1 ring-white/10">
-              {media.coverImage ? (
-                <Image src={media.coverImage} alt={media.title} fill className="object-cover" sizes="112px" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Icon size={40} className="text-zinc-600" />
-                </div>
-              )}
-            </div>
-
-            {/* Info a destra */}
-            <div className="flex-1 min-w-0 flex flex-col justify-end pb-1">
-              <span className={`self-start text-[10px] font-bold px-2.5 py-1 rounded-full text-white mb-2 ${TYPE_COLOR[media.type] || 'bg-zinc-700'}`}>
-                {TYPE_LABEL[media.type] || media.type}
-              </span>
-              <h2 className="text-lg font-bold text-white leading-tight">{media.title}</h2>
-              <div className="flex flex-col gap-0.5 mt-1.5">
-                {media.year && <p className="text-sm text-zinc-400">{media.year}</p>}
-                {creatorLabel && (
-                  <p className="text-xs text-sky-400 flex items-center gap-1 truncate">
-                    <Clapperboard size={10} />{creatorLabel}
-                  </p>
-                )}
+        {/* Header — locandina verticale + info, nessun banner sfocato */}
+        <div className="flex gap-4 p-5 pt-6 pr-14 border-b border-zinc-800/60">
+          {/* Locandina verticale — aspect 2/3 */}
+          <div className="flex-shrink-0 w-24 rounded-2xl overflow-hidden bg-zinc-800 shadow-xl ring-1 ring-white/10" style={{ aspectRatio: '2/3' }}>
+            {media.coverImage ? (
+              <Image src={media.coverImage} alt={media.title} fill className="object-cover" sizes="96px" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <Icon size={36} className="text-zinc-600" />
               </div>
-            </div>
+            )}
+          </div>
+
+          {/* Info a destra */}
+          <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
+            <span className={`self-start text-[10px] font-bold px-2.5 py-1 rounded-full text-white ${TYPE_COLOR[media.type] || 'bg-zinc-700'}`}>
+              {TYPE_LABEL[media.type] || media.type}
+            </span>
+            <h2 className="text-base font-bold text-white leading-tight">{media.title}</h2>
+            {media.year && <p className="text-sm text-zinc-400">{media.year}</p>}
+            {creatorLabel && (
+              <p className="text-xs text-sky-400 flex items-center gap-1 truncate">
+                <Clapperboard size={10} />{creatorLabel}
+              </p>
+            )}
           </div>
         </div>
 

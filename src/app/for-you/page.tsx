@@ -891,12 +891,12 @@ const DiscoverySection = memo(function DiscoverySection({ items, onFeedback, onS
           <p className="text-[10px] text-zinc-500">{visible.length} titoli fuori dal tuo solito — potrebbe sorprenderti</p>
         </div>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+      <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
         {shown.map(item => {
           const Icon = TYPE_ICONS[item.type]
           return (
-            <div key={item.id} className="group">
-              <div className="relative aspect-[2/3] rounded-2xl overflow-hidden bg-zinc-900 mb-2 ring-2 ring-emerald-500/40 ring-offset-2 ring-offset-black cursor-pointer"
+            <div key={item.id} className="flex-shrink-0 w-36 group">
+              <div className="relative h-52 rounded-2xl overflow-hidden bg-zinc-900 mb-2 ring-2 ring-emerald-500/40 ring-offset-2 ring-offset-black cursor-pointer"
                 onClick={() => onDetail?.(item)}>
                 {item.coverImage
                   ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" />
