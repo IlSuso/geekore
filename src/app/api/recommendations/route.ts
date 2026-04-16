@@ -2380,7 +2380,35 @@ function computeMatchScoreWithDev(
   return Math.min(100, base + devBonus)
 }
 
-// ── Handler principale V3 ─────────────────────────────────────────────────────
+// ── Handler principale V6 — Pool-based recommendations ───────────────────────
+//
+// NOVITÀ V6:
+//   • Bacino (pool) persistente per tipo (~80 titoli), salvato in recommendations_pool
+//   • Il pool viene rigenerato solo se: scaduto (24h) O collezione cambiata O forceRefresh
+//   • Ad ogni GET si pesca randomicamente dal pool (shuffle + slice), evitando solo
+//     i titoli mostrati nella SESSIONE CORRENTE (non nelle ultime 2 settimane)
+//   • recommendations_shown ora traccia solo la sessione corrente (TTL: 4h)
+//   • Il bacino non si riduce mai: ogni refresh mostra un sottoinsieme diverso
+//     dello stesso pool ampio, ruotando i contenuti senza escluderli definitivamente
+// ─────────────────────────────────────────────────────────────────────────────
+
+const POOL_SIZE_PER_TYPE = 80   // titoli nel bacino per tipo
+const SERVE_SIZE_PER_TYPE = 15  // titoli serviti per tipo ad ogni GET
+const POOL_TTL_HOURS = 24       // rigenera il pool ogni 24h
+const SESSION_TTL_HOURS = 4     // titoli mostrati in questa sessione (no ripetizioni a breve)
+
+// Fisher-Yates shuffle deterministico (seed = userId + timestamp truncato all'ora)
+function shuffleSeeded<T>(arr: T[], seed: number): T[] {
+  const a = [...arr]
+  let s = seed
+  for (let i = a.length - 1; i > 0; i--) {
+    s = (s * 1664525 + 1013904223) & 0xffffffff
+    const j = Math.abs(s) % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
 export async function GET(request: NextRequest) {
   try {
     const rl = rateLimit(request, { limit: 10, windowMs: 60_000 })
@@ -2407,7 +2435,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Leggi collezione completa (V3: include campi nuovi)
+    // Leggi collezione completa
     const { data: entries } = await supabase
       .from('user_media_entries')
       .select('type, rating, genres, current_episode, episodes, status, is_steam, title, title_en, external_id, appid, updated_at, tags, keywords, themes, player_perspectives, studios, directors, authors, developer, rewatch_count, started_at')
@@ -2415,47 +2443,13 @@ export async function GET(request: NextRequest) {
 
     const allEntries = entries || []
 
-    // Cache check
-    if (!forceRefresh) {
-      const { data: cached } = await supabase
-        .from('recommendations_cache')
-        .select('data, expires_at, generated_at, match_scores')
-        .eq('user_id', user.id)
-        .eq('media_type', requestedType === 'all' ? 'anime' : requestedType)
-        .single()
+    // Timestamp dell'ultima modifica alla collezione
+    const lastCollectionUpdate = allEntries.reduce((latest, e) => {
+      const t = new Date(e.updated_at || 0)
+      return t > latest ? t : latest
+    }, new Date(0))
 
-      if (cached && new Date(cached.expires_at) > new Date()) {
-        const lastUpdate = allEntries.reduce((latest, e) => {
-          const t = new Date(e.updated_at || 0)
-          return t > latest ? t : latest
-        }, new Date(0))
-
-        if (lastUpdate <= new Date(cached.generated_at)) {
-          if (requestedType === 'all') {
-            const { data: allCached } = await supabase
-              .from('recommendations_cache')
-              .select('media_type, data, match_scores')
-              .eq('user_id', user.id)
-
-            if (allCached && allCached.length > 0) {
-              const recommendations: Record<string, any[]> = {}
-              for (const c of allCached) recommendations[c.media_type] = c.data
-              // Popola in-memory cache così la prossima richiesta non tocca il DB
-              memCacheSet(user.id, recommendations, null)
-              return NextResponse.json({ recommendations, cached: true }, {
-                headers: { 'Cache-Control': 'private, max-age=0, must-revalidate', 'X-Cache': 'DB_HIT' }
-              })
-            }
-          } else {
-            return NextResponse.json({ recommendations: { [requestedType]: cached.data }, cached: true }, {
-              headers: { 'Cache-Control': 'private, max-age=0, must-revalidate', 'X-Cache': 'DB_HIT' }
-            })
-          }
-        }
-      }
-    }
-
-    // V3: Carica preferenze + wishlist COMPLETA (con generi) + search history
+    // ── Carica preferenze + wishlist + search history ─────────────────────────
     const [
       { data: preferences },
       { data: wishlistRaw },
@@ -2468,26 +2462,17 @@ export async function GET(request: NextRequest) {
 
     const wishlistItems = wishlistRaw || []
     const searches = searchHistory || []
-
-    // #8 Platform Awareness: leggi piattaforme utente dalle preferences
     const userPlatformIds: number[] = (preferences as any)?.streaming_platforms || []
 
-    // V3: Compute taste profile con tutti i segnali
+    // Compute taste profile
     const tasteProfile = computeTasteProfile(allEntries, preferences, wishlistItems, searches)
 
     // ── Deduplicazione robusta ────────────────────────────────────────────────
-    // Problema: Letterboxd salva external_id proprietari (es. "letterboxd-the-lord-of-the-rings-2001")
-    // mentre i fetcher usano ID numerici TMDb/IGDB. Il confronto per ID quindi fallisce.
-    // Problema 2: TMDb restituisce titoli in italiano, ma in DB il titolo può essere in inglese
-    // (importato da Letterboxd) e viceversa.
-    // Soluzione: triplo livello — ID esatto, titolo normalizzato (it+en), token significativi per tipo.
-
     const normalizeTitle = (t: string) =>
       t.toLowerCase()
        .replace(/^(the|a|an|il|lo|la|i|gli|le|un|uno|una)\s+/i, '')
        .replace(/[^a-z0-9]/g, '')
 
-    // Parole chiave significative (≥4 chars) per match fuzzy cross-lingua
     const titleTokens = (t: string): Set<string> =>
       new Set(
         t.toLowerCase()
@@ -2503,7 +2488,6 @@ export async function GET(request: NextRequest) {
       return matches / Math.min(a.size, b.size) >= threshold
     }
 
-    // Set per tipo: Map<type, { ids: Set, titles: Set, tokenSets: Set<string>[] }>
     type OwnedByType = { ids: Set<string>; titles: Set<string>; tokenSets: Array<Set<string>> }
     const ownedByType = new Map<string, OwnedByType>()
 
@@ -2527,7 +2511,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Aggiungi wishlist per tipo
     for (const w of (wishlistRaw || [])) {
       const type = w.media_type || 'movie'
       const bucket = ownedByType.get(type)
@@ -2539,14 +2522,12 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Helper: dato un tipo, un id e un titolo, restituisce true se già posseduto
     const isAlreadyOwned = (type: string, id: string, title: string): boolean => {
       const bucket = ownedByType.get(type)
       if (!bucket) return false
       if (bucket.ids.has(id)) return true
       const norm = normalizeTitle(title)
       if (norm && bucket.titles.has(norm)) return true
-      // Fuzzy token match: gestisce titoli cross-lingua (IT vs EN)
       const tokens = titleTokens(title)
       if (tokens.size >= 2) {
         for (const existing of bucket.tokenSets) {
@@ -2556,18 +2537,10 @@ export async function GET(request: NextRequest) {
       return false
     }
 
-    // Mantieni anche ownedIds flat per compatibilità con fetchContinuityRecs
     const ownedIds = new Set<string>([
       ...allEntries.map(e => e.external_id).filter(Boolean),
       ...allEntries.map(e => e.appid).filter(Boolean),
       ...(wishlistRaw || []).map(w => w.external_id).filter(Boolean),
-    ])
-
-    // ownedTitles flat (usato come fallback nei fetcher che non hanno ancora isAlreadyOwned)
-    const ownedTitles = new Set<string>([
-      ...allEntries.map(e => e.title).filter(Boolean).map(normalizeTitle),
-      ...allEntries.map(e => e.title_en).filter(Boolean).map(normalizeTitle),
-      ...(wishlistRaw || []).map(w => w.title).filter(Boolean).map(normalizeTitle),
     ])
 
     const tmdbToken = process.env.TMDB_API_KEY || ''
@@ -2578,19 +2551,19 @@ export async function GET(request: NextRequest) {
       ? ['anime', 'manga', 'movie', 'tv', 'game']
       : [requestedType as MediaType]
 
-    // ── V5: Carica shownIds (anti-ripetizione cross-sessione) ─────────────────
-    // Escludi titoli mostrati nelle ultime 2 settimane senza azione
-    const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
-    const { data: shownRows } = await supabase
+    // ── V6: Carica titoli mostrati nella sessione corrente (TTL: 4h) ──────────
+    // NON escludiamo titoli per settimane — solo quelli mostrati nelle ultime 4 ore
+    // così ogni sessione di navigazione vede facce nuove, ma il pool rimane intatto
+    const sessionCutoff = new Date(Date.now() - SESSION_TTL_HOURS * 60 * 60 * 1000).toISOString()
+    const { data: sessionShownRows } = await supabase
       .from('recommendations_shown')
       .select('rec_id')
       .eq('user_id', user.id)
-      .gte('shown_at', twoWeeksAgo)
-      .is('action', null)
+      .gte('shown_at', sessionCutoff)
 
-    const shownIds = new Set<string>((shownRows || []).map((r: any) => r.rec_id))
+    const sessionShownIds = new Set<string>((sessionShownRows || []).map((r: any) => r.rec_id))
 
-    // ── V5: Carica socialFavorites (amici con taste similarity >70%) ──────────
+    // ── V6: Carica socialFavorites ────────────────────────────────────────────
     const { data: similarFriends } = await supabase
       .from('taste_similarity')
       .select('other_user_id, similarity_score')
@@ -2619,50 +2592,148 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // V3: Continuity engine in parallelo con le altre fetch
-    const continuityRecsPromise = (requestedType === 'all' || requestedType === 'anime' || requestedType === 'manga')
-      ? fetchContinuityRecs(allEntries, ownedIds, tasteProfile, supabase)
-      : Promise.resolve([])
+    // ── V6: Controlla se il pool esiste ed è ancora valido ───────────────────
+    const poolCutoff = new Date(Date.now() - POOL_TTL_HOURS * 60 * 60 * 1000).toISOString()
 
-    const [continuityRecs, ...mainResults] = await Promise.all([
-      continuityRecsPromise,
-      ...typesToFetch.map(async type => {
-        const slots = buildDiversitySlots(type, tasteProfile, 30)
-        if (slots.length === 0) return { type, items: [] }
+    const { data: poolRows } = await supabase
+      .from('recommendations_pool')
+      .select('media_type, data, generated_at, collection_hash')
+      .eq('user_id', user.id)
+      .in('media_type', typesToFetch)
 
-        switch (type) {
-          case 'anime': return { type, items: await fetchAnimeRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, shownIds, socialFavorites) }
-          case 'manga': return { type, items: await fetchMangaRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, shownIds, socialFavorites) }
-          case 'movie': return { type, items: await fetchMovieRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, shownIds, socialFavorites, userPlatformIds) }
-          case 'tv':    return { type, items: await fetchTvRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, shownIds, socialFavorites, userPlatformIds) }
-          case 'game':  return { type, items: await fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret, isAlreadyOwned, shownIds) }
-          default: return { type, items: [] }
-        }
-      })
-    ])
+    // Hash semplice della collezione: numero di entry + timestamp ultima modifica
+    const collectionHash = `${allEntries.length}_${lastCollectionUpdate.getTime()}`
 
-    const recommendations: Record<string, Recommendation[]> = {}
+    // Determina quali tipi necessitano rigenerazione del pool
+    const poolByType = new Map<string, Recommendation[]>()
+    const typesNeedingRegen: MediaType[] = []
 
-    for (const result of mainResults) {
-      if (result && 'type' in result && result.type) {
-        // V5: #14 Format Diversity — max 4 per sotto-genere (non applicato ai giochi)
-        recommendations[result.type] = applyFormatDiversity(result.items, result.type)
+    for (const type of typesToFetch) {
+      const poolRow = poolRows?.find(r => r.media_type === type)
+      const poolIsValid =
+        poolRow &&
+        !forceRefresh &&
+        new Date(poolRow.generated_at) > new Date(poolCutoff) &&
+        poolRow.collection_hash === collectionHash &&
+        Array.isArray(poolRow.data) && poolRow.data.length >= 10
+
+      if (poolIsValid) {
+        // Pool valido: filtra i titoli ora in collezione (potrebbero essere stati aggiunti)
+        const freshPool = (poolRow.data as Recommendation[]).filter(
+          r => !isAlreadyOwned(r.type, r.id, r.title)
+        )
+        poolByType.set(type, freshPool)
+      } else {
+        typesNeedingRegen.push(type)
       }
     }
 
-    // V3: Inietta i continuity recs come prime card nel tipo appropriato
-    for (const contRec of continuityRecs) {
-      const targetType = contRec.type
-      if (!recommendations[targetType]) recommendations[targetType] = []
-      recommendations[targetType] = [
-        contRec,
-        ...recommendations[targetType].filter(r => r.id !== contRec.id),
-      ]
+    // ── V6: Rigenera pool per i tipi che ne hanno bisogno ────────────────────
+    if (typesNeedingRegen.length > 0) {
+      // Il pool usa shownIds vuoto: raccoglie TUTTI i candidati senza esclusioni
+      const emptyShownIds = new Set<string>()
+
+      const continuityRecsPromise = (typesNeedingRegen.includes('anime') || typesNeedingRegen.includes('manga'))
+        ? fetchContinuityRecs(allEntries, ownedIds, tasteProfile, supabase)
+        : Promise.resolve([])
+
+      const [continuityRecs, ...poolResults] = await Promise.all([
+        continuityRecsPromise,
+        ...typesNeedingRegen.map(async type => {
+          // Pool più grande: totalSlots = POOL_SIZE_PER_TYPE
+          const slots = buildDiversitySlots(type, tasteProfile, POOL_SIZE_PER_TYPE)
+          if (slots.length === 0) return { type, items: [] }
+
+          switch (type) {
+            case 'anime': return { type, items: await fetchAnimeRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds, socialFavorites) }
+            case 'manga': return { type, items: await fetchMangaRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds, socialFavorites) }
+            case 'movie': return { type, items: await fetchMovieRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds) }
+            case 'tv':    return { type, items: await fetchTvRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds) }
+            case 'game':  return { type, items: await fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret, isAlreadyOwned, emptyShownIds) }
+            default: return { type, items: [] }
+          }
+        })
+      ])
+
+      // Inietta continuity recs come prime card nel pool
+      const continuityByType = new Map<string, Recommendation[]>()
+      for (const contRec of continuityRecs) {
+        const arr = continuityByType.get(contRec.type) || []
+        arr.push(contRec)
+        continuityByType.set(contRec.type, arr)
+      }
+
+      // Salva i nuovi pool in Supabase e in memoria
+      const poolUpserts = poolResults
+        .filter(r => r && 'type' in r && r.type)
+        .map(result => {
+          const type = result.type as MediaType
+          let poolItems = applyFormatDiversity(result.items, type)
+
+          // Prepend continuity recs (deduplicati)
+          const contRecs = continuityByType.get(type) || []
+          const poolIds = new Set(poolItems.map(r => r.id))
+          const uniqueContRecs = contRecs.filter(r => !poolIds.has(r.id))
+          poolItems = [...uniqueContRecs, ...poolItems]
+
+          poolByType.set(type, poolItems)
+
+          return {
+            user_id: user.id,
+            media_type: type,
+            data: poolItems,
+            generated_at: new Date().toISOString(),
+            collection_hash: collectionHash,
+          }
+        })
+
+      if (poolUpserts.length > 0) {
+        await supabase.from('recommendations_pool').upsert(poolUpserts, {
+          onConflict: 'user_id,media_type',
+        })
+      }
+
+      // Salva creator profile aggiornato
+      const topStudios = Object.entries(tasteProfile.creatorScores.studios).sort(([,a],[,b]) => b - a).slice(0, 30)
+      const topDirectors = Object.entries(tasteProfile.creatorScores.directors).sort(([,a],[,b]) => b - a).slice(0, 30)
+      await supabase.from('user_creator_profile').upsert({
+        user_id: user.id,
+        studios: Object.fromEntries(topStudios),
+        directors: Object.fromEntries(topDirectors),
+        authors: Object.fromEntries(Object.entries(tasteProfile.creatorScores.authors).sort(([,a],[,b]) => b - a).slice(0, 20)),
+        developers: Object.fromEntries(Object.entries(tasteProfile.creatorScores.developers).sort(([,a],[,b]) => b - a).slice(0, 20)),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' })
     }
 
-    // V5: #5 Registra i titoli mostrati in recommendations_shown (per anti-ripetizione futura)
+    // ── V6: Pesca dal pool — shuffle + slice, evitando solo la sessione corrente
+    const recommendations: Record<string, Recommendation[]> = {}
+
+    // Seed basato su userId + ora corrente (cambia ogni ora → rotazione automatica)
+    const hourSeed = parseInt(user.id.replace(/[^0-9]/g, '').slice(0, 8) || '0', 10) +
+      Math.floor(Date.now() / (60 * 60 * 1000))
+
+    for (const type of typesToFetch) {
+      const pool = poolByType.get(type) || []
+      if (pool.length === 0) { recommendations[type] = []; continue }
+
+      // Separa titoli non ancora mostrati in sessione da quelli già mostrati
+      const notShown = pool.filter(r => !sessionShownIds.has(r.id))
+      const alreadyShown = pool.filter(r => sessionShownIds.has(r.id))
+
+      // Shuffle deterministico (seed diverso per tipo)
+      const typeOffset = type.charCodeAt(0)
+      const shuffled = shuffleSeeded(notShown, hourSeed + typeOffset)
+
+      // Se non abbiamo abbastanza non-mostrati, aggiungi i già-mostrati in fondo
+      const combined = [...shuffled, ...shuffleSeeded(alreadyShown, hourSeed + typeOffset + 1)]
+
+      recommendations[type] = combined.slice(0, SERVE_SIZE_PER_TYPE)
+    }
+
+    // ── V6: Registra i titoli mostrati (sessione corrente) ────────────────────
     const shownInserts = Object.entries(recommendations).flatMap(([type, recs]) =>
-      recs.slice(0, 10).map(r => ({
+      recs.map(r => ({
         user_id: user.id,
         rec_id: r.id,
         rec_type: type,
@@ -2677,36 +2748,10 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // V3: Salva creator profile aggiornato
-    const topStudios = Object.entries(tasteProfile.creatorScores.studios).sort(([,a],[,b]) => b - a).slice(0, 30)
-    const topDirectors = Object.entries(tasteProfile.creatorScores.directors).sort(([,a],[,b]) => b - a).slice(0, 30)
-    await supabase.from('user_creator_profile').upsert({
-      user_id: user.id,
-      studios: Object.fromEntries(topStudios),
-      directors: Object.fromEntries(topDirectors),
-      authors: Object.fromEntries(Object.entries(tasteProfile.creatorScores.authors).sort(([,a],[,b]) => b - a).slice(0, 20)),
-      developers: Object.fromEntries(Object.entries(tasteProfile.creatorScores.developers).sort(([,a],[,b]) => b - a).slice(0, 20)),
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' })
-
-    // Cache
-    const now = new Date().toISOString()
-    const expiresAt = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString()
-
-    await Promise.allSettled(
-      typesToFetch.map(type =>
-        supabase.from('recommendations_cache').upsert({
-          user_id: user.id,
-          media_type: type,
-          data: recommendations[type] || [],
-          taste_snapshot: tasteProfile.topGenres,
-          generated_at: now,
-          expires_at: expiresAt,
-        }, { onConflict: 'user_id,media_type' })
-      )
-    )
-
     // ── Popola in-memory cache ────────────────────────────────────────────────
+    const topStudiosForResponse = Object.entries(tasteProfile.creatorScores.studios).sort(([,a],[,b]) => b - a).slice(0, 5)
+    const topDirectorsForResponse = Object.entries(tasteProfile.creatorScores.directors).sort(([,a],[,b]) => b - a).slice(0, 5)
+
     const tasteProfileResponse = {
       globalGenres: tasteProfile.globalGenres,
       topGenres: tasteProfile.topGenres,
@@ -2723,8 +2768,8 @@ export async function GET(request: NextRequest) {
       discoveryGenres: tasteProfile.discoveryGenres,
       negativeGenres: Object.keys(tasteProfile.negativeGenres).slice(0, 5),
       creatorScores: {
-        topStudios: topStudios.slice(0, 5).map(([name, score]) => ({ name, score })),
-        topDirectors: topDirectors.slice(0, 5).map(([name, score]) => ({ name, score })),
+        topStudios: topStudiosForResponse.map(([name, score]) => ({ name, score })),
+        topDirectors: topDirectorsForResponse.map(([name, score]) => ({ name, score })),
       },
       bingeProfile: tasteProfile.bingeProfile,
       wishlistGenres: tasteProfile.wishlistGenres,
@@ -2735,28 +2780,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       recommendations,
       tasteProfile: {
-        globalGenres: tasteProfile.globalGenres,
-        topGenres: tasteProfile.topGenres,
-        collectionSize: tasteProfile.collectionSize,
-        recentWindow: tasteProfile.recentWindow,
-        deepSignals: {
-          topThemes: Object.entries(tasteProfile.deepSignals.themes)
-            .sort(([, a], [, b]) => b - a).slice(0, 5).map(([k]) => k),
-          topTones: Object.entries(tasteProfile.deepSignals.tones)
-            .sort(([, a], [, b]) => b - a).slice(0, 5).map(([k]) => k),
-          topSettings: Object.entries(tasteProfile.deepSignals.settings)
-            .sort(([, a], [, b]) => b - a).slice(0, 4).map(([k]) => k),
-        },
-        discoveryGenres: tasteProfile.discoveryGenres,
-        negativeGenres: Object.keys(tasteProfile.negativeGenres).slice(0, 5),
-        creatorScores: {
-          topStudios: topStudios.slice(0, 5).map(([name, score]) => ({ name, score })),
-          topDirectors: topDirectors.slice(0, 5).map(([name, score]) => ({ name, score })),
-        },
-        bingeProfile: tasteProfile.bingeProfile,
-        wishlistGenres: tasteProfile.wishlistGenres,
-        searchIntentGenres: tasteProfile.searchIntentGenres,
-        // V5: #15 Confidence Score
+        ...tasteProfileResponse,
         lowConfidence: tasteProfile.lowConfidence,
         totalEntries: allEntries.length,
       },
@@ -2764,7 +2788,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    logger.error('Recommendations V3', error)
+    logger.error('Recommendations V6', error)
     return NextResponse.json({ error: 'Errore interno' }, { status: 500 })
   }
 }
