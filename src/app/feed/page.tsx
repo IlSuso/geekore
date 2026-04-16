@@ -848,7 +848,7 @@ const PostCard = memo(function PostCard({
       )}
 
       {/* Azioni — Flame + MessageSquare, stile Geekore */}
-      <div className="pr-5 py-2.5 flex items-center gap-5" style={{paddingLeft: "68px"}}>
+      <div className="px-5 py-2.5 flex items-center gap-6">
         <button
           onClick={() => onLike(post.id)}
           aria-label={post.liked_by_user ? 'Rimuovi like' : 'Metti like'}
@@ -880,7 +880,7 @@ const PostCard = memo(function PostCard({
 
       {/* Commenti preview — stile Instagram: testo inline, niente box */}
       {post.comments.length > 0 && !isCommenting && (
-        <div className="pr-5 pb-2 space-y-2" style={{paddingLeft: "68px"}}>
+        <div className="pr-5 pb-3 space-y-2.5" style={{paddingLeft: "20px"}}>
           {post.comments.slice(0, 2).map(comment => (
             <div key={comment.id} className="flex items-start gap-2 group/pc">
               <Link href={`/profile/${comment.username}`} className="flex-shrink-0 mt-0.5">
@@ -947,7 +947,7 @@ const PostCard = memo(function PostCard({
             </div>
           )}
           {/* Input commento con avatar */}
-          <div className="flex items-center gap-2.5 py-3 border-t border-zinc-800/30">
+          <div className="flex items-center gap-2.5 py-2.5 mt-1">
             {currentUser && (
               <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0">
                 <Avatar src={currentProfile?.avatar_url} username={currentProfile?.username || 'user'} displayName={currentProfile?.display_name} size={28} className="rounded-full" />
@@ -1779,7 +1779,7 @@ export default function FeedPage() {
             )}
 
             {/* Feed posts — respiro tra le card */}
-            <div className="space-y-0 divide-y divide-zinc-800/40">
+            <div className="flex flex-col gap-2 pt-3">
               {displayedPosts.length === 0 ? (
                 <div className="text-center py-24 px-8">
                   <div className="w-16 h-16 rounded-full border-2 border-[var(--border)] flex items-center justify-center mx-auto mb-4">
