@@ -17,7 +17,7 @@ import { StarRating } from '@/components/ui/StarRating'
 export interface MediaDetails {
   id: string
   title: string
-  title_en?: string  // titolo inglese per switch lingua real-time
+  title_en?: string
   type: string
   coverImage?: string
   year?: number
@@ -38,7 +38,6 @@ export interface MediaDetails {
   themes?: string[]
   score?: number
   externalUrl?: string
-  // V3: creator fields (da AniList/IGDB search)
   studios?: string[]
   directors?: string[]
   authors?: string[]
@@ -69,7 +68,6 @@ function buildExternalUrl(media: MediaDetails): string | undefined {
   return undefined
 }
 
-// V3: fire-and-forget taste delta
 function triggerTasteDelta(options: {
   action: 'rating' | 'status_change' | 'wishlist_add'
   mediaId: string; mediaType: string; genres: string[]
@@ -139,7 +137,6 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     return () => { document.body.style.overflow = '' }
   }, [media])
 
-  // Reset form quando cambia media
   useEffect(() => {
     setShowAddForm(false)
     setFormRating(0)
@@ -179,12 +176,10 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
     const isMovie = media.type === 'movie'
 
-    // Calcola il massimo episodi per la stagione selezionata (o totale se non ha stagioni)
     const seasonNum = opts?.season ?? 1
     const maxEpThisSeason = media.seasons?.[seasonNum]?.episode_count ?? media.episodes ?? null
     const maxSeasons = media.totalSeasons ?? (media.seasons ? Object.keys(media.seasons).length : null)
 
-    // Auto-completed: film sempre, oppure se ha indicato l'ultimo episodio dell'ultima stagione
     const isLastSeason = !maxSeasons || seasonNum >= maxSeasons
     const isLastEpisode = maxEpThisSeason !== null && opts?.episode !== undefined && opts.episode >= maxEpThisSeason
     const autoCompleted = isMovie || (isLastSeason && isLastEpisode)
@@ -195,7 +190,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
       user_id: user.id,
       external_id: media.id,
       title: media.title,
-      title_en: media.title_en || media.title,  // salva titolo EN per switch lingua
+      title_en: media.title_en || media.title,
       type: media.type,
       cover_image: media.coverImage,
       genres: media.genres || [],
@@ -205,7 +200,6 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
       episodes: media.episodes ?? null,
       season_episodes: media.seasons ?? null,
       rating: opts?.rating ?? null,
-      // V3: creator data
       studios: media.studios || [],
       directors: media.directors || [],
       authors: media.authors || [],
@@ -290,20 +284,20 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm"
+        className="fixed inset-0 z-[105] bg-black/70 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden
       />
 
-      {/* Drawer */}
+      {/* Drawer — top-16 per stare sotto la navbar */}
       <div
-        className="fixed right-0 top-0 bottom-0 z-[90] w-full max-w-md bg-zinc-950 border-l border-zinc-800 overflow-y-auto
+        className="fixed right-0 top-16 bottom-0 z-[105] w-full max-w-md bg-zinc-950 border-l border-zinc-800 overflow-y-auto
                    animate-in slide-in-from-right duration-300"
         role="dialog"
         aria-modal
         aria-label={media.title}
       >
-        {/* ── Bottone chiudi — figlio diretto del drawer, sopra tutto ── */}
+        {/* Bottone chiudi */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 z-[100] w-9 h-9 bg-black/60 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-black/80 transition"
@@ -312,12 +306,12 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
           <X size={18} />
         </button>
 
-        {/* Header — locandina verticale + info, nessun banner sfocato */}
+        {/* Header — locandina verticale + info */}
         <div className="flex gap-4 p-5 pt-6 pr-14 border-b border-zinc-800/60">
-          {/* Locandina verticale — aspect 2/3 */}
-          <div className="flex-shrink-0 w-24 rounded-2xl overflow-hidden bg-zinc-800 shadow-xl ring-1 ring-white/10" style={{ aspectRatio: '2/3' }}>
+          {/* Locandina */}
+          <div className="flex-shrink-0 w-24 h-36 rounded-2xl overflow-hidden bg-zinc-800 shadow-xl ring-1 ring-white/10">
             {media.coverImage ? (
-              <Image src={media.coverImage} alt={media.title} fill className="object-cover" sizes="96px" />
+              <img src={media.coverImage} alt={media.title} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
                 <Icon size={36} className="text-zinc-600" />
@@ -330,8 +324,29 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             <span className={`self-start text-[10px] font-bold px-2.5 py-1 rounded-full text-white ${TYPE_COLOR[media.type] || 'bg-zinc-700'}`}>
               {TYPE_LABEL[media.type] || media.type}
             </span>
+
             <h2 className="text-base font-bold text-white leading-tight">{media.title}</h2>
-            {media.year && <p className="text-sm text-zinc-400">{media.year}</p>}
+
+            {/* Anno + score + episodi inline */}
+            {(media.year || media.score != null || media.bgg_rating != null || (media.episodes != null && media.episodes > 1)) && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {media.year && <p className="text-sm text-zinc-400">{media.year}</p>}
+                {(media.score != null || media.bgg_rating != null) && (
+                  <div className="flex items-center gap-1 bg-zinc-800 border border-zinc-700 rounded-full px-2 py-0.5">
+                    <Star size={11} className="text-yellow-400 fill-yellow-400" />
+                    <span className="text-xs font-bold text-white">{(media.score ?? media.bgg_rating)!.toFixed(1)}</span>
+                  </div>
+                )}
+                {media.episodes != null && media.episodes > 1 && (
+                  <div className="flex items-center gap-1 bg-zinc-800 border border-zinc-700 rounded-full px-2 py-0.5">
+                    <Layers size={11} className="text-zinc-400" />
+                    <span className="text-xs font-bold text-white">{media.episodes}</span>
+                    <span className="text-xs text-zinc-500">ep.</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {creatorLabel && (
               <p className="text-xs text-sky-400 flex items-center gap-1 truncate">
                 <Clapperboard size={10} />{creatorLabel}
@@ -343,29 +358,9 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
         {/* Contenuto */}
         <div className="p-5 space-y-6">
 
-          {/* Score + stats */}
+          {/* Stats (senza score/bgg_rating che sono stati spostati nell'header) */}
           <div className="flex flex-wrap gap-3">
-            {media.score != null && (
-              <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2">
-                <Star size={14} className="text-yellow-400 fill-yellow-400" />
-                <span className="text-sm font-bold text-white">{media.score.toFixed(1)}</span>
-                <span className="text-xs text-zinc-500">/ 5</span>
-              </div>
-            )}
-            {media.bgg_rating != null && (
-              <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2">
-                <Star size={14} className="text-yellow-400 fill-yellow-400" />
-                <span className="text-sm font-bold text-white">{media.bgg_rating.toFixed(1)}</span>
-                <span className="text-xs text-zinc-500">BGG</span>
-              </div>
-            )}
-            {media.episodes != null && media.episodes > 1 && (
-              <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2">
-                <Layers size={14} className="text-zinc-400" />
-                <span className="text-sm font-bold text-white">{media.episodes}</span>
-                <span className="text-xs text-zinc-500">ep.</span>
-              </div>
-            )}
+{/* episodi spostati nell'header */}
             {media.playing_time != null && (
               <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2">
                 <Clock size={14} className="text-zinc-400" />
@@ -414,7 +409,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             </div>
           )}
 
-          {/* V3: Studios / Directors / Authors */}
+          {/* Studios / Directors / Authors */}
           {(media.studios?.length || media.directors?.length || media.authors?.length) ? (
             <div>
               <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
@@ -470,7 +465,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             </div>
           ) : null}
 
-          {/* V3: Continuity / Relations */}
+          {/* Continuity / Relations */}
           {continuityRelations.length > 0 && (
             <div>
               <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-3">
@@ -627,10 +622,10 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                       : 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:border-zinc-500'
                   }`}
                 >
-                  {inWishlist
-                    ? <><Star size={14} className="fill-current" /> Nella wishlist</>
-                    : <><Bookmark size={14} /> Aggiungi alla wishlist</>
-                  }
+                  <span className="flex items-center justify-center gap-2">
+                    <Bookmark size={14} fill={inWishlist ? "currentColor" : "none"} />
+                    {inWishlist ? 'Nella wishlist' : 'Aggiungi alla wishlist'}
+                  </span>
                 </button>
 
                 {externalUrl && (

@@ -1778,6 +1778,7 @@ async function fetchAnimeRecs(
         results.push({
           id, title, type: 'anime',
           coverImage: m.coverImage?.large, year: m.seasonYear, genres: recGenres,
+          tags: mTags,
           score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
           why: socialFriend ? `Il tuo amico con gusti simili ha adorato questo` : `In corso questa stagione — ${season} ${seasonYear}`,
           matchScore, isSeasonal: true,
@@ -1892,6 +1893,7 @@ async function fetchAnimeRecs(
           coverImage: m.coverImage?.large,
           year: m.seasonYear,
           genres: recGenres,
+          tags: mTags,
           score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
           description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 300) : undefined,
           why: socialFriend
@@ -2019,6 +2021,7 @@ async function fetchMangaRecs(
           coverImage: m.coverImage?.large,
           year: m.seasonYear,
           genres: recGenres,
+          tags: mTags,
           score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
           description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 300) : undefined,
           why: socialFriend
@@ -2163,7 +2166,7 @@ async function fetchMovieRecs(
         .sort((a: any, b: any) => (b.boost + b.matchScore) - (a.boost + a.matchScore))
         .slice(0, slot.quota + 3)
 
-      for (const { m, matchScore, recGenres, trendingBoost, platformMatch } of scored) {
+      for (const { m, matchScore, recGenres, kws, trendingBoost, platformMatch } of scored) {
         const recId = m.id.toString()
         if (seen.has(recId)) continue
         if (shownIds?.has(recId)) continue
@@ -2188,6 +2191,7 @@ async function fetchMovieRecs(
           coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
           year,
           genres: recGenres,
+          keywords: kws,
           score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
           description: m.overview ? m.overview.slice(0, 300) : undefined,
           why: socialFriend
@@ -2308,13 +2312,13 @@ async function fetchTvRecs(
           // V4: freshness
           const year = m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined
           matchScore = Math.round(matchScore * releaseFreshnessMult(year))
-          return { m, boost, matchScore, recGenres, trendingBoost: isTrending ? 0.8 : 0, platformMatch }
+          return { m, boost, matchScore, recGenres, kws, trendingBoost: isTrending ? 0.8 : 0, platformMatch }
         })
         .filter(({ matchScore }: any) => matchScore >= 20)
         .sort((a: any, b: any) => (b.boost + b.matchScore) - (a.boost + a.matchScore))
         .slice(0, slot.quota + 3)
 
-      for (const { m, matchScore, recGenres, trendingBoost, platformMatch } of scored) {
+      for (const { m, matchScore, recGenres, kws, trendingBoost, platformMatch } of scored) {
         const recId = m.id.toString()
         if (seen.has(recId)) continue
         if (shownIds?.has(recId)) continue
@@ -2339,6 +2343,7 @@ async function fetchTvRecs(
           coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
           year,
           genres: recGenres,
+          keywords: kws,
           score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
           description: m.overview ? m.overview.slice(0, 300) : undefined,
           why: socialFriend
@@ -2509,6 +2514,8 @@ async function fetchGameRecs(
           coverImage: `https:${g.cover.url.replace('t_thumb', 't_1080p')}`,
           year,
           genres: recGenres,
+          tags: (g.themes || []).map((t: any) => t.name),
+          keywords: (g.keywords || []).map((k: any) => k.name).slice(0, 20),
           score: g.rating ? Math.min(Math.round(g.rating) / 20, 5) : undefined,
           description: g.summary ? g.summary.slice(0, 300) : undefined,
           why: buildWhyV3(recGenres, recId, g.name, tasteProfile, matchScore, slot.isDiscovery, {

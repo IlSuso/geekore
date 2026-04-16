@@ -35,6 +35,8 @@ interface Recommendation {
   id: string; title: string; type: MediaType; coverImage?: string; year?: number
   genres: string[]; score?: number; description?: string; why: string
   matchScore: number; isDiscovery?: boolean
+  tags?: string[]       // AniList tags / IGDB themes
+  keywords?: string[]   // TMDb keywords / IGDB keywords
   // V3 fields
   isContinuity?: boolean
   continuityFrom?: string
@@ -412,8 +414,9 @@ const ContinuitySection = memo(function ContinuitySection({ items, onFeedback, o
                   {TYPE_LABEL[item.type]}
                 </div>
                 <div className="absolute bottom-0 inset-x-0 h-20 bg-gradient-to-t from-black/80 to-transparent" />
-                <div className="absolute bottom-2 inset-x-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'already_seen') }} className="flex-1 flex items-center justify-center py-1.5 bg-zinc-800/80 hover:bg-zinc-700 rounded-xl text-zinc-500 hover:text-zinc-300">
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2">
+                  <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'already_seen') }}
+                    className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-white hover:bg-zinc-600/60 transition-colors">
                     <Eye size={11} />
                   </button>
                 </div>
@@ -438,12 +441,11 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
   onDetail?: (i: Recommendation) => void
   isSimilarLoading: boolean; dismissed: boolean
 }) {
-  const [showAct, setShowAct] = useState(false)
   const Icon = TYPE_ICONS[item.type]; const colorClass = TYPE_COLORS[item.type]
   if (dismissed) return null
 
   return (
-    <div className="flex-shrink-0 w-36 group" onMouseEnter={() => setShowAct(true)} onMouseLeave={() => setShowAct(false)}>
+    <div className="flex-shrink-0 w-36 group">
       <div className={`relative h-52 rounded-2xl overflow-hidden bg-zinc-900 mb-2 cursor-pointer`}
         onClick={() => onDetail?.(item)}>
         {item.coverImage
@@ -473,23 +475,22 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
             <Star size={9} fill="currentColor" /> {Math.min(item.score, 5).toFixed(1)}
           </div>
         )}
-        <div className={`absolute inset-0 bg-black/60 transition-opacity flex flex-col items-center justify-end pb-3 gap-2 ${showAct ? 'opacity-100' : 'opacity-0'}`}>
-          <div className="flex gap-1.5">
-            <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }} title="Non mi interessa"
-              className="flex items-center justify-center p-2 bg-zinc-900/80 hover:bg-red-900/60 rounded-xl text-zinc-400 hover:text-red-400 transition-colors">
-              <ThumbsDown size={13} />
+        {/* Pulsanti sempre visibili — cerchietti in basso a destra */}
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+          <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }} title="Non mi interessa"
+            className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-red-300 hover:bg-red-900/60 transition-colors">
+            <ThumbsDown size={11} />
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'already_seen') }} title="L'ho già visto"
+            className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-white hover:bg-zinc-600/60 transition-colors">
+            <Eye size={11} />
+          </button>
+          {onSimilar && (
+            <button onClick={(e) => { e.stopPropagation(); onSimilar(item) }} disabled={isSimilarLoading} title="Simili"
+              className={`w-7 h-7 flex items-center justify-center rounded-full backdrop-blur-sm transition-colors ${isSimilarLoading ? 'bg-violet-900/60 text-violet-300' : 'bg-black/60 text-zinc-300 hover:text-violet-200 hover:bg-violet-900/60'}`}>
+              {isSimilarLoading ? <RefreshCw size={11} className="animate-spin" /> : <Search size={11} />}
             </button>
-            <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'already_seen') }} title="L'ho già visto"
-              className="flex items-center justify-center p-2 bg-zinc-900/80 hover:bg-zinc-700 rounded-xl text-zinc-400 hover:text-zinc-200 transition-colors">
-              <Eye size={13} />
-            </button>
-            {onSimilar && (
-              <button onClick={(e) => { e.stopPropagation(); onSimilar(item) }} disabled={isSimilarLoading} title="Simili"
-                className={`flex items-center justify-center p-2 rounded-xl transition-colors ${isSimilarLoading ? 'bg-violet-900/40 text-violet-400' : 'bg-zinc-900/80 hover:bg-violet-900/60 text-zinc-400 hover:text-violet-300'}`}>
-                {isSimilarLoading ? <RefreshCw size={13} className="animate-spin" /> : <Search size={13} />}
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </div>
       <p className="text-xs font-semibold text-white leading-tight line-clamp-2 mb-1">{item.title}</p>
@@ -564,11 +565,17 @@ const HeroMatchSection = memo(function HeroMatchSection({ items, onFeedback, onS
                     </span>
                   </div>
                 )}
-                <div className="absolute bottom-2 inset-x-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }} className="flex items-center justify-center p-2 bg-zinc-800/80 hover:bg-red-900/60 rounded-xl text-zinc-500 hover:text-red-400">
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                  <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }}
+                    className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-red-300 hover:bg-red-900/60 transition-colors">
                     <ThumbsDown size={11} />
                   </button>
-                  {onSimilar && <button onClick={(e) => { e.stopPropagation(); onSimilar(item) }} className="flex items-center justify-center p-2 bg-zinc-800/80 hover:bg-violet-900/60 rounded-xl text-zinc-500 hover:text-violet-300"><Search size={11} /></button>}
+                  {onSimilar && (
+                    <button onClick={(e) => { e.stopPropagation(); onSimilar(item) }}
+                      className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-violet-200 hover:bg-violet-900/60 transition-colors">
+                      <Search size={11} />
+                    </button>
+                  )}
                 </div>
               </div>
               <p className="text-xs font-bold text-white leading-tight line-clamp-2 mb-0.5">{item.title}</p>
@@ -583,7 +590,7 @@ const HeroMatchSection = memo(function HeroMatchSection({ items, onFeedback, onS
 
 // Sezione "Simili a X" — persiste finché l'utente non la chiude o cerca un altro simile
 // Barra di ricerca "Trova titoli simili a..." — stile identico alla navbar
-// Cerca in tutte le API (AniList, TMDb, IGDB, BGG) e poi usa i generi per /api/recommendations/similar
+// Cerca in tutte le API (AniList, TMDb, IGDB, BGG) in parallelo — stesso pattern della discover
 const TYPE_LABEL_SEARCH: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV',
   game: 'Gioco', boardgame: 'Board Game',
@@ -631,32 +638,35 @@ function SimilarSearchBar({ onSearch, loading }: {
 
       const all: SearchSuggestion[] = []
 
+      // anilist, tmdb, igdb → array diretto; bgg → { results: [] }
+      const parse = (j: any) => Array.isArray(j) ? j : (j.results || j.data || [])
+
       if (anilistRes.status === 'fulfilled' && anilistRes.value.ok) {
         const j = await anilistRes.value.json()
-        for (const r of (j.results || j.data || []).slice(0, 3)) {
+        for (const r of parse(j).slice(0, 1)) {
           all.push({ id: r.id || r.external_id, title: r.title, type: r.type || 'anime', genres: r.genres, year: r.year, coverImage: r.coverImage || r.cover_image })
         }
       }
       if (tmdbRes.status === 'fulfilled' && tmdbRes.value.ok) {
         const j = await tmdbRes.value.json()
-        for (const r of (j.results || j.data || []).slice(0, 3)) {
+        for (const r of parse(j).slice(0, 1)) {
           all.push({ id: r.id || r.external_id, title: r.title, type: r.type || 'movie', genres: r.genres, year: r.year, coverImage: r.coverImage || r.cover_image, description: r.description })
         }
       }
       if (igdbRes.status === 'fulfilled' && igdbRes.value.ok) {
         const j = await igdbRes.value.json()
-        for (const r of (j.results || j.data || []).slice(0, 2)) {
+        for (const r of parse(j).slice(0, 1)) {
           all.push({ id: r.id || r.external_id, title: r.title, type: 'game', genres: r.genres, year: r.year, coverImage: r.coverImage || r.cover_image })
         }
       }
       if (bggRes.status === 'fulfilled' && bggRes.value.ok) {
         const j = await bggRes.value.json()
-        for (const r of (j.results || j.data || []).slice(0, 2)) {
+        for (const r of parse(j).slice(0, 1)) {
           all.push({ id: r.id || r.external_id, title: r.title, type: 'boardgame', genres: r.genres, year: r.year, coverImage: r.coverImage || r.cover_image })
         }
       }
 
-      setSuggestions(all.slice(0, 8))
+      setSuggestions(all.slice(0, 4))
       setOpen(all.length > 0)
     } catch {}
     setSearching(false)
@@ -910,17 +920,17 @@ const DiscoverySection = memo(function DiscoverySection({ items, onFeedback, onS
                     <Star size={9} fill="currentColor" /> {Math.min(item.score, 5).toFixed(1)}
                   </div>
                 )}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-end pb-3 gap-2">
-                  <div className="flex gap-1.5">
-                    <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }}
-                      className="flex items-center justify-center p-2 bg-zinc-900/80 hover:bg-red-900/60 rounded-xl text-zinc-400 hover:text-red-400">
-                      <ThumbsDown size={11} />
-                    </button>
-                    {onSimilar && <button onClick={(e) => { e.stopPropagation(); onSimilar(item) }} title="Simili"
-                      className="flex items-center justify-center p-2 bg-zinc-900/80 hover:bg-violet-900/60 rounded-xl text-zinc-400 hover:text-violet-300">
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                  <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }}
+                    className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-red-300 hover:bg-red-900/60 transition-colors">
+                    <ThumbsDown size={11} />
+                  </button>
+                  {onSimilar && (
+                    <button onClick={(e) => { e.stopPropagation(); onSimilar(item) }} title="Simili"
+                      className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-violet-200 hover:bg-violet-900/60 transition-colors">
                       <Search size={11} />
-                    </button>}
-                  </div>
+                    </button>
+                  )}
                 </div>
               </div>
               <p className="text-xs font-semibold text-white leading-tight line-clamp-2 mb-1">{item.title}</p>
@@ -1487,19 +1497,17 @@ export default function ForYouPage() {
     setDetailItem(details as any)
   }, [])
 
-  const handleSimilar = useCallback(async (item: Recommendation) => {
-    if (!item.genres.length) return
-    setSimilarLoading(item.id)
-    showToast(`Cercando titoli simili a "${item.title}"…`)
-    await searchSimilar(item.title, item.genres, item.id)
-    setSimilarLoading(null)
-  }, [])
-
-  const searchSimilar = useCallback(async (title: string, genres: string[], excludeId?: string) => {
-    const params = new URLSearchParams({
-      title,
-      genres: genres.slice(0, 4).join(','),
-    })
+  // searchSimilar e handleSimilar unite — searchSimilar dichiarata prima per evitare
+  // problemi di closure con useCallback deps=[]
+  const searchSimilar = useCallback(async (title: string, genres: string[], excludeId?: string, tags?: string[], keywords?: string[]) => {
+    if (!genres.length) {
+      showToast('Impossibile trovare simili: generi non disponibili')
+      return
+    }
+    const params = new URLSearchParams({ title, genres: genres.slice(0, 5).join(',') })
+    if (tags?.length) params.set('tags', tags.slice(0, 15).join(','))
+    if (keywords?.length) params.set('keywords', keywords.slice(0, 15).join(','))
+    if (excludeId) params.set('excludeId', excludeId)
     const res = await fetch(`/api/recommendations/similar?${params}`)
     if (res.ok) {
       const json = await res.json()
@@ -1508,9 +1516,17 @@ export default function ForYouPage() {
       window.scrollTo({ top: 0, behavior: 'smooth' })
       if (items.length === 0) showToast('Nessun risultato trovato')
     } else {
-      showToast('Errore nella ricerca')
+      showToast('Errore nella ricerca simili')
     }
   }, [])
+
+  const handleSimilar = useCallback(async (item: Recommendation) => {
+    if (!item.genres.length) return
+    setSimilarLoading(item.id)
+    showToast(`Cercando titoli simili a "${item.title}"…`)
+    await searchSimilar(item.title, item.genres, item.id, item.tags, item.keywords)
+    setSimilarLoading(null)
+  }, [searchSimilar])
 
   const sendFeedback = useCallback(async (item: Recommendation, action: FeedbackAction, reason?: FeedbackReason) => {
     await fetch('/api/recommendations/feedback', {

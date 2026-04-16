@@ -11,7 +11,7 @@ function tmdbHeaders() {
   }
 }
 
-function tmdbImageUrl(path: string | null, size = 'w780') {
+function tmdbImageUrl(path: string | null, size = 'w500') {
   return path ? `https://image.tmdb.org/t/p/${size}${path}` : null
 }
 
@@ -69,13 +69,16 @@ async function fetchAnime(lang: string) {
   const year  = new Date().getFullYear()
   const season = month <= 3 ? 'WINTER' : month <= 6 ? 'SPRING' : month <= 9 ? 'SUMMER' : 'FALL'
 
-  const titleField = lang === 'en' ? 'romaji english' : 'romaji'
+  // In EN mode prefer english title, fallback to romaji
+  const titleField = lang === 'en'
+    ? 'romaji english'
+    : 'romaji'
 
   try {
     const query = `query ($season: MediaSeason, $year: Int) {
       current: Page(perPage: 20) {
         media(type: ANIME, season: $season, seasonYear: $year, sort: POPULARITY_DESC, status: RELEASING) {
-          id title { ${titleField} } coverImage { extraLarge large }
+          id title { ${titleField} } coverImage { large }
           nextAiringEpisode { airingAt episode }
           description(asHtml: false) siteUrl startDate { year month day }
         }
@@ -89,7 +92,7 @@ async function fetchAnime(lang: string) {
     if (!res.ok) return []
     const json = await res.json()
     return (json.data?.current?.media || [])
-      .filter((m: any) => m.coverImage?.extraLarge || m.coverImage?.large)
+      .filter((m: any) => m.coverImage?.large)
       .map((m: any) => {
         const d = m.startDate
         const date = d?.year
@@ -101,7 +104,7 @@ async function fetchAnime(lang: string) {
           description: m.description
             ? m.description.replace(/<[^>]+>/g, '').slice(0, 300)
             : null,
-          coverImage: m.coverImage.extraLarge || m.coverImage.large,
+          coverImage: m.coverImage.large,
           date,
           nextEpisode: m.nextAiringEpisode?.episode,
           category: 'anime',
@@ -130,84 +133,38 @@ async function fetchGaming() {
     if (!tokenData.access_token) return []
 
     const nowUnix         = Math.floor(Date.now() / 1000)
-    const sixtyDaysAgo    = nowUnix - 60 * 24 * 3600
-    const fourMonthsAhead = nowUnix + 4 * 30 * 24 * 3600
+    const threeMonthsBack = nowUnix - 3 * 30 * 24 * 3600   // ultimi 3 mesi
+    const sixMonthsFwd    = nowUnix + 6 * 30 * 24 * 3600   // prossimi 6 mesi
 
-    const igdbFetch = (body: string) => fetch('https://api.igdb.com/v4/games', {
+    const res = await fetch('https://api.igdb.com/v4/games', {
       method: 'POST',
       headers: {
         'Client-ID': clientId,
         'Authorization': `Bearer ${tokenData.access_token}`,
         'Content-Type': 'text/plain',
       },
-      body,
+      body: `
+        fields name, cover.url, first_release_date, summary, slug, rating, rating_count;
+        where first_release_date > ${threeMonthsBack} & first_release_date < ${sixMonthsFwd} & cover != null & rating_count > 5;
+        sort first_release_date desc;
+        limit 30;
+      `,
     })
-
-    const [resReleased, resUpcoming] = await Promise.all([
-      // Giochi usciti negli ultimi 60 giorni: filtra per popularity (metrica affidabile)
-      igdbFetch(`
-        fields name, cover.url, first_release_date, summary, slug, total_rating_count, popularity;
-        where first_release_date > ${sixtyDaysAgo}
-          & first_release_date <= ${nowUnix}
-          & cover != null
-          & category = 0
-          & popularity > 5;
-        sort popularity desc;
-        limit 20;
-      `),
-      // Prossime uscite: filtra per hypes/follows
-      igdbFetch(`
-        fields name, cover.url, first_release_date, summary, slug, hypes, follows;
-        where first_release_date > ${nowUnix}
-          & first_release_date < ${fourMonthsAhead}
-          & cover != null
-          & category = 0
-          & (hypes > 20 | follows > 50);
-        sort hypes desc;
-        limit 20;
-      `),
-    ])
-
-    const [releasedData, upcomingData] = await Promise.all([
-      resReleased.ok ? resReleased.json() : [],
-      resUpcoming.ok ? resUpcoming.json() : [],
-    ])
-
-    const combined = [
-      ...(Array.isArray(releasedData) ? releasedData.map((g: any) => ({ ...g, _group: 'released' })) : []),
-      ...(Array.isArray(upcomingData) ? upcomingData.map((g: any) => ({ ...g, _group: 'upcoming' })) : []),
-    ]
-
-    // Deduplica per id
-    const seen = new Set()
-    const games = combined.filter((g: any) => {
-      if (seen.has(g.id)) return false
-      seen.add(g.id)
-      return true
-    })
-
-    return games
+    if (!res.ok) return []
+    const games = await res.json()
+    return (Array.isArray(games) ? games : [])
       .filter((g: any) => g.cover?.url)
       .map((g: any) => ({
         title: g.name,
         description: g.summary?.slice(0, 300) || null,
-        coverImage: `https:${g.cover.url.replace('t_thumb', 't_cover_big_2x')}`,
+        coverImage: `https:${g.cover.url.replace('t_thumb', 't_1080p')}`,
         date: g.first_release_date
           ? new Date(g.first_release_date * 1000).toISOString().split('T')[0]
           : null,
         category: 'gaming',
         source: 'IGDB',
         url: `https://www.igdb.com/games/${g.slug || g.name?.toLowerCase().replace(/\s+/g, '-')}`,
-        _group: g._group,
       }))
-      // Rilasciati prima (ordinati per popularity dalla query), poi upcoming (per hypes)
-      .sort((a: any, b: any) => {
-        if (a._group === 'released' && b._group !== 'released') return -1
-        if (a._group !== 'released' && b._group === 'released') return 1
-        return 0
-      })
-      .slice(0, 20)
-      .map(({ _group, ...rest }: any) => rest)
   } catch { return [] }
 }
 
@@ -219,13 +176,13 @@ async function runSync(lang: 'it' | 'en') {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const suffix = `_${lang}`
+  const suffix = `_${lang}` // es. cinema_it, cinema_en
 
   const [cinema, tv, anime, gaming] = await Promise.all([
     fetchCinema(lang),
     fetchTV(lang),
     fetchAnime(lang),
-    fetchGaming(),
+    fetchGaming(),       // IGDB sempre in EN, condiviso
   ])
 
   const now = new Date().toISOString()
