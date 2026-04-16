@@ -201,6 +201,8 @@ export default function NewsPage() {
                     <img
                       src={item.coverImage}
                       alt={item.title}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                   ) : (

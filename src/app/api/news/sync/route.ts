@@ -11,7 +11,7 @@ function tmdbHeaders() {
   }
 }
 
-function tmdbImageUrl(path: string | null, size = 'w500') {
+function tmdbImageUrl(path: string | null, size = 'w780') {
   return path ? `https://image.tmdb.org/t/p/${size}${path}` : null
 }
 
@@ -134,7 +134,7 @@ async function fetchGaming() {
 
     const nowUnix        = Math.floor(Date.now() / 1000)
     const thirtyDaysAgo  = nowUnix - 30 * 24 * 3600
-    const sixMonthsUnix  = nowUnix + 6 * 30 * 24 * 3600
+    const fourMonthsAhead = nowUnix + 4 * 30 * 24 * 3600
 
     const res = await fetch('https://api.igdb.com/v4/games', {
       method: 'POST',
@@ -144,10 +144,18 @@ async function fetchGaming() {
         'Content-Type': 'text/plain',
       },
       body: `
-        fields name, cover.url, first_release_date, summary, slug, total_rating_count, hypes;
-        where first_release_date > ${thirtyDaysAgo} & first_release_date < ${sixMonthsUnix} & cover != null & category = 0 & (total_rating_count > 5 | hypes > 10 | first_release_date > ${nowUnix - 7 * 24 * 3600});
-        sort first_release_date desc;
-        limit 30;
+        fields name, cover.url, first_release_date, summary, slug, total_rating_count, hypes, rating, follows;
+        where first_release_date > ${thirtyDaysAgo}
+          & first_release_date < ${fourMonthsAhead}
+          & cover != null
+          & category = 0
+          & (
+            total_rating_count > 50
+            | hypes > 30
+            | follows > 100
+          );
+        sort hypes desc;
+        limit 40;
       `,
     })
     if (!res.ok) return []
@@ -167,17 +175,22 @@ async function fetchGaming() {
         url: `https://www.igdb.com/games/${g.slug || g.name?.toLowerCase().replace(/\s+/g, '-')}`,
         _releaseTs: g.first_release_date || 0,
         _popularity: g.total_rating_count || 0,
+        _hypes: g.hypes || 0,
       }))
       // Priorità: usciti di recente (ultimi 14gg) prima, poi futuri; a parità ordine per popolarità
       .sort((a: any, b: any) => {
-        const aRecent = a._releaseTs > 0 && a._releaseTs <= nowSec && a._releaseTs > nowSec - 14 * 24 * 3600
-        const bRecent = b._releaseTs > 0 && b._releaseTs <= nowSec && b._releaseTs > nowSec - 14 * 24 * 3600
-        if (aRecent && !bRecent) return -1
-        if (!aRecent && bRecent) return 1
-        return b._releaseTs - a._releaseTs
+        const aReleased = a._releaseTs > 0 && a._releaseTs <= nowSec
+        const bReleased = b._releaseTs > 0 && b._releaseTs <= nowSec
+        // Rilasciati vs futuri: prima i recenti
+        if (aReleased && !bReleased) return -1
+        if (!aReleased && bReleased) return 1
+        // Tra i futuri: ordina per hypes desc
+        if (!aReleased && !bReleased) return (b._hypes || 0) - (a._hypes || 0)
+        // Tra i rilasciati: ordina per rating count desc (più recensioni = più importante)
+        return (b._popularity || 0) - (a._popularity || 0)
       })
       .slice(0, 20)
-      .map(({ _releaseTs, _popularity, ...rest }: any) => rest)
+      .map(({ _releaseTs, _popularity, _hypes, ...rest }: any) => rest)
   } catch { return [] }
 }
 
