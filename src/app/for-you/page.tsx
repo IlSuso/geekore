@@ -142,6 +142,166 @@ const MOODS = [
   { id: 'deep' as Mood, label: 'Profondo', Icon: Brain, desc: 'Drama, psicologico, mistero' },
 ]
 
+// Mappa tipo → dove guardare/giocare
+const WHERE_TO_MAP: Record<string, { label: string; url: (title: string) => string }[]> = {
+  anime:  [
+    { label: 'Crunchyroll', url: t => `https://www.crunchyroll.com/search?q=${encodeURIComponent(t)}` },
+    { label: 'Netflix', url: t => `https://www.netflix.com/search?q=${encodeURIComponent(t)}` },
+    { label: 'AniList', url: t => `https://anilist.co/search/anime?search=${encodeURIComponent(t)}` },
+  ],
+  manga:  [
+    { label: 'MangaDex', url: t => `https://mangadex.org/search?q=${encodeURIComponent(t)}` },
+    { label: 'MyAnimeList', url: t => `https://myanimelist.net/manga.php?q=${encodeURIComponent(t)}` },
+  ],
+  movie:  [
+    { label: 'JustWatch', url: t => `https://www.justwatch.com/it/cerca?q=${encodeURIComponent(t)}` },
+    { label: 'Letterboxd', url: t => `https://letterboxd.com/search/${encodeURIComponent(t)}/` },
+    { label: 'TMDB', url: t => `https://www.themoviedb.org/search?query=${encodeURIComponent(t)}` },
+  ],
+  tv:     [
+    { label: 'JustWatch', url: t => `https://www.justwatch.com/it/cerca?q=${encodeURIComponent(t)}` },
+    { label: 'TMDB', url: t => `https://www.themoviedb.org/search?query=${encodeURIComponent(t)}` },
+  ],
+  game:   [
+    { label: 'Steam', url: t => `https://store.steampowered.com/search/?term=${encodeURIComponent(t)}` },
+    { label: 'IGDB', url: t => `https://www.igdb.com/search?type=1&q=${encodeURIComponent(t)}` },
+    { label: 'Metacritic', url: t => `https://www.metacritic.com/search/${encodeURIComponent(t)}/` },
+  ],
+  boardgame: [
+    { label: 'BoardGameGeek', url: t => `https://boardgamegeek.com/search/boardgame?q=${encodeURIComponent(t)}` },
+    { label: 'Amazon', url: t => `https://www.amazon.it/s?k=${encodeURIComponent(t)}` },
+  ],
+}
+
+function DetailModal({ item, onClose, onAdd, onWishlist, addedIds, wishlistIds, addingIds }: {
+  item: Recommendation
+  onClose: () => void
+  onAdd: (i: Recommendation) => void
+  onWishlist: (i: Recommendation) => void
+  addedIds: Set<string>
+  wishlistIds: Set<string>
+  addingIds: Set<string>
+}) {
+  const isAdded = addedIds.has(item.id)
+  const isAdding = addingIds.has(item.id)
+  const inWishlist = wishlistIds.has(item.id)
+  const Icon = TYPE_ICONS[item.type]
+  const colorClass = TYPE_COLORS[item.type]
+  const whereToLinks = WHERE_TO_MAP[item.type] || []
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <div className="relative w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-t-3xl sm:rounded-3xl overflow-hidden max-h-[90vh] flex flex-col"
+        onClick={e => e.stopPropagation()}>
+
+        {/* Cover + gradient header */}
+        <div className="relative h-52 flex-shrink-0">
+          {item.coverImage
+            ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover" />
+            : <div className={`w-full h-full bg-gradient-to-br ${colorClass} flex items-center justify-center`}><Icon size={48} className="text-white/50" /></div>
+          }
+          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent" />
+          <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/80">
+            <X size={16} />
+          </button>
+          {/* Badge tipo */}
+          <div className={`absolute top-4 left-4 bg-gradient-to-r ${colorClass} text-white text-[10px] font-bold px-2 py-0.5 rounded-full`}>
+            {TYPE_LABEL[item.type]}
+          </div>
+          {/* Titolo e anno sull'immagine */}
+          <div className="absolute bottom-4 left-4 right-4">
+            <h2 className="text-xl font-bold text-white leading-tight">{item.title}</h2>
+            <div className="flex items-center gap-3 mt-1 flex-wrap">
+              {item.year && <span className="text-xs text-zinc-400">{item.year}</span>}
+              {item.score && (
+                <span className="flex items-center gap-1 text-xs text-yellow-400 font-semibold">
+                  <Star size={11} fill="currentColor" />{Math.min(item.score, 5).toFixed(1)}
+                </span>
+              )}
+              <span className="flex items-center gap-1 text-xs text-violet-400 font-semibold">
+                <Star size={11} fill="currentColor" />{item.matchScore}% match
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Contenuto scrollabile */}
+        <div className="overflow-y-auto flex-1 p-5 space-y-4">
+
+          {/* Perché te lo consigliamo */}
+          <div className="bg-violet-500/10 border border-violet-500/20 rounded-2xl px-4 py-3">
+            <p className="text-[10px] text-violet-400 uppercase tracking-wider font-semibold mb-1">Perché te lo consigliamo</p>
+            <p className="text-sm text-zinc-200 leading-relaxed">{item.why}</p>
+          </div>
+
+          {/* Descrizione */}
+          {item.description && (
+            <div>
+              <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold mb-2">Di cosa tratta</p>
+              <p className="text-sm text-zinc-300 leading-relaxed line-clamp-5">{item.description}</p>
+            </div>
+          )}
+
+          {/* Generi */}
+          {item.genres.length > 0 && (
+            <div>
+              <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold mb-2">Generi</p>
+              <div className="flex flex-wrap gap-1.5">
+                {item.genres.map(g => (
+                  <span key={g} className="text-xs bg-zinc-800 text-zinc-300 px-2.5 py-1 rounded-full border border-zinc-700">{g}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Dove guardarlo/giocarlo */}
+          {whereToLinks.length > 0 && (
+            <div>
+              <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold mb-2">
+                {item.type === 'game' ? 'Dove acquistarlo / giocarci' : item.type === 'manga' || item.type === 'boardgame' ? 'Dove trovarlo' : 'Dove guardarlo'}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {whereToLinks.map(link => (
+                  <a key={link.label} href={link.url(item.title)} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-xl border border-zinc-700 hover:border-zinc-500 transition-all">
+                    {link.label}
+                    <ArrowRight size={11} className="text-zinc-500" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Badge speciali */}
+          {(item.isSeasonal || item.isAwardWinner || item.creatorBoost || item.socialBoost || item.friendWatching) && (
+            <div className="flex flex-wrap gap-2">
+              {item.isSeasonal && <span className="text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/20 px-2.5 py-1 rounded-full flex items-center gap-1"><Calendar size={9} />In corso questa stagione</span>}
+              {item.isAwardWinner && <span className="text-[10px] bg-yellow-500/15 text-yellow-300 border border-yellow-500/20 px-2.5 py-1 rounded-full flex items-center gap-1"><Trophy size={9} />Acclamato dalla critica</span>}
+              {item.creatorBoost && <span className="text-[10px] bg-sky-500/15 text-sky-300 border border-sky-500/20 px-2.5 py-1 rounded-full flex items-center gap-1"><Clapperboard size={9} />{item.creatorBoost}</span>}
+              {item.friendWatching && <span className="text-[10px] bg-blue-500/15 text-blue-300 border border-blue-500/20 px-2.5 py-1 rounded-full flex items-center gap-1"><Users size={9} />{item.friendWatching} lo sta guardando</span>}
+            </div>
+          )}
+        </div>
+
+        {/* Footer azioni */}
+        <div className="p-4 border-t border-zinc-800 flex gap-3">
+          <button onClick={() => { onWishlist(item) }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold border transition-all ${inWishlist ? 'bg-amber-600/20 border-amber-500/40 text-amber-300' : 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:border-zinc-500'}`}>
+            <Bookmark size={15} fill={inWishlist ? 'currentColor' : 'none'} />
+            {inWishlist ? 'In wishlist' : 'Wishlist'}
+          </button>
+          <button onClick={() => { onAdd(item); if (!isAdded) onClose() }} disabled={isAdded || isAdding}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm font-semibold transition-all ${isAdded ? 'bg-zinc-700 text-zinc-400' : isAdding ? 'bg-violet-800 text-white' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}>
+            {isAdded ? <Check size={15} /> : isAdding ? <RefreshCw size={15} className="animate-spin" /> : <Plus size={15} />}
+            {isAdded ? 'Aggiunto' : isAdding ? '...' : 'Aggiungi alla collezione'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Fix 2.3: MoodSelector come bottom sheet — risparmia ~120px verticali
 function MoodPill({ mood, onClick }: { mood: Mood; onClick: () => void }) {
   const active = MOODS.find(m => m.id === mood)
@@ -157,9 +317,9 @@ function MoodPill({ mood, onClick }: { mood: Mood; onClick: () => void }) {
 
 function MoodBottomSheet({ mood, onChange, onClose }: { mood: Mood; onChange: (m: Mood) => void; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60" />
-      <div className="relative w-full max-w-sm bg-zinc-900 border border-zinc-700 rounded-t-3xl p-5 pb-8"
+      <div className="relative w-full max-w-sm mx-4 bg-zinc-900 border border-zinc-700 rounded-3xl p-5 pb-6"
         onClick={e => e.stopPropagation()}>
         <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-4" />
         <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-4">Che umore sei oggi?</p>
@@ -436,11 +596,12 @@ const ContinuitySection = memo(function ContinuitySection({ items, onAdd, onFeed
   )
 })
 
-const RecommendationCard = memo(function RecommendationCard({ item, onAdd, onWishlist, onFeedback, onSimilar, alreadyAdded, isAdding, inWishlist, dismissed }: {
+const RecommendationCard = memo(function RecommendationCard({ item, onAdd, onWishlist, onFeedback, onSimilar, onDetail, alreadyAdded, isAdding, isSimilarLoading, inWishlist, dismissed }: {
   item: Recommendation; onAdd: (i: Recommendation) => void; onWishlist: (i: Recommendation) => void
   onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
-  onSimilar?: (i: Recommendation) => void  // Fix 1.15
-  alreadyAdded: boolean; isAdding: boolean; inWishlist: boolean; dismissed: boolean
+  onSimilar?: (i: Recommendation) => void
+  onDetail?: (i: Recommendation) => void
+  alreadyAdded: boolean; isAdding: boolean; isSimilarLoading: boolean; inWishlist: boolean; dismissed: boolean
 }) {
   const { t } = useLocale(); const fy = t.forYou
   const [showAct, setShowAct] = useState(false)
@@ -449,7 +610,8 @@ const RecommendationCard = memo(function RecommendationCard({ item, onAdd, onWis
 
   return (
     <div className="flex-shrink-0 w-36 group" onMouseEnter={() => setShowAct(true)} onMouseLeave={() => setShowAct(false)}>
-      <div className={`relative h-52 rounded-2xl overflow-hidden bg-zinc-900 mb-2 ${inWishlist ? 'ring-2 ring-amber-500/60 ring-offset-1 ring-offset-black' : ''}`}>
+      <div className={`relative h-52 rounded-2xl overflow-hidden bg-zinc-900 mb-2 cursor-pointer ${inWishlist ? 'ring-2 ring-amber-500/60 ring-offset-1 ring-offset-black' : ''}`}
+        onClick={() => onDetail?.(item)}>
         {item.coverImage
           ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
           : <div className="w-full h-full flex items-center justify-center"><Icon size={32} className="text-zinc-700" /></div>
@@ -490,7 +652,12 @@ const RecommendationCard = memo(function RecommendationCard({ item, onAdd, onWis
           <div className="flex gap-1.5 w-28">
             <button onClick={() => onFeedback(item, 'not_interested')} title="Non mi interessa" className="flex-1 flex items-center justify-center py-1 bg-zinc-800/80 hover:bg-red-900/60 rounded-xl text-zinc-500 hover:text-red-400"><ThumbsDown size={11} /></button>
             <button onClick={() => onFeedback(item, 'already_seen')} title="L'ho già visto" className="flex-1 flex items-center justify-center py-1 bg-zinc-800/80 hover:bg-zinc-700 rounded-xl text-zinc-500 hover:text-zinc-300"><Eye size={11} /></button>
-            {onSimilar && <button onClick={() => onSimilar(item)} title="Simili a questo" className="flex-1 flex items-center justify-center py-1 bg-zinc-800/80 hover:bg-violet-900/60 rounded-xl text-zinc-500 hover:text-violet-300"><Search size={11} /></button>}
+            {onSimilar && (
+              <button onClick={() => onSimilar(item)} disabled={isSimilarLoading} title="Simili a questo"
+                className={`flex-1 flex items-center justify-center py-1 rounded-xl transition-colors ${isSimilarLoading ? 'bg-violet-900/40 text-violet-400' : 'bg-zinc-800/80 hover:bg-violet-900/60 text-zinc-500 hover:text-violet-300'}`}>
+                {isSimilarLoading ? <RefreshCw size={11} className="animate-spin" /> : <Search size={11} />}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -588,6 +755,89 @@ const HeroMatchSection = memo(function HeroMatchSection({ items, onAdd, onWishli
   )
 })
 
+// Sezione "Simili a X" — persiste finché l'utente non la chiude o cerca un altro simile
+const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, items, onAdd, onWishlist, onFeedback, onSimilar, onDetail, onClose, addedIds, addingIds, wishlistIds, dismissedIds, similarLoadingId }: {
+  sourceTitle: string
+  sourceType: MediaType
+  items: Recommendation[]
+  onAdd: (i: Recommendation) => void
+  onWishlist: (i: Recommendation) => void
+  onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
+  onSimilar?: (i: Recommendation) => void
+  onDetail?: (i: Recommendation) => void
+  onClose: () => void
+  addedIds: Set<string>
+  addingIds: Set<string>
+  wishlistIds: Set<string>
+  dismissedIds: Set<string>
+  similarLoadingId?: string | null
+}) {
+  const [visibleCount, setVisibleCount] = useState(15)
+  const Icon = TYPE_ICONS[sourceType]
+  const colorClass = TYPE_COLORS[sourceType]
+  const visible = items.filter(i => !dismissedIds.has(i.id))
+  const shown = visible.slice(0, visibleCount)
+  const hasMore = visible.length > visibleCount
+
+  return (
+    <div className="mb-10 rounded-3xl border border-violet-500/30 bg-violet-500/5 p-5">
+      {/* Header con X di chiusura */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className={`w-8 h-8 bg-gradient-to-br ${colorClass} rounded-xl flex items-center justify-center shadow-lg flex-shrink-0`}>
+          <Icon size={16} className="text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-sm font-bold text-white truncate">
+            {TYPE_LABEL[sourceType]} simili a
+            <span className="text-violet-300 ml-1">"{sourceTitle}"</span>
+          </h2>
+          <p className="text-[10px] text-zinc-500">{visible.length} titoli trovati</p>
+        </div>
+        <button
+          onClick={onClose}
+          className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all"
+          title="Chiudi">
+          <X size={15} />
+        </button>
+      </div>
+
+      {visible.length === 0 ? (
+        <p className="text-sm text-zinc-500 text-center py-6">Nessun titolo simile trovato.</p>
+      ) : (
+        <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
+          {shown.map(item => (
+            <RecommendationCard
+              key={item.id}
+              item={item}
+              onAdd={onAdd}
+              onWishlist={onWishlist}
+              onFeedback={onFeedback}
+              onSimilar={onSimilar}
+              onDetail={onDetail}
+              alreadyAdded={addedIds.has(item.id)}
+              isAdding={addingIds.has(item.id)}
+              isSimilarLoading={similarLoadingId === item.id}
+              inWishlist={wishlistIds.has(item.id)}
+              dismissed={dismissedIds.has(item.id)}
+            />
+          ))}
+          {hasMore && (
+            <div className="flex-shrink-0 w-36 flex items-center justify-center">
+              <button onClick={() => setVisibleCount(v => v + 10)}
+                className="flex flex-col items-center gap-2 text-zinc-500 hover:text-zinc-300 transition-colors">
+                <div className="w-10 h-10 rounded-full border border-zinc-700 hover:border-zinc-500 flex items-center justify-center">
+                  <ChevronDown size={18} />
+                </div>
+                <span className="text-[10px]">+{visible.length - visibleCount} altri</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+})
+
 // Fix 2.8: sezione separata per titoli "Scoperta" — nuovo per te
 const DiscoverySection = memo(function DiscoverySection({ items, onAdd, onWishlist, onFeedback, onSimilar, addedIds, addingIds, wishlistIds, dismissedIds }: {
   items: Recommendation[]
@@ -676,13 +926,15 @@ const DiscoverySection = memo(function DiscoverySection({ items, onAdd, onWishli
 const INITIAL_VISIBLE = 15
 const LOAD_MORE_STEP = 10
 
-const RecommendationSection = memo(function RecommendationSection({ type, items, label, onAdd, onWishlist, onFeedback, addedIds, addingIds, wishlistIds, dismissedIds, onSimilar, isPrimary }: {
+const RecommendationSection = memo(function RecommendationSection({ type, items, label, onAdd, onWishlist, onFeedback, addedIds, addingIds, wishlistIds, dismissedIds, onSimilar, onDetail, similarLoadingId, isPrimary }: {
   type: MediaType; items: Recommendation[]; label: string
   onAdd: (i: Recommendation) => void; onWishlist: (i: Recommendation) => void
   onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
   addedIds: Set<string>; addingIds: Set<string>; wishlistIds: Set<string>; dismissedIds: Set<string>
-  onSimilar?: (i: Recommendation) => void  // Fix 1.15
-  isPrimary?: boolean  // Fix 2.4: badge tipo principale
+  onSimilar?: (i: Recommendation) => void
+  onDetail?: (i: Recommendation) => void
+  similarLoadingId?: string | null
+  isPrimary?: boolean
 }) {
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)  // Fix 2.13
   const Icon = TYPE_ICONS[type]; const colorClass = TYPE_COLORS[type]
@@ -722,8 +974,8 @@ const RecommendationSection = memo(function RecommendationSection({ type, items,
       <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
         {shown.map(item => (
           <RecommendationCard
-            key={item.id} item={item} onAdd={onAdd} onWishlist={onWishlist} onFeedback={onFeedback} onSimilar={onSimilar}
-            alreadyAdded={addedIds.has(item.id)} isAdding={addingIds.has(item.id)} inWishlist={wishlistIds.has(item.id)} dismissed={dismissedIds.has(item.id)}
+            key={item.id} item={item} onAdd={onAdd} onWishlist={onWishlist} onFeedback={onFeedback} onSimilar={onSimilar} onDetail={onDetail}
+            alreadyAdded={addedIds.has(item.id)} isAdding={addingIds.has(item.id)} isSimilarLoading={similarLoadingId === item.id} inWishlist={wishlistIds.has(item.id)} dismissed={dismissedIds.has(item.id)}
           />
         ))}
         {/* Fix 2.13: "Mostra altri" senza refresh */}
@@ -1040,6 +1292,9 @@ export default function ForYouPage() {
   const [addingIds, setAddingIds] = useState<Set<string>>(new Set())   // Fix 2.5: loading state add
   const [reasonPending, setReasonPending] = useState<Recommendation | null>(null)  // Fix 2.6: quick-reason
   const [showMoodSheet, setShowMoodSheet] = useState(false)  // Fix 2.3: bottom sheet umore
+  const [similarLoading, setSimilarLoading] = useState<string | null>(null)  // id del titolo in caricamento
+  const [detailItem, setDetailItem] = useState<Recommendation | null>(null)  // titolo aperto nel detail modal
+  const [similarSection, setSimilarSection] = useState<{ sourceTitle: string; sourceType: MediaType; items: Recommendation[] } | null>(null)
   const [showNewRecsBadge, setShowNewRecsBadge] = useState(false)  // Fix 2.10: badge nuovi consigli
 
   const fetchRecommendations = useCallback(async (force = false) => {
@@ -1190,17 +1445,28 @@ export default function ForYouPage() {
   }, [supabase, wishlistIds, t])
 
   // Fix 1.15: "Simili a questo" — richiede i consigli filtrati per i generi del titolo
+  const handleDetail = useCallback((item: Recommendation) => {
+    setDetailItem(item)
+  }, [])
+
   const handleSimilar = useCallback(async (item: Recommendation) => {
     if (!item.genres.length) return
-    setRefreshing(true)
+    setSimilarLoading(item.id)
+    showToast(`Cercando titoli simili a "${item.title}"…`)
     const genres = item.genres.slice(0, 3).join(',')
     const res = await fetch(`/api/recommendations?type=${item.type}&similar_to_id=${item.id}&similar_to_genres=${encodeURIComponent(genres)}&refresh=1`)
     if (res.ok) {
       const json = await res.json()
-      setRecommendations(prev => ({ ...prev, ...json.recommendations }))
-      showToast(`Consigli simili a "${item.title}"`)
+      const typeRecs: Recommendation[] = json.recommendations?.[item.type] || []
+      // Escludi il titolo sorgente dalla lista
+      const filtered = typeRecs.filter(r => r.id !== item.id)
+      setSimilarSection({ sourceTitle: item.title, sourceType: item.type, items: filtered })
+      // Scroll smooth verso l'inizio della pagina per mostrare la sezione
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } else {
+      showToast('Nessun risultato trovato')
     }
-    setRefreshing(false)
+    setSimilarLoading(null)
   }, [])
 
   const sendFeedback = useCallback(async (item: Recommendation, action: FeedbackAction, reason?: FeedbackReason) => {
@@ -1340,6 +1606,24 @@ export default function ForYouPage() {
           <>
             {tasteProfile?.lowConfidence && <LowConfidenceBanner totalEntries={totalEntries} />}
             {tasteProfile && <DNAWidget tasteProfile={tasteProfile} totalEntries={totalEntries} />}
+            {similarSection && (
+              <SimilarSection
+                sourceTitle={similarSection.sourceTitle}
+                sourceType={similarSection.sourceType}
+                items={similarSection.items}
+                onAdd={handleAdd}
+                onWishlist={handleWishlist}
+                onFeedback={handleFeedback}
+                onSimilar={handleSimilar}
+                onDetail={handleDetail}
+                onClose={() => setSimilarSection(null)}
+                addedIds={addedIds}
+                addingIds={addingIds}
+                wishlistIds={wishlistIds}
+                dismissedIds={dismissedIds}
+                similarLoadingId={similarLoading}
+              />
+            )}
             {allRecs.length >= 2 && (
               <HeroMatchSection
                 key={`hero-${allRecs.length}`}
@@ -1401,6 +1685,8 @@ export default function ForYouPage() {
                   wishlistIds={wishlistIds}
                   dismissedIds={dismissedIds}
                   onSimilar={handleSimilar}
+                  onDetail={handleDetail}
+                  similarLoadingId={similarLoading}
                   isPrimary={key === primarySectionKey}
                 />
               )
@@ -1419,6 +1705,10 @@ export default function ForYouPage() {
         )}
       </div>
       {showPrefs && <PreferencesModal onClose={() => setShowPrefs(false)} onSaved={handleRefresh} />}
+      {/* Detail modal */}
+      {detailItem && (
+        <DetailModal item={detailItem} onClose={() => setDetailItem(null)} onAdd={handleAdd} onWishlist={handleWishlist} addedIds={addedIds} wishlistIds={wishlistIds} addingIds={addingIds} />
+      )}
       {/* Fix 2.3: mood bottom sheet */}
       {showMoodSheet && (
         <MoodBottomSheet mood={mood} onChange={setMood} onClose={() => setShowMoodSheet(false)} />
