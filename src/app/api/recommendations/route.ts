@@ -2002,13 +2002,13 @@ async function fetchMangaRecs(
           let matchScore = computeMatchScore(recGenres, mTags, tasteProfile, [], mAuthors)
           // Freshness inline
           matchScore = Math.round(matchScore * releaseFreshnessMult(m.seasonYear, m.averageScore, m.popularity))
-          return { m, boost, matchScore, recGenres, mAuthors, creatorBoost, trendingBoost, socialFriend }
+          return { m, boost, matchScore, recGenres, mTags, mAuthors, creatorBoost, trendingBoost, socialFriend }
         })
         .filter(({ matchScore }: any) => matchScore >= 20)
         .sort((a: any, b: any) => (b.boost + b.matchScore) - (a.boost + a.matchScore))
         .slice(0, slot.quota + 5)
 
-      for (const { m, matchScore, recGenres, mAuthors, creatorBoost, trendingBoost, socialFriend } of candidates.slice(0, slot.quota)) {
+      for (const { m, matchScore, recGenres, mTags, mAuthors, creatorBoost, trendingBoost, socialFriend } of candidates.slice(0, slot.quota)) {
         const recId = `anilist-manga-${m.id}`
         if (seen.has(recId)) continue
         seen.add(recId)
