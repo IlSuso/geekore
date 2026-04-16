@@ -35,6 +35,7 @@ interface Recommendation {
   id: string; title: string; type: MediaType; coverImage?: string; year?: number
   genres: string[]; score?: number; description?: string; why: string
   matchScore: number; isDiscovery?: boolean
+  episodes?: number        // ep per anime/TV, cap. per manga
   tags?: string[]       // AniList tags / IGDB themes
   keywords?: string[]   // TMDb keywords / IGDB keywords
   // V3 fields
@@ -434,19 +435,24 @@ const ContinuitySection = memo(function ContinuitySection({ items, onFeedback, o
   )
 })
 
-const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, onSimilar, onDetail, isSimilarLoading, dismissed }: {
+const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, onSimilar, onDetail, isSimilarLoading, dismissed, showDetails }: {
   item: Recommendation
   onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
   onSimilar?: (i: Recommendation) => void
   onDetail?: (i: Recommendation) => void
   isSimilarLoading: boolean; dismissed: boolean
+  showDetails?: boolean
 }) {
   const Icon = TYPE_ICONS[item.type]; const colorClass = TYPE_COLORS[item.type]
   if (dismissed) return null
 
+  const episodeLabel = item.type === 'manga'
+    ? (item.episodes ? `${item.episodes} cap.` : null)
+    : (item.episodes && item.type !== 'movie' ? `${item.episodes} ep.` : null)
+
   return (
-    <div className="flex-shrink-0 w-36 group">
-      <div className={`relative h-52 rounded-2xl overflow-hidden bg-zinc-900 mb-2 cursor-pointer`}
+    <div className={`flex-shrink-0 group ${showDetails ? 'w-48' : 'w-36'}`}>
+      <div className={`relative ${showDetails ? 'h-64' : 'h-52'} rounded-2xl overflow-hidden bg-zinc-900 mb-2 cursor-pointer`}
         onClick={() => onDetail?.(item)}>
         {item.coverImage
           ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
@@ -494,7 +500,18 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
         </div>
       </div>
       <p className="text-xs font-semibold text-white leading-tight line-clamp-2 mb-1">{item.title}</p>
-      {item.year && <p className="text-[10px] text-zinc-500 mb-1">{item.year}</p>}
+      {/* Metadati: anno, episodi, voto */}
+      <div className="flex items-center gap-1.5 flex-wrap mb-1">
+        {item.year && <p className="text-[10px] text-zinc-500">{item.year}</p>}
+        {episodeLabel && (
+          <span className="text-[10px] text-zinc-500">{episodeLabel}</span>
+        )}
+        {showDetails && item.score && (
+          <span className="flex items-center gap-0.5 text-[10px] text-yellow-400 font-semibold">
+            <Star size={8} fill="currentColor" />{Math.min(item.score, 5).toFixed(1)}
+          </span>
+        )}
+      </div>
       {item.isContinuity
         ? <ContinuityBadge from={item.continuityFrom || ''} />
         : item.creatorBoost
@@ -502,6 +519,10 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
         : <MatchBadge score={item.matchScore} />
       }
       <p className="text-[11px] text-zinc-300 leading-tight line-clamp-2 mt-1">{item.why}</p>
+      {/* Descrizione breve — solo nella sezione Simili */}
+      {showDetails && item.description && (
+        <p className="text-[10px] text-zinc-500 leading-tight line-clamp-3 mt-1.5">{item.description}</p>
+      )}
       {/* Fix 3.3: boardgame companion — cross-media bridge */}
       {item.type === 'boardgame' && item.genres.length > 0 && (
         <button
@@ -857,6 +878,7 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
               onDetail={onDetail}
               isSimilarLoading={similarLoadingId === item.id}
               dismissed={dismissedIds.has(item.id)}
+              showDetails
             />
           ))}
           {hasMore && (

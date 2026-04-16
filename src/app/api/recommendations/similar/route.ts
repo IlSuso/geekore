@@ -223,7 +223,8 @@ export async function GET(request: NextRequest) {
           const offset = useOffset ? randomOffset : 0
           const body = `
             fields name,cover.url,first_release_date,genres.name,themes.name,keywords.name,
-                   rating,rating_count,involved_companies.company.name,involved_companies.developer;
+                   rating,rating_count,involved_companies.company.name,involved_companies.developer,
+                   summary;
             where ${whereClause} & rating_count > 20 & rating >= 50 & cover != null;
             sort rating desc; limit 30; offset ${offset};`
           const res = await fetch('https://api.igdb.com/v4/games', {
@@ -246,6 +247,7 @@ export async function GET(request: NextRequest) {
               tags: (g.themes || []).map((t: any) => t.name),
               keywords: (g.keywords || []).map((k: any) => k.name),
               score: g.rating ? Math.min(g.rating / 20, 5) : undefined,
+              description: g.summary ? g.summary.slice(0, 200) : undefined,
               matchScore: 55 + profileBoost(recGenres),
               why: whyText(recGenres), creatorBoost: developer, _pop: g.rating_count || 0,
             })
@@ -283,7 +285,7 @@ export async function GET(request: NextRequest) {
       try {
         // Query con generi
         if (anilistGenres.length > 0) {
-          const q = `query($g:[String]){Page(page:1,perPage:25){media(type:ANIME,genre_in:$g,sort:[SCORE_DESC],isAdult:false){id title{romaji english}coverImage{large}seasonYear genres averageScore popularity tags{name}}}}`
+          const q = `query($g:[String]){Page(page:1,perPage:25){media(type:ANIME,genre_in:$g,sort:[SCORE_DESC],isAdult:false){id title{romaji english}coverImage{large}seasonYear genres averageScore popularity episodes description tags{name}}}}`
           const res = await fetch(ANILIST_URL, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ query: q, variables: { g: anilistGenres.slice(0, 3) } }),
@@ -297,6 +299,8 @@ export async function GET(request: NextRequest) {
               add({ id, title: m.title?.romaji || m.title?.english || '', type: 'anime',
                 coverImage: m.coverImage?.large, year: m.seasonYear, genres: recGenres,
                 tags: (m.tags || []).map((t: any) => t.name),
+                episodes: m.episodes ?? undefined,
+                description: m.description ? m.description.replace(/<[^>]*>/g, '').slice(0, 200) : undefined,
                 score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
                 matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
             }
@@ -309,7 +313,7 @@ export async function GET(request: NextRequest) {
           .flatMap(t => [t, toTitleCase(t)])  // passa sia originale che title case
         )]
         if (anilistTags.length > 0) {
-          const q = `query($t:[String]){Page(page:1,perPage:20){media(type:ANIME,tag_in:$t,sort:[SCORE_DESC],isAdult:false){id title{romaji english}coverImage{large}seasonYear genres averageScore popularity tags{name}}}}`
+          const q = `query($t:[String]){Page(page:1,perPage:20){media(type:ANIME,tag_in:$t,sort:[SCORE_DESC],isAdult:false){id title{romaji english}coverImage{large}seasonYear genres averageScore popularity episodes description tags{name}}}}`
           const res = await fetch(ANILIST_URL, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ query: q, variables: { t: anilistTags } }),
@@ -325,6 +329,8 @@ export async function GET(request: NextRequest) {
               add({ id, title: m.title?.romaji || m.title?.english || '', type: 'anime',
                 coverImage: m.coverImage?.large, year: m.seasonYear, genres: recGenres,
                 tags: allTags,
+                episodes: m.episodes ?? undefined,
+                description: m.description ? m.description.replace(/<[^>]*>/g, '').slice(0, 200) : undefined,
                 score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
                 matchScore: 58 + profileBoost(recGenres), why: whyText(recGenres, matchedTags), _pop: m.popularity || 0 })
             }
@@ -352,6 +358,7 @@ export async function GET(request: NextRequest) {
               coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
               year: m.release_date ? new Date(m.release_date).getFullYear() : undefined,
               genres: recGenres, score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
+              description: m.overview ? m.overview.slice(0, 200) : undefined,
               matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
           }
         }
@@ -370,6 +377,7 @@ export async function GET(request: NextRequest) {
                 year: m.release_date ? new Date(m.release_date).getFullYear() : undefined,
                 genres: recGenres, keywords: rawKeywords,
                 score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
+                description: m.overview ? m.overview.slice(0, 200) : undefined,
                 matchScore: 60 + profileBoost(recGenres), why: whyText(recGenres, rawKeywords),
                 _pop: m.popularity || 0 })
             }
@@ -396,6 +404,8 @@ export async function GET(request: NextRequest) {
               coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
               year: m.first_air_date ? new Date(m.first_air_date).getFullYear() : undefined,
               genres: recGenres, score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
+              description: m.overview ? m.overview.slice(0, 200) : undefined,
+              episodes: m.number_of_episodes ?? undefined,
               matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
           }
         }
@@ -413,6 +423,8 @@ export async function GET(request: NextRequest) {
                 year: m.first_air_date ? new Date(m.first_air_date).getFullYear() : undefined,
                 genres: recGenres, keywords: rawKeywords,
                 score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
+                description: m.overview ? m.overview.slice(0, 200) : undefined,
+                episodes: m.number_of_episodes ?? undefined,
                 matchScore: 60 + profileBoost(recGenres), why: whyText(recGenres, rawKeywords),
                 _pop: m.popularity || 0 })
             }
@@ -427,7 +439,7 @@ export async function GET(request: NextRequest) {
     fetches.push((async () => {
       try {
         if (anilistGenres.length > 0) {
-          const q = `query($g:[String]){Page(page:1,perPage:15){media(type:MANGA,genre_in:$g,sort:[SCORE_DESC]){id title{romaji english}coverImage{large}startDate{year}genres averageScore popularity tags{name}}}}`
+          const q = `query($g:[String]){Page(page:1,perPage:15){media(type:MANGA,genre_in:$g,sort:[SCORE_DESC]){id title{romaji english}coverImage{large}startDate{year}genres averageScore popularity chapters description tags{name}}}}`
           const res = await fetch(ANILIST_URL, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ query: q, variables: { g: anilistGenres.slice(0, 3) } }),
@@ -441,6 +453,8 @@ export async function GET(request: NextRequest) {
               add({ id, title: m.title?.romaji || m.title?.english || '', type: 'manga',
                 coverImage: m.coverImage?.large, year: m.startDate?.year, genres: recGenres,
                 tags: (m.tags || []).map((t: any) => t.name),
+                episodes: m.chapters ?? undefined,
+                description: m.description ? m.description.replace(/<[^>]*>/g, '').slice(0, 200) : undefined,
                 score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
                 matchScore: 48 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
             }
@@ -452,7 +466,7 @@ export async function GET(request: NextRequest) {
           .flatMap(t => [t, toTitleCase(t)])
         )]
         if (anilistTags.length > 0) {
-          const q = `query($t:[String]){Page(page:1,perPage:15){media(type:MANGA,tag_in:$t,sort:[SCORE_DESC]){id title{romaji english}coverImage{large}startDate{year}genres averageScore popularity tags{name}}}}`
+          const q = `query($t:[String]){Page(page:1,perPage:15){media(type:MANGA,tag_in:$t,sort:[SCORE_DESC]){id title{romaji english}coverImage{large}startDate{year}genres averageScore popularity chapters description tags{name}}}}`
           const res = await fetch(ANILIST_URL, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ query: q, variables: { t: anilistTags } }),
@@ -467,6 +481,8 @@ export async function GET(request: NextRequest) {
               add({ id, title: m.title?.romaji || m.title?.english || '', type: 'manga',
                 coverImage: m.coverImage?.large, year: m.startDate?.year, genres: recGenres,
                 tags: mangaTags2,
+                episodes: m.chapters ?? undefined,
+                description: m.description ? m.description.replace(/<[^>]*>/g, '').slice(0, 200) : undefined,
                 score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
                 matchScore: 55 + profileBoost(recGenres), why: whyText(recGenres, anilistTags), _pop: m.popularity || 0 })
             }
