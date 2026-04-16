@@ -198,9 +198,13 @@ export async function GET(request: NextRequest) {
   console.log('[SIMILAR] tmdbMovieIds:', tmdbMovieIds)
   console.log('[SIMILAR] tmdbTvIds:', tmdbTvIds)
 
+  // Combina keywords (da film TMDb) + tags (da anime/manga AniList) per keyword TMDb lookup
+  // In questo modo anche sorgenti anime/manga trovano film TMDb tramite keyword query
+  const allSourceKeywords = [...new Set([...rawKeywords, ...rawTags])]
+
   // Keyword IDs TMDb — li risolviamo in parallelo con le altre fetch
-  const tmdbKeywordIdsPromise = (tmdbToken && rawKeywords.length > 0)
-    ? resolveTmdbKeywordIds(rawKeywords, tmdbToken)
+  const tmdbKeywordIdsPromise = (tmdbToken && allSourceKeywords.length > 0)
+    ? resolveTmdbKeywordIds(allSourceKeywords, tmdbToken)
     : Promise.resolve([] as number[])
 
   const results: any[] = []
@@ -400,10 +404,10 @@ export async function GET(request: NextRequest) {
               add({ id, title: m.title || '', type: 'movie',
                 coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
                 year: m.release_date ? new Date(m.release_date).getFullYear() : undefined,
-                genres: recGenres, keywords: rawKeywords,
+                genres: recGenres, keywords: allSourceKeywords,
                 score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
                 description: m.overview ? m.overview.slice(0, 200) : undefined,
-                matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres, rawKeywords),
+                matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres, allSourceKeywords),
                 _foundByKeyword: true, _pop: m.popularity || 0 })
             }
           }
@@ -449,11 +453,11 @@ export async function GET(request: NextRequest) {
               add({ id, title: m.name || '', type: 'tv',
                 coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
                 year: m.first_air_date ? new Date(m.first_air_date).getFullYear() : undefined,
-                genres: recGenres, keywords: rawKeywords,
+                genres: recGenres, keywords: allSourceKeywords,
                 score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
                 description: m.overview ? m.overview.slice(0, 200) : undefined,
                 episodes: m.number_of_episodes ?? undefined,
-                matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres, rawKeywords),
+                matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres, allSourceKeywords),
                 _foundByKeyword: true, _pop: m.popularity || 0 })
             }
           }
