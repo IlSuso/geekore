@@ -1317,8 +1317,19 @@ export default function FeedPage() {
       if (current.category) trackAffinity(supabase, currentUser.id, current.category)
     } else { haptic(20) }
     setPosts(prev => prev.map((p, i) => i === postIndex ? { ...p, likes_count: willLike ? p.likes_count + 1 : p.likes_count - 1, liked_by_user: willLike } : p))
-    if (willLike) await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id })
-    else await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
+    if (willLike) {
+      await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id })
+      if (current.user_id !== currentUser.id) {
+        await supabase.from('notifications').insert({ type: 'like', sender_id: currentUser.id, receiver_id: current.user_id, post_id: postId })
+        fetch('/api/social/like', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ post_id: postId, action: 'push_only' }),
+        }).catch(() => {})
+      }
+    } else {
+      await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
+    }
   }, [currentUser, posts, supabase])
 
   const toggleLikePinned = useCallback(async (postId: string) => {
@@ -1334,8 +1345,19 @@ export default function FeedPage() {
       if (current.category) trackAffinity(supabase, currentUser.id, current.category)
     }
     setPinnedPosts(prev => prev.map((p, i) => i === postIndex ? { ...p, likes_count: willLike ? p.likes_count + 1 : p.likes_count - 1, liked_by_user: willLike } : p))
-    if (willLike) await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id })
-    else await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
+    if (willLike) {
+      await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id })
+      if (current.user_id !== currentUser.id) {
+        await supabase.from('notifications').insert({ type: 'like', sender_id: currentUser.id, receiver_id: current.user_id, post_id: postId })
+        fetch('/api/social/like', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ post_id: postId, action: 'push_only' }),
+        }).catch(() => {})
+      }
+    } else {
+      await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
+    }
   }, [currentUser, pinnedPosts, supabase])
 
   const handleAddComment = useCallback(async (postId: string) => {
@@ -1350,6 +1372,14 @@ export default function FeedPage() {
     }
     setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments_count: p.comments_count + 1, comments: [newCommentTemp, ...p.comments] } : p))
     await supabase.from('comments').insert({ post_id: postId, user_id: currentUser.id, content: commentContent.trim() })
+    if (post && post.user_id !== currentUser.id) {
+      await supabase.from('notifications').insert({ type: 'comment', sender_id: currentUser.id, receiver_id: post.user_id, post_id: postId })
+      fetch('/api/social/comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: postId, action: 'push_only' }),
+      }).catch(() => {})
+    }
     setCommentContent(''); setCommentingPostId(null)
   }, [commentContent, currentUser, currentProfile, posts, supabase])
 
