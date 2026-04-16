@@ -756,6 +756,85 @@ const HeroMatchSection = memo(function HeroMatchSection({ items, onAdd, onWishli
 })
 
 // Sezione "Simili a X" — persiste finché l'utente non la chiude o cerca un altro simile
+// Barra di ricerca libera per "Trova titoli simili a..."
+// Usa TMDB search per trovare il titolo, poi prende i generi e chiama /api/recommendations/similar
+function SimilarSearchBar({ onSearch, loading }: { onSearch: (title: string, genres: string[]) => void; loading: boolean }) {
+  const [query, setQuery] = useState('')
+  const [suggestions, setSuggestions] = useState<{ id: string; title: string; type: string; genres: string[]; year?: number; cover?: string }[]>([])
+  const [searching, setSearching] = useState(false)
+  const debounceRef = { current: null as ReturnType<typeof setTimeout> | null }
+
+  const fetchSuggestions = async (q: string) => {
+    if (q.length < 2) { setSuggestions([]); return }
+    setSearching(true)
+    try {
+      const res = await fetch(`/api/search/suggestions?q=${encodeURIComponent(q)}&types=movie,tv,anime`)
+      if (res.ok) {
+        const json = await res.json()
+        setSuggestions((json.results || []).slice(0, 6))
+      }
+    } catch {}
+    setSearching(false)
+  }
+
+  const handleChange = (v: string) => {
+    setQuery(v)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => fetchSuggestions(v), 350)
+  }
+
+  const handleSelect = (s: { title: string; genres: string[] }) => {
+    setQuery(s.title)
+    setSuggestions([])
+    onSearch(s.title, s.genres)
+  }
+
+  const handleSubmit = () => {
+    if (!query.trim()) return
+    setSuggestions([])
+    // Generi generici se non troviamo il titolo
+    onSearch(query.trim(), ['Drama', 'Adventure'])
+  }
+
+  return (
+    <div className="relative mb-6">
+      <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-700 rounded-2xl px-4 py-3 focus-within:border-violet-500/50 transition-all">
+        <Search size={16} className="text-zinc-500 flex-shrink-0" />
+        <input
+          value={query}
+          onChange={e => handleChange(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+          placeholder="Cerca un titolo per trovare simili… es. Forrest Gump"
+          className="flex-1 bg-transparent text-sm text-white placeholder-zinc-600 outline-none"
+        />
+        {(searching || loading) && <RefreshCw size={14} className="text-zinc-500 animate-spin flex-shrink-0" />}
+        {query && !loading && (
+          <button onClick={() => { setQuery(''); setSuggestions([]) }} className="text-zinc-600 hover:text-zinc-400">
+            <X size={14} />
+          </button>
+        )}
+      </div>
+      {suggestions.length > 0 && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-700 rounded-2xl overflow-hidden z-20 shadow-xl">
+          {suggestions.map(s => (
+            <button key={s.id} onClick={() => handleSelect(s)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-800 transition-colors text-left">
+              {s.cover
+                ? <img src={s.cover} alt="" className="w-8 h-10 object-cover rounded-lg flex-shrink-0" />
+                : <div className="w-8 h-10 bg-zinc-800 rounded-lg flex-shrink-0" />
+              }
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-white font-medium truncate">{s.title}</p>
+                <p className="text-[10px] text-zinc-500">{s.type}{s.year ? ` · ${s.year}` : ''}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const SIMILAR_TYPE_FILTERS: Array<{ key: MediaType | 'all'; label: string }> = [
   { key: 'all',       label: 'Tutti' },
   { key: 'anime',     label: 'Anime' },
@@ -1501,22 +1580,25 @@ export default function ForYouPage() {
     if (!item.genres.length) return
     setSimilarLoading(item.id)
     showToast(`Cercando titoli simili a "${item.title}"…`)
-    const genres = item.genres.slice(0, 3).join(',')
-    const res = await fetch(`/api/recommendations?type=all&similar_to_id=${item.id}&similar_to_genres=${encodeURIComponent(genres)}&refresh=1`)
+    await searchSimilar(item.title, item.genres, item.id)
+    setSimilarLoading(null)
+  }, [])
+
+  const searchSimilar = useCallback(async (title: string, genres: string[], excludeId?: string) => {
+    const params = new URLSearchParams({
+      title,
+      genres: genres.slice(0, 4).join(','),
+    })
+    const res = await fetch(`/api/recommendations/similar?${params}`)
     if (res.ok) {
       const json = await res.json()
-      // Unisci tutti i tipi in una lista piatta, escludi il titolo sorgente
-      const allRecs: Recommendation[] = Object.values(json.recommendations || {}).flat() as Recommendation[]
-      const filtered = allRecs.filter(r => r.id !== item.id)
-      // Ordina per matchScore
-      filtered.sort((a, b) => b.matchScore - a.matchScore)
-      setSimilarSection({ sourceTitle: item.title, sourceType: item.type, items: filtered })
-      // Scroll smooth verso l'inizio della pagina per mostrare la sezione
+      const items: Recommendation[] = (json.items || []).filter((r: Recommendation) => r.id !== excludeId)
+      setSimilarSection({ sourceTitle: title, sourceType: 'movie', items })
       window.scrollTo({ top: 0, behavior: 'smooth' })
+      if (items.length === 0) showToast('Nessun risultato trovato')
     } else {
-      showToast('Nessun risultato trovato')
+      showToast('Errore nella ricerca')
     }
-    setSimilarLoading(null)
   }, [])
 
   const sendFeedback = useCallback(async (item: Recommendation, action: FeedbackAction, reason?: FeedbackReason) => {
@@ -1656,6 +1738,12 @@ export default function ForYouPage() {
           <>
             {tasteProfile?.lowConfidence && <LowConfidenceBanner totalEntries={totalEntries} />}
             {tasteProfile && <DNAWidget tasteProfile={tasteProfile} totalEntries={totalEntries} />}
+            {/* Barra ricerca libera "Trova simili a..." */}
+            <SimilarSearchBar
+              onSearch={(title, genres) => searchSimilar(title, genres)}
+              loading={!!similarLoading}
+            />
+
             {similarSection && (
               <SimilarSection
                 key={similarSection.sourceTitle}
