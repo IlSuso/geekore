@@ -1316,20 +1316,14 @@ export default function FeedPage() {
       setTimeout(() => setLikingIds(prev => { const s = new Set(prev); s.delete(postId); return s }), 400)
       if (current.category) trackAffinity(supabase, currentUser.id, current.category)
     } else { haptic(20) }
+    // UI ottimistica immediata
     setPosts(prev => prev.map((p, i) => i === postIndex ? { ...p, likes_count: willLike ? p.likes_count + 1 : p.likes_count - 1, liked_by_user: willLike } : p))
-    if (willLike) {
-      await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id })
-      if (current.user_id !== currentUser.id) {
-        await supabase.from('notifications').insert({ receiver_id: current.user_id, sender_id: currentUser.id, type: 'like', post_id: postId })
-        fetch('/api/social/like', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ post_id: postId, action: 'push_only' }),
-        }).catch(() => {})
-      }
-    } else {
-      await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
-    }
+    // Server fa tutto: insert/delete like + notifica in-app + push
+    fetch('/api/social/like', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post_id: postId, action: willLike ? 'like' : 'unlike' }),
+    }).catch(() => {})
   }, [currentUser, posts, supabase])
 
   const toggleLikePinned = useCallback(async (postId: string) => {
@@ -1343,21 +1337,15 @@ export default function FeedPage() {
       setLikingIds(prev => new Set([...prev, postId]))
       setTimeout(() => setLikingIds(prev => { const s = new Set(prev); s.delete(postId); return s }), 400)
       if (current.category) trackAffinity(supabase, currentUser.id, current.category)
-    }
+    } else { haptic(20) }
+    // UI ottimistica immediata
     setPinnedPosts(prev => prev.map((p, i) => i === postIndex ? { ...p, likes_count: willLike ? p.likes_count + 1 : p.likes_count - 1, liked_by_user: willLike } : p))
-    if (willLike) {
-      await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id })
-      if (current.user_id !== currentUser.id) {
-        await supabase.from('notifications').insert({ receiver_id: current.user_id, sender_id: currentUser.id, type: 'like', post_id: postId })
-        fetch('/api/social/like', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ post_id: postId, action: 'push_only' }),
-        }).catch(() => {})
-      }
-    } else {
-      await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
-    }
+    // Server fa tutto: insert/delete like + notifica in-app + push
+    fetch('/api/social/like', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post_id: postId, action: willLike ? 'like' : 'unlike' }),
+    }).catch(() => {})
   }, [currentUser, pinnedPosts, supabase])
 
   const handleAddComment = useCallback(async (postId: string) => {
@@ -1366,6 +1354,7 @@ export default function FeedPage() {
     const post = posts.find(p => p.id === postId)
     if (post?.category) trackAffinity(supabase, currentUser.id, post.category)
     const content = commentContent.trim()
+    // UI ottimistica immediata
     const newCommentTemp: Comment = {
       id: 'temp-' + Date.now(), content,
       created_at: new Date().toISOString(), user_id: currentUser.id,
@@ -1373,16 +1362,12 @@ export default function FeedPage() {
     }
     setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments_count: p.comments_count + 1, comments: [newCommentTemp, ...p.comments] } : p))
     setCommentContent(''); setCommentingPostId(null)
-    const { error: commentError } = await supabase.from('comments').insert({ post_id: postId, user_id: currentUser.id, content }).select('id')
-    if (commentError) return
-    if (post && post.user_id !== currentUser.id) {
-      await supabase.from('notifications').insert({ receiver_id: post.user_id, sender_id: currentUser.id, type: 'comment', post_id: postId })
-      fetch('/api/social/comment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ post_id: postId, action: 'push_only' }),
-      }).catch(() => {})
-    }
+    // Server fa tutto: insert commento + notifica in-app + push
+    fetch('/api/social/comment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post_id: postId, action: 'comment', content }),
+    }).catch(() => {})
   }, [commentContent, currentUser, currentProfile, posts, supabase])
 
   const handleToggleComment = useCallback((postId: string) => {
