@@ -39,15 +39,20 @@ const IGDB_TO_CROSS: Record<string, string[]> = {
 // Mapping tag/keyword → IGDB theme IDs per query precisa
 const TAG_TO_IGDB_THEME: Record<string, number> = {
   'Science Fiction': 18, 'Sci-Fi': 18, 'space': 18, 'alien': 18, 'aliens': 18,
-  'Fantasy': 17, 'magic': 17, 'dragon': 17,
-  'Horror': 19, 'horror': 19,
+  'space travel': 18, 'futuristic': 18, 'cyberpunk': 18, 'dystopia': 18,
+  'Fantasy': 17, 'magic': 17, 'dragon': 17, 'dark fantasy': 17, 'high fantasy': 17,
+  'medieval fantasy': 17, 'sword and sorcery': 17,
+  'Horror': 19, 'horror': 19, 'survival horror': 19, 'psychological horror': 19,
   'Thriller': 20, 'thriller': 20,
   'Drama': 31, 'drama': 31,
   'Comedy': 27, 'comedy': 27,
-  'Business': 26, 'Romance': 32,
+  'Business': 26, 'Romance': 32, 'romance': 32,
   'Sandbox': 33, 'Educational': 34, 'Kids': 35,
-  'Open World': 33, 'survival': 23, 'Survival': 23,
-  'Stealth': 24, 'Historical': 22, 'historical': 22,
+  'Open World': 33, 'open world': 33,
+  'survival': 23, 'Survival': 23, 'post-apocalyptic': 23, 'Post-Apocalyptic': 23,
+  'Stealth': 24, 'stealth': 24, 'stealth action': 24,
+  'Historical': 22, 'historical': 22, 'war': 22, 'War': 22,
+  'ninja': 24, 'assassin': 24,
 }
 
 const IGDB_VALID = new Set([
@@ -117,8 +122,7 @@ function resolveGenres(rawGenres: string[]) {
 async function resolveTmdbKeywordIds(keywords: string[], token: string): Promise<number[]> {
   if (!keywords.length) return []
   const ids: number[] = []
-  // Prendiamo solo le prime 3 keywords più significative per non rallentare
-  const toResolve = keywords.slice(0, 3)
+  const toResolve = keywords.slice(0, 5)
   await Promise.allSettled(toResolve.map(async (kw) => {
     try {
       const res = await fetch(
@@ -205,11 +209,16 @@ export async function GET(request: NextRequest) {
     'Fantasy': 'Role-playing (RPG)', 'Comedy': 'Adventure', 'Sports': 'Sport',
     'Crime': 'Adventure', 'War': 'Shooter', 'History': 'Strategy',
   }
-  const igdbQueryGenres = igdbGenres.length > 0
-    ? igdbGenres
-    : crossGenres.filter(g => IGDB_VALID.has(g)).length > 0
-      ? crossGenres.filter(g => IGDB_VALID.has(g))
-      : [...new Set(crossGenres.map(g => CROSS_TO_IGDB_FALLBACK[g]).filter(Boolean) as string[])]
+  // Unisce generi IGDB diretti + fallback dai crossGenres non mappati (es. Sci-Fi → RPG)
+  const igdbDirect2 = igdbGenres.length > 0 ? igdbGenres : crossGenres.filter(g => IGDB_VALID.has(g))
+  const igdbFallbackExtra = crossGenres
+    .filter(g => !IGDB_VALID.has(g))
+    .map(g => CROSS_TO_IGDB_FALLBACK[g])
+    .filter(Boolean) as string[]
+  const igdbMerged = [...new Set([...igdbDirect2, ...igdbFallbackExtra])]
+  const igdbQueryGenres = igdbMerged.length > 0
+    ? igdbMerged
+    : [...new Set(crossGenres.map(g => CROSS_TO_IGDB_FALLBACK[g]).filter(Boolean) as string[])]
 
   if (igdbClientId && igdbClientSecret) {
     fetches.push((async () => {
