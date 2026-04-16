@@ -16,27 +16,15 @@ export async function POST(request: NextRequest) {
   let body: any
   try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400 }) }
 
-  const { post_id, content } = body
+  const { post_id } = body
   if (!post_id || typeof post_id !== 'string') return NextResponse.json({ error: 'post_id mancante' }, { status: 400 })
-  if (!content || typeof content !== 'string' || content.trim().length < 1) return NextResponse.json({ error: 'Contenuto vuoto' }, { status: 400 })
-  if (content.trim().length > 1000) return NextResponse.json({ error: 'Commento troppo lungo (max 1000)' }, { status: 400 })
 
   const service = createServiceClient()
-
-  const { data, error } = await service
-    .from('comments')
-    .insert({ post_id, user_id: user.id, content: content.trim() })
-    .select('*, profiles(username, display_name)')
-    .single()
-
-  if (error) return NextResponse.json({ error: 'Errore nel salvataggio' }, { status: 500 })
-
   const { data: post } = await service.from('posts').select('user_id').eq('id', post_id).single()
   if (post && post.user_id !== user.id) {
-    await service.from('notifications').insert({ type: 'comment', sender_id: user.id, receiver_id: post.user_id, post_id })
     const { data: sender } = await service.from('profiles').select('username').eq('id', user.id).single()
     if (sender?.username) await sendPushToUser(post.user_id, commentPayload(sender.username, post_id))
   }
 
-  return NextResponse.json({ success: true, comment: data }, { headers: rl.headers })
+  return NextResponse.json({ success: true }, { headers: rl.headers })
 }

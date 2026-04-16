@@ -1318,12 +1318,20 @@ export default function FeedPage() {
     } else { haptic(20) }
     // UI ottimistica immediata
     setPosts(prev => prev.map((p, i) => i === postIndex ? { ...p, likes_count: willLike ? p.likes_count + 1 : p.likes_count - 1, liked_by_user: willLike } : p))
-    // Server fa tutto: insert/delete like + notifica in-app + push
-    fetch('/api/social/like', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ post_id: postId, action: willLike ? 'like' : 'unlike' }),
-    }).catch(() => {})
+    // Insert/delete diretto (stesso pattern follow)
+    if (willLike) {
+      await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id }).select('id')
+      if (current.user_id !== currentUser.id) {
+        await supabase.from('notifications').insert({ receiver_id: current.user_id, sender_id: currentUser.id, type: 'like', post_id: postId })
+        fetch('/api/social/like', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ post_id: postId }),
+        }).catch(() => {})
+      }
+    } else {
+      await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
+    }
   }, [currentUser, posts, supabase])
 
   const toggleLikePinned = useCallback(async (postId: string) => {
@@ -1340,12 +1348,20 @@ export default function FeedPage() {
     } else { haptic(20) }
     // UI ottimistica immediata
     setPinnedPosts(prev => prev.map((p, i) => i === postIndex ? { ...p, likes_count: willLike ? p.likes_count + 1 : p.likes_count - 1, liked_by_user: willLike } : p))
-    // Server fa tutto: insert/delete like + notifica in-app + push
-    fetch('/api/social/like', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ post_id: postId, action: willLike ? 'like' : 'unlike' }),
-    }).catch(() => {})
+    // Insert/delete diretto (stesso pattern follow)
+    if (willLike) {
+      await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id }).select('id')
+      if (current.user_id !== currentUser.id) {
+        await supabase.from('notifications').insert({ receiver_id: current.user_id, sender_id: currentUser.id, type: 'like', post_id: postId })
+        fetch('/api/social/like', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ post_id: postId }),
+        }).catch(() => {})
+      }
+    } else {
+      await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
+    }
   }, [currentUser, pinnedPosts, supabase])
 
   const handleAddComment = useCallback(async (postId: string) => {
@@ -1362,12 +1378,17 @@ export default function FeedPage() {
     }
     setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments_count: p.comments_count + 1, comments: [newCommentTemp, ...p.comments] } : p))
     setCommentContent(''); setCommentingPostId(null)
-    // Server fa tutto: insert commento + notifica in-app + push
-    fetch('/api/social/comment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ post_id: postId, action: 'comment', content }),
-    }).catch(() => {})
+    // Insert diretto (stesso pattern follow) — funziona con RLS
+    await supabase.from('comments').insert({ post_id: postId, user_id: currentUser.id, content }).select('id')
+    // Fire and forget: notifica in-app + push lato server
+    if (post && post.user_id !== currentUser.id) {
+      await supabase.from('notifications').insert({ receiver_id: post.user_id, sender_id: currentUser.id, type: 'comment', post_id: postId })
+      fetch('/api/social/comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: postId }),
+      }).catch(() => {})
+    }
   }, [commentContent, currentUser, currentProfile, posts, supabase])
 
   const handleToggleComment = useCallback((postId: string) => {

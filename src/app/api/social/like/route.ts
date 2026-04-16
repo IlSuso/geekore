@@ -16,22 +16,14 @@ export async function POST(request: NextRequest) {
   let body: any
   try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400 }) }
 
-  const { post_id, action } = body
+  const { post_id } = body
   if (!post_id || typeof post_id !== 'string') return NextResponse.json({ error: 'post_id mancante' }, { status: 400 })
-  if (action !== 'like' && action !== 'unlike') return NextResponse.json({ error: 'action non valida' }, { status: 400 })
 
   const service = createServiceClient()
-
-  if (action === 'like') {
-    await service.from('likes').insert({ post_id, user_id: user.id })
-    const { data: post } = await service.from('posts').select('user_id').eq('id', post_id).single()
-    if (post && post.user_id !== user.id) {
-      await service.from('notifications').insert({ type: 'like', sender_id: user.id, receiver_id: post.user_id, post_id })
-      const { data: sender } = await service.from('profiles').select('username').eq('id', user.id).single()
-      if (sender?.username) await sendPushToUser(post.user_id, likePayload(sender.username, post_id))
-    }
-  } else {
-    await service.from('likes').delete().eq('post_id', post_id).eq('user_id', user.id)
+  const { data: post } = await service.from('posts').select('user_id').eq('id', post_id).single()
+  if (post && post.user_id !== user.id) {
+    const { data: sender } = await service.from('profiles').select('username').eq('id', user.id).single()
+    if (sender?.username) await sendPushToUser(post.user_id, likePayload(sender.username, post_id))
   }
 
   return NextResponse.json({ success: true }, { headers: rl.headers })
