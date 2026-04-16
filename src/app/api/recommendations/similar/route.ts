@@ -169,6 +169,18 @@ export async function GET(request: NextRequest) {
 
   const { igdbGenres, crossGenres, anilistGenres, tmdbMovieIds, tmdbTvIds } = resolveGenres(rawGenres)
 
+  // [DEBUG] Input ricevuto
+  console.log('[SIMILAR] ── INPUT ──────────────────────────────')
+  console.log('[SIMILAR] title:', sourceTitle)
+  console.log('[SIMILAR] rawGenres:', rawGenres)
+  console.log('[SIMILAR] rawKeywords:', rawKeywords)
+  console.log('[SIMILAR] rawTags:', rawTags)
+  console.log('[SIMILAR] igdbGenres:', igdbGenres)
+  console.log('[SIMILAR] crossGenres:', crossGenres)
+  console.log('[SIMILAR] anilistGenres:', anilistGenres)
+  console.log('[SIMILAR] tmdbMovieIds:', tmdbMovieIds)
+  console.log('[SIMILAR] tmdbTvIds:', tmdbTvIds)
+
   // Keyword IDs TMDb — li risolviamo in parallelo con le altre fetch
   const tmdbKeywordIdsPromise = (tmdbToken && rawKeywords.length > 0)
     ? resolveTmdbKeywordIds(rawKeywords, tmdbToken)
@@ -503,6 +515,9 @@ export async function GET(request: NextRequest) {
 
   await Promise.allSettled(fetches)
 
+  console.log(`[SIMILAR] ── RISULTATI GREZZI: ${results.length} items ────────────`)
+  results.forEach(r => console.log(`[SIMILAR]  [${r.type}] ${r.title} | genres:${(r.genres||[]).join(',')} | tags:${(r.tags||[]).slice(0,5).join(',')} | kw:${(r.keywords||[]).slice(0,3).join(',')}`))
+
   // ── Ranking per similarità reale ─────────────────────────────────────────
   // Keywords = segnale primario (peso alto), generi = segnale secondario (peso basso)
   const sourceTagsNorm = [...rawTags, ...rawKeywords].map(s => s.toLowerCase())
@@ -555,6 +570,12 @@ export async function GET(request: NextRequest) {
   })
 
   const top30 = scored.slice(0, 30)
+
+  console.log('[SIMILAR] ── TOP RANKED ─────────────────────────────────────')
+  scored.slice(0, 10).forEach((r, i) =>
+    console.log(`[SIMILAR]  #${i+1} [${r.type}] "${r.title}" | sim:${r._similarity.toFixed(1)} | match:${r.matchScore} | why:"${r.why}"`)
+  )
+
   const clean = top30.map(({ _pop, _similarity, _foundByKeyword, ...r }) => r)
 
   return NextResponse.json({ items: clean, total: clean.length }, { headers: rl.headers })
