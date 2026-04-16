@@ -186,21 +186,22 @@ export async function GET(request: NextRequest) {
 
   const { igdbGenres, crossGenres, anilistGenres, tmdbMovieIds, tmdbTvIds } = resolveGenres(rawGenres)
 
+  // Combina keywords (da film TMDb) + tags (da anime/manga AniList) per keyword TMDb lookup
+  // In questo modo anche sorgenti anime/manga trovano film TMDb tramite keyword query
+  const allSourceKeywords = [...new Set([...rawKeywords, ...rawTags])]
+
   // [DEBUG] Input ricevuto
   console.log('[SIMILAR] ── INPUT ──────────────────────────────')
   console.log('[SIMILAR] title:', sourceTitle)
   console.log('[SIMILAR] rawGenres:', rawGenres)
   console.log('[SIMILAR] rawKeywords:', rawKeywords)
   console.log('[SIMILAR] rawTags:', rawTags)
+  console.log('[SIMILAR] allSourceKeywords:', allSourceKeywords)
   console.log('[SIMILAR] igdbGenres:', igdbGenres)
   console.log('[SIMILAR] crossGenres:', crossGenres)
   console.log('[SIMILAR] anilistGenres:', anilistGenres)
   console.log('[SIMILAR] tmdbMovieIds:', tmdbMovieIds)
   console.log('[SIMILAR] tmdbTvIds:', tmdbTvIds)
-
-  // Combina keywords (da film TMDb) + tags (da anime/manga AniList) per keyword TMDb lookup
-  // In questo modo anche sorgenti anime/manga trovano film TMDb tramite keyword query
-  const allSourceKeywords = [...new Set([...rawKeywords, ...rawTags])]
 
   // Keyword IDs TMDb — li risolviamo in parallelo con le altre fetch
   const tmdbKeywordIdsPromise = (tmdbToken && allSourceKeywords.length > 0)
