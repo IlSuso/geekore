@@ -393,7 +393,8 @@ export async function GET(request: NextRequest) {
         console.log('[SIMILAR] tmdbKwIds (movie):', tmdbKwIds)
         // Keyword query PRIMA — così questi item entrano in seenIds con _foundByKeyword=true
         if (tmdbKwIds.length > 0) {
-          const kwParams = new URLSearchParams({ with_keywords: tmdbKwIds.join(','), sort_by: 'vote_average.desc', 'vote_count.gte': '50', language: 'it-IT' })
+          // Usa | (OR) invece di , (AND) — basta che un film abbia UNA delle keyword
+          const kwParams = new URLSearchParams({ with_keywords: tmdbKwIds.join('|'), sort_by: 'vote_average.desc', 'vote_count.gte': '50', language: 'it-IT' })
           const kwRes = await fetch(`${TMDB_BASE}/discover/movie?${kwParams}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
           if (kwRes.ok) {
             const kwJson = await kwRes.json()
@@ -443,7 +444,8 @@ export async function GET(request: NextRequest) {
 
         // Keyword query PRIMA
         if (tmdbKwIds.length > 0) {
-          const kwParams = new URLSearchParams({ with_keywords: tmdbKwIds.join(','), sort_by: 'vote_average.desc', 'vote_count.gte': '30', language: 'it-IT' })
+          // Usa | (OR) — basta che una serie abbia UNA delle keyword
+          const kwParams = new URLSearchParams({ with_keywords: tmdbKwIds.join('|'), sort_by: 'vote_average.desc', 'vote_count.gte': '30', language: 'it-IT' })
           const kwRes = await fetch(`${TMDB_BASE}/discover/tv?${kwParams}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
           if (kwRes.ok) {
             const kwJson = await kwRes.json()
