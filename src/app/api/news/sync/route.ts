@@ -78,7 +78,7 @@ async function fetchAnime(lang: string) {
     const query = `query ($season: MediaSeason, $year: Int) {
       current: Page(perPage: 20) {
         media(type: ANIME, season: $season, seasonYear: $year, sort: POPULARITY_DESC, status: RELEASING) {
-          id title { ${titleField} } coverImage { large }
+          id title { ${titleField} } coverImage { extraLarge large }
           nextAiringEpisode { airingAt episode }
           description(asHtml: false) siteUrl startDate { year month day }
         }
@@ -92,7 +92,7 @@ async function fetchAnime(lang: string) {
     if (!res.ok) return []
     const json = await res.json()
     return (json.data?.current?.media || [])
-      .filter((m: any) => m.coverImage?.large)
+      .filter((m: any) => m.coverImage?.extraLarge || m.coverImage?.large)
       .map((m: any) => {
         const d = m.startDate
         const date = d?.year
@@ -104,7 +104,7 @@ async function fetchAnime(lang: string) {
           description: m.description
             ? m.description.replace(/<[^>]+>/g, '').slice(0, 300)
             : null,
-          coverImage: m.coverImage.large,
+          coverImage: m.coverImage.extraLarge || m.coverImage.large,
           date,
           nextEpisode: m.nextAiringEpisode?.episode,
           category: 'anime',
@@ -132,8 +132,9 @@ async function fetchGaming() {
     const tokenData = await tokenRes.json()
     if (!tokenData.access_token) return []
 
-    const nowUnix       = Math.floor(Date.now() / 1000)
-    const sixMonthsUnix = nowUnix + 6 * 30 * 24 * 3600
+    const nowUnix        = Math.floor(Date.now() / 1000)
+    const thirtyDaysAgo  = nowUnix - 30 * 24 * 3600
+    const sixMonthsUnix  = nowUnix + 6 * 30 * 24 * 3600
 
     const res = await fetch('https://api.igdb.com/v4/games', {
       method: 'POST',
@@ -143,27 +144,40 @@ async function fetchGaming() {
         'Content-Type': 'text/plain',
       },
       body: `
-        fields name, cover.url, first_release_date, summary, slug;
-        where first_release_date > ${nowUnix} & first_release_date < ${sixMonthsUnix} & cover != null;
-        sort first_release_date asc;
-        limit 20;
+        fields name, cover.url, first_release_date, summary, slug, total_rating_count, hypes;
+        where first_release_date > ${thirtyDaysAgo} & first_release_date < ${sixMonthsUnix} & cover != null & category = 0 & (total_rating_count > 5 | hypes > 10 | first_release_date > ${nowUnix - 7 * 24 * 3600});
+        sort first_release_date desc;
+        limit 30;
       `,
     })
     if (!res.ok) return []
     const games = await res.json()
+    const nowSec = Math.floor(Date.now() / 1000)
     return (Array.isArray(games) ? games : [])
       .filter((g: any) => g.cover?.url)
       .map((g: any) => ({
         title: g.name,
         description: g.summary?.slice(0, 300) || null,
-        coverImage: `https:${g.cover.url.replace('t_thumb', 't_cover_big')}`,
+        coverImage: `https:${g.cover.url.replace('t_thumb', 't_cover_big_2x')}`,
         date: g.first_release_date
           ? new Date(g.first_release_date * 1000).toISOString().split('T')[0]
           : null,
         category: 'gaming',
         source: 'IGDB',
         url: `https://www.igdb.com/games/${g.slug || g.name?.toLowerCase().replace(/\s+/g, '-')}`,
+        _releaseTs: g.first_release_date || 0,
+        _popularity: g.total_rating_count || 0,
       }))
+      // Priorità: usciti di recente (ultimi 14gg) prima, poi futuri; a parità ordine per popolarità
+      .sort((a: any, b: any) => {
+        const aRecent = a._releaseTs > 0 && a._releaseTs <= nowSec && a._releaseTs > nowSec - 14 * 24 * 3600
+        const bRecent = b._releaseTs > 0 && b._releaseTs <= nowSec && b._releaseTs > nowSec - 14 * 24 * 3600
+        if (aRecent && !bRecent) return -1
+        if (!aRecent && bRecent) return 1
+        return b._releaseTs - a._releaseTs
+      })
+      .slice(0, 20)
+      .map(({ _releaseTs, _popularity, ...rest }: any) => rest)
   } catch { return [] }
 }
 
