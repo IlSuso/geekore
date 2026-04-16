@@ -27,6 +27,7 @@ export function FollowButton({
     try {
       if (isFollowing) {
         await supabase.from('follows').delete().eq('follower_id', currentUserId).eq('following_id', targetId)
+        await supabase.from('notifications').delete().eq('type', 'follow').eq('sender_id', currentUserId).eq('receiver_id', targetId)
         setIsFollowing(false)
         onFollowChange?.(false)
       } else {

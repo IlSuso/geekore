@@ -131,6 +131,7 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
     if (currentUserId !== authorId && !isOwner) return
     const { error } = await supabase.from('profile_comments').delete().eq('id', commentId)
     if (error) { showToast('Errore nella rimozione', 'error'); return }
+    await supabase.from('notifications').delete().eq('type', 'comment').eq('sender_id', authorId).eq('receiver_id', profileId)
     setComments(prev => prev.filter(c => c.id !== commentId))
     showToast('Commento rimosso')
   }
