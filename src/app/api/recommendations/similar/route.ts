@@ -199,8 +199,8 @@ export async function GET(request: NextRequest) {
   // ── IGDB giochi — generi + themes + keywords ───────────────────────────────
   // Mapping generi cross-media → IGDB per casi non coperti (Horror, Sci-Fi, ecc.)
   const CROSS_TO_IGDB_FALLBACK: Record<string, string> = {
-    'Horror': 'Adventure', 'Thriller': 'Adventure', 'Science Fiction': 'Shooter',
-    'Sci-Fi': 'Shooter', 'Mystery': 'Adventure', 'Psychological': 'Adventure',
+    'Horror': 'Adventure', 'Thriller': 'Adventure', 'Science Fiction': 'Role-playing (RPG)',
+    'Sci-Fi': 'Role-playing (RPG)', 'Mystery': 'Adventure', 'Psychological': 'Adventure',
     'Slice of Life': 'Simulation', 'Romance': 'Simulation', 'Drama': 'Adventure',
     'Fantasy': 'Role-playing (RPG)', 'Comedy': 'Adventure', 'Sports': 'Sport',
     'Crime': 'Adventure', 'War': 'Shooter', 'History': 'Strategy',

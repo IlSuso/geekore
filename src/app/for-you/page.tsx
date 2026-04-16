@@ -878,7 +878,6 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
               onDetail={onDetail}
               isSimilarLoading={similarLoadingId === item.id}
               dismissed={dismissedIds.has(item.id)}
-              showDetails
             />
           ))}
           {hasMore && (
