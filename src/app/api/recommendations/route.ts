@@ -1185,7 +1185,8 @@ function computeMatchScore(
   recTags: string[],
   tasteProfile: TasteProfile,
   recStudios?: string[],
-  recDirectors?: string[]
+  recDirectors?: string[],
+  recType?: string
 ): number {
   if (recGenres.length === 0) return 30
 
