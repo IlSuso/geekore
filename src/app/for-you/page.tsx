@@ -3,7 +3,7 @@
 // V5: Serendipity badge + Award badge + Seasonal badge + Social boost display +
 //     lowConfidence banner + Feedback granulare micro-menu + Anti-ripetizione (recommendations_shown)
 
-import { useState, useEffect, useCallback, memo } from 'react'
+import { useState, useEffect, useCallback, memo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -192,42 +192,62 @@ function DetailModal({ item, onClose, onAdd, onWishlist, addedIds, wishlistIds, 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-      <div className="relative w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-t-3xl sm:rounded-3xl overflow-hidden max-h-[90vh] flex flex-col"
+      <div className="relative w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-t-3xl sm:rounded-3xl overflow-hidden max-h-[92vh] flex flex-col"
         onClick={e => e.stopPropagation()}>
 
-        {/* Cover + gradient header */}
-        <div className="relative h-52 flex-shrink-0">
-          {item.coverImage
-            ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover" />
-            : <div className={`w-full h-full bg-gradient-to-br ${colorClass} flex items-center justify-center`}><Icon size={48} className="text-white/50" /></div>
-          }
-          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent" />
-          <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/80">
-            <X size={16} />
-          </button>
-          {/* Badge tipo */}
-          <div className={`absolute top-4 left-4 bg-gradient-to-r ${colorClass} text-white text-[10px] font-bold px-2 py-0.5 rounded-full`}>
+        {/* Header compatto con X */}
+        <div className="flex items-center justify-between px-5 pt-4 pb-0 flex-shrink-0">
+          <div className={`bg-gradient-to-r ${colorClass} text-white text-[10px] font-bold px-2.5 py-1 rounded-full`}>
             {TYPE_LABEL[item.type]}
           </div>
-          {/* Titolo e anno sull'immagine */}
-          <div className="absolute bottom-4 left-4 right-4">
-            <h2 className="text-xl font-bold text-white leading-tight">{item.title}</h2>
-            <div className="flex items-center gap-3 mt-1 flex-wrap">
-              {item.year && <span className="text-xs text-zinc-400">{item.year}</span>}
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all">
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* Layout: locandina a sinistra + info a destra */}
+        <div className="flex gap-4 px-5 pt-4 pb-3 flex-shrink-0">
+          {/* Locandina verticale */}
+          <div className="flex-shrink-0 w-28 sm:w-32">
+            <div className={`aspect-[2/3] rounded-2xl overflow-hidden bg-zinc-900 ${inWishlist ? 'ring-2 ring-amber-500/50' : ''}`}>
+              {item.coverImage
+                ? <img src={item.coverImage} alt={item.title}
+                    className="w-full h-full object-cover"
+                    style={{ imageRendering: 'auto' }} />
+                : <div className={`w-full h-full bg-gradient-to-br ${colorClass} flex items-center justify-center`}>
+                    <Icon size={32} className="text-white/50" />
+                  </div>
+              }
+            </div>
+          </div>
+
+          {/* Info principali */}
+          <div className="flex-1 min-w-0 flex flex-col justify-start pt-1">
+            <h2 className="text-lg font-bold text-white leading-tight mb-2">{item.title}</h2>
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              {item.year && <span className="text-xs text-zinc-500">{item.year}</span>}
               {item.score && (
                 <span className="flex items-center gap-1 text-xs text-yellow-400 font-semibold">
-                  <Star size={11} fill="currentColor" />{Math.min(item.score, 5).toFixed(1)}
+                  <Star size={10} fill="currentColor" />{Math.min(item.score, 5).toFixed(1)}
                 </span>
               )}
-              <span className="flex items-center gap-1 text-xs text-violet-400 font-semibold">
-                <Star size={11} fill="currentColor" />{item.matchScore}% match
+              <span className="flex items-center gap-1 text-xs font-bold text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded-full">
+                <Star size={10} fill="currentColor" />{item.matchScore}%
               </span>
             </div>
+            {/* Generi */}
+            {item.genres.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {item.genres.slice(0, 4).map(g => (
+                  <span key={g} className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full">{g}</span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Contenuto scrollabile */}
-        <div className="overflow-y-auto flex-1 p-5 space-y-4">
+        <div className="overflow-y-auto flex-1 px-5 pb-2 space-y-4">
 
           {/* Perché te lo consigliamo */}
           <div className="bg-violet-500/10 border border-violet-500/20 rounded-2xl px-4 py-3">
@@ -756,79 +776,164 @@ const HeroMatchSection = memo(function HeroMatchSection({ items, onAdd, onWishli
 })
 
 // Sezione "Simili a X" — persiste finché l'utente non la chiude o cerca un altro simile
-// Barra di ricerca libera per "Trova titoli simili a..."
-// Usa TMDB search per trovare il titolo, poi prende i generi e chiama /api/recommendations/similar
-function SimilarSearchBar({ onSearch, loading }: { onSearch: (title: string, genres: string[]) => void; loading: boolean }) {
+// Barra di ricerca "Trova titoli simili a..." — stile identico alla navbar
+// Cerca in tutte le API (AniList, TMDb, IGDB, BGG) e poi usa i generi per /api/recommendations/similar
+const TYPE_LABEL_SEARCH: Record<string, string> = {
+  anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV',
+  game: 'Gioco', boardgame: 'Board Game',
+}
+
+interface SearchSuggestion {
+  id: string; title: string; type: string
+  genres?: string[]; year?: number; coverImage?: string
+  description?: string
+}
+
+function SimilarSearchBar({ onSearch, loading }: {
+  onSearch: (title: string, genres: string[]) => void
+  loading: boolean
+}) {
   const [query, setQuery] = useState('')
-  const [suggestions, setSuggestions] = useState<{ id: string; title: string; type: string; genres: string[]; year?: number; cover?: string }[]>([])
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([])
   const [searching, setSearching] = useState(false)
-  const debounceRef = { current: null as ReturnType<typeof setTimeout> | null }
+  const [open, setOpen] = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Chiudi dropdown se si clicca fuori
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   const fetchSuggestions = async (q: string) => {
-    if (q.length < 2) { setSuggestions([]); return }
+    if (q.trim().length < 2) { setSuggestions([]); setOpen(false); return }
     setSearching(true)
     try {
-      const res = await fetch(`/api/search/suggestions?q=${encodeURIComponent(q)}&types=movie,tv,anime`)
-      if (res.ok) {
-        const json = await res.json()
-        setSuggestions((json.results || []).slice(0, 6))
+      // Chiama tutte le API in parallelo — stesse della discover
+      const [anilistRes, tmdbRes, igdbRes, bggRes] = await Promise.allSettled([
+        fetch(`/api/anilist?q=${encodeURIComponent(q)}`),
+        fetch(`/api/tmdb?q=${encodeURIComponent(q)}&type=all&lang=it-IT`),
+        fetch(`/api/igdb?q=${encodeURIComponent(q)}`),
+        fetch(`/api/boardgames?q=${encodeURIComponent(q)}`),
+      ])
+
+      const all: SearchSuggestion[] = []
+
+      if (anilistRes.status === 'fulfilled' && anilistRes.value.ok) {
+        const j = await anilistRes.value.json()
+        for (const r of (j.results || j.data || []).slice(0, 3)) {
+          all.push({ id: r.id || r.external_id, title: r.title, type: r.type || 'anime', genres: r.genres, year: r.year, coverImage: r.coverImage || r.cover_image })
+        }
       }
+      if (tmdbRes.status === 'fulfilled' && tmdbRes.value.ok) {
+        const j = await tmdbRes.value.json()
+        for (const r of (j.results || j.data || []).slice(0, 3)) {
+          all.push({ id: r.id || r.external_id, title: r.title, type: r.type || 'movie', genres: r.genres, year: r.year, coverImage: r.coverImage || r.cover_image, description: r.description })
+        }
+      }
+      if (igdbRes.status === 'fulfilled' && igdbRes.value.ok) {
+        const j = await igdbRes.value.json()
+        for (const r of (j.results || j.data || []).slice(0, 2)) {
+          all.push({ id: r.id || r.external_id, title: r.title, type: 'game', genres: r.genres, year: r.year, coverImage: r.coverImage || r.cover_image })
+        }
+      }
+      if (bggRes.status === 'fulfilled' && bggRes.value.ok) {
+        const j = await bggRes.value.json()
+        for (const r of (j.results || j.data || []).slice(0, 2)) {
+          all.push({ id: r.id || r.external_id, title: r.title, type: 'boardgame', genres: r.genres, year: r.year, coverImage: r.coverImage || r.cover_image })
+        }
+      }
+
+      setSuggestions(all.slice(0, 8))
+      setOpen(all.length > 0)
     } catch {}
     setSearching(false)
   }
 
   const handleChange = (v: string) => {
     setQuery(v)
+    setOpen(false)
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => fetchSuggestions(v), 350)
+    debounceRef.current = setTimeout(() => fetchSuggestions(v), 320)
   }
 
-  const handleSelect = (s: { title: string; genres: string[] }) => {
+  const handleSelect = (s: SearchSuggestion) => {
     setQuery(s.title)
+    setOpen(false)
     setSuggestions([])
-    onSearch(s.title, s.genres)
+    const genres = s.genres?.filter(Boolean) || []
+    onSearch(s.title, genres)
   }
 
-  const handleSubmit = () => {
-    if (!query.trim()) return
+  const handleClear = () => {
+    setQuery('')
     setSuggestions([])
-    // Generi generici se non troviamo il titolo
-    onSearch(query.trim(), ['Drama', 'Adventure'])
+    setOpen(false)
   }
 
   return (
-    <div className="relative mb-6">
-      <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-700 rounded-2xl px-4 py-3 focus-within:border-violet-500/50 transition-all">
-        <Search size={16} className="text-zinc-500 flex-shrink-0" />
+    <div ref={containerRef} className="relative mb-6">
+      {/* Input — stile identico alla navbar */}
+      <div className="relative">
+        <Search
+          size={14}
+          className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${searching || loading ? 'text-violet-400 animate-pulse' : 'text-zinc-500'}`}
+        />
         <input
           value={query}
           onChange={e => handleChange(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-          placeholder="Cerca un titolo per trovare simili… es. Forrest Gump"
-          className="flex-1 bg-transparent text-sm text-white placeholder-zinc-600 outline-none"
+          onFocus={() => suggestions.length > 0 && setOpen(true)}
+          onKeyDown={e => {
+            if (e.key === 'Escape') { setOpen(false); return }
+            if (e.key === 'Enter' && query.trim().length >= 2) {
+              setOpen(false)
+              if (suggestions.length > 0) handleSelect(suggestions[0])
+              else onSearch(query.trim(), [])
+            }
+          }}
+          placeholder="Cerca un titolo per trovare contenuti simili…"
+          className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl pl-9 pr-8 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
         />
-        {(searching || loading) && <RefreshCw size={14} className="text-zinc-500 animate-spin flex-shrink-0" />}
-        {query && !loading && (
-          <button onClick={() => { setQuery(''); setSuggestions([]) }} className="text-zinc-600 hover:text-zinc-400">
-            <X size={14} />
+        {query && (
+          <button onClick={handleClear} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors">
+            <X size={13} />
           </button>
         )}
       </div>
-      {suggestions.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-700 rounded-2xl overflow-hidden z-20 shadow-xl">
-          {suggestions.map(s => (
-            <button key={s.id} onClick={() => handleSelect(s)}
-              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-800 transition-colors text-left">
-              {s.cover
-                ? <img src={s.cover} alt="" className="w-8 h-10 object-cover rounded-lg flex-shrink-0" />
-                : <div className="w-8 h-10 bg-zinc-800 rounded-lg flex-shrink-0" />
-              }
+
+      {/* Dropdown suggerimenti — stile identico alla navbar */}
+      {open && suggestions.length > 0 && (
+        <div className="absolute top-full left-0 w-full mt-2 bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl shadow-black/50 z-[110]">
+          {suggestions.map((s, i) => (
+            <button key={`${s.id}-${i}`} onClick={() => handleSelect(s)}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-800 transition-colors border-b border-zinc-800/50 last:border-0 text-left">
+              {/* Copertina */}
+              <div className="w-8 h-11 rounded-xl overflow-hidden bg-zinc-800 flex-shrink-0">
+                {s.coverImage
+                  ? <img src={s.coverImage} alt="" className="w-full h-full object-cover" />
+                  : <div className="w-full h-full" />
+                }
+              </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-white font-medium truncate">{s.title}</p>
-                <p className="text-[10px] text-zinc-500">{s.type}{s.year ? ` · ${s.year}` : ''}</p>
+                <p className="text-sm font-semibold text-white leading-tight truncate">{s.title}</p>
+                <p className="text-xs text-violet-400">
+                  {TYPE_LABEL_SEARCH[s.type] || s.type}{s.year ? ` · ${s.year}` : ''}
+                </p>
               </div>
             </button>
           ))}
+        </div>
+      )}
+
+      {open && query.length >= 2 && suggestions.length === 0 && !searching && (
+        <div className="absolute top-full left-0 w-full mt-2 bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-zinc-500 shadow-2xl z-[110]">
+          Nessun risultato trovato
         </div>
       )}
     </div>
@@ -990,14 +1095,15 @@ const DiscoverySection = memo(function DiscoverySection({ items, onAdd, onWishli
           <p className="text-[10px] text-zinc-500">{visible.length} titoli fuori dal tuo solito — potrebbe sorprenderti</p>
         </div>
       </div>
-      <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
         {shown.map(item => {
           const Icon = TYPE_ICONS[item.type]
           const isAdded = addedIds.has(item.id)
           const isAdding = addingIds.has(item.id)
           return (
-            <div key={item.id} className="flex-shrink-0 w-36 group">
-              <div className="relative h-52 rounded-2xl overflow-hidden bg-zinc-900 mb-2 ring-2 ring-emerald-500/40 ring-offset-2 ring-offset-black">
+            <div key={item.id} className="group">
+              <div className="relative aspect-[2/3] rounded-2xl overflow-hidden bg-zinc-900 mb-2 ring-2 ring-emerald-500/40 ring-offset-2 ring-offset-black cursor-pointer"
+                onClick={() => onDetail?.(item)}>
                 {item.coverImage
                   ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" />
                   : <div className="w-full h-full flex items-center justify-center"><Icon size={32} className="text-zinc-700" /></div>
