@@ -69,10 +69,7 @@ async function fetchAnime(lang: string) {
   const year  = new Date().getFullYear()
   const season = month <= 3 ? 'WINTER' : month <= 6 ? 'SPRING' : month <= 9 ? 'SUMMER' : 'FALL'
 
-  // In EN mode prefer english title, fallback to romaji
-  const titleField = lang === 'en'
-    ? 'romaji english'
-    : 'romaji'
+  const titleField = lang === 'en' ? 'romaji english' : 'romaji'
 
   try {
     const query = `query ($season: MediaSeason, $year: Int) {
@@ -132,36 +129,64 @@ async function fetchGaming() {
     const tokenData = await tokenRes.json()
     if (!tokenData.access_token) return []
 
-    const nowUnix        = Math.floor(Date.now() / 1000)
-    const thirtyDaysAgo  = nowUnix - 30 * 24 * 3600
+    const nowUnix         = Math.floor(Date.now() / 1000)
+    const sixtyDaysAgo    = nowUnix - 60 * 24 * 3600
     const fourMonthsAhead = nowUnix + 4 * 30 * 24 * 3600
 
-    const res = await fetch('https://api.igdb.com/v4/games', {
+    const igdbFetch = (body: string) => fetch('https://api.igdb.com/v4/games', {
       method: 'POST',
       headers: {
         'Client-ID': clientId,
         'Authorization': `Bearer ${tokenData.access_token}`,
         'Content-Type': 'text/plain',
       },
-      body: `
-        fields name, cover.url, first_release_date, summary, slug, total_rating_count, hypes, rating, follows;
-        where first_release_date > ${thirtyDaysAgo}
+      body,
+    })
+
+    const [resReleased, resUpcoming] = await Promise.all([
+      // Giochi usciti negli ultimi 60 giorni: filtra per popularity (metrica affidabile)
+      igdbFetch(`
+        fields name, cover.url, first_release_date, summary, slug, total_rating_count, popularity;
+        where first_release_date > ${sixtyDaysAgo}
+          & first_release_date <= ${nowUnix}
+          & cover != null
+          & category = 0
+          & popularity > 5;
+        sort popularity desc;
+        limit 20;
+      `),
+      // Prossime uscite: filtra per hypes/follows
+      igdbFetch(`
+        fields name, cover.url, first_release_date, summary, slug, hypes, follows;
+        where first_release_date > ${nowUnix}
           & first_release_date < ${fourMonthsAhead}
           & cover != null
           & category = 0
-          & (
-            total_rating_count > 50
-            | hypes > 30
-            | follows > 100
-          );
+          & (hypes > 20 | follows > 50);
         sort hypes desc;
-        limit 40;
-      `,
+        limit 20;
+      `),
+    ])
+
+    const [releasedData, upcomingData] = await Promise.all([
+      resReleased.ok ? resReleased.json() : [],
+      resUpcoming.ok ? resUpcoming.json() : [],
+    ])
+
+    const combined = [
+      ...(Array.isArray(releasedData) ? releasedData.map((g: any) => ({ ...g, _group: 'released' })) : []),
+      ...(Array.isArray(upcomingData) ? upcomingData.map((g: any) => ({ ...g, _group: 'upcoming' })) : []),
+    ]
+
+    // Deduplica per id
+    const seen = new Set()
+    const games = combined.filter((g: any) => {
+      if (seen.has(g.id)) return false
+      seen.add(g.id)
+      return true
     })
-    if (!res.ok) return []
-    const games = await res.json()
-    const nowSec = Math.floor(Date.now() / 1000)
-    return (Array.isArray(games) ? games : [])
+
+    return games
       .filter((g: any) => g.cover?.url)
       .map((g: any) => ({
         title: g.name,
@@ -173,24 +198,16 @@ async function fetchGaming() {
         category: 'gaming',
         source: 'IGDB',
         url: `https://www.igdb.com/games/${g.slug || g.name?.toLowerCase().replace(/\s+/g, '-')}`,
-        _releaseTs: g.first_release_date || 0,
-        _popularity: g.total_rating_count || 0,
-        _hypes: g.hypes || 0,
+        _group: g._group,
       }))
-      // Priorità: usciti di recente (ultimi 14gg) prima, poi futuri; a parità ordine per popolarità
+      // Rilasciati prima (ordinati per popularity dalla query), poi upcoming (per hypes)
       .sort((a: any, b: any) => {
-        const aReleased = a._releaseTs > 0 && a._releaseTs <= nowSec
-        const bReleased = b._releaseTs > 0 && b._releaseTs <= nowSec
-        // Rilasciati vs futuri: prima i recenti
-        if (aReleased && !bReleased) return -1
-        if (!aReleased && bReleased) return 1
-        // Tra i futuri: ordina per hypes desc
-        if (!aReleased && !bReleased) return (b._hypes || 0) - (a._hypes || 0)
-        // Tra i rilasciati: ordina per rating count desc (più recensioni = più importante)
-        return (b._popularity || 0) - (a._popularity || 0)
+        if (a._group === 'released' && b._group !== 'released') return -1
+        if (a._group !== 'released' && b._group === 'released') return 1
+        return 0
       })
       .slice(0, 20)
-      .map(({ _releaseTs, _popularity, _hypes, ...rest }: any) => rest)
+      .map(({ _group, ...rest }: any) => rest)
   } catch { return [] }
 }
 
@@ -202,13 +219,13 @@ async function runSync(lang: 'it' | 'en') {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const suffix = `_${lang}` // es. cinema_it, cinema_en
+  const suffix = `_${lang}`
 
   const [cinema, tv, anime, gaming] = await Promise.all([
     fetchCinema(lang),
     fetchTV(lang),
     fetchAnime(lang),
-    fetchGaming(),       // IGDB sempre in EN, condiviso
+    fetchGaming(),
   ])
 
   const now = new Date().toISOString()

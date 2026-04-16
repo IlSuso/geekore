@@ -756,6 +756,16 @@ const HeroMatchSection = memo(function HeroMatchSection({ items, onAdd, onWishli
 })
 
 // Sezione "Simili a X" — persiste finché l'utente non la chiude o cerca un altro simile
+const SIMILAR_TYPE_FILTERS: Array<{ key: MediaType | 'all'; label: string }> = [
+  { key: 'all',       label: 'Tutti' },
+  { key: 'anime',     label: 'Anime' },
+  { key: 'movie',     label: 'Film' },
+  { key: 'tv',        label: 'Serie TV' },
+  { key: 'game',      label: 'Giochi' },
+  { key: 'manga',     label: 'Manga' },
+  { key: 'boardgame', label: 'Boardgame' },
+]
+
 const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, items, onAdd, onWishlist, onFeedback, onSimilar, onDetail, onClose, addedIds, addingIds, wishlistIds, dismissedIds, similarLoadingId }: {
   sourceTitle: string
   sourceType: MediaType
@@ -773,36 +783,74 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
   similarLoadingId?: string | null
 }) {
   const [visibleCount, setVisibleCount] = useState(15)
-  const Icon = TYPE_ICONS[sourceType]
-  const colorClass = TYPE_COLORS[sourceType]
-  const visible = items.filter(i => !dismissedIds.has(i.id))
-  const shown = visible.slice(0, visibleCount)
-  const hasMore = visible.length > visibleCount
+  const [typeFilter, setTypeFilter] = useState<MediaType | 'all'>('all')
+
+  // Tipi effettivamente presenti nei risultati
+  const presentTypes = new Set(items.map(i => i.type))
+  const activeFilters = SIMILAR_TYPE_FILTERS.filter(f => f.key === 'all' || presentTypes.has(f.key as MediaType))
+
+  const filtered = typeFilter === 'all'
+    ? items.filter(i => !dismissedIds.has(i.id))
+    : items.filter(i => i.type === typeFilter && !dismissedIds.has(i.id))
+
+  const shown = filtered.slice(0, visibleCount)
+  const hasMore = filtered.length > visibleCount
+
+  // Reset visibleCount quando cambia il filtro
+  const handleFilterChange = (key: MediaType | 'all') => {
+    setTypeFilter(key)
+    setVisibleCount(15)
+  }
 
   return (
     <div className="mb-10 rounded-3xl border border-violet-500/30 bg-violet-500/5 p-5">
-      {/* Header con X di chiusura */}
+
+      {/* Header */}
       <div className="flex items-center gap-3 mb-4">
-        <div className={`w-8 h-8 bg-gradient-to-br ${colorClass} rounded-xl flex items-center justify-center shadow-lg flex-shrink-0`}>
-          <Icon size={16} className="text-white" />
+        <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+          <Search size={15} className="text-white" />
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="text-sm font-bold text-white truncate">
-            {TYPE_LABEL[sourceType]} simili a
-            <span className="text-violet-300 ml-1">"{sourceTitle}"</span>
+          <h2 className="text-sm font-bold text-white">
+            Titoli simili a <span className="text-violet-300">"{sourceTitle}"</span>
           </h2>
-          <p className="text-[10px] text-zinc-500">{visible.length} titoli trovati</p>
+          <p className="text-[10px] text-zinc-500">
+            {filtered.length} {filtered.length === items.filter(i => !dismissedIds.has(i.id)).length ? 'titoli trovati' : `di ${items.filter(i => !dismissedIds.has(i.id)).length} totali`}
+          </p>
         </div>
-        <button
-          onClick={onClose}
-          className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all"
+        <button onClick={onClose}
+          className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all"
           title="Chiudi">
           <X size={15} />
         </button>
       </div>
 
-      {visible.length === 0 ? (
-        <p className="text-sm text-zinc-500 text-center py-6">Nessun titolo simile trovato.</p>
+      {/* Filtri per tipo — pill scrollabili */}
+      {activeFilters.length > 2 && (
+        <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide mb-4">
+          {activeFilters.map(({ key, label }) => {
+            const count = key === 'all'
+              ? items.filter(i => !dismissedIds.has(i.id)).length
+              : items.filter(i => i.type === key && !dismissedIds.has(i.id)).length
+            const isActive = typeFilter === key
+            return (
+              <button key={key} onClick={() => handleFilterChange(key)}
+                className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                  isActive
+                    ? 'bg-violet-600 border-violet-500 text-white'
+                    : 'bg-zinc-800/60 border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300'
+                }`}>
+                {key !== 'all' && <span className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${TYPE_COLORS[key as MediaType]}`} />}
+                {label}
+                <span className={`text-[10px] ${isActive ? 'text-violet-200' : 'text-zinc-600'}`}>{count}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
+        <p className="text-sm text-zinc-500 text-center py-6">Nessun titolo trovato per questo filtro.</p>
       ) : (
         <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
           {shown.map(item => (
@@ -828,7 +876,7 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
                 <div className="w-10 h-10 rounded-full border border-zinc-700 hover:border-zinc-500 flex items-center justify-center">
                   <ChevronDown size={18} />
                 </div>
-                <span className="text-[10px]">+{visible.length - visibleCount} altri</span>
+                <span className="text-[10px]">+{filtered.length - visibleCount} altri</span>
               </button>
             </div>
           )}
@@ -1454,12 +1502,14 @@ export default function ForYouPage() {
     setSimilarLoading(item.id)
     showToast(`Cercando titoli simili a "${item.title}"…`)
     const genres = item.genres.slice(0, 3).join(',')
-    const res = await fetch(`/api/recommendations?type=${item.type}&similar_to_id=${item.id}&similar_to_genres=${encodeURIComponent(genres)}&refresh=1`)
+    const res = await fetch(`/api/recommendations?type=all&similar_to_id=${item.id}&similar_to_genres=${encodeURIComponent(genres)}&refresh=1`)
     if (res.ok) {
       const json = await res.json()
-      const typeRecs: Recommendation[] = json.recommendations?.[item.type] || []
-      // Escludi il titolo sorgente dalla lista
-      const filtered = typeRecs.filter(r => r.id !== item.id)
+      // Unisci tutti i tipi in una lista piatta, escludi il titolo sorgente
+      const allRecs: Recommendation[] = Object.values(json.recommendations || {}).flat() as Recommendation[]
+      const filtered = allRecs.filter(r => r.id !== item.id)
+      // Ordina per matchScore
+      filtered.sort((a, b) => b.matchScore - a.matchScore)
       setSimilarSection({ sourceTitle: item.title, sourceType: item.type, items: filtered })
       // Scroll smooth verso l'inizio della pagina per mostrare la sezione
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -1608,6 +1658,7 @@ export default function ForYouPage() {
             {tasteProfile && <DNAWidget tasteProfile={tasteProfile} totalEntries={totalEntries} />}
             {similarSection && (
               <SimilarSection
+                key={similarSection.sourceTitle}
                 sourceTitle={similarSection.sourceTitle}
                 sourceType={similarSection.sourceType}
                 items={similarSection.items}
