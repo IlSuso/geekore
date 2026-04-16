@@ -145,12 +145,13 @@ function resolveGenres(rawGenres: string[]) {
 }
 
 // Lookup TMDb keyword IDs da stringhe — restituisce array di ID numerici
+// Restituisce gli ID nell'ORDINE del'input (slot per slot) — necessario per AND query
 async function resolveTmdbKeywordIds(keywords: string[], token: string): Promise<number[]> {
   if (!keywords.length) return []
-  const ids: number[] = []
   const toResolve = keywords.slice(0, 8)
+  const slots: (number | null)[] = new Array(toResolve.length).fill(null)
   console.log('[SIMILAR] resolveTmdbKeywordIds: querying', toResolve)
-  await Promise.allSettled(toResolve.map(async (kw) => {
+  await Promise.allSettled(toResolve.map(async (kw, i) => {
     try {
       const res = await fetch(
         `${TMDB_BASE}/search/keyword?query=${encodeURIComponent(kw)}&page=1`,
@@ -160,11 +161,12 @@ async function resolveTmdbKeywordIds(keywords: string[], token: string): Promise
       const json = await res.json()
       const first = json.results?.[0]
       console.log('[SIMILAR]  kw:', JSON.stringify(kw), '→', first ? `id=${first.id} name="${first.name}"` : 'no match')
-      if (first?.id) ids.push(first.id)
+      if (first?.id) slots[i] = first.id
     } catch (e) { console.log('[SIMILAR]  kw:', JSON.stringify(kw), '→ error:', e) }
   }))
-  console.log('[SIMILAR] resolveTmdbKeywordIds result:', ids)
-  return ids
+  const ordered = slots.filter((id): id is number => id !== null)
+  console.log('[SIMILAR] resolveTmdbKeywordIds result (ordered):', ordered)
+  return ordered
 }
 
 export async function GET(request: NextRequest) {
@@ -406,25 +408,28 @@ export async function GET(request: NextRequest) {
           [...new Set(ids.map((id: number) => TMDB_MOVIE_ID_TO_GENRE[id]).filter(Boolean) as string[])]
 
         console.log('[SIMILAR] tmdbKwIds (movie):', tmdbKwIds)
-        // Keyword query PRIMA — così questi item entrano in seenIds con _foundByKeyword=true
+        // Keyword query PRIMA — AND sui primi 2 keyword (ordinati come input) per precisione massima
+        // Es. "space travel"(3801) AND "space mission"(4040) → solo veri film di missione spaziale
         if (tmdbKwIds.length > 0) {
-          // Usa | (OR) invece di , (AND) — basta che un film abbia UNA delle keyword
-          const kwParams = new URLSearchParams({ with_keywords: tmdbKwIds.join('|'), sort_by: 'vote_average.desc', 'vote_count.gte': '50', language: 'it-IT' })
+          const andKwIds = tmdbKwIds.slice(0, 2)  // AND: deve avere ENTRAMBI i keyword principali
+          const andKwStrings = thematicKeywords.slice(0, andKwIds.length)  // le stringhe corrispondenti
+          const kwParams = new URLSearchParams({ with_keywords: andKwIds.join(','), sort_by: 'vote_average.desc', 'vote_count.gte': '50', language: 'it-IT' })
           const kwRes = await fetch(`${TMDB_BASE}/discover/movie?${kwParams}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
           if (kwRes.ok) {
             const kwJson = await kwRes.json()
-            console.log('[SIMILAR] TMDb movie kw discover returned:', kwJson.results?.length ?? 0, 'results, total_results:', kwJson.total_results)
+            console.log('[SIMILAR] TMDb movie kw discover returned:', kwJson.results?.length ?? 0, 'results (AND:', andKwIds.join(','), ')')
             for (const m of (kwJson.results || []).slice(0, 20)) {
               if (NICHE_LANGS.has(m.original_language || '')) continue
               const id = m.id.toString()
               const recGenres = movieGenres(m.genre_ids || [])
+              // Assegna SOLO i keyword AND (garantiti dall'AND discover — non tutti i source keyword)
               add({ id, title: m.title || '', type: 'movie',
                 coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
                 year: m.release_date ? new Date(m.release_date).getFullYear() : undefined,
-                genres: recGenres, keywords: allSourceKeywords,
+                genres: recGenres, keywords: andKwStrings,
                 score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
                 description: m.overview ? m.overview.slice(0, 200) : undefined,
-                matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres, allSourceKeywords),
+                matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres, andKwStrings),
                 _foundByKeyword: true, _pop: m.popularity || 0 })
             }
           }
@@ -461,8 +466,10 @@ export async function GET(request: NextRequest) {
 
         // Keyword query PRIMA
         if (tmdbKwIds.length > 0) {
-          // Usa | (OR) — basta che una serie abbia UNA delle keyword
-          const kwParams = new URLSearchParams({ with_keywords: tmdbKwIds.join('|'), sort_by: 'vote_average.desc', 'vote_count.gte': '30', language: 'it-IT' })
+          // AND sui primi 2 keyword per precisione (stesso approccio dei film)
+          const andKwIds = tmdbKwIds.slice(0, 2)
+          const andKwStrings = thematicKeywords.slice(0, andKwIds.length)
+          const kwParams = new URLSearchParams({ with_keywords: andKwIds.join(','), sort_by: 'vote_average.desc', 'vote_count.gte': '30', language: 'it-IT' })
           const kwRes = await fetch(`${TMDB_BASE}/discover/tv?${kwParams}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
           if (kwRes.ok) {
             const kwJson = await kwRes.json()
@@ -473,11 +480,11 @@ export async function GET(request: NextRequest) {
               add({ id, title: m.name || '', type: 'tv',
                 coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
                 year: m.first_air_date ? new Date(m.first_air_date).getFullYear() : undefined,
-                genres: recGenres, keywords: allSourceKeywords,
+                genres: recGenres, keywords: andKwStrings,
                 score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
                 description: m.overview ? m.overview.slice(0, 200) : undefined,
                 episodes: m.number_of_episodes ?? undefined,
-                matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres, allSourceKeywords),
+                matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres, andKwStrings),
                 _foundByKeyword: true, _pop: m.popularity || 0 })
             }
           }
@@ -591,8 +598,8 @@ export async function GET(request: NextRequest) {
     const genreMatched = itemGenres.filter(g => sourceGenresSet.has(g))
 
     const scoreBonus = item.score ? item.score / 5 : 0  // 0–1
-    // Bonus per item trovati via keyword query (TMDb non restituisce le keywords dell'item)
-    const kwQueryBoost = item._foundByKeyword ? 3 : 0
+    // Bonus per item trovati via keyword AND query (hanno keyword che matchano direttamente la sorgente)
+    const kwQueryBoost = item._foundByKeyword ? 6 : 0
 
     // Score interno per ordinamento: keywords >> genres
     const similarity = exactMatched.length * 5 + partialMatched.length * 1 + genreMatched.length * 1 + scoreBonus + kwQueryBoost
