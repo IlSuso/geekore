@@ -133,6 +133,8 @@ interface Recommendation {
   year?: number
   genres: string[]
   tags?: string[]
+  keywords?: string[]
+  recStudios?: string[]
   score?: number
   description?: string
   why: string
