@@ -127,13 +127,64 @@ export async function POST(request: NextRequest) {
     entry_count: action === 'status_change' && status === 'completed' ? entryCount + 1 : entryCount,
   }, { onConflict: 'user_id' })
 
-  // Invalida cache del tipo coinvolto (non tutta)
+  // Fix 3.2: invalida sia recommendations_cache che recommendations_pool per il tipo coinvolto
+  // Così la prossima visita alla pagina "Per Te" vede il profilo aggiornato, non la cache stale
   if (mediaType) {
+    await Promise.all([
+      supabase
+        .from('recommendations_cache')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('media_type', mediaType),
+      supabase
+        .from('recommendations_pool')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('media_type', mediaType),
+    ])
+  }
+
+  // Invalida anche per azioni che toccano il profilo in modo cross-type
+  // (rating alto o dropped → possono cambiare i generi dominanti globali)
+  if (action === 'rating' && delta && Math.abs(delta) >= 8) {
+    // Rating molto impattante → svuota tutto il pool per forzare rigenerazione completa
     await supabase
-      .from('recommendations_cache')
+      .from('recommendations_pool')
       .delete()
       .eq('user_id', user.id)
-      .eq('media_type', mediaType)
+  }
+
+  // Fix 3.1: snapshot settimanale del profilo in user_taste_history
+  // Solo se il delta è significativo (non per ogni piccola modifica)
+  if (Math.abs(delta) >= 5) {
+    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
+    const { data: lastSnapshot } = await supabase
+      .from('user_taste_history')
+      .select('created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const shouldSnapshot = !lastSnapshot || lastSnapshot.created_at < weekAgo
+    if (shouldSnapshot) {
+      // Leggi il profilo completo appena aggiornato
+      const { data: fullProfile } = await supabase
+        .from('user_taste_profile')
+        .select('genre_scores, negative_genres, entry_count')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (fullProfile) {
+        await supabase.from('user_taste_history').insert({
+          user_id: user.id,
+          genre_scores: fullProfile.genre_scores,
+          negative_genres: fullProfile.negative_genres,
+          entry_count: fullProfile.entry_count,
+          snapshot_at: new Date().toISOString(),
+        })
+      }
+    }
   }
 
   return NextResponse.json({ ok: true, delta }, { headers: rl.headers })

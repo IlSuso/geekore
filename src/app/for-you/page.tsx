@@ -3,7 +3,7 @@
 // V5: Serendipity badge + Award badge + Seasonal badge + Social boost display +
 //     lowConfidence banner + Feedback granulare micro-menu + Anti-ripetizione (recommendations_shown)
 
-import { useState, useEffect, useCallback, memo, useRef } from 'react'
+import { useState, useEffect, useCallback, memo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -21,13 +21,12 @@ import { SkeletonForYouRow, SkeletonFriendsWatching } from '@/components/ui/Skel
 import { SimilarTasteFriends } from '@/components/social/SimilarTasteFriends'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
-import { PullWrapper } from '@/components/ui/PullWrapper'
 
 // V5: Tipi per feedback granulare
 type FeedbackAction = 'not_interested' | 'already_seen' | 'added' | 'wishlist_add';
 type FeedbackReason = 'too_similar' | 'not_my_genre' | 'already_know' | 'bad_rec' | undefined;
 
-type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game'
+type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame'
 type Mood = 'light' | 'intense' | 'deep' | null
 
 interface Recommendation {
@@ -43,6 +42,8 @@ interface Recommendation {
   isAwardWinner?: boolean
   isSeasonal?: boolean
   socialBoost?: string
+  // Fix 2.9: amico ad alta similarità che sta guardando questo
+  friendWatching?: string
 }
 
 interface TasteProfile {
@@ -72,6 +73,7 @@ interface TasteProfile {
 interface FriendActivity {
   userId: string; username: string; displayName?: string; avatarUrl?: string
   mediaId: string; mediaTitle: string; mediaCover?: string; mediaType: string; updatedAt: string
+  isHighSim?: boolean; simScore?: number  // Fix 2.9
 }
 
 const ANIME_GENRES = ['Action','Adventure','Comedy','Drama','Fantasy','Horror','Mystery','Romance','Sci-Fi','Slice of Life','Sports','Supernatural','Thriller','Psychological']
@@ -79,9 +81,9 @@ const MANGA_GENRES = [...ANIME_GENRES,'Shounen','Seinen','Shoujo','Josei']
 const GAME_GENRES = ['Action','Adventure','RPG','Strategy','Simulation','Sports','Racing','Shooter','Puzzle','Horror','Platformer','Fighting','Stealth','Sandbox']
 const MOVIE_GENRES = ['Action','Adventure','Animation','Comedy','Crime','Documentary','Drama','Fantasy','History','Horror','Mystery','Romance','Science Fiction','Thriller','War']
 const TV_GENRES = [...MOVIE_GENRES,'Reality','Talk']
-const TYPE_ICONS: Record<MediaType, React.ElementType> = { anime: Tv, manga: BookOpen, game: Gamepad2, movie: Film, tv: Tv }
-const TYPE_COLORS: Record<MediaType, string> = { anime: 'from-violet-500 to-purple-500', manga: 'from-pink-500 to-rose-500', game: 'from-green-500 to-emerald-500', movie: 'from-amber-500 to-orange-500', tv: 'from-cyan-500 to-blue-500' }
-const TYPE_LABEL: Record<MediaType, string> = { anime: 'Anime', manga: 'Manga', game: 'Gioco', movie: 'Film', tv: 'Serie TV' }
+const TYPE_ICONS: Record<MediaType, React.ElementType> = { anime: Tv, manga: BookOpen, game: Gamepad2, movie: Film, tv: Tv, boardgame: Dice5 }
+const TYPE_COLORS: Record<MediaType, string> = { anime: 'from-violet-500 to-purple-500', manga: 'from-pink-500 to-rose-500', game: 'from-green-500 to-emerald-500', movie: 'from-amber-500 to-orange-500', tv: 'from-cyan-500 to-blue-500', boardgame: 'from-yellow-500 to-amber-500' }
+const TYPE_LABEL: Record<MediaType, string> = { anime: 'Anime', manga: 'Manga', game: 'Gioco', movie: 'Film', tv: 'Serie TV', boardgame: 'Board Game' }
 
 // V3: fire-and-forget taste delta update
 function triggerTasteDelta(options: {
@@ -140,19 +142,47 @@ const MOODS = [
   { id: 'deep' as Mood, label: 'Profondo', Icon: Brain, desc: 'Drama, psicologico, mistero' },
 ]
 
-function MoodSelector({ mood, onChange }: { mood: Mood; onChange: (m: Mood) => void }) {
+// Fix 2.3: MoodSelector come bottom sheet — risparmia ~120px verticali
+function MoodPill({ mood, onClick }: { mood: Mood; onClick: () => void }) {
+  const active = MOODS.find(m => m.id === mood)
   return (
-    <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-5 mb-8">
-      <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-3">Che umore sei oggi?</p>
-      <div className="flex gap-3">
-        {MOODS.map(m => (
-          <button key={m.id} onClick={() => onChange(mood === m.id ? null : m.id)}
-            className={`flex-1 flex flex-col items-center gap-1.5 py-3 px-2 rounded-2xl border text-center transition-all ${mood === m.id ? 'bg-violet-600/20 border-violet-500/50 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-600'}`}>
-            <m.Icon size={22} className="opacity-80" />
-            <span className="text-xs font-semibold">{m.label}</span>
-            <span className="text-[10px] text-zinc-500 hidden sm:block">{m.desc}</span>
+    <button onClick={onClick}
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all ${mood ? 'bg-violet-600/20 border-violet-500/40 text-violet-300' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-zinc-400'}`}>
+      {active ? <active.Icon size={13} /> : <Sun size={13} />}
+      {active ? active.label : 'Umore'}
+      <ChevronDown size={11} className="opacity-60" />
+    </button>
+  )
+}
+
+function MoodBottomSheet({ mood, onChange, onClose }: { mood: Mood; onChange: (m: Mood) => void; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/60" />
+      <div className="relative w-full max-w-sm bg-zinc-900 border border-zinc-700 rounded-t-3xl p-5 pb-8"
+        onClick={e => e.stopPropagation()}>
+        <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-4" />
+        <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-4">Che umore sei oggi?</p>
+        <div className="space-y-2">
+          <button onClick={() => { onChange(null); onClose() }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border text-sm transition-all ${!mood ? 'bg-zinc-700 border-zinc-600 text-white' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-600'}`}>
+            <Sparkles size={18} className="opacity-70" />
+            <div className="text-left">
+              <p className="font-semibold">Tutti i consigli</p>
+              <p className="text-[11px] text-zinc-500">Mostra tutto senza filtri</p>
+            </div>
           </button>
-        ))}
+          {MOODS.map(m => (
+            <button key={m.id} onClick={() => { onChange(mood === m.id ? null : m.id); onClose() }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border text-sm transition-all ${mood === m.id ? 'bg-violet-600/20 border-violet-500/50 text-white' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-600'}`}>
+              <m.Icon size={18} className="opacity-80" />
+              <div className="text-left">
+                <p className="font-semibold">{m.label}</p>
+                <p className="text-[11px] text-zinc-500">{m.desc}</p>
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -160,9 +190,15 @@ function MoodSelector({ mood, onChange }: { mood: Mood; onChange: (m: Mood) => v
 
 // V3: DNA Widget
 const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }: { tasteProfile: TasteProfile; totalEntries: number }) {
-  const [open, setOpen] = useState(false)
+  // Fix 2.2: apri automaticamente la prima volta, poi ricorda la scelta
+  const [open, setOpen] = useState(() => {
+    if (typeof window === 'undefined') return false
+    if (!localStorage.getItem('dna_widget_seen')) { localStorage.setItem('dna_widget_seen', '1'); return true }
+    return false
+  })
   const maxScore = tasteProfile.globalGenres[0]?.score || 1
   const binge = tasteProfile.bingeProfile
+  const top3 = tasteProfile.globalGenres.slice(0, 3)
 
   return (
     <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-5 mb-8">
@@ -172,7 +208,7 @@ const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }: { tast
             <Brain size={16} className="text-white" />
           </div>
           <div className="text-left">
-            <p className="text-sm font-bold text-white">Il tuo DNA geek</p>
+            <p className="text-sm font-bold text-white">Come ti conosciamo</p>
             <p className="text-xs text-zinc-500">
               {totalEntries} titoli analizzati · finestra {tasteProfile.recentWindow || 6} mesi
               {binge?.isBinger && <span className="inline-flex items-center gap-1 ml-1">· <Flame size={12} className="text-orange-400" /> Binge watcher</span>}
@@ -181,6 +217,26 @@ const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }: { tast
         </div>
         {open ? <ChevronUp size={16} className="text-zinc-500" /> : <ChevronDown size={16} className="text-zinc-500" />}
       </button>
+
+      {/* Fix 2.2: preview top-3 sempre visibile anche da chiuso */}
+      {!open && top3.length > 0 && (
+        <div className="mt-3 flex gap-2 flex-wrap">
+          {top3.map(({ genre, score }) => (
+            <div key={genre} className="flex items-center gap-2 bg-zinc-800/60 rounded-xl px-3 py-1.5 min-w-0">
+              <span className="text-xs text-zinc-300 truncate max-w-[80px]">{genre}</span>
+              <div className="w-12 h-1 bg-zinc-700 rounded-full overflow-hidden flex-shrink-0">
+                <div className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-full" style={{ width: `${(score / maxScore) * 100}%` }} />
+              </div>
+            </div>
+          ))}
+          {binge?.isBinger && (
+            <div className="flex items-center gap-1 bg-orange-500/10 border border-orange-500/20 rounded-xl px-3 py-1.5">
+              <Flame size={11} className="text-orange-400" />
+              <span className="text-xs text-orange-300">Binge</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {open && (
         <div className="mt-5 space-y-5">
@@ -315,11 +371,12 @@ const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }: { tast
 })
 
 // V3: Continuity Section
-const ContinuitySection = memo(function ContinuitySection({ items, onAdd, onFeedback, addedIds, dismissedIds }: {
+const ContinuitySection = memo(function ContinuitySection({ items, onAdd, onFeedback, addedIds, addingIds, dismissedIds }: {
   items: Recommendation[]
   onAdd: (i: Recommendation) => void
   onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
   addedIds: Set<string>
+  addingIds: Set<string>
   dismissedIds: Set<string>
 }) {
   const visible = items.filter(i => i.isContinuity && !dismissedIds.has(i.id))
@@ -340,6 +397,7 @@ const ContinuitySection = memo(function ContinuitySection({ items, onAdd, onFeed
         {visible.map(item => {
           const Icon = TYPE_ICONS[item.type]
           const isAdded = addedIds.has(item.id)
+          const isAdding = addingIds.has(item.id)
           return (
             <div key={item.id} className="flex-shrink-0 w-44 group relative">
               <div className="relative h-64 rounded-2xl overflow-hidden bg-zinc-900 mb-2">
@@ -369,7 +427,7 @@ const ContinuitySection = memo(function ContinuitySection({ items, onAdd, onFeed
               {item.continuityFrom && (
                 <p className="text-[10px] text-amber-400/80 line-clamp-1">→ {item.continuityFrom}</p>
               )}
-              <p className="text-[10px] text-violet-400 italic line-clamp-2 mt-0.5">{item.why}</p>
+              <p className="text-[11px] text-zinc-300 line-clamp-2 mt-0.5">{item.why}</p>
             </div>
           )
         })}
@@ -378,10 +436,11 @@ const ContinuitySection = memo(function ContinuitySection({ items, onAdd, onFeed
   )
 })
 
-const RecommendationCard = memo(function RecommendationCard({ item, onAdd, onWishlist, onFeedback, alreadyAdded, inWishlist, dismissed }: {
+const RecommendationCard = memo(function RecommendationCard({ item, onAdd, onWishlist, onFeedback, onSimilar, alreadyAdded, isAdding, inWishlist, dismissed }: {
   item: Recommendation; onAdd: (i: Recommendation) => void; onWishlist: (i: Recommendation) => void
   onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
-  alreadyAdded: boolean; inWishlist: boolean; dismissed: boolean
+  onSimilar?: (i: Recommendation) => void  // Fix 1.15
+  alreadyAdded: boolean; isAdding: boolean; inWishlist: boolean; dismissed: boolean
 }) {
   const { t } = useLocale(); const fy = t.forYou
   const [showAct, setShowAct] = useState(false)
@@ -390,7 +449,7 @@ const RecommendationCard = memo(function RecommendationCard({ item, onAdd, onWis
 
   return (
     <div className="flex-shrink-0 w-36 group" onMouseEnter={() => setShowAct(true)} onMouseLeave={() => setShowAct(false)}>
-      <div className="relative h-52 rounded-2xl overflow-hidden bg-zinc-900 mb-2">
+      <div className={`relative h-52 rounded-2xl overflow-hidden bg-zinc-900 mb-2 ${inWishlist ? 'ring-2 ring-amber-500/60 ring-offset-1 ring-offset-black' : ''}`}>
         {item.coverImage
           ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
           : <div className="w-full h-full flex items-center justify-center"><Icon size={32} className="text-zinc-700" /></div>
@@ -401,6 +460,11 @@ const RecommendationCard = memo(function RecommendationCard({ item, onAdd, onWis
         {item.isDiscovery && (
           <div className="absolute top-2 right-2 bg-emerald-500/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
             <Compass size={8} /> Scoperta
+          </div>
+        )}
+        {item.friendWatching && !item.isDiscovery && (
+          <div className="absolute top-2 right-2 bg-blue-500/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 max-w-[72px] truncate">
+            <Users size={8} />{item.friendWatching}
           </div>
         )}
         {item.creatorBoost && !item.isDiscovery && (
@@ -414,9 +478,10 @@ const RecommendationCard = memo(function RecommendationCard({ item, onAdd, onWis
           </div>
         )}
         <div className={`absolute inset-0 bg-black/75 transition-opacity flex flex-col items-center justify-end pb-3 gap-2 ${showAct ? 'opacity-100' : 'opacity-0'}`}>
-          <button onClick={() => onAdd(item)} disabled={alreadyAdded}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold w-28 justify-center ${alreadyAdded ? 'bg-zinc-700 text-zinc-400' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}>
-            {alreadyAdded ? <Check size={12} /> : <Plus size={12} />}{alreadyAdded ? 'Aggiunto' : fy.addToCollection}
+          <button onClick={() => onAdd(item)} disabled={alreadyAdded || isAdding}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold w-28 justify-center ${alreadyAdded ? 'bg-zinc-700 text-zinc-400' : isAdding ? 'bg-violet-800 text-white' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}>
+            {alreadyAdded ? <Check size={12} /> : isAdding ? <RefreshCw size={12} className="animate-spin" /> : <Plus size={12} />}
+            {alreadyAdded ? 'Aggiunto' : isAdding ? '...' : fy.addToCollection}
           </button>
           <button onClick={() => onWishlist(item)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold w-28 justify-center ${inWishlist ? 'bg-amber-600/80 text-white' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'}`}>
@@ -425,6 +490,7 @@ const RecommendationCard = memo(function RecommendationCard({ item, onAdd, onWis
           <div className="flex gap-1.5 w-28">
             <button onClick={() => onFeedback(item, 'not_interested')} title="Non mi interessa" className="flex-1 flex items-center justify-center py-1 bg-zinc-800/80 hover:bg-red-900/60 rounded-xl text-zinc-500 hover:text-red-400"><ThumbsDown size={11} /></button>
             <button onClick={() => onFeedback(item, 'already_seen')} title="L'ho già visto" className="flex-1 flex items-center justify-center py-1 bg-zinc-800/80 hover:bg-zinc-700 rounded-xl text-zinc-500 hover:text-zinc-300"><Eye size={11} /></button>
+            {onSimilar && <button onClick={() => onSimilar(item)} title="Simili a questo" className="flex-1 flex items-center justify-center py-1 bg-zinc-800/80 hover:bg-violet-900/60 rounded-xl text-zinc-500 hover:text-violet-300"><Search size={11} /></button>}
           </div>
         </div>
       </div>
@@ -436,15 +502,26 @@ const RecommendationCard = memo(function RecommendationCard({ item, onAdd, onWis
         ? <CreatorBadge creator={item.creatorBoost} />
         : <MatchBadge score={item.matchScore} />
       }
-      <p className="text-[10px] text-violet-400 leading-tight line-clamp-2 mt-1 italic">{item.why}</p>
+      <p className="text-[11px] text-zinc-300 leading-tight line-clamp-2 mt-1">{item.why}</p>
+      {/* Fix 3.3: boardgame companion — cross-media bridge */}
+      {item.type === 'boardgame' && item.genres.length > 0 && (
+        <button
+          onClick={() => onSimilar?.({ ...item, type: 'anime' })}
+          className="mt-2 flex items-center gap-1 text-[10px] text-emerald-400 hover:text-emerald-300 transition-colors">
+          <Tv size={9} />
+          <span>Scopri anime simili</span>
+          <ArrowRight size={9} />
+        </button>
+      )}
     </div>
   )
 })
 
-const HeroMatchSection = memo(function HeroMatchSection({ items, onAdd, onWishlist, onFeedback, addedIds, wishlistIds, dismissedIds }: {
+const HeroMatchSection = memo(function HeroMatchSection({ items, onAdd, onWishlist, onFeedback, onSimilar, addedIds, addingIds, wishlistIds, dismissedIds }: {
   items: Recommendation[]; onAdd: (i: Recommendation) => void; onWishlist: (i: Recommendation) => void
   onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
-  addedIds: Set<string>; wishlistIds: Set<string>; dismissedIds: Set<string>
+  onSimilar?: (i: Recommendation) => void
+  addedIds: Set<string>; addingIds: Set<string>; wishlistIds: Set<string>; dismissedIds: Set<string>
 }) {
   const { t } = useLocale(); const fy = t.forYou
   const top = items
@@ -468,6 +545,7 @@ const HeroMatchSection = memo(function HeroMatchSection({ items, onAdd, onWishli
         {top.map(item => {
           const Icon = TYPE_ICONS[item.type]; const colorClass = TYPE_COLORS[item.type]
           const isAdded = addedIds.has(item.id)
+          const isAdding = addingIds.has(item.id)
           return (
             <div key={item.id} className="flex-shrink-0 w-44 group relative">
               <div className="relative h-64 rounded-2xl overflow-hidden bg-zinc-900 mb-2">
@@ -490,13 +568,14 @@ const HeroMatchSection = memo(function HeroMatchSection({ items, onAdd, onWishli
                   </div>
                 )}
                 <div className="absolute bottom-2 inset-x-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => onAdd(item)} disabled={isAdded}
-                    className={`flex-1 text-xs font-semibold py-1.5 rounded-xl flex items-center justify-center gap-1 ${isAdded ? 'bg-emerald-600/80 text-white' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}>
-                    {isAdded ? <Check size={11} /> : <Plus size={11} />}{isAdded ? 'Aggiunto' : 'Aggiungi'}
+                  <button onClick={() => onAdd(item)} disabled={isAdded || isAdding}
+                    className={`flex-1 text-xs font-semibold py-1.5 rounded-xl flex items-center justify-center gap-1 ${isAdded ? 'bg-emerald-600/80 text-white' : isAdding ? 'bg-violet-800 text-white' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}>
+                    {isAdded ? <Check size={11} /> : isAdding ? <RefreshCw size={11} className="animate-spin" /> : <Plus size={11} />}{isAdded ? 'Aggiunto' : isAdding ? '...' : 'Aggiungi'}
                   </button>
                   <button onClick={() => onFeedback(item, 'not_interested')} className="w-8 flex items-center justify-center bg-zinc-800/80 hover:bg-red-900/60 rounded-xl text-zinc-500 hover:text-red-400">
                     <ThumbsDown size={11} />
                   </button>
+                  {onSimilar && <button onClick={() => onSimilar(item)} title="Simili" className="w-8 flex items-center justify-center bg-zinc-800/80 hover:bg-violet-900/60 rounded-xl text-zinc-500 hover:text-violet-300"><Search size={11} /></button>}
                 </div>
               </div>
               <p className="text-xs font-bold text-white leading-tight line-clamp-2 mb-0.5">{item.title}</p>
@@ -509,17 +588,109 @@ const HeroMatchSection = memo(function HeroMatchSection({ items, onAdd, onWishli
   )
 })
 
-const RecommendationSection = memo(function RecommendationSection({ type, items, label, onAdd, onWishlist, onFeedback, addedIds, wishlistIds, dismissedIds }: {
+// Fix 2.8: sezione separata per titoli "Scoperta" — nuovo per te
+const DiscoverySection = memo(function DiscoverySection({ items, onAdd, onWishlist, onFeedback, onSimilar, addedIds, addingIds, wishlistIds, dismissedIds }: {
+  items: Recommendation[]
+  onAdd: (i: Recommendation) => void; onWishlist: (i: Recommendation) => void
+  onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
+  onSimilar?: (i: Recommendation) => void
+  addedIds: Set<string>; addingIds: Set<string>; wishlistIds: Set<string>; dismissedIds: Set<string>
+}) {
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
+  const visible = items.filter(i => i.isDiscovery && !dismissedIds.has(i.id))
+  if (visible.length < 2) return null
+  const shown = visible.slice(0, visibleCount)
+  const hasMore = visible.length > visibleCount
+
+  return (
+    <div className="mb-10">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
+          <Compass size={16} className="text-white" />
+        </div>
+        <div>
+          <h2 className="text-base font-bold text-white">Esplora oltre i tuoi confini</h2>
+          <p className="text-[10px] text-zinc-500">{visible.length} titoli fuori dal tuo solito — potrebbe sorprenderti</p>
+        </div>
+      </div>
+      <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
+        {shown.map(item => {
+          const Icon = TYPE_ICONS[item.type]
+          const isAdded = addedIds.has(item.id)
+          const isAdding = addingIds.has(item.id)
+          return (
+            <div key={item.id} className="flex-shrink-0 w-36 group">
+              <div className="relative h-52 rounded-2xl overflow-hidden bg-zinc-900 mb-2 ring-2 ring-emerald-500/40 ring-offset-2 ring-offset-black">
+                {item.coverImage
+                  ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" />
+                  : <div className="w-full h-full flex items-center justify-center"><Icon size={32} className="text-zinc-700" /></div>
+                }
+                <div className="absolute top-2 left-2 bg-emerald-500/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                  <Compass size={8} /> Nuovo per te
+                </div>
+                {item.score && (
+                  <div className="absolute top-2 right-2 bg-black/70 text-yellow-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                    <Star size={9} fill="currentColor" /> {Math.min(item.score, 5).toFixed(1)}
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-end pb-3 gap-2">
+                  <button onClick={() => onAdd(item)} disabled={isAdded || isAdding}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold w-28 justify-center ${isAdded ? 'bg-zinc-700 text-zinc-400' : isAdding ? 'bg-emerald-800 text-white' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}`}>
+                    {isAdded ? <Check size={12} /> : isAdding ? <RefreshCw size={12} className="animate-spin" /> : <Plus size={12} />}
+                    {isAdded ? 'Aggiunto' : isAdding ? '...' : 'Aggiungi'}
+                  </button>
+                  <div className="flex gap-1.5 w-28">
+                    <button onClick={() => onFeedback(item, 'not_interested')}
+                      className="flex-1 flex items-center justify-center py-1 bg-zinc-800/80 hover:bg-red-900/60 rounded-xl text-zinc-500 hover:text-red-400">
+                      <ThumbsDown size={11} />
+                    </button>
+                    {onSimilar && <button onClick={() => onSimilar(item)} title="Simili"
+                      className="flex-1 flex items-center justify-center py-1 bg-zinc-800/80 hover:bg-violet-900/60 rounded-xl text-zinc-500 hover:text-violet-300">
+                      <Search size={11} />
+                    </button>}
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs font-semibold text-white leading-tight line-clamp-2 mb-1">{item.title}</p>
+              {item.year && <p className="text-[10px] text-zinc-500 mb-1">{item.year}</p>}
+              <p className="text-[11px] text-zinc-300 leading-tight line-clamp-2 mt-1">{item.why}</p>
+            </div>
+          )
+        })}
+        {hasMore && (
+          <div className="flex-shrink-0 w-36 flex items-center justify-center">
+            <button onClick={() => setVisibleCount(v => v + LOAD_MORE_STEP)}
+              className="flex flex-col items-center gap-2 text-zinc-500 hover:text-zinc-300 transition-colors">
+              <div className="w-10 h-10 rounded-full border border-zinc-700 hover:border-zinc-500 flex items-center justify-center">
+                <ChevronDown size={18} />
+              </div>
+              <span className="text-[10px]">+{visible.length - visibleCount} altri</span>
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+})
+
+const INITIAL_VISIBLE = 15
+const LOAD_MORE_STEP = 10
+
+const RecommendationSection = memo(function RecommendationSection({ type, items, label, onAdd, onWishlist, onFeedback, addedIds, addingIds, wishlistIds, dismissedIds, onSimilar, isPrimary }: {
   type: MediaType; items: Recommendation[]; label: string
   onAdd: (i: Recommendation) => void; onWishlist: (i: Recommendation) => void
   onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
-  addedIds: Set<string>; wishlistIds: Set<string>; dismissedIds: Set<string>
+  addedIds: Set<string>; addingIds: Set<string>; wishlistIds: Set<string>; dismissedIds: Set<string>
+  onSimilar?: (i: Recommendation) => void  // Fix 1.15
+  isPrimary?: boolean  // Fix 2.4: badge tipo principale
 }) {
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)  // Fix 2.13
   const Icon = TYPE_ICONS[type]; const colorClass = TYPE_COLORS[type]
-  // items già filtrati e ordinati dal parent — mostra tutti
   const visible = items.filter(i => !dismissedIds.has(i.id))
   if (!visible.length) return null
 
+  const shown = visible.slice(0, visibleCount)
+  const hasMore = visible.length > visibleCount
   const discoveryCount = visible.filter(i => i.isDiscovery).length
   const topScore = visible[0]?.matchScore || 0
 
@@ -535,23 +706,102 @@ const RecommendationSection = memo(function RecommendationSection({ type, items,
             {visible.length} titoli{discoveryCount > 0 ? ` · ${discoveryCount} nuovi generi` : ''}
           </p>
         </div>
-        {topScore >= 80 && (
-          <span className="ml-auto text-[10px] font-semibold text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-            <Flame size={9} /> Ottimo match
-          </span>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+          {isPrimary && (
+            <span className="text-[10px] font-semibold text-fuchsia-300 bg-fuchsia-500/10 border border-fuchsia-500/20 px-2 py-0.5 rounded-full">
+              Il tuo tipo principale
+            </span>
+          )}
+          {topScore >= 80 && !isPrimary && (
+            <span className="text-[10px] font-semibold text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <Flame size={9} /> Ottimo match
+            </span>
+          )}
+        </div>
       </div>
       <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
-        {visible.map(item => (
+        {shown.map(item => (
           <RecommendationCard
-            key={item.id} item={item} onAdd={onAdd} onWishlist={onWishlist} onFeedback={onFeedback}
-            alreadyAdded={addedIds.has(item.id)} inWishlist={wishlistIds.has(item.id)} dismissed={dismissedIds.has(item.id)}
+            key={item.id} item={item} onAdd={onAdd} onWishlist={onWishlist} onFeedback={onFeedback} onSimilar={onSimilar}
+            alreadyAdded={addedIds.has(item.id)} isAdding={addingIds.has(item.id)} inWishlist={wishlistIds.has(item.id)} dismissed={dismissedIds.has(item.id)}
           />
         ))}
+        {/* Fix 2.13: "Mostra altri" senza refresh */}
+        {hasMore && (
+          <div className="flex-shrink-0 w-36 flex items-center justify-center">
+            <button onClick={() => setVisibleCount(v => v + LOAD_MORE_STEP)}
+              className="flex flex-col items-center gap-2 text-zinc-500 hover:text-zinc-300 transition-colors">
+              <div className="w-10 h-10 rounded-full border border-zinc-700 hover:border-zinc-500 flex items-center justify-center">
+                <ChevronDown size={18} />
+              </div>
+              <span className="text-[10px]">+{visible.length - visibleCount} altri</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
 })
+
+// Fix 2.6: Quick-reason sheet — raccoglie il motivo dopo "non mi interessa"
+function QuickReasonSheet({ item, onConfirm, onDismiss }: {
+  item: Recommendation
+  onConfirm: (reason: FeedbackReason) => void
+  onDismiss: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onDismiss}>
+      <div className="absolute inset-0 bg-black/60" />
+      <div className="relative w-full max-w-sm bg-zinc-900 border border-zinc-700 rounded-t-3xl p-5 pb-8"
+        onClick={e => e.stopPropagation()}>
+        <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-4" />
+        <p className="text-sm font-semibold text-white mb-1">Perché non ti interessa?</p>
+        <p className="text-xs text-zinc-500 mb-4 truncate">{item.title}</p>
+        <div className="space-y-2">
+          {([
+            { reason: 'already_know' as FeedbackReason, label: 'Ho già visto / lo conosco', icon: '👁️' },
+            { reason: 'not_my_genre' as FeedbackReason, label: 'Non è il mio genere', icon: '🚫' },
+            { reason: 'too_similar' as FeedbackReason, label: 'Troppo simile ad altro', icon: '🔁' },
+            { reason: 'bad_rec' as FeedbackReason, label: 'Consiglio non pertinente', icon: '👎' },
+          ]).map(({ reason, label, icon }) => (
+            <button key={reason} onClick={() => onConfirm(reason)}
+              className="w-full flex items-center gap-3 px-4 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl text-sm text-zinc-200 transition-all text-left">
+              <span className="text-base">{icon}</span>{label}
+            </button>
+          ))}
+        </div>
+        <button onClick={() => onConfirm(undefined)} className="w-full mt-3 text-xs text-zinc-600 hover:text-zinc-400 py-2">
+          Salta
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function LowConfidenceBanner({ totalEntries }: { totalEntries: number }) {
+  const needed = 15
+  const pct = Math.min(100, Math.round((totalEntries / needed) * 100))
+  return (
+    <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6">
+      <AlertCircle size={18} className="text-amber-400 flex-shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-amber-300 mb-1">Consigli in miglioramento</p>
+        <p className="text-xs text-amber-200/70 mb-3">
+          I tuoi consigli migliorano man mano che aggiungi titoli. Hai ancora {needed - totalEntries} titoli per sbloccare i consigli personalizzati.
+        </p>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-1.5 bg-amber-500/20 rounded-full overflow-hidden">
+            <div className="h-full bg-amber-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
+          </div>
+          <span className="text-[10px] text-amber-400 font-bold">{totalEntries}/{needed}</span>
+        </div>
+        <Link href="/discover" className="inline-flex items-center gap-1.5 mt-3 text-xs font-semibold text-amber-400 hover:text-amber-300">
+          <Plus size={13} />Aggiungi dalla libreria
+        </Link>
+      </div>
+    </div>
+  )
+}
 
 const FriendsWatchingSection = memo(function FriendsWatchingSection({ items }: { items: FriendActivity[] }) {
   if (!items.length) return null
@@ -591,9 +841,19 @@ const FriendsWatchingSection = memo(function FriendsWatchingSection({ items }: {
   )
 })
 
+// Fix 2.15: quick presets per onboarding rapido
+const QUICK_PRESETS = [
+  { label: '🌑 Dark anime', prefs: { fav_anime_genres: ['Horror', 'Psychological', 'Thriller', 'Drama'], fav_manga_genres: ['Horror', 'Psychological', 'Thriller'] } },
+  { label: '⚔️ Gamer RPG', prefs: { fav_game_genres: ['Role-playing (RPG)', 'Adventure', 'Action', 'Strategy'] } },
+  { label: '🎬 Cinefilo europeo', prefs: { fav_movie_genres: ['Drama', 'Thriller', 'Crime', 'History'], fav_tv_genres: ['Drama', 'Crime', 'Thriller'] } },
+  { label: '😂 Comedy & feel-good', prefs: { fav_anime_genres: ['Comedy', 'Slice of Life', 'Romance'], fav_movie_genres: ['Comedy', 'Romance', 'Animation'] } },
+  { label: '🚀 Sci-fi & fantasy', prefs: { fav_anime_genres: ['Science Fiction', 'Fantasy'], fav_movie_genres: ['Science Fiction', 'Fantasy', 'Adventure'], fav_game_genres: ['Role-playing (RPG)', 'Adventure'] } },
+]
+
 function PreferencesModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const { t } = useLocale(); const fy = t.forYou; const supabase = createClient()
   const [saving, setSaving] = useState(false)
+  const [step, setStep] = useState(0)  // Fix 2.15: step 0 = preset, 1-6 = sezioni
   const [prefs, setPrefs] = useState<Record<string, string[]>>({
     fav_game_genres: [], fav_anime_genres: [], fav_movie_genres: [],
     fav_tv_genres: [], fav_manga_genres: [], disliked_genres: []
@@ -602,14 +862,19 @@ function PreferencesModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
       supabase.from('user_preferences').select('*').eq('user_id', user.id).single().then(({ data }) => {
-        if (data) setPrefs({
-          fav_game_genres: data.fav_game_genres || [],
-          fav_anime_genres: data.fav_anime_genres || [],
-          fav_movie_genres: data.fav_movie_genres || [],
-          fav_tv_genres: data.fav_tv_genres || [],
-          fav_manga_genres: data.fav_manga_genres || [],
-          disliked_genres: data.disliked_genres || []
-        })
+        if (data) {
+          setPrefs({
+            fav_game_genres: data.fav_game_genres || [],
+            fav_anime_genres: data.fav_anime_genres || [],
+            fav_movie_genres: data.fav_movie_genres || [],
+            fav_tv_genres: data.fav_tv_genres || [],
+            fav_manga_genres: data.fav_manga_genres || [],
+            disliked_genres: data.disliked_genres || []
+          })
+          // Se l'utente ha già preferenze, salta lo step preset
+          const hasPrefs = Object.values(data).some(v => Array.isArray(v) && v.length > 0)
+          if (hasPrefs) setStep(1)
+        }
       })
     })
   }, [])
@@ -617,6 +882,16 @@ function PreferencesModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     ...prev,
     [key]: prev[key].includes(genre) ? prev[key].filter(g => g !== genre) : [...prev[key], genre]
   }))
+  const applyPreset = (preset: typeof QUICK_PRESETS[0]) => {
+    setPrefs(prev => {
+      const next = { ...prev }
+      for (const [k, v] of Object.entries(preset.prefs)) {
+        next[k] = [...new Set([...(next[k] || []), ...v])]
+      }
+      return next
+    })
+    setStep(1)
+  }
   const save = async () => {
     setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
@@ -625,44 +900,102 @@ function PreferencesModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     setSaving(false); showToast(fy.prefsSaved); onSaved(); onClose()
   }
   const sections = [
-    { key: 'fav_game_genres', label: fy.prefsGameGenres, genres: GAME_GENRES },
-    { key: 'fav_anime_genres', label: fy.prefsAnimeGenres, genres: ANIME_GENRES },
-    { key: 'fav_movie_genres', label: fy.prefsMovieGenres, genres: MOVIE_GENRES },
-    { key: 'fav_tv_genres', label: fy.prefsTvGenres, genres: TV_GENRES },
-    { key: 'fav_manga_genres', label: fy.prefsMangaGenres, genres: MANGA_GENRES },
-    { key: 'disliked_genres', label: fy.prefsDisliked, genres: [...new Set([...GAME_GENRES, ...ANIME_GENRES, ...MOVIE_GENRES])] }
+    { key: 'fav_anime_genres', label: '🎌 Anime preferiti', genres: ANIME_GENRES, desc: 'Seleziona i generi anime che ami di più' },
+    { key: 'fav_manga_genres', label: '📖 Manga preferiti', genres: MANGA_GENRES, desc: 'Generi manga che leggi volentieri' },
+    { key: 'fav_movie_genres', label: '🎬 Film preferiti', genres: MOVIE_GENRES, desc: 'Che tipo di film ti piace guardare?' },
+    { key: 'fav_tv_genres', label: '📺 Serie TV preferite', genres: TV_GENRES, desc: 'Generi di serie che non salti mai' },
+    { key: 'fav_game_genres', label: '🎮 Giochi preferiti', genres: GAME_GENRES, desc: 'A che tipo di giochi non riesci a smettere?' },
+    { key: 'disliked_genres', label: '🚫 Generi da nascondere', genres: [...new Set([...GAME_GENRES, ...ANIME_GENRES, ...MOVIE_GENRES])], desc: 'Questi generi non appariranno nei tuoi consigli' },
   ]
+  const currentSection = sections[step - 1]
+  const totalSteps = sections.length
+
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4">
       <div className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-2xl max-h-[85vh] flex flex-col">
-        <div className="flex items-center justify-between p-6 border-b border-zinc-800">
-          <h2 className="text-lg font-bold text-white">{fy.prefsTitle}</h2>
-          <button onClick={onClose} className="text-zinc-500 hover:text-white"><X size={20} /></button>
+        {/* Header con progress bar */}
+        <div className="flex items-center justify-between p-5 border-b border-zinc-800">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <h2 className="text-base font-bold text-white">
+                {step === 0 ? 'Configura i tuoi gusti' : `${step} di ${totalSteps} — ${currentSection?.label}`}
+              </h2>
+              <button onClick={onClose} className="ml-auto text-zinc-500 hover:text-white"><X size={18} /></button>
+            </div>
+            {step > 0 && (
+              <div className="flex gap-1">
+                {sections.map((_, i) => (
+                  <div key={i} className={`h-1 rounded-full flex-1 transition-all ${i < step ? 'bg-violet-500' : 'bg-zinc-800'}`} />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="overflow-y-auto p-6 space-y-6">
-          {sections.map(({ key, label, genres }) => (
-            <div key={key}>
-              <p className="text-sm font-semibold text-zinc-300 mb-3">{label}</p>
+
+        <div className="overflow-y-auto p-5 flex-1">
+          {step === 0 ? (
+            /* Step 0: Quick presets */
+            <div>
+              <p className="text-sm text-zinc-400 mb-5">Scegli un profilo di partenza o configura tutto manualmente.</p>
+              <div className="grid grid-cols-1 gap-2 mb-6">
+                {QUICK_PRESETS.map(preset => (
+                  <button key={preset.label} onClick={() => applyPreset(preset)}
+                    className="flex items-center gap-3 px-4 py-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-violet-500/50 rounded-2xl text-sm text-left transition-all">
+                    <span className="text-xl">{preset.label.split(' ')[0]}</span>
+                    <span className="font-medium text-zinc-200">{preset.label.split(' ').slice(1).join(' ')}</span>
+                    <ArrowRight size={14} className="ml-auto text-zinc-600" />
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => setStep(1)} className="w-full py-3 text-sm text-zinc-500 hover:text-zinc-300 border border-zinc-800 rounded-2xl">
+                Configura manualmente →
+              </button>
+            </div>
+          ) : currentSection ? (
+            /* Step 1-6: sezione corrente */
+            <div>
+              <p className="text-xs text-zinc-500 mb-4">{currentSection.desc}</p>
+              {currentSection.key === 'disliked_genres' && (
+                <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-4">
+                  <AlertCircle size={14} className="text-red-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-red-300">Nasconderai tutti i contenuti di questi generi dai consigli.</p>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
-                {genres.map(genre => {
-                  const sel = prefs[key]?.includes(genre)
+                {currentSection.genres.map(genre => {
+                  const sel = prefs[currentSection.key]?.includes(genre)
                   return (
-                    <button key={genre} onClick={() => toggle(key, genre)}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-all ${sel ? (key === 'disliked_genres' ? 'bg-red-500/20 border-red-500/50 text-red-300' : 'bg-violet-500/20 border-violet-500/50 text-violet-300') : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}>
+                    <button key={genre} onClick={() => toggle(currentSection.key, genre)}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-all ${sel ? (currentSection.key === 'disliked_genres' ? 'bg-red-500/20 border-red-500/50 text-red-300' : 'bg-violet-500/20 border-violet-500/50 text-violet-300') : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}>
                       {genre}
                     </button>
                   )
                 })}
               </div>
             </div>
-          ))}
+          ) : null}
         </div>
-        <div className="p-6 border-t border-zinc-800">
-          <button onClick={save} disabled={saving}
-            className="w-full bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-semibold py-3 rounded-2xl">
-            {saving ? fy.prefsSaving : fy.prefsSave}
-          </button>
-        </div>
+
+        {/* Footer navigazione */}
+        {step > 0 && (
+          <div className="p-5 border-t border-zinc-800 flex items-center gap-3">
+            <button onClick={() => setStep(s => Math.max(0, s - 1))}
+              className="px-4 py-2.5 text-sm text-zinc-400 hover:text-white border border-zinc-800 hover:border-zinc-600 rounded-2xl transition-all">
+              ← Indietro
+            </button>
+            {step < totalSteps ? (
+              <button onClick={() => setStep(s => s + 1)}
+                className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-2xl text-sm font-semibold text-white transition-all">
+                Avanti →
+              </button>
+            ) : (
+              <button onClick={save} disabled={saving}
+                className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-2xl text-sm font-semibold text-white transition-all">
+                {saving ? 'Salvo...' : fy.prefsSave}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -704,6 +1037,10 @@ export default function ForYouPage() {
   const [mood, setMood] = useState<Mood>(null)
   const [friendsActivity, setFriendsActivity] = useState<FriendActivity[]>([])
   const [friendsLoading, setFriendsLoading] = useState(true)
+  const [addingIds, setAddingIds] = useState<Set<string>>(new Set())   // Fix 2.5: loading state add
+  const [reasonPending, setReasonPending] = useState<Recommendation | null>(null)  // Fix 2.6: quick-reason
+  const [showMoodSheet, setShowMoodSheet] = useState(false)  // Fix 2.3: bottom sheet umore
+  const [showNewRecsBadge, setShowNewRecsBadge] = useState(false)  // Fix 2.10: badge nuovi consigli
 
   const fetchRecommendations = useCallback(async (force = false) => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -736,6 +1073,27 @@ export default function ForYouPage() {
         activity.push({ userId: e.user_id, username: p.username, displayName: p.display_name, avatarUrl: p.avatar_url, mediaId: e.external_id, mediaTitle: e.title, mediaCover: e.cover_image, mediaType: e.type, updatedAt: e.updated_at })
       }
       setFriendsActivity(activity.slice(0, 12))
+
+      // Fix 2.9: carica similarity score degli amici per elevare titoli ad alta affinità
+      const followIds = ids
+      if (followIds.length > 0) {
+        const { data: simData } = await supabase
+          .from('taste_similarity')
+          .select('other_user_id, similarity_score')
+          .eq('user_id', userId)
+          .in('other_user_id', followIds)
+          .gte('similarity_score', 80)
+        if (simData && simData.length > 0) {
+          const highSimIds = new Set(simData.map((s: any) => s.other_user_id))
+          const simMap = Object.fromEntries(simData.map((s: any) => [s.other_user_id, s.similarity_score]))
+          // Marca le attività degli amici ad alta sim
+          setFriendsActivity(prev => prev.map(a => ({
+            ...a,
+            isHighSim: highSimIds.has(a.userId),
+            simScore: simMap[a.userId] || 0,
+          })))
+        }
+      }
     } catch { setFriendsActivity([]) }
     setFriendsLoading(false)
   }, [supabase])
@@ -767,12 +1125,21 @@ export default function ForYouPage() {
       setLoading(false)
 
       fetchFriends(user.id)
+
+      // Fix 2.10: badge "Nuovi consigli" dopo 4h dall'ultima visita
+      const lastVisit = localStorage.getItem('for_you_last_visit')
+      const now = Date.now()
+      if (lastVisit && now - parseInt(lastVisit) > 4 * 3600000) {
+        setShowNewRecsBadge(true)
+      }
+      localStorage.setItem('for_you_last_visit', String(now))
     }
     init()
   }, [])
 
   const handleRefresh = async () => {
     setRefreshing(true)
+    setShowNewRecsBadge(false)
     const { data: { user } } = await supabase.auth.getUser()
     await Promise.all([fetchRecommendations(true), user ? fetchFriends(user.id) : Promise.resolve()])
     setRefreshing(false)
@@ -822,17 +1189,62 @@ export default function ForYouPage() {
     }
   }, [supabase, wishlistIds, t])
 
-  const handleFeedback = useCallback(async (item: Recommendation, action: FeedbackAction, reason?: FeedbackReason) => {
-    setDismissedIds(prev => new Set([...prev, item.id]))
+  // Fix 1.15: "Simili a questo" — richiede i consigli filtrati per i generi del titolo
+  const handleSimilar = useCallback(async (item: Recommendation) => {
+    if (!item.genres.length) return
+    setRefreshing(true)
+    const genres = item.genres.slice(0, 3).join(',')
+    const res = await fetch(`/api/recommendations?type=${item.type}&similar_to_id=${item.id}&similar_to_genres=${encodeURIComponent(genres)}&refresh=1`)
+    if (res.ok) {
+      const json = await res.json()
+      setRecommendations(prev => ({ ...prev, ...json.recommendations }))
+      showToast(`Consigli simili a "${item.title}"`)
+    }
+    setRefreshing(false)
+  }, [])
+
+  const sendFeedback = useCallback(async (item: Recommendation, action: FeedbackAction, reason?: FeedbackReason) => {
     await fetch('/api/recommendations/feedback', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres, action, reason: reason || null })
     })
-    if (action === 'not_interested') showToast('Rimosso dai consigli')
+    if (action === 'not_interested' && item.genres.length > 0) {
+      triggerTasteDelta({ action: 'status_change', mediaId: item.id, mediaType: item.type, genres: item.genres, status: 'dropped' })
+    }
   }, [])
+
+  const handleFeedback = useCallback((item: Recommendation, action: FeedbackAction, reason?: FeedbackReason) => {
+    setDismissedIds(prev => new Set([...prev, item.id]))
+    if (action === 'not_interested' && reason === undefined) {
+      // Fix 2.6: mostra quick-reason sheet invece di dismiss diretto
+      setReasonPending(item)
+      showToast('Rimosso dai consigli')
+      sendFeedback(item, action, undefined)  // invia subito senza reason, aggiorna se arriva
+    } else {
+      sendFeedback(item, action, reason)
+      if (action === 'not_interested') showToast('Rimosso dai consigli')
+    }
+  }, [sendFeedback])
 
   const displayRecs = applyMood(recommendations, mood)
   const allRecs = Object.values(displayRecs).flat()
+
+  // Fix 2.9: eleva nelle sezioni i titoli guardati da amici con sim ≥80%
+  const friendWatchingMap = new Map<string, string>()  // mediaId → username
+  for (const a of friendsActivity) {
+    if (a.isHighSim && a.mediaId && !friendWatchingMap.has(a.mediaId)) {
+      friendWatchingMap.set(a.mediaId, a.displayName || a.username)
+    }
+  }
+  // Inietta friendWatching nelle recs esistenti
+  for (const recs of Object.values(displayRecs)) {
+    for (const rec of recs) {
+      if (friendWatchingMap.has(rec.id)) {
+        rec.friendWatching = friendWatchingMap.get(rec.id)
+        rec.matchScore = Math.min(100, rec.matchScore + 12)  // piccolo boost visibilità
+      }
+    }
+  }
 
   const allContinuityRecs = allRecs.filter(i => i.isContinuity && !dismissedIds.has(i.id))
 
@@ -847,16 +1259,18 @@ export default function ForYouPage() {
     { key: 'movie', label: fy.sections.movie },
     { key: 'tv', label: fy.sections.tv },
     { key: 'manga', label: fy.sections.manga },
+    { key: 'boardgame', label: 'Giochi da tavolo' },
   ]
-  // Mostra la sezione se: l'utente ha almeno 1 entry di quel tipo, O ha almeno 3 consigli
+  // Fix 2.4: ordina per affinità reale (collectionSize nel profilo) non per count consigli
+  // Chi ha più titoli nel profilo viene prima — riflette il tipo centrale per l'utente
   const SECTIONS = ALL_SECTIONS.filter(({ key }) =>
     (collectionSize[key] || 0) >= 1 || (displayRecs[key] || []).length >= 3
   ).sort((a, b) => {
-    // Ordina per: chi ha più consigli disponibili viene prima
-    const countA = (displayRecs[a.key] || []).filter(i => !dismissedIds.has(i.id) && !i.isContinuity).length
-    const countB = (displayRecs[b.key] || []).filter(i => !dismissedIds.has(i.id) && !i.isContinuity).length
-    return countB - countA
+    const sizeA = collectionSize[a.key] || 0
+    const sizeB = collectionSize[b.key] || 0
+    return sizeB - sizeA
   })
+  const primarySectionKey = SECTIONS[0]?.key
 
   if (loading) return (
     <div className="min-h-screen bg-black text-white">
@@ -885,19 +1299,26 @@ export default function ForYouPage() {
             <p className="text-zinc-400 mt-2">{fy.subtitle}</p>
           </div>
           <div className="flex items-center gap-3">
+            <MoodPill mood={mood} onClick={() => setShowMoodSheet(true)} />
             <button onClick={() => setShowPrefs(true)}
               className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl text-sm font-medium text-zinc-300 transition-all">
               <SlidersHorizontal size={16} />{fy.preferences}
             </button>
-            <button onClick={handleRefresh} disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-2xl text-sm font-medium text-white transition-all">
-              <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-              {refreshing ? fy.refreshing : fy.refresh}
-            </button>
+            <div className="relative">
+              <button onClick={handleRefresh} disabled={refreshing}
+                className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-2xl text-sm font-medium text-white transition-all">
+                <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+                {refreshing ? fy.refreshing : fy.refresh}
+              </button>
+              {showNewRecsBadge && (
+                <span className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-fuchsia-500 rounded-full border-2 border-black animate-pulse" />
+              )}
+            </div>
           </div>
         </div>
         {/* Mobile: solo bottone preferenze in alto a destra */}
-        <div className="flex md:hidden justify-end mb-4">
+        <div className="flex md:hidden justify-between items-center mb-4">
+          <MoodPill mood={mood} onClick={() => setShowMoodSheet(true)} />
           <button onClick={() => setShowPrefs(true)}
             className="flex items-center gap-2 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-400 transition-all">
             <SlidersHorizontal size={15} />{fy.preferences}
@@ -917,8 +1338,22 @@ export default function ForYouPage() {
           </div>
         ) : (
           <>
-            <MoodSelector mood={mood} onChange={setMood} />
+            {tasteProfile?.lowConfidence && <LowConfidenceBanner totalEntries={totalEntries} />}
             {tasteProfile && <DNAWidget tasteProfile={tasteProfile} totalEntries={totalEntries} />}
+            {allRecs.length >= 2 && (
+              <HeroMatchSection
+                key={`hero-${allRecs.length}`}
+                items={allRecs}
+                onAdd={handleAdd}
+                onWishlist={handleWishlist}
+                onFeedback={handleFeedback}
+                onSimilar={handleSimilar}
+                addedIds={addedIds}
+                addingIds={addingIds}
+                wishlistIds={wishlistIds}
+                dismissedIds={dismissedIds}
+              />
+            )}
             {friendsLoading ? <SkeletonFriendsWatching /> : <FriendsWatchingSection items={friendsActivity} />}
             <SimilarTasteFriends />
 
@@ -928,14 +1363,26 @@ export default function ForYouPage() {
                 onAdd={handleAdd}
                 onFeedback={handleFeedback}
                 addedIds={addedIds}
+                addingIds={addingIds}
                 dismissedIds={dismissedIds}
               />
             )}
 
+            <DiscoverySection
+              key={`discovery-${Object.keys(recommendations).join('-')}-${allRecs.length}`}
+              items={allRecs}
+              onAdd={handleAdd}
+              onWishlist={handleWishlist}
+              onFeedback={handleFeedback}
+              onSimilar={handleSimilar}
+              addedIds={addedIds}
+              addingIds={addingIds}
+              wishlistIds={wishlistIds}
+              dismissedIds={dismissedIds}
+            />
+
             {SECTIONS.map(({ key, label }) => {
               const items = displayRecs[key] || []
-              // Mescola main + discovery in una sola riga, ordinati per matchScore
-              // I continuity vengono già gestiti sopra separatamente
               const allItems = items
                 .filter(i => !i.isContinuity && !dismissedIds.has(i.id))
                 .sort((a, b) => b.matchScore - a.matchScore)
@@ -950,8 +1397,11 @@ export default function ForYouPage() {
                   onWishlist={handleWishlist}
                   onFeedback={handleFeedback}
                   addedIds={addedIds}
+                  addingIds={addingIds}
                   wishlistIds={wishlistIds}
                   dismissedIds={dismissedIds}
+                  onSimilar={handleSimilar}
+                  isPrimary={key === primarySectionKey}
                 />
               )
             })}
@@ -969,6 +1419,21 @@ export default function ForYouPage() {
         )}
       </div>
       {showPrefs && <PreferencesModal onClose={() => setShowPrefs(false)} onSaved={handleRefresh} />}
+      {/* Fix 2.3: mood bottom sheet */}
+      {showMoodSheet && (
+        <MoodBottomSheet mood={mood} onChange={setMood} onClose={() => setShowMoodSheet(false)} />
+      )}
+      {/* Fix 2.6: quick-reason sheet */}
+      {reasonPending && (
+        <QuickReasonSheet
+          item={reasonPending}
+          onConfirm={(reason) => {
+            if (reason !== undefined) sendFeedback(reasonPending, 'not_interested', reason)
+            setReasonPending(null)
+          }}
+          onDismiss={() => setReasonPending(null)}
+        />
+      )}
     </div>
   )
 }

@@ -202,11 +202,31 @@ type RuntimeRange = 'short' | 'standard' | 'long' | null
 
 function inferRuntimePreference(entries: any[]): RuntimeRange {
   const movies = entries.filter(e => e.type === 'movie' && e.runtime && e.status !== 'dropped')
-  if (movies.length < 3) return null
-  const avg = movies.reduce((s: number, e: any) => s + (e.runtime || 0), 0) / movies.length
-  if (avg < 90) return 'short'
-  if (avg <= 130) return 'standard'
-  return 'long'
+  if (movies.length >= 3) {
+    const avg = movies.reduce((s: number, e: any) => s + (e.runtime || 0), 0) / movies.length
+    if (avg < 90) return 'short'
+    if (avg <= 130) return 'standard'
+    return 'long'
+  }
+
+  // Fix 1.8: fallback su serie TV — usa episode_run_time
+  const tvSeries = entries.filter(e => e.type === 'tv' && e.episode_run_time && e.status !== 'dropped')
+  if (tvSeries.length >= 3) {
+    const avgEp = tvSeries.reduce((s: number, e: any) => s + (e.episode_run_time || 0), 0) / tvSeries.length
+    // Episodi corti (< 30min) → preferisce film corti; episodi lunghi (> 50min) → preferisce film standard/lunghi
+    if (avgEp < 30) return 'short'
+    if (avgEp <= 50) return 'standard'
+    return 'long'
+  }
+
+  // Fix 1.8: fallback su anime — episodi standard 24min (short) vs 48min+ (standard/long)
+  const anime = entries.filter(e => e.type === 'anime' && e.episode_run_time && e.status !== 'dropped')
+  if (anime.length >= 5) {
+    const avgAnimeEp = anime.reduce((s: number, e: any) => s + (e.episode_run_time || 0), 0) / anime.length
+    return avgAnimeEp < 30 ? 'short' : 'standard'
+  }
+
+  return null
 }
 
 function runtimePenalty(runtime: number | undefined, pref: RuntimeRange): number {
@@ -252,32 +272,48 @@ function applyFormatDiversity(recs: any[], type?: string, maxPerSubGenre = 4): a
 // IGDB accetta solo questi come genres.name. Generi come "Fantasy", "Drama",
 // "Horror" non esistono come generi IGDB — esistono come themes.
 // Questa mappa traduce il profilo utente (basato su anime/film) in generi IGDB validi.
+// Fix 1.11: CROSS_TO_IGDB_GENRE affinato — mappings più precisi, rimossi mapping vaghi
+// Psychological → Visual Novel era troppo vago; Drama → solo RPG narrativi; Horror via themes
 const CROSS_TO_IGDB_GENRE: Record<string, string[]> = {
   'Action':           ['Action', "Hack and slash/Beat 'em up", 'Fighting', 'Shooter'],
-  'Adventure':        ['Adventure', 'Role-playing (RPG)'],
+  'Adventure':        ['Adventure', 'Role-playing (RPG)', 'Point-and-click'],
   'Fantasy':          ['Role-playing (RPG)', 'Adventure'],
   'Science Fiction':  ['Shooter', 'Strategy', 'Role-playing (RPG)'],
-  'Horror':           ['Adventure', 'Shooter'],        // Horror è un theme IGDB, non genere
-  'Mystery':          ['Adventure', 'Puzzle'],
-  'Drama':            ['Adventure', 'Visual Novel', 'Role-playing (RPG)'],
-  'Romance':          ['Visual Novel', 'Adventure'],
-  'Comedy':           ['Adventure', 'Platform'],
-  'Thriller':         ['Shooter', 'Action'],
-  'Psychological':    ['Adventure', 'Visual Novel'],
+  'Horror':           ['Adventure'],        // Horror è theme IGDB (19), non genere — gestito via igdbThemeIds
+  'Mystery':          ['Adventure', 'Puzzle', 'Point-and-click'],
+  'Drama':            ['Role-playing (RPG)', 'Visual Novel'],  // Drama narrativo → RPG/VN
+  'Romance':          ['Visual Novel'],   // Romance → solo VN, non Adventure generica
+  'Comedy':           ['Platform', 'Arcade'],  // Comedy → platformer/arcade, non Adventure
+  'Thriller':         ['Action', 'Shooter'],   // Thriller → azione tesa, non solo Shooter
+  'Psychological':    ['Role-playing (RPG)', 'Puzzle'],  // Psych → RPG narrativi o puzzle
   'Supernatural':     ['Role-playing (RPG)', 'Adventure'],
-  'Slice of Life':    ['Simulation', 'Visual Novel'],
+  'Slice of Life':    ['Simulation'],  // Slice of Life → solo Sim (staccato da Visual Novel)
   'Sports':           ['Sport', 'Racing'],
-  'Sci-Fi':           ['Shooter', 'Strategy'],
-  'Mecha':            ['Shooter', 'Action'],
-  'Strategy':         ['Strategy', 'Real Time Strategy (RTS)', 'Turn-based strategy (TBS)'],
-  'Simulation':       ['Simulation', 'Strategy'],
-  'Crime':            ['Shooter', 'Action'],
-  'Survival':         ['Adventure', 'Shooter'],
+  'Sci-Fi':           ['Shooter', 'Strategy', 'Role-playing (RPG)'],
+  'Mecha':            ['Action', 'Shooter'],
+  'Strategy':         ['Strategy', 'Real Time Strategy (RTS)', 'Turn-based strategy (TBS)', 'Tactical'],
+  'Simulation':       ['Simulation'],
+  'Crime':            ['Action', 'Adventure'],  // Crime → avventura noir o action
+  'Survival':         ['Adventure', 'Action'],
   'Role-playing (RPG)': ['Role-playing (RPG)'],
   'Shooter':          ['Shooter'],
-  'Platform':         ['Platform', 'Adventure'],
+  'Platform':         ['Platform'],
   'Puzzle':           ['Puzzle'],
-  'Indie':            ['Indie', 'Adventure'],
+  'Indie':            ['Indie'],
+  'Sandbox':          ['Simulation', 'Adventure'],
+  'Fighting':         ['Fighting', "Hack and slash/Beat 'em up"],
+}
+
+// Fix 1.11: themes IGDB da usare in query per generi che sono themes, non generi
+// Horror=19, Thriller=20, Drama=31, SF=18, Fantasy=17
+const CROSS_TO_IGDB_THEME: Record<string, number[]> = {
+  'Horror':        [19],
+  'Thriller':      [20],
+  'Drama':         [31],
+  'Science Fiction': [18],
+  'Sci-Fi':        [18],
+  'Fantasy':       [17],
+  'Psychological': [31, 20],  // Drama + Thriller come proxy psicologico
 }
 
 // Generi IGDB validi (whitelist definitiva)
@@ -439,6 +475,24 @@ function inferGenresFromName(name: string): string[] {
 }
 
 // ── V3: Session Velocity — quanto velocemente consumi = quanto ami ────────────
+// Fix 1.4: cluster velocity per film — ≥3 film dello stesso genere in 7gg → boost ×1.8
+function computeClusterVelocity(entries: any[], targetGenres: string[], currentUpdatedAt: string | null): number {
+  if (!currentUpdatedAt) return 1.0
+  const windowMs = 7 * 86400000
+  const targetTime = new Date(currentUpdatedAt).getTime()
+  const windowStart = targetTime - windowMs
+
+  let sameGenreInWindow = 0
+  for (const e of entries) {
+    if (!e.updated_at || e.updated_at === currentUpdatedAt) continue
+    const t = new Date(e.updated_at).getTime()
+    if (t < windowStart || t > targetTime + windowMs) continue
+    const eg: string[] = e.genres || []
+    if (targetGenres.some(g => eg.includes(g))) sameGenreInWindow++
+  }
+  return sameGenreInWindow >= 3 ? 1.8 : sameGenreInWindow >= 2 ? 1.3 : 1.0
+}
+
 function computeVelocity(entry: any): number {
   const type = entry.type || ''
 
@@ -627,6 +681,12 @@ function detectBingeProfile(entries: any[]): BingeProfile {
 }
 
 // ── V3: Creator profile da entries ────────────────────────────────────────────
+// Fix 3.5: normalizza nomi studio per unificare cross-source (AniList vs TMDb)
+// Es. "Production I.G" e "Production I.G." diventano la stessa chiave
+function normalizeStudioKey(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
 function computeCreatorScores(entries: any[], preferences?: any): CreatorScores {
   const studios: Record<string, number> = {}
   const directors: Record<string, number> = {}
@@ -665,17 +725,26 @@ function amplifyFromWishlist(
   globalScores: Record<string, number>,
   perTypeScores: Record<string, Record<string, number>>,
   creatorScores: CreatorScores,
-  genreToTitles: Record<string, any[]>
+  genreToTitles: Record<string, any[]>,
+  searchIntentGenreSet?: Set<string>  // Fix 1.5: wishlist intent score
 ): string[] {
   const wishlistGenres: string[] = []
 
   for (const item of wishlistItems) {
     const genres: string[] = item.genres || []
     const type = item.media_type || 'unknown'
-    // Wishlist vale come un titolo "watching" con rating 4, temporal decay ZERO
-    const wishWeight = 12
+
+    // Fix 1.5: decadimento temporale sulla wishlist (item vecchi pesano meno)
+    const rawTemporal = temporalMultV2(item.created_at)
+    // Floor a 0.4: un item in wishlist conta ancora anche se aggiunto un anno fa
+    const wishTemporal = Math.max(0.4, rawTemporal)
+    const baseWishWeight = 12 * wishTemporal
 
     for (const genre of genres) {
+      // Fix 1.5: boost ×1.5 se il genere è anche nelle ricerche recenti (intent amplification)
+      const intentBoost = searchIntentGenreSet?.has(genre) ? 1.5 : 1.0
+      const wishWeight = baseWishWeight * intentBoost
+
       globalScores[genre] = (globalScores[genre] || 0) + wishWeight
       if (perTypeScores[type]) {
         perTypeScores[type][genre] = (perTypeScores[type][genre] || 0) + wishWeight * 0.8
@@ -686,7 +755,7 @@ function amplifyFromWishlist(
       if (item.title) {
         const existing = genreToTitles[genre].find((t: any) => t.title === item.title)
         if (!existing) {
-          genreToTitles[genre].push({ title: item.title, type: type, recency: 1.0, rating: 4, isWishlist: true })
+          genreToTitles[genre].push({ title: item.title, type: type, recency: wishTemporal, rating: 4, isWishlist: true })
         }
       }
     }
@@ -733,6 +802,12 @@ function inferFromSearchHistory(
 
     // Query ripetuta senza soddisfazione → boost massimo
     if (queryCount[q] >= 2 && !s.result_clicked_id) boost = 15
+
+    // Fix 1.6: time-of-day boost — ricerche serali/notturne indicano intent immediato
+    const searchHour = new Date(s.created_at).getHours()
+    const isEveningSearch = searchHour >= 19 || searchHour <= 2
+    const isVeryRecent = ageMs < 4 * 60 * 60 * 1000  // ultime 4 ore
+    if (isVeryRecent && isEveningSearch) boost = Math.round(boost * 1.4)
 
     // Applica ai generi cliccati
     for (const genre of clickedGenres) {
@@ -810,6 +885,9 @@ function computeTasteProfile(
     }
   }
 
+  // Fix 1.3: traccia conteggi drop per genere per rilevare hard-dislike pattern
+  const droppedGenreCounts: Record<string, number> = {}
+
   const addDeep = (signals: { themes?: string[]; tones?: string[]; settings?: string[] }, weight: number) => {
     for (const kw of signals.themes || []) deepThemes[kw] = (deepThemes[kw] || 0) + weight
     for (const kw of signals.tones || []) deepTones[kw] = (deepTones[kw] || 0) + weight
@@ -828,12 +906,15 @@ function computeTasteProfile(
   // Context titoli top per spiegazioni V3 behavioral
   const topTitlesForContext: TasteProfile['topTitlesForContext'] = []
 
-  // V4: rileva se l'utente apprezza titoli di nicchia (score alto personale, basso community)
+  // Fix 1.7: nicheScore continuo (0-1) + nicheUser basato su percentuale
   let nicheSignals = 0
+  const totalWithScore = entries.filter(e => (e.community_score || 0) > 0).length
   for (const entry of entries) {
     if ((entry.rating || 0) >= 4 && (entry.community_score || 0) < 65 && (entry.community_score || 0) > 0) nicheSignals++
   }
-  const nicheUser = nicheSignals >= 3
+  const nicheScore = totalWithScore > 0 ? nicheSignals / totalWithScore : 0
+  // nicheUser = almeno 20% della collezione con score community basso, min 5 titoli assoluti
+  const nicheUser = nicheScore >= 0.20 && nicheSignals >= 5
 
   for (const entry of entries) {
     const title: string = entry.title || ''
@@ -863,11 +944,17 @@ function computeTasteProfile(
 
     if (entry.status === 'dropped') droppedTitles.add(title)
 
-    const temporal = temporalMultV2(entry.updated_at)
+    // Fix 1.2: floor dinamico — titoli molto amati non scompaiono dalla memoria
+    const rawTemporal = temporalMultV2(entry.updated_at)
+    const rewatchForFloor = entry.rewatch_count || 0
+    const temporalFloor = rewatchForFloor >= 1 ? 0.5 : rating >= 4.5 ? 0.30 : rating >= 4.0 ? 0.15 : 0.05
+    const temporal = Math.max(rawTemporal, temporalFloor)
     const recency = temporalRecency(entry.updated_at)
     const completion = completionMult(entry)
     const sentiment = sentimentMult(rating)
-    const velocity = computeVelocity(entry)     // V3
+    const velocity = (type === 'movie' || type === 'tv')
+      ? computeClusterVelocity(entries, genres, entry.updated_at)  // Fix 1.4: cluster velocity
+      : computeVelocity(entry)     // V3
     const rewatch = rewatchMult(entry)            // V3
 
     let baseWeight: number
@@ -885,10 +972,10 @@ function computeTasteProfile(
       baseWeight = ratingW + engW
     }
 
-    // V3: peso finale = base × temporal × completion × sentiment × velocity × rewatch
-    // Cap a ×15 per evitare explosion (titolo rewatch+maratona dominava ratio 170:1)
+    // V6: peso finale = base × temporal × completion × sentiment × velocity × rewatch
+    // Cap ridotto a ×8 (era ×15) per evitare monocultura del profilo (fix 1.1)
     const rawMultiplier = temporal * completion * sentiment * velocity * rewatch
-    const cappedMultiplier = Math.min(rawMultiplier, 15)
+    const cappedMultiplier = Math.min(rawMultiplier, 8)
     const weight = baseWeight * cappedMultiplier
 
     const isNegative = isNegativeSignal(entry)
@@ -951,16 +1038,32 @@ function computeTasteProfile(
     }
   }
 
+  // Fix 1.3: hard floor — se i drop superano i positivi del 70%, aggiungi ai soft-disliked
+  // (sovrascrive temporaneamente per questa sessione senza toccare le preferenze persistite)
+  const sessionSoftDisliked = new Set<string>()
+  for (const [genre, dropCount] of Object.entries(droppedGenreCounts)) {
+    const posScore = globalScores[genre] || 0
+    const negScore = negativeGenreScores[genre] || 0
+    if (dropCount >= 3 && negScore > posScore * 0.7) {
+      sessionSoftDisliked.add(genre)
+    }
+  }
+  for (const genre of sessionSoftDisliked) {
+    if (globalScores[genre]) globalScores[genre] *= 0.3
+  }
+
   // V3: Creator scores
   const creatorScores = computeCreatorScores(entries, preferences)
 
   // V3: Wishlist come amplificatore
-  const wishlistGenres = amplifyFromWishlist(
-    wishlistItems, globalScores, perTypeScores, creatorScores, genreToTitles
-  )
-
-  // V3: Search intent
+  // V3: Search intent (prima, per passare i generi a wishlist intent score)
   const searchIntentGenres = inferFromSearchHistory(searchHistory, globalScores)
+  const searchIntentGenreSet = new Set(searchIntentGenres)
+
+  // Fix 1.5: wishlist amplification con temporal decay e intent score
+  const wishlistGenres = amplifyFromWishlist(
+    wishlistItems, globalScores, perTypeScores, creatorScores, genreToTitles, searchIntentGenreSet
+  )
 
   // Preferenze esplicite utente
   const hardDisliked = new Set<string>(preferences?.disliked_genres || [])
@@ -987,6 +1090,16 @@ function computeTasteProfile(
 
     for (const genre of softDisliked) {
       if (globalScores[genre]) globalScores[genre] *= 0.5
+    }
+  }
+
+  // Fix 1.1: soft-cap per genere — nessun genere supera il 40% del totale
+  // Impedisce la monocultura del profilo (es. Fantasy domina tutto)
+  const totalGlobalScore = Object.values(globalScores).reduce((s, v) => s + v, 0)
+  if (totalGlobalScore > 0) {
+    const maxAllowed = totalGlobalScore * 0.40
+    for (const genre of Object.keys(globalScores)) {
+      if (globalScores[genre] > maxAllowed) globalScores[genre] = maxAllowed
     }
   }
 
@@ -1125,7 +1238,7 @@ function computeMatchScore(
   }
   tagScore = Math.min(25, tagScore)
 
-  // V3: Creator boost (0-15)
+  // V3: Creator boost
   let creatorScore = 0
   const topStudios = Object.entries(tasteProfile.creatorScores.studios).sort(([,a],[,b]) => b - a).slice(0, 10)
   const topDirectors = Object.entries(tasteProfile.creatorScores.directors).sort(([,a],[,b]) => b - a).slice(0, 10)
@@ -1138,6 +1251,16 @@ function computeMatchScore(
     if (topDirectors.some(([d]) => d === director)) creatorScore += 8
   }
   creatorScore = Math.min(15, creatorScore)
+
+  // Fix 1.14: developer score separato per giochi — stesso peso degli studio anime (+15 max)
+  let developerScore = 0
+  if (recType === 'game') {
+    for (const dev of (recStudios || [])) {  // per i giochi recStudios contiene il developer
+      if (topDevs.some(([d]) => d === dev)) developerScore += 15
+    }
+    developerScore = Math.min(15, developerScore)
+    creatorScore = developerScore  // sostituisce il creatorScore per i giochi
+  }
 
   // Penalità soft dislike
   let penalty = 0
@@ -1412,12 +1535,18 @@ function buildDiversitySlots(type: MediaType, tasteProfile: TasteProfile, totalS
     .filter(g => !valid.includes(g) && !IGDB_ONLY.has(g))
     .slice(0, 2)  // fino a 2 slot discovery
 
-  // Più generi coperti = più titoli totali
-  const distributions = [0.28, 0.22, 0.18, 0.14, 0.10]
-  const numMainSlots = Math.min(valid.length, 5)  // fino a 5 generi principali (era 3)
-
+  // Fix 1.9: distribuzione proporzionale agli score reali invece di quote fisse
+  // Se genere #1 e #2 sono quasi pari, le quote lo riflettono (era 28/22% fisso)
+  const numMainSlots = Math.min(valid.length, 5)
+  const topScores = valid.slice(0, numMainSlots).map(g => {
+    const found = (tasteProfile.topGenres[type] || tasteProfile.globalGenres).find(x => x.genre === g)
+    return found?.score || 1
+  })
+  const sumTopScores = topScores.reduce((a, b) => a + b, 0) || 1
+  // Riserva 15% degli slot ai discovery — il resto è proporzionale
+  const mainSlotsBudget = Math.round(totalSlots * 0.85)
   for (let i = 0; i < numMainSlots; i++) {
-    const quota = Math.max(2, Math.round(totalSlots * distributions[i]))
+    const quota = Math.max(2, Math.round(mainSlotsBudget * (topScores[i] / sumTopScores)))
     slots.push({ genre: valid[i], quota, isDiscovery: false })
   }
 
@@ -1643,7 +1772,8 @@ async function fetchAnimeRecs(
         matchScore = Math.round(matchScore * freshMult)
         // Social boost
         const socialFriend = socialFavorites?.get(id)
-        if (socialFriend) matchScore = Math.min(100, matchScore + 15)
+        // Fix 1.12: social boost proporzionale alla similarità (0–20 invece di fisso 15)
+        if (socialFriend) { const sim = parseInt(socialFriend) || 75; matchScore = Math.min(100, matchScore + Math.round((sim - 70) / 30 * 20)) }
         results.push({
           id, title, type: 'anime',
           coverImage: m.coverImage?.large, year: m.seasonYear, genres: recGenres,
@@ -1669,6 +1799,7 @@ async function fetchAnimeRecs(
                 averageScore_greater: $minScore, popularity_greater: $minPop) {
             id title { romaji english } coverImage { large }
             seasonYear episodes genres description(asHtml: false) averageScore popularity trending
+            stats { statusDistribution { status amount } }
             tags { name rank }
             studios(isMain: true) { nodes { name } }
             staff(sort: RELEVANCE) { edges { role node { name { full } } } }
@@ -1697,6 +1828,15 @@ async function fetchAnimeRecs(
           // Quality gate inline
           if ((m.averageScore || 0) < qt.anilistScore) return false
           if ((m.popularity || 0) < qt.anilistPopularity) return false
+          // Fix 3.4: filtra titoli che la maggioranza abbandona
+          // Se "completed" < 30% di chi l'ha iniziato → titolo problematico
+          const statDist: any[] = m.stats?.statusDistribution || []
+          if (statDist.length > 0) {
+            const completed = statDist.find((s: any) => s.status === 'COMPLETED')?.amount || 0
+            const started = statDist.filter((s: any) => ['CURRENT','COMPLETED','DROPPED'].includes(s.status))
+              .reduce((sum: number, s: any) => sum + (s.amount || 0), 0)
+            if (started > 500 && completed / started < 0.30) return false
+          }
           return true
         })
         .map((m: any) => {
@@ -1723,7 +1863,7 @@ async function fetchAnimeRecs(
 
           // Social boost
           const socialFriend = socialFavorites?.get(`anilist-anime-${m.id}`)
-          if (socialFriend) boost += 15
+          if (socialFriend) { const _sim = parseInt(socialFriend) || 75; boost += Math.round((_sim - 70) / 30 * 20) }  // Fix 1.12
 
           // Award boost
           if (isAwardWorthy(m.averageScore, m.popularity, undefined, 'anilist')) boost += 8
@@ -1852,7 +1992,7 @@ async function fetchMangaRecs(
 
           // Social boost
           const socialFriend = socialFavorites?.get(`anilist-manga-${m.id}`)
-          if (socialFriend) boost += 15
+          if (socialFriend) { const _sim = parseInt(socialFriend) || 75; boost += Math.round((_sim - 70) / 30 * 20) }  // Fix 1.12
 
           const recGenres: string[] = m.genres || []
           let matchScore = computeMatchScore(recGenres, mTags, tasteProfile, [], mAuthors)
@@ -2231,12 +2371,13 @@ async function fetchGameRecs(
     Object.entries(tasteProfile.creatorScores.developers).sort(([,a],[,b]) => b - a).slice(0, 5).map(([d]) => d)
   )
 
-  // Mappa generi IGDB → theme IDs per generi che in IGDB sono temi (non generi)
-  // Horror (id:19), Fantasy (id:17), Science Fiction (id:18), Thriller (id:20)
-  // Questi esistono in IGDB come themes, non genres
-  const IGDB_THEME_GENRES: Record<string, number> = {
-    // Non usati direttamente ora che buildDiversitySlots mappa correttamente,
-    // ma tenuti come fallback di sicurezza
+  // Fix 1.11: calcola theme IDs aggiuntivi dai generi del profilo utente
+  // Per es. se l'utente ama Horror/Thriller (che sono themes IGDB, non genres),
+  // aggiungiamo themes.id = (19,20) come condizione OR nella query
+  const profileThemeIds: number[] = []
+  for (const g of tasteProfile.globalGenres.slice(0, 8).map(x => x.genre)) {
+    const ids = CROSS_TO_IGDB_THEME[g]
+    if (ids) for (const id of ids) if (!profileThemeIds.includes(id)) profileThemeIds.push(id)
   }
 
   for (const slot of slots) {
@@ -2246,11 +2387,15 @@ async function fetchGameRecs(
     try {
       const igdbRatingMin = tasteProfile.qualityThresholds.igdbRating
       const igdbCountMin = tasteProfile.qualityThresholds.igdbRatingCount
+      // Fix 1.11: aggiungi themes.id come condizione OR se il profilo ha generi-tema
+      const themeFilter = profileThemeIds.length > 0
+        ? ` | (themes = (${profileThemeIds.join(',')}) & genres.name = ("${slot.genre}"))`
+        : ''
       const body = `
         fields name, cover.url, first_release_date, summary, genres.name, themes.name,
                player_perspectives.name, rating, rating_count, keywords.name,
                involved_companies.company.name, involved_companies.developer;
-        where genres.name = ("${slot.genre}") & rating_count > ${igdbCountMin} & rating >= ${igdbRatingMin} & cover != null;
+        where (genres.name = ("${slot.genre}") & rating_count > ${igdbCountMin} & rating >= ${igdbRatingMin} & cover != null)${themeFilter};
         sort rating desc;
         limit 50;
       `
@@ -2394,7 +2539,15 @@ function computeMatchScoreWithDev(
 
 const POOL_SIZE_PER_TYPE = 80   // titoli nel bacino per tipo
 const SERVE_SIZE_PER_TYPE = 15  // titoli serviti per tipo ad ogni GET
-const POOL_TTL_HOURS = 24       // rigenera il pool ogni 24h
+// Fix 1.13: TTL dinamico — più l'utente è attivo, più il pool si rigenera spesso
+// Formula: max(4h, min(48h, 24h - (titoli_aggiunti_ultime_12h × 2h)))
+// const POOL_TTL_HOURS = 24  // rimpiazzato con computePoolTTL()
+function computePoolTTL(entries: any[]): number {
+  const twelveHoursAgo = Date.now() - 12 * 3600000
+  const recentAdds = entries.filter(e => e.created_at && new Date(e.created_at).getTime() > twelveHoursAgo).length
+  return Math.max(4, Math.min(48, 24 - recentAdds * 2))
+}
+const POOL_TTL_HOURS = 24  // default, sarà sovrascitto dinamicamente sotto
 const SESSION_TTL_HOURS = 4     // titoli mostrati in questa sessione (no ripetizioni a breve)
 
 // Fisher-Yates shuffle deterministico (seed = userId + timestamp truncato all'ora)
@@ -2421,9 +2574,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const requestedType = searchParams.get('type') || 'all'
     const forceRefresh = searchParams.get('refresh') === '1'
+    const similarToId = searchParams.get('similar_to_id') || null  // Fix 1.15: "simili a questo"
+    const similarToGenres = searchParams.get('similar_to_genres')?.split(',').filter(Boolean) || []
 
-    // ── In-memory cache check (hit istantaneo, 0 DB queries) ─────────────────
-    if (!forceRefresh) {
+    // ── In-memory cache check — bypassa se similar_to query (sempre fresh) ───
+    if (!forceRefresh && !similarToId) {
       const memHit = memCacheGet(user.id)
       if (memHit) {
         const recs = requestedType === 'all'
@@ -2593,7 +2748,9 @@ export async function GET(request: NextRequest) {
     }
 
     // ── V6: Controlla se il pool esiste ed è ancora valido ───────────────────
-    const poolCutoff = new Date(Date.now() - POOL_TTL_HOURS * 60 * 60 * 1000).toISOString()
+    // Fix 1.13: TTL dinamico basato sull'attività recente
+    const dynamicTTL = computePoolTTL(allEntries)
+    const poolCutoff = new Date(Date.now() - dynamicTTL * 60 * 60 * 1000).toISOString()
 
     const { data: poolRows } = await supabase
       .from('recommendations_pool')

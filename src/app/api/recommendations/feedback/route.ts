@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
 
 const VALID_ACTIONS = ['added', 'dismissed', 'not_interested', 'already_seen'] as const
-const VALID_REASONS = ['not_genre', 'not_format', 'bad_quality', 'already_seen', null] as const
+const VALID_REASONS = ['not_genre', 'not_format', 'bad_quality', 'already_seen', 'not_my_genre', 'too_similar', 'already_know', 'bad_rec', null] as const
 type FeedbackAction = typeof VALID_ACTIONS[number]
 type FeedbackReason = typeof VALID_REASONS[number]
 
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     const formatCounts: Record<string, number> = (existing?.format_feedback_counts as any) || {}
 
     // "Non mi piace il genere" → penalizza i generi del titolo
-    if (feedbackReason === 'not_genre' || feedbackReason === null) {
+    if (feedbackReason === 'not_genre' || feedbackReason === 'not_my_genre' || feedbackReason === null) {
       for (const genre of genres) {
         counts[genre] = (counts[genre] || 0) + (action === 'not_interested' ? 2 : 1)
       }
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
 
     // "Brutto/mi aspettavo di meglio" → penalizza il genere ma meno
-    if (feedbackReason === 'bad_quality') {
+    if (feedbackReason === 'bad_quality' || feedbackReason === 'bad_rec' || feedbackReason === 'too_similar') {
       for (const genre of genres) {
         counts[genre] = (counts[genre] || 0) + 1
       }
