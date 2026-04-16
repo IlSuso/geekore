@@ -136,7 +136,7 @@ function resolveGenres(rawGenres: string[]) {
 async function resolveTmdbKeywordIds(keywords: string[], token: string): Promise<number[]> {
   if (!keywords.length) return []
   const ids: number[] = []
-  const toResolve = keywords.slice(0, 5)
+  const toResolve = keywords.slice(0, 8)
   console.log('[SIMILAR] resolveTmdbKeywordIds: querying', toResolve)
   await Promise.allSettled(toResolve.map(async (kw) => {
     try {
