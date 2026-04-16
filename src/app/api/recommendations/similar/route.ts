@@ -547,7 +547,8 @@ export async function GET(request: NextRequest) {
   // Keywords = segnale primario (peso alto), generi = segnale secondario (peso basso)
   const sourceTagsNorm = [...rawTags, ...rawKeywords].map(s => s.toLowerCase())
   const sourceTagsSet = new Set(sourceTagsNorm)
-  const sourceGenresSet = new Set(rawGenres.map(s => s.toLowerCase()))
+  // Usiamo crossGenres (include alias come Sci-Fi↔Science Fiction) per match più precisi
+  const sourceGenresSet = new Set([...rawGenres, ...crossGenres].map(s => s.toLowerCase()))
 
   const scored = results.map(item => {
     const itemTags = ((item.tags || []) as string[]).map((s: string) => s.toLowerCase())
