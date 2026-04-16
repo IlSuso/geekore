@@ -2506,7 +2506,7 @@ async function fetchGameRecs(
           id: recId,
           title: g.name,
           type: 'game',
-          coverImage: `https:${g.cover.url.replace('t_thumb', 't_cover_big')}`,
+          coverImage: `https:${g.cover.url.replace('t_thumb', 't_1080p')}`,
           year,
           genres: recGenres,
           score: g.rating ? Math.min(Math.round(g.rating) / 20, 5) : undefined,

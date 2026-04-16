@@ -363,7 +363,7 @@ export default function DiscoverPage() {
 
         {/* Loading skeleton */}
         {loading && (
-          <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
             {Array.from({ length: 12 }).map((_, i) => <SkeletonDiscoverCard key={i} />)}
           </div>
         )}
@@ -414,7 +414,7 @@ export default function DiscoverPage() {
             </div>
 
             {/* 3-col tight grid */}
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
               {items.map((item, i) => (
                 <div
                   key={item.id}

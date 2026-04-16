@@ -19,6 +19,8 @@ import { Avatar } from '@/components/ui/Avatar'
 import { useLocale } from '@/lib/locale'
 import { SkeletonForYouRow, SkeletonFriendsWatching } from '@/components/ui/SkeletonCard'
 import { SimilarTasteFriends } from '@/components/social/SimilarTasteFriends'
+import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
+import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 
@@ -142,185 +144,6 @@ const MOODS = [
   { id: 'deep' as Mood, label: 'Profondo', Icon: Brain, desc: 'Drama, psicologico, mistero' },
 ]
 
-// Mappa tipo → dove guardare/giocare
-const WHERE_TO_MAP: Record<string, { label: string; url: (title: string) => string }[]> = {
-  anime:  [
-    { label: 'Crunchyroll', url: t => `https://www.crunchyroll.com/search?q=${encodeURIComponent(t)}` },
-    { label: 'Netflix', url: t => `https://www.netflix.com/search?q=${encodeURIComponent(t)}` },
-    { label: 'AniList', url: t => `https://anilist.co/search/anime?search=${encodeURIComponent(t)}` },
-  ],
-  manga:  [
-    { label: 'MangaDex', url: t => `https://mangadex.org/search?q=${encodeURIComponent(t)}` },
-    { label: 'MyAnimeList', url: t => `https://myanimelist.net/manga.php?q=${encodeURIComponent(t)}` },
-  ],
-  movie:  [
-    { label: 'JustWatch', url: t => `https://www.justwatch.com/it/cerca?q=${encodeURIComponent(t)}` },
-    { label: 'Letterboxd', url: t => `https://letterboxd.com/search/${encodeURIComponent(t)}/` },
-    { label: 'TMDB', url: t => `https://www.themoviedb.org/search?query=${encodeURIComponent(t)}` },
-  ],
-  tv:     [
-    { label: 'JustWatch', url: t => `https://www.justwatch.com/it/cerca?q=${encodeURIComponent(t)}` },
-    { label: 'TMDB', url: t => `https://www.themoviedb.org/search?query=${encodeURIComponent(t)}` },
-  ],
-  game:   [
-    { label: 'Steam', url: t => `https://store.steampowered.com/search/?term=${encodeURIComponent(t)}` },
-    { label: 'IGDB', url: t => `https://www.igdb.com/search?type=1&q=${encodeURIComponent(t)}` },
-    { label: 'Metacritic', url: t => `https://www.metacritic.com/search/${encodeURIComponent(t)}/` },
-  ],
-  boardgame: [
-    { label: 'BoardGameGeek', url: t => `https://boardgamegeek.com/search/boardgame?q=${encodeURIComponent(t)}` },
-    { label: 'Amazon', url: t => `https://www.amazon.it/s?k=${encodeURIComponent(t)}` },
-  ],
-}
-
-function DetailModal({ item, onClose, onAdd, onWishlist, addedIds, wishlistIds, addingIds }: {
-  item: Recommendation
-  onClose: () => void
-  onAdd: (i: Recommendation) => void
-  onWishlist: (i: Recommendation) => void
-  addedIds: Set<string>
-  wishlistIds: Set<string>
-  addingIds: Set<string>
-}) {
-  const isAdded = addedIds.has(item.id)
-  const isAdding = addingIds.has(item.id)
-  const inWishlist = wishlistIds.has(item.id)
-  const Icon = TYPE_ICONS[item.type]
-  const colorClass = TYPE_COLORS[item.type]
-  const whereToLinks = WHERE_TO_MAP[item.type] || []
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-      <div className="relative w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-t-3xl sm:rounded-3xl overflow-hidden max-h-[92vh] flex flex-col"
-        onClick={e => e.stopPropagation()}>
-
-        {/* Header compatto con X */}
-        <div className="flex items-center justify-between px-5 pt-4 pb-0 flex-shrink-0">
-          <div className={`bg-gradient-to-r ${colorClass} text-white text-[10px] font-bold px-2.5 py-1 rounded-full`}>
-            {TYPE_LABEL[item.type]}
-          </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all">
-            <X size={15} />
-          </button>
-        </div>
-
-        {/* Layout: locandina a sinistra + info a destra */}
-        <div className="flex gap-4 px-5 pt-4 pb-3 flex-shrink-0">
-          {/* Locandina verticale */}
-          <div className="flex-shrink-0 w-28 sm:w-32">
-            <div className={`aspect-[2/3] rounded-2xl overflow-hidden bg-zinc-900 ${inWishlist ? 'ring-2 ring-amber-500/50' : ''}`}>
-              {item.coverImage
-                ? <img src={item.coverImage} alt={item.title}
-                    className="w-full h-full object-cover"
-                    style={{ imageRendering: 'auto' }} />
-                : <div className={`w-full h-full bg-gradient-to-br ${colorClass} flex items-center justify-center`}>
-                    <Icon size={32} className="text-white/50" />
-                  </div>
-              }
-            </div>
-          </div>
-
-          {/* Info principali */}
-          <div className="flex-1 min-w-0 flex flex-col justify-start pt-1">
-            <h2 className="text-lg font-bold text-white leading-tight mb-2">{item.title}</h2>
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              {item.year && <span className="text-xs text-zinc-500">{item.year}</span>}
-              {item.score && (
-                <span className="flex items-center gap-1 text-xs text-yellow-400 font-semibold">
-                  <Star size={10} fill="currentColor" />{Math.min(item.score, 5).toFixed(1)}
-                </span>
-              )}
-              <span className="flex items-center gap-1 text-xs font-bold text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded-full">
-                <Star size={10} fill="currentColor" />{item.matchScore}%
-              </span>
-            </div>
-            {/* Generi */}
-            {item.genres.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {item.genres.slice(0, 4).map(g => (
-                  <span key={g} className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full">{g}</span>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Contenuto scrollabile */}
-        <div className="overflow-y-auto flex-1 px-5 pb-2 space-y-4">
-
-          {/* Perché te lo consigliamo */}
-          <div className="bg-violet-500/10 border border-violet-500/20 rounded-2xl px-4 py-3">
-            <p className="text-[10px] text-violet-400 uppercase tracking-wider font-semibold mb-1">Perché te lo consigliamo</p>
-            <p className="text-sm text-zinc-200 leading-relaxed">{item.why}</p>
-          </div>
-
-          {/* Descrizione */}
-          {item.description && (
-            <div>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold mb-2">Di cosa tratta</p>
-              <p className="text-sm text-zinc-300 leading-relaxed line-clamp-5">{item.description}</p>
-            </div>
-          )}
-
-          {/* Generi */}
-          {item.genres.length > 0 && (
-            <div>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold mb-2">Generi</p>
-              <div className="flex flex-wrap gap-1.5">
-                {item.genres.map(g => (
-                  <span key={g} className="text-xs bg-zinc-800 text-zinc-300 px-2.5 py-1 rounded-full border border-zinc-700">{g}</span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Dove guardarlo/giocarlo */}
-          {whereToLinks.length > 0 && (
-            <div>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold mb-2">
-                {item.type === 'game' ? 'Dove acquistarlo / giocarci' : item.type === 'manga' || item.type === 'boardgame' ? 'Dove trovarlo' : 'Dove guardarlo'}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {whereToLinks.map(link => (
-                  <a key={link.label} href={link.url(item.title)} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-xl border border-zinc-700 hover:border-zinc-500 transition-all">
-                    {link.label}
-                    <ArrowRight size={11} className="text-zinc-500" />
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Badge speciali */}
-          {(item.isSeasonal || item.isAwardWinner || item.creatorBoost || item.socialBoost || item.friendWatching) && (
-            <div className="flex flex-wrap gap-2">
-              {item.isSeasonal && <span className="text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/20 px-2.5 py-1 rounded-full flex items-center gap-1"><Calendar size={9} />In corso questa stagione</span>}
-              {item.isAwardWinner && <span className="text-[10px] bg-yellow-500/15 text-yellow-300 border border-yellow-500/20 px-2.5 py-1 rounded-full flex items-center gap-1"><Trophy size={9} />Acclamato dalla critica</span>}
-              {item.creatorBoost && <span className="text-[10px] bg-sky-500/15 text-sky-300 border border-sky-500/20 px-2.5 py-1 rounded-full flex items-center gap-1"><Clapperboard size={9} />{item.creatorBoost}</span>}
-              {item.friendWatching && <span className="text-[10px] bg-blue-500/15 text-blue-300 border border-blue-500/20 px-2.5 py-1 rounded-full flex items-center gap-1"><Users size={9} />{item.friendWatching} lo sta guardando</span>}
-            </div>
-          )}
-        </div>
-
-        {/* Footer azioni */}
-        <div className="p-4 border-t border-zinc-800 flex gap-3">
-          <button onClick={() => { onWishlist(item) }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold border transition-all ${inWishlist ? 'bg-amber-600/20 border-amber-500/40 text-amber-300' : 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:border-zinc-500'}`}>
-            <Bookmark size={15} fill={inWishlist ? 'currentColor' : 'none'} />
-            {inWishlist ? 'In wishlist' : 'Wishlist'}
-          </button>
-          <button onClick={() => { onAdd(item); if (!isAdded) onClose() }} disabled={isAdded || isAdding}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm font-semibold transition-all ${isAdded ? 'bg-zinc-700 text-zinc-400' : isAdding ? 'bg-violet-800 text-white' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}>
-            {isAdded ? <Check size={15} /> : isAdding ? <RefreshCw size={15} className="animate-spin" /> : <Plus size={15} />}
-            {isAdded ? 'Aggiunto' : isAdding ? '...' : 'Aggiungi alla collezione'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // Fix 2.3: MoodSelector come bottom sheet — risparmia ~120px verticali
 function MoodPill({ mood, onClick }: { mood: Mood; onClick: () => void }) {
@@ -551,12 +374,10 @@ const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }: { tast
 })
 
 // V3: Continuity Section
-const ContinuitySection = memo(function ContinuitySection({ items, onAdd, onFeedback, addedIds, addingIds, dismissedIds }: {
+const ContinuitySection = memo(function ContinuitySection({ items, onFeedback, onDetail, dismissedIds }: {
   items: Recommendation[]
-  onAdd: (i: Recommendation) => void
   onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
-  addedIds: Set<string>
-  addingIds: Set<string>
+  onDetail?: (i: Recommendation) => void
   dismissedIds: Set<string>
 }) {
   const visible = items.filter(i => i.isContinuity && !dismissedIds.has(i.id))
@@ -576,10 +397,8 @@ const ContinuitySection = memo(function ContinuitySection({ items, onAdd, onFeed
       <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
         {visible.map(item => {
           const Icon = TYPE_ICONS[item.type]
-          const isAdded = addedIds.has(item.id)
-          const isAdding = addingIds.has(item.id)
           return (
-            <div key={item.id} className="flex-shrink-0 w-44 group relative">
+            <div key={item.id} className="flex-shrink-0 w-44 group relative cursor-pointer" onClick={() => onDetail?.(item)}>
               <div className="relative h-64 rounded-2xl overflow-hidden bg-zinc-900 mb-2">
                 {item.coverImage
                   ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" />
@@ -594,11 +413,7 @@ const ContinuitySection = memo(function ContinuitySection({ items, onAdd, onFeed
                 </div>
                 <div className="absolute bottom-0 inset-x-0 h-20 bg-gradient-to-t from-black/80 to-transparent" />
                 <div className="absolute bottom-2 inset-x-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => onAdd(item)} disabled={isAdded}
-                    className={`flex-1 text-xs font-semibold py-1.5 rounded-xl flex items-center justify-center gap-1 ${isAdded ? 'bg-emerald-600/80 text-white' : 'bg-amber-500 hover:bg-amber-400 text-white'}`}>
-                    {isAdded ? <Check size={11} /> : <Plus size={11} />}{isAdded ? 'Aggiunto' : 'Aggiungi'}
-                  </button>
-                  <button onClick={() => onFeedback(item, 'already_seen')} className="w-8 flex items-center justify-center bg-zinc-800/80 hover:bg-zinc-700 rounded-xl text-zinc-500 hover:text-zinc-300">
+                  <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'already_seen') }} className="flex-1 flex items-center justify-center py-1.5 bg-zinc-800/80 hover:bg-zinc-700 rounded-xl text-zinc-500 hover:text-zinc-300">
                     <Eye size={11} />
                   </button>
                 </div>
@@ -616,21 +431,20 @@ const ContinuitySection = memo(function ContinuitySection({ items, onAdd, onFeed
   )
 })
 
-const RecommendationCard = memo(function RecommendationCard({ item, onAdd, onWishlist, onFeedback, onSimilar, onDetail, alreadyAdded, isAdding, isSimilarLoading, inWishlist, dismissed }: {
-  item: Recommendation; onAdd: (i: Recommendation) => void; onWishlist: (i: Recommendation) => void
+const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, onSimilar, onDetail, isSimilarLoading, dismissed }: {
+  item: Recommendation
   onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
   onSimilar?: (i: Recommendation) => void
   onDetail?: (i: Recommendation) => void
-  alreadyAdded: boolean; isAdding: boolean; isSimilarLoading: boolean; inWishlist: boolean; dismissed: boolean
+  isSimilarLoading: boolean; dismissed: boolean
 }) {
-  const { t } = useLocale(); const fy = t.forYou
   const [showAct, setShowAct] = useState(false)
   const Icon = TYPE_ICONS[item.type]; const colorClass = TYPE_COLORS[item.type]
   if (dismissed) return null
 
   return (
     <div className="flex-shrink-0 w-36 group" onMouseEnter={() => setShowAct(true)} onMouseLeave={() => setShowAct(false)}>
-      <div className={`relative h-52 rounded-2xl overflow-hidden bg-zinc-900 mb-2 cursor-pointer ${inWishlist ? 'ring-2 ring-amber-500/60 ring-offset-1 ring-offset-black' : ''}`}
+      <div className={`relative h-52 rounded-2xl overflow-hidden bg-zinc-900 mb-2 cursor-pointer`}
         onClick={() => onDetail?.(item)}>
         {item.coverImage
           ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
@@ -659,23 +473,20 @@ const RecommendationCard = memo(function RecommendationCard({ item, onAdd, onWis
             <Star size={9} fill="currentColor" /> {Math.min(item.score, 5).toFixed(1)}
           </div>
         )}
-        <div className={`absolute inset-0 bg-black/75 transition-opacity flex flex-col items-center justify-end pb-3 gap-2 ${showAct ? 'opacity-100' : 'opacity-0'}`}>
-          <button onClick={() => onAdd(item)} disabled={alreadyAdded || isAdding}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold w-28 justify-center ${alreadyAdded ? 'bg-zinc-700 text-zinc-400' : isAdding ? 'bg-violet-800 text-white' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}>
-            {alreadyAdded ? <Check size={12} /> : isAdding ? <RefreshCw size={12} className="animate-spin" /> : <Plus size={12} />}
-            {alreadyAdded ? 'Aggiunto' : isAdding ? '...' : fy.addToCollection}
-          </button>
-          <button onClick={() => onWishlist(item)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold w-28 justify-center ${inWishlist ? 'bg-amber-600/80 text-white' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'}`}>
-            <Bookmark size={12} fill={inWishlist ? 'currentColor' : 'none'} />{fy.addToWishlist}
-          </button>
-          <div className="flex gap-1.5 w-28">
-            <button onClick={() => onFeedback(item, 'not_interested')} title="Non mi interessa" className="flex-1 flex items-center justify-center py-1 bg-zinc-800/80 hover:bg-red-900/60 rounded-xl text-zinc-500 hover:text-red-400"><ThumbsDown size={11} /></button>
-            <button onClick={() => onFeedback(item, 'already_seen')} title="L'ho già visto" className="flex-1 flex items-center justify-center py-1 bg-zinc-800/80 hover:bg-zinc-700 rounded-xl text-zinc-500 hover:text-zinc-300"><Eye size={11} /></button>
+        <div className={`absolute inset-0 bg-black/60 transition-opacity flex flex-col items-center justify-end pb-3 gap-2 ${showAct ? 'opacity-100' : 'opacity-0'}`}>
+          <div className="flex gap-1.5">
+            <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }} title="Non mi interessa"
+              className="flex items-center justify-center p-2 bg-zinc-900/80 hover:bg-red-900/60 rounded-xl text-zinc-400 hover:text-red-400 transition-colors">
+              <ThumbsDown size={13} />
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'already_seen') }} title="L'ho già visto"
+              className="flex items-center justify-center p-2 bg-zinc-900/80 hover:bg-zinc-700 rounded-xl text-zinc-400 hover:text-zinc-200 transition-colors">
+              <Eye size={13} />
+            </button>
             {onSimilar && (
-              <button onClick={() => onSimilar(item)} disabled={isSimilarLoading} title="Simili a questo"
-                className={`flex-1 flex items-center justify-center py-1 rounded-xl transition-colors ${isSimilarLoading ? 'bg-violet-900/40 text-violet-400' : 'bg-zinc-800/80 hover:bg-violet-900/60 text-zinc-500 hover:text-violet-300'}`}>
-                {isSimilarLoading ? <RefreshCw size={11} className="animate-spin" /> : <Search size={11} />}
+              <button onClick={(e) => { e.stopPropagation(); onSimilar(item) }} disabled={isSimilarLoading} title="Simili"
+                className={`flex items-center justify-center p-2 rounded-xl transition-colors ${isSimilarLoading ? 'bg-violet-900/40 text-violet-400' : 'bg-zinc-900/80 hover:bg-violet-900/60 text-zinc-400 hover:text-violet-300'}`}>
+                {isSimilarLoading ? <RefreshCw size={13} className="animate-spin" /> : <Search size={13} />}
               </button>
             )}
           </div>
@@ -704,11 +515,12 @@ const RecommendationCard = memo(function RecommendationCard({ item, onAdd, onWis
   )
 })
 
-const HeroMatchSection = memo(function HeroMatchSection({ items, onAdd, onWishlist, onFeedback, onSimilar, addedIds, addingIds, wishlistIds, dismissedIds }: {
-  items: Recommendation[]; onAdd: (i: Recommendation) => void; onWishlist: (i: Recommendation) => void
+const HeroMatchSection = memo(function HeroMatchSection({ items, onFeedback, onSimilar, onDetail, dismissedIds }: {
+  items: Recommendation[]
   onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
   onSimilar?: (i: Recommendation) => void
-  addedIds: Set<string>; addingIds: Set<string>; wishlistIds: Set<string>; dismissedIds: Set<string>
+  onDetail?: (i: Recommendation) => void
+  dismissedIds: Set<string>
 }) {
   const { t } = useLocale(); const fy = t.forYou
   const top = items
@@ -731,10 +543,8 @@ const HeroMatchSection = memo(function HeroMatchSection({ items, onAdd, onWishli
       <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
         {top.map(item => {
           const Icon = TYPE_ICONS[item.type]; const colorClass = TYPE_COLORS[item.type]
-          const isAdded = addedIds.has(item.id)
-          const isAdding = addingIds.has(item.id)
           return (
-            <div key={item.id} className="flex-shrink-0 w-44 group relative">
+            <div key={item.id} className="flex-shrink-0 w-44 group relative cursor-pointer" onClick={() => onDetail?.(item)}>
               <div className="relative h-64 rounded-2xl overflow-hidden bg-zinc-900 mb-2">
                 {item.coverImage
                   ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" />
@@ -755,14 +565,10 @@ const HeroMatchSection = memo(function HeroMatchSection({ items, onAdd, onWishli
                   </div>
                 )}
                 <div className="absolute bottom-2 inset-x-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => onAdd(item)} disabled={isAdded || isAdding}
-                    className={`flex-1 text-xs font-semibold py-1.5 rounded-xl flex items-center justify-center gap-1 ${isAdded ? 'bg-emerald-600/80 text-white' : isAdding ? 'bg-violet-800 text-white' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}>
-                    {isAdded ? <Check size={11} /> : isAdding ? <RefreshCw size={11} className="animate-spin" /> : <Plus size={11} />}{isAdded ? 'Aggiunto' : isAdding ? '...' : 'Aggiungi'}
-                  </button>
-                  <button onClick={() => onFeedback(item, 'not_interested')} className="w-8 flex items-center justify-center bg-zinc-800/80 hover:bg-red-900/60 rounded-xl text-zinc-500 hover:text-red-400">
+                  <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }} className="flex items-center justify-center p-2 bg-zinc-800/80 hover:bg-red-900/60 rounded-xl text-zinc-500 hover:text-red-400">
                     <ThumbsDown size={11} />
                   </button>
-                  {onSimilar && <button onClick={() => onSimilar(item)} title="Simili" className="w-8 flex items-center justify-center bg-zinc-800/80 hover:bg-violet-900/60 rounded-xl text-zinc-500 hover:text-violet-300"><Search size={11} /></button>}
+                  {onSimilar && <button onClick={(e) => { e.stopPropagation(); onSimilar(item) }} className="flex items-center justify-center p-2 bg-zinc-800/80 hover:bg-violet-900/60 rounded-xl text-zinc-500 hover:text-violet-300"><Search size={11} /></button>}
                 </div>
               </div>
               <p className="text-xs font-bold text-white leading-tight line-clamp-2 mb-0.5">{item.title}</p>
@@ -950,19 +756,14 @@ const SIMILAR_TYPE_FILTERS: Array<{ key: MediaType | 'all'; label: string }> = [
   { key: 'boardgame', label: 'Boardgame' },
 ]
 
-const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, items, onAdd, onWishlist, onFeedback, onSimilar, onDetail, onClose, addedIds, addingIds, wishlistIds, dismissedIds, similarLoadingId }: {
+const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, items, onFeedback, onSimilar, onDetail, onClose, dismissedIds, similarLoadingId }: {
   sourceTitle: string
   sourceType: MediaType
   items: Recommendation[]
-  onAdd: (i: Recommendation) => void
-  onWishlist: (i: Recommendation) => void
   onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
   onSimilar?: (i: Recommendation) => void
   onDetail?: (i: Recommendation) => void
   onClose: () => void
-  addedIds: Set<string>
-  addingIds: Set<string>
-  wishlistIds: Set<string>
   dismissedIds: Set<string>
   similarLoadingId?: string | null
 }) {
@@ -1041,15 +842,10 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
             <RecommendationCard
               key={item.id}
               item={item}
-              onAdd={onAdd}
-              onWishlist={onWishlist}
               onFeedback={onFeedback}
               onSimilar={onSimilar}
               onDetail={onDetail}
-              alreadyAdded={addedIds.has(item.id)}
-              isAdding={addingIds.has(item.id)}
               isSimilarLoading={similarLoadingId === item.id}
-              inWishlist={wishlistIds.has(item.id)}
               dismissed={dismissedIds.has(item.id)}
             />
           ))}
@@ -1071,12 +867,12 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
 })
 
 // Fix 2.8: sezione separata per titoli "Scoperta" — nuovo per te
-const DiscoverySection = memo(function DiscoverySection({ items, onAdd, onWishlist, onFeedback, onSimilar, addedIds, addingIds, wishlistIds, dismissedIds }: {
+const DiscoverySection = memo(function DiscoverySection({ items, onFeedback, onSimilar, onDetail, dismissedIds }: {
   items: Recommendation[]
-  onAdd: (i: Recommendation) => void; onWishlist: (i: Recommendation) => void
   onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
   onSimilar?: (i: Recommendation) => void
-  addedIds: Set<string>; addingIds: Set<string>; wishlistIds: Set<string>; dismissedIds: Set<string>
+  onDetail?: (i: Recommendation) => void
+  dismissedIds: Set<string>
 }) {
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
   const visible = items.filter(i => i.isDiscovery && !dismissedIds.has(i.id))
@@ -1098,8 +894,6 @@ const DiscoverySection = memo(function DiscoverySection({ items, onAdd, onWishli
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
         {shown.map(item => {
           const Icon = TYPE_ICONS[item.type]
-          const isAdded = addedIds.has(item.id)
-          const isAdding = addingIds.has(item.id)
           return (
             <div key={item.id} className="group">
               <div className="relative aspect-[2/3] rounded-2xl overflow-hidden bg-zinc-900 mb-2 ring-2 ring-emerald-500/40 ring-offset-2 ring-offset-black cursor-pointer"
@@ -1116,19 +910,14 @@ const DiscoverySection = memo(function DiscoverySection({ items, onAdd, onWishli
                     <Star size={9} fill="currentColor" /> {Math.min(item.score, 5).toFixed(1)}
                   </div>
                 )}
-                <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-end pb-3 gap-2">
-                  <button onClick={() => onAdd(item)} disabled={isAdded || isAdding}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold w-28 justify-center ${isAdded ? 'bg-zinc-700 text-zinc-400' : isAdding ? 'bg-emerald-800 text-white' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}`}>
-                    {isAdded ? <Check size={12} /> : isAdding ? <RefreshCw size={12} className="animate-spin" /> : <Plus size={12} />}
-                    {isAdded ? 'Aggiunto' : isAdding ? '...' : 'Aggiungi'}
-                  </button>
-                  <div className="flex gap-1.5 w-28">
-                    <button onClick={() => onFeedback(item, 'not_interested')}
-                      className="flex-1 flex items-center justify-center py-1 bg-zinc-800/80 hover:bg-red-900/60 rounded-xl text-zinc-500 hover:text-red-400">
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-end pb-3 gap-2">
+                  <div className="flex gap-1.5">
+                    <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }}
+                      className="flex items-center justify-center p-2 bg-zinc-900/80 hover:bg-red-900/60 rounded-xl text-zinc-400 hover:text-red-400">
                       <ThumbsDown size={11} />
                     </button>
-                    {onSimilar && <button onClick={() => onSimilar(item)} title="Simili"
-                      className="flex-1 flex items-center justify-center py-1 bg-zinc-800/80 hover:bg-violet-900/60 rounded-xl text-zinc-500 hover:text-violet-300">
+                    {onSimilar && <button onClick={(e) => { e.stopPropagation(); onSimilar(item) }} title="Simili"
+                      className="flex items-center justify-center p-2 bg-zinc-900/80 hover:bg-violet-900/60 rounded-xl text-zinc-400 hover:text-violet-300">
                       <Search size={11} />
                     </button>}
                   </div>
@@ -1159,11 +948,11 @@ const DiscoverySection = memo(function DiscoverySection({ items, onAdd, onWishli
 const INITIAL_VISIBLE = 15
 const LOAD_MORE_STEP = 10
 
-const RecommendationSection = memo(function RecommendationSection({ type, items, label, onAdd, onWishlist, onFeedback, addedIds, addingIds, wishlistIds, dismissedIds, onSimilar, onDetail, similarLoadingId, isPrimary }: {
+const RecommendationSection = memo(function RecommendationSection({ type, items, label, onFeedback, dismissedIds, onSimilar, onDetail, similarLoadingId, isPrimary }: {
   type: MediaType; items: Recommendation[]; label: string
   onAdd: (i: Recommendation) => void; onWishlist: (i: Recommendation) => void
   onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
-  addedIds: Set<string>; addingIds: Set<string>; wishlistIds: Set<string>; dismissedIds: Set<string>
+  dismissedIds: Set<string>
   onSimilar?: (i: Recommendation) => void
   onDetail?: (i: Recommendation) => void
   similarLoadingId?: string | null
@@ -1207,8 +996,8 @@ const RecommendationSection = memo(function RecommendationSection({ type, items,
       <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
         {shown.map(item => (
           <RecommendationCard
-            key={item.id} item={item} onAdd={onAdd} onWishlist={onWishlist} onFeedback={onFeedback} onSimilar={onSimilar} onDetail={onDetail}
-            alreadyAdded={addedIds.has(item.id)} isAdding={addingIds.has(item.id)} isSimilarLoading={similarLoadingId === item.id} inWishlist={wishlistIds.has(item.id)} dismissed={dismissedIds.has(item.id)}
+            key={item.id} item={item} onFeedback={onFeedback} onSimilar={onSimilar} onDetail={onDetail}
+            isSimilarLoading={similarLoadingId === item.id} dismissed={dismissedIds.has(item.id)}
           />
         ))}
         {/* Fix 2.13: "Mostra altri" senza refresh */}
@@ -1679,7 +1468,23 @@ export default function ForYouPage() {
 
   // Fix 1.15: "Simili a questo" — richiede i consigli filtrati per i generi del titolo
   const handleDetail = useCallback((item: Recommendation) => {
-    setDetailItem(item)
+    // Converti Recommendation in MediaDetails per il MediaDetailsDrawer
+    const details: MediaDetails = {
+      id: item.id,
+      title: item.title,
+      type: item.type,
+      coverImage: item.coverImage,
+      year: item.year,
+      genres: item.genres,
+      description: item.description,
+      score: item.score,
+      source: item.id.startsWith('anilist-anime') ? 'anilist'
+            : item.id.startsWith('anilist-manga') ? 'anilist'
+            : item.id.startsWith('tmdb-') ? 'tmdb'
+            : item.id.startsWith('igdb-') || /^\d+$/.test(item.id) ? 'igdb'
+            : undefined,
+    }
+    setDetailItem(details as any)
   }, [])
 
   const handleSimilar = useCallback(async (item: Recommendation) => {
@@ -1856,15 +1661,10 @@ export default function ForYouPage() {
                 sourceTitle={similarSection.sourceTitle}
                 sourceType={similarSection.sourceType}
                 items={similarSection.items}
-                onAdd={handleAdd}
-                onWishlist={handleWishlist}
                 onFeedback={handleFeedback}
                 onSimilar={handleSimilar}
                 onDetail={handleDetail}
                 onClose={() => setSimilarSection(null)}
-                addedIds={addedIds}
-                addingIds={addingIds}
-                wishlistIds={wishlistIds}
                 dismissedIds={dismissedIds}
                 similarLoadingId={similarLoading}
               />
@@ -1873,13 +1673,9 @@ export default function ForYouPage() {
               <HeroMatchSection
                 key={`hero-${allRecs.length}`}
                 items={allRecs}
-                onAdd={handleAdd}
-                onWishlist={handleWishlist}
                 onFeedback={handleFeedback}
                 onSimilar={handleSimilar}
-                addedIds={addedIds}
-                addingIds={addingIds}
-                wishlistIds={wishlistIds}
+                onDetail={handleDetail}
                 dismissedIds={dismissedIds}
               />
             )}
@@ -1889,10 +1685,8 @@ export default function ForYouPage() {
             {allContinuityRecs.length > 0 && (
               <ContinuitySection
                 items={allContinuityRecs}
-                onAdd={handleAdd}
                 onFeedback={handleFeedback}
-                addedIds={addedIds}
-                addingIds={addingIds}
+                onDetail={handleDetail}
                 dismissedIds={dismissedIds}
               />
             )}
@@ -1900,13 +1694,9 @@ export default function ForYouPage() {
             <DiscoverySection
               key={`discovery-${Object.keys(recommendations).join('-')}-${allRecs.length}`}
               items={allRecs}
-              onAdd={handleAdd}
-              onWishlist={handleWishlist}
               onFeedback={handleFeedback}
               onSimilar={handleSimilar}
-              addedIds={addedIds}
-              addingIds={addingIds}
-              wishlistIds={wishlistIds}
+              onDetail={handleDetail}
               dismissedIds={dismissedIds}
             />
 
@@ -1925,9 +1715,6 @@ export default function ForYouPage() {
                   onAdd={handleAdd}
                   onWishlist={handleWishlist}
                   onFeedback={handleFeedback}
-                  addedIds={addedIds}
-                  addingIds={addingIds}
-                  wishlistIds={wishlistIds}
                   dismissedIds={dismissedIds}
                   onSimilar={handleSimilar}
                   onDetail={handleDetail}
@@ -1950,9 +1737,17 @@ export default function ForYouPage() {
         )}
       </div>
       {showPrefs && <PreferencesModal onClose={() => setShowPrefs(false)} onSaved={handleRefresh} />}
-      {/* Detail modal */}
+      {/* Drawer dettaglio titolo — stesso del Discover */}
       {detailItem && (
-        <DetailModal item={detailItem} onClose={() => setDetailItem(null)} onAdd={handleAdd} onWishlist={handleWishlist} addedIds={addedIds} wishlistIds={wishlistIds} addingIds={addingIds} />
+        <MediaDetailsDrawer
+          media={detailItem as any}
+          onClose={() => setDetailItem(null)}
+          onAdd={(media) => {
+            setAddedIds(prev => new Set([...prev, media.id]))
+            setDetailItem(null)
+            showToast(t.discover.added)
+          }}
+        />
       )}
       {/* Fix 2.3: mood bottom sheet */}
       {showMoodSheet && (

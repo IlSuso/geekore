@@ -174,7 +174,7 @@ export async function GET(request: NextRequest) {
             .filter((ic: any) => ic.developer).map((ic: any) => ic.company?.name).filter(Boolean)[0] as string | undefined
           add({
             id, title: g.name || '', type: 'game',
-            coverImage: g.cover?.url ? `https:${g.cover.url.replace('t_thumb','t_cover_big')}` : undefined,
+            coverImage: g.cover?.url ? `https:${g.cover.url.replace('t_thumb','t_1080p')}` : undefined,
             year: g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : undefined,
             genres: recGenres, score: g.rating ? Math.min(g.rating / 20, 5) : undefined,
             matchScore: 55 + profileBoost(recGenres),

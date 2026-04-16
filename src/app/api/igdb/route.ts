@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
       id: g.id.toString(),
       title: g.name,
       type: 'game',
-      coverImage: g.cover?.url ? `https:${g.cover.url.replace('t_thumb', 't_cover_big')}` : undefined,
+      coverImage: g.cover?.url ? `https:${g.cover.url.replace('t_thumb', 't_1080p')}` : undefined,
       year: g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : undefined,
       episodes: 1,
       description: g.summary ? g.summary.slice(0, 400) : undefined,
