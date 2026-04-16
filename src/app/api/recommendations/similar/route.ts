@@ -14,7 +14,7 @@ const ANILIST_URL = 'https://graphql.anilist.co'
 
 const IGDB_TO_CROSS: Record<string, string[]> = {
   'Role-playing (RPG)':         ['Fantasy', 'Adventure', 'Drama'],
-  'Adventure':                  ['Adventure', 'Fantasy'],
+  'Adventure':                  ['Adventure'],
   'Action':                     ['Action', 'Adventure'],
   "Hack and slash/Beat 'em up": ['Action'],
   'Strategy':                   ['Strategy', 'Science Fiction'],
@@ -73,6 +73,16 @@ const GENRE_TO_TMDB_TV: Record<string, number> = {
   'Drama':18,'Fantasy':10765,'Horror':9648,'Mystery':9648,'Romance':10749,
   'Science Fiction':10765,'Sci-Fi':10765,'Thriller':80,'Psychological':9648,
 }
+// Reverse mapping: TMDb genre ID → nome genere cross-media
+const TMDB_MOVIE_ID_TO_GENRE: Record<number, string> = {
+  28:'Action',12:'Adventure',16:'Animation',35:'Comedy',80:'Crime',
+  18:'Drama',14:'Fantasy',27:'Horror',9648:'Mystery',10749:'Romance',
+  878:'Science Fiction',53:'Thriller',10752:'War',36:'History',
+}
+const TMDB_TV_ID_TO_GENRE: Record<number, string> = {
+  10759:'Action',16:'Animation',35:'Comedy',80:'Crime',
+  18:'Drama',10765:'Science Fiction',27:'Horror',9648:'Mystery',10749:'Romance',53:'Thriller',
+}
 const ANILIST_VALID = new Set([
   'Action','Adventure','Comedy','Drama','Fantasy','Horror','Mystery',
   'Romance','Sci-Fi','Slice of Life','Sports','Supernatural','Thriller','Psychological',
@@ -107,6 +117,10 @@ function resolveGenres(rawGenres: string[]) {
     }
     crossSet.add(g)
   }
+
+  // Alias: TMDb usa "Science Fiction", AniList usa "Sci-Fi" — teniamo entrambe
+  if (crossSet.has('Science Fiction')) crossSet.add('Sci-Fi')
+  if (crossSet.has('Sci-Fi')) crossSet.add('Science Fiction')
 
   const crossGenres = [...crossSet]
   return {
@@ -361,30 +375,15 @@ export async function GET(request: NextRequest) {
     })())
   }
 
-  // ── TMDb film — generi + keywords ─────────────────────────────────────────
+  // ── TMDb film — keywords prima, poi generi (evita dedup che scarta keyword-items) ──
   if (tmdbToken && tmdbMovieIds.length > 0) {
     fetches.push((async () => {
       try {
         const tmdbKwIds = await tmdbKeywordIdsPromise
+        const movieGenres = (ids: number[]) =>
+          [...new Set(ids.map((id: number) => TMDB_MOVIE_ID_TO_GENRE[id]).filter(Boolean) as string[])]
 
-        // Query per generi
-        const params = new URLSearchParams({ with_genres: tmdbMovieIds.slice(0,3).join(','), sort_by: 'vote_average.desc', 'vote_count.gte': '100', language: 'it-IT' })
-        const res = await fetch(`${TMDB_BASE}/discover/movie?${params}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
-        if (res.ok) {
-          const json = await res.json()
-          for (const m of (json.results || []).slice(0, 20)) {
-            const id = m.id.toString()
-            const recGenres = crossGenres.filter(g => GENRE_TO_TMDB_MOVIE[g])
-            add({ id, title: m.title || '', type: 'movie',
-              coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
-              year: m.release_date ? new Date(m.release_date).getFullYear() : undefined,
-              genres: recGenres, score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
-              description: m.overview ? m.overview.slice(0, 200) : undefined,
-              matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
-          }
-        }
-
-        // Query aggiuntiva per keywords
+        // Keyword query PRIMA — così questi item entrano in seenIds con _foundByKeyword=true
         if (tmdbKwIds.length > 0) {
           const kwParams = new URLSearchParams({ with_keywords: tmdbKwIds.join(','), sort_by: 'vote_average.desc', 'vote_count.gte': '50', language: 'it-IT' })
           const kwRes = await fetch(`${TMDB_BASE}/discover/movie?${kwParams}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
@@ -392,7 +391,7 @@ export async function GET(request: NextRequest) {
             const kwJson = await kwRes.json()
             for (const m of (kwJson.results || []).slice(0, 15)) {
               const id = m.id.toString()
-              const recGenres = crossGenres.filter(g => GENRE_TO_TMDB_MOVIE[g])
+              const recGenres = movieGenres(m.genre_ids || [])
               add({ id, title: m.title || '', type: 'movie',
                 coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
                 year: m.release_date ? new Date(m.release_date).getFullYear() : undefined,
@@ -404,33 +403,36 @@ export async function GET(request: NextRequest) {
             }
           }
         }
-      } catch {}
-    })())
-  }
 
-  // ── TMDb serie TV — generi + keywords ────────────────────────────────────
-  if (tmdbToken && tmdbTvIds.length > 0) {
-    fetches.push((async () => {
-      try {
-        const tmdbKwIds = await tmdbKeywordIdsPromise
-
-        const params = new URLSearchParams({ with_genres: tmdbTvIds.slice(0,3).join(','), sort_by: 'vote_average.desc', 'vote_count.gte': '50', language: 'it-IT' })
-        const res = await fetch(`${TMDB_BASE}/discover/tv?${params}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
+        // Genre query DOPO — usa generi reali del film da genre_ids
+        const params = new URLSearchParams({ with_genres: tmdbMovieIds.slice(0,3).join(','), sort_by: 'vote_average.desc', 'vote_count.gte': '100', language: 'it-IT' })
+        const res = await fetch(`${TMDB_BASE}/discover/movie?${params}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
         if (res.ok) {
           const json = await res.json()
           for (const m of (json.results || []).slice(0, 20)) {
             const id = m.id.toString()
-            const recGenres = crossGenres.filter(g => GENRE_TO_TMDB_TV[g])
-            add({ id, title: m.name || '', type: 'tv',
+            const recGenres = movieGenres(m.genre_ids || [])
+            add({ id, title: m.title || '', type: 'movie',
               coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
-              year: m.first_air_date ? new Date(m.first_air_date).getFullYear() : undefined,
+              year: m.release_date ? new Date(m.release_date).getFullYear() : undefined,
               genres: recGenres, score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
               description: m.overview ? m.overview.slice(0, 200) : undefined,
-              episodes: m.number_of_episodes ?? undefined,
               matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
           }
         }
+      } catch {}
+    })())
+  }
 
+  // ── TMDb serie TV — keywords prima, poi generi ────────────────────────────
+  if (tmdbToken && tmdbTvIds.length > 0) {
+    fetches.push((async () => {
+      try {
+        const tmdbKwIds = await tmdbKeywordIdsPromise
+        const tvGenres = (ids: number[]) =>
+          [...new Set(ids.map((id: number) => TMDB_TV_ID_TO_GENRE[id]).filter(Boolean) as string[])]
+
+        // Keyword query PRIMA
         if (tmdbKwIds.length > 0) {
           const kwParams = new URLSearchParams({ with_keywords: tmdbKwIds.join(','), sort_by: 'vote_average.desc', 'vote_count.gte': '30', language: 'it-IT' })
           const kwRes = await fetch(`${TMDB_BASE}/discover/tv?${kwParams}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
@@ -438,7 +440,7 @@ export async function GET(request: NextRequest) {
             const kwJson = await kwRes.json()
             for (const m of (kwJson.results || []).slice(0, 15)) {
               const id = m.id.toString()
-              const recGenres = crossGenres.filter(g => GENRE_TO_TMDB_TV[g])
+              const recGenres = tvGenres(m.genre_ids || [])
               add({ id, title: m.name || '', type: 'tv',
                 coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
                 year: m.first_air_date ? new Date(m.first_air_date).getFullYear() : undefined,
@@ -449,6 +451,24 @@ export async function GET(request: NextRequest) {
                 matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres, rawKeywords),
                 _foundByKeyword: true, _pop: m.popularity || 0 })
             }
+          }
+        }
+
+        // Genre query DOPO
+        const params = new URLSearchParams({ with_genres: tmdbTvIds.slice(0,3).join(','), sort_by: 'vote_average.desc', 'vote_count.gte': '50', language: 'it-IT' })
+        const res = await fetch(`${TMDB_BASE}/discover/tv?${params}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
+        if (res.ok) {
+          const json = await res.json()
+          for (const m of (json.results || []).slice(0, 20)) {
+            const id = m.id.toString()
+            const recGenres = tvGenres(m.genre_ids || [])
+            add({ id, title: m.name || '', type: 'tv',
+              coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
+              year: m.first_air_date ? new Date(m.first_air_date).getFullYear() : undefined,
+              genres: recGenres, score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
+              description: m.overview ? m.overview.slice(0, 200) : undefined,
+              episodes: m.number_of_episodes ?? undefined,
+              matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
           }
         }
       } catch {}
