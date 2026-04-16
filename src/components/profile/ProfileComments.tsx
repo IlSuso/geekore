@@ -131,7 +131,12 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
     if (currentUserId !== authorId && !isOwner) return
     const { error } = await supabase.from('profile_comments').delete().eq('id', commentId)
     if (error) { showToast('Errore nella rimozione', 'error'); return }
-    await supabase.from('notifications').delete().eq('type', 'comment').eq('sender_id', authorId).eq('receiver_id', profileId)
+    // Elimina notifica lato server (bypassa RLS)
+    fetch('/api/social/profile-comment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile_id: profileId, action: 'delete' }),
+    }).catch(() => {})
     setComments(prev => prev.filter(c => c.id !== commentId))
     showToast('Commento rimosso')
   }

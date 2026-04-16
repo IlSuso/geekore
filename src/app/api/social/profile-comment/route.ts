@@ -16,13 +16,25 @@ export async function POST(request: NextRequest) {
   let body: any
   try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400 }) }
 
-  const { profile_id } = body
+  const { profile_id, action } = body
   if (!profile_id || typeof profile_id !== 'string') return NextResponse.json({ error: 'profile_id mancante' }, { status: 400 })
-  if (profile_id === user.id) return NextResponse.json({ success: true }) // non notificare se stesso
+  if (profile_id === user.id) return NextResponse.json({ success: true })
 
   const service = createServiceClient()
-  const { data: sender } = await service.from('profiles').select('username').eq('id', user.id).single()
 
+  if (action === 'delete') {
+    // Elimina la notifica commento bacheca lato server (bypassa RLS)
+    await service.from('notifications')
+      .delete()
+      .eq('type', 'comment')
+      .eq('sender_id', user.id)
+      .eq('receiver_id', profile_id)
+      .is('post_id', null)
+    return NextResponse.json({ success: true }, { headers: rl.headers })
+  }
+
+  // Azione default: invia push
+  const { data: sender } = await service.from('profiles').select('username').eq('id', user.id).single()
   if (sender?.username) {
     await sendPushToUser(profile_id, {
       title: 'Geekore',

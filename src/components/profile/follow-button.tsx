@@ -24,26 +24,15 @@ export function FollowButton({
   const toggleFollow = async () => {
     if (loading) return
     setLoading(true)
+    // UI ottimistica immediata
+    setIsFollowing(!isFollowing)
+    onFollowChange?.(!isFollowing)
     try {
-      if (isFollowing) {
-        await supabase.from('follows').delete().eq('follower_id', currentUserId).eq('following_id', targetId)
-        const { error: delErr, count } = await supabase.from('notifications').delete({ count: 'exact' }).eq('type', 'follow').eq('sender_id', currentUserId).eq('receiver_id', targetId)
-        console.log('[unfollow notif delete]', { currentUserId, targetId, error: delErr?.message, count })
-        setIsFollowing(false)
-        onFollowChange?.(false)
-      } else {
-        // Inserisce follow e notifica in-app direttamente (RLS permette sender_id = auth.uid())
-        await supabase.from('follows').insert({ follower_id: currentUserId, following_id: targetId })
-        await supabase.from('notifications').insert({ receiver_id: targetId, sender_id: currentUserId, type: 'follow' })
-        setIsFollowing(true)
-        onFollowChange?.(true)
-        // FIX: trigger push server-side (fire and forget)
-        fetch('/api/social/follow', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ target_id: targetId, action: 'push_only' }),
-        }).catch(() => {})
-      }
+      await fetch('/api/social/follow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_id: targetId, action: isFollowing ? 'unfollow' : 'follow' }),
+      })
     } finally {
       setLoading(false)
     }
