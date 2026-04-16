@@ -348,7 +348,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
               onChange={handleCommentChange}
               placeholder="Scrivi un commento..."
               maxLength={MAX_COMMENT_LENGTH}
-              className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl py-3 px-5 pr-20 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
+              className="w-full bg-zinc-900 border border-zinc-800 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none rounded-2xl py-3 px-5 pr-20 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
             />
             {commentCharCount > 0 && (
               <span className={`absolute right-11 top-1/2 -translate-y-1/2 text-[10px] font-medium transition-colors ${

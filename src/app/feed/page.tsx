@@ -433,7 +433,7 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
                   onChange={e => setSubInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder={hasApiSupport ? searchPlaceholder : 'Titolo specifico...'}
-                  className="no-nav-hide w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500/70 rounded-xl pl-8 pr-8 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
+                  className="no-nav-hide w-full bg-zinc-800 border border-zinc-700 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none rounded-xl pl-8 pr-8 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
                 />
                 {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-violet-400 animate-spin" />}
                 {!isSearching && subInput && (
@@ -613,7 +613,7 @@ function CategoryFilter({
                   onChange={e => setSubSearch(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && subSearch.trim()) applyFilter(`${activeMacro}:${subSearch.trim()}`) }}
                   placeholder={`Cerca titolo in ${activeMacro}...`}
-                  className="w-full bg-zinc-800 border border-zinc-700 focus:border-fuchsia-500 rounded-xl pl-8 pr-8 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
+                  className="w-full bg-zinc-800 border border-zinc-700 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(217,70,239)] focus:outline-none rounded-xl pl-8 pr-8 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
                 />
                 {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-fuchsia-400 animate-spin" />}
               </div>
@@ -1075,7 +1075,7 @@ export default function FeedPage() {
     const dataWithProfiles = data.map((p: any) => ({
       ...p,
       profiles: pm1[p.user_id] || { username: '', display_name: null, avatar_url: null },
-      comments: (p.comments || []).map((c: any) => ({ ...c, profiles: cpm1[c.user_id] || { username: 'utente', display_name: null } }))
+      comments: (p.comments || []).map((c: any) => ({ ...c, profiles: cpm1[c.user_id] || { username: 'utente', display_name: null } })).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     }))
 
     const withLikes = dataWithProfiles
@@ -1096,7 +1096,7 @@ export default function FeedPage() {
           id: c.id, content: c.content, created_at: c.created_at, user_id: c.user_id,
           username: c.profiles?.username || 'utente',
           display_name: c.profiles?.display_name,
-        })),
+        })).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
         pinned: true, user_id: post.user_id,
       }
     }))
@@ -1172,7 +1172,7 @@ export default function FeedPage() {
     const postsData = (rawPosts || []).map((p: any) => ({
       ...p,
       profiles: postPm[p.user_id] || { username: '', display_name: null, avatar_url: null },
-      comments: (p.comments || []).map((c: any) => ({ ...c, profiles: commentPm[c.user_id] || { username: 'utente', display_name: null } }))
+      comments: (p.comments || []).map((c: any) => ({ ...c, profiles: commentPm[c.user_id] || { username: 'utente', display_name: null } })).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     }))
 
     const formatted: Post[] = (postsData || []).map((post: any) => {
@@ -1188,7 +1188,7 @@ export default function FeedPage() {
           id: c.id, content: c.content, created_at: c.created_at, user_id: c.user_id,
           username: c.profiles?.username || 'utente',
           display_name: c.profiles?.display_name,
-        })),
+        })).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
       }
     })
 
@@ -1516,7 +1516,7 @@ export default function FeedPage() {
               onChange={e => setEditContent(e.target.value.slice(0, 2000))}
               rows={5}
               autoFocus
-              className="w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500 rounded-2xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none resize-none transition mb-4"
+              className="w-full bg-zinc-800 border border-zinc-700 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none rounded-2xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none resize-none transition mb-4"
             />
             <div className="flex gap-2 justify-end">
               <button onClick={() => setEditingPostId(null)} className="px-5 py-2.5 rounded-xl border border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-sm font-semibold transition">

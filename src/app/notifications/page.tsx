@@ -3,7 +3,7 @@
 
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Heart, UserPlus, MessageCircle, BellOff, Star } from 'lucide-react'
 import Link from 'next/link'
@@ -143,7 +143,67 @@ export default function NotificationsPage() {
     return 'Precedenti'
   }
 
-  const grouped = notifications.reduce((acc, n) => {
+  // Aggregazione notifiche — stesso tipo + stesso contesto (post_id o null)
+  // Soglia: 3+ notifiche dello stesso gruppo → riga aggregata
+  function aggregateNotifications(list: any[]): any[] {
+    // Finestra di aggregazione: 24 ore
+    // Notifiche dello stesso tipo + stesso contesto arrivate nella stessa finestra di 24h si aggregano
+    const WINDOW_MS = 24 * 60 * 60 * 1000
+
+    // Ordina per data decrescente prima di raggruppare
+    const sorted = [...list].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+    const groups: Map<string, any[]> = new Map()
+    for (const n of sorted) {
+      const context = n.post_id ?? 'none'
+      const ts = new Date(n.created_at).getTime()
+      // Cerca un gruppo esistente compatibile:
+      // stesso type + stesso context + dentro la finestra di 24h dalla notifica più recente del gruppo
+      let placed = false
+      for (const [key, group] of groups) {
+        const [gType, gContext] = key.split('|')
+        if (gType !== n.type || gContext !== context) continue
+        const newestInGroup = new Date(group[0].created_at).getTime()
+        if (newestInGroup - ts <= WINDOW_MS) {
+          group.push(n)
+          placed = true
+          break
+        }
+      }
+      if (!placed) {
+        // Crea un nuovo gruppo — chiave unica con timestamp della prima notifica
+        const key = `${n.type}|${context}|${ts}`
+        groups.set(key, [n])
+      }
+    }
+
+    const result: any[] = []
+    for (const [, group] of groups) {
+      if (group.length < 3) {
+        // Meno di 3 → mostra singole
+        result.push(...group)
+      } else {
+        // 3+ → aggrega con la più recente come base
+        const first = group[0]
+        const second = group[1]
+        const othersCount = group.length - 2
+        result.push({
+          ...first,
+          _aggregated: true,
+          _senders: group.map((n: any) => n.sender),
+          _firstSender: first.sender,
+          _secondSender: second.sender,
+          _othersCount: othersCount,
+          is_read: group.every((n: any) => n.is_read),
+        })
+      }
+    }
+
+    // Riordina per data decrescente
+    return result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  }
+
+  const grouped = aggregateNotifications(notifications).reduce((acc: any, n: any) => {
     const g = getGroup(n.created_at)
     if (!acc[g]) acc[g] = []
     acc[g].push(n)
@@ -193,43 +253,67 @@ export default function NotificationsPage() {
                   const username = n.sender?.username
                   const name = n.sender?.display_name || username || 'Qualcuno'
 
+                  // Testo aggregato
+                  function aggregatedText(n: any): React.ReactNode {
+                    const first = n._firstSender?.display_name || n._firstSender?.username || 'Qualcuno'
+                    const second = n._secondSender?.display_name || n._secondSender?.username
+                    const others = n._othersCount
+                    const action = notifText(n.type)
+                    return (
+                      <>
+                        <Link href={`/profile/${n._firstSender?.username}`} className="font-semibold hover:opacity-70 transition-opacity">{first}</Link>
+                        {second && <>, <Link href={`/profile/${n._secondSender?.username}`} className="font-semibold hover:opacity-70 transition-opacity">{second}</Link></>}
+                        {others > 0 && <> e altre <span className="font-semibold">{others}</span> persone</>}
+                        {' '}{action}
+                      </>
+                    )
+                  }
+
                   return (
                     <div
                       key={n.id}
                       className={`flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-[var(--bg-hover)] ${!n.is_read ? 'bg-blue-500/5' : ''}`}
                     >
-                      {/* Avatar with action badge */}
+                      {/* Avatar with action badge — aggregato mostra stack di avatar */}
                       <div className="relative flex-shrink-0">
-                        <div className="w-11 h-11 rounded-full overflow-hidden">
-                          <Avatar
-                            src={n.sender?.avatar_url}
-                            username={n.sender?.username || 'user'}
-                            displayName={n.sender?.display_name}
-                            size={44}
-                          />
-                        </div>
+                        {n._aggregated ? (
+                          <div className="relative w-11 h-11">
+                            <div className="absolute top-0 left-0 w-8 h-8 rounded-full overflow-hidden ring-2 ring-[var(--bg-primary)]">
+                              <Avatar src={n._senders[1]?.avatar_url} username={n._senders[1]?.username || 'user'} displayName={n._senders[1]?.display_name} size={32} />
+                            </div>
+                            <div className="absolute bottom-0 right-0 w-8 h-8 rounded-full overflow-hidden ring-2 ring-[var(--bg-primary)]">
+                              <Avatar src={n._senders[0]?.avatar_url} username={n._senders[0]?.username || 'user'} displayName={n._senders[0]?.display_name} size={32} />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-11 h-11 rounded-full overflow-hidden">
+                            <Avatar src={n.sender?.avatar_url} username={n.sender?.username || 'user'} displayName={n.sender?.display_name} size={44} />
+                          </div>
+                        )}
                         <NotifIcon type={n.type} />
                       </div>
 
                       {/* Text */}
                       <div className="flex-1 min-w-0">
                         <p className="text-[14px] text-[var(--text-primary)] leading-snug">
-                          {username ? (
-                            <Link href={`/profile/${username}`} className="font-semibold hover:opacity-70 transition-opacity">
-                              {name}
-                            </Link>
-                          ) : (
-                            <span className="font-semibold">{name}</span>
-                          )}{' '}
-                          <span className="text-[var(--text-primary)]">{notifText(n.type)}</span>
+                          {n._aggregated ? aggregatedText(n) : (
+                            <>
+                              {username ? (
+                                <Link href={`/profile/${username}`} className="font-semibold hover:opacity-70 transition-opacity">{name}</Link>
+                              ) : (
+                                <span className="font-semibold">{name}</span>
+                              )}{' '}
+                              <span className="text-[var(--text-primary)]">{notifText(n.type)}</span>
+                            </>
+                          )}
                           {' '}
                           <span className="text-[var(--text-muted)]">{compactTimeAgo(n.created_at)}</span>
                         </p>
                       </div>
 
-                      {/* Right side: follow back button */}
+                      {/* Right side: follow back button (solo notifiche singole) */}
                       <div className="flex-shrink-0">
-                        {n.type === 'follow' && n.sender_id ? (
+                        {!n._aggregated && n.type === 'follow' && n.sender_id ? (
                           <FollowBackButton targetId={n.sender_id} isFollowingInitial={n._isFollowing} />
                         ) : null}
                       </div>

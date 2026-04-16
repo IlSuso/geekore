@@ -336,7 +336,7 @@ export default function EditProfilePage() {
               value={formData.display_name}
               onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
               maxLength={50}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 focus:outline-none focus:border-violet-500 transition"
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 focus:outline-none focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none transition"
             />
           </div>
 
@@ -355,7 +355,7 @@ export default function EditProfilePage() {
               maxLength={USERNAME_MAX}
               required
               className={`w-full bg-zinc-800 border rounded-2xl px-5 py-3 focus:outline-none transition ${
-                fieldErrors.username ? 'border-red-500 focus:border-red-500' : 'border-zinc-700 focus:border-violet-500'
+                fieldErrors.username ? 'border-red-500 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(239,68,68)] focus:outline-none' : 'border-zinc-700 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none'
               }`}
             />
             {fieldErrors.username ? (
@@ -380,7 +380,7 @@ export default function EditProfilePage() {
               maxLength={BIO_MAX}
               placeholder={pe.bioPlaceholder}
               className={`w-full bg-zinc-800 border rounded-2xl px-5 py-3 focus:outline-none transition resize-none ${
-                fieldErrors.bio ? 'border-red-500 focus:border-red-500' : 'border-zinc-700 focus:border-violet-500'
+                fieldErrors.bio ? 'border-red-500 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(239,68,68)] focus:outline-none' : 'border-zinc-700 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none'
               }`}
             />
             {fieldErrors.bio && (

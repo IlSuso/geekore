@@ -19,7 +19,66 @@ export interface PushPayload {
   tag?: string
 }
 
-export async function sendPushToUser(userId: string, payload: PushPayload): Promise<void> {
+// Quanto tempo deve passare prima di inviare un'altra push dello stesso tipo
+// sullo stesso contesto (post, profilo, ecc.)
+const RATE_LIMIT_MINUTES: Record<string, number> = {
+  like:            15,
+  comment:         10,
+  follow:           5,
+  'profile-comment': 10,
+}
+
+/**
+ * Controlla il rate limit e aggiorna il timestamp.
+ * Ritorna true se la push PUÒ essere inviata, false se è troppo presto.
+ * context_id: post_id per like/commenti, sender_id per follow, profile_id per bacheca
+ */
+async function checkAndUpdateRateLimit(
+  userId: string,
+  type: string,
+  contextId: string | null
+): Promise<boolean> {
+  const supabase = createServiceClient()
+  const windowMinutes = RATE_LIMIT_MINUTES[type] ?? 10
+  const windowMs = windowMinutes * 60 * 1000
+
+  const { data: existing } = await supabase
+    .from('push_rate_limit')
+    .select('id, last_sent_at')
+    .eq('user_id', userId)
+    .eq('type', type)
+    .is(contextId ? 'context_id' : 'context_id', contextId)
+    .maybeSingle()
+
+  const now = Date.now()
+
+  if (existing) {
+    const lastSent = new Date(existing.last_sent_at).getTime()
+    if (now - lastSent < windowMs) {
+      // Troppo presto — non inviare
+      return false
+    }
+    // Aggiorna il timestamp
+    await supabase
+      .from('push_rate_limit')
+      .update({ last_sent_at: new Date().toISOString() })
+      .eq('id', existing.id)
+  } else {
+    // Prima push di questo tipo per questo contesto — inserisci e invia
+    await supabase
+      .from('push_rate_limit')
+      .insert({ user_id: userId, type, context_id: contextId, last_sent_at: new Date().toISOString() })
+  }
+
+  return true
+}
+
+export async function sendPushToUser(
+  userId: string,
+  payload: PushPayload,
+  type?: string,
+  contextId?: string | null
+): Promise<void> {
   const tag = `[Push:${payload.tag || 'notif'}]`
 
   if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
@@ -27,7 +86,15 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
     return
   }
 
-  // FIX: usa service client per bypassare la RLS su push_subscriptions
+  // Rate limit: se type è fornito, controlla prima di inviare
+  if (type) {
+    const canSend = await checkAndUpdateRateLimit(userId, type, contextId ?? null)
+    if (!canSend) {
+      console.log(`${tag} ⏳ Rate limit attivo per user ${userId} type=${type} context=${contextId} — push soppressa`)
+      return
+    }
+  }
+
   const supabase = createServiceClient()
 
   const { data: subscriptions, error: dbError } = await supabase

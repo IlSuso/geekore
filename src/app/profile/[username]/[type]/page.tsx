@@ -232,7 +232,7 @@ const MediaCard = memo(function MediaCard({
             value={media.status || 'watching'}
             onChange={e => onStatusChange?.(media.id, e.target.value)}
             onPointerDown={e => e.stopPropagation()}
-            className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-zinc-900 border-zinc-800 text-zinc-400 focus:outline-none focus:border-violet-500 transition cursor-pointer appearance-none w-fit"
+            className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-zinc-900 border-zinc-800 text-zinc-400 focus:outline-none focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none transition cursor-pointer appearance-none w-fit"
           >
             <option value="watching">In corso</option>
             <option value="completed">Completato</option>
@@ -591,7 +591,7 @@ export default function ProfileTypePage() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder={`Cerca in ${typeLabel}...`}
-              className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition"
+              className="w-full bg-zinc-900 border border-zinc-800 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none rounded-2xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition"
             />
           </div>
 
@@ -599,7 +599,7 @@ export default function ProfileTypePage() {
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value as StatusFilter)}
-            className="bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-4 py-2.5 text-sm text-zinc-300 focus:outline-none transition cursor-pointer"
+            className="bg-zinc-900 border border-zinc-800 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none rounded-2xl px-4 py-2.5 text-sm text-zinc-300 focus:outline-none transition cursor-pointer"
           >
             <option value="all">Tutti gli stati</option>
             <option value="completed">Completati</option>
@@ -613,7 +613,7 @@ export default function ProfileTypePage() {
           <select
             value={sortMode}
             onChange={e => setSortMode(e.target.value as SortMode)}
-            className="bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-4 py-2.5 text-sm text-zinc-300 focus:outline-none transition cursor-pointer"
+            className="bg-zinc-900 border border-zinc-800 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none rounded-2xl px-4 py-2.5 text-sm text-zinc-300 focus:outline-none transition cursor-pointer"
           >
             <option value="default">Ordine personalizzato</option>
             <option value="rating_desc">Voto (↓)</option>

@@ -552,7 +552,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                                   setFormEpisode('0')
                                   setFormEpisodeError(null)
                                 }}
-                                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none"
                               />
                               {formSeasonError && (
                                 <p className="text-xs text-red-400 mt-1">{formSeasonError}</p>
@@ -588,7 +588,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                                     setFormEpisodeError(null)
                                   }
                                 }}
-                                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none"
                               />
                               {formEpisodeError && (
                                 <p className="text-xs text-red-400 mt-1">{formEpisodeError}</p>

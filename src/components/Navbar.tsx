@@ -6,11 +6,10 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   Home, Search, Bell, Zap, Newspaper, Sparkles, TrendingUp,
   ChevronDown, Edit3, Bookmark, User, Settings, LogOut,
-  X, Sun, Moon, Users, Heart, UserPlus, MessageSquare, Star,
+  X, Users, Heart, UserPlus, MessageSquare, Star,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useTheme } from '@/lib/theme'
 import { Avatar, getLocalAvatarSvg } from '@/components/ui/Avatar'
 import { useLocale } from '@/lib/locale'
 
@@ -238,7 +237,6 @@ export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
-  const { theme, toggleTheme } = useTheme()
   const { t } = useLocale()
 
   const [hasNewNotifications, setHasNewNotifications] = useState(false)
@@ -384,7 +382,6 @@ export default function Navbar() {
     </>
   )
 
-  const isDark = theme === 'dark' || theme === 'oled'
   const currentUsername = username || ''
   const currentDisplayName = displayName || username || ''
   const localAvatarSrc = currentUsername ? getLocalAvatarSvg(currentUsername, displayName) : undefined
@@ -426,7 +423,7 @@ export default function Navbar() {
 
           {/* Centro: Search bar */}
           <div ref={searchRef} className="flex-1 max-w-sm relative">
-            <div className={`flex items-center gap-2 bg-zinc-900 border rounded-2xl px-4 py-2 transition-all ${searchOpen && searchResults.length > 0 ? 'border-violet-500/50' : 'border-zinc-800 focus-within:border-violet-500/30'}`}>
+            <div className={`flex items-center gap-2 bg-zinc-900 border rounded-2xl px-4 py-2 transition-all ${searchOpen && searchResults.length > 0 ? 'border-violet-500/50' : 'border-zinc-800 focus-within:border-transparent focus-within:shadow-[0_0_0_2px_rgb(139,92,246)]'}`}>
               <Search size={14} className={searchLoading ? 'text-violet-400 animate-pulse' : 'text-zinc-500'} />
               <input
                 ref={searchInputRef} value={searchQuery}
@@ -497,12 +494,6 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* Theme toggle */}
-            <button onClick={toggleTheme} title={isDark ? 'Tema chiaro' : 'Tema scuro'}
-              className="w-9 h-9 flex items-center justify-center rounded-xl text-zinc-500 hover:text-yellow-400 hover:bg-zinc-900 transition-all">
-              {isDark ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-
             {/* Avatar dropdown */}
             <div className="relative" ref={dropdownRef}>
               <button
@@ -547,11 +538,7 @@ export default function Navbar() {
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${pathname === '/settings' ? 'text-violet-400 bg-violet-500/10' : 'text-zinc-300 hover:text-white hover:bg-zinc-800'}`}>
                       <Settings size={16} /> {t.nav.settings}
                     </Link>
-                    <button onClick={() => { toggleTheme(); setDropdownOpen(false) }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all">
-                      {isDark ? <Sun size={16} /> : <Moon size={16} />}
-                      {isDark ? 'Tema chiaro' : 'Tema scuro'}
-                    </button>
+
                   </div>
                   <div className="p-1.5 border-t border-zinc-800">
                     <button data-testid="nav-logout" onClick={() => { setDropdownOpen(false); handleLogout() }}

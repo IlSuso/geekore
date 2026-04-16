@@ -23,12 +23,13 @@ export async function POST(request: NextRequest) {
   const service = createServiceClient()
   const { data: sender } = await service.from('profiles').select('username').eq('id', user.id).single()
   if (sender?.username) {
+    // type='profile-comment', contextId=sender_id → max 1 push ogni 10 minuti per mittente
     await sendPushToUser(profile_id, {
       title: 'Geekore',
       body: `@${sender.username} ha scritto sulla tua bacheca`,
       url: `/profile/${sender.username}`,
       tag: `profile-comment-${user.id}`,
-    })
+    }, 'profile-comment', user.id)
   }
 
   return NextResponse.json({ success: true }, { headers: rl.headers })

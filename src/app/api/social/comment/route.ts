@@ -23,7 +23,10 @@ export async function POST(request: NextRequest) {
   const { data: post } = await service.from('posts').select('user_id').eq('id', post_id).single()
   if (post && post.user_id !== user.id) {
     const { data: sender } = await service.from('profiles').select('username').eq('id', user.id).single()
-    if (sender?.username) await sendPushToUser(post.user_id, commentPayload(sender.username, post_id))
+    if (sender?.username) {
+      // type='comment', contextId=post_id → max 1 push ogni 10 minuti per post
+      await sendPushToUser(post.user_id, commentPayload(sender.username, post_id), 'comment', post_id)
+    }
   }
 
   return NextResponse.json({ success: true }, { headers: rl.headers })

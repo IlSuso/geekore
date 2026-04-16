@@ -126,7 +126,7 @@ function ChangePasswordSheet() {
               placeholder="Password attuale"
               value={currentPass}
               onChange={e => setCurrentPass(e.target.value)}
-              className="w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500 rounded-xl px-4 py-2.5 pr-10 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
+              className="w-full bg-zinc-800 border border-zinc-700 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none rounded-xl px-4 py-2.5 pr-10 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
               required
             />
             <button type="button" onClick={() => setShowCurrent(s => !s)}
@@ -140,7 +140,7 @@ function ChangePasswordSheet() {
               placeholder="Nuova password (min. 8 caratteri)"
               value={newPass}
               onChange={e => setNewPass(e.target.value)}
-              className="w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500 rounded-xl px-4 py-2.5 pr-10 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
+              className="w-full bg-zinc-800 border border-zinc-700 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none rounded-xl px-4 py-2.5 pr-10 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
               minLength={8}
               required
             />
