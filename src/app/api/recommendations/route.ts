@@ -132,6 +132,7 @@ interface Recommendation {
   coverImage?: string
   year?: number
   genres: string[]
+  tags?: string[]
   score?: number
   description?: string
   why: string
