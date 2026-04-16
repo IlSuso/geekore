@@ -114,7 +114,7 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
       ))
       if (profileId !== currentUserId) {
         await supabase.from('notifications').insert({
-          receiver_id: profileId, sender_id: currentUserId, type: 'comment',
+          receiver_id: profileId, sender_id: currentUserId, type: 'comment', profile_comment_id: inserted.id,
         }).then(() => {})
         fetch('/api/social/profile-comment', {
           method: 'POST',
@@ -131,12 +131,7 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
     if (currentUserId !== authorId && !isOwner) return
     const { error } = await supabase.from('profile_comments').delete().eq('id', commentId)
     if (error) { showToast('Errore nella rimozione', 'error'); return }
-    // Elimina notifica lato server (bypassa RLS)
-    fetch('/api/social/profile-comment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ profile_id: profileId, action: 'delete' }),
-    }).catch(() => {})
+    // Il CASCADE su profile_comment_id cancella automaticamente la notifica
     setComments(prev => prev.filter(c => c.id !== commentId))
     showToast('Commento rimosso')
   }

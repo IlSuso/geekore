@@ -1320,9 +1320,9 @@ export default function FeedPage() {
     setPosts(prev => prev.map((p, i) => i === postIndex ? { ...p, likes_count: willLike ? p.likes_count + 1 : p.likes_count - 1, liked_by_user: willLike } : p))
     // Insert/delete diretto (stesso pattern follow)
     if (willLike) {
-      await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id }).select('id')
-      if (current.user_id !== currentUser.id) {
-        await supabase.from('notifications').insert({ receiver_id: current.user_id, sender_id: currentUser.id, type: 'like', post_id: postId })
+      const { data: likeData } = await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id }).select('id').single()
+      if (current.user_id !== currentUser.id && likeData?.id) {
+        await supabase.from('notifications').insert({ receiver_id: current.user_id, sender_id: currentUser.id, type: 'like', post_id: postId, like_id: likeData.id })
         fetch('/api/social/like', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1330,13 +1330,8 @@ export default function FeedPage() {
         }).catch(() => {})
       }
     } else {
+      // Il CASCADE su like_id cancella automaticamente la notifica
       await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
-      // Rimuove la notifica like lato server (bypassa RLS)
-      fetch('/api/social/like', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ post_id: postId, action: 'unlike' }),
-      }).catch(() => {})
     }
   }, [currentUser, posts, supabase])
 
@@ -1356,9 +1351,9 @@ export default function FeedPage() {
     setPinnedPosts(prev => prev.map((p, i) => i === postIndex ? { ...p, likes_count: willLike ? p.likes_count + 1 : p.likes_count - 1, liked_by_user: willLike } : p))
     // Insert/delete diretto (stesso pattern follow)
     if (willLike) {
-      await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id }).select('id')
-      if (current.user_id !== currentUser.id) {
-        await supabase.from('notifications').insert({ receiver_id: current.user_id, sender_id: currentUser.id, type: 'like', post_id: postId })
+      const { data: likeData } = await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id }).select('id').single()
+      if (current.user_id !== currentUser.id && likeData?.id) {
+        await supabase.from('notifications').insert({ receiver_id: current.user_id, sender_id: currentUser.id, type: 'like', post_id: postId, like_id: likeData.id })
         fetch('/api/social/like', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1366,12 +1361,8 @@ export default function FeedPage() {
         }).catch(() => {})
       }
     } else {
+      // Il CASCADE su like_id cancella automaticamente la notifica
       await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
-      fetch('/api/social/like', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ post_id: postId, action: 'unlike' }),
-      }).catch(() => {})
     }
   }, [currentUser, pinnedPosts, supabase])
 
@@ -1389,11 +1380,11 @@ export default function FeedPage() {
     }
     setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments_count: p.comments_count + 1, comments: [newCommentTemp, ...p.comments] } : p))
     setCommentContent(''); setCommentingPostId(null)
-    // Insert diretto (stesso pattern follow) — funziona con RLS
-    await supabase.from('comments').insert({ post_id: postId, user_id: currentUser.id, content }).select('id')
+    // Insert diretto — .single() per ottenere l'ID del commento inserito
+    const { data: commentData } = await supabase.from('comments').insert({ post_id: postId, user_id: currentUser.id, content }).select('id').single()
     // Fire and forget: notifica in-app + push lato server
-    if (post && post.user_id !== currentUser.id) {
-      await supabase.from('notifications').insert({ receiver_id: post.user_id, sender_id: currentUser.id, type: 'comment', post_id: postId })
+    if (post && post.user_id !== currentUser.id && commentData?.id) {
+      await supabase.from('notifications').insert({ receiver_id: post.user_id, sender_id: currentUser.id, type: 'comment', post_id: postId, comment_id: commentData.id })
       fetch('/api/social/comment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1414,14 +1405,9 @@ export default function FeedPage() {
     if (!currentUser) return
     const { error } = await supabase.from('comments').delete().eq('id', commentId)
     if (error) return
+    // Il CASCADE su comment_id cancella automaticamente la notifica
     const remove = (p: Post) => p.id === postId ? { ...p, comments_count: p.comments_count - 1, comments: p.comments.filter(c => c.id !== commentId) } : p
     setPosts(prev => prev.map(remove)); setPinnedPosts(prev => prev.map(remove))
-    // Rimuove la notifica commento lato server se non ci sono altri commenti sul post
-    fetch('/api/social/comment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ post_id: postId, action: 'delete' }),
-    }).catch(() => {})
   }, [currentUser, supabase])
 
   const handleDeletePost = useCallback(async (postId: string) => {
