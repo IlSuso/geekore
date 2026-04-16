@@ -137,6 +137,7 @@ async function resolveTmdbKeywordIds(keywords: string[], token: string): Promise
   if (!keywords.length) return []
   const ids: number[] = []
   const toResolve = keywords.slice(0, 5)
+  console.log('[SIMILAR] resolveTmdbKeywordIds: querying', toResolve)
   await Promise.allSettled(toResolve.map(async (kw) => {
     try {
       const res = await fetch(
@@ -146,9 +147,11 @@ async function resolveTmdbKeywordIds(keywords: string[], token: string): Promise
       if (!res.ok) return
       const json = await res.json()
       const first = json.results?.[0]
+      console.log('[SIMILAR]  kw:', JSON.stringify(kw), '→', first ? `id=${first.id} name="${first.name}"` : 'no match')
       if (first?.id) ids.push(first.id)
-    } catch {}
+    } catch (e) { console.log('[SIMILAR]  kw:', JSON.stringify(kw), '→ error:', e) }
   }))
+  console.log('[SIMILAR] resolveTmdbKeywordIds result:', ids)
   return ids
 }
 
@@ -383,12 +386,14 @@ export async function GET(request: NextRequest) {
         const movieGenres = (ids: number[]) =>
           [...new Set(ids.map((id: number) => TMDB_MOVIE_ID_TO_GENRE[id]).filter(Boolean) as string[])]
 
+        console.log('[SIMILAR] tmdbKwIds (movie):', tmdbKwIds)
         // Keyword query PRIMA — così questi item entrano in seenIds con _foundByKeyword=true
         if (tmdbKwIds.length > 0) {
           const kwParams = new URLSearchParams({ with_keywords: tmdbKwIds.join(','), sort_by: 'vote_average.desc', 'vote_count.gte': '50', language: 'it-IT' })
           const kwRes = await fetch(`${TMDB_BASE}/discover/movie?${kwParams}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
           if (kwRes.ok) {
             const kwJson = await kwRes.json()
+            console.log('[SIMILAR] TMDb movie kw discover returned:', kwJson.results?.length ?? 0, 'results, total_results:', kwJson.total_results)
             for (const m of (kwJson.results || []).slice(0, 15)) {
               const id = m.id.toString()
               const recGenres = movieGenres(m.genre_ids || [])
@@ -552,10 +557,10 @@ export async function GET(request: NextRequest) {
 
     // Match esatto keyword/tag — segnale più forte
     const exactMatched = itemTagsAll.filter(t => sourceTagsSet.has(t))
-    // Match parziale — solo se la keyword sorgente è lunga almeno 4 char (evita falsi positivi)
+    // Match parziale — l'item-tag deve contenere la sorgente-keyword (non viceversa, per evitare falsi positivi)
     const partialMatched = itemTagsAll.filter(t =>
       !sourceTagsSet.has(t) &&
-      sourceTagsNorm.some(s => s.length >= 4 && (t.includes(s) || s.includes(t)))
+      sourceTagsNorm.some(s => s.length >= 4 && t.includes(s))
     )
     const genreMatched = itemGenres.filter(g => sourceGenresSet.has(g))
 
