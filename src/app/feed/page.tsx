@@ -1373,7 +1373,8 @@ export default function FeedPage() {
     }
     setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments_count: p.comments_count + 1, comments: [newCommentTemp, ...p.comments] } : p))
     setCommentContent(''); setCommentingPostId(null)
-    await supabase.from('comments').insert({ post_id: postId, user_id: currentUser.id, content })
+    const { error: commentError } = await supabase.from('comments').insert({ post_id: postId, user_id: currentUser.id, content }).select('id')
+    if (commentError) return
     if (post && post.user_id !== currentUser.id) {
       await supabase.from('notifications').insert({ receiver_id: post.user_id, sender_id: currentUser.id, type: 'comment', post_id: postId })
       fetch('/api/social/comment', {
