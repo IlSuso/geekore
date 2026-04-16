@@ -114,7 +114,7 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
       ))
       if (profileId !== currentUserId) {
         await supabase.from('notifications').insert({
-          receiver_id: profileId, sender_id: currentUserId, type: 'comment', profile_comment_id: inserted.id,
+          receiver_id: profileId, sender_id: currentUserId, type: 'comment',
         }).then(() => {})
         fetch('/api/social/profile-comment', {
           method: 'POST',
@@ -131,7 +131,6 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
     if (currentUserId !== authorId && !isOwner) return
     const { error } = await supabase.from('profile_comments').delete().eq('id', commentId)
     if (error) { showToast('Errore nella rimozione', 'error'); return }
-    // Il CASCADE su profile_comment_id cancella automaticamente la notifica
     setComments(prev => prev.filter(c => c.id !== commentId))
     showToast('Commento rimosso')
   }
@@ -154,7 +153,7 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
               onChange={e => setNewComment(e.target.value.slice(0, 500))}
               placeholder={`Lascia un messaggio su @${profileUsername}...`}
               rows={2}
-              className="flex-1 bg-zinc-900 border border-zinc-800 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none rounded-2xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none resize-none transition-colors"
+              className="flex-1 bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none resize-none transition-colors"
             />
             <button
               onClick={handlePost}

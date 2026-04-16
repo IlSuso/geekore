@@ -433,7 +433,7 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
                   onChange={e => setSubInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder={hasApiSupport ? searchPlaceholder : 'Titolo specifico...'}
-                  className="no-nav-hide w-full bg-zinc-800 border border-zinc-700 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none rounded-xl pl-8 pr-8 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
+                  className="no-nav-hide w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500 focus:outline-none rounded-xl pl-8 pr-8 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
                 />
                 {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-violet-400 animate-spin" />}
                 {!isSearching && subInput && (
@@ -613,7 +613,7 @@ function CategoryFilter({
                   onChange={e => setSubSearch(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && subSearch.trim()) applyFilter(`${activeMacro}:${subSearch.trim()}`) }}
                   placeholder={`Cerca titolo in ${activeMacro}...`}
-                  className="w-full bg-zinc-800 border border-zinc-700 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(217,70,239)] focus:outline-none rounded-xl pl-8 pr-8 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
+                  className="w-full bg-zinc-800 border border-zinc-700 focus:border-fuchsia-500 focus:outline-none rounded-xl pl-8 pr-8 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
                 />
                 {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-fuchsia-400 animate-spin" />}
               </div>
@@ -759,11 +759,11 @@ function BottomSheet({
 }
 
 const PostCard = memo(function PostCard({
-  post, currentUser, isLiking, commentingPostId, commentContent, locale,
+  post, currentUser, currentProfile, isLiking, commentingPostId, commentContent, locale,
   onLike, onToggleComment, onCommentChange, onAddComment, onDelete, onDeleteComment,
   expandedComments, onExpandComments, onCategoryClick, onPostOptions, onCommentOptions,
 }: {
-  post: Post; currentUser: User | null; isLiking: boolean
+  post: Post; currentUser: User | null; currentProfile: any; isLiking: boolean
   commentingPostId: string | null; commentContent: string; locale: string
   onLike: (id: string) => void; onToggleComment: (id: string) => void
   onCommentChange: (val: string) => void; onAddComment: (id: string) => void
@@ -781,36 +781,36 @@ const PostCard = memo(function PostCard({
   return (
     <>
 
-    {/* Card Geekore — bordi arrotondati, contenuto sopra le azioni */}
-    <div className={`bg-zinc-900 border rounded-2xl md:rounded-3xl overflow-hidden transition-all duration-300 animate-fade-in ${
-      post.pinned ? 'border-violet-500/40 ring-1 ring-violet-500/20'
-      : post.isDiscovery ? 'border-fuchsia-500/20 ring-1 ring-fuchsia-500/10'
-      : 'border-zinc-800 hover:border-violet-500/25'
+    {/* Card Geekore */}
+    <div className={`rounded-2xl mb-2 transition-all duration-300 animate-fade-in ${
+      post.pinned ? 'bg-zinc-900 ring-1 ring-violet-500/25'
+      : post.isDiscovery ? 'bg-zinc-900 ring-1 ring-fuchsia-500/20'
+      : 'bg-zinc-900'
     }`}>
 
       {post.pinned && (
-        <div className="flex items-center gap-1.5 px-5 pt-4 pb-0 text-violet-400">
+        <div className="flex items-center gap-1.5 px-5 pt-4 pb-1 text-violet-400">
           <Pin size={11} className="rotate-45" />
           <span className="text-[10px] font-bold uppercase tracking-widest">In evidenza</span>
         </div>
       )}
       {post.isDiscovery && !post.pinned && (
-        <div className="flex items-center gap-1.5 px-5 pt-4 pb-0 text-fuchsia-400">
+        <div className="flex items-center gap-1.5 px-5 pt-4 pb-1 text-fuchsia-400">
           <Sparkles size={11} />
           <span className="text-[10px] font-bold uppercase tracking-widest">Consigliato per te</span>
         </div>
       )}
 
       {/* Header */}
-      <div className="flex items-center gap-3 px-5 pt-4 pb-3">
+      <div className="flex items-center gap-3 px-5 pt-4 pb-2.5">
         <Link href={`/profile/${post.profiles.username}`} className="group shrink-0" onClick={e => e.stopPropagation()}>
-          <div className="w-10 h-10 rounded-2xl overflow-hidden ring-2 ring-violet-500/20 group-hover:ring-violet-500/50 transition-all">
-            <Avatar src={post.profiles.avatar_url} username={post.profiles.username} displayName={post.profiles.display_name} size={40} className="rounded-2xl" />
+          <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-violet-500/20 group-hover:ring-violet-500/50 transition-all">
+            <Avatar src={post.profiles.avatar_url} username={post.profiles.username} displayName={post.profiles.display_name} size={40} className="rounded-full" />
           </div>
         </Link>
         <div className="flex-1 min-w-0">
           <Link href={`/profile/${post.profiles.username}`} className="hover:text-violet-400 transition-colors" onClick={e => e.stopPropagation()}>
-            <p className="font-semibold text-[var(--text-primary)] text-sm leading-tight truncate">
+            <p className="font-semibold text-[var(--text-primary)] text-[15px] leading-tight truncate">
               {post.profiles.display_name || post.profiles.username}
             </p>
           </Link>
@@ -831,8 +831,8 @@ const PostCard = memo(function PostCard({
       </div>
 
       {/* Testo del post — prominente, ben separato */}
-      <div className="px-5 pb-4">
-        <p className="text-[var(--text-primary)] text-sm leading-relaxed whitespace-pre-wrap">{post.content.replace(/\n{3,}/g, '\n\n')}</p>
+      <div className="pr-5 pb-3" style={{paddingLeft: "68px"}}>
+        <p className="text-[var(--text-primary)] text-[15px] leading-relaxed whitespace-pre-wrap">{post.content.replace(/\n{3,}/g, '\n\n')}</p>
         {post.is_edited && (
           <p className="text-[11px] text-zinc-600 mt-1">modificato</p>
         )}
@@ -848,7 +848,7 @@ const PostCard = memo(function PostCard({
       )}
 
       {/* Azioni — Flame + MessageSquare, stile Geekore */}
-      <div className="px-5 py-3.5 border-t border-zinc-800/60 flex items-center gap-5">
+      <div className="pr-5 py-2.5 flex items-center gap-5" style={{paddingLeft: "68px"}}>
         <button
           onClick={() => onLike(post.id)}
           aria-label={post.liked_by_user ? 'Rimuovi like' : 'Metti like'}
@@ -880,11 +880,16 @@ const PostCard = memo(function PostCard({
 
       {/* Commenti preview — stile Instagram: testo inline, niente box */}
       {post.comments.length > 0 && !isCommenting && (
-        <div className="px-5 pb-3 space-y-1.5">
+        <div className="pr-5 pb-2 space-y-2" style={{paddingLeft: "68px"}}>
           {post.comments.slice(0, 2).map(comment => (
-            <div key={comment.id} className="flex items-center gap-1 group/pc">
-              <p className="text-sm text-zinc-200 leading-snug flex-1 min-w-0">
-                <Link href={`/profile/${comment.username}`} className="font-semibold text-white hover:text-violet-400 transition-colors mr-1.5">
+            <div key={comment.id} className="flex items-start gap-2 group/pc">
+              <Link href={`/profile/${comment.username}`} className="flex-shrink-0 mt-0.5">
+                <div className="w-6 h-6 rounded-full overflow-hidden">
+                  <Avatar src={undefined} username={comment.username || 'user'} displayName={comment.display_name} size={24} className="rounded-full" />
+                </div>
+              </Link>
+              <p className="text-[13px] text-zinc-300 leading-snug flex-1 min-w-0">
+                <Link href={`/profile/${comment.username}`} className="font-semibold text-white hover:text-violet-400 transition-colors mr-1">
                   {comment.username}
                 </Link>
                 {comment.content}
@@ -892,7 +897,7 @@ const PostCard = memo(function PostCard({
               {currentUser?.id === comment.user_id && (
                 <button
                   onClick={() => onCommentOptions(comment.id, post.id)}
-                  className="opacity-0 group-hover/pc:opacity-100 text-zinc-600 hover:text-white transition-all flex-shrink-0"
+                  className="opacity-0 group-hover/pc:opacity-100 text-zinc-600 hover:text-white transition-all flex-shrink-0 mt-0.5"
                 >
                   <MoreHorizontal size={13} />
                 </button>
@@ -900,7 +905,7 @@ const PostCard = memo(function PostCard({
             </div>
           ))}
           {post.comments.length > 2 && (
-            <button onClick={() => onToggleComment(post.id)} className="text-xs text-zinc-500 hover:text-violet-400 transition-colors">
+            <button onClick={() => onToggleComment(post.id)} className="text-xs text-zinc-500 hover:text-violet-400 transition-colors pl-8">
               Vedi tutti i {post.comments.length} commenti
             </button>
           )}
@@ -909,43 +914,50 @@ const PostCard = memo(function PostCard({
 
       {/* Commenti espansi — stile Instagram */}
       {isCommenting && (
-        <div className="border-t border-zinc-800/40">
+        <div className="px-5">
           {post.comments.length > 0 && (
-            <div className="px-5 pt-3 pb-2 space-y-2.5 max-h-52 overflow-y-auto">
+            <div className="space-y-3 pb-2 max-h-64 overflow-y-auto">
               {visibleComments.map(comment => (
-                <div key={comment.id} className="flex items-center gap-2.5 py-1.5 border-b border-zinc-800/20 last:border-0 group/ec">
-                  <Link href={`/profile/${comment.username}`} className="flex-shrink-0">
+                <div key={comment.id} className="flex items-start gap-2.5 group/ec">
+                  <Link href={`/profile/${comment.username}`} className="flex-shrink-0 mt-0.5">
                     <div className="w-7 h-7 rounded-full overflow-hidden">
                       <Avatar src={undefined} username={comment.username || 'user'} displayName={comment.display_name} size={28} className="rounded-full" />
                     </div>
                   </Link>
-                  <p className="text-sm text-zinc-200 leading-snug flex-1 min-w-0">
-                    <Link href={`/profile/${comment.username}`} className="font-semibold text-white hover:text-violet-400 transition-colors mr-1.5">
-                      {comment.username}
-                    </Link>
-                    {comment.content}
-                  </p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] text-zinc-200 leading-snug">
+                      <Link href={`/profile/${comment.username}`} className="font-semibold text-white hover:text-violet-400 transition-colors mr-1">
+                        {comment.username}
+                      </Link>
+                      {comment.content}
+                    </p>
+                  </div>
                   {currentUser?.id === comment.user_id && (
-                    <button onClick={() => onCommentOptions(comment.id, post.id)} className="text-zinc-600 hover:text-white transition-all flex-shrink-0 opacity-40 group-hover/ec:opacity-100">
-                      <MoreHorizontal size={15} />
+                    <button onClick={() => onCommentOptions(comment.id, post.id)} className="text-zinc-600 hover:text-white transition-all flex-shrink-0 opacity-0 group-hover/ec:opacity-100">
+                      <MoreHorizontal size={14} />
                     </button>
                   )}
                 </div>
               ))}
               {!isExpanded && hiddenCount > 0 && (
-                <button onClick={() => onExpandComments(post.id)} className="text-xs text-zinc-500 hover:text-violet-400 transition-colors">
+                <button onClick={() => onExpandComments(post.id)} className="text-xs text-zinc-500 hover:text-violet-400 transition-colors pl-9">
                   Vedi altri {hiddenCount} commenti
                 </button>
               )}
             </div>
           )}
-          {/* Input commento */}
-          <div className="px-5 py-3 flex items-center gap-3 border-t border-zinc-800/40">
+          {/* Input commento con avatar */}
+          <div className="flex items-center gap-2.5 py-3 border-t border-zinc-800/30">
+            {currentUser && (
+              <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0">
+                <Avatar src={currentProfile?.avatar_url} username={currentProfile?.username || 'user'} displayName={currentProfile?.display_name} size={28} className="rounded-full" />
+              </div>
+            )}
             <input
               type="text" value={commentContent}
               onChange={e => onCommentChange(e.target.value.slice(0, 500))}
               placeholder="Aggiungi un commento..." maxLength={500}
-              className="flex-1 bg-transparent text-sm text-white placeholder-zinc-600 focus:outline-none min-w-0"
+              className="flex-1 bg-transparent text-sm text-white placeholder-zinc-500 focus:outline-none min-w-0"
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onAddComment(post.id) } }}
             />
             {commentContent.trim() && (
@@ -956,6 +968,7 @@ const PostCard = memo(function PostCard({
           </div>
         </div>
       )}
+      <div className="pb-1" />
     </div>
     </>
   )
@@ -1516,7 +1529,7 @@ export default function FeedPage() {
               onChange={e => setEditContent(e.target.value.slice(0, 2000))}
               rows={5}
               autoFocus
-              className="w-full bg-zinc-800 border border-zinc-700 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none rounded-2xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none resize-none transition mb-4"
+              className="w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500 focus:outline-none rounded-2xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none resize-none transition mb-4"
             />
             <div className="flex gap-2 justify-end">
               <button onClick={() => setEditingPostId(null)} className="px-5 py-2.5 rounded-xl border border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-sm font-semibold transition">
@@ -1722,7 +1735,7 @@ export default function FeedPage() {
             {currentUser && (
               <div
                 className="flex items-stretch mb-0 mt-1"
-                style={{ borderBottom: '0.5px solid var(--border)', borderTop: '0.5px solid var(--border)' }}
+
               >
                 {(['all', 'following'] as const).map(filter => (
                   <button
@@ -1748,12 +1761,12 @@ export default function FeedPage() {
             {/* Post in evidenza — il badge "In evidenza" è già dentro la card */}
             {feedFilter === 'all' && !categoryFilter && pinnedPosts.length > 0 && (
               <div className="mb-5">
-                <div className="space-y-4">
+                <div className="flex flex-col gap-2 pt-5">
                   {pinnedPosts.map(post => (
                     <PostCard key={`pinned-${post.id}`} post={post} currentUser={currentUser}
                       isLiking={likingIds.has(post.id)} commentingPostId={commentingPostId}
                       commentContent={commentContent} locale={locale}
-                      onLike={toggleLikePinned} onToggleComment={handleToggleComment}
+                      currentProfile={currentProfile} onLike={toggleLikePinned} onToggleComment={handleToggleComment}
                       onCommentChange={setCommentContent} onAddComment={handleAddComment}
                       onDelete={handleDeletePost} onDeleteComment={handleDeleteComment}
                       expandedComments={expandedComments} onExpandComments={handleExpandComments}
@@ -1766,7 +1779,7 @@ export default function FeedPage() {
             )}
 
             {/* Feed posts — respiro tra le card */}
-            <div className="space-y-5 md:space-y-7">
+            <div className="space-y-0 divide-y divide-zinc-800/40">
               {displayedPosts.length === 0 ? (
                 <div className="text-center py-24 px-8">
                   <div className="w-16 h-16 rounded-full border-2 border-[var(--border)] flex items-center justify-center mx-auto mb-4">
@@ -1795,7 +1808,7 @@ export default function FeedPage() {
                   <PostCard key={post.id} post={post} currentUser={currentUser}
                     isLiking={likingIds.has(post.id)} commentingPostId={commentingPostId}
                     commentContent={commentContent} locale={locale}
-                    onLike={toggleLike} onToggleComment={handleToggleComment}
+                    currentProfile={currentProfile} onLike={toggleLike} onToggleComment={handleToggleComment}
                     onCommentChange={setCommentContent} onAddComment={handleAddComment}
                     onDelete={handleDeletePost} onDeleteComment={handleDeleteComment}
                     expandedComments={expandedComments} onExpandComments={handleExpandComments}

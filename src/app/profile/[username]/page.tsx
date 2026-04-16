@@ -297,7 +297,7 @@ function MediaCard({
               onChange={e => onStatusChange?.(media.id, e.target.value)}
               onClick={e => e.stopPropagation()}
               onPointerDown={e => e.stopPropagation()}
-              className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-zinc-900 border-zinc-800 text-zinc-400 focus:outline-none focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none transition cursor-pointer appearance-none"
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-zinc-900 border-zinc-800 text-zinc-400 focus:outline-none focus:border-violet-500 transition cursor-pointer appearance-none"
             >
               <option value="watching">In corso</option>
               <option value="completed">Completato</option>
@@ -441,7 +441,7 @@ function CollectionControls({
           value={search}
           onChange={e => onSearch(e.target.value)}
           placeholder="Cerca nella collezione…"
-          className="w-full bg-zinc-900 border border-zinc-800 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none rounded-2xl pl-9 pr-8 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
+          className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl pl-9 pr-8 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
         />
         {search && (
           <button onClick={() => onSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
@@ -455,7 +455,7 @@ function CollectionControls({
         <select
           value={statusFilter}
           onChange={e => onStatusFilter(e.target.value)}
-          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none transition-colors appearance-none flex-shrink-0"
+          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-violet-500 transition-colors appearance-none flex-shrink-0"
         >
           <option value="all">Tutti</option>
           <option value="watching">In corso</option>
@@ -467,7 +467,7 @@ function CollectionControls({
         <select
           value={sort}
           onChange={e => onSort(e.target.value as SortMode)}
-          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none transition-colors appearance-none flex-shrink-0"
+          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-violet-500 transition-colors appearance-none flex-shrink-0"
         >
           <option value="default">Default</option>
           <option value="rating_desc">Voto ↓</option>

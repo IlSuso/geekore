@@ -118,7 +118,7 @@ export default function LoginPage() {
               <label className="block text-sm font-medium text-zinc-400 mb-2">{l.email}</label>
               <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                 placeholder={l.emailPlaceholder} autoComplete="email"
-                className="w-full bg-zinc-900 border border-zinc-800 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors" required />
+                className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors" required />
             </div>
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -131,7 +131,7 @@ export default function LoginPage() {
                 <input type={showPassword ? 'text' : 'password'} value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder={l.passwordPlaceholder} autoComplete="current-password"
-                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none rounded-2xl px-5 py-3.5 pr-12 text-white placeholder-zinc-600 focus:outline-none transition-colors" required />
+                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-5 py-3.5 pr-12 text-white placeholder-zinc-600 focus:outline-none transition-colors" required />
                 <button type="button" onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors">
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}

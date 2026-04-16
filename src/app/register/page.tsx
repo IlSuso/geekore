@@ -206,13 +206,13 @@ export default function RegisterPage() {
               <label className="block text-sm font-medium text-zinc-400 mb-2">{l.displayName}</label>
               <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)}
                 placeholder={l.displayNamePlaceholder} autoComplete="name"
-                className="w-full bg-zinc-900 border border-zinc-800 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors" />
+                className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors" />
             </div>
             <div>
               <label className="block text-sm font-medium text-zinc-400 mb-2">{l.email}</label>
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                 placeholder={l.emailPlaceholder} autoComplete="email"
-                className="w-full bg-zinc-900 border border-zinc-800 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors"
+                className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors"
                 required />
             </div>
             <div>
@@ -222,7 +222,7 @@ export default function RegisterPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={l.passwordPlaceholder} autoComplete="new-password"
                   className={`w-full bg-zinc-900 border rounded-2xl px-5 py-3.5 pr-12 text-white placeholder-zinc-600 focus:outline-none transition-colors ${
-                    passwordTooWeak ? 'border-red-500/60 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(239,68,68)] focus:outline-none' : 'border-zinc-800 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none'
+                    passwordTooWeak ? 'border-red-500/60 focus:border-red-500' : 'border-zinc-800 focus:border-violet-500'
                   }`}
                   required />
                 <button type="button" onClick={() => setShowPassword(!showPassword)}

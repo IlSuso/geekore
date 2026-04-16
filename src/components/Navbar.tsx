@@ -423,16 +423,16 @@ export default function Navbar() {
 
           {/* Centro: Search bar */}
           <div ref={searchRef} className="flex-1 max-w-sm relative">
-            <div className={`flex items-center gap-2 bg-zinc-900 border rounded-2xl px-4 py-2 transition-all ${searchOpen && searchResults.length > 0 ? 'border-violet-500/50' : 'border-zinc-800 focus-within:border-transparent focus-within:shadow-[0_0_0_2px_rgb(139,92,246)]'}`}>
-              <Search size={14} className={searchLoading ? 'text-violet-400 animate-pulse' : 'text-zinc-500'} />
+            <div className="relative">
+              <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${searchLoading ? 'text-violet-400 animate-pulse' : 'text-zinc-500'}`} />
               <input
                 ref={searchInputRef} value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Cerca utenti..."
-                className="bg-transparent outline-none text-sm w-full placeholder-zinc-600 text-white"
+                className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl pl-9 pr-8 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
               />
               {searchQuery && (
-                <button onClick={clearSearch} className="text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0">
+                <button onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors">
                   <X size={13} />
                 </button>
               )}

@@ -40,7 +40,7 @@ export function DeleteAccountModal({ onConfirm, onClose }: DeleteAccountModalPro
             value={confirmText}
             onChange={e => setConfirmText(e.target.value)}
             placeholder="elimina"
-            className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 text-white focus:outline-none focus:border-transparent focus:shadow-[0_0_0_2px_rgb(239,68,68)] focus:outline-none transition-colors"
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 text-white focus:outline-none focus:border-red-500 transition-colors"
           />
         </div>
         <div className="flex gap-3">

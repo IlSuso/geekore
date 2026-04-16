@@ -117,9 +117,9 @@ export default function ProfileSetupPage() {
   }
 
   const getInputBorderClass = () => {
-    if (validState === 'available') return 'border-emerald-500 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(16,185,129)] focus:outline-none'
+    if (validState === 'available') return 'border-emerald-500 focus:border-emerald-400'
     if (validState === 'taken' || validState === 'invalid') return 'border-red-500 focus:border-red-400'
-    return 'border-zinc-700 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none'
+    return 'border-zinc-700 focus:border-violet-500'
   }
 
   const getValidationIcon = () => {
@@ -206,7 +206,7 @@ export default function ProfileSetupPage() {
               value={displayName}
               onChange={e => setDisplayName(e.target.value.slice(0, 50))}
               placeholder="Come ti chiami?"
-              className="w-full bg-zinc-900 border border-zinc-700 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none rounded-2xl px-4 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors"
+              className="w-full bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-2xl px-4 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors"
             />
             <p className="text-xs mt-2 text-zinc-600">
               Il nome che vedranno gli altri. Puoi cambiarlo quando vuoi.

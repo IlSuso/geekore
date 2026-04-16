@@ -113,7 +113,7 @@ export function ReportButton({ targetType, targetId, iconOnly = false, className
                 onChange={e => setNotes(e.target.value.slice(0, 300))}
                 placeholder="Dettagli aggiuntivi (opzionale)..."
                 rows={2}
-                className="w-full bg-zinc-800 border border-zinc-700 focus:border-transparent focus:shadow-[0_0_0_2px_rgb(139,92,246)] focus:outline-none rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none resize-none transition mb-4"
+                className="w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none resize-none transition mb-4"
               />
             )}
             <button
