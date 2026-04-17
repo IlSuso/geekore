@@ -2703,13 +2703,15 @@ async function refreshBggCsvIfNeeded(token: string): Promise<void> {
 async function fetchBoardgameRecs(
   slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile,
   isAlreadyOwned: (type: string, id: string, title: string) => boolean,
-  shownIds?: Set<string>
+  shownIds?: Set<string>,
+  supabase?: any
 ): Promise<Recommendation[]> {
   const token = process.env.BGG_BEARER_TOKEN || ''
   const bggHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
   const results: Recommendation[] = []
   const seen = new Set<string>()
   const targetCats = new Set(slots.flatMap(s => GENRE_TO_BGG_CATS[s.genre] || []))
+  console.log('[BGG] fetchBoardgameRecs start — slots:', slots.map(s => s.genre), 'token:', !!token)
 
   // Aggiorna cache CSV se scaduta (24h)
   await refreshBggCsvIfNeeded(token)
@@ -2717,6 +2719,7 @@ async function fetchBoardgameRecs(
   // Raccoglie ID candidati: dal CSV per categoria + seeds di fallback
   const candidateIdSet = new Set<number>()
   const hasCsvData = BGG_CSV_CACHE.cachedAt > 0
+  console.log('[BGG] CSV cache:', hasCsvData ? `${BGG_CSV_CACHE.thematic.length} thematic` : 'empty (using seeds)')
 
   if (hasCsvData) {
     for (const slot of slots) {
@@ -2734,12 +2737,18 @@ async function fetchBoardgameRecs(
   // Aggiunge hot list per contenuto fresco
   try {
     const hotRes = await fetch('https://www.boardgamegeek.com/xmlapi2/hot?type=boardgame', { headers: bggHeaders, signal: AbortSignal.timeout(6000) })
+    console.log('[BGG] hot list status:', hotRes.status)
     if (hotRes.ok) {
       const hotXml = await hotRes.text()
-      ;[...hotXml.matchAll(/<item[^>]*id="(\d+)"/g)].map(m => parseInt(m[1])).forEach(id => candidateIdSet.add(id))
+      const hotIds = [...hotXml.matchAll(/<item[^>]*id="(\d+)"/g)].map(m => parseInt(m[1]))
+      console.log('[BGG] hot list IDs found:', hotIds.length)
+      hotIds.forEach(id => candidateIdSet.add(id))
     }
-  } catch {}
+  } catch (e) {
+    console.log('[BGG] hot list failed:', e)
+  }
 
+  console.log('[BGG] total candidate IDs:', candidateIdSet.size)
   if (candidateIdSet.size === 0) return results
 
   // Fetch dettagli in batch da MAX 20 (limite BGG API)
@@ -2750,6 +2759,7 @@ async function fetchBoardgameRecs(
     try {
       const thingUrl = `https://www.boardgamegeek.com/xmlapi2/thing?id=${batch.join(',')}&stats=1`
       let thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(10000) })
+      console.log(`[BGG] /thing batch ${i/20+1} (${batch.length} IDs) → status ${thingRes.status}`)
       if (thingRes.status === 202) {
         await new Promise(r => setTimeout(r, 2000))
         thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(10000) })
@@ -2758,15 +2768,21 @@ async function fetchBoardgameRecs(
         await new Promise(r => setTimeout(r, 3000))
         thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(10000) })
       }
-      if (!thingRes.ok) continue
-      allGames.push(...parseBggXmlRec(await thingRes.text()))
-    } catch {}
+      if (!thingRes.ok) { console.log(`[BGG] /thing batch failed: ${thingRes.status}`); continue }
+      const parsed = parseBggXmlRec(await thingRes.text())
+      console.log(`[BGG] /thing batch parsed ${parsed.length} games`)
+      allGames.push(...parsed)
+    } catch (e) {
+      console.log(`[BGG] /thing batch error:`, e)
+    }
     if (i + 20 < ids.length) await new Promise(r => setTimeout(r, 300))
   }
 
+  console.log('[BGG] allGames fetched:', allGames.length)
+
   // Score per match categorie + qualità
   const scored = allGames
-    .filter(g => (g.usersRated || 0) > 100 && (g.rating || 0) > 6)
+    .filter(g => (g.usersRated || 0) > 100 && (g.rating || 0) > 5.5)
     .map(g => ({ ...g, _catMatch: g.categories.filter(c => targetCats.has(c)).length }))
     .sort((a, b) => b._catMatch !== a._catMatch ? b._catMatch - a._catMatch : (b.rating || 0) - (a.rating || 0))
 
@@ -2786,6 +2802,34 @@ async function fetchBoardgameRecs(
       matchScore: g._catMatch > 0 ? 65 : 52,
       why: recGenres.length > 0 ? `Top ${recGenres[0]} boardgame` : 'Top boardgame',
     })
+  }
+
+  console.log('[BGG] results after scoring:', results.length)
+
+  // Fallback: se BGG API non ha restituito nulla, usa boardgames_cache (hot list salvata dal discover)
+  if (results.length === 0 && supabase) {
+    try {
+      const { data: cache } = await supabase.from('boardgames_cache').select('data').single()
+      if (cache?.data && Array.isArray(cache.data)) {
+        console.log('[BGG] using boardgames_cache fallback:', cache.data.length, 'items')
+        for (const item of cache.data as any[]) {
+          const idMatch = item.url?.match(/boardgame\/(\d+)/)
+          if (!idMatch) continue
+          const id = `bgg-${idMatch[1]}`
+          if (seen.has(id)) continue
+          seen.add(id)
+          results.push({
+            id, title: item.title, type: 'boardgame',
+            coverImage: item.urlToImage || undefined,
+            genres: ['Strategy'], tags: [], keywords: [],
+            matchScore: 48,
+            why: 'Trending boardgame',
+          })
+        }
+      }
+    } catch (e) {
+      console.log('[BGG] boardgames_cache fallback failed:', e)
+    }
   }
 
   return results.sort((a, b) => (b.score || 0) - (a.score || 0))
@@ -3093,7 +3137,7 @@ export async function GET(request: NextRequest) {
             case 'movie': return { type, items: await fetchMovieRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds) }
             case 'tv':    return { type, items: await fetchTvRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds) }
             case 'game':       return { type, items: await fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret, isAlreadyOwned, emptyShownIds) }
-            case 'boardgame':  return { type, items: await fetchBoardgameRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds) }
+            case 'boardgame':  return { type, items: await fetchBoardgameRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds, supabase) }
             default: return { type, items: [] }
           }
         })
