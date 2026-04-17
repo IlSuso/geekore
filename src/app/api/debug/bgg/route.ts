@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
 
   const token = process.env.BGG_BEARER_TOKEN
-  const bggHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
+  const bggHeaders: HeadersInit = token ? { Cookie: `bggauthentication=${token}` } : {}
 
   const results: Record<string, any> = {
     token_present: !!token,

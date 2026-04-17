@@ -2692,12 +2692,13 @@ async function refreshBggCsvIfNeeded(token: string): Promise<void> {
   if (Date.now() - BGG_CSV_CACHE.cachedAt < 24 * 3600_000) return
   try {
     const res = await fetch('https://boardgamegeek.com/data_dumps/bg_ranks', {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers: token ? { Cookie: `bggauthentication=${token}` } : {},
       signal: AbortSignal.timeout(30_000),
     })
+    console.log('[BGG] CSV download status:', res.status)
     if (!res.ok) return
     parseBggRanksCsv(await res.text())
-  } catch { /* usa seeds come fallback */ }
+  } catch (e) { console.log('[BGG] CSV download failed:', e) }
 }
 
 async function fetchBoardgameRecs(
@@ -2707,7 +2708,7 @@ async function fetchBoardgameRecs(
   supabase?: any
 ): Promise<Recommendation[]> {
   const token = process.env.BGG_BEARER_TOKEN || ''
-  const bggHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
+  const bggHeaders: HeadersInit = token ? { Cookie: `bggauthentication=${token}` } : {}
   const results: Recommendation[] = []
   const seen = new Set<string>()
   const targetCats = new Set(slots.flatMap(s => GENRE_TO_BGG_CATS[s.genre] || []))

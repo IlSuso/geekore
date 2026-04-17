@@ -8,7 +8,7 @@ const CACHE_DURATION_MS = 86400000 // 24 ore
 
 function bggHeaders(): HeadersInit {
   const token = process.env.BGG_BEARER_TOKEN
-  return token ? { Authorization: `Bearer ${token}` } : {}
+  return token ? { Cookie: `bggauthentication=${token}` } : {}
 }
 
 async function bggFetch(url: string, maxRetries = 5, delayMs = 2000): Promise<string | null> {

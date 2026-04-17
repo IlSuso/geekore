@@ -215,7 +215,7 @@ async function refreshBggCsvIfNeeded(token: string): Promise<void> {
   if (Date.now() - BGG_CSV_CACHE.cachedAt < 24 * 3600_000) return
   try {
     const res = await fetch('https://boardgamegeek.com/data_dumps/bg_ranks', {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers: token ? { Cookie: `bggauthentication=${token}` } : {},
       signal: AbortSignal.timeout(30_000),
     })
     if (!res.ok) return
@@ -818,9 +818,9 @@ export async function GET(request: NextRequest) {
 
   // ── BGG boardgame — CSV rankings + hot list ───────────────────────────────
   // CSV da boardgamegeek.com/data_dumps/bg_ranks: tutti i giochi classificati per categoria
-  // (thematic, strategy, wargames, family, party) — richiede Bearer token
+  // (thematic, strategy, wargames, family, party) — richiede cookie di sessione BGG
   const bggToken = process.env.BGG_BEARER_TOKEN || ''
-  const bggHeaders: HeadersInit = bggToken ? { Authorization: `Bearer ${bggToken}` } : {}
+  const bggHeaders: HeadersInit = bggToken ? { Cookie: `bggauthentication=${bggToken}` } : {}
   const targetBggCats = new Set(crossGenres.flatMap(g => GENRE_TO_BGG_CATS[g] || []))
   const bggSeedIds = new Set<number>(crossGenres.flatMap(g => (BGG_GENRE_SEEDS[g] || []) as number[]))
 
