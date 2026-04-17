@@ -1,8 +1,8 @@
 'use client'
 // DESTINAZIONE: src/components/media/MediaDetailsDrawer.tsx
-// V3: salva studios/directors/authors in user_media_entries + taste delta real-time + wishlist genres
+// V4: layout compatto — header fisso + scroll centrale + footer sticky CTA
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import {
   X, ExternalLink, Star, Clock, Users, Layers,
@@ -36,6 +36,7 @@ export interface MediaDetails {
   designers?: string[]
   developers?: string[]
   themes?: string[]
+  platforms?: string[]
   score?: number
   externalUrl?: string
   studios?: string[]
@@ -98,22 +99,6 @@ const RELATION_LABEL: Record<string, string> = {
   SPIN_OFF: 'Spin-off', ALTERNATIVE: 'Alternativo',
 }
 
-// ─── Skeleton ─────────────────────────────────────────────────────────────────
-
-function UserDataSkeleton() {
-  return (
-    <div className="animate-pulse space-y-3 pt-2">
-      <div className="space-y-2">
-        <div className="h-3 bg-zinc-800 rounded-full w-24" />
-        <div className="h-2 bg-zinc-800 rounded-full" />
-        <div className="h-3 bg-zinc-800 rounded-full w-16" />
-      </div>
-      <div className="h-12 bg-zinc-800 rounded-2xl" />
-      <div className="h-10 bg-zinc-800 rounded-2xl" />
-    </div>
-  )
-}
-
 // ─── Componente ───────────────────────────────────────────────────────────────
 
 export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDetailsDrawerProps) {
@@ -126,6 +111,8 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   const [formSeason, setFormSeason] = useState<string>('1')
   const [formEpisodeError, setFormEpisodeError] = useState<string | null>(null)
   const [formSeasonError, setFormSeasonError] = useState<string | null>(null)
+  const [descExpanded, setDescExpanded] = useState(false)
+  const formRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -144,7 +131,14 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     setFormSeason('1')
     setFormEpisodeError(null)
     setFormSeasonError(null)
+    setDescExpanded(false)
   }, [media?.id])
+
+  useEffect(() => {
+    if (showAddForm && formRef.current) {
+      formRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [showAddForm])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -268,17 +262,29 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   const Icon = TYPE_ICON[media.type] || Film
   const externalUrl = buildExternalUrl(media)
 
-  const creatorLabel = media.studios?.length
-    ? media.studios.slice(0, 2).join(', ')
+  const creatorList = media.studios?.length
+    ? media.studios
     : media.directors?.length
-    ? media.directors.slice(0, 2).join(', ')
+    ? media.directors
     : media.authors?.length
-    ? media.authors.slice(0, 2).join(', ')
+    ? media.authors
     : null
+
+  const creatorLabel = creatorList?.slice(0, 2).join(', ') ?? null
+  const creatorTitle = media.studios?.length ? 'Studio' : media.authors?.length ? 'Autori' : 'Registi'
 
   const continuityRelations = (media.relations || [])
     .filter(r => ['SEQUEL', 'PREQUEL', 'SIDE_STORY', 'SPIN_OFF'].includes(r.relationType))
     .slice(0, 4)
+
+  const isLongDesc = (media.description?.length ?? 0) > 200
+
+  const timeLabel = (media.type === 'anime' || media.type === 'tv') ? 'min/ep' : 'min'
+
+  const sourceLabel =
+    media.source === 'bgg' ? 'BoardGameGeek' :
+    media.source === 'igdb' ? 'IGDB' :
+    media.source === 'anilist' ? 'AniList' : 'TMDb'
 
   return (
     <>
@@ -289,10 +295,10 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
         aria-hidden
       />
 
-      {/* Drawer — top-16 per stare sotto la navbar */}
+      {/* Drawer — flex column: header | scroll | footer */}
       <div
-        className="fixed right-0 top-16 bottom-0 z-[105] w-full max-w-md bg-zinc-950 border-l border-zinc-800 overflow-y-auto
-                   animate-in slide-in-from-right duration-300"
+        className="fixed right-0 top-16 bottom-0 z-[105] w-full max-w-md bg-zinc-950 border-l border-zinc-800
+                   flex flex-col animate-in slide-in-from-right duration-300"
         role="dialog"
         aria-modal
         aria-label={media.title}
@@ -300,332 +306,342 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
         {/* Bottone chiudi */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-[100] w-9 h-9 bg-black/60 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-black/80 transition"
+          className="absolute top-3 right-3 z-[100] w-8 h-8 bg-black/60 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-black/80 transition"
           aria-label="Chiudi"
         >
-          <X size={18} />
+          <X size={16} />
         </button>
 
-        {/* Header — locandina verticale + info */}
-        <div className="flex gap-4 p-5 pt-6 pr-14 border-b border-zinc-800/60">
-          {/* Locandina */}
-          <div className="flex-shrink-0 w-24 h-36 rounded-2xl overflow-hidden bg-zinc-800 shadow-xl ring-1 ring-white/10">
+        {/* ── HEADER (non scorribile) ────────────────────────────────── */}
+        <div className="flex gap-3 p-4 pr-12 border-b border-zinc-800/60 flex-shrink-0">
+          {/* Locandina compatta */}
+          <div className="flex-shrink-0 w-16 h-24 rounded-xl overflow-hidden bg-zinc-800 shadow-lg ring-1 ring-white/10">
             {media.coverImage ? (
               <img src={media.coverImage} alt={media.title} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <Icon size={36} className="text-zinc-600" />
+                <Icon size={28} className="text-zinc-600" />
               </div>
             )}
           </div>
 
           {/* Info a destra */}
-          <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
-            <span className={`self-start text-[10px] font-bold px-2.5 py-1 rounded-full text-white ${TYPE_COLOR[media.type] || 'bg-zinc-700'}`}>
+          <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+            <span className={`self-start text-[9px] font-bold px-2 py-0.5 rounded-full text-white ${TYPE_COLOR[media.type] || 'bg-zinc-700'}`}>
               {TYPE_LABEL[media.type] || media.type}
             </span>
 
-            <h2 className="text-base font-bold text-white leading-tight">{media.title}</h2>
+            <h2 className="text-sm font-bold text-white leading-tight line-clamp-2">{media.title}</h2>
 
-            {/* Anno + score + episodi inline */}
-            {(media.year || media.score != null || media.bgg_rating != null || (media.episodes != null && media.episodes > 1)) && (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {media.year && <p className="text-sm text-zinc-400">{media.year}</p>}
-                {(media.score != null || media.bgg_rating != null) && (
-                  <div className="flex items-center gap-1 bg-zinc-800 border border-zinc-700 rounded-full px-2 py-0.5">
-                    <Star size={11} className="text-yellow-400 fill-yellow-400" />
-                    <span className="text-xs font-bold text-white">{(media.score ?? media.bgg_rating)!.toFixed(1)}</span>
-                  </div>
-                )}
-                {media.episodes != null && media.episodes > 1 && (
-                  <div className="flex items-center gap-1 bg-zinc-800 border border-zinc-700 rounded-full px-2 py-0.5">
-                    <Layers size={11} className="text-zinc-400" />
-                    <span className="text-xs font-bold text-white">{media.episodes}</span>
-                    <span className="text-xs text-zinc-500">ep.</span>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Stats inline: anno · score · ep · durata · giocatori · complessità */}
+            <div className="flex items-center gap-1 flex-wrap">
+              {media.year && (
+                <span className="text-[10px] text-zinc-400">{media.year}</span>
+              )}
+              {(media.score != null || media.bgg_rating != null) && (
+                <div className="flex items-center gap-0.5 bg-zinc-800 border border-zinc-700 rounded-full px-1.5 py-0.5">
+                  <Star size={9} className="text-yellow-400 fill-yellow-400" />
+                  <span className="text-[10px] font-bold text-white">{(media.score ?? media.bgg_rating)!.toFixed(1)}</span>
+                </div>
+              )}
+              {media.episodes != null && media.episodes > 1 && (
+                <div className="flex items-center gap-0.5 bg-zinc-800 border border-zinc-700 rounded-full px-1.5 py-0.5">
+                  <Layers size={9} className="text-zinc-400" />
+                  <span className="text-[10px] font-bold text-white">{media.episodes}</span>
+                  <span className="text-[10px] text-zinc-500">ep.</span>
+                </div>
+              )}
+              {media.playing_time != null && (
+                <div className="flex items-center gap-0.5 bg-zinc-800 border border-zinc-700 rounded-full px-1.5 py-0.5">
+                  <Clock size={9} className="text-zinc-400" />
+                  <span className="text-[10px] font-bold text-white">{media.playing_time}</span>
+                  <span className="text-[10px] text-zinc-500">{timeLabel}</span>
+                </div>
+              )}
+              {(media.min_players != null || media.max_players != null) && (
+                <div className="flex items-center gap-0.5 bg-zinc-800 border border-zinc-700 rounded-full px-1.5 py-0.5">
+                  <Users size={9} className="text-zinc-400" />
+                  <span className="text-[10px] font-bold text-white">
+                    {media.min_players === media.max_players
+                      ? media.min_players
+                      : `${media.min_players ?? '?'}–${media.max_players ?? '?'}`}
+                  </span>
+                </div>
+              )}
+              {media.complexity != null && (
+                <div className="flex items-center gap-0.5 bg-zinc-800 border border-zinc-700 rounded-full px-1.5 py-0.5">
+                  <span className="text-[10px] font-bold text-white">{media.complexity.toFixed(1)}</span>
+                  <span className="text-[10px] text-zinc-500">cmplx</span>
+                </div>
+              )}
+            </div>
 
             {creatorLabel && (
-              <p className="text-xs text-sky-400 flex items-center gap-1 truncate">
-                <Clapperboard size={10} />{creatorLabel}
+              <p className="text-[10px] text-sky-400 flex items-center gap-1 truncate">
+                <Clapperboard size={9} />{creatorLabel}
               </p>
             )}
           </div>
         </div>
 
-        {/* Contenuto */}
-        <div className="p-5 space-y-6">
+        {/* ── CONTENUTO SCORREVOLE ───────────────────────────────────── */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-4 space-y-3">
 
-          {/* Stats (senza score/bgg_rating che sono stati spostati nell'header) */}
-          <div className="flex flex-wrap gap-3">
-{/* episodi spostati nell'header */}
-            {media.playing_time != null && (
-              <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2">
-                <Clock size={14} className="text-zinc-400" />
-                <span className="text-sm font-bold text-white">{media.playing_time}</span>
-                <span className="text-xs text-zinc-500">min</span>
-              </div>
-            )}
-            {(media.min_players != null || media.max_players != null) && (
-              <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2">
-                <Users size={14} className="text-zinc-400" />
-                <span className="text-sm font-bold text-white">
-                  {media.min_players === media.max_players
-                    ? media.min_players
-                    : `${media.min_players ?? '?'}–${media.max_players ?? '?'}`}
-                </span>
-                <span className="text-xs text-zinc-500">giocatori</span>
-              </div>
-            )}
-            {media.complexity != null && (
-              <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-2">
-                <span className="text-sm font-bold text-white">{media.complexity.toFixed(1)}</span>
-                <span className="text-xs text-zinc-500">complessità</span>
-              </div>
-            )}
-          </div>
-
-          {/* Descrizione */}
-          {media.description && (
-            <div>
-              <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Descrizione</h3>
-              <p className="text-sm text-zinc-300 leading-relaxed">{media.description}</p>
-            </div>
-          )}
-
-          {/* Generi */}
-          {media.genres && media.genres.length > 0 && (
-            <div>
-              <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Generi</h3>
-              <div className="flex flex-wrap gap-1.5">
+            {/* Generi */}
+            {media.genres && media.genres.length > 0 && (
+              <div className="flex flex-wrap gap-1">
                 {media.genres.map(g => (
-                  <span key={g} className="text-xs bg-violet-500/15 text-violet-300 border border-violet-500/20 px-2.5 py-1 rounded-full">
+                  <span key={g} className="text-[10px] bg-violet-500/15 text-violet-300 border border-violet-500/20 px-2 py-0.5 rounded-full">
                     {g}
                   </span>
                 ))}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Studios / Directors / Authors */}
-          {(media.studios?.length || media.directors?.length || media.authors?.length) ? (
-            <div>
-              <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                <Clapperboard size={11} />
-                {media.studios?.length ? 'Studio' : media.authors?.length ? 'Autori' : 'Registi'}
-              </h3>
-              <div className="flex flex-wrap gap-1.5">
-                {(media.studios?.length ? media.studios : media.directors?.length ? media.directors : media.authors || [])
-                  .slice(0, 4)
-                  .map(name => (
-                    <span key={name} className="text-xs bg-sky-500/10 text-sky-300 border border-sky-500/20 px-2.5 py-1 rounded-full">
+            {/* Descrizione con expand */}
+            {media.description && (
+              <div>
+                <p className={`text-xs text-zinc-300 leading-relaxed ${!descExpanded ? 'line-clamp-3' : ''}`}>
+                  {media.description}
+                </p>
+                {isLongDesc && (
+                  <button
+                    onClick={() => setDescExpanded(v => !v)}
+                    className="text-[10px] text-zinc-500 hover:text-zinc-300 mt-1 transition-colors"
+                  >
+                    {descExpanded ? 'Meno ▲' : 'Leggi di più ▼'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Studios / Directors / Authors */}
+            {creatorList && creatorList.length > 0 && (
+              <div>
+                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1">
+                  <Clapperboard size={9} />{creatorTitle}
+                </h3>
+                <div className="flex flex-wrap gap-1">
+                  {creatorList.slice(0, 5).map(name => (
+                    <span key={name} className="text-[10px] bg-sky-500/10 text-sky-300 border border-sky-500/20 px-2 py-0.5 rounded-full">
                       {name}
                     </span>
-                  ))
-                }
+                  ))}
+                </div>
               </div>
-            </div>
-          ) : null}
+            )}
 
-          {/* Meccaniche (boardgame) */}
-          {media.mechanics && media.mechanics.length > 0 && (
-            <div>
-              <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Meccaniche</h3>
-              <div className="flex flex-wrap gap-1.5">
-                {media.mechanics.slice(0, 8).map(m => (
-                  <span key={m} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{m}</span>
-                ))}
+            {/* Meccaniche */}
+            {media.mechanics && media.mechanics.length > 0 && (
+              <div>
+                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Meccaniche</h3>
+                <div className="flex flex-wrap gap-1">
+                  {media.mechanics.slice(0, 10).map(m => (
+                    <span key={m} className="text-[10px] bg-zinc-900 border border-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">{m}</span>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Temi (game) */}
-          {media.themes && media.themes.length > 0 && (
-            <div>
-              <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Temi</h3>
-              <div className="flex flex-wrap gap-1.5">
-                {media.themes.slice(0, 6).map(t => (
-                  <span key={t} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{t}</span>
-                ))}
+            {/* Temi */}
+            {media.themes && media.themes.length > 0 && (
+              <div>
+                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Temi</h3>
+                <div className="flex flex-wrap gap-1">
+                  {media.themes.slice(0, 8).map(t => (
+                    <span key={t} className="text-[10px] bg-zinc-900 border border-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">{t}</span>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Designers / Developers */}
-          {(media.designers?.length || media.developers?.length) ? (
-            <div>
-              <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">
-                {media.designers?.length ? 'Designer' : 'Sviluppatori'}
-              </h3>
-              <p className="text-sm text-zinc-300">
-                {(media.designers || media.developers || []).slice(0, 3).join(', ')}
-              </p>
-            </div>
-          ) : null}
+            {/* Piattaforme */}
+            {media.platforms && media.platforms.length > 0 && (
+              <div>
+                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Piattaforme</h3>
+                <div className="flex flex-wrap gap-1">
+                  {media.platforms.slice(0, 10).map(p => (
+                    <span key={p} className="text-[10px] bg-zinc-900 border border-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">{p}</span>
+                  ))}
+                </div>
+              </div>
+            )}
 
-          {/* Continuity / Relations */}
-          {continuityRelations.length > 0 && (
-            <div>
-              <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-3">
-                Nella stessa serie
-              </h3>
-              <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
-                {continuityRelations.map(rel => (
-                  <div key={rel.id} className="flex-shrink-0 w-20">
-                    <div className="relative h-28 rounded-xl overflow-hidden bg-zinc-800 mb-1.5">
-                      {rel.coverImage
-                        ? <Image src={rel.coverImage} alt={rel.title} fill className="object-cover" sizes="80px" loading="lazy" />
-                        : <div className="w-full h-full flex items-center justify-center text-zinc-700"><Tv size={36} /></div>
-                      }
-                      <div className="absolute top-1 left-1 bg-amber-500/90 text-[8px] font-bold px-1 py-0.5 rounded text-white">
-                        {RELATION_LABEL[rel.relationType] || rel.relationType}
+            {/* Designers / Developers */}
+            {(media.designers?.length || media.developers?.length) ? (
+              <div>
+                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">
+                  {media.designers?.length ? 'Designer' : 'Sviluppatori'}
+                </h3>
+                <p className="text-xs text-zinc-300">
+                  {(media.designers || media.developers || []).slice(0, 4).join(', ')}
+                </p>
+              </div>
+            ) : null}
+
+            {/* Continuity / Relations */}
+            {continuityRelations.length > 0 && (
+              <div>
+                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-2">
+                  Nella stessa serie
+                </h3>
+                <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide">
+                  {continuityRelations.map(rel => (
+                    <div key={rel.id} className="flex-shrink-0 w-16">
+                      <div className="relative h-24 rounded-xl overflow-hidden bg-zinc-800 mb-1">
+                        {rel.coverImage
+                          ? <Image src={rel.coverImage} alt={rel.title} fill className="object-cover" sizes="64px" loading="lazy" />
+                          : <div className="w-full h-full flex items-center justify-center text-zinc-700"><Tv size={28} /></div>
+                        }
+                        <div className="absolute top-1 left-1 bg-amber-500/90 text-[7px] font-bold px-1 py-0.5 rounded text-white">
+                          {RELATION_LABEL[rel.relationType] || rel.relationType}
+                        </div>
                       </div>
+                      <p className="text-[9px] font-semibold text-zinc-300 line-clamp-2 leading-tight">{rel.title}</p>
+                      {rel.year && <p className="text-[8px] text-zinc-600">{rel.year}</p>}
                     </div>
-                    <p className="text-[9px] font-semibold text-zinc-300 line-clamp-2 leading-tight">{rel.title}</p>
-                    {rel.year && <p className="text-[8px] text-zinc-600">{rel.year}</p>}
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
+            )}
+
+            {/* Form aggiunta (appare in fondo al contenuto) */}
+            {showAddForm && (
+              <div ref={formRef} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-4">
+                <div>
+                  <p className="text-xs text-zinc-500 mb-2">Il tuo voto (opzionale)</p>
+                  <StarRating value={formRating} onChange={setFormRating} size={28} />
+                </div>
+
+                {(media.type === 'tv' || media.type === 'anime') && (() => {
+                  const maxSeasons = media.totalSeasons ?? (media.seasons ? Object.keys(media.seasons).length : null)
+                  return (
+                    <div>
+                      <p className="text-xs text-zinc-500 mb-1">
+                        Stagione{maxSeasons ? ` (max ${maxSeasons})` : ''}
+                      </p>
+                      <input
+                        type="number"
+                        min={1}
+                        max={maxSeasons ?? undefined}
+                        value={formSeason}
+                        onChange={e => {
+                          const val = e.target.value
+                          setFormSeason(val)
+                          const n = parseInt(val)
+                          if (isNaN(n) || n < 1) {
+                            setFormSeasonError('Minimo 1')
+                          } else if (maxSeasons && n > maxSeasons) {
+                            setFormSeasonError(`Massimo ${maxSeasons}`)
+                          } else {
+                            setFormSeasonError(null)
+                          }
+                          setFormEpisode('0')
+                          setFormEpisodeError(null)
+                        }}
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                      />
+                      {formSeasonError && (
+                        <p className="text-xs text-red-400 mt-1">{formSeasonError}</p>
+                      )}
+                    </div>
+                  )
+                })()}
+
+                {media.type !== 'movie' && media.type !== 'boardgame' && (() => {
+                  const seasonNum = parseInt(formSeason) || 1
+                  const maxEp = media.seasons?.[seasonNum]?.episode_count ?? media.episodes ?? null
+                  const label = media.type === 'manga' || media.type === 'novel' ? 'Capitolo corrente' : 'Episodio corrente'
+                  return (
+                    <div>
+                      <p className="text-xs text-zinc-500 mb-1">
+                        {label}{maxEp ? ` (max ${maxEp})` : ''}
+                      </p>
+                      <input
+                        type="number"
+                        min={0}
+                        max={maxEp ?? undefined}
+                        value={formEpisode}
+                        onChange={e => {
+                          const val = e.target.value
+                          setFormEpisode(val)
+                          const n = parseInt(val)
+                          if (isNaN(n) || n < 0) {
+                            setFormEpisodeError('Il valore non può essere negativo')
+                          } else if (maxEp && n > maxEp) {
+                            setFormEpisodeError(`Massimo ${maxEp}`)
+                          } else {
+                            setFormEpisodeError(null)
+                          }
+                        }}
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                      />
+                      {formEpisodeError && (
+                        <p className="text-xs text-red-400 mt-1">{formEpisodeError}</p>
+                      )}
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
+
+          </div>
+        </div>
+
+        {/* ── FOOTER STICKY (CTA) ────────────────────────────────────── */}
+        <div className="flex-shrink-0 p-3 border-t border-zinc-800/80 bg-zinc-950 space-y-2">
+          {!checkDone ? (
+            <div className="animate-pulse space-y-2">
+              <div className="h-10 bg-zinc-800 rounded-2xl" />
+              <div className="h-9 bg-zinc-800 rounded-2xl" />
             </div>
-          )}
+          ) : (
+            <>
+              {showAddForm ? (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowAddForm(false)}
+                    className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-zinc-400 text-sm hover:border-zinc-500 transition-all"
+                  >
+                    Annulla
+                  </button>
+                  <button
+                    disabled={!!formEpisodeError || !!formSeasonError}
+                    onClick={() => handleAddToCollection({
+                      rating: formRating || undefined,
+                      episode: parseInt(formEpisode) || 0,
+                      season: parseInt(formSeason) || 1,
+                    })}
+                    className="flex-1 py-2.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-xl font-semibold text-white text-sm transition-all disabled:opacity-40"
+                  >
+                    Conferma
+                  </button>
+                </div>
+              ) : !inCollection ? (
+                <button
+                  onClick={() => setShowAddForm(true)}
+                  className="w-full py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-semibold text-white transition-all"
+                >
+                  Aggiungi alla collezione
+                </button>
+              ) : (
+                <div className="w-full py-2.5 bg-emerald-600/20 border border-emerald-500/30 rounded-2xl text-emerald-400 font-semibold text-center text-sm flex items-center justify-center gap-2">
+                  <Check size={14} /> Nella tua collezione
+                </div>
+              )}
 
-          {/* CTA */}
-          <div className="pt-2">
-            {!checkDone ? (
-              <UserDataSkeleton />
-            ) : (
-              <div className="flex flex-col gap-3">
-                {!inCollection ? (
-                  <>
-                    {showAddForm ? (
-                      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-4">
-                        {/* Voto */}
-                        <div>
-                          <p className="text-xs text-zinc-500 mb-2">Il tuo voto (opzionale)</p>
-                          <StarRating value={formRating} onChange={setFormRating} size={28} />
-                        </div>
-
-                        {/* Stagione */}
-                        {(media.type === 'tv' || media.type === 'anime') && (() => {
-                          const maxSeasons = media.totalSeasons ?? (media.seasons ? Object.keys(media.seasons).length : null)
-                          return (
-                            <div>
-                              <p className="text-xs text-zinc-500 mb-1">
-                                Stagione{maxSeasons ? ` (max ${maxSeasons})` : ''}
-                              </p>
-                              <input
-                                type="number"
-                                min={1}
-                                max={maxSeasons ?? undefined}
-                                value={formSeason}
-                                onChange={e => {
-                                  const val = e.target.value
-                                  setFormSeason(val)
-                                  const n = parseInt(val)
-                                  if (isNaN(n) || n < 1) {
-                                    setFormSeasonError('Minimo 1')
-                                  } else if (maxSeasons && n > maxSeasons) {
-                                    setFormSeasonError(`Massimo ${maxSeasons}`)
-                                  } else {
-                                    setFormSeasonError(null)
-                                  }
-                                  setFormEpisode('0')
-                                  setFormEpisodeError(null)
-                                }}
-                                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
-                              />
-                              {formSeasonError && (
-                                <p className="text-xs text-red-400 mt-1">{formSeasonError}</p>
-                              )}
-                            </div>
-                          )
-                        })()}
-
-                        {/* Episodio/Capitolo */}
-                        {media.type !== 'movie' && media.type !== 'boardgame' && (() => {
-                          const seasonNum = parseInt(formSeason) || 1
-                          const maxEp = media.seasons?.[seasonNum]?.episode_count ?? media.episodes ?? null
-                          const label = media.type === 'manga' || media.type === 'novel' ? 'Capitolo corrente' : 'Episodio corrente'
-                          return (
-                            <div>
-                              <p className="text-xs text-zinc-500 mb-1">
-                                {label}{maxEp ? ` (max ${maxEp})` : ''}
-                              </p>
-                              <input
-                                type="number"
-                                min={0}
-                                max={maxEp ?? undefined}
-                                value={formEpisode}
-                                onChange={e => {
-                                  const val = e.target.value
-                                  setFormEpisode(val)
-                                  const n = parseInt(val)
-                                  if (isNaN(n) || n < 0) {
-                                    setFormEpisodeError('Il valore non può essere negativo')
-                                  } else if (maxEp && n > maxEp) {
-                                    setFormEpisodeError(`Massimo ${maxEp}`)
-                                  } else {
-                                    setFormEpisodeError(null)
-                                  }
-                                }}
-                                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
-                              />
-                              {formEpisodeError && (
-                                <p className="text-xs text-red-400 mt-1">{formEpisodeError}</p>
-                              )}
-                            </div>
-                          )
-                        })()}
-
-                        <div className="flex gap-2 pt-1">
-                          <button
-                            onClick={() => setShowAddForm(false)}
-                            className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-zinc-400 text-sm hover:border-zinc-500 transition-all"
-                          >
-                            Annulla
-                          </button>
-                          <button
-                            disabled={!!formEpisodeError || !!formSeasonError}
-                            onClick={() => handleAddToCollection({
-                              rating: formRating || undefined,
-                              episode: parseInt(formEpisode) || 0,
-                              season: parseInt(formSeason) || 1,
-                            })}
-                            className="flex-1 py-2.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-xl font-semibold text-white text-sm transition-all disabled:opacity-40"
-                          >
-                            Conferma
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setShowAddForm(true)}
-                        className="w-full py-3.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-semibold text-white transition-all"
-                      >
-                        Aggiungi alla collezione
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <div className="w-full py-3.5 bg-emerald-600/20 border border-emerald-500/30 rounded-2xl text-emerald-400 font-semibold text-center text-sm flex items-center justify-center gap-2">
-                    <Check size={15} /> Nella tua collezione
-                  </div>
-                )}
-
+              <div className="flex gap-2">
                 <button
                   onClick={handleToggleWishlist}
-                  className={`w-full py-3 rounded-2xl font-medium text-sm border transition-all ${
+                  className={`flex-1 py-2 rounded-xl font-medium text-xs border transition-all flex items-center justify-center gap-1.5 ${
                     inWishlist
                       ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
                       : 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:border-zinc-500'
                   }`}
                 >
-                  <span className="flex items-center justify-center gap-2">
-                    <Bookmark size={14} fill={inWishlist ? "currentColor" : "none"} />
-                    {inWishlist ? 'Nella wishlist' : 'Aggiungi alla wishlist'}
-                  </span>
+                  <Bookmark size={12} fill={inWishlist ? 'currentColor' : 'none'} />
+                  {inWishlist ? 'In wishlist' : 'Wishlist'}
                 </button>
 
                 {externalUrl && (
@@ -633,16 +649,17 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                     href={externalUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl font-medium text-sm bg-zinc-900 border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-all"
+                    className="flex-1 py-2 rounded-xl font-medium text-xs bg-zinc-900 border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-all flex items-center justify-center gap-1.5"
                   >
-                    <ExternalLink size={14} />
-                    Apri su {media.source === 'bgg' ? 'BoardGameGeek' : media.source === 'igdb' ? 'IGDB' : media.source === 'anilist' ? 'AniList' : 'TMDb'}
+                    <ExternalLink size={12} />
+                    {sourceLabel}
                   </a>
                 )}
               </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
+
       </div>
     </>
   )
