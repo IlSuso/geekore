@@ -103,7 +103,7 @@ async function fetchTV(lang: string) {
       .filter((m: any) => m.poster_path && m.overview)
 
     const details = await Promise.all(
-      shows.map((s: any) => tmdbDetail(`/tv/${s.id}?language=${tmdbLang}&append_to_response=aggregate_credits,watch%2Fproviders`))
+      shows.map((s: any) => tmdbDetail(`/tv/${s.id}?language=${tmdbLang}&append_to_response=aggregate_credits,watch%2Fproviders,keywords`))
     )
 
     return shows.map((m: any, i: number) => {
@@ -113,6 +113,7 @@ async function fetchTV(lang: string) {
       const runtime = d?.episode_run_time?.[0] || undefined
       const cast = (d?.aggregate_credits?.cast || []).slice(0, 5).map((a: any) => a.name).filter(Boolean)
       const providers = (d?.['watch/providers']?.results?.IT?.flatrate || []).map((p: any) => p.provider_name).filter(Boolean)
+      const keywords = (d?.keywords?.results || []).slice(0, 6).map((k: any) => k.name).filter(Boolean)
       const seasons: Record<number, { episode_count: number }> = {}
       for (const s of (d?.seasons || [])) {
         if (s.season_number > 0) seasons[s.season_number] = { episode_count: s.episode_count }
@@ -136,6 +137,7 @@ async function fetchTV(lang: string) {
         totalSeasons: d?.number_of_seasons || undefined,
         seasons: Object.keys(seasons).length ? seasons : undefined,
         watchProviders: providers.length ? providers : undefined,
+        themes: keywords.length ? keywords : undefined,
         category: 'tv',
         source: 'TMDb',
         url: `https://www.themoviedb.org/tv/${m.id}`,

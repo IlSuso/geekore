@@ -479,6 +479,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                     <span key={p} className="text-[10px] bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded-full">{p}</span>
                   ))}
                 </div>
+                <p className="text-[8px] text-zinc-600 mt-1">Powered by JustWatch</p>
               </div>
             )}
 
