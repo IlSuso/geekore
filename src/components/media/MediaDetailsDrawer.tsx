@@ -290,14 +290,14 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[105] bg-black/70 backdrop-blur-sm"
+        className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden
       />
 
       {/* Drawer — flex column: header | scroll | footer */}
       <div
-        className="fixed right-0 top-16 bottom-0 z-[105] w-full max-w-md bg-zinc-950 border-l border-zinc-800
+        className="fixed right-0 top-0 bottom-0 z-[200] w-full max-w-md bg-zinc-950 border-l border-zinc-800
                    flex flex-col animate-in slide-in-from-right duration-300"
         role="dialog"
         aria-modal

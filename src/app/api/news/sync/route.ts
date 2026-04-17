@@ -15,6 +15,15 @@ function tmdbImageUrl(path: string | null, size = 'w500') {
   return path ? `https://image.tmdb.org/t/p/${size}${path}` : null
 }
 
+async function tmdbDetail(endpoint: string): Promise<any> {
+  try {
+    const res = await fetch(`https://api.themoviedb.org/3${endpoint}`, {
+      headers: tmdbHeaders(), cache: 'no-store',
+    })
+    return res.ok ? await res.json() : null
+  } catch { return null }
+}
+
 const TMDB_MOVIE_GENRES: Record<number, string> = {
   28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy',
   80: 'Crime', 99: 'Documentary', 18: 'Drama', 10751: 'Family',
@@ -41,9 +50,18 @@ async function fetchCinema(lang: string) {
     )
     if (!res.ok) return []
     const json = await res.json()
-    return (json.results || []).slice(0, 20)
+    const movies = (json.results || []).slice(0, 15)
       .filter((m: any) => m.poster_path && m.overview)
-      .map((m: any) => ({
+
+    const details = await Promise.all(
+      movies.map((m: any) => tmdbDetail(`/movie/${m.id}?language=${tmdbLang}&append_to_response=credits`))
+    )
+
+    return movies.map((m: any, i: number) => {
+      const d = details[i]
+      const director = d?.credits?.crew?.find((p: any) => p.job === 'Director')?.name
+      const studios = (d?.production_companies || []).slice(0, 2).map((c: any) => c.name).filter(Boolean)
+      return {
         id: `tmdb-${m.id}`,
         type: 'movie',
         source_api: 'tmdb',
@@ -55,10 +73,14 @@ async function fetchCinema(lang: string) {
         genres: (m.genre_ids || []).map((id: number) => TMDB_MOVIE_GENRES[id]).filter(Boolean),
         score: m.vote_average > 0 ? Math.round(m.vote_average * 5) / 10 : undefined,
         original_language: m.original_language,
+        playing_time: d?.runtime || undefined,
+        studios: studios.length ? studios : undefined,
+        directors: director ? [director] : undefined,
         category: 'cinema',
         source: 'TMDb',
         url: `https://www.themoviedb.org/movie/${m.id}`,
-      }))
+      }
+    })
   } catch { return [] }
 }
 
@@ -71,9 +93,19 @@ async function fetchTV(lang: string) {
     )
     if (!res.ok) return []
     const json = await res.json()
-    return (json.results || []).slice(0, 20)
+    const shows = (json.results || []).slice(0, 15)
       .filter((m: any) => m.poster_path && m.overview)
-      .map((m: any) => ({
+
+    const details = await Promise.all(
+      shows.map((s: any) => tmdbDetail(`/tv/${s.id}?language=${tmdbLang}`))
+    )
+
+    return shows.map((m: any, i: number) => {
+      const d = details[i]
+      const networks = (d?.networks || []).slice(0, 2).map((n: any) => n.name).filter(Boolean)
+      const creators = (d?.created_by || []).slice(0, 2).map((c: any) => c.name).filter(Boolean)
+      const runtime = d?.episode_run_time?.[0] || undefined
+      return {
         id: `tmdb-${m.id}`,
         type: 'tv',
         source_api: 'tmdb',
@@ -85,10 +117,15 @@ async function fetchTV(lang: string) {
         genres: (m.genre_ids || []).map((id: number) => TMDB_TV_GENRES[id]).filter(Boolean),
         score: m.vote_average > 0 ? Math.round(m.vote_average * 5) / 10 : undefined,
         original_language: m.original_language,
+        playing_time: runtime,
+        studios: networks.length ? networks : undefined,
+        directors: creators.length ? creators : undefined,
+        totalSeasons: d?.number_of_seasons || undefined,
         category: 'tv',
         source: 'TMDb',
         url: `https://www.themoviedb.org/tv/${m.id}`,
-      }))
+      }
+    })
   } catch { return [] }
 }
 
