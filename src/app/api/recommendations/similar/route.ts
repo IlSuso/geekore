@@ -399,7 +399,7 @@ export async function GET(request: NextRequest) {
     })())
   }
 
-  // ── TMDb film — keywords prima, poi generi (evita dedup che scarta keyword-items) ──
+  // ── TMDb film — generi PRIMA (+ fetch keyword reali), poi keyword discover (OR) ──
   if (tmdbToken && tmdbMovieIds.length > 0) {
     fetches.push((async () => {
       try {
@@ -407,56 +407,79 @@ export async function GET(request: NextRequest) {
         const movieGenres = (ids: number[]) =>
           [...new Set(ids.map((id: number) => TMDB_MOVIE_ID_TO_GENRE[id]).filter(Boolean) as string[])]
 
+        // STEP 1: Genre query — film più votati nel genere giusto
+        const params = new URLSearchParams({ with_genres: tmdbMovieIds.slice(0,3).join(','), sort_by: 'vote_average.desc', 'vote_count.gte': '100', language: 'it-IT' })
+        const res = await fetch(`${TMDB_BASE}/discover/movie?${params}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
+        const genreResults: any[] = []
+        if (res.ok) {
+          const json = await res.json()
+          genreResults.push(...(json.results || []).filter((m: any) => !NICHE_LANGS.has(m.original_language || '')).slice(0, 20))
+        }
+
+        // STEP 2: Fetch keyword reali per i top 10 film (in parallelo — assorbite dal tempo IGDB ~2.6s)
+        const movieActualKws = new Map<string, string[]>()
+        await Promise.allSettled(genreResults.slice(0, 10).map(async (m: any) => {
+          try {
+            const kr = await fetch(`${TMDB_BASE}/movie/${m.id}/keywords`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(2500) })
+            if (!kr.ok) return
+            const kj = await kr.json()
+            const kws = (kj.keywords || []).map((k: any) => k.name.toLowerCase())
+            console.log('[SIMILAR] movie', m.id, m.title, '→ kws:', kws.slice(0,5))
+            movieActualKws.set(m.id.toString(), kws)
+          } catch {}
+        }))
+
+        // STEP 3: Aggiungi film con keyword reali (Interstellar, Arrival, The Martian ottengono kws reali)
+        for (const m of genreResults) {
+          const id = m.id.toString()
+          const recGenres = movieGenres(m.genre_ids || [])
+          const actualKws = movieActualKws.get(id) || []
+          add({ id, title: m.title || '', type: 'movie',
+            coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
+            year: m.release_date ? new Date(m.release_date).getFullYear() : undefined,
+            genres: recGenres, keywords: actualKws,
+            score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
+            description: m.overview ? m.overview.slice(0, 200) : undefined,
+            matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
+        }
+
+        // STEP 4: Keyword discover (OR — almeno 1 dei top keyword) — aggiorna _foundByKeyword su già-visti
         console.log('[SIMILAR] tmdbKwIds (movie):', tmdbKwIds)
-        // Keyword query PRIMA — AND sui primi 2 keyword (ordinati come input) per precisione massima
-        // Es. "space travel"(3801) AND "space mission"(4040) → solo veri film di missione spaziale
         if (tmdbKwIds.length > 0) {
-          const andKwIds = tmdbKwIds.slice(0, 2)  // AND: deve avere ENTRAMBI i keyword principali
-          const andKwStrings = thematicKeywords.slice(0, andKwIds.length)  // le stringhe corrispondenti
-          const kwParams = new URLSearchParams({ with_keywords: andKwIds.join(','), sort_by: 'vote_average.desc', 'vote_count.gte': '50', language: 'it-IT' })
+          const orKwIds = tmdbKwIds.slice(0, 3)
+          const kwParams = new URLSearchParams({ with_keywords: orKwIds.join('|'), sort_by: 'vote_average.desc', 'vote_count.gte': '50', language: 'it-IT' })
           const kwRes = await fetch(`${TMDB_BASE}/discover/movie?${kwParams}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
           if (kwRes.ok) {
             const kwJson = await kwRes.json()
-            console.log('[SIMILAR] TMDb movie kw discover returned:', kwJson.results?.length ?? 0, 'results (AND:', andKwIds.join(','), ')')
+            console.log('[SIMILAR] TMDb movie kw discover returned:', kwJson.results?.length ?? 0, 'results (OR:', orKwIds.join('|'), ')')
             for (const m of (kwJson.results || []).slice(0, 20)) {
               if (NICHE_LANGS.has(m.original_language || '')) continue
               const id = m.id.toString()
-              const recGenres = movieGenres(m.genre_ids || [])
-              // Assegna SOLO i keyword AND (garantiti dall'AND discover — non tutti i source keyword)
-              add({ id, title: m.title || '', type: 'movie',
-                coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
-                year: m.release_date ? new Date(m.release_date).getFullYear() : undefined,
-                genres: recGenres, keywords: andKwStrings,
-                score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
-                description: m.overview ? m.overview.slice(0, 200) : undefined,
-                matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres, andKwStrings),
-                _foundByKeyword: true, _pop: m.popularity || 0 })
+              const existing = results.find((r: any) => r.id === id && r.type === 'movie')
+              if (existing) {
+                // Già trovato da genre query — segna come keyword-found per il boost
+                existing._foundByKeyword = true
+              } else {
+                // Non nel set genere → aggiungi con i keyword OR come hint
+                const recGenres = movieGenres(m.genre_ids || [])
+                const kwHints = thematicKeywords.slice(0, Math.min(2, orKwIds.length))
+                add({ id, title: m.title || '', type: 'movie',
+                  coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
+                  year: m.release_date ? new Date(m.release_date).getFullYear() : undefined,
+                  genres: recGenres, keywords: kwHints,
+                  score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
+                  description: m.overview ? m.overview.slice(0, 200) : undefined,
+                  matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres, kwHints),
+                  _foundByKeyword: true, _pop: m.popularity || 0 })
+              }
             }
-          }
-        }
-
-        // Genre query DOPO — usa generi reali del film da genre_ids
-        const params = new URLSearchParams({ with_genres: tmdbMovieIds.slice(0,3).join(','), sort_by: 'vote_average.desc', 'vote_count.gte': '100', language: 'it-IT' })
-        const res = await fetch(`${TMDB_BASE}/discover/movie?${params}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
-        if (res.ok) {
-          const json = await res.json()
-          for (const m of (json.results || []).slice(0, 20)) {
-            if (NICHE_LANGS.has(m.original_language || '')) continue
-            const id = m.id.toString()
-            const recGenres = movieGenres(m.genre_ids || [])
-            add({ id, title: m.title || '', type: 'movie',
-              coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
-              year: m.release_date ? new Date(m.release_date).getFullYear() : undefined,
-              genres: recGenres, score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
-              description: m.overview ? m.overview.slice(0, 200) : undefined,
-              matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
           }
         }
       } catch {}
     })())
   }
 
-  // ── TMDb serie TV — keywords prima, poi generi ────────────────────────────
+  // ── TMDb serie TV — generi PRIMA (+ fetch keyword reali), poi keyword discover (OR) ──
   if (tmdbToken && tmdbTvIds.length > 0) {
     fetches.push((async () => {
       try {
@@ -464,48 +487,69 @@ export async function GET(request: NextRequest) {
         const tvGenres = (ids: number[]) =>
           [...new Set(ids.map((id: number) => TMDB_TV_ID_TO_GENRE[id]).filter(Boolean) as string[])]
 
-        // Keyword query PRIMA
+        // STEP 1: Genre query — serie più votate nel genere giusto
+        const params = new URLSearchParams({ with_genres: tmdbTvIds.slice(0,3).join(','), sort_by: 'vote_average.desc', 'vote_count.gte': '50', language: 'it-IT' })
+        const res = await fetch(`${TMDB_BASE}/discover/tv?${params}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
+        const genreResults: any[] = []
+        if (res.ok) {
+          const json = await res.json()
+          genreResults.push(...(json.results || []).filter((m: any) => !NICHE_LANGS.has(m.original_language || '')).slice(0, 20))
+        }
+
+        // STEP 2: Fetch keyword reali per le top 10 serie
+        const tvActualKws = new Map<string, string[]>()
+        await Promise.allSettled(genreResults.slice(0, 10).map(async (m: any) => {
+          try {
+            const kr = await fetch(`${TMDB_BASE}/tv/${m.id}/keywords`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(2500) })
+            if (!kr.ok) return
+            const kj = await kr.json()
+            const kws = (kj.results || []).map((k: any) => k.name.toLowerCase())
+            tvActualKws.set(m.id.toString(), kws)
+          } catch {}
+        }))
+
+        // STEP 3: Aggiungi serie con keyword reali
+        for (const m of genreResults) {
+          const id = m.id.toString()
+          const recGenres = tvGenres(m.genre_ids || [])
+          const actualKws = tvActualKws.get(id) || []
+          add({ id, title: m.name || '', type: 'tv',
+            coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
+            year: m.first_air_date ? new Date(m.first_air_date).getFullYear() : undefined,
+            genres: recGenres, keywords: actualKws,
+            score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
+            description: m.overview ? m.overview.slice(0, 200) : undefined,
+            episodes: m.number_of_episodes ?? undefined,
+            matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
+        }
+
+        // STEP 4: Keyword discover (OR) — aggiorna _foundByKeyword su già-visti, aggiungi nuovi
         if (tmdbKwIds.length > 0) {
-          // AND sui primi 2 keyword per precisione (stesso approccio dei film)
-          const andKwIds = tmdbKwIds.slice(0, 2)
-          const andKwStrings = thematicKeywords.slice(0, andKwIds.length)
-          const kwParams = new URLSearchParams({ with_keywords: andKwIds.join(','), sort_by: 'vote_average.desc', 'vote_count.gte': '30', language: 'it-IT' })
+          const orKwIds = tmdbKwIds.slice(0, 3)
+          const kwParams = new URLSearchParams({ with_keywords: orKwIds.join('|'), sort_by: 'vote_average.desc', 'vote_count.gte': '30', language: 'it-IT' })
           const kwRes = await fetch(`${TMDB_BASE}/discover/tv?${kwParams}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
           if (kwRes.ok) {
             const kwJson = await kwRes.json()
             for (const m of (kwJson.results || []).slice(0, 20)) {
               if (NICHE_LANGS.has(m.original_language || '')) continue
               const id = m.id.toString()
-              const recGenres = tvGenres(m.genre_ids || [])
-              add({ id, title: m.name || '', type: 'tv',
-                coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
-                year: m.first_air_date ? new Date(m.first_air_date).getFullYear() : undefined,
-                genres: recGenres, keywords: andKwStrings,
-                score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
-                description: m.overview ? m.overview.slice(0, 200) : undefined,
-                episodes: m.number_of_episodes ?? undefined,
-                matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres, andKwStrings),
-                _foundByKeyword: true, _pop: m.popularity || 0 })
+              const existing = results.find((r: any) => r.id === id && r.type === 'tv')
+              if (existing) {
+                existing._foundByKeyword = true
+              } else {
+                const recGenres = tvGenres(m.genre_ids || [])
+                const kwHints = thematicKeywords.slice(0, Math.min(2, orKwIds.length))
+                add({ id, title: m.name || '', type: 'tv',
+                  coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
+                  year: m.first_air_date ? new Date(m.first_air_date).getFullYear() : undefined,
+                  genres: recGenres, keywords: kwHints,
+                  score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
+                  description: m.overview ? m.overview.slice(0, 200) : undefined,
+                  episodes: m.number_of_episodes ?? undefined,
+                  matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres, kwHints),
+                  _foundByKeyword: true, _pop: m.popularity || 0 })
+              }
             }
-          }
-        }
-
-        // Genre query DOPO
-        const params = new URLSearchParams({ with_genres: tmdbTvIds.slice(0,3).join(','), sort_by: 'vote_average.desc', 'vote_count.gte': '50', language: 'it-IT' })
-        const res = await fetch(`${TMDB_BASE}/discover/tv?${params}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
-        if (res.ok) {
-          const json = await res.json()
-          for (const m of (json.results || []).slice(0, 20)) {
-            if (NICHE_LANGS.has(m.original_language || '')) continue
-            const id = m.id.toString()
-            const recGenres = tvGenres(m.genre_ids || [])
-            add({ id, title: m.name || '', type: 'tv',
-              coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
-              year: m.first_air_date ? new Date(m.first_air_date).getFullYear() : undefined,
-              genres: recGenres, score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
-              description: m.overview ? m.overview.slice(0, 200) : undefined,
-              episodes: m.number_of_episodes ?? undefined,
-              matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
           }
         }
       } catch {}
