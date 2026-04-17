@@ -38,6 +38,7 @@ export interface MediaDetails {
   themes?: string[]
   platforms?: string[]
   cast?: string[]
+  watchProviders?: string[]
   score?: number
   externalUrl?: string
   studios?: string[]
@@ -469,7 +470,19 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               </div>
             )}
 
-            {/* Piattaforme */}
+            {/* Disponibile su (streaming) */}
+            {media.watchProviders && media.watchProviders.length > 0 && (
+              <div>
+                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Disponibile su</h3>
+                <div className="flex flex-wrap gap-1">
+                  {media.watchProviders.map(p => (
+                    <span key={p} className="text-[10px] bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded-full">{p}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Piattaforme (gaming) */}
             {media.platforms && media.platforms.length > 0 && (
               <div>
                 <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Piattaforme</h3>

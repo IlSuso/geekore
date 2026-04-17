@@ -54,7 +54,7 @@ async function fetchCinema(lang: string) {
       .filter((m: any) => m.poster_path && m.overview)
 
     const details = await Promise.all(
-      movies.map((m: any) => tmdbDetail(`/movie/${m.id}?language=${tmdbLang}&append_to_response=credits,keywords`))
+      movies.map((m: any) => tmdbDetail(`/movie/${m.id}?language=${tmdbLang}&append_to_response=credits,keywords,watch%2Fproviders`))
     )
 
     return movies.map((m: any, i: number) => {
@@ -63,6 +63,7 @@ async function fetchCinema(lang: string) {
       const studios = (d?.production_companies || []).slice(0, 2).map((c: any) => c.name).filter(Boolean)
       const cast = (d?.credits?.cast || []).slice(0, 5).map((a: any) => a.name).filter(Boolean)
       const keywords = (d?.keywords?.keywords || []).slice(0, 6).map((k: any) => k.name).filter(Boolean)
+      const providers = (d?.['watch/providers']?.results?.IT?.flatrate || []).map((p: any) => p.provider_name).filter(Boolean)
       return {
         id: `tmdb-${m.id}`,
         type: 'movie',
@@ -80,6 +81,7 @@ async function fetchCinema(lang: string) {
         directors: director ? [director] : undefined,
         cast: cast.length ? cast : undefined,
         themes: keywords.length ? keywords : undefined,
+        watchProviders: providers.length ? providers : undefined,
         category: 'cinema',
         source: 'TMDb',
         url: `https://www.themoviedb.org/movie/${m.id}`,
@@ -101,7 +103,7 @@ async function fetchTV(lang: string) {
       .filter((m: any) => m.poster_path && m.overview)
 
     const details = await Promise.all(
-      shows.map((s: any) => tmdbDetail(`/tv/${s.id}?language=${tmdbLang}&append_to_response=aggregate_credits`))
+      shows.map((s: any) => tmdbDetail(`/tv/${s.id}?language=${tmdbLang}&append_to_response=aggregate_credits,watch%2Fproviders`))
     )
 
     return shows.map((m: any, i: number) => {
@@ -110,6 +112,11 @@ async function fetchTV(lang: string) {
       const creators = (d?.created_by || []).slice(0, 2).map((c: any) => c.name).filter(Boolean)
       const runtime = d?.episode_run_time?.[0] || undefined
       const cast = (d?.aggregate_credits?.cast || []).slice(0, 5).map((a: any) => a.name).filter(Boolean)
+      const providers = (d?.['watch/providers']?.results?.IT?.flatrate || []).map((p: any) => p.provider_name).filter(Boolean)
+      const seasons: Record<number, { episode_count: number }> = {}
+      for (const s of (d?.seasons || [])) {
+        if (s.season_number > 0) seasons[s.season_number] = { episode_count: s.episode_count }
+      }
       return {
         id: `tmdb-${m.id}`,
         type: 'tv',
@@ -127,6 +134,8 @@ async function fetchTV(lang: string) {
         directors: creators.length ? creators : undefined,
         cast: cast.length ? cast : undefined,
         totalSeasons: d?.number_of_seasons || undefined,
+        seasons: Object.keys(seasons).length ? seasons : undefined,
+        watchProviders: providers.length ? providers : undefined,
         category: 'tv',
         source: 'TMDb',
         url: `https://www.themoviedb.org/tv/${m.id}`,

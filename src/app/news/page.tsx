@@ -36,8 +36,10 @@ type UpcomingItem = {
   themes?: string[]
   directors?: string[]
   totalSeasons?: number
+  seasons?: Record<number, { episode_count: number }>
   playing_time?: number
   cast?: string[]
+  watchProviders?: string[]
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -77,6 +79,8 @@ function toMediaDetails(item: UpcomingItem): MediaDetails | null {
     mechanics: item.mechanics,
     themes: item.themes,
     totalSeasons: item.totalSeasons,
+    seasons: item.seasons,
+    watchProviders: item.watchProviders,
     // source non passato intenzionalmente: sopprime il link esterno nel drawer
   }
 }
