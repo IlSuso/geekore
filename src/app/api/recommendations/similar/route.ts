@@ -139,7 +139,7 @@ function parseBggXml(xml: string) {
       id,
       name: decode(name),
       year:      parseInt(body.match(/<yearpublished[^>]+value="(\d+)"/)?.[1] || '') || undefined,
-      thumbnail: body.match(/<thumbnail>(.*?)<\/thumbnail>/s)?.[1]?.trim(),
+      thumbnail: body.match(/<thumbnail>([\s\S]*?)<\/thumbnail>/)?.[1]?.trim(),
       description: decode((body.match(/<description>([\s\S]*?)<\/description>/)?.[1] || '').replace(/<[^>]*>/g, '').slice(0, 200)),
       categories: [...body.matchAll(/<link type="boardgamecategory"[^>]+value="([^"]+)"/g)].map(m => m[1]),
       mechanics:  [...body.matchAll(/<link type="boardgamemechanic"[^>]+value="([^"]+)"/g)].map(m => m[1]),
