@@ -37,6 +37,7 @@ export interface MediaDetails {
   developers?: string[]
   themes?: string[]
   platforms?: string[]
+  cast?: string[]
   score?: number
   externalUrl?: string
   studios?: string[]
@@ -427,6 +428,18 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                     <span key={name} className="text-[10px] bg-sky-500/10 text-sky-300 border border-sky-500/20 px-2 py-0.5 rounded-full">
                       {name}
                     </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Cast */}
+            {media.cast && media.cast.length > 0 && (
+              <div>
+                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Cast</h3>
+                <div className="flex flex-wrap gap-1">
+                  {media.cast.map(name => (
+                    <span key={name} className="text-[10px] bg-zinc-900 border border-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">{name}</span>
                   ))}
                 </div>
               </div>

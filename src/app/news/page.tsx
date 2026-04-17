@@ -37,6 +37,7 @@ type UpcomingItem = {
   directors?: string[]
   totalSeasons?: number
   playing_time?: number
+  cast?: string[]
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -70,6 +71,7 @@ function toMediaDetails(item: UpcomingItem): MediaDetails | null {
     studios: item.studios,
     developers: item.developers,
     directors: item.directors,
+    cast: item.cast,
     platforms: item.platforms,
     playing_time: item.playing_time ?? item.duration,
     mechanics: item.mechanics,
