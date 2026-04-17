@@ -15,6 +15,20 @@ function tmdbImageUrl(path: string | null, size = 'w500') {
   return path ? `https://image.tmdb.org/t/p/${size}${path}` : null
 }
 
+const TMDB_MOVIE_GENRES: Record<number, string> = {
+  28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy',
+  80: 'Crime', 99: 'Documentary', 18: 'Drama', 10751: 'Family',
+  14: 'Fantasy', 36: 'History', 27: 'Horror', 10402: 'Music',
+  9648: 'Mystery', 10749: 'Romance', 878: 'Science Fiction',
+  53: 'Thriller', 10752: 'War', 37: 'Western',
+}
+
+const TMDB_TV_GENRES: Record<number, string> = {
+  10759: 'Action & Adventure', 16: 'Animation', 35: 'Comedy',
+  80: 'Crime', 99: 'Documentary', 18: 'Drama', 10751: 'Family',
+  10762: 'Kids', 9648: 'Mystery', 10765: 'Sci-Fi & Fantasy', 37: 'Western',
+}
+
 // ── Fetchers ──────────────────────────────────────────────────────────────────
 
 async function fetchCinema(lang: string) {
@@ -30,10 +44,15 @@ async function fetchCinema(lang: string) {
     return (json.results || []).slice(0, 20)
       .filter((m: any) => m.poster_path && m.overview)
       .map((m: any) => ({
+        id: `tmdb-${m.id}`,
+        type: 'movie',
+        source_api: 'tmdb',
         title: m.title,
         description: m.overview?.slice(0, 300),
         coverImage: tmdbImageUrl(m.poster_path),
         date: m.release_date,
+        year: m.release_date ? parseInt(m.release_date.slice(0, 4)) : undefined,
+        genres: (m.genre_ids || []).map((id: number) => TMDB_MOVIE_GENRES[id]).filter(Boolean),
         category: 'cinema',
         source: 'TMDb',
         url: `https://www.themoviedb.org/movie/${m.id}`,
@@ -53,10 +72,15 @@ async function fetchTV(lang: string) {
     return (json.results || []).slice(0, 20)
       .filter((m: any) => m.poster_path && m.overview)
       .map((m: any) => ({
+        id: `tmdb-${m.id}`,
+        type: 'tv',
+        source_api: 'tmdb',
         title: m.name,
         description: m.overview?.slice(0, 300),
         coverImage: tmdbImageUrl(m.poster_path),
         date: m.first_air_date,
+        year: m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined,
+        genres: (m.genre_ids || []).map((id: number) => TMDB_TV_GENRES[id]).filter(Boolean),
         category: 'tv',
         source: 'TMDb',
         url: `https://www.themoviedb.org/tv/${m.id}`,
@@ -69,16 +93,13 @@ async function fetchAnime(lang: string) {
   const year  = new Date().getFullYear()
   const season = month <= 3 ? 'WINTER' : month <= 6 ? 'SPRING' : month <= 9 ? 'SUMMER' : 'FALL'
 
-  // In EN mode prefer english title, fallback to romaji
-  const titleField = lang === 'en'
-    ? 'romaji english'
-    : 'romaji'
+  const titleField = lang === 'en' ? 'romaji english' : 'romaji'
 
   try {
     const query = `query ($season: MediaSeason, $year: Int) {
       current: Page(perPage: 20) {
         media(type: ANIME, season: $season, seasonYear: $year, sort: POPULARITY_DESC, status: RELEASING) {
-          id title { ${titleField} } coverImage { large }
+          id title { ${titleField} } coverImage { large } genres
           nextAiringEpisode { airingAt episode }
           description(asHtml: false) siteUrl startDate { year month day }
         }
@@ -100,12 +121,17 @@ async function fetchAnime(lang: string) {
           : null
         const title = (lang === 'en' && m.title.english) ? m.title.english : m.title.romaji
         return {
+          id: `anilist-${m.id}`,
+          type: 'anime',
+          source_api: 'anilist',
           title,
           description: m.description
             ? m.description.replace(/<[^>]+>/g, '').slice(0, 300)
             : null,
           coverImage: m.coverImage.large,
           date,
+          year: d?.year ?? undefined,
+          genres: m.genres || [],
           nextEpisode: m.nextAiringEpisode?.episode,
           category: 'anime',
           source: 'AniList',
@@ -116,7 +142,6 @@ async function fetchAnime(lang: string) {
 }
 
 async function fetchGaming() {
-  // IGDB è sempre in inglese — una sola versione
   try {
     const clientId     = process.env.IGDB_CLIENT_ID
     const clientSecret = process.env.IGDB_CLIENT_SECRET
@@ -133,8 +158,8 @@ async function fetchGaming() {
     if (!tokenData.access_token) return []
 
     const nowUnix         = Math.floor(Date.now() / 1000)
-    const threeMonthsBack = nowUnix - 3 * 30 * 24 * 3600   // ultimi 3 mesi
-    const sixMonthsFwd    = nowUnix + 6 * 30 * 24 * 3600   // prossimi 6 mesi
+    const threeMonthsBack = nowUnix - 3 * 30 * 24 * 3600
+    const sixMonthsFwd    = nowUnix + 6 * 30 * 24 * 3600
 
     const res = await fetch('https://api.igdb.com/v4/games', {
       method: 'POST',
@@ -144,7 +169,7 @@ async function fetchGaming() {
         'Content-Type': 'text/plain',
       },
       body: `
-        fields name, cover.url, first_release_date, summary, slug, rating, rating_count;
+        fields id, name, cover.url, first_release_date, summary, slug, rating, rating_count, genres.name;
         where first_release_date > ${threeMonthsBack} & first_release_date < ${sixMonthsFwd} & cover != null & rating_count > 5;
         sort first_release_date desc;
         limit 30;
@@ -154,17 +179,25 @@ async function fetchGaming() {
     const games = await res.json()
     return (Array.isArray(games) ? games : [])
       .filter((g: any) => g.cover?.url)
-      .map((g: any) => ({
-        title: g.name,
-        description: g.summary?.slice(0, 300) || null,
-        coverImage: `https:${g.cover.url.replace('t_thumb', 't_1080p')}`,
-        date: g.first_release_date
+      .map((g: any) => {
+        const releaseDate = g.first_release_date
           ? new Date(g.first_release_date * 1000).toISOString().split('T')[0]
-          : null,
-        category: 'gaming',
-        source: 'IGDB',
-        url: `https://www.igdb.com/games/${g.slug || g.name?.toLowerCase().replace(/\s+/g, '-')}`,
-      }))
+          : null
+        return {
+          id: `igdb-${g.id}`,
+          type: 'game',
+          source_api: 'igdb',
+          title: g.name,
+          description: g.summary?.slice(0, 300) || null,
+          coverImage: `https:${g.cover.url.replace('t_thumb', 't_1080p')}`,
+          date: releaseDate,
+          year: releaseDate ? parseInt(releaseDate.slice(0, 4)) : undefined,
+          genres: (g.genres || []).map((gr: any) => gr.name).filter(Boolean),
+          category: 'gaming',
+          source: 'IGDB',
+          url: `https://www.igdb.com/games/${g.slug || g.name?.toLowerCase().replace(/\s+/g, '-')}`,
+        }
+      })
   } catch { return [] }
 }
 
@@ -176,13 +209,13 @@ async function runSync(lang: 'it' | 'en') {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const suffix = `_${lang}` // es. cinema_it, cinema_en
+  const suffix = `_${lang}`
 
   const [cinema, tv, anime, gaming] = await Promise.all([
     fetchCinema(lang),
     fetchTV(lang),
     fetchAnime(lang),
-    fetchGaming(),       // IGDB sempre in EN, condiviso
+    fetchGaming(),
   ])
 
   const now = new Date().toISOString()

@@ -7,7 +7,7 @@ export type Locale = 'it' | 'en'
 const translations = {
   it: {
     nav: {
-      home: 'Home', discover: 'Discover', news: 'News',
+      home: 'Home', discover: 'Discover', news: 'Novità',
       notifications: 'Notifiche', profile: 'Profilo',
       settings: 'Impostazioni', logout: 'Esci', forYou: 'Per te', search: 'Cerca',
     },
@@ -110,11 +110,11 @@ const translations = {
       apiNote: 'Le descrizioni di anime (AniList) e videogiochi (IGDB) sono sempre in inglese per limitazioni delle rispettive API. TMDb supporta l\'italiano per film e serie TV.',
     },
     news: {
-      title: 'News',
-      subtitle: 'Uscite imminenti dall\'universo nerd — TMDb, AniList e IGDB',
+      title: 'Novità',
+      subtitle: 'Uscite imminenti e in corso — Film, Serie, Anime e Videogiochi',
       all: 'Tutto', cinema: 'Film', tv: 'Serie TV', anime: 'Anime', gaming: 'Videogiochi',
-      refresh: 'Aggiorna', load: 'Carica notizie', loading: 'Caricamento...',
-      empty: 'Nessuna notizia disponibile.',
+      refresh: 'Aggiorna', load: 'Carica contenuti', loading: 'Caricamento...',
+      empty: 'Nessun contenuto disponibile.',
       updated: 'Aggiornato alle',
       episode: (n: number) => `Ep. ${n} in arrivo`,
     },
@@ -254,7 +254,7 @@ const translations = {
 
   en: {
     nav: {
-      home: 'Home', discover: 'Discover', news: 'News',
+      home: 'Home', discover: 'Discover', news: 'New & Upcoming',
       notifications: 'Notifications', profile: 'Profile',
       settings: 'Settings', logout: 'Logout', forYou: 'For You', search: 'Search',
     },
@@ -357,11 +357,11 @@ const translations = {
       apiNote: 'Anime (AniList) and game (IGDB) descriptions are always in English due to API limitations. TMDb supports Italian for movies and TV shows.',
     },
     news: {
-      title: 'News',
-      subtitle: 'Upcoming releases from the nerd universe — TMDb, AniList & IGDB',
+      title: 'New & Upcoming',
+      subtitle: 'Coming soon and now airing — Movies, TV, Anime & Games',
       all: 'All', cinema: 'Movies', tv: 'TV Shows', anime: 'Anime', gaming: 'Games',
-      refresh: 'Refresh', load: 'Load news', loading: 'Loading...',
-      empty: 'No news available.',
+      refresh: 'Refresh', load: 'Load content', loading: 'Loading...',
+      empty: 'No content available.',
       updated: 'Updated at',
       episode: (n: number) => `Ep. ${n} upcoming`,
     },
