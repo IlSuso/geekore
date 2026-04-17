@@ -68,8 +68,11 @@ const TMDB_META_KW_BLOCKLIST = new Set([
   'based on novel or book','based on novel','based on book','based on true story',
   'based on true events','based on real events','based on comic','based on comic book',
   'based on manga','based on video game','based on tv series','based on play',
-  'based on short story','based on anime','independent film',
+  'based on short story','based on anime','based on graphic novel','based on play or musical',
+  'independent film','edited from tv series',
   'duringcreditsstinger','aftercreditsstinger','female protagonist','male protagonist',
+  // Relazioni di formato — non descrivono il tema
+  'prequel','sequel','spin off','spin-off','remake','reboot','compilation',
   // Tag generici IGDB che coincidono con nomi di genere TMDb — troppo ampi per keyword discovery
   'action','adventure','drama','comedy','horror','thriller','mystery','fantasy','romance',
   'animation','animated','science fiction','sci-fi','indie','simulator','simulation',
@@ -414,7 +417,7 @@ export async function GET(request: NextRequest) {
 
         // STEP 1: Genre discover + keyword discover in parallelo
         const genreParams = new URLSearchParams({ with_genres: tmdbMovieIds.slice(0,3).join(','), sort_by: 'vote_average.desc', 'vote_count.gte': '100', language: 'it-IT' })
-        const orKwIds = tmdbKwIds.slice(0, 3)
+        const orKwIds = tmdbKwIds.slice(0, 6)
         const kwDiscoverP = orKwIds.length > 0
           ? fetch(`${TMDB_BASE}/discover/movie?${new URLSearchParams({ with_keywords: orKwIds.join('|'), sort_by: 'vote_average.desc', 'vote_count.gte': '100', language: 'it-IT' })}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
           : Promise.resolve(null as Response | null)
@@ -433,7 +436,7 @@ export async function GET(request: NextRequest) {
 
         // STEP 2: Fetch keyword reali per tutti i candidati (in parallelo, assorbite da IGDB)
         const movieActualKws = new Map<string, string[]>()
-        await Promise.allSettled(allCandidates.slice(0, 20).map(async (m: any) => {
+        await Promise.allSettled(allCandidates.slice(0, 30).map(async (m: any) => {
           try {
             const kr = await fetch(`${TMDB_BASE}/movie/${m.id}/keywords`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(2500) })
             if (!kr.ok) return
@@ -474,7 +477,7 @@ export async function GET(request: NextRequest) {
 
         // STEP 1: Genre discover + keyword discover in parallelo
         const genreParamsTv = new URLSearchParams({ with_genres: tmdbTvIds.slice(0,3).join(','), sort_by: 'vote_average.desc', 'vote_count.gte': '50', language: 'it-IT' })
-        const orKwIdsTv = tmdbKwIds.slice(0, 3)
+        const orKwIdsTv = tmdbKwIds.slice(0, 6)
         const kwDiscoverTvP = orKwIdsTv.length > 0
           ? fetch(`${TMDB_BASE}/discover/tv?${new URLSearchParams({ with_keywords: orKwIdsTv.join('|'), sort_by: 'vote_average.desc', 'vote_count.gte': '50', language: 'it-IT' })}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
           : Promise.resolve(null as Response | null)
@@ -491,7 +494,7 @@ export async function GET(request: NextRequest) {
 
         // STEP 2: Fetch keyword reali per tutti i candidati (TV usa /tv/{id}/keywords → kj.results)
         const tvActualKws = new Map<string, string[]>()
-        await Promise.allSettled(allCandidatesTv.slice(0, 20).map(async (m: any) => {
+        await Promise.allSettled(allCandidatesTv.slice(0, 30).map(async (m: any) => {
           try {
             const kr = await fetch(`${TMDB_BASE}/tv/${m.id}/keywords`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(2500) })
             if (!kr.ok) return
