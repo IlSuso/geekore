@@ -1116,6 +1116,7 @@ function computeTasteProfile(
       ...(preferences.fav_movie_genres || []),
       ...(preferences.fav_tv_genres || []),
       ...(preferences.fav_manga_genres || []),
+      ...(preferences.fav_boardgame_genres || []),
     ]
     for (const genre of allFavGenres) {
       if (globalScores[genre]) globalScores[genre] *= 2.2
