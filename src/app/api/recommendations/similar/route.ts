@@ -202,9 +202,6 @@ export async function GET(request: NextRequest) {
   const genreScores: Record<string, number> = (tasteData?.genre_scores as any) || {}
   const maxGenreScore = Math.max(...Object.values(genreScores), 1)
 
-  const { data: owned } = await supabase.from('user_media_entries').select('external_id').eq('user_id', user.id)
-  const ownedIds = new Set((owned || []).map((e: any) => e.external_id).filter(Boolean))
-
   const { igdbGenres, crossGenres, anilistGenres, tmdbMovieIds, tmdbTvIds } = resolveGenres(rawGenres)
 
   // Combina keywords (da film TMDb) + tags (da anime/manga AniList) per keyword TMDb lookup
@@ -246,7 +243,6 @@ export async function GET(request: NextRequest) {
   const add = (item: any) => {
     if (!item.id) return
     if (seenIds.has(item.id)) return
-    if (ownedIds.has(item.id)) return
     if (excludeId && item.id === excludeId) return
     seenIds.add(item.id)
     results.push(item)
