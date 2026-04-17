@@ -1615,7 +1615,7 @@ export default function ForYouPage() {
   // Fix 2.4: ordina per affinità reale (collectionSize nel profilo) non per count consigli
   // Chi ha più titoli nel profilo viene prima — riflette il tipo centrale per l'utente
   const SECTIONS = ALL_SECTIONS.filter(({ key }) =>
-    (collectionSize[key] || 0) >= 1 || (displayRecs[key] || []).length >= 3
+    (collectionSize[key] || 0) >= 1 || (displayRecs[key] || []).length >= 1
   ).sort((a, b) => {
     const sizeA = collectionSize[a.key] || 0
     const sizeB = collectionSize[b.key] || 0

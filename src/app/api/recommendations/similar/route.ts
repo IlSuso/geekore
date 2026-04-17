@@ -846,12 +846,16 @@ export async function GET(request: NextRequest) {
       // Hot list per giochi trending
       try {
         const hotRes = await fetch('https://www.boardgamegeek.com/xmlapi2/hot?type=boardgame', { headers: bggHeaders, signal: AbortSignal.timeout(5000) })
+        console.log('[SIMILAR BGG] hot list status:', hotRes.status)
         if (hotRes.ok) {
           const hotXml = await hotRes.text()
-          ;[...hotXml.matchAll(/<item[^>]*id="(\d+)"/g)].map(m => parseInt(m[1])).forEach(id => candidateIdSet.add(id))
+          const hotIds = [...hotXml.matchAll(/<item[^>]*id="(\d+)"/g)].map(m => parseInt(m[1]))
+          console.log('[SIMILAR BGG] hot list IDs:', hotIds.length)
+          hotIds.forEach(id => candidateIdSet.add(id))
         }
-      } catch {}
+      } catch (e) { console.log('[SIMILAR BGG] hot list error:', e) }
 
+      console.log('[SIMILAR BGG] candidate IDs:', candidateIdSet.size)
       if (candidateIdSet.size === 0) return
 
       // Fetch dettagli in batch da MAX 20 (limite BGG API)
@@ -862,6 +866,7 @@ export async function GET(request: NextRequest) {
         try {
           const thingUrl = `https://www.boardgamegeek.com/xmlapi2/thing?id=${batch.join(',')}&stats=1`
           let thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(10000) })
+          console.log(`[SIMILAR BGG] /thing batch ${i/20+1} → status ${thingRes.status}`)
           if (thingRes.status === 202) {
             await new Promise(r => setTimeout(r, 2000))
             thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(10000) })
@@ -870,15 +875,19 @@ export async function GET(request: NextRequest) {
             await new Promise(r => setTimeout(r, 3000))
             thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(10000) })
           }
-          if (!thingRes.ok) continue
-          allGames.push(...parseBggXml(await thingRes.text()))
-        } catch {}
+          if (!thingRes.ok) { console.log(`[SIMILAR BGG] /thing batch failed: ${thingRes.status}`); continue }
+          const parsed = parseBggXml(await thingRes.text())
+          console.log(`[SIMILAR BGG] /thing batch parsed ${parsed.length} games`)
+          allGames.push(...parsed)
+        } catch (e) { console.log('[SIMILAR BGG] /thing error:', e) }
         if (i + 20 < ids.length) await new Promise(r => setTimeout(r, 300))
       }
 
+      console.log('[SIMILAR BGG] allGames:', allGames.length)
+
       // Score per match categoria + qualità
       const qualified = allGames
-        .filter(g => (g.usersRated || 0) > 100 && (g.rating || 0) > 6)
+        .filter(g => (g.usersRated || 0) > 100 && (g.rating || 0) > 5.5)
         .map(g => ({ ...g, _catMatch: g.categories.filter(c => targetBggCats.has(c)).length }))
         .sort((a, b) => b._catMatch !== a._catMatch ? b._catMatch - a._catMatch : (b.rating || 0) - (a.rating || 0))
 
