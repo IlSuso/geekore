@@ -99,7 +99,20 @@ export async function GET(request: NextRequest) {
 
     try {
       const searchResult = await parseStringPromise(searchXml)
-      const items = (searchResult?.items?.item || []).slice(0, 20)
+      const allItems: any[] = searchResult?.items?.item || []
+
+      // BGG restituisce tutti i match nel search response con i nomi inclusi.
+      // Ordiniamo per rilevanza del titolo PRIMA di fetchare i dettagli,
+      // così i 20 che fetcheremo sono sempre i più pertinenti alla query.
+      const q = bggQuery.toLowerCase()
+      const sortedItems = [...allItems].sort((a: any, b: any) => {
+        const nameA = (a.name?.find?.((n: any) => n.$?.type === 'primary')?.$.value || '').toLowerCase()
+        const nameB = (b.name?.find?.((n: any) => n.$?.type === 'primary')?.$.value || '').toLowerCase()
+        const score = (t: string) => t === q ? 0 : t.startsWith(q) ? 1 : t.includes(q) ? 2 : 3
+        return score(nameA) - score(nameB)
+      })
+
+      const items = sortedItems.slice(0, 20)
       const ids = items.map((i: any) => i.$.id).join(',')
 
       if (items.length === 0) return NextResponse.json({ results: [] }, { headers: rl.headers })
