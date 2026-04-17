@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
 
     try {
       const searchResult = await parseStringPromise(searchXml)
-      const items = (searchResult?.items?.item || []).slice(0, 20)
+      const items = (searchResult?.items?.item || []).slice(0, 50)
       const ids = items.map((i: any) => i.$.id).join(',')
 
       if (items.length === 0) return NextResponse.json({ results: [] }, { headers: rl.headers })
