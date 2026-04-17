@@ -15,7 +15,7 @@ async function bggFetch(url: string, maxRetries = 5, delayMs = 2000): Promise<st
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     if (attempt > 0) await new Promise(r => setTimeout(r, delayMs))
     try {
-      const res = await fetch(url, { cache: 'no-store', headers: bggHeaders(), signal: AbortSignal.timeout(8000) })
+      const res = await fetch(url, { cache: 'no-store', headers: bggHeaders(), signal: AbortSignal.timeout(15000) })
       if (res.status === 202) continue
       if (!res.ok) {
         console.error(`[BGG] HTTP ${res.status} per ${url}`)
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
 
     try {
       const searchResult = await parseStringPromise(searchXml)
-      const items = (searchResult?.items?.item || []).slice(0, 50)
+      const items = (searchResult?.items?.item || []).slice(0, 30)
       const ids = items.map((i: any) => i.$.id).join(',')
 
       if (items.length === 0) return NextResponse.json({ results: [] }, { headers: rl.headers })
