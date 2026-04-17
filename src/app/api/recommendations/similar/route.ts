@@ -746,12 +746,15 @@ export async function GET(request: NextRequest) {
   const targetBggCats = new Set(crossGenres.flatMap(g => GENRE_TO_BGG_CATS[g] || []))
   const bggSeedIds = new Set<string>(crossGenres.flatMap(g => (BGG_GENRE_SEEDS[g] || []).map(String)))
 
+  const bggHeaders: HeadersInit = process.env.BGG_BEARER_TOKEN
+    ? { Authorization: `Bearer ${process.env.BGG_BEARER_TOKEN}` } : {}
+
   fetches.push((async () => {
     try {
       // Step 1: hot list BGG
       let hotIds: string[] = []
       try {
-        const hotRes = await fetch('https://www.boardgamegeek.com/xmlapi2/hot?type=boardgame', { signal: AbortSignal.timeout(7000) })
+        const hotRes = await fetch('https://www.boardgamegeek.com/xmlapi2/hot?type=boardgame', { headers: bggHeaders, signal: AbortSignal.timeout(7000) })
         if (hotRes.ok) {
           const hotXml = await hotRes.text()
           hotIds = [...hotXml.matchAll(/<item[^>]*id="(\d+)"/g)].map(m => m[1]).slice(0, 50)
@@ -768,14 +771,14 @@ export async function GET(request: NextRequest) {
         const batch = allIds.slice(i, i + 50)
         try {
           const thingUrl = `https://www.boardgamegeek.com/xmlapi2/thing?id=${batch.join(',')}&stats=1`
-          let thingRes = await fetch(thingUrl, { signal: AbortSignal.timeout(12000) })
+          let thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(12000) })
           if (thingRes.status === 202) {
             await new Promise(r => setTimeout(r, 2500))
-            thingRes = await fetch(thingUrl, { signal: AbortSignal.timeout(12000) })
+            thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(12000) })
           }
           if (thingRes.status === 202) {
             await new Promise(r => setTimeout(r, 3000))
-            thingRes = await fetch(thingUrl, { signal: AbortSignal.timeout(12000) })
+            thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(12000) })
           }
           if (!thingRes.ok) continue
           allGames.push(...parseBggXml(await thingRes.text()))

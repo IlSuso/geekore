@@ -2637,11 +2637,14 @@ async function fetchBoardgameRecs(
     slots.flatMap(s => (BGG_GENRE_SEEDS[s.genre] || []).map(String))
   )
 
+  const bggHeaders: HeadersInit = process.env.BGG_BEARER_TOKEN
+    ? { Authorization: `Bearer ${process.env.BGG_BEARER_TOKEN}` } : {}
+
   try {
     // Step 1: hot list BGG (50 giochi trending, si aggiorna quotidianamente)
     let hotIds: string[] = []
     try {
-      const hotRes = await fetch('https://www.boardgamegeek.com/xmlapi2/hot?type=boardgame', { signal: AbortSignal.timeout(7000) })
+      const hotRes = await fetch('https://www.boardgamegeek.com/xmlapi2/hot?type=boardgame', { headers: bggHeaders, signal: AbortSignal.timeout(7000) })
       if (hotRes.ok) {
         const hotXml = await hotRes.text()
         hotIds = [...hotXml.matchAll(/<item[^>]*id="(\d+)"/g)].map(m => m[1]).slice(0, 50)
@@ -2658,14 +2661,14 @@ async function fetchBoardgameRecs(
       const batch = allIds.slice(i, i + 50)
       try {
         const thingUrl = `https://www.boardgamegeek.com/xmlapi2/thing?id=${batch.join(',')}&stats=1`
-        let thingRes = await fetch(thingUrl, { signal: AbortSignal.timeout(12000) })
+        let thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(12000) })
         if (thingRes.status === 202) {
           await new Promise(r => setTimeout(r, 2500))
-          thingRes = await fetch(thingUrl, { signal: AbortSignal.timeout(12000) })
+          thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(12000) })
         }
         if (thingRes.status === 202) {
           await new Promise(r => setTimeout(r, 3000))
-          thingRes = await fetch(thingUrl, { signal: AbortSignal.timeout(12000) })
+          thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(12000) })
         }
         if (!thingRes.ok) continue
         allGames.push(...parseBggXmlRec(await thingRes.text()))
