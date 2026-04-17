@@ -2582,24 +2582,45 @@ async function fetchGameRecs(
   return results.sort((a, b) => b.matchScore - a.matchScore)
 }
 
-// BGG category names → cross-media genre mapping per filtering hot list
+// BGG category names → cross-media genre (per filtrare i risultati)
 const GENRE_TO_BGG_CATS: Record<string, string[]> = {
-  'Fantasy':          ['Fantasy', 'Medieval', 'Mythology', 'Adventure'],
-  'Science Fiction':  ['Science Fiction', 'Space Exploration', 'Fighting'],
-  'Horror':           ['Horror', 'Zombies', 'Halloween'],
-  'Adventure':        ['Adventure', 'Exploration', 'Puzzle'],
-  'Mystery':          ['Mystery', 'Deduction', 'Murder/Mystery'],
-  'Thriller':         ['Espionage', 'Deduction', 'Murder/Mystery'],
-  'War':              ['Wargame', 'World War II', 'Napoleonic', 'American Civil War'],
-  'History':          ['Historical', 'Ancient', 'Civilization', 'Renaissance', 'Medieval'],
-  'Comedy':           ['Humor', 'Party Game'],
-  'Drama':            ['Economic', 'Political', 'Negotiation'],
-  'Psychological':    ['Deduction', 'Bluffing', 'Murder/Mystery'],
-  'Action':           ['Adventure', 'Fighting', 'Action / Dexterity'],
-  'Crime':            ['Deduction', 'Murder/Mystery', 'Espionage'],
-  'Supernatural':     ['Horror', 'Fantasy', 'Mythology'],
-  'Sci-Fi':           ['Science Fiction', 'Space Exploration'],
-  'Strategy':         ['Economic', 'City Building', 'Territory Building'],
+  'Fantasy':         ['Fantasy', 'Medieval', 'Mythology', 'Adventure'],
+  'Science Fiction': ['Science Fiction', 'Space Exploration'],
+  'Sci-Fi':          ['Science Fiction', 'Space Exploration'],
+  'Horror':          ['Horror', 'Zombies', 'Halloween'],
+  'Adventure':       ['Adventure', 'Exploration', 'Puzzle'],
+  'Mystery':         ['Mystery', 'Deduction', 'Murder/Mystery'],
+  'Thriller':        ['Espionage', 'Deduction', 'Murder/Mystery'],
+  'War':             ['Wargame', 'World War II', 'Napoleonic', 'American Civil War'],
+  'History':         ['Historical', 'Ancient', 'Civilization', 'Renaissance', 'Medieval'],
+  'Comedy':          ['Humor', 'Party Game'],
+  'Drama':           ['Economic', 'Political', 'Negotiation'],
+  'Psychological':   ['Deduction', 'Bluffing', 'Murder/Mystery'],
+  'Action':          ['Adventure', 'Fighting', 'Action / Dexterity'],
+  'Crime':           ['Deduction', 'Murder/Mystery', 'Espionage'],
+  'Supernatural':    ['Horror', 'Fantasy', 'Mythology'],
+  'Strategy':        ['Economic', 'City Building', 'Territory Building'],
+}
+
+// ID BGG dei migliori giochi per genere (da BGG top rankings per categoria).
+// Completano la hot list coprendo i classici fondamentali che non sono sempre trending.
+const BGG_GENRE_SEEDS: Record<string, number[]> = {
+  'Fantasy':         [174430, 162886, 96848, 146021, 205637, 150376, 10547],
+  'Science Fiction': [233078, 167791, 39463, 220308, 246900, 161936],
+  'Sci-Fi':          [233078, 167791, 39463, 220308],
+  'Horror':          [146021, 150376, 10547, 205637, 113924, 205059],
+  'Adventure':       [30549, 121921, 174430, 161936, 150376],
+  'Mystery':         [148228, 181304, 178900, 1294],
+  'Thriller':        [12333, 148228, 181304, 150376],
+  'War':             [12333, 115746, 10630],
+  'History':         [68448, 182028, 31260, 224517, 9209, 136],
+  'Strategy':        [13, 3076, 31260, 266192, 183394, 36218, 822, 9209, 2651, 230802, 68448, 173346],
+  'Comedy':          [178900, 39856, 163412],
+  'Crime':           [148228, 1294, 181304, 178900],
+  'Drama':           [3076, 31260, 224517, 183394, 182028],
+  'Psychological':   [148228, 181304, 12333, 150376],
+  'Supernatural':    [146021, 10547, 113924, 181304, 205637],
+  'Action':          [174430, 113924, 30549, 164153],
 }
 
 async function fetchBoardgameRecs(
@@ -2607,54 +2628,55 @@ async function fetchBoardgameRecs(
   isAlreadyOwned: (type: string, id: string, title: string) => boolean,
   shownIds?: Set<string>
 ): Promise<Recommendation[]> {
-  const bggHeaders: HeadersInit = {}  // BGG XML API v2 is public — no auth needed
-
   const results: Recommendation[] = []
   const seen = new Set<string>()
+  const targetCats = new Set(slots.flatMap(s => GENRE_TO_BGG_CATS[s.genre] || []))
 
-  // Target categories from user's genre slots
-  const targetCats = new Set(
-    slots.flatMap(s => GENRE_TO_BGG_CATS[s.genre] || [])
+  // Seed IDs per i generi dell'utente (classici garantiti)
+  const seedIds = new Set<string>(
+    slots.flatMap(s => (BGG_GENRE_SEEDS[s.genre] || []).map(String))
   )
 
   try {
-    // Step 1: fetch BGG hot list (top 50 trending games — changes daily, reliable IDs)
-    const hotRes = await fetch(
-      'https://www.boardgamegeek.com/xmlapi2/hot?type=boardgame',
-      { signal: AbortSignal.timeout(8000) }
-    )
-    if (!hotRes.ok) return results
-    const hotXml = await hotRes.text()
-    const hotIds = [...hotXml.matchAll(/<item[^>]*id="(\d+)"/g)].map(m => m[1]).slice(0, 50)
-    if (hotIds.length === 0) return results
+    // Step 1: hot list BGG (50 giochi trending, si aggiorna quotidianamente)
+    let hotIds: string[] = []
+    try {
+      const hotRes = await fetch('https://www.boardgamegeek.com/xmlapi2/hot?type=boardgame', { signal: AbortSignal.timeout(7000) })
+      if (hotRes.ok) {
+        const hotXml = await hotRes.text()
+        hotIds = [...hotXml.matchAll(/<item[^>]*id="(\d+)"/g)].map(m => m[1]).slice(0, 50)
+      }
+    } catch {}
 
-    // Step 2: fetch full details + stats for all hot games in one batch
-    const thingUrl = `https://www.boardgamegeek.com/xmlapi2/thing?id=${hotIds.join(',')}&stats=1`
-    let thingRes = await fetch(thingUrl, { signal: AbortSignal.timeout(12000) })
-    if (thingRes.status === 202) {
-      await new Promise(r => setTimeout(r, 2500))
-      thingRes = await fetch(thingUrl, { signal: AbortSignal.timeout(12000) })
+    // Unisce hot list + seed IDs di genere (deduplicati) → fino a ~100 candidati
+    const allIds = [...new Set([...hotIds, ...seedIds])]
+    if (allIds.length === 0) return results
+
+    // Step 2: fetch dettagli in batch da 50 (BGG supporta più ID per richiesta)
+    const allGames: ReturnType<typeof parseBggXmlRec> = []
+    for (let i = 0; i < allIds.length; i += 50) {
+      const batch = allIds.slice(i, i + 50)
+      try {
+        const thingUrl = `https://www.boardgamegeek.com/xmlapi2/thing?id=${batch.join(',')}&stats=1`
+        let thingRes = await fetch(thingUrl, { signal: AbortSignal.timeout(12000) })
+        if (thingRes.status === 202) {
+          await new Promise(r => setTimeout(r, 2500))
+          thingRes = await fetch(thingUrl, { signal: AbortSignal.timeout(12000) })
+        }
+        if (thingRes.status === 202) {
+          await new Promise(r => setTimeout(r, 3000))
+          thingRes = await fetch(thingUrl, { signal: AbortSignal.timeout(12000) })
+        }
+        if (!thingRes.ok) continue
+        allGames.push(...parseBggXmlRec(await thingRes.text()))
+      } catch {}
     }
-    if (thingRes.status === 202) {
-      await new Promise(r => setTimeout(r, 3000))
-      thingRes = await fetch(thingUrl, { signal: AbortSignal.timeout(12000) })
-    }
-    if (!thingRes.ok) return results
 
-    const allGames = parseBggXmlRec(await thingRes.text())
-
-    // Step 3: score by genre match + quality, include all well-rated games
+    // Step 3: score per match categorie + qualità
     const scored = allGames
       .filter(g => (g.usersRated || 0) > 100 && (g.rating || 0) > 6)
-      .map(g => {
-        const catMatch = g.categories.filter(c => targetCats.has(c)).length
-        return { ...g, _catMatch: catMatch }
-      })
-      .sort((a, b) => {
-        // Prefer genre-matching games, then by rating
-        if (b._catMatch !== a._catMatch) return b._catMatch - a._catMatch
-        return (b.rating || 0) - (a.rating || 0)
-      })
+      .map(g => ({ ...g, _catMatch: g.categories.filter(c => targetCats.has(c)).length }))
+      .sort((a, b) => b._catMatch !== a._catMatch ? b._catMatch - a._catMatch : (b.rating || 0) - (a.rating || 0))
 
     for (const g of scored) {
       const id = `bgg-${g.id}`
@@ -2673,7 +2695,7 @@ async function fetchBoardgameRecs(
         why: recGenres.length > 0 ? `Top ${recGenres[0]} boardgame` : 'Top boardgame',
       })
     }
-  } catch { /* BGG non disponibile */ }
+  } catch {}
 
   return results.sort((a, b) => (b.score || 0) - (a.score || 0))
 }
