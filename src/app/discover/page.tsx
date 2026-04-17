@@ -186,7 +186,8 @@ export default function DiscoverPage() {
       if (controller.signal.aborted) return;
       const seen = new Set<string>();
       const deduped = all.filter(i => { if (seen.has(i.id)) return false; seen.add(i.id); return true; });
-      const filtered = type !== 'all' ? deduped.filter(i => i.type === type) : deduped;
+      const withCover = deduped.filter(hasValidCover);
+      const filtered = type !== 'all' ? withCover.filter(i => i.type === type) : withCover;
       setResults(filtered);
 
       // V3: traccia la ricerca dopo che i risultati sono tornati
