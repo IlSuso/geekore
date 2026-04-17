@@ -21,6 +21,11 @@ type UpcomingItem = {
   date?: string
   year?: number
   genres?: string[]
+  score?: number
+  episodes?: number
+  studios?: string[]
+  developers?: string[]
+  original_language?: string
   category: 'gaming' | 'cinema' | 'anime' | 'tv'
   source: string
   nextEpisode?: number
@@ -43,7 +48,7 @@ function formatDate(dateStr?: string, locale?: string) {
 }
 
 function toMediaDetails(item: UpcomingItem): MediaDetails | null {
-  if (!item.id || !item.type || !item.source_api) return null
+  if (!item.id || !item.type) return null
   return {
     id: item.id,
     title: item.title,
@@ -52,7 +57,11 @@ function toMediaDetails(item: UpcomingItem): MediaDetails | null {
     year: item.year,
     description: item.description,
     genres: item.genres || [],
-    source: item.source_api,
+    score: item.score,
+    episodes: item.episodes,
+    studios: item.studios,
+    developers: item.developers,
+    // source non passato intenzionalmente: sopprime il link esterno nel drawer
   }
 }
 
@@ -111,6 +120,11 @@ export default function NewsPage() {
         const list = Array.isArray(data) ? data : []
         setItems(list)
         newsCache.set(cacheKey, { data: list, ts: Date.now() })
+        // Cache vecchia (senza id): triggera sync in background e invalida cache
+        if (list.some((i: any) => !i.id)) {
+          newsCache.delete(cacheKey)
+          fetch(`/api/news/sync?lang=${locale}`, { method: 'GET' }).catch(() => {})
+        }
       }
     } catch {
       setFetchError(true)

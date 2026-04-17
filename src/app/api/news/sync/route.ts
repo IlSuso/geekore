@@ -48,11 +48,13 @@ async function fetchCinema(lang: string) {
         type: 'movie',
         source_api: 'tmdb',
         title: m.title,
-        description: m.overview?.slice(0, 300),
+        description: m.overview?.slice(0, 500),
         coverImage: tmdbImageUrl(m.poster_path),
         date: m.release_date,
         year: m.release_date ? parseInt(m.release_date.slice(0, 4)) : undefined,
         genres: (m.genre_ids || []).map((id: number) => TMDB_MOVIE_GENRES[id]).filter(Boolean),
+        score: m.vote_average > 0 ? Math.round(m.vote_average * 10) / 10 : undefined,
+        original_language: m.original_language,
         category: 'cinema',
         source: 'TMDb',
         url: `https://www.themoviedb.org/movie/${m.id}`,
@@ -76,11 +78,13 @@ async function fetchTV(lang: string) {
         type: 'tv',
         source_api: 'tmdb',
         title: m.name,
-        description: m.overview?.slice(0, 300),
+        description: m.overview?.slice(0, 500),
         coverImage: tmdbImageUrl(m.poster_path),
         date: m.first_air_date,
         year: m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined,
         genres: (m.genre_ids || []).map((id: number) => TMDB_TV_GENRES[id]).filter(Boolean),
+        score: m.vote_average > 0 ? Math.round(m.vote_average * 10) / 10 : undefined,
+        original_language: m.original_language,
         category: 'tv',
         source: 'TMDb',
         url: `https://www.themoviedb.org/tv/${m.id}`,
@@ -99,7 +103,8 @@ async function fetchAnime(lang: string) {
     const query = `query ($season: MediaSeason, $year: Int) {
       current: Page(perPage: 20) {
         media(type: ANIME, season: $season, seasonYear: $year, sort: POPULARITY_DESC, status: RELEASING) {
-          id title { ${titleField} } coverImage { large } genres
+          id title { ${titleField} } coverImage { large } genres episodes averageScore
+          studios(isMain: true) { nodes { name } }
           nextAiringEpisode { airingAt episode }
           description(asHtml: false) siteUrl startDate { year month day }
         }
@@ -126,12 +131,15 @@ async function fetchAnime(lang: string) {
           source_api: 'anilist',
           title,
           description: m.description
-            ? m.description.replace(/<[^>]+>/g, '').slice(0, 300)
+            ? m.description.replace(/<[^>]+>/g, '').slice(0, 500)
             : null,
           coverImage: m.coverImage.large,
           date,
           year: d?.year ?? undefined,
           genres: m.genres || [],
+          episodes: m.episodes ?? undefined,
+          score: m.averageScore ? Math.round(m.averageScore) / 10 : undefined,
+          studios: (m.studios?.nodes || []).map((s: any) => s.name).filter(Boolean),
           nextEpisode: m.nextAiringEpisode?.episode,
           category: 'anime',
           source: 'AniList',
@@ -169,7 +177,7 @@ async function fetchGaming() {
         'Content-Type': 'text/plain',
       },
       body: `
-        fields id, name, cover.url, first_release_date, summary, slug, rating, rating_count, genres.name;
+        fields id, name, cover.url, first_release_date, summary, slug, rating, rating_count, genres.name, involved_companies.company.name, involved_companies.developer;
         where first_release_date > ${threeMonthsBack} & first_release_date < ${sixMonthsFwd} & cover != null & rating_count > 5;
         sort first_release_date desc;
         limit 30;
@@ -188,11 +196,16 @@ async function fetchGaming() {
           type: 'game',
           source_api: 'igdb',
           title: g.name,
-          description: g.summary?.slice(0, 300) || null,
+          description: g.summary?.slice(0, 500) || null,
           coverImage: `https:${g.cover.url.replace('t_thumb', 't_1080p')}`,
           date: releaseDate,
           year: releaseDate ? parseInt(releaseDate.slice(0, 4)) : undefined,
           genres: (g.genres || []).map((gr: any) => gr.name).filter(Boolean),
+          score: g.rating ? Math.round(g.rating) / 10 : undefined,
+          developers: (g.involved_companies || [])
+            .filter((c: any) => c.developer)
+            .map((c: any) => c.company?.name)
+            .filter(Boolean),
           category: 'gaming',
           source: 'IGDB',
           url: `https://www.igdb.com/games/${g.slug || g.name?.toLowerCase().replace(/\s+/g, '-')}`,
