@@ -207,7 +207,6 @@ export async function GET(request: NextRequest) {
         }
       }).filter(Boolean)
 
-      const q = term.toLowerCase();
       (results as any[]).sort((a, b) => {
         const score = (title: string) => {
           const t = title.toLowerCase();
