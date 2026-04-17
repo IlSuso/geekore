@@ -40,6 +40,7 @@ type UpcomingItem = {
   playing_time?: number
   cast?: string[]
   watchProviders?: string[]
+  nextEpisodeDate?: string
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -284,7 +285,12 @@ export default function NewsPage() {
                       </div>
                     )}
                     <div className="mt-auto pt-1">
-                      {item.date ? (
+                      {item.category === 'tv' && item.nextEpisodeDate ? (
+                        <div className="flex items-center gap-1 text-[11px] text-violet-400 font-medium">
+                          <CalendarDays size={10} />
+                          {formatDate(item.nextEpisodeDate, locale)}
+                        </div>
+                      ) : item.date ? (
                         <div className="flex items-center gap-1 text-[11px] text-zinc-400 font-medium">
                           <CalendarDays size={10} />
                           {formatDate(item.date, locale)}

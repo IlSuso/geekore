@@ -55,7 +55,7 @@ const TMDB_TV_GENRES: Record<number, string> = {
 async function fetchCinema(lang: string) {
   const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
   const region   = lang === 'en' ? 'US' : 'IT'
-  const { from, to } = dateRange(30, 30)
+  const { from, to } = dateRange(60, 60)
 
   try {
     const res = await fetch(
@@ -107,7 +107,7 @@ async function fetchCinema(lang: string) {
 async function fetchTV(lang: string) {
   const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
   const region   = lang === 'en' ? 'US' : 'IT'
-  const { from, to } = dateRange(30, 30)
+  const { from, to } = dateRange(60, 60)
 
   try {
     const res = await fetch(
@@ -129,8 +129,9 @@ async function fetchTV(lang: string) {
       const creators = (d?.created_by || []).slice(0, 2).map((c: any) => c.name).filter(Boolean)
       const runtime  = d?.episode_run_time?.[0] || undefined
       const cast     = (d?.aggregate_credits?.cast || []).slice(0, 5).map((a: any) => a.name).filter(Boolean)
-      const providers = (d?.['watch/providers']?.results?.[region]?.flatrate || []).map((p: any) => p.provider_name).filter(Boolean)
-      const keywords  = (d?.keywords?.results || []).slice(0, 6).map((k: any) => k.name).filter(Boolean)
+      const providers        = (d?.['watch/providers']?.results?.[region]?.flatrate || []).map((p: any) => p.provider_name).filter(Boolean)
+      const keywords         = (d?.keywords?.results || []).slice(0, 6).map((k: any) => k.name).filter(Boolean)
+      const nextEpisodeDate  = d?.next_episode_to_air?.air_date || null
       const seasons: Record<number, { episode_count: number }> = {}
       for (const s of (d?.seasons || [])) {
         if (s.season_number > 0) seasons[s.season_number] = { episode_count: s.episode_count }
@@ -155,6 +156,7 @@ async function fetchTV(lang: string) {
         seasons: Object.keys(seasons).length ? seasons : undefined,
         watchProviders: providers.length ? providers : undefined,
         themes: keywords.length ? keywords : undefined,
+        nextEpisodeDate: nextEpisodeDate || undefined,
         category: 'tv',
         source: 'TMDb',
         url: `https://www.themoviedb.org/tv/${m.id}`,
@@ -170,7 +172,7 @@ async function fetchAnime(lang: string) {
 
   const now    = new Date()
   const future = new Date(now)
-  future.setDate(future.getDate() + 30)
+  future.setDate(future.getDate() + 60)
   const todayInt  = parseInt(now.toISOString().slice(0, 10).replace(/-/g, ''))
   const futureInt = parseInt(future.toISOString().slice(0, 10).replace(/-/g, ''))
 
@@ -264,8 +266,8 @@ async function fetchGaming() {
     if (!tokenData.access_token) return []
 
     const nowUnix        = Math.floor(Date.now() / 1000)
-    const thirtyDaysBack = nowUnix - 30 * 24 * 3600
-    const thirtyDaysFwd  = nowUnix + 30 * 24 * 3600
+    const thirtyDaysBack = nowUnix - 60 * 24 * 3600
+    const thirtyDaysFwd  = nowUnix + 60 * 24 * 3600
 
     const res = await fetch('https://api.igdb.com/v4/games', {
       method: 'POST',
@@ -278,7 +280,7 @@ async function fetchGaming() {
         fields id, name, cover.url, first_release_date, summary, storyline, slug, rating, rating_count,
                genres.name, involved_companies.company.name, involved_companies.developer,
                platforms.name, game_modes.name, themes.name;
-        where first_release_date > ${thirtyDaysBack} & first_release_date < ${thirtyDaysFwd} & cover != null & (rating_count > 0 | first_release_date > ${nowUnix});
+        where first_release_date > ${thirtyDaysBack} & first_release_date < ${thirtyDaysFwd} & cover != null & (rating_count >= 0 | first_release_date > ${nowUnix});
         sort first_release_date desc;
         limit 30;
       `,

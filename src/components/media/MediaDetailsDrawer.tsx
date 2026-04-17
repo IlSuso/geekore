@@ -315,9 +315,9 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
         </button>
 
         {/* ── HEADER (non scorribile) ────────────────────────────────── */}
-        <div className="flex gap-3 p-4 pr-12 border-b border-zinc-800/60 flex-shrink-0">
+        <div className="flex gap-4 p-5 pr-12 border-b border-zinc-800/60 flex-shrink-0">
           {/* Locandina compatta */}
-          <div className="flex-shrink-0 w-16 h-24 rounded-xl overflow-hidden bg-zinc-800 shadow-lg ring-1 ring-white/10">
+          <div className="flex-shrink-0 w-20 h-28 rounded-xl overflow-hidden bg-zinc-800 shadow-lg ring-1 ring-white/10">
             {media.coverImage ? (
               <img src={media.coverImage} alt={media.title} className="w-full h-full object-cover" />
             ) : (
@@ -333,7 +333,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               {TYPE_LABEL[media.type] || media.type}
             </span>
 
-            <h2 className="text-sm font-bold text-white leading-tight line-clamp-2">{media.title}</h2>
+            <h2 className="text-base font-bold text-white leading-tight line-clamp-2">{media.title}</h2>
 
             {/* Stats inline: anno · score · ep · durata · giocatori · complessità */}
             <div className="flex items-center gap-1 flex-wrap">
@@ -388,13 +388,13 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
         {/* ── CONTENUTO SCORREVOLE ───────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto">
-          <div className="p-4 space-y-3">
+          <div className="p-5 space-y-6">
 
             {/* Generi */}
             {media.genres && media.genres.length > 0 && (
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1.5">
                 {media.genres.map(g => (
-                  <span key={g} className="text-[10px] bg-violet-500/15 text-violet-300 border border-violet-500/20 px-2 py-0.5 rounded-full">
+                  <span key={g} className="text-xs bg-violet-500/15 text-violet-300 border border-violet-500/20 px-2.5 py-1 rounded-full">
                     {g}
                   </span>
                 ))}
@@ -404,13 +404,13 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             {/* Descrizione con expand */}
             {media.description && (
               <div>
-                <p className={`text-xs text-zinc-300 leading-relaxed ${!descExpanded ? 'line-clamp-3' : ''}`}>
+                <p className={`text-sm text-zinc-300 leading-relaxed ${!descExpanded ? 'line-clamp-4' : ''}`}>
                   {media.description}
                 </p>
                 {isLongDesc && (
                   <button
                     onClick={() => setDescExpanded(v => !v)}
-                    className="text-[10px] text-zinc-500 hover:text-zinc-300 mt-1 transition-colors"
+                    className="text-xs text-zinc-500 hover:text-zinc-300 mt-1.5 transition-colors"
                   >
                     {descExpanded ? 'Meno ▲' : 'Leggi di più ▼'}
                   </button>
@@ -421,12 +421,12 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             {/* Studios / Directors / Authors */}
             {creatorList && creatorList.length > 0 && (
               <div>
-                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1">
-                  <Clapperboard size={9} />{creatorTitle}
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5 flex items-center gap-1">
+                  <Clapperboard size={10} />{creatorTitle}
                 </h3>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1.5">
                   {creatorList.slice(0, 5).map(name => (
-                    <span key={name} className="text-[10px] bg-sky-500/10 text-sky-300 border border-sky-500/20 px-2 py-0.5 rounded-full">
+                    <span key={name} className="text-xs bg-sky-500/10 text-sky-300 border border-sky-500/20 px-2.5 py-1 rounded-full">
                       {name}
                     </span>
                   ))}
@@ -437,10 +437,10 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             {/* Cast */}
             {media.cast && media.cast.length > 0 && (
               <div>
-                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Cast</h3>
-                <div className="flex flex-wrap gap-1">
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Cast</h3>
+                <div className="flex flex-wrap gap-1.5">
                   {media.cast.map(name => (
-                    <span key={name} className="text-[10px] bg-zinc-900 border border-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">{name}</span>
+                    <span key={name} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{name}</span>
                   ))}
                 </div>
               </div>
@@ -449,10 +449,10 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             {/* Meccaniche */}
             {media.mechanics && media.mechanics.length > 0 && (
               <div>
-                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Meccaniche</h3>
-                <div className="flex flex-wrap gap-1">
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Meccaniche</h3>
+                <div className="flex flex-wrap gap-1.5">
                   {media.mechanics.slice(0, 10).map(m => (
-                    <span key={m} className="text-[10px] bg-zinc-900 border border-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">{m}</span>
+                    <span key={m} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{m}</span>
                   ))}
                 </div>
               </div>
@@ -461,10 +461,10 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             {/* Temi */}
             {media.themes && media.themes.length > 0 && (
               <div>
-                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Temi</h3>
-                <div className="flex flex-wrap gap-1">
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Temi</h3>
+                <div className="flex flex-wrap gap-1.5">
                   {media.themes.slice(0, 8).map(t => (
-                    <span key={t} className="text-[10px] bg-zinc-900 border border-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">{t}</span>
+                    <span key={t} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{t}</span>
                   ))}
                 </div>
               </div>
@@ -473,23 +473,23 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             {/* Disponibile su (streaming) */}
             {media.watchProviders && media.watchProviders.length > 0 && (
               <div>
-                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Disponibile su</h3>
-                <div className="flex flex-wrap gap-1">
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Disponibile su</h3>
+                <div className="flex flex-wrap gap-1.5">
                   {media.watchProviders.map(p => (
-                    <span key={p} className="text-[10px] bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded-full">{p}</span>
+                    <span key={p} className="text-xs bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 px-2.5 py-1 rounded-full">{p}</span>
                   ))}
                 </div>
-                <p className="text-[8px] text-zinc-600 mt-1">Powered by JustWatch</p>
+                <p className="text-[9px] text-zinc-600 mt-1.5">Powered by JustWatch</p>
               </div>
             )}
 
             {/* Piattaforme (gaming) */}
             {media.platforms && media.platforms.length > 0 && (
               <div>
-                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Piattaforme</h3>
-                <div className="flex flex-wrap gap-1">
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Piattaforme</h3>
+                <div className="flex flex-wrap gap-1.5">
                   {media.platforms.slice(0, 10).map(p => (
-                    <span key={p} className="text-[10px] bg-zinc-900 border border-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">{p}</span>
+                    <span key={p} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{p}</span>
                   ))}
                 </div>
               </div>
@@ -498,10 +498,10 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             {/* Designers / Developers */}
             {(media.designers?.length || media.developers?.length) ? (
               <div>
-                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">
                   {media.designers?.length ? 'Designer' : 'Sviluppatori'}
                 </h3>
-                <p className="text-xs text-zinc-300">
+                <p className="text-sm text-zinc-300">
                   {(media.designers || media.developers || []).slice(0, 4).join(', ')}
                 </p>
               </div>
