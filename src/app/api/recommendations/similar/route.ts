@@ -71,8 +71,14 @@ const TMDB_META_KW_BLOCKLIST = new Set([
   'based on short story','based on anime','based on graphic novel','based on play or musical',
   'independent film','edited from tv series',
   'duringcreditsstinger','aftercreditsstinger','female protagonist','male protagonist',
+  'heterosexual','lgbt','lgbtq+',
   // Relazioni di formato — non descrivono il tema
   'prequel','sequel','spin off','spin-off','remake','reboot','compilation',
+  // Medium / formato di produzione — non tematici
+  'anime','cartoon','adult animation','stop motion','3d animation','live action','short film',
+  'original video animation (ova)','original net animation (ona)',
+  // Demografici manga/anime — non tematici
+  'seinen','shounen','josei','shoujo','kodomomuke','manhwa','manhua',
   // Tag generici IGDB che coincidono con nomi di genere TMDb — troppo ampi per keyword discovery
   'action','adventure','drama','comedy','horror','thriller','mystery','fantasy','romance',
   'animation','animated','science fiction','sci-fi','indie','simulator','simulation',
