@@ -14,7 +14,7 @@ const ANILIST_URL = 'https://graphql.anilist.co'
 
 const IGDB_TO_CROSS: Record<string, string[]> = {
   'Role-playing (RPG)':         ['Fantasy', 'Adventure', 'Drama'],
-  'Adventure':                  ['Adventure'],
+  'Adventure':                  ['Adventure', 'Fantasy'],
   'Action':                     ['Action', 'Adventure'],
   "Hack and slash/Beat 'em up": ['Action'],
   'Strategy':                   ['Strategy', 'Science Fiction'],
@@ -39,20 +39,15 @@ const IGDB_TO_CROSS: Record<string, string[]> = {
 // Mapping tag/keyword → IGDB theme IDs per query precisa
 const TAG_TO_IGDB_THEME: Record<string, number> = {
   'Science Fiction': 18, 'Sci-Fi': 18, 'space': 18, 'alien': 18, 'aliens': 18,
-  'space travel': 18, 'futuristic': 18, 'cyberpunk': 18, 'dystopia': 18,
-  'Fantasy': 17, 'magic': 17, 'dragon': 17, 'dark fantasy': 17, 'high fantasy': 17,
-  'medieval fantasy': 17, 'sword and sorcery': 17,
-  'Horror': 19, 'horror': 19, 'survival horror': 19, 'psychological horror': 19,
+  'Fantasy': 17, 'magic': 17, 'dragon': 17,
+  'Horror': 19, 'horror': 19,
   'Thriller': 20, 'thriller': 20,
   'Drama': 31, 'drama': 31,
   'Comedy': 27, 'comedy': 27,
-  'Business': 26, 'Romance': 32, 'romance': 32,
+  'Business': 26, 'Romance': 32,
   'Sandbox': 33, 'Educational': 34, 'Kids': 35,
-  'Open World': 33, 'open world': 33,
-  'survival': 23, 'Survival': 23, 'post-apocalyptic': 23, 'Post-Apocalyptic': 23,
-  'Stealth': 24, 'stealth': 24, 'stealth action': 24,
-  'Historical': 22, 'historical': 22, 'war': 22, 'War': 22,
-  'ninja': 24, 'assassin': 24,
+  'Open World': 33, 'survival': 23, 'Survival': 23,
+  'Stealth': 24, 'Historical': 22, 'historical': 22,
 }
 
 const IGDB_VALID = new Set([
@@ -61,34 +56,6 @@ const IGDB_VALID = new Set([
   'Real Time Strategy (RTS)','Turn-based strategy (TBS)','Tactical','Visual Novel',
   'Massively Multiplayer Online (MMO)','Indie','Arcade',
 ])
-
-// Meta-keyword TMDb: descrivono formato/origine, NON il tema — da escludere dalla keyword discovery
-const TMDB_META_KW_BLOCKLIST = new Set([
-  // Formato/origine — non tematici
-  'based on novel or book','based on novel','based on book','based on true story',
-  'based on true events','based on real events','based on comic','based on comic book',
-  'based on manga','based on video game','based on tv series','based on play',
-  'based on short story','based on anime','based on graphic novel','based on play or musical',
-  'independent film','edited from tv series',
-  'duringcreditsstinger','aftercreditsstinger','female protagonist','male protagonist',
-  'heterosexual','lgbt','lgbtq+',
-  // Relazioni di formato — non descrivono il tema
-  'prequel','sequel','spin off','spin-off','remake','reboot','compilation',
-  // Medium / formato di produzione — non tematici
-  'anime','cartoon','adult animation','stop motion','3d animation','live action','short film',
-  'original video animation (ova)','original net animation (ona)',
-  // Demografici manga/anime — non tematici
-  'seinen','shounen','josei','shoujo','kodomomuke','manhwa','manhua',
-  // Tag generici IGDB che coincidono con nomi di genere TMDb — troppo ampi per keyword discovery
-  'action','adventure','drama','comedy','horror','thriller','mystery','fantasy','romance',
-  'animation','animated','science fiction','sci-fi','indie','simulator','simulation',
-  'puzzle','strategy','open world','sandbox','stealth','survival','historical',
-  'role-playing','turn-based','real-time','multiplayer','massively multiplayer',
-  'visual novel','platform','racing','fighting','sport','sports','educational','kids',
-])
-
-// Lingue di nicchia escluse dai risultati TMDb keyword (contenuto non pertinente per utenti occidentali)
-const NICHE_LANGS = new Set(['th','vi','id','ar','hi','tl','ms','te','ta','ml','bn','uk','ro','hu','cs','sr','hr','sk','bg','el'])
 
 const GENRE_TO_TMDB_MOVIE: Record<string, number> = {
   'Action':28,'Adventure':12,'Animation':16,'Comedy':35,'Crime':80,
@@ -115,6 +82,72 @@ const ANILIST_VALID = new Set([
   'Action','Adventure','Comedy','Drama','Fantasy','Horror','Mystery',
   'Romance','Sci-Fi','Slice of Life','Sports','Supernatural','Thriller','Psychological',
 ])
+
+// Meta-keyword TMDb: descrivono formato/origine/medium, NON il tema — escludere da discovery e scoring
+const TMDB_META_KW_BLOCKLIST = new Set([
+  'based on novel or book','based on novel','based on book','based on true story',
+  'based on true events','based on real events','based on comic','based on comic book',
+  'based on manga','based on video game','based on tv series','based on play',
+  'based on short story','based on anime','based on graphic novel','based on play or musical',
+  'independent film','edited from tv series',
+  'duringcreditsstinger','aftercreditsstinger','female protagonist','male protagonist',
+  'heterosexual','lgbt','lgbtq+',
+  'prequel','sequel','spin off','spin-off','remake','reboot','compilation',
+  'anime','cartoon','adult animation','stop motion','3d animation','live action','short film',
+  'original video animation (ova)','original net animation (ona)',
+  'seinen','shounen','josei','shoujo','kodomomuke','manhwa','manhua',
+  'action','adventure','drama','comedy','horror','thriller','mystery','fantasy','romance',
+  'animation','animated','science fiction','sci-fi','indie','simulator','simulation',
+  'puzzle','strategy','open world','sandbox','stealth','survival','historical',
+  'role-playing','turn-based','real-time','multiplayer','massively multiplayer',
+  'visual novel','platform','racing','fighting','sport','sports','educational','kids',
+])
+
+// Lingue di nicchia escluse dai risultati TMDb
+const NICHE_LANGS = new Set(['th','vi','id','ar','hi','tl','ms','te','ta','ml','bn','uk','ro','hu','cs','sr','hr','sk','bg','el'])
+
+// BGG: mappa generi cross-media → termini di ricerca BoardGameGeek
+const GENRE_TO_BGG_TERMS: Record<string, string> = {
+  'Fantasy': 'fantasy', 'Science Fiction': 'science fiction',
+  'Sci-Fi': 'science fiction', 'Horror': 'horror', 'Adventure': 'adventure',
+  'Mystery': 'mystery', 'Thriller': 'thriller', 'War': 'wargame',
+  'History': 'historical', 'Crime': 'crime', 'Comedy': 'humor',
+  'Action': 'action', 'Drama': 'storytelling', 'Psychological': 'psychology',
+  'Supernatural': 'supernatural',
+}
+
+// BGG categorie → generi cross-media
+const BGG_CAT_TO_GENRE: Record<string, string> = {
+  'Fantasy': 'Fantasy', 'Science Fiction': 'Science Fiction',
+  'Horror': 'Horror', 'Adventure': 'Adventure', 'Mystery': 'Mystery',
+  'Thriller': 'Thriller', 'Wargame': 'War', 'Historical': 'History',
+  'Humor': 'Comedy', 'Deduction': 'Mystery', 'Murder/Mystery': 'Mystery',
+  'Medieval': 'Fantasy', 'Zombies': 'Horror', 'Ancient': 'History',
+  'Civilization': 'History', 'Exploration': 'Adventure',
+  'Space Exploration': 'Science Fiction', 'Political': 'Drama',
+}
+
+function parseBggXml(xml: string) {
+  const decode = (s: string) =>
+    s.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+     .replace(/&#10;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim()
+
+  return [...xml.matchAll(/<item[^>]+id="(\d+)"[^>]*>([\s\S]*?)<\/item>/g)].flatMap(([, id, body]) => {
+    const name = body.match(/<name[^>]+type="primary"[^>]+value="([^"]+)"/)?.[1]
+    if (!name) return []
+    return [{
+      id,
+      name: decode(name),
+      year:      parseInt(body.match(/<yearpublished[^>]+value="(\d+)"/)?.[1] || '') || undefined,
+      thumbnail: body.match(/<thumbnail>(.*?)<\/thumbnail>/s)?.[1]?.trim(),
+      description: decode((body.match(/<description>([\s\S]*?)<\/description>/)?.[1] || '').replace(/<[^>]*>/g, '').slice(0, 200)),
+      categories: [...body.matchAll(/<link type="boardgamecategory"[^>]+value="([^"]+)"/g)].map(m => m[1]),
+      mechanics:  [...body.matchAll(/<link type="boardgamemechanic"[^>]+value="([^"]+)"/g)].map(m => m[1]),
+      rating:    parseFloat(body.match(/<average[^>]+value="([0-9.]+)"/)?.[1] || '') || undefined,
+      usersRated: parseInt(body.match(/<usersrated[^>]+value="(\d+)"/)?.[1] || '') || undefined,
+    }]
+  })
+}
 
 let cachedIgdbToken: { token: string; expiresAt: number } | null = null
 
@@ -146,10 +179,6 @@ function resolveGenres(rawGenres: string[]) {
     crossSet.add(g)
   }
 
-  // Alias: TMDb usa "Science Fiction", AniList usa "Sci-Fi" — teniamo entrambe
-  if (crossSet.has('Science Fiction')) crossSet.add('Sci-Fi')
-  if (crossSet.has('Sci-Fi')) crossSet.add('Science Fiction')
-
   const crossGenres = [...crossSet]
   return {
     igdbGenres: igdbDirect,
@@ -160,8 +189,7 @@ function resolveGenres(rawGenres: string[]) {
   }
 }
 
-// Lookup TMDb keyword IDs da stringhe — restituisce array di ID numerici
-// Restituisce gli ID nell'ORDINE del'input (slot per slot) — necessario per AND query
+// Lookup TMDb keyword IDs da stringhe — restituisce array di ID numerici nell'ordine dell'input
 async function resolveTmdbKeywordIds(keywords: string[], token: string): Promise<number[]> {
   if (!keywords.length) return []
   const toResolve = keywords.slice(0, 8)
@@ -181,8 +209,71 @@ async function resolveTmdbKeywordIds(keywords: string[], token: string): Promise
     } catch (e) { console.log('[SIMILAR]  kw:', JSON.stringify(kw), '→ error:', e) }
   }))
   const ordered = slots.filter((id): id is number => id !== null)
-  console.log('[SIMILAR] resolveTmdbKeywordIds result (ordered):', ordered)
+  console.log('[SIMILAR] resolveTmdbKeywordIds result:', ordered)
   return ordered
+}
+
+// Quando un titolo non ha keyword/tag, cerca le keyword del titolo più simile che le possiede
+async function resolveProxyKeywords(
+  sourceType: string, excludeIdNum: number, excludeId: string, tmdbToken: string
+): Promise<string[]> {
+  // TMDb movie / TV: chiama /similar, poi prende le keyword del primo candidato con keyword
+  if ((sourceType === 'movie' || sourceType === 'tv') && !isNaN(excludeIdNum)) {
+    try {
+      const endpoint = sourceType === 'movie'
+        ? `${TMDB_BASE}/movie/${excludeIdNum}/similar?language=it-IT`
+        : `${TMDB_BASE}/tv/${excludeIdNum}/similar?language=it-IT`
+      const res = await fetch(endpoint, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(5000) })
+      if (!res.ok) return []
+      const candidates = ((await res.json()).results || []).slice(0, 10)
+      for (const candidate of candidates) {
+        try {
+          const kwUrl = sourceType === 'movie'
+            ? `${TMDB_BASE}/movie/${candidate.id}/keywords`
+            : `${TMDB_BASE}/tv/${candidate.id}/keywords`
+          const kr = await fetch(kwUrl, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(3000) })
+          if (!kr.ok) continue
+          const kj = await kr.json()
+          const kws = ((sourceType === 'movie' ? kj.keywords : kj.results) || [])
+            .map((k: any) => k.name as string)
+            .filter((k: string) => !TMDB_META_KW_BLOCKLIST.has(k.toLowerCase()))
+          if (kws.length >= 2) {
+            console.log(`[SIMILAR] proxy kw from "${candidate.title || candidate.name}":`, kws.slice(0, 5))
+            return kws.slice(0, 8)
+          }
+        } catch {}
+      }
+    } catch {}
+  }
+  // AniList anime: chiama recommendations, prende i tag del primo con tag
+  if (sourceType === 'anime' && excludeId.startsWith('anilist-anime-')) {
+    const anilistSourceId = parseInt(excludeId.replace('anilist-anime-', ''), 10)
+    if (!isNaN(anilistSourceId)) {
+      try {
+        const q = `query($id:Int){Media(id:$id,type:ANIME){recommendations(sort:RATING_DESC,perPage:10){nodes{mediaRecommendation{title{romaji}tags{name isGeneralSpoiler}}}}}}`
+        const res = await fetch(ANILIST_URL, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: q, variables: { id: anilistSourceId } }),
+          signal: AbortSignal.timeout(5000),
+        })
+        if (!res.ok) return []
+        const json = await res.json()
+        for (const node of json.data?.Media?.recommendations?.nodes || []) {
+          const m = node?.mediaRecommendation
+          if (!m) continue
+          const tags = (m.tags || [])
+            .filter((t: any) => !t.isGeneralSpoiler)
+            .map((t: any) => t.name as string)
+            .filter((t: string) => !TMDB_META_KW_BLOCKLIST.has(t.toLowerCase()))
+          if (tags.length >= 2) {
+            console.log(`[SIMILAR] proxy tags from "${m.title?.romaji}":`, tags.slice(0, 5))
+            return tags.slice(0, 10)
+          }
+        }
+      } catch {}
+    }
+  }
+  return []
 }
 
 export async function GET(request: NextRequest) {
@@ -199,6 +290,8 @@ export async function GET(request: NextRequest) {
   const rawKeywords = (searchParams.get('keywords') || '').split(',').map(k => k.trim()).filter(Boolean)
   const rawTags = (searchParams.get('tags') || '').split(',').map(t => t.trim()).filter(Boolean)
   const excludeId = searchParams.get('excludeId') || ''
+  const sourceType = searchParams.get('type') || ''
+  const excludeIdNum = excludeId ? parseInt(excludeId, 10) : NaN
 
   if (rawGenres.length === 0) return NextResponse.json({ error: 'genres richiesti' }, { status: 400 })
 
@@ -213,28 +306,22 @@ export async function GET(request: NextRequest) {
 
   const { igdbGenres, crossGenres, anilistGenres, tmdbMovieIds, tmdbTvIds } = resolveGenres(rawGenres)
 
-  // Combina keywords (da film TMDb) + tags (da anime/manga AniList) per keyword TMDb lookup
-  // In questo modo anche sorgenti anime/manga trovano film TMDb tramite keyword query
+  // Combina keywords + tags; filtra meta-keyword (formato/origine) — solo keyword tematiche
   const allSourceKeywords = [...new Set([...rawKeywords, ...rawTags])]
-  // Filtra i meta-keyword (formato/origine) che inquinano la discovery — solo keyword tematiche
   const thematicKeywords = allSourceKeywords.filter(kw => !TMDB_META_KW_BLOCKLIST.has(kw.toLowerCase()))
 
-  // [DEBUG] Input ricevuto
-  console.log('[SIMILAR] ── INPUT ──────────────────────────────')
-  console.log('[SIMILAR] title:', sourceTitle)
-  console.log('[SIMILAR] rawGenres:', rawGenres)
-  console.log('[SIMILAR] rawKeywords:', rawKeywords)
-  console.log('[SIMILAR] rawTags:', rawTags)
-  console.log('[SIMILAR] thematicKeywords:', thematicKeywords)
-  console.log('[SIMILAR] igdbGenres:', igdbGenres)
-  console.log('[SIMILAR] crossGenres:', crossGenres)
-  console.log('[SIMILAR] anilistGenres:', anilistGenres)
-  console.log('[SIMILAR] tmdbMovieIds:', tmdbMovieIds)
-  console.log('[SIMILAR] tmdbTvIds:', tmdbTvIds)
+  // Se il titolo non ha keyword tematiche, cerca quelle del titolo più simile che le possiede
+  let effectiveKeywords = thematicKeywords
+  if (effectiveKeywords.length === 0 && tmdbToken) {
+    effectiveKeywords = await resolveProxyKeywords(sourceType, excludeIdNum, excludeId, tmdbToken)
+    if (effectiveKeywords.length > 0) {
+      console.log('[SIMILAR] proxy keywords attive:', effectiveKeywords)
+    }
+  }
 
-  // Keyword IDs TMDb — li risolviamo in parallelo con le altre fetch
-  const tmdbKeywordIdsPromise = (tmdbToken && thematicKeywords.length > 0)
-    ? resolveTmdbKeywordIds(thematicKeywords, tmdbToken)
+  // Keyword IDs TMDb — risolti in parallelo con le fetch principali
+  const tmdbKeywordIdsPromise = (tmdbToken && effectiveKeywords.length > 0)
+    ? resolveTmdbKeywordIds(effectiveKeywords, tmdbToken)
     : Promise.resolve([] as number[])
 
   const results: any[] = []
@@ -265,22 +352,17 @@ export async function GET(request: NextRequest) {
   // ── IGDB giochi — generi + themes + keywords ───────────────────────────────
   // Mapping generi cross-media → IGDB per casi non coperti (Horror, Sci-Fi, ecc.)
   const CROSS_TO_IGDB_FALLBACK: Record<string, string> = {
-    'Horror': 'Adventure', 'Thriller': 'Adventure', 'Science Fiction': 'Role-playing (RPG)',
-    'Sci-Fi': 'Role-playing (RPG)', 'Mystery': 'Adventure', 'Psychological': 'Adventure',
+    'Horror': 'Adventure', 'Thriller': 'Adventure', 'Science Fiction': 'Shooter',
+    'Sci-Fi': 'Shooter', 'Mystery': 'Adventure', 'Psychological': 'Adventure',
     'Slice of Life': 'Simulation', 'Romance': 'Simulation', 'Drama': 'Adventure',
     'Fantasy': 'Role-playing (RPG)', 'Comedy': 'Adventure', 'Sports': 'Sport',
     'Crime': 'Adventure', 'War': 'Shooter', 'History': 'Strategy',
   }
-  // Unisce generi IGDB diretti + fallback dai crossGenres non mappati (es. Sci-Fi → RPG)
-  const igdbDirect2 = igdbGenres.length > 0 ? igdbGenres : crossGenres.filter(g => IGDB_VALID.has(g))
-  const igdbFallbackExtra = crossGenres
-    .filter(g => !IGDB_VALID.has(g))
-    .map(g => CROSS_TO_IGDB_FALLBACK[g])
-    .filter(Boolean) as string[]
-  const igdbMerged = [...new Set([...igdbDirect2, ...igdbFallbackExtra])]
-  const igdbQueryGenres = igdbMerged.length > 0
-    ? igdbMerged
-    : [...new Set(crossGenres.map(g => CROSS_TO_IGDB_FALLBACK[g]).filter(Boolean) as string[])]
+  const igdbQueryGenres = igdbGenres.length > 0
+    ? igdbGenres
+    : crossGenres.filter(g => IGDB_VALID.has(g)).length > 0
+      ? crossGenres.filter(g => IGDB_VALID.has(g))
+      : [...new Set(crossGenres.map(g => CROSS_TO_IGDB_FALLBACK[g]).filter(Boolean) as string[])]
 
   if (igdbClientId && igdbClientSecret) {
     fetches.push((async () => {
@@ -378,10 +460,13 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Query aggiuntiva con tags (AniList tags = temi specifici come "Escape", "Prison", ecc.)
-        const anilistTags = [...new Set([...rawTags, ...rawKeywords]
+        // Query aggiuntiva con tags — usa effectiveKeywords come fallback se rawTags/rawKeywords vuoti
+        const anilistTagsSrc = (rawTags.length > 0 || rawKeywords.length > 0)
+          ? [...rawTags, ...rawKeywords]
+          : effectiveKeywords
+        const anilistTags = [...new Set(anilistTagsSrc
           .slice(0, 10)
-          .flatMap(t => [t, toTitleCase(t)])  // passa sia originale che title case
+          .flatMap(t => [t, toTitleCase(t)])
         )]
         if (anilistTags.length > 0) {
           const q = `query($t:[String]){Page(page:1,perPage:20){media(type:ANIME,tag_in:$t,sort:[SCORE_DESC],isAdult:false){id title{romaji english}coverImage{large}seasonYear genres averageScore popularity episodes description tags{name}}}}`
@@ -407,6 +492,36 @@ export async function GET(request: NextRequest) {
             }
           }
         }
+
+        // Fallback: se non ci sono tag, usa le raccomandazioni utente di AniList
+        if (anilistTags.length === 0 && sourceType === 'anime' && excludeId.startsWith('anilist-anime-')) {
+          const anilistSourceId = parseInt(excludeId.replace('anilist-anime-', ''), 10)
+          if (!isNaN(anilistSourceId)) {
+            const q = `query($id:Int){Media(id:$id,type:ANIME){recommendations(sort:RATING_DESC,perPage:20){nodes{mediaRecommendation{id title{romaji english}coverImage{large}seasonYear genres averageScore popularity episodes description tags{name}}}}}}`
+            const res = await fetch(ANILIST_URL, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ query: q, variables: { id: anilistSourceId } }),
+              signal: AbortSignal.timeout(6000),
+            })
+            if (res.ok) {
+              const json = await res.json()
+              for (const node of json.data?.Media?.recommendations?.nodes || []) {
+                const m = node?.mediaRecommendation
+                if (!m) continue
+                const id = `anilist-anime-${m.id}`
+                const recGenres: string[] = m.genres || []
+                add({ id, title: m.title?.romaji || m.title?.english || '', type: 'anime',
+                  coverImage: m.coverImage?.large, year: m.seasonYear, genres: recGenres,
+                  tags: (m.tags || []).map((t: any) => t.name),
+                  episodes: m.episodes ?? undefined,
+                  description: m.description ? m.description.replace(/<[^>]*>/g, '').slice(0, 200) : undefined,
+                  score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
+                  matchScore: 62 + profileBoost(recGenres), why: `Consigliato dalla community per "${sourceTitle}"`,
+                  _foundByKeyword: true, _pop: m.popularity || 0 })
+              }
+            }
+          }
+        }
       } catch {}
     })())
   }
@@ -426,7 +541,9 @@ export async function GET(request: NextRequest) {
         const orKwIds = tmdbKwIds.slice(0, 6)
         const kwDiscoverP = orKwIds.length > 0
           ? fetch(`${TMDB_BASE}/discover/movie?${new URLSearchParams({ with_keywords: orKwIds.join('|'), sort_by: 'vote_average.desc', 'vote_count.gte': '100', language: 'it-IT' })}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
-          : Promise.resolve(null as Response | null)
+          : (sourceType === 'movie' && !isNaN(excludeIdNum))
+            ? fetch(`${TMDB_BASE}/movie/${excludeIdNum}/similar?language=it-IT`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
+            : Promise.resolve(null as Response | null)
         const [genreRes, kwRes] = await Promise.all([
           fetch(`${TMDB_BASE}/discover/movie?${genreParams}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) }),
           kwDiscoverP,
@@ -486,7 +603,9 @@ export async function GET(request: NextRequest) {
         const orKwIdsTv = tmdbKwIds.slice(0, 6)
         const kwDiscoverTvP = orKwIdsTv.length > 0
           ? fetch(`${TMDB_BASE}/discover/tv?${new URLSearchParams({ with_keywords: orKwIdsTv.join('|'), sort_by: 'vote_average.desc', 'vote_count.gte': '50', language: 'it-IT' })}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
-          : Promise.resolve(null as Response | null)
+          : (sourceType === 'tv' && !isNaN(excludeIdNum))
+            ? fetch(`${TMDB_BASE}/tv/${excludeIdNum}/similar?language=it-IT`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) })
+            : Promise.resolve(null as Response | null)
         const [genreResTv, kwResTv] = await Promise.all([
           fetch(`${TMDB_BASE}/discover/tv?${genreParamsTv}`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000) }),
           kwDiscoverTvP,
@@ -556,7 +675,10 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        const anilistTags = [...new Set([...rawTags, ...rawKeywords]
+        const mangaTagsSrc = (rawTags.length > 0 || rawKeywords.length > 0)
+          ? [...rawTags, ...rawKeywords]
+          : effectiveKeywords
+        const anilistTags = [...new Set(mangaTagsSrc
           .slice(0, 10)
           .flatMap(t => [t, toTitleCase(t)])
         )]
@@ -587,19 +709,77 @@ export async function GET(request: NextRequest) {
     })())
   }
 
-  await Promise.allSettled(fetches)
+  // ── BGG boardgame — search per genere principale + keyword ─────────────────
+  const bggTerms: string[] = []
+  for (const g of crossGenres) {
+    const t = GENRE_TO_BGG_TERMS[g]
+    if (t && !bggTerms.includes(t)) bggTerms.push(t)
+  }
+  // Aggiunge keyword tematiche effettive come termini aggiuntivi
+  for (const kw of effectiveKeywords.slice(0, 2)) {
+    const t = kw.toLowerCase()
+    if (!bggTerms.includes(t)) bggTerms.push(t)
+  }
 
-  console.log(`[SIMILAR] ── RISULTATI GREZZI: ${results.length} items ────────────`)
-  results.forEach(r => console.log(`[SIMILAR]  [${r.type}] ${r.title} | genres:${(r.genres||[]).join(',')} | tags:${(r.tags||[]).slice(0,5).join(',')} | kw:${(r.keywords||[]).slice(0,3).join(',')}`))
+  if (bggTerms.length > 0) {
+    fetches.push((async () => {
+      try {
+        const bggHeaders: HeadersInit = process.env.BGG_BEARER_TOKEN
+          ? { Authorization: `Bearer ${process.env.BGG_BEARER_TOKEN}` } : {}
+
+        // Step 1: cerca per termine di genere più specifico
+        const searchRes = await fetch(
+          `https://www.boardgamegeek.com/xmlapi2/search?query=${encodeURIComponent(bggTerms[0])}&type=boardgame`,
+          { headers: bggHeaders, signal: AbortSignal.timeout(8000) }
+        )
+        if (!searchRes.ok) return
+        const searchXml = await searchRes.text()
+
+        const ids = [...searchXml.matchAll(/<item[^>]+id="(\d+)"/g)].map(m => m[1]).slice(0, 25)
+        if (ids.length === 0) return
+
+        // Step 2: fetch dettagli + statistiche in batch
+        const thingRes = await fetch(
+          `https://www.boardgamegeek.com/xmlapi2/thing?id=${ids.join(',')}&stats=1`,
+          { headers: bggHeaders, signal: AbortSignal.timeout(10000) }
+        )
+        if (!thingRes.ok) return
+        const games = parseBggXml(await thingRes.text())
+
+        const filtered = games
+          .filter(g => (g.usersRated || 0) > 150 && (g.rating || 0) > 6)
+          .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+          .slice(0, 15)
+
+        console.log(`[SIMILAR] BGG "${bggTerms[0]}": ${filtered.length} boardgame`)
+        for (const g of filtered) {
+          const recGenres = g.categories.map(c => BGG_CAT_TO_GENRE[c]).filter(Boolean) as string[]
+          add({
+            id: `bgg-${g.id}`, title: g.name, type: 'boardgame',
+            coverImage: g.thumbnail ? (g.thumbnail.startsWith('//') ? `https:${g.thumbnail}` : g.thumbnail) : undefined,
+            year: g.year, genres: recGenres,
+            tags: g.mechanics,
+            keywords: g.categories.map(c => c.toLowerCase()),
+            score: g.rating ? Math.min(g.rating / 2, 5) : undefined,
+            description: g.description || undefined,
+            matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres),
+            _foundByKeyword: false, _pop: g.usersRated || 0,
+          })
+        }
+      } catch {}
+    })())
+  }
+
+  await Promise.allSettled(fetches)
 
   // ── Ranking per similarità reale ─────────────────────────────────────────
   // Keywords = segnale primario (peso alto), generi = segnale secondario (peso basso)
-  // Filtra tag generici (genre-label IGDB come "Action", "Open world") che danno troppi falsi match
-  const sourceTagsNorm = [...rawTags, ...rawKeywords]
+  // Usa effectiveKeywords (che include proxy se rawTags/rawKeywords vuoti), filtra meta-keyword
+  const sourceTagsNorm = effectiveKeywords
     .map(s => s.toLowerCase())
     .filter(s => !TMDB_META_KW_BLOCKLIST.has(s))
   const sourceTagsSet = new Set(sourceTagsNorm)
-  // Usiamo crossGenres (include alias come Sci-Fi↔Science Fiction) per match più precisi
+  // crossGenres include alias Sci-Fi↔Science Fiction per match più precisi
   const sourceGenresSet = new Set([...rawGenres, ...crossGenres].map(s => s.toLowerCase()))
 
   const scored = results.map(item => {
@@ -610,15 +790,15 @@ export async function GET(request: NextRequest) {
 
     // Match esatto keyword/tag — segnale più forte
     const exactMatched = itemTagsAll.filter(t => sourceTagsSet.has(t))
-    // Match parziale — l'item-tag deve contenere la sorgente-keyword (non viceversa, per evitare falsi positivi)
+    // Match parziale — solo se la keyword sorgente è lunga almeno 4 char (evita falsi positivi)
     const partialMatched = itemTagsAll.filter(t =>
       !sourceTagsSet.has(t) &&
-      sourceTagsNorm.some(s => s.length >= 4 && t.includes(s))
+      sourceTagsNorm.some(s => s.length >= 4 && (t.includes(s) || s.includes(t)))
     )
     const genreMatched = itemGenres.filter(g => sourceGenresSet.has(g))
 
     const scoreBonus = item.score ? item.score / 5 : 0  // 0–1
-    // Bonus per item trovati via keyword AND query (hanno keyword che matchano direttamente la sorgente)
+    // Bonus per item trovati via keyword discover o TMDb/AniList similar (segnale di pertinenza forte)
     const kwQueryBoost = item._foundByKeyword ? 6 : 0
 
     // Score interno per ordinamento: keywords >> genres
@@ -633,7 +813,7 @@ export async function GET(request: NextRequest) {
 
     // Testo why aggiornato con i keyword effettivamente matchati
     const matchedKwDisplay = exactMatched.slice(0, 2).map(t =>
-      [...rawTags, ...rawKeywords].find(k => k.toLowerCase() === t) || t
+      effectiveKeywords.find(k => k.toLowerCase() === t) || t
     )
     const updatedWhy = matchedKwDisplay.length > 0
       ? `Temi simili: ${matchedKwDisplay.join(', ')}`
@@ -647,13 +827,33 @@ export async function GET(request: NextRequest) {
     return b._pop - a._pop
   })
 
-  const top30 = scored.slice(0, 30)
+  // ── Diversity: garantisce almeno 3 risultati per ogni tipo media disponibile ──
+  const GUARANTEED = 3
+  const byType: Record<string, typeof scored> = {}
+  for (const item of scored) {
+    if (!byType[item.type]) byType[item.type] = []
+    byType[item.type].push(item)
+  }
+  const diverseIds = new Set<string>()
+  const diverse: typeof scored = []
+  // Prima passata: top GUARANTEED per ogni tipo
+  for (const items of Object.values(byType)) {
+    for (const item of items.slice(0, GUARANTEED)) {
+      diverse.push(item)
+      diverseIds.add(item.id)
+    }
+  }
+  // Seconda passata: riempi con i migliori assoluti rimanenti
+  for (const item of scored) {
+    if (diverse.length >= 30) break
+    if (!diverseIds.has(item.id)) { diverse.push(item); diverseIds.add(item.id) }
+  }
+  diverse.sort((a, b) => {
+    if (b._similarity !== a._similarity) return b._similarity - a._similarity
+    return b._pop - a._pop
+  })
 
-  console.log('[SIMILAR] ── TOP RANKED ─────────────────────────────────────')
-  scored.slice(0, 10).forEach((r, i) =>
-    console.log(`[SIMILAR]  #${i+1} [${r.type}] "${r.title}" | sim:${r._similarity.toFixed(1)} | match:${r.matchScore} | why:"${r.why}"`)
-  )
-
+  const top30 = diverse.slice(0, 30)
   const clean = top30.map(({ _pop, _similarity, _foundByKeyword, ...r }) => r)
 
   return NextResponse.json({ items: clean, total: clean.length }, { headers: rl.headers })

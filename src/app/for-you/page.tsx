@@ -878,6 +878,7 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
               onDetail={onDetail}
               isSimilarLoading={similarLoadingId === item.id}
               dismissed={dismissedIds.has(item.id)}
+              showDetails
             />
           ))}
           {hasMore && (
@@ -1520,7 +1521,7 @@ export default function ForYouPage() {
 
   // searchSimilar e handleSimilar unite — searchSimilar dichiarata prima per evitare
   // problemi di closure con useCallback deps=[]
-  const searchSimilar = useCallback(async (title: string, genres: string[], excludeId?: string, tags?: string[], keywords?: string[]) => {
+  const searchSimilar = useCallback(async (title: string, genres: string[], excludeId?: string, tags?: string[], keywords?: string[], type?: string) => {
     if (!genres.length) {
       showToast('Impossibile trovare simili: generi non disponibili')
       return
@@ -1529,6 +1530,7 @@ export default function ForYouPage() {
     if (tags?.length) params.set('tags', tags.slice(0, 15).join(','))
     if (keywords?.length) params.set('keywords', keywords.slice(0, 15).join(','))
     if (excludeId) params.set('excludeId', excludeId)
+    if (type) params.set('type', type)
     const res = await fetch(`/api/recommendations/similar?${params}`)
     if (res.ok) {
       const json = await res.json()
@@ -1545,7 +1547,7 @@ export default function ForYouPage() {
     if (!item.genres.length) return
     setSimilarLoading(item.id)
     showToast(`Cercando titoli simili a "${item.title}"…`)
-    await searchSimilar(item.title, item.genres, item.id, item.tags, item.keywords)
+    await searchSimilar(item.title, item.genres, item.id, item.tags, item.keywords, item.type)
     setSimilarLoading(null)
   }, [searchSimilar])
 
