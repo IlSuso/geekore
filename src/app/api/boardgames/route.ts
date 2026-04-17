@@ -69,8 +69,10 @@ export async function GET(request: NextRequest) {
     }
 
     const term = search.trim()
+    // BGG interpreta ':' come operatore campo:valore — lo sostituiamo con uno spazio
+    const bggQuery = term.replace(/:/g, ' ').replace(/\s+/g, ' ').trim()
     const endpoints = [
-      `https://boardgamegeek.com/xmlapi2/search?query=${encodeURIComponent(term)}&type=boardgame`,
+      `https://boardgamegeek.com/xmlapi2/search?query=${encodeURIComponent(bggQuery)}&type=boardgame`,
     ]
 
     let searchXml: string | null = null
