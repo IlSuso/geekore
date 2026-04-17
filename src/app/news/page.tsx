@@ -41,6 +41,7 @@ type UpcomingItem = {
   cast?: string[]
   watchProviders?: string[]
   nextEpisodeDate?: string
+  italianSupportTypes?: string[]
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -82,6 +83,7 @@ function toMediaDetails(item: UpcomingItem): MediaDetails | null {
     totalSeasons: item.totalSeasons,
     seasons: item.seasons,
     watchProviders: item.watchProviders,
+    italianSupportTypes: item.italianSupportTypes,
     // source non passato intenzionalmente: sopprime il link esterno nel drawer
   }
 }
@@ -282,6 +284,12 @@ export default function NewsPage() {
                             {g}
                           </span>
                         ))}
+                      </div>
+                    )}
+                    {item.category === 'gaming' && item.italianSupportTypes && item.italianSupportTypes.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-[9px] text-zinc-500">🇮🇹</span>
+                        <span className="text-[9px] text-zinc-500">{item.italianSupportTypes.join(' · ')}</span>
                       </div>
                     )}
                     <div className="mt-auto pt-1">

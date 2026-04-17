@@ -39,6 +39,7 @@ export interface MediaDetails {
   platforms?: string[]
   cast?: string[]
   watchProviders?: string[]
+  italianSupportTypes?: string[]
   score?: number
   externalUrl?: string
   studios?: string[]
@@ -490,6 +491,20 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                 <div className="flex flex-wrap gap-1.5">
                   {media.platforms.slice(0, 10).map(p => (
                     <span key={p} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{p}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Supporto italiano */}
+            {media.italianSupportTypes && media.italianSupportTypes.length > 0 && (
+              <div>
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Lingua italiana</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {media.italianSupportTypes.map(t => (
+                    <span key={t} className="text-xs bg-green-500/10 text-green-300 border border-green-500/20 px-2.5 py-1 rounded-full">
+                      🇮🇹 {t}
+                    </span>
                   ))}
                 </div>
               </div>

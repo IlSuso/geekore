@@ -278,9 +278,10 @@ async function fetchGaming() {
       },
       body: `
         fields id, name, cover.url, first_release_date, summary, storyline, slug, rating, rating_count,
-               genres.name, involved_companies.company.name, involved_companies.developer,
-               platforms.name, game_modes.name, themes.name;
-        where first_release_date > ${thirtyDaysBack} & first_release_date < ${thirtyDaysFwd} & cover != null & (rating_count >= 0 | first_release_date > ${nowUnix});
+               total_rating, hypes, genres.name, involved_companies.company.name, involved_companies.developer,
+               platforms.name, game_modes.name, themes.name,
+               language_supports.language.locale, language_supports.language_support_type.name;
+        where first_release_date > ${thirtyDaysBack} & first_release_date < ${thirtyDaysFwd} & cover != null & (rating_count > 0 | hypes > 0 | first_release_date > ${nowUnix});
         sort first_release_date desc;
         limit 30;
       `,
@@ -303,7 +304,11 @@ async function fetchGaming() {
           date: releaseDate,
           year: releaseDate ? parseInt(releaseDate.slice(0, 4)) : undefined,
           genres: (g.genres || []).map((gr: any) => gr.name).filter(Boolean),
-          score: g.rating ? Math.round(g.rating / 2) / 10 : undefined,
+          score: (g.total_rating || g.rating) ? Math.round((g.total_rating ?? g.rating) / 2) / 10 : undefined,
+          italianSupportTypes: (g.language_supports || [])
+            .filter((ls: any) => ls.language?.locale?.startsWith('it'))
+            .map((ls: any) => ls.language_support_type?.name)
+            .filter(Boolean),
           developers: (g.involved_companies || [])
             .filter((c: any) => c.developer)
             .map((c: any) => c.company?.name)
