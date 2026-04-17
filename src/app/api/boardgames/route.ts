@@ -192,6 +192,18 @@ export async function GET(request: NextRequest) {
         }
       }).filter(Boolean)
 
+      const q = term.toLowerCase();
+      (results as any[]).sort((a, b) => {
+        const score = (title: string) => {
+          const t = title.toLowerCase();
+          if (t === q) return 0;
+          if (t.startsWith(q)) return 1;
+          if (t.includes(q)) return 2;
+          return 3;
+        };
+        return score(a.title) - score(b.title);
+      });
+
       return NextResponse.json({ results }, { headers: rl.headers })
     } catch (e) {
       logger.error('[BGG] parse error:', e)
