@@ -739,10 +739,13 @@ export async function GET(request: NextRequest) {
         if (ids.length === 0) return
 
         // Step 2: fetch dettagli + statistiche in batch
-        const thingRes = await fetch(
-          `https://www.boardgamegeek.com/xmlapi2/thing?id=${ids.join(',')}&stats=1`,
-          { headers: bggHeaders, signal: AbortSignal.timeout(10000) }
-        )
+        // BGG /thing può rispondere 202 (queued) alla prima chiamata — retry dopo 2s
+        const thingUrl = `https://www.boardgamegeek.com/xmlapi2/thing?id=${ids.join(',')}&stats=1`
+        let thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(10000) })
+        if (thingRes.status === 202) {
+          await new Promise(r => setTimeout(r, 2000))
+          thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(10000) })
+        }
         if (!thingRes.ok) return
         const games = parseBggXml(await thingRes.text())
 

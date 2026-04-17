@@ -390,6 +390,43 @@ const BGG_TO_CROSS_GENRE: Record<string, string[]> = {
   'Nature': ['Adventure', 'Drama'],
 }
 
+const GENRE_TO_BGG_TERMS: Record<string, string> = {
+  'Fantasy': 'fantasy', 'Science Fiction': 'science fiction', 'Sci-Fi': 'science fiction',
+  'Horror': 'horror', 'Adventure': 'adventure', 'Mystery': 'mystery',
+  'Thriller': 'thriller', 'War': 'wargame', 'History': 'historical',
+  'Crime': 'crime', 'Comedy': 'humor', 'Action': 'action',
+  'Drama': 'storytelling', 'Psychological': 'psychology',
+}
+
+const BGG_CAT_TO_GENRE_REC: Record<string, string> = {
+  'Fantasy': 'Fantasy', 'Science Fiction': 'Science Fiction', 'Horror': 'Horror',
+  'Adventure': 'Adventure', 'Mystery': 'Mystery', 'Thriller': 'Thriller',
+  'Wargame': 'War', 'Historical': 'History', 'Humor': 'Comedy',
+  'Deduction': 'Mystery', 'Murder/Mystery': 'Mystery', 'Medieval': 'Fantasy',
+  'Zombies': 'Horror', 'Ancient': 'History', 'Civilization': 'History',
+  'Exploration': 'Adventure', 'Space Exploration': 'Science Fiction',
+}
+
+function parseBggXmlRec(xml: string) {
+  const decode = (s: string) =>
+    s.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+     .replace(/&#10;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim()
+  return [...xml.matchAll(/<item[^>]+id="(\d+)"[^>]*>([\s\S]*?)<\/item>/g)].flatMap(([, id, body]) => {
+    const name = body.match(/<name[^>]+type="primary"[^>]+value="([^"]+)"/)?.[1]
+    if (!name) return []
+    return [{
+      id, name: decode(name),
+      year: parseInt(body.match(/<yearpublished[^>]+value="(\d+)"/)?.[1] || '') || undefined,
+      thumbnail: body.match(/<thumbnail>([\s\S]*?)<\/thumbnail>/)?.[1]?.trim(),
+      description: decode((body.match(/<description>([\s\S]*?)<\/description>/)?.[1] || '').replace(/<[^>]*>/g, '').slice(0, 200)),
+      categories: [...body.matchAll(/<link type="boardgamecategory"[^>]+value="([^"]+)"/g)].map(m => m[1]),
+      mechanics:  [...body.matchAll(/<link type="boardgamemechanic"[^>]+value="([^"]+)"/g)].map(m => m[1]),
+      rating:    parseFloat(body.match(/<average[^>]+value="([0-9.]+)"/)?.[1] || '') || undefined,
+      usersRated: parseInt(body.match(/<usersrated[^>]+value="(\d+)"/)?.[1] || '') || undefined,
+    }]
+  })
+}
+
 const ADJACENCY_GRAPH: Record<string, string[]> = {
   'Action': ['Thriller', 'Adventure', 'Crime'],
   'Adventure': ['Fantasy', 'Action', 'Science Fiction'],
@@ -1463,7 +1500,16 @@ interface GenreSlot {
 }
 
 function buildDiversitySlots(type: MediaType, tasteProfile: TasteProfile, totalSlots = 20): GenreSlot[] {
-  if (type === 'boardgame') return []
+  if (type === 'boardgame') {
+    const sourceGenres = tasteProfile.topGenres.boardgame?.map(g => g.genre).filter(g => GENRE_TO_BGG_TERMS[g]) || []
+    const fallback = tasteProfile.globalGenres.map(g => g.genre).filter(g => GENRE_TO_BGG_TERMS[g])
+    const genres = (sourceGenres.length >= 2 ? sourceGenres : fallback).slice(0, 4)
+    if (genres.length === 0) return [
+      { genre: 'Fantasy', quota: 5, isDiscovery: false },
+      { genre: 'Adventure', quota: 5, isDiscovery: false },
+    ]
+    return genres.map((g, i) => ({ genre: g, quota: Math.ceil(totalSlots / genres.length), isDiscovery: i >= 2 }))
+  }
 
   const typeGenres = tasteProfile.topGenres[type]?.map(g => g.genre) || []
   const fallbackGenres = tasteProfile.globalGenres.map(g => g.genre)
@@ -2536,6 +2582,69 @@ async function fetchGameRecs(
   return results.sort((a, b) => b.matchScore - a.matchScore)
 }
 
+async function fetchBoardgameRecs(
+  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile,
+  isAlreadyOwned: (type: string, id: string, title: string) => boolean,
+  shownIds?: Set<string>
+): Promise<Recommendation[]> {
+  const bggHeaders: HeadersInit = process.env.BGG_BEARER_TOKEN
+    ? { Authorization: `Bearer ${process.env.BGG_BEARER_TOKEN}` } : {}
+
+  const results: Recommendation[] = []
+  const seen = new Set<string>()
+
+  const searchTerms = [...new Set(
+    slots.map(s => GENRE_TO_BGG_TERMS[s.genre]).filter(Boolean) as string[]
+  )].slice(0, 3)
+
+  for (const term of searchTerms) {
+    try {
+      const searchRes = await fetch(
+        `https://www.boardgamegeek.com/xmlapi2/search?query=${encodeURIComponent(term)}&type=boardgame`,
+        { headers: bggHeaders, signal: AbortSignal.timeout(8000) }
+      )
+      if (!searchRes.ok) continue
+      const searchXml = await searchRes.text()
+      const ids = [...searchXml.matchAll(/<item[^>]+id="(\d+)"/g)].map(m => m[1]).slice(0, 20)
+      if (ids.length === 0) continue
+
+      const thingUrl = `https://www.boardgamegeek.com/xmlapi2/thing?id=${ids.join(',')}&stats=1`
+      let thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(10000) })
+      if (thingRes.status === 202) {
+        await new Promise(r => setTimeout(r, 2000))
+        thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(10000) })
+      }
+      if (!thingRes.ok) continue
+
+      const games = parseBggXmlRec(await thingRes.text())
+      const filtered = games
+        .filter(g => (g.usersRated || 0) > 150 && (g.rating || 0) > 6)
+        .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+        .slice(0, 10)
+
+      for (const g of filtered) {
+        const id = `bgg-${g.id}`
+        if (seen.has(id) || isAlreadyOwned('boardgame', id, g.name)) continue
+        if (shownIds?.has(id)) continue
+        seen.add(id)
+        const recGenres = g.categories.map(c => BGG_CAT_TO_GENRE_REC[c]).filter(Boolean) as string[]
+        results.push({
+          id, title: g.name, type: 'boardgame',
+          coverImage: g.thumbnail ? (g.thumbnail.startsWith('//') ? `https:${g.thumbnail}` : g.thumbnail) : undefined,
+          year: g.year, genres: recGenres,
+          tags: g.mechanics, keywords: g.categories.map(c => c.toLowerCase()),
+          score: g.rating ? Math.min(g.rating / 2, 5) : undefined,
+          description: g.description || undefined,
+          matchScore: 55,
+          why: recGenres.length > 0 ? `Top ${recGenres[0]} boardgame` : 'Top boardgame',
+        })
+      }
+    } catch { /* continua */ }
+  }
+
+  return results.sort((a, b) => (b.score || 0) - (a.score || 0))
+}
+
 // Helper per computeMatchScore con developer
 function computeMatchScoreWithDev(
   recGenres: string[],
@@ -2734,7 +2843,7 @@ export async function GET(request: NextRequest) {
     const igdbClientSecret = process.env.IGDB_CLIENT_SECRET || ''
 
     const typesToFetch: MediaType[] = requestedType === 'all'
-      ? ['anime', 'manga', 'movie', 'tv', 'game']
+      ? ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame']
       : [requestedType as MediaType]
 
     // ── V6: Carica titoli mostrati nella sessione corrente (TTL: 4h) ──────────
@@ -2837,7 +2946,8 @@ export async function GET(request: NextRequest) {
             case 'manga': return { type, items: await fetchMangaRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds, socialFavorites) }
             case 'movie': return { type, items: await fetchMovieRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds) }
             case 'tv':    return { type, items: await fetchTvRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds) }
-            case 'game':  return { type, items: await fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret, isAlreadyOwned, emptyShownIds) }
+            case 'game':       return { type, items: await fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret, isAlreadyOwned, emptyShownIds) }
+            case 'boardgame':  return { type, items: await fetchBoardgameRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds) }
             default: return { type, items: [] }
           }
         })
