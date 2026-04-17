@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
       const detailResult = await parseStringPromise(detailXml)
       const detailItems: any[] = detailResult?.items?.item || []
 
-      const results: any[] = detailItems.map((item: any) => {
+      const rawResults: any[] = detailItems.map((item: any) => {
         const id = item.$.id
         const nameEl = (item.name || []).find((n: any) => n.$.type === 'primary')
         const title = nameEl?.$.value || 'Senza titolo'
@@ -207,18 +207,15 @@ export async function GET(request: NextRequest) {
         }
       }).filter(Boolean)
 
-      (results as any[]).sort((a, b) => {
+      rawResults.sort((a, b) => {
         const score = (title: string) => {
-          const t = title.toLowerCase();
-          if (t === q) return 0;
-          if (t.startsWith(q)) return 1;
-          if (t.includes(q)) return 2;
-          return 3;
-        };
-        return score(a.title) - score(b.title);
-      });
+          const t = title.toLowerCase()
+          return t === q ? 0 : t.startsWith(q) ? 1 : t.includes(q) ? 2 : 3
+        }
+        return score(a.title) - score(b.title)
+      })
 
-      return NextResponse.json({ results }, { headers: rl.headers })
+      return NextResponse.json({ results: rawResults }, { headers: rl.headers })
     } catch (e) {
       logger.error('[BGG] parse error:', e)
       return NextResponse.json({ results: [] }, { headers: rl.headers })
