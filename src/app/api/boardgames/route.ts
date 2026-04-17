@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
 
     try {
       const searchResult = await parseStringPromise(searchXml)
-      const items = (searchResult?.items?.item || []).slice(0, 10)
+      const items = (searchResult?.items?.item || []).slice(0, 20)
       const ids = items.map((i: any) => i.$.id).join(',')
 
       if (items.length === 0) return NextResponse.json({ results: [] }, { headers: rl.headers })
@@ -120,8 +120,9 @@ export async function GET(request: NextRequest) {
         const thumb = item.thumbnail?.[0]?.trim?.() || item.thumbnail?.[0]
         const fullImg = item.image?.[0]?.trim?.() || item.image?.[0]
         const rawImage = fullImg || thumb
-        if (!rawImage) return null
-        const coverImage = rawImage.startsWith('http') ? rawImage : `https:${rawImage}`
+        const coverImage = rawImage
+          ? (rawImage.startsWith('http') ? rawImage : `https:${rawImage}`)
+          : ''
 
         const year = item.yearpublished?.[0]?.$?.value
           ? parseInt(item.yearpublished[0].$.value)
