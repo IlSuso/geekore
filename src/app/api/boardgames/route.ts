@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
       const detailResult = await parseStringPromise(detailXml)
       const detailItems: any[] = detailResult?.items?.item || []
 
-      const results = detailItems.map((item: any) => {
+      const results: any[] = detailItems.map((item: any) => {
         const id = item.$.id
         const nameEl = (item.name || []).find((n: any) => n.$.type === 'primary')
         const title = nameEl?.$.value || 'Senza titolo'
