@@ -437,7 +437,7 @@ export async function GET(request: NextRequest) {
 
         // STEP 2: Fetch keyword reali per tutti i candidati (in parallelo, assorbite da IGDB)
         const movieActualKws = new Map<string, string[]>()
-        await Promise.allSettled(allCandidates.slice(0, 12).map(async (m: any) => {
+        await Promise.allSettled(allCandidates.slice(0, 20).map(async (m: any) => {
           try {
             const kr = await fetch(`${TMDB_BASE}/movie/${m.id}/keywords`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(2500) })
             if (!kr.ok) return
@@ -495,7 +495,7 @@ export async function GET(request: NextRequest) {
 
         // STEP 2: Fetch keyword reali per tutti i candidati (TV usa /tv/{id}/keywords → kj.results)
         const tvActualKws = new Map<string, string[]>()
-        await Promise.allSettled(allCandidatesTv.slice(0, 12).map(async (m: any) => {
+        await Promise.allSettled(allCandidatesTv.slice(0, 20).map(async (m: any) => {
           try {
             const kr = await fetch(`${TMDB_BASE}/tv/${m.id}/keywords`, { headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(2500) })
             if (!kr.ok) return
@@ -589,7 +589,10 @@ export async function GET(request: NextRequest) {
 
   // ── Ranking per similarità reale ─────────────────────────────────────────
   // Keywords = segnale primario (peso alto), generi = segnale secondario (peso basso)
-  const sourceTagsNorm = [...rawTags, ...rawKeywords].map(s => s.toLowerCase())
+  // Filtra tag generici (genre-label IGDB come "Action", "Open world") che danno troppi falsi match
+  const sourceTagsNorm = [...rawTags, ...rawKeywords]
+    .map(s => s.toLowerCase())
+    .filter(s => !TMDB_META_KW_BLOCKLIST.has(s))
   const sourceTagsSet = new Set(sourceTagsNorm)
   // Usiamo crossGenres (include alias come Sci-Fi↔Science Fiction) per match più precisi
   const sourceGenresSet = new Set([...rawGenres, ...crossGenres].map(s => s.toLowerCase()))
