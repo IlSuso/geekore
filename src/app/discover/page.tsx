@@ -26,15 +26,6 @@ type MediaItem = {
 
 const TYPE_ORDER: Record<string, number> = { anime: 0, manga: 1, movie: 2, tv: 3, game: 4, boardgame: 5 };
 
-function titleRelevance(title: string, query: string): number {
-  const t = title.toLowerCase();
-  const q = query.toLowerCase().trim();
-  if (t === q) return 0;
-  if (t.startsWith(q)) return 1;
-  if (t.includes(q)) return 2;
-  return 3;
-}
-
 function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
   if (!item?.coverImage || typeof item.coverImage !== 'string') return false;
   const url = item.coverImage.trim();
@@ -277,12 +268,7 @@ export default function DiscoverPage() {
       acc[item.type].push(item);
       return acc;
     }, {} as Record<string, MediaItem[]>)
-  )
-    .sort(([a], [b]) => (TYPE_ORDER[a] ?? 99) - (TYPE_ORDER[b] ?? 99))
-    .map(([type, items]) => [
-      type,
-      [...items].sort((a, b) => titleRelevance(a.title, searchTerm) - titleRelevance(b.title, searchTerm)),
-    ] as [string, MediaItem[]]);
+  ).sort(([a], [b]) => (TYPE_ORDER[a] ?? 99) - (TYPE_ORDER[b] ?? 99));
 
   // Pull-to-refresh: ricarica i risultati attuali
   const handlePullRefresh = async () => {
