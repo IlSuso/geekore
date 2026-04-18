@@ -426,19 +426,19 @@ async function fetchManga(lang: string): Promise<any[]> {
 // ── BGG helpers ───────────────────────────────────────────────────────────────
 
 async function bggFetchSync(url: string, signal?: AbortSignal): Promise<string | null> {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) await new Promise(r => setTimeout(r, 800))
+  for (let attempt = 0; attempt < 6; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, attempt < 3 ? 2000 : 4000))
     try {
       const res = await fetch(url, {
         cache: 'no-store',
-        signal: signal ?? AbortSignal.timeout(5000),
+        signal: signal ?? AbortSignal.timeout(8000),
       })
-      if (res.status === 202) continue
+      if (res.status === 202) { logger.info(`[BGG] 202 attempt ${attempt + 1}/6`); continue }
       if (!res.ok) return null
       const text = await res.text()
       if (!text.trim().startsWith('<')) return null
       return text
-    } catch { if (attempt === 2) return null }
+    } catch { if (attempt === 5) return null }
   }
   return null
 }
@@ -461,7 +461,7 @@ function mapBggCategories(categories: string[]): string[] {
 
 async function fetchBoardgameNews(lang: string): Promise<any[]> {
   const ctrl = new AbortController()
-  const budget = setTimeout(() => ctrl.abort(), 12_000)
+  const budget = setTimeout(() => ctrl.abort(), 50_000)
   try {
     const hotXml = await bggFetchSync('https://boardgamegeek.com/xmlapi2/hot?type=boardgame', ctrl.signal)
     if (!hotXml) return []

@@ -440,7 +440,7 @@ function parseBggXmlRec(xml: string) {
       id, name: decode(name),
       year: parseInt(body.match(/<yearpublished[^>]+value="(\d+)"/)?.[1] || '') || undefined,
       thumbnail: rawCover ? (rawCover.startsWith('//') ? `https:${rawCover}` : rawCover) : undefined,
-      description: decode((body.match(/<description>([\s\S]*?)<\/description>/)?.[1] || '').replace(/<[^>]*>/g, ''), 400)),
+      description: truncateAtSentence(decode((body.match(/<description>([\s\S]*?)<\/description>/)?.[1] || '').replace(/<[^>]*>/g, '')), 400),
       categories:  [...body.matchAll(/<link type="boardgamecategory"[^>]+value="([^"]+)"/g)].map(m => m[1]),
       mechanics:   [...body.matchAll(/<link type="boardgamemechanic"[^>]+value="([^"]+)"/g)].map(m => m[1]),
       rating:      parseFloat(body.match(/<average[^>]+value="([0-9.]+)"/)?.[1] || '') || undefined,
