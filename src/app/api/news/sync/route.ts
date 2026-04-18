@@ -368,11 +368,13 @@ async function fetchManga(lang: string): Promise<any[]> {
     const popular: any[] = json.data?.popular?.media || []
 
     // Upcoming + recently started trending first; pad with popular if too few
+    // Exclude AniList default/placeholder covers (white image with text)
+    const isRealCover = (url?: string) => !!url && !url.includes('default')
     const seen = new Set<number>()
     const all: any[] = []
     for (const m of [...upcoming, ...trending, ...popular]) {
       const img = m.coverImage?.extraLarge || m.coverImage?.large
-      if (!seen.has(m.id) && img) {
+      if (!seen.has(m.id) && isRealCover(img)) {
         seen.add(m.id)
         all.push(m)
       }
