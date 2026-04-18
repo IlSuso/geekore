@@ -467,7 +467,6 @@ export default function DiscoverPage() {
                       style={{ display: hasValidCover(item) ? 'none' : 'flex' }}>
                       {type === 'game' ? <Gamepad2 size={28} /> : type === 'manga' ? <Layers size={28} /> : type === 'book' ? <BookOpen size={28} /> : <Tv size={28} />}
                     </div>
-                    }
                     {/* Hover overlay */}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
                     {/* Action buttons on hover */}
