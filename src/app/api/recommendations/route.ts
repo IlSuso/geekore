@@ -2182,8 +2182,7 @@ async function fetchBookRecs(
       const resIt = await fetch(`${GBOOKS_BASE}?${params}`, { signal: AbortSignal.timeout(6000) })
       if (resIt.ok) items = (await resIt.json()).items || []
 
-      // Solo libri in italiano
-      items = items.filter((item: any) => item.volumeInfo?.language === 'it')
+      // langRestrict: 'it' già filtra i risultati lato API
 
       for (const item of items.slice(0, 15)) {
         const info = item.volumeInfo || {}

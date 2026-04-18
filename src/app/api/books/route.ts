@@ -77,9 +77,6 @@ export async function GET(request: NextRequest) {
     }
   } catch { /* ignore */ }
 
-  // Tieni solo libri in italiano
-  items = items.filter((item: any) => item.volumeInfo?.language === 'it')
-
   // Filtra per titolo: tutte le parole significative della query devono apparire nel titolo
   const queryWords = q.toLowerCase().split(/\s+/).filter(w => w.length > 3)
   if (queryWords.length > 0) {
