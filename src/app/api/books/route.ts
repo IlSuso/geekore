@@ -47,6 +47,17 @@ function mapCategoriesToGenres(categories: string[]): string[] {
   return [...genres]
 }
 
+async function getOpenLibraryCover(isbn: string): Promise<string | null> {
+  try {
+    const url = `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg?default=false`
+    const res = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(3000) })
+    if (res.ok) return `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`
+  } catch {
+    // ignore
+  }
+  return null
+}
+
 async function fetchWithRetry(url: string, retries = 2): Promise<Response | null> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
@@ -158,7 +169,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results: [] })
   }
 
-  const results = items.slice(0, 20).map((item: any) => {
+  const results = (await Promise.all(items.slice(0, 20).map(async (item: any) => {
     const info = item.volumeInfo || {}
     const categories: string[] = info.categories || []
     const genres = mapCategoriesToGenres(categories)
@@ -166,13 +177,21 @@ export async function GET(request: NextRequest) {
     const rawCover = info.imageLinks?.extraLarge || info.imageLinks?.large ||
       info.imageLinks?.medium || info.imageLinks?.thumbnail ||
       info.imageLinks?.smallThumbnail || null
-    const cover = rawCover
+    const googleCover = rawCover
       ? (() => {
           let u = rawCover.replace('http://', 'https://').replace('&edge=curl', '').replace(/zoom=\d+/, 'zoom=3')
           if (!u.includes('fife=')) u += '&fife=w400'
           return u
         })()
       : null
+
+    const isbn = info.industryIdentifiers?.find((i: any) => i.type === 'ISBN_13')?.identifier || null
+
+    let coverImage = googleCover
+    if (!coverImage && isbn) {
+      coverImage = await getOpenLibraryCover(isbn)
+      if (coverImage) console.log(`[BOOKS] OpenLibrary cover per ISBN ${isbn}`)
+    }
 
     const description = info.description
       ? truncateAtSentence(info.description.replace(/<[^>]+>/g, ''), 400)
@@ -183,7 +202,7 @@ export async function GET(request: NextRequest) {
       external_id: item.id,
       title: info.title || 'Titolo sconosciuto',
       type: 'book',
-      coverImage: cover,
+      coverImage,
       year: info.publishedDate ? parseInt(info.publishedDate.substring(0, 4)) : null,
       genres,
       score: info.averageRating ? Math.round(info.averageRating * 20) : null,
@@ -192,11 +211,11 @@ export async function GET(request: NextRequest) {
       publisher: info.publisher || null,
       pageCount: info.pageCount || null,
       categories,
-      isbn: info.industryIdentifiers?.find((i: any) => i.type === 'ISBN_13')?.identifier || null,
+      isbn,
       language: info.language || null,
       previewLink: info.previewLink || null,
     }
-  }).filter(r => r.title && r.title !== 'Titolo sconosciuto' || r.coverImage)
+  }))).filter(r => r.title && r.title !== 'Titolo sconosciuto' || r.coverImage)
 
   console.log(`[BOOKS] risultati finali: ${results.length}`)
   return NextResponse.json({ results })
