@@ -56,9 +56,13 @@ import {
 import {
   CROSS_TO_IGDB_GENRE, CROSS_TO_IGDB_THEME, IGDB_VALID_GENRES,
   TMDB_GENRE_MAP, TMDB_TV_GENRE_MAP, IGDB_TO_CROSS_GENRE,
-  BGG_TO_CROSS_GENRE, GENRE_TO_BGG_TERMS, BGG_CAT_TO_GENRE_REC,
   ADJACENCY_GRAPH
 } from '@/lib/reco/genre-maps'
+
+// BGG rimosso — stub vuoti per compatibilità residua nel codice
+const BGG_TO_CROSS_GENRE: Record<string, string[]> = {}
+const GENRE_TO_BGG_TERMS: Record<string, string[]> = {}
+const BGG_CAT_TO_GENRE_REC: Record<string, string> = {}
 
 // Alias locale per compatibilità con il codice esistente
 type MediaType = RecoMediaType
