@@ -81,63 +81,49 @@ export async function GET(request: NextRequest) {
   const apiKey = process.env.GOOGLE_BOOKS_API_KEY || ''
 
   // ── Chiamata API ─────────────────────────────────────────────────────────────
-  // Strategia a tre livelli per trovare libri italiani:
-  // 1) intitle:"query" lang:it  → forza ricerca nel titolo in italiano
-  //    (funziona per "harry potter" perché le edizioni italiane hanno quel titolo)
-  // 2) query lang:it            → ricerca generica in italiano
-  // 3) fallback senza filtro lingua, solo langRestrict:it come preferenza
+  // Formula raccomandata dalla documentazione Google Books:
+  //   q=intitle:"query"  +  langRestrict=it  (parametro separato, non lang:it nel query)
+  // intitle:"..." forza Google a cercare la frase ESATTA nel titolo del libro.
+  // langRestrict=it come parametro URL è più affidabile di lang:it nel query.
+  //
+  // Fallback: se 0 risultati italiani, cerca senza intitle (per titoli parziali/ambigui)
 
   console.log(`[BOOKS] query="${q}"`)
-
   let items: any[] = []
 
-  // Livello 1: intitle + lang:it
-  const p1 = new URLSearchParams({ q: `intitle:"${q}" lang:it`, maxResults: '40', printType: 'books', orderBy: 'relevance' })
+  // Chiamata principale: intitle + langRestrict=it
+  const p1 = new URLSearchParams({ q: `intitle:"${q}"`, maxResults: '40', printType: 'books', langRestrict: 'it', orderBy: 'relevance' })
   if (apiKey) p1.set('key', apiKey)
   const r1 = await fetchWithRetry(`${GOOGLE_BOOKS_BASE}?${p1}`)
   if (r1) {
     const data = await r1.json()
-    const raw = data.items || []
+    const raw: any[] = data.items || []
     const italian = raw.filter((i: any) => i.volumeInfo?.language === 'it')
     const langs: Record<string, number> = {}
     raw.forEach((i: any) => { const l = i.volumeInfo?.language ?? 'null'; langs[l] = (langs[l] || 0) + 1 })
-    console.log(`[BOOKS] L1 intitle+lang:it → ricevuti=${raw.length} langs=${JSON.stringify(langs)} italiani=${italian.length}`)
-    if (italian.length > 0) items = italian
+    console.log(`[BOOKS] intitle+langRestrict:it → raw=${raw.length} langs=${JSON.stringify(langs)} it=${italian.length}`)
+    items = italian
   }
 
-  // Livello 2: query lang:it (se L1 ha trovato poco)
-  if (items.length < 3) {
-    const p2 = new URLSearchParams({ q: `${q} lang:it`, maxResults: '40', printType: 'books', orderBy: 'relevance' })
+  // Fallback: query senza intitle + langRestrict=it (se intitle non trova nulla)
+  if (items.length === 0) {
+    const p2 = new URLSearchParams({ q, maxResults: '40', printType: 'books', langRestrict: 'it', orderBy: 'relevance' })
     if (apiKey) p2.set('key', apiKey)
     const r2 = await fetchWithRetry(`${GOOGLE_BOOKS_BASE}?${p2}`)
     if (r2) {
       const data = await r2.json()
-      const raw = data.items || []
+      const raw: any[] = data.items || []
       const italian = raw.filter((i: any) => i.volumeInfo?.language === 'it')
       const langs: Record<string, number> = {}
       raw.forEach((i: any) => { const l = i.volumeInfo?.language ?? 'null'; langs[l] = (langs[l] || 0) + 1 })
-      console.log(`[BOOKS] L2 query+lang:it → ricevuti=${raw.length} langs=${JSON.stringify(langs)} italiani=${italian.length}`)
-      const existingIds = new Set(items.map((i: any) => i.id))
-      for (const item of italian) if (!existingIds.has(item.id)) items.push(item)
-    }
-  }
-
-  // Livello 3: fallback senza filtro lingua (per query che Google non mappa all'italiano)
-  if (items.length === 0) {
-    const p3 = new URLSearchParams({ q, maxResults: '40', printType: 'books', langRestrict: 'it', orderBy: 'relevance' })
-    if (apiKey) p3.set('key', apiKey)
-    const r3 = await fetchWithRetry(`${GOOGLE_BOOKS_BASE}?${p3}`)
-    if (r3) {
-      const data = await r3.json()
-      items = data.items || []
-      const langs: Record<string, number> = {}
-      items.forEach((i: any) => { const l = i.volumeInfo?.language ?? 'null'; langs[l] = (langs[l] || 0) + 1 })
-      console.log(`[BOOKS] L3 fallback langRestrict:it → ricevuti=${items.length} langs=${JSON.stringify(langs)}`)
+      console.log(`[BOOKS] fallback langRestrict:it → raw=${raw.length} langs=${JSON.stringify(langs)} it=${italian.length}`)
+      items = italian.length > 0 ? italian : raw
     }
   }
 
   // ── Filtro titolo ─────────────────────────────────────────────────────────────
-  const queryWords = q.toLowerCase().split(/\s+/).filter(w => w.length > 3)
+  // Tutte le parole della query devono apparire nel titolo (nessun limite di lunghezza)
+  const queryWords = q.toLowerCase().split(/\s+/).filter(w => w.length > 0)
   if (queryWords.length > 0) {
     const before = items.length
     items = items.filter((item: any) => {
