@@ -425,20 +425,29 @@ async function fetchManga(lang: string): Promise<any[]> {
 
 // ── BGG helpers ───────────────────────────────────────────────────────────────
 
+function bggHeaders(): HeadersInit {
+  const token = process.env.BGG_BEARER_TOKEN
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 async function bggFetchSync(url: string, signal?: AbortSignal): Promise<string | null> {
   for (let attempt = 0; attempt < 6; attempt++) {
     if (attempt > 0) await new Promise(r => setTimeout(r, attempt < 3 ? 2000 : 4000))
     try {
       const res = await fetch(url, {
         cache: 'no-store',
-        signal: signal ?? AbortSignal.timeout(8000),
+        headers: bggHeaders(),
+        signal: signal ?? AbortSignal.timeout(15000),
       })
       if (res.status === 202) { logger.info(`[BGG] 202 attempt ${attempt + 1}/6`); continue }
-      if (!res.ok) return null
+      if (!res.ok) { logger.info(`[BGG] HTTP ${res.status} for ${url}`); return null }
       const text = await res.text()
-      if (!text.trim().startsWith('<')) return null
+      if (!text.trim().startsWith('<')) { logger.info(`[BGG] non-XML response`); return null }
       return text
-    } catch { if (attempt === 5) return null }
+    } catch (e: any) {
+      logger.info(`[BGG] attempt ${attempt + 1} error: ${e?.message}`)
+      if (attempt === 5) return null
+    }
   }
   return null
 }
@@ -460,14 +469,16 @@ function mapBggCategories(categories: string[]): string[] {
 }
 
 async function fetchBoardgameNews(lang: string): Promise<any[]> {
+  logger.info(`[BGG] fetchBoardgameNews START lang=${lang}`)
   const ctrl = new AbortController()
   const budget = setTimeout(() => ctrl.abort(), 50_000)
   try {
     const hotXml = await bggFetchSync('https://boardgamegeek.com/xmlapi2/hot?type=boardgame', ctrl.signal)
-    if (!hotXml) return []
+    if (!hotXml) { logger.info(`[BGG] hot list failed — returning []`); return [] }
 
     const hotResult = await parseStringPromise(hotXml)
     const hotItems: any[] = hotResult?.items?.item || []
+    logger.info(`[BGG] hot list: ${hotItems.length} items`)
 
     const currentYear = new Date().getFullYear()
     const recent = hotItems.filter((item: any) => {
@@ -476,6 +487,7 @@ async function fetchBoardgameNews(lang: string): Promise<any[]> {
     })
     const candidates = recent.length >= 10 ? recent : hotItems
     const ids = candidates.slice(0, 20).map((i: any) => i.$.id)
+    logger.info(`[BGG] candidates=${ids.length} (recent=${recent.length})`)
     if (ids.length === 0) return []
 
     await new Promise(r => setTimeout(r, 300))
@@ -483,10 +495,26 @@ async function fetchBoardgameNews(lang: string): Promise<any[]> {
       `https://boardgamegeek.com/xmlapi2/thing?id=${ids.join(',')}&type=boardgame&stats=1`,
       ctrl.signal,
     )
-    if (!detailXml) return []
+
+    // Se il detail endpoint fallisce (tutti 202 o timeout), costruiamo card base dalla hot list
+    if (!detailXml) {
+      logger.info(`[BGG] detail failed — falling back to basic hot-list cards`)
+      const basicCards = candidates.slice(0, 20).map((item: any) => {
+        const id = item.$.id
+        const title = item.name?.[0]?.$?.value || 'Unknown'
+        const rawThumb = item.thumbnail?.[0]?.$?.value || ''
+        const coverImage = rawThumb ? (rawThumb.startsWith('http') ? rawThumb : `https:${rawThumb}`) : null
+        if (!coverImage) return null
+        const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : undefined
+        return { id: `bgg-${id}`, type: 'boardgame', source_api: 'bgg', title, coverImage, year, date: year ? `${year}-01-01` : undefined, genres: [], category: 'boardgame', source: 'BGG', url: `https://boardgamegeek.com/boardgame/${id}` }
+      }).filter(Boolean)
+      logger.info(`[BGG] basic fallback cards: ${basicCards.length}`)
+      return basicCards
+    }
 
     const detailResult = await parseStringPromise(detailXml)
     const detailItems: any[] = detailResult?.items?.item || []
+    logger.info(`[BGG] detail items: ${detailItems.length}`)
 
     const mapped = detailItems.map((item: any) => {
       const id = item.$.id
@@ -539,7 +567,10 @@ async function fetchBoardgameNews(lang: string): Promise<any[]> {
     }
 
     return mapped
-  } catch { return [] } finally { clearTimeout(budget) }
+  } catch (e: any) {
+    logger.info(`[BGG] fetchBoardgameNews CATCH: ${e?.name}: ${e?.message}`)
+    return []
+  } finally { clearTimeout(budget) }
 }
 
 async function runSync(lang: 'it' | 'en') {
