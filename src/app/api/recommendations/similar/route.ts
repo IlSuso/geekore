@@ -943,27 +943,68 @@ export async function GET(request: NextRequest) {
     return b._pop - a._pop
   })
 
-  // ── Diversity: garantisce almeno 3 risultati per ogni tipo media disponibile ──
-  const GUARANTEED = 3
+  // ── Mix bilanciato: differenza max ~3 items tra i vari media type ────────────
+  // Round-robin con cap per tipo: nessun medium può dominare la lista.
+  // Ogni tipo ottiene al massimo (base + 2) slot, dove base = 30 / numTipi.
+  // Se alcuni tipi hanno pochi candidati, i slot liberi vengono riempiti
+  // dagli altri (in ordine di similarity) senza applicare il cap.
+  const TARGET_TOTAL = 30
   const byType: Record<string, typeof scored> = {}
   for (const item of scored) {
     if (!byType[item.type]) byType[item.type] = []
     byType[item.type].push(item)
   }
-  const diverseIds = new Set<string>()
+  const availableTypes = Object.keys(byType).filter(t => byType[t].length > 0)
+  const numTypes = availableTypes.length
+
   const diverse: typeof scored = []
-  // Prima passata: top GUARANTEED per ogni tipo
-  for (const items of Object.values(byType)) {
-    for (const item of items.slice(0, GUARANTEED)) {
-      diverse.push(item)
-      diverseIds.add(item.id)
+  const diverseIds = new Set<string>()
+
+  if (numTypes > 0) {
+    const basePerType = Math.round(TARGET_TOTAL / numTypes)
+    const maxPerType = basePerType + 2  // cap: nessun tipo supera gli altri di > 3
+
+    const typeQuota: Record<string, number> = {}
+    const typeQueues: Record<string, typeof scored> = {}
+    for (const t of availableTypes) {
+      typeQuota[t] = 0
+      typeQueues[t] = [...byType[t]] // già ordinati per similarity desc
+    }
+
+    // Round-robin: ogni ciclo prende 1 item per tipo (rispettando il cap)
+    let anyAdded = true
+    while (diverse.length < TARGET_TOTAL && anyAdded) {
+      anyAdded = false
+      for (const type of availableTypes) {
+        if (diverse.length >= TARGET_TOTAL) break
+        if (typeQuota[type] >= maxPerType) continue
+        const queue = typeQueues[type]
+        while (queue.length > 0) {
+          const item = queue.shift()!
+          if (!diverseIds.has(item.id)) {
+            diverse.push(item)
+            diverseIds.add(item.id)
+            typeQuota[type]++
+            anyAdded = true
+            break
+          }
+        }
+      }
+    }
+
+    // Se ci sono ancora slot liberi (alcuni tipi esauriti prima del cap),
+    // riempi con i migliori rimanenti in ordine di similarity — senza cap
+    if (diverse.length < TARGET_TOTAL) {
+      for (const item of scored) {
+        if (diverse.length >= TARGET_TOTAL) break
+        if (!diverseIds.has(item.id)) {
+          diverse.push(item)
+          diverseIds.add(item.id)
+        }
+      }
     }
   }
-  // Seconda passata: riempi con i migliori assoluti rimanenti
-  for (const item of scored) {
-    if (diverse.length >= 30) break
-    if (!diverseIds.has(item.id)) { diverse.push(item); diverseIds.add(item.id) }
-  }
+
   diverse.sort((a, b) => {
     if (b._similarity !== a._similarity) return b._similarity - a._similarity
     return b._pop - a._pop
