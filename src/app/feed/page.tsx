@@ -43,6 +43,8 @@ import { validateImage } from '@/lib/imageValidator'
 import type { Post } from '@/types'
 
 const DISCOVERY_INTERVAL = 5
+const PINNED_LIKE_THRESHOLD = 3
+const PAGE_SIZE = 10
 
 type FeedCache = { posts: Post[] | null; page: number; hasMore: boolean; filter: string; ts: number }
 const cache: FeedCache = { posts: null, page: 0, hasMore: true, filter: 'all', ts: 0 }
