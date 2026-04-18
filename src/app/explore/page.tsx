@@ -142,7 +142,7 @@ async function getExploreData(userId: string) {
 // ── Componenti ─────────────────────────────────────────────────────────────────
 
 const TYPE_ICON: Record<string, React.ElementType> = {
-  anime: Tv, manga: BookOpen, game: Gamepad2, movie: Film, tv: Tv, }
+  anime: Tv, manga: BookOpen, game: Gamepad2, movie: Film, tv: Tv, book: BookOpen, }
 
 function TrendingMediaCard({ item, rank }: { item: { count: number; item: any }; rank: number }) {
   const Icon = TYPE_ICON[item.item.type] || Film

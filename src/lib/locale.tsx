@@ -151,6 +151,7 @@ const translations = {
         tv: 'Serie TV',          // ← NUOVO: TV separato da Anime
         manga: 'Manga',
         movies: 'Film',
+        books: 'Libri',
         other: 'Altro',
       },
       statsAnime: 'Anime', statsGames: 'Giochi', statsSteamHours: 'Ore Steam',
@@ -223,6 +224,7 @@ const translations = {
         game: 'Videogiochi consigliati',
         movie: 'Film consigliati',
         tv: 'Serie TV consigliate',
+        book: 'Libri consigliati',
       },
       addToCollection: 'Aggiungi',
       addToWishlist: 'Wishlist',
@@ -396,6 +398,7 @@ const translations = {
         tv: 'TV Shows',          // ← NUOVO: TV separato da Anime
         manga: 'Manga',
         movies: 'Movies',
+        books: 'Books',
         other: 'Other',
       },
       statsAnime: 'Anime', statsGames: 'Games', statsSteamHours: 'Steam Hours',
@@ -468,6 +471,7 @@ const translations = {
         game: 'Recommended Games',
         movie: 'Recommended Movies',
         tv: 'Recommended TV Shows',
+        book: 'Recommended Books',
       },
       addToCollection: 'Add',
       addToWishlist: 'Wishlist',

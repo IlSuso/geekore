@@ -478,7 +478,7 @@ function computeTasteProfile(
 
   // Adaptive window per tipo (V3)
   const activeWindowByType: Record<string, number> = {}
-  for (const type of ['anime', 'manga', 'movie', 'tv', 'game']) {
+  for (const type of ['anime', 'manga', 'movie', 'tv', 'game', 'book']) {
     activeWindowByType[type] = determineActiveWindowForType(entries, type as MediaType)
   }
   const activeWindow = Math.round(
@@ -2129,6 +2129,119 @@ function shuffleSeeded<T>(arr: T[], seed: number): T[] {
   return a
 }
 
+// ── fetchBookRecs — Google Books ──────────────────────────────────────────────
+async function fetchBookRecs(
+  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile,
+  isAlreadyOwned: (type: string, id: string, title: string) => boolean,
+  shownIds?: Set<string>
+): Promise<Recommendation[]> {
+  const results: Recommendation[] = []
+  const seen = new Set<string>()
+  const GBOOKS_BASE = 'https://www.googleapis.com/books/v1/volumes'
+  const apiKey = process.env.GOOGLE_BOOKS_API_KEY || ''
+
+  // Mappa generi cross-media → query termini Google Books
+  const GENRE_TO_BOOK_QUERY: Record<string, string[]> = {
+    'Fantasy':          ['fantasy', 'magic', 'epic fantasy'],
+    'Science Fiction':  ['science fiction', 'sci-fi', 'space opera'],
+    'Horror':           ['horror', 'dark thriller'],
+    'Mystery':          ['mystery', 'detective', 'whodunit'],
+    'Thriller':         ['thriller', 'suspense'],
+    'Romance':          ['romance', 'love story'],
+    'Adventure':        ['adventure', 'action adventure'],
+    'Drama':            ['literary fiction', 'drama'],
+    'Crime':            ['crime fiction', 'noir'],
+    'Psychological':    ['psychological thriller', 'psychological fiction'],
+    'Supernatural':     ['supernatural', 'paranormal'],
+    'Action':           ['action', 'adventure thriller'],
+    'Comedy':           ['comedy', 'humor'],
+    'Slice of Life':    ['contemporary fiction', 'slice of life'],
+    'Historical':       ['historical fiction', 'history'],
+    'Sci-Fi':           ['science fiction', 'cyberpunk'],
+  }
+
+  const topKeywords = Object.entries(tasteProfile.deepSignals.keywords)
+    .sort(([, a], [, b]) => b - a).slice(0, 5).map(([k]) => k)
+
+  for (const slot of slots.slice(0, 6)) {
+    const queryTerms = GENRE_TO_BOOK_QUERY[slot.genre]
+    if (!queryTerms) continue
+
+    const q = queryTerms[0]
+    const params = new URLSearchParams({
+      q: `subject:${q}`,
+      maxResults: '20',
+      printType: 'books',
+      orderBy: 'relevance',
+      langRestrict: 'it',
+    })
+    if (apiKey) params.set('key', apiKey)
+
+    try {
+      let items: any[] = []
+      const resIt = await fetch(`${GBOOKS_BASE}?${params}`, { signal: AbortSignal.timeout(6000) })
+      if (resIt.ok) items = (await resIt.json()).items || []
+
+      // fallback inglese se pochi risultati
+      if (items.length < 5) {
+        const paramsEn = new URLSearchParams({ ...Object.fromEntries(params), langRestrict: 'en' })
+        if (apiKey) paramsEn.set('key', apiKey)
+        const resEn = await fetch(`${GBOOKS_BASE}?${paramsEn}`, { signal: AbortSignal.timeout(6000) })
+        if (resEn.ok) {
+          const enItems = (await resEn.json()).items || []
+          const existingIds = new Set(items.map((i: any) => i.id))
+          for (const item of enItems) if (!existingIds.has(item.id)) items.push(item)
+        }
+      }
+
+      for (const item of items.slice(0, 15)) {
+        const info = item.volumeInfo || {}
+        const id = `gbooks-${item.id}`
+        if (seen.has(id) || isAlreadyOwned('book', id, info.title || '')) continue
+        if (shownIds?.has(id)) continue
+        if (!info.title || !info.imageLinks?.thumbnail) continue
+
+        seen.add(id)
+
+        const cover = info.imageLinks.thumbnail.replace('http://', 'https://')
+        const year = info.publishedDate ? parseInt(info.publishedDate.substring(0, 4)) : undefined
+        const rawScore = info.averageRating ? Math.round(info.averageRating * 20) : undefined
+        const cats: string[] = info.categories || []
+        const genres = cats.length > 0 ? cats.slice(0, 3) : [slot.genre]
+
+        // Boost da deepSignals
+        let boost = 0
+        const desc = (info.description || '').toLowerCase()
+        for (const kw of topKeywords) { if (desc.includes(kw)) boost += 2 }
+
+        const matchScore = 50 + boost + (rawScore ? rawScore / 10 : 0) + (slot.isDiscovery ? 0 : 5)
+
+        // buildWhy
+        const why = tasteProfile.topGenres['book' as RecoMediaType]?.length
+          ? `Perché ami ${slot.genre}`
+          : `Basato sui tuoi gusti in ${slot.genre}`
+
+        results.push({
+          id, title: info.title,
+          type: 'book' as RecoMediaType,
+          coverImage: cover,
+          year, genres, score: rawScore,
+          description: info.description
+            ? info.description.replace(/<[^>]+>/g, '').substring(0, 300)
+            : undefined,
+          why, matchScore,
+          isDiscovery: slot.isDiscovery,
+          tags: info.authors || [],
+        })
+
+        if (results.length >= slot.quota) break
+      }
+    } catch { /* non bloccante */ }
+  }
+
+  return results.sort((a, b) => b.matchScore - a.matchScore)
+}
+
 export async function GET(request: NextRequest) {
   try {
     const rl = rateLimit(request, { limit: 10, windowMs: 60_000 })
@@ -2219,7 +2332,7 @@ export async function GET(request: NextRequest) {
     type OwnedByType = { ids: Set<string>; titles: Set<string>; tokenSets: Array<Set<string>> }
     const ownedByType = new Map<string, OwnedByType>()
 
-    for (const type of ['anime', 'manga', 'movie', 'tv', 'game']) {
+    for (const type of ['anime', 'manga', 'movie', 'tv', 'game', 'book']) {
       ownedByType.set(type, { ids: new Set(), titles: new Set(), tokenSets: [] })
     }
 
@@ -2276,7 +2389,7 @@ export async function GET(request: NextRequest) {
     const igdbClientSecret = process.env.IGDB_CLIENT_SECRET || ''
 
     const typesToFetch: MediaType[] = requestedType === 'all'
-      ? ['anime', 'manga', 'movie', 'tv', 'game']
+      ? ['anime', 'manga', 'movie', 'tv', 'game', 'book']
       : [requestedType as MediaType]
 
     // ── V6: Carica titoli mostrati nella sessione corrente (TTL: 4h) ──────────
@@ -2380,6 +2493,7 @@ export async function GET(request: NextRequest) {
             case 'movie': return { type, items: await fetchMovieRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds) }
             case 'tv':    return { type, items: await fetchTvRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds) }
             case 'game':       return { type, items: await fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret, isAlreadyOwned, emptyShownIds) }
+            case 'book':       return { type, items: await fetchBookRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds) }
             default: return { type, items: [] }
           }
         })

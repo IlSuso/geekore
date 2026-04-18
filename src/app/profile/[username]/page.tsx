@@ -47,7 +47,7 @@ type UserMedia = {
   id: string
   title: string
   title_en?: string  // titolo inglese per switch lingua real-time
-  type: 'anime' | 'tv' | 'movie' | 'game' | 'manga'
+  type: 'anime' | 'tv' | 'movie' | 'game' | 'manga' | 'book'
   cover_image?: string
   current_episode: number
   current_season?: number
@@ -904,13 +904,14 @@ export default function ProfilePage() {
     else if (item.type === 'anime') cat = cats.anime
     else if (item.type === 'tv') cat = cats.tv
     else if (item.type === 'movie') cat = cats.movies
+    else if (item.type === 'book') cat = cats.books
     else cat = cats.other
     if (!acc[cat]) acc[cat] = []
     acc[cat].push(item)
     return acc
   }, {})
 
-  const categoryOrder = [cats.games, cats.anime, cats.tv, cats.manga, cats.movies, cats.other]
+  const categoryOrder = [cats.games, cats.anime, cats.tv, cats.manga, cats.movies, cats.books, cats.other]
   // Mappa label categoria → slug URL per la pagina dedicata
   const categoryToType: Record<string, string> = {
     [cats.games]: 'game',
@@ -918,6 +919,7 @@ export default function ProfilePage() {
     [cats.tv]: 'tv',
     [cats.manga]: 'manga',
     [cats.movies]: 'movie',
+    [cats.books]: 'book',
   }
   const orderedCategories = categoryOrder.filter(cat => grouped[cat]?.length > 0)
 

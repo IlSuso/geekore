@@ -31,7 +31,7 @@ import type { TasteProfile } from '@/components/for-you/DNAWidget'
 type FeedbackAction = 'not_interested' | 'already_seen' | 'added' | 'wishlist_add';
 type FeedbackReason = 'too_similar' | 'not_my_genre' | 'already_know' | 'bad_rec' | undefined;
 
-type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game'
+type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'book'
 type Mood = 'light' | 'intense' | 'deep' | null
 
 interface FriendActivity {
@@ -41,10 +41,10 @@ interface FriendActivity {
 }
 
 const TYPE_ICONS: Record<MediaType, React.ElementType> = {
-  anime: Swords, manga: BookOpen, movie: Film, tv: Tv, game: Gamepad2, }
+  anime: Swords, manga: BookOpen, movie: Film, tv: Tv, game: Gamepad2, book: BookOpen, }
 
 const TYPE_LABEL: Record<string, string> = {
-  anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Gioco', }
+  anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Gioco', book: 'Libro', }
 
 const TYPE_COLORS: Record<string, string> = {
   anime: 'from-sky-500 to-blue-600',
@@ -52,6 +52,7 @@ const TYPE_COLORS: Record<string, string> = {
   movie: 'from-red-500 to-rose-600',
   tv: 'from-purple-500 to-violet-600',
   game: 'from-emerald-500 to-green-600',
+  book: 'from-amber-500 to-yellow-600',
   }
 
 function triggerTasteDelta(options: {
@@ -396,10 +397,11 @@ function SimilarSearchBar({ onSearch, loading }: {
     setSearching(true)
     try {
       // Chiama tutte le API in parallelo — stesse della discover
-      const [anilistRes, tmdbRes, igdbRes] = await Promise.allSettled([
+      const [anilistRes, tmdbRes, igdbRes, booksRes] = await Promise.allSettled([
         fetch(`/api/anilist?q=${encodeURIComponent(q)}`),
         fetch(`/api/tmdb?q=${encodeURIComponent(q)}&type=all&lang=it-IT`),
         fetch(`/api/igdb?q=${encodeURIComponent(q)}`),
+        fetch(`/api/books?q=${encodeURIComponent(q)}`),
       ])
 
       const all: SearchSuggestion[] = []
@@ -421,6 +423,12 @@ function SimilarSearchBar({ onSearch, loading }: {
         const j = await igdbRes.value.json()
         for (const r of parse(j).slice(0, 1)) {
           all.push({ id: r.id || r.external_id, title: r.title, type: 'game', genres: r.genres, year: r.year, coverImage: r.coverImage || r.cover_image })
+        }
+      }
+      if (booksRes.status === 'fulfilled' && booksRes.value.ok) {
+        const j = await booksRes.value.json()
+        for (const r of parse(j).slice(0, 1)) {
+          all.push({ id: r.id || r.external_id, title: r.title, type: 'book', genres: r.genres, year: r.year, coverImage: r.coverImage || r.cover_image })
         }
       }
 
@@ -1196,6 +1204,7 @@ export default function ForYouPage() {
     { key: 'movie', label: fy.sections.movie },
     { key: 'tv', label: fy.sections.tv },
     { key: 'manga', label: fy.sections.manga },
+    { key: 'book', label: fy.sections.book },
   ]
   // Fix 2.4: ordina per affinità reale (collectionSize nel profilo) non per count consigli
   // Chi ha più titoli nel profilo viene prima — riflette il tipo centrale per l'utente

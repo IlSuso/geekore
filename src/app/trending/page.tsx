@@ -22,11 +22,12 @@ export const TYPE_COLOR: Record<string, string> = {
   game: 'bg-green-500',
   tv: 'bg-purple-500',
   movie: 'bg-red-500',
+  book: 'bg-amber-500',
   }
 
 export const TYPE_LABEL: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', game: 'Gioco',
-  tv: 'Serie TV', movie: 'Film',
+  tv: 'Serie TV', movie: 'Film', book: 'Libro',
 }
 
 async function getTrending(): Promise<{ byAdditions: TrendingItem[]; byRating: TrendingItem[] }> {
