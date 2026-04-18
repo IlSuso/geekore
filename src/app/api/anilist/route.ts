@@ -126,7 +126,7 @@ export async function GET(request: NextRequest) {
             coverImage: m.coverImage.large,
             year: m.seasonYear,
             episodes: isAnime ? m.episodes : m.chapters,
-            description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 400) : undefined,
+            description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 400) : undefined,
             genres: m.genres || [],
             tags: (m.tags || [])
               .filter((t: any) => t.rank >= 60)

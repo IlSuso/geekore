@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
 import { translateWithCache } from '@/lib/deepl'
+import { truncateAtSentence } from '@/lib/utils'
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
 const ANILIST_URL = 'https://graphql.anilist.co'
@@ -256,7 +257,7 @@ function parseBggXml(xml: string) {
       name: decode(name),
       year:      parseInt(body.match(/<yearpublished[^>]+value="(\d+)"/)?.[1] || '') || undefined,
       thumbnail: rawCover ? (rawCover.startsWith('//') ? `https:${rawCover}` : rawCover) : undefined,
-      description: decode((body.match(/<description>([\s\S]*?)<\/description>/)?.[1] || '').replace(/<[^>]*>/g, '').slice(0, 400)),
+      description: decode((body.match(/<description>([\s\S]*?)<\/description>/)?.[1] || '').replace(/<[^>]*>/g, ''), 400)),
       categories: [...body.matchAll(/<link type="boardgamecategory"[^>]+value="([^"]+)"/g)].map(m => m[1]),
       mechanics:  [...body.matchAll(/<link type="boardgamemechanic"[^>]+value="([^"]+)"/g)].map(m => m[1]),
       rating:    parseFloat(body.match(/<average[^>]+value="([0-9.]+)"/)?.[1] || '') || undefined,
@@ -509,7 +510,7 @@ export async function GET(request: NextRequest) {
               tags: (g.themes || []).map((t: any) => t.name),
               keywords: (g.keywords || []).map((k: any) => k.name),
               score: g.rating ? Math.min(g.rating / 20, 5) : undefined,
-              description: g.summary ? g.summary.slice(0, 200) : undefined,
+              description: g.summary ? g.truncateAtSentence(summary, 200) : undefined,
               matchScore: 55 + profileBoost(recGenres),
               why: whyText(recGenres), creatorBoost: developer, _pop: g.rating_count || 0,
             })
@@ -570,7 +571,7 @@ export async function GET(request: NextRequest) {
               coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
               year: m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined,
               genres: recGenres, tags: [],
-              description: m.overview ? m.overview.slice(0, 200) : undefined,
+              description: m.overview ? m.truncateAtSentence(overview, 200) : undefined,
               score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
               matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
           }
@@ -600,7 +601,7 @@ export async function GET(request: NextRequest) {
                 coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
                 year: m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined,
                 genres: recGenres, tags: [],
-                description: m.overview ? m.overview.slice(0, 200) : undefined,
+                description: m.overview ? m.truncateAtSentence(overview, 200) : undefined,
                 score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
                 matchScore: 58 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
             }
@@ -665,7 +666,7 @@ export async function GET(request: NextRequest) {
             year: m.release_date ? new Date(m.release_date).getFullYear() : undefined,
             genres: recGenres, keywords: actualKws,
             score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
-            description: m.overview ? m.overview.slice(0, 200) : undefined,
+            description: m.overview ? m.truncateAtSentence(overview, 200) : undefined,
             matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres),
             _foundByKeyword: kwIdSet.has(m.id), _pop: m.popularity || 0 })
         }
@@ -724,7 +725,7 @@ export async function GET(request: NextRequest) {
             year: m.first_air_date ? new Date(m.first_air_date).getFullYear() : undefined,
             genres: recGenres, keywords: actualKws,
             score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
-            description: m.overview ? m.overview.slice(0, 200) : undefined,
+            description: m.overview ? m.truncateAtSentence(overview, 200) : undefined,
             episodes: m.number_of_episodes ?? undefined,
             matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres),
             _foundByKeyword: kwIdSetTv.has(m.id), _pop: m.popularity || 0 })
@@ -753,7 +754,7 @@ export async function GET(request: NextRequest) {
                 coverImage: m.coverImage?.large, year: m.startDate?.year, genres: recGenres,
                 tags: (m.tags || []).map((t: any) => t.name),
                 episodes: m.chapters ?? undefined,
-                description: m.description ? m.description.replace(/<[^>]*>/g, '').slice(0, 200) : undefined,
+                description: m.description ? truncateAtSentence(m.description.replace(/<[^>]*>/g, ''), 200) : undefined,
                 score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
                 matchScore: 48 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
             }
@@ -784,7 +785,7 @@ export async function GET(request: NextRequest) {
                 coverImage: m.coverImage?.large, year: m.startDate?.year, genres: recGenres,
                 tags: mangaTags2,
                 episodes: m.chapters ?? undefined,
-                description: m.description ? m.description.replace(/<[^>]*>/g, '').slice(0, 200) : undefined,
+                description: m.description ? truncateAtSentence(m.description.replace(/<[^>]*>/g, ''), 200) : undefined,
                 score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
                 matchScore: 55 + profileBoost(recGenres), why: whyText(recGenres, anilistTags), _pop: m.popularity || 0 })
             }

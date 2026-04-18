@@ -44,6 +44,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
 import { translateWithCache } from '@/lib/deepl'
+import { truncateAtSentence } from '@/lib/utils'
 
 // ── In-memory cache (server-side, per worker process) ────────────────────────
 // Evita round-trip Supabase per utenti che navigano frequentemente sulla pagina.
@@ -439,7 +440,7 @@ function parseBggXmlRec(xml: string) {
       id, name: decode(name),
       year: parseInt(body.match(/<yearpublished[^>]+value="(\d+)"/)?.[1] || '') || undefined,
       thumbnail: rawCover ? (rawCover.startsWith('//') ? `https:${rawCover}` : rawCover) : undefined,
-      description: decode((body.match(/<description>([\s\S]*?)<\/description>/)?.[1] || '').replace(/<[^>]*>/g, '').slice(0, 400)),
+      description: decode((body.match(/<description>([\s\S]*?)<\/description>/)?.[1] || '').replace(/<[^>]*>/g, ''), 400)),
       categories:  [...body.matchAll(/<link type="boardgamecategory"[^>]+value="([^"]+)"/g)].map(m => m[1]),
       mechanics:   [...body.matchAll(/<link type="boardgamemechanic"[^>]+value="([^"]+)"/g)].map(m => m[1]),
       rating:      parseFloat(body.match(/<average[^>]+value="([0-9.]+)"/)?.[1] || '') || undefined,
@@ -1910,7 +1911,7 @@ async function fetchAnimeRecs(
           coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
           year, genres: recGenres, tags: mTags,
           score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
-          description: m.overview ? m.overview.slice(0, 300) : undefined,
+          description: m.overview ? m.truncateAtSentence(overview, 300) : undefined,
           why: socialFriend
             ? `Il tuo amico con gusti simili all'${socialFriend} ha adorato questo`
             : buildWhyV3(recGenres, recId, m.name || '', tasteProfile, matchScore, slot.isDiscovery, {
@@ -2038,7 +2039,7 @@ async function fetchMangaRecs(
           genres: recGenres,
           tags: mTags,
           score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
-          description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 300) : undefined,
+          description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 300) : undefined,
           why: socialFriend
             ? `Il tuo amico con gusti simili all'${socialFriend} ha adorato questo`
             : buildWhyV3(recGenres, recId, m.title.romaji || '', tasteProfile, matchScore, slot.isDiscovery, {
@@ -2218,7 +2219,7 @@ async function fetchMovieRecs(
           genres: recGenres,
           keywords: kws,
           score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
-          description: m.overview ? m.overview.slice(0, 300) : undefined,
+          description: m.overview ? m.truncateAtSentence(overview, 300) : undefined,
           why: socialFriend
             ? `Il tuo amico con gusti simili all'${socialFriend} ha adorato questo`
             : platformWhy
@@ -2370,7 +2371,7 @@ async function fetchTvRecs(
           genres: recGenres,
           keywords: kws,
           score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
-          description: m.overview ? m.overview.slice(0, 300) : undefined,
+          description: m.overview ? m.truncateAtSentence(overview, 300) : undefined,
           why: socialFriend
             ? `Il tuo amico con gusti simili all'${socialFriend} ha adorato questo`
             : platformWhy
@@ -2543,7 +2544,7 @@ async function fetchGameRecs(
           tags: (g.themes || []).map((t: any) => t.name),
           keywords: (g.keywords || []).map((k: any) => k.name).slice(0, 20),
           score: g.rating ? Math.min(Math.round(g.rating) / 20, 5) : undefined,
-          description: g.summary ? g.summary.slice(0, 300) : undefined,
+          description: g.summary ? g.truncateAtSentence(summary, 300) : undefined,
           why: buildWhyV3(recGenres, recId, g.name, tasteProfile, matchScore, slot.isDiscovery, {
             recDeveloper: developer, creatorBoost
           }),

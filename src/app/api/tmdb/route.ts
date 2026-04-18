@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
             year: m.release_date
               ? parseInt(m.release_date.substring(0, 4))
               : m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined,
-            description: m.overview ? m.overview.slice(0, 400) : undefined,
+            description: m.overview ? m.truncateAtSentence(overview, 400) : undefined,
             episodes: totalEpisodes,
             totalSeasons: seasons ? Object.keys(seasons).length : undefined,
             seasons,

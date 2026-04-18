@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { parseStringPromise } from 'xml2js'
 import { translateTexts } from '@/lib/deepl'
+import { truncateAtSentence } from '@/lib/utils'
 
 // Vercel: estende il timeout della funzione a 60s (richiede piano Pro)
 export const maxDuration = 60
@@ -90,7 +91,7 @@ async function fetchCinema(lang: string) {
         type: 'movie',
         source_api: 'tmdb',
         title: m.title,
-        description: m.overview?.slice(0, 500),
+        description: m.overview ? truncateAtSentence(overview, 0) : undefined,
         coverImage: tmdbImageUrl(m.poster_path),
         date: m.release_date,
         year: m.release_date ? parseInt(m.release_date.slice(0, 4)) : undefined,
@@ -148,7 +149,7 @@ async function fetchTV(lang: string) {
         type: 'tv',
         source_api: 'tmdb',
         title: m.name,
-        description: m.overview?.slice(0, 500),
+        description: m.overview ? truncateAtSentence(overview, 0) : undefined,
         coverImage: tmdbImageUrl(m.poster_path),
         date: m.first_air_date,
         year: m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined,
@@ -203,7 +204,7 @@ async function fetchAnime(lang: string) {
         type: 'anime',
         source_api: 'tmdb' as const,
         title: m.name,
-        description: m.overview?.slice(0, 500),
+        description: m.overview ? truncateAtSentence(overview, 0) : undefined,
         coverImage: tmdbImageUrl(m.poster_path),
         date: m.first_air_date,
         year: m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined,
@@ -274,7 +275,7 @@ async function fetchGaming(lang: string) {
           type: 'game',
           source_api: 'igdb',
           title: g.name,
-          description: (g.summary || g.storyline)?.slice(0, 500) || null,
+          description: (g.summary || g.storyline) ? truncateAtSentence(g.summary || g.storyline, 500) : null,
           coverImage: `https:${g.cover.url.replace('t_thumb', 't_1080p')}`,
           date: releaseDate,
           year: releaseDate ? parseInt(releaseDate.slice(0, 4)) : undefined,
@@ -394,7 +395,7 @@ async function fetchManga(lang: string): Promise<any[]> {
         type: 'manga',
         source_api: 'anilist',
         title: m.title?.english || m.title?.romaji || 'Senza titolo',
-        description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 500) : null,
+        description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 500) : null,
         coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
         date,
         year: sd?.year || undefined,
@@ -498,7 +499,7 @@ async function fetchBoardgameNews(lang: string): Promise<any[]> {
 
       const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : undefined
       const description = item.description?.[0]
-        ? item.description[0].replace(/&#10;/g, ' ').replace(/&amp;/g, '&').replace(/<[^>]+>/g, '').slice(0, 500)
+        ? truncateAtSentence(item.description[0].replace(/&#10;/g, ' ').replace(/&amp;/g, '&').replace(/<[^>]+>/g, ''), 500)
         : null
 
       const links: any[] = item.link || []

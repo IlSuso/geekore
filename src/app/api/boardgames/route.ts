@@ -4,6 +4,7 @@ import { parseStringPromise } from 'xml2js'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { rateLimit } from '@/lib/rateLimit'
 import { translateWithCache } from '@/lib/deepl'
+import { truncateAtSentence } from '@/lib/utils'
 
 const CACHE_DURATION_MS = 86400000 // 24 ore
 
@@ -146,7 +147,7 @@ export async function GET(request: NextRequest) {
           : undefined
 
         const description = item.description?.[0]
-          ? item.description[0].replace(/&#10;/g, ' ').replace(/&amp;/g, '&').slice(0, 400)
+          ? truncateAtSentence(item.description[0].replace(/&#10;/g, ' ').replace(/&amp;/g, '&'), 400)
           : undefined
 
         const links: any[] = item.link || []

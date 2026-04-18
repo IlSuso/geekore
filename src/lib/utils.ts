@@ -42,6 +42,19 @@ export function progressLabel(type: MediaType, progress: number): string {
   return map[type] ?? `${progress}`
 }
 
+export function truncateAtSentence(text: string, maxLen: number): string {
+  if (!text || text.length <= maxLen) return text
+  const sub = text.slice(0, maxLen)
+  const last = Math.max(
+    sub.lastIndexOf('. '), sub.lastIndexOf('! '), sub.lastIndexOf('? '),
+    sub.lastIndexOf('.\n'), sub.lastIndexOf('!\n'), sub.lastIndexOf('?\n'),
+    sub.lastIndexOf('."'), sub.lastIndexOf('!"'), sub.lastIndexOf('?"'),
+  )
+  if (last > maxLen * 0.4) return sub.slice(0, last + 1).trim()
+  const lastSpace = sub.lastIndexOf(' ')
+  return lastSpace > 0 ? sub.slice(0, lastSpace).trim() : sub
+}
+
 export function timeAgo(date: string): string {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
   if (seconds < 60) return 'ora'

@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
       coverImage: g.cover?.url ? `https:${g.cover.url.replace('t_thumb', 't_1080p')}` : undefined,
       year: g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : undefined,
       episodes: 1,
-      description: g.summary ? g.summary.slice(0, 400) : undefined,
+      description: g.summary ? truncateAtSentence(g.summary, 400) : undefined,
       genres: g.genres?.map((gen: any) => gen.name) as string[] | undefined,
       themes: g.themes?.map((t: any) => t.name) as string[] | undefined,
       keywords: g.keywords?.map((k: any) => k.name) as string[] | undefined,
