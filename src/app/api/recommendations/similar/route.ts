@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
+import { translateWithCache } from '@/lib/deepl'
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
 const ANILIST_URL = 'https://graphql.anilist.co'
@@ -970,6 +971,18 @@ export async function GET(request: NextRequest) {
 
   const top30 = diverse.slice(0, 30)
   const clean = top30.map(({ _pop, _similarity, _foundByKeyword, ...r }) => r)
+
+  const descItems = clean
+    .filter(r => r.description && (r.type === 'game' || r.type === 'boardgame'))
+    .map(r => ({ id: r.type === 'game' ? `igdb:${r.id}` : r.id, text: r.description! }))
+  if (descItems.length > 0) {
+    const t = await translateWithCache(descItems)
+    clean.forEach(r => {
+      if (!r.description || (r.type !== 'game' && r.type !== 'boardgame')) return
+      const key = r.type === 'game' ? `igdb:${r.id}` : r.id
+      r.description = t[key] || r.description
+    })
+  }
 
   return NextResponse.json({ items: clean, total: clean.length }, { headers: rl.headers })
 }

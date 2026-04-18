@@ -43,6 +43,7 @@ import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
+import { translateWithCache } from '@/lib/deepl'
 
 // ── In-memory cache (server-side, per worker process) ────────────────────────
 // Evita round-trip Supabase per utenti che navigano frequentemente sulla pagina.
@@ -2530,6 +2531,14 @@ async function fetchGameRecs(
     } catch { /* continua */ }
   }
 
+  const gameDescItems = results
+    .filter(r => r.description)
+    .map(r => ({ id: `igdb:${r.id}`, text: r.description! }))
+  if (gameDescItems.length > 0) {
+    const t = await translateWithCache(gameDescItems)
+    results.forEach(r => { if (r.description) r.description = t[`igdb:${r.id}`] || r.description })
+  }
+
   return results.sort((a, b) => b.matchScore - a.matchScore)
 }
 
@@ -2781,6 +2790,14 @@ async function fetchBoardgameRecs(
     } catch (e) {
       console.log('[BGG] boardgames_cache fallback failed:', e)
     }
+  }
+
+  const bggDescItems = results
+    .filter(r => r.description)
+    .map(r => ({ id: r.id, text: r.description! }))
+  if (bggDescItems.length > 0) {
+    const t = await translateWithCache(bggDescItems)
+    results.forEach(r => { if (r.description) r.description = t[r.id] || r.description })
   }
 
   return results.sort((a, b) => (b.score || 0) - (a.score || 0))
