@@ -1035,9 +1035,10 @@ interface GenreSlot {
   isSerendipity?: boolean // V4
 }
 
-function buildDiversitySlots(type: MediaType, tasteProfile: TasteProfile, totalSlots = 20): GenreSlot[] {,
-      { genre: 'Adventure', quota: 5, isDiscovery: false },
-    ]
+function buildDiversitySlots(type: MediaType, tasteProfile: TasteProfile, totalSlots = 20): GenreSlot[] {
+  const typeGenres0 = tasteProfile.topGenres[type]?.map(g => g.genre) || []
+  if (typeGenres0.length === 0) {
+    const genres = ['Action', 'Adventure', 'Fantasy', 'Drama', 'Romance']
     return genres.map((g, i) => ({ genre: g, quota: Math.ceil(totalSlots / genres.length), isDiscovery: i >= 2 }))
   }
 
