@@ -259,6 +259,7 @@ function inferFromSearchHistory(
 
   // Raggruppa per query nelle ultime 4 settimane
   const recentSearches = searches.filter(s => {
+    if (!s.created_at) return false
     const age = now - new Date(s.created_at).getTime()
     return age <= 28 * 24 * 60 * 60 * 1000
   })
