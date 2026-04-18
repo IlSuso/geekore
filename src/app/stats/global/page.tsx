@@ -55,8 +55,7 @@ async function getGlobalStats() {
   const mangaHours = Math.round(mangaChapters * 5 / 60)
   const movieHours = Math.round(movieCount * 1.8)
   const tvHours = Math.round(tvEps * 45 / 60)
-  const boardgameHours = Math.round(boardgameCount * 1.5)
-  const totalHours = animeHours + mangaHours + gameHours + movieHours + tvHours + boardgameHours
+  const totalHours = animeHours + mangaHours + gameHours + movieHours + tvHours
 
   // Titoli più popolari
   const titleMap = new Map<string, { count: number; item: any }>()
@@ -92,12 +91,10 @@ async function getGlobalStats() {
     gameHours,
     movieHours,
     tvHours,
-    boardgameHours,
     animeEps,
     mangaChapters,
     movieCount,
     tvEps,
-    boardgameCount,
     popularTitles,
     popularGenres,
   }
