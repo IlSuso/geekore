@@ -50,9 +50,11 @@ export async function GET(request: Request) {
     }
 
     allNews.sort((a, b) => {
-      if (!a.date) return 1
-      if (!b.date) return -1
-      return new Date(b.date).getTime() - new Date(a.date).getTime()
+      const dateA = a.nextEpisodeDate || a.date
+      const dateB = b.nextEpisodeDate || b.date
+      if (!dateA) return 1
+      if (!dateB) return -1
+      return new Date(dateB).getTime() - new Date(dateA).getTime()
     })
 
     return NextResponse.json(allNews)
