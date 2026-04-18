@@ -18,6 +18,7 @@ const TYPE_CONFIG: Record<string, { label: string; color: string; dot: string; i
   game:      { label: 'Game',    color: 'bg-green-500',  dot: 'bg-green-400',  icon: Gamepad2 },
   movie:     { label: 'Film',    color: 'bg-red-500',    dot: 'bg-red-400',    icon: Film },
   tv:        { label: 'Serie',   color: 'bg-purple-500', dot: 'bg-purple-400', icon: Tv },
+  book:      { label: 'Libro',   color: 'bg-amber-500',  dot: 'bg-amber-400',  icon: BookOpen },
 }
 
 function daysUntil(dateStr: string | null): { label: string; available: boolean } {

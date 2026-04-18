@@ -28,6 +28,7 @@ interface Stats {
   gameHours: number
   movieHours: number; movieCount: number
   tvHours: number; tvEpisodes: number
+  bookHours: number; bookPages: number
   totalMinutes: number
 }
 
@@ -138,6 +139,7 @@ export default function StatsPage() {
     const movies = entries.filter(e => e.type === 'movie')
     const tv = entries.filter(e => e.type === 'tv')
     const games = entries.filter(e => e.type === 'game')
+    const books = entries.filter(e => e.type === 'book')
 
     const animeEpisodes = anime.reduce((s, e) => s + (e.current_episode || 0), 0)
     const animeMinutes = animeEpisodes * AVG_ANIME_EP_MINUTES
@@ -148,8 +150,11 @@ export default function StatsPage() {
     const tvEpisodes = tv.reduce((s, e) => s + (e.current_episode || 0), 0)
     const tvMinutes = tvEpisodes * AVG_TV_EP_MINUTES
     const gameHours = games.reduce((s, e) => s + (e.current_episode || 0), 0)
+    // Per i libri usiamo current_episode come pagine lette (avg 250 parole/pag → ~1.5 min/pag)
+    const bookPages = books.reduce((s, e) => s + (e.current_episode || 0), 0)
+    const bookMinutes = bookPages * 1.5
 
-    const totalMinutes = animeMinutes + mangaMinutes + movieMinutes + tvMinutes + (gameHours * 60)
+    const totalMinutes = animeMinutes + mangaMinutes + movieMinutes + tvMinutes + (gameHours * 60) + bookMinutes
 
     return {
       animeHours: animeMinutes / 60, animeEpisodes,
@@ -157,6 +162,7 @@ export default function StatsPage() {
       gameHours,
       movieHours: movieMinutes / 60, movieCount,
       tvHours: tvMinutes / 60, tvEpisodes,
+      bookHours: bookMinutes / 60, bookPages,
       totalMinutes,
     }
   }, [entries])
@@ -236,6 +242,7 @@ export default function StatsPage() {
               {stats.tvHours > 0 && <StatBar label="Serie TV" icon={Tv} hours={stats.tvHours} color="text-purple-400" detail={`${stats.tvEpisodes} ep`} />}
               {stats.movieHours > 0 && <StatBar label="Film" icon={Film} hours={stats.movieHours} color="text-red-400" detail={`${stats.movieCount} film`} />}
               {stats.mangaHours > 0 && <StatBar label="Manga" icon={BookOpen} hours={stats.mangaHours} color="text-orange-400" detail={`${stats.mangaChapters} cap`} />}
+              {stats.bookHours > 0 && <StatBar label="Libri" icon={BookOpen} hours={stats.bookHours} color="text-amber-400" detail={`${stats.bookPages} pag`} />}
               
               {stats.totalMinutes === 0 && (
                 <p className="text-zinc-600 text-center py-4">Aggiungi media alla tua collezione per vedere le statistiche</p>

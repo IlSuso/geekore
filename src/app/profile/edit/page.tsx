@@ -116,7 +116,7 @@ export default function EditProfilePage() {
 
       const { data: prefsData } = await supabase
         .from('user_preferences')
-        .select('fav_game_genres, fav_anime_genres, fav_movie_genres, disliked_genres')
+        .select('fav_game_genres, fav_anime_genres, fav_movie_genres, fav_book_genres, disliked_genres')
         .eq('user_id', user.id)
         .single()
 
@@ -227,6 +227,7 @@ export default function EditProfilePage() {
         fav_movie_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller'].includes(g)),
         fav_tv_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller'].includes(g)),
         fav_manga_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller', 'Psychological'].includes(g)),
+        fav_book_genres: likedGenres.filter(g => ['Fantasy', 'Science Fiction', 'Thriller', 'Horror', 'Mystery', 'Romance', 'Adventure', 'Historical Fiction', 'Literary Fiction', 'Dystopian', 'Biography', 'Crime', 'Dark Fantasy'].includes(g)),
         disliked_genres: dislikedGenres,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' })

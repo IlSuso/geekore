@@ -94,15 +94,15 @@ function triggerTasteDelta(options: {
 
 const TYPE_ICON: Record<string, React.ElementType> = {
   anime: Film, manga: BookOpen, game: Gamepad2,
-  tv: Tv, movie: Film,
+  tv: Tv, movie: Film, book: BookOpen,
 }
 const TYPE_COLOR: Record<string, string> = {
   anime: 'bg-sky-500', manga: 'bg-orange-500', game: 'bg-green-500',
-  tv: 'bg-purple-500', movie: 'bg-red-500',
+  tv: 'bg-purple-500', movie: 'bg-red-500', book: 'bg-amber-500',
 }
 const TYPE_LABEL: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', game: 'Gioco',
-  tv: 'Serie TV', movie: 'Film',
+  tv: 'Serie TV', movie: 'Film', book: 'Libro',
 }
 
 const RELATION_LABEL: Record<string, string> = {
@@ -683,7 +683,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                 {media.type !== 'movie' && (() => {
                   const seasonNum = parseInt(formSeason) || 1
                   const maxEp = media.seasons?.[seasonNum]?.episode_count ?? media.episodes ?? null
-                  const label = media.type === 'manga' || media.type === 'novel' ? 'Capitolo corrente' : 'Episodio corrente'
+                  const label = media.type === 'manga' || media.type === 'novel' ? 'Capitolo corrente' : media.type === 'book' ? 'Pagina corrente' : 'Episodio corrente'
                   return (
                     <div>
                       <p className="text-xs text-zinc-500 mb-1">

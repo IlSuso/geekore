@@ -15,13 +15,15 @@ const MANGA_GENRES = [...ANIME_GENRES,'Shounen','Seinen','Shoujo','Josei']
 const GAME_GENRES = ['Action','Adventure','RPG','Strategy','Simulation','Sports','Racing','Shooter','Puzzle','Horror','Platformer','Fighting','Stealth','Sandbox']
 const MOVIE_GENRES = ['Action','Adventure','Animation','Comedy','Crime','Documentary','Drama','Fantasy','History','Horror','Mystery','Romance','Science Fiction','Thriller','War']
 const TV_GENRES = [...MOVIE_GENRES,'Reality','Talk']
+const BOOK_GENRES = ['Fantasy','Science Fiction','Thriller','Horror','Mystery','Romance','Adventure','Historical Fiction','Literary Fiction','Dystopian','Biography','Self-Help','Science','Crime','Dark Fantasy']
 
 const QUICK_PRESETS = [
   { label: '🌑 Dark anime', prefs: { fav_anime_genres: ['Horror', 'Psychological', 'Thriller', 'Drama'], fav_manga_genres: ['Horror', 'Psychological', 'Thriller'] } },
   { label: '⚔️ Gamer RPG', prefs: { fav_game_genres: ['Role-playing (RPG)', 'Adventure', 'Action', 'Strategy'] } },
   { label: '🎬 Cinefilo europeo', prefs: { fav_movie_genres: ['Drama', 'Thriller', 'Crime', 'History'], fav_tv_genres: ['Drama', 'Crime', 'Thriller'] } },
   { label: '😂 Comedy & feel-good', prefs: { fav_anime_genres: ['Comedy', 'Slice of Life', 'Romance'], fav_movie_genres: ['Comedy', 'Romance', 'Animation'] } },
-  { label: '🚀 Sci-fi & fantasy', prefs: { fav_anime_genres: ['Science Fiction', 'Fantasy'], fav_movie_genres: ['Science Fiction', 'Fantasy', 'Adventure'], fav_game_genres: ['Role-playing (RPG)', 'Adventure'] } },
+  { label: '🚀 Sci-fi & fantasy', prefs: { fav_anime_genres: ['Science Fiction', 'Fantasy'], fav_movie_genres: ['Science Fiction', 'Fantasy', 'Adventure'], fav_game_genres: ['Role-playing (RPG)', 'Adventure'], fav_book_genres: ['Fantasy', 'Science Fiction', 'Dystopian'] } },
+  { label: '📚 Lettore accanito', prefs: { fav_book_genres: ['Literary Fiction', 'Historical Fiction', 'Mystery', 'Thriller', 'Biography'] } },
 ]
 
 // ── Componente ────────────────────────────────────────────────────────────────
@@ -34,7 +36,7 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
   const [step, setStep] = useState(0)
   const [prefs, setPrefs] = useState<Record<string, string[]>>({
     fav_game_genres: [], fav_anime_genres: [], fav_movie_genres: [],
-    fav_tv_genres: [], fav_manga_genres: [], disliked_genres: []
+    fav_tv_genres: [], fav_manga_genres: [], fav_book_genres: [], disliked_genres: []
   })
 
   useEffect(() => {
@@ -48,6 +50,7 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
             fav_movie_genres: data.fav_movie_genres || [],
             fav_tv_genres: data.fav_tv_genres || [],
             fav_manga_genres: data.fav_manga_genres || [],
+            fav_book_genres: data.fav_book_genres || [],
             disliked_genres: data.disliked_genres || []
           })
           const hasPrefs = Object.values(data).some(v => Array.isArray(v) && (v as unknown[]).length > 0)
@@ -93,7 +96,8 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
     { key: 'fav_movie_genres', label: '🎬 Film preferiti', genres: MOVIE_GENRES, desc: 'Che tipo di film ti piace guardare?' },
     { key: 'fav_tv_genres', label: '📺 Serie TV preferite', genres: TV_GENRES, desc: 'Generi di serie che non salti mai' },
     { key: 'fav_game_genres', label: '🎮 Giochi preferiti', genres: GAME_GENRES, desc: 'A che tipo di giochi non riesci a smettere?' },
-    { key: 'disliked_genres', label: '🚫 Generi da nascondere', genres: [...new Set([...GAME_GENRES, ...ANIME_GENRES, ...MOVIE_GENRES])], desc: 'Questi generi non appariranno nei tuoi consigli' },
+    { key: 'fav_book_genres', label: '📚 Libri preferiti', genres: BOOK_GENRES, desc: 'Che generi letterari ami di più?' },
+    { key: 'disliked_genres', label: '🚫 Generi da nascondere', genres: [...new Set([...GAME_GENRES, ...ANIME_GENRES, ...MOVIE_GENRES, ...BOOK_GENRES])], desc: 'Questi generi non appariranno nei tuoi consigli' },
   ]
 
   const currentSection = sections[step - 1]
