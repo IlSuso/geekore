@@ -443,7 +443,7 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
   return (
     <div className={`flex-shrink-0 group ${showDetails ? 'w-48' : 'w-36'}`}>
       <div
-        className={`relative ${showDetails ? 'h-64' : 'h-52'} rounded-2xl overflow-hidden bg-zinc-900 mb-2 cursor-pointer ${item.isDiscovery ? 'ring-2 ring-emerald-500/60' : ''}`}
+        className={`relative ${showDetails ? 'h-64' : 'h-52'} rounded-2xl overflow-hidden bg-zinc-900 mb-2 cursor-pointer`}
         onClick={() => onDetail?.(item)}
       >
         {item.coverImage
@@ -890,13 +890,15 @@ const DiscoverySection = memo(function DiscoverySection({ items, onFeedback, onS
           const Icon = TYPE_ICONS[item.type]
           return (
             <div key={item.id} className="flex-shrink-0 w-36 group">
-              <div className="relative h-52 rounded-2xl overflow-hidden bg-zinc-900 mb-2 ring-2 ring-emerald-500/40 ring-offset-2 ring-offset-black cursor-pointer"
+              <div className="relative h-52 rounded-2xl overflow-hidden bg-zinc-900 mb-2 cursor-pointer"
                 onClick={() => onDetail?.(item)}>
                 {item.coverImage
                   ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" />
                   : <div className="w-full h-full flex items-center justify-center"><Icon size={32} className="text-zinc-700" /></div>
                 }
-                <div className="absolute top-2 left-2 bg-emerald-500/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                {/* Bordo verde — div interno per evitare clip da overflow-hidden */}
+                <div className="absolute inset-0 rounded-2xl border-2 border-emerald-400 pointer-events-none z-10" />
+                <div className="absolute top-2 left-2 bg-emerald-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 z-20">
                   <Compass size={8} /> Nuovo per te
                 </div>
                 {item.score && (
@@ -953,12 +955,11 @@ const RecommendationSection = memo(function RecommendationSection({ type, items,
 }) {
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)  // Fix 2.13
   const Icon = TYPE_ICONS[type]; const colorClass = TYPE_COLORS[type]
-  const visible = items.filter(i => !dismissedIds.has(i.id))
+  const visible = items.filter(i => !dismissedIds.has(i.id) && !i.isDiscovery)
   if (!visible.length) return null
 
   const shown = visible.slice(0, visibleCount)
   const hasMore = visible.length > visibleCount
-  const discoveryCount = visible.filter(i => i.isDiscovery).length
   const topScore = visible[0]?.matchScore || 0
 
   return (
@@ -969,9 +970,7 @@ const RecommendationSection = memo(function RecommendationSection({ type, items,
         </div>
         <div>
           <h2 className="text-base font-bold text-white">{label}</h2>
-          <p className="text-[10px] text-zinc-500">
-            {visible.length} titoli{discoveryCount > 0 ? ` · ${discoveryCount} nuovi generi` : ''}
-          </p>
+          <p className="text-[10px] text-zinc-500">{visible.length} titoli</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
           {isPrimary && (
@@ -1719,7 +1718,7 @@ export default function ForYouPage() {
             {SECTIONS.map(({ key, label }) => {
               const items = displayRecs[key] || []
               const allItems = items
-                .filter(i => !i.isContinuity && !dismissedIds.has(i.id))
+                .filter(i => !i.isContinuity && !i.isDiscovery && !dismissedIds.has(i.id))
                 .sort((a, b) => b.matchScore - a.matchScore)
               if (!allItems.length) return null
               return (
@@ -1741,7 +1740,7 @@ export default function ForYouPage() {
             })}
 
             {SECTIONS.every(({ key }) => {
-              const items = (displayRecs[key] || []).filter(i => !i.isContinuity && !dismissedIds.has(i.id))
+              const items = (displayRecs[key] || []).filter(i => !i.isContinuity && !i.isDiscovery && !dismissedIds.has(i.id))
               return !items.length
             }) && (
               <div className="text-center py-20">
