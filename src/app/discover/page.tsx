@@ -147,6 +147,7 @@ export default function DiscoverPage() {
   const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   // V3: ref per il debounce del search tracking (800ms, più lungo del debounce UI)
   const trackDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTrackedQueryRef = useRef<string>('');
@@ -158,6 +159,10 @@ export default function DiscoverPage() {
   const { isListening, isSupported: voiceSupported, toggle: toggleVoice } = useVoiceSearch(
     (transcript) => setSearchTerm(transcript)
   );
+
+  useEffect(() => {
+    if (window.innerWidth >= 768) searchInputRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -325,6 +330,7 @@ export default function DiscoverPage() {
             data-testid="search-input"
             type="text"
             value={searchTerm}
+            ref={searchInputRef}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder={isListening ? 'In ascolto...' : (d.searchPlaceholder || 'Cerca anime, film, giochi...')}
             className={`w-full rounded-xl pl-10 pr-20 py-2.5 text-[15px] outline-none transition-colors ${
@@ -332,7 +338,7 @@ export default function DiscoverPage() {
                 ? 'bg-red-500/10 border border-red-500/40 text-[var(--text-primary)] placeholder-red-400/60'
                 : 'bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-violet-500/60'
             }`}
-            autoFocus={typeof window !== 'undefined' && window.innerWidth >= 768}
+            autoFocus={false}
           />
           <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
             {searchTerm && !isListening && (
