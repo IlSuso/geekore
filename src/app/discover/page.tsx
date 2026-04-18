@@ -451,10 +451,22 @@ export default function DiscoverPage() {
                   <div className="aspect-[2/3] overflow-hidden bg-[var(--bg-card)] rounded-xl">
                     {hasValidCover(item)
                       ? <img src={item.coverImage} alt={item.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
-                      : <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)]">
-                          {type === 'game' ? <Gamepad2 size={28} /> : type === 'manga' ? <Layers size={28} /> : <Tv size={28} />}
-                        </div>
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy"
+                          onError={e => {
+                            const el = e.currentTarget
+                            if (el.src.includes('zoom=3')) {
+                              el.src = el.src.replace('zoom=3', 'zoom=1')
+                            } else {
+                              el.style.display = 'none'
+                              const fb = el.nextElementSibling as HTMLElement | null
+                              if (fb) fb.style.display = 'flex'
+                            }
+                          }} />
+                      : null}
+                    <div className="w-full h-full items-center justify-center text-[var(--text-muted)]"
+                      style={{ display: hasValidCover(item) ? 'none' : 'flex' }}>
+                      {type === 'game' ? <Gamepad2 size={28} /> : type === 'manga' ? <Layers size={28} /> : type === 'book' ? <BookOpen size={28} /> : <Tv size={28} />}
+                    </div>
                     }
                     {/* Hover overlay */}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />

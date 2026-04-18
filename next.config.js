@@ -13,6 +13,8 @@ const nextConfig = {
       { protocol: 'https', hostname: 'cf.geekdo-images.com' },
       // Supabase Storage (wildcard per project-id variabile)
       { protocol: 'https', hostname: '*.supabase.co' },
+      // Copertine Google Books
+      { protocol: 'https', hostname: 'books.google.com' },
       // Avatar generativi DiceBear (SVG e PNG)
       { protocol: 'https', hostname: 'api.dicebear.com', pathname: '/**' },
     ],
