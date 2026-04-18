@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rateLimit'
+import { translateWithCache } from '@/lib/deepl'
 
 const ANILIST_API = 'https://graphql.anilist.co'
 
@@ -18,16 +19,13 @@ query ($search: String, $type: MediaType) {
       description(asHtml: false)
       genres averageScore trending
       tags { name rank }
-      # V3: studios per creator tracking
       studios(isMain: true) { nodes { name } }
-      # V3: staff per director/author tracking
       staff(sort: RELEVANCE) {
         edges {
           role
           node { name { full } }
         }
       }
-      # V3: relations per continuity engine
       relations {
         edges {
           relationType
@@ -45,11 +43,8 @@ query ($search: String, $type: MediaType) {
 }
 `
 
-// Ruoli che identifichiamo come "director" per anime
 const DIRECTOR_ROLES = new Set(['Director', 'Series Director', 'Original Creator', 'Chief Animation Director'])
-// Ruoli che identifichiamo come "author" per manga
 const AUTHOR_ROLES = new Set(['Story', 'Story & Art', 'Original Creator', 'Art'])
-// Tipi di relazione rilevanti per continuity
 const CONTINUITY_RELATIONS = new Set(['SEQUEL', 'PREQUEL', 'SIDE_STORY', 'SPIN_OFF', 'ALTERNATIVE'])
 
 export async function GET(request: NextRequest) {
@@ -59,6 +54,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const q = searchParams.get('q') || searchParams.get('search') || ''
   const typeParam = searchParams.get('type')
+  const lang = searchParams.get('lang') || 'it'
 
   if (!q || q.trim().length < 2) return NextResponse.json([], { headers: rl.headers })
 
@@ -87,10 +83,8 @@ export async function GET(request: NextRequest) {
           const isAnime = m.type === 'ANIME'
           const type = isAnime ? 'anime' : 'manga'
 
-          // V3: estrai studios
           const studios: string[] = (m.studios?.nodes || []).map((s: any) => s.name).filter(Boolean)
 
-          // V3: estrai director/author dalla staff list
           const directors: string[] = []
           const authors: string[] = []
           for (const edge of (m.staff?.edges || [])) {
@@ -101,7 +95,6 @@ export async function GET(request: NextRequest) {
             if (!isAnime && AUTHOR_ROLES.has(role)) authors.push(name)
           }
 
-          // V3: estrai relazioni per continuity engine
           const relations: Array<{
             relationType: string
             id: string
@@ -143,16 +136,27 @@ export async function GET(request: NextRequest) {
             score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
             trending: m.trending || 0,
             source: 'anilist',
-            // V3: creator data
             studios,
             directors,
             authors,
-            // V3: relations per continuity
             relations: relations.slice(0, 5),
           }
         })
       )
     } catch { /* continua */ }
+  }
+
+  if (lang === 'it') {
+    const mangaItems = allResults.filter((r: any) => r.type === 'manga' && r.description)
+    if (mangaItems.length > 0) {
+      const descItems = mangaItems.map((r: any) => ({ id: r.id, text: r.description }))
+      const translated = await translateWithCache(descItems, 'IT', 'EN')
+      allResults.forEach((r: any) => {
+        if (r.type === 'manga' && r.description && translated[r.id]) {
+          r.description = translated[r.id]
+        }
+      })
+    }
   }
 
   return NextResponse.json(allResults, { headers: rl.headers })
