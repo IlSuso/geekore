@@ -50,6 +50,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   tv:     'bg-purple-600 text-white',
   anime:  'bg-orange-500 text-white',
   gaming: 'bg-emerald-600 text-white',
+  manga:  'bg-pink-600 text-white',
 }
 
 function formatDate(dateStr?: string, locale?: string) {
@@ -104,6 +105,7 @@ export default function NewsPage() {
     { id: 'cinema', label: t.news.cinema, icon: Film      },
     { id: 'tv',     label: t.news.tv,     icon: Tv        },
     { id: 'anime',  label: t.news.anime,  icon: BookOpen  },
+    { id: 'manga',  label: t.news.manga,  icon: Swords    },
     { id: 'gaming', label: t.news.gaming, icon: Gamepad2  },
   ]
 
@@ -111,6 +113,7 @@ export default function NewsPage() {
     cinema: t.news.cinema,
     tv:     t.news.tv,
     anime:  t.news.anime,
+    manga:  t.news.manga,
     gaming: t.news.gaming,
   }
 
@@ -118,6 +121,7 @@ export default function NewsPage() {
     cinema: Film,
     tv:     Tv,
     anime:  Swords,
+    manga:  BookOpen,
     gaming: Gamepad2,
   }
 

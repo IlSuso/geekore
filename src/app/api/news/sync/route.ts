@@ -299,6 +299,87 @@ async function fetchGaming() {
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 
+const ANILIST_URL = 'https://graphql.anilist.co'
+
+async function fetchManga(lang: string): Promise<any[]> {
+  const query = `
+    query {
+      upcoming: Page(page: 1, perPage: 10) {
+        media(type: MANGA, status: NOT_YET_RELEASED, sort: [START_DATE], isAdult: false) {
+          id siteUrl
+          title { romaji english }
+          coverImage { large }
+          startDate { year month day }
+          description(asHtml: false)
+          genres averageScore chapters volumes
+        }
+      }
+      trending: Page(page: 1, perPage: 15) {
+        media(type: MANGA, status: RELEASING, sort: [TRENDING_DESC], isAdult: false,
+              startDate_greater: { year: 2023, month: 1, day: 1 }) {
+          id siteUrl
+          title { romaji english }
+          coverImage { large }
+          startDate { year month day }
+          description(asHtml: false)
+          genres averageScore chapters volumes
+        }
+      }
+    }
+  `
+  try {
+    const res = await fetch(ANILIST_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!res.ok) return []
+    const json = await res.json()
+
+    const upcoming: any[] = json.data?.upcoming?.media || []
+    const trending: any[] = json.data?.trending?.media || []
+
+    const seen = new Set<number>()
+    const all = [...upcoming, ...trending].filter(m => {
+      if (seen.has(m.id) || !m.coverImage?.large) return false
+      seen.add(m.id)
+      return true
+    }).slice(0, 20)
+
+    const mapped = all.map((m: any) => {
+      const sd = m.startDate
+      const date = sd?.year
+        ? `${sd.year}-${String(sd.month || 1).padStart(2, '0')}-${String(sd.day || 1).padStart(2, '0')}`
+        : null
+      return {
+        id: `anilist-manga-${m.id}`,
+        type: 'manga',
+        source_api: 'anilist',
+        title: m.title?.english || m.title?.romaji || 'Senza titolo',
+        description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 500) : null,
+        coverImage: m.coverImage.large,
+        date,
+        year: sd?.year || undefined,
+        genres: m.genres || [],
+        score: m.averageScore ? Math.round(m.averageScore / 20) / 10 : undefined,
+        episodes: m.chapters || undefined,
+        category: 'manga',
+        source: 'AniList',
+        url: m.siteUrl || `https://anilist.co/manga/${m.id}`,
+      }
+    })
+
+    if (lang === 'it') {
+      const descriptions = mapped.map(m => m.description ?? '')
+      const translated = await translateTexts(descriptions)
+      mapped.forEach((m, i) => { if (m.description) m.description = translated[i] || m.description })
+    }
+
+    return mapped
+  } catch { return [] }
+}
+
 async function runSync(lang: 'it' | 'en') {
   const supabase = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -307,11 +388,12 @@ async function runSync(lang: 'it' | 'en') {
 
   const suffix = `_${lang}`
 
-  const [cinema, tv, anime, gaming] = await Promise.all([
+  const [cinema, tv, anime, gaming, manga] = await Promise.all([
     fetchCinema(lang),
     fetchTV(lang),
     fetchAnime(lang),
     fetchGaming(),
+    fetchManga(lang),
   ])
 
   const now = new Date().toISOString()
@@ -321,9 +403,10 @@ async function runSync(lang: 'it' | 'en') {
     supabase.from('news_cache').upsert({ category: `tv${suffix}`,     data: tv,     updated_at: now }, { onConflict: 'category' }),
     supabase.from('news_cache').upsert({ category: `anime${suffix}`,  data: anime,  updated_at: now }, { onConflict: 'category' }),
     supabase.from('news_cache').upsert({ category: `gaming${suffix}`, data: gaming, updated_at: now }, { onConflict: 'category' }),
+    supabase.from('news_cache').upsert({ category: `manga${suffix}`,  data: manga,  updated_at: now }, { onConflict: 'category' }),
   ])
 
-  return { cinema: cinema.length, tv: tv.length, anime: anime.length, gaming: gaming.length }
+  return { cinema: cinema.length, tv: tv.length, anime: anime.length, gaming: gaming.length, manga: manga.length }
 }
 
 export async function POST(request: NextRequest) {
