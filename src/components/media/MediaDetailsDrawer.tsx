@@ -460,17 +460,6 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               </div>
             )}
 
-            {/* Temi */}
-            {media.themes && media.themes.length > 0 && (
-              <div>
-                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Temi</h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {media.themes.slice(0, 8).map(t => (
-                    <span key={t} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{t}</span>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Disponibile su (streaming) */}
             {media.watchProviders && media.watchProviders.length > 0 && (
