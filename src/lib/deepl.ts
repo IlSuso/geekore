@@ -135,7 +135,7 @@ export async function translateTexts(
 
       if (res.status === 456) {
         const body = await res.text().catch(() => '')
-        console.error('[DeepL] QUOTA ESAURITA (456):', body, '— fallback a MyMemory per il resto')
+        console.warn('[DeepL] quota DeepL esaurita (456) — fallback a MyMemory per il resto')
         deeplQuotaExceeded = true
         const fallbackTexts = chunk.map(c => c.text)
         const fallbackResults = await myMemoryBatch(fallbackTexts, targetLang)
