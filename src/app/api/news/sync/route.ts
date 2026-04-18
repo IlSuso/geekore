@@ -481,13 +481,22 @@ async function fetchBoardgameNews(lang: string): Promise<any[]> {
     logger.info(`[BGG] hot list: ${hotItems.length} items`)
 
     const currentYear = new Date().getFullYear()
+    // ±60 giorni: BGG dà solo l'anno, quindi includiamo anno corrente e precedente.
+    // Escludi anni futuri (2027+) — sono annunci senza data precisa.
     const recent = hotItems.filter((item: any) => {
-      const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : 0
-      return year >= currentYear - 2
+      const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : null
+      if (year === null) return true // senza anno: includi comunque
+      return year >= currentYear - 1 && year <= currentYear
     })
-    const candidates = recent.length >= 10 ? recent : hotItems
-    const ids = candidates.slice(0, 20).map((i: any) => i.$.id)
-    logger.info(`[BGG] candidates=${ids.length} (recent=${recent.length})`)
+    // Se ci sono pochi risultati nel range, allarga al currentYear+1 (prossimo anno imminente)
+    const candidates = recent.length >= 8 ? recent
+      : hotItems.filter((item: any) => {
+          const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : null
+          if (year === null) return true
+          return year >= currentYear - 1 && year <= currentYear + 1
+        })
+    const ids = candidates.slice(0, 25).map((i: any) => i.$.id)
+    logger.info(`[BGG] candidates=${ids.length} (range=${currentYear - 1}–${currentYear}, hotItems=${hotItems.length})`)
     if (ids.length === 0) return []
 
     await new Promise(r => setTimeout(r, 300))
@@ -499,7 +508,7 @@ async function fetchBoardgameNews(lang: string): Promise<any[]> {
     // Se il detail endpoint fallisce (tutti 202 o timeout), costruiamo card base dalla hot list
     if (!detailXml) {
       logger.info(`[BGG] detail failed — falling back to basic hot-list cards`)
-      const basicCards = candidates.slice(0, 20).map((item: any) => {
+      const basicCards = candidates.slice(0, 25).map((item: any) => {
         const id = item.$.id
         const title = item.name?.[0]?.$?.value || 'Unknown'
         const rawThumb = item.thumbnail?.[0]?.$?.value || ''
