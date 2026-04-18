@@ -171,3 +171,52 @@ CREATE POLICY "Users can manage own recommendation feedback"
   ON recommendation_feedback FOR ALL
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+
+  -- ══════════════════════════════════════════════════════════
+-- PATCH APRILE 2026 — Tabelle senza RLS
+-- ══════════════════════════════════════════════════════════
+
+-- ── WISHLIST ──────────────────────────────────────────────
+ALTER TABLE wishlist ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Wishlist viewable by owner" ON wishlist;
+CREATE POLICY "Wishlist viewable by owner"
+  ON wishlist FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can manage own wishlist" ON wishlist;
+CREATE POLICY "Users can manage own wishlist"
+  ON wishlist FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- ── STEAM_IMPORT_LOG ──────────────────────────────────────
+ALTER TABLE steam_import_log ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can read own import log" ON steam_import_log;
+CREATE POLICY "Users can read own import log"
+  ON steam_import_log FOR SELECT USING (auth.uid() = user_id);
+
+-- ── LEADERBOARD ───────────────────────────────────────────
+ALTER TABLE leaderboard ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Leaderboard readable by all" ON leaderboard;
+CREATE POLICY "Leaderboard readable by all"
+  ON leaderboard FOR SELECT USING (true);
+
+-- ── USER_PREFERENCES ──────────────────────────────────────
+ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can manage own preferences" ON user_preferences;
+CREATE POLICY "Users can manage own preferences"
+  ON user_preferences FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- ── RECOMMENDATIONS_CACHE ─────────────────────────────────
+ALTER TABLE recommendations_cache ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can manage own recommendations cache" ON recommendations_cache;
+CREATE POLICY "Users can manage own recommendations cache"
+  ON recommendations_cache FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
