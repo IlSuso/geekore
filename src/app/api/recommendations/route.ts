@@ -240,8 +240,8 @@ function amplifyFromWishlist(
     }
 
     // Creator dalla wishlist
-    for (const studio of (item.studios || [])) {
-      creatorScores.studios[studio] = (creatorScores.studios[studio] || 0) + 8
+    if (item.studio) {
+      creatorScores.studios[item.studio] = (creatorScores.studios[item.studio] || 0) + 8
     }
   }
 
