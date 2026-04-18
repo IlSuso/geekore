@@ -1476,7 +1476,9 @@ export default function ForYouPage() {
             : item.id.startsWith('anilist-manga') ? 'anilist'
             : item.id.startsWith('tmdb-') ? 'tmdb'
             : item.id.startsWith('bgg-') ? 'bgg'
-            : item.id.startsWith('igdb-') || /^\d+$/.test(item.id) ? 'igdb'
+            : item.id.startsWith('igdb-') ? 'igdb'
+            : /^\d+$/.test(item.id) && item.type === 'game' ? 'igdb'
+            : /^\d+$/.test(item.id) && (item.type === 'movie' || item.type === 'tv' || item.type === 'anime') ? 'tmdb'
             : undefined,
     }
     setDetailItem(details as any)

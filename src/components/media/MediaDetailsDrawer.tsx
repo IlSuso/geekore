@@ -67,10 +67,14 @@ function buildExternalUrl(media: MediaDetails): string | undefined {
   if (id.startsWith('tmdb-anime-')) return `https://www.themoviedb.org/tv/${id.replace('tmdb-anime-', '')}`
   if (id.startsWith('anilist-anime-')) return `https://anilist.co/anime/${id.replace('anilist-anime-', '')}`
   if (id.startsWith('anilist-manga-') || id.startsWith('anilist-novel-')) return `https://anilist.co/manga/${id.replace(/anilist-(manga|novel)-/, '')}`
+  if (id.startsWith('bgg-')) return `https://boardgamegeek.com/boardgame/${id.replace('bgg-', '')}`
+  if (/^\d+$/.test(id)) {
+    if (media.type === 'movie') return `https://www.themoviedb.org/movie/${id}`
+    if (media.type === 'tv' || media.type === 'anime') return `https://www.themoviedb.org/tv/${id}`
+    return undefined // IGDB: no valid URL from numeric ID alone (slug needed)
+  }
   if (media.source === 'tmdb' && media.type === 'movie') return `https://www.themoviedb.org/movie/${id}`
   if (media.source === 'tmdb' && media.type === 'tv') return `https://www.themoviedb.org/tv/${id}`
-  if (media.source === 'igdb') return `https://www.igdb.com/games/${id}`
-  if (media.source === 'bgg') return `https://boardgamegeek.com/boardgame/${id}`
   return undefined
 }
 

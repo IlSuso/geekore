@@ -2044,6 +2044,14 @@ async function fetchMangaRecs(
     } catch { /* continua */ }
   }
 
+  const mangaDescItems = results
+    .filter(r => r.description)
+    .map(r => ({ id: r.id, text: r.description! }))
+  if (mangaDescItems.length > 0) {
+    const t = await translateWithCache(mangaDescItems)
+    results.forEach(r => { if (r.description) r.description = t[r.id] || r.description })
+  }
+
   return results.sort((a, b) => b.matchScore - a.matchScore)
 }
 
