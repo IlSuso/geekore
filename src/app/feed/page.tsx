@@ -37,8 +37,17 @@ import {
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 import { PullWrapper } from '@/components/ui/PullWrapper'
+import { createPortal } from 'react-dom'
 import { ReportButton } from '@/components/ui/ReportButton'
 import { validateImage } from '@/lib/imageValidator'
+import type { Post } from '@/types'
+
+const DISCOVERY_INTERVAL = 5
+
+type FeedCache = { posts: Post[] | null; page: number; hasMore: boolean; filter: string; ts: number }
+const cache: FeedCache = { posts: null, page: 0, hasMore: true, filter: 'all', ts: 0 }
+const isCacheValid = (filter: string) =>
+  !!(cache.posts && cache.filter === filter && Date.now() - cache.ts < 2 * 60 * 1000)
 
 // ── Macro-categorie ───────────────────────────────────────────────────────────
 
