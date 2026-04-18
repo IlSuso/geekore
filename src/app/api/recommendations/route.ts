@@ -1911,7 +1911,7 @@ async function fetchAnimeRecs(
           coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
           year, genres: recGenres, tags: mTags,
           score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
-          description: m.overview ? m.truncateAtSentence(overview, 300) : undefined,
+          description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
           why: socialFriend
             ? `Il tuo amico con gusti simili all'${socialFriend} ha adorato questo`
             : buildWhyV3(recGenres, recId, m.name || '', tasteProfile, matchScore, slot.isDiscovery, {
@@ -2219,7 +2219,7 @@ async function fetchMovieRecs(
           genres: recGenres,
           keywords: kws,
           score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
-          description: m.overview ? m.truncateAtSentence(overview, 300) : undefined,
+          description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
           why: socialFriend
             ? `Il tuo amico con gusti simili all'${socialFriend} ha adorato questo`
             : platformWhy
@@ -2371,7 +2371,7 @@ async function fetchTvRecs(
           genres: recGenres,
           keywords: kws,
           score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
-          description: m.overview ? m.truncateAtSentence(overview, 300) : undefined,
+          description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
           why: socialFriend
             ? `Il tuo amico con gusti simili all'${socialFriend} ha adorato questo`
             : platformWhy
