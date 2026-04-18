@@ -45,657 +45,69 @@ import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
 import { translateWithCache } from '@/lib/deepl'
 import { truncateAtSentence } from '@/lib/utils'
+import { memCacheGet, memCacheSet, memCacheInvalidate } from '@/lib/reco/cache'
+import type { RecoMediaType, CreatorScores, BingeProfile, TasteProfile, Recommendation, MemCacheEntry } from '@/lib/reco/types'
+import {
+  getCurrentAnimeSeasonDates, getQualityThresholds, releaseFreshnessMult,
+  isAwardWorthy, inferRuntimePreference, runtimePenalty, inferLanguagePreference,
+  applyFormatDiversity, temporalMultV2, temporalRecency, sentimentMult,
+  completionMult, isNegativeSignal, rewatchMult
+} from '@/lib/reco/scoring'
+import {
+  CROSS_TO_IGDB_GENRE, CROSS_TO_IGDB_THEME, IGDB_VALID_GENRES,
+  TMDB_GENRE_MAP, TMDB_TV_GENRE_MAP, IGDB_TO_CROSS_GENRE,
+  BGG_TO_CROSS_GENRE, GENRE_TO_BGG_TERMS, BGG_CAT_TO_GENRE_REC,
+  ADJACENCY_GRAPH
+} from '@/lib/reco/genre-maps'
 
-// ── In-memory cache (server-side, per worker process) ────────────────────────
-// Evita round-trip Supabase per utenti che navigano frequentemente sulla pagina.
-// TTL: 10 minuti. Al restart del processo il cache si svuota (OK per Vercel).
-interface MemCacheEntry {
-  data: Record<string, any[]>
-  tasteProfile: any
-  expiresAt: number
-}
-const MEM_CACHE = new Map<string, MemCacheEntry>()
-const MEM_CACHE_TTL_MS = 10 * 60 * 1000 // 10 min
+// Alias locale per compatibilità con il codice esistente
+type MediaType = RecoMediaType
+type RuntimeRange = ReturnType<typeof inferRuntimePreference>
 
-function memCacheGet(userId: string): MemCacheEntry | null {
-  const entry = MEM_CACHE.get(userId)
-  if (!entry) return null
-  if (entry.expiresAt < Date.now()) { MEM_CACHE.delete(userId); return null }
-  return entry
-}
-
-function memCacheSet(userId: string, data: Record<string, any[]>, tasteProfile: any) {
-  // Evita memory leak: max 500 entries in cache
-  if (MEM_CACHE.size >= 500) {
-    const first = MEM_CACHE.keys().next().value
-    if (first) MEM_CACHE.delete(first)
-  }
-  MEM_CACHE.set(userId, { data, tasteProfile, expiresAt: Date.now() + MEM_CACHE_TTL_MS })
-}
-
-function memCacheInvalidate(userId: string) {
-  MEM_CACHE.delete(userId)
-}
-
-// ── Tipi ────────────────────────────────────────────────────────────────────
-
-type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame'
-
-interface CreatorScores {
-  studios: Record<string, number>
-  directors: Record<string, number>
-  authors: Record<string, number>
-  developers: Record<string, number>
-}
-
-interface BingeProfile {
-  isBinger: boolean
-  avgCompletionDays: number
-  bingeGenres: string[]
-  slowGenres: string[]
-}
-
-interface TasteProfile {
-  globalGenres: Array<{ genre: string; score: number }>
-  topGenres: Record<MediaType, Array<{ genre: string; score: number }>>
-  genreToTitles: Record<string, Array<{ title: string; type: string; recency: number; rating: number; velocity?: number }>>
-  collectionSize: Record<string, number>
-  recentWindow: number
-  deepSignals: {
-    keywords: Record<string, number>
-    themes: Record<string, number>
-    tones: Record<string, number>
-    settings: Record<string, number>
-  }
-  negativeGenres: Record<string, number>
-  softDisliked: Set<string>
-  droppedTitles: Set<string>
-  discoveryGenres: string[]
-  // V3 additions
-  creatorScores: CreatorScores
-  bingeProfile: BingeProfile
-  wishlistGenres: string[]       // generi da wishlist (amplificatore)
-  wishlistCreators: CreatorScores // creator da wishlist
-  searchIntentGenres: string[]   // generi inferiti dalle ricerche recenti
-  topTitlesForContext: Array<{ title: string; type: string; rating: number; velocity?: number; rewatchCount: number }>
-  // V4
-  lowConfidence: boolean
-  nicheUser: boolean
-  // V5
-  runtimePreference: RuntimeRange
-  languagePreference: { preferNonEnglish: boolean; onlyAnime: boolean }
-  qualityThresholds: ReturnType<typeof getQualityThresholds>
-}
-
-interface Recommendation {
-  id: string
+// ── Tipi raw dati utente (sostituiscono any[] nei parametri) ─────────────────
+interface UserEntry {
+  id?: string
+  user_id?: string
   title: string
   type: MediaType
-  coverImage?: string
-  year?: number
-  genres: string[]
+  status?: string
+  rating?: number
+  genres?: string[]
   tags?: string[]
-  keywords?: string[]
-  recStudios?: string[]
+  cover_image?: string
+  year?: number
+  episodes?: number
+  current_episode?: number
+  rewatch_count?: number
+  updated_at?: string | null
+  created_at?: string
+  studio?: string
+  director?: string
+  author?: string
+  developer?: string
+  platform?: string[]
+  runtime?: number
+  original_language?: string
+  external_id?: string
+  source?: string
   score?: number
-  description?: string
-  why: string
-  matchScore: number
-  isDiscovery?: boolean
-  isContinuity?: boolean
-  continuityFrom?: string
-  creatorBoost?: string
-  isSerendipity?: boolean
-  isAwardWinner?: boolean
-  isSeasonal?: boolean
-  socialBoost?: string
-  // Extra metadata per il drawer
-  episodes?: number        // capitoli manga / episodi anime
-  authors?: string[]       // autori manga
-  developers?: string[]    // sviluppatori giochi
-  platforms?: string[]     // piattaforme giochi
-  min_players?: number     // boardgame
-  max_players?: number     // boardgame
-  playing_time?: number    // boardgame
-  complexity?: number      // boardgame weight
+  popularity?: number
+  vote_count?: number
+  is_steam?: boolean
+  notes?: string
 }
 
-// ── Mappe generi ─────────────────────────────────────────────────────────────
-
-
-
-// ── V4: stagione corrente anime (date range per TMDB discover) ────────────────
-function getCurrentAnimeSeasonDates(): { from: string; to: string; label: string } {
-  const now = new Date()
-  const month = now.getMonth() + 1
-  const year = now.getFullYear()
-  const [startMonth, endMonth, label] =
-    month <= 3  ? [1, 3,   'Inverno'] :
-    month <= 6  ? [4, 6,   'Primavera'] :
-    month <= 9  ? [7, 9,   'Estate'] :
-                  [10, 12, 'Autunno']
-  const endDay = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][endMonth]
-  return {
-    from: `${year}-${String(startMonth).padStart(2, '0')}-01`,
-    to:   `${year}-${String(endMonth).padStart(2, '0')}-${endDay}`,
-    label: `${label} ${year}`,
-  }
+interface UserSearch {
+  query: string
+  created_at?: string
+  type?: string
 }
 
-// ── V4: Quality Gate — score minimo dinamico ──────────────────────────────────
-function getQualityThresholds(nicheUser: boolean) {
-  return {
-    tmdbVoteAvg: nicheUser ? 5.5 : 6.0,
-    tmdbVoteCount: 80,
-    anilistScore: nicheUser ? 50 : 55,
-    anilistPopularity: nicheUser ? 300 : 500,
-    igdbRating: nicheUser ? 55 : 60,
-    igdbRatingCount: 30,
-  }
-}
+// Tipo Supabase client (evita any)
+type SupabaseClient = Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>
 
-// ── V4: Release Freshness multiplier ─────────────────────────────────────────
-function releaseFreshnessMult(year: number | undefined, communityScore?: number, communityPop?: number): number {
-  if (!year) return 1.0
-  const age = new Date().getFullYear() - year
-  const isClassic = (communityScore && communityScore > 85) || (communityPop && communityPop > 100000)
-  if (isClassic) return 1.0
-  if (age <= 2) return 1.3
-  if (age <= 5) return 1.1
-  if (age <= 10) return 1.0
-  return Math.max(0.7, 0.85 - (age - 10) * 0.01)
-}
 
-// ── V4: Award boost ───────────────────────────────────────────────────────────
-function isAwardWorthy(score: number | undefined, popularity: number | undefined, voteCount: number | undefined, scoreType: 'tmdb' | 'anilist' | 'igdb'): boolean {
-  if (scoreType === 'tmdb') return (score || 0) >= 8.0 && (voteCount || 0) >= 1000
-  if (scoreType === 'anilist') return (score || 0) >= 85 && (popularity || 0) >= 50000
-  if (scoreType === 'igdb') return (score || 0) >= 85 && (voteCount || 0) >= 500
-  return false
-}
-
-// ── V5: Runtime preference inference ─────────────────────────────────────────
-type RuntimeRange = 'short' | 'standard' | 'long' | null
-
-function inferRuntimePreference(entries: any[]): RuntimeRange {
-  const movies = entries.filter(e => e.type === 'movie' && e.runtime && e.status !== 'dropped')
-  if (movies.length >= 3) {
-    const avg = movies.reduce((s: number, e: any) => s + (e.runtime || 0), 0) / movies.length
-    if (avg < 90) return 'short'
-    if (avg <= 130) return 'standard'
-    return 'long'
-  }
-
-  // Fix 1.8: fallback su serie TV — usa episode_run_time
-  const tvSeries = entries.filter(e => e.type === 'tv' && e.episode_run_time && e.status !== 'dropped')
-  if (tvSeries.length >= 3) {
-    const avgEp = tvSeries.reduce((s: number, e: any) => s + (e.episode_run_time || 0), 0) / tvSeries.length
-    // Episodi corti (< 30min) → preferisce film corti; episodi lunghi (> 50min) → preferisce film standard/lunghi
-    if (avgEp < 30) return 'short'
-    if (avgEp <= 50) return 'standard'
-    return 'long'
-  }
-
-  // Fix 1.8: fallback su anime — episodi standard 24min (short) vs 48min+ (standard/long)
-  const anime = entries.filter(e => e.type === 'anime' && e.episode_run_time && e.status !== 'dropped')
-  if (anime.length >= 5) {
-    const avgAnimeEp = anime.reduce((s: number, e: any) => s + (e.episode_run_time || 0), 0) / anime.length
-    return avgAnimeEp < 30 ? 'short' : 'standard'
-  }
-
-  return null
-}
-
-function runtimePenalty(runtime: number | undefined, pref: RuntimeRange): number {
-  if (!runtime || !pref) return 1.0
-  if (pref === 'short' && runtime > 130) return 0.80
-  if (pref === 'long' && runtime < 90) return 0.80
-  if (pref === 'standard' && (runtime < 80 || runtime > 150)) return 0.85
-  return 1.0
-}
-
-// ── V5: Lingua/Origine preference ────────────────────────────────────────────
-function inferLanguagePreference(entries: any[]): { preferNonEnglish: boolean; onlyAnime: boolean } {
-  const withLang = entries.filter(e => e.original_language)
-  const nonEnglishCount = withLang.filter(e => e.original_language !== 'en').length
-  const animeCount = entries.filter(e => e.type === 'anime' || e.type === 'manga').length
-  const totalMedia = entries.filter(e => e.type === 'movie' || e.type === 'tv').length
-  return {
-    preferNonEnglish: withLang.length > 5 && nonEnglishCount / withLang.length > 0.8,
-    onlyAnime: animeCount > 5 && totalMedia < 2,
-  }
-}
-
-// ── V5: Format Diversity — applica max 2 consecutivi dello stesso sotto-genere
-function applyFormatDiversity(recs: any[], type?: string, maxPerSubGenre = 4): any[] {
-  // Per i giochi non applicare: hanno già pochissimi candidati e generi IGDB sovrapposti
-  if (type === 'game') return recs
-
-  const result: any[] = []
-  const subGenreCount: Record<string, number> = {}
-  for (const rec of recs) {
-    // Usa il primo genere come chiave (più stabile del secondo)
-    const subGenre = rec.genres?.[0] || 'unknown'
-    subGenreCount[subGenre] = (subGenreCount[subGenre] || 0) + 1
-    // Max 4 per sotto-genere in tutta la sezione (non consecutivo)
-    if (subGenreCount[subGenre] <= maxPerSubGenre) {
-      result.push(rec)
-    }
-  }
-  return result
-}
-
-// ── Mappa generi cross-media → generi IGDB reali ─────────────────────────────
-// IGDB accetta solo questi come genres.name. Generi come "Fantasy", "Drama",
-// "Horror" non esistono come generi IGDB — esistono come themes.
-// Questa mappa traduce il profilo utente (basato su anime/film) in generi IGDB validi.
-// Fix 1.11: CROSS_TO_IGDB_GENRE affinato — mappings più precisi, rimossi mapping vaghi
-// Psychological → Visual Novel era troppo vago; Drama → solo RPG narrativi; Horror via themes
-const CROSS_TO_IGDB_GENRE: Record<string, string[]> = {
-  'Action':           ['Action', "Hack and slash/Beat 'em up", 'Fighting', 'Shooter'],
-  'Adventure':        ['Adventure', 'Role-playing (RPG)', 'Point-and-click'],
-  'Fantasy':          ['Role-playing (RPG)', 'Adventure'],
-  'Science Fiction':  ['Shooter', 'Strategy', 'Role-playing (RPG)'],
-  'Horror':           ['Adventure'],        // Horror è theme IGDB (19), non genere — gestito via igdbThemeIds
-  'Mystery':          ['Adventure', 'Puzzle', 'Point-and-click'],
-  'Drama':            ['Role-playing (RPG)', 'Visual Novel'],  // Drama narrativo → RPG/VN
-  'Romance':          ['Visual Novel'],   // Romance → solo VN, non Adventure generica
-  'Comedy':           ['Platform', 'Arcade'],  // Comedy → platformer/arcade, non Adventure
-  'Thriller':         ['Action', 'Shooter'],   // Thriller → azione tesa, non solo Shooter
-  'Psychological':    ['Role-playing (RPG)', 'Puzzle'],  // Psych → RPG narrativi o puzzle
-  'Supernatural':     ['Role-playing (RPG)', 'Adventure'],
-  'Slice of Life':    ['Simulation'],  // Slice of Life → solo Sim (staccato da Visual Novel)
-  'Sports':           ['Sport', 'Racing'],
-  'Sci-Fi':           ['Shooter', 'Strategy', 'Role-playing (RPG)'],
-  'Mecha':            ['Action', 'Shooter'],
-  'Strategy':         ['Strategy', 'Real Time Strategy (RTS)', 'Turn-based strategy (TBS)', 'Tactical'],
-  'Simulation':       ['Simulation'],
-  'Crime':            ['Action', 'Adventure'],  // Crime → avventura noir o action
-  'Survival':         ['Adventure', 'Action'],
-  'Role-playing (RPG)': ['Role-playing (RPG)'],
-  'Shooter':          ['Shooter'],
-  'Platform':         ['Platform'],
-  'Puzzle':           ['Puzzle'],
-  'Indie':            ['Indie'],
-  'Sandbox':          ['Simulation', 'Adventure'],
-  'Fighting':         ['Fighting', "Hack and slash/Beat 'em up"],
-}
-
-// Fix 1.11: themes IGDB da usare in query per generi che sono themes, non generi
-// Horror=19, Thriller=20, Drama=31, SF=18, Fantasy=17
-const CROSS_TO_IGDB_THEME: Record<string, number[]> = {
-  'Horror':        [19],
-  'Thriller':      [20],
-  'Drama':         [31],
-  'Science Fiction': [18],
-  'Sci-Fi':        [18],
-  'Fantasy':       [17],
-  'Psychological': [31, 20],  // Drama + Thriller come proxy psicologico
-}
-
-// Generi IGDB validi (whitelist definitiva)
-const IGDB_VALID_GENRES = new Set([
-  'Action', 'Adventure', 'Role-playing (RPG)', 'Shooter', 'Strategy',
-  'Simulation', 'Puzzle', 'Racing', 'Sport', 'Fighting', 'Platform',
-  "Hack and slash/Beat 'em up", 'Real Time Strategy (RTS)', 'Turn-based strategy (TBS)',
-  'Tactical', 'Visual Novel', 'Card & Board Game', 'Massively Multiplayer Online (MMO)',
-  'Battle Royale', 'Indie', 'Arcade', 'Music', 'Point-and-click',
-])
-
-const TMDB_GENRE_MAP: Record<string, number> = {
-  'Action': 28, 'Adventure': 12, 'Animation': 16, 'Comedy': 35, 'Crime': 80,
-  'Documentary': 99, 'Drama': 18, 'Family': 10751, 'Fantasy': 14, 'History': 36,
-  'Horror': 27, 'Music': 10402, 'Mystery': 9648, 'Romance': 10749,
-  'Science Fiction': 878, 'Thriller': 53, 'War': 10752, 'Western': 37,
-  'Azione': 28, 'Avventura': 12, 'Animazione': 16, 'Commedia': 35, 'Crimine': 80,
-  'Documentario': 99, 'Dramma': 18, 'Fantasia': 14, 'Storia': 36, 'Orrore': 27,
-  'Musica': 10402, 'Mistero': 9648, 'Romantico': 10749, 'Fantascienza': 878,
-  'Guerra': 10752,
-}
-
-const TMDB_TV_GENRE_MAP: Record<string, number> = {
-  ...TMDB_GENRE_MAP,
-  'Action & Adventure': 10759, 'Kids': 10762, 'Reality': 10764,
-  'Sci-Fi & Fantasy': 10765, 'Talk': 10767,
-}
-
-const IGDB_TO_CROSS_GENRE: Record<string, string[]> = {
-  'Role-playing (RPG)': ['Fantasy', 'Adventure', 'Drama'],
-  'Action': ['Action', 'Adventure'],
-  'Adventure': ['Adventure', 'Fantasy'],
-  'Shooter': ['Action', 'Thriller', 'Science Fiction'],
-  "Hack and slash/Beat 'em up": ['Action'],
-  'Strategy': ['Strategy'],
-  'Simulation': ['Simulation'],
-  'Horror': ['Horror', 'Thriller', 'Mystery'],
-  'Puzzle': ['Mystery', 'Drama'],
-  'Platform': ['Adventure', 'Comedy'],
-  'Stealth': ['Thriller', 'Action', 'Crime'],
-  'Fighting': ['Action'],
-  'Visual Novel': ['Drama', 'Romance', 'Mystery'],
-  'Turn-based strategy (TBS)': ['Strategy'],
-  'Survival': ['Horror', 'Thriller', 'Adventure'],
-  'Battle Royale': ['Action', 'Thriller'],
-  'Massively Multiplayer Online (MMO)': ['Fantasy', 'Adventure'],
-  'Indie': ['Drama', 'Adventure'],
-}
-
-// Cross-genre da categorie BGG verso generi universali
-const BGG_TO_CROSS_GENRE: Record<string, string[]> = {
-  'Fantasy': ['Fantasy', 'Adventure', 'Drama'],
-  'Science Fiction': ['Science Fiction', 'Thriller', 'Action'],
-  'Horror': ['Horror', 'Thriller', 'Mystery'],
-  'Adventure': ['Adventure', 'Action', 'Fantasy'],
-  'Mystery': ['Mystery', 'Thriller', 'Crime'],
-  'Thriller': ['Thriller', 'Mystery', 'Crime'],
-  'War': ['Action', 'Drama', 'History'],
-  'Strategy': ['Strategy', 'Psychological'],
-  'Abstract': ['Strategy', 'Psychological'],
-  'Cooperative': ['Adventure', 'Strategy'],
-  'Medieval': ['Fantasy', 'Action', 'History'],
-  'History': ['Drama', 'Action', 'History'],
-  'Political': ['Drama', 'Thriller'],
-  'Comedy': ['Comedy', 'Family'],
-  'Family': ['Comedy', 'Adventure'],
-  'Card Game': ['Strategy'],
-  'Dice': ['Strategy'],
-  'Party': ['Comedy', 'Family'],
-  'Sports': ['Sports', 'Action'],
-  'Nature': ['Adventure', 'Drama'],
-}
-
-const GENRE_TO_BGG_TERMS: Record<string, string> = {
-  'Fantasy': 'fantasy', 'Science Fiction': 'science fiction', 'Sci-Fi': 'science fiction',
-  'Horror': 'horror', 'Adventure': 'adventure', 'Mystery': 'mystery',
-  'Thriller': 'thriller', 'War': 'wargame', 'History': 'historical',
-  'Crime': 'crime', 'Comedy': 'humor', 'Action': 'action',
-  'Drama': 'storytelling', 'Psychological': 'psychology',
-}
-
-const BGG_CAT_TO_GENRE_REC: Record<string, string> = {
-  'Fantasy': 'Fantasy', 'Science Fiction': 'Science Fiction', 'Horror': 'Horror',
-  'Adventure': 'Adventure', 'Mystery': 'Mystery', 'Thriller': 'Thriller',
-  'Wargame': 'War', 'Historical': 'History', 'Humor': 'Comedy',
-  'Deduction': 'Mystery', 'Murder/Mystery': 'Mystery', 'Medieval': 'Fantasy',
-  'Zombies': 'Horror', 'Ancient': 'History', 'Civilization': 'History',
-  'Exploration': 'Adventure', 'Space Exploration': 'Science Fiction',
-}
-
-function parseBggXmlRec(xml: string) {
-  const decode = (s: string) =>
-    s.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
-     .replace(/&#10;/g, '\n').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-     .replace(/&ldquo;/g, '"').replace(/&rdquo;/g, '"')
-     .replace(/&lsquo;/g, "'").replace(/&rsquo;/g, "'")
-     .replace(/&mdash;/g, '—').replace(/&ndash;/g, '–')
-     .replace(/&hellip;/g, '…').replace(/&nbsp;/g, ' ')
-     .replace(/&#\d+;/g, '').trim()
-  return [...xml.matchAll(/<item[^>]+id="(\d+)"[^>]*>([\s\S]*?)<\/item>/g)].flatMap(([, id, body]) => {
-    const name = body.match(/<name[^>]+type="primary"[^>]+value="([^"]+)"/)?.[1]
-    if (!name) return []
-    const rawImg = body.match(/<image>([\s\S]*?)<\/image>/)?.[1]?.trim()
-    const rawThumb = body.match(/<thumbnail>([\s\S]*?)<\/thumbnail>/)?.[1]?.trim()
-    const rawCover = rawImg || rawThumb
-    return [{
-      id, name: decode(name),
-      year: parseInt(body.match(/<yearpublished[^>]+value="(\d+)"/)?.[1] || '') || undefined,
-      thumbnail: rawCover ? (rawCover.startsWith('//') ? `https:${rawCover}` : rawCover) : undefined,
-      description: truncateAtSentence(decode((body.match(/<description>([\s\S]*?)<\/description>/)?.[1] || '').replace(/<[^>]*>/g, '')), 400),
-      categories:  [...body.matchAll(/<link type="boardgamecategory"[^>]+value="([^"]+)"/g)].map(m => m[1]),
-      mechanics:   [...body.matchAll(/<link type="boardgamemechanic"[^>]+value="([^"]+)"/g)].map(m => m[1]),
-      rating:      parseFloat(body.match(/<average[^>]+value="([0-9.]+)"/)?.[1] || '') || undefined,
-      usersRated:  parseInt(body.match(/<usersrated[^>]+value="(\d+)"/)?.[1] || '') || undefined,
-      min_players: parseInt(body.match(/<minplayers[^>]+value="(\d+)"/)?.[1] || '') || undefined,
-      max_players: parseInt(body.match(/<maxplayers[^>]+value="(\d+)"/)?.[1] || '') || undefined,
-      playing_time: parseInt(body.match(/<playingtime[^>]+value="(\d+)"/)?.[1] || '') || undefined,
-      complexity:  parseFloat(body.match(/<averageweight[^>]+value="([0-9.]+)"/)?.[1] || '') || undefined,
-    }]
-  })
-}
-
-const ADJACENCY_GRAPH: Record<string, string[]> = {
-  'Action': ['Thriller', 'Adventure', 'Crime'],
-  'Adventure': ['Fantasy', 'Action', 'Science Fiction'],
-  'Fantasy': ['Adventure', 'Supernatural', 'Drama', 'Action'],
-  'Science Fiction': ['Thriller', 'Mystery', 'Action', 'Drama'],
-  'Thriller': ['Mystery', 'Crime', 'Horror', 'Drama'],
-  'Horror': ['Mystery', 'Thriller', 'Supernatural'],
-  'Drama': ['Romance', 'Mystery', 'Psychological'],
-  'Mystery': ['Thriller', 'Crime', 'Psychological', 'Horror'],
-  'Romance': ['Drama', 'Comedy', 'Slice of Life'],
-  'Comedy': ['Romance', 'Slice of Life', 'Adventure'],
-  'Psychological': ['Drama', 'Mystery', 'Thriller', 'Horror'],
-  'Supernatural': ['Fantasy', 'Horror', 'Mystery'],
-  'Sci-Fi': ['Science Fiction', 'Action', 'Mystery'],
-  'Crime': ['Thriller', 'Mystery', 'Drama'],
-  'Role-playing (RPG)': ['Fantasy', 'Adventure', 'Action'],
-  'Strategy': ['Simulation', 'Puzzle'],
-  'Simulation': ['Strategy', 'Adventure'],
-  'Sports': ['Action', 'Comedy'],
-  'Slice of Life': ['Comedy', 'Romance', 'Drama'],
-}
-
-// V3: Relazioni tra sotto-generi (sub-genre precision)
-const GENRE_RELATIONSHIPS: Record<string, string[]> = {
-  'Action': ['Martial Arts', 'Military', 'Super Power', 'Mecha'],
-  'Horror': ['Gore', 'Psychological Horror', 'Supernatural Horror', 'Survival Horror'],
-  'Romance': ['Harem', 'Shoujo', 'Josei'],
-  'Comedy': ['Parody', 'Slapstick', 'Dark Comedy'],
-  'Drama': ['Melodrama', 'Slice of Life', 'Coming of Age'],
-}
-
-const KEYWORD_TO_DEEP: Record<string, { themes?: string[]; tones?: string[]; settings?: string[] }> = {
-  'time travel': { themes: ['time travel'], tones: ['mind-bending'] },
-  'revenge': { themes: ['revenge'] },
-  'redemption': { themes: ['redemption'] },
-  'dystopia': { themes: ['dystopia'], tones: ['dark'], settings: ['dystopian future'] },
-  'apocalypse': { themes: ['apocalypse'], tones: ['dark', 'tense'] },
-  'superhero': { themes: ['superhero'], tones: ['action-packed'] },
-  'artificial intelligence': { themes: ['AI', 'technology'], settings: ['sci-fi future'] },
-  'serial killer': { themes: ['crime', 'psychology'], tones: ['dark', 'tense'] },
-  'heist': { themes: ['heist', 'crime'], tones: ['tense'] },
-  'coming of age': { themes: ['coming of age'], tones: ['emotional'] },
-  'magic': { themes: ['magic'], settings: ['fantasy world'] },
-  'war': { themes: ['war'], tones: ['dark', 'intense'] },
-  'space': { themes: ['space exploration'], settings: ['outer space'] },
-  'medieval': { settings: ['medieval'] },
-  'post-apocalyptic': { themes: ['survival'], tones: ['dark'], settings: ['post-apocalyptic'] },
-  'political': { themes: ['politics'], tones: ['complex'] },
-  'philosophical': { tones: ['philosophical'] },
-  'friendship': { themes: ['friendship'] },
-  'romance': { themes: ['romance'] },
-  'psychological': { tones: ['psychological', 'dark'] },
-  'supernatural': { themes: ['supernatural'] },
-  'mystery': { themes: ['mystery'], tones: ['tense'] },
-  'samurai': { settings: ['feudal japan'] },
-  'cyberpunk': { themes: ['technology', 'dystopia'], settings: ['cyberpunk'] },
-  'zombie': { themes: ['survival', 'apocalypse'], tones: ['horror'] },
-  'alien': { themes: ['alien contact'], settings: ['outer space'] },
-  'detective': { themes: ['investigation'], tones: ['tense'] },
-  'mafia': { themes: ['crime', 'mafia'], tones: ['dark'] },
-  'survival': { themes: ['survival'], tones: ['tense'] },
-  'open world': { themes: ['exploration'] },
-  'monsters': { themes: ['monsters'], settings: ['fantasy world'] },
-  'isekai': { themes: ['isekai', 'transported to another world'], settings: ['fantasy world'] },
-  'dark fantasy': { themes: ['dark fantasy'], tones: ['dark', 'gritty'] },
-  'antihero': { themes: ['antihero', 'moral ambiguity'], tones: ['complex'] },
-  'seinen': { tones: ['mature', 'complex'] },
-  'shonen': { tones: ['action-packed', 'coming of age'] },
-  'cozy': { tones: ['relaxing', 'cozy'], themes: ['slice of life'] },
-}
-
-function inferGenresFromName(name: string): string[] {
-  const n = name.toLowerCase()
-  if (n.includes('horror') || n.includes('dead') || n.includes('evil') || n.includes('silent')) return ['Horror', 'Thriller']
-  if (n.includes('witcher') || n.includes('elder scrolls') || n.includes('dragon age') || n.includes('baldur')) return ['Role-playing (RPG)', 'Fantasy', 'Adventure']
-  if (n.includes('dark souls') || n.includes('elden ring') || n.includes('sekiro') || n.includes('bloodborne')) return ['Action', 'Role-playing (RPG)', 'Fantasy']
-  if (n.includes('grand theft') || n.includes('gta') || n.includes('mafia')) return ['Action', 'Crime', 'Adventure']
-  if (n.includes('civilization') || n.includes('total war') || n.includes('xcom')) return ['Strategy']
-  if (n.includes('minecraft') || n.includes('terraria') || n.includes('subnautica')) return ['Adventure', 'Survival', 'Simulation']
-  if (n.includes('mass effect') || n.includes('cyberpunk') || n.includes('deus ex')) return ['Role-playing (RPG)', 'Science Fiction', 'Action']
-  if (n.includes('final fantasy') || n.includes('persona') || n.includes('tales of')) return ['Role-playing (RPG)', 'Fantasy', 'Drama']
-  if (n.includes('call of duty') || n.includes('battlefield') || n.includes('halo') || n.includes('doom')) return ['Shooter', 'Action']
-  if (n.includes('assassin') || n.includes('hitman')) return ['Action', 'Stealth', 'Adventure']
-  if (n.includes('racing') || n.includes('forza') || n.includes('need for speed')) return ['Racing', 'Sports']
-  return []
-}
-
-// ── V3: Session Velocity — quanto velocemente consumi = quanto ami ────────────
-// Fix 1.4: cluster velocity per film — ≥3 film dello stesso genere in 7gg → boost ×1.8
-function computeClusterVelocity(entries: any[], targetGenres: string[], currentUpdatedAt: string | null): number {
-  if (!currentUpdatedAt) return 1.0
-  const windowMs = 7 * 86400000
-  const targetTime = new Date(currentUpdatedAt).getTime()
-  const windowStart = targetTime - windowMs
-
-  let sameGenreInWindow = 0
-  for (const e of entries) {
-    if (!e.updated_at || e.updated_at === currentUpdatedAt) continue
-    const t = new Date(e.updated_at).getTime()
-    if (t < windowStart || t > targetTime + windowMs) continue
-    const eg: string[] = e.genres || []
-    if (targetGenres.some(g => eg.includes(g))) sameGenreInWindow++
-  }
-  return sameGenreInWindow >= 3 ? 1.8 : sameGenreInWindow >= 2 ? 1.3 : 1.0
-}
-
-function computeVelocity(entry: any): number {
-  const type = entry.type || ''
-
-  // Film: singola visione, velocità non applicabile
-  if (type === 'movie') return 1.0
-
-  // Boardgame: usa numero di partite come proxy di engagement
-  if (type === 'boardgame') {
-    const plays = entry.current_episode || 0
-    if (plays >= 10) return 2.0
-    if (plays >= 5) return 1.5
-    if (plays >= 2) return 1.2
-    return 1.0
-  }
-
-  const startedAt = entry.started_at
-  const updatedAt = entry.updated_at
-  const episodes = entry.current_episode || 0
-  const status = entry.status || ''
-
-  if (!startedAt || episodes === 0) return 1.0
-
-  const days = Math.max(1, (new Date(updatedAt || Date.now()).getTime() - new Date(startedAt).getTime()) / 86400000)
-  const velocity = episodes / days
-
-  // Multiplier basato sulla velocity
-  if (velocity >= 3.0) return 3.5  // maratona totale
-  if (velocity >= 1.5) return 2.5  // binge netto
-  if (velocity >= 0.5) return 1.5  // ritmo sostenuto
-  if (velocity >= 0.1) return 1.0  // ritmo normale
-  return 0.4                        // si stava forzando
-}
-
-// ── V3: Rewatch multiplier ─────────────────────────────────────────────────
-function rewatchMult(entry: any): number {
-  const count = entry.rewatch_count || 0
-  if (count >= 2) return 5.0
-  if (count === 1) return 3.0
-  return 1.0
-}
-
-// ── V2: Temporal decay esponenziale ──────────────────────────────────────────
-function temporalMultV2(updatedAt: string | null | undefined): number {
-  if (!updatedAt) return 0.25
-  const days = (Date.now() - new Date(updatedAt).getTime()) / 86400000
-  const decay = Math.exp(-0.012 * days)
-  return Math.max(0.2, decay * 3.5)
-}
-
-function temporalRecency(updatedAt: string | null | undefined): number {
-  return temporalMultV2(updatedAt) / 3.5
-}
-
-// ── V2: Sentiment multiplier ──────────────────────────────────────────────────
-function sentimentMult(rating: number): number {
-  if (rating >= 4.5) return 2.8
-  if (rating >= 4.0) return 2.0
-  if (rating >= 3.5) return 1.5
-  if (rating >= 3.0) return 1.0
-  if (rating >= 2.5) return 0.3   // leggermente negativo ma non ignorato
-  if (rating >= 1.5) return 0.0   // non contribuisce al profilo positivo
-  if (rating >= 1.0) return 0.0
-  return 1.0  // nessun rating = neutro
-}
-
-// ── V2: Completion rate multiplier ────────────────────────────────────────────
-function completionMult(entry: any): number {
-  const status = entry.status || 'watching'
-  const current = entry.current_episode || 0
-  const total = entry.episodes || 0
-  const type = entry.type || ''
-
-  if (type === 'game' || entry.is_steam) {
-    if (status === 'dropped' && current < 2) return 0.05
-    if (current >= 100) return 1.6
-    if (current >= 20) return 1.3
-    if (current >= 5) return 1.0
-    if (current >= 1) return 0.8
-    return 0.5
-  }
-
-  if (type === 'boardgame') {
-    // Per i boardgame current_episode = numero di partite giocate
-    if (status === 'dropped') return 0.1
-    if (current >= 10) return 1.6
-    if (current >= 5) return 1.3
-    if (current >= 2) return 1.0
-    if (current >= 1) return 0.8
-    // Nessuna partita registrata ma in collezione: peso base
-    return 0.6
-  }
-
-  if (type === 'movie') {
-    if (status === 'dropped') return 0.15
-    if (status === 'completed') return 1.5
-    return 0.8
-  }
-
-  if (status === 'completed') return 1.5
-  if (status === 'dropped') {
-    if (total > 0 && current / total < 0.2) return 0.05
-    return 0.2
-  }
-  if (status === 'paused') return 0.6
-
-  if (total > 0 && current > 0) {
-    const rate = current / total
-    if (rate >= 0.8) return 1.3
-    if (rate >= 0.4) return 1.0
-    if (rate >= 0.1) return 0.7
-    return 0.5
-  }
-
-  return 0.8
-}
-
-function isNegativeSignal(entry: any): boolean {
-  const rating = entry.rating || 0
-  const status = entry.status || ''
-  const type = entry.type || ''
-  const current = entry.current_episode || 0
-  const total = entry.episodes || 0
-
-  // Film e boardgame non hanno episodi — la completion rate non è rilevante
-  if (type === 'movie' || type === 'boardgame') {
-    return (status === 'dropped') || (rating > 0 && rating <= 2.5)
-  }
-
-  const completionRate = total > 0 ? current / total : 1
-  return (
-    (status === 'dropped' && completionRate < 0.3) ||
-    (rating > 0 && rating <= 2.5)
-  )
-}
-
-// ── V3: Determina finestra attiva PER TIPO (adaptive windows) ─────────────
-function determineActiveWindowForType(entries: any[], type: MediaType): number {
+function determineActiveWindowForType(entries: UserEntry[], type: MediaType): number {
   const typeEntries = entries.filter(e => e.type === type)
   const now = Date.now()
   const countInDays = (days: number) => typeEntries.filter(e => {
@@ -716,7 +128,7 @@ function determineActiveWindowForType(entries: any[], type: MediaType): number {
 }
 
 // ── V3: Binge Pattern Detection ───────────────────────────────────────────────
-function detectBingeProfile(entries: any[]): BingeProfile {
+function detectBingeProfile(entries: UserEntry[]): BingeProfile {
   const completed = entries.filter(e => e.status === 'completed' && e.started_at && e.updated_at)
   if (completed.length === 0) return { isBinger: false, avgCompletionDays: 30, bingeGenres: [], slowGenres: [] }
 
@@ -753,7 +165,7 @@ function normalizeStudioKey(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
-function computeCreatorScores(entries: any[], preferences?: any): CreatorScores {
+function computeCreatorScores(entries: UserEntry[], preferences?: Record<string, string[]>): CreatorScores {
   const studios: Record<string, number> = {}
   const directors: Record<string, number> = {}
   const authors: Record<string, number> = {}
@@ -787,7 +199,7 @@ function computeCreatorScores(entries: any[], preferences?: any): CreatorScores 
 
 // ── V3: Wishlist come AMPLIFICATORE del profilo ────────────────────────────
 function amplifyFromWishlist(
-  wishlistItems: any[],
+  wishlistItems: UserEntry[],
   globalScores: Record<string, number>,
   perTypeScores: Record<string, Record<string, number>>,
   creatorScores: CreatorScores,
@@ -837,7 +249,7 @@ function amplifyFromWishlist(
 
 // ── V3: Search Intent → amplificazione gusti ──────────────────────────────
 function inferFromSearchHistory(
-  searches: any[],
+  searches: UserSearch[],
   globalScores: Record<string, number>
 ): string[] {
   const intentGenres: string[] = []
@@ -913,10 +325,10 @@ function themeToGenre(theme: string): string | null {
 
 // ── V3: Compute taste profile COMPLETO ───────────────────────────────────────
 function computeTasteProfile(
-  entries: any[],
-  preferences: any,
-  wishlistItems: any[],
-  searchHistory: any[]
+  entries: UserEntry[],
+  preferences: Record<string, string[]>,
+  wishlistItems: UserEntry[],
+  searchHistory: UserSearch[]
 ): TasteProfile {
   const globalScores: Record<string, number> = {}
   const negativeGenreScores: Record<string, number> = {}
@@ -1647,10 +1059,10 @@ function buildDiversitySlots(type: MediaType, tasteProfile: TasteProfile, totalS
 
 // ── V3: Continuity Engine — fetch sequel/prequel dalla DB ────────────────────
 async function fetchContinuityRecs(
-  entries: any[],
+  entries: UserEntry[],
   ownedIds: Set<string>,
   tasteProfile: TasteProfile,
-  supabase: any
+  supabase: SupabaseClient
 ): Promise<Recommendation[]> {
   const continuityRecs: Recommendation[] = []
   const seen = new Set<string>()
@@ -1709,7 +1121,7 @@ async function fetchContinuityRecs(
 }
 
 // Fetch sequels direttamente da AniList per le entry anilist
-async function fetchAniListContinuity(entries: any[], ownedIds: Set<string>): Promise<any[]> {
+async function fetchAniListContinuity(entries: UserEntry[], ownedIds: Set<string>): Promise<Recommendation[]> {
   const results: any[] = []
 
   for (const entry of entries.slice(0, 5)) {

@@ -210,3 +210,40 @@ export interface ContinuityEdge {
   to_cover?: string
   to_year?: number
 }
+
+// ─── Social ───────────────────────────────────────────────────────────────────
+
+export interface Comment {
+  id: string
+  post_id: string
+  user_id: string
+  content: string
+  created_at: string
+  username?: string
+  display_name?: string
+  avatar_url?: string | null
+}
+
+export interface Post {
+  id: string
+  user_id: string
+  content: string
+  image_url?: string | null
+  category?: string | null
+  created_at: string
+  profiles: Pick<UserProfile, 'username' | 'display_name' | 'avatar_url'>
+  likes_count: number
+  comments_count: number
+  liked_by_user: boolean
+  comments: Comment[]
+}
+
+export interface NotificationItem {
+  id: string
+  type: 'like' | 'comment' | 'follow' | 'rating'
+  created_at: string
+  is_read: boolean
+  post_id?: string | null
+  sender_id: string
+  sender: Pick<UserProfile, 'username' | 'display_name' | 'avatar_url'>
+}

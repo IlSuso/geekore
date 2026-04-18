@@ -54,10 +54,7 @@ CREATE TABLE IF NOT EXISTS user_media_entries (
 
     updated_at TIMESTAMPTZ DEFAULT now(),
 
-    -- Vincolo unico per media normali (non Steam)
-    UNIQUE NULLS NOT DISTINCT (user_id, title)
-    -- Per Steam usare UNIQUE(user_id, appid) — aggiungere se necessario:
-    -- UNIQUE NULLS NOT DISTINCT (user_id, appid)
+    -- UNIQUE gestito da partial index sotto (ux_user_media_non_steam / ux_user_media_steam)
 );
 
 -- Indice unico parziale: per i media NON Steam, vincolo su (user_id, title)
@@ -334,6 +331,107 @@ CREATE INDEX IF NOT EXISTS idx_search_history_user ON search_history(user_id, cr
 CREATE INDEX IF NOT EXISTS idx_recommendations_pool_user ON recommendations_pool(user_id, media_type);
 CREATE INDEX IF NOT EXISTS idx_recommendations_shown_user ON recommendations_shown(user_id, shown_at DESC);
 CREATE INDEX IF NOT EXISTS idx_recommendation_feedback_user ON recommendation_feedback(user_id, created_at DESC);
+
+-- =============================================
+-- INDEXES COMPOUND aggiuntivi (Issue #11 Repair Bible)
+-- =============================================
+-- Notifiche unread (Navbar polling)
+CREATE INDEX IF NOT EXISTS idx_notifications_unread
+  ON notifications (receiver_id, created_at DESC)
+  WHERE is_read = false;
+
+-- Feed: post recenti per utente (seguito)
+CREATE INDEX IF NOT EXISTS idx_posts_user_recent
+  ON posts (user_id, created_at DESC);
+
+-- Wishlist: per utente in ordine di aggiunta
+CREATE INDEX IF NOT EXISTS idx_wishlist_user_added
+  ON wishlist (user_id, added_at DESC);
+
+-- Like: count per post
+CREATE INDEX IF NOT EXISTS idx_likes_post
+  ON likes (post_id);
+
+-- Commenti: list per post in ordine
+CREATE INDEX IF NOT EXISTS idx_comments_post_created
+  ON comments (post_id, created_at DESC);
+
+-- Recommendations cache: lookup veloce per utente+tipo
+CREATE INDEX IF NOT EXISTS idx_recs_cache_user_type
+  ON recommendations_cache (user_id, media_type);
+
+-- =============================================
+-- CONSTRAINT contenuto post (Issue #21 Repair Bible)
+-- =============================================
+ALTER TABLE posts
+  DROP CONSTRAINT IF EXISTS posts_content_length;
+ALTER TABLE posts
+  ADD CONSTRAINT posts_content_length
+  CHECK (length(content) BETWEEN 1 AND 2200);
+
+ALTER TABLE comments
+  DROP CONSTRAINT IF EXISTS comments_content_length;
+ALTER TABLE comments
+  ADD CONSTRAINT comments_content_length
+  CHECK (length(content) BETWEEN 1 AND 2200);
+
+-- =============================================
+-- RPC: get_leaderboard (Issue #12 Repair Bible)
+-- =============================================
+CREATE OR REPLACE FUNCTION get_leaderboard(limit_count INT DEFAULT 50)
+RETURNS TABLE (
+  user_id UUID,
+  username TEXT,
+  display_name TEXT,
+  avatar_url TEXT,
+  score INT,
+  anime_count INT,
+  game_hours INT,
+  manga_count INT,
+  movie_count INT
+) LANGUAGE sql STABLE AS $$
+  SELECT
+    p.id,
+    p.username,
+    p.display_name,
+    p.avatar_url,
+    COALESCE(
+      (COUNT(*) FILTER (WHERE e.type = 'anime') * 10)::INT +
+      (COUNT(*) FILTER (WHERE e.type = 'movie') * 5)::INT +
+      COALESCE(SUM(CASE WHEN e.type = 'game' THEN e.current_episode ELSE 0 END), 0)::INT +
+      (COUNT(*) FILTER (WHERE e.type = 'manga') * 3)::INT
+    , 0) AS score,
+    COUNT(*) FILTER (WHERE e.type = 'anime')::INT AS anime_count,
+    COALESCE(SUM(CASE WHEN e.type = 'game' THEN e.current_episode ELSE 0 END), 0)::INT AS game_hours,
+    COUNT(*) FILTER (WHERE e.type = 'manga')::INT AS manga_count,
+    COUNT(*) FILTER (WHERE e.type = 'movie')::INT AS movie_count
+  FROM profiles p
+  LEFT JOIN user_media_entries e ON e.user_id = p.id
+  GROUP BY p.id, p.username, p.display_name, p.avatar_url
+  ORDER BY score DESC
+  LIMIT limit_count;
+$$;
+
+GRANT EXECUTE ON FUNCTION get_leaderboard TO anon, authenticated;
+
+-- =============================================
+-- RPC: feed_following (Issue #13 Repair Bible)
+-- Sostituisce il .in('user_id', [...500ids]) client-side
+-- =============================================
+CREATE OR REPLACE FUNCTION feed_following(
+  viewer UUID,
+  page_size INT DEFAULT 20,
+  page_offset INT DEFAULT 0
+)
+RETURNS SETOF posts LANGUAGE sql STABLE AS $$
+  SELECT p.* FROM posts p
+  JOIN follows f ON f.following_id = p.user_id
+  WHERE f.follower_id = viewer
+  ORDER BY p.created_at DESC
+  LIMIT page_size OFFSET page_offset;
+$$;
+
+GRANT EXECUTE ON FUNCTION feed_following TO authenticated;
 
 -- =============================================
 -- TRIGGER per updated_at

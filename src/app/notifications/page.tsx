@@ -92,13 +92,48 @@ export default function NotificationsPage() {
 
     const unread = list.filter((n: any) => !n.is_read).length
     setAppBadge(unread)
+  }, [])
 
-    if (list.some((n: any) => !n.is_read)) {
-      await supabase.from('notifications').update({ is_read: true })
-        .eq('receiver_id', user.id).eq('is_read', false)
+  // Fix #19 Repair Bible: mark-as-read solo per notifiche effettivamente viste
+  useEffect(() => {
+    if (notifications.length === 0) return
+    const unreadIds = notifications.filter((n: any) => !n.is_read).map((n: any) => n.id)
+    if (unreadIds.length === 0) return
+
+    const seenIds = new Set<string>()
+    let flushTimer: ReturnType<typeof setTimeout> | null = null
+
+    const flush = async () => {
+      if (seenIds.size === 0) return
+      const toMark = [...seenIds]
+      seenIds.clear()
+      const supabase = (await import('@/lib/supabase/client')).createClient()
+      await supabase.from('notifications').update({ is_read: true }).in('id', toMark)
+      setNotifications(prev => prev.map(n => toMark.includes(n.id) ? { ...n, is_read: true } : n))
       setAppBadge(0)
     }
-  }, [])
+
+    const observer = new IntersectionObserver((entries) => {
+      entries
+        .filter(e => e.isIntersecting && e.intersectionRatio >= 0.6)
+        .forEach(e => {
+          const id = e.target.getAttribute('data-notif-id')
+          if (id && unreadIds.includes(id)) seenIds.add(id)
+        })
+      if (seenIds.size > 0) {
+        if (flushTimer) clearTimeout(flushTimer)
+        flushTimer = setTimeout(flush, 600)
+      }
+    }, { threshold: [0.6] })
+
+    const els = document.querySelectorAll('[data-notif-id]')
+    els.forEach(el => observer.observe(el))
+
+    return () => {
+      observer.disconnect()
+      if (flushTimer) clearTimeout(flushTimer)
+    }
+  }, [notifications])
 
   useEffect(() => { fetchNotifications() }, [fetchNotifications])
 
@@ -272,6 +307,7 @@ export default function NotificationsPage() {
                   return (
                     <div
                       key={n.id}
+                      data-notif-id={n.id}
                       className={`flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-[var(--bg-hover)] ${!n.is_read ? 'bg-blue-500/5' : ''}`}
                     >
                       {/* Avatar with action badge — aggregato mostra stack di avatar */}

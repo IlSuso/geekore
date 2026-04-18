@@ -123,7 +123,7 @@ function SortableBox({ media, children }: { media: UserMedia; children: React.Re
       style={{ transform: CSS.Transform.toString(transform), transition: transition || 'transform 50ms ease' }}
       {...attributes}
       {...listeners}
-      className={`cursor-grab active:cursor-grabbing rounded-3xl overflow-hidden h-[400px] sm:h-[460px] md:h-[520px] flex flex-col transition-all duration-200 ${
+      className={`cursor-grab active:cursor-grabbing rounded-3xl overflow-hidden min-h-[400px] sm:min-h-[460px] md:min-h-[520px] h-full flex flex-col transition-all duration-200 ${
         isDragging
           ? 'border-2 border-violet-500 shadow-2xl scale-[1.02] z-50'
           : 'border border-zinc-800 hover:border-violet-500/50 hover:shadow-xl'
@@ -772,15 +772,19 @@ export default function ProfilePage() {
 
   const markAsCompleted = async (id: string, media: UserMedia) => {
     if (!isOwner) return
-    let update: any = {}
+    let update: any = { status: 'completed', completed_at: new Date().toISOString() }
     if (media.season_episodes) {
       const maxS = Math.max(...Object.keys(media.season_episodes).map(Number))
-      update = { current_season: maxS, current_episode: media.season_episodes[maxS]?.episode_count || 1, status: 'completed' }
-    } else if (media.episodes) {
-      update = { current_episode: media.episodes, status: 'completed' }
-    } else {
-      update = { current_episode: 1, status: 'completed' }
+      update = {
+        ...update,
+        current_season: maxS,
+        current_episode: media.season_episodes[maxS]?.episode_count || 1,
+      }
+    } else if (media.episodes && media.episodes > 1) {
+      // Solo per media con episodi multipli (anime, serie)
+      update = { ...update, current_episode: media.episodes }
     }
+    // Film, boardgame, game: solo status+completed_at, niente current_episode sentinella
     await supabase.from('user_media_entries').update(update).eq('id', id)
     setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
     showToast(t.toasts.completed)
@@ -1149,7 +1153,9 @@ export default function ProfilePage() {
                   </div>
                 ) : (
                   // Grid view (default) — mostra 5 card per categoria + "Vedi tutti"
-                  orderedCategories.map((category) => {
+                  // Fix #16 Repair Bible: DndContext singolo, SortableContext per categoria
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+                  {orderedCategories.map((category) => {
                     const items = grouped[category]
                     const preview = items.slice(0, 6)
                     const hasMore = items.length > 6
@@ -1170,7 +1176,6 @@ export default function ProfilePage() {
                           </div>
                         </div>
                         {isOwner ? (
-                          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
                             <SortableContext items={preview.map(m => m.id)} strategy={rectSortingStrategy}>
                               <div className="flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide snap-x snap-mandatory">
                                 {preview.map((media) => (
@@ -1186,7 +1191,7 @@ export default function ProfilePage() {
                                 {hasMore && (
                                   <Link
                                     href={`/profile/${profile.username}/${categoryToType[category] || category}`}
-                                    className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-violet-500/50 rounded-3xl h-[400px] sm:h-[460px] md:h-[520px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-violet-400 transition-all group snap-start"
+                                    className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-violet-500/50 rounded-3xl min-h-[400px] sm:min-h-[460px] md:min-h-[520px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-violet-400 transition-all group snap-start"
                                   >
                                     <ChevronRight size={16} />
                                     <span className="text-xs font-semibold">+{items.length - 6}</span>
@@ -1194,18 +1199,17 @@ export default function ProfilePage() {
                                 )}
                               </div>
                             </SortableContext>
-                          </DndContext>
                         ) : (
                           <div className="flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide snap-x snap-mandatory">
                             {preview.map((media) => (
-                              <div key={media.id} className="w-40 sm:w-48 md:w-52 flex-shrink-0 border border-zinc-800 rounded-3xl overflow-hidden h-[400px] sm:h-[460px] md:h-[520px] flex flex-col snap-start">
+                              <div key={media.id} className="w-40 sm:w-48 md:w-52 flex-shrink-0 border border-zinc-800 rounded-3xl overflow-hidden min-h-[400px] sm:min-h-[460px] md:min-h-[520px] flex flex-col snap-start">
                                 <MediaCard media={media} isOwner={false} onStatusChange={changeStatus} />
                               </div>
                             ))}
                             {hasMore && (
                               <Link
                                 href={`/profile/${profile.username}/${categoryToType[category] || category}`}
-                                className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-violet-500/50 rounded-3xl h-[400px] sm:h-[460px] md:h-[520px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-violet-400 transition-all group snap-start"
+                                className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-violet-500/50 rounded-3xl min-h-[400px] sm:min-h-[460px] md:min-h-[520px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-violet-400 transition-all group snap-start"
                               >
                                 <ChevronRight size={16} />
                                 <span className="text-xs font-semibold">+{items.length - 6}</span>
@@ -1215,7 +1219,8 @@ export default function ProfilePage() {
                         )}
                       </div>
                     )
-                  })
+                  })}
+                  </DndContext>
                 )}
               </>
             )}

@@ -1,10 +1,12 @@
 "use client"
 // follow-button.tsx — Geekore style: gradient viola→fuchsia per segui, outline per seguendo
+// Fix #18 Repair Bible: rollback ottimistico in caso di errore API
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { UserPlus, UserCheck } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
+import { showToast } from '@/components/ui/Toast'
 
 export function FollowButton({
   targetId, currentUserId, isFollowingInitial, onFollowChange,
@@ -24,15 +26,31 @@ export function FollowButton({
   const toggleFollow = async () => {
     if (loading) return
     setLoading(true)
-    // UI ottimistica immediata
-    setIsFollowing(!isFollowing)
-    onFollowChange?.(!isFollowing)
+
+    const nextFollowing = !isFollowing
+
+    // Aggiornamento ottimistico immediato
+    setIsFollowing(nextFollowing)
+    onFollowChange?.(nextFollowing)
+
     try {
-      await fetch('/api/social/follow', {
+      const res = await fetch('/api/social/follow', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target_id: targetId, action: isFollowing ? 'unfollow' : 'follow' }),
+        body: JSON.stringify({ target_id: targetId, action: nextFollowing ? 'follow' : 'unfollow' }),
       })
+
+      if (!res.ok) {
+        // Rollback in caso di errore
+        setIsFollowing(!nextFollowing)
+        onFollowChange?.(!nextFollowing)
+        showToast('Operazione fallita. Riprova.')
+      }
+    } catch {
+      // Rollback in caso di errore di rete
+      setIsFollowing(!nextFollowing)
+      onFollowChange?.(!nextFollowing)
+      showToast('Errore di connessione. Riprova.')
     } finally {
       setLoading(false)
     }
