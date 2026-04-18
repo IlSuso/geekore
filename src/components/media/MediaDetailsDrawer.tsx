@@ -49,6 +49,8 @@ export interface MediaDetails {
   studios?: string[]
   directors?: string[]
   authors?: string[]
+  pageCount?: number
+  publisher?: string
   relations?: Array<{
     relationType: string; id: string; type: string
     title: string; coverImage?: string; year?: number; genres: string[]
@@ -477,6 +479,12 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                   <p className="text-lg font-bold text-white">{media.playing_time}<span className="text-[10px] text-zinc-600 ml-0.5">m</span></p>
                 </div>
               )
+              if (media.pageCount) cells.push(
+                <div key="pages" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Pagine</p>
+                  <p className="text-lg font-bold text-white">{media.pageCount}</p>
+                </div>
+              )
               if (media.complexity) cells.push(
                 <div key="cmplx" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Difficoltà</p>
@@ -557,6 +565,14 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                 </div>
               </div>
             ) : null}
+
+            {/* Editore (books) */}
+            {media.type === 'book' && media.publisher && (
+              <div>
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Editore</h3>
+                <span className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{media.publisher}</span>
+              </div>
+            )}
 
             {/* Cast */}
             {media.cast && media.cast.length > 0 && (

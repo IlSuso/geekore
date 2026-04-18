@@ -1053,13 +1053,6 @@ export default function ProfilePage() {
                 </svg>
               </button>
 
-              <button onClick={() => setImportPlatform('book')} title="Libri (Google Books)"
-                className="w-8 h-8 rounded-full overflow-hidden border border-zinc-700 hover:border-amber-500/60 transition-all hover:scale-110 bg-amber-950 flex items-center justify-center flex-shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-                </svg>
-              </button>
-
               {/* Eliminazione account — nascosta, non in primo piano */}
               <button onClick={() => setShowDeleteModal(true)} className="ml-2 text-[10px] text-zinc-700 hover:text-red-400 transition-colors flex-shrink-0">
                 <Trash2 size={13} />
