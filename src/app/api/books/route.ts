@@ -167,7 +167,11 @@ export async function GET(request: NextRequest) {
       info.imageLinks?.medium || info.imageLinks?.thumbnail ||
       info.imageLinks?.smallThumbnail || null
     const cover = rawCover
-      ? rawCover.replace('http://', 'https://').replace('&edge=curl', '').replace('zoom=1', 'zoom=3')
+      ? (() => {
+          let u = rawCover.replace('http://', 'https://').replace('&edge=curl', '').replace(/zoom=\d+/, 'zoom=3')
+          if (!u.includes('fife=')) u += '&fife=w400'
+          return u
+        })()
       : null
 
     const description = info.description

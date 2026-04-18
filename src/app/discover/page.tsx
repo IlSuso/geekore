@@ -455,7 +455,8 @@ export default function DiscoverPage() {
                           onError={e => {
                             const el = e.currentTarget
                             if (el.src.includes('zoom=3')) {
-                              el.src = el.src.replace('zoom=3', 'zoom=1')
+                              // prova zoom=1 + fife più piccolo
+                              el.src = el.src.replace('zoom=3', 'zoom=1').replace('fife=w400', 'fife=w200')
                             } else {
                               el.style.display = 'none'
                               const fb = el.nextElementSibling as HTMLElement | null
