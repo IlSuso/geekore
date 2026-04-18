@@ -47,7 +47,7 @@ type UserMedia = {
   id: string
   title: string
   title_en?: string  // titolo inglese per switch lingua real-time
-  type: 'anime' | 'tv' | 'movie' | 'game' | 'manga' | 'boardgame'
+  type: 'anime' | 'tv' | 'movie' | 'game' | 'manga'
   cover_image?: string
   current_episode: number
   current_season?: number
@@ -142,7 +142,6 @@ const TYPE_COLORS: Record<string, string> = {
   game: 'bg-green-500',
   tv: 'bg-purple-500',
   movie: 'bg-red-500',
-  boardgame: 'bg-yellow-500',
 }
 
 function MediaCard({
