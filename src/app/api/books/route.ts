@@ -141,11 +141,10 @@ export async function GET(request: NextRequest) {
   if (toTranslate.length > 0) {
     try {
       const translated = await translateWithCache(
-        toTranslate.map(r => ({ id: r.id, title: r.title, description: r.description! }))
+        toTranslate.map(r => ({ id: r.id, text: r.description! }))
       )
-      const translatedMap = new Map(translated.map((t: any) => [t.id, t.description]))
       for (const r of results) {
-        if (translatedMap.has(r.id)) r.description = translatedMap.get(r.id)!
+        if (translated[r.id]) r.description = translated[r.id]
       }
     } catch { /* non bloccante */ }
   }
