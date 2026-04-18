@@ -797,7 +797,7 @@ export default function FeedPage() {
     const content = commentContent.trim()
     // UI ottimistica immediata
     const newCommentTemp: Comment = {
-      id: 'temp-' + Date.now(), content,
+      id: 'temp-' + Date.now(), content, post_id: postId,
       created_at: new Date().toISOString(), user_id: currentUser.id,
       username: currentProfile?.username || 'utente', display_name: currentProfile?.display_name,
     }
