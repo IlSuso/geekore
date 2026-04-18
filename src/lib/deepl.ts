@@ -150,11 +150,9 @@ export async function translateWithCache(
   }
 
   if (supabase && rows.length > 0) {
-    supabase
+    void supabase
       .from('translations_cache')
       .upsert(rows, { onConflict: 'id' })
-      .then(() => {})
-      .catch(() => {})
   }
 
   return result
