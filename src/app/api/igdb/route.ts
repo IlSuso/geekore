@@ -131,14 +131,6 @@ export async function POST(request: NextRequest) {
       source: 'igdb',
     }))
 
-    const cacheItems = formattedGames
-      .filter(g => g.description)
-      .map(g => ({ id: `igdb:${g.id}`, text: g.description! }))
-    const translations = await translateWithCache(cacheItems)
-    formattedGames.forEach(g => {
-      if (g.description) g.description = translations[`igdb:${g.id}`] || g.description
-    })
-
     return NextResponse.json(formattedGames, { headers: rl.headers })
   } catch (error: any) {
     if (error?.name === 'TimeoutError') {
