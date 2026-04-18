@@ -60,6 +60,22 @@ CREATE TABLE IF NOT EXISTS user_media_entries (
     -- UNIQUE NULLS NOT DISTINCT (user_id, appid)
 );
 
+-- Indice unico parziale: per i media NON Steam, vincolo su (user_id, title)
+DROP INDEX IF EXISTS ux_user_media_non_steam;
+CREATE UNIQUE INDEX ux_user_media_non_steam
+  ON user_media_entries (user_id, title)
+  WHERE is_steam IS NOT true;
+
+-- Indice unico parziale: per i giochi Steam, vincolo su (user_id, appid)
+DROP INDEX IF EXISTS ux_user_media_steam;
+CREATE UNIQUE INDEX ux_user_media_steam
+  ON user_media_entries (user_id, appid)
+  WHERE is_steam IS true;
+
+-- Rimuovi il vecchio UNIQUE globale che causava conflitti:
+ALTER TABLE user_media_entries
+  DROP CONSTRAINT IF EXISTS user_media_entries_user_id_title_key;
+
 -- =============================================
 -- USER PREFERENCES (per raccomandazioni personalizzate)
 -- =============================================
