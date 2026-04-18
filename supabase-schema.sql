@@ -324,14 +324,17 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
 CREATE TRIGGER update_profiles_updated_at
     BEFORE UPDATE ON profiles
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_user_media_entries_updated_at ON user_media_entries;
 CREATE TRIGGER update_user_media_entries_updated_at
     BEFORE UPDATE ON user_media_entries
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_leaderboard_updated_at ON leaderboard;
 CREATE TRIGGER update_leaderboard_updated_at
     BEFORE UPDATE ON leaderboard
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
