@@ -90,7 +90,7 @@ export default function OnboardingPage() {
             <h1 className="text-4xl font-black tracking-tighter text-white mb-4">{STEPS[0].title}</h1>
             <p className="text-zinc-400 text-lg mb-10">{STEPS[0].subtitle}</p>
             <p className="text-zinc-500 mb-10 max-w-sm mx-auto">
-              Traccia anime, manga, videogiochi, film, serie TV e board game. Condividi i progressi con la community.
+              Traccia anime, manga, videogiochi, film e serie TV. Condividi i progressi con la community.
             </p>
             <button onClick={() => setStep(1)}
               className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-semibold text-lg transition-all flex items-center justify-center gap-2">

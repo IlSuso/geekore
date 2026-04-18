@@ -64,7 +64,6 @@ const TYPE_LABELS: Record<string, string> = {
   game: 'Videogiochi',
   tv: 'Serie TV',
   movie: 'Film',
-  boardgame: 'Board Game',
 }
 
 const PAGE_SIZE = 48
@@ -75,7 +74,6 @@ const TYPE_COLORS: Record<string, string> = {
   game: 'bg-green-500',
   tv: 'bg-purple-500',
   movie: 'bg-red-500',
-  boardgame: 'bg-yellow-500',
 }
 
 // ─── Steam cover ──────────────────────────────────────────────────────────────
@@ -280,12 +278,7 @@ const MediaCard = memo(function MediaCard({
             </div>
           )
         })()}
-        {media.type === 'boardgame' && (
-          <p className="text-xs text-emerald-400 flex items-center gap-1 mt-auto">
-            <Clock size={11} /> {media.current_episode} partite
-          </p>
-        )}
-        {media.episodes && media.episodes > 1 && media.type !== 'game' && media.type !== 'boardgame' && (
+        {media.episodes && media.episodes > 1 && media.type !== 'game' && (
           <p className="text-xs text-emerald-400 mt-auto">
             {media.current_episode}/{media.episodes} ep.
           </p>
@@ -621,8 +614,8 @@ export default function ProfileTypePage() {
             <option value="title_asc">Titolo (A-Z)</option>
             <option value="title_desc">Titolo (Z-A)</option>
             <option value="date_desc">Aggiunto di recente</option>
-            {(type === 'game' || type === 'boardgame') && (
-              <option value="progress_desc">{type === 'game' ? 'Ore (↓)' : 'Partite (↓)'}</option>
+            {type === 'game' && (
+              <option value="progress_desc">Ore (↓)</option>
             )}
           </select>
 
