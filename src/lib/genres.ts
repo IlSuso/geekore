@@ -56,7 +56,6 @@ const GENRE_IT: Record<string, string> = {
   'Card & Board Game': 'Gioco di carte',
   'Point-and-click': 'Punta e clicca',
   'Beat em up': 'Picchiaduro',
-  'Music': 'Musica',
 
   // BGG
   'Medieval': 'Medievale',
