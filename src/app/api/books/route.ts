@@ -77,11 +77,9 @@ export async function GET(request: NextRequest) {
     }
   } catch { /* ignore */ }
 
-  // Escludi libri con lingua esplicitamente non-italiana (quelli senza campo language sono OK via langRestrict)
-  items = items.filter((item: any) => {
-    const lang = item.volumeInfo?.language
-    return !lang || lang === 'it'
-  })
+  // Escludi solo libri esplicitamente in inglese — langRestrict:it gestisce il resto
+  // (molti libri italiani non hanno il campo language impostato, non vanno esclusi)
+  items = items.filter((item: any) => item.volumeInfo?.language !== 'en')
 
   // Filtra per titolo: tutte le parole significative della query devono apparire nel titolo
   const queryWords = q.toLowerCase().split(/\s+/).filter(w => w.length > 3)
