@@ -81,12 +81,14 @@ export async function GET(request: NextRequest) {
   const apiKey = process.env.GOOGLE_BOOKS_API_KEY || ''
 
   // ── Chiamata API ─────────────────────────────────────────────────────────────
-  // NOTA: langRestrict:it è ignorato da Google per query popolari (vedi log).
-  // Usiamo "lang:it" nel campo q, che è il metodo supportato per filtrare la lingua.
+  // langRestrict:it e lang:it nel query vengono entrambi ignorati da Google per
+  // titoli popolari (log: 20 risultati inglesi in entrambi i casi).
+  // Usiamo langRestrict come preferenza e filtriamo i risultati solo per titolo.
   const params = new URLSearchParams({
-    q: `${q} lang:it`,
+    q,
     maxResults: '40',
     printType: 'books',
+    langRestrict: 'it',
     orderBy: 'relevance',
   })
   if (apiKey) params.set('key', apiKey)
@@ -104,18 +106,9 @@ export async function GET(request: NextRequest) {
     console.log(`[BOOKS] ricevuti=${items.length} langs=${JSON.stringify(langs)}`)
   }
 
-  // ── Filtro lingua ─────────────────────────────────────────────────────────────
-  // Con lang:it nella query, Google dovrebbe restituire solo libri italiani.
-  // Filtriamo per language==='it'; se rimane zero usiamo il fallback !='en'.
-  let filtered = items.filter((i: any) => i.volumeInfo?.language === 'it')
-  console.log(`[BOOKS] dopo filtro language==='it': ${filtered.length}`)
-  if (filtered.length === 0 && items.length > 0) {
-    filtered = items.filter((i: any) => i.volumeInfo?.language !== 'en')
-    console.log(`[BOOKS] fallback language!=='en': ${filtered.length}`)
-  }
-  items = filtered
-
   // ── Filtro titolo ─────────────────────────────────────────────────────────────
+  // Il filtro lingua non funziona lato API (Google ignora langRestrict per titoli
+  // popolari). Filtriamo per titolo: rimuove junk come "Avanguardia", "Panorama" ecc.
   const queryWords = q.toLowerCase().split(/\s+/).filter(w => w.length > 3)
   if (queryWords.length > 0) {
     const before = items.length
