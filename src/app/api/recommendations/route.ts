@@ -181,14 +181,14 @@ function computeCreatorScores(entries: UserEntry[], preferences?: Record<string,
     const rewatch = rewatchMult(entry)
     const weight = temporal * sentiment * rewatch
 
-    for (const studio of (entry.studios || [])) {
-      studios[studio] = (studios[studio] || 0) + weight
+    if (entry.studio) {
+      studios[entry.studio] = (studios[entry.studio] || 0) + weight
     }
-    for (const director of (entry.directors || [])) {
-      directors[director] = (directors[director] || 0) + weight
+    if (entry.director) {
+      directors[entry.director] = (directors[entry.director] || 0) + weight
     }
-    for (const author of (entry.authors || [])) {
-      authors[author] = (authors[author] || 0) + weight
+    if (entry.author) {
+      authors[entry.author] = (authors[entry.author] || 0) + weight
     }
     if (entry.developer) {
       developers[entry.developer] = (developers[entry.developer] || 0) + weight
