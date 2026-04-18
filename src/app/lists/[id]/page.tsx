@@ -8,7 +8,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   Globe, Lock, Trash2, ArrowLeft, Plus, Loader2,
-  Film, BookOpen, Gamepad2, Tv, Dices, Share2,
+  Film, BookOpen, Gamepad2, Tv, Share2,
 } from 'lucide-react'
 import Link from 'next/link'
 import { showToast } from '@/components/ui/Toast'

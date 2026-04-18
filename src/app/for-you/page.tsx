@@ -10,7 +10,7 @@ import {
   Sparkles, RefreshCw, SlidersHorizontal, Gamepad2, Tv, Film, BookOpen,
   Zap, Plus, Bookmark, X, Check, ChevronDown, ChevronUp, Users, Compass,
   ThumbsDown, Eye, Flame, Brain, Star, ArrowRight, Clapperboard, Swords,
-  TrendingUp, Search, BookmarkCheck, Sun, Dices, Trophy, Calendar,
+  TrendingUp, Search, BookmarkCheck, Sun, Trophy, Calendar,
   MessageCircleQuestion, Tag, MonitorPlay, AlertCircle
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'

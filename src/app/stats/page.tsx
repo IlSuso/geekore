@@ -166,7 +166,6 @@ export default function StatsPage() {
     const hours = stats.totalMinutes / 60
     return [
       { label: 'Volte il Signore degli Anelli (trilogia estesa)', value: (hours / 11.4).toFixed(1), Icon: Gem },
-      { label: 'Partite complete a scacchi (avg 45 min)', value: Math.round(stats.totalMinutes / 45).toLocaleString('it'), Icon: Dices },
       { label: 'Pizze che potresti aver mangiato (30 min a pizza)', value: Math.round(stats.totalMinutes / 30).toLocaleString('it'), Icon: Clock },
       { label: 'Giri del mondo in aereo (20h di volo)', value: (hours / 20).toFixed(1), Icon: Plane },
       { label: 'Settimane di lavoro a tempo pieno', value: (hours / 40).toFixed(1), Icon: Briefcase },
