@@ -2586,7 +2586,7 @@ export async function GET(request: NextRequest) {
     const ownedIds = new Set<string>([
       ...allEntries.map(e => e.external_id).filter((x): x is string => Boolean(x)),
       ...allEntries.map(e => String(e.appid ?? '')).filter(Boolean),
-      ...(wishlistRaw as UserEntry[] || []).map(w => w.external_id).filter((x): x is string => Boolean(x)),
+      ...wishlistItems.map(w => w.external_id).filter((x): x is string => Boolean(x)),
     ])
 
     const tmdbToken = process.env.TMDB_API_KEY || ''
