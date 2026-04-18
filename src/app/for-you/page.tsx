@@ -554,6 +554,10 @@ const HeroMatchSection = memo(function HeroMatchSection({ items, onFeedback, onS
                     className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-red-300 hover:bg-red-900/60 transition-colors">
                     <ThumbsDown size={11} />
                   </button>
+                  <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'already_seen') }}
+                    className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-white hover:bg-zinc-600/60 transition-colors">
+                    <Eye size={11} />
+                  </button>
                   {onSimilar && (
                     <button onClick={(e) => { e.stopPropagation(); onSimilar(item) }}
                       className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-violet-200 hover:bg-violet-900/60 transition-colors">
@@ -562,7 +566,15 @@ const HeroMatchSection = memo(function HeroMatchSection({ items, onFeedback, onS
                   )}
                 </div>
               </div>
-              <p className="text-xs font-bold text-white leading-tight line-clamp-2">{item.title}</p>
+              <p className="text-xs font-bold text-white leading-tight line-clamp-2 mb-0.5">{item.title}</p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {item.year && <span className="text-[10px] text-zinc-500">{item.year}</span>}
+                {item.score && (
+                  <span className="flex items-center gap-0.5 text-[10px] text-yellow-400 font-semibold">
+                    <Star size={8} fill="currentColor" />{Math.min(item.score, 5).toFixed(1)}
+                  </span>
+                )}
+              </div>
             </div>
           )
         })}
@@ -901,15 +913,14 @@ const DiscoverySection = memo(function DiscoverySection({ items, onFeedback, onS
                 <div className="absolute top-2 left-2 bg-emerald-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 z-20">
                   <Compass size={8} /> Nuovo per te
                 </div>
-                {item.score && (
-                  <div className="absolute top-2 right-2 bg-black/70 text-yellow-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                    <Star size={9} fill="currentColor" /> {Math.min(item.score, 5).toFixed(1)}
-                  </div>
-                )}
                 <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
                   <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }}
                     className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-red-300 hover:bg-red-900/60 transition-colors">
                     <ThumbsDown size={11} />
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'already_seen') }}
+                    className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-white hover:bg-zinc-600/60 transition-colors">
+                    <Eye size={11} />
                   </button>
                   {onSimilar && (
                     <button onClick={(e) => { e.stopPropagation(); onSimilar(item) }} title="Simili"
@@ -919,8 +930,15 @@ const DiscoverySection = memo(function DiscoverySection({ items, onFeedback, onS
                   )}
                 </div>
               </div>
-              <p className="text-xs font-semibold text-white leading-tight line-clamp-2 mb-1">{item.title}</p>
-              {item.year && <p className="text-[10px] text-zinc-500">{item.year}</p>}
+              <p className="text-xs font-semibold text-white leading-tight line-clamp-2 mb-0.5">{item.title}</p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {item.year && <span className="text-[10px] text-zinc-500">{item.year}</span>}
+                {item.score && (
+                  <span className="flex items-center gap-0.5 text-[10px] text-yellow-400 font-semibold">
+                    <Star size={8} fill="currentColor" />{Math.min(item.score, 5).toFixed(1)}
+                  </span>
+                )}
+              </div>
             </div>
           )
         })}
@@ -1697,14 +1715,6 @@ export default function ForYouPage() {
             {friendsLoading ? <SkeletonFriendsWatching /> : <FriendsWatchingSection items={friendsActivity} />}
             <SimilarTasteFriends />
 
-            {allContinuityRecs.length > 0 && (
-              <ContinuitySection
-                items={allContinuityRecs}
-                onFeedback={handleFeedback}
-                onDetail={handleDetail}
-                dismissedIds={dismissedIds}
-              />
-            )}
 
             <DiscoverySection
               key={`discovery-${Object.keys(recommendations).join('-')}-${allRecs.length}`}
