@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { parseStringPromise } from 'xml2js'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { rateLimit } from '@/lib/rateLimit'
+import { translateTexts } from '@/lib/deepl'
 
 const CACHE_DURATION_MS = 86400000 // 24 ore
 
@@ -214,6 +215,10 @@ export async function GET(request: NextRequest) {
         }
         return score(a.title) - score(b.title)
       })
+
+      const descriptions = rawResults.map(r => r.description ?? '')
+      const translated = await translateTexts(descriptions)
+      rawResults.forEach((r, i) => { if (r.description) r.description = translated[i] || r.description })
 
       return NextResponse.json({ results: rawResults }, { headers: rl.headers })
     } catch (e) {

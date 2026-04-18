@@ -1,6 +1,7 @@
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { translateTexts } from '@/lib/deepl'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -256,7 +257,7 @@ async function fetchGaming() {
     })
     if (!res.ok) return []
     const games = await res.json()
-    return (Array.isArray(games) ? games : [])
+    const mapped = (Array.isArray(games) ? games : [])
       .filter((g: any) => g.cover?.url)
       .map((g: any) => {
         const releaseDate = g.first_release_date
@@ -289,6 +290,10 @@ async function fetchGaming() {
           url: `https://www.igdb.com/games/${g.slug || g.name?.toLowerCase().replace(/\s+/g, '-')}`,
         }
       })
+    const descriptions = mapped.map(g => g.description ?? '')
+    const translated = await translateTexts(descriptions)
+    mapped.forEach((g, i) => { if (g.description) g.description = translated[i] || g.description })
+    return mapped
   } catch { return [] }
 }
 

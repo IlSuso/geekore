@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rateLimit'
 import { logger } from '@/lib/logger'
+import { translateTexts } from '@/lib/deepl'
 
 let cachedToken: { token: string; expiresAt: number } | null = null
 
@@ -129,6 +130,10 @@ export async function POST(request: NextRequest) {
         .filter(Boolean) as string[] | undefined,
       source: 'igdb',
     }))
+
+    const descriptions = formattedGames.map(g => g.description ?? '')
+    const translated = await translateTexts(descriptions)
+    formattedGames.forEach((g, i) => { if (g.description) g.description = translated[i] || g.description })
 
     return NextResponse.json(formattedGames, { headers: rl.headers })
   } catch (error: any) {
