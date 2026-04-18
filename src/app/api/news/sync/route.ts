@@ -4,6 +4,9 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { parseStringPromise } from 'xml2js'
 import { translateTexts } from '@/lib/deepl'
 
+// Vercel: estende il timeout della funzione a 60s (richiede piano Pro)
+export const maxDuration = 60
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function tmdbHeaders() {
@@ -418,17 +421,20 @@ async function fetchManga(lang: string): Promise<any[]> {
 
 // ── BGG helpers ───────────────────────────────────────────────────────────────
 
-async function bggFetchSync(url: string, maxRetries = 5, delayMs = 2000): Promise<string | null> {
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    if (attempt > 0) await new Promise(r => setTimeout(r, delayMs))
+async function bggFetchSync(url: string, signal?: AbortSignal): Promise<string | null> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 800))
     try {
-      const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(15000) })
+      const res = await fetch(url, {
+        cache: 'no-store',
+        signal: signal ?? AbortSignal.timeout(5000),
+      })
       if (res.status === 202) continue
       if (!res.ok) return null
       const text = await res.text()
       if (!text.trim().startsWith('<')) return null
       return text
-    } catch { if (attempt === maxRetries - 1) return null }
+    } catch { if (attempt === 2) return null }
   }
   return null
 }
@@ -450,8 +456,11 @@ function mapBggCategories(categories: string[]): string[] {
 }
 
 async function fetchBoardgameNews(lang: string): Promise<any[]> {
+  // Budget totale 12s per le chiamate BGG — se supera, ritorna []
+  const ctrl = new AbortController()
+  const budget = setTimeout(() => ctrl.abort(), 12_000)
   try {
-    const hotXml = await bggFetchSync('https://boardgamegeek.com/xmlapi2/hot?type=boardgame')
+    const hotXml = await bggFetchSync('https://boardgamegeek.com/xmlapi2/hot?type=boardgame', ctrl.signal)
     if (!hotXml) return []
 
     const hotResult = await parseStringPromise(hotXml)
@@ -467,9 +476,10 @@ async function fetchBoardgameNews(lang: string): Promise<any[]> {
     const ids = candidates.slice(0, 20).map((i: any) => i.$.id)
     if (ids.length === 0) return []
 
-    await new Promise(r => setTimeout(r, 1000))
+    await new Promise(r => setTimeout(r, 300))
     const detailXml = await bggFetchSync(
-      `https://boardgamegeek.com/xmlapi2/thing?id=${ids.join(',')}&type=boardgame&stats=1`
+      `https://boardgamegeek.com/xmlapi2/thing?id=${ids.join(',')}&type=boardgame&stats=1`,
+      ctrl.signal,
     )
     if (!detailXml) return []
 
@@ -527,7 +537,7 @@ async function fetchBoardgameNews(lang: string): Promise<any[]> {
     }
 
     return mapped
-  } catch { return [] }
+  } catch { return [] } finally { clearTimeout(budget) }
 }
 
 async function runSync(lang: 'it' | 'en') {

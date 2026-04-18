@@ -57,10 +57,11 @@ export async function GET(request: Request) {
       return new Date(dateB).getTime() - new Date(dateA).getTime()
     })
 
-    return NextResponse.json(allNews)
+    return NextResponse.json(allNews, {
+      headers: { 'Cache-Control': 'no-store' },
+    })
 
   } catch (err) {
-    // C2: usa logger invece di console.error
     logger.error('news/route', err)
     return NextResponse.json([], { status: 500 })
   }
