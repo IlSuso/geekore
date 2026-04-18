@@ -6,6 +6,8 @@ import { translateTexts } from '@/lib/deepl'
 
 // Vercel: estende il timeout della funzione a 60s (richiede piano Pro)
 export const maxDuration = 60
+// Impedisce la cache edge di Vercel — questa route deve sempre eseguire la funzione
+export const dynamic = 'force-dynamic'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
