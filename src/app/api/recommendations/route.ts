@@ -2197,7 +2197,7 @@ async function fetchBookRecs(
           info.imageLinks?.medium || info.imageLinks?.thumbnail ||
           info.imageLinks?.smallThumbnail || null
         if (!rawCover) continue
-        const cover = rawCover.replace('http://', 'https://').replace('&edge=curl', '').replace('zoom=1', 'zoom=0')
+        const cover = rawCover.replace('http://', 'https://').replace('&edge=curl', '').replace('zoom=1', 'zoom=3')
         const year = info.publishedDate ? parseInt(info.publishedDate.substring(0, 4)) : undefined
         const rawScore = info.averageRating ? Math.round(info.averageRating * 20) : undefined
         const cats: string[] = info.categories || []

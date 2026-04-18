@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
       info.imageLinks?.medium || info.imageLinks?.thumbnail ||
       info.imageLinks?.smallThumbnail || null
     const cover = rawCover
-      ? rawCover.replace('http://', 'https://').replace('&edge=curl', '').replace('zoom=1', 'zoom=0')
+      ? rawCover.replace('http://', 'https://').replace('&edge=curl', '').replace('zoom=1', 'zoom=3')
       : null
 
     const description = info.description
