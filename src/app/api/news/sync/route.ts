@@ -363,7 +363,9 @@ async function fetchManga(lang: string): Promise<any[]> {
       return []
     }
 
-    const upcoming: any[] = json.data?.upcoming?.media || []
+    // Exclude upcoming entries with no known release date (AniList treats null as 0,
+    // which passes startDate_lesser but should not appear in the section)
+    const upcoming: any[] = (json.data?.upcoming?.media || []).filter((m: any) => m.startDate?.year)
     const trending: any[] = json.data?.trending?.media || []
     const popular: any[] = json.data?.popular?.media || []
 

@@ -291,10 +291,13 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
   const timeLabel = (media.type === 'anime' || media.type === 'tv') ? 'min/ep' : 'min'
 
-  const sourceLabel =
-    media.source === 'bgg' ? 'BoardGameGeek' :
-    media.source === 'igdb' ? 'IGDB' :
-    media.source === 'anilist' ? 'AniList' : 'TMDb'
+  const sourceLabel = (() => {
+    const id = media.id
+    if (id.startsWith('anilist-')) return 'AniList'
+    if (id.startsWith('igdb-')) return 'IGDB'
+    if (id.startsWith('bgg-')) return 'BoardGameGeek'
+    return 'TMDb'
+  })()
 
   return (
     <>
