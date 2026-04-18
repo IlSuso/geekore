@@ -10,7 +10,7 @@ import {
   Sparkles, RefreshCw, SlidersHorizontal, Gamepad2, Tv, Film, BookOpen,
   Zap, Plus, Bookmark, X, Check, ChevronDown, ChevronUp, Users, Compass,
   ThumbsDown, Eye, Flame, Brain, Star, ArrowRight, Clapperboard, Swords,
-  TrendingUp, Search, BookmarkCheck, Sun, Dice5, Trophy, Calendar,
+  TrendingUp, Search, BookmarkCheck, Sun, Dices, Trophy, Calendar,
   MessageCircleQuestion, Tag, MonitorPlay, AlertCircle
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -87,9 +87,9 @@ const GAME_GENRES = ['Action','Adventure','RPG','Strategy','Simulation','Sports'
 const BOARDGAME_GENRES = ['Strategy','Eurogame','Cooperative','Deck Building','Worker Placement','Area Control','Engine Building','Abstract','Party','Dungeon Crawler','Wargame','Economic','Puzzle','Roll and Write','Legacy']
 const MOVIE_GENRES = ['Action','Adventure','Animation','Comedy','Crime','Documentary','Drama','Fantasy','History','Horror','Mystery','Romance','Science Fiction','Thriller','War']
 const TV_GENRES = [...MOVIE_GENRES,'Reality','Talk']
-const TYPE_ICONS: Record<MediaType, React.ElementType> = { anime: Tv, manga: BookOpen, game: Gamepad2, movie: Film, tv: Tv, boardgame: Dice5 }
+const TYPE_ICONS: Record<MediaType, React.ElementType> = { anime: Tv, manga: BookOpen, game: Gamepad2, movie: Film, tv: Tv, boardgame: Dices }
 const TYPE_COLORS: Record<MediaType, string> = { anime: 'from-violet-500 to-purple-500', manga: 'from-pink-500 to-rose-500', game: 'from-green-500 to-emerald-500', movie: 'from-amber-500 to-orange-500', tv: 'from-cyan-500 to-blue-500', boardgame: 'from-yellow-500 to-amber-500' }
-const TYPE_LABEL: Record<MediaType, string> = { anime: 'Anime', manga: 'Manga', game: 'Gioco', movie: 'Film', tv: 'Serie TV', boardgame: 'Board Game' }
+const TYPE_LABEL: Record<MediaType, string> = { anime: 'Anime', manga: 'Manga', game: 'Videogioco', movie: 'Film', tv: 'Serie TV', boardgame: 'Board Game' }
 
 // V3: fire-and-forget taste delta update
 function triggerTasteDelta(options: {
@@ -106,14 +106,14 @@ function triggerTasteDelta(options: {
 
 function MatchBadge({ score }: { score: number }) {
   if (score < 45) return null
-  const { label, cls } = score >= 85
-    ? { label: 'Match perfetto', cls: 'bg-violet-500/20 text-violet-300 border-violet-500/40' }
+  const cls = score >= 85
+    ? 'bg-violet-500/20 text-violet-300 border-violet-500/40'
     : score >= 70
-    ? { label: 'Molto in linea', cls: 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/40' }
-    : { label: 'Vale la pena', cls: 'bg-zinc-700/60 text-zinc-300 border-zinc-600/40' }
+    ? 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/40'
+    : 'bg-zinc-700/60 text-zinc-300 border-zinc-600/40'
   return (
     <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[9px] font-bold ${cls}`}>
-      <Star size={8} fill="currentColor" />{label}
+      {score}% match
     </div>
   )
 }
@@ -126,21 +126,6 @@ function ContinuityBadge({ from }: { from: string }) {
   )
 }
 
-function CreatorBadge({ creator }: { creator: string }) {
-  return (
-    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-sky-500/40 bg-sky-500/10 text-[9px] font-bold text-sky-300 truncate max-w-full" title={creator}>
-      <Clapperboard size={8} />{creator}
-    </div>
-  )
-}
-
-function TrendingBadge() {
-  return (
-    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-orange-500/40 bg-orange-500/10 text-[9px] font-bold text-orange-300">
-      <TrendingUp size={8} />Trending
-    </div>
-  )
-}
 
 const MOODS = [
   { id: 'light' as Mood, label: 'Leggero', Icon: Sun, desc: 'Commedia, avventura, feel-good' },
@@ -453,36 +438,19 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
 
   return (
     <div className={`flex-shrink-0 group ${showDetails ? 'w-48' : 'w-36'}`}>
-      <div className={`relative ${showDetails ? 'h-64' : 'h-52'} rounded-2xl overflow-hidden bg-zinc-900 mb-2 cursor-pointer`}
-        onClick={() => onDetail?.(item)}>
+      <div
+        className={`relative ${showDetails ? 'h-64' : 'h-52'} rounded-2xl overflow-hidden bg-zinc-900 mb-2 cursor-pointer ${item.isDiscovery ? 'ring-2 ring-emerald-500/60' : ''}`}
+        onClick={() => onDetail?.(item)}
+      >
         {item.coverImage
           ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
           : <div className="w-full h-full flex items-center justify-center"><Icon size={32} className="text-zinc-700" /></div>
         }
+        {/* Solo badge tipo media in alto a sinistra */}
         <div className={`absolute top-2 left-2 bg-gradient-to-r ${colorClass} text-white text-[10px] font-bold px-2 py-0.5 rounded-full`}>
           {TYPE_LABEL[item.type] || item.type.toUpperCase()}
         </div>
-        {item.isDiscovery && (
-          <div className="absolute top-2 right-2 bg-emerald-500/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-            <Compass size={8} /> Scoperta
-          </div>
-        )}
-        {item.friendWatching && !item.isDiscovery && (
-          <div className="absolute top-2 right-2 bg-blue-500/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 max-w-[72px] truncate">
-            <Users size={8} />{item.friendWatching}
-          </div>
-        )}
-        {item.creatorBoost && !item.isDiscovery && (
-          <div className="absolute top-2 right-2 bg-sky-500/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 max-w-[70px] truncate">
-            <Clapperboard size={8} />{item.creatorBoost.split(' ')[0]}
-          </div>
-        )}
-        {item.score && !item.isDiscovery && !item.creatorBoost && (
-          <div className="absolute top-2 right-2 bg-black/70 text-yellow-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-            <Star size={9} fill="currentColor" /> {Math.min(item.score, 5).toFixed(1)}
-          </div>
-        )}
-        {/* Pulsanti sempre visibili — cerchietti in basso a destra */}
+        {/* Pulsanti azione in basso */}
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
           <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }} title="Non mi interessa"
             className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-red-300 hover:bg-red-900/60 transition-colors">
@@ -501,23 +469,24 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
         </div>
       </div>
       <p className="text-xs font-semibold text-white leading-tight line-clamp-2 mb-1">{item.title}</p>
-      {/* Metadati: anno, episodi, voto */}
+      {/* Metadati: anno · episodi · voto (sempre visibile, voto a destra dell'anno) */}
       <div className="flex items-center gap-1.5 flex-wrap mb-1">
         {item.year && <p className="text-[10px] text-zinc-500">{item.year}</p>}
-        {episodeLabel && (
-          <span className="text-[10px] text-zinc-500">{episodeLabel}</span>
-        )}
-        {showDetails && item.score && (
+        {item.score && (
           <span className="flex items-center gap-0.5 text-[10px] text-yellow-400 font-semibold">
             <Star size={8} fill="currentColor" />{Math.min(item.score, 5).toFixed(1)}
           </span>
         )}
+        {episodeLabel && (
+          <span className="text-[10px] text-zinc-500">{episodeLabel}</span>
+        )}
       </div>
+      {/* Badge: Sequel per continuity, % match per le card normali, niente per scoperta */}
       {item.isContinuity
         ? <ContinuityBadge from={item.continuityFrom || ''} />
-        : item.creatorBoost
-        ? <CreatorBadge creator={item.creatorBoost} />
-        : <MatchBadge score={item.matchScore} />
+        : !item.isDiscovery
+        ? <MatchBadge score={item.matchScore} />
+        : null
       }
       <p className="text-[11px] text-zinc-300 leading-tight line-clamp-2 mt-1">{item.why}</p>
       {/* Descrizione breve — solo nella sezione Simili */}
@@ -1601,7 +1570,7 @@ export default function ForYouPage() {
     { key: 'movie', label: fy.sections.movie },
     { key: 'tv', label: fy.sections.tv },
     { key: 'manga', label: fy.sections.manga },
-    { key: 'boardgame', label: 'Giochi da tavolo' },
+    { key: 'boardgame', label: fy.sections.boardgame },
   ]
   // Fix 2.4: ordina per affinità reale (collectionSize nel profilo) non per count consigli
   // Chi ha più titoli nel profilo viene prima — riflette il tipo centrale per l'utente
