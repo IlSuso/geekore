@@ -417,7 +417,6 @@ const ContinuitySection = memo(function ContinuitySection({ items, onFeedback, o
               {item.continuityFrom && (
                 <p className="text-[10px] text-amber-400/80 line-clamp-1">→ {item.continuityFrom}</p>
               )}
-              <p className="text-[11px] text-zinc-300 line-clamp-2 mt-0.5">{item.why}</p>
             </div>
           )
         })}
@@ -493,7 +492,6 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
         ? <MatchBadge score={item.matchScore} />
         : null
       }
-      <p className="text-[11px] text-zinc-300 leading-tight line-clamp-2 mt-1">{item.why}</p>
       {/* Descrizione breve — solo nella sezione Simili */}
       {showDetails && item.description && (
         <p className="text-[10px] text-zinc-500 leading-tight line-clamp-3 mt-1.5">{item.description}</p>
@@ -564,8 +562,7 @@ const HeroMatchSection = memo(function HeroMatchSection({ items, onFeedback, onS
                   )}
                 </div>
               </div>
-              <p className="text-xs font-bold text-white leading-tight line-clamp-2 mb-0.5">{item.title}</p>
-              <p className="text-[10px] text-violet-400 italic line-clamp-1">{item.why}</p>
+              <p className="text-xs font-bold text-white leading-tight line-clamp-2">{item.title}</p>
             </div>
           )
         })}
@@ -921,8 +918,7 @@ const DiscoverySection = memo(function DiscoverySection({ items, onFeedback, onS
                 </div>
               </div>
               <p className="text-xs font-semibold text-white leading-tight line-clamp-2 mb-1">{item.title}</p>
-              {item.year && <p className="text-[10px] text-zinc-500 mb-1">{item.year}</p>}
-              <p className="text-[11px] text-zinc-300 leading-tight line-clamp-2 mt-1">{item.why}</p>
+              {item.year && <p className="text-[10px] text-zinc-500">{item.year}</p>}
             </div>
           )
         })}
