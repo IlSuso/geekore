@@ -7,6 +7,7 @@ import Image from 'next/image'
 import {
   X, ExternalLink, Star, Clock, Users, Layers,
   Gamepad2, BookOpen, Film, Tv, Dices, Clapperboard, Check, Bookmark,
+  Sparkles, Trophy, Monitor,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -43,6 +44,9 @@ export interface MediaDetails {
   italianSupportTypes?: string[]
   score?: number
   externalUrl?: string
+  why?: string
+  matchScore?: number
+  isAwardWinner?: boolean
   studios?: string[]
   directors?: string[]
   authors?: string[]
@@ -273,15 +277,14 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
   const isManga = media.type === 'manga' || media.type === 'novel'
 
-  // For manga: show authors (developers) in header; for others: studios > directors > authors
   const creatorList = isManga
-    ? (media.developers?.length ? media.developers : media.studios?.length ? media.studios : null)
+    ? (media.authors?.length ? media.authors : media.developers?.length ? media.developers : media.studios?.length ? media.studios : null)
     : (media.studios?.length ? media.studios : media.directors?.length ? media.directors : media.authors?.length ? media.authors : null)
 
   const creatorLabel = creatorList?.slice(0, 2).join(', ') ?? null
   const creatorTitle = isManga
-    ? (media.developers?.length ? 'Autori' : 'Editori')
-    : (media.studios?.length ? 'Studio' : media.authors?.length ? 'Autori' : 'Registi')
+    ? (media.authors?.length ? 'Autori' : media.developers?.length ? 'Autori' : 'Editori')
+    : (media.studios?.length ? 'Studio' : media.directors?.length ? 'Registi' : media.authors?.length ? 'Autori' : 'Registi')
 
   const continuityRelations = (media.relations || [])
     .filter(r => ['SEQUEL', 'PREQUEL', 'SIDE_STORY', 'SPIN_OFF'].includes(r.relationType))
@@ -340,9 +343,21 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
           {/* Info a destra */}
           <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
-            <span className={`self-start text-[9px] font-bold px-2 py-0.5 rounded-full text-white ${TYPE_COLOR[media.type] || 'bg-zinc-700'}`}>
-              {TYPE_LABEL[media.type] || media.type}
-            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full text-white ${TYPE_COLOR[media.type] || 'bg-zinc-700'}`}>
+                {TYPE_LABEL[media.type] || media.type}
+              </span>
+              {media.isAwardWinner && (
+                <span className="flex items-center gap-0.5 text-[9px] bg-amber-500/20 border border-amber-500/30 text-amber-300 px-1.5 py-0.5 rounded-full">
+                  <Trophy size={8} />Acclamato
+                </span>
+              )}
+              {media.matchScore != null && (
+                <span className="text-[9px] bg-violet-500/20 border border-violet-500/30 text-violet-300 px-1.5 py-0.5 rounded-full">
+                  {media.matchScore}% match
+                </span>
+              )}
+            </div>
 
             <h2 className="text-base font-bold text-white leading-tight line-clamp-2">{media.title}</h2>
 
@@ -399,7 +414,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
         {/* ── CONTENUTO SCORREVOLE ───────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto">
-          <div className="p-5 space-y-6">
+          <div className="p-5 space-y-5">
 
             {/* Generi */}
             {media.genres && media.genres.length > 0 && (
@@ -411,6 +426,83 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                 ))}
               </div>
             )}
+
+            {/* Perché te lo consigliamo */}
+            {media.why && (
+              <div className="flex gap-2.5 bg-violet-500/8 border border-violet-500/20 rounded-xl p-3.5">
+                <Sparkles size={14} className="text-violet-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-violet-200 leading-relaxed">{media.why}</p>
+              </div>
+            )}
+
+            {/* Stats grid */}
+            {(() => {
+              const cells: JSX.Element[] = []
+              if (media.matchScore != null) cells.push(
+                <div key="match" className="bg-violet-500/10 border border-violet-500/25 rounded-xl p-3 text-center">
+                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Match</p>
+                  <p className="text-lg font-bold text-violet-300">{media.matchScore}%</p>
+                </div>
+              )
+              if (media.score != null || media.bgg_rating != null) cells.push(
+                <div key="score" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Voto</p>
+                  <div className="flex items-center justify-center gap-1">
+                    <Star size={11} className="text-yellow-400 fill-yellow-400" />
+                    <p className="text-lg font-bold text-white">{((media.score ?? media.bgg_rating)!).toFixed(1)}</p>
+                    <span className="text-[10px] text-zinc-600">/5</span>
+                  </div>
+                </div>
+              )
+              if (media.year) cells.push(
+                <div key="year" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Anno</p>
+                  <p className="text-lg font-bold text-white">{media.year}</p>
+                </div>
+              )
+              if (media.episodes != null && media.episodes > 1) cells.push(
+                <div key="eps" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">
+                    {media.type === 'manga' ? 'Cap.' : 'Ep.'}
+                  </p>
+                  <p className="text-lg font-bold text-white">{media.episodes}</p>
+                </div>
+              )
+              if (media.totalSeasons != null && media.totalSeasons > 1) cells.push(
+                <div key="seasons" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Stagioni</p>
+                  <p className="text-lg font-bold text-white">{media.totalSeasons}</p>
+                </div>
+              )
+              if (media.playing_time) cells.push(
+                <div key="time" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Durata</p>
+                  <p className="text-lg font-bold text-white">{media.playing_time}<span className="text-[10px] text-zinc-600 ml-0.5">m</span></p>
+                </div>
+              )
+              if (media.complexity) cells.push(
+                <div key="cmplx" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Difficoltà</p>
+                  <p className="text-lg font-bold text-white">{media.complexity.toFixed(1)}<span className="text-[10px] text-zinc-600">/5</span></p>
+                </div>
+              )
+              if (media.min_players != null || media.max_players != null) cells.push(
+                <div key="players" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Giocatori</p>
+                  <p className="text-lg font-bold text-white">
+                    {media.min_players === media.max_players
+                      ? media.min_players
+                      : `${media.min_players ?? '?'}–${media.max_players ?? '?'}`}
+                  </p>
+                </div>
+              )
+              if (cells.length === 0) return null
+              return (
+                <div className={`grid gap-2 ${cells.length <= 2 ? 'grid-cols-2' : cells.length === 3 ? 'grid-cols-3' : 'grid-cols-3'}`}>
+                  {cells}
+                </div>
+              )
+            })()}
 
             {/* Descrizione con expand */}
             {media.description && (
@@ -445,6 +537,18 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               </div>
             )}
 
+            {/* Sviluppatori (games) — mostrati solo se non già in creatorList */}
+            {media.developers && media.developers.length > 0 && !isManga && (
+              <div>
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Sviluppatori</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {media.developers.slice(0, 4).map(name => (
+                    <span key={name} className="text-xs bg-sky-500/10 text-sky-300 border border-sky-500/20 px-2.5 py-1 rounded-full">{name}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Editori (manga only, shown separately from authors) */}
             {isManga && media.developers?.length && media.studios?.length ? (
               <div>
@@ -469,7 +573,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               </div>
             )}
 
-            {/* Meccaniche */}
+            {/* Meccaniche (boardgame) */}
             {media.mechanics && media.mechanics.length > 0 && (
               <div>
                 <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Meccaniche</h3>
@@ -481,6 +585,19 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               </div>
             )}
 
+            {/* Piattaforme (gaming) */}
+            {media.platforms && media.platforms.length > 0 && (
+              <div>
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5 flex items-center gap-1">
+                  <Monitor size={10} />Piattaforme
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {media.platforms.slice(0, 8).map(p => (
+                    <span key={p} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{p}</span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Disponibile su (streaming) */}
             {media.watchProviders && media.watchProviders.length > 0 && (
@@ -492,18 +609,6 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                   ))}
                 </div>
                 <p className="text-[9px] text-zinc-600 mt-1.5">Powered by JustWatch</p>
-              </div>
-            )}
-
-            {/* Piattaforme (gaming) */}
-            {media.platforms && media.platforms.length > 0 && (
-              <div>
-                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Piattaforme</h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {media.platforms.slice(0, 10).map(p => (
-                    <span key={p} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{p}</span>
-                  ))}
-                </div>
               </div>
             )}
 
@@ -521,19 +626,17 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               </div>
             )}
 
-            {/* Designers / Developers / Authors */}
-            {(media.designers?.length || media.developers?.length) ? (
+            {/* Designers (boardgame) */}
+            {media.designers && media.designers.length > 0 && (
               <div>
-                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">
-                  {media.designers?.length ? 'Designer' : (media.type === 'manga' || media.type === 'novel') ? 'Autori' : 'Sviluppatori'}
-                </h3>
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Designer</h3>
                 <div className="flex flex-wrap gap-1.5">
-                  {(media.designers || media.developers || []).slice(0, 4).map(name => (
+                  {media.designers.slice(0, 4).map(name => (
                     <span key={name} className="text-xs bg-sky-500/10 text-sky-300 border border-sky-500/20 px-2.5 py-1 rounded-full">{name}</span>
                   ))}
                 </div>
               </div>
-            ) : null}
+            )}
 
             {/* Continuity / Relations */}
             {continuityRelations.length > 0 && (

@@ -141,15 +141,22 @@ interface Recommendation {
   why: string
   matchScore: number
   isDiscovery?: boolean
-  isContinuity?: boolean   // V3: sequel/prequel/spinoff
-  continuityFrom?: string  // V3: titolo originale
-  creatorBoost?: string    // V3: studio/regista che ha generato il boost
-  // V4
-  isSerendipity?: boolean  // jolly fuori profilo
-  isAwardWinner?: boolean  // acclamato dalla critica
-  isSeasonal?: boolean     // anime in corso questa stagione
-  // V5
-  socialBoost?: string     // amico con gusti simili che ha amato questo
+  isContinuity?: boolean
+  continuityFrom?: string
+  creatorBoost?: string
+  isSerendipity?: boolean
+  isAwardWinner?: boolean
+  isSeasonal?: boolean
+  socialBoost?: string
+  // Extra metadata per il drawer
+  episodes?: number        // capitoli manga / episodi anime
+  authors?: string[]       // autori manga
+  developers?: string[]    // sviluppatori giochi
+  platforms?: string[]     // piattaforme giochi
+  min_players?: number     // boardgame
+  max_players?: number     // boardgame
+  playing_time?: number    // boardgame
+  complexity?: number      // boardgame weight
 }
 
 // ── Mappe generi ─────────────────────────────────────────────────────────────
@@ -433,10 +440,14 @@ function parseBggXmlRec(xml: string) {
       year: parseInt(body.match(/<yearpublished[^>]+value="(\d+)"/)?.[1] || '') || undefined,
       thumbnail: rawCover ? (rawCover.startsWith('//') ? `https:${rawCover}` : rawCover) : undefined,
       description: decode((body.match(/<description>([\s\S]*?)<\/description>/)?.[1] || '').replace(/<[^>]*>/g, '').slice(0, 400)),
-      categories: [...body.matchAll(/<link type="boardgamecategory"[^>]+value="([^"]+)"/g)].map(m => m[1]),
-      mechanics:  [...body.matchAll(/<link type="boardgamemechanic"[^>]+value="([^"]+)"/g)].map(m => m[1]),
-      rating:    parseFloat(body.match(/<average[^>]+value="([0-9.]+)"/)?.[1] || '') || undefined,
-      usersRated: parseInt(body.match(/<usersrated[^>]+value="(\d+)"/)?.[1] || '') || undefined,
+      categories:  [...body.matchAll(/<link type="boardgamecategory"[^>]+value="([^"]+)"/g)].map(m => m[1]),
+      mechanics:   [...body.matchAll(/<link type="boardgamemechanic"[^>]+value="([^"]+)"/g)].map(m => m[1]),
+      rating:      parseFloat(body.match(/<average[^>]+value="([0-9.]+)"/)?.[1] || '') || undefined,
+      usersRated:  parseInt(body.match(/<usersrated[^>]+value="(\d+)"/)?.[1] || '') || undefined,
+      min_players: parseInt(body.match(/<minplayers[^>]+value="(\d+)"/)?.[1] || '') || undefined,
+      max_players: parseInt(body.match(/<maxplayers[^>]+value="(\d+)"/)?.[1] || '') || undefined,
+      playing_time: parseInt(body.match(/<playingtime[^>]+value="(\d+)"/)?.[1] || '') || undefined,
+      complexity:  parseFloat(body.match(/<averageweight[^>]+value="([0-9.]+)"/)?.[1] || '') || undefined,
     }]
   })
 }
@@ -2039,6 +2050,8 @@ async function fetchMangaRecs(
           creatorBoost,
           isAwardWinner: isAwardWorthy(m.averageScore, m.popularity, undefined, 'anilist'),
           socialBoost: socialFriend,
+          authors: mAuthors.length > 0 ? mAuthors : undefined,
+          episodes: m.chapters || undefined,
         })
       }
     } catch { /* continua */ }
@@ -2432,7 +2445,8 @@ async function fetchGameRecs(
       const body = `
         fields name, cover.url, first_release_date, summary, genres.name, themes.name,
                player_perspectives.name, rating, rating_count, keywords.name,
-               involved_companies.company.name, involved_companies.developer;
+               involved_companies.company.name, involved_companies.developer,
+               platforms.name;
         where (genres.name = ("${slot.genre}") & rating_count > ${igdbCountMin} & rating >= ${igdbRatingMin} & cover != null)${themeFilter};
         sort rating desc;
         limit 50;
@@ -2537,6 +2551,8 @@ async function fetchGameRecs(
           isDiscovery: slot.isDiscovery,
           creatorBoost,
           isAwardWinner: isAwardWorthy(g.rating, undefined, g.rating_count, 'igdb'),
+          developers: developer ? [developer] : undefined,
+          platforms: (g.platforms || []).map((p: any) => p.name).filter(Boolean).slice(0, 6) as string[] || undefined,
         })
       }
     } catch { /* continua */ }
@@ -2772,6 +2788,10 @@ async function fetchBoardgameRecs(
       description: g.description || undefined,
       matchScore: g._catMatch > 0 ? 65 : 52,
       why: recGenres.length > 0 ? `Tra i migliori di ${recGenres[0]}` : 'Top board game',
+      min_players: g.min_players || undefined,
+      max_players: g.max_players || undefined,
+      playing_time: g.playing_time || undefined,
+      complexity: g.complexity || undefined,
     })
   }
 

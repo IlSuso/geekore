@@ -35,20 +35,25 @@ interface Recommendation {
   id: string; title: string; type: MediaType; coverImage?: string; year?: number
   genres: string[]; score?: number; description?: string; why: string
   matchScore: number; isDiscovery?: boolean
-  episodes?: number        // ep per anime/TV, cap. per manga
-  tags?: string[]       // AniList tags / IGDB themes
-  keywords?: string[]   // TMDb keywords / IGDB keywords
-  // V3 fields
+  episodes?: number
+  tags?: string[]
+  keywords?: string[]
   isContinuity?: boolean
   continuityFrom?: string
   creatorBoost?: string
-  // V4/V5 fields
   isSerendipity?: boolean
   isAwardWinner?: boolean
   isSeasonal?: boolean
   socialBoost?: string
-  // Fix 2.9: amico ad alta similarità che sta guardando questo
   friendWatching?: string
+  // Extra metadata per il drawer
+  authors?: string[]
+  developers?: string[]
+  platforms?: string[]
+  min_players?: number
+  max_players?: number
+  playing_time?: number
+  complexity?: number
 }
 
 interface TasteProfile {
@@ -1462,7 +1467,6 @@ export default function ForYouPage() {
 
   // Fix 1.15: "Simili a questo" — richiede i consigli filtrati per i generi del titolo
   const handleDetail = useCallback((item: Recommendation) => {
-    // Converti Recommendation in MediaDetails per il MediaDetailsDrawer
     const details: MediaDetails = {
       id: item.id,
       title: item.title,
@@ -1472,6 +1476,18 @@ export default function ForYouPage() {
       genres: item.genres,
       description: item.description,
       score: item.score,
+      episodes: item.episodes,
+      authors: item.authors,
+      developers: item.developers,
+      platforms: item.platforms,
+      mechanics: item.type === 'boardgame' ? item.tags : undefined,
+      min_players: item.min_players,
+      max_players: item.max_players,
+      playing_time: item.playing_time,
+      complexity: item.complexity,
+      why: item.why,
+      matchScore: item.matchScore,
+      isAwardWinner: item.isAwardWinner,
       source: item.id.startsWith('anilist-anime') ? 'anilist'
             : item.id.startsWith('anilist-manga') ? 'anilist'
             : item.id.startsWith('tmdb-') ? 'tmdb'
