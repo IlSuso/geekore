@@ -111,8 +111,8 @@ const translations = {
     },
     news: {
       title: 'Novità',
-      subtitle: 'Uscite imminenti e in corso — Film, Serie, Anime, Manga e Videogiochi',
-      all: 'Tutto', cinema: 'Film', tv: 'Serie TV', anime: 'Anime', gaming: 'Videogiochi', manga: 'Manga',
+      subtitle: 'Uscite imminenti e in corso — Film, Serie, Anime, Manga, Videogiochi e Board Game',
+      all: 'Tutto', cinema: 'Film', tv: 'Serie TV', anime: 'Anime', gaming: 'Videogiochi', manga: 'Manga', boardgame: 'Giochi da Tavolo',
       refresh: 'Aggiorna', load: 'Carica contenuti', loading: 'Caricamento...',
       empty: 'Nessun contenuto disponibile.',
       updated: 'Aggiornato alle',
@@ -358,8 +358,8 @@ const translations = {
     },
     news: {
       title: 'New & Upcoming',
-      subtitle: 'Coming soon and now airing — Movies, TV, Anime, Manga & Games',
-      all: 'All', cinema: 'Movies', tv: 'TV Shows', anime: 'Anime', gaming: 'Games', manga: 'Manga',
+      subtitle: 'Coming soon and now airing — Movies, TV, Anime, Manga, Games & Board Games',
+      all: 'All', cinema: 'Movies', tv: 'TV Shows', anime: 'Anime', gaming: 'Games', manga: 'Manga', boardgame: 'Board Games',
       refresh: 'Refresh', load: 'Load content', loading: 'Loading...',
       empty: 'No content available.',
       updated: 'Updated at',

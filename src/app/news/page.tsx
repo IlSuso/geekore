@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Gamepad2, Film, Tv, BookOpen, Loader2, CalendarDays, RefreshCw, Swords } from 'lucide-react'
+import { Gamepad2, Film, Tv, BookOpen, Loader2, CalendarDays, RefreshCw, Swords, Dices } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { translateGenre } from '@/lib/genres'
 import { ErrorState } from '@/components/ui/ErrorState'
@@ -15,7 +15,7 @@ const NEWS_CACHE_TTL = 5 * 60 * 1000
 type UpcomingItem = {
   id?: string
   type?: string
-  source_api?: 'tmdb' | 'anilist' | 'igdb'
+  source_api?: 'tmdb' | 'anilist' | 'igdb' | 'bgg'
   title: string
   description?: string
   coverImage?: string
@@ -27,7 +27,7 @@ type UpcomingItem = {
   studios?: string[]
   developers?: string[]
   original_language?: string
-  category: 'gaming' | 'cinema' | 'anime' | 'tv'
+  category: 'gaming' | 'cinema' | 'anime' | 'tv' | 'manga' | 'boardgame'
   source: string
   nextEpisode?: number
   platforms?: string[]
@@ -46,11 +46,12 @@ type UpcomingItem = {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  cinema: 'bg-red-600 text-white',
-  tv:     'bg-purple-600 text-white',
-  anime:  'bg-orange-500 text-white',
-  gaming: 'bg-emerald-600 text-white',
-  manga:  'bg-pink-600 text-white',
+  cinema:    'bg-red-600 text-white',
+  tv:        'bg-purple-600 text-white',
+  anime:     'bg-orange-500 text-white',
+  gaming:    'bg-emerald-600 text-white',
+  manga:     'bg-pink-600 text-white',
+  boardgame: 'bg-yellow-600 text-white',
 }
 
 function formatDate(dateStr?: string, locale?: string) {
@@ -101,28 +102,31 @@ export default function NewsPage() {
   const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null)
 
   const CATEGORIES = [
-    { id: 'all',    label: t.news.all,    icon: null      },
-    { id: 'cinema', label: t.news.cinema, icon: Film      },
-    { id: 'tv',     label: t.news.tv,     icon: Tv        },
-    { id: 'anime',  label: t.news.anime,  icon: BookOpen  },
-    { id: 'manga',  label: t.news.manga,  icon: Swords    },
-    { id: 'gaming', label: t.news.gaming, icon: Gamepad2  },
+    { id: 'all',       label: t.news.all,       icon: null      },
+    { id: 'cinema',    label: t.news.cinema,    icon: Film      },
+    { id: 'tv',        label: t.news.tv,        icon: Tv        },
+    { id: 'anime',     label: t.news.anime,     icon: BookOpen  },
+    { id: 'manga',     label: t.news.manga,     icon: Swords    },
+    { id: 'gaming',    label: t.news.gaming,    icon: Gamepad2  },
+    { id: 'boardgame', label: t.news.boardgame, icon: Dices     },
   ]
 
   const CATEGORY_LABELS: Record<string, string> = {
-    cinema: t.news.cinema,
-    tv:     t.news.tv,
-    anime:  t.news.anime,
-    manga:  t.news.manga,
-    gaming: t.news.gaming,
+    cinema:    t.news.cinema,
+    tv:        t.news.tv,
+    anime:     t.news.anime,
+    manga:     t.news.manga,
+    gaming:    t.news.gaming,
+    boardgame: t.news.boardgame,
   }
 
   const CATEGORY_ICONS: Record<string, React.ElementType> = {
-    cinema: Film,
-    tv:     Tv,
-    anime:  Swords,
-    manga:  BookOpen,
-    gaming: Gamepad2,
+    cinema:    Film,
+    tv:        Tv,
+    anime:     Swords,
+    manga:     BookOpen,
+    gaming:    Gamepad2,
+    boardgame: Dices,
   }
 
   const fetchItems = async (cat: string, forceRefresh = false) => {

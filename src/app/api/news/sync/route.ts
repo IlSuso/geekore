@@ -1,6 +1,7 @@
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { parseStringPromise } from 'xml2js'
 import { translateTexts } from '@/lib/deepl'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -380,6 +381,120 @@ async function fetchManga(lang: string): Promise<any[]> {
   } catch { return [] }
 }
 
+// ── BGG helpers ───────────────────────────────────────────────────────────────
+
+async function bggFetchSync(url: string, maxRetries = 5, delayMs = 2000): Promise<string | null> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, delayMs))
+    try {
+      const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(15000) })
+      if (res.status === 202) continue
+      if (!res.ok) return null
+      const text = await res.text()
+      if (!text.trim().startsWith('<')) return null
+      return text
+    } catch { if (attempt === maxRetries - 1) return null }
+  }
+  return null
+}
+
+function mapBggCategories(categories: string[]): string[] {
+  const map: Record<string, string> = {
+    Fantasy: 'Fantasy', 'Science Fiction': 'Science Fiction', Horror: 'Horror',
+    Medieval: 'Medieval', Adventure: 'Adventure', Fighting: 'Fighting',
+    Deduction: 'Mystery', 'Murder/Mystery': 'Mystery', 'Thriller/Suspense': 'Thriller',
+    Humor: 'Comedy', Wargame: 'War', 'World War II': 'War', Historical: 'History',
+    Economic: 'Strategy', 'Card Game': 'Card Game', 'Abstract Strategy': 'Abstract',
+    'Cooperative Game': 'Cooperative', 'Party Game': 'Party', Family: 'Family',
+    Sports: 'Sports', Exploration: 'Adventure', Civilization: 'Strategy',
+    'Space Exploration': 'Science Fiction', Zombies: 'Horror', Mythology: 'Fantasy',
+  }
+  const genres = new Set<string>()
+  for (const cat of categories) { const m = map[cat]; if (m) genres.add(m) }
+  return Array.from(genres)
+}
+
+async function fetchBoardgameNews(lang: string): Promise<any[]> {
+  try {
+    const hotXml = await bggFetchSync('https://boardgamegeek.com/xmlapi2/hot?type=boardgame')
+    if (!hotXml) return []
+
+    const hotResult = await parseStringPromise(hotXml)
+    const hotItems: any[] = hotResult?.items?.item || []
+
+    const currentYear = new Date().getFullYear()
+    const recent = hotItems.filter((item: any) => {
+      const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : 0
+      return year >= currentYear - 2
+    })
+    // Use recent games first; fall back to top hot games if too few
+    const candidates = recent.length >= 10 ? recent : hotItems
+    const ids = candidates.slice(0, 20).map((i: any) => i.$.id)
+    if (ids.length === 0) return []
+
+    await new Promise(r => setTimeout(r, 1000))
+    const detailXml = await bggFetchSync(
+      `https://boardgamegeek.com/xmlapi2/thing?id=${ids.join(',')}&type=boardgame&stats=1`
+    )
+    if (!detailXml) return []
+
+    const detailResult = await parseStringPromise(detailXml)
+    const detailItems: any[] = detailResult?.items?.item || []
+
+    const mapped = detailItems.map((item: any) => {
+      const id = item.$.id
+      const nameEl = (item.name || []).find((n: any) => n.$.type === 'primary')
+      const title = nameEl?.$.value || 'Senza titolo'
+
+      const rawImg = item.image?.[0]?.trim?.() || item.thumbnail?.[0]?.trim?.() || null
+      const coverImage = rawImg ? (rawImg.startsWith('http') ? rawImg : `https:${rawImg}`) : null
+      if (!coverImage) return null
+
+      const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : undefined
+      const description = item.description?.[0]
+        ? item.description[0].replace(/&#10;/g, ' ').replace(/&amp;/g, '&').replace(/<[^>]+>/g, '').slice(0, 500)
+        : null
+
+      const links: any[] = item.link || []
+      const cats = links.filter((l: any) => l.$.type === 'boardgamecategory').map((l: any) => l.$.value).filter(Boolean)
+      const mechanics = links.filter((l: any) => l.$.type === 'boardgamemechanic').map((l: any) => l.$.value).filter(Boolean).slice(0, 5)
+      const designers = links.filter((l: any) => l.$.type === 'boardgamedesigner').map((l: any) => l.$.value).filter(Boolean)
+      const publishers = links.filter((l: any) => l.$.type === 'boardgamepublisher').map((l: any) => l.$.value).filter(Boolean).slice(0, 3)
+      const playingTime = item.playingtime?.[0]?.$?.value ? parseInt(item.playingtime[0].$.value) : undefined
+      const bggRating = item.statistics?.[0]?.ratings?.[0]?.average?.[0]?.$?.value
+        ? parseFloat(item.statistics[0].ratings[0].average[0].$.value) : undefined
+
+      return {
+        id: `bgg-${id}`,
+        type: 'boardgame',
+        source_api: 'bgg',
+        title,
+        description,
+        coverImage,
+        date: year ? `${year}-01-01` : undefined,
+        year,
+        genres: mapBggCategories(cats),
+        score: bggRating ? Math.round(bggRating * 10) / 10 : undefined,
+        developers: designers.length ? designers : undefined,
+        studios: publishers.length ? publishers : undefined,
+        mechanics: mechanics.length ? mechanics : undefined,
+        playing_time: playingTime || undefined,
+        category: 'boardgame',
+        source: 'BGG',
+        url: `https://boardgamegeek.com/boardgame/${id}`,
+      }
+    }).filter(Boolean)
+
+    if (lang === 'it') {
+      const descriptions = mapped.map((m: any) => m.description ?? '')
+      const translated = await translateTexts(descriptions)
+      mapped.forEach((m: any, i: number) => { if (m.description) m.description = translated[i] || m.description })
+    }
+
+    return mapped
+  } catch { return [] }
+}
+
 async function runSync(lang: 'it' | 'en') {
   const supabase = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -388,25 +503,27 @@ async function runSync(lang: 'it' | 'en') {
 
   const suffix = `_${lang}`
 
-  const [cinema, tv, anime, gaming, manga] = await Promise.all([
+  const [cinema, tv, anime, gaming, manga, boardgame] = await Promise.all([
     fetchCinema(lang),
     fetchTV(lang),
     fetchAnime(lang),
     fetchGaming(),
     fetchManga(lang),
+    fetchBoardgameNews(lang),
   ])
 
   const now = new Date().toISOString()
 
   await Promise.all([
-    supabase.from('news_cache').upsert({ category: `cinema${suffix}`, data: cinema, updated_at: now }, { onConflict: 'category' }),
-    supabase.from('news_cache').upsert({ category: `tv${suffix}`,     data: tv,     updated_at: now }, { onConflict: 'category' }),
-    supabase.from('news_cache').upsert({ category: `anime${suffix}`,  data: anime,  updated_at: now }, { onConflict: 'category' }),
-    supabase.from('news_cache').upsert({ category: `gaming${suffix}`, data: gaming, updated_at: now }, { onConflict: 'category' }),
-    supabase.from('news_cache').upsert({ category: `manga${suffix}`,  data: manga,  updated_at: now }, { onConflict: 'category' }),
+    supabase.from('news_cache').upsert({ category: `cinema${suffix}`,    data: cinema,    updated_at: now }, { onConflict: 'category' }),
+    supabase.from('news_cache').upsert({ category: `tv${suffix}`,        data: tv,        updated_at: now }, { onConflict: 'category' }),
+    supabase.from('news_cache').upsert({ category: `anime${suffix}`,     data: anime,     updated_at: now }, { onConflict: 'category' }),
+    supabase.from('news_cache').upsert({ category: `gaming${suffix}`,    data: gaming,    updated_at: now }, { onConflict: 'category' }),
+    supabase.from('news_cache').upsert({ category: `manga${suffix}`,     data: manga,     updated_at: now }, { onConflict: 'category' }),
+    supabase.from('news_cache').upsert({ category: `boardgame${suffix}`, data: boardgame, updated_at: now }, { onConflict: 'category' }),
   ])
 
-  return { cinema: cinema.length, tv: tv.length, anime: anime.length, gaming: gaming.length, manga: manga.length }
+  return { cinema: cinema.length, tv: tv.length, anime: anime.length, gaming: gaming.length, manga: manga.length, boardgame: boardgame.length }
 }
 
 export async function POST(request: NextRequest) {
