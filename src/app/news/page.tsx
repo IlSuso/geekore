@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Gamepad2, Film, Tv, BookOpen, Loader2, CalendarDays, RefreshCw, Swords, Dices } from 'lucide-react'
+import { Gamepad2, Film, Tv, BookOpen, Loader2, CalendarDays, RefreshCw, Swords } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { translateGenre } from '@/lib/genres'
 import { ErrorState } from '@/components/ui/ErrorState'
@@ -27,7 +27,7 @@ type UpcomingItem = {
   studios?: string[]
   developers?: string[]
   original_language?: string
-  category: 'gaming' | 'cinema' | 'anime' | 'tv' | 'manga' | 'boardgame'
+  category: 'gaming' | 'cinema' | 'anime' | 'tv' | 'manga'
   source: string
   url?: string
   nextEpisode?: number
@@ -52,7 +52,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   anime:     'bg-orange-500 text-white',
   gaming:    'bg-emerald-600 text-white',
   manga:     'bg-pink-600 text-white',
-  boardgame: 'bg-yellow-600 text-white',
 }
 
 function formatDate(dateStr?: string, locale?: string) {
@@ -111,7 +110,6 @@ export default function NewsPage() {
     { id: 'anime',     label: t.news.anime,     icon: BookOpen  },
     { id: 'manga',     label: t.news.manga,     icon: Swords    },
     { id: 'gaming',    label: t.news.gaming,    icon: Gamepad2  },
-    { id: 'boardgame', label: t.news.boardgame, icon: Dices     },
   ]
 
   const CATEGORY_LABELS: Record<string, string> = {
@@ -120,7 +118,6 @@ export default function NewsPage() {
     anime:     t.news.anime,
     manga:     t.news.manga,
     gaming:    t.news.gaming,
-    boardgame: t.news.boardgame,
   }
 
   const CATEGORY_ICONS: Record<string, React.ElementType> = {
@@ -129,7 +126,6 @@ export default function NewsPage() {
     anime:     Swords,
     manga:     BookOpen,
     gaming:    Gamepad2,
-    boardgame: Dices,
   }
 
   const fetchItems = async (cat: string, forceRefresh = false) => {
