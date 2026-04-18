@@ -303,10 +303,24 @@ async function fetchGaming() {
 const ANILIST_URL = 'https://graphql.anilist.co'
 
 async function fetchManga(lang: string): Promise<any[]> {
+  // AniList startDate filters use FuzzyDateInt: integer YYYYMMDD
+  const toFuzzy = (d: Date) =>
+    d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate()
+
+  const now    = new Date()
+  const plus60 = new Date(now); plus60.setDate(now.getDate() + 60)
+  const minus60 = new Date(now); minus60.setDate(now.getDate() - 60)
+  const plus60Int  = toFuzzy(plus60)
+  const minus60Int = toFuzzy(minus60)
+
+  // Two queries:
+  // 1. Upcoming: NOT_YET_RELEASED, starting within the next 60 days
+  // 2. Trending: currently RELEASING series sorted by popularity (chapters active now)
   const query = `
     query {
       upcoming: Page(page: 1, perPage: 10) {
-        media(type: MANGA, status: NOT_YET_RELEASED, sort: [START_DATE], isAdult: false) {
+        media(type: MANGA, status: NOT_YET_RELEASED, sort: [START_DATE], isAdult: false,
+              startDate_lesser: ${plus60Int}) {
           id siteUrl
           title { romaji english }
           coverImage { large }
@@ -315,9 +329,19 @@ async function fetchManga(lang: string): Promise<any[]> {
           genres averageScore chapters volumes
         }
       }
-      trending: Page(page: 1, perPage: 15) {
+      trending: Page(page: 1, perPage: 20) {
         media(type: MANGA, status: RELEASING, sort: [TRENDING_DESC], isAdult: false,
-              startDate_greater: { year: 2023, month: 1, day: 1 }) {
+              startDate_greater: ${minus60Int}) {
+          id siteUrl
+          title { romaji english }
+          coverImage { large }
+          startDate { year month day }
+          description(asHtml: false)
+          genres averageScore chapters volumes
+        }
+      }
+      popular: Page(page: 1, perPage: 10) {
+        media(type: MANGA, status: RELEASING, sort: [POPULARITY_DESC], isAdult: false) {
           id siteUrl
           title { romaji english }
           coverImage { large }
@@ -337,16 +361,25 @@ async function fetchManga(lang: string): Promise<any[]> {
     })
     if (!res.ok) return []
     const json = await res.json()
+    if (json.errors) {
+      logger.error('[fetchManga] AniList GraphQL errors:', json.errors)
+      return []
+    }
 
     const upcoming: any[] = json.data?.upcoming?.media || []
     const trending: any[] = json.data?.trending?.media || []
+    const popular: any[] = json.data?.popular?.media || []
 
+    // Upcoming + recently started trending first; pad with popular if too few
     const seen = new Set<number>()
-    const all = [...upcoming, ...trending].filter(m => {
-      if (seen.has(m.id) || !m.coverImage?.large) return false
-      seen.add(m.id)
-      return true
-    }).slice(0, 20)
+    const all: any[] = []
+    for (const m of [...upcoming, ...trending, ...popular]) {
+      if (!seen.has(m.id) && m.coverImage?.large) {
+        seen.add(m.id)
+        all.push(m)
+      }
+      if (all.length >= 20) break
+    }
 
     const mapped = all.map((m: any) => {
       const sd = m.startDate
@@ -378,7 +411,10 @@ async function fetchManga(lang: string): Promise<any[]> {
     }
 
     return mapped
-  } catch { return [] }
+  } catch (err) {
+    logger.error('[fetchManga] error:', err)
+    return []
+  }
 }
 
 // ── BGG helpers ───────────────────────────────────────────────────────────────
