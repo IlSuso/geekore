@@ -47,7 +47,7 @@ type UserMedia = {
   id: string
   title: string
   title_en?: string  // titolo inglese per switch lingua real-time
-  type: 'anime' | 'tv' | 'movie' | 'game' | 'manga' | 'boardgame'
+  type: 'anime' | 'tv' | 'movie' | 'game' | 'manga'
   cover_image?: string
   current_episode: number
   current_season?: number
@@ -142,7 +142,6 @@ const TYPE_COLORS: Record<string, string> = {
   game: 'bg-green-500',
   tv: 'bg-purple-500',
   movie: 'bg-red-500',
-  boardgame: 'bg-yellow-500',
 }
 
 function MediaCard({
@@ -317,19 +316,7 @@ function MediaCard({
         )}
 
         <div className="mt-auto pt-1">
-          {media.type === 'boardgame' ? (
-            <div className="flex items-center justify-between">
-              <p className="text-emerald-400 text-sm flex items-center gap-1.5">
-                <Clock size={14} /> {m.gamesPlayed(media.current_episode)}
-              </p>
-              {isOwner && (
-                <div className="flex gap-1">
-                  <button onClick={() => onSaveProgress?.(media.id, Math.max(0, media.current_episode - 1))} disabled={media.current_episode <= 0} className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30">−</button>
-                  <button onClick={() => onSaveProgress?.(media.id, media.current_episode + 1)} className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold">+</button>
-                </div>
-              )}
-            </div>
-          ) : media.type === 'game' ? (() => {
+          {media.type === 'game' ? (() => {
             const ach = media.achievement_data
             const hours = media.current_episode || 0
             return (
@@ -572,9 +559,7 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
               )}
             </div>
           )
-        })() : media.type === 'boardgame' ? (
-          <p className="text-xs text-emerald-400">{media.current_episode} partite</p>
-        ) : hasEpisodes ? (
+        })() : hasEpisodes ? (
           <div className="flex items-center gap-1">
             {isOwner && <button onClick={() => onSaveProgress?.(media.id, Math.max(1, media.current_episode - 1))} className="w-5 h-5 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded text-xs text-emerald-400">−</button>}
             <span className="text-xs text-emerald-400 min-w-[60px] text-center">{media.current_episode}/{maxEp}</span>
@@ -919,14 +904,13 @@ export default function ProfilePage() {
     else if (item.type === 'anime') cat = cats.anime
     else if (item.type === 'tv') cat = cats.tv
     else if (item.type === 'movie') cat = cats.movies
-    else if (item.type === 'boardgame') cat = cats.boardgames
     else cat = cats.other
     if (!acc[cat]) acc[cat] = []
     acc[cat].push(item)
     return acc
   }, {})
 
-  const categoryOrder = [cats.games, cats.anime, cats.tv, cats.manga, cats.movies, cats.boardgames, cats.other]
+  const categoryOrder = [cats.games, cats.anime, cats.tv, cats.manga, cats.movies, cats.other]
   // Mappa label categoria → slug URL per la pagina dedicata
   const categoryToType: Record<string, string> = {
     [cats.games]: 'game',
@@ -934,7 +918,6 @@ export default function ProfilePage() {
     [cats.tv]: 'tv',
     [cats.manga]: 'manga',
     [cats.movies]: 'movie',
-    [cats.boardgames]: 'boardgame',
   }
   const orderedCategories = categoryOrder.filter(cat => grouped[cat]?.length > 0)
 

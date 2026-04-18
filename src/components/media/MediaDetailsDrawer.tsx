@@ -6,7 +6,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import {
   X, ExternalLink, Star, Clock, Users, Layers,
-  Gamepad2, BookOpen, Film, Tv, Dices, Clapperboard, Check, Bookmark,
+  Gamepad2, BookOpen, Film, Tv, Clapperboard, Check, Bookmark,
   Sparkles, Trophy, Monitor,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -71,7 +71,6 @@ function buildExternalUrl(media: MediaDetails): string | undefined {
   if (id.startsWith('tmdb-anime-')) return `https://www.themoviedb.org/tv/${id.replace('tmdb-anime-', '')}`
   if (id.startsWith('anilist-anime-')) return `https://anilist.co/anime/${id.replace('anilist-anime-', '')}`
   if (id.startsWith('anilist-manga-') || id.startsWith('anilist-novel-')) return `https://anilist.co/manga/${id.replace(/anilist-(manga|novel)-/, '')}`
-  if (id.startsWith('bgg-')) return `https://boardgamegeek.com/boardgame/${id.replace('bgg-', '')}`
   if (/^\d+$/.test(id)) {
     if (media.type === 'movie') return `https://www.themoviedb.org/movie/${id}`
     if (media.type === 'tv' || media.type === 'anime') return `https://www.themoviedb.org/tv/${id}`
@@ -96,15 +95,15 @@ function triggerTasteDelta(options: {
 
 const TYPE_ICON: Record<string, React.ElementType> = {
   anime: Film, manga: BookOpen, game: Gamepad2,
-  tv: Tv, movie: Film, boardgame: Dices,
+  tv: Tv, movie: Film,
 }
 const TYPE_COLOR: Record<string, string> = {
   anime: 'bg-sky-500', manga: 'bg-orange-500', game: 'bg-green-500',
-  tv: 'bg-purple-500', movie: 'bg-red-500', boardgame: 'bg-yellow-500',
+  tv: 'bg-purple-500', movie: 'bg-red-500',
 }
 const TYPE_LABEL: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', game: 'Gioco',
-  tv: 'Serie TV', movie: 'Film', boardgame: 'Board Game',
+  tv: 'Serie TV', movie: 'Film',
 }
 
 const RELATION_LABEL: Record<string, string> = {
@@ -298,7 +297,6 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     const id = media.id
     if (id.startsWith('anilist-')) return 'AniList'
     if (id.startsWith('igdb-')) return 'IGDB'
-    if (id.startsWith('bgg-')) return 'BoardGameGeek'
     return 'TMDb'
   })()
 
@@ -573,18 +571,6 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               </div>
             )}
 
-            {/* Meccaniche (boardgame) */}
-            {media.mechanics && media.mechanics.length > 0 && (
-              <div>
-                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Meccaniche</h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {media.mechanics.slice(0, 10).map(m => (
-                    <span key={m} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{m}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Piattaforme (gaming) */}
             {media.platforms && media.platforms.length > 0 && (
               <div>
@@ -621,18 +607,6 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                     <span key={t} className="text-xs bg-green-500/10 text-green-300 border border-green-500/20 px-2.5 py-1 rounded-full">
                       🇮🇹 {t}
                     </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Designers (boardgame) */}
-            {media.designers && media.designers.length > 0 && (
-              <div>
-                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Designer</h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {media.designers.slice(0, 4).map(name => (
-                    <span key={name} className="text-xs bg-sky-500/10 text-sky-300 border border-sky-500/20 px-2.5 py-1 rounded-full">{name}</span>
                   ))}
                 </div>
               </div>
@@ -707,7 +681,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                   )
                 })()}
 
-                {media.type !== 'movie' && media.type !== 'boardgame' && (() => {
+                {media.type !== 'movie' && (() => {
                   const seasonNum = parseInt(formSeason) || 1
                   const maxEp = media.seasons?.[seasonNum]?.episode_count ?? media.episodes ?? null
                   const label = media.type === 'manga' || media.type === 'novel' ? 'Capitolo corrente' : 'Episodio corrente'

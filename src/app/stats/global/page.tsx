@@ -3,7 +3,7 @@
 // Server Component — dati aggregati letti da Supabase.
 
 import { createClient } from '@/lib/supabase/server'
-import { Users, Clock, Star, Gamepad2, Tv, Film, BookOpen, TrendingUp, Globe, Trophy, Dices } from 'lucide-react'
+import { Users, Clock, Star, Gamepad2, Tv, Film, BookOpen, TrendingUp, Globe, Trophy } from 'lucide-react'
 import Link from 'next/link'
 
 async function getGlobalStats() {
@@ -38,7 +38,7 @@ async function getGlobalStats() {
 
   // Aggregazione ore per tipo
   const entries = mediaAgg || []
-  let animeEps = 0, mangaChapters = 0, gameHours = 0, movieCount = 0, tvEps = 0, boardgameCount = 0
+  let animeEps = 0, mangaChapters = 0, gameHours = 0, movieCount = 0, tvEps = 0
   let totalEntries = 0
 
   for (const e of entries) {
@@ -49,15 +49,13 @@ async function getGlobalStats() {
     else if (e.type === 'game' && e.is_steam) gameHours += ep
     else if (e.type === 'movie' && e.status === 'completed') movieCount++
     else if (e.type === 'tv') tvEps += ep
-    else if (e.type === 'boardgame') boardgameCount++
   }
 
   const animeHours = Math.round(animeEps * 24 / 60)
   const mangaHours = Math.round(mangaChapters * 5 / 60)
   const movieHours = Math.round(movieCount * 1.8)
   const tvHours = Math.round(tvEps * 45 / 60)
-  const boardgameHours = Math.round(boardgameCount * 1.5)
-  const totalHours = animeHours + mangaHours + gameHours + movieHours + tvHours + boardgameHours
+  const totalHours = animeHours + mangaHours + gameHours + movieHours + tvHours
 
   // Titoli più popolari
   const titleMap = new Map<string, { count: number; item: any }>()
@@ -93,12 +91,10 @@ async function getGlobalStats() {
     gameHours,
     movieHours,
     tvHours,
-    boardgameHours,
     animeEps,
     mangaChapters,
     movieCount,
     tvEps,
-    boardgameCount,
     popularTitles,
     popularGenres,
   }
@@ -106,10 +102,10 @@ async function getGlobalStats() {
 
 const TYPE_COLOR: Record<string, string> = {
   anime: 'bg-sky-500', manga: 'bg-orange-500', game: 'bg-green-500',
-  tv: 'bg-purple-500', movie: 'bg-red-500', boardgame: 'bg-yellow-500',
+  tv: 'bg-purple-500', movie: 'bg-red-500',
 }
 const TYPE_LABEL: Record<string, string> = {
-  anime: 'Anime', manga: 'Manga', game: 'Gioco', tv: 'Serie TV', movie: 'Film', boardgame: 'Board Game',
+  anime: 'Anime', manga: 'Manga', game: 'Gioco', tv: 'Serie TV', movie: 'Film',
 }
 
 function StatCard({ label, value, sub, icon: Icon, color }: {
@@ -163,21 +159,19 @@ export default async function GlobalStatsPage() {
           <StatCard label="Ep. anime guardati" value={formatNumber(stats.animeEps)} sub={`≈ ${formatNumber(stats.animeHours)} ore`} icon={Tv} color="bg-sky-600" />
           <StatCard label="Ore Steam" value={formatNumber(stats.gameHours)} icon={Gamepad2} color="bg-green-600" />
           <StatCard label="Film visti" value={formatNumber(stats.movieCount)} icon={Film} color="bg-red-600" />
-          <StatCard label="Board game in collezione" value={formatNumber(stats.boardgameCount)} sub={`≈ ${formatNumber(stats.boardgameHours)} ore stimate`} icon={Dices} color="bg-yellow-600" />
         </div>
 
         {/* Ore per tipo */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 mb-8">
           <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-widest mb-5">Ore per categoria</h2>
           {(() => {
-            const maxH = Math.max(stats.animeHours, stats.gameHours, stats.tvHours, stats.movieHours, stats.mangaHours, stats.boardgameHours) || 1
+            const maxH = Math.max(stats.animeHours, stats.gameHours, stats.tvHours, stats.movieHours, stats.mangaHours) || 1
             return [
               { label: 'Anime', hours: stats.animeHours, color: 'bg-sky-500' },
               { label: 'Videogiochi (Steam)', hours: stats.gameHours, color: 'bg-green-500' },
               { label: 'Serie TV', hours: stats.tvHours, color: 'bg-purple-500' },
               { label: 'Film', hours: stats.movieHours, color: 'bg-red-500' },
               { label: 'Manga', hours: stats.mangaHours, color: 'bg-orange-500' },
-              { label: 'Board Game', hours: stats.boardgameHours, color: 'bg-yellow-500' },
             ].map(({ label, hours, color }) => ({ label, hours, color, max: maxH }))
           })().map(({ label, hours, color, max }) => (
             <div key={label} className="mb-4 last:mb-0">

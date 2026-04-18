@@ -9,7 +9,6 @@
 //      - anime        → AniList (poi MAL come fallback)
 //      - manga        → MAL (Jikan, API pubblica, URL stabili)
 //      - game         → IGDB
-//      - boardgame    → BoardGameGeek
 //   4. Aggiorna il record con la nuova cover
 //
 // Chiamare con POST /api/admin/repair-covers
@@ -36,7 +35,6 @@ const TMDB_BASE       = 'https://api.themoviedb.org/3'
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
 const ANILIST_API     = 'https://graphql.anilist.co'
 const JIKAN_BASE      = 'https://api.jikan.moe/v4'   // MAL proxy pubblico, no API key
-const BGG_API         = 'https://boardgamegeek.com/xmlapi2'
 const BATCH_SIZE      = 10
 const DELAY_MS        = 150
 
@@ -229,42 +227,6 @@ async function fetchIgdbCover(title: string): Promise<string | null> {
   }
 }
 
-// ── BoardGameGeek (boardgame) ─────────────────────────────────────────────────
-async function fetchBggCover(title: string): Promise<string | null> {
-  try {
-    // 1) Cerca il gioco per titolo
-    const searchParams = new URLSearchParams({ query: title, type: 'boardgame' })
-    const searchRes = await fetch(`${BGG_API}/search?${searchParams}`, {
-      signal: AbortSignal.timeout(10000),
-    })
-    if (!searchRes.ok) return null
-    const searchText = await searchRes.text()
-
-    // Estrae il primo ID risultato con una regex semplice
-    const idMatch = searchText.match(/<item type="boardgame" id="(\d+)"/)
-    if (!idMatch) return null
-    const gameId = idMatch[1]
-
-    // 2) Recupera i dettagli del gioco (con thumbnail e image)
-    const detailRes = await fetch(`${BGG_API}/thing?id=${gameId}&type=boardgame`, {
-      signal: AbortSignal.timeout(10000),
-    })
-    if (!detailRes.ok) return null
-    const detailText = await detailRes.text()
-
-    // Estrae image (cover HD) o thumbnail come fallback
-    const imgMatch   = detailText.match(/<image>([^<]+)<\/image>/)
-    const thumbMatch = detailText.match(/<thumbnail>([^<]+)<\/thumbnail>/)
-    const rawUrl     = imgMatch?.[1] || thumbMatch?.[1] || null
-    if (!rawUrl) return null
-
-    // BGG restituisce URL senza schema quando è protocol-relative (//cf.geekdo-images.com/...)
-    return rawUrl.startsWith('//') ? `https:${rawUrl}` : rawUrl
-  } catch {
-    return null
-  }
-}
-
 // ── Router principale ─────────────────────────────────────────────────────────
 
 async function findNewCover(
@@ -300,9 +262,6 @@ async function findNewCover(
     case 'game':
       return fetchIgdbCover(title)
 
-    case 'boardgame':
-      return fetchBggCover(title)
-
     default:
       return null
   }
@@ -331,7 +290,7 @@ export async function POST(request: NextRequest) {
     .select('id, title, type, cover_image, external_id')
     .eq('user_id', targetUserId)
     .not('cover_image', 'is', null)
-    .in('type', ['movie', 'tv', 'anime', 'manga', 'game', 'boardgame'])
+    .in('type', ['movie', 'tv', 'anime', 'manga', 'game'])
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!entries || entries.length === 0) {

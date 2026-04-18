@@ -4,7 +4,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { SearchSection } from '@/components/explore/search-section'
-import { TrendingUp, Users, Star, Film, Gamepad2, BookOpen, Tv, Globe, Zap, Heart, Trophy, Dices } from 'lucide-react'
+import { TrendingUp, Users, Star, Film, Gamepad2, BookOpen, Tv, Globe, Zap, Heart, Trophy, Dices, MessageCircle, ThumbsUp } from 'lucide-react'
 import Link from 'next/link'
 import { Avatar } from '@/components/ui/Avatar'
 
@@ -20,6 +20,7 @@ async function getExploreData(userId: string) {
     { data: topLists },
     { data: myGenres },
     { data: weeklyEntries },
+    { data: weeklyPosts },
   ] = await Promise.all([
     supabase
       .from('activity_log')
@@ -55,6 +56,14 @@ async function getExploreData(userId: string) {
       .gte('created_at', oneWeekAgo)
       .not('genres', 'is', null)
       .limit(500),
+
+    // Fix #3: post più popolari della settimana
+    supabase
+      .from('posts')
+      .select('id, user_id, content, image_url, created_at, category, likes(id), comments(id)')
+      .gte('created_at', oneWeekAgo)
+      .order('created_at', { ascending: false })
+      .limit(100),
   ])
 
   // Aggrega utenti attivi
@@ -99,9 +108,34 @@ async function getExploreData(userId: string) {
     for (const g of (row.genres || [])) myGenreSet.add(g)
   }
 
+  // Fix #3: post più popolari = ordinati per numero di like
+  type RawPost = { id: string; user_id: string; content: string; image_url: string | null; created_at: string; category: string | null; likes: { id: string }[]; comments: { id: string }[] }
+  const sortedPosts = ((weeklyPosts || []) as RawPost[])
+    .map(p => ({
+      ...p,
+      likes_count: (p.likes || []).length,
+      comments_count: (p.comments || []).length,
+    }))
+    .sort((a, b) => b.likes_count - a.likes_count)
+    .slice(0, 5)
+
+  let popularPosts: Array<{ id: string; user_id: string; content: string; image_url: string | null; created_at: string; category: string | null; likes_count: number; comments_count: number; author: { username: string; display_name: string | null; avatar_url: string | null } }> = []
+  if (sortedPosts.length > 0) {
+    const postUids = [...new Set(sortedPosts.map(p => p.user_id))]
+    const { data: postProfiles } = await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', postUids)
+    const profileMap: Record<string, { username: string; display_name: string | null; avatar_url: string | null }> = {}
+    for (const pr of (postProfiles || [])) profileMap[pr.id] = pr
+    popularPosts = sortedPosts.map(p => ({
+      id: p.id, user_id: p.user_id, content: p.content,
+      image_url: p.image_url, created_at: p.created_at, category: p.category,
+      likes_count: p.likes_count, comments_count: p.comments_count,
+      author: profileMap[p.user_id] || { username: 'utente', display_name: null, avatar_url: null },
+    }))
+  }
+
   return {
     trendingUsers, trendingMedia, topLists: topLists || [],
-    trendingGenres, maxGenreCount, myGenreSet,
+    trendingGenres, maxGenreCount, myGenreSet, popularPosts,
   }
 }
 
@@ -161,6 +195,51 @@ function UserCard({ user }: { user: { id: string; count: number; profile: any } 
   )
 }
 
+function PopularPostCard({ post }: { post: { id: string; content: string; image_url: string | null; created_at: string; category: string | null; likes_count: number; comments_count: number; author: { username: string; display_name: string | null; avatar_url: string | null } } }) {
+  const preview = post.content.length > 120 ? post.content.slice(0, 120).trimEnd() + '…' : post.content
+  const timeAgo = (() => {
+    const diff = Date.now() - new Date(post.created_at).getTime()
+    const h = Math.floor(diff / 3600000)
+    if (h < 1) return 'adesso'
+    if (h < 24) return `${h}h fa`
+    return `${Math.floor(h / 24)}g fa`
+  })()
+  return (
+    <Link href="/feed" className="flex gap-3 p-3 bg-zinc-900 border border-zinc-800 rounded-2xl hover:border-zinc-700 transition-colors group">
+      <Avatar
+        src={post.author.avatar_url}
+        username={post.author.username}
+        displayName={post.author.display_name}
+        size={36}
+        className="rounded-xl flex-shrink-0"
+      />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline gap-2 mb-1">
+          <span className="text-xs font-semibold text-white group-hover:text-violet-400 transition-colors">
+            {post.author.display_name || post.author.username}
+          </span>
+          {post.category && (
+            <span className="text-[10px] text-zinc-500 bg-zinc-800 px-1.5 py-0.5 rounded-full capitalize">{post.category}</span>
+          )}
+          <span className="text-[10px] text-zinc-600 ml-auto flex-shrink-0">{timeAgo}</span>
+        </div>
+        <p className="text-xs text-zinc-400 leading-relaxed">{preview}</p>
+        <div className="flex items-center gap-3 mt-2">
+          <span className="flex items-center gap-1 text-[10px] text-zinc-600">
+            <ThumbsUp size={10} /> {post.likes_count}
+          </span>
+          <span className="flex items-center gap-1 text-[10px] text-zinc-600">
+            <MessageCircle size={10} /> {post.comments_count}
+          </span>
+        </div>
+      </div>
+      {post.image_url && (
+        <img src={post.image_url} alt="" className="w-12 h-12 rounded-xl object-cover flex-shrink-0" />
+      )}
+    </Link>
+  )
+}
+
 // ── Pagina ─────────────────────────────────────────────────────────────────────
 
 export default async function ExplorePage() {
@@ -168,7 +247,7 @@ export default async function ExplorePage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { trendingUsers, trendingMedia, topLists, trendingGenres, maxGenreCount } =
+  const { trendingUsers, trendingMedia, topLists, trendingGenres, maxGenreCount, popularPosts } =
     await getExploreData(user.id)
 
   return (
@@ -241,6 +320,26 @@ export default async function ExplorePage() {
             <div className="space-y-2">
               {trendingMedia.slice(0, 6).map((item, i) => (
                 <TrendingMediaCard key={`${item.item.type}-${item.item.title}`} item={item} rank={i} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Fix #3: Post più popolari della settimana */}
+        {popularPosts.length > 0 && (
+          <section className="mb-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <ThumbsUp size={14} className="text-pink-400" />
+                <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Post più apprezzati</h2>
+              </div>
+              <Link href="/feed" className="text-xs text-violet-400 hover:text-violet-300 transition-colors">
+                Vai al feed →
+              </Link>
+            </div>
+            <div className="space-y-2">
+              {popularPosts.map(post => (
+                <PopularPostCard key={post.id} post={post} />
               ))}
             </div>
           </section>

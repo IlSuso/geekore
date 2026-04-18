@@ -3,7 +3,7 @@
 
 // ─── Media Types ───────────────────────────────────────────────────────────────
 
-export type MediaType = 'anime' | 'manga' | 'game' | 'boardgame' | 'tv' | 'movie'
+export type MediaType = 'anime' | 'manga' | 'game' | 'tv' | 'movie'
 
 export type MediaStatus =
   | 'watching'
@@ -231,6 +231,9 @@ export interface Post {
   image_url?: string | null
   category?: string | null
   created_at: string
+  is_edited?: boolean
+  pinned?: boolean
+  isDiscovery?: boolean
   profiles: Pick<UserProfile, 'username' | 'display_name' | 'avatar_url'>
   likes_count: number
   comments_count: number

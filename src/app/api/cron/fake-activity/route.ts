@@ -43,7 +43,7 @@ const FAKE_USERS: Record<string, { username: string; topics: string[]; style: st
   },
   'a1000000-0000-0000-0000-000000000005': {
     username: 'andrea_nerd',
-    topics: ['boardgame', 'game', 'tabletop'],
+    topics: ['game', 'strategy', 'indie'],
     style: 'entusiasta',
   },
   'a1000000-0000-0000-0000-000000000006': {
@@ -139,7 +139,7 @@ const POST_POOL: { topics: string[]; text: string }[] = [
     text: 'il problema dei giochi con crafting è che finisco per trascorrere più tempo a craftare che a giocare effettivamente' },
   { topics: ['game', 'open_world', 'rpg'],
     text: 'npc random con una storyline più interessante della quest principale. gli sviluppatori sanno cosa stanno facendo e lo fanno apposta.' },
-  { topics: ['game', 'strategy', 'boardgame', 'tabletop'],
+  { topics: ['game', 'strategy'],
     text: '"solo un\'altra partita" — 3 ore dopo. il sole sta per sorgere. non ho rimpianti.' },
   { topics: ['game', 'souls', 'fps', 'rpg'],
     text: 'i giochi che ti danno la sensazione che il personaggio abbia fisicamente peso quando si muove sono una cosa sacra' },
@@ -207,18 +207,6 @@ const POST_POOL: { topics: string[]; text: string }[] = [
     text: 'nostalgia game: primo rpg che hai giocato da bambino. il mio era pokemon rosso su game boy. non dimentico.' },
   { topics: ['retro'],
     text: 'la colonna sonora di questo gioco del 2001 mi buca ancora il cervello. i compositori di quell\'era erano su un altro livello.' },
-
-  // ── STRATEGICI / BOARDGAME ───────────────────────────────────────────────
-  { topics: ['strategy', 'boardgame', 'tabletop'],
-    text: 'partita a catan andata male. amicizie in discussione. rimando tutto il tavolo di due settimane.' },
-  { topics: ['boardgame', 'tabletop'],
-    text: 'wingspan è il boardgame che ho consigliato di più negli ultimi anni. accessibile, bellissimo, dura quanto basta.' },
-  { topics: ['boardgame', 'tabletop'],
-    text: 'ho più giochi da tavolo che spazio fisico in casa. il problema non è lo spazio. il problema è smettere di comprarne.' },
-  { topics: ['strategy', 'boardgame'],
-    text: 'game night con gli amici: 4 ore volate, nessuno ha guardato il telefono una volta sola. questa è la potenza dei giochi fisici.' },
-  { topics: ['boardgame', 'tabletop'],
-    text: 'trovare il boardgame giusto per il gruppo giusto è un\'arte. quando ci riesci è magia pura.' },
 
   // ── ANIME ────────────────────────────────────────────────────────────────
   { topics: ['anime'],
@@ -327,15 +315,15 @@ const POST_POOL: { topics: string[]; text: string }[] = [
     text: 'quando il magic system di una storia ha regole interne consistenti mi innamoro automaticamente. è una scienza.' },
 
   // ── META / GEEK GENERICO ─────────────────────────────────────────────────
-  { topics: ['game', 'anime', 'manga', 'film', 'tv', 'boardgame', 'light_novel', 'retro', 'indie', 'horror', 'fantasy', 'souls', 'rpg', 'jrpg', 'strategy', 'fps', 'open_world', 'tabletop', 'slice_of_life', 'shonen', 'shojo', 'josei', 'serie'],
+  { topics: ['game', 'anime', 'manga', 'film', 'tv', 'light_novel', 'retro', 'indie', 'horror', 'fantasy', 'souls', 'rpg', 'jrpg', 'strategy', 'fps', 'open_world', 'slice_of_life', 'shonen', 'shojo', 'josei', 'serie'],
     text: 'avere troppa roba in lista da guardare/leggere/giocare e non sapere mai da dove iniziare. questo siamo noi.' },
-  { topics: ['game', 'anime', 'manga', 'film', 'tv', 'boardgame'],
+  { topics: ['game', 'anime', 'manga', 'film', 'tv'],
     text: 'geekore è il posto dove finalmente posso tracciare tutta la roba che consumo senza dover aprire 5 app diverse' },
-  { topics: ['game', 'anime', 'manga', 'film', 'tv', 'boardgame'],
+  { topics: ['game', 'anime', 'manga', 'film', 'tv'],
     text: 'il momento in cui finisci qualcosa e non sai cosa fare di te. la crisi post-opera colpisce ancora.' },
   { topics: ['game', 'anime', 'manga', 'film', 'tv'],
     text: 'mi hanno chiesto "ma non stai perdendo tempo?" e non ho saputo rispondere perché stavo ancora pensando alla scena finale.' },
-  { topics: ['game', 'anime', 'manga', 'film', 'tv', 'boardgame', 'horror', 'fantasy'],
+  { topics: ['game', 'anime', 'manga', 'film', 'tv', 'horror', 'fantasy'],
     text: 'consiglio del giorno: trovate qualcuno con cui condividere le vostre passioni. cambia tutto.' },
   { topics: ['game', 'anime', 'manga', 'tv', 'film'],
     text: 'c\'è qualcosa che stai seguendo/giocando/leggendo in questo periodo? sono in crisi post-fine e ho bisogno di consigli' },

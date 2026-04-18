@@ -18,7 +18,7 @@ interface CertificateProps {
 
 const TYPE_LABEL: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', game: 'Videogioco',
-  movie: 'Film', tv: 'Serie TV', boardgame: 'Board Game',
+  movie: 'Film', tv: 'Serie TV',
 }
 
 const TYPE_COLOR: Record<string, [string, string]> = {
@@ -27,7 +27,6 @@ const TYPE_COLOR: Record<string, [string, string]> = {
   game:      ['#4ade80', '#15803d'],
   movie:     ['#f87171', '#dc2626'],
   tv:        ['#c084fc', '#9333ea'],
-  boardgame: ['#fbbf24', '#d97706'],
 }
 
 async function loadImage(src: string): Promise<HTMLImageElement | null> {

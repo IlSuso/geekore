@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { redirect } from 'next/navigation'
 import {
-  Bookmark, Calendar, BookOpen, Gamepad2, Film, Tv, Dices,
+  Bookmark, Calendar, BookOpen, Gamepad2, Film, Tv,
   Trash2, Check, Loader2, SlidersHorizontal, CheckCircle2,
 } from 'lucide-react'
 import { showToast } from '@/components/ui/Toast'
@@ -18,7 +18,6 @@ const TYPE_CONFIG: Record<string, { label: string; color: string; dot: string; i
   game:      { label: 'Game',    color: 'bg-green-500',  dot: 'bg-green-400',  icon: Gamepad2 },
   movie:     { label: 'Film',    color: 'bg-red-500',    dot: 'bg-red-400',    icon: Film },
   tv:        { label: 'Serie',   color: 'bg-purple-500', dot: 'bg-purple-400', icon: Tv },
-  boardgame: { label: 'Board',   color: 'bg-yellow-500', dot: 'bg-yellow-400', icon: Dices },
 }
 
 function daysUntil(dateStr: string | null): { label: string; available: boolean } {

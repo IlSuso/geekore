@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
-import { TrendingUp, Film, BookOpen, Gamepad2, Tv, Dices } from 'lucide-react'
+import { TrendingUp, Film, BookOpen, Gamepad2, Tv } from 'lucide-react'
 
 interface SuggestedUser {
   id: string
@@ -24,14 +24,14 @@ interface TrendingItem {
 
 const TYPE_ICON: Record<string, React.ElementType> = {
   anime: Film, manga: BookOpen, game: Gamepad2,
-  tv: Tv, movie: Film, boardgame: Dices,
+  tv: Tv, movie: Film,
 }
 
 // ── Trending minimal ──────────────────────────────────────────────────────────
 
 const CATEGORY_LABEL: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', game: 'Videogioco',
-  tv: 'Serie TV', movie: 'Film', boardgame: 'Board Game',
+  tv: 'Serie TV', movie: 'Film',
 }
 
 function TrendingMini() {

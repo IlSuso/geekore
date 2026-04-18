@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Zap, Gamepad2, BookOpen, Film, Tv, Dices, Search, ChevronRight, Check } from 'lucide-react'
+import { Zap, Gamepad2, BookOpen, Film, Tv, Search, ChevronRight, Check } from 'lucide-react'
 import { SteamIcon } from '@/components/icons/SteamIcon'
 
 const STEPS = [
@@ -19,7 +19,6 @@ const MEDIA_TYPES = [
   { id: 'game', label: 'Videogiochi', icon: Gamepad2, color: 'bg-green-500/20 border-green-500/50 text-green-300' },
   { id: 'tv', label: 'Serie TV', icon: Tv, color: 'bg-purple-500/20 border-purple-500/50 text-purple-300' },
   { id: 'movie', label: 'Film', icon: Film, color: 'bg-red-500/20 border-red-500/50 text-red-300' },
-  { id: 'boardgame', label: 'Board Game', icon: Dices, color: 'bg-yellow-500/20 border-yellow-500/50 text-yellow-300' },
 ]
 
 export default function OnboardingPage() {
@@ -91,7 +90,7 @@ export default function OnboardingPage() {
             <h1 className="text-4xl font-black tracking-tighter text-white mb-4">{STEPS[0].title}</h1>
             <p className="text-zinc-400 text-lg mb-10">{STEPS[0].subtitle}</p>
             <p className="text-zinc-500 mb-10 max-w-sm mx-auto">
-              Traccia anime, manga, videogiochi, film, serie TV e board game. Condividi i progressi con la community.
+              Traccia anime, manga, videogiochi, film e serie TV. Condividi i progressi con la community.
             </p>
             <button onClick={() => setStep(1)}
               className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-semibold text-lg transition-all flex items-center justify-center gap-2">

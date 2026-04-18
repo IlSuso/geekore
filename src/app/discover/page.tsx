@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
-import { Search, Plus, X, Film, Tv, Gamepad2, BookOpen, Dices, Bookmark, BookmarkCheck, Mic, MicOff, Loader2, Swords, Check } from 'lucide-react';
+import { Search, Plus, X, Film, Tv, Gamepad2, BookOpen, Bookmark, BookmarkCheck, Mic, MicOff, Loader2, Swords, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { showToast } from '@/components/ui/Toast';
 import { useLocale } from '@/lib/locale';
@@ -17,14 +17,14 @@ import type { MediaDetails } from '@/components/media/MediaDetailsDrawer';
 type MediaItem = {
   id: string; title: string; title_en?: string; type: string; coverImage?: string; year?: number;
   episodes?: number; totalSeasons?: number; seasons?: Record<number, { episode_count: number }>;
-  description?: string; genres?: string[]; source: 'anilist' | 'tmdb' | 'igdb' | 'bgg';
+  description?: string; genres?: string[]; source: 'anilist' | 'tmdb' | 'igdb';
   tags?: string[]; keywords?: string[]; themes?: string[]; player_perspectives?: string[];
   game_modes?: string[]; developers?: string[]; categories?: string[]; mechanics?: string[];
   designers?: string[]; min_players?: number; max_players?: number; playing_time?: number;
-  complexity?: number; bgg_rating?: number; score?: number;
+  score?: number;
 };
 
-const TYPE_ORDER: Record<string, number> = { anime: 0, manga: 1, movie: 2, tv: 3, game: 4, boardgame: 5 };
+const TYPE_ORDER: Record<string, number> = { anime: 0, manga: 1, movie: 2, tv: 3, game: 4 };
 
 function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
   if (!item?.coverImage || typeof item.coverImage !== 'string') return false;
@@ -32,15 +32,15 @@ function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
   return url.length >= 10 && !url.includes('N/A') && !url.includes('placeholder') && !url.includes('no-image');
 }
 
-const TYPE_LABELS: Record<string, string> = { anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Videogiochi', boardgame: 'Board Game' };
+const TYPE_LABELS: Record<string, string> = { anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Videogiochi' };
 const TYPE_COLORS: Record<string, string> = {
   anime: 'text-sky-400 border-sky-500/30 bg-sky-500/10', manga: 'text-orange-400 border-orange-500/30 bg-orange-500/10',
   movie: 'text-red-400 border-red-500/30 bg-red-500/10', tv: 'text-purple-400 border-purple-500/30 bg-purple-500/10',
-  game: 'text-green-400 border-green-500/30 bg-green-500/10', boardgame: 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10',
+  game: 'text-green-400 border-green-500/30 bg-green-500/10',
 };
 
 function toMediaDetails(item: MediaItem): MediaDetails {
-  return { id: item.id, title: item.title, title_en: item.title_en, type: item.type, coverImage: item.coverImage, year: item.year, episodes: item.episodes, totalSeasons: item.totalSeasons, seasons: item.seasons, description: item.description, genres: item.genres, source: item.source, score: item.score, min_players: item.min_players, max_players: item.max_players, playing_time: item.playing_time, complexity: item.complexity, bgg_rating: item.bgg_rating, mechanics: item.mechanics, designers: item.designers, developers: item.developers, themes: item.themes };
+  return { id: item.id, title: item.title, title_en: item.title_en, type: item.type, coverImage: item.coverImage, year: item.year, episodes: item.episodes, totalSeasons: item.totalSeasons, seasons: item.seasons, description: item.description, genres: item.genres, source: item.source, score: item.score, min_players: item.min_players, max_players: item.max_players, playing_time: item.playing_time, mechanics: item.mechanics, designers: item.designers, developers: item.developers, themes: item.themes };
 }
 
 function haptic(duration: number | number[] = 50) {
@@ -88,7 +88,6 @@ const FILTERS: { id: string; label: string; icon: React.ReactNode }[] = [
   { id: 'movie',     label: 'Film',   icon: <Film size={13} /> },
   { id: 'tv',        label: 'Serie',  icon: <Tv size={13} /> },
   { id: 'game',      label: 'Giochi', icon: <Gamepad2 size={13} /> },
-  { id: 'boardgame', label: 'Board',  icon: <Dices size={13} /> },
 ];
 
 // ── V3: Search tracking helpers (fire-and-forget, non blocca l'UI) ─────────
@@ -178,7 +177,6 @@ export default function DiscoverPage() {
       if (type === 'all' || type === 'anime' || type === 'manga') reqs.push(fetch(`/api/anilist?q=${encodeURIComponent(term)}${type !== 'all' ? `&type=${type}` : ''}&lang=${lang}`, { signal: controller.signal }));
       if (type === 'all' || type === 'movie' || type === 'tv') reqs.push(fetch(`/api/tmdb?q=${encodeURIComponent(term)}${type !== 'all' ? `&type=${type}` : ''}&lang=${lang}`, { signal: controller.signal }));
       if (type === 'all' || type === 'game') reqs.push(fetch(`/api/igdb?q=${encodeURIComponent(term)}&lang=${lang}`, { signal: controller.signal }));
-      if (type === 'all' || type === 'boardgame') reqs.push(fetch(`/api/boardgames?q=${encodeURIComponent(term)}&lang=${lang}`, { signal: controller.signal }));
       const responses = await Promise.allSettled(reqs);
       if (controller.signal.aborted) return;
       const all: MediaItem[] = [];
@@ -388,7 +386,7 @@ export default function DiscoverPage() {
               <Search size={26} className="text-[var(--text-muted)]" />
             </div>
             <p className="text-[16px] font-semibold text-[var(--text-primary)] mb-1">Cerca qualcosa</p>
-            <p className="text-[14px] text-[var(--text-secondary)]">Anime, manga, film, serie TV, giochi e board game.</p>
+            <p className="text-[14px] text-[var(--text-secondary)]">Anime, manga, film, serie TV e giochi.</p>
           </div>
         )}
 
@@ -428,7 +426,7 @@ export default function DiscoverPage() {
                       ? <img src={item.coverImage} alt={item.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
                       : <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)]">
-                          {type === 'game' ? <Gamepad2 size={28} /> : type === 'boardgame' ? <Dices size={28} /> : type === 'manga' ? <BookOpen size={28} /> : <Tv size={28} />}
+                          {type === 'game' ? <Gamepad2 size={28} /> : type === 'manga' ? <BookOpen size={28} /> : <Tv size={28} />}
                         </div>
                     }
                     {/* Hover overlay */}

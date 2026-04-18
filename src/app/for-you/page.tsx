@@ -34,6 +34,90 @@ type FeedbackReason = 'too_similar' | 'not_my_genre' | 'already_know' | 'bad_rec
 type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame'
 type Mood = 'light' | 'intense' | 'deep' | null
 
+interface FriendActivity {
+  userId: string; username: string; displayName?: string; avatarUrl?: string
+  mediaId: string; mediaTitle: string; mediaCover?: string; mediaType: string; updatedAt: string
+  isHighSim?: boolean; simScore?: number
+}
+
+const TYPE_ICONS: Record<MediaType, React.ElementType> = {
+  anime: Swords, manga: BookOpen, movie: Film, tv: Tv, game: Gamepad2, boardgame: Dices,
+}
+
+const TYPE_LABEL: Record<string, string> = {
+  anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Gioco', boardgame: 'Board Game',
+}
+
+const TYPE_COLORS: Record<string, string> = {
+  anime: 'from-sky-500 to-blue-600',
+  manga: 'from-orange-500 to-red-500',
+  movie: 'from-red-500 to-rose-600',
+  tv: 'from-purple-500 to-violet-600',
+  game: 'from-emerald-500 to-green-600',
+  boardgame: 'from-yellow-500 to-amber-600',
+}
+
+function triggerTasteDelta(options: {
+  action: 'rating' | 'status_change' | 'wishlist_add' | 'rewatch' | 'progress'
+  mediaId: string; mediaType: string; genres: string[]
+  rating?: number; prevRating?: number; status?: string; prevStatus?: string
+}) {
+  fetch('/api/taste/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(options) }).catch(() => {})
+}
+
+function MatchBadge({ score }: { score: number }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-violet-300 bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 rounded-full">
+      <Star size={8} fill="currentColor" />{score}%
+    </span>
+  )
+}
+
+function ContinuityBadge({ from }: { from: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full truncate max-w-full">
+      <ArrowRight size={8} />→ {from}
+    </span>
+  )
+}
+
+const MOOD_OPTIONS: Array<{ value: NonNullable<Mood>; label: string; emoji: string }> = [
+  { value: 'light', label: 'Leggero', emoji: '😄' },
+  { value: 'intense', label: 'Intenso', emoji: '🔥' },
+  { value: 'deep', label: 'Profondo', emoji: '🧠' },
+]
+
+function MoodPill({ mood, onClick }: { mood: Mood; onClick: () => void }) {
+  const opt = MOOD_OPTIONS.find(m => m.value === mood)
+  return (
+    <button onClick={onClick}
+      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${mood ? 'bg-violet-600/20 border-violet-500/40 text-violet-300' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-600'}`}>
+      {opt ? <>{opt.emoji} {opt.label}</> : <><Sun size={13} /> Umore</>}
+    </button>
+  )
+}
+
+function MoodBottomSheet({ mood, onChange, onClose }: { mood: Mood; onChange: (m: Mood) => void; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/60" />
+      <div className="relative w-full max-w-sm bg-zinc-900 border border-zinc-700 rounded-t-3xl p-5 pb-8" onClick={e => e.stopPropagation()}>
+        <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-4" />
+        <p className="text-sm font-semibold text-white mb-4">Come ti senti stasera?</p>
+        <div className="space-y-2">
+          {MOOD_OPTIONS.map(({ value, label, emoji }) => (
+            <button key={value} onClick={() => { onChange(mood === value ? null : value); onClose() }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm text-left transition-all ${mood === value ? 'bg-violet-600 text-white' : 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700'}`}>
+              <span className="text-lg">{emoji}</span>{label}
+            </button>
+          ))}
+        </div>
+        <button onClick={() => { onChange(null); onClose() }} className="w-full mt-3 text-xs text-zinc-600 hover:text-zinc-400 py-2">Nessun filtro</button>
+      </div>
+    </div>
+  )
+}
+
 interface Recommendation {
   id: string; title: string; type: MediaType; coverImage?: string; year?: number
   genres: string[]; score?: number; description?: string; why: string

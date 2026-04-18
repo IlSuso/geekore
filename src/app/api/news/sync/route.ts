@@ -1,7 +1,6 @@
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
-import { parseStringPromise } from 'xml2js'
 import { translateTexts } from '@/lib/deepl'
 import { truncateAtSentence } from '@/lib/utils'
 
@@ -423,165 +422,6 @@ async function fetchManga(lang: string): Promise<any[]> {
   }
 }
 
-// ── BGG helpers ───────────────────────────────────────────────────────────────
-
-function bggHeaders(): HeadersInit {
-  const token = process.env.BGG_BEARER_TOKEN
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
-
-async function bggFetchSync(url: string, signal?: AbortSignal): Promise<string | null> {
-  for (let attempt = 0; attempt < 6; attempt++) {
-    if (attempt > 0) await new Promise(r => setTimeout(r, attempt < 3 ? 2000 : 4000))
-    try {
-      const res = await fetch(url, {
-        cache: 'no-store',
-        headers: bggHeaders(),
-        signal: signal ?? AbortSignal.timeout(15000),
-      })
-      if (res.status === 202) { logger.info(`[BGG] 202 attempt ${attempt + 1}/6`); continue }
-      if (!res.ok) { logger.info(`[BGG] HTTP ${res.status} for ${url}`); return null }
-      const text = await res.text()
-      if (!text.trim().startsWith('<')) { logger.info(`[BGG] non-XML response`); return null }
-      return text
-    } catch (e: any) {
-      logger.info(`[BGG] attempt ${attempt + 1} error: ${e?.message}`)
-      if (attempt === 5) return null
-    }
-  }
-  return null
-}
-
-function mapBggCategories(categories: string[]): string[] {
-  const map: Record<string, string> = {
-    Fantasy: 'Fantasy', 'Science Fiction': 'Science Fiction', Horror: 'Horror',
-    Medieval: 'Medieval', Adventure: 'Adventure', Fighting: 'Fighting',
-    Deduction: 'Mystery', 'Murder/Mystery': 'Mystery', 'Thriller/Suspense': 'Thriller',
-    Humor: 'Comedy', Wargame: 'War', 'World War II': 'War', Historical: 'History',
-    Economic: 'Strategy', 'Card Game': 'Card Game', 'Abstract Strategy': 'Abstract',
-    'Cooperative Game': 'Cooperative', 'Party Game': 'Party', Family: 'Family',
-    Sports: 'Sports', Exploration: 'Adventure', Civilization: 'Strategy',
-    'Space Exploration': 'Science Fiction', Zombies: 'Horror', Mythology: 'Fantasy',
-  }
-  const genres = new Set<string>()
-  for (const cat of categories) { const m = map[cat]; if (m) genres.add(m) }
-  return Array.from(genres)
-}
-
-async function fetchBoardgameNews(lang: string): Promise<any[]> {
-  logger.info(`[BGG] fetchBoardgameNews START lang=${lang}`)
-  const ctrl = new AbortController()
-  const budget = setTimeout(() => ctrl.abort(), 50_000)
-  try {
-    const hotXml = await bggFetchSync('https://boardgamegeek.com/xmlapi2/hot?type=boardgame', ctrl.signal)
-    if (!hotXml) { logger.info(`[BGG] hot list failed — returning []`); return [] }
-
-    const hotResult = await parseStringPromise(hotXml)
-    const hotItems: any[] = hotResult?.items?.item || []
-    logger.info(`[BGG] hot list: ${hotItems.length} items`)
-
-    const currentYear = new Date().getFullYear()
-    // ±60 giorni: BGG dà solo l'anno, quindi includiamo anno corrente e precedente.
-    // Escludi anni futuri (2027+) — sono annunci senza data precisa.
-    const recent = hotItems.filter((item: any) => {
-      const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : null
-      if (year === null) return true // senza anno: includi comunque
-      return year >= currentYear - 1 && year <= currentYear
-    })
-    // Se ci sono pochi risultati nel range, allarga al currentYear+1 (prossimo anno imminente)
-    const candidates = recent.length >= 8 ? recent
-      : hotItems.filter((item: any) => {
-          const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : null
-          if (year === null) return true
-          return year >= currentYear - 1 && year <= currentYear + 1
-        })
-    const ids = candidates.slice(0, 25).map((i: any) => i.$.id)
-    logger.info(`[BGG] candidates=${ids.length} (range=${currentYear - 1}–${currentYear}, hotItems=${hotItems.length})`)
-    if (ids.length === 0) return []
-
-    await new Promise(r => setTimeout(r, 300))
-    const detailXml = await bggFetchSync(
-      `https://boardgamegeek.com/xmlapi2/thing?id=${ids.join(',')}&type=boardgame&stats=1`,
-      ctrl.signal,
-    )
-
-    // Se il detail endpoint fallisce (tutti 202 o timeout), costruiamo card base dalla hot list
-    if (!detailXml) {
-      logger.info(`[BGG] detail failed — falling back to basic hot-list cards`)
-      const basicCards = candidates.slice(0, 25).map((item: any) => {
-        const id = item.$.id
-        const title = item.name?.[0]?.$?.value || 'Unknown'
-        const rawThumb = item.thumbnail?.[0]?.$?.value || ''
-        const coverImage = rawThumb ? (rawThumb.startsWith('http') ? rawThumb : `https:${rawThumb}`) : null
-        if (!coverImage) return null
-        const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : undefined
-        return { id: `bgg-${id}`, type: 'boardgame', source_api: 'bgg', title, coverImage, year, date: year ? `${year}-01-01` : undefined, genres: [], category: 'boardgame', source: 'BGG', url: `https://boardgamegeek.com/boardgame/${id}` }
-      }).filter(Boolean)
-      logger.info(`[BGG] basic fallback cards: ${basicCards.length}`)
-      return basicCards
-    }
-
-    const detailResult = await parseStringPromise(detailXml)
-    const detailItems: any[] = detailResult?.items?.item || []
-    logger.info(`[BGG] detail items: ${detailItems.length}`)
-
-    const mapped = detailItems.map((item: any) => {
-      const id = item.$.id
-      const nameEl = (item.name || []).find((n: any) => n.$.type === 'primary')
-      const title = nameEl?.$.value || 'Senza titolo'
-
-      const rawImg = item.image?.[0]?.trim?.() || item.thumbnail?.[0]?.trim?.() || null
-      const coverImage = rawImg ? (rawImg.startsWith('http') ? rawImg : `https:${rawImg}`) : null
-      if (!coverImage) return null
-
-      const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : undefined
-      const description = item.description?.[0]
-        ? truncateAtSentence(item.description[0].replace(/&#10;/g, ' ').replace(/&amp;/g, '&').replace(/<[^>]+>/g, ''), 500)
-        : null
-
-      const links: any[] = item.link || []
-      const cats = links.filter((l: any) => l.$.type === 'boardgamecategory').map((l: any) => l.$.value).filter(Boolean)
-      const mechanics = links.filter((l: any) => l.$.type === 'boardgamemechanic').map((l: any) => l.$.value).filter(Boolean).slice(0, 5)
-      const designers = links.filter((l: any) => l.$.type === 'boardgamedesigner').map((l: any) => l.$.value).filter(Boolean)
-      const publishers = links.filter((l: any) => l.$.type === 'boardgamepublisher').map((l: any) => l.$.value).filter(Boolean).slice(0, 3)
-      const playingTime = item.playingtime?.[0]?.$?.value ? parseInt(item.playingtime[0].$.value) : undefined
-      const bggRating = item.statistics?.[0]?.ratings?.[0]?.average?.[0]?.$?.value
-        ? parseFloat(item.statistics[0].ratings[0].average[0].$.value) : undefined
-
-      return {
-        id: `bgg-${id}`,
-        type: 'boardgame',
-        source_api: 'bgg',
-        title,
-        description,
-        coverImage,
-        date: year ? `${year}-01-01` : undefined,
-        year,
-        genres: mapBggCategories(cats),
-        score: bggRating ? Math.round(bggRating * 10) / 10 : undefined,
-        developers: designers.length ? designers : undefined,
-        studios: publishers.length ? publishers : undefined,
-        mechanics: mechanics.length ? mechanics : undefined,
-        playing_time: playingTime || undefined,
-        category: 'boardgame',
-        source: 'BGG',
-        url: `https://boardgamegeek.com/boardgame/${id}`,
-      }
-    }).filter(Boolean)
-
-    if (lang === 'it') {
-      const descriptions = mapped.map((m: any) => m.description ?? '')
-      const translated = await translateTexts(descriptions)
-      mapped.forEach((m: any, i: number) => { if (m.description) m.description = translated[i] || m.description })
-    }
-
-    return mapped
-  } catch (e: any) {
-    logger.info(`[BGG] fetchBoardgameNews CATCH: ${e?.name}: ${e?.message}`)
-    return []
-  } finally { clearTimeout(budget) }
-}
-
 async function runSync(lang: 'it' | 'en') {
   logger.info(`[runSync] START lang=${lang} at ${new Date().toISOString()}`)
   const supabase = createServiceClient(
@@ -613,24 +453,7 @@ async function runSync(lang: 'it' | 'en') {
 
   logger.info(`[runSync] fast fetchers done: cinema=${cinema.length} tv=${tv.length} anime=${anime.length} gaming=${gaming.length} manga=${manga.length}`)
 
-  // ── Step 2: BGG runs sequentially after, with full remaining time budget ──
-  logger.info(`[runSync] starting BGG fetch (sequential) at ${new Date().toISOString()}`)
-  const bggStart = Date.now()
-  const boardgame = await fetchBoardgameNews(lang)
-  logger.info(`[runSync] BGG fetch completed in ${Date.now() - bggStart}ms, returned ${boardgame.length} items`)
-
-  if (boardgame.length > 0) {
-    const { error: bggErr } = await supabase.from('news_cache').upsert(
-      { category: `boardgame${suffix}`, data: boardgame, updated_at: new Date().toISOString() },
-      { onConflict: 'category' },
-    )
-    if (bggErr) logger.info(`[runSync] boardgame upsert FAILED: ${bggErr.message}`)
-    else logger.info(`[runSync] boardgame upsert OK`)
-  } else {
-    logger.info(`[runSync] boardgame returned 0 items — skipping upsert`)
-  }
-
-  const counts = { cinema: cinema.length, tv: tv.length, anime: anime.length, gaming: gaming.length, manga: manga.length, boardgame: boardgame.length }
+  const counts = { cinema: cinema.length, tv: tv.length, anime: anime.length, gaming: gaming.length, manga: manga.length }
   logger.info(`[runSync] DONE counts=${JSON.stringify(counts)}`)
   return counts
 }

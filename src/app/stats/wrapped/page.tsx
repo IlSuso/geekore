@@ -7,7 +7,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Share2, X, Download, Tv, Gamepad2, BookOpen, Film, Trophy, Gem, Dices } from 'lucide-react'
+import { ChevronDown, Share2, X, Download, Tv, Gamepad2, BookOpen, Film, Trophy, Gem } from 'lucide-react'
 
 interface WrappedData {
   username: string
@@ -20,7 +20,6 @@ interface WrappedData {
   gameHours: number
   movieCount: number
   tvEpisodes: number
-  boardgameCount: number
   topGenre: string
   mediaCount: number
   rank: string
@@ -33,7 +32,6 @@ const AVG_ANIME_EP_MIN = 24
 const AVG_MANGA_CH_MIN = 5
 const AVG_MOVIE_MIN = 110
 const AVG_TV_EP_MIN = 45
-const AVG_BOARDGAME_MIN = 90
 
 function calcRank(totalHours: number): { rank: string; rankEmoji: string } {
   if (totalHours >= 2000) return { rank: 'Leggenda', rankEmoji: 'gem' }
@@ -113,7 +111,6 @@ function Slide3({ data, onNext }: { data: WrappedData; onNext: () => void }) {
     { Icon: BookOpen, label: 'Cap. manga letti',      value: data.mangaChapters,  color: 'text-orange-400' },
     { Icon: Film,     label: 'Film guardati',         value: data.movieCount,     color: 'text-red-400' },
     { Icon: Tv,       label: 'Ep. serie TV',          value: data.tvEpisodes,     color: 'text-purple-400' },
-    { Icon: Dices,    label: 'Sessioni board game',   value: data.boardgameCount, color: 'text-yellow-400' },
   ].filter(s => s.value > 0)
 
   return (
@@ -229,10 +226,9 @@ export default function WrappedPage() {
       const gameH = es.filter(e => e.type === 'game').reduce((s, e) => s + (e.current_episode || 0), 0)
       const movieC = es.filter(e => e.type === 'movie' && e.status === 'completed').length
       const tvEps = es.filter(e => e.type === 'tv').reduce((s, e) => s + (e.current_episode || 0), 0)
-      const boardgameC = es.filter(e => e.type === 'boardgame').length
 
       const totalMin = animeEps * AVG_ANIME_EP_MIN + mangaChaps * AVG_MANGA_CH_MIN +
-        gameH * 60 + movieC * AVG_MOVIE_MIN + tvEps * AVG_TV_EP_MIN + boardgameC * AVG_BOARDGAME_MIN
+        gameH * 60 + movieC * AVG_MOVIE_MIN + tvEps * AVG_TV_EP_MIN
       const totalHours = Math.round(totalMin / 60)
       const totalDays = Math.round(totalHours / 24)
 
@@ -257,7 +253,6 @@ export default function WrappedPage() {
         gameHours: gameH,
         movieCount: movieC,
         tvEpisodes: tvEps,
-        boardgameCount: boardgameC,
         topGenre,
         mediaCount: es.length,
         rank,

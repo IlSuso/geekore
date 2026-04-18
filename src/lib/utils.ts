@@ -11,7 +11,6 @@ export function mediaColor(type: MediaType): string {
     anime: '#38bdf8',
     manga: '#f97066',
     game: '#4ade80',
-    boardgame: '#fb923c',
     tv: '#a78bfa',
     movie: '#f43f5e',
   }
@@ -23,7 +22,6 @@ export function mediaLabel(type: MediaType): string {
     anime: 'Anime',
     manga: 'Manga',
     game: 'Videogioco',
-    boardgame: 'Board Game',
     tv: 'Serie TV',
     movie: 'Film',
   }
@@ -35,7 +33,6 @@ export function progressLabel(type: MediaType, progress: number): string {
     anime: `Ep. ${progress}`,
     manga: `Cap. ${progress}`,
     game: `${progress}h`,
-    boardgame: `${progress} partite`,
     tv: `Ep. ${progress}`,
     movie: progress > 0 ? 'Completato' : 'Non visto',
   }
