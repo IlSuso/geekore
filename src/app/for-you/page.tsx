@@ -460,7 +460,7 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
           : <div className="w-full h-full flex items-center justify-center"><Icon size={32} className="text-zinc-700" /></div>
         }
         <div className={`absolute top-2 left-2 bg-gradient-to-r ${colorClass} text-white text-[10px] font-bold px-2 py-0.5 rounded-full`}>
-          {item.type.toUpperCase()}
+          {TYPE_LABEL[item.type] || item.type.toUpperCase()}
         </div>
         {item.isDiscovery && (
           <div className="absolute top-2 right-2 bg-emerald-500/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">

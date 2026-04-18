@@ -11,6 +11,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { StarRating } from '@/components/ui/StarRating'
+import { translateGenre } from '@/lib/genres'
 
 // ─── Tipi ─────────────────────────────────────────────────────────────────────
 
@@ -397,7 +398,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               <div className="flex flex-wrap gap-1.5">
                 {media.genres.map(g => (
                   <span key={g} className="text-xs bg-violet-500/15 text-violet-300 border border-violet-500/20 px-2.5 py-1 rounded-full">
-                    {g}
+                    {translateGenre(g)}
                   </span>
                 ))}
               </div>

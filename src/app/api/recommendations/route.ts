@@ -2743,7 +2743,7 @@ async function fetchBoardgameRecs(
       score: g.rating ? Math.min(g.rating / 2, 5) : undefined,
       description: g.description || undefined,
       matchScore: g._catMatch > 0 ? 65 : 52,
-      why: recGenres.length > 0 ? `Top ${recGenres[0]} boardgame` : 'Top boardgame',
+      why: recGenres.length > 0 ? `Tra i migliori di ${recGenres[0]}` : 'Top board game',
     })
   }
 
@@ -2766,7 +2766,7 @@ async function fetchBoardgameRecs(
             coverImage: item.urlToImage || undefined,
             genres: ['Strategy'], tags: [], keywords: [],
             matchScore: 48,
-            why: 'Trending boardgame',
+            why: 'Board game in tendenza',
           })
         }
       }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Gamepad2, Film, Tv, BookOpen, Loader2, CalendarDays, RefreshCw, Swords } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
+import { translateGenre } from '@/lib/genres'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
@@ -281,7 +282,7 @@ export default function NewsPage() {
                       <div className="flex flex-wrap gap-1">
                         {item.genres.slice(0, 2).map(g => (
                           <span key={g} className="text-[9px] px-1.5 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">
-                            {g}
+                            {translateGenre(g)}
                           </span>
                         ))}
                       </div>
