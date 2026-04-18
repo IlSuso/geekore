@@ -18,7 +18,7 @@ interface CertificateProps {
 
 const TYPE_LABEL: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', game: 'Videogioco',
-  movie: 'Film', tv: 'Serie TV', boardgame: 'Board Game',
+  movie: 'Film', tv: 'Serie TV',
 }
 
 const TYPE_COLOR: Record<string, [string, string]> = {

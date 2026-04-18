@@ -6,14 +6,13 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Clock, Gamepad2, Film, BookOpen, Tv, Dices, Share2, Gem, Globe, Briefcase, Calendar, Plane } from 'lucide-react'
+import { Clock, Gamepad2, Film, BookOpen, Tv, Share2, Gem, Globe, Briefcase, Calendar, Plane } from 'lucide-react'
 import Link from 'next/link'
 
 const AVG_ANIME_EP_MINUTES = 24
 const AVG_MANGA_CHAPTER_MINUTES = 5
 const AVG_MOVIE_MINUTES = 110
 const AVG_TV_EP_MINUTES = 45
-const AVG_BOARDGAME_SESSION_MINUTES = 75
 
 interface MediaEntry {
   type: string
@@ -29,7 +28,6 @@ interface Stats {
   gameHours: number
   movieHours: number; movieCount: number
   tvHours: number; tvEpisodes: number
-  boardgameHours: number; boardgameSessions: number
   totalMinutes: number
 }
 
@@ -140,7 +138,6 @@ export default function StatsPage() {
     const movies = entries.filter(e => e.type === 'movie')
     const tv = entries.filter(e => e.type === 'tv')
     const games = entries.filter(e => e.type === 'game')
-    const boards = entries.filter(e => e.type === 'boardgame')
 
     const animeEpisodes = anime.reduce((s, e) => s + (e.current_episode || 0), 0)
     const animeMinutes = animeEpisodes * AVG_ANIME_EP_MINUTES
@@ -151,10 +148,8 @@ export default function StatsPage() {
     const tvEpisodes = tv.reduce((s, e) => s + (e.current_episode || 0), 0)
     const tvMinutes = tvEpisodes * AVG_TV_EP_MINUTES
     const gameHours = games.reduce((s, e) => s + (e.current_episode || 0), 0)
-    const boardgameSessions = boards.reduce((s, e) => s + (e.current_episode || 0), 0)
-    const boardgameMinutes = boardgameSessions * AVG_BOARDGAME_SESSION_MINUTES
 
-    const totalMinutes = animeMinutes + mangaMinutes + movieMinutes + tvMinutes + (gameHours * 60) + boardgameMinutes
+    const totalMinutes = animeMinutes + mangaMinutes + movieMinutes + tvMinutes + (gameHours * 60)
 
     return {
       animeHours: animeMinutes / 60, animeEpisodes,
@@ -162,7 +157,6 @@ export default function StatsPage() {
       gameHours,
       movieHours: movieMinutes / 60, movieCount,
       tvHours: tvMinutes / 60, tvEpisodes,
-      boardgameHours: boardgameMinutes / 60, boardgameSessions,
       totalMinutes,
     }
   }, [entries])

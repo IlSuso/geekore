@@ -20,7 +20,6 @@ const TYPE_CONFIG: Record<string, { label: string; color: string; accent: string
   manga:     { label: 'Manga',    color: 'text-orange-400', accent: 'bg-orange-500/10 border-orange-500/20' },
   game:      { label: 'Giochi',   color: 'text-green-400',  accent: 'bg-green-500/10 border-green-500/20' },
   movie:     { label: 'Film',     color: 'text-red-400',    accent: 'bg-red-500/10 border-red-500/20' },
-  boardgame: { label: 'Board',    color: 'text-yellow-400', accent: 'bg-yellow-500/10 border-yellow-500/20' },
 }
 
 export function ProfileStatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
@@ -42,7 +41,7 @@ export function ProfileStatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
     return {
       anime: byType('anime').length, tv: byType('tv').length,
       manga: byType('manga').length, games: byType('game').length,
-      movies: byType('movie').length, boards: byType('boardgame').length,
+      movies: byType('movie').length,
       steamHours, animeHours: Math.round(animeEps * 24 / 60),
       mangaChapters, avgRating, topGenres, total: mediaList.length,
     }
@@ -54,8 +53,7 @@ export function ProfileStatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
     { key: 'manga',     value: stats.manga },
     { key: 'game',      value: stats.games },
     { key: 'movie',     value: stats.movies },
-    { key: 'boardgame', value: stats.boards },
-  ] // tutti e 6 sempre visibili, anche a 0
+  ] // tutti e 5 sempre visibili, anche a 0
 
   const metrics = [
     stats.steamHours > 0  && { icon: <Tv size={13} />,       label: 'Ore su Steam',  value: `${stats.steamHours}h` },

@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  Film, Tv, Gamepad2, BookOpen, Dices, Swords,
+  Film, Tv, Gamepad2, BookOpen, Swords,
   Tag, X, Search, Loader2, ArrowLeft, Check, Filter
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -14,7 +14,7 @@ import type { LucideIcon } from 'lucide-react'
 // ── Macro-categorie ───────────────────────────────────────────────────────────
 
 export const MACRO_CATEGORIES = [
-  'Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga', 'Board Game',
+  'Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga',
 ]
 
 const CATEGORY_ICON_MAP: Record<string, LucideIcon> = {
@@ -23,7 +23,6 @@ const CATEGORY_ICON_MAP: Record<string, LucideIcon> = {
   'Videogiochi': Gamepad2,
   'Anime': Swords,
   'Manga': BookOpen,
-  'Board Game': Dices,
 }
 
 const QUICK_SUBS: Record<string, string[]> = {
@@ -32,10 +31,9 @@ const QUICK_SUBS: Record<string, string[]> = {
   'Videogiochi': ['RPG', 'FPS', 'Battle Royale', 'Strategia', 'Indie'],
   'Anime': ['Shonen', 'Shojo', 'Seinen', 'Isekai', 'Slice of Life'],
   'Manga': ['Shonen', 'Shojo', 'Seinen', 'Josei', 'Webtoon'],
-  'Board Game': ['Strategia', 'Party', 'Cooperativo', 'Deck Building'],
 }
 
-const API_CATEGORIES = new Set(['Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga', 'Board Game'])
+const API_CATEGORIES = new Set(['Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga'])
 
 // ── Tipi ─────────────────────────────────────────────────────────────────────
 
@@ -131,18 +129,6 @@ async function searchByCategory(category: string, query: string): Promise<Search
         title: String(item.title || ''),
         subtitle: item.year ? String(item.year) : item.seasonYear ? String(item.seasonYear) : undefined,
         image: String(item.coverImage || item.cover || ''),
-      })).filter((i: SearchResult) => i.title)
-    }
-    if (category === 'Board Game') {
-      const res = await fetch(`/api/boardgames?q=${q}`, { signal: AbortSignal.timeout(5000) })
-      if (!res.ok) return []
-      const data = await res.json()
-      const items: Record<string, unknown>[] = Array.isArray(data) ? data : (data.results || data.games || [])
-      return items.slice(0, 8).map(item => ({
-        id: String(item.id || item.name),
-        title: String(item.name || item.title || ''),
-        subtitle: item.year ? String(item.year) : item.yearPublished ? String(item.yearPublished) : undefined,
-        image: String(item.coverImage || item.image || item.cover || item.thumbnail || ''),
       })).filter((i: SearchResult) => i.title)
     }
   } catch (err) {

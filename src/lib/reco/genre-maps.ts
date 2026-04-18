@@ -88,46 +88,6 @@ export const IGDB_TO_CROSS_GENRE: Record<string, string[]> = {
   'Indie': ['Drama', 'Adventure'],
 }
 
-export const BGG_TO_CROSS_GENRE: Record<string, string[]> = {
-  'Fantasy': ['Fantasy', 'Adventure', 'Drama'],
-  'Science Fiction': ['Science Fiction', 'Thriller', 'Action'],
-  'Horror': ['Horror', 'Thriller', 'Mystery'],
-  'Adventure': ['Adventure', 'Action', 'Fantasy'],
-  'Mystery': ['Mystery', 'Thriller', 'Crime'],
-  'Thriller': ['Thriller', 'Mystery', 'Crime'],
-  'War': ['Action', 'Drama', 'History'],
-  'Strategy': ['Strategy', 'Psychological'],
-  'Abstract': ['Strategy', 'Psychological'],
-  'Cooperative': ['Adventure', 'Strategy'],
-  'Medieval': ['Fantasy', 'Action', 'History'],
-  'History': ['Drama', 'Action', 'History'],
-  'Political': ['Drama', 'Thriller'],
-  'Comedy': ['Comedy', 'Family'],
-  'Family': ['Comedy', 'Adventure'],
-  'Card Game': ['Strategy'],
-  'Dice': ['Strategy'],
-  'Party': ['Comedy', 'Family'],
-  'Sports': ['Sports', 'Action'],
-  'Nature': ['Adventure', 'Drama'],
-}
-
-export const GENRE_TO_BGG_TERMS: Record<string, string> = {
-  'Fantasy': 'fantasy', 'Science Fiction': 'science fiction', 'Sci-Fi': 'science fiction',
-  'Horror': 'horror', 'Adventure': 'adventure', 'Mystery': 'mystery',
-  'Thriller': 'thriller', 'War': 'wargame', 'History': 'historical',
-  'Crime': 'crime', 'Comedy': 'humor', 'Action': 'action',
-  'Drama': 'storytelling', 'Psychological': 'psychology',
-}
-
-export const BGG_CAT_TO_GENRE_REC: Record<string, string> = {
-  'Fantasy': 'Fantasy', 'Science Fiction': 'Science Fiction', 'Horror': 'Horror',
-  'Adventure': 'Adventure', 'Mystery': 'Mystery', 'Thriller': 'Thriller',
-  'Wargame': 'War', 'Historical': 'History', 'Humor': 'Comedy',
-  'Deduction': 'Mystery', 'Murder/Mystery': 'Mystery', 'Medieval': 'Fantasy',
-  'Zombies': 'Horror', 'Ancient': 'History', 'Civilization': 'History',
-  'Exploration': 'Adventure', 'Space Exploration': 'Science Fiction',
-}
-
 export const ADJACENCY_GRAPH: Record<string, string[]> = {
   'Action': ['Thriller', 'Adventure', 'Crime'],
   'Adventure': ['Fantasy', 'Action', 'Science Fiction'],
