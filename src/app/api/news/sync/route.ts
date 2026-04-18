@@ -447,68 +447,138 @@ function mapBggCategories(categories: string[]): string[] {
 }
 
 async function bggGet(url: string, retries = 4, retryDelay = 3000): Promise<string | null> {
+  logger.info(`[BGG:bggGet] START url=${url} retries=${retries} retryDelay=${retryDelay}ms`)
   for (let i = 0; i < retries; i++) {
-    if (i > 0) await new Promise(r => setTimeout(r, retryDelay))
+    if (i > 0) {
+      logger.info(`[BGG:bggGet] waiting ${retryDelay}ms before attempt ${i + 1}`)
+      await new Promise(r => setTimeout(r, retryDelay))
+    }
+    const t0 = Date.now()
     try {
+      logger.info(`[BGG:bggGet] attempt ${i + 1}/${retries} fetching...`)
       const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(8000) })
-      if (res.status === 202) { logger.info(`[BGG] 202 on attempt ${i + 1} — retrying`); continue }
-      if (!res.ok) return null
+      const elapsed = Date.now() - t0
+      logger.info(`[BGG:bggGet] attempt ${i + 1} → HTTP ${res.status} in ${elapsed}ms`)
+      if (res.status === 202) {
+        logger.info(`[BGG:bggGet] 202 queued — will retry (${i + 1}/${retries})`)
+        continue
+      }
+      if (!res.ok) {
+        logger.info(`[BGG:bggGet] non-OK status ${res.status} — aborting`)
+        return null
+      }
       const text = await res.text()
-      if (!text.trim().startsWith('<')) return null
+      logger.info(`[BGG:bggGet] response body length=${text.length} starts="${text.slice(0, 80).replace(/\n/g, '\\n')}"`)
+      if (!text.trim().startsWith('<')) {
+        logger.info(`[BGG:bggGet] response is not XML — aborting`)
+        return null
+      }
+      logger.info(`[BGG:bggGet] SUCCESS on attempt ${i + 1}`)
       return text
-    } catch (e) {
-      logger.info(`[BGG] attempt ${i + 1} error: ${e}`)
-      if (i === retries - 1) return null
+    } catch (e: any) {
+      const elapsed = Date.now() - t0
+      logger.info(`[BGG:bggGet] attempt ${i + 1} THREW after ${elapsed}ms: ${e?.name}: ${e?.message}`)
+      if (i === retries - 1) {
+        logger.info(`[BGG:bggGet] all ${retries} attempts exhausted — returning null`)
+        return null
+      }
     }
   }
+  logger.info(`[BGG:bggGet] loop ended without success — returning null`)
   return null
 }
 
 async function fetchBoardgameNews(lang: string): Promise<any[]> {
+  logger.info(`[BGG:fetchBoardgameNews] START lang=${lang}`)
   try {
     // ── Phase 1: hot list (usually fast, no 202) ──────────────────────────────
+    logger.info(`[BGG:fetchBoardgameNews] Phase 1: fetching hot list`)
     const hotXml = await bggGet('https://boardgamegeek.com/xmlapi2/hot?type=boardgame', 3, 2000)
-    if (!hotXml) { logger.info('[BGG] hot list failed'); return [] }
+    if (!hotXml) {
+      logger.info('[BGG:fetchBoardgameNews] hot list returned null — returning []')
+      return []
+    }
+    logger.info(`[BGG:fetchBoardgameNews] hot list XML received, length=${hotXml.length}`)
 
-    const hotResult = await parseStringPromise(hotXml)
+    let hotResult: any
+    try {
+      hotResult = await parseStringPromise(hotXml)
+      logger.info(`[BGG:fetchBoardgameNews] hot list parsed OK, top-level keys=${Object.keys(hotResult || {}).join(',')}`)
+    } catch (parseErr: any) {
+      logger.info(`[BGG:fetchBoardgameNews] hot list XML parse FAILED: ${parseErr?.message}`)
+      return []
+    }
+
     const hotItems: any[] = hotResult?.items?.item || []
-    logger.info(`[BGG] hot list: ${hotItems.length} items`)
+    logger.info(`[BGG:fetchBoardgameNews] hot list items count=${hotItems.length}`)
+    if (hotItems.length > 0) {
+      const sample = hotItems[0]
+      logger.info(`[BGG:fetchBoardgameNews] first hot item keys=${Object.keys(sample).join(',')} id=${sample.$?.id} name=${sample.name?.[0]?.$?.value}`)
+    }
 
     const currentYear = new Date().getFullYear()
     const recent = hotItems.filter((item: any) => {
       const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : 0
       return year >= currentYear - 2
     })
+    logger.info(`[BGG:fetchBoardgameNews] recent (year >= ${currentYear - 2}) count=${recent.length}, using ${recent.length >= 10 ? 'recent' : 'full hotItems'} list`)
     const candidates = (recent.length >= 10 ? recent : hotItems).slice(0, 15)
-    if (candidates.length === 0) return []
+    logger.info(`[BGG:fetchBoardgameNews] candidates count=${candidates.length}`)
+    if (candidates.length === 0) {
+      logger.info(`[BGG:fetchBoardgameNews] no candidates — returning []`)
+      return []
+    }
 
     // Build basic cards from hot list (title + thumbnail — always available)
-    const basicCards = candidates.map((item: any) => {
+    const rawCards = candidates.map((item: any) => {
       const id = item.$.id
       const title = item.name?.[0]?.$?.value || 'Unknown'
       const rawThumb = item.thumbnail?.[0]?.$?.value || ''
       const thumb = rawThumb ? (rawThumb.startsWith('http') ? rawThumb : `https:${rawThumb}`) : null
       const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : undefined
+      logger.info(`[BGG:fetchBoardgameNews] card candidate id=${id} title="${title}" thumb=${thumb ? 'YES' : 'NO('+rawThumb+')'} year=${year}`)
       return thumb ? { id, title, thumb, year } : null
-    }).filter(Boolean) as { id: string; title: string; thumb: string; year?: number }[]
+    })
+    const basicCards = rawCards.filter(Boolean) as { id: string; title: string; thumb: string; year?: number }[]
+    logger.info(`[BGG:fetchBoardgameNews] basicCards (with thumb) count=${basicCards.length} (dropped ${rawCards.length - basicCards.length} without thumb)`)
 
-    if (basicCards.length === 0) return []
+    if (basicCards.length === 0) {
+      logger.info(`[BGG:fetchBoardgameNews] no basicCards with thumbnails — returning []`)
+      return []
+    }
 
     // ── Phase 2: thing details — with retries (BGG commonly 202 on first call) ─
     let detailMap = new Map<string, any>()
     try {
+      logger.info(`[BGG:fetchBoardgameNews] Phase 2: waiting 1s before thing details request`)
       await new Promise(r => setTimeout(r, 1000))
       const ids = basicCards.map(c => c.id).join(',')
+      logger.info(`[BGG:fetchBoardgameNews] fetching thing details for ids=${ids.slice(0, 100)}...`)
       const detailXml = await bggGet(
         `https://boardgamegeek.com/xmlapi2/thing?id=${ids}&type=boardgame&stats=1`,
         4, 3000,
       )
       if (detailXml) {
-        const dr = await parseStringPromise(detailXml)
-        ;(dr?.items?.item || []).forEach((item: any) => detailMap.set(item.$.id, item))
-        logger.info(`[BGG] thing details: ${detailMap.size} enriched`)
+        logger.info(`[BGG:fetchBoardgameNews] thing details XML received, length=${detailXml.length}`)
+        let dr: any
+        try {
+          dr = await parseStringPromise(detailXml)
+          logger.info(`[BGG:fetchBoardgameNews] thing details parsed OK`)
+        } catch (parseErr: any) {
+          logger.info(`[BGG:fetchBoardgameNews] thing details XML parse FAILED: ${parseErr?.message}`)
+        }
+        if (dr) {
+          const detailItems: any[] = dr?.items?.item || []
+          logger.info(`[BGG:fetchBoardgameNews] thing details items count=${detailItems.length}`)
+          detailItems.forEach((item: any) => detailMap.set(item.$.id, item))
+          logger.info(`[BGG:fetchBoardgameNews] detailMap size=${detailMap.size}`)
+        }
+      } else {
+        logger.info(`[BGG:fetchBoardgameNews] thing details returned null — proceeding with basic cards only`)
       }
-    } catch {} // enrichment optional — basic cards always returned
+    } catch (detailErr: any) {
+      logger.info(`[BGG:fetchBoardgameNews] thing details block THREW: ${detailErr?.message} — proceeding with basic cards`)
+    } // enrichment optional — basic cards always returned
 
     // ── Merge basic + detail ──────────────────────────────────────────────────
     const mapped = basicCards.map(basic => {
@@ -550,14 +620,22 @@ async function fetchBoardgameNews(lang: string): Promise<any[]> {
       }
     })
 
+    logger.info(`[BGG:fetchBoardgameNews] mapped count=${mapped.length}, titles=${mapped.slice(0, 3).map((m: any) => m.title).join(' | ')}`)
+
     if (lang === 'it') {
+      logger.info(`[BGG:fetchBoardgameNews] translating ${mapped.length} descriptions to Italian`)
       const descriptions = mapped.map(m => m.description ?? '')
       const translated = await translateTexts(descriptions)
       mapped.forEach((m, i) => { if (m.description) m.description = translated[i] || m.description })
+      logger.info(`[BGG:fetchBoardgameNews] translations done`)
     }
 
+    logger.info(`[BGG:fetchBoardgameNews] DONE returning ${mapped.length} items`)
     return mapped
-  } catch { return [] }
+  } catch (outerErr: any) {
+    logger.info(`[BGG:fetchBoardgameNews] OUTER CATCH: ${outerErr?.name}: ${outerErr?.message}`)
+    return []
+  }
 }
 
 async function runSync(lang: 'it' | 'en') {
@@ -590,17 +668,28 @@ async function runSync(lang: 'it' | 'en') {
   // ── Step 2: BGG runs sequentially after, with full remaining time budget ──
   // BGG /xmlapi2/thing requires 202-retry (by design). Running it in parallel
   // with TMDB left no time for retries; sequential gives it up to ~50s on Pro.
+  logger.info(`[runSync] starting BGG fetch (sequential) at ${new Date().toISOString()}`)
+  const bggStart = Date.now()
   const boardgame = await fetchBoardgameNews(lang)
+  logger.info(`[runSync] BGG fetch completed in ${Date.now() - bggStart}ms, returned ${boardgame.length} items`)
+
   // Only write if we got data — empty would mark cache as "fresh" and suppress
   // future syncs for 12 h, preventing any retry on BGG failure.
   if (boardgame.length > 0) {
-    await supabase.from('news_cache').upsert(
+    logger.info(`[runSync] upserting ${boardgame.length} boardgame items to Supabase`)
+    const { error: bggErr } = await supabase.from('news_cache').upsert(
       { category: `boardgame${suffix}`, data: boardgame, updated_at: new Date().toISOString() },
       { onConflict: 'category' },
     )
+    if (bggErr) logger.info(`[runSync] boardgame upsert FAILED: ${bggErr.message}`)
+    else logger.info(`[runSync] boardgame upsert OK`)
+  } else {
+    logger.info(`[runSync] boardgame returned 0 items — skipping upsert to avoid cache poisoning`)
   }
 
-  return { cinema: cinema.length, tv: tv.length, anime: anime.length, gaming: gaming.length, manga: manga.length, boardgame: boardgame.length }
+  const counts = { cinema: cinema.length, tv: tv.length, anime: anime.length, gaming: gaming.length, manga: manga.length, boardgame: boardgame.length }
+  logger.info(`[runSync] DONE counts=${JSON.stringify(counts)}`)
+  return counts
 }
 
 export async function POST(request: NextRequest) {
