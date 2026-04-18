@@ -50,6 +50,7 @@ type FeedCache = { posts: Post[] | null; page: number; hasMore: boolean; filter:
 const cache: FeedCache = { posts: null, page: 0, hasMore: true, filter: 'all', ts: 0 }
 const isCacheValid = (filter: string) =>
   !!(cache.posts && cache.filter === filter && Date.now() - cache.ts < 2 * 60 * 1000)
+const invalidateCache = (filter: string) => { if (cache.filter === filter) cache.ts = 0 }
 
 // ── Macro-categorie ───────────────────────────────────────────────────────────
 
