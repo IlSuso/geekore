@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rateLimit'
 import { translateWithCache } from '@/lib/deepl'
+import { truncateAtSentence } from '@/lib/utils'
 
 const ANILIST_API = 'https://graphql.anilist.co'
 

@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rateLimit'
 import { logger } from '@/lib/logger'
 import { translateWithCache } from '@/lib/deepl'
+import { truncateAtSentence } from '@/lib/utils'
 
 let cachedToken: { token: string; expiresAt: number } | null = null
 

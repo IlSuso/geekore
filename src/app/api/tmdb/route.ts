@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rateLimit'
+import { truncateAtSentence } from '@/lib/utils'
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
 
