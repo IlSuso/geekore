@@ -1,45 +1,43 @@
 // src/app/api/books/route.ts
-// Google Books API — ricerca libri per Geekore
+// Open Library API — ricerca libri per Geekore
 // GET /api/books?q=<query>
 
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rateLimit'
-import { truncateAtSentence } from '@/lib/utils'
 
-const GOOGLE_BOOKS_BASE = 'https://www.googleapis.com/books/v1/volumes'
+const OL_SEARCH_BASE = 'https://openlibrary.org/search.json'
+const OL_COVER_BASE  = 'https://covers.openlibrary.org/b'
 
-const GBOOKS_CATEGORY_TO_GENRE: Record<string, string> = {
-  'Fantasy':            'Fantasy',
-  'Science Fiction':    'Science Fiction',
-  'Sci-Fi':             'Science Fiction',
-  'Horror':             'Horror',
-  'Mystery':            'Mystery',
-  'Thriller':           'Thriller',
-  'Romance':            'Romance',
-  'Adventure':          'Adventure',
-  'Action':             'Action',
-  'Drama':              'Drama',
-  'Comedy':             'Comedy',
-  'Historical Fiction': 'Drama',
-  'History':            'Drama',
-  'Biography':          'Drama',
-  'Psychological':      'Psychological',
-  'Supernatural':       'Supernatural',
-  'Crime':              'Crime',
-  'Dystopia':           'Science Fiction',
-  'Magic':              'Fantasy',
-  'Manga':              'Action',
-  'Comics':             'Action',
-  'Graphic Novel':      'Action',
-  'Young Adult':        'Adventure',
-  'Children':           'Adventure',
+const SUBJECT_TO_GENRE: Record<string, string> = {
+  'Fantasy':               'Fantasy',
+  'Science fiction':       'Science Fiction',
+  'Horror':                'Horror',
+  'Mystery':               'Mystery',
+  'Thriller':              'Thriller',
+  'Romance':               'Romance',
+  'Adventure':             'Adventure',
+  'Action':                'Action',
+  'Drama':                 'Drama',
+  'Comedy':                'Comedy',
+  'Historical fiction':    'Drama',
+  'History':               'Drama',
+  'Biography':             'Drama',
+  'Psychological fiction': 'Psychological',
+  'Supernatural':          'Supernatural',
+  'Crime':                 'Crime',
+  'Dystopian':             'Science Fiction',
+  'Magic':                 'Fantasy',
+  'Graphic novels':        'Action',
+  'Comics':                'Action',
+  'Young adult fiction':   'Adventure',
+  "Children's literature": 'Adventure',
 }
 
-function mapCategoriesToGenres(categories: string[]): string[] {
+function mapSubjectsToGenres(subjects: string[]): string[] {
   const genres = new Set<string>()
-  for (const cat of categories) {
-    for (const [key, genre] of Object.entries(GBOOKS_CATEGORY_TO_GENRE)) {
-      if (cat.toLowerCase().includes(key.toLowerCase())) {
+  for (const sub of subjects) {
+    for (const [key, genre] of Object.entries(SUBJECT_TO_GENRE)) {
+      if (sub.toLowerCase().includes(key.toLowerCase())) {
         genres.add(genre)
       }
     }
@@ -47,11 +45,11 @@ function mapCategoriesToGenres(categories: string[]): string[] {
   return [...genres]
 }
 
-async function getOpenLibraryCover(isbn: string): Promise<string | null> {
+async function getIsbnCover(isbn: string): Promise<string | null> {
   try {
-    const url = `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg?default=false`
+    const url = `${OL_COVER_BASE}/isbn/${isbn}-L.jpg?default=false`
     const res = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(3000) })
-    if (res.ok) return `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`
+    if (res.ok) return `${OL_COVER_BASE}/isbn/${isbn}-L.jpg`
   } catch {
     // ignore
   }
@@ -82,6 +80,8 @@ async function fetchWithRetry(url: string, retries = 2): Promise<Response | null
   return null
 }
 
+const FIELDS = 'key,title,author_name,cover_i,isbn,first_publish_year,number_of_pages_median,subject,language,ratings_average'
+
 export async function GET(request: NextRequest) {
   const rl = rateLimit(request, { limit: 30, windowMs: 60_000, prefix: 'books' })
   if (!rl.ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
@@ -89,133 +89,81 @@ export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get('q')?.trim()
   if (!q || q.length < 2) return NextResponse.json({ results: [] })
 
-  const apiKey = process.env.GOOGLE_BOOKS_API_KEY || ''
-
-  // ── Chiamata API ─────────────────────────────────────────────────────────────
-  // Formula raccomandata dalla documentazione Google Books:
-  //   q=intitle:"query"  +  langRestrict=it  (parametro separato, non lang:it nel query)
-  // intitle:"..." forza Google a cercare la frase ESATTA nel titolo del libro.
-  // langRestrict=it come parametro URL è più affidabile di lang:it nel query.
-  //
-  // Fallback: se 0 risultati italiani, cerca senza intitle (per titoli parziali/ambigui)
-
   console.log(`[BOOKS] query="${q}"`)
+
+  // Ricerca principale con filtro lingua italiana
+  const p1 = new URLSearchParams({ q, lang: 'ita', limit: '40', fields: FIELDS })
+  const r1 = await fetchWithRetry(`${OL_SEARCH_BASE}?${p1}`)
+
   let items: any[] = []
 
-  // Cerchiamo due pagine in parallelo (startIndex 0 e 40) per aumentare il pool.
-  // lr=lang_it + langRestrict=it + hl=it = massima pressione linguistica sull'API.
-  // intitle:"query" = cerca la frase esatta nel titolo.
-  const baseParams = { q: `intitle:"${q}"`, maxResults: '40', printType: 'books', langRestrict: 'it', lr: 'lang_it', hl: 'it', orderBy: 'relevance' }
-  const p1 = new URLSearchParams({ ...baseParams, startIndex: '0' })
-  const p2 = new URLSearchParams({ ...baseParams, startIndex: '40' })
-  if (apiKey) { p1.set('key', apiKey); p2.set('key', apiKey) }
-
-  const [r1, r2] = await Promise.all([
-    fetchWithRetry(`${GOOGLE_BOOKS_BASE}?${p1}`),
-    fetchWithRetry(`${GOOGLE_BOOKS_BASE}?${p2}`),
-  ])
-
-  const raw: any[] = []
-  for (const r of [r1, r2]) {
-    if (r) { const data = await r.json(); raw.push(...(data.items || [])) }
+  if (r1) {
+    const data = await r1.json()
+    // Tieni solo i libri con almeno un'edizione in italiano
+    items = (data.docs || []).filter((doc: any) =>
+      Array.isArray(doc.language) && doc.language.includes('ita')
+    )
+    console.log(`[BOOKS] OL totale=${data.docs?.length ?? 0} → italiani=${items.length}`)
   }
 
-  // Tieni preferibilmente solo italiani; se 0, accetta tutto tranne inglese
-  const italian = raw.filter((i: any) => i.volumeInfo?.language === 'it')
-  const nonEn   = raw.filter((i: any) => i.volumeInfo?.language !== 'en')
-  items = italian.length > 0 ? italian : nonEn
-
-  const langs: Record<string, number> = {}
-  raw.forEach((i: any) => { const l = i.volumeInfo?.language ?? 'null'; langs[l] = (langs[l] || 0) + 1 })
-  console.log(`[BOOKS] raw totale=${raw.length} langs=${JSON.stringify(langs)} → usati=${items.length} (it=${italian.length})`)
-
-  // Fallback: senza intitle se ancora 0
+  // Fallback: senza restrizione lingua se zero risultati
   if (items.length === 0) {
-    const p3 = new URLSearchParams({ q, maxResults: '40', printType: 'books', langRestrict: 'it', lr: 'lang_it', hl: 'it', orderBy: 'relevance' })
-    if (apiKey) p3.set('key', apiKey)
-    const r3 = await fetchWithRetry(`${GOOGLE_BOOKS_BASE}?${p3}`)
-    if (r3) {
-      const data = await r3.json()
-      items = data.items || []
-      const l2: Record<string, number> = {}
-      items.forEach((i: any) => { const l = i.volumeInfo?.language ?? 'null'; l2[l] = (l2[l] || 0) + 1 })
-      console.log(`[BOOKS] fallback no-intitle → raw=${items.length} langs=${JSON.stringify(l2)}`)
+    const p2 = new URLSearchParams({ q, limit: '40', fields: FIELDS })
+    const r2 = await fetchWithRetry(`${OL_SEARCH_BASE}?${p2}`)
+    if (r2) {
+      const data = await r2.json()
+      items = data.docs || []
+      console.log(`[BOOKS] fallback no-lang: ${items.length}`)
     }
   }
 
-  // Deduplicazione per titolo: rimuove edizioni multiple dello stesso libro
+  // Deduplicazione per titolo
   const seenTitles = new Set<string>()
-  items = items.filter((item: any) => {
-    const t = (item.volumeInfo?.title || '').toLowerCase().trim()
+  items = items.filter((doc: any) => {
+    const t = (doc.title || '').toLowerCase().trim()
     if (!t || seenTitles.has(t)) return false
     seenTitles.add(t)
     return true
   })
 
-  // ── Filtro titolo ─────────────────────────────────────────────────────────────
-  // Tutte le parole della query devono apparire nel titolo (nessun limite di lunghezza)
-  const queryWords = q.toLowerCase().split(/\s+/).filter(w => w.length > 0)
-  if (queryWords.length > 0) {
-    const before = items.length
-    items = items.filter((item: any) => {
-      const title = (item.volumeInfo?.title || '').toLowerCase()
-      return queryWords.every(word => title.includes(word))
-    })
-    console.log(`[BOOKS] dopo filtro titolo: ${before} → ${items.length}`)
-  }
-
   if (!items.length) {
-    console.log(`[BOOKS] ZERO risultati`)
+    console.log('[BOOKS] ZERO risultati')
     return NextResponse.json({ results: [] })
   }
 
-  const results = (await Promise.all(items.slice(0, 20).map(async (item: any) => {
-    const info = item.volumeInfo || {}
-    const categories: string[] = info.categories || []
-    const genres = mapCategoriesToGenres(categories)
+  const results = (await Promise.all(items.slice(0, 20).map(async (doc: any) => {
+    const isbn13 = doc.isbn?.find((i: string) => i.length === 13) || doc.isbn?.[0] || null
 
-    const rawCover = info.imageLinks?.extraLarge || info.imageLinks?.large ||
-      info.imageLinks?.medium || info.imageLinks?.thumbnail ||
-      info.imageLinks?.smallThumbnail || null
-    const googleCover = rawCover
-      ? (() => {
-          let u = rawCover.replace('http://', 'https://').replace('&edge=curl', '').replace(/zoom=\d+/, 'zoom=3')
-          if (!u.includes('fife=')) u += '&fife=w400'
-          return u
-        })()
-      : null
-
-    const isbn = info.industryIdentifiers?.find((i: any) => i.type === 'ISBN_13')?.identifier || null
-
-    let coverImage = googleCover
-    if (!coverImage && isbn) {
-      coverImage = await getOpenLibraryCover(isbn)
-      if (coverImage) console.log(`[BOOKS] OpenLibrary cover per ISBN ${isbn}`)
+    let coverImage: string | null = null
+    if (doc.cover_i) {
+      coverImage = `${OL_COVER_BASE}/id/${doc.cover_i}-L.jpg`
+    } else if (isbn13) {
+      coverImage = await getIsbnCover(isbn13)
+      if (coverImage) console.log(`[BOOKS] ISBN cover per ${isbn13}`)
     }
 
-    const description = info.description
-      ? truncateAtSentence(info.description.replace(/<[^>]+>/g, ''), 400)
-      : null
+    const subjects: string[] = doc.subject?.slice(0, 20) || []
+    const genres = mapSubjectsToGenres(subjects)
 
     return {
-      id: `gbooks-${item.id}`,
-      external_id: item.id,
-      title: info.title || 'Titolo sconosciuto',
+      id: `ol-${(doc.key ?? '').replace('/works/', '') || Math.random().toString(36).slice(2)}`,
+      external_id: doc.key || null,
+      title: doc.title || 'Titolo sconosciuto',
       type: 'book',
       coverImage,
-      year: info.publishedDate ? parseInt(info.publishedDate.substring(0, 4)) : null,
+      year: doc.first_publish_year || null,
       genres,
-      score: info.averageRating ? Math.round(info.averageRating * 20) : null,
-      description,
-      authors: info.authors || [],
-      publisher: info.publisher || null,
-      pageCount: info.pageCount || null,
-      categories,
-      isbn,
-      language: info.language || null,
-      previewLink: info.previewLink || null,
+      categories: genres,
+      score: doc.ratings_average ? Math.round(doc.ratings_average * 20) : null,
+      description: null,
+      authors: doc.author_name || [],
+      publisher: null,
+      pageCount: doc.number_of_pages_median || null,
+      isbn: isbn13,
+      language: 'it',
+      previewLink: doc.key ? `https://openlibrary.org${doc.key}` : null,
     }
-  }))).filter(r => r.title && r.title !== 'Titolo sconosciuto' || r.coverImage)
+  }))).filter(r => r.title !== 'Titolo sconosciuto' || r.coverImage)
 
   console.log(`[BOOKS] risultati finali: ${results.length}`)
   return NextResponse.json({ results })

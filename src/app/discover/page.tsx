@@ -17,7 +17,7 @@ import type { MediaDetails } from '@/components/media/MediaDetailsDrawer';
 type MediaItem = {
   id: string; title: string; title_en?: string; type: string; coverImage?: string; year?: number;
   episodes?: number; totalSeasons?: number; seasons?: Record<number, { episode_count: number }>;
-  description?: string; genres?: string[]; source: 'anilist' | 'tmdb' | 'igdb' | 'google_books';
+  description?: string; genres?: string[]; source: 'anilist' | 'tmdb' | 'igdb' | 'google_books' | 'open_library';
   tags?: string[]; keywords?: string[]; themes?: string[]; player_perspectives?: string[];
   game_modes?: string[]; developers?: string[]; categories?: string[]; mechanics?: string[];
   designers?: string[]; min_players?: number; max_players?: number; playing_time?: number;
@@ -201,12 +201,12 @@ export default function DiscoverPage() {
                 coverImage: b.coverImage,
                 year: b.year,
                 description: b.description,
-                genres: b.categories || [],
+                genres: b.genres || b.categories || [],
                 authors: b.authors || [],
                 pageCount: b.pageCount,
                 publisher: b.publisher,
                 isbn: b.isbn,
-                source: 'google_books' as const,
+                source: 'open_library' as const,
               }));
               all.push(...mapped);
             }

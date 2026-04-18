@@ -172,8 +172,8 @@ export function BookImport({ onImportDone }: { onImportDone?: () => void }) {
 
       <p className="text-xs text-zinc-600 text-center">
         Dati forniti da{' '}
-        <a href="https://books.google.com" target="_blank" className="text-zinc-500 hover:text-zinc-400">
-          Google Books
+        <a href="https://openlibrary.org" target="_blank" className="text-zinc-500 hover:text-zinc-400">
+          Open Library
         </a>
       </p>
     </div>
