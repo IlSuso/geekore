@@ -40,11 +40,17 @@ import { PullWrapper } from '@/components/ui/PullWrapper'
 import { createPortal } from 'react-dom'
 import { ReportButton } from '@/components/ui/ReportButton'
 import { validateImage } from '@/lib/imageValidator'
-import type { Post } from '@/types'
+import { showToast } from '@/components/ui/Toast'
+import type { Post, Comment } from '@/types'
 
 const DISCOVERY_INTERVAL = 5
 const PINNED_LIKE_THRESHOLD = 3
 const PAGE_SIZE = 10
+
+function haptic(duration: number | number[] = 30) {
+  if (typeof navigator === 'undefined' || !navigator.vibrate) return
+  navigator.vibrate(duration)
+}
 
 type FeedCache = { posts: Post[] | null; page: number; hasMore: boolean; filter: string; ts: number }
 const cache: FeedCache = { posts: null, page: 0, hasMore: true, filter: 'all', ts: 0 }
