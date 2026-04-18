@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rateLimit'
 import { logger } from '@/lib/logger'
-import { freeTranslateBatch } from '@/lib/deepl'
+import { translateWithCache } from '@/lib/deepl'
 
 let cachedToken: { token: string; expiresAt: number } | null = null
 
@@ -161,10 +161,10 @@ export async function GET(request: NextRequest) {
 
   const toTranslate = games.filter((g: any) => g.description)
   if (toTranslate.length > 0) {
-    const texts = toTranslate.map((g: any) => g.description)
-    const translated = await freeTranslateBatch(texts, 'IT')
-    toTranslate.forEach((g: any, i: number) => {
-      if (translated[i] && translated[i] !== g.description) g.description = translated[i]
+    const items = toTranslate.map((g: any) => ({ id: `igdb:${g.id}`, text: g.description }))
+    const translated = await translateWithCache(items, 'IT', 'EN')
+    toTranslate.forEach((g: any) => {
+      if (translated[`igdb:${g.id}`]) g.description = translated[`igdb:${g.id}`]
     })
   }
   return NextResponse.json(games)

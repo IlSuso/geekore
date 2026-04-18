@@ -1013,13 +1013,14 @@ export async function GET(request: NextRequest) {
   const top30 = diverse.slice(0, 30)
   const clean = top30.map(({ _pop, _similarity, _foundByKeyword, ...r }) => r)
 
+  const TRANSLATE_TYPES = new Set(['game', 'boardgame', 'manga'])
   const descItems = clean
-    .filter(r => r.description && (r.type === 'game' || r.type === 'boardgame'))
+    .filter(r => r.description && TRANSLATE_TYPES.has(r.type))
     .map(r => ({ id: r.type === 'game' ? `igdb:${r.id}` : r.id, text: r.description! }))
   if (descItems.length > 0) {
     const t = await translateWithCache(descItems)
     clean.forEach(r => {
-      if (!r.description || (r.type !== 'game' && r.type !== 'boardgame')) return
+      if (!r.description || !TRANSLATE_TYPES.has(r.type)) return
       const key = r.type === 'game' ? `igdb:${r.id}` : r.id
       r.description = t[key] || r.description
     })

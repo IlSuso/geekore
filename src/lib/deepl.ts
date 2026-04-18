@@ -229,7 +229,7 @@ export async function translateWithCache(
   console.log('[Translate] miss:', misses.length, '/ cached:', dbCached.size)
   if (misses.length === 0) return result
 
-  const translated = await translateTexts(misses.map(i => i.text), targetLang, sourceLang)
+  const translated = await freeTranslateBatch(misses.map(i => i.text), targetLang)
 
   const rows: Array<{ id: string; text_it: string }> = []
   for (let j = 0; j < misses.length; j++) {

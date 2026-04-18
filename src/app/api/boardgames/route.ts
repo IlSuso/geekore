@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { parseStringPromise } from 'xml2js'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { rateLimit } from '@/lib/rateLimit'
-import { freeTranslateBatch } from '@/lib/deepl'
+import { translateWithCache } from '@/lib/deepl'
 
 const CACHE_DURATION_MS = 86400000 // 24 ore
 
@@ -220,10 +220,10 @@ export async function GET(request: NextRequest) {
       if (lang === 'it') {
         const toTranslate = rawResults.filter(r => r.description)
         if (toTranslate.length > 0) {
-          const texts = toTranslate.map(r => r.description as string)
-          const translated = await freeTranslateBatch(texts, 'IT')
-          toTranslate.forEach((r, i) => {
-            if (translated[i] && translated[i] !== r.description) r.description = translated[i]
+          const items = toTranslate.map(r => ({ id: r.id, text: r.description as string }))
+          const translated = await translateWithCache(items, 'IT', 'EN')
+          toTranslate.forEach(r => {
+            if (translated[r.id]) r.description = translated[r.id]
           })
         }
       }

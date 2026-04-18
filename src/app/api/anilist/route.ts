@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rateLimit'
-import { freeTranslateBatch } from '@/lib/deepl'
+import { translateWithCache } from '@/lib/deepl'
 
 const ANILIST_API = 'https://graphql.anilist.co'
 
@@ -149,10 +149,10 @@ export async function GET(request: NextRequest) {
   if (lang === 'it') {
     const toTranslate = allResults.filter((r: any) => r.description)
     if (toTranslate.length > 0) {
-      const texts = toTranslate.map((r: any) => r.description)
-      const translated = await freeTranslateBatch(texts, 'IT')
-      toTranslate.forEach((r: any, i: number) => {
-        if (translated[i] && translated[i] !== r.description) r.description = translated[i]
+      const items = toTranslate.map((r: any) => ({ id: r.id, text: r.description }))
+      const translated = await translateWithCache(items, 'IT', 'EN')
+      toTranslate.forEach((r: any) => {
+        if (translated[r.id]) r.description = translated[r.id]
       })
     }
   }
