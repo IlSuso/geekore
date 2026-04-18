@@ -1,25 +1,47 @@
 'use client'
-// A5: distingue fetchError da lista vuota — usa ErrorState con retry
-// PERF: cache in-memory lato client (5 min TTL) — evita spinner ad ogni visita
 
 import { useState, useEffect } from 'react'
+import { Gamepad2, Film, Tv, BookOpen, Loader2, CalendarDays, RefreshCw, Swords } from 'lucide-react'
+import { useLocale } from '@/lib/locale'
+import { ErrorState } from '@/components/ui/ErrorState'
+import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
+import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 
 // Cache in-memory: sopravvive alle navigazioni SPA ma si svuota al reload
 const newsCache = new Map<string, { data: any[]; ts: number }>()
-const NEWS_CACHE_TTL = 5 * 60 * 1000 // 5 minuti
-import { Gamepad2, Film, Tv, BookOpen, Loader2, ExternalLink, CalendarDays, RefreshCw } from 'lucide-react'
-import { useLocale } from '@/lib/locale'
-import { ErrorState } from '@/components/ui/ErrorState'
+const NEWS_CACHE_TTL = 5 * 60 * 1000
 
-type NewsItem = {
+type UpcomingItem = {
+  id?: string
+  type?: string
+  source_api?: 'tmdb' | 'anilist' | 'igdb'
   title: string
   description?: string
   coverImage?: string
   date?: string
+  year?: number
+  genres?: string[]
+  score?: number
+  episodes?: number
+  studios?: string[]
+  developers?: string[]
+  original_language?: string
   category: 'gaming' | 'cinema' | 'anime' | 'tv'
   source: string
-  url: string
   nextEpisode?: number
+  platforms?: string[]
+  duration?: number
+  format?: string
+  mechanics?: string[]
+  themes?: string[]
+  directors?: string[]
+  totalSeasons?: number
+  seasons?: Record<number, { episode_count: number }>
+  playing_time?: number
+  cast?: string[]
+  watchProviders?: string[]
+  nextEpisodeDate?: string
+  italianSupportTypes?: string[]
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -38,14 +60,43 @@ function formatDate(dateStr?: string, locale?: string) {
   } catch { return null }
 }
 
+function toMediaDetails(item: UpcomingItem): MediaDetails | null {
+  if (!item.id || !item.type) return null
+  return {
+    id: item.id,
+    title: item.title,
+    type: item.type,
+    coverImage: item.coverImage,
+    year: item.year,
+    description: item.description,
+    genres: item.genres || [],
+    score: item.score,
+    episodes: item.episodes,
+    studios: item.studios,
+    developers: item.developers,
+    directors: item.directors,
+    cast: item.cast,
+    platforms: item.platforms,
+    playing_time: item.playing_time ?? item.duration,
+    mechanics: item.mechanics,
+    themes: item.themes,
+    totalSeasons: item.totalSeasons,
+    seasons: item.seasons,
+    watchProviders: item.watchProviders,
+    italianSupportTypes: item.italianSupportTypes,
+    // source non passato intenzionalmente: sopprime il link esterno nel drawer
+  }
+}
+
 export default function NewsPage() {
   const { locale, t } = useLocale()
   const [activeCategory, setActiveCategory] = useState('all')
-  const [news, setNews] = useState<NewsItem[]>([])
+  const [items, setItems] = useState<UpcomingItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [fetchError, setFetchError] = useState(false) // A5: distingui errore da lista vuota
+  const [fetchError, setFetchError] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [lastSync, setLastSync] = useState<string | null>(null)
+  const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null)
 
   const CATEGORIES = [
     { id: 'all',    label: t.news.all,    icon: null      },
@@ -62,54 +113,59 @@ export default function NewsPage() {
     gaming: t.news.gaming,
   }
 
-  const fetchNews = async (cat: string, forceRefresh = false) => {
-    const cacheKey = `${cat}-${locale}`
+  const CATEGORY_ICONS: Record<string, React.ElementType> = {
+    cinema: Film,
+    tv:     Tv,
+    anime:  Swords,
+    gaming: Gamepad2,
+  }
 
-    // Cache hit: mostra subito i dati, nessun spinner
+  const fetchItems = async (cat: string, forceRefresh = false) => {
+    const cacheKey = `${cat}-${locale}`
     if (!forceRefresh) {
       const cached = newsCache.get(cacheKey)
       if (cached && Date.now() - cached.ts < NEWS_CACHE_TTL) {
-        setNews(cached.data)
+        setItems(cached.data)
         setLoading(false)
         setFetchError(false)
         return
       }
     }
-
     setLoading(true)
-    setFetchError(false) // reset error
+    setFetchError(false)
     try {
       const res = await fetch(`/api/news?cat=${cat}&lang=${locale}`)
       if (!res.ok) {
-        // A5: errore HTTP → mostra ErrorState, non lista vuota
         setFetchError(true)
-        setNews([])
+        setItems([])
       } else {
         const data = await res.json()
-        const items = Array.isArray(data) ? data : []
-        setNews(items)
-        // Salva in cache
-        newsCache.set(cacheKey, { data: items, ts: Date.now() })
+        const list = Array.isArray(data) ? data : []
+        setItems(list)
+        newsCache.set(cacheKey, { data: list, ts: Date.now() })
+        // Cache vecchia (senza id): triggera sync in background e invalida cache
+        if (list.some((i: any) => !i.id)) {
+          newsCache.delete(cacheKey)
+          fetch(`/api/news/sync?lang=${locale}`, { method: 'GET' }).catch(() => {})
+        }
       }
     } catch {
-      // A5: errore di rete → mostra ErrorState
       setFetchError(true)
-      setNews([])
+      setItems([])
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchNews(activeCategory)
+    fetchItems(activeCategory)
   }, [activeCategory, locale])
 
   const triggerSync = async () => {
     setSyncing(true)
     try {
       await fetch(`/api/news/sync?lang=${locale}`, { method: 'GET' })
-      // forceRefresh=true per bypassare la cache dopo sync
-      await fetchNews(activeCategory, true)
+      await fetchItems(activeCategory, true)
       setLastSync(new Date().toLocaleTimeString(locale === 'en' ? 'en-US' : 'it-IT', {
         hour: '2-digit', minute: '2-digit',
       }))
@@ -170,12 +226,11 @@ export default function NewsPage() {
             <Loader2 size={32} className="animate-spin text-violet-400" />
           </div>
         ) : fetchError ? (
-          // A5: ErrorState invece di lista vuota silenziosa
           <ErrorState
-            error="Non è stato possibile recuperare le notizie. Controlla la connessione e riprova."
-            onRetry={() => fetchNews(activeCategory)}
+            error="Non è stato possibile recuperare i contenuti. Controlla la connessione e riprova."
+            onRetry={() => fetchItems(activeCategory)}
           />
-        ) : news.length === 0 ? (
+        ) : items.length === 0 ? (
           <div className="text-center py-32">
             <p className="text-zinc-500 mb-4">{t.news.empty}</p>
             <button
@@ -188,66 +243,87 @@ export default function NewsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {news.map((item, i) => (
-              <a
-                key={i}
-                href={item.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-violet-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-violet-500/10 hover:-translate-y-0.5 flex flex-col"
-              >
-                <div className="relative aspect-[2/3] bg-zinc-800 flex-shrink-0 overflow-hidden">
-                  {item.coverImage ? (
-                    <img
-                      src={item.coverImage}
-                      alt={item.title}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-zinc-600">
-                      <Film size={36} />
-                    </div>
-                  )}
-                  <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
-                  <div className={`absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full text-[10px] font-bold shadow-lg ${CATEGORY_COLORS[item.category] || 'bg-zinc-700 text-zinc-300'}`}>
-                    {CATEGORY_LABELS[item.category] || item.category}
-                  </div>
-                  <div className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="bg-black/60 backdrop-blur-sm p-1 rounded-lg">
-                      <ExternalLink size={11} className="text-white" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-3 flex flex-col flex-1 gap-1.5">
-                  <h3 className="font-semibold text-xs leading-snug line-clamp-2 text-white group-hover:text-violet-300 transition-colors">
-                    {item.title}
-                  </h3>
-                  {item.description && (
-                    <p className="text-[11px] text-zinc-500 line-clamp-2 leading-relaxed flex-1">
-                      {item.description}
-                    </p>
-                  )}
-                  <div className="mt-auto pt-1">
-                    {item.date ? (
-                      <div className="flex items-center gap-1 text-[11px] text-zinc-400 font-medium">
-                        <CalendarDays size={10} />
-                        {formatDate(item.date, locale)}
+            {items.map((item, i) => {
+              const media = toMediaDetails(item)
+              const CategoryIcon = CATEGORY_ICONS[item.category]
+              return (
+                <div
+                  key={item.id || i}
+                  onClick={() => media && setDrawerMedia(media)}
+                  className={`group bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden transition-all duration-300 hover:border-violet-500/50 hover:shadow-xl hover:shadow-violet-500/10 hover:-translate-y-0.5 flex flex-col ${media ? 'cursor-pointer' : ''}`}
+                >
+                  <div className="relative aspect-[2/3] bg-zinc-800 flex-shrink-0 overflow-hidden">
+                    {item.coverImage ? (
+                      <img
+                        src={item.coverImage}
+                        alt={item.title}
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-zinc-600">
+                        <Film size={36} />
                       </div>
-                    ) : item.nextEpisode ? (
-                      <span className="text-[11px] text-emerald-400 font-medium">
-                        {t.news.episode(item.nextEpisode)}
-                      </span>
-                    ) : null}
+                    )}
+                    <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+                    <div className={`absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full text-[10px] font-bold shadow-lg flex items-center gap-1 ${CATEGORY_COLORS[item.category] || 'bg-zinc-700 text-zinc-300'}`}>
+                      {CategoryIcon && <CategoryIcon size={9} />}
+                      {CATEGORY_LABELS[item.category] || item.category}
+                    </div>
+                  </div>
+
+                  <div className="p-3 flex flex-col flex-1 gap-1.5">
+                    <h3 className="font-semibold text-xs leading-snug line-clamp-2 text-white group-hover:text-violet-300 transition-colors">
+                      {item.title}
+                    </h3>
+                    {item.genres && item.genres.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {item.genres.slice(0, 2).map(g => (
+                          <span key={g} className="text-[9px] px-1.5 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">
+                            {g}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {item.category === 'gaming' && item.italianSupportTypes && item.italianSupportTypes.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-[9px] text-zinc-500">🇮🇹</span>
+                        <span className="text-[9px] text-zinc-500">{item.italianSupportTypes.join(' · ')}</span>
+                      </div>
+                    )}
+                    <div className="mt-auto pt-1">
+                      {item.nextEpisodeDate ? (
+                        <div className="flex items-center gap-1 text-[11px] text-violet-400 font-medium">
+                          <CalendarDays size={10} />
+                          {formatDate(item.nextEpisodeDate, locale)}
+                        </div>
+                      ) : item.date ? (
+                        <div className="flex items-center gap-1 text-[11px] text-zinc-400 font-medium">
+                          <CalendarDays size={10} />
+                          {formatDate(item.date, locale)}
+                        </div>
+                      ) : item.nextEpisode ? (
+                        <span className="text-[11px] text-emerald-400 font-medium">
+                          {t.news.episode(item.nextEpisode)}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
-              </a>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
+
+      {drawerMedia && (
+        <MediaDetailsDrawer
+          media={drawerMedia}
+          onClose={() => setDrawerMedia(null)}
+          onAdd={() => setDrawerMedia(null)}
+        />
+      )}
     </div>
   )
 }

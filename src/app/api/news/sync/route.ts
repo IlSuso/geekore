@@ -65,53 +65,54 @@ async function fetchTV(lang: string) {
 }
 
 async function fetchAnime(lang: string) {
-  const month = new Date().getMonth() + 1
-  const year  = new Date().getFullYear()
-  const season = month <= 3 ? 'WINTER' : month <= 6 ? 'SPRING' : month <= 9 ? 'SUMMER' : 'FALL'
-
-  // In EN mode prefer english title, fallback to romaji
-  const titleField = lang === 'en'
-    ? 'romaji english'
-    : 'romaji'
+  const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
+  const region   = lang === 'en' ? 'US' : 'IT'
+  const { from, to } = dateRange(60, 60)
 
   try {
-    const query = `query ($season: MediaSeason, $year: Int) {
-      current: Page(perPage: 20) {
-        media(type: ANIME, season: $season, seasonYear: $year, sort: POPULARITY_DESC, status: RELEASING) {
-          id title { ${titleField} } coverImage { large }
-          nextAiringEpisode { airingAt episode }
-          description(asHtml: false) siteUrl startDate { year month day }
-        }
-      }
-    }`
-    const res = await fetch('https://graphql.anilist.co', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, variables: { season, year } }),
-    })
+    const res = await fetch(
+      `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&with_original_language=ja&with_genres=16&air_date.gte=${from}&air_date.lte=${to}&include_null_first_air_dates=false`,
+      { headers: tmdbHeaders(), cache: 'no-store' }
+    )
     if (!res.ok) return []
     const json = await res.json()
-    return (json.data?.current?.media || [])
-      .filter((m: any) => m.coverImage?.large)
-      .map((m: any) => {
-        const d = m.startDate
-        const date = d?.year
-          ? `${d.year}-${String(d.month || 1).padStart(2, '0')}-${String(d.day || 1).padStart(2, '0')}`
-          : null
-        const title = (lang === 'en' && m.title.english) ? m.title.english : m.title.romaji
-        return {
-          title,
-          description: m.description
-            ? m.description.replace(/<[^>]+>/g, '').slice(0, 300)
-            : null,
-          coverImage: m.coverImage.large,
-          date,
-          nextEpisode: m.nextAiringEpisode?.episode,
-          category: 'anime',
-          source: 'AniList',
-          url: m.siteUrl,
-        }
-      })
+    const shows = (json.results || []).slice(0, 20)
+      .filter((m: any) => m.poster_path && m.overview)
+
+    const details = await Promise.all(
+      shows.map((s: any) => tmdbDetail(`/tv/${s.id}?language=${tmdbLang}&append_to_response=aggregate_credits,watch%2Fproviders,keywords`))
+    )
+
+    return shows.map((m: any, i: number) => {
+      const d             = details[i]
+      const studios       = (d?.networks || []).slice(0, 2).map((n: any) => n.name).filter(Boolean)
+      const cast          = (d?.aggregate_credits?.cast || []).slice(0, 5).map((a: any) => a.name).filter(Boolean)
+      const providers     = (d?.['watch/providers']?.results?.[region]?.flatrate || []).map((p: any) => p.provider_name).filter(Boolean)
+      const keywords      = (d?.keywords?.results || []).slice(0, 6).map((k: any) => k.name).filter(Boolean)
+      const nextEpisodeDate = d?.next_episode_to_air?.air_date || null
+      return {
+        id: `tmdb-anime-${m.id}`,
+        type: 'anime',
+        source_api: 'tmdb' as const,
+        title: m.name,
+        description: m.overview?.slice(0, 500),
+        coverImage: tmdbImageUrl(m.poster_path),
+        date: m.first_air_date,
+        year: m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined,
+        genres: (m.genre_ids || []).map((id: number) => TMDB_TV_GENRES[id]).filter(Boolean),
+        score: m.vote_average > 0 ? Math.round(m.vote_average * 5) / 10 : undefined,
+        episodes: d?.number_of_episodes || undefined,
+        studios: studios.length ? studios : undefined,
+        cast: cast.length ? cast : undefined,
+        totalSeasons: d?.number_of_seasons || undefined,
+        watchProviders: providers.length ? providers : undefined,
+        themes: keywords.length ? keywords : undefined,
+        nextEpisodeDate: nextEpisodeDate || undefined,
+        category: 'anime' as const,
+        source: 'TMDb',
+        url: `https://www.themoviedb.org/tv/${m.id}`,
+      }
+    })
   } catch { return [] }
 }
 
