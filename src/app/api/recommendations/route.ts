@@ -155,17 +155,22 @@ interface Recommendation {
 
 
 
-// ── V4: stagione corrente AniList ─────────────────────────────────────────────
-function getCurrentAniListSeason(): { season: string; year: number } {
+// ── V4: stagione corrente anime (date range per TMDB discover) ────────────────
+function getCurrentAnimeSeasonDates(): { from: string; to: string; label: string } {
   const now = new Date()
   const month = now.getMonth() + 1
   const year = now.getFullYear()
-  let season: string
-  if (month >= 1 && month <= 3) season = 'WINTER'
-  else if (month >= 4 && month <= 6) season = 'SPRING'
-  else if (month >= 7 && month <= 9) season = 'SUMMER'
-  else season = 'FALL'
-  return { season, year }
+  const [startMonth, endMonth, label] =
+    month <= 3  ? [1, 3,   'Inverno'] :
+    month <= 6  ? [4, 6,   'Primavera'] :
+    month <= 9  ? [7, 9,   'Estate'] :
+                  [10, 12, 'Autunno']
+  const endDay = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][endMonth]
+  return {
+    from: `${year}-${String(startMonth).padStart(2, '0')}-01`,
+    to:   `${year}-${String(endMonth).padStart(2, '0')}-${endDay}`,
+    label: `${label} ${year}`,
+  }
 }
 
 // ── V4: Quality Gate — score minimo dinamico ──────────────────────────────────
@@ -1383,7 +1388,8 @@ function buildWhyV3(
     'tv':     ['tv', 'movie'],
     'game':   ['game'],
   }
-  const validSourceTypes = new Set(COMPATIBLE_TYPES[recId.startsWith('anilist-anime') ? 'anime' :
+  const validSourceTypes = new Set(COMPATIBLE_TYPES[
+    recId.startsWith('tmdb-anime-') || recId.startsWith('anilist-anime') ? 'anime' :
     recId.startsWith('anilist-manga') ? 'manga' : 'unknown'] ||
     COMPATIBLE_TYPES[recGenres.length > 0 ? 'tv' : 'movie'] || // fallback generico
     ['movie', 'tv', 'anime', 'manga', 'game'])
@@ -1392,7 +1398,7 @@ function buildWhyV3(
   // Usiamo il tipo dell'entry che ha chiamato buildWhyV3 — non disponibile qui,
   // quindi usiamo una euristica: se recId è numerico = TMDb (movie/tv), se anilist = anime/manga
   let recType = 'unknown'
-  if (recId.startsWith('anilist-anime')) recType = 'anime'
+  if (recId.startsWith('tmdb-anime-') || recId.startsWith('anilist-anime')) recType = 'anime'
   else if (recId.startsWith('anilist-manga')) recType = 'manga'
   else if (!isNaN(Number(recId))) recType = 'tmdb' // movie o tv
 
@@ -1705,17 +1711,12 @@ const PLATFORM_NAMES_MAP: Record<number, string> = {
   188:  'Sky Go',
 }
 
-// ── Fetcher: Anime V3 (con studio/staff data e trending) ─────────────────────
-const ANILIST_VALID_GENRES = new Set([
-  'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror',
-  'Mecha', 'Music', 'Mystery', 'Psychological', 'Romance', 'Sci-Fi',
-  'Slice of Life', 'Sports', 'Supernatural', 'Thriller',
-])
-
+// ── Fetcher: Anime — TMDB discover/tv Japanese animation ─────────────────────
 async function fetchAnimeRecs(
-  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, isAlreadyOwned: (type: string, id: string, title: string) => boolean,
+  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, token: string, isAlreadyOwned: (type: string, id: string, title: string) => boolean,
   shownIds?: Set<string>, socialFavorites?: Map<string, string>
 ): Promise<Recommendation[]> {
+  if (!token) return []
   const results: Recommendation[] = []
   const seen = new Set<string>()
 
@@ -1724,191 +1725,132 @@ async function fetchAnimeRecs(
   const topKeywords = Object.entries(tasteProfile.deepSignals.keywords)
     .sort(([, a], [, b]) => b - a).slice(0, 8).map(([k]) => k)
 
-  // V3: top studios per boost
-  const topStudiosSet = new Set(
-    Object.entries(tasteProfile.creatorScores.studios).sort(([,a],[,b]) => b - a).slice(0, 8).map(([s]) => s)
-  )
-
   // V5: quality thresholds
   const qt = tasteProfile.qualityThresholds
 
-  // V5: top 3 themes for active sub-genre filtering (not just boost)
-  const activeThemeFilter = topThemes.slice(0, 3)
-
-  // V4: seasonal slot — fetch anime della stagione corrente come slot aggiuntivo
-  const { season, year: seasonYear } = getCurrentAniListSeason()
-  const seasonalQuery = `
-    query($season: MediaSeason, $seasonYear: Int) {
-      Page(page: 1, perPage: 20) {
-        media(season: $season, seasonYear: $seasonYear, type: ANIME, sort: [SCORE_DESC], isAdult: false,
-              averageScore_greater: ${qt.anilistScore}, popularity_greater: ${qt.anilistPopularity}) {
-          id title { romaji english } coverImage { large }
-          seasonYear episodes genres averageScore popularity trending
-          tags { name rank }
-          studios(isMain: true) { nodes { name } }
-        }
-      }
-    }
-  `
+  // V4: seasonal slot — anime della stagione corrente via TMDB discover
+  const { from: seasonFrom, to: seasonTo, label: seasonLabel } = getCurrentAnimeSeasonDates()
   try {
-    const sRes = await fetch('https://graphql.anilist.co', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: seasonalQuery, variables: { season, seasonYear } }),
-      signal: AbortSignal.timeout(6000),
+    const sParams = new URLSearchParams({
+      with_original_language: 'ja', with_genres: '16',
+      'first_air_date.gte': seasonFrom, 'first_air_date.lte': seasonTo,
+      sort_by: 'popularity.desc', 'vote_count.gte': '20', language: 'it-IT',
+    })
+    const sRes = await fetch(`https://api.themoviedb.org/3/discover/tv?${sParams}`, {
+      headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(6000),
     })
     if (sRes.ok) {
       const sJson = await sRes.json()
-      const seasonalMedia = sJson.data?.Page?.media || []
-      for (const m of seasonalMedia.slice(0, 3)) {
-        const id = `anilist-anime-${m.id}`
-        const title = m.title?.romaji || m.title?.english || ''
+      for (const m of (sJson.results || []).slice(0, 3)) {
+        if (!m.poster_path) continue
+        const id = `tmdb-anime-${m.id}`
+        const title = m.name || ''
         if (isAlreadyOwned('anime', id, title) || seen.has(id)) continue
         if (shownIds?.has(id)) continue
         seen.add(id)
-        const recGenres: string[] = m.genres || []
-        const mTags: string[] = (m.tags || []).map((t: any) => t.name.toLowerCase())
-        const mStudios: string[] = (m.studios?.nodes || []).map((s: any) => s.name)
+        const recGenres: string[] = (m.genre_ids || []).map((gid: number) => TMDB_TV_GENRE_NAMES[gid]).filter(Boolean)
+        const mTags: string[] = []
+        const mStudios: string[] = []
+        const year = m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined
         let matchScore = computeMatchScore(recGenres, mTags, tasteProfile, mStudios, [])
-        // Award boost
-        if (isAwardWorthy(m.averageScore, m.popularity, undefined, 'anilist')) { matchScore = Math.min(100, matchScore + 8) }
-        // Freshness
-        const freshMult = releaseFreshnessMult(m.seasonYear, m.averageScore, m.popularity)
+        if (isAwardWorthy(m.vote_average, m.popularity, m.vote_count, 'tmdb')) { matchScore = Math.min(100, matchScore + 8) }
+        const freshMult = releaseFreshnessMult(year, m.vote_average * 10, m.popularity)
         matchScore = Math.round(matchScore * freshMult)
-        // Social boost
         const socialFriend = socialFavorites?.get(id)
-        // Fix 1.12: social boost proporzionale alla similarità (0–20 invece di fisso 15)
         if (socialFriend) { const sim = parseInt(socialFriend) || 75; matchScore = Math.min(100, matchScore + Math.round((sim - 70) / 30 * 20)) }
         results.push({
           id, title, type: 'anime',
-          coverImage: m.coverImage?.large, year: m.seasonYear, genres: recGenres,
-          tags: mTags,
-          score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
-          why: socialFriend ? `Il tuo amico con gusti simili ha adorato questo` : `In corso questa stagione — ${season} ${seasonYear}`,
+          coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`, year, genres: recGenres, tags: mTags,
+          score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
+          why: socialFriend ? `Il tuo amico con gusti simili ha adorato questo` : `In corso questa stagione — ${seasonLabel}`,
           matchScore, isSeasonal: true,
-          isAwardWinner: isAwardWorthy(m.averageScore, m.popularity, undefined, 'anilist'),
+          isAwardWinner: isAwardWorthy(m.vote_average, m.popularity, m.vote_count, 'tmdb'),
           socialBoost: socialFriend,
         })
       }
     }
   } catch { /* continua */ }
 
-  for (const slot of slots) {
-    const genre = ANILIST_VALID_GENRES.has(slot.genre) ? slot.genre : null
-    if (!genre) continue
+  const TMDB_BASE_ANIME = 'https://api.themoviedb.org/3'
 
-    // V3: Include studios e staff nella query AniList
-    const query = `
-      query($genres: [String], $minScore: Int, $minPop: Int) {
-        Page(page: 1, perPage: 60) {
-          media(genre_in: $genres, type: ANIME, sort: [SCORE_DESC, POPULARITY_DESC], isAdult: false,
-                averageScore_greater: $minScore, popularity_greater: $minPop) {
-            id title { romaji english } coverImage { large }
-            seasonYear episodes genres description(asHtml: false) averageScore popularity trending
-            stats { statusDistribution { status amount } }
-            tags { name rank }
-            studios(isMain: true) { nodes { name } }
-            staff(sort: RELEVANCE) { edges { role node { name { full } } } }
-          }
-        }
-      }
-    `
+  for (const slot of slots) {
+    const genreId = TMDB_TV_GENRE_MAP[slot.genre]
+    // Always include genre 16 (Animation); add mapped genre if available
+    const animeGenreIds = [...new Set([16, genreId].filter(Boolean) as number[])]
+
     try {
-      const res = await fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, variables: { genres: [genre], minScore: qt.anilistScore, minPop: qt.anilistPopularity } }),
-        signal: AbortSignal.timeout(8000),
+      const params = new URLSearchParams({
+        with_original_language: 'ja',
+        with_genres: animeGenreIds.join(','),
+        sort_by: 'vote_average.desc',
+        'vote_average.gte': String(qt.tmdbVoteAvg),
+        'vote_count.gte': '100',
+        language: 'it-IT',
+      })
+      const res = await fetch(`${TMDB_BASE_ANIME}/discover/tv?${params}`, {
+        headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000),
       })
       if (!res.ok) continue
       const json = await res.json()
-      const media = json.data?.Page?.media || []
+      const media: any[] = json.results || []
 
       const candidates = media
         .filter((m: any) => {
-          const id = `anilist-anime-${m.id}`
-          const title = m.title?.romaji || m.title?.english || ''
+          if (!m.poster_path) return false
+          const id = `tmdb-anime-${m.id}`
+          const title = m.name || ''
           if (isAlreadyOwned('anime', id, title) || seen.has(id)) return false
           if (shownIds?.has(id)) return false
-          if (!m.coverImage?.large) return false
-          // Quality gate inline
-          if ((m.averageScore || 0) < qt.anilistScore) return false
-          if ((m.popularity || 0) < qt.anilistPopularity) return false
-          // Fix 3.4: filtra titoli che la maggioranza abbandona
-          // Se "completed" < 30% di chi l'ha iniziato → titolo problematico
-          const statDist: any[] = m.stats?.statusDistribution || []
-          if (statDist.length > 0) {
-            const completed = statDist.find((s: any) => s.status === 'COMPLETED')?.amount || 0
-            const started = statDist.filter((s: any) => ['CURRENT','COMPLETED','DROPPED'].includes(s.status))
-              .reduce((sum: number, s: any) => sum + (s.amount || 0), 0)
-            if (started > 500 && completed / started < 0.30) return false
-          }
           return true
         })
         .map((m: any) => {
-          const mTags: string[] = (m.tags || []).map((t: any) => t.name.toLowerCase())
-          const mStudios: string[] = (m.studios?.nodes || []).map((s: any) => s.name)
-          const mDirectors: string[] = (m.staff?.edges || [])
-            .filter((e: any) => ['Director', 'Series Director', 'Original Creator'].includes(e.role))
-            .map((e: any) => e.node?.name?.full).filter(Boolean)
+          const recGenres: string[] = (m.genre_ids || []).map((gid: number) => TMDB_TV_GENRE_NAMES[gid]).filter(Boolean)
+          const mTags: string[] = []
+          const mStudios: string[] = []
+          const mDirectors: string[] = []
 
           let boost = 0
-          for (const theme of topThemes) { if (mTags.some(t => t.includes(theme))) boost += 3 }
-          for (const kw of topKeywords) { if (mTags.some(t => t.includes(kw))) boost += 2 }
+          for (const theme of topThemes) { if ((m.name || '').toLowerCase().includes(theme)) boost += 1 }
+          for (const kw of topKeywords) { if ((m.overview || '').toLowerCase().includes(kw)) boost += 1 }
 
-          // V3: Creator boost
-          let creatorBoost: string | undefined
-          for (const studio of mStudios) {
-            if (topStudiosSet.has(studio)) { boost += 8; creatorBoost = studio; break }
-          }
+          const socialFriend = socialFavorites?.get(`tmdb-anime-${m.id}`)
+          if (socialFriend) { const _sim = parseInt(socialFriend) || 75; boost += Math.round((_sim - 70) / 30 * 20) }
 
-          // V3: Trending boost
-          const trendingScore = m.trending || 0
-          const trendingBoost = Math.min(5, trendingScore / 200)
-          boost += trendingBoost
+          if (isAwardWorthy(m.vote_average, m.popularity, m.vote_count, 'tmdb')) boost += 8
 
-          // Social boost
-          const socialFriend = socialFavorites?.get(`anilist-anime-${m.id}`)
-          if (socialFriend) { const _sim = parseInt(socialFriend) || 75; boost += Math.round((_sim - 70) / 30 * 20) }  // Fix 1.12
+          const year = m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined
+          const freshMult = releaseFreshnessMult(year, m.vote_average * 10, m.popularity)
 
-          // Award boost
-          if (isAwardWorthy(m.averageScore, m.popularity, undefined, 'anilist')) boost += 8
-
-          // Freshness
-          const freshMult = releaseFreshnessMult(m.seasonYear, m.averageScore, m.popularity)
-
-          const recGenres: string[] = m.genres || []
           let matchScore = computeMatchScore(recGenres, mTags, tasteProfile, mStudios, mDirectors)
           matchScore = Math.round(matchScore * freshMult)
-          return { m, boost, matchScore, recGenres, mTags, mStudios, mDirectors, creatorBoost, trendingBoost, socialFriend }
+          return { m, boost, matchScore, recGenres, mTags, mStudios, mDirectors, socialFriend, year, trendingBoost: 0, creatorBoost: undefined as string | undefined }
         })
         .filter(({ matchScore }: any) => matchScore >= 20)
         .sort((a: any, b: any) => (b.boost + b.matchScore) - (a.boost + a.matchScore))
-        .slice(0, slot.quota + 5)  // buffer più generoso
+        .slice(0, slot.quota + 5)
 
-      for (const { m, matchScore, recGenres, mTags, mStudios, mDirectors, creatorBoost, trendingBoost, socialFriend } of candidates.slice(0, slot.quota)) {
-        const recId = `anilist-anime-${m.id}`
+      for (const { m, matchScore, recGenres, mTags, mStudios, mDirectors, socialFriend, year, trendingBoost, creatorBoost } of candidates.slice(0, slot.quota)) {
+        const recId = `tmdb-anime-${m.id}`
         if (seen.has(recId)) continue
         seen.add(recId)
         results.push({
           id: recId,
-          title: m.title.romaji || m.title.english || 'Senza titolo',
+          title: m.name || 'Senza titolo',
           type: 'anime',
-          coverImage: m.coverImage?.large,
-          year: m.seasonYear,
-          genres: recGenres,
-          tags: mTags,
-          score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
-          description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 300) : undefined,
+          coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
+          year, genres: recGenres, tags: mTags,
+          score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
+          description: m.overview ? m.overview.slice(0, 300) : undefined,
           why: socialFriend
             ? `Il tuo amico con gusti simili all'${socialFriend} ha adorato questo`
-            : buildWhyV3(recGenres, recId, m.title.romaji || '', tasteProfile, matchScore, slot.isDiscovery, {
-                recStudios: mStudios, recDirectors: mDirectors, trendingBoost, creatorBoost
+            : buildWhyV3(recGenres, recId, m.name || '', tasteProfile, matchScore, slot.isDiscovery, {
+                recStudios: mStudios, recDirectors: mDirectors, trendingBoost, creatorBoost,
               }),
           matchScore,
           isDiscovery: slot.isDiscovery,
           isSerendipity: slot.isSerendipity,
           isSeasonal: false,
-          isAwardWinner: isAwardWorthy(m.averageScore, m.popularity, undefined, 'anilist'),
+          isAwardWinner: isAwardWorthy(m.vote_average, m.popularity, m.vote_count, 'tmdb'),
           socialBoost: socialFriend,
           creatorBoost,
         })
@@ -2833,7 +2775,7 @@ export async function GET(request: NextRequest) {
           if (slots.length === 0) return { type, items: [] }
 
           switch (type) {
-            case 'anime': return { type, items: await fetchAnimeRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds, socialFavorites) }
+            case 'anime': return { type, items: await fetchAnimeRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites) }
             case 'manga': return { type, items: await fetchMangaRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds, socialFavorites) }
             case 'movie': return { type, items: await fetchMovieRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds) }
             case 'tv':    return { type, items: await fetchTvRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds) }

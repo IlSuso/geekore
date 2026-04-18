@@ -350,60 +350,68 @@ export async function GET(request: NextRequest) {
     })())
   }
 
-  // ── AniList anime — genre_in + tag_in ─────────────────────────────────────
-  if (anilistGenres.length > 0 || rawTags.length > 0) {
+  // ── TMDB anime — discover/tv Japanese animation ───────────────────────────
+  if (tmdbToken) {
     fetches.push((async () => {
       try {
-        // Query con generi
-        if (anilistGenres.length > 0) {
-          const q = `query($g:[String]){Page(page:1,perPage:25){media(type:ANIME,genre_in:$g,sort:[SCORE_DESC],isAdult:false){id title{romaji english}coverImage{large}seasonYear genres averageScore popularity episodes description tags{name}}}}`
-          const res = await fetch(ANILIST_URL, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: q, variables: { g: anilistGenres.slice(0, 3) } }),
-            signal: AbortSignal.timeout(6000),
-          })
-          if (res.ok) {
-            const json = await res.json()
-            for (const m of json.data?.Page?.media || []) {
-              const id = `anilist-anime-${m.id}`
-              const recGenres: string[] = m.genres || []
-              add({ id, title: m.title?.romaji || m.title?.english || '', type: 'anime',
-                coverImage: m.coverImage?.large, year: m.seasonYear, genres: recGenres,
-                tags: (m.tags || []).map((t: any) => t.name),
-                episodes: m.episodes ?? undefined,
-                description: m.description ? m.description.replace(/<[^>]*>/g, '').slice(0, 200) : undefined,
-                score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
-                matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
-            }
+        const tvGenreNames = (ids: number[]) =>
+          [...new Set(ids.map((id: number) => TMDB_TV_ID_TO_GENRE[id]).filter(Boolean) as string[])]
+
+        // Genre discover: genre 16 (Animation) + mapped TV genres from crossGenres
+        const animeGenreIds = [...new Set([16, ...tmdbTvIds])].slice(0, 3)
+        const params = new URLSearchParams({
+          with_original_language: 'ja',
+          with_genres: animeGenreIds.join(','),
+          sort_by: 'vote_average.desc',
+          'vote_count.gte': '100',
+          language: 'it-IT',
+        })
+        const res = await fetch(`${TMDB_BASE}/discover/tv?${params}`, {
+          headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000),
+        })
+        if (res.ok) {
+          const json = await res.json()
+          for (const m of (json.results || []).slice(0, 25)) {
+            if (!m.poster_path) continue
+            const id = `tmdb-anime-${m.id}`
+            const recGenres = tvGenreNames(m.genre_ids || [])
+            add({ id, title: m.name || '', type: 'anime',
+              coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
+              year: m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined,
+              genres: recGenres, tags: [],
+              description: m.overview ? m.overview.slice(0, 200) : undefined,
+              score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
+              matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
           }
         }
 
-        // Query aggiuntiva con tags (AniList tags = temi specifici come "Escape", "Prison", ecc.)
-        const anilistTags = [...new Set([...rawTags, ...rawKeywords]
-          .slice(0, 10)
-          .flatMap(t => [t, toTitleCase(t)])  // passa sia originale che title case
-        )]
-        if (anilistTags.length > 0) {
-          const q = `query($t:[String]){Page(page:1,perPage:20){media(type:ANIME,tag_in:$t,sort:[SCORE_DESC],isAdult:false){id title{romaji english}coverImage{large}seasonYear genres averageScore popularity episodes description tags{name}}}}`
-          const res = await fetch(ANILIST_URL, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: q, variables: { t: anilistTags } }),
-            signal: AbortSignal.timeout(6000),
+        // Keyword discover: genre 16 + keyword IDs resolved from source tags/keywords
+        const tmdbKwIds = await tmdbKeywordIdsPromise
+        if (tmdbKwIds.length > 0) {
+          const kwParams = new URLSearchParams({
+            with_original_language: 'ja',
+            with_genres: '16',
+            with_keywords: tmdbKwIds.slice(0, 6).join('|'),
+            sort_by: 'vote_average.desc',
+            'vote_count.gte': '50',
+            language: 'it-IT',
           })
-          if (res.ok) {
-            const json = await res.json()
-            for (const m of json.data?.Page?.media || []) {
-              const id = `anilist-anime-${m.id}`
-              const recGenres: string[] = m.genres || []
-              const allTags = (m.tags || []).map((t: any) => t.name)
-              const matchedTags = allTags.filter((t: string) => anilistTags.includes(t))
-              add({ id, title: m.title?.romaji || m.title?.english || '', type: 'anime',
-                coverImage: m.coverImage?.large, year: m.seasonYear, genres: recGenres,
-                tags: allTags,
-                episodes: m.episodes ?? undefined,
-                description: m.description ? m.description.replace(/<[^>]*>/g, '').slice(0, 200) : undefined,
-                score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
-                matchScore: 58 + profileBoost(recGenres), why: whyText(recGenres, matchedTags), _pop: m.popularity || 0 })
+          const kwRes = await fetch(`${TMDB_BASE}/discover/tv?${kwParams}`, {
+            headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000),
+          })
+          if (kwRes.ok) {
+            const kwJson = await kwRes.json()
+            for (const m of (kwJson.results || []).slice(0, 20)) {
+              if (!m.poster_path) continue
+              const id = `tmdb-anime-${m.id}`
+              const recGenres = tvGenreNames(m.genre_ids || [])
+              add({ id, title: m.name || '', type: 'anime',
+                coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
+                year: m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined,
+                genres: recGenres, tags: [],
+                description: m.overview ? m.overview.slice(0, 200) : undefined,
+                score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
+                matchScore: 58 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
             }
           }
         }
