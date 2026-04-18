@@ -2,7 +2,7 @@ import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { parseStringPromise } from 'xml2js'
-import { translateTexts } from '@/lib/deepl'
+import { translateWithCache } from '@/lib/deepl'
 
 // Vercel: estende il timeout della funzione a 60s (richiede piano Pro)
 export const maxDuration = 60
@@ -297,9 +297,9 @@ async function fetchGaming(lang: string) {
         }
       })
     if (lang === 'it') {
-      const descriptions = mapped.map(g => g.description ?? '')
-      const translated = await translateTexts(descriptions)
-      mapped.forEach((g, i) => { if (g.description) g.description = translated[i] || g.description })
+      const toTranslate = mapped.filter(g => g.description).map(g => ({ id: g.id, text: g.description! }))
+      const translations = await translateWithCache(toTranslate)
+      mapped.forEach(g => { if (g.description && translations[g.id]) g.description = translations[g.id] })
     }
     return mapped
   } catch { return [] }
@@ -420,9 +420,9 @@ async function fetchManga(lang: string): Promise<any[]> {
     })
 
     if (lang === 'it') {
-      const descriptions = mapped.map(m => m.description ?? '')
-      const translated = await translateTexts(descriptions)
-      mapped.forEach((m, i) => { if (m.description) m.description = translated[i] || m.description })
+      const toTranslate = mapped.filter(m => m.description).map(m => ({ id: m.id, text: m.description! }))
+      const translations = await translateWithCache(toTranslate)
+      mapped.forEach(m => { if (m.description && translations[m.id]) m.description = translations[m.id] })
     }
 
     return mapped
@@ -628,9 +628,9 @@ async function fetchBoardgameNews(lang: string): Promise<any[]> {
 
     if (lang === 'it') {
       logger.info(`[BGG:fetchBoardgameNews] translating ${mapped.length} descriptions to Italian`)
-      const descriptions = mapped.map(m => m.description ?? '')
-      const translated = await translateTexts(descriptions)
-      mapped.forEach((m, i) => { if (m.description) m.description = translated[i] || m.description })
+      const toTranslate = mapped.filter(m => m.description).map(m => ({ id: m.id, text: m.description! }))
+      const translations = await translateWithCache(toTranslate)
+      mapped.forEach(m => { if (m.description && translations[m.id]) m.description = translations[m.id] })
       logger.info(`[BGG:fetchBoardgameNews] translations done`)
     }
 
