@@ -96,12 +96,19 @@ interface UserEntry {
   is_steam?: boolean
   notes?: string
   started_at?: string | null
+  community_score?: number
+  keywords?: string[]
+  themes?: string[]
+  appid?: number
+  title_en?: string
 }
 
 interface UserSearch {
   query: string
   created_at?: string
   type?: string
+  result_clicked_genres?: string[]
+  result_clicked_id?: string
 }
 
 // Tipo Supabase client (evita any)
@@ -274,7 +281,7 @@ function inferFromSearchHistory(
   for (const s of recentSearches) {
     const q = (s.query || '').toLowerCase().trim()
     const clickedGenres: string[] = s.result_clicked_genres || []
-    const ageMs = now - new Date(s.created_at).getTime()
+    const ageMs = now - new Date(s.created_at!).getTime()
     const recency = Math.max(0.3, 1 - ageMs / (28 * 24 * 60 * 60 * 1000))
 
     // Boost base: click > no-click
@@ -284,7 +291,7 @@ function inferFromSearchHistory(
     if (queryCount[q] >= 2 && !s.result_clicked_id) boost = 15
 
     // Fix 1.6: time-of-day boost — ricerche serali/notturne indicano intent immediato
-    const searchHour = new Date(s.created_at).getHours()
+    const searchHour = new Date(s.created_at!).getHours()
     const isEveningSearch = searchHour >= 19 || searchHour <= 2
     const isVeryRecent = ageMs < 4 * 60 * 60 * 1000  // ultime 4 ore
     if (isVeryRecent && isEveningSearch) boost = Math.round(boost * 1.4)
@@ -323,6 +330,140 @@ function themeToGenre(theme: string): string | null {
     'supernatural': 'Supernatural', 'time travel': 'Science Fiction',
   }
   return map[theme] || null
+}
+
+function parseBggXmlRec(xml: string) {
+  const decode = (s: string) =>
+    s.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+     .replace(/&#10;/g, '\n').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+     .replace(/&ldquo;/g, '"').replace(/&rdquo;/g, '"')
+     .replace(/&lsquo;/g, "'").replace(/&rsquo;/g, "'")
+     .replace(/&mdash;/g, '—').replace(/&ndash;/g, '–')
+     .replace(/&hellip;/g, '…').replace(/&nbsp;/g, ' ')
+     .replace(/&#\d+;/g, '').trim()
+  return [...xml.matchAll(/<item[^>]+id="(\d+)"[^>]*>([\s\S]*?)<\/item>/g)].flatMap(([, id, body]) => {
+    const name = body.match(/<name[^>]+type="primary"[^>]+value="([^"]+)"/)?.[1]
+    if (!name) return []
+    const rawImg = body.match(/<image>([\s\S]*?)<\/image>/)?.[1]?.trim()
+    const rawThumb = body.match(/<thumbnail>([\s\S]*?)<\/thumbnail>/)?.[1]?.trim()
+    const rawCover = rawImg || rawThumb
+    return [{
+      id, name: decode(name),
+      year: parseInt(body.match(/<yearpublished[^>]+value="(\d+)"/)?.[1] || '') || undefined,
+      thumbnail: rawCover ? (rawCover.startsWith('//') ? `https:${rawCover}` : rawCover) : undefined,
+      description: truncateAtSentence(decode((body.match(/<description>([\s\S]*?)<\/description>/)?.[1] || '').replace(/<[^>]*>/g, '')), 400),
+      categories:  [...body.matchAll(/<link type="boardgamecategory"[^>]+value="([^"]+)"/g)].map(m => m[1]),
+      mechanics:   [...body.matchAll(/<link type="boardgamemechanic"[^>]+value="([^"]+)"/g)].map(m => m[1]),
+      rating:      parseFloat(body.match(/<average[^>]+value="([0-9.]+)"/)?.[1] || '') || undefined,
+      usersRated:  parseInt(body.match(/<usersrated[^>]+value="(\d+)"/)?.[1] || '') || undefined,
+      min_players: parseInt(body.match(/<minplayers[^>]+value="(\d+)"/)?.[1] || '') || undefined,
+      max_players: parseInt(body.match(/<maxplayers[^>]+value="(\d+)"/)?.[1] || '') || undefined,
+      playing_time: parseInt(body.match(/<playingtime[^>]+value="(\d+)"/)?.[1] || '') || undefined,
+      complexity:  parseFloat(body.match(/<averageweight[^>]+value="([0-9.]+)"/)?.[1] || '') || undefined,
+    }]
+  })
+}
+
+const KEYWORD_TO_DEEP: Record<string, { themes?: string[]; tones?: string[]; settings?: string[] }> = {
+  'time travel': { themes: ['time travel'], tones: ['mind-bending'] },
+  'revenge': { themes: ['revenge'] },
+  'redemption': { themes: ['redemption'] },
+  'dystopia': { themes: ['dystopia'], tones: ['dark'], settings: ['dystopian future'] },
+  'apocalypse': { themes: ['apocalypse'], tones: ['dark', 'tense'] },
+  'superhero': { themes: ['superhero'], tones: ['action-packed'] },
+  'artificial intelligence': { themes: ['AI', 'technology'], settings: ['sci-fi future'] },
+  'serial killer': { themes: ['crime', 'psychology'], tones: ['dark', 'tense'] },
+  'heist': { themes: ['heist', 'crime'], tones: ['tense'] },
+  'coming of age': { themes: ['coming of age'], tones: ['emotional'] },
+  'magic': { themes: ['magic'], settings: ['fantasy world'] },
+  'war': { themes: ['war'], tones: ['dark', 'intense'] },
+  'space': { themes: ['space exploration'], settings: ['outer space'] },
+  'medieval': { settings: ['medieval'] },
+  'post-apocalyptic': { themes: ['survival'], tones: ['dark'], settings: ['post-apocalyptic'] },
+  'political': { themes: ['politics'], tones: ['complex'] },
+  'philosophical': { tones: ['philosophical'] },
+  'friendship': { themes: ['friendship'] },
+  'romance': { themes: ['romance'] },
+  'psychological': { tones: ['psychological', 'dark'] },
+  'supernatural': { themes: ['supernatural'] },
+  'mystery': { themes: ['mystery'], tones: ['tense'] },
+  'samurai': { settings: ['feudal japan'] },
+  'cyberpunk': { themes: ['technology', 'dystopia'], settings: ['cyberpunk'] },
+  'zombie': { themes: ['survival', 'apocalypse'], tones: ['horror'] },
+  'alien': { themes: ['alien contact'], settings: ['outer space'] },
+  'detective': { themes: ['investigation'], tones: ['tense'] },
+  'mafia': { themes: ['crime', 'mafia'], tones: ['dark'] },
+  'survival': { themes: ['survival'], tones: ['tense'] },
+  'open world': { themes: ['exploration'] },
+  'monsters': { themes: ['monsters'], settings: ['fantasy world'] },
+  'isekai': { themes: ['isekai', 'transported to another world'], settings: ['fantasy world'] },
+  'dark fantasy': { themes: ['dark fantasy'], tones: ['dark', 'gritty'] },
+  'antihero': { themes: ['antihero', 'moral ambiguity'], tones: ['complex'] },
+  'seinen': { tones: ['mature', 'complex'] },
+  'shonen': { tones: ['action-packed', 'coming of age'] },
+  'cozy': { tones: ['relaxing', 'cozy'], themes: ['slice of life'] },
+}
+
+function inferGenresFromName(name: string): string[] {
+  const n = name.toLowerCase()
+  if (n.includes('horror') || n.includes('dead') || n.includes('evil') || n.includes('silent')) return ['Horror', 'Thriller']
+  if (n.includes('witcher') || n.includes('elder scrolls') || n.includes('dragon age') || n.includes('baldur')) return ['Role-playing (RPG)', 'Fantasy', 'Adventure']
+  if (n.includes('dark souls') || n.includes('elden ring') || n.includes('sekiro') || n.includes('bloodborne')) return ['Action', 'Role-playing (RPG)', 'Fantasy']
+  if (n.includes('grand theft') || n.includes('gta') || n.includes('mafia')) return ['Action', 'Crime', 'Adventure']
+  if (n.includes('civilization') || n.includes('total war') || n.includes('xcom')) return ['Strategy']
+  if (n.includes('minecraft') || n.includes('terraria') || n.includes('subnautica')) return ['Adventure', 'Survival', 'Simulation']
+  if (n.includes('mass effect') || n.includes('cyberpunk') || n.includes('deus ex')) return ['Role-playing (RPG)', 'Science Fiction', 'Action']
+  if (n.includes('final fantasy') || n.includes('persona') || n.includes('tales of')) return ['Role-playing (RPG)', 'Fantasy', 'Drama']
+  if (n.includes('call of duty') || n.includes('battlefield') || n.includes('halo') || n.includes('doom')) return ['Shooter', 'Action']
+  if (n.includes('assassin') || n.includes('hitman')) return ['Action', 'Stealth', 'Adventure']
+  if (n.includes('racing') || n.includes('forza') || n.includes('need for speed')) return ['Racing', 'Sports']
+  return []
+}
+
+function computeClusterVelocity(entries: UserEntry[], targetGenres: string[], currentUpdatedAt: string | null | undefined): number {
+  if (!currentUpdatedAt) return 1.0
+  const windowMs = 7 * 86400000
+  const targetTime = new Date(currentUpdatedAt).getTime()
+  const windowStart = targetTime - windowMs
+
+  let sameGenreInWindow = 0
+  for (const e of entries) {
+    if (!e.updated_at || e.updated_at === currentUpdatedAt) continue
+    const t = new Date(e.updated_at).getTime()
+    if (t < windowStart || t > targetTime + windowMs) continue
+    const eg: string[] = e.genres || []
+    if (targetGenres.some(g => eg.includes(g))) sameGenreInWindow++
+  }
+  return sameGenreInWindow >= 3 ? 1.8 : sameGenreInWindow >= 2 ? 1.3 : 1.0
+}
+
+function computeVelocity(entry: UserEntry): number {
+  const type = entry.type || ''
+
+  if (type === 'movie') return 1.0
+
+  if (type === 'boardgame') {
+    const plays = entry.current_episode || 0
+    if (plays >= 10) return 2.0
+    if (plays >= 5) return 1.5
+    if (plays >= 2) return 1.2
+    return 1.0
+  }
+
+  const startedAt = entry.started_at
+  const updatedAt = entry.updated_at
+  const episodes = entry.current_episode || 0
+
+  if (!startedAt || episodes === 0) return 1.0
+
+  const days = Math.max(1, (new Date(updatedAt || Date.now()).getTime() - new Date(startedAt).getTime()) / 86400000)
+  const velocity = episodes / days
+
+  if (velocity >= 3.0) return 3.5
+  if (velocity >= 1.5) return 2.5
+  if (velocity >= 0.5) return 1.5
+  if (velocity >= 0.1) return 1.0
+  return 0.4
 }
 
 // ── V3: Compute taste profile COMPLETO ───────────────────────────────────────
@@ -2340,10 +2481,10 @@ export async function GET(request: NextRequest) {
       .select('type, rating, genres, current_episode, episodes, status, is_steam, title, title_en, external_id, appid, updated_at, tags, keywords, themes, player_perspectives, studios, directors, authors, developer, rewatch_count, started_at')
       .eq('user_id', user.id)
 
-    const allEntries = entries || []
+    const allEntries: UserEntry[] = (entries || []) as UserEntry[]
 
     // Timestamp dell'ultima modifica alla collezione
-    const lastCollectionUpdate = allEntries.reduce((latest, e) => {
+    const lastCollectionUpdate = allEntries.reduce((latest: Date, e: UserEntry) => {
       const t = new Date(e.updated_at || 0)
       return t > latest ? t : latest
     }, new Date(0))
@@ -2399,7 +2540,7 @@ export async function GET(request: NextRequest) {
       const bucket = ownedByType.get(type)
       if (!bucket) continue
       if (e.external_id) bucket.ids.add(e.external_id)
-      if (e.appid) bucket.ids.add(e.appid)
+      if (e.appid) bucket.ids.add(String(e.appid))
       if (e.title) {
         bucket.titles.add(normalizeTitle(e.title))
         bucket.tokenSets.push(titleTokens(e.title))
@@ -2437,9 +2578,9 @@ export async function GET(request: NextRequest) {
     }
 
     const ownedIds = new Set<string>([
-      ...allEntries.map(e => e.external_id).filter(Boolean),
-      ...allEntries.map(e => e.appid).filter(Boolean),
-      ...(wishlistRaw || []).map(w => w.external_id).filter(Boolean),
+      ...allEntries.map(e => e.external_id).filter((x): x is string => Boolean(x)),
+      ...allEntries.map(e => String(e.appid ?? '')).filter(Boolean),
+      ...(wishlistRaw as UserEntry[] || []).map(w => w.external_id).filter((x): x is string => Boolean(x)),
     ])
 
     const tmdbToken = process.env.TMDB_API_KEY || ''
@@ -2510,7 +2651,7 @@ export async function GET(request: NextRequest) {
     const typesNeedingRegen: MediaType[] = []
 
     for (const type of typesToFetch) {
-      const poolRow = poolRows?.find(r => r.media_type === type)
+      const poolRow = (poolRows as Array<{ media_type: string; data: Recommendation[]; generated_at: string; collection_hash: string }> | null)?.find(r => r.media_type === type)
       const poolIsValid =
         poolRow &&
         !forceRefresh &&
@@ -2677,7 +2818,7 @@ export async function GET(request: NextRequest) {
       wishlistGenres: tasteProfile.wishlistGenres,
       searchIntentGenres: tasteProfile.searchIntentGenres,
     }
-    memCacheSet(user.id, recommendations, tasteProfileResponse)
+    memCacheSet(user.id, recommendations, tasteProfile)
 
     return NextResponse.json({
       recommendations,
