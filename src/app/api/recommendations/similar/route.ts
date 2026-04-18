@@ -352,28 +352,21 @@ async function resolveProxyKeywords(
       }
     } catch {}
   }
-  // AniList anime: chiama recommendations, prende i tag del primo con tag
-  if (sourceType === 'anime' && excludeId.startsWith('anilist-anime-')) {
-    const anilistSourceId = parseInt(excludeId.replace('anilist-anime-', ''), 10)
-    if (!isNaN(anilistSourceId)) {
+  // TMDB anime: fetch keywords via /tv/{id}/keywords
+  if (sourceType === 'anime' && excludeId.startsWith('tmdb-anime-')) {
+    const tmdbAnimeId = parseInt(excludeId.replace('tmdb-anime-', ''), 10)
+    if (!isNaN(tmdbAnimeId)) {
       try {
-        const q = `query($id:Int){Media(id:$id,type:ANIME){recommendations(sort:RATING_DESC,perPage:10){nodes{mediaRecommendation{title{romaji}tags{name isGeneralSpoiler}}}}}}`
-        const res = await fetch(ANILIST_URL, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: q, variables: { id: anilistSourceId } }),
-          signal: AbortSignal.timeout(5000),
+        const res = await fetch(`${TMDB_BASE}/tv/${tmdbAnimeId}/keywords`, {
+          headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(5000),
         })
-        if (!res.ok) return []
-        const json = await res.json()
-        for (const node of json.data?.Media?.recommendations?.nodes || []) {
-          const m = node?.mediaRecommendation
-          if (!m) continue
-          const tags = (m.tags || [])
-            .filter((t: any) => !t.isGeneralSpoiler)
-            .map((t: any) => t.name as string)
+        if (res.ok) {
+          const json = await res.json()
+          const tags = (json.results || [])
+            .map((k: any) => k.name as string)
             .filter((t: string) => !TMDB_META_KW_BLOCKLIST.has(t.toLowerCase()))
           if (tags.length >= 2) {
-            console.log(`[SIMILAR] proxy tags from "${m.title?.romaji}":`, tags.slice(0, 5))
+            console.log(`[SIMILAR] proxy tags from tmdb-anime-${tmdbAnimeId}:`, tags.slice(0, 5))
             return tags.slice(0, 10)
           }
         }
@@ -605,35 +598,6 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Fallback: se non ci sono tag, usa le raccomandazioni utente di AniList
-        if (anilistTags.length === 0 && sourceType === 'anime' && excludeId.startsWith('anilist-anime-')) {
-          const anilistSourceId = parseInt(excludeId.replace('anilist-anime-', ''), 10)
-          if (!isNaN(anilistSourceId)) {
-            const q = `query($id:Int){Media(id:$id,type:ANIME){recommendations(sort:RATING_DESC,perPage:20){nodes{mediaRecommendation{id title{romaji english}coverImage{large}seasonYear genres averageScore popularity episodes description tags{name}}}}}}`
-            const res = await fetch(ANILIST_URL, {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ query: q, variables: { id: anilistSourceId } }),
-              signal: AbortSignal.timeout(6000),
-            })
-            if (res.ok) {
-              const json = await res.json()
-              for (const node of json.data?.Media?.recommendations?.nodes || []) {
-                const m = node?.mediaRecommendation
-                if (!m) continue
-                const id = `anilist-anime-${m.id}`
-                const recGenres: string[] = m.genres || []
-                add({ id, title: m.title?.romaji || m.title?.english || '', type: 'anime',
-                  coverImage: m.coverImage?.large, year: m.seasonYear, genres: recGenres,
-                  tags: (m.tags || []).map((t: any) => t.name),
-                  episodes: m.episodes ?? undefined,
-                  description: m.description ? m.description.replace(/<[^>]*>/g, '').slice(0, 200) : undefined,
-                  score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
-                  matchScore: 62 + profileBoost(recGenres), why: `Consigliato dalla community per "${sourceTitle}"`,
-                  _foundByKeyword: true, _pop: m.popularity || 0 })
-              }
-            }
-          }
-        }
       } catch {}
     })())
   }
