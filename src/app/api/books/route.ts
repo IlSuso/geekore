@@ -4,7 +4,6 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rateLimit'
-import { translateWithCache } from '@/lib/deepl'
 import { truncateAtSentence } from '@/lib/utils'
 
 const GOOGLE_BOOKS_BASE = 'https://www.googleapis.com/books/v1/volumes'
@@ -62,6 +61,7 @@ export async function GET(request: NextRequest) {
     maxResults: '20',
     printType: 'books',
     langRestrict: 'it',
+    hl: 'it',
     orderBy: 'relevance',
   })
   if (apiKey) params.set('key', apiKey)
@@ -135,19 +135,6 @@ export async function GET(request: NextRequest) {
       previewLink: info.previewLink || null,
     }
   }).filter(r => r.title && r.title !== 'Titolo sconosciuto' || r.coverImage)
-
-  // Traduci descrizioni italiane se necessario (skip se già italiano)
-  const toTranslate = results.filter(r => r.description && r.language !== 'it')
-  if (toTranslate.length > 0) {
-    try {
-      const translated = await translateWithCache(
-        toTranslate.map(r => ({ id: r.id, text: r.description! }))
-      )
-      for (const r of results) {
-        if (translated[r.id]) r.description = translated[r.id]
-      }
-    } catch { /* non bloccante */ }
-  }
 
   return NextResponse.json({ results })
 }
