@@ -211,7 +211,7 @@ function amplifyFromWishlist(
 
   for (const item of wishlistItems) {
     const genres: string[] = item.genres || []
-    const type = item.media_type || 'unknown'
+    const type = item.type || 'unknown'
 
     // Fix 1.5: decadimento temporale sulla wishlist (item vecchi pesano meno)
     const rawTemporal = temporalMultV2(item.created_at)
