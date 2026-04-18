@@ -29,6 +29,7 @@ type UpcomingItem = {
   original_language?: string
   category: 'gaming' | 'cinema' | 'anime' | 'tv' | 'manga' | 'boardgame'
   source: string
+  url?: string
   nextEpisode?: number
   platforms?: string[]
   duration?: number
@@ -65,6 +66,7 @@ function formatDate(dateStr?: string, locale?: string) {
 
 function toMediaDetails(item: UpcomingItem): MediaDetails | null {
   if (!item.id || !item.type) return null
+  const isManga = item.category === 'manga'
   return {
     id: item.id,
     title: item.title,
@@ -76,7 +78,8 @@ function toMediaDetails(item: UpcomingItem): MediaDetails | null {
     score: item.score,
     episodes: item.episodes,
     studios: item.studios,
-    developers: item.developers,
+    authors: isManga ? item.developers : undefined,
+    developers: isManga ? undefined : item.developers,
     directors: item.directors,
     cast: item.cast,
     platforms: item.platforms,
@@ -87,7 +90,7 @@ function toMediaDetails(item: UpcomingItem): MediaDetails | null {
     seasons: item.seasons,
     watchProviders: item.watchProviders,
     italianSupportTypes: item.italianSupportTypes,
-    // source non passato intenzionalmente: sopprime il link esterno nel drawer
+    externalUrl: item.url,
   }
 }
 

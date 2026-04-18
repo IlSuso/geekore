@@ -220,6 +220,12 @@ CREATE TABLE IF NOT EXISTS boardgames_cache (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS translations_cache (
+    id TEXT PRIMARY KEY,
+    text_it TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Nota: Letterboxd non ha una tabella cache dedicata.
 -- I poster TMDB vengono cercati direttamente ad ogni import (batch paralleli, ~20s per 1000 film).
 
