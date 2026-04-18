@@ -2634,7 +2634,7 @@ async function refreshBggCsvIfNeeded(token: string): Promise<void> {
   if (Date.now() - BGG_CSV_CACHE.cachedAt < 24 * 3600_000) return
   try {
     const res = await fetch('https://boardgamegeek.com/data_dumps/bg_ranks', {
-      headers: token ? { Cookie: `bggauthentication=${token}` } : {},
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
       signal: AbortSignal.timeout(30_000),
     })
     console.log('[BGG] CSV download status:', res.status)
@@ -2650,7 +2650,7 @@ async function fetchBoardgameRecs(
   supabase?: any
 ): Promise<Recommendation[]> {
   const token = process.env.BGG_BEARER_TOKEN || ''
-  const bggHeaders: HeadersInit = token ? { Cookie: `bggauthentication=${token}` } : {}
+  const bggHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
   const results: Recommendation[] = []
   const seen = new Set<string>()
   const targetCats = new Set(slots.flatMap(s => GENRE_TO_BGG_CATS[s.genre] || []))
@@ -2679,7 +2679,7 @@ async function fetchBoardgameRecs(
 
   // Aggiunge hot list per contenuto fresco
   try {
-    const hotRes = await fetch('https://www.boardgamegeek.com/xmlapi2/hot?type=boardgame', { headers: bggHeaders, signal: AbortSignal.timeout(6000) })
+    const hotRes = await fetch('https://boardgamegeek.com/xmlapi2/hot?type=boardgame', { headers: bggHeaders, signal: AbortSignal.timeout(6000) })
     console.log('[BGG] hot list status:', hotRes.status)
     if (hotRes.ok) {
       const hotXml = await hotRes.text()
@@ -2700,7 +2700,7 @@ async function fetchBoardgameRecs(
   for (let i = 0; i < ids.length; i += 20) {
     const batch = ids.slice(i, i + 20)
     try {
-      const thingUrl = `https://www.boardgamegeek.com/xmlapi2/thing?id=${batch.join(',')}&stats=1`
+      const thingUrl = `https://boardgamegeek.com/xmlapi2/thing?id=${batch.join(',')}&stats=1`
       let thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(10000) })
       console.log(`[BGG] /thing batch ${i/20+1} (${batch.length} IDs) → status ${thingRes.status}`)
       if (thingRes.status === 202) {

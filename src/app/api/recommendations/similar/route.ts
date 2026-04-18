@@ -215,7 +215,7 @@ async function refreshBggCsvIfNeeded(token: string): Promise<void> {
   if (Date.now() - BGG_CSV_CACHE.cachedAt < 24 * 3600_000) return
   try {
     const res = await fetch('https://boardgamegeek.com/data_dumps/bg_ranks', {
-      headers: token ? { Cookie: `bggauthentication=${token}` } : {},
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
       signal: AbortSignal.timeout(30_000),
     })
     if (!res.ok) return
@@ -789,7 +789,7 @@ export async function GET(request: NextRequest) {
   // CSV da boardgamegeek.com/data_dumps/bg_ranks: tutti i giochi classificati per categoria
   // (thematic, strategy, wargames, family, party) — richiede cookie di sessione BGG
   const bggToken = process.env.BGG_BEARER_TOKEN || ''
-  const bggHeaders: HeadersInit = bggToken ? { Cookie: `bggauthentication=${bggToken}` } : {}
+  const bggHeaders: HeadersInit = bggToken ? { Authorization: `Bearer ${bggToken}` } : {}
   const targetBggCats = new Set(crossGenres.flatMap(g => GENRE_TO_BGG_CATS[g] || []))
   const bggSeedIds = new Set<number>(crossGenres.flatMap(g => (BGG_GENRE_SEEDS[g] || []) as number[]))
 
@@ -814,7 +814,7 @@ export async function GET(request: NextRequest) {
 
       // Hot list per giochi trending
       try {
-        const hotRes = await fetch('https://www.boardgamegeek.com/xmlapi2/hot?type=boardgame', { headers: bggHeaders, signal: AbortSignal.timeout(5000) })
+        const hotRes = await fetch('https://boardgamegeek.com/xmlapi2/hot?type=boardgame', { headers: bggHeaders, signal: AbortSignal.timeout(5000) })
         console.log('[SIMILAR BGG] hot list status:', hotRes.status)
         if (hotRes.ok) {
           const hotXml = await hotRes.text()
@@ -833,7 +833,7 @@ export async function GET(request: NextRequest) {
       for (let i = 0; i < ids.length; i += 20) {
         const batch = ids.slice(i, i + 20)
         try {
-          const thingUrl = `https://www.boardgamegeek.com/xmlapi2/thing?id=${batch.join(',')}&stats=1`
+          const thingUrl = `https://boardgamegeek.com/xmlapi2/thing?id=${batch.join(',')}&stats=1`
           let thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(10000) })
           console.log(`[SIMILAR BGG] /thing batch ${i/20+1} → status ${thingRes.status}`)
           if (thingRes.status === 202) {
