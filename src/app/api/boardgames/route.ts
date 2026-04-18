@@ -3,12 +3,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { parseStringPromise } from 'xml2js'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { rateLimit } from '@/lib/rateLimit'
+import { freeTranslateBatch } from '@/lib/deepl'
 
 const CACHE_DURATION_MS = 86400000 // 24 ore
 
 function bggHeaders(): HeadersInit {
   const token = process.env.BGG_BEARER_TOKEN
-  return token ? { Cookie: `bggauthentication=${token}` } : {}
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 async function bggFetch(url: string, maxRetries = 5, delayMs = 2000): Promise<string | null> {
@@ -48,6 +49,7 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url)
   const search = searchParams.get("search") || searchParams.get("q")
+  const lang = searchParams.get("lang") || 'it'
 
   // ── MODALITÀ RICERCA ─────────────────────────────────────────────────────
   if (search) {
@@ -214,6 +216,17 @@ export async function GET(request: NextRequest) {
         }
         return score(a.title) - score(b.title)
       })
+
+      if (lang === 'it') {
+        const toTranslate = rawResults.filter(r => r.description)
+        if (toTranslate.length > 0) {
+          const texts = toTranslate.map(r => r.description as string)
+          const translated = await freeTranslateBatch(texts, 'IT')
+          toTranslate.forEach((r, i) => {
+            if (translated[i] && translated[i] !== r.description) r.description = translated[i]
+          })
+        }
+      }
 
       return NextResponse.json({ results: rawResults }, { headers: rl.headers })
     } catch (e) {

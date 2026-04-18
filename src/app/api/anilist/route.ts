@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rateLimit'
-import { translateWithCache } from '@/lib/deepl'
+import { freeTranslateBatch } from '@/lib/deepl'
 
 const ANILIST_API = 'https://graphql.anilist.co'
 
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url)
   const q = searchParams.get('q') || searchParams.get('search') || ''
-  const typeParam = searchParams.get('type')
+  const typeParam = (searchParams.get('type') || '').toLowerCase()
   const lang = searchParams.get('lang') || 'it'
 
   if (!q || q.trim().length < 2) return NextResponse.json([], { headers: rl.headers })
@@ -147,14 +147,12 @@ export async function GET(request: NextRequest) {
   }
 
   if (lang === 'it') {
-    const mangaItems = allResults.filter((r: any) => r.type === 'manga' && r.description)
-    if (mangaItems.length > 0) {
-      const descItems = mangaItems.map((r: any) => ({ id: r.id, text: r.description }))
-      const translated = await translateWithCache(descItems, 'IT', 'EN')
-      allResults.forEach((r: any) => {
-        if (r.type === 'manga' && r.description && translated[r.id]) {
-          r.description = translated[r.id]
-        }
+    const toTranslate = allResults.filter((r: any) => r.description)
+    if (toTranslate.length > 0) {
+      const texts = toTranslate.map((r: any) => r.description)
+      const translated = await freeTranslateBatch(texts, 'IT')
+      toTranslate.forEach((r: any, i: number) => {
+        if (translated[i] && translated[i] !== r.description) r.description = translated[i]
       })
     }
   }

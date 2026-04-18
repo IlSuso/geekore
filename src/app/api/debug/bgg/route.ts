@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
 
   const token = process.env.BGG_BEARER_TOKEN
-  const bggHeaders: HeadersInit = token ? { Cookie: `bggauthentication=${token}` } : {}
+  const bggHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
 
   const results: Record<string, any> = {
     token_present: !!token,
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
   // Test 1: hot list
   try {
-    const hotRes = await fetch('https://www.boardgamegeek.com/xmlapi2/hot?type=boardgame', {
+    const hotRes = await fetch('https://boardgamegeek.com/xmlapi2/hot?type=boardgame', {
       headers: bggHeaders, signal: AbortSignal.timeout(8000),
     })
     const hotText = await hotRes.text()
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
   // Test 2: known game (Gloomhaven = 174430)
   try {
-    const thingRes = await fetch('https://www.boardgamegeek.com/xmlapi2/thing?id=174430&stats=1', {
+    const thingRes = await fetch('https://boardgamegeek.com/xmlapi2/thing?id=174430&stats=1', {
       headers: bggHeaders, signal: AbortSignal.timeout(10000),
     })
     const thingText = await thingRes.text()
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
 
   // Test 3: senza token (confronto)
   try {
-    const noAuthRes = await fetch('https://www.boardgamegeek.com/xmlapi2/hot?type=boardgame', {
+    const noAuthRes = await fetch('https://boardgamegeek.com/xmlapi2/hot?type=boardgame', {
       signal: AbortSignal.timeout(5000),
     })
     results.hot_no_auth = {

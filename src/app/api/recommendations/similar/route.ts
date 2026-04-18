@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
+import { translateWithCache } from '@/lib/deepl'
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
 const ANILIST_URL = 'https://graphql.anilist.co'
@@ -215,7 +216,7 @@ async function refreshBggCsvIfNeeded(token: string): Promise<void> {
   if (Date.now() - BGG_CSV_CACHE.cachedAt < 24 * 3600_000) return
   try {
     const res = await fetch('https://boardgamegeek.com/data_dumps/bg_ranks', {
-      headers: token ? { Cookie: `bggauthentication=${token}` } : {},
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
       signal: AbortSignal.timeout(30_000),
     })
     if (!res.ok) return
@@ -237,17 +238,25 @@ const BGG_CAT_TO_GENRE: Record<string, string> = {
 function parseBggXml(xml: string) {
   const decode = (s: string) =>
     s.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
-     .replace(/&#10;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim()
+     .replace(/&#10;/g, '\n').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+     .replace(/&ldquo;/g, '"').replace(/&rdquo;/g, '"')
+     .replace(/&lsquo;/g, "'").replace(/&rsquo;/g, "'")
+     .replace(/&mdash;/g, '—').replace(/&ndash;/g, '–')
+     .replace(/&hellip;/g, '…').replace(/&nbsp;/g, ' ')
+     .replace(/&#\d+;/g, '').trim()
 
   return [...xml.matchAll(/<item[^>]+id="(\d+)"[^>]*>([\s\S]*?)<\/item>/g)].flatMap(([, id, body]) => {
     const name = body.match(/<name[^>]+type="primary"[^>]+value="([^"]+)"/)?.[1]
     if (!name) return []
+    const rawImg = body.match(/<image>([\s\S]*?)<\/image>/)?.[1]?.trim()
+    const rawThumb = body.match(/<thumbnail>([\s\S]*?)<\/thumbnail>/)?.[1]?.trim()
+    const rawCover = rawImg || rawThumb
     return [{
       id,
       name: decode(name),
       year:      parseInt(body.match(/<yearpublished[^>]+value="(\d+)"/)?.[1] || '') || undefined,
-      thumbnail: body.match(/<thumbnail>([\s\S]*?)<\/thumbnail>/)?.[1]?.trim(),
-      description: decode((body.match(/<description>([\s\S]*?)<\/description>/)?.[1] || '').replace(/<[^>]*>/g, '').slice(0, 200)),
+      thumbnail: rawCover ? (rawCover.startsWith('//') ? `https:${rawCover}` : rawCover) : undefined,
+      description: decode((body.match(/<description>([\s\S]*?)<\/description>/)?.[1] || '').replace(/<[^>]*>/g, '').slice(0, 400)),
       categories: [...body.matchAll(/<link type="boardgamecategory"[^>]+value="([^"]+)"/g)].map(m => m[1]),
       mechanics:  [...body.matchAll(/<link type="boardgamemechanic"[^>]+value="([^"]+)"/g)].map(m => m[1]),
       rating:    parseFloat(body.match(/<average[^>]+value="([0-9.]+)"/)?.[1] || '') || undefined,
@@ -352,28 +361,21 @@ async function resolveProxyKeywords(
       }
     } catch {}
   }
-  // AniList anime: chiama recommendations, prende i tag del primo con tag
-  if (sourceType === 'anime' && excludeId.startsWith('anilist-anime-')) {
-    const anilistSourceId = parseInt(excludeId.replace('anilist-anime-', ''), 10)
-    if (!isNaN(anilistSourceId)) {
+  // TMDB anime: fetch keywords via /tv/{id}/keywords
+  if (sourceType === 'anime' && excludeId.startsWith('tmdb-anime-')) {
+    const tmdbAnimeId = parseInt(excludeId.replace('tmdb-anime-', ''), 10)
+    if (!isNaN(tmdbAnimeId)) {
       try {
-        const q = `query($id:Int){Media(id:$id,type:ANIME){recommendations(sort:RATING_DESC,perPage:10){nodes{mediaRecommendation{title{romaji}tags{name isGeneralSpoiler}}}}}}`
-        const res = await fetch(ANILIST_URL, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: q, variables: { id: anilistSourceId } }),
-          signal: AbortSignal.timeout(5000),
+        const res = await fetch(`${TMDB_BASE}/tv/${tmdbAnimeId}/keywords`, {
+          headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(5000),
         })
-        if (!res.ok) return []
-        const json = await res.json()
-        for (const node of json.data?.Media?.recommendations?.nodes || []) {
-          const m = node?.mediaRecommendation
-          if (!m) continue
-          const tags = (m.tags || [])
-            .filter((t: any) => !t.isGeneralSpoiler)
-            .map((t: any) => t.name as string)
+        if (res.ok) {
+          const json = await res.json()
+          const tags = (json.results || [])
+            .map((k: any) => k.name as string)
             .filter((t: string) => !TMDB_META_KW_BLOCKLIST.has(t.toLowerCase()))
           if (tags.length >= 2) {
-            console.log(`[SIMILAR] proxy tags from "${m.title?.romaji}":`, tags.slice(0, 5))
+            console.log(`[SIMILAR] proxy tags from tmdb-anime-${tmdbAnimeId}:`, tags.slice(0, 5))
             return tags.slice(0, 10)
           }
         }
@@ -539,96 +541,72 @@ export async function GET(request: NextRequest) {
     })())
   }
 
-  // ── AniList anime — genre_in + tag_in ─────────────────────────────────────
-  if (anilistGenres.length > 0 || rawTags.length > 0) {
+  // ── TMDB anime — discover/tv Japanese animation ───────────────────────────
+  if (tmdbToken) {
     fetches.push((async () => {
       try {
-        // Query con generi
-        if (anilistGenres.length > 0) {
-          const q = `query($g:[String]){Page(page:1,perPage:25){media(type:ANIME,genre_in:$g,sort:[SCORE_DESC],isAdult:false){id title{romaji english}coverImage{large}seasonYear genres averageScore popularity episodes description tags{name}}}}`
-          const res = await fetch(ANILIST_URL, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: q, variables: { g: anilistGenres.slice(0, 3) } }),
-            signal: AbortSignal.timeout(6000),
+        const tvGenreNames = (ids: number[]) =>
+          [...new Set(ids.map((id: number) => TMDB_TV_ID_TO_GENRE[id]).filter(Boolean) as string[])]
+
+        // Genre discover: genre 16 (Animation) + mapped TV genres from crossGenres
+        const animeGenreIds = [...new Set([16, ...tmdbTvIds])].slice(0, 3)
+        const params = new URLSearchParams({
+          with_original_language: 'ja',
+          with_genres: animeGenreIds.join(','),
+          sort_by: 'vote_average.desc',
+          'vote_count.gte': '100',
+          language: 'it-IT',
+        })
+        const res = await fetch(`${TMDB_BASE}/discover/tv?${params}`, {
+          headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000),
+        })
+        if (res.ok) {
+          const json = await res.json()
+          for (const m of (json.results || []).slice(0, 25)) {
+            if (!m.poster_path) continue
+            const id = `tmdb-anime-${m.id}`
+            const recGenres = tvGenreNames(m.genre_ids || [])
+            add({ id, title: m.name || '', type: 'anime',
+              coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
+              year: m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined,
+              genres: recGenres, tags: [],
+              description: m.overview ? m.overview.slice(0, 200) : undefined,
+              score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
+              matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
+          }
+        }
+
+        // Keyword discover: genre 16 + keyword IDs resolved from source tags/keywords
+        const tmdbKwIds = await tmdbKeywordIdsPromise
+        if (tmdbKwIds.length > 0) {
+          const kwParams = new URLSearchParams({
+            with_original_language: 'ja',
+            with_genres: '16',
+            with_keywords: tmdbKwIds.slice(0, 6).join('|'),
+            sort_by: 'vote_average.desc',
+            'vote_count.gte': '50',
+            language: 'it-IT',
           })
-          if (res.ok) {
-            const json = await res.json()
-            for (const m of json.data?.Page?.media || []) {
-              const id = `anilist-anime-${m.id}`
-              const recGenres: string[] = m.genres || []
-              add({ id, title: m.title?.romaji || m.title?.english || '', type: 'anime',
-                coverImage: m.coverImage?.large, year: m.seasonYear, genres: recGenres,
-                tags: (m.tags || []).map((t: any) => t.name),
-                episodes: m.episodes ?? undefined,
-                description: m.description ? m.description.replace(/<[^>]*>/g, '').slice(0, 200) : undefined,
-                score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
-                matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
+          const kwRes = await fetch(`${TMDB_BASE}/discover/tv?${kwParams}`, {
+            headers: { Authorization: `Bearer ${tmdbToken}` }, signal: AbortSignal.timeout(6000),
+          })
+          if (kwRes.ok) {
+            const kwJson = await kwRes.json()
+            for (const m of (kwJson.results || []).slice(0, 20)) {
+              if (!m.poster_path) continue
+              const id = `tmdb-anime-${m.id}`
+              const recGenres = tvGenreNames(m.genre_ids || [])
+              add({ id, title: m.name || '', type: 'anime',
+                coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
+                year: m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined,
+                genres: recGenres, tags: [],
+                description: m.overview ? m.overview.slice(0, 200) : undefined,
+                score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
+                matchScore: 58 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
             }
           }
         }
 
-        // Query aggiuntiva con tags — usa effectiveKeywords come fallback se rawTags/rawKeywords vuoti
-        const anilistTagsSrc = (rawTags.length > 0 || rawKeywords.length > 0)
-          ? [...rawTags, ...rawKeywords]
-          : effectiveKeywords
-        const anilistTags = [...new Set(anilistTagsSrc
-          .slice(0, 10)
-          .flatMap(t => [t, toTitleCase(t)])
-        )]
-        if (anilistTags.length > 0) {
-          const q = `query($t:[String]){Page(page:1,perPage:20){media(type:ANIME,tag_in:$t,sort:[SCORE_DESC],isAdult:false){id title{romaji english}coverImage{large}seasonYear genres averageScore popularity episodes description tags{name}}}}`
-          const res = await fetch(ANILIST_URL, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: q, variables: { t: anilistTags } }),
-            signal: AbortSignal.timeout(6000),
-          })
-          if (res.ok) {
-            const json = await res.json()
-            for (const m of json.data?.Page?.media || []) {
-              const id = `anilist-anime-${m.id}`
-              const recGenres: string[] = m.genres || []
-              const allTags = (m.tags || []).map((t: any) => t.name)
-              const matchedTags = allTags.filter((t: string) => anilistTags.includes(t))
-              add({ id, title: m.title?.romaji || m.title?.english || '', type: 'anime',
-                coverImage: m.coverImage?.large, year: m.seasonYear, genres: recGenres,
-                tags: allTags,
-                episodes: m.episodes ?? undefined,
-                description: m.description ? m.description.replace(/<[^>]*>/g, '').slice(0, 200) : undefined,
-                score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
-                matchScore: 58 + profileBoost(recGenres), why: whyText(recGenres, matchedTags), _pop: m.popularity || 0 })
-            }
-          }
-        }
-
-        // Fallback: se non ci sono tag, usa le raccomandazioni utente di AniList
-        if (anilistTags.length === 0 && sourceType === 'anime' && excludeId.startsWith('anilist-anime-')) {
-          const anilistSourceId = parseInt(excludeId.replace('anilist-anime-', ''), 10)
-          if (!isNaN(anilistSourceId)) {
-            const q = `query($id:Int){Media(id:$id,type:ANIME){recommendations(sort:RATING_DESC,perPage:20){nodes{mediaRecommendation{id title{romaji english}coverImage{large}seasonYear genres averageScore popularity episodes description tags{name}}}}}}`
-            const res = await fetch(ANILIST_URL, {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ query: q, variables: { id: anilistSourceId } }),
-              signal: AbortSignal.timeout(6000),
-            })
-            if (res.ok) {
-              const json = await res.json()
-              for (const node of json.data?.Media?.recommendations?.nodes || []) {
-                const m = node?.mediaRecommendation
-                if (!m) continue
-                const id = `anilist-anime-${m.id}`
-                const recGenres: string[] = m.genres || []
-                add({ id, title: m.title?.romaji || m.title?.english || '', type: 'anime',
-                  coverImage: m.coverImage?.large, year: m.seasonYear, genres: recGenres,
-                  tags: (m.tags || []).map((t: any) => t.name),
-                  episodes: m.episodes ?? undefined,
-                  description: m.description ? m.description.replace(/<[^>]*>/g, '').slice(0, 200) : undefined,
-                  score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
-                  matchScore: 62 + profileBoost(recGenres), why: `Consigliato dalla community per "${sourceTitle}"`,
-                  _foundByKeyword: true, _pop: m.popularity || 0 })
-              }
-            }
-          }
-        }
       } catch {}
     })())
   }
@@ -820,7 +798,7 @@ export async function GET(request: NextRequest) {
   // CSV da boardgamegeek.com/data_dumps/bg_ranks: tutti i giochi classificati per categoria
   // (thematic, strategy, wargames, family, party) — richiede cookie di sessione BGG
   const bggToken = process.env.BGG_BEARER_TOKEN || ''
-  const bggHeaders: HeadersInit = bggToken ? { Cookie: `bggauthentication=${bggToken}` } : {}
+  const bggHeaders: HeadersInit = bggToken ? { Authorization: `Bearer ${bggToken}` } : {}
   const targetBggCats = new Set(crossGenres.flatMap(g => GENRE_TO_BGG_CATS[g] || []))
   const bggSeedIds = new Set<number>(crossGenres.flatMap(g => (BGG_GENRE_SEEDS[g] || []) as number[]))
 
@@ -845,7 +823,7 @@ export async function GET(request: NextRequest) {
 
       // Hot list per giochi trending
       try {
-        const hotRes = await fetch('https://www.boardgamegeek.com/xmlapi2/hot?type=boardgame', { headers: bggHeaders, signal: AbortSignal.timeout(5000) })
+        const hotRes = await fetch('https://boardgamegeek.com/xmlapi2/hot?type=boardgame', { headers: bggHeaders, signal: AbortSignal.timeout(5000) })
         console.log('[SIMILAR BGG] hot list status:', hotRes.status)
         if (hotRes.ok) {
           const hotXml = await hotRes.text()
@@ -864,7 +842,7 @@ export async function GET(request: NextRequest) {
       for (let i = 0; i < ids.length; i += 20) {
         const batch = ids.slice(i, i + 20)
         try {
-          const thingUrl = `https://www.boardgamegeek.com/xmlapi2/thing?id=${batch.join(',')}&stats=1`
+          const thingUrl = `https://boardgamegeek.com/xmlapi2/thing?id=${batch.join(',')}&stats=1`
           let thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(10000) })
           console.log(`[SIMILAR BGG] /thing batch ${i/20+1} → status ${thingRes.status}`)
           if (thingRes.status === 202) {
@@ -895,7 +873,7 @@ export async function GET(request: NextRequest) {
         const recGenres = g.categories.map(c => BGG_CAT_TO_GENRE[c]).filter(Boolean) as string[]
         add({
           id: `bgg-${g.id}`, title: g.name, type: 'boardgame',
-          coverImage: g.thumbnail ? (g.thumbnail.startsWith('//') ? `https:${g.thumbnail}` : g.thumbnail) : undefined,
+          coverImage: g.thumbnail || undefined,
           year: g.year, genres: recGenres.length > 0 ? recGenres : ['Strategy'],
           tags: g.mechanics, keywords: g.categories.map(c => c.toLowerCase()),
           score: g.rating ? Math.min(g.rating / 2, 5) : undefined,
@@ -965,27 +943,68 @@ export async function GET(request: NextRequest) {
     return b._pop - a._pop
   })
 
-  // ── Diversity: garantisce almeno 3 risultati per ogni tipo media disponibile ──
-  const GUARANTEED = 3
+  // ── Mix bilanciato: differenza max ~3 items tra i vari media type ────────────
+  // Round-robin con cap per tipo: nessun medium può dominare la lista.
+  // Ogni tipo ottiene al massimo (base + 2) slot, dove base = 30 / numTipi.
+  // Se alcuni tipi hanno pochi candidati, i slot liberi vengono riempiti
+  // dagli altri (in ordine di similarity) senza applicare il cap.
+  const TARGET_TOTAL = 30
   const byType: Record<string, typeof scored> = {}
   for (const item of scored) {
     if (!byType[item.type]) byType[item.type] = []
     byType[item.type].push(item)
   }
-  const diverseIds = new Set<string>()
+  const availableTypes = Object.keys(byType).filter(t => byType[t].length > 0)
+  const numTypes = availableTypes.length
+
   const diverse: typeof scored = []
-  // Prima passata: top GUARANTEED per ogni tipo
-  for (const items of Object.values(byType)) {
-    for (const item of items.slice(0, GUARANTEED)) {
-      diverse.push(item)
-      diverseIds.add(item.id)
+  const diverseIds = new Set<string>()
+
+  if (numTypes > 0) {
+    const basePerType = Math.round(TARGET_TOTAL / numTypes)
+    const maxPerType = basePerType + 2  // cap: nessun tipo supera gli altri di > 3
+
+    const typeQuota: Record<string, number> = {}
+    const typeQueues: Record<string, typeof scored> = {}
+    for (const t of availableTypes) {
+      typeQuota[t] = 0
+      typeQueues[t] = [...byType[t]] // già ordinati per similarity desc
+    }
+
+    // Round-robin: ogni ciclo prende 1 item per tipo (rispettando il cap)
+    let anyAdded = true
+    while (diverse.length < TARGET_TOTAL && anyAdded) {
+      anyAdded = false
+      for (const type of availableTypes) {
+        if (diverse.length >= TARGET_TOTAL) break
+        if (typeQuota[type] >= maxPerType) continue
+        const queue = typeQueues[type]
+        while (queue.length > 0) {
+          const item = queue.shift()!
+          if (!diverseIds.has(item.id)) {
+            diverse.push(item)
+            diverseIds.add(item.id)
+            typeQuota[type]++
+            anyAdded = true
+            break
+          }
+        }
+      }
+    }
+
+    // Se ci sono ancora slot liberi (alcuni tipi esauriti prima del cap),
+    // riempi con i migliori rimanenti in ordine di similarity — senza cap
+    if (diverse.length < TARGET_TOTAL) {
+      for (const item of scored) {
+        if (diverse.length >= TARGET_TOTAL) break
+        if (!diverseIds.has(item.id)) {
+          diverse.push(item)
+          diverseIds.add(item.id)
+        }
+      }
     }
   }
-  // Seconda passata: riempi con i migliori assoluti rimanenti
-  for (const item of scored) {
-    if (diverse.length >= 30) break
-    if (!diverseIds.has(item.id)) { diverse.push(item); diverseIds.add(item.id) }
-  }
+
   diverse.sort((a, b) => {
     if (b._similarity !== a._similarity) return b._similarity - a._similarity
     return b._pop - a._pop
@@ -993,6 +1012,18 @@ export async function GET(request: NextRequest) {
 
   const top30 = diverse.slice(0, 30)
   const clean = top30.map(({ _pop, _similarity, _foundByKeyword, ...r }) => r)
+
+  const descItems = clean
+    .filter(r => r.description && (r.type === 'game' || r.type === 'boardgame'))
+    .map(r => ({ id: r.type === 'game' ? `igdb:${r.id}` : r.id, text: r.description! }))
+  if (descItems.length > 0) {
+    const t = await translateWithCache(descItems)
+    clean.forEach(r => {
+      if (!r.description || (r.type !== 'game' && r.type !== 'boardgame')) return
+      const key = r.type === 'game' ? `igdb:${r.id}` : r.id
+      r.description = t[key] || r.description
+    })
+  }
 
   return NextResponse.json({ items: clean, total: clean.length }, { headers: rl.headers })
 }

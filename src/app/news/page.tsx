@@ -176,11 +176,16 @@ export default function NewsPage() {
   const triggerSync = async () => {
     setSyncing(true)
     try {
-      await fetch(`/api/news/sync?lang=${locale}`, { method: 'GET' })
-      await fetchItems(activeCategory, true)
-      setLastSync(new Date().toLocaleTimeString(locale === 'en' ? 'en-US' : 'it-IT', {
-        hour: '2-digit', minute: '2-digit',
-      }))
+      const res = await fetch(`/api/news/sync?lang=${locale}`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(65_000),
+      })
+      if (res.ok) {
+        await fetchItems(activeCategory, true)
+        setLastSync(new Date().toLocaleTimeString(locale === 'en' ? 'en-US' : 'it-IT', {
+          hour: '2-digit', minute: '2-digit',
+        }))
+      }
     } catch {}
     setSyncing(false)
   }

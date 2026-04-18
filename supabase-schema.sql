@@ -72,9 +72,16 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     fav_movie_genres TEXT[] DEFAULT '{}',
     fav_tv_genres TEXT[] DEFAULT '{}',
     fav_manga_genres TEXT[] DEFAULT '{}',
+    fav_boardgame_genres TEXT[] DEFAULT '{}',
     -- Generi da escludere
     disliked_genres TEXT[] DEFAULT '{}',
-    -- Piattaforme preferite per giochi
+    soft_disliked_genres TEXT[] DEFAULT '{}',
+    -- Feedback comportamentale (aggiornato automaticamente dal feedback loop)
+    genre_feedback_counts JSONB DEFAULT '{}',
+    format_feedback_counts JSONB DEFAULT '{}',
+    -- Piattaforme streaming preferite (ID TMDb provider)
+    streaming_platforms INTEGER[] DEFAULT '{}',
+    -- Piattaforme preferite per giochi (legacy)
     preferred_platforms TEXT[] DEFAULT '{}',
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -239,6 +246,60 @@ CREATE TABLE IF NOT EXISTS mal_poster_cache (
 -- senza chiamate API extra. La cover image viene usata direttamente dall'URL AniList.
 
 -- =============================================
+-- SEARCH HISTORY (search intent tracking per taste engine V3+)
+-- =============================================
+CREATE TABLE IF NOT EXISTS search_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    query TEXT NOT NULL,
+    media_type TEXT,
+    result_clicked_id TEXT,
+    result_clicked_type TEXT,
+    result_clicked_genres TEXT[] DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================
+-- RECOMMENDATIONS POOL (pool pre-generato per tipo, TTL dinamico)
+-- =============================================
+CREATE TABLE IF NOT EXISTS recommendations_pool (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    media_type TEXT NOT NULL,
+    data JSONB NOT NULL DEFAULT '[]',
+    generated_at TIMESTAMPTZ DEFAULT now(),
+    collection_hash TEXT,
+    UNIQUE(user_id, media_type)
+);
+
+-- =============================================
+-- RECOMMENDATIONS SHOWN (anti-ripetizione sessione, TTL 4h)
+-- =============================================
+CREATE TABLE IF NOT EXISTS recommendations_shown (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    rec_id TEXT NOT NULL,
+    rec_type TEXT NOT NULL,
+    shown_at TIMESTAMPTZ DEFAULT now(),
+    action TEXT,
+    UNIQUE(user_id, rec_id)
+);
+
+-- =============================================
+-- RECOMMENDATION FEEDBACK (feedback granulare utente)
+-- =============================================
+CREATE TABLE IF NOT EXISTS recommendation_feedback (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    rec_id TEXT NOT NULL,
+    rec_type TEXT NOT NULL,
+    rec_genres TEXT[] DEFAULT '{}',
+    action TEXT NOT NULL,
+    reason TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================
 -- INDEXES per performance
 -- =============================================
 CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id);
@@ -253,6 +314,10 @@ CREATE INDEX IF NOT EXISTS idx_steam_import_log_user ON steam_import_log(user_id
 CREATE INDEX IF NOT EXISTS idx_user_media_entries_genres ON user_media_entries USING GIN(genres);
 CREATE INDEX IF NOT EXISTS idx_recommendations_cache_user ON recommendations_cache(user_id, expires_at);
 CREATE INDEX IF NOT EXISTS idx_mal_poster_cache_type ON mal_poster_cache(media_type, mal_id);
+CREATE INDEX IF NOT EXISTS idx_search_history_user ON search_history(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_recommendations_pool_user ON recommendations_pool(user_id, media_type);
+CREATE INDEX IF NOT EXISTS idx_recommendations_shown_user ON recommendations_shown(user_id, shown_at DESC);
+CREATE INDEX IF NOT EXISTS idx_recommendation_feedback_user ON recommendation_feedback(user_id, created_at DESC);
 
 -- =============================================
 -- TRIGGER per updated_at
@@ -265,14 +330,17 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
 CREATE TRIGGER update_profiles_updated_at
     BEFORE UPDATE ON profiles
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_user_media_entries_updated_at ON user_media_entries;
 CREATE TRIGGER update_user_media_entries_updated_at
     BEFORE UPDATE ON user_media_entries
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_leaderboard_updated_at ON leaderboard;
 CREATE TRIGGER update_leaderboard_updated_at
     BEFORE UPDATE ON leaderboard
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

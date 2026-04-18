@@ -7,10 +7,12 @@ import Image from 'next/image'
 import {
   X, ExternalLink, Star, Clock, Users, Layers,
   Gamepad2, BookOpen, Film, Tv, Dices, Clapperboard, Check, Bookmark,
+  Sparkles, Trophy, Monitor,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { StarRating } from '@/components/ui/StarRating'
+import { translateGenre } from '@/lib/genres'
 
 // ─── Tipi ─────────────────────────────────────────────────────────────────────
 
@@ -39,8 +41,12 @@ export interface MediaDetails {
   platforms?: string[]
   cast?: string[]
   watchProviders?: string[]
+  italianSupportTypes?: string[]
   score?: number
   externalUrl?: string
+  why?: string
+  matchScore?: number
+  isAwardWinner?: boolean
   studios?: string[]
   directors?: string[]
   authors?: string[]
@@ -62,12 +68,17 @@ interface MediaDetailsDrawerProps {
 function buildExternalUrl(media: MediaDetails): string | undefined {
   if (media.externalUrl) return media.externalUrl
   const id = media.id
+  if (id.startsWith('tmdb-anime-')) return `https://www.themoviedb.org/tv/${id.replace('tmdb-anime-', '')}`
   if (id.startsWith('anilist-anime-')) return `https://anilist.co/anime/${id.replace('anilist-anime-', '')}`
   if (id.startsWith('anilist-manga-') || id.startsWith('anilist-novel-')) return `https://anilist.co/manga/${id.replace(/anilist-(manga|novel)-/, '')}`
+  if (id.startsWith('bgg-')) return `https://boardgamegeek.com/boardgame/${id.replace('bgg-', '')}`
+  if (/^\d+$/.test(id)) {
+    if (media.type === 'movie') return `https://www.themoviedb.org/movie/${id}`
+    if (media.type === 'tv' || media.type === 'anime') return `https://www.themoviedb.org/tv/${id}`
+    return undefined // IGDB: no valid URL from numeric ID alone (slug needed)
+  }
   if (media.source === 'tmdb' && media.type === 'movie') return `https://www.themoviedb.org/movie/${id}`
   if (media.source === 'tmdb' && media.type === 'tv') return `https://www.themoviedb.org/tv/${id}`
-  if (media.source === 'igdb') return `https://www.igdb.com/games/${id}`
-  if (media.source === 'bgg') return `https://boardgamegeek.com/boardgame/${id}`
   return undefined
 }
 
@@ -264,16 +275,16 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   const Icon = TYPE_ICON[media.type] || Film
   const externalUrl = buildExternalUrl(media)
 
-  const creatorList = media.studios?.length
-    ? media.studios
-    : media.directors?.length
-    ? media.directors
-    : media.authors?.length
-    ? media.authors
-    : null
+  const isManga = media.type === 'manga' || media.type === 'novel'
+
+  const creatorList = isManga
+    ? (media.authors?.length ? media.authors : media.developers?.length ? media.developers : media.studios?.length ? media.studios : null)
+    : (media.studios?.length ? media.studios : media.directors?.length ? media.directors : media.authors?.length ? media.authors : null)
 
   const creatorLabel = creatorList?.slice(0, 2).join(', ') ?? null
-  const creatorTitle = media.studios?.length ? 'Studio' : media.authors?.length ? 'Autori' : 'Registi'
+  const creatorTitle = isManga
+    ? (media.authors?.length ? 'Autori' : media.developers?.length ? 'Autori' : 'Editori')
+    : (media.studios?.length ? 'Studio' : media.directors?.length ? 'Registi' : media.authors?.length ? 'Autori' : 'Registi')
 
   const continuityRelations = (media.relations || [])
     .filter(r => ['SEQUEL', 'PREQUEL', 'SIDE_STORY', 'SPIN_OFF'].includes(r.relationType))
@@ -283,10 +294,13 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
   const timeLabel = (media.type === 'anime' || media.type === 'tv') ? 'min/ep' : 'min'
 
-  const sourceLabel =
-    media.source === 'bgg' ? 'BoardGameGeek' :
-    media.source === 'igdb' ? 'IGDB' :
-    media.source === 'anilist' ? 'AniList' : 'TMDb'
+  const sourceLabel = (() => {
+    const id = media.id
+    if (id.startsWith('anilist-')) return 'AniList'
+    if (id.startsWith('igdb-')) return 'IGDB'
+    if (id.startsWith('bgg-')) return 'BoardGameGeek'
+    return 'TMDb'
+  })()
 
   return (
     <>
@@ -315,9 +329,9 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
         </button>
 
         {/* ── HEADER (non scorribile) ────────────────────────────────── */}
-        <div className="flex gap-3 p-4 pr-12 border-b border-zinc-800/60 flex-shrink-0">
+        <div className="flex gap-4 p-5 pr-12 border-b border-zinc-800/60 flex-shrink-0">
           {/* Locandina compatta */}
-          <div className="flex-shrink-0 w-16 h-24 rounded-xl overflow-hidden bg-zinc-800 shadow-lg ring-1 ring-white/10">
+          <div className="flex-shrink-0 w-20 h-28 rounded-xl overflow-hidden bg-zinc-800 shadow-lg ring-1 ring-white/10">
             {media.coverImage ? (
               <img src={media.coverImage} alt={media.title} className="w-full h-full object-cover" />
             ) : (
@@ -329,11 +343,23 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
           {/* Info a destra */}
           <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
-            <span className={`self-start text-[9px] font-bold px-2 py-0.5 rounded-full text-white ${TYPE_COLOR[media.type] || 'bg-zinc-700'}`}>
-              {TYPE_LABEL[media.type] || media.type}
-            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full text-white ${TYPE_COLOR[media.type] || 'bg-zinc-700'}`}>
+                {TYPE_LABEL[media.type] || media.type}
+              </span>
+              {media.isAwardWinner && (
+                <span className="flex items-center gap-0.5 text-[9px] bg-amber-500/20 border border-amber-500/30 text-amber-300 px-1.5 py-0.5 rounded-full">
+                  <Trophy size={8} />Acclamato
+                </span>
+              )}
+              {media.matchScore != null && (
+                <span className="text-[9px] bg-violet-500/20 border border-violet-500/30 text-violet-300 px-1.5 py-0.5 rounded-full">
+                  {media.matchScore}% match
+                </span>
+              )}
+            </div>
 
-            <h2 className="text-sm font-bold text-white leading-tight line-clamp-2">{media.title}</h2>
+            <h2 className="text-base font-bold text-white leading-tight line-clamp-2">{media.title}</h2>
 
             {/* Stats inline: anno · score · ep · durata · giocatori · complessità */}
             <div className="flex items-center gap-1 flex-wrap">
@@ -388,29 +414,106 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
         {/* ── CONTENUTO SCORREVOLE ───────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto">
-          <div className="p-4 space-y-3">
+          <div className="p-5 space-y-5">
 
             {/* Generi */}
             {media.genres && media.genres.length > 0 && (
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1.5">
                 {media.genres.map(g => (
-                  <span key={g} className="text-[10px] bg-violet-500/15 text-violet-300 border border-violet-500/20 px-2 py-0.5 rounded-full">
-                    {g}
+                  <span key={g} className="text-xs bg-violet-500/15 text-violet-300 border border-violet-500/20 px-2.5 py-1 rounded-full">
+                    {translateGenre(g)}
                   </span>
                 ))}
               </div>
             )}
 
+            {/* Perché te lo consigliamo */}
+            {media.why && (
+              <div className="flex gap-2.5 bg-violet-500/8 border border-violet-500/20 rounded-xl p-3.5">
+                <Sparkles size={14} className="text-violet-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-violet-200 leading-relaxed">{media.why}</p>
+              </div>
+            )}
+
+            {/* Stats grid */}
+            {(() => {
+              const cells: JSX.Element[] = []
+              if (media.matchScore != null) cells.push(
+                <div key="match" className="bg-violet-500/10 border border-violet-500/25 rounded-xl p-3 text-center">
+                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Match</p>
+                  <p className="text-lg font-bold text-violet-300">{media.matchScore}%</p>
+                </div>
+              )
+              if (media.score != null || media.bgg_rating != null) cells.push(
+                <div key="score" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Voto</p>
+                  <div className="flex items-center justify-center gap-1">
+                    <Star size={11} className="text-yellow-400 fill-yellow-400" />
+                    <p className="text-lg font-bold text-white">{((media.score ?? media.bgg_rating)!).toFixed(1)}</p>
+                    <span className="text-[10px] text-zinc-600">/5</span>
+                  </div>
+                </div>
+              )
+              if (media.year) cells.push(
+                <div key="year" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Anno</p>
+                  <p className="text-lg font-bold text-white">{media.year}</p>
+                </div>
+              )
+              if (media.episodes != null && media.episodes > 1) cells.push(
+                <div key="eps" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">
+                    {media.type === 'manga' ? 'Cap.' : 'Ep.'}
+                  </p>
+                  <p className="text-lg font-bold text-white">{media.episodes}</p>
+                </div>
+              )
+              if (media.totalSeasons != null && media.totalSeasons > 1) cells.push(
+                <div key="seasons" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Stagioni</p>
+                  <p className="text-lg font-bold text-white">{media.totalSeasons}</p>
+                </div>
+              )
+              if (media.playing_time) cells.push(
+                <div key="time" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Durata</p>
+                  <p className="text-lg font-bold text-white">{media.playing_time}<span className="text-[10px] text-zinc-600 ml-0.5">m</span></p>
+                </div>
+              )
+              if (media.complexity) cells.push(
+                <div key="cmplx" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Difficoltà</p>
+                  <p className="text-lg font-bold text-white">{media.complexity.toFixed(1)}<span className="text-[10px] text-zinc-600">/5</span></p>
+                </div>
+              )
+              if (media.min_players != null || media.max_players != null) cells.push(
+                <div key="players" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Giocatori</p>
+                  <p className="text-lg font-bold text-white">
+                    {media.min_players === media.max_players
+                      ? media.min_players
+                      : `${media.min_players ?? '?'}–${media.max_players ?? '?'}`}
+                  </p>
+                </div>
+              )
+              if (cells.length === 0) return null
+              return (
+                <div className={`grid gap-2 ${cells.length <= 2 ? 'grid-cols-2' : cells.length === 3 ? 'grid-cols-3' : 'grid-cols-3'}`}>
+                  {cells}
+                </div>
+              )
+            })()}
+
             {/* Descrizione con expand */}
             {media.description && (
               <div>
-                <p className={`text-xs text-zinc-300 leading-relaxed ${!descExpanded ? 'line-clamp-3' : ''}`}>
+                <p className={`text-sm text-zinc-300 leading-relaxed ${!descExpanded ? 'line-clamp-4' : ''}`}>
                   {media.description}
                 </p>
                 {isLongDesc && (
                   <button
                     onClick={() => setDescExpanded(v => !v)}
-                    className="text-[10px] text-zinc-500 hover:text-zinc-300 mt-1 transition-colors"
+                    className="text-xs text-zinc-500 hover:text-zinc-300 mt-1.5 transition-colors"
                   >
                     {descExpanded ? 'Meno ▲' : 'Leggi di più ▼'}
                   </button>
@@ -421,12 +524,12 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             {/* Studios / Directors / Authors */}
             {creatorList && creatorList.length > 0 && (
               <div>
-                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1">
-                  <Clapperboard size={9} />{creatorTitle}
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5 flex items-center gap-1">
+                  <Clapperboard size={10} />{creatorTitle}
                 </h3>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1.5">
                   {creatorList.slice(0, 5).map(name => (
-                    <span key={name} className="text-[10px] bg-sky-500/10 text-sky-300 border border-sky-500/20 px-2 py-0.5 rounded-full">
+                    <span key={name} className="text-xs bg-sky-500/10 text-sky-300 border border-sky-500/20 px-2.5 py-1 rounded-full">
                       {name}
                     </span>
                   ))}
@@ -434,49 +537,49 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               </div>
             )}
 
+            {/* Sviluppatori (games) — mostrati solo se non già in creatorList */}
+            {media.developers && media.developers.length > 0 && !isManga && (
+              <div>
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Sviluppatori</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {media.developers.slice(0, 4).map(name => (
+                    <span key={name} className="text-xs bg-sky-500/10 text-sky-300 border border-sky-500/20 px-2.5 py-1 rounded-full">{name}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Editori (manga only, shown separately from authors) */}
+            {isManga && media.developers?.length && media.studios?.length ? (
+              <div>
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Editori</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {media.studios.slice(0, 3).map(name => (
+                    <span key={name} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{name}</span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             {/* Cast */}
             {media.cast && media.cast.length > 0 && (
               <div>
-                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Cast</h3>
-                <div className="flex flex-wrap gap-1">
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Cast</h3>
+                <div className="flex flex-wrap gap-1.5">
                   {media.cast.map(name => (
-                    <span key={name} className="text-[10px] bg-zinc-900 border border-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">{name}</span>
+                    <span key={name} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{name}</span>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Meccaniche */}
+            {/* Meccaniche (boardgame) */}
             {media.mechanics && media.mechanics.length > 0 && (
               <div>
-                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Meccaniche</h3>
-                <div className="flex flex-wrap gap-1">
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Meccaniche</h3>
+                <div className="flex flex-wrap gap-1.5">
                   {media.mechanics.slice(0, 10).map(m => (
-                    <span key={m} className="text-[10px] bg-zinc-900 border border-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">{m}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Temi */}
-            {media.themes && media.themes.length > 0 && (
-              <div>
-                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Temi</h3>
-                <div className="flex flex-wrap gap-1">
-                  {media.themes.slice(0, 8).map(t => (
-                    <span key={t} className="text-[10px] bg-zinc-900 border border-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">{t}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Disponibile su (streaming) */}
-            {media.watchProviders && media.watchProviders.length > 0 && (
-              <div>
-                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Disponibile su</h3>
-                <div className="flex flex-wrap gap-1">
-                  {media.watchProviders.map(p => (
-                    <span key={p} className="text-[10px] bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded-full">{p}</span>
+                    <span key={m} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{m}</span>
                   ))}
                 </div>
               </div>
@@ -485,26 +588,55 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             {/* Piattaforme (gaming) */}
             {media.platforms && media.platforms.length > 0 && (
               <div>
-                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Piattaforme</h3>
-                <div className="flex flex-wrap gap-1">
-                  {media.platforms.slice(0, 10).map(p => (
-                    <span key={p} className="text-[10px] bg-zinc-900 border border-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">{p}</span>
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5 flex items-center gap-1">
+                  <Monitor size={10} />Piattaforme
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {media.platforms.slice(0, 8).map(p => (
+                    <span key={p} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{p}</span>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Designers / Developers */}
-            {(media.designers?.length || media.developers?.length) ? (
+            {/* Disponibile su (streaming) */}
+            {media.watchProviders && media.watchProviders.length > 0 && (
               <div>
-                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">
-                  {media.designers?.length ? 'Designer' : 'Sviluppatori'}
-                </h3>
-                <p className="text-xs text-zinc-300">
-                  {(media.designers || media.developers || []).slice(0, 4).join(', ')}
-                </p>
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Disponibile su</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {media.watchProviders.map(p => (
+                    <span key={p} className="text-xs bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 px-2.5 py-1 rounded-full">{p}</span>
+                  ))}
+                </div>
+                <p className="text-[9px] text-zinc-600 mt-1.5">Powered by JustWatch</p>
               </div>
-            ) : null}
+            )}
+
+            {/* Supporto italiano */}
+            {media.italianSupportTypes && media.italianSupportTypes.length > 0 && (
+              <div>
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Lingua italiana</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {media.italianSupportTypes.map(t => (
+                    <span key={t} className="text-xs bg-green-500/10 text-green-300 border border-green-500/20 px-2.5 py-1 rounded-full">
+                      🇮🇹 {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Designers (boardgame) */}
+            {media.designers && media.designers.length > 0 && (
+              <div>
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Designer</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {media.designers.slice(0, 4).map(name => (
+                    <span key={name} className="text-xs bg-sky-500/10 text-sky-300 border border-sky-500/20 px-2.5 py-1 rounded-full">{name}</span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Continuity / Relations */}
             {continuityRelations.length > 0 && (

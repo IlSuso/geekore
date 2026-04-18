@@ -4,7 +4,12 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { parseStringPromise } from 'xml2js'
 import { translateTexts } from '@/lib/deepl'
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// Vercel: estende il timeout della funzione a 60s (richiede piano Pro)
+export const maxDuration = 60
+// Impedisce la cache edge di Vercel — questa route deve sempre eseguire la funzione
+export const dynamic = 'force-dynamic'
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function tmdbHeaders() {
   return {
@@ -26,6 +31,18 @@ async function tmdbDetail(endpoint: string): Promise<any> {
   } catch { return null }
 }
 
+function dateRange(daysBefore: number, daysAfter: number) {
+  const now  = new Date()
+  const from = new Date(now)
+  from.setDate(from.getDate() - daysBefore)
+  const to = new Date(now)
+  to.setDate(to.getDate() + daysAfter)
+  return {
+    from: from.toISOString().split('T')[0],
+    to:   to.toISOString().split('T')[0],
+  }
+}
+
 const TMDB_MOVIE_GENRES: Record<number, string> = {
   28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy',
   80: 'Crime', 99: 'Documentary', 18: 'Drama', 10751: 'Family',
@@ -45,9 +62,11 @@ const TMDB_TV_GENRES: Record<number, string> = {
 async function fetchCinema(lang: string) {
   const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
   const region   = lang === 'en' ? 'US' : 'IT'
+  const { from, to } = dateRange(60, 60)
+
   try {
     const res = await fetch(
-      `https://api.themoviedb.org/3/movie/upcoming?language=${tmdbLang}&page=1&region=${region}`,
+      `https://api.themoviedb.org/3/discover/movie?language=${tmdbLang}&region=${region}&sort_by=popularity.desc&primary_release_date.gte=${from}&primary_release_date.lte=${to}`,
       { headers: tmdbHeaders(), cache: 'no-store' }
     )
     if (!res.ok) return []
@@ -61,11 +80,11 @@ async function fetchCinema(lang: string) {
 
     return movies.map((m: any, i: number) => {
       const d = details[i]
-      const director = d?.credits?.crew?.find((p: any) => p.job === 'Director')?.name
-      const studios = (d?.production_companies || []).slice(0, 2).map((c: any) => c.name).filter(Boolean)
-      const cast = (d?.credits?.cast || []).slice(0, 5).map((a: any) => a.name).filter(Boolean)
-      const keywords = (d?.keywords?.keywords || []).slice(0, 6).map((k: any) => k.name).filter(Boolean)
-      const providers = (d?.['watch/providers']?.results?.IT?.flatrate || []).map((p: any) => p.provider_name).filter(Boolean)
+      const director  = d?.credits?.crew?.find((p: any) => p.job === 'Director')?.name
+      const studios   = (d?.production_companies || []).slice(0, 2).map((c: any) => c.name).filter(Boolean)
+      const cast      = (d?.credits?.cast || []).slice(0, 5).map((a: any) => a.name).filter(Boolean)
+      const keywords  = (d?.keywords?.keywords || []).slice(0, 6).map((k: any) => k.name).filter(Boolean)
+      const providers = (d?.['watch/providers']?.results?.[region]?.flatrate || []).map((p: any) => p.provider_name).filter(Boolean)
       return {
         id: `tmdb-${m.id}`,
         type: 'movie',
@@ -94,9 +113,12 @@ async function fetchCinema(lang: string) {
 
 async function fetchTV(lang: string) {
   const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
+  const region   = lang === 'en' ? 'US' : 'IT'
+  const { from, to } = dateRange(60, 60)
+
   try {
     const res = await fetch(
-      `https://api.themoviedb.org/3/tv/on_the_air?language=${tmdbLang}&page=1`,
+      `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&air_date.gte=${from}&air_date.lte=${to}&include_null_first_air_dates=false`,
       { headers: tmdbHeaders(), cache: 'no-store' }
     )
     if (!res.ok) return []
@@ -105,16 +127,18 @@ async function fetchTV(lang: string) {
       .filter((m: any) => m.poster_path && m.overview)
 
     const details = await Promise.all(
-      shows.map((s: any) => tmdbDetail(`/tv/${s.id}?language=${tmdbLang}&append_to_response=aggregate_credits,watch%2Fproviders`))
+      shows.map((s: any) => tmdbDetail(`/tv/${s.id}?language=${tmdbLang}&append_to_response=aggregate_credits,watch%2Fproviders,keywords`))
     )
 
     return shows.map((m: any, i: number) => {
-      const d = details[i]
+      const d        = details[i]
       const networks = (d?.networks || []).slice(0, 2).map((n: any) => n.name).filter(Boolean)
       const creators = (d?.created_by || []).slice(0, 2).map((c: any) => c.name).filter(Boolean)
-      const runtime = d?.episode_run_time?.[0] || undefined
-      const cast = (d?.aggregate_credits?.cast || []).slice(0, 5).map((a: any) => a.name).filter(Boolean)
-      const providers = (d?.['watch/providers']?.results?.IT?.flatrate || []).map((p: any) => p.provider_name).filter(Boolean)
+      const runtime  = d?.episode_run_time?.[0] || undefined
+      const cast     = (d?.aggregate_credits?.cast || []).slice(0, 5).map((a: any) => a.name).filter(Boolean)
+      const providers        = (d?.['watch/providers']?.results?.[region]?.flatrate || []).map((p: any) => p.provider_name).filter(Boolean)
+      const keywords         = (d?.keywords?.results || []).slice(0, 6).map((k: any) => k.name).filter(Boolean)
+      const nextEpisodeDate  = d?.next_episode_to_air?.air_date || null
       const seasons: Record<number, { episode_count: number }> = {}
       for (const s of (d?.seasons || [])) {
         if (s.season_number > 0) seasons[s.season_number] = { episode_count: s.episode_count }
@@ -138,6 +162,8 @@ async function fetchTV(lang: string) {
         totalSeasons: d?.number_of_seasons || undefined,
         seasons: Object.keys(seasons).length ? seasons : undefined,
         watchProviders: providers.length ? providers : undefined,
+        themes: keywords.length ? keywords : undefined,
+        nextEpisodeDate: nextEpisodeDate || undefined,
         category: 'tv',
         source: 'TMDb',
         url: `https://www.themoviedb.org/tv/${m.id}`,
@@ -147,61 +173,54 @@ async function fetchTV(lang: string) {
 }
 
 async function fetchAnime(lang: string) {
-  const month = new Date().getMonth() + 1
-  const year  = new Date().getFullYear()
-  const season = month <= 3 ? 'WINTER' : month <= 6 ? 'SPRING' : month <= 9 ? 'SUMMER' : 'FALL'
-
-  const titleField = lang === 'en' ? 'romaji english' : 'romaji'
+  const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
+  const region   = lang === 'en' ? 'US' : 'IT'
+  const { from, to } = dateRange(60, 60)
 
   try {
-    const query = `query ($season: MediaSeason, $year: Int) {
-      current: Page(perPage: 20) {
-        media(type: ANIME, season: $season, seasonYear: $year, sort: POPULARITY_DESC, status: RELEASING) {
-          id title { ${titleField} } coverImage { large } genres episodes averageScore format duration
-          studios(isMain: true) { nodes { name } }
-          nextAiringEpisode { airingAt episode }
-          description(asHtml: false) siteUrl startDate { year month day }
-        }
-      }
-    }`
-    const res = await fetch('https://graphql.anilist.co', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, variables: { season, year } }),
-    })
+    const res = await fetch(
+      `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&with_original_language=ja&with_genres=16&air_date.gte=${from}&air_date.lte=${to}&include_null_first_air_dates=false`,
+      { headers: tmdbHeaders(), cache: 'no-store' }
+    )
     if (!res.ok) return []
     const json = await res.json()
-    return (json.data?.current?.media || [])
-      .filter((m: any) => m.coverImage?.large)
-      .map((m: any) => {
-        const d = m.startDate
-        const date = d?.year
-          ? `${d.year}-${String(d.month || 1).padStart(2, '0')}-${String(d.day || 1).padStart(2, '0')}`
-          : null
-        const title = (lang === 'en' && m.title.english) ? m.title.english : m.title.romaji
-        return {
-          id: `anilist-${m.id}`,
-          type: 'anime',
-          source_api: 'anilist',
-          title,
-          description: m.description
-            ? m.description.replace(/<[^>]+>/g, '').slice(0, 500)
-            : null,
-          coverImage: m.coverImage.large,
-          date,
-          year: d?.year ?? undefined,
-          genres: m.genres || [],
-          episodes: m.episodes ?? undefined,
-          score: m.averageScore ? Math.round(m.averageScore / 2) / 10 : undefined,
-          studios: (m.studios?.nodes || []).map((s: any) => s.name).filter(Boolean),
-          nextEpisode: m.nextAiringEpisode?.episode,
-          format: m.format ?? undefined,
-          duration: m.duration ?? undefined,
-          category: 'anime',
-          source: 'AniList',
-          url: m.siteUrl,
-        }
-      })
+    const shows = (json.results || []).slice(0, 20)
+      .filter((m: any) => m.poster_path && m.overview)
+
+    const details = await Promise.all(
+      shows.map((s: any) => tmdbDetail(`/tv/${s.id}?language=${tmdbLang}&append_to_response=aggregate_credits,watch%2Fproviders,keywords`))
+    )
+
+    return shows.map((m: any, i: number) => {
+      const d             = details[i]
+      const studios       = (d?.networks || []).slice(0, 2).map((n: any) => n.name).filter(Boolean)
+      const cast          = (d?.aggregate_credits?.cast || []).slice(0, 5).map((a: any) => a.name).filter(Boolean)
+      const providers     = (d?.['watch/providers']?.results?.[region]?.flatrate || []).map((p: any) => p.provider_name).filter(Boolean)
+      const keywords      = (d?.keywords?.results || []).slice(0, 6).map((k: any) => k.name).filter(Boolean)
+      const nextEpisodeDate = d?.next_episode_to_air?.air_date || null
+      return {
+        id: `tmdb-anime-${m.id}`,
+        type: 'anime',
+        source_api: 'tmdb' as const,
+        title: m.name,
+        description: m.overview?.slice(0, 500),
+        coverImage: tmdbImageUrl(m.poster_path),
+        date: m.first_air_date,
+        year: m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined,
+        genres: (m.genre_ids || []).map((id: number) => TMDB_TV_GENRES[id]).filter(Boolean),
+        score: m.vote_average > 0 ? Math.round(m.vote_average * 5) / 10 : undefined,
+        episodes: d?.number_of_episodes || undefined,
+        studios: studios.length ? studios : undefined,
+        cast: cast.length ? cast : undefined,
+        totalSeasons: d?.number_of_seasons || undefined,
+        watchProviders: providers.length ? providers : undefined,
+        themes: keywords.length ? keywords : undefined,
+        nextEpisodeDate: nextEpisodeDate || undefined,
+        category: 'anime' as const,
+        source: 'TMDb',
+        url: `https://www.themoviedb.org/tv/${m.id}`,
+      }
+    })
   } catch { return [] }
 }
 
@@ -221,9 +240,9 @@ async function fetchGaming(lang: string) {
     const tokenData = await tokenRes.json()
     if (!tokenData.access_token) return []
 
-    const nowUnix         = Math.floor(Date.now() / 1000)
-    const threeMonthsBack = nowUnix - 3 * 30 * 24 * 3600
-    const sixMonthsFwd    = nowUnix + 6 * 30 * 24 * 3600
+    const nowUnix        = Math.floor(Date.now() / 1000)
+    const thirtyDaysBack = nowUnix - 60 * 24 * 3600
+    const thirtyDaysFwd  = nowUnix + 60 * 24 * 3600
 
     const res = await fetch('https://api.igdb.com/v4/games', {
       method: 'POST',
@@ -234,9 +253,10 @@ async function fetchGaming(lang: string) {
       },
       body: `
         fields id, name, cover.url, first_release_date, summary, storyline, slug, rating, rating_count,
-               genres.name, involved_companies.company.name, involved_companies.developer,
-               platforms.name, game_modes.name, themes.name;
-        where first_release_date > ${threeMonthsBack} & first_release_date < ${sixMonthsFwd} & cover != null & rating_count > 5;
+               total_rating, hypes, genres.name, involved_companies.company.name, involved_companies.developer,
+               platforms.name, game_modes.name, themes.name,
+               language_supports.language.locale, language_supports.language_support_type.name;
+        where first_release_date > ${thirtyDaysBack} & first_release_date < ${thirtyDaysFwd} & cover != null & (rating_count > 0 | hypes > 0 | first_release_date > ${nowUnix});
         sort first_release_date desc;
         limit 30;
       `,
@@ -259,7 +279,11 @@ async function fetchGaming(lang: string) {
           date: releaseDate,
           year: releaseDate ? parseInt(releaseDate.slice(0, 4)) : undefined,
           genres: (g.genres || []).map((gr: any) => gr.name).filter(Boolean),
-          score: g.rating ? Math.round(g.rating / 2) / 10 : undefined,
+          score: (g.total_rating || g.rating) ? Math.round((g.total_rating ?? g.rating) / 2) / 10 : undefined,
+          italianSupportTypes: (g.language_supports || [])
+            .filter((ls: any) => ls.language?.locale?.startsWith('it'))
+            .map((ls: any) => ls.language_support_type?.name)
+            .filter(Boolean),
           developers: (g.involved_companies || [])
             .filter((c: any) => c.developer)
             .map((c: any) => c.company?.name)
@@ -519,7 +543,348 @@ async function fetchBoardgameNews(lang: string): Promise<any[]> {
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 
+const ANILIST_URL = 'https://graphql.anilist.co'
+
+async function fetchManga(lang: string): Promise<any[]> {
+  // AniList startDate filters use FuzzyDateInt: integer YYYYMMDD
+  const toFuzzy = (d: Date) =>
+    d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate()
+
+  const now    = new Date()
+  const plus60 = new Date(now); plus60.setDate(now.getDate() + 60)
+  const minus60 = new Date(now); minus60.setDate(now.getDate() - 60)
+  const plus60Int  = toFuzzy(plus60)
+  const minus60Int = toFuzzy(minus60)
+
+  const mediaFields = `
+    id siteUrl format
+    title { romaji english }
+    coverImage { extraLarge large }
+    startDate { year month day }
+    description(asHtml: false)
+    genres averageScore chapters volumes
+    staff(sort: [RELEVANCE], page: 1, perPage: 3) { nodes { name { full } } }
+    studios(isMain: true) { nodes { name } }
+  `
+
+  const query = `
+    query {
+      upcoming: Page(page: 1, perPage: 10) {
+        media(type: MANGA, status: NOT_YET_RELEASED, sort: [START_DATE], isAdult: false,
+              format_not_in: [NOVEL], startDate_lesser: ${plus60Int}) {
+          ${mediaFields}
+        }
+      }
+      trending: Page(page: 1, perPage: 20) {
+        media(type: MANGA, status: RELEASING, sort: [TRENDING_DESC], isAdult: false,
+              format_not_in: [NOVEL], startDate_greater: ${minus60Int}) {
+          ${mediaFields}
+        }
+      }
+      popular: Page(page: 1, perPage: 10) {
+        media(type: MANGA, status: RELEASING, sort: [POPULARITY_DESC], isAdult: false,
+              format_not_in: [NOVEL]) {
+          ${mediaFields}
+        }
+      }
+    }
+  `
+  try {
+    const res = await fetch(ANILIST_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!res.ok) return []
+    const json = await res.json()
+    if (json.errors) {
+      logger.error('[fetchManga] AniList GraphQL errors:', json.errors)
+      return []
+    }
+
+    // Exclude upcoming entries with no known release date (AniList treats null as 0,
+    // which passes startDate_lesser but should not appear in the section)
+    const upcoming: any[] = (json.data?.upcoming?.media || []).filter((m: any) => m.startDate?.year)
+    const trending: any[] = json.data?.trending?.media || []
+    const popular: any[] = json.data?.popular?.media || []
+
+    // Exclude AniList default/placeholder covers.
+    // Real AniList covers always have the /bx{id} pattern in the URL.
+    const isRealCover = (url?: string) => {
+      if (!url) return false
+      if (url.includes('default')) return false
+      if (url.includes('anilist.co') && !/\/bx\d+/.test(url)) return false
+      return true
+    }
+    const seen = new Set<number>()
+    const all: any[] = []
+    for (const m of [...upcoming, ...trending, ...popular]) {
+      const img = m.coverImage?.extraLarge || m.coverImage?.large
+      if (!seen.has(m.id) && isRealCover(img)) {
+        seen.add(m.id)
+        all.push(m)
+      }
+      if (all.length >= 20) break
+    }
+
+    const mapped = all.map((m: any) => {
+      const sd = m.startDate
+      const date = sd?.year
+        ? `${sd.year}-${String(sd.month || 1).padStart(2, '0')}-${String(sd.day || 1).padStart(2, '0')}`
+        : null
+      const authors = (m.staff?.nodes || []).map((s: any) => s.name?.full).filter(Boolean)
+      const publishers = (m.studios?.nodes || []).map((s: any) => s.name).filter(Boolean)
+      return {
+        id: `anilist-manga-${m.id}`,
+        type: 'manga',
+        source_api: 'anilist',
+        title: m.title?.english || m.title?.romaji || 'Senza titolo',
+        description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 500) : null,
+        coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
+        date,
+        year: sd?.year || undefined,
+        genres: m.genres || [],
+        score: m.averageScore ? Math.round(m.averageScore / 20) / 10 : undefined,
+        episodes: m.chapters || undefined,
+        developers: authors.length ? authors : undefined,
+        studios: publishers.length ? publishers : undefined,
+        category: 'manga',
+        source: 'AniList',
+        url: m.siteUrl || `https://anilist.co/manga/${m.id}`,
+      }
+    })
+
+    if (lang === 'it') {
+      const toTranslate = mapped.filter(m => m.description).map(m => ({ id: m.id, text: m.description! }))
+      const translations = await translateWithCache(toTranslate)
+      mapped.forEach(m => { if (m.description && translations[m.id]) m.description = translations[m.id] })
+    }
+
+    return mapped
+  } catch (err) {
+    logger.error('[fetchManga] error:', err)
+    return []
+  }
+}
+
+// ── BGG helpers ───────────────────────────────────────────────────────────────
+
+function mapBggCategories(categories: string[]): string[] {
+  const map: Record<string, string> = {
+    Fantasy: 'Fantasy', 'Science Fiction': 'Science Fiction', Horror: 'Horror',
+    Medieval: 'Medieval', Adventure: 'Adventure', Fighting: 'Fighting',
+    Deduction: 'Mystery', 'Murder/Mystery': 'Mystery', 'Thriller/Suspense': 'Thriller',
+    Humor: 'Comedy', Wargame: 'War', 'World War II': 'War', Historical: 'History',
+    Economic: 'Strategy', 'Card Game': 'Card Game', 'Abstract Strategy': 'Abstract',
+    'Cooperative Game': 'Cooperative', 'Party Game': 'Party', Family: 'Family',
+    Sports: 'Sports', Exploration: 'Adventure', Civilization: 'Strategy',
+    'Space Exploration': 'Science Fiction', Zombies: 'Horror', Mythology: 'Fantasy',
+  }
+  const genres = new Set<string>()
+  for (const cat of categories) { const m = map[cat]; if (m) genres.add(m) }
+  return Array.from(genres)
+}
+
+function bggHeaders(): HeadersInit {
+  const token = process.env.BGG_BEARER_TOKEN
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+async function bggGet(url: string, retries = 4, retryDelay = 3000): Promise<string | null> {
+  logger.info(`[BGG:bggGet] START url=${url} retries=${retries} retryDelay=${retryDelay}ms`)
+  for (let i = 0; i < retries; i++) {
+    if (i > 0) {
+      logger.info(`[BGG:bggGet] waiting ${retryDelay}ms before attempt ${i + 1}`)
+      await new Promise(r => setTimeout(r, retryDelay))
+    }
+    const t0 = Date.now()
+    try {
+      logger.info(`[BGG:bggGet] attempt ${i + 1}/${retries} fetching...`)
+      const res = await fetch(url, { cache: 'no-store', headers: bggHeaders(), signal: AbortSignal.timeout(15000) })
+      const elapsed = Date.now() - t0
+      logger.info(`[BGG:bggGet] attempt ${i + 1} → HTTP ${res.status} in ${elapsed}ms`)
+      if (res.status === 202) {
+        logger.info(`[BGG:bggGet] 202 queued — will retry (${i + 1}/${retries})`)
+        continue
+      }
+      if (!res.ok) {
+        logger.info(`[BGG:bggGet] non-OK status ${res.status} — aborting`)
+        return null
+      }
+      const text = await res.text()
+      logger.info(`[BGG:bggGet] response body length=${text.length} starts="${text.slice(0, 80).replace(/\n/g, '\\n')}"`)
+      if (!text.trim().startsWith('<')) {
+        logger.info(`[BGG:bggGet] response is not XML — aborting`)
+        return null
+      }
+      logger.info(`[BGG:bggGet] SUCCESS on attempt ${i + 1}`)
+      return text
+    } catch (e: any) {
+      const elapsed = Date.now() - t0
+      logger.info(`[BGG:bggGet] attempt ${i + 1} THREW after ${elapsed}ms: ${e?.name}: ${e?.message}`)
+      if (i === retries - 1) {
+        logger.info(`[BGG:bggGet] all ${retries} attempts exhausted — returning null`)
+        return null
+      }
+    }
+  }
+  logger.info(`[BGG:bggGet] loop ended without success — returning null`)
+  return null
+}
+
+async function fetchBoardgameNews(lang: string): Promise<any[]> {
+  logger.info(`[BGG:fetchBoardgameNews] START lang=${lang}`)
+  try {
+    // ── Phase 1: hot list (usually fast, no 202) ──────────────────────────────
+    logger.info(`[BGG:fetchBoardgameNews] Phase 1: fetching hot list`)
+    const hotXml = await bggGet('https://boardgamegeek.com/xmlapi2/hot?type=boardgame', 3, 2000)
+    if (!hotXml) {
+      logger.info('[BGG:fetchBoardgameNews] hot list returned null — returning []')
+      return []
+    }
+    logger.info(`[BGG:fetchBoardgameNews] hot list XML received, length=${hotXml.length}`)
+
+    let hotResult: any
+    try {
+      hotResult = await parseStringPromise(hotXml)
+      logger.info(`[BGG:fetchBoardgameNews] hot list parsed OK, top-level keys=${Object.keys(hotResult || {}).join(',')}`)
+    } catch (parseErr: any) {
+      logger.info(`[BGG:fetchBoardgameNews] hot list XML parse FAILED: ${parseErr?.message}`)
+      return []
+    }
+
+    const hotItems: any[] = hotResult?.items?.item || []
+    logger.info(`[BGG:fetchBoardgameNews] hot list items count=${hotItems.length}`)
+    if (hotItems.length > 0) {
+      const sample = hotItems[0]
+      logger.info(`[BGG:fetchBoardgameNews] first hot item keys=${Object.keys(sample).join(',')} id=${sample.$?.id} name=${sample.name?.[0]?.$?.value}`)
+    }
+
+    const currentYear = new Date().getFullYear()
+    const recent = hotItems.filter((item: any) => {
+      const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : 0
+      return year >= currentYear - 2
+    })
+    logger.info(`[BGG:fetchBoardgameNews] recent (year >= ${currentYear - 2}) count=${recent.length}, using ${recent.length >= 10 ? 'recent' : 'full hotItems'} list`)
+    const candidates = (recent.length >= 10 ? recent : hotItems).slice(0, 15)
+    logger.info(`[BGG:fetchBoardgameNews] candidates count=${candidates.length}`)
+    if (candidates.length === 0) {
+      logger.info(`[BGG:fetchBoardgameNews] no candidates — returning []`)
+      return []
+    }
+
+    // Build basic cards from hot list (title + thumbnail — always available)
+    const rawCards = candidates.map((item: any) => {
+      const id = item.$.id
+      const title = item.name?.[0]?.$?.value || 'Unknown'
+      const rawThumb = item.thumbnail?.[0]?.$?.value || ''
+      const thumb = rawThumb ? (rawThumb.startsWith('http') ? rawThumb : `https:${rawThumb}`) : null
+      const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : undefined
+      logger.info(`[BGG:fetchBoardgameNews] card candidate id=${id} title="${title}" thumb=${thumb ? 'YES' : 'NO('+rawThumb+')'} year=${year}`)
+      return thumb ? { id, title, thumb, year } : null
+    })
+    const basicCards = rawCards.filter(Boolean) as { id: string; title: string; thumb: string; year?: number }[]
+    logger.info(`[BGG:fetchBoardgameNews] basicCards (with thumb) count=${basicCards.length} (dropped ${rawCards.length - basicCards.length} without thumb)`)
+
+    if (basicCards.length === 0) {
+      logger.info(`[BGG:fetchBoardgameNews] no basicCards with thumbnails — returning []`)
+      return []
+    }
+
+    // ── Phase 2: thing details — with retries (BGG commonly 202 on first call) ─
+    let detailMap = new Map<string, any>()
+    try {
+      logger.info(`[BGG:fetchBoardgameNews] Phase 2: waiting 1s before thing details request`)
+      await new Promise(r => setTimeout(r, 1000))
+      const ids = basicCards.map(c => c.id).join(',')
+      logger.info(`[BGG:fetchBoardgameNews] fetching thing details for ids=${ids.slice(0, 100)}...`)
+      const detailXml = await bggGet(
+        `https://boardgamegeek.com/xmlapi2/thing?id=${ids}&type=boardgame&stats=1`,
+        4, 3000,
+      )
+      if (detailXml) {
+        logger.info(`[BGG:fetchBoardgameNews] thing details XML received, length=${detailXml.length}`)
+        let dr: any
+        try {
+          dr = await parseStringPromise(detailXml)
+          logger.info(`[BGG:fetchBoardgameNews] thing details parsed OK`)
+        } catch (parseErr: any) {
+          logger.info(`[BGG:fetchBoardgameNews] thing details XML parse FAILED: ${parseErr?.message}`)
+        }
+        if (dr) {
+          const detailItems: any[] = dr?.items?.item || []
+          logger.info(`[BGG:fetchBoardgameNews] thing details items count=${detailItems.length}`)
+          detailItems.forEach((item: any) => detailMap.set(item.$.id, item))
+          logger.info(`[BGG:fetchBoardgameNews] detailMap size=${detailMap.size}`)
+        }
+      } else {
+        logger.info(`[BGG:fetchBoardgameNews] thing details returned null — proceeding with basic cards only`)
+      }
+    } catch (detailErr: any) {
+      logger.info(`[BGG:fetchBoardgameNews] thing details block THREW: ${detailErr?.message} — proceeding with basic cards`)
+    } // enrichment optional — basic cards always returned
+
+    // ── Merge basic + detail ──────────────────────────────────────────────────
+    const mapped = basicCards.map(basic => {
+      const d = detailMap.get(basic.id)
+      const rawImg = d ? (d.image?.[0]?.trim?.() || d.thumbnail?.[0]?.trim?.() || basic.thumb) : basic.thumb
+      const coverImage = rawImg.startsWith('http') ? rawImg : `https:${rawImg}`
+
+      const description = d?.description?.[0]
+        ? d.description[0].replace(/&#10;/g, ' ').replace(/&amp;/g, '&').replace(/<[^>]+>/g, '').slice(0, 500)
+        : null
+
+      const links: any[] = d?.link || []
+      const cats      = links.filter((l: any) => l.$.type === 'boardgamecategory').map((l: any) => l.$.value).filter(Boolean)
+      const mechanics = links.filter((l: any) => l.$.type === 'boardgamemechanic').map((l: any) => l.$.value).filter(Boolean).slice(0, 5)
+      const designers = links.filter((l: any) => l.$.type === 'boardgamedesigner').map((l: any) => l.$.value).filter(Boolean)
+      const publishers= links.filter((l: any) => l.$.type === 'boardgamepublisher').map((l: any) => l.$.value).filter(Boolean).slice(0, 3)
+      const playingTime = d?.playingtime?.[0]?.$?.value ? parseInt(d.playingtime[0].$.value) : undefined
+      const bggRating   = d?.statistics?.[0]?.ratings?.[0]?.average?.[0]?.$?.value
+        ? parseFloat(d.statistics[0].ratings[0].average[0].$.value) : undefined
+
+      return {
+        id: `bgg-${basic.id}`,
+        type: 'boardgame',
+        source_api: 'bgg',
+        title: basic.title,
+        description,
+        coverImage,
+        date: basic.year ? `${basic.year}-01-01` : undefined,
+        year: basic.year,
+        genres: d ? mapBggCategories(cats) : [],
+        score: bggRating ? Math.round(bggRating * 10) / 10 : undefined,
+        developers: designers.length ? designers : undefined,
+        studios: publishers.length ? publishers : undefined,
+        mechanics: mechanics.length ? mechanics : undefined,
+        playing_time: playingTime || undefined,
+        category: 'boardgame',
+        source: 'BGG',
+        url: `https://boardgamegeek.com/boardgame/${basic.id}`,
+      }
+    })
+
+    logger.info(`[BGG:fetchBoardgameNews] mapped count=${mapped.length}, titles=${mapped.slice(0, 3).map((m: any) => m.title).join(' | ')}`)
+
+    if (lang === 'it') {
+      logger.info(`[BGG:fetchBoardgameNews] translating ${mapped.length} descriptions to Italian`)
+      const toTranslate = mapped.filter(m => m.description).map(m => ({ id: m.id, text: m.description! }))
+      const translations = await translateWithCache(toTranslate)
+      mapped.forEach(m => { if (m.description && translations[m.id]) m.description = translations[m.id] })
+      logger.info(`[BGG:fetchBoardgameNews] translations done`)
+    }
+
+    logger.info(`[BGG:fetchBoardgameNews] DONE returning ${mapped.length} items`)
+    return mapped
+  } catch (outerErr: any) {
+    logger.info(`[BGG:fetchBoardgameNews] OUTER CATCH: ${outerErr?.name}: ${outerErr?.message}`)
+    return []
+  }
+}
+
 async function runSync(lang: 'it' | 'en') {
+  logger.info(`[runSync] START lang=${lang} at ${new Date().toISOString()}`)
   const supabase = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -527,13 +892,14 @@ async function runSync(lang: 'it' | 'en') {
 
   const suffix = `_${lang}`
 
-  const [cinema, tv, anime, gaming, manga, boardgame] = await Promise.all([
+  // ── Step 1: fast fetchers in parallel ─────────────────────────────────────
+  logger.info(`[runSync] launching fast fetchers in parallel`)
+  const [cinema, tv, anime, gaming, manga] = await Promise.all([
     fetchCinema(lang),
     fetchTV(lang),
     fetchAnime(lang),
     fetchGaming(lang),
     fetchManga(lang),
-    fetchBoardgameNews(lang),
   ])
 
   const now = new Date().toISOString()
@@ -544,10 +910,30 @@ async function runSync(lang: 'it' | 'en') {
     supabase.from('news_cache').upsert({ category: `anime${suffix}`,     data: anime,     updated_at: now }, { onConflict: 'category' }),
     supabase.from('news_cache').upsert({ category: `gaming${suffix}`,    data: gaming,    updated_at: now }, { onConflict: 'category' }),
     supabase.from('news_cache').upsert({ category: `manga${suffix}`,     data: manga,     updated_at: now }, { onConflict: 'category' }),
-    supabase.from('news_cache').upsert({ category: `boardgame${suffix}`, data: boardgame, updated_at: now }, { onConflict: 'category' }),
   ])
 
-  return { cinema: cinema.length, tv: tv.length, anime: anime.length, gaming: gaming.length, manga: manga.length, boardgame: boardgame.length }
+  logger.info(`[runSync] fast fetchers done: cinema=${cinema.length} tv=${tv.length} anime=${anime.length} gaming=${gaming.length} manga=${manga.length}`)
+
+  // ── Step 2: BGG runs sequentially after, with full remaining time budget ──
+  logger.info(`[runSync] starting BGG fetch (sequential) at ${new Date().toISOString()}`)
+  const bggStart = Date.now()
+  const boardgame = await fetchBoardgameNews(lang)
+  logger.info(`[runSync] BGG fetch completed in ${Date.now() - bggStart}ms, returned ${boardgame.length} items`)
+
+  if (boardgame.length > 0) {
+    const { error: bggErr } = await supabase.from('news_cache').upsert(
+      { category: `boardgame${suffix}`, data: boardgame, updated_at: new Date().toISOString() },
+      { onConflict: 'category' },
+    )
+    if (bggErr) logger.info(`[runSync] boardgame upsert FAILED: ${bggErr.message}`)
+    else logger.info(`[runSync] boardgame upsert OK`)
+  } else {
+    logger.info(`[runSync] boardgame returned 0 items — skipping upsert`)
+  }
+
+  const counts = { cinema: cinema.length, tv: tv.length, anime: anime.length, gaming: gaming.length, manga: manga.length, boardgame: boardgame.length }
+  logger.info(`[runSync] DONE counts=${JSON.stringify(counts)}`)
+  return counts
 }
 
 export async function POST(request: NextRequest) {

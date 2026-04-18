@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { logger } from '@/lib/logger'
 
-const VALID_CATEGORIES = ['all', 'gaming', 'cinema', 'anime', 'tv']
+const VALID_CATEGORIES = ['all', 'gaming', 'cinema', 'anime', 'tv', 'manga', 'boardgame']
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000 // 12 ore
 
 export async function GET(request: Request) {
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     const suffix = `_${lang}`
 
     const categoriesNeeded = cat === 'all'
-      ? ['cinema', 'tv', 'anime', 'gaming'].map(c => `${c}${suffix}`)
+      ? ['cinema', 'tv', 'anime', 'gaming', 'manga', 'boardgame'].map(c => `${c}${suffix}`)
       : [`${cat}${suffix}`]
 
     const { data, error } = await supabase
@@ -50,15 +50,18 @@ export async function GET(request: Request) {
     }
 
     allNews.sort((a, b) => {
-      if (!a.date) return 1
-      if (!b.date) return -1
-      return new Date(b.date).getTime() - new Date(a.date).getTime()
+      const dateA = a.nextEpisodeDate || a.date
+      const dateB = b.nextEpisodeDate || b.date
+      if (!dateA) return 1
+      if (!dateB) return -1
+      return new Date(dateB).getTime() - new Date(dateA).getTime()
     })
 
-    return NextResponse.json(allNews)
+    return NextResponse.json(allNews, {
+      headers: { 'Cache-Control': 'no-store' },
+    })
 
   } catch (err) {
-    // C2: usa logger invece di console.error
     logger.error('news/route', err)
     return NextResponse.json([], { status: 500 })
   }

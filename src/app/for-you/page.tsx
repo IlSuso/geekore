@@ -10,7 +10,7 @@ import {
   Sparkles, RefreshCw, SlidersHorizontal, Gamepad2, Tv, Film, BookOpen,
   Zap, Plus, Bookmark, X, Check, ChevronDown, ChevronUp, Users, Compass,
   ThumbsDown, Eye, Flame, Brain, Star, ArrowRight, Clapperboard, Swords,
-  TrendingUp, Search, BookmarkCheck, Sun, Dice5, Trophy, Calendar,
+  TrendingUp, Search, BookmarkCheck, Sun, Dices, Trophy, Calendar,
   MessageCircleQuestion, Tag, MonitorPlay, AlertCircle
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -35,20 +35,25 @@ interface Recommendation {
   id: string; title: string; type: MediaType; coverImage?: string; year?: number
   genres: string[]; score?: number; description?: string; why: string
   matchScore: number; isDiscovery?: boolean
-  episodes?: number        // ep per anime/TV, cap. per manga
-  tags?: string[]       // AniList tags / IGDB themes
-  keywords?: string[]   // TMDb keywords / IGDB keywords
-  // V3 fields
+  episodes?: number
+  tags?: string[]
+  keywords?: string[]
   isContinuity?: boolean
   continuityFrom?: string
   creatorBoost?: string
-  // V4/V5 fields
   isSerendipity?: boolean
   isAwardWinner?: boolean
   isSeasonal?: boolean
   socialBoost?: string
-  // Fix 2.9: amico ad alta similarità che sta guardando questo
   friendWatching?: string
+  // Extra metadata per il drawer
+  authors?: string[]
+  developers?: string[]
+  platforms?: string[]
+  min_players?: number
+  max_players?: number
+  playing_time?: number
+  complexity?: number
 }
 
 interface TasteProfile {
@@ -87,9 +92,9 @@ const GAME_GENRES = ['Action','Adventure','RPG','Strategy','Simulation','Sports'
 const BOARDGAME_GENRES = ['Strategy','Eurogame','Cooperative','Deck Building','Worker Placement','Area Control','Engine Building','Abstract','Party','Dungeon Crawler','Wargame','Economic','Puzzle','Roll and Write','Legacy']
 const MOVIE_GENRES = ['Action','Adventure','Animation','Comedy','Crime','Documentary','Drama','Fantasy','History','Horror','Mystery','Romance','Science Fiction','Thriller','War']
 const TV_GENRES = [...MOVIE_GENRES,'Reality','Talk']
-const TYPE_ICONS: Record<MediaType, React.ElementType> = { anime: Tv, manga: BookOpen, game: Gamepad2, movie: Film, tv: Tv, boardgame: Dice5 }
+const TYPE_ICONS: Record<MediaType, React.ElementType> = { anime: Tv, manga: BookOpen, game: Gamepad2, movie: Film, tv: Tv, boardgame: Dices }
 const TYPE_COLORS: Record<MediaType, string> = { anime: 'from-violet-500 to-purple-500', manga: 'from-pink-500 to-rose-500', game: 'from-green-500 to-emerald-500', movie: 'from-amber-500 to-orange-500', tv: 'from-cyan-500 to-blue-500', boardgame: 'from-yellow-500 to-amber-500' }
-const TYPE_LABEL: Record<MediaType, string> = { anime: 'Anime', manga: 'Manga', game: 'Gioco', movie: 'Film', tv: 'Serie TV', boardgame: 'Board Game' }
+const TYPE_LABEL: Record<MediaType, string> = { anime: 'Anime', manga: 'Manga', game: 'Videogioco', movie: 'Film', tv: 'Serie TV', boardgame: 'Board Game' }
 
 // V3: fire-and-forget taste delta update
 function triggerTasteDelta(options: {
@@ -106,14 +111,14 @@ function triggerTasteDelta(options: {
 
 function MatchBadge({ score }: { score: number }) {
   if (score < 45) return null
-  const { label, cls } = score >= 85
-    ? { label: 'Match perfetto', cls: 'bg-violet-500/20 text-violet-300 border-violet-500/40' }
+  const cls = score >= 85
+    ? 'bg-violet-500/20 text-violet-300 border-violet-500/40'
     : score >= 70
-    ? { label: 'Molto in linea', cls: 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/40' }
-    : { label: 'Vale la pena', cls: 'bg-zinc-700/60 text-zinc-300 border-zinc-600/40' }
+    ? 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/40'
+    : 'bg-zinc-700/60 text-zinc-300 border-zinc-600/40'
   return (
     <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[9px] font-bold ${cls}`}>
-      <Star size={8} fill="currentColor" />{label}
+      {score}% match
     </div>
   )
 }
@@ -126,21 +131,6 @@ function ContinuityBadge({ from }: { from: string }) {
   )
 }
 
-function CreatorBadge({ creator }: { creator: string }) {
-  return (
-    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-sky-500/40 bg-sky-500/10 text-[9px] font-bold text-sky-300 truncate max-w-full" title={creator}>
-      <Clapperboard size={8} />{creator}
-    </div>
-  )
-}
-
-function TrendingBadge() {
-  return (
-    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-orange-500/40 bg-orange-500/10 text-[9px] font-bold text-orange-300">
-      <TrendingUp size={8} />Trending
-    </div>
-  )
-}
 
 const MOODS = [
   { id: 'light' as Mood, label: 'Leggero', Icon: Sun, desc: 'Commedia, avventura, feel-good' },
@@ -427,7 +417,6 @@ const ContinuitySection = memo(function ContinuitySection({ items, onFeedback, o
               {item.continuityFrom && (
                 <p className="text-[10px] text-amber-400/80 line-clamp-1">→ {item.continuityFrom}</p>
               )}
-              <p className="text-[11px] text-zinc-300 line-clamp-2 mt-0.5">{item.why}</p>
             </div>
           )
         })}
@@ -453,36 +442,19 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
 
   return (
     <div className={`flex-shrink-0 group ${showDetails ? 'w-48' : 'w-36'}`}>
-      <div className={`relative ${showDetails ? 'h-64' : 'h-52'} rounded-2xl overflow-hidden bg-zinc-900 mb-2 cursor-pointer`}
-        onClick={() => onDetail?.(item)}>
+      <div
+        className={`relative ${showDetails ? 'h-64' : 'h-52'} rounded-2xl overflow-hidden bg-zinc-900 mb-2 cursor-pointer`}
+        onClick={() => onDetail?.(item)}
+      >
         {item.coverImage
           ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
           : <div className="w-full h-full flex items-center justify-center"><Icon size={32} className="text-zinc-700" /></div>
         }
+        {/* Solo badge tipo media in alto a sinistra */}
         <div className={`absolute top-2 left-2 bg-gradient-to-r ${colorClass} text-white text-[10px] font-bold px-2 py-0.5 rounded-full`}>
-          {item.type.toUpperCase()}
+          {TYPE_LABEL[item.type] || item.type.toUpperCase()}
         </div>
-        {item.isDiscovery && (
-          <div className="absolute top-2 right-2 bg-emerald-500/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-            <Compass size={8} /> Scoperta
-          </div>
-        )}
-        {item.friendWatching && !item.isDiscovery && (
-          <div className="absolute top-2 right-2 bg-blue-500/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 max-w-[72px] truncate">
-            <Users size={8} />{item.friendWatching}
-          </div>
-        )}
-        {item.creatorBoost && !item.isDiscovery && (
-          <div className="absolute top-2 right-2 bg-sky-500/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 max-w-[70px] truncate">
-            <Clapperboard size={8} />{item.creatorBoost.split(' ')[0]}
-          </div>
-        )}
-        {item.score && !item.isDiscovery && !item.creatorBoost && (
-          <div className="absolute top-2 right-2 bg-black/70 text-yellow-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-            <Star size={9} fill="currentColor" /> {Math.min(item.score, 5).toFixed(1)}
-          </div>
-        )}
-        {/* Pulsanti sempre visibili — cerchietti in basso a destra */}
+        {/* Pulsanti azione in basso */}
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
           <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }} title="Non mi interessa"
             className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-red-300 hover:bg-red-900/60 transition-colors">
@@ -501,38 +473,28 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
         </div>
       </div>
       <p className="text-xs font-semibold text-white leading-tight line-clamp-2 mb-1">{item.title}</p>
-      {/* Metadati: anno, episodi, voto */}
+      {/* Metadati: anno · episodi · voto (sempre visibile, voto a destra dell'anno) */}
       <div className="flex items-center gap-1.5 flex-wrap mb-1">
         {item.year && <p className="text-[10px] text-zinc-500">{item.year}</p>}
-        {episodeLabel && (
-          <span className="text-[10px] text-zinc-500">{episodeLabel}</span>
-        )}
-        {showDetails && item.score && (
+        {item.score && (
           <span className="flex items-center gap-0.5 text-[10px] text-yellow-400 font-semibold">
             <Star size={8} fill="currentColor" />{Math.min(item.score, 5).toFixed(1)}
           </span>
         )}
+        {episodeLabel && (
+          <span className="text-[10px] text-zinc-500">{episodeLabel}</span>
+        )}
       </div>
+      {/* Badge: Sequel per continuity, % match per le card normali, niente per scoperta */}
       {item.isContinuity
         ? <ContinuityBadge from={item.continuityFrom || ''} />
-        : item.creatorBoost
-        ? <CreatorBadge creator={item.creatorBoost} />
-        : <MatchBadge score={item.matchScore} />
+        : !item.isDiscovery
+        ? <MatchBadge score={item.matchScore} />
+        : null
       }
-      <p className="text-[11px] text-zinc-300 leading-tight line-clamp-2 mt-1">{item.why}</p>
       {/* Descrizione breve — solo nella sezione Simili */}
       {showDetails && item.description && (
         <p className="text-[10px] text-zinc-500 leading-tight line-clamp-3 mt-1.5">{item.description}</p>
-      )}
-      {/* Fix 3.3: boardgame companion — cross-media bridge */}
-      {item.type === 'boardgame' && item.genres.length > 0 && (
-        <button
-          onClick={() => onSimilar?.({ ...item, type: 'anime' })}
-          className="mt-2 flex items-center gap-1 text-[10px] text-emerald-400 hover:text-emerald-300 transition-colors">
-          <Tv size={9} />
-          <span>Scopri anime simili</span>
-          <ArrowRight size={9} />
-        </button>
       )}
     </div>
   )
@@ -592,6 +554,10 @@ const HeroMatchSection = memo(function HeroMatchSection({ items, onFeedback, onS
                     className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-red-300 hover:bg-red-900/60 transition-colors">
                     <ThumbsDown size={11} />
                   </button>
+                  <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'already_seen') }}
+                    className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-white hover:bg-zinc-600/60 transition-colors">
+                    <Eye size={11} />
+                  </button>
                   {onSimilar && (
                     <button onClick={(e) => { e.stopPropagation(); onSimilar(item) }}
                       className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-violet-200 hover:bg-violet-900/60 transition-colors">
@@ -601,7 +567,14 @@ const HeroMatchSection = memo(function HeroMatchSection({ items, onFeedback, onS
                 </div>
               </div>
               <p className="text-xs font-bold text-white leading-tight line-clamp-2 mb-0.5">{item.title}</p>
-              <p className="text-[10px] text-violet-400 italic line-clamp-1">{item.why}</p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {item.year && <span className="text-[10px] text-zinc-500">{item.year}</span>}
+                {item.score && (
+                  <span className="flex items-center gap-0.5 text-[10px] text-yellow-400 font-semibold">
+                    <Star size={8} fill="currentColor" />{Math.min(item.score, 5).toFixed(1)}
+                  </span>
+                )}
+              </div>
             </div>
           )
         })}
@@ -929,24 +902,25 @@ const DiscoverySection = memo(function DiscoverySection({ items, onFeedback, onS
           const Icon = TYPE_ICONS[item.type]
           return (
             <div key={item.id} className="flex-shrink-0 w-36 group">
-              <div className="relative h-52 rounded-2xl overflow-hidden bg-zinc-900 mb-2 ring-2 ring-emerald-500/40 ring-offset-2 ring-offset-black cursor-pointer"
+              <div className="relative h-52 rounded-2xl overflow-hidden bg-zinc-900 mb-2 cursor-pointer"
                 onClick={() => onDetail?.(item)}>
                 {item.coverImage
                   ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" />
                   : <div className="w-full h-full flex items-center justify-center"><Icon size={32} className="text-zinc-700" /></div>
                 }
-                <div className="absolute top-2 left-2 bg-emerald-500/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                {/* Bordo verde — div interno per evitare clip da overflow-hidden */}
+                <div className="absolute inset-0 rounded-2xl border-2 border-emerald-400 pointer-events-none z-10" />
+                <div className="absolute top-2 left-2 bg-emerald-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 z-20">
                   <Compass size={8} /> Nuovo per te
                 </div>
-                {item.score && (
-                  <div className="absolute top-2 right-2 bg-black/70 text-yellow-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                    <Star size={9} fill="currentColor" /> {Math.min(item.score, 5).toFixed(1)}
-                  </div>
-                )}
                 <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
                   <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }}
                     className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-red-300 hover:bg-red-900/60 transition-colors">
                     <ThumbsDown size={11} />
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'already_seen') }}
+                    className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-white hover:bg-zinc-600/60 transition-colors">
+                    <Eye size={11} />
                   </button>
                   {onSimilar && (
                     <button onClick={(e) => { e.stopPropagation(); onSimilar(item) }} title="Simili"
@@ -956,9 +930,15 @@ const DiscoverySection = memo(function DiscoverySection({ items, onFeedback, onS
                   )}
                 </div>
               </div>
-              <p className="text-xs font-semibold text-white leading-tight line-clamp-2 mb-1">{item.title}</p>
-              {item.year && <p className="text-[10px] text-zinc-500 mb-1">{item.year}</p>}
-              <p className="text-[11px] text-zinc-300 leading-tight line-clamp-2 mt-1">{item.why}</p>
+              <p className="text-xs font-semibold text-white leading-tight line-clamp-2 mb-0.5">{item.title}</p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {item.year && <span className="text-[10px] text-zinc-500">{item.year}</span>}
+                {item.score && (
+                  <span className="flex items-center gap-0.5 text-[10px] text-yellow-400 font-semibold">
+                    <Star size={8} fill="currentColor" />{Math.min(item.score, 5).toFixed(1)}
+                  </span>
+                )}
+              </div>
             </div>
           )
         })}
@@ -993,12 +973,11 @@ const RecommendationSection = memo(function RecommendationSection({ type, items,
 }) {
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)  // Fix 2.13
   const Icon = TYPE_ICONS[type]; const colorClass = TYPE_COLORS[type]
-  const visible = items.filter(i => !dismissedIds.has(i.id))
+  const visible = items.filter(i => !dismissedIds.has(i.id) && !i.isDiscovery)
   if (!visible.length) return null
 
   const shown = visible.slice(0, visibleCount)
   const hasMore = visible.length > visibleCount
-  const discoveryCount = visible.filter(i => i.isDiscovery).length
   const topScore = visible[0]?.matchScore || 0
 
   return (
@@ -1009,9 +988,7 @@ const RecommendationSection = memo(function RecommendationSection({ type, items,
         </div>
         <div>
           <h2 className="text-base font-bold text-white">{label}</h2>
-          <p className="text-[10px] text-zinc-500">
-            {visible.length} titoli{discoveryCount > 0 ? ` · ${discoveryCount} nuovi generi` : ''}
-          </p>
+          <p className="text-[10px] text-zinc-500">{visible.length} titoli</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
           {isPrimary && (
@@ -1503,7 +1480,6 @@ export default function ForYouPage() {
 
   // Fix 1.15: "Simili a questo" — richiede i consigli filtrati per i generi del titolo
   const handleDetail = useCallback((item: Recommendation) => {
-    // Converti Recommendation in MediaDetails per il MediaDetailsDrawer
     const details: MediaDetails = {
       id: item.id,
       title: item.title,
@@ -1513,10 +1489,25 @@ export default function ForYouPage() {
       genres: item.genres,
       description: item.description,
       score: item.score,
+      episodes: item.episodes,
+      authors: item.authors,
+      developers: item.developers,
+      platforms: item.platforms,
+      mechanics: item.type === 'boardgame' ? item.tags : undefined,
+      min_players: item.min_players,
+      max_players: item.max_players,
+      playing_time: item.playing_time,
+      complexity: item.complexity,
+      why: item.why,
+      matchScore: item.matchScore,
+      isAwardWinner: item.isAwardWinner,
       source: item.id.startsWith('anilist-anime') ? 'anilist'
             : item.id.startsWith('anilist-manga') ? 'anilist'
             : item.id.startsWith('tmdb-') ? 'tmdb'
-            : item.id.startsWith('igdb-') || /^\d+$/.test(item.id) ? 'igdb'
+            : item.id.startsWith('bgg-') ? 'bgg'
+            : item.id.startsWith('igdb-') ? 'igdb'
+            : /^\d+$/.test(item.id) && item.type === 'game' ? 'igdb'
+            : /^\d+$/.test(item.id) && (item.type === 'movie' || item.type === 'tv' || item.type === 'anime') ? 'tmdb'
             : undefined,
     }
     setDetailItem(details as any)
@@ -1538,7 +1529,7 @@ export default function ForYouPage() {
     if (res.ok) {
       const json = await res.json()
       const items: Recommendation[] = (json.items || []).filter((r: Recommendation) => r.id !== excludeId)
-      setSimilarSection({ sourceTitle: title, sourceType: 'movie', items })
+      setSimilarSection({ sourceTitle: title, sourceType: (type as MediaType) || 'movie', items })
       window.scrollTo({ top: 0, behavior: 'smooth' })
       if (items.length === 0) showToast('Nessun risultato trovato')
     } else {
@@ -1610,7 +1601,7 @@ export default function ForYouPage() {
     { key: 'movie', label: fy.sections.movie },
     { key: 'tv', label: fy.sections.tv },
     { key: 'manga', label: fy.sections.manga },
-    { key: 'boardgame', label: 'Giochi da tavolo' },
+    { key: 'boardgame', label: fy.sections.boardgame },
   ]
   // Fix 2.4: ordina per affinità reale (collectionSize nel profilo) non per count consigli
   // Chi ha più titoli nel profilo viene prima — riflette il tipo centrale per l'utente
@@ -1724,14 +1715,6 @@ export default function ForYouPage() {
             {friendsLoading ? <SkeletonFriendsWatching /> : <FriendsWatchingSection items={friendsActivity} />}
             <SimilarTasteFriends />
 
-            {allContinuityRecs.length > 0 && (
-              <ContinuitySection
-                items={allContinuityRecs}
-                onFeedback={handleFeedback}
-                onDetail={handleDetail}
-                dismissedIds={dismissedIds}
-              />
-            )}
 
             <DiscoverySection
               key={`discovery-${Object.keys(recommendations).join('-')}-${allRecs.length}`}
@@ -1745,7 +1728,7 @@ export default function ForYouPage() {
             {SECTIONS.map(({ key, label }) => {
               const items = displayRecs[key] || []
               const allItems = items
-                .filter(i => !i.isContinuity && !dismissedIds.has(i.id))
+                .filter(i => !i.isContinuity && !i.isDiscovery && !dismissedIds.has(i.id))
                 .sort((a, b) => b.matchScore - a.matchScore)
               if (!allItems.length) return null
               return (
@@ -1767,7 +1750,7 @@ export default function ForYouPage() {
             })}
 
             {SECTIONS.every(({ key }) => {
-              const items = (displayRecs[key] || []).filter(i => !i.isContinuity && !dismissedIds.has(i.id))
+              const items = (displayRecs[key] || []).filter(i => !i.isContinuity && !i.isDiscovery && !dismissedIds.has(i.id))
               return !items.length
             }) && (
               <div className="text-center py-20">

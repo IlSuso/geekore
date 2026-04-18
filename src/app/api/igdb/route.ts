@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rateLimit'
 import { logger } from '@/lib/logger'
+import { freeTranslateBatch } from '@/lib/deepl'
 
 let cachedToken: { token: string; expiresAt: number } | null = null
 
@@ -130,6 +131,14 @@ export async function POST(request: NextRequest) {
       source: 'igdb',
     }))
 
+    const cacheItems = formattedGames
+      .filter(g => g.description)
+      .map(g => ({ id: `igdb:${g.id}`, text: g.description! }))
+    const translations = await translateWithCache(cacheItems)
+    formattedGames.forEach(g => {
+      if (g.description) g.description = translations[`igdb:${g.id}`] || g.description
+    })
+
     return NextResponse.json(formattedGames, { headers: rl.headers })
   } catch (error: any) {
     if (error?.name === 'TimeoutError') {
@@ -144,6 +153,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const q = searchParams.get('q') || searchParams.get('search') || ''
+  const lang = searchParams.get('lang') || 'it'
   if (!q || q.trim().length < 2) return NextResponse.json([])
 
   const syntheticRequest = new Request(request.url, {
@@ -151,5 +161,19 @@ export async function GET(request: NextRequest) {
     headers: { 'Content-Type': 'application/json', ...Object.fromEntries(request.headers) },
     body: JSON.stringify({ search: q.trim() }),
   })
-  return POST(syntheticRequest as NextRequest)
+  const postResponse = await POST(syntheticRequest as NextRequest)
+  if (!postResponse.ok || lang !== 'it') return postResponse
+
+  const games: any[] = await postResponse.json()
+  if (!Array.isArray(games) || games.length === 0) return NextResponse.json(games)
+
+  const toTranslate = games.filter((g: any) => g.description)
+  if (toTranslate.length > 0) {
+    const texts = toTranslate.map((g: any) => g.description)
+    const translated = await freeTranslateBatch(texts, 'IT')
+    toTranslate.forEach((g: any, i: number) => {
+      if (translated[i] && translated[i] !== g.description) g.description = translated[i]
+    })
+  }
+  return NextResponse.json(games)
 }
