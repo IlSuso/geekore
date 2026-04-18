@@ -17,11 +17,11 @@ import type { MediaDetails } from '@/components/media/MediaDetailsDrawer';
 type MediaItem = {
   id: string; title: string; title_en?: string; type: string; coverImage?: string; year?: number;
   episodes?: number; totalSeasons?: number; seasons?: Record<number, { episode_count: number }>;
-  description?: string; genres?: string[]; source: 'anilist' | 'tmdb' | 'igdb' | 'bgg';
+  description?: string; genres?: string[]; source: 'anilist' | 'tmdb' | 'igdb';
   tags?: string[]; keywords?: string[]; themes?: string[]; player_perspectives?: string[];
   game_modes?: string[]; developers?: string[]; categories?: string[]; mechanics?: string[];
   designers?: string[]; min_players?: number; max_players?: number; playing_time?: number;
-  complexity?: number; bgg_rating?: number; score?: number;
+  score?: number;
 };
 
 const TYPE_ORDER: Record<string, number> = { anime: 0, manga: 1, movie: 2, tv: 3, game: 4 };
@@ -40,7 +40,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 function toMediaDetails(item: MediaItem): MediaDetails {
-  return { id: item.id, title: item.title, title_en: item.title_en, type: item.type, coverImage: item.coverImage, year: item.year, episodes: item.episodes, totalSeasons: item.totalSeasons, seasons: item.seasons, description: item.description, genres: item.genres, source: item.source, score: item.score, min_players: item.min_players, max_players: item.max_players, playing_time: item.playing_time, complexity: item.complexity, bgg_rating: item.bgg_rating, mechanics: item.mechanics, designers: item.designers, developers: item.developers, themes: item.themes };
+  return { id: item.id, title: item.title, title_en: item.title_en, type: item.type, coverImage: item.coverImage, year: item.year, episodes: item.episodes, totalSeasons: item.totalSeasons, seasons: item.seasons, description: item.description, genres: item.genres, source: item.source, score: item.score, min_players: item.min_players, max_players: item.max_players, playing_time: item.playing_time, mechanics: item.mechanics, designers: item.designers, developers: item.developers, themes: item.themes };
 }
 
 function haptic(duration: number | number[] = 50) {

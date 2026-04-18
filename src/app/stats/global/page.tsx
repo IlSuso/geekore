@@ -3,7 +3,7 @@
 // Server Component — dati aggregati letti da Supabase.
 
 import { createClient } from '@/lib/supabase/server'
-import { Users, Clock, Star, Gamepad2, Tv, Film, BookOpen, TrendingUp, Globe, Trophy, Dices } from 'lucide-react'
+import { Users, Clock, Star, Gamepad2, Tv, Film, BookOpen, TrendingUp, Globe, Trophy } from 'lucide-react'
 import Link from 'next/link'
 
 async function getGlobalStats() {
@@ -38,7 +38,7 @@ async function getGlobalStats() {
 
   // Aggregazione ore per tipo
   const entries = mediaAgg || []
-  let animeEps = 0, mangaChapters = 0, gameHours = 0, movieCount = 0, tvEps = 0, boardgameCount = 0
+  let animeEps = 0, mangaChapters = 0, gameHours = 0, movieCount = 0, tvEps = 0
   let totalEntries = 0
 
   for (const e of entries) {
@@ -49,7 +49,6 @@ async function getGlobalStats() {
     else if (e.type === 'game' && e.is_steam) gameHours += ep
     else if (e.type === 'movie' && e.status === 'completed') movieCount++
     else if (e.type === 'tv') tvEps += ep
-    else if (e.type === 'boardgame') boardgameCount++
   }
 
   const animeHours = Math.round(animeEps * 24 / 60)

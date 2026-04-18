@@ -57,17 +57,6 @@ const GENRE_IT: Record<string, string> = {
   'Point-and-click': 'Punta e clicca',
   'Beat em up': 'Picchiaduro',
 
-  // BGG
-  'Medieval': 'Medievale',
-  'Card Game': 'Gioco di carte',
-  'Dice': 'Dadi',
-  'Abstract': 'Astratto',
-  'Abstract Strategy': 'Strategia astratta',
-  'Cooperative': 'Cooperativo',
-  'Party': 'Party game',
-  'Nature': 'Natura',
-  'Political': 'Politico',
-  'Wargame': 'Wargame',
 }
 
 export function translateGenre(genre: string): string {

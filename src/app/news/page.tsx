@@ -15,7 +15,7 @@ const NEWS_CACHE_TTL = 5 * 60 * 1000
 type UpcomingItem = {
   id?: string
   type?: string
-  source_api?: 'tmdb' | 'anilist' | 'igdb' | 'bgg'
+  source_api?: 'tmdb' | 'anilist' | 'igdb'
   title: string
   description?: string
   coverImage?: string
@@ -47,11 +47,11 @@ type UpcomingItem = {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  cinema:    'bg-red-600 text-white',
-  tv:        'bg-purple-600 text-white',
-  anime:     'bg-orange-500 text-white',
-  gaming:    'bg-emerald-600 text-white',
-  manga:     'bg-pink-600 text-white',
+  cinema: 'bg-red-600 text-white',
+  tv:     'bg-purple-600 text-white',
+  anime:  'bg-orange-500 text-white',
+  gaming: 'bg-emerald-600 text-white',
+  manga:  'bg-pink-600 text-white',
 }
 
 function formatDate(dateStr?: string, locale?: string) {
@@ -109,7 +109,7 @@ export default function NewsPage() {
     { id: 'tv',        label: t.news.tv,        icon: Tv        },
     { id: 'anime',     label: t.news.anime,     icon: BookOpen  },
     { id: 'manga',     label: t.news.manga,     icon: Swords    },
-    { id: 'gaming',    label: t.news.gaming,    icon: Gamepad2  },
+    { id: 'gaming', label: t.news.gaming, icon: Gamepad2 },
   ]
 
   const CATEGORY_LABELS: Record<string, string> = {
@@ -117,7 +117,7 @@ export default function NewsPage() {
     tv:        t.news.tv,
     anime:     t.news.anime,
     manga:     t.news.manga,
-    gaming:    t.news.gaming,
+    gaming: t.news.gaming,
   }
 
   const CATEGORY_ICONS: Record<string, React.ElementType> = {
@@ -125,7 +125,7 @@ export default function NewsPage() {
     tv:        Tv,
     anime:     Swords,
     manga:     BookOpen,
-    gaming:    Gamepad2,
+    gaming: Gamepad2,
   }
 
   const fetchItems = async (cat: string, forceRefresh = false) => {

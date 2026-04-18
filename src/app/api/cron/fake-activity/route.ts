@@ -43,7 +43,7 @@ const FAKE_USERS: Record<string, { username: string; topics: string[]; style: st
   },
   'a1000000-0000-0000-0000-000000000005': {
     username: 'andrea_nerd',
-    topics: ['boardgame', 'game', 'tabletop'],
+    topics: ['game', 'strategy', 'indie'],
     style: 'entusiasta',
   },
   'a1000000-0000-0000-0000-000000000006': {
@@ -139,7 +139,7 @@ const POST_POOL: { topics: string[]; text: string }[] = [
     text: 'il problema dei giochi con crafting è che finisco per trascorrere più tempo a craftare che a giocare effettivamente' },
   { topics: ['game', 'open_world', 'rpg'],
     text: 'npc random con una storyline più interessante della quest principale. gli sviluppatori sanno cosa stanno facendo e lo fanno apposta.' },
-  { topics: ['game', 'strategy', 'boardgame', 'tabletop'],
+  { topics: ['game', 'strategy'],
     text: '"solo un\'altra partita" — 3 ore dopo. il sole sta per sorgere. non ho rimpianti.' },
   { topics: ['game', 'souls', 'fps', 'rpg'],
     text: 'i giochi che ti danno la sensazione che il personaggio abbia fisicamente peso quando si muove sono una cosa sacra' },
