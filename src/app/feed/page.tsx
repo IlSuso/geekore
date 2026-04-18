@@ -38,6 +38,7 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 import { PullWrapper } from '@/components/ui/PullWrapper'
 import { ReportButton } from '@/components/ui/ReportButton'
+import { validateImage } from '@/lib/imageValidator'
 
 // ── Macro-categorie ───────────────────────────────────────────────────────────
 
@@ -696,9 +697,17 @@ export default function FeedPage() {
     setIsPublishing(false)
   }
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) { setSelectedImage(file); setImagePreview(URL.createObjectURL(file)) }
+    if (!file) return
+    try {
+      await validateImage(file)
+      setSelectedImage(file)
+      setImagePreview(URL.createObjectURL(file))
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Formato immagine non supportato')
+      e.target.value = ''
+    }
   }
 
   const toggleLike = useCallback(async (postId: string) => {
