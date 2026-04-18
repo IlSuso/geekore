@@ -214,16 +214,16 @@ async function searchByCategory(category: string, query: string): Promise<Search
     }
 
     if (category === 'Anime' || category === 'Manga') {
-      const type = category === 'Anime' ? 'ANIME' : 'MANGA'
-      const res = await fetch(`/api/anilist?search=${q}&type=${type}`, { signal: AbortSignal.timeout(5000) })
+      const type = category === 'Anime' ? 'anime' : 'manga'
+      const res = await fetch(`/api/anilist?search=${q}&type=${type}&lang=it`, { signal: AbortSignal.timeout(5000) })
       if (!res.ok) { console.warn('[CategorySearch] AniList error:', res.status); return [] }
       const data = await res.json()
       const items = Array.isArray(data) ? data : (data.results || data.media || [])
       return items.slice(0, 8).map((item: any) => ({
-        id: String(item.id || item.anilistId),
-        title: item.title?.english || item.title?.romaji || item.title || '',
-        subtitle: item.seasonYear ? String(item.seasonYear) : undefined,
-        image: item.coverImage?.large || item.coverImage || item.cover,
+        id: String(item.id),
+        title: item.title || item.title?.english || item.title?.romaji || '',
+        subtitle: item.year ? String(item.year) : item.seasonYear ? String(item.seasonYear) : undefined,
+        image: item.coverImage || item.coverImage?.large || item.cover,
       })).filter((i: SearchResult) => i.title)
     }
 
