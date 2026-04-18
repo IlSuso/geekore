@@ -95,6 +95,7 @@ interface UserEntry {
   vote_count?: number
   is_steam?: boolean
   notes?: string
+  started_at?: string | null
 }
 
 interface UserSearch {
@@ -133,7 +134,7 @@ function detectBingeProfile(entries: UserEntry[]): BingeProfile {
   if (completed.length === 0) return { isBinger: false, avgCompletionDays: 30, bingeGenres: [], slowGenres: [] }
 
   const completionTimes = completed.map(e => {
-    const days = Math.max(1, (new Date(e.updated_at).getTime() - new Date(e.started_at).getTime()) / 86400000)
+    const days = Math.max(1, (new Date(e.updated_at!).getTime() - new Date(e.started_at!).getTime()) / 86400000)
     const genres: string[] = e.genres || []
     return { days, genres }
   })
