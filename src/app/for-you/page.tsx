@@ -524,16 +524,6 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
       {showDetails && item.description && (
         <p className="text-[10px] text-zinc-500 leading-tight line-clamp-3 mt-1.5">{item.description}</p>
       )}
-      {/* Fix 3.3: boardgame companion — cross-media bridge */}
-      {item.type === 'boardgame' && item.genres.length > 0 && (
-        <button
-          onClick={() => onSimilar?.(item)}
-          className="mt-2 flex items-center gap-1 text-[10px] text-yellow-400 hover:text-yellow-300 transition-colors">
-          <Dice5 size={9} />
-          <span>Scopri giochi simili</span>
-          <ArrowRight size={9} />
-        </button>
-      )}
     </div>
   )
 })
