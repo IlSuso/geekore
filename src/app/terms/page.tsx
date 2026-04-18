@@ -62,7 +62,7 @@ export default function TermsPage() {
 
               <section>
                 <h2 className="text-xl font-semibold text-white mb-3">5. Intellectual Property</h2>
-                <p>Geekore and its original content, features and functionality are owned by the operators and are protected by applicable intellectual property laws. Media metadata (titles, covers, descriptions) is sourced from third-party APIs (TMDb, AniList, IGDB, BGG) and belongs to their respective owners.</p>
+                <p>Geekore and its original content, features and functionality are owned by the operators and are protected by applicable intellectual property laws. Media metadata (titles, covers, descriptions) is sourced from third-party APIs (TMDb, AniList, IGDB) and belongs to their respective owners.</p>
               </section>
 
               <section>
@@ -137,7 +137,7 @@ export default function TermsPage() {
 
               <section>
                 <h2 className="text-xl font-semibold text-white mb-3">5. Proprietà Intellettuale</h2>
-                <p>Geekore e i suoi contenuti originali, funzionalità e caratteristiche appartengono agli operatori e sono protetti dalle leggi vigenti sulla proprietà intellettuale. I metadati dei media (titoli, copertine, descrizioni) provengono da API di terze parti (TMDb, AniList, IGDB, BGG) e appartengono ai rispettivi proprietari.</p>
+                <p>Geekore e i suoi contenuti originali, funzionalità e caratteristiche appartengono agli operatori e sono protetti dalle leggi vigenti sulla proprietà intellettuale. I metadati dei media (titoli, copertine, descrizioni) provengono da API di terze parti (TMDb, AniList, IGDB) e appartengono ai rispettivi proprietari.</p>
               </section>
 
               <section>

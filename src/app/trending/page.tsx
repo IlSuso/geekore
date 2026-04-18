@@ -22,12 +22,11 @@ export const TYPE_COLOR: Record<string, string> = {
   game: 'bg-green-500',
   tv: 'bg-purple-500',
   movie: 'bg-red-500',
-  boardgame: 'bg-yellow-500',
-}
+  }
 
 export const TYPE_LABEL: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', game: 'Gioco',
-  tv: 'Serie TV', movie: 'Film', boardgame: 'Board Game',
+  tv: 'Serie TV', movie: 'Film',
 }
 
 async function getTrending(): Promise<{ byAdditions: TrendingItem[]; byRating: TrendingItem[] }> {
@@ -84,7 +83,7 @@ export default async function TrendingPage() {
     return acc
   }, {})
 
-  const typeOrder = ['game', 'anime', 'tv', 'movie', 'manga', 'boardgame']
+  const typeOrder = ['game', 'anime', 'tv', 'movie', 'manga']
 
   return (
     <div className="min-h-screen bg-black text-white pb-24">

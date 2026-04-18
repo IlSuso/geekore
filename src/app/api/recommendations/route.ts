@@ -59,10 +59,6 @@ import {
   ADJACENCY_GRAPH
 } from '@/lib/reco/genre-maps'
 
-// BGG rimosso — stub vuoti per compatibilità residua nel codice
-const BGG_TO_CROSS_GENRE: Record<string, string[]> = {}
-const GENRE_TO_BGG_TERMS: Record<string, string[]> = {}
-const BGG_CAT_TO_GENRE_REC: Record<string, string> = {}
 
 // Alias locale per compatibilità con il codice esistente
 type MediaType = RecoMediaType
@@ -128,8 +124,8 @@ function determineActiveWindowForType(entries: UserEntry[], type: MediaType): nu
   }).length
 
   // Window adattiva per tipo: i gamer hanno sessioni più lunghe e sparse
-  const minCount = (type === 'game' || type === 'boardgame') ? 2 : 3
-  const windows = (type === 'game' || type === 'boardgame')
+  const minCount = (type === 'game') ? 2 : 3
+  const windows = (type === 'game')
     ? [90, 180, 365, 24 * 30]
     : [60, 120, 180, 365]
 
@@ -336,37 +332,6 @@ function themeToGenre(theme: string): string | null {
   return map[theme] || null
 }
 
-function parseBggXmlRec(xml: string) {
-  const decode = (s: string) =>
-    s.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
-     .replace(/&#10;/g, '\n').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-     .replace(/&ldquo;/g, '"').replace(/&rdquo;/g, '"')
-     .replace(/&lsquo;/g, "'").replace(/&rsquo;/g, "'")
-     .replace(/&mdash;/g, '—').replace(/&ndash;/g, '–')
-     .replace(/&hellip;/g, '…').replace(/&nbsp;/g, ' ')
-     .replace(/&#\d+;/g, '').trim()
-  return [...xml.matchAll(/<item[^>]+id="(\d+)"[^>]*>([\s\S]*?)<\/item>/g)].flatMap(([, id, body]) => {
-    const name = body.match(/<name[^>]+type="primary"[^>]+value="([^"]+)"/)?.[1]
-    if (!name) return []
-    const rawImg = body.match(/<image>([\s\S]*?)<\/image>/)?.[1]?.trim()
-    const rawThumb = body.match(/<thumbnail>([\s\S]*?)<\/thumbnail>/)?.[1]?.trim()
-    const rawCover = rawImg || rawThumb
-    return [{
-      id, name: decode(name),
-      year: parseInt(body.match(/<yearpublished[^>]+value="(\d+)"/)?.[1] || '') || undefined,
-      thumbnail: rawCover ? (rawCover.startsWith('//') ? `https:${rawCover}` : rawCover) : undefined,
-      description: truncateAtSentence(decode((body.match(/<description>([\s\S]*?)<\/description>/)?.[1] || '').replace(/<[^>]*>/g, '')), 400),
-      categories:  [...body.matchAll(/<link type="boardgamecategory"[^>]+value="([^"]+)"/g)].map(m => m[1]),
-      mechanics:   [...body.matchAll(/<link type="boardgamemechanic"[^>]+value="([^"]+)"/g)].map(m => m[1]),
-      rating:      parseFloat(body.match(/<average[^>]+value="([0-9.]+)"/)?.[1] || '') || undefined,
-      usersRated:  parseInt(body.match(/<usersrated[^>]+value="(\d+)"/)?.[1] || '') || undefined,
-      min_players: parseInt(body.match(/<minplayers[^>]+value="(\d+)"/)?.[1] || '') || undefined,
-      max_players: parseInt(body.match(/<maxplayers[^>]+value="(\d+)"/)?.[1] || '') || undefined,
-      playing_time: parseInt(body.match(/<playingtime[^>]+value="(\d+)"/)?.[1] || '') || undefined,
-      complexity:  parseFloat(body.match(/<averageweight[^>]+value="([0-9.]+)"/)?.[1] || '') || undefined,
-    }]
-  })
-}
 
 const KEYWORD_TO_DEEP: Record<string, { themes?: string[]; tones?: string[]; settings?: string[] }> = {
   'time travel': { themes: ['time travel'], tones: ['mind-bending'] },
@@ -446,14 +411,6 @@ function computeVelocity(entry: UserEntry): number {
 
   if (type === 'movie') return 1.0
 
-  if (type === 'boardgame') {
-    const plays = entry.current_episode || 0
-    if (plays >= 10) return 2.0
-    if (plays >= 5) return 1.5
-    if (plays >= 2) return 1.2
-    return 1.0
-  }
-
   const startedAt = entry.started_at
   const updatedAt = entry.updated_at
   const episodes = entry.current_episode || 0
@@ -480,7 +437,7 @@ function computeTasteProfile(
   const globalScores: Record<string, number> = {}
   const negativeGenreScores: Record<string, number> = {}
   const perTypeScores: Record<string, Record<string, number>> = {
-    anime: {}, manga: {}, movie: {}, tv: {}, game: {}, boardgame: {},
+    anime: {}, manga: {}, movie: {}, tv: {}, game: {},
   }
   const genreToTitles: Record<string, Array<any>> = {}
   const deepKeywords: Record<string, number> = {}
@@ -521,7 +478,7 @@ function computeTasteProfile(
 
   // Adaptive window per tipo (V3)
   const activeWindowByType: Record<string, number> = {}
-  for (const type of ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame']) {
+  for (const type of ['anime', 'manga', 'movie', 'tv', 'game']) {
     activeWindowByType[type] = determineActiveWindowForType(entries, type as MediaType)
   }
   const activeWindow = Math.round(
@@ -585,8 +542,8 @@ function computeTasteProfile(
     let baseWeight: number
     if (entry.is_steam || type === 'game') {
       baseWeight = hoursOrEp === 0 ? 0.5 : Math.min(Math.log10(hoursOrEp + 1) * 10, 25)
-    } else if (type === 'movie' || type === 'boardgame') {
-      // Film e boardgame non hanno episodi — il peso si basa su rating e status
+    } else if (type === 'movie') {
+      // Film non hanno episodi — il peso si basa su rating e status
       const ratingW = rating >= 1 ? rating * 4 : 3
       const statusBonus = entry.status === 'completed' ? 4 : entry.status === 'dropped' ? 0 : 2
       baseWeight = ratingW + statusBonus
@@ -613,16 +570,6 @@ function computeTasteProfile(
         }
       } else {
         addScore(genre, weight, type, title, recency, rating, velocity)
-      }
-    }
-
-    // Cross-media per boardgame (peso ridotto: segnale indiretto)
-    if (type === 'boardgame' && !isNegative) {
-      for (const genre of genres) {
-        const crossGenres = BGG_TO_CROSS_GENRE[genre] || []
-        for (const cg of crossGenres) {
-          if (!genres.includes(cg)) addScore(cg, weight * 0.25, type, title, recency, rating)
-        }
       }
     }
 
@@ -704,7 +651,6 @@ function computeTasteProfile(
       ...(preferences.fav_movie_genres || []),
       ...(preferences.fav_tv_genres || []),
       ...(preferences.fav_manga_genres || []),
-      ...(preferences.fav_boardgame_genres || []),
     ]
     for (const genre of allFavGenres) {
       if (globalScores[genre]) globalScores[genre] *= 2.2
@@ -1089,13 +1035,7 @@ interface GenreSlot {
   isSerendipity?: boolean // V4
 }
 
-function buildDiversitySlots(type: MediaType, tasteProfile: TasteProfile, totalSlots = 20): GenreSlot[] {
-  if (type === 'boardgame') {
-    const sourceGenres = tasteProfile.topGenres.boardgame?.map(g => g.genre).filter(g => GENRE_TO_BGG_TERMS[g]) || []
-    const fallback = tasteProfile.globalGenres.map(g => g.genre).filter(g => GENRE_TO_BGG_TERMS[g])
-    const genres = (sourceGenres.length >= 2 ? sourceGenres : fallback).slice(0, 4)
-    if (genres.length === 0) return [
-      { genre: 'Fantasy', quota: 5, isDiscovery: false },
+function buildDiversitySlots(type: MediaType, tasteProfile: TasteProfile, totalSlots = 20): GenreSlot[] {,
       { genre: 'Adventure', quota: 5, isDiscovery: false },
     ]
     return genres.map((g, i) => ({ genre: g, quota: Math.ceil(totalSlots / genres.length), isDiscovery: i >= 2 }))
@@ -2129,270 +2069,7 @@ async function fetchGameRecs(
   return results.sort((a, b) => b.matchScore - a.matchScore)
 }
 
-// BGG category names → cross-media genre (per filtrare i risultati)
-const GENRE_TO_BGG_CATS: Record<string, string[]> = {
-  'Fantasy':         ['Fantasy', 'Medieval', 'Mythology', 'Adventure'],
-  'Science Fiction': ['Science Fiction', 'Space Exploration'],
-  'Sci-Fi':          ['Science Fiction', 'Space Exploration'],
-  'Horror':          ['Horror', 'Zombies', 'Halloween'],
-  'Adventure':       ['Adventure', 'Exploration', 'Puzzle'],
-  'Mystery':         ['Mystery', 'Deduction', 'Murder/Mystery'],
-  'Thriller':        ['Espionage', 'Deduction', 'Murder/Mystery'],
-  'War':             ['Wargame', 'World War II', 'Napoleonic', 'American Civil War'],
-  'History':         ['Historical', 'Ancient', 'Civilization', 'Renaissance', 'Medieval'],
-  'Comedy':          ['Humor', 'Party Game'],
-  'Drama':           ['Economic', 'Political', 'Negotiation'],
-  'Psychological':   ['Deduction', 'Bluffing', 'Murder/Mystery'],
-  'Action':          ['Adventure', 'Fighting', 'Action / Dexterity'],
-  'Crime':           ['Deduction', 'Murder/Mystery', 'Espionage'],
-  'Supernatural':    ['Horror', 'Fantasy', 'Mythology'],
-  'Strategy':        ['Economic', 'City Building', 'Territory Building'],
-}
 
-// IDs di fallback per genere (usati se CSV non disponibile)
-const BGG_GENRE_SEEDS: Record<string, number[]> = {
-  'Fantasy':         [174430, 162886, 96848, 146021, 205637, 150376, 10547, 257499],
-  'Science Fiction': [233078, 167791, 39463, 220308, 246900, 161936, 169786],
-  'Sci-Fi':          [233078, 167791, 39463, 220308],
-  'Horror':          [146021, 150376, 10547, 205637, 113924, 205059, 257499],
-  'Adventure':       [30549, 121921, 174430, 161936, 150376, 282524],
-  'Mystery':         [148228, 181304, 178900, 1294, 156129],
-  'Thriller':        [12333, 148228, 181304, 150376],
-  'War':             [12333, 115746, 10630, 187645],
-  'History':         [68448, 182028, 31260, 224517, 9209, 136, 193738],
-  'Strategy':        [13, 3076, 31260, 266192, 183394, 36218, 822, 9209, 2651, 230802, 68448, 173346, 167791, 169786, 193738, 220308, 199792, 295947],
-  'Comedy':          [178900, 39856, 163412, 129622],
-  'Crime':           [148228, 1294, 181304, 178900],
-  'Drama':           [3076, 31260, 224517, 183394, 182028],
-  'Psychological':   [148228, 181304, 12333, 150376],
-  'Supernatural':    [146021, 10547, 113924, 181304, 205637],
-  'Action':          [174430, 113924, 30549, 164153, 187645],
-}
-
-// Mapping genere → colonne CSV BGG per selezione candidati
-const GENRE_TO_BGG_RANK_LISTS: Record<string, ('thematic' | 'strategy' | 'wargames' | 'family' | 'party')[]> = {
-  'Fantasy':         ['thematic'],
-  'Science Fiction': ['thematic', 'strategy'],
-  'Sci-Fi':          ['thematic', 'strategy'],
-  'Horror':          ['thematic'],
-  'Adventure':       ['thematic'],
-  'Mystery':         ['thematic', 'family'],
-  'Thriller':        ['thematic'],
-  'War':             ['wargames'],
-  'History':         ['wargames', 'strategy'],
-  'Strategy':        ['strategy'],
-  'Drama':           ['strategy'],
-  'Comedy':          ['party', 'family'],
-  'Psychological':   ['thematic'],
-  'Crime':           ['thematic'],
-  'Supernatural':    ['thematic'],
-  'Action':          ['thematic'],
-}
-
-// Cache del CSV BGG (persiste tra invocazioni warm serverless)
-interface BggRankRow { id: number; rank: number; bayesaverage: number; usersrated: number; thematic_rank: number | null; strategy_rank: number | null; wargames_rank: number | null; family_rank: number | null; party_rank: number | null }
-const BGG_CSV_CACHE: { thematic: number[]; strategy: number[]; wargames: number[]; family: number[]; party: number[]; overall: number[]; cachedAt: number } = { thematic: [], strategy: [], wargames: [], family: [], party: [], overall: [], cachedAt: 0 }
-
-function parseBggRanksCsv(csv: string): void {
-  const rows: BggRankRow[] = []
-  const lines = csv.split('\n')
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim()
-    if (!line) continue
-    const parts: string[] = []
-    let cur = '', inQ = false
-    for (const c of line) {
-      if (c === '"') { inQ = !inQ }
-      else if (c === ',' && !inQ) { parts.push(cur); cur = '' }
-      else cur += c
-    }
-    parts.push(cur)
-    if (parts.length < 9) continue
-    const id = parseInt(parts[0])
-    if (isNaN(id)) continue
-    if (parts[7] === '1') continue  // skip expansions
-    const usersrated = parseInt(parts[6]) || 0
-    const bayesaverage = parseFloat(parts[4]) || 0
-    if (usersrated < 200 || bayesaverage < 6.0) continue
-    rows.push({
-      id, rank: parseInt(parts[3]) || 999999, bayesaverage, usersrated,
-      thematic_rank:  parts[14] ? parseInt(parts[14]) : null,
-      strategy_rank:  parts[13] ? parseInt(parts[13]) : null,
-      wargames_rank:  parts[15] ? parseInt(parts[15]) : null,
-      family_rank:    parts[11] ? parseInt(parts[11]) : null,
-      party_rank:     parts[12] ? parseInt(parts[12]) : null,
-    })
-  }
-  const sortBy = (field: keyof BggRankRow) =>
-    rows.filter(r => r[field] !== null).sort((a, b) => (a[field] as number) - (b[field] as number)).map(r => r.id)
-  BGG_CSV_CACHE.thematic  = sortBy('thematic_rank')
-  BGG_CSV_CACHE.strategy  = sortBy('strategy_rank')
-  BGG_CSV_CACHE.wargames  = sortBy('wargames_rank')
-  BGG_CSV_CACHE.family    = sortBy('family_rank')
-  BGG_CSV_CACHE.party     = sortBy('party_rank')
-  BGG_CSV_CACHE.overall   = [...rows].sort((a, b) => a.rank - b.rank).slice(0, 200).map(r => r.id)
-  BGG_CSV_CACHE.cachedAt  = Date.now()
-}
-
-async function refreshBggCsvIfNeeded(token: string): Promise<void> {
-  if (Date.now() - BGG_CSV_CACHE.cachedAt < 24 * 3600_000) return
-  try {
-    const res = await fetch('https://boardgamegeek.com/data_dumps/bg_ranks', {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      signal: AbortSignal.timeout(30_000),
-    })
-    console.log('[BGG] CSV download status:', res.status)
-    if (!res.ok) return
-    parseBggRanksCsv(await res.text())
-  } catch (e) { console.log('[BGG] CSV download failed:', e) }
-}
-
-async function fetchBoardgameRecs(
-  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile,
-  isAlreadyOwned: (type: string, id: string, title: string) => boolean,
-  shownIds?: Set<string>,
-  supabase?: any
-): Promise<Recommendation[]> {
-  const token = process.env.BGG_BEARER_TOKEN || ''
-  const bggHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
-  const results: Recommendation[] = []
-  const seen = new Set<string>()
-  const targetCats = new Set(slots.flatMap(s => GENRE_TO_BGG_CATS[s.genre] || []))
-  console.log('[BGG] fetchBoardgameRecs start — slots:', slots.map(s => s.genre), 'token:', !!token)
-
-  // Aggiorna cache CSV se scaduta (24h)
-  await refreshBggCsvIfNeeded(token)
-
-  // Raccoglie ID candidati: dal CSV per categoria + seeds di fallback
-  const candidateIdSet = new Set<number>()
-  const hasCsvData = BGG_CSV_CACHE.cachedAt > 0
-  console.log('[BGG] CSV cache:', hasCsvData ? `${BGG_CSV_CACHE.thematic.length} thematic` : 'empty (using seeds)')
-
-  if (hasCsvData) {
-    for (const slot of slots) {
-      const lists = GENRE_TO_BGG_RANK_LISTS[slot.genre] || ['thematic']
-      for (const listKey of lists) {
-        const ids = BGG_CSV_CACHE[listKey as keyof typeof BGG_CSV_CACHE] as number[]
-        ids.slice(0, 80).forEach(id => candidateIdSet.add(id))
-      }
-    }
-  } else {
-    // Fallback ai seeds hardcoded se CSV non disponibile
-    slots.flatMap(s => BGG_GENRE_SEEDS[s.genre] || []).forEach(id => candidateIdSet.add(id))
-  }
-
-  // Aggiunge hot list per contenuto fresco
-  try {
-    const hotRes = await fetch('https://boardgamegeek.com/xmlapi2/hot?type=boardgame', { headers: bggHeaders, signal: AbortSignal.timeout(6000) })
-    console.log('[BGG] hot list status:', hotRes.status)
-    if (hotRes.ok) {
-      const hotXml = await hotRes.text()
-      const hotIds = [...hotXml.matchAll(/<item[^>]*id="(\d+)"/g)].map(m => parseInt(m[1]))
-      console.log('[BGG] hot list IDs found:', hotIds.length)
-      hotIds.forEach(id => candidateIdSet.add(id))
-    }
-  } catch (e) {
-    console.log('[BGG] hot list failed:', e)
-  }
-
-  console.log('[BGG] total candidate IDs:', candidateIdSet.size)
-  if (candidateIdSet.size === 0) return results
-
-  // Fetch dettagli in batch da MAX 20 (limite BGG API)
-  const allGames: ReturnType<typeof parseBggXmlRec> = []
-  const ids = [...candidateIdSet]
-  for (let i = 0; i < ids.length; i += 20) {
-    const batch = ids.slice(i, i + 20)
-    try {
-      const thingUrl = `https://boardgamegeek.com/xmlapi2/thing?id=${batch.join(',')}&stats=1`
-      let thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(10000) })
-      console.log(`[BGG] /thing batch ${i/20+1} (${batch.length} IDs) → status ${thingRes.status}`)
-      if (thingRes.status === 202) {
-        await new Promise(r => setTimeout(r, 2000))
-        thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(10000) })
-      }
-      if (thingRes.status === 202) {
-        await new Promise(r => setTimeout(r, 3000))
-        thingRes = await fetch(thingUrl, { headers: bggHeaders, signal: AbortSignal.timeout(10000) })
-      }
-      if (!thingRes.ok) { console.log(`[BGG] /thing batch failed: ${thingRes.status}`); continue }
-      const parsed = parseBggXmlRec(await thingRes.text())
-      console.log(`[BGG] /thing batch parsed ${parsed.length} games`)
-      allGames.push(...parsed)
-    } catch (e) {
-      console.log(`[BGG] /thing batch error:`, e)
-    }
-    if (i + 20 < ids.length) await new Promise(r => setTimeout(r, 300))
-  }
-
-  console.log('[BGG] allGames fetched:', allGames.length)
-
-  // Score per match categorie + qualità
-  const scored = allGames
-    .filter(g => (g.usersRated || 0) > 100 && (g.rating || 0) > 5.5)
-    .map(g => ({ ...g, _catMatch: g.categories.filter(c => targetCats.has(c)).length }))
-    .sort((a, b) => b._catMatch !== a._catMatch ? b._catMatch - a._catMatch : (b.rating || 0) - (a.rating || 0))
-
-  for (const g of scored) {
-    const id = `bgg-${g.id}`
-    if (seen.has(id) || isAlreadyOwned('boardgame', id, g.name)) continue
-    if (shownIds?.has(id)) continue
-    seen.add(id)
-    const recGenres = g.categories.map(c => BGG_CAT_TO_GENRE_REC[c]).filter(Boolean) as string[]
-    results.push({
-      id, title: g.name, type: 'boardgame',
-      coverImage: g.thumbnail || undefined,
-      year: g.year, genres: recGenres.length > 0 ? recGenres : ['Strategy'],
-      tags: g.mechanics, keywords: g.categories.map(c => c.toLowerCase()),
-      score: g.rating ? Math.min(g.rating / 2, 5) : undefined,
-      description: g.description || undefined,
-      matchScore: g._catMatch > 0 ? 65 : 52,
-      why: recGenres.length > 0 ? `Tra i migliori di ${recGenres[0]}` : 'Top board game',
-      min_players: g.min_players || undefined,
-      max_players: g.max_players || undefined,
-      playing_time: g.playing_time || undefined,
-      complexity: g.complexity || undefined,
-    })
-  }
-
-  console.log('[BGG] results after scoring:', results.length)
-
-  // Fallback: se BGG API non ha restituito nulla, usa boardgames_cache (hot list salvata dal discover)
-  if (results.length === 0 && supabase) {
-    try {
-      const { data: cache } = await supabase.from('boardgames_cache').select('data').single()
-      if (cache?.data && Array.isArray(cache.data)) {
-        console.log('[BGG] using boardgames_cache fallback:', cache.data.length, 'items')
-        for (const item of cache.data as any[]) {
-          const idMatch = item.url?.match(/boardgame\/(\d+)/)
-          if (!idMatch) continue
-          const id = `bgg-${idMatch[1]}`
-          if (seen.has(id)) continue
-          seen.add(id)
-          results.push({
-            id, title: item.title, type: 'boardgame',
-            coverImage: item.urlToImage || undefined,
-            genres: ['Strategy'], tags: [], keywords: [],
-            matchScore: 48,
-            why: 'Board game in tendenza',
-          })
-        }
-      }
-    } catch (e) {
-      console.log('[BGG] boardgames_cache fallback failed:', e)
-    }
-  }
-
-  const bggDescItems = results
-    .filter(r => r.description)
-    .map(r => ({ id: r.id, text: r.description! }))
-  if (bggDescItems.length > 0) {
-    const t = await translateWithCache(bggDescItems)
-    results.forEach(r => { if (r.description) r.description = t[r.id] || r.description })
-  }
-
-  return results.sort((a, b) => (b.score || 0) - (a.score || 0))
-}
 
 // Helper per computeMatchScore con developer
 function computeMatchScoreWithDev(
@@ -2541,7 +2218,7 @@ export async function GET(request: NextRequest) {
     type OwnedByType = { ids: Set<string>; titles: Set<string>; tokenSets: Array<Set<string>> }
     const ownedByType = new Map<string, OwnedByType>()
 
-    for (const type of ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame']) {
+    for (const type of ['anime', 'manga', 'movie', 'tv', 'game']) {
       ownedByType.set(type, { ids: new Set(), titles: new Set(), tokenSets: [] })
     }
 
@@ -2598,7 +2275,7 @@ export async function GET(request: NextRequest) {
     const igdbClientSecret = process.env.IGDB_CLIENT_SECRET || ''
 
     const typesToFetch: MediaType[] = requestedType === 'all'
-      ? ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame']
+      ? ['anime', 'manga', 'movie', 'tv', 'game']
       : [requestedType as MediaType]
 
     // ── V6: Carica titoli mostrati nella sessione corrente (TTL: 4h) ──────────
@@ -2701,9 +2378,7 @@ export async function GET(request: NextRequest) {
             case 'manga': return { type, items: await fetchMangaRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds, socialFavorites) }
             case 'movie': return { type, items: await fetchMovieRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds) }
             case 'tv':    return { type, items: await fetchTvRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds) }
-            case 'game':       return { type, items: await fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret, isAlreadyOwned, emptyShownIds) }
-            case 'boardgame':  return { type, items: await fetchBoardgameRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds, supabase) }
-            default: return { type, items: [] }
+            case 'game':       return { type, items: await fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret, isAlreadyOwned, emptyShownIds) }            default: return { type, items: [] }
           }
         })
       ])

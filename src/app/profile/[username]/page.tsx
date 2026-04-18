@@ -769,7 +769,7 @@ export default function ProfilePage() {
       // Solo per media con episodi multipli (anime, serie)
       update = { ...update, current_episode: media.episodes }
     }
-    // Film, boardgame, game: solo status+completed_at, niente current_episode sentinella
+    // Film, game: solo status+completed_at, niente current_episode sentinella
     await supabase.from('user_media_entries').update(update).eq('id', id)
     setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
     showToast(t.toasts.completed)

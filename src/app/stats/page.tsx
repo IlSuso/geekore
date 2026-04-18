@@ -237,7 +237,7 @@ export default function StatsPage() {
               {stats.tvHours > 0 && <StatBar label="Serie TV" icon={Tv} hours={stats.tvHours} color="text-purple-400" detail={`${stats.tvEpisodes} ep`} />}
               {stats.movieHours > 0 && <StatBar label="Film" icon={Film} hours={stats.movieHours} color="text-red-400" detail={`${stats.movieCount} film`} />}
               {stats.mangaHours > 0 && <StatBar label="Manga" icon={BookOpen} hours={stats.mangaHours} color="text-orange-400" detail={`${stats.mangaChapters} cap`} />}
-              {stats.boardgameHours > 0 && <StatBar label="Board Game" icon={Dices} hours={stats.boardgameHours} color="text-yellow-400" detail={`${stats.boardgameSessions} sessioni`} />}
+              
               {stats.totalMinutes === 0 && (
                 <p className="text-zinc-600 text-center py-4">Aggiungi media alla tua collezione per vedere le statistiche</p>
               )}

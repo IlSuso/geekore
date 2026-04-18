@@ -31,7 +31,7 @@ import type { TasteProfile } from '@/components/for-you/DNAWidget'
 type FeedbackAction = 'not_interested' | 'already_seen' | 'added' | 'wishlist_add';
 type FeedbackReason = 'too_similar' | 'not_my_genre' | 'already_know' | 'bad_rec' | undefined;
 
-type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame'
+type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game'
 type Mood = 'light' | 'intense' | 'deep' | null
 
 interface FriendActivity {
@@ -41,12 +41,10 @@ interface FriendActivity {
 }
 
 const TYPE_ICONS: Record<MediaType, React.ElementType> = {
-  anime: Swords, manga: BookOpen, movie: Film, tv: Tv, game: Gamepad2, boardgame: Dices,
-}
+  anime: Swords, manga: BookOpen, movie: Film, tv: Tv, game: Gamepad2, }
 
 const TYPE_LABEL: Record<string, string> = {
-  anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Gioco', boardgame: 'Board Game',
-}
+  anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Gioco', }
 
 const TYPE_COLORS: Record<string, string> = {
   anime: 'from-sky-500 to-blue-600',
@@ -54,8 +52,7 @@ const TYPE_COLORS: Record<string, string> = {
   movie: 'from-red-500 to-rose-600',
   tv: 'from-purple-500 to-violet-600',
   game: 'from-emerald-500 to-green-600',
-  boardgame: 'from-yellow-500 to-amber-600',
-}
+  }
 
 function triggerTasteDelta(options: {
   action: 'rating' | 'status_change' | 'wishlist_add' | 'rewatch' | 'progress'
@@ -361,11 +358,10 @@ const HeroMatchSection = memo(function HeroMatchSection({ items, onFeedback, onS
 
 // Sezione "Simili a X" — persiste finché l'utente non la chiude o cerca un altro simile
 // Barra di ricerca "Trova titoli simili a..." — stile identico alla navbar
-// Cerca in tutte le API (AniList, TMDb, IGDB, BGG) in parallelo — stesso pattern della discover
+// Cerca in tutte le API (AniList, TMDb, IGDB) in parallelo — stesso pattern della discover
 const TYPE_LABEL_SEARCH: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV',
-  game: 'Gioco', boardgame: 'Board Game',
-}
+  game: 'Gioco', }
 
 interface SearchSuggestion {
   id: string; title: string; type: string
@@ -400,16 +396,13 @@ function SimilarSearchBar({ onSearch, loading }: {
     setSearching(true)
     try {
       // Chiama tutte le API in parallelo — stesse della discover
-      const [anilistRes, tmdbRes, igdbRes, bggRes] = await Promise.allSettled([
+      const [anilistRes, tmdbRes, igdbRes] = await Promise.allSettled([
         fetch(`/api/anilist?q=${encodeURIComponent(q)}`),
         fetch(`/api/tmdb?q=${encodeURIComponent(q)}&type=all&lang=it-IT`),
         fetch(`/api/igdb?q=${encodeURIComponent(q)}`),
-        fetch(`/api/boardgames?q=${encodeURIComponent(q)}`),
       ])
 
       const all: SearchSuggestion[] = []
-
-      // anilist, tmdb, igdb → array diretto; bgg → { results: [] }
       const parse = (j: any) => Array.isArray(j) ? j : (j.results || j.data || [])
 
       if (anilistRes.status === 'fulfilled' && anilistRes.value.ok) {
@@ -428,12 +421,6 @@ function SimilarSearchBar({ onSearch, loading }: {
         const j = await igdbRes.value.json()
         for (const r of parse(j).slice(0, 1)) {
           all.push({ id: r.id || r.external_id, title: r.title, type: 'game', genres: r.genres, year: r.year, coverImage: r.coverImage || r.cover_image })
-        }
-      }
-      if (bggRes.status === 'fulfilled' && bggRes.value.ok) {
-        const j = await bggRes.value.json()
-        for (const r of parse(j).slice(0, 1)) {
-          all.push({ id: r.id || r.external_id, title: r.title, type: 'boardgame', genres: r.genres, year: r.year, coverImage: r.coverImage || r.cover_image })
         }
       }
 
@@ -534,7 +521,6 @@ const SIMILAR_TYPE_FILTERS: Array<{ key: MediaType | 'all'; label: string }> = [
   { key: 'tv',        label: 'Serie TV' },
   { key: 'game',      label: 'Giochi' },
   { key: 'manga',     label: 'Manga' },
-  { key: 'boardgame', label: 'Boardgame' },
 ]
 
 const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, items, onFeedback, onSimilar, onDetail, onClose, dismissedIds, similarLoadingId }: {
@@ -1108,18 +1094,12 @@ export default function ForYouPage() {
       authors: item.authors,
       developers: item.developers,
       platforms: item.platforms,
-      mechanics: item.type === 'boardgame' ? item.tags : undefined,
-      min_players: item.min_players,
-      max_players: item.max_players,
-      playing_time: item.playing_time,
-      complexity: item.complexity,
       why: item.why,
       matchScore: item.matchScore,
       isAwardWinner: item.isAwardWinner,
       source: item.id.startsWith('anilist-anime') ? 'anilist'
             : item.id.startsWith('anilist-manga') ? 'anilist'
             : item.id.startsWith('tmdb-') ? 'tmdb'
-            : item.id.startsWith('bgg-') ? 'bgg'
             : item.id.startsWith('igdb-') ? 'igdb'
             : /^\d+$/.test(item.id) && item.type === 'game' ? 'igdb'
             : /^\d+$/.test(item.id) && (item.type === 'movie' || item.type === 'tv' || item.type === 'anime') ? 'tmdb'
@@ -1216,7 +1196,6 @@ export default function ForYouPage() {
     { key: 'movie', label: fy.sections.movie },
     { key: 'tv', label: fy.sections.tv },
     { key: 'manga', label: fy.sections.manga },
-    { key: 'boardgame', label: fy.sections.boardgame },
   ]
   // Fix 2.4: ordina per affinità reale (collectionSize nel profilo) non per count consigli
   // Chi ha più titoli nel profilo viene prima — riflette il tipo centrale per l'utente
