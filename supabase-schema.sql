@@ -7,6 +7,9 @@
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Pulizia wishlist per aggiungere colonna mancante
+DROP TABLE IF EXISTS wishlist CASCADE;
+
 -- =============================================
 -- PROFILES
 -- =============================================
@@ -52,13 +55,22 @@ CREATE TABLE IF NOT EXISTS user_media_entries (
     genres TEXT[] DEFAULT '{}',          -- generi salvati al momento dell'aggiunta
     status TEXT DEFAULT 'watching',      -- watching|completed|paused|dropped|planning
 
-    updated_at TIMESTAMPTZ DEFAULT now(),
-
-    -- UNIQUE gestito da partial index sotto (ux_user_media_non_steam / ux_user_media_steam)
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- Indice unico parziale: per i media NON Steam, vincolo su (user_id, title)
 DROP INDEX IF EXISTS ux_user_media_non_steam;
+
+-- Prima puliamo i duplicati (teniamo solo la riga più recente per ogni (user_id, title))
+WITH duplicates AS (
+    SELECT id, user_id, title,
+           ROW_NUMBER() OVER (PARTITION BY user_id, title ORDER BY updated_at DESC, id DESC) as rn
+    FROM user_media_entries
+    WHERE is_steam IS NOT true
+)
+DELETE FROM user_media_entries
+WHERE id IN (SELECT id FROM duplicates WHERE rn > 1);
+
 CREATE UNIQUE INDEX ux_user_media_non_steam
   ON user_media_entries (user_id, title)
   WHERE is_steam IS NOT true;
@@ -201,7 +213,7 @@ CREATE TABLE IF NOT EXISTS wishlist (
     type TEXT NOT NULL CHECK (type IN ('anime', 'manga', 'movie', 'tv', 'game', 'boardgame')),
     cover_image TEXT,
     external_id TEXT,
-    added_at TIMESTAMPTZ DEFAULT now(),
+    added_at TIMESTAMPTZ DEFAULT now(),           -- COLONNA AGGIUNTA
     UNIQUE(user_id, external_id)
 );
 
@@ -378,6 +390,9 @@ ALTER TABLE comments
 -- =============================================
 -- RPC: get_leaderboard (Issue #12 Repair Bible)
 -- =============================================
+-- Prima eliminiamo la versione vecchia (necessario quando cambia il tipo di ritorno)
+DROP FUNCTION IF EXISTS get_leaderboard(INT);
+
 CREATE OR REPLACE FUNCTION get_leaderboard(limit_count INT DEFAULT 50)
 RETURNS TABLE (
   user_id UUID,
