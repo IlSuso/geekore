@@ -95,7 +95,7 @@ function triggerTasteDelta(options: {
 }
 
 const TYPE_ICON: Record<string, React.ElementType> = {
-  anime: Film, manga: BookOpen, game: Gamepad2,
+  anime: Film, manga: Layers, game: Gamepad2,
   tv: Tv, movie: Film, book: BookOpen,
 }
 const TYPE_COLOR: Record<string, string> = {

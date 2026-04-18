@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
-import { TrendingUp, Film, BookOpen, Gamepad2, Tv } from 'lucide-react'
+import { TrendingUp, Film, BookOpen, Gamepad2, Tv, Layers } from 'lucide-react'
 
 interface SuggestedUser {
   id: string
@@ -23,7 +23,7 @@ interface TrendingItem {
 }
 
 const TYPE_ICON: Record<string, React.ElementType> = {
-  anime: Film, manga: BookOpen, game: Gamepad2,
+  anime: Film, manga: Layers, game: Gamepad2,
   tv: Tv, movie: Film,
 }
 

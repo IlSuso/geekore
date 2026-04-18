@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  Film, Tv, Gamepad2, BookOpen, Swords,
+  Film, Tv, Gamepad2, BookOpen, Swords, Layers,
   Tag, X, Search, Loader2, ArrowLeft, Check, Filter
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -22,7 +22,7 @@ const CATEGORY_ICON_MAP: Record<string, LucideIcon> = {
   'Serie TV': Tv,
   'Videogiochi': Gamepad2,
   'Anime': Swords,
-  'Manga': BookOpen,
+  'Manga': Layers,
 }
 
 const QUICK_SUBS: Record<string, string[]> = {

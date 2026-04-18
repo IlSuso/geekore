@@ -2,7 +2,7 @@
 // src/app/trending/TrendingCard.tsx
 // Client Component — necessario per onError handler sulle immagini
 
-import { Film, BookOpen, Gamepad2, Tv, Trophy, Star, Users } from 'lucide-react'
+import { Film, BookOpen, Gamepad2, Tv, Trophy, Star, Users, Layers } from 'lucide-react'
 import type { TrendingItem } from './page'
 
 const TYPE_COLOR: Record<string, string> = {
@@ -14,7 +14,7 @@ const TYPE_COLOR: Record<string, string> = {
 }
 
 const TYPE_ICON: Record<string, React.ElementType> = {
-  anime: Film, manga: BookOpen, game: Gamepad2,
+  anime: Film, manga: Layers, game: Gamepad2,
   tv: Tv, movie: Film,
 }
 

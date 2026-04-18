@@ -2182,28 +2182,23 @@ async function fetchBookRecs(
       const resIt = await fetch(`${GBOOKS_BASE}?${params}`, { signal: AbortSignal.timeout(6000) })
       if (resIt.ok) items = (await resIt.json()).items || []
 
-      // fallback inglese se pochi risultati
-      if (items.length < 5) {
-        const paramsEn = new URLSearchParams({ ...Object.fromEntries(params), langRestrict: 'en' })
-        if (apiKey) paramsEn.set('key', apiKey)
-        const resEn = await fetch(`${GBOOKS_BASE}?${paramsEn}`, { signal: AbortSignal.timeout(6000) })
-        if (resEn.ok) {
-          const enItems = (await resEn.json()).items || []
-          const existingIds = new Set(items.map((i: any) => i.id))
-          for (const item of enItems) if (!existingIds.has(item.id)) items.push(item)
-        }
-      }
+      // Solo libri in italiano
+      items = items.filter((item: any) => item.volumeInfo?.language === 'it')
 
       for (const item of items.slice(0, 15)) {
         const info = item.volumeInfo || {}
         const id = `gbooks-${item.id}`
         if (seen.has(id) || isAlreadyOwned('book', id, info.title || '')) continue
         if (shownIds?.has(id)) continue
-        if (!info.title || !info.imageLinks?.thumbnail) continue
+        if (!info.title || !info.imageLinks) continue
 
         seen.add(id)
 
-        const cover = info.imageLinks.thumbnail.replace('http://', 'https://')
+        const rawCover = info.imageLinks?.extraLarge || info.imageLinks?.large ||
+          info.imageLinks?.medium || info.imageLinks?.thumbnail ||
+          info.imageLinks?.smallThumbnail || null
+        if (!rawCover) continue
+        const cover = rawCover.replace('http://', 'https://').replace('&edge=curl', '').replace('zoom=1', 'zoom=0')
         const year = info.publishedDate ? parseInt(info.publishedDate.substring(0, 4)) : undefined
         const rawScore = info.averageRating ? Math.round(info.averageRating * 20) : undefined
         const cats: string[] = info.categories || []

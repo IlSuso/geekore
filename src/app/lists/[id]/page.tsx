@@ -8,7 +8,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   Globe, Lock, Trash2, ArrowLeft, Plus, Loader2,
-  Film, BookOpen, Gamepad2, Tv, Share2,
+  Film, BookOpen, Gamepad2, Tv, Share2, Layers,
 } from 'lucide-react'
 import Link from 'next/link'
 import { showToast } from '@/components/ui/Toast'
@@ -42,7 +42,7 @@ interface ListData {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const TYPE_ICON: Record<string, React.ElementType> = {
-  anime: Film, manga: BookOpen, game: Gamepad2,
+  anime: Film, manga: Layers, game: Gamepad2,
   tv: Tv, movie: Film,
 }
 

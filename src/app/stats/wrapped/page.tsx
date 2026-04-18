@@ -7,7 +7,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Share2, X, Download, Tv, Gamepad2, BookOpen, Film, Trophy, Gem } from 'lucide-react'
+import { ChevronDown, Share2, X, Download, Tv, Gamepad2, BookOpen, Film, Trophy, Gem, Layers } from 'lucide-react'
 
 interface WrappedData {
   username: string
@@ -108,7 +108,7 @@ function Slide3({ data, onNext }: { data: WrappedData; onNext: () => void }) {
   const stats = [
     { Icon: Tv,       label: 'Episodi anime',         value: data.animeEpisodes,  color: 'text-sky-400' },
     { Icon: Gamepad2, label: 'Ore di gioco',          value: data.gameHours,      color: 'text-green-400' },
-    { Icon: BookOpen, label: 'Cap. manga letti',      value: data.mangaChapters,  color: 'text-orange-400' },
+    { Icon: Layers,   label: 'Cap. manga letti',      value: data.mangaChapters,  color: 'text-orange-400' },
     { Icon: Film,     label: 'Film guardati',         value: data.movieCount,     color: 'text-red-400' },
     { Icon: Tv,       label: 'Ep. serie TV',          value: data.tvEpisodes,     color: 'text-purple-400' },
   ].filter(s => s.value > 0)

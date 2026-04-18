@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Gamepad2, Film, Tv, BookOpen, Loader2, CalendarDays, RefreshCw, Swords } from 'lucide-react'
+import { Gamepad2, Film, Tv, BookOpen, Loader2, CalendarDays, RefreshCw, Swords, Layers } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { translateGenre } from '@/lib/genres'
 import { ErrorState } from '@/components/ui/ErrorState'
@@ -124,7 +124,7 @@ export default function NewsPage() {
     cinema:    Film,
     tv:        Tv,
     anime:     Swords,
-    manga:     BookOpen,
+    manga:     Layers,
     gaming: Gamepad2,
   }
 

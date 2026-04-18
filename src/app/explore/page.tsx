@@ -4,7 +4,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { SearchSection } from '@/components/explore/search-section'
-import { TrendingUp, Users, Star, Film, Gamepad2, BookOpen, Tv, Globe, Zap, Heart, Trophy, MessageCircle, ThumbsUp } from 'lucide-react'
+import { TrendingUp, Users, Star, Film, Gamepad2, BookOpen, Tv, Globe, Zap, Heart, Trophy, MessageCircle, ThumbsUp, Layers } from 'lucide-react'
 import Link from 'next/link'
 import { Avatar } from '@/components/ui/Avatar'
 
@@ -142,7 +142,7 @@ async function getExploreData(userId: string) {
 // ── Componenti ─────────────────────────────────────────────────────────────────
 
 const TYPE_ICON: Record<string, React.ElementType> = {
-  anime: Tv, manga: BookOpen, game: Gamepad2, movie: Film, tv: Tv, book: BookOpen, }
+  anime: Tv, manga: Layers, game: Gamepad2, movie: Film, tv: Tv, book: BookOpen, }
 
 function TrendingMediaCard({ item, rank }: { item: { count: number; item: any }; rank: number }) {
   const Icon = TYPE_ICON[item.item.type] || Film

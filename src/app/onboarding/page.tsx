@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Zap, Gamepad2, BookOpen, Film, Tv, Search, ChevronRight, Check } from 'lucide-react'
+import { Zap, Gamepad2, BookOpen, Film, Tv, Search, ChevronRight, Check, Layers } from 'lucide-react'
 import { SteamIcon } from '@/components/icons/SteamIcon'
 
 const STEPS = [
@@ -15,7 +15,7 @@ const STEPS = [
 
 const MEDIA_TYPES = [
   { id: 'anime', label: 'Anime', icon: Film, color: 'bg-sky-500/20 border-sky-500/50 text-sky-300' },
-  { id: 'manga', label: 'Manga', icon: BookOpen, color: 'bg-orange-500/20 border-orange-500/50 text-orange-300' },
+  { id: 'manga', label: 'Manga', icon: Layers, color: 'bg-orange-500/20 border-orange-500/50 text-orange-300' },
   { id: 'game', label: 'Videogiochi', icon: Gamepad2, color: 'bg-green-500/20 border-green-500/50 text-green-300' },
   { id: 'tv', label: 'Serie TV', icon: Tv, color: 'bg-purple-500/20 border-purple-500/50 text-purple-300' },
   { id: 'movie', label: 'Film', icon: Film, color: 'bg-red-500/20 border-red-500/50 text-red-300' },

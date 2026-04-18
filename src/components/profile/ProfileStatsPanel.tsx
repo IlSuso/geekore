@@ -3,7 +3,7 @@
 // Layout pulito e simmetrico: griglia tipi media + metriche + generi
 
 import { useMemo } from 'react'
-import { Star, Clock, BookOpen, Tv } from 'lucide-react'
+import { Star, Clock, BookOpen, Tv, Layers } from 'lucide-react'
 
 type UserMedia = {
   id: string
@@ -58,7 +58,7 @@ export function ProfileStatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
   const metrics = [
     stats.steamHours > 0  && { icon: <Tv size={13} />,       label: 'Ore su Steam',  value: `${stats.steamHours}h` },
     stats.animeHours > 0  && { icon: <Clock size={13} />,    label: 'Ore di anime',  value: `~${stats.animeHours}h` },
-    stats.mangaChapters > 0 && { icon: <BookOpen size={13} />, label: 'Cap. manga',  value: `${stats.mangaChapters}` },
+    stats.mangaChapters > 0 && { icon: <Layers size={13} />, label: 'Cap. manga',  value: `${stats.mangaChapters}` },
     stats.avgRating       && { icon: <Star size={13} />,      label: 'Voto medio',   value: stats.avgRating },
   ].filter(Boolean) as { icon: JSX.Element; label: string; value: string }[]
 

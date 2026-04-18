@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
-import { Search, Plus, X, Film, Tv, Gamepad2, BookOpen, Bookmark, BookmarkCheck, Mic, MicOff, Loader2, Swords, Check } from 'lucide-react';
+import { Search, Plus, X, Film, Tv, Gamepad2, BookOpen, Bookmark, BookmarkCheck, Mic, MicOff, Loader2, Swords, Check, Layers } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { showToast } from '@/components/ui/Toast';
 import { useLocale } from '@/lib/locale';
@@ -84,7 +84,7 @@ const DEBOUNCE_MS = 350;
 const FILTERS: { id: string; label: string; icon: React.ReactNode }[] = [
   { id: 'all',       label: 'Tutti',  icon: null },
   { id: 'anime',     label: 'Anime',  icon: <Swords size={13} /> },
-  { id: 'manga',     label: 'Manga',  icon: <BookOpen size={13} /> },
+  { id: 'manga',     label: 'Manga',  icon: <Layers size={13} /> },
   { id: 'movie',     label: 'Film',   icon: <Film size={13} /> },
   { id: 'tv',        label: 'Serie',  icon: <Tv size={13} /> },
   { id: 'game',      label: 'Giochi', icon: <Gamepad2 size={13} /> },
@@ -453,7 +453,7 @@ export default function DiscoverPage() {
                       ? <img src={item.coverImage} alt={item.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
                       : <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)]">
-                          {type === 'game' ? <Gamepad2 size={28} /> : type === 'manga' ? <BookOpen size={28} /> : <Tv size={28} />}
+                          {type === 'game' ? <Gamepad2 size={28} /> : type === 'manga' ? <Layers size={28} /> : <Tv size={28} />}
                         </div>
                     }
                     {/* Hover overlay */}

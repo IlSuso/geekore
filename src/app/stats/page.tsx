@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Clock, Gamepad2, Film, BookOpen, Tv, Share2, Gem, Globe, Briefcase, Calendar, Plane } from 'lucide-react'
+import { Clock, Gamepad2, Film, BookOpen, Tv, Share2, Gem, Globe, Briefcase, Calendar, Plane, Layers } from 'lucide-react'
 import Link from 'next/link'
 
 const AVG_ANIME_EP_MINUTES = 24
@@ -241,7 +241,7 @@ export default function StatsPage() {
               {stats.gameHours > 0 && <StatBar label="Videogiochi" icon={Gamepad2} hours={stats.gameHours} color="text-green-400" detail="ore Steam" />}
               {stats.tvHours > 0 && <StatBar label="Serie TV" icon={Tv} hours={stats.tvHours} color="text-purple-400" detail={`${stats.tvEpisodes} ep`} />}
               {stats.movieHours > 0 && <StatBar label="Film" icon={Film} hours={stats.movieHours} color="text-red-400" detail={`${stats.movieCount} film`} />}
-              {stats.mangaHours > 0 && <StatBar label="Manga" icon={BookOpen} hours={stats.mangaHours} color="text-orange-400" detail={`${stats.mangaChapters} cap`} />}
+              {stats.mangaHours > 0 && <StatBar label="Manga" icon={Layers} hours={stats.mangaHours} color="text-orange-400" detail={`${stats.mangaChapters} cap`} />}
               {stats.bookHours > 0 && <StatBar label="Libri" icon={BookOpen} hours={stats.bookHours} color="text-amber-400" detail={`${stats.bookPages} pag`} />}
               
               {stats.totalMinutes === 0 && (

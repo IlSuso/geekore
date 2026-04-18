@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
   const apiKey = process.env.GOOGLE_BOOKS_API_KEY || ''
   const params = new URLSearchParams({
     q,
-    maxResults: '20',
+    maxResults: '40',
     printType: 'books',
     langRestrict: 'it',
     hl: 'it',
@@ -66,36 +66,27 @@ export async function GET(request: NextRequest) {
   })
   if (apiKey) params.set('key', apiKey)
 
-  // Prima cerca in italiano, poi in inglese come fallback
   let items: any[] = []
   try {
-    const resIt = await fetch(`${GOOGLE_BOOKS_BASE}?${params}`, {
+    const res = await fetch(`${GOOGLE_BOOKS_BASE}?${params}`, {
       signal: AbortSignal.timeout(8000),
     })
-    if (resIt.ok) {
-      const dataIt = await resIt.json()
-      items = dataIt.items || []
+    if (res.ok) {
+      const data = await res.json()
+      items = data.items || []
     }
   } catch { /* ignore */ }
 
-  // Se pochi risultati in italiano, cerca anche in inglese
-  if (items.length < 5) {
-    try {
-      const paramsEn = new URLSearchParams({ ...Object.fromEntries(params), langRestrict: 'en' })
-      if (apiKey) paramsEn.set('key', apiKey)
-      const resEn = await fetch(`${GOOGLE_BOOKS_BASE}?${paramsEn}`, {
-        signal: AbortSignal.timeout(8000),
-      })
-      if (resEn.ok) {
-        const dataEn = await resEn.json()
-        const enItems = dataEn.items || []
-        // Aggiungi solo quelli non già presenti
-        const existingIds = new Set(items.map((i: any) => i.id))
-        for (const item of enItems) {
-          if (!existingIds.has(item.id)) items.push(item)
-        }
-      }
-    } catch { /* ignore */ }
+  // Tieni solo libri in italiano
+  items = items.filter((item: any) => item.volumeInfo?.language === 'it')
+
+  // Filtra per titolo: tutte le parole significative della query devono apparire nel titolo
+  const queryWords = q.toLowerCase().split(/\s+/).filter(w => w.length > 3)
+  if (queryWords.length > 0) {
+    items = items.filter((item: any) => {
+      const title = (item.volumeInfo?.title || '').toLowerCase()
+      return queryWords.every(word => title.includes(word))
+    })
   }
 
   if (!items.length) return NextResponse.json({ results: [] })
@@ -106,11 +97,13 @@ export async function GET(request: NextRequest) {
     const categories: string[] = info.categories || []
     const genres = mapCategoriesToGenres(categories)
 
-    // Cover: preferisci thumbnail https
-    const cover =
-      info.imageLinks?.thumbnail?.replace('http://', 'https://') ||
-      info.imageLinks?.smallThumbnail?.replace('http://', 'https://') ||
-      null
+    // Cover: qualità massima disponibile
+    const rawCover = info.imageLinks?.extraLarge || info.imageLinks?.large ||
+      info.imageLinks?.medium || info.imageLinks?.thumbnail ||
+      info.imageLinks?.smallThumbnail || null
+    const cover = rawCover
+      ? rawCover.replace('http://', 'https://').replace('&edge=curl', '').replace('zoom=1', 'zoom=0')
+      : null
 
     const description = info.description
       ? truncateAtSentence(info.description.replace(/<[^>]+>/g, ''), 400)
