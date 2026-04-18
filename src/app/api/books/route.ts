@@ -8,7 +8,6 @@ import { truncateAtSentence } from '@/lib/utils'
 
 const GOOGLE_BOOKS_BASE = 'https://www.googleapis.com/books/v1/volumes'
 
-// Mappa categorie Google Books → generi cross-media Geekore
 const GBOOKS_CATEGORY_TO_GENRE: Record<string, string> = {
   'Fantasy':            'Fantasy',
   'Science Fiction':    'Science Fiction',
@@ -48,6 +47,30 @@ function mapCategoriesToGenres(categories: string[]): string[] {
   return [...genres]
 }
 
+async function fetchWithRetry(url: string, retries = 2): Promise<Response | null> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+      if (res.ok) return res
+      if (res.status >= 500 && attempt < retries) {
+        console.log(`[BOOKS] HTTP ${res.status}, retry ${attempt + 1}/${retries}…`)
+        await new Promise(r => setTimeout(r, 800 * (attempt + 1)))
+        continue
+      }
+      console.error(`[BOOKS] HTTP ${res.status} definitivo`)
+      return null
+    } catch (err: any) {
+      if (attempt < retries) {
+        console.log(`[BOOKS] fetch error "${err?.message}", retry ${attempt + 1}/${retries}…`)
+        await new Promise(r => setTimeout(r, 800 * (attempt + 1)))
+      } else {
+        console.error(`[BOOKS] fetch fallito dopo ${retries + 1} tentativi:`, err?.message)
+      }
+    }
+  }
+  return null
+}
+
 export async function GET(request: NextRequest) {
   const rl = rateLimit(request, { limit: 30, windowMs: 60_000, prefix: 'books' })
   if (!rl.ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
@@ -56,85 +79,63 @@ export async function GET(request: NextRequest) {
   if (!q || q.length < 2) return NextResponse.json({ results: [] })
 
   const apiKey = process.env.GOOGLE_BOOKS_API_KEY || ''
+
+  // ── Chiamata API ─────────────────────────────────────────────────────────────
+  // NOTA: langRestrict:it è ignorato da Google per query popolari (vedi log).
+  // Usiamo "lang:it" nel campo q, che è il metodo supportato per filtrare la lingua.
   const params = new URLSearchParams({
-    q,
+    q: `${q} lang:it`,
     maxResults: '40',
     printType: 'books',
-    langRestrict: 'it',
-    hl: 'it',
     orderBy: 'relevance',
   })
   if (apiKey) params.set('key', apiKey)
 
   const fullUrl = `${GOOGLE_BOOKS_BASE}?${params}`
-  console.log(`[BOOKS] ── query: "${q}"`)
-  console.log(`[BOOKS] ── URL: ${fullUrl.replace(apiKey, 'API_KEY')}`)
+  console.log(`[BOOKS] query="${q}" → ${fullUrl.replace(apiKey, 'KEY')}`)
 
-  let rawTotal = 0
   let items: any[] = []
-  try {
-    const res = await fetch(fullUrl, { signal: AbortSignal.timeout(8000) })
-    console.log(`[BOOKS] ── HTTP status: ${res.status}`)
-    if (res.ok) {
-      const data = await res.json()
-      rawTotal = data.totalItems ?? 0
-      items = data.items || []
-      console.log(`[BOOKS] ── totalItems (Google): ${rawTotal}`)
-      console.log(`[BOOKS] ── items ricevuti: ${items.length}`)
-
-      // Log lingua di ogni libro ricevuto
-      const langMap: Record<string, number> = {}
-      items.forEach((item: any) => {
-        const lang = item.volumeInfo?.language ?? '(assente)'
-        langMap[lang] = (langMap[lang] || 0) + 1
-      })
-      console.log(`[BOOKS] ── distribuzione language:`, JSON.stringify(langMap))
-
-      // Log titoli grezzi
-      items.forEach((item: any, i: number) => {
-        console.log(`[BOOKS]   [${i}] lang="${item.volumeInfo?.language ?? 'null'}" title="${item.volumeInfo?.title}"`)
-      })
-    } else {
-      console.error(`[BOOKS] ── API error: HTTP ${res.status}`)
-    }
-  } catch (err: any) {
-    console.error(`[BOOKS] ── fetch exception:`, err?.message)
+  const res = await fetchWithRetry(fullUrl)
+  if (res) {
+    const data = await res.json()
+    items = data.items || []
+    const langs: Record<string, number> = {}
+    items.forEach((i: any) => { const l = i.volumeInfo?.language ?? 'null'; langs[l] = (langs[l] || 0) + 1 })
+    console.log(`[BOOKS] ricevuti=${items.length} langs=${JSON.stringify(langs)}`)
   }
 
-  // ── Filtro lingua ────────────────────────────────────────────────────────────
-  const afterFetch = items.length
-  // Escludi solo libri esplicitamente in inglese — langRestrict:it gestisce il resto
-  items = items.filter((item: any) => item.volumeInfo?.language !== 'en')
-  console.log(`[BOOKS] ── dopo filtro lingua (!= 'en'): ${afterFetch} → ${items.length}`)
+  // ── Filtro lingua ─────────────────────────────────────────────────────────────
+  // Con lang:it nella query, Google dovrebbe restituire solo libri italiani.
+  // Filtriamo per language==='it'; se rimane zero usiamo il fallback !='en'.
+  let filtered = items.filter((i: any) => i.volumeInfo?.language === 'it')
+  console.log(`[BOOKS] dopo filtro language==='it': ${filtered.length}`)
+  if (filtered.length === 0 && items.length > 0) {
+    filtered = items.filter((i: any) => i.volumeInfo?.language !== 'en')
+    console.log(`[BOOKS] fallback language!=='en': ${filtered.length}`)
+  }
+  items = filtered
 
   // ── Filtro titolo ─────────────────────────────────────────────────────────────
-  const afterLang = items.length
   const queryWords = q.toLowerCase().split(/\s+/).filter(w => w.length > 3)
-  console.log(`[BOOKS] ── queryWords (>3 chars):`, queryWords)
   if (queryWords.length > 0) {
+    const before = items.length
     items = items.filter((item: any) => {
       const title = (item.volumeInfo?.title || '').toLowerCase()
-      const pass = queryWords.every(word => title.includes(word))
-      if (!pass) {
-        console.log(`[BOOKS]   SCARTATO titolo="${item.volumeInfo?.title}" — parole mancanti: ${queryWords.filter(w => !title.includes(w)).join(', ')}`)
-      }
-      return pass
+      return queryWords.every(word => title.includes(word))
     })
+    console.log(`[BOOKS] dopo filtro titolo: ${before} → ${items.length}`)
   }
-  console.log(`[BOOKS] ── dopo filtro titolo: ${afterLang} → ${items.length}`)
 
   if (!items.length) {
-    console.log(`[BOOKS] ── ZERO risultati finali, rispondo con []`)
+    console.log(`[BOOKS] ZERO risultati`)
     return NextResponse.json({ results: [] })
   }
 
-  // Normalizza i risultati
   const results = items.slice(0, 20).map((item: any) => {
     const info = item.volumeInfo || {}
     const categories: string[] = info.categories || []
     const genres = mapCategoriesToGenres(categories)
 
-    // Cover: qualità massima disponibile
     const rawCover = info.imageLinks?.extraLarge || info.imageLinks?.large ||
       info.imageLinks?.medium || info.imageLinks?.thumbnail ||
       info.imageLinks?.smallThumbnail || null
@@ -166,6 +167,6 @@ export async function GET(request: NextRequest) {
     }
   }).filter(r => r.title && r.title !== 'Titolo sconosciuto' || r.coverImage)
 
-  console.log(`[BOOKS] ── risultati finali restituiti: ${results.length}`)
+  console.log(`[BOOKS] risultati finali: ${results.length}`)
   return NextResponse.json({ results })
 }
