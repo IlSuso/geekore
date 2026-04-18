@@ -222,7 +222,7 @@ async function fetchAnime(lang: string) {
   } catch { return [] }
 }
 
-async function fetchGaming() {
+async function fetchGaming(lang: string) {
   try {
     const clientId     = process.env.IGDB_CLIENT_ID
     const clientSecret = process.env.IGDB_CLIENT_SECRET
@@ -294,9 +294,11 @@ async function fetchGaming() {
           url: `https://www.igdb.com/games/${g.slug || g.name?.toLowerCase().replace(/\s+/g, '-')}`,
         }
       })
-    const descriptions = mapped.map(g => g.description ?? '')
-    const translated = await translateTexts(descriptions)
-    mapped.forEach((g, i) => { if (g.description) g.description = translated[i] || g.description })
+    if (lang === 'it') {
+      const descriptions = mapped.map(g => g.description ?? '')
+      const translated = await translateTexts(descriptions)
+      mapped.forEach((g, i) => { if (g.description) g.description = translated[i] || g.description })
+    }
     return mapped
   } catch { return [] }
 }
@@ -573,7 +575,7 @@ async function runSync(lang: 'it' | 'en') {
     fetchCinema(lang),
     fetchTV(lang),
     fetchAnime(lang),
-    fetchGaming(),
+    fetchGaming(lang),
     fetchManga(lang),
   ])
 
