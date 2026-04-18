@@ -1506,6 +1506,7 @@ export default function ForYouPage() {
       source: item.id.startsWith('anilist-anime') ? 'anilist'
             : item.id.startsWith('anilist-manga') ? 'anilist'
             : item.id.startsWith('tmdb-') ? 'tmdb'
+            : item.id.startsWith('bgg-') ? 'bgg'
             : item.id.startsWith('igdb-') || /^\d+$/.test(item.id) ? 'igdb'
             : undefined,
     }
@@ -1528,7 +1529,7 @@ export default function ForYouPage() {
     if (res.ok) {
       const json = await res.json()
       const items: Recommendation[] = (json.items || []).filter((r: Recommendation) => r.id !== excludeId)
-      setSimilarSection({ sourceTitle: title, sourceType: 'movie', items })
+      setSimilarSection({ sourceTitle: title, sourceType: (type as MediaType) || 'movie', items })
       window.scrollTo({ top: 0, behavior: 'smooth' })
       if (items.length === 0) showToast('Nessun risultato trovato')
     } else {
