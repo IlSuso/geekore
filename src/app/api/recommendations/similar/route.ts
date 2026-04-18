@@ -510,7 +510,7 @@ export async function GET(request: NextRequest) {
               tags: (g.themes || []).map((t: any) => t.name),
               keywords: (g.keywords || []).map((k: any) => k.name),
               score: g.rating ? Math.min(g.rating / 20, 5) : undefined,
-              description: g.summary ? g.truncateAtSentence(summary, 200) : undefined,
+              description: g.summary ? truncateAtSentence(g.summary, 200) : undefined,
               matchScore: 55 + profileBoost(recGenres),
               why: whyText(recGenres), creatorBoost: developer, _pop: g.rating_count || 0,
             })
@@ -571,7 +571,7 @@ export async function GET(request: NextRequest) {
               coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
               year: m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined,
               genres: recGenres, tags: [],
-              description: m.overview ? m.truncateAtSentence(overview, 200) : undefined,
+              description: m.overview ? truncateAtSentence(m.overview, 200) : undefined,
               score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
               matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
           }
@@ -601,7 +601,7 @@ export async function GET(request: NextRequest) {
                 coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
                 year: m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined,
                 genres: recGenres, tags: [],
-                description: m.overview ? m.truncateAtSentence(overview, 200) : undefined,
+                description: m.overview ? truncateAtSentence(m.overview, 200) : undefined,
                 score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
                 matchScore: 58 + profileBoost(recGenres), why: whyText(recGenres), _pop: m.popularity || 0 })
             }
@@ -666,7 +666,7 @@ export async function GET(request: NextRequest) {
             year: m.release_date ? new Date(m.release_date).getFullYear() : undefined,
             genres: recGenres, keywords: actualKws,
             score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
-            description: m.overview ? m.truncateAtSentence(overview, 200) : undefined,
+            description: m.overview ? truncateAtSentence(m.overview, 200) : undefined,
             matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres),
             _foundByKeyword: kwIdSet.has(m.id), _pop: m.popularity || 0 })
         }
@@ -725,7 +725,7 @@ export async function GET(request: NextRequest) {
             year: m.first_air_date ? new Date(m.first_air_date).getFullYear() : undefined,
             genres: recGenres, keywords: actualKws,
             score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
-            description: m.overview ? m.truncateAtSentence(overview, 200) : undefined,
+            description: m.overview ? truncateAtSentence(m.overview, 200) : undefined,
             episodes: m.number_of_episodes ?? undefined,
             matchScore: 50 + profileBoost(recGenres), why: whyText(recGenres),
             _foundByKeyword: kwIdSetTv.has(m.id), _pop: m.popularity || 0 })

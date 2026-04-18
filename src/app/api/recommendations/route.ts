@@ -2544,7 +2544,7 @@ async function fetchGameRecs(
           tags: (g.themes || []).map((t: any) => t.name),
           keywords: (g.keywords || []).map((k: any) => k.name).slice(0, 20),
           score: g.rating ? Math.min(Math.round(g.rating) / 20, 5) : undefined,
-          description: g.summary ? g.truncateAtSentence(summary, 300) : undefined,
+          description: g.summary ? truncateAtSentence(g.summary, 300) : undefined,
           why: buildWhyV3(recGenres, recId, g.name, tasteProfile, matchScore, slot.isDiscovery, {
             recDeveloper: developer, creatorBoost
           }),
