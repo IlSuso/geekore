@@ -135,3 +135,39 @@ ALTER TABLE boardgames_cache ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Boardgames cache readable by all" ON boardgames_cache;
 CREATE POLICY "Boardgames cache readable by all"
   ON boardgames_cache FOR SELECT USING (true);
+
+-- ── SEARCH_HISTORY ───────────────────────────────────────────
+ALTER TABLE search_history ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can manage own search history" ON search_history;
+CREATE POLICY "Users can manage own search history"
+  ON search_history FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- ── RECOMMENDATIONS_POOL ─────────────────────────────────────
+ALTER TABLE recommendations_pool ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can manage own recommendations pool" ON recommendations_pool;
+CREATE POLICY "Users can manage own recommendations pool"
+  ON recommendations_pool FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- ── RECOMMENDATIONS_SHOWN ────────────────────────────────────
+ALTER TABLE recommendations_shown ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can manage own shown recommendations" ON recommendations_shown;
+CREATE POLICY "Users can manage own shown recommendations"
+  ON recommendations_shown FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- ── RECOMMENDATION_FEEDBACK ──────────────────────────────────
+ALTER TABLE recommendation_feedback ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can manage own recommendation feedback" ON recommendation_feedback;
+CREATE POLICY "Users can manage own recommendation feedback"
+  ON recommendation_feedback FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);

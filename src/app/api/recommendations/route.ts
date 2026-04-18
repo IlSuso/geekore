@@ -1037,6 +1037,9 @@ function computeTasteProfile(
     for (const genre of genres) {
       if (isNegative) {
         addNegative(genre, baseWeight * temporal * 0.8, type)
+        if (entry.status === 'dropped') {
+          droppedGenreCounts[genre] = (droppedGenreCounts[genre] || 0) + 1
+        }
       } else {
         addScore(genre, weight, type, title, recency, rating, velocity)
       }
