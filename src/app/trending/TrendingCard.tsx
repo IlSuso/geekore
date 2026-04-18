@@ -11,17 +11,16 @@ const TYPE_COLOR: Record<string, string> = {
   game: 'bg-green-500',
   tv: 'bg-purple-500',
   movie: 'bg-red-500',
-  boardgame: 'bg-yellow-500',
 }
 
 const TYPE_ICON: Record<string, React.ElementType> = {
   anime: Film, manga: BookOpen, game: Gamepad2,
-  tv: Tv, movie: Film, boardgame: Dices,
+  tv: Tv, movie: Film,
 }
 
 const TYPE_LABEL: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', game: 'Gioco',
-  tv: 'Serie TV', movie: 'Film', boardgame: 'Board Game',
+  tv: 'Serie TV', movie: 'Film',
 }
 
 export function TrendingCard({ item, rank }: { item: TrendingItem; rank: number }) {

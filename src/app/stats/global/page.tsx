@@ -102,10 +102,10 @@ async function getGlobalStats() {
 
 const TYPE_COLOR: Record<string, string> = {
   anime: 'bg-sky-500', manga: 'bg-orange-500', game: 'bg-green-500',
-  tv: 'bg-purple-500', movie: 'bg-red-500', boardgame: 'bg-yellow-500',
+  tv: 'bg-purple-500', movie: 'bg-red-500',
 }
 const TYPE_LABEL: Record<string, string> = {
-  anime: 'Anime', manga: 'Manga', game: 'Gioco', tv: 'Serie TV', movie: 'Film', boardgame: 'Board Game',
+  anime: 'Anime', manga: 'Manga', game: 'Gioco', tv: 'Serie TV', movie: 'Film',
 }
 
 function StatCard({ label, value, sub, icon: Icon, color }: {
@@ -159,21 +159,19 @@ export default async function GlobalStatsPage() {
           <StatCard label="Ep. anime guardati" value={formatNumber(stats.animeEps)} sub={`≈ ${formatNumber(stats.animeHours)} ore`} icon={Tv} color="bg-sky-600" />
           <StatCard label="Ore Steam" value={formatNumber(stats.gameHours)} icon={Gamepad2} color="bg-green-600" />
           <StatCard label="Film visti" value={formatNumber(stats.movieCount)} icon={Film} color="bg-red-600" />
-          <StatCard label="Board game in collezione" value={formatNumber(stats.boardgameCount)} sub={`≈ ${formatNumber(stats.boardgameHours)} ore stimate`} icon={Dices} color="bg-yellow-600" />
         </div>
 
         {/* Ore per tipo */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 mb-8">
           <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-widest mb-5">Ore per categoria</h2>
           {(() => {
-            const maxH = Math.max(stats.animeHours, stats.gameHours, stats.tvHours, stats.movieHours, stats.mangaHours, stats.boardgameHours) || 1
+            const maxH = Math.max(stats.animeHours, stats.gameHours, stats.tvHours, stats.movieHours, stats.mangaHours) || 1
             return [
               { label: 'Anime', hours: stats.animeHours, color: 'bg-sky-500' },
               { label: 'Videogiochi (Steam)', hours: stats.gameHours, color: 'bg-green-500' },
               { label: 'Serie TV', hours: stats.tvHours, color: 'bg-purple-500' },
               { label: 'Film', hours: stats.movieHours, color: 'bg-red-500' },
               { label: 'Manga', hours: stats.mangaHours, color: 'bg-orange-500' },
-              { label: 'Board Game', hours: stats.boardgameHours, color: 'bg-yellow-500' },
             ].map(({ label, hours, color }) => ({ label, hours, color, max: maxH }))
           })().map(({ label, hours, color, max }) => (
             <div key={label} className="mb-4 last:mb-0">

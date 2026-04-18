@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Zap, Gamepad2, BookOpen, Film, Tv, Dices, Search, ChevronRight, Check } from 'lucide-react'
+import { Zap, Gamepad2, BookOpen, Film, Tv, Search, ChevronRight, Check } from 'lucide-react'
 import { SteamIcon } from '@/components/icons/SteamIcon'
 
 const STEPS = [
@@ -19,7 +19,6 @@ const MEDIA_TYPES = [
   { id: 'game', label: 'Videogiochi', icon: Gamepad2, color: 'bg-green-500/20 border-green-500/50 text-green-300' },
   { id: 'tv', label: 'Serie TV', icon: Tv, color: 'bg-purple-500/20 border-purple-500/50 text-purple-300' },
   { id: 'movie', label: 'Film', icon: Film, color: 'bg-red-500/20 border-red-500/50 text-red-300' },
-  { id: 'boardgame', label: 'Board Game', icon: Dices, color: 'bg-yellow-500/20 border-yellow-500/50 text-yellow-300' },
 ]
 
 export default function OnboardingPage() {

@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const displayName = profile?.display_name || profile?.username || username
   const initial = displayName[0]?.toUpperCase() || '?'
 
-  let animeCount = 0, gameCount = 0, mangaCount = 0, movieCount = 0, tvCount = 0, boardgameCount = 0, steamHours = 0
+  let animeCount = 0, gameCount = 0, mangaCount = 0, movieCount = 0, tvCount = 0, steamHours = 0
 
   if (profile?.id) {
     const { data: entries } = await supabase.from('user_media_entries').select('type, current_episode, is_steam, status').eq('user_id', profile.id)
@@ -27,7 +27,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       if (e.type === 'manga') mangaCount++
       if (e.type === 'movie') movieCount++
       if (e.type === 'tv') tvCount++
-      if (e.type === 'boardgame') boardgameCount++
     }
   }
 
@@ -37,7 +36,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     { label: 'Manga', value: mangaCount, color: '#fb923c' },
     { label: 'Film', value: movieCount, color: '#f87171' },
     { label: 'Serie TV', value: tvCount, color: '#a78bfa' },
-    { label: 'Board Game', value: boardgameCount, color: '#fcd34d' },
     ...(steamHours > 0 ? [{ label: 'Ore Steam', value: steamHours + 'h', color: '#66C0F4' }] : []),
   ].filter(s => (typeof s.value === 'number' ? s.value > 0 : true))
 

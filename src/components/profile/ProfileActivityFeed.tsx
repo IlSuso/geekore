@@ -12,7 +12,6 @@ const TYPE_COLORS: Record<string, string> = {
   game: 'bg-green-500',
   tv: 'bg-purple-500',
   movie: 'bg-red-500',
-  boardgame: 'bg-yellow-500',
 }
 
 const TYPE_LABELS: Record<string, string> = {

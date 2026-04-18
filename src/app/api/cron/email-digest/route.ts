@@ -54,7 +54,7 @@ function buildDigestHtml(params: {
 }): string {
   const { displayName, topGenres, completedCount, completedTitles, trendingInTaste, friendsActivity, unsubscribeUrl } = params
 
-  const typeEmoji: Record<string, string> = { anime: '📺', manga: '📚', game: '🎮', movie: '🎬', tv: '📡', boardgame: '🎲' }
+  const typeEmoji: Record<string, string> = { anime: '📺', manga: '📚', game: '🎮', movie: '🎬', tv: '📡' }
 
   const completedSection = completedTitles.length > 0 ? `
     <div style="margin-bottom:24px;">
