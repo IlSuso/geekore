@@ -237,17 +237,25 @@ const BGG_CAT_TO_GENRE: Record<string, string> = {
 function parseBggXml(xml: string) {
   const decode = (s: string) =>
     s.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
-     .replace(/&#10;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim()
+     .replace(/&#10;/g, '\n').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+     .replace(/&ldquo;/g, '"').replace(/&rdquo;/g, '"')
+     .replace(/&lsquo;/g, "'").replace(/&rsquo;/g, "'")
+     .replace(/&mdash;/g, '—').replace(/&ndash;/g, '–')
+     .replace(/&hellip;/g, '…').replace(/&nbsp;/g, ' ')
+     .replace(/&#\d+;/g, '').trim()
 
   return [...xml.matchAll(/<item[^>]+id="(\d+)"[^>]*>([\s\S]*?)<\/item>/g)].flatMap(([, id, body]) => {
     const name = body.match(/<name[^>]+type="primary"[^>]+value="([^"]+)"/)?.[1]
     if (!name) return []
+    const rawImg = body.match(/<image>([\s\S]*?)<\/image>/)?.[1]?.trim()
+    const rawThumb = body.match(/<thumbnail>([\s\S]*?)<\/thumbnail>/)?.[1]?.trim()
+    const rawCover = rawImg || rawThumb
     return [{
       id,
       name: decode(name),
       year:      parseInt(body.match(/<yearpublished[^>]+value="(\d+)"/)?.[1] || '') || undefined,
-      thumbnail: body.match(/<thumbnail>([\s\S]*?)<\/thumbnail>/)?.[1]?.trim(),
-      description: decode((body.match(/<description>([\s\S]*?)<\/description>/)?.[1] || '').replace(/<[^>]*>/g, '').slice(0, 200)),
+      thumbnail: rawCover ? (rawCover.startsWith('//') ? `https:${rawCover}` : rawCover) : undefined,
+      description: decode((body.match(/<description>([\s\S]*?)<\/description>/)?.[1] || '').replace(/<[^>]*>/g, '').slice(0, 400)),
       categories: [...body.matchAll(/<link type="boardgamecategory"[^>]+value="([^"]+)"/g)].map(m => m[1]),
       mechanics:  [...body.matchAll(/<link type="boardgamemechanic"[^>]+value="([^"]+)"/g)].map(m => m[1]),
       rating:    parseFloat(body.match(/<average[^>]+value="([0-9.]+)"/)?.[1] || '') || undefined,
@@ -864,7 +872,7 @@ export async function GET(request: NextRequest) {
         const recGenres = g.categories.map(c => BGG_CAT_TO_GENRE[c]).filter(Boolean) as string[]
         add({
           id: `bgg-${g.id}`, title: g.name, type: 'boardgame',
-          coverImage: g.thumbnail ? (g.thumbnail.startsWith('//') ? `https:${g.thumbnail}` : g.thumbnail) : undefined,
+          coverImage: g.thumbnail || undefined,
           year: g.year, genres: recGenres.length > 0 ? recGenres : ['Strategy'],
           tags: g.mechanics, keywords: g.categories.map(c => c.toLowerCase()),
           score: g.rating ? Math.min(g.rating / 2, 5) : undefined,
