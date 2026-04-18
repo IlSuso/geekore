@@ -91,35 +91,42 @@ export async function GET(request: NextRequest) {
   console.log(`[BOOKS] query="${q}"`)
   let items: any[] = []
 
-  // Chiamata principale: intitle + langRestrict=it
+  // Chiamata principale: intitle:"query" + langRestrict=it + maxResults=40
+  // NON filtriamo per language==='it' dopo: langRestrict già fa il lavoro,
+  // e molte edizioni italiane hanno language='und' o null (verrebbero perse).
   const p1 = new URLSearchParams({ q: `intitle:"${q}"`, maxResults: '40', printType: 'books', langRestrict: 'it', orderBy: 'relevance' })
   if (apiKey) p1.set('key', apiKey)
   const r1 = await fetchWithRetry(`${GOOGLE_BOOKS_BASE}?${p1}`)
   if (r1) {
     const data = await r1.json()
-    const raw: any[] = data.items || []
-    const italian = raw.filter((i: any) => i.volumeInfo?.language === 'it')
+    items = data.items || []
     const langs: Record<string, number> = {}
-    raw.forEach((i: any) => { const l = i.volumeInfo?.language ?? 'null'; langs[l] = (langs[l] || 0) + 1 })
-    console.log(`[BOOKS] intitle+langRestrict:it → raw=${raw.length} langs=${JSON.stringify(langs)} it=${italian.length}`)
-    items = italian
+    items.forEach((i: any) => { const l = i.volumeInfo?.language ?? 'null'; langs[l] = (langs[l] || 0) + 1 })
+    console.log(`[BOOKS] intitle+langRestrict:it → raw=${items.length} langs=${JSON.stringify(langs)}`)
   }
 
-  // Fallback: query senza intitle + langRestrict=it (se intitle non trova nulla)
+  // Fallback: senza intitle se 0 risultati
   if (items.length === 0) {
     const p2 = new URLSearchParams({ q, maxResults: '40', printType: 'books', langRestrict: 'it', orderBy: 'relevance' })
     if (apiKey) p2.set('key', apiKey)
     const r2 = await fetchWithRetry(`${GOOGLE_BOOKS_BASE}?${p2}`)
     if (r2) {
       const data = await r2.json()
-      const raw: any[] = data.items || []
-      const italian = raw.filter((i: any) => i.volumeInfo?.language === 'it')
+      items = data.items || []
       const langs: Record<string, number> = {}
-      raw.forEach((i: any) => { const l = i.volumeInfo?.language ?? 'null'; langs[l] = (langs[l] || 0) + 1 })
-      console.log(`[BOOKS] fallback langRestrict:it → raw=${raw.length} langs=${JSON.stringify(langs)} it=${italian.length}`)
-      items = italian.length > 0 ? italian : raw
+      items.forEach((i: any) => { const l = i.volumeInfo?.language ?? 'null'; langs[l] = (langs[l] || 0) + 1 })
+      console.log(`[BOOKS] fallback langRestrict:it → raw=${items.length} langs=${JSON.stringify(langs)}`)
     }
   }
+
+  // Deduplicazione per titolo: rimuove edizioni multiple dello stesso libro
+  const seenTitles = new Set<string>()
+  items = items.filter((item: any) => {
+    const t = (item.volumeInfo?.title || '').toLowerCase().trim()
+    if (!t || seenTitles.has(t)) return false
+    seenTitles.add(t)
+    return true
+  })
 
   // ── Filtro titolo ─────────────────────────────────────────────────────────────
   // Tutte le parole della query devono apparire nel titolo (nessun limite di lunghezza)
