@@ -450,6 +450,11 @@ function mapBggCategories(categories: string[]): string[] {
   return Array.from(genres)
 }
 
+function bggHeaders(): HeadersInit {
+  const token = process.env.BGG_BEARER_TOKEN
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 async function bggGet(url: string, retries = 4, retryDelay = 3000): Promise<string | null> {
   logger.info(`[BGG:bggGet] START url=${url} retries=${retries} retryDelay=${retryDelay}ms`)
   for (let i = 0; i < retries; i++) {
@@ -460,7 +465,7 @@ async function bggGet(url: string, retries = 4, retryDelay = 3000): Promise<stri
     const t0 = Date.now()
     try {
       logger.info(`[BGG:bggGet] attempt ${i + 1}/${retries} fetching...`)
-      const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(8000) })
+      const res = await fetch(url, { cache: 'no-store', headers: bggHeaders(), signal: AbortSignal.timeout(15000) })
       const elapsed = Date.now() - t0
       logger.info(`[BGG:bggGet] attempt ${i + 1} → HTTP ${res.status} in ${elapsed}ms`)
       if (res.status === 202) {
@@ -643,6 +648,7 @@ async function fetchBoardgameNews(lang: string): Promise<any[]> {
 }
 
 async function runSync(lang: 'it' | 'en') {
+  logger.info(`[runSync] START lang=${lang} at ${new Date().toISOString()}`)
   const supabase = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -651,6 +657,7 @@ async function runSync(lang: 'it' | 'en') {
   const suffix = `_${lang}`
 
   // ── Step 1: fast fetchers in parallel ─────────────────────────────────────
+  logger.info(`[runSync] launching fast fetchers in parallel`)
   const [cinema, tv, anime, gaming, manga] = await Promise.all([
     fetchCinema(lang),
     fetchTV(lang),
@@ -668,6 +675,8 @@ async function runSync(lang: 'it' | 'en') {
     supabase.from('news_cache').upsert({ category: `gaming${suffix}`,    data: gaming,    updated_at: now }, { onConflict: 'category' }),
     supabase.from('news_cache').upsert({ category: `manga${suffix}`,     data: manga,     updated_at: now }, { onConflict: 'category' }),
   ])
+
+  logger.info(`[runSync] fast fetchers done: cinema=${cinema.length} tv=${tv.length} anime=${anime.length} gaming=${gaming.length} manga=${manga.length}`)
 
   // ── Step 2: BGG runs sequentially after, with full remaining time budget ──
   // BGG /xmlapi2/thing requires 202-retry (by design). Running it in parallel
