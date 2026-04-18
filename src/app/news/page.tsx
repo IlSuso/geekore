@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Gamepad2, Film, Tv, BookOpen, Loader2, CalendarDays, RefreshCw, Swords } from 'lucide-react'
+import { Gamepad2, Film, Tv, BookOpen, Loader2, CalendarDays, RefreshCw, Swords, Dices } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
+import { translateGenre } from '@/lib/genres'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
@@ -14,7 +15,7 @@ const NEWS_CACHE_TTL = 5 * 60 * 1000
 type UpcomingItem = {
   id?: string
   type?: string
-  source_api?: 'tmdb' | 'anilist' | 'igdb'
+  source_api?: 'tmdb' | 'anilist' | 'igdb' | 'bgg'
   title: string
   description?: string
   coverImage?: string
@@ -26,8 +27,9 @@ type UpcomingItem = {
   studios?: string[]
   developers?: string[]
   original_language?: string
-  category: 'gaming' | 'cinema' | 'anime' | 'tv'
+  category: 'gaming' | 'cinema' | 'anime' | 'tv' | 'manga' | 'boardgame'
   source: string
+  url?: string
   nextEpisode?: number
   platforms?: string[]
   duration?: number
@@ -40,13 +42,17 @@ type UpcomingItem = {
   playing_time?: number
   cast?: string[]
   watchProviders?: string[]
+  nextEpisodeDate?: string
+  italianSupportTypes?: string[]
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  cinema: 'bg-red-600 text-white',
-  tv:     'bg-purple-600 text-white',
-  anime:  'bg-orange-500 text-white',
-  gaming: 'bg-emerald-600 text-white',
+  cinema:    'bg-red-600 text-white',
+  tv:        'bg-purple-600 text-white',
+  anime:     'bg-orange-500 text-white',
+  gaming:    'bg-emerald-600 text-white',
+  manga:     'bg-pink-600 text-white',
+  boardgame: 'bg-yellow-600 text-white',
 }
 
 function formatDate(dateStr?: string, locale?: string) {
@@ -60,6 +66,7 @@ function formatDate(dateStr?: string, locale?: string) {
 
 function toMediaDetails(item: UpcomingItem): MediaDetails | null {
   if (!item.id || !item.type) return null
+  const isManga = item.category === 'manga'
   return {
     id: item.id,
     title: item.title,
@@ -71,7 +78,8 @@ function toMediaDetails(item: UpcomingItem): MediaDetails | null {
     score: item.score,
     episodes: item.episodes,
     studios: item.studios,
-    developers: item.developers,
+    authors: isManga ? item.developers : undefined,
+    developers: isManga ? undefined : item.developers,
     directors: item.directors,
     cast: item.cast,
     platforms: item.platforms,
@@ -81,7 +89,8 @@ function toMediaDetails(item: UpcomingItem): MediaDetails | null {
     totalSeasons: item.totalSeasons,
     seasons: item.seasons,
     watchProviders: item.watchProviders,
-    // source non passato intenzionalmente: sopprime il link esterno nel drawer
+    italianSupportTypes: item.italianSupportTypes,
+    externalUrl: item.url,
   }
 }
 
@@ -96,25 +105,31 @@ export default function NewsPage() {
   const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null)
 
   const CATEGORIES = [
-    { id: 'all',    label: t.news.all,    icon: null      },
-    { id: 'cinema', label: t.news.cinema, icon: Film      },
-    { id: 'tv',     label: t.news.tv,     icon: Tv        },
-    { id: 'anime',  label: t.news.anime,  icon: BookOpen  },
-    { id: 'gaming', label: t.news.gaming, icon: Gamepad2  },
+    { id: 'all',       label: t.news.all,       icon: null      },
+    { id: 'cinema',    label: t.news.cinema,    icon: Film      },
+    { id: 'tv',        label: t.news.tv,        icon: Tv        },
+    { id: 'anime',     label: t.news.anime,     icon: BookOpen  },
+    { id: 'manga',     label: t.news.manga,     icon: Swords    },
+    { id: 'gaming',    label: t.news.gaming,    icon: Gamepad2  },
+    { id: 'boardgame', label: t.news.boardgame, icon: Dices     },
   ]
 
   const CATEGORY_LABELS: Record<string, string> = {
-    cinema: t.news.cinema,
-    tv:     t.news.tv,
-    anime:  t.news.anime,
-    gaming: t.news.gaming,
+    cinema:    t.news.cinema,
+    tv:        t.news.tv,
+    anime:     t.news.anime,
+    manga:     t.news.manga,
+    gaming:    t.news.gaming,
+    boardgame: t.news.boardgame,
   }
 
   const CATEGORY_ICONS: Record<string, React.ElementType> = {
-    cinema: Film,
-    tv:     Tv,
-    anime:  Swords,
-    gaming: Gamepad2,
+    cinema:    Film,
+    tv:        Tv,
+    anime:     Swords,
+    manga:     BookOpen,
+    gaming:    Gamepad2,
+    boardgame: Dices,
   }
 
   const fetchItems = async (cat: string, forceRefresh = false) => {
@@ -131,7 +146,7 @@ export default function NewsPage() {
     setLoading(true)
     setFetchError(false)
     try {
-      const res = await fetch(`/api/news?cat=${cat}&lang=${locale}`)
+      const res = await fetch(`/api/news?cat=${cat}&lang=${locale}`, { cache: 'no-store' })
       if (!res.ok) {
         setFetchError(true)
         setItems([])
@@ -278,13 +293,24 @@ export default function NewsPage() {
                       <div className="flex flex-wrap gap-1">
                         {item.genres.slice(0, 2).map(g => (
                           <span key={g} className="text-[9px] px-1.5 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">
-                            {g}
+                            {translateGenre(g)}
                           </span>
                         ))}
                       </div>
                     )}
+                    {item.category === 'gaming' && item.italianSupportTypes && item.italianSupportTypes.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-[9px] text-zinc-500">🇮🇹</span>
+                        <span className="text-[9px] text-zinc-500">{item.italianSupportTypes.join(' · ')}</span>
+                      </div>
+                    )}
                     <div className="mt-auto pt-1">
-                      {item.date ? (
+                      {item.nextEpisodeDate ? (
+                        <div className="flex items-center gap-1 text-[11px] text-violet-400 font-medium">
+                          <CalendarDays size={10} />
+                          {formatDate(item.nextEpisodeDate, locale)}
+                        </div>
+                      ) : item.date ? (
                         <div className="flex items-center gap-1 text-[11px] text-zinc-400 font-medium">
                           <CalendarDays size={10} />
                           {formatDate(item.date, locale)}

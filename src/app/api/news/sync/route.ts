@@ -1,6 +1,8 @@
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { parseStringPromise } from 'xml2js'
+import { translateTexts } from '@/lib/deepl'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -203,7 +205,7 @@ async function fetchAnime(lang: string) {
   } catch { return [] }
 }
 
-async function fetchGaming() {
+async function fetchGaming(lang: string) {
   try {
     const clientId     = process.env.IGDB_CLIENT_ID
     const clientSecret = process.env.IGDB_CLIENT_SECRET
@@ -241,7 +243,7 @@ async function fetchGaming() {
     })
     if (!res.ok) return []
     const games = await res.json()
-    return (Array.isArray(games) ? games : [])
+    const mapped = (Array.isArray(games) ? games : [])
       .filter((g: any) => g.cover?.url)
       .map((g: any) => {
         const releaseDate = g.first_release_date
@@ -270,7 +272,249 @@ async function fetchGaming() {
           url: `https://www.igdb.com/games/${g.slug || g.name?.toLowerCase().replace(/\s+/g, '-')}`,
         }
       })
+    if (lang === 'it') {
+      const descriptions = mapped.map(g => g.description ?? '')
+      const translated = await translateTexts(descriptions)
+      mapped.forEach((g, i) => { if (g.description) g.description = translated[i] || g.description })
+    }
+    return mapped
   } catch { return [] }
+}
+
+// ── Manga (AniList) ───────────────────────────────────────────────────────────
+
+const ANILIST_URL = 'https://graphql.anilist.co'
+
+async function fetchManga(lang: string): Promise<any[]> {
+  const toFuzzy = (d: Date) =>
+    d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate()
+
+  const now    = new Date()
+  const plus60 = new Date(now); plus60.setDate(now.getDate() + 60)
+  const minus60 = new Date(now); minus60.setDate(now.getDate() - 60)
+  const plus60Int  = toFuzzy(plus60)
+  const minus60Int = toFuzzy(minus60)
+
+  const mediaFields = `
+    id siteUrl format
+    title { romaji english }
+    coverImage { extraLarge large }
+    startDate { year month day }
+    description(asHtml: false)
+    genres averageScore chapters volumes
+    staff(sort: [RELEVANCE], page: 1, perPage: 3) { nodes { name { full } } }
+    studios(isMain: true) { nodes { name } }
+  `
+
+  const query = `
+    query {
+      upcoming: Page(page: 1, perPage: 10) {
+        media(type: MANGA, status: NOT_YET_RELEASED, sort: [START_DATE], isAdult: false,
+              format_not_in: [NOVEL], startDate_lesser: ${plus60Int}) {
+          ${mediaFields}
+        }
+      }
+      trending: Page(page: 1, perPage: 20) {
+        media(type: MANGA, status: RELEASING, sort: [TRENDING_DESC], isAdult: false,
+              format_not_in: [NOVEL], startDate_greater: ${minus60Int}) {
+          ${mediaFields}
+        }
+      }
+      popular: Page(page: 1, perPage: 10) {
+        media(type: MANGA, status: RELEASING, sort: [POPULARITY_DESC], isAdult: false,
+              format_not_in: [NOVEL]) {
+          ${mediaFields}
+        }
+      }
+    }
+  `
+  try {
+    const res = await fetch(ANILIST_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!res.ok) return []
+    const json = await res.json()
+    if (json.errors) {
+      logger.error('[fetchManga] AniList GraphQL errors:', json.errors)
+      return []
+    }
+
+    const upcoming: any[] = (json.data?.upcoming?.media || []).filter((m: any) => m.startDate?.year)
+    const trending: any[] = json.data?.trending?.media || []
+    const popular: any[] = json.data?.popular?.media || []
+
+    const isRealCover = (url?: string) => !!url && !url.includes('default')
+    const seen = new Set<number>()
+    const all: any[] = []
+    for (const m of [...upcoming, ...trending, ...popular]) {
+      const img = m.coverImage?.extraLarge || m.coverImage?.large
+      if (!seen.has(m.id) && isRealCover(img)) {
+        seen.add(m.id)
+        all.push(m)
+      }
+      if (all.length >= 20) break
+    }
+
+    const mapped = all.map((m: any) => {
+      const sd = m.startDate
+      const date = sd?.year
+        ? `${sd.year}-${String(sd.month || 1).padStart(2, '0')}-${String(sd.day || 1).padStart(2, '0')}`
+        : null
+      const authors = (m.staff?.nodes || []).map((s: any) => s.name?.full).filter(Boolean)
+      const publishers = (m.studios?.nodes || []).map((s: any) => s.name).filter(Boolean)
+      return {
+        id: `anilist-manga-${m.id}`,
+        type: 'manga',
+        source_api: 'anilist',
+        title: m.title?.english || m.title?.romaji || 'Senza titolo',
+        description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 500) : null,
+        coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
+        date,
+        year: sd?.year || undefined,
+        genres: m.genres || [],
+        score: m.averageScore ? Math.round(m.averageScore / 20) / 10 : undefined,
+        episodes: m.chapters || undefined,
+        developers: authors.length ? authors : undefined,
+        studios: publishers.length ? publishers : undefined,
+        category: 'manga',
+        source: 'AniList',
+        url: m.siteUrl || `https://anilist.co/manga/${m.id}`,
+      }
+    })
+
+    if (lang === 'it') {
+      const descriptions = mapped.map(m => m.description ?? '')
+      const translated = await translateTexts(descriptions)
+      mapped.forEach((m, i) => { if (m.description) m.description = translated[i] || m.description })
+    }
+
+    return mapped
+  } catch (err) {
+    logger.error('[fetchManga] error:', err)
+    return []
+  }
+}
+
+// ── BGG helpers ───────────────────────────────────────────────────────────────
+
+async function bggFetchSync(url: string, signal?: AbortSignal): Promise<string | null> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 800))
+    try {
+      const res = await fetch(url, {
+        cache: 'no-store',
+        signal: signal ?? AbortSignal.timeout(5000),
+      })
+      if (res.status === 202) continue
+      if (!res.ok) return null
+      const text = await res.text()
+      if (!text.trim().startsWith('<')) return null
+      return text
+    } catch { if (attempt === 2) return null }
+  }
+  return null
+}
+
+function mapBggCategories(categories: string[]): string[] {
+  const map: Record<string, string> = {
+    Fantasy: 'Fantasy', 'Science Fiction': 'Science Fiction', Horror: 'Horror',
+    Medieval: 'Medieval', Adventure: 'Adventure', Fighting: 'Fighting',
+    Deduction: 'Mystery', 'Murder/Mystery': 'Mystery', 'Thriller/Suspense': 'Thriller',
+    Humor: 'Comedy', Wargame: 'War', 'World War II': 'War', Historical: 'History',
+    Economic: 'Strategy', 'Card Game': 'Card Game', 'Abstract Strategy': 'Abstract',
+    'Cooperative Game': 'Cooperative', 'Party Game': 'Party', Family: 'Family',
+    Sports: 'Sports', Exploration: 'Adventure', Civilization: 'Strategy',
+    'Space Exploration': 'Science Fiction', Zombies: 'Horror', Mythology: 'Fantasy',
+  }
+  const genres = new Set<string>()
+  for (const cat of categories) { const m = map[cat]; if (m) genres.add(m) }
+  return Array.from(genres)
+}
+
+async function fetchBoardgameNews(lang: string): Promise<any[]> {
+  const ctrl = new AbortController()
+  const budget = setTimeout(() => ctrl.abort(), 12_000)
+  try {
+    const hotXml = await bggFetchSync('https://boardgamegeek.com/xmlapi2/hot?type=boardgame', ctrl.signal)
+    if (!hotXml) return []
+
+    const hotResult = await parseStringPromise(hotXml)
+    const hotItems: any[] = hotResult?.items?.item || []
+
+    const currentYear = new Date().getFullYear()
+    const recent = hotItems.filter((item: any) => {
+      const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : 0
+      return year >= currentYear - 2
+    })
+    const candidates = recent.length >= 10 ? recent : hotItems
+    const ids = candidates.slice(0, 20).map((i: any) => i.$.id)
+    if (ids.length === 0) return []
+
+    await new Promise(r => setTimeout(r, 300))
+    const detailXml = await bggFetchSync(
+      `https://boardgamegeek.com/xmlapi2/thing?id=${ids.join(',')}&type=boardgame&stats=1`,
+      ctrl.signal,
+    )
+    if (!detailXml) return []
+
+    const detailResult = await parseStringPromise(detailXml)
+    const detailItems: any[] = detailResult?.items?.item || []
+
+    const mapped = detailItems.map((item: any) => {
+      const id = item.$.id
+      const nameEl = (item.name || []).find((n: any) => n.$.type === 'primary')
+      const title = nameEl?.$.value || 'Senza titolo'
+
+      const rawImg = item.image?.[0]?.trim?.() || item.thumbnail?.[0]?.trim?.() || null
+      const coverImage = rawImg ? (rawImg.startsWith('http') ? rawImg : `https:${rawImg}`) : null
+      if (!coverImage) return null
+
+      const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : undefined
+      const description = item.description?.[0]
+        ? item.description[0].replace(/&#10;/g, ' ').replace(/&amp;/g, '&').replace(/<[^>]+>/g, '').slice(0, 500)
+        : null
+
+      const links: any[] = item.link || []
+      const cats = links.filter((l: any) => l.$.type === 'boardgamecategory').map((l: any) => l.$.value).filter(Boolean)
+      const mechanics = links.filter((l: any) => l.$.type === 'boardgamemechanic').map((l: any) => l.$.value).filter(Boolean).slice(0, 5)
+      const designers = links.filter((l: any) => l.$.type === 'boardgamedesigner').map((l: any) => l.$.value).filter(Boolean)
+      const publishers = links.filter((l: any) => l.$.type === 'boardgamepublisher').map((l: any) => l.$.value).filter(Boolean).slice(0, 3)
+      const playingTime = item.playingtime?.[0]?.$?.value ? parseInt(item.playingtime[0].$.value) : undefined
+      const bggRating = item.statistics?.[0]?.ratings?.[0]?.average?.[0]?.$?.value
+        ? parseFloat(item.statistics[0].ratings[0].average[0].$.value) : undefined
+
+      return {
+        id: `bgg-${id}`,
+        type: 'boardgame',
+        source_api: 'bgg',
+        title,
+        description,
+        coverImage,
+        date: year ? `${year}-01-01` : undefined,
+        year,
+        genres: mapBggCategories(cats),
+        score: bggRating ? Math.round(bggRating * 10) / 10 : undefined,
+        developers: designers.length ? designers : undefined,
+        studios: publishers.length ? publishers : undefined,
+        mechanics: mechanics.length ? mechanics : undefined,
+        playing_time: playingTime || undefined,
+        category: 'boardgame',
+        source: 'BGG',
+        url: `https://boardgamegeek.com/boardgame/${id}`,
+      }
+    }).filter(Boolean)
+
+    if (lang === 'it') {
+      const descriptions = mapped.map((m: any) => m.description ?? '')
+      const translated = await translateTexts(descriptions)
+      mapped.forEach((m: any, i: number) => { if (m.description) m.description = translated[i] || m.description })
+    }
+
+    return mapped
+  } catch { return [] } finally { clearTimeout(budget) }
 }
 
 // ── Route handler ─────────────────────────────────────────────────────────────
@@ -283,23 +527,27 @@ async function runSync(lang: 'it' | 'en') {
 
   const suffix = `_${lang}`
 
-  const [cinema, tv, anime, gaming] = await Promise.all([
+  const [cinema, tv, anime, gaming, manga, boardgame] = await Promise.all([
     fetchCinema(lang),
     fetchTV(lang),
     fetchAnime(lang),
-    fetchGaming(),
+    fetchGaming(lang),
+    fetchManga(lang),
+    fetchBoardgameNews(lang),
   ])
 
   const now = new Date().toISOString()
 
   await Promise.all([
-    supabase.from('news_cache').upsert({ category: `cinema${suffix}`, data: cinema, updated_at: now }, { onConflict: 'category' }),
-    supabase.from('news_cache').upsert({ category: `tv${suffix}`,     data: tv,     updated_at: now }, { onConflict: 'category' }),
-    supabase.from('news_cache').upsert({ category: `anime${suffix}`,  data: anime,  updated_at: now }, { onConflict: 'category' }),
-    supabase.from('news_cache').upsert({ category: `gaming${suffix}`, data: gaming, updated_at: now }, { onConflict: 'category' }),
+    supabase.from('news_cache').upsert({ category: `cinema${suffix}`,    data: cinema,    updated_at: now }, { onConflict: 'category' }),
+    supabase.from('news_cache').upsert({ category: `tv${suffix}`,        data: tv,        updated_at: now }, { onConflict: 'category' }),
+    supabase.from('news_cache').upsert({ category: `anime${suffix}`,     data: anime,     updated_at: now }, { onConflict: 'category' }),
+    supabase.from('news_cache').upsert({ category: `gaming${suffix}`,    data: gaming,    updated_at: now }, { onConflict: 'category' }),
+    supabase.from('news_cache').upsert({ category: `manga${suffix}`,     data: manga,     updated_at: now }, { onConflict: 'category' }),
+    supabase.from('news_cache').upsert({ category: `boardgame${suffix}`, data: boardgame, updated_at: now }, { onConflict: 'category' }),
   ])
 
-  return { cinema: cinema.length, tv: tv.length, anime: anime.length, gaming: gaming.length }
+  return { cinema: cinema.length, tv: tv.length, anime: anime.length, gaming: gaming.length, manga: manga.length, boardgame: boardgame.length }
 }
 
 export async function POST(request: NextRequest) {
