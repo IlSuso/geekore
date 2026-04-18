@@ -79,8 +79,7 @@ async function trackAffinity(supabase: ReturnType<typeof import('@/lib/supabase/
         { onConflict: 'user_id,category,subcategory' }
       )
     if (!error) {
-      await supabase.rpc('increment_category_score', { p_user_id: userId, p_category: cat, p_subcategory: sub || 'Generico' })
-        .catch(() => {})
+      try { await supabase.rpc('increment_category_score', { p_user_id: userId, p_category: cat, p_subcategory: sub || 'Generico' }) } catch {}
     }
   } catch {}
 }
