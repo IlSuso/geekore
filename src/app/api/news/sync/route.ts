@@ -446,19 +446,33 @@ function mapBggCategories(categories: string[]): string[] {
   return Array.from(genres)
 }
 
+async function bggGet(url: string, retries = 4, retryDelay = 3000): Promise<string | null> {
+  for (let i = 0; i < retries; i++) {
+    if (i > 0) await new Promise(r => setTimeout(r, retryDelay))
+    try {
+      const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(8000) })
+      if (res.status === 202) { logger.info(`[BGG] 202 on attempt ${i + 1} — retrying`); continue }
+      if (!res.ok) return null
+      const text = await res.text()
+      if (!text.trim().startsWith('<')) return null
+      return text
+    } catch (e) {
+      logger.info(`[BGG] attempt ${i + 1} error: ${e}`)
+      if (i === retries - 1) return null
+    }
+  }
+  return null
+}
+
 async function fetchBoardgameNews(lang: string): Promise<any[]> {
   try {
-    // ── Phase 1: hot list — single shot, no retries (must be fast) ────────────
-    const res1 = await fetch('https://boardgamegeek.com/xmlapi2/hot?type=boardgame', {
-      cache: 'no-store',
-      signal: AbortSignal.timeout(5000),
-    })
-    if (!res1.ok || res1.status === 202) return []
-    const hotXml = await res1.text()
-    if (!hotXml.trim().startsWith('<')) return []
+    // ── Phase 1: hot list (usually fast, no 202) ──────────────────────────────
+    const hotXml = await bggGet('https://boardgamegeek.com/xmlapi2/hot?type=boardgame', 3, 2000)
+    if (!hotXml) { logger.info('[BGG] hot list failed'); return [] }
 
     const hotResult = await parseStringPromise(hotXml)
     const hotItems: any[] = hotResult?.items?.item || []
+    logger.info(`[BGG] hot list: ${hotItems.length} items`)
 
     const currentYear = new Date().getFullYear()
     const recent = hotItems.filter((item: any) => {
@@ -480,23 +494,21 @@ async function fetchBoardgameNews(lang: string): Promise<any[]> {
 
     if (basicCards.length === 0) return []
 
-    // ── Phase 2: enrich with thing details — best-effort, no retry ───────────
+    // ── Phase 2: thing details — with retries (BGG commonly 202 on first call) ─
     let detailMap = new Map<string, any>()
     try {
-      await new Promise(r => setTimeout(r, 200))
+      await new Promise(r => setTimeout(r, 1000))
       const ids = basicCards.map(c => c.id).join(',')
-      const res2 = await fetch(
+      const detailXml = await bggGet(
         `https://boardgamegeek.com/xmlapi2/thing?id=${ids}&type=boardgame&stats=1`,
-        { cache: 'no-store', signal: AbortSignal.timeout(5000) },
+        4, 3000,
       )
-      if (res2.ok && res2.status !== 202) {
-        const detailXml = await res2.text()
-        if (detailXml.trim().startsWith('<')) {
-          const dr = await parseStringPromise(detailXml)
-          ;(dr?.items?.item || []).forEach((item: any) => detailMap.set(item.$.id, item))
-        }
+      if (detailXml) {
+        const dr = await parseStringPromise(detailXml)
+        ;(dr?.items?.item || []).forEach((item: any) => detailMap.set(item.$.id, item))
+        logger.info(`[BGG] thing details: ${detailMap.size} enriched`)
       }
-    } catch {} // timeout or 202 → use basic data
+    } catch {} // enrichment optional — basic cards always returned
 
     // ── Merge basic + detail ──────────────────────────────────────────────────
     const mapped = basicCards.map(basic => {
@@ -556,13 +568,13 @@ async function runSync(lang: 'it' | 'en') {
 
   const suffix = `_${lang}`
 
-  const [cinema, tv, anime, gaming, manga, boardgame] = await Promise.all([
+  // ── Step 1: fast fetchers in parallel ─────────────────────────────────────
+  const [cinema, tv, anime, gaming, manga] = await Promise.all([
     fetchCinema(lang),
     fetchTV(lang),
     fetchAnime(lang),
     fetchGaming(),
     fetchManga(lang),
-    fetchBoardgameNews(lang),
   ])
 
   const now = new Date().toISOString()
@@ -573,8 +585,20 @@ async function runSync(lang: 'it' | 'en') {
     supabase.from('news_cache').upsert({ category: `anime${suffix}`,     data: anime,     updated_at: now }, { onConflict: 'category' }),
     supabase.from('news_cache').upsert({ category: `gaming${suffix}`,    data: gaming,    updated_at: now }, { onConflict: 'category' }),
     supabase.from('news_cache').upsert({ category: `manga${suffix}`,     data: manga,     updated_at: now }, { onConflict: 'category' }),
-    supabase.from('news_cache').upsert({ category: `boardgame${suffix}`, data: boardgame, updated_at: now }, { onConflict: 'category' }),
   ])
+
+  // ── Step 2: BGG runs sequentially after, with full remaining time budget ──
+  // BGG /xmlapi2/thing requires 202-retry (by design). Running it in parallel
+  // with TMDB left no time for retries; sequential gives it up to ~50s on Pro.
+  const boardgame = await fetchBoardgameNews(lang)
+  // Only write if we got data — empty would mark cache as "fresh" and suppress
+  // future syncs for 12 h, preventing any retry on BGG failure.
+  if (boardgame.length > 0) {
+    await supabase.from('news_cache').upsert(
+      { category: `boardgame${suffix}`, data: boardgame, updated_at: new Date().toISOString() },
+      { onConflict: 'category' },
+    )
+  }
 
   return { cinema: cinema.length, tv: tv.length, anime: anime.length, gaming: gaming.length, manga: manga.length, boardgame: boardgame.length }
 }
