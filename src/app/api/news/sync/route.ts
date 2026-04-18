@@ -166,86 +166,54 @@ async function fetchTV(lang: string) {
 }
 
 async function fetchAnime(lang: string) {
-  const month  = new Date().getMonth() + 1
-  const year   = new Date().getFullYear()
-  const season = month <= 3 ? 'WINTER' : month <= 6 ? 'SPRING' : month <= 9 ? 'SUMMER' : 'FALL'
-
-  const now    = new Date()
-  const future = new Date(now)
-  future.setDate(future.getDate() + 60)
-  const todayInt  = parseInt(now.toISOString().slice(0, 10).replace(/-/g, ''))
-  const futureInt = parseInt(future.toISOString().slice(0, 10).replace(/-/g, ''))
-
-  const titleField = lang === 'en' ? 'romaji english' : 'romaji'
-  const mediaFields = `
-    id title { ${titleField} } coverImage { large } genres episodes averageScore format duration
-    studios(isMain: true) { nodes { name } }
-    nextAiringEpisode { airingAt episode }
-    description(asHtml: false) siteUrl startDate { year month day }
-  `
+  const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
+  const region   = lang === 'en' ? 'US' : 'IT'
+  const { from, to } = dateRange(60, 60)
 
   try {
-    const query = `query ($season: MediaSeason, $year: Int, $todayInt: FuzzyDateInt, $futureInt: FuzzyDateInt) {
-      current: Page(perPage: 15) {
-        media(type: ANIME, season: $season, seasonYear: $year, sort: POPULARITY_DESC, status: RELEASING) {
-          ${mediaFields}
-        }
-      }
-      upcoming: Page(perPage: 10) {
-        media(type: ANIME, status: NOT_YET_RELEASED, startDate_greater: $todayInt, startDate_lesser: $futureInt, sort: POPULARITY_DESC) {
-          ${mediaFields}
-        }
-      }
-    }`
-    const res = await fetch('https://graphql.anilist.co', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, variables: { season, year, todayInt, futureInt } }),
-    })
+    const res = await fetch(
+      `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&with_original_language=ja&with_genres=16&air_date.gte=${from}&air_date.lte=${to}&include_null_first_air_dates=false`,
+      { headers: tmdbHeaders(), cache: 'no-store' }
+    )
     if (!res.ok) return []
     const json = await res.json()
+    const shows = (json.results || []).slice(0, 20)
+      .filter((m: any) => m.poster_path && m.overview)
 
-    const seen = new Set<number>()
-    const allMedia = [
-      ...(json.data?.current?.media || []),
-      ...(json.data?.upcoming?.media || []),
-    ].filter((m: any) => {
-      if (seen.has(m.id)) return false
-      seen.add(m.id)
-      return true
+    const details = await Promise.all(
+      shows.map((s: any) => tmdbDetail(`/tv/${s.id}?language=${tmdbLang}&append_to_response=aggregate_credits,watch%2Fproviders,keywords`))
+    )
+
+    return shows.map((m: any, i: number) => {
+      const d             = details[i]
+      const studios       = (d?.networks || []).slice(0, 2).map((n: any) => n.name).filter(Boolean)
+      const cast          = (d?.aggregate_credits?.cast || []).slice(0, 5).map((a: any) => a.name).filter(Boolean)
+      const providers     = (d?.['watch/providers']?.results?.[region]?.flatrate || []).map((p: any) => p.provider_name).filter(Boolean)
+      const keywords      = (d?.keywords?.results || []).slice(0, 6).map((k: any) => k.name).filter(Boolean)
+      const nextEpisodeDate = d?.next_episode_to_air?.air_date || null
+      return {
+        id: `tmdb-anime-${m.id}`,
+        type: 'anime',
+        source_api: 'tmdb' as const,
+        title: m.name,
+        description: m.overview?.slice(0, 500),
+        coverImage: tmdbImageUrl(m.poster_path),
+        date: m.first_air_date,
+        year: m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined,
+        genres: (m.genre_ids || []).map((id: number) => TMDB_TV_GENRES[id]).filter(Boolean),
+        score: m.vote_average > 0 ? Math.round(m.vote_average * 5) / 10 : undefined,
+        episodes: d?.number_of_episodes || undefined,
+        studios: studios.length ? studios : undefined,
+        cast: cast.length ? cast : undefined,
+        totalSeasons: d?.number_of_seasons || undefined,
+        watchProviders: providers.length ? providers : undefined,
+        themes: keywords.length ? keywords : undefined,
+        nextEpisodeDate: nextEpisodeDate || undefined,
+        category: 'anime' as const,
+        source: 'TMDb',
+        url: `https://www.themoviedb.org/tv/${m.id}`,
+      }
     })
-
-    return allMedia
-      .filter((m: any) => m.coverImage?.large)
-      .map((m: any) => {
-        const d     = m.startDate
-        const date  = d?.year
-          ? `${d.year}-${String(d.month || 1).padStart(2, '0')}-${String(d.day || 1).padStart(2, '0')}`
-          : null
-        const title = (lang === 'en' && m.title.english) ? m.title.english : m.title.romaji
-        return {
-          id: `anilist-${m.id}`,
-          type: 'anime',
-          source_api: 'anilist',
-          title,
-          description: m.description
-            ? m.description.replace(/<[^>]+>/g, '').slice(0, 500)
-            : null,
-          coverImage: m.coverImage.large,
-          date,
-          year: d?.year ?? undefined,
-          genres: m.genres || [],
-          episodes: m.episodes ?? undefined,
-          score: m.averageScore ? Math.round(m.averageScore / 2) / 10 : undefined,
-          studios: (m.studios?.nodes || []).map((s: any) => s.name).filter(Boolean),
-          nextEpisode: m.nextAiringEpisode?.episode,
-          format: m.format ?? undefined,
-          duration: m.duration ?? undefined,
-          category: 'anime',
-          source: 'AniList',
-          url: m.siteUrl,
-        }
-      })
   } catch { return [] }
 }
 

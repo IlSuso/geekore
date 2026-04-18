@@ -293,7 +293,7 @@ export default function NewsPage() {
                       </div>
                     )}
                     <div className="mt-auto pt-1">
-                      {item.category === 'tv' && item.nextEpisodeDate ? (
+                      {item.nextEpisodeDate ? (
                         <div className="flex items-center gap-1 text-[11px] text-violet-400 font-medium">
                           <CalendarDays size={10} />
                           {formatDate(item.nextEpisodeDate, locale)}

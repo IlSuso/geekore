@@ -175,7 +175,7 @@ export default function DiscoverPage() {
     setLoading(true); setIsPending(false); setSearchError(null);
     try {
       const reqs: Promise<Response>[] = [];
-      if (type === 'all' || type === 'anime' || type === 'manga') reqs.push(fetch(`/api/anilist?q=${encodeURIComponent(term)}${type !== 'all' ? `&type=${type}` : ''}`, { signal: controller.signal }));
+      if (type === 'all' || type === 'anime' || type === 'manga') reqs.push(fetch(`/api/anilist?q=${encodeURIComponent(term)}${type !== 'all' ? `&type=${type}` : ''}&lang=${lang}`, { signal: controller.signal }));
       if (type === 'all' || type === 'movie' || type === 'tv') reqs.push(fetch(`/api/tmdb?q=${encodeURIComponent(term)}${type !== 'all' ? `&type=${type}` : ''}&lang=${lang}`, { signal: controller.signal }));
       if (type === 'all' || type === 'game') reqs.push(fetch(`/api/igdb?q=${encodeURIComponent(term)}`, { signal: controller.signal }));
       if (type === 'all' || type === 'boardgame') reqs.push(fetch(`/api/boardgames?q=${encodeURIComponent(term)}`, { signal: controller.signal }));
