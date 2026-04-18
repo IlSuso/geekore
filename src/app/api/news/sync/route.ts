@@ -313,41 +313,35 @@ async function fetchManga(lang: string): Promise<any[]> {
   const plus60Int  = toFuzzy(plus60)
   const minus60Int = toFuzzy(minus60)
 
-  // Two queries:
-  // 1. Upcoming: NOT_YET_RELEASED, starting within the next 60 days
-  // 2. Trending: currently RELEASING series sorted by popularity (chapters active now)
+  const mediaFields = `
+    id siteUrl format
+    title { romaji english }
+    coverImage { extraLarge large }
+    startDate { year month day }
+    description(asHtml: false)
+    genres averageScore chapters volumes
+    staff(sort: [RELEVANCE], page: 1, perPage: 3) { nodes { name { full } } }
+    studios(isMain: true) { nodes { name } }
+  `
+
   const query = `
     query {
       upcoming: Page(page: 1, perPage: 10) {
         media(type: MANGA, status: NOT_YET_RELEASED, sort: [START_DATE], isAdult: false,
-              startDate_lesser: ${plus60Int}) {
-          id siteUrl
-          title { romaji english }
-          coverImage { large }
-          startDate { year month day }
-          description(asHtml: false)
-          genres averageScore chapters volumes
+              format_not_in: [NOVEL], startDate_lesser: ${plus60Int}) {
+          ${mediaFields}
         }
       }
       trending: Page(page: 1, perPage: 20) {
         media(type: MANGA, status: RELEASING, sort: [TRENDING_DESC], isAdult: false,
-              startDate_greater: ${minus60Int}) {
-          id siteUrl
-          title { romaji english }
-          coverImage { large }
-          startDate { year month day }
-          description(asHtml: false)
-          genres averageScore chapters volumes
+              format_not_in: [NOVEL], startDate_greater: ${minus60Int}) {
+          ${mediaFields}
         }
       }
       popular: Page(page: 1, perPage: 10) {
-        media(type: MANGA, status: RELEASING, sort: [POPULARITY_DESC], isAdult: false) {
-          id siteUrl
-          title { romaji english }
-          coverImage { large }
-          startDate { year month day }
-          description(asHtml: false)
-          genres averageScore chapters volumes
+        media(type: MANGA, status: RELEASING, sort: [POPULARITY_DESC], isAdult: false,
+              format_not_in: [NOVEL]) {
+          ${mediaFields}
         }
       }
     }
@@ -374,7 +368,8 @@ async function fetchManga(lang: string): Promise<any[]> {
     const seen = new Set<number>()
     const all: any[] = []
     for (const m of [...upcoming, ...trending, ...popular]) {
-      if (!seen.has(m.id) && m.coverImage?.large) {
+      const img = m.coverImage?.extraLarge || m.coverImage?.large
+      if (!seen.has(m.id) && img) {
         seen.add(m.id)
         all.push(m)
       }
@@ -386,18 +381,22 @@ async function fetchManga(lang: string): Promise<any[]> {
       const date = sd?.year
         ? `${sd.year}-${String(sd.month || 1).padStart(2, '0')}-${String(sd.day || 1).padStart(2, '0')}`
         : null
+      const authors = (m.staff?.nodes || []).map((s: any) => s.name?.full).filter(Boolean)
+      const publishers = (m.studios?.nodes || []).map((s: any) => s.name).filter(Boolean)
       return {
         id: `anilist-manga-${m.id}`,
         type: 'manga',
         source_api: 'anilist',
         title: m.title?.english || m.title?.romaji || 'Senza titolo',
         description: m.description ? m.description.replace(/<[^>]+>/g, '').slice(0, 500) : null,
-        coverImage: m.coverImage.large,
+        coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
         date,
         year: sd?.year || undefined,
         genres: m.genres || [],
         score: m.averageScore ? Math.round(m.averageScore / 20) / 10 : undefined,
         episodes: m.chapters || undefined,
+        developers: authors.length ? authors : undefined,
+        studios: publishers.length ? publishers : undefined,
         category: 'manga',
         source: 'AniList',
         url: m.siteUrl || `https://anilist.co/manga/${m.id}`,

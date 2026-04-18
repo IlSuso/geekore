@@ -267,16 +267,17 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   const Icon = TYPE_ICON[media.type] || Film
   const externalUrl = buildExternalUrl(media)
 
-  const creatorList = media.studios?.length
-    ? media.studios
-    : media.directors?.length
-    ? media.directors
-    : media.authors?.length
-    ? media.authors
-    : null
+  const isManga = media.type === 'manga' || media.type === 'novel'
+
+  // For manga: show authors (developers) in header; for others: studios > directors > authors
+  const creatorList = isManga
+    ? (media.developers?.length ? media.developers : media.studios?.length ? media.studios : null)
+    : (media.studios?.length ? media.studios : media.directors?.length ? media.directors : media.authors?.length ? media.authors : null)
 
   const creatorLabel = creatorList?.slice(0, 2).join(', ') ?? null
-  const creatorTitle = media.studios?.length ? 'Studio' : media.authors?.length ? 'Autori' : 'Registi'
+  const creatorTitle = isManga
+    ? (media.developers?.length ? 'Autori' : 'Editori')
+    : (media.studios?.length ? 'Studio' : media.authors?.length ? 'Autori' : 'Registi')
 
   const continuityRelations = (media.relations || [])
     .filter(r => ['SEQUEL', 'PREQUEL', 'SIDE_STORY', 'SPIN_OFF'].includes(r.relationType))
@@ -437,6 +438,18 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               </div>
             )}
 
+            {/* Editori (manga only, shown separately from authors) */}
+            {isManga && media.developers?.length && media.studios?.length ? (
+              <div>
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Editori</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {media.studios.slice(0, 3).map(name => (
+                    <span key={name} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{name}</span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             {/* Cast */}
             {media.cast && media.cast.length > 0 && (
               <div>
@@ -501,15 +514,17 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               </div>
             )}
 
-            {/* Designers / Developers */}
+            {/* Designers / Developers / Authors */}
             {(media.designers?.length || media.developers?.length) ? (
               <div>
                 <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">
-                  {media.designers?.length ? 'Designer' : 'Sviluppatori'}
+                  {media.designers?.length ? 'Designer' : (media.type === 'manga' || media.type === 'novel') ? 'Autori' : 'Sviluppatori'}
                 </h3>
-                <p className="text-sm text-zinc-300">
-                  {(media.designers || media.developers || []).slice(0, 4).join(', ')}
-                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(media.designers || media.developers || []).slice(0, 4).map(name => (
+                    <span key={name} className="text-xs bg-sky-500/10 text-sky-300 border border-sky-500/20 px-2.5 py-1 rounded-full">{name}</span>
+                  ))}
+                </div>
               </div>
             ) : null}
 
