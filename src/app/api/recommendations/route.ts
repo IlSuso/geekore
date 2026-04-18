@@ -2500,7 +2500,13 @@ export async function GET(request: NextRequest) {
       supabase.from('search_history').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(100),
     ])
 
-    const wishlistItems = wishlistRaw || []
+    const wishlistItems: UserEntry[] = (wishlistRaw || []).map((w: { external_id: string; genres: string[]; media_type: string; title: string; studios: string }) => ({
+      title: w.title || '',
+      type: (w.media_type || 'movie') as MediaType,
+      external_id: w.external_id,
+      genres: w.genres,
+      studio: w.studios,
+    }))
     const searches = searchHistory || []
     const userPlatformIds: number[] = (preferences as any)?.streaming_platforms || []
 
