@@ -2,10 +2,11 @@
 // Open Library API — ricerca libri per Geekore
 // GET /api/books?q=<query>
 //
-// Strategia: search.json restituisce OPERE (works), non edizioni.
-// Per avere titoli/copertine italiane bisogna:
-//   1) cercare le opere → 2) fetchare /works/{key}/editions.json
-//   3) filtrare le edizioni con languages: [{key: "/languages/ita"}]
+// Strategia in 2 passi:
+//   1) search.json → trova le OPERE (works)
+//   2) /works/{key}/editions.json?limit=1000 → TUTTE le edizioni
+//      → filtra per languages[].key === "/languages/ita"
+//      → ordina per anno DESC (più recenti prima)
 
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rateLimit'
@@ -49,7 +50,7 @@ function mapSubjectsToGenres(subjects: string[]): string[] {
   return [...genres]
 }
 
-async function fetchOL(url: string, timeoutMs = 6000): Promise<any | null> {
+async function fetchOL(url: string, timeoutMs = 8000): Promise<any | null> {
   for (let attempt = 0; attempt <= 1; attempt++) {
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) })
@@ -64,15 +65,24 @@ async function fetchOL(url: string, timeoutMs = 6000): Promise<any | null> {
   return null
 }
 
+// Recupera TUTTE le edizioni di un'opera e restituisce solo quelle in italiano
 async function getItalianEditions(workKey: string): Promise<any[]> {
-  const data = await fetchOL(`${OL_BASE}${workKey}/editions.json?limit=50`, 5000)
+  const data = await fetchOL(`${OL_BASE}${workKey}/editions.json?limit=1000`, 10000)
   if (!data) return []
-  return (data.entries ?? []).filter((ed: any) =>
-    Array.isArray(ed.languages) && ed.languages.some((l: any) => l.key === '/languages/ita')
+  const allEditions: any[] = data.entries ?? []
+  return allEditions.filter((ed: any) =>
+    Array.isArray(ed.languages) &&
+    ed.languages.some((l: any) => l.key === '/languages/ita')
   )
 }
 
-const SEARCH_FIELDS = 'key,title,author_name,cover_i,isbn,first_publish_year,number_of_pages_median,subject,ratings_average,language'
+function parseYear(publishDate: string | undefined): number | null {
+  if (!publishDate) return null
+  const m = publishDate.match(/\d{4}/)
+  return m ? parseInt(m[0]) : null
+}
+
+const SEARCH_FIELDS = 'key,title,author_name,cover_i,isbn,first_publish_year,number_of_pages_median,subject,ratings_average'
 
 export async function GET(request: NextRequest) {
   const rl = rateLimit(request, { limit: 30, windowMs: 60_000, prefix: 'books' })
@@ -83,86 +93,67 @@ export async function GET(request: NextRequest) {
 
   console.log(`[BOOKS] query="${q}"`)
 
-  // Step 1: cerca opere
-  const p1 = new URLSearchParams({ q, limit: '8', fields: SEARCH_FIELDS })
-  const searchData = await fetchOL(`${OL_SEARCH_BASE}?${p1}`)
+  // Step 1: cerca le opere
+  const p = new URLSearchParams({ q, limit: '5', fields: SEARCH_FIELDS })
+  const searchData = await fetchOL(`${OL_SEARCH_BASE}?${p}`)
   if (!searchData) {
     console.error('[BOOKS] Open Library non raggiungibile')
     return NextResponse.json({ results: [] })
   }
 
   const works: any[] = searchData.docs ?? []
-  console.log(`[BOOKS] works trovati: ${works.length}`)
+  console.log(`[BOOKS] opere trovate: ${works.length}`)
   if (!works.length) return NextResponse.json({ results: [] })
 
-  // Step 2: per ogni opera, recupera le edizioni italiane in parallelo
+  // Step 2: per ogni opera, recupera TUTTE le edizioni italiane in parallelo
   const groups = await Promise.all(
-    works.slice(0, 5).map(async (work: any) => {
-      const genres = mapSubjectsToGenres(work.subject?.slice(0, 20) ?? [])
+    works.map(async (work: any) => {
+      const genres    = mapSubjectsToGenres(work.subject?.slice(0, 20) ?? [])
       const workScore = work.ratings_average ? Math.round(work.ratings_average * 20) : null
-      const workAuthors: string[] = work.author_name ?? []
+      const authors   = work.author_name ?? []
 
       const italianEds = await getItalianEditions(work.key)
-      console.log(`[BOOKS] ${work.key} → edizioni italiane: ${italianEds.length}`)
+      console.log(`[BOOKS] ${work.key} → edizioni italiane: ${italianEds.length} / totale opera`)
 
-      if (italianEds.length > 0) {
-        // Restituisce le edizioni italiane con titolo/copertina italiano
-        return italianEds.slice(0, 8).map((ed: any) => {
-          const isbn = ed.isbn_13?.[0] ?? ed.isbn_10?.[0] ?? null
-          const coverId = ed.covers?.[0] ?? work.cover_i ?? null
-          const coverImage = coverId ? `${OL_COVER_BASE}/id/${coverId}-L.jpg` : null
-          const yearMatch = (ed.publish_date ?? '').match(/\d{4}/)
-          const year = yearMatch ? parseInt(yearMatch[0]) : (work.first_publish_year ?? null)
-          return {
-            id: `ol-${ed.key.replace('/books/', '')}`,
-            external_id: ed.key,
-            title: ed.title ?? work.title ?? 'Titolo sconosciuto',
-            type: 'book',
-            coverImage,
-            year,
-            genres,
-            categories: genres,
-            score: workScore,
-            description: null,
-            authors: workAuthors,
-            publisher: ed.publishers?.[0]?.name ?? null,
-            pageCount: ed.number_of_pages ?? work.number_of_pages_median ?? null,
-            isbn,
-            language: 'it',
-            previewLink: `${OL_BASE}${ed.key}`,
-          }
-        })
-      }
+      // Ordina per anno decrescente (più recenti prima)
+      italianEds.sort((a, b) => (parseYear(b.publish_date) ?? 0) - (parseYear(a.publish_date) ?? 0))
 
-      // Nessuna edizione italiana trovata: usa i dati dell'opera come fallback
-      const isbn = work.isbn?.find((i: string) => i.length === 13) ?? work.isbn?.[0] ?? null
-      const coverImage = work.cover_i ? `${OL_COVER_BASE}/id/${work.cover_i}-L.jpg` : null
-      return [{
-        id: `ol-${work.key.replace('/works/', '')}`,
-        external_id: work.key,
-        title: work.title ?? 'Titolo sconosciuto',
-        type: 'book',
-        coverImage,
-        year: work.first_publish_year ?? null,
-        genres,
-        categories: genres,
-        score: workScore,
-        description: null,
-        authors: workAuthors,
-        publisher: null,
-        pageCount: work.number_of_pages_median ?? null,
-        isbn,
-        language: null,
-        previewLink: `${OL_BASE}${work.key}`,
-      }]
+      return italianEds.map((ed: any) => {
+        const isbn      = ed.isbn_13?.[0] ?? ed.isbn_10?.[0] ?? null
+        const coverId   = ed.covers?.[0] ?? work.cover_i ?? null
+        const coverImage = coverId ? `${OL_COVER_BASE}/id/${coverId}-L.jpg` : null
+        const year      = parseYear(ed.publish_date) ?? work.first_publish_year ?? null
+
+        return {
+          id:           `ol-${ed.key.replace('/books/', '')}`,
+          external_id:  ed.key,
+          title:        ed.title ?? work.title ?? 'Titolo sconosciuto',
+          type:         'book',
+          coverImage,
+          year,
+          genres,
+          categories:   genres,
+          score:        workScore,
+          description:  null,
+          authors,
+          publisher:    ed.publishers?.[0]?.name ?? null,
+          pageCount:    ed.number_of_pages ?? work.number_of_pages_median ?? null,
+          isbn,
+          language:     'it',
+          previewLink:  `${OL_BASE}${ed.key}`,
+        }
+      })
     })
   )
 
-  const results = groups
+  // Appiattisci, ordina globalmente per anno DESC, prendi i primi 20
+  const all = groups
     .flat()
     .filter(r => r.title !== 'Titolo sconosciuto' || r.coverImage)
-    .slice(0, 20)
 
+  all.sort((a, b) => (b.year ?? 0) - (a.year ?? 0))
+
+  const results = all.slice(0, 20)
   console.log(`[BOOKS] risultati finali: ${results.length}`)
   return NextResponse.json({ results })
 }
