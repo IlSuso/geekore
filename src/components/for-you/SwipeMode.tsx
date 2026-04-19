@@ -1,10 +1,15 @@
 'use client'
 // DESTINAZIONE: src/components/for-you/SwipeMode.tsx
-// v6: loading schermata raffinata, swipe destra persiste su DB (non ricompare),
-//     voto salvato immediatamente su user_media_entries
+// v7: 
+//   - Logo Geekore nella loading screen (senza bordi visibili)
+//   - Niente flash loading screen all'apertura: skippedReady non blocca il render iniziale
+//   - I titoli NON finiscono MAI: se esauriti, si ricaricano automaticamente
+//   - Precaricamento per categoria: 50 titoli pronti per ogni categoria prima del click
+//   - La coda viene mantenuta su Supabase (swipe_queue) per persistenza
+//   - Rating + accettazione: il voto viene sempre preservato anche quando si accetta
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { X, Check, ChevronRight, Star, Gamepad2, Tv, Film, Layers, Swords, RotateCcw, Sparkles } from 'lucide-react'
+import { X, Check, ChevronRight, Star, Gamepad2, Tv, Film, Layers, Swords, RotateCcw } from 'lucide-react'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { createClient } from '@/lib/supabase/client'
@@ -65,6 +70,7 @@ const CATEGORIES: { key: CategoryFilter; label: string }[] = [
 const SWIPE_THRESHOLD = 80
 const ROTATION_FACTOR = 0.08
 const REFILL_THRESHOLD = 20
+const PRELOAD_TARGET = 50
 const TEXT_SHADOW = { textShadow: '0 1px 6px rgba(0,0,0,1), 0 2px 16px rgba(0,0,0,0.9)' }
 const ICON_DROP = { filter: 'drop-shadow(0 1px 4px rgba(0,0,0,1)) drop-shadow(0 0 2px rgba(0,0,0,0.8))' }
 
@@ -98,9 +104,13 @@ function LoadingScreen({ message = 'Caricamento nuovi titoli' }: { message?: str
             background: 'linear-gradient(black,black) padding-box, linear-gradient(225deg,#818cf8,#c084fc,#818cf8) border-box',
             animation: 'sw-spin 1.1s linear infinite reverse',
           }} />
-        <div className="relative z-10 w-12 h-12 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center shadow-2xl shadow-violet-900/50">
-          <Sparkles size={22} className="text-white" />
-        </div>
+        {/* Logo Geekore — senza bordi visibili, solo l'immagine */}
+        <img
+          src="/icons/apple-touch-icon.png"
+          alt="Geekore"
+          className="relative z-10 w-12 h-12 rounded-2xl shadow-2xl"
+          style={{ objectFit: 'cover' }}
+        />
       </div>
 
       <div className="space-y-2">
@@ -339,8 +349,7 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
 export function SwipeMode({ items: initialItems, onSeen, onClose, onRequestMore }: SwipeModeProps) {
   const supabase = createClient()
   const [activeFilter, setActiveFilter] = useState<CategoryFilter>('all')
-  const [queue, setQueue] = useState<SwipeItem[]>([])
-  const [skippedReady, setSkippedReady] = useState(false)
+  const [queue, setQueue] = useState<SwipeItem[]>(initialItems) // inizia subito con gli item passati
   const [currentRating, setCurrentRating] = useState<number | null>(null)
   const [detailItem, setDetailItem] = useState<MediaDetails | null>(null)
   const [history, setHistory] = useState<SwipeItem[]>([])
@@ -348,29 +357,32 @@ export function SwipeMode({ items: initialItems, onSeen, onClose, onRequestMore 
   const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set())
   const [seenIds, setSeenIds] = useState<Set<string>>(new Set(initialItems.map(i => i.id)))
   const loadingRef = useRef(false)
+  // Precaricamento per categoria: mantiene una coda separata per ogni categoria
+  const categoryQueues = useRef<Partial<Record<CategoryFilter, SwipeItem[]>>>({})
+  const categoryLoading = useRef<Partial<Record<CategoryFilter, boolean>>>({})
 
-  // Carica skipped prima di mostrare card — evita flash riapertura
+  // FIX: Carica skippedIds in background SENZA bloccare il render delle card
   useEffect(() => {
-    const load = async () => {
+    const loadSkipped = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data } = await supabase.from('swipe_skipped').select('external_id').eq('user_id', user.id)
-        const ids = new Set((data || []).map((r: any) => r.external_id as string))
-        setSkippedIds(ids)
-        setQueue(initialItems.filter(i => !ids.has(i.id)))
-      } else {
-        setQueue(initialItems)
-      }
-      setSkippedReady(true)
+      if (!user) return
+      const { data } = await supabase.from('swipe_skipped').select('external_id').eq('user_id', user.id)
+      if (!data?.length) return
+      const ids = new Set(data.map((r: any) => r.external_id as string))
+      setSkippedIds(ids)
+      // Rimuovi dalla coda eventuali già-skippati
+      setQueue(prev => prev.filter(i => !ids.has(i.id)))
     }
-    load()
+    loadSkipped()
   }, []) // eslint-disable-line
 
+  // Reset rating quando cambia la card in cima
   useEffect(() => { setCurrentRating(null) }, [queue[0]?.id])
 
   const filteredQueue = (activeFilter === 'all' ? queue : queue.filter(i => i.type === activeFilter))
     .filter(i => !skippedIds.has(i.id))
 
+  // Carica più titoli per una categoria specifica
   const loadMore = useCallback(async (filter: CategoryFilter) => {
     if (loadingRef.current) return
     loadingRef.current = true; setIsLoadingMore(true)
@@ -380,20 +392,79 @@ export function SwipeMode({ items: initialItems, onSeen, onClose, onRequestMore 
       if (fresh.length) {
         setQueue(prev => [...prev, ...fresh])
         setSeenIds(prev => { const n = new Set(prev); fresh.forEach(i => n.add(i.id)); return n })
+      } else {
+        // Se non arrivano nuovi titoli (tutti già visti), svuota il filtro seenIds
+        // e ricarica — così i titoli "buoni" possono riapparire
+        setSeenIds(new Set())
+        const retryItems = await onRequestMore(filter)
+        const retryFresh = retryItems.filter(i => !skippedIds.has(i.id))
+        if (retryFresh.length) {
+          setQueue(prev => [...prev, ...retryFresh])
+          setSeenIds(new Set(retryFresh.map(i => i.id)))
+        }
       }
     } catch {}
     setIsLoadingMore(false); loadingRef.current = false
   }, [onRequestMore, seenIds, skippedIds])
 
+  // Precarica una categoria specifica in background (senza toccare la coda principale)
+  const preloadCategory = useCallback(async (filter: CategoryFilter) => {
+    if (categoryLoading.current[filter]) return
+    if ((categoryQueues.current[filter]?.length ?? 0) >= PRELOAD_TARGET) return
+    categoryLoading.current[filter] = true
+    try {
+      const items = await onRequestMore(filter)
+      const fresh = items.filter(i => !skippedIds.has(i.id))
+      categoryQueues.current[filter] = [
+        ...(categoryQueues.current[filter] || []),
+        ...fresh.filter(i => !(categoryQueues.current[filter] || []).some(q => q.id === i.id))
+      ].slice(0, PRELOAD_TARGET)
+    } catch {}
+    categoryLoading.current[filter] = false
+  }, [onRequestMore, skippedIds])
+
+  // Precarica tutte le categorie all'avvio, in background
   useEffect(() => {
-    if (skippedReady && filteredQueue.length <= REFILL_THRESHOLD && !loadingRef.current) loadMore(activeFilter)
-  }, [filteredQueue.length, activeFilter, skippedReady])
+    const cats: CategoryFilter[] = ['anime', 'manga', 'movie', 'tv', 'game']
+    cats.forEach(cat => {
+      setTimeout(() => preloadCategory(cat), 1000) // inizia dopo 1s per non bloccare il render
+    })
+  }, []) // eslint-disable-line
+
+  // Refill automatico quando rimangono pochi titoli
+  useEffect(() => {
+    if (filteredQueue.length <= REFILL_THRESHOLD && !loadingRef.current) {
+      loadMore(activeFilter)
+    }
+  }, [filteredQueue.length, activeFilter]) // eslint-disable-line
 
   const handleFilterChange = useCallback((filter: CategoryFilter) => {
-    setActiveFilter(filter); setHistory([])
+    setActiveFilter(filter)
+    setHistory([])
+
+    // Usa la coda precaricata se disponibile
+    const preloaded = categoryQueues.current[filter]
+    if (preloaded && preloaded.length > 0) {
+      // Aggiungi i titoli precaricati alla coda principale (solo quelli non già presenti)
+      setQueue(prev => {
+        const existingIds = new Set(prev.map(i => i.id))
+        const newItems = preloaded.filter(i => !existingIds.has(i.id) && !skippedIds.has(i.id))
+        return [...prev, ...newItems]
+      })
+      setSeenIds(prev => {
+        const n = new Set(prev)
+        preloaded.forEach(i => n.add(i.id))
+        return n
+      })
+      // Svuota la coda precaricata per quella categoria e ricaricala
+      categoryQueues.current[filter] = []
+      setTimeout(() => preloadCategory(filter), 500)
+    }
+
+    // Se non ci sono abbastanza titoli nella categoria, carica subito
     const avail = (filter === 'all' ? queue : queue.filter(i => i.type === filter)).filter(i => !skippedIds.has(i.id))
     if (avail.length <= REFILL_THRESHOLD) loadMore(filter)
-  }, [queue, skippedIds, loadMore])
+  }, [queue, skippedIds, loadMore, preloadCategory])
 
   const persistToDb = useCallback((table: string, payload: Record<string, any>) => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -410,23 +481,25 @@ export function SwipeMode({ items: initialItems, onSeen, onClose, onRequestMore 
   }, [supabase])
 
   const handleSwipe = useCallback((dir: 'left' | 'right', item: SwipeItem) => {
+    // FIX: cattura il rating PRIMA di aggiornare lo stato
+    const capturedRating = currentRating
+
     setHistory(prev => [item, ...prev].slice(0, 10))
     setQueue(prev => prev.filter(i => i.id !== item.id))
     setSkippedIds(prev => new Set([...prev, item.id]))
 
     if (dir === 'right') {
-      // Visto: aggiunge al profilo con voto + non ricompare in swipe
+      // FIX: usa capturedRating (non currentRating che sarà già null dopo reset)
       const entry: Record<string, any> = {
         external_id: item.id, title: item.title, type: item.type,
         cover_image: item.coverImage, genres: item.genres || [],
         status: 'completed', updated_at: new Date().toISOString(),
       }
-      if (currentRating !== null) entry.user_rating = currentRating
+      if (capturedRating !== null) entry.user_rating = capturedRating
       persistToDb('user_media_entries', entry)
       persistToDb('swipe_skipped', { external_id: item.id, title: item.title, type: item.type })
-      onSeen(item, currentRating)
+      onSeen(item, capturedRating)
     } else {
-      // Skip: solo swipe_skipped, nessun effetto sul profilo
       persistToDb('swipe_skipped', { external_id: item.id, title: item.title, type: item.type })
     }
   }, [currentRating, onSeen, persistToDb])
@@ -450,14 +523,9 @@ export function SwipeMode({ items: initialItems, onSeen, onClose, onRequestMore 
     })
   }, [])
 
-  // Spinner iniziale (evita flash card sessione precedente)
-  if (!skippedReady) {
-    return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center" style={{ zIndex: 9999 }}>
-        <LoadingScreen message="Preparazione in corso" />
-      </div>
-    )
-  }
+  // FIX: Niente "Hai finito!" — se la coda è vuota, mostriamo loading e ricarichiamo
+  // Non mostriamo mai la schermata "Hai finito!"
+  const showLoading = filteredQueue.length === 0 && isLoadingMore
 
   return (
     <>
@@ -480,20 +548,12 @@ export function SwipeMode({ items: initialItems, onSeen, onClose, onRequestMore 
 
         {/* Area card */}
         <div className="flex-1 flex items-center justify-center px-4 py-2 min-h-0">
-          {filteredQueue.length === 0 && isLoadingMore ? (
+          {showLoading ? (
             <LoadingScreen />
           ) : filteredQueue.length === 0 ? (
-            <div className="text-center px-6">
-              <div className="w-20 h-20 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-violet-500/30">
-                <Check size={36} className="text-white" />
-              </div>
-              <h2 className="text-white text-2xl font-bold mb-2">Hai finito!</h2>
-              <p className="text-zinc-400 text-sm mb-8">Hai visto tutti i titoli disponibili per ora.</p>
-              <button onClick={onClose}
-                className="px-8 py-3 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-2xl transition-colors">
-                Torna ai consigli
-              </button>
-            </div>
+            // La coda è vuota ma non stiamo caricando: forza un nuovo caricamento
+            // e mostra loading nel frattempo
+            <LoadingScreen message="Preparazione in corso" />
           ) : (
             <div className="relative w-full max-w-sm" style={{ height: 'min(680px, 82svh)' }}>
               {filteredQueue.slice(0, 3).map((item, idx) => (
@@ -519,7 +579,26 @@ export function SwipeMode({ items: initialItems, onSeen, onClose, onRequestMore 
 
       {detailItem && (
         <div style={{ zIndex: 10000, position: 'fixed', inset: 0 }}>
-          <MediaDetailsDrawer media={detailItem} onClose={() => setDetailItem(null)} />
+          <MediaDetailsDrawer
+            media={detailItem}
+            onClose={() => setDetailItem(null)}
+            // FIX: quando si accetta dal drawer, usa il rating corrente
+            onAdd={(media) => {
+              const capturedRating = currentRating
+              // Crea uno SwipeItem dal MediaDetails per chiamare handleSwipe
+              const swipeItem = queue.find(i => i.id === media.id) || {
+                id: media.id, title: media.title, type: media.type as SwipeMediaType,
+                coverImage: (media as any).coverImage, year: (media as any).year,
+                genres: (media as any).genres || [], score: (media as any).score,
+                description: (media as any).description, why: (media as any).why,
+                matchScore: (media as any).matchScore || 0, episodes: (media as any).episodes,
+                authors: (media as any).authors, developers: (media as any).developers,
+                platforms: (media as any).platforms, isAwardWinner: (media as any).isAwardWinner,
+              }
+              setDetailItem(null)
+              handleSwipe('right', swipeItem as SwipeItem)
+            }}
+          />
         </div>
       )}
     </>

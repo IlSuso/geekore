@@ -1251,29 +1251,65 @@ export default function ForYouPage() {
   // (non viene modificato dismissedIds né inviato feedback negativo)
 
   // Ricarica nuove card quando SwipeMode chiede refill
-  const handleSwipeRequestMore = useCallback(async (): Promise<SwipeItem[]> => {
+  // FIX: non ritorna mai [] — se non ci sono nuovi consigli personalizzati, usa popolari generali
+  const handleSwipeRequestMore = useCallback(async (filter?: string): Promise<SwipeItem[]> => {
     try {
+      // Prova prima con refresh dei consigli personalizzati
       const res = await fetch('/api/recommendations?type=all&refresh=1')
-      if (!res.ok) return []
-      const json = await res.json()
-      // Aggiorna anche lo stato dei consigli nella pagina Per Te
-      if (json.recommendations) {
-        setRecommendations(json.recommendations)
-        setTasteProfile(json.tasteProfile || null)
+      if (res.ok) {
+        const json = await res.json()
+        if (json.recommendations) {
+          setRecommendations(json.recommendations)
+          setTasteProfile(json.tasteProfile || null)
+        }
+        const freshRecs: Recommendation[] = Object.values(json.recommendations || {}).flat() as Recommendation[]
+        const filtered = freshRecs.filter(r => ['anime', 'manga', 'movie', 'tv', 'game'].includes(r.type))
+        if (filtered.length > 0) {
+          return filtered.map(r => ({
+            id: r.id, title: r.title, type: r.type as SwipeItem['type'],
+            coverImage: r.coverImage, year: r.year, genres: r.genres,
+            score: r.score, description: r.description, why: r.why,
+            matchScore: r.matchScore, episodes: r.episodes,
+            authors: (r as any).authors, developers: (r as any).developers,
+            platforms: (r as any).platforms, isAwardWinner: r.isAwardWinner,
+            isDiscovery: r.isDiscovery,
+          }))
+        }
       }
-      const freshRecs: Recommendation[] = Object.values(json.recommendations || {}).flat() as Recommendation[]
-      return freshRecs
+      // Fallback: consigli discovery (popolari/acclamati) — mai array vuoto
+      const fallbackType = filter && filter !== 'all' ? filter : 'anime'
+      const fallbackRes = await fetch(`/api/recommendations?type=${fallbackType}&discovery=1`)
+      if (fallbackRes.ok) {
+        const fallbackJson = await fallbackRes.json()
+        const fallbackRecs: Recommendation[] = Object.values(fallbackJson.recommendations || {}).flat() as Recommendation[]
+        if (fallbackRecs.length > 0) {
+          return fallbackRecs.map(r => ({
+            id: r.id, title: r.title, type: r.type as SwipeItem['type'],
+            coverImage: r.coverImage, year: r.year, genres: r.genres,
+            score: r.score, description: r.description, why: r.why,
+            matchScore: r.matchScore || 70, episodes: r.episodes,
+            authors: (r as any).authors, developers: (r as any).developers,
+            platforms: (r as any).platforms, isAwardWinner: r.isAwardWinner,
+            isDiscovery: true,
+          }))
+        }
+      }
+      // Ultimo fallback: riusa i consigli già in memoria senza filtro seenIds
+      const currentRecs: Recommendation[] = Object.values(recommendations).flat() as Recommendation[]
+      return currentRecs
         .filter(r => ['anime', 'manga', 'movie', 'tv', 'game'].includes(r.type))
+        .slice(0, 30)
         .map(r => ({
-          id: r.id, title: r.title, type: r.type as SwipeItem['type'],
+          id: r.id + '-refresh', title: r.title, type: r.type as SwipeItem['type'],
           coverImage: r.coverImage, year: r.year, genres: r.genres,
           score: r.score, description: r.description, why: r.why,
           matchScore: r.matchScore, episodes: r.episodes,
           authors: (r as any).authors, developers: (r as any).developers,
           platforms: (r as any).platforms, isAwardWinner: r.isAwardWinner,
+          isDiscovery: true,
         }))
     } catch { return [] }
-  }, [])
+  }, [recommendations])
 
   if (loading) return (
     <div className="min-h-screen bg-black text-white">
