@@ -3,13 +3,16 @@
 // GET /api/books?q=<query>
 //
 // Strategia in 2 passi:
-//   1) search.json → trova le OPERE (works)
-//   2) /works/{key}/editions.json?limit=1000 → TUTTE le edizioni
-//      → filtra per languages[].key === "/languages/ita"
-//      → ordina per anno DESC (più recenti prima)
+//   1) search.json → trova le OPERE (works, max 3)
+//   2) /works/{key}/editions.json?limit=1000 + /works/{key}.json (in parallelo)
+//      → filtra edizioni italiane (piano A) o inglesi (piano B)
+//      → ordina per anno DESC, max 10 risultati totali
+//      → descrizione dall'opera, tradotta in italiano con DeepL
 
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rateLimit'
+import { translateWithCache } from '@/lib/deepl'
+import { truncateAtSentence } from '@/lib/utils'
 
 const OL_SEARCH_BASE = 'https://openlibrary.org/search.json'
 const OL_BASE        = 'https://openlibrary.org'
@@ -70,7 +73,7 @@ async function fetchOL(url: string, timeoutMs = 8000): Promise<any | null> {
 
 // Recupera TUTTE le edizioni di un'opera.
 // Piano A: restituisce solo quelle in italiano.
-// Piano B: se nessuna edizione italiana, restituisce tutte le edizioni disponibili.
+// Piano B: se nessuna edizione italiana, restituisce le edizioni inglesi.
 async function getEditions(workKey: string): Promise<{ entries: any[], italian: boolean }> {
   const data = await fetchOL(`${OL_BASE}${workKey}/editions.json?limit=1000`, 10000)
   if (!data) return { entries: [], italian: false }
@@ -97,6 +100,14 @@ function parseYear(publishDate: string | undefined): number | null {
   return m ? parseInt(m[0]) : null
 }
 
+function extractDescription(workJson: any): string | null {
+  const raw = workJson?.description
+  if (!raw) return null
+  const text = typeof raw === 'string' ? raw : (raw?.value ?? null)
+  if (!text) return null
+  return truncateAtSentence(text.replace(/<[^>]+>/g, ''), 400)
+}
+
 const SEARCH_FIELDS = 'key,title,author_name,cover_i,isbn,first_publish_year,number_of_pages_median,subject,ratings_average'
 
 export async function GET(request: NextRequest) {
@@ -109,8 +120,7 @@ export async function GET(request: NextRequest) {
   console.log(`[BOOKS] query="${q}"`)
 
   // Step 1: cerca le opere per TITOLO (non full-text) per evitare falsi positivi
-  // da soggetti/tag come "Dune (Imaginary place)" che inquinano i risultati
-  const p1 = new URLSearchParams({ title: q, limit: '5', fields: SEARCH_FIELDS })
+  const p1 = new URLSearchParams({ title: q, limit: '3', fields: SEARCH_FIELDS })
   let searchData = await fetchOL(`${OL_SEARCH_BASE}?${p1}`)
   if (!searchData) {
     console.error('[BOOKS] Open Library non raggiungibile')
@@ -119,11 +129,11 @@ export async function GET(request: NextRequest) {
 
   // Fallback: se 0 risultati con title=, prova q= full-text
   if (!searchData.docs?.length) {
-    const p2 = new URLSearchParams({ q, limit: '5', fields: SEARCH_FIELDS })
+    const p2 = new URLSearchParams({ q, limit: '3', fields: SEARCH_FIELDS })
     searchData = (await fetchOL(`${OL_SEARCH_BASE}?${p2}`)) ?? searchData
   }
 
-  // Filtro aggiuntivo: le parole della query devono comparire nel titolo dell'opera
+  // Filtro: le parole della query devono comparire nel titolo dell'opera
   const queryWords = q.toLowerCase().split(/\s+/).filter(w => w.length > 1)
   const works: any[] = (searchData.docs ?? []).filter((work: any) => {
     if (!queryWords.length) return true
@@ -134,20 +144,24 @@ export async function GET(request: NextRequest) {
   console.log(`[BOOKS] opere trovate: ${works.length}`)
   if (!works.length) return NextResponse.json({ results: [] })
 
-  // Step 2: per ogni opera, recupera le edizioni italiane (o inglesi come piano B) in parallelo
+  // Step 2: per ogni opera, recupera edizioni e JSON dell'opera in parallelo
   const groups = await Promise.all(
     works.map(async (work: any) => {
       const genres    = mapSubjectsToGenres(work.subject?.slice(0, 20) ?? [])
       const workScore = work.ratings_average ? Math.round(work.ratings_average * 20) : null
       const authors   = work.author_name ?? []
 
-      const { entries, italian } = await getEditions(work.key)
+      const [{ entries, italian }, workJson] = await Promise.all([
+        getEditions(work.key),
+        fetchOL(`${OL_BASE}${work.key}.json`, 5000),
+      ])
+
+      const description = extractDescription(workJson)
       console.log(`[BOOKS] ${work.key} → edizioni ${italian ? 'italiane' : 'inglesi (piano B)'}: ${entries.length}`)
 
-      // Ordina per anno decrescente (più recenti prima)
       entries.sort((a, b) => (parseYear(b.publish_date) ?? 0) - (parseYear(a.publish_date) ?? 0))
 
-      return entries.map((ed: any) => {
+      return entries.slice(0, 10).map((ed: any) => {
         const isbn      = ed.isbn_13?.[0] ?? ed.isbn_10?.[0] ?? null
         const coverId   = ed.covers?.[0] ?? work.cover_i ?? null
         const coverImage = coverId ? `${OL_COVER_BASE}/id/${coverId}-L.jpg` : null
@@ -163,7 +177,7 @@ export async function GET(request: NextRequest) {
           genres,
           categories:   genres,
           score:        workScore,
-          description:  null,
+          description,
           authors,
           publisher:    ed.publishers?.[0]?.name ?? null,
           pageCount:    ed.number_of_pages ?? work.number_of_pages_median ?? null,
@@ -175,14 +189,23 @@ export async function GET(request: NextRequest) {
     })
   )
 
-  // Appiattisci, ordina globalmente per anno DESC, prendi i primi 20
   const all = groups
     .flat()
     .filter(r => r.title !== 'Titolo sconosciuto' || r.coverImage)
 
   all.sort((a, b) => (b.year ?? 0) - (a.year ?? 0))
+  const results = all.slice(0, 10)
 
-  const results = all.slice(0, 20)
+  // Traduce le descrizioni in italiano (batch, con cache)
+  const toTranslate = results.filter(r => r.description)
+  if (toTranslate.length > 0) {
+    const translated = await translateWithCache(
+      toTranslate.map(r => ({ id: r.id, text: r.description! })),
+      'IT', 'EN',
+    )
+    toTranslate.forEach(r => { if (translated[r.id]) r.description = translated[r.id] })
+  }
+
   console.log(`[BOOKS] risultati finali: ${results.length}`)
   return NextResponse.json({ results })
 }
