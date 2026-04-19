@@ -2129,7 +2129,7 @@ function shuffleSeeded<T>(arr: T[], seed: number): T[] {
   return a
 }
 
-// ── fetchBookRecs — Google Books ──────────────────────────────────────────────
+// ── fetchBookRecs — Open Library ─────────────────────────────────────────────
 async function fetchBookRecs(
   slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile,
   isAlreadyOwned: (type: string, id: string, title: string) => boolean,
@@ -2137,96 +2137,114 @@ async function fetchBookRecs(
 ): Promise<Recommendation[]> {
   const results: Recommendation[] = []
   const seen = new Set<string>()
-  const GBOOKS_BASE = 'https://www.googleapis.com/books/v1/volumes'
-  const apiKey = process.env.GOOGLE_BOOKS_API_KEY || ''
 
-  // Mappa generi cross-media → query termini Google Books
-  const GENRE_TO_BOOK_QUERY: Record<string, string[]> = {
-    'Fantasy':          ['fantasy', 'magic', 'epic fantasy'],
-    'Science Fiction':  ['science fiction', 'sci-fi', 'space opera'],
-    'Horror':           ['horror', 'dark thriller'],
-    'Mystery':          ['mystery', 'detective', 'whodunit'],
-    'Thriller':         ['thriller', 'suspense'],
-    'Romance':          ['romance', 'love story'],
-    'Adventure':        ['adventure', 'action adventure'],
-    'Drama':            ['literary fiction', 'drama'],
-    'Crime':            ['crime fiction', 'noir'],
-    'Psychological':    ['psychological thriller', 'psychological fiction'],
-    'Supernatural':     ['supernatural', 'paranormal'],
-    'Action':           ['action', 'adventure thriller'],
-    'Comedy':           ['comedy', 'humor'],
-    'Slice of Life':    ['contemporary fiction', 'slice of life'],
-    'Historical':       ['historical fiction', 'history'],
-    'Sci-Fi':           ['science fiction', 'cyberpunk'],
+  const OL_SEARCH  = 'https://openlibrary.org/search.json'
+  const OL_COVERS  = 'https://covers.openlibrary.org/b'
+  const OL_HEADERS = { 'User-Agent': 'Geekore (info@geekore.it)' }
+  const OL_FIELDS  = 'key,title,author_name,cover_i,first_publish_year,subject,ratings_average,language'
+
+  // Mappa generi cross-media → soggetti Open Library (Solr subject: query)
+  const GENRE_TO_OL_SUBJECT: Record<string, string> = {
+    'Fantasy':         'fantasy fiction',
+    'Science Fiction': 'science fiction',
+    'Horror':          'horror fiction',
+    'Mystery':         'mystery fiction',
+    'Thriller':        'thriller',
+    'Romance':         'romance fiction',
+    'Adventure':       'adventure fiction',
+    'Drama':           'literary fiction',
+    'Crime':           'crime fiction',
+    'Psychological':   'psychological fiction',
+    'Supernatural':    'supernatural fiction',
+    'Action':          'action adventure',
+    'Comedy':          'humorous fiction',
+    'Slice of Life':   'contemporary fiction',
+    'Historical':      'historical fiction',
+    'Sci-Fi':          'science fiction',
+  }
+
+  // Mappa soggetti OL → generi normalizzati (uguale a books/route.ts)
+  const SUBJECT_TO_GENRE: Record<string, string> = {
+    'Fantasy': 'Fantasy', 'Science fiction': 'Science Fiction', 'Horror': 'Horror',
+    'Mystery': 'Mystery', 'Thriller': 'Thriller', 'Romance': 'Romance',
+    'Adventure': 'Adventure', 'Action': 'Action', 'Drama': 'Drama',
+    'Comedy': 'Comedy', 'Historical fiction': 'Drama', 'History': 'Drama',
+    'Biography': 'Drama', 'Psychological fiction': 'Psychological',
+    'Supernatural': 'Supernatural', 'Crime': 'Crime', 'Dystopian': 'Science Fiction',
+    'Magic': 'Fantasy', 'Graphic novels': 'Action', 'Young adult fiction': 'Adventure',
   }
 
   const topKeywords = Object.entries(tasteProfile.deepSignals.keywords)
-    .sort(([, a], [, b]) => b - a).slice(0, 5).map(([k]) => k)
+    .sort(([, a], [, b]) => b - a).slice(0, 5).map(([k]) => k.toLowerCase())
 
   for (const slot of slots.slice(0, 6)) {
-    const queryTerms = GENRE_TO_BOOK_QUERY[slot.genre]
-    if (!queryTerms) continue
+    const subject = GENRE_TO_OL_SUBJECT[slot.genre]
+    if (!subject) continue
 
-    const q = queryTerms[0]
     const params = new URLSearchParams({
-      q: `subject:${q}`,
-      maxResults: '20',
-      printType: 'books',
-      orderBy: 'relevance',
-      langRestrict: 'it',
+      q: `subject:"${subject}"`,
+      sort: 'rating',
+      limit: '30',
+      fields: OL_FIELDS,
     })
-    if (apiKey) params.set('key', apiKey)
 
     try {
-      let items: any[] = []
-      const resIt = await fetch(`${GBOOKS_BASE}?${params}`, { signal: AbortSignal.timeout(6000) })
-      if (resIt.ok) items = (await resIt.json()).items || []
+      const res = await fetch(`${OL_SEARCH}?${params}`, {
+        signal: AbortSignal.timeout(6000),
+        headers: OL_HEADERS,
+      })
+      if (!res.ok) continue
 
-      // langRestrict: 'it' già filtra i risultati lato API
+      const data = await res.json()
+      let works: any[] = data.docs ?? []
 
-      for (const item of items.slice(0, 15)) {
-        const info = item.volumeInfo || {}
-        const id = `gbooks-${item.id}`
-        if (seen.has(id) || isAlreadyOwned('book', id, info.title || '')) continue
+      // Preferisci opere con edizione italiana; se poche, accetta anche le altre
+      const italian = works.filter((w: any) => Array.isArray(w.language) && w.language.includes('ita'))
+      if (italian.length >= 5) works = italian
+
+      for (const work of works.slice(0, 20)) {
+        if (!work.title || !work.cover_i) continue
+        const id = `ol-${(work.key ?? '').replace('/works/', '')}`
+        if (seen.has(id) || isAlreadyOwned('book', id, work.title)) continue
         if (shownIds?.has(id)) continue
-        if (!info.title || !info.imageLinks) continue
 
         seen.add(id)
 
-        const rawCover = info.imageLinks?.extraLarge || info.imageLinks?.large ||
-          info.imageLinks?.medium || info.imageLinks?.thumbnail ||
-          info.imageLinks?.smallThumbnail || null
-        if (!rawCover) continue
-        let cover = rawCover.replace('http://', 'https://').replace('&edge=curl', '').replace(/zoom=\d+/, 'zoom=3')
-        if (!cover.includes('fife=')) cover += '&fife=w400'
-        const year = info.publishedDate ? parseInt(info.publishedDate.substring(0, 4)) : undefined
-        const rawScore = info.averageRating ? Math.round(info.averageRating * 20) : undefined
-        const cats: string[] = info.categories || []
-        const genres = cats.length > 0 ? cats.slice(0, 3) : [slot.genre]
+        const coverImage = `${OL_COVERS}/id/${work.cover_i}-L.jpg`
+        const year: number | undefined = work.first_publish_year ?? undefined
+        const rawScore = work.ratings_average ? Math.round(work.ratings_average * 20) : undefined
 
-        // Boost da deepSignals
+        // Generi dall'array subject[] di Open Library
+        const workSubjects: string[] = work.subject?.slice(0, 30) ?? []
+        const genreSet = new Set<string>()
+        for (const sub of workSubjects) {
+          for (const [key, genre] of Object.entries(SUBJECT_TO_GENRE)) {
+            if (sub.toLowerCase().includes(key.toLowerCase())) genreSet.add(genre)
+          }
+        }
+        const genres = genreSet.size > 0 ? [...genreSet].slice(0, 3) : [slot.genre]
+
+        // Keywords: soggetti grezzi (esclusi quelli già mappati a generi)
+        const keywords = workSubjects.slice(0, 12)
+
+        // Boost deepSignals: cerca le keyword del profilo nei soggetti del libro
         let boost = 0
-        const desc = (info.description || '').toLowerCase()
-        for (const kw of topKeywords) { if (desc.includes(kw)) boost += 2 }
+        const subjectsText = workSubjects.join(' ').toLowerCase()
+        for (const kw of topKeywords) { if (subjectsText.includes(kw)) boost += 2 }
 
         const matchScore = 50 + boost + (rawScore ? rawScore / 10 : 0) + (slot.isDiscovery ? 0 : 5)
-
-        // buildWhy
         const why = tasteProfile.topGenres['book' as RecoMediaType]?.length
           ? `Perché ami ${slot.genre}`
           : `Basato sui tuoi gusti in ${slot.genre}`
 
         results.push({
-          id, title: info.title,
+          id, title: work.title,
           type: 'book' as RecoMediaType,
-          coverImage: cover,
-          year, genres, score: rawScore,
-          description: info.description
-            ? info.description.replace(/<[^>]+>/g, '').substring(0, 300)
-            : undefined,
+          coverImage, year, genres, keywords, score: rawScore,
           why, matchScore,
           isDiscovery: slot.isDiscovery,
-          tags: info.authors || [],
+          tags: work.author_name ?? [],
+          authors: work.author_name ?? [],
         })
 
         if (results.length >= slot.quota) break
