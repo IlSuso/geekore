@@ -190,7 +190,6 @@ export default function DiscoverPage() {
           try {
             const data = await r.value.json();
             if (Array.isArray(data)) all.push(...data);
-            else if (data.results) {
           } catch {}
         }
       }
