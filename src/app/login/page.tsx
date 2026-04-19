@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff, Zap, Gamepad2, BookOpen, Film } from 'lucide-react'
+import { Eye, EyeOff, Zap, Gamepad2, Layers, Film } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 
 function LocaleToggle() {
@@ -55,7 +55,7 @@ export default function LoginPage() {
   }
 
   const FEATURES = [
-    { icon: BookOpen, label: l.features[0], color: 'text-sky-400', bg: 'bg-sky-400/10' },
+    { icon: Layers, label: l.features[0], color: 'text-sky-400', bg: 'bg-sky-400/10' },
     { icon: Gamepad2, label: l.features[1], color: 'text-green-400', bg: 'bg-green-400/10' },
     { icon: Film, label: l.features[2], color: 'text-red-400', bg: 'bg-red-400/10' },
   ]

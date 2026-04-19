@@ -21,7 +21,7 @@ import { User } from '@supabase/supabase-js'
 import {
   Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X,
   Loader2, Pin, ArrowUp, Trash2, Tag, ChevronDown, Filter, Search, MoreHorizontal,
-  Film, Tv, Gamepad2, BookOpen, Swords, Check, PartyPopper,
+  Film, Tv, Gamepad2, Swords, Check, PartyPopper, Layers,
   Bell, ChevronRight, ArrowLeft, Flame
 } from 'lucide-react'
 import { SkeletonFeedPost } from '@/components/ui/SkeletonCard'
@@ -40,7 +40,7 @@ import { ReportButton } from '@/components/ui/ReportButton'
 // ── Macro-categorie ───────────────────────────────────────────────────────────
 
 const MACRO_CATEGORIES = [
-  'Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga', 'Libri',
+  'Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga',
 ]
 
 // ── Icone categoria (Lucide) ──────────────────────────────────────────────────
@@ -51,8 +51,7 @@ const CATEGORY_ICON_MAP: Record<string, LucideIcon> = {
   'Serie TV': Tv,
   'Videogiochi': Gamepad2,
   'Anime': Swords,
-  'Manga': BookOpen,
-  'Libri': BookOpen,
+  'Manga': Layers,
 }
 
 function CategoryIcon({ category, size = 13, className = '' }: { category: string; size?: number; className?: string }) {
@@ -67,7 +66,6 @@ const QUICK_SUBS: Record<string, string[]> = {
   'Videogiochi': ['RPG', 'FPS', 'Battle Royale', 'Strategia', 'Indie'],
   'Anime': ['Shonen', 'Shojo', 'Seinen', 'Isekai', 'Slice of Life'],
   'Manga': ['Shonen', 'Shojo', 'Seinen', 'Josei', 'Webtoon'],
-  'Libri': ['Fantasy', 'Fantascienza', 'Thriller', 'Romance', 'Horror'],
 }
 
 // ── Tipi ─────────────────────────────────────────────────────────────────────
@@ -227,19 +225,6 @@ async function searchByCategory(category: string, query: string): Promise<Search
       })).filter((i: SearchResult) => i.title)
     }
 
-    if (category === 'Libri') {
-      const res = await fetch(`/api/books?q=${q}`, { signal: AbortSignal.timeout(5000) })
-      if (!res.ok) { console.warn('[CategorySearch] Books error:', res.status); return [] }
-      const data = await res.json()
-      const items = data.results || []
-      return items.slice(0, 8).map((item: any) => ({
-        id: String(item.id),
-        title: item.title || '',
-        subtitle: item.authors?.length ? item.authors[0] : item.year ? String(item.year) : undefined,
-        image: item.coverImage,
-      })).filter((i: SearchResult) => i.title)
-    }
-
   } catch (err) {
     console.warn('[CategorySearch] fetch error:', err)
   }
@@ -267,7 +252,7 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
 
-  const API_CATEGORIES = new Set(['Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga', 'Libri'])
+  const API_CATEGORIES = new Set(['Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga'])
 
   // Chiudi cliccando fuori
   useEffect(() => {
@@ -357,7 +342,7 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
     : selectedCat === 'Videogiochi' ? 'Cerca un videogioco...'
     : selectedCat === 'Anime' ? 'Cerca un anime...'
     : selectedCat === 'Manga' ? 'Cerca un manga...'
-    : selectedCat === 'Libri' ? 'Cerca un libro...'
+    
     : 'Cerca un titolo...'
 
   return (
@@ -528,7 +513,7 @@ function CategoryFilter({
   const [isSearching, setIsSearching] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const ref = useRef<HTMLDivElement>(null)
-  const API_CATEGORIES = new Set(['Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga', 'Libri'])
+  const API_CATEGORIES = new Set(['Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga'])
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {

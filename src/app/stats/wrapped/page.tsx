@@ -7,7 +7,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Share2, X, Download, Tv, Gamepad2, BookOpen, Film, Trophy, Gem, Layers } from 'lucide-react'
+import { ChevronDown, Share2, X, Download, Tv, Gamepad2, Film, Trophy, Gem, Layers } from 'lucide-react'
 
 interface WrappedData {
   username: string

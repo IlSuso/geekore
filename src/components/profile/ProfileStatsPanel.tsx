@@ -3,7 +3,7 @@
 // Layout pulito e simmetrico: griglia tipi media + metriche + generi
 
 import { useMemo } from 'react'
-import { Star, Clock, BookOpen, Tv, Layers } from 'lucide-react'
+import { Star, Clock, Tv, Layers } from 'lucide-react'
 
 type UserMedia = {
   id: string

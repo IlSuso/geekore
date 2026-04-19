@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Zap, Gamepad2, BookOpen, Film, Tv, Search, ChevronRight, Check, Layers } from 'lucide-react'
+import { Zap, Gamepad2, Film, Tv, Search, ChevronRight, Check, Layers } from 'lucide-react'
 import { SteamIcon } from '@/components/icons/SteamIcon'
 
 const STEPS = [

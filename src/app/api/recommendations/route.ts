@@ -1048,56 +1048,6 @@ interface GenreSlot {
 }
 
 function buildDiversitySlots(type: MediaType, tasteProfile: TasteProfile, totalSlots = 20): GenreSlot[] {
-  // Generi supportati da Open Library — usati per validare gli slot book
-  const OL_VALID_GENRES = new Set([
-    'Fantasy', 'Science Fiction', 'Horror', 'Mystery', 'Thriller', 'Romance',
-    'Adventure', 'Drama', 'Crime', 'Psychological', 'Supernatural', 'Action',
-    'Comedy', 'Slice of Life', 'Historical', 'Sci-Fi',
-  ])
-
-  // ── Logica specifica per libri ────────────────────────────────────────────
-  // Usa i generi book-specifici dal profilo, oppure fallback ai generi globali
-  // filtrati per quelli supportati da Open Library
-  if (type === 'book') {
-    const bookTypeGenres = tasteProfile.topGenres['book']?.map(g => g.genre) || []
-    const sourceGenres = bookTypeGenres.length >= 2
-      ? bookTypeGenres
-      : tasteProfile.globalGenres.map(g => g.genre)
-
-    const validBookGenres = sourceGenres.filter(g => OL_VALID_GENRES.has(g))
-
-    if (validBookGenres.length === 0) {
-      // Fallback assoluto con generi OL comuni
-      return [
-        { genre: 'Fantasy', quota: Math.ceil(totalSlots * 0.3), isDiscovery: false },
-        { genre: 'Science Fiction', quota: Math.ceil(totalSlots * 0.25), isDiscovery: false },
-        { genre: 'Adventure', quota: Math.ceil(totalSlots * 0.2), isDiscovery: false },
-        { genre: 'Thriller', quota: Math.ceil(totalSlots * 0.15), isDiscovery: false },
-        { genre: 'Mystery', quota: Math.ceil(totalSlots * 0.1), isDiscovery: true },
-      ]
-    }
-
-    const slots: GenreSlot[] = []
-    const numMain = Math.min(validBookGenres.length, 5)
-    const allScores = Object.fromEntries(tasteProfile.globalGenres.map(g => [g.genre, g.score]))
-    const topScores = validBookGenres.slice(0, numMain).map(g => allScores[g] || 1)
-    const sumScores = topScores.reduce((a, b) => a + b, 0) || 1
-    const mainBudget = Math.round(totalSlots * 0.85)
-
-    for (let i = 0; i < numMain; i++) {
-      const quota = Math.max(2, Math.round(mainBudget * (topScores[i] / sumScores)))
-      slots.push({ genre: validBookGenres[i], quota, isDiscovery: false })
-    }
-
-    // Slot discovery: genere OL non nel profilo principale
-    const unusedOl = [...OL_VALID_GENRES].filter(g => !validBookGenres.slice(0, numMain).includes(g))
-    if (unusedOl.length > 0) {
-      const jolly = unusedOl[Math.floor(Math.random() * Math.min(unusedOl.length, 5))]
-      slots.push({ genre: jolly, quota: 2, isDiscovery: true, isSerendipity: true })
-    }
-
-    return slots
-  }
 
   const typeGenres0 = tasteProfile.topGenres[type]?.map(g => g.genre) || []
   if (typeGenres0.length === 0) {
@@ -2192,230 +2142,6 @@ function shuffleSeeded<T>(arr: T[], seed: number): T[] {
   return a
 }
 
-// ── fetchBookRecs — Open Library ─────────────────────────────────────────────
-// Strategia "Italian First":
-//   1. Per ogni slot/genere, prima query con language=ita → pool italiano
-//   2. Se il pool italiano non riempie la quota, integra con query generale
-//   3. Scoring identico agli altri fetcher (matchScore + deepSignals + creator)
-//   4. I risultati italiani hanno già priorità per costruzione (vengono prima)
-async function fetchBookRecs(
-  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile,
-  isAlreadyOwned: (type: string, id: string, title: string) => boolean,
-  shownIds?: Set<string>
-): Promise<Recommendation[]> {
-  const results: Recommendation[] = []
-  const seen = new Set<string>()
-
-  const OL_SEARCH  = 'https://openlibrary.org/search.json'
-  const OL_COVERS  = 'https://covers.openlibrary.org/b'
-  const OL_HEADERS = { 'User-Agent': 'Geekore (info@geekore.it)' }
-  const OL_FIELDS  = 'key,title,author_name,cover_i,first_publish_year,subject,ratings_average,language'
-
-  // Mappa generi cross-media → soggetti Open Library (Solr query)
-  const GENRE_TO_OL_SUBJECT: Record<string, string> = {
-    'Fantasy':         'fantasy fiction',
-    'Science Fiction': 'science fiction',
-    'Horror':          'horror fiction',
-    'Mystery':         'mystery fiction',
-    'Thriller':        'thriller',
-    'Romance':         'romance fiction',
-    'Adventure':       'adventure fiction',
-    'Drama':           'literary fiction',
-    'Crime':           'crime fiction',
-    'Psychological':   'psychological fiction',
-    'Supernatural':    'supernatural fiction',
-    'Action':          'action adventure',
-    'Comedy':          'humorous fiction',
-    'Slice of Life':   'contemporary fiction',
-    'Historical':      'historical fiction',
-    'Sci-Fi':          'science fiction',
-  }
-
-  // Mappa soggetti OL → generi normalizzati
-  const SUBJECT_TO_GENRE: Record<string, string> = {
-    'Fantasy': 'Fantasy', 'Science fiction': 'Science Fiction', 'Horror': 'Horror',
-    'Mystery': 'Mystery', 'Thriller': 'Thriller', 'Romance': 'Romance',
-    'Adventure': 'Adventure', 'Action': 'Action', 'Drama': 'Drama',
-    'Comedy': 'Comedy', 'Historical fiction': 'Drama', 'History': 'Drama',
-    'Biography': 'Drama', 'Psychological fiction': 'Psychological',
-    'Supernatural': 'Supernatural', 'Crime': 'Crime', 'Dystopian': 'Science Fiction',
-    'Magic': 'Fantasy', 'Graphic novels': 'Action', "Children's literature": 'Adventure',
-    'Young adult fiction': 'Adventure',
-  }
-
-  const topKeywords = Object.entries(tasteProfile.deepSignals.keywords)
-    .sort(([, a], [, b]) => b - a).slice(0, 8).map(([k]) => k.toLowerCase())
-  const topThemes = Object.entries(tasteProfile.deepSignals.themes)
-    .sort(([, a], [, b]) => b - a).slice(0, 6).map(([t]) => t.toLowerCase())
-  const topAuthorsSet = new Set(
-    Object.entries(tasteProfile.creatorScores.authors)
-      .sort(([, a], [, b]) => b - a).slice(0, 10).map(([a]) => a)
-  )
-
-  // Helper: fetch works da OL con parametri opzionali
-  const fetchWorks = async (subject: string, extraParams: Record<string, string> = {}): Promise<any[]> => {
-    const params = new URLSearchParams({
-      q: `subject:"${subject}"`,
-      sort: 'rating',
-      limit: '40',
-      fields: OL_FIELDS,
-      ...extraParams,
-    })
-    try {
-      const res = await fetch(`${OL_SEARCH}?${params}`, {
-        signal: AbortSignal.timeout(6000),
-        headers: OL_HEADERS,
-      })
-      if (!res.ok) return []
-      const data = await res.json()
-      // Filtra: deve avere rating valorizzato e copertina
-      return (data.docs ?? []).filter((w: any) => (w.ratings_average ?? 0) > 0 && w.cover_i)
-    } catch { return [] }
-  }
-
-  // Helper: scorare un work OL
-  const scoreWork = (w: any, slotGenre: string, isItalian: boolean) => {
-    const workSubjects: string[] = w.subject?.slice(0, 40) ?? []
-    const subjectsText = workSubjects.join(' ').toLowerCase()
-
-    const genreSet = new Set<string>()
-    for (const sub of workSubjects) {
-      for (const [key, genre] of Object.entries(SUBJECT_TO_GENRE)) {
-        if (sub.toLowerCase().includes(key.toLowerCase())) genreSet.add(genre)
-      }
-    }
-    const genres = genreSet.size > 0 ? [...genreSet].slice(0, 4) : [slotGenre]
-
-    let matchScore = computeMatchScore(genres, workSubjects.slice(0, 20), tasteProfile)
-
-    let boost = 0
-    for (const kw of topKeywords) { if (subjectsText.includes(kw)) boost += 3 }
-    for (const theme of topThemes) { if (subjectsText.includes(theme)) boost += 4 }
-
-    const bookAuthors: string[] = w.author_name ?? []
-    let creatorBoost: string | undefined
-    for (const author of bookAuthors) {
-      if (topAuthorsSet.has(author)) { boost += 8; creatorBoost = author; break }
-    }
-
-    const rating = w.ratings_average || 0
-    if (rating >= 4.0) boost += 6
-    else if (rating >= 3.5) boost += 3
-
-    // Boost italiano — già prioritari per costruzione, boost aggiuntivo nel punteggio
-    if (isItalian) boost += 12
-
-    const year: number | undefined = w.first_publish_year ?? undefined
-    matchScore = Math.round(matchScore * releaseFreshnessMult(year))
-    matchScore = Math.min(100, matchScore + boost)
-
-    const rawScore = rating > 0 ? Math.round(rating * 10) / 10 : undefined
-
-    return { w, matchScore, genres, workSubjects, rawScore, bookAuthors, creatorBoost, year, isItalian }
-  }
-
-  for (const slot of slots.slice(0, 6)) {
-    const subject = GENRE_TO_OL_SUBJECT[slot.genre]
-    if (!subject) continue
-
-    try {
-      // ── FASE 1: cerca prima i libri con edizione italiana ────────────────
-      const italianWorks = await fetchWorks(subject, { language: 'ita' })
-
-      // ── FASE 2: se italiani non bastano, integra con pool generale ───────
-      // (escludendo quelli già trovati nella fase 1 per evitare duplicati)
-      const italianKeys = new Set(italianWorks.map((w: any) => w.key))
-      let generalWorks: any[] = []
-      const needed = slot.quota + 10
-      if (italianWorks.length < needed) {
-        const gen = await fetchWorks(subject)
-        generalWorks = gen.filter((w: any) => !italianKeys.has(w.key))
-      }
-
-      // ── FASE 3: scoring — italiani prima, poi generali ───────────────────
-      const isItalianSet = new Set(italianWorks.map((w: any) => w.key))
-
-      const allWorks = [...italianWorks, ...generalWorks]
-      const candidates = allWorks
-        .filter((w: any) => {
-          if (!w.title || !w.cover_i) return false
-          const id = `ol-${(w.key ?? '').replace('/works/', '')}`
-          return !seen.has(id) && !isAlreadyOwned('book', id, w.title) && !(shownIds?.has(id))
-        })
-        .map((w: any) => scoreWork(w, slot.genre, isItalianSet.has(w.key)))
-        .filter(({ matchScore }: any) => matchScore >= 20)
-        .sort((a: any, b: any) => {
-          // Italiani prima a parità di matchScore simile (entro 10 punti)
-          if (a.isItalian !== b.isItalian) {
-            const diff = b.matchScore - a.matchScore
-            if (Math.abs(diff) <= 10) return a.isItalian ? -1 : 1
-          }
-          return b.matchScore - a.matchScore
-        })
-        .slice(0, slot.quota + 5)
-
-      // ── FASE 4: fetch descrizioni in parallelo per i candidati scelti ────
-      const chosen = candidates.slice(0, slot.quota)
-      const descriptions = await Promise.allSettled(
-        chosen.map(async ({ w }: any) => {
-          const workKey = (w.key ?? '').replace('/works/', '')
-          try {
-            const descRes = await fetch(`https://openlibrary.org/works/${workKey}.json`, {
-              signal: AbortSignal.timeout(3000),
-              headers: OL_HEADERS,
-            })
-            if (!descRes.ok) return { key: w.key, text: undefined }
-            const descData = await descRes.json()
-            const raw = descData.description
-            const text = typeof raw === 'string' ? raw
-              : typeof raw === 'object' && raw?.value ? raw.value
-              : undefined
-            return { key: w.key, text: text ? truncateAtSentence(text.replace(/\r?\n/g, ' '), 300) : undefined }
-          } catch { return { key: w.key, text: undefined } }
-        })
-      )
-      const descMap = new Map<string, string | undefined>()
-      for (const r of descriptions) {
-        if (r.status === 'fulfilled') descMap.set(r.value.key, r.value.text)
-      }
-
-      // ── FASE 5: costruisci Recommendation[] ─────────────────────────────
-      for (const { w, matchScore, genres, workSubjects, rawScore, bookAuthors, creatorBoost, year } of chosen) {
-        const id = `ol-${(w.key ?? '').replace('/works/', '')}`
-        if (seen.has(id)) continue
-        seen.add(id)
-
-        const why = buildWhyV3(genres, id, w.title, tasteProfile, matchScore, slot.isDiscovery, {
-          recDirectors: bookAuthors,
-          creatorBoost,
-        })
-
-        results.push({
-          id,
-          title: w.title,
-          type: 'book' as RecoMediaType,
-          coverImage: `${OL_COVERS}/id/${w.cover_i}-L.jpg`,
-          year,
-          genres,
-          keywords: workSubjects.slice(0, 12),
-          score: rawScore,
-          description: descMap.get(w.key),
-          why,
-          matchScore,
-          isDiscovery: slot.isDiscovery,
-          isSerendipity: slot.isSerendipity,
-          tags: bookAuthors,
-          authors: bookAuthors,
-          creatorBoost,
-          isAwardWinner: (w.ratings_average ?? 0) >= 4.2,
-        })
-      }
-    } catch { /* non bloccante */ }
-  }
-
-  return results.sort((a, b) => b.matchScore - a.matchScore)
-}
-
 export async function GET(request: NextRequest) {
   try {
     const rl = rateLimit(request, { limit: 10, windowMs: 60_000 })
@@ -2567,14 +2293,10 @@ export async function GET(request: NextRequest) {
       ...allEntries.map(e => e.type),
       ...wishlistItems.map(w => w.type),
     ])
-    // I libri vengono sempre inclusi: sono un tipo "discovery" che usiamo
-    // per espandere i gusti dell'utente anche se non ha libri in collezione.
-    // Gli altri tipi (anime, manga, movie, tv, game) vengono inclusi solo se
-    // l'utente ha già contenuti di quel tipo (per avere contesto sufficiente).
-    const ALWAYS_INCLUDE_TYPES: MediaType[] = ['book']
+    // I tipi vengono inclusi solo se l'utente ha già contenuti di quel tipo
     const typesToFetch: MediaType[] = requestedType === 'all'
-      ? (['anime', 'manga', 'movie', 'tv', 'game', 'book'] as MediaType[]).filter(t =>
-          ALWAYS_INCLUDE_TYPES.includes(t) || allTypesInCollection.has(t)
+      ? (['anime', 'manga', 'movie', 'tv', 'game'] as MediaType[]).filter(t =>
+          allTypesInCollection.has(t)
         )
       : [requestedType as MediaType]
 
@@ -2679,7 +2401,6 @@ export async function GET(request: NextRequest) {
             case 'movie': return { type, items: await fetchMovieRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds) }
             case 'tv':    return { type, items: await fetchTvRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds) }
             case 'game':       return { type, items: await fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret, isAlreadyOwned, emptyShownIds) }
-            case 'book':       return { type, items: await fetchBookRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds) }
             default: return { type, items: [] }
           }
         })

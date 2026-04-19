@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
-import { TrendingUp, Film, BookOpen, Gamepad2, Tv, Layers } from 'lucide-react'
+import { TrendingUp, Film, Gamepad2, Tv, Layers } from 'lucide-react'
 
 interface SuggestedUser {
   id: string

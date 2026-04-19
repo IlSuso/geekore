@@ -4,7 +4,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { SearchSection } from '@/components/explore/search-section'
-import { TrendingUp, Users, Star, Film, Gamepad2, BookOpen, Tv, Globe, Zap, Heart, Trophy, MessageCircle, ThumbsUp, Layers } from 'lucide-react'
+import { TrendingUp, Users, Star, Film, Gamepad2, Tv, Globe, Zap, Heart, Trophy, MessageCircle, ThumbsUp, Layers } from 'lucide-react'
 import Link from 'next/link'
 import { Avatar } from '@/components/ui/Avatar'
 

@@ -401,188 +401,6 @@ async function fetchBoardgameNews(lang: string): Promise<any[]> {
 }
 
 
-// ── Books (Open Library) — Nuove Uscite ───────────────────────────────────────
-//
-// STRATEGIA:
-//   1. Open Library /search.json?sort=new  → libri pubblicati di recente
-//      con date REALI (non inventate) e copertine affidabili via cover_i
-//   2. Query per soggetti di tendenza in italiano + inglese
-//   3. Filtro: solo libri degli ultimi 2 anni con cover_i valorizzato
-//   4. Deduplica per titolo, ordina per data discendente
-
-const OL_SEARCH_URL  = 'https://openlibrary.org/search.json'
-const OL_COVERS_URL  = 'https://covers.openlibrary.org/b'
-const OL_AGENT       = { 'User-Agent': 'Geekore (info@geekore.it)' }
-const OL_BOOK_FIELDS = 'key,title,author_name,cover_i,cover_edition_key,isbn,first_publish_year,subject,ratings_average,ratings_count,language,publisher,edition_count'
-
-const OL_SUBJ_GENRE: Record<string, string> = {
-  'fantasy': 'Fantasy', 'science fiction': 'Science Fiction', 'horror': 'Horror',
-  'mystery': 'Mystery', 'thriller': 'Thriller', 'romance': 'Romance',
-  'adventure': 'Adventure', 'historical fiction': 'Historical Fiction',
-  'literary fiction': 'Literary Fiction', 'crime': 'Crime',
-  'biography': 'Biography', 'memoir': 'Memoir', 'psychological': 'Psychological',
-  'action': 'Action', 'drama': 'Drama', 'young adult': 'Young Adult',
-  'dystopian': 'Dystopian', 'supernatural': 'Supernatural', 'war': 'War',
-  'political': 'Political', 'detective': 'Mystery', 'spy': 'Thriller',
-}
-
-function olNewsGenres(subjects: string[]): string[] {
-  const result = new Set<string>()
-  for (const sub of (subjects || []).slice(0, 30)) {
-    const low = sub.toLowerCase()
-    for (const [key, genre] of Object.entries(OL_SUBJ_GENRE)) {
-      if (low.includes(key)) { result.add(genre); break }
-    }
-    if (result.size >= 4) break
-  }
-  return Array.from(result)
-}
-
-function olNewsDoc(doc: any): any | null {
-  if (!doc?.title) return null
-
-  // Richiede cover_i: garanzia che l'immagine esista
-  if (!doc.cover_i) return null
-
-  const workId = (doc.key || '').replace('/works/', '')
-  const isbn = (doc.isbn || [])[0] || null
-  const year = doc.first_publish_year || undefined
-
-  // Scarta libri troppo vecchi (vogliamo news/nuove uscite)
-  const currentYear = new Date().getFullYear()
-  if (year && year < currentYear - 2) return null
-
-  const authors: string[] = doc.author_name || []
-  const genres = olNewsGenres(doc.subject || [])
-  const publishers: string[] = (doc.publisher || []).slice(0, 2)
-  const rating = doc.ratings_average
-  const ratingCount = doc.ratings_count || 0
-  // OL scala 0-5 → scala 0-10
-  const score = rating && ratingCount >= 5
-    ? Math.round(rating * 20) / 10
-    : undefined
-
-  // Data: se abbiamo l'anno preciso usiamola, altrimenti null
-  // NON inventiamo date: se non abbiamo mese/giorno precisi, usiamo solo l'anno
-  const date = year ? `${year}-01-01` : undefined
-
-  return {
-    id: `ol-${workId}`,
-    type: 'book',
-    source_api: 'open_library',
-    title: doc.title as string,
-    coverImage: `${OL_COVERS_URL}/id/${doc.cover_i}-L.jpg`,
-    date,
-    year,
-    genres,
-    score,
-    authors: authors.length ? authors : undefined,
-    studios: publishers.length ? publishers : undefined,
-    publisher: publishers[0] || undefined,
-    isbn,
-    original_language: (doc.language || [])[0] || 'und',
-    category: 'book',
-    source: 'Open Library',
-    url: `https://openlibrary.org${doc.key || ''}`,
-  }
-}
-
-async function fetchBooks(lang: string): Promise<any[]> {
-  logger.info(`[Books] fetchBooks START lang=${lang}`)
-
-  const currentYear = new Date().getFullYear()
-
-  // Query per nuove uscite: sort=new restituisce i libri aggiunti/aggiornati
-  // più di recente su OL — ottima approssimazione delle nuove pubblicazioni
-  const itSubjects = [
-    'narrativa italiana',
-    'romanzo italiano',
-    'letteratura italiana',
-    'fantasy',
-    'thriller',
-    'giallo italiano',
-    'romanzo storico',
-    'fantascienza',
-  ]
-  const enSubjects = [
-    'fiction',
-    'fantasy fiction',
-    'science fiction',
-    'thriller',
-    'mystery fiction',
-    'historical fiction',
-    'literary fiction',
-    'young adult fiction',
-  ]
-
-  const subjects = lang === 'it' ? [...itSubjects, ...enSubjects] : enSubjects
-
-  const seen = new Set<string>()
-  const allDocs: any[] = []
-
-  await Promise.all(
-    subjects.map(async (subject) => {
-      try {
-        const params = new URLSearchParams({
-          q: `subject:"${subject}"`,
-          sort: 'new',              // libri recenti
-          limit: '15',
-          fields: OL_BOOK_FIELDS,
-          // Filtro pubblicazione: ultimi 2 anni
-          'publish_year': `[${currentYear - 2} TO ${currentYear + 1}]`,
-        })
-        if (lang === 'it' && itSubjects.includes(subject)) {
-          params.set('language', 'ita')
-        }
-
-        const res = await fetch(`${OL_SEARCH_URL}?${params}`, {
-          headers: OL_AGENT,
-          cache: 'no-store',
-          signal: AbortSignal.timeout(10_000),
-        })
-        if (!res.ok) return
-        const json = await res.json()
-        for (const doc of (json.docs || [])) {
-          if (!seen.has(doc.key) && doc.cover_i) {
-            seen.add(doc.key)
-            allDocs.push(doc)
-          }
-        }
-      } catch (e: any) {
-        logger.info(`[Books] subject "${subject}" error: ${e?.message}`)
-      }
-    })
-  )
-
-  logger.info(`[Books] raw docs: ${allDocs.length}`)
-
-  const mapped = allDocs
-    .map(olNewsDoc)
-    .filter(Boolean)
-
-  logger.info(`[Books] after filter: ${mapped.length}`)
-
-  // Ordina per anno decrescente (più recenti prima)
-  mapped.sort((a: any, b: any) => {
-    if (a.year && b.year) return b.year - a.year
-    if (a.year) return -1
-    if (b.year) return 1
-    return 0
-  })
-
-  // Deduplica per titolo
-  const titleSeen = new Set<string>()
-  const deduped = mapped.filter((b: any) => {
-    const key = b.title.toLowerCase().trim()
-    if (titleSeen.has(key)) return false
-    titleSeen.add(key)
-    return true
-  })
-
-  logger.info(`[Books] fetchBooks DONE: ${deduped.length} items`)
-  return deduped.slice(0, 20)
-}
-
 // ── runSync ───────────────────────────────────────────────────────────────────
 
 async function runSync(lang: 'it' | 'en') {
@@ -595,13 +413,12 @@ async function runSync(lang: 'it' | 'en') {
   const suffix = `_${lang}`
 
   logger.info(`[runSync] launching fast fetchers in parallel`)
-  const [cinema, tv, anime, gaming, manga, books] = await Promise.all([
+  const [cinema, tv, anime, gaming, manga] = await Promise.all([
     fetchCinema(lang),
     fetchTV(lang),
     fetchAnime(lang),
     fetchGaming(lang),
     fetchManga(lang),
-    fetchBooks(lang),
   ])
 
   const now = new Date().toISOString()
@@ -612,10 +429,9 @@ async function runSync(lang: 'it' | 'en') {
     supabase.from('news_cache').upsert({ category: `anime${suffix}`,     data: anime,     updated_at: now }, { onConflict: 'category' }),
     supabase.from('news_cache').upsert({ category: `gaming${suffix}`,    data: gaming,    updated_at: now }, { onConflict: 'category' }),
     supabase.from('news_cache').upsert({ category: `manga${suffix}`,     data: manga,     updated_at: now }, { onConflict: 'category' }),
-    supabase.from('news_cache').upsert({ category: `book${suffix}`,      data: books,     updated_at: now }, { onConflict: 'category' }),
   ])
 
-  logger.info(`[runSync] fast fetchers done: cinema=${cinema.length} tv=${tv.length} anime=${anime.length} gaming=${gaming.length} manga=${manga.length} books=${books.length}`)
+  logger.info(`[runSync] fast fetchers done: cinema=${cinema.length} tv=${tv.length} anime=${anime.length} gaming=${gaming.length} manga=${manga.length}`)
 
   // BGG sequenziale dopo
   logger.info(`[runSync] starting BGG fetch`)
@@ -632,7 +448,7 @@ async function runSync(lang: 'it' | 'en') {
     else logger.info(`[runSync] boardgame upsert OK`)
   }
 
-  const counts = { cinema: cinema.length, tv: tv.length, anime: anime.length, gaming: gaming.length, manga: manga.length, books: books.length, boardgame: boardgame.length }
+  const counts = { cinema: cinema.length, tv: tv.length, anime: anime.length, gaming: gaming.length, manga: manga.length, boardgame: boardgame.length }
   logger.info(`[runSync] DONE counts=${JSON.stringify(counts)}`)
   return counts
 }

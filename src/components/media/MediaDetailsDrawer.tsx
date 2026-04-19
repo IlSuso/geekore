@@ -6,7 +6,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import {
   X, ExternalLink, Star, Clock, Users, Layers,
-  Gamepad2, BookOpen, Film, Tv, Clapperboard, Check, Bookmark,
+  Gamepad2, Film, Tv, Clapperboard, Check, Bookmark,
   Sparkles, Trophy, Monitor,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -49,8 +49,6 @@ export interface MediaDetails {
   studios?: string[]
   directors?: string[]
   authors?: string[]
-  pageCount?: number
-  publisher?: string
   relations?: Array<{
     relationType: string; id: string; type: string
     title: string; coverImage?: string; year?: number; genres: string[]
@@ -96,15 +94,15 @@ function triggerTasteDelta(options: {
 
 const TYPE_ICON: Record<string, React.ElementType> = {
   anime: Film, manga: Layers, game: Gamepad2,
-  tv: Tv, movie: Film, book: BookOpen,
+  tv: Tv, movie: Film,
 }
 const TYPE_COLOR: Record<string, string> = {
   anime: 'bg-sky-500', manga: 'bg-orange-500', game: 'bg-green-500',
-  tv: 'bg-purple-500', movie: 'bg-red-500', book: 'bg-amber-500',
+  tv: 'bg-purple-500', movie: 'bg-red-500',
 }
 const TYPE_LABEL: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', game: 'Gioco',
-  tv: 'Serie TV', movie: 'Film', book: 'Libro',
+  tv: 'Serie TV', movie: 'Film',
 }
 
 const RELATION_LABEL: Record<string, string> = {
@@ -479,12 +477,6 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                   <p className="text-lg font-bold text-white">{media.playing_time}<span className="text-[10px] text-zinc-600 ml-0.5">m</span></p>
                 </div>
               )
-              if (media.pageCount) cells.push(
-                <div key="pages" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
-                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Pagine</p>
-                  <p className="text-lg font-bold text-white">{media.pageCount}</p>
-                </div>
-              )
               if (media.complexity) cells.push(
                 <div key="cmplx" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Difficoltà</p>
@@ -565,14 +557,6 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                 </div>
               </div>
             ) : null}
-
-            {/* Editore (books) */}
-            {media.type === 'book' && media.publisher && (
-              <div>
-                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Editore</h3>
-                <span className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{media.publisher}</span>
-              </div>
-            )}
 
             {/* Cast */}
             {media.cast && media.cast.length > 0 && (

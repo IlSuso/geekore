@@ -3,7 +3,7 @@
 // Server Component — dati aggregati letti da Supabase.
 
 import { createClient } from '@/lib/supabase/server'
-import { Users, Clock, Star, Gamepad2, Tv, Film, BookOpen, TrendingUp, Globe, Trophy } from 'lucide-react'
+import { Users, Clock, Star, Gamepad2, Tv, Film, Layers, TrendingUp, Globe, Trophy } from 'lucide-react'
 import Link from 'next/link'
 
 async function getGlobalStats() {
@@ -231,7 +231,7 @@ export default async function GlobalStatsPage() {
         {stats.popularGenres.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">
-              <BookOpen size={14} className="text-violet-400" />
+              <Layers size={14} className="text-violet-400" />
               <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-widest">Generi più amati</h2>
             </div>
             <div className="flex flex-wrap gap-2">

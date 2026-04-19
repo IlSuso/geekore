@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Gamepad2, Film, Tv, BookOpen, Loader2, CalendarDays, RefreshCw, Swords, Dices, Library } from 'lucide-react'
+import { Gamepad2, Film, Tv, Loader2, CalendarDays, RefreshCw, Swords, Dices } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { translateGenre } from '@/lib/genres'
 import { ErrorState } from '@/components/ui/ErrorState'
@@ -15,7 +15,7 @@ const NEWS_CACHE_TTL = 5 * 60 * 1000
 type UpcomingItem = {
   id?: string
   type?: string
-  source_api?: 'tmdb' | 'anilist' | 'igdb' | 'bgg' | 'google_books' | 'open_library'
+  source_api?: 'tmdb' | 'anilist' | 'igdb' | 'bgg'
   title: string
   description?: string
   coverImage?: string
@@ -44,11 +44,6 @@ type UpcomingItem = {
   watchProviders?: string[]
   nextEpisodeDate?: string
   italianSupportTypes?: string[]
-  // Book specific
-  authors?: string[]
-  publisher?: string
-  pageCount?: number
-  isbn?: string
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -58,7 +53,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   gaming:    'bg-emerald-600 text-white',
   manga:     'bg-pink-600 text-white',
   boardgame: 'bg-yellow-600 text-white',
-  book:      'bg-amber-600 text-white',
 }
 
 function formatDate(dateStr?: string, locale?: string) {
@@ -73,7 +67,6 @@ function formatDate(dateStr?: string, locale?: string) {
 function toMediaDetails(item: UpcomingItem): MediaDetails | null {
   if (!item.id || !item.type) return null
   const isManga = item.category === 'manga'
-  const isBook = item.category === 'book'
   return {
     id: item.id,
     title: item.title,
@@ -84,9 +77,9 @@ function toMediaDetails(item: UpcomingItem): MediaDetails | null {
     genres: item.genres || [],
     score: item.score,
     episodes: item.episodes,
-    studios: isBook ? undefined : item.studios,
-    authors: (isManga || isBook) ? (item.authors || item.developers) : undefined,
-    developers: (isManga || isBook) ? undefined : item.developers,
+    studios: item.studios,
+    authors: isManga ? (item.authors || item.developers) : undefined,
+    developers: isManga ? undefined : item.developers,
     directors: item.directors,
     cast: item.cast,
     platforms: item.platforms,
@@ -97,8 +90,6 @@ function toMediaDetails(item: UpcomingItem): MediaDetails | null {
     seasons: item.seasons,
     watchProviders: item.watchProviders,
     italianSupportTypes: item.italianSupportTypes,
-    publisher: item.publisher,
-    pageCount: item.pageCount,
     externalUrl: item.url,
   }
 }
@@ -117,11 +108,10 @@ export default function NewsPage() {
     { id: 'all',       label: t.news.all,       icon: null      },
     { id: 'cinema',    label: t.news.cinema,    icon: Film      },
     { id: 'tv',        label: t.news.tv,        icon: Tv        },
-    { id: 'anime',     label: t.news.anime,     icon: BookOpen  },
+    { id: 'anime',     label: t.news.anime,     icon: Swords    },
     { id: 'manga',     label: t.news.manga,     icon: Swords    },
     { id: 'gaming',    label: t.news.gaming,    icon: Gamepad2  },
     { id: 'boardgame', label: t.news.boardgame, icon: Dices     },
-    { id: 'book',      label: t.news.book,      icon: Library   },
   ]
 
   const CATEGORY_LABELS: Record<string, string> = {
@@ -131,17 +121,15 @@ export default function NewsPage() {
     manga:     t.news.manga,
     gaming:    t.news.gaming,
     boardgame: t.news.boardgame,
-    book:      t.news.book,
   }
 
   const CATEGORY_ICONS: Record<string, React.ElementType> = {
     cinema:    Film,
     tv:        Tv,
     anime:     Swords,
-    manga:     BookOpen,
+    manga:     Swords,
     gaming:    Gamepad2,
     boardgame: Dices,
-    book:      Library,
   }
 
   const fetchItems = async (cat: string, forceRefresh = false) => {
@@ -307,13 +295,6 @@ export default function NewsPage() {
                       {item.title}
                     </h3>
 
-                    {/* Autori per i libri */}
-                    {item.category === 'book' && item.authors && item.authors.length > 0 && (
-                      <p className="text-[10px] text-zinc-500 line-clamp-1">
-                        {item.authors.slice(0, 2).join(', ')}
-                      </p>
-                    )}
-
                     {item.genres && item.genres.length > 0 && (
                       <div className="flex flex-wrap gap-1">
                         {item.genres.slice(0, 2).map(g => (
@@ -329,11 +310,6 @@ export default function NewsPage() {
                         <span className="text-[9px] text-zinc-500">🇮🇹</span>
                         <span className="text-[9px] text-zinc-500">{item.italianSupportTypes.join(' · ')}</span>
                       </div>
-                    )}
-
-                    {/* Pagine per i libri */}
-                    {item.category === 'book' && item.pageCount && (
-                      <p className="text-[9px] text-zinc-600">{item.pageCount} pag.</p>
                     )}
 
                     <div className="mt-auto pt-1">

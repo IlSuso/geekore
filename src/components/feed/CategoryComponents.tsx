@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  Film, Tv, Gamepad2, BookOpen, Swords, Layers,
+  Film, Tv, Gamepad2, Swords, Layers,
   Tag, X, Search, Loader2, ArrowLeft, Check, Filter
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'

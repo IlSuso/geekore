@@ -1,5 +1,4 @@
 // DESTINAZIONE: src/types/index.ts
-// V3: aggiornato con campi creator, velocity, rewatch + book support
 
 // ─── Media Types ───────────────────────────────────────────────────────────────
 
@@ -40,10 +39,6 @@ export interface MediaItem {
   directors?: string[]
   authors?: string[]
   developer?: string
-  // Book fields
-  pageCount?: number
-  publisher?: string
-  isbn?: string
 }
 
 // ─── User & Profile ────────────────────────────────────────────────────────────
