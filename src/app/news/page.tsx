@@ -27,7 +27,7 @@ type UpcomingItem = {
   studios?: string[]
   developers?: string[]
   original_language?: string
-  category: 'gaming' | 'cinema' | 'anime' | 'tv' | 'manga' | 'boardgame' | 'book'
+  category: 'gaming' | 'cinema' | 'anime' | 'tv' | 'manga' | 'boardgame'
   source: string
   url?: string
   nextEpisode?: number
@@ -37,6 +37,7 @@ type UpcomingItem = {
   mechanics?: string[]
   themes?: string[]
   directors?: string[]
+  authors?: string[]
   totalSeasons?: number
   seasons?: Record<number, { episode_count: number }>
   playing_time?: number
