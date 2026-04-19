@@ -16,7 +16,7 @@ const OL_BASE        = 'https://openlibrary.org'
 const OL_COVER_BASE  = 'https://covers.openlibrary.org/b'
 
 // User-Agent richiesto da Open Library per ottenere 3x rate limit (3 req/s invece di 1)
-const OL_HEADERS = { 'User-Agent': 'Geekore (admin@geekore.it)' }
+const OL_HEADERS = { 'User-Agent': 'Geekore (info@geekore.it)' }
 
 const SUBJECT_TO_GENRE: Record<string, string> = {
   'Fantasy':               'Fantasy',
