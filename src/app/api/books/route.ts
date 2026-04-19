@@ -15,6 +15,9 @@ const OL_SEARCH_BASE = 'https://openlibrary.org/search.json'
 const OL_BASE        = 'https://openlibrary.org'
 const OL_COVER_BASE  = 'https://covers.openlibrary.org/b'
 
+// User-Agent richiesto da Open Library per ottenere 3x rate limit (3 req/s invece di 1)
+const OL_HEADERS = { 'User-Agent': 'Geekore (admin@geekore.it)' }
+
 const SUBJECT_TO_GENRE: Record<string, string> = {
   'Fantasy':               'Fantasy',
   'Science fiction':       'Science Fiction',
@@ -53,7 +56,7 @@ function mapSubjectsToGenres(subjects: string[]): string[] {
 async function fetchOL(url: string, timeoutMs = 8000): Promise<any | null> {
   for (let attempt = 0; attempt <= 1; attempt++) {
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) })
+      const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs), headers: OL_HEADERS })
       if (res.ok) return await res.json()
       if (res.status < 500) return null
       if (attempt === 0) await new Promise(r => setTimeout(r, 600))

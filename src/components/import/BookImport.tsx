@@ -116,13 +116,25 @@ export function BookImport({ onImportDone }: { onImportDone?: () => void }) {
               className="flex items-center gap-3 p-3 bg-zinc-800/60 rounded-2xl hover:bg-zinc-800 transition"
             >
               {/* Cover */}
-              <div className="w-10 h-14 flex-shrink-0 rounded-lg overflow-hidden bg-zinc-700">
+              <div className="w-10 h-14 flex-shrink-0 rounded-lg overflow-hidden bg-zinc-700 flex items-center justify-center">
                 {book.coverImage ? (
-                  <img src={book.coverImage} alt={book.title} className="w-full h-full object-cover" />
+                  <>
+                    <img
+                      src={book.coverImage}
+                      alt={book.title}
+                      className="w-full h-full object-cover"
+                      onError={e => {
+                        e.currentTarget.style.display = 'none';
+                        const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
+                        if (fb) fb.style.display = 'flex';
+                      }}
+                    />
+                    <div className="w-full h-full items-center justify-center hidden">
+                      <BookOpen size={16} className="text-zinc-500" />
+                    </div>
+                  </>
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <BookOpen size={16} className="text-zinc-500" />
-                  </div>
+                  <BookOpen size={16} className="text-zinc-500" />
                 )}
               </div>
 
