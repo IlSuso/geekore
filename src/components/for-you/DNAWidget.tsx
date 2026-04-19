@@ -98,16 +98,16 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
           </div>
 
           {tasteProfile.creatorScores &&
-            (tasteProfile.creatorScores.topStudios.length > 0 || tasteProfile.creatorScores.topDirectors.length > 0) && (
+            ((tasteProfile.creatorScores.topStudios?.length ?? 0) > 0 || (tasteProfile.creatorScores.topDirectors?.length ?? 0) > 0) && (
               <div>
                 <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">Creator amati</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {tasteProfile.creatorScores.topStudios.slice(0, 4).map(s => (
+                  {(tasteProfile.creatorScores.topStudios ?? []).slice(0, 4).map(s => (
                     <span key={s.name} className="text-[10px] bg-sky-500/15 text-sky-300 px-2 py-0.5 rounded-full border border-sky-500/20 flex items-center gap-1">
                       <Clapperboard size={8} />{s.name}
                     </span>
                   ))}
-                  {tasteProfile.creatorScores.topDirectors.slice(0, 3).map(d => (
+                  {(tasteProfile.creatorScores.topDirectors ?? []).slice(0, 3).map(d => (
                     <span key={d.name} className="text-[10px] bg-violet-500/15 text-violet-300 px-2 py-0.5 rounded-full border border-violet-500/20">
                       {d.name}
                     </span>

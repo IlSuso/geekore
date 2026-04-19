@@ -1,211 +1,320 @@
-// src/app/api/books/route.ts
-// Open Library API — ricerca libri per Geekore
-// GET /api/books?q=<query>
-//
-// Strategia in 2 passi:
-//   1) search.json → trova le OPERE (works, max 3)
-//   2) /works/{key}/editions.json?limit=1000 + /works/{key}.json (in parallelo)
-//      → filtra edizioni italiane (piano A) o inglesi (piano B)
-//      → ordina per anno DESC, max 10 risultati totali
-//      → descrizione dall'opera, tradotta in italiano con DeepL
-
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rateLimit'
 import { translateWithCache } from '@/lib/deepl'
 import { truncateAtSentence } from '@/lib/utils'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 
-const OL_SEARCH_BASE = 'https://openlibrary.org/search.json'
-const OL_BASE        = 'https://openlibrary.org'
-const OL_COVER_BASE  = 'https://covers.openlibrary.org/b'
+const CACHE_DURATION_MS = 86400000 // 24 ore
 
-// User-Agent richiesto da Open Library per ottenere 3x rate limit (3 req/s invece di 1)
-const OL_HEADERS = { 'User-Agent': 'Geekore (info@geekore.it)' }
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-const SUBJECT_TO_GENRE: Record<string, string> = {
-  'Fantasy':               'Fantasy',
-  'Science fiction':       'Science Fiction',
-  'Horror':                'Horror',
-  'Mystery':               'Mystery',
-  'Thriller':              'Thriller',
-  'Romance':               'Romance',
-  'Adventure':             'Adventure',
-  'Action':                'Action',
-  'Drama':                 'Drama',
-  'Comedy':                'Comedy',
-  'Historical fiction':    'Drama',
-  'History':               'Drama',
-  'Biography':             'Drama',
-  'Psychological fiction': 'Psychological',
-  'Supernatural':          'Supernatural',
-  'Crime':                 'Crime',
-  'Dystopian':             'Science Fiction',
-  'Magic':                 'Fantasy',
-  'Graphic novels':        'Action',
-  'Comics':                'Action',
-  'Young adult fiction':   'Adventure',
-  "Children's literature": 'Adventure',
-}
+function buildCoverUrl(volume: any): string | null {
+  const links = volume?.volumeInfo?.imageLinks
+  if (!links) return null
 
-function mapSubjectsToGenres(subjects: string[]): string[] {
-  const genres = new Set<string>()
-  for (const sub of subjects) {
-    for (const [key, genre] of Object.entries(SUBJECT_TO_GENRE)) {
-      if (sub.toLowerCase().includes(key.toLowerCase())) genres.add(genre)
-    }
-  }
-  return [...genres]
-}
+  const raw =
+    links.extraLarge ||
+    links.large ||
+    links.medium ||
+    links.thumbnail ||
+    links.smallThumbnail
 
-async function fetchOL(url: string, timeoutMs = 8000): Promise<any | null> {
-  for (let attempt = 0; attempt <= 1; attempt++) {
-    try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs), headers: OL_HEADERS })
-      if (res.ok) return await res.json()
-      if (res.status < 500) return null
-      if (attempt === 0) await new Promise(r => setTimeout(r, 600))
-    } catch (err: any) {
-      if (attempt === 0) await new Promise(r => setTimeout(r, 600))
-      else console.error(`[BOOKS] fetch error: ${err?.message}`)
-    }
-  }
-  return null
-}
-
-// Recupera TUTTE le edizioni di un'opera.
-// Piano A: restituisce solo quelle in italiano.
-// Piano B: se nessuna edizione italiana, restituisce le edizioni inglesi.
-async function getEditions(workKey: string): Promise<{ entries: any[], italian: boolean }> {
-  const data = await fetchOL(`${OL_BASE}${workKey}/editions.json?limit=1000`, 10000)
-  if (!data) return { entries: [], italian: false }
-
-  const all: any[] = data.entries ?? []
-  const italian = all.filter((ed: any) =>
-    Array.isArray(ed.languages) &&
-    ed.languages.some((l: any) => l.key === '/languages/ita')
-  )
-
-  if (italian.length > 0) return { entries: italian, italian: true }
-
-  // Piano B: nessuna edizione italiana → usa solo le edizioni inglesi
-  const english = all.filter((ed: any) =>
-    Array.isArray(ed.languages) &&
-    ed.languages.some((l: any) => l.key === '/languages/eng')
-  )
-  return { entries: english, italian: false }
-}
-
-function parseYear(publishDate: string | undefined): number | null {
-  if (!publishDate) return null
-  const m = publishDate.match(/\d{4}/)
-  return m ? parseInt(m[0]) : null
-}
-
-function extractDescription(workJson: any): string | null {
-  const raw = workJson?.description
   if (!raw) return null
-  const text = typeof raw === 'string' ? raw : (raw?.value ?? null)
-  if (!text) return null
-  return truncateAtSentence(text.replace(/<[^>]+>/g, ''), 400)
+
+  return raw
+    .replace('zoom=1', 'zoom=3')
+    .replace('zoom=5', 'zoom=3')
+    .replace('&edge=curl', '')
+    .replace('http://', 'https://')
 }
 
-const SEARCH_FIELDS = 'key,title,author_name,cover_i,isbn,first_publish_year,number_of_pages_median,subject,ratings_average'
+function openLibraryCover(isbn: string | null, size: 'L' | 'M' = 'L'): string | null {
+  if (!isbn) return null
+  return `https://covers.openlibrary.org/b/isbn/${isbn}-${size}.jpg`
+}
+
+function mapGoogleCategories(categories: string[]): string[] {
+  const result = new Set<string>()
+  for (const cat of categories) {
+    for (const part of cat.split(/\s*[/&]\s*/)) {
+      const clean = part.trim()
+      if (clean.length > 2) result.add(clean)
+    }
+  }
+  return Array.from(result).slice(0, 5)
+}
+
+function parseVolume(item: any): any | null {
+  const info = item?.volumeInfo
+  if (!info?.title) return null
+
+  const isbn13 = (info.industryIdentifiers || []).find(
+    (i: any) => i.type === 'ISBN_13'
+  )?.identifier ?? null
+
+  const isbn10 = (info.industryIdentifiers || []).find(
+    (i: any) => i.type === 'ISBN_10'
+  )?.identifier ?? null
+
+  const isbn = isbn13 || isbn10
+
+  const googleCover = buildCoverUrl(item)
+  const olCover = openLibraryCover(isbn)
+  const coverImage = googleCover || olCover
+
+  if (!coverImage) return null
+
+  const publishedDate = info.publishedDate as string | undefined
+  const year = publishedDate ? parseInt(publishedDate.slice(0, 4)) : undefined
+  const fullDate =
+    publishedDate?.length === 10
+      ? publishedDate
+      : year
+      ? `${year}-01-01`
+      : undefined
+
+  const authors: string[] = info.authors || []
+  const publisher: string | undefined = info.publisher || undefined
+  const pageCount: number | undefined = info.pageCount || undefined
+  const description: string | undefined = info.description
+    ? truncateAtSentence(info.description, 500)
+    : undefined
+  const categories: string[] = mapGoogleCategories(info.categories || [])
+  const language: string = info.language || 'en'
+
+  const score: number | undefined =
+    info.averageRating && info.ratingsCount && info.ratingsCount >= 10
+      ? Math.round(info.averageRating * 10) / 10
+      : undefined
+
+  return {
+    id: `gbooks-${item.id}`,
+    type: 'book',
+    source_api: 'google_books',
+    title: info.title as string,
+    subtitle: info.subtitle as string | undefined,
+    description,
+    coverImage,
+    date: fullDate,
+    year,
+    genres: categories,
+    score,
+    authors: authors.length ? authors : undefined,
+    studios: publisher ? [publisher] : undefined,
+    publisher,
+    pageCount,
+    isbn,
+    original_language: language,
+    category: 'book',
+    source: 'Google Books',
+    url: info.infoLink || `https://books.google.com/books?id=${item.id}`,
+  }
+}
+
+// ── Endpoint ──────────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 30, windowMs: 60_000, prefix: 'books' })
-  if (!rl.ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
-
-  const q = request.nextUrl.searchParams.get('q')?.trim()
-  if (!q || q.length < 2) return NextResponse.json({ results: [] })
-
-  console.log(`[BOOKS] query="${q}"`)
-
-  // Step 1: cerca le opere per TITOLO (non full-text) per evitare falsi positivi
-  const p1 = new URLSearchParams({ title: q, limit: '3', fields: SEARCH_FIELDS })
-  let searchData = await fetchOL(`${OL_SEARCH_BASE}?${p1}`)
-  if (!searchData) {
-    console.error('[BOOKS] Open Library non raggiungibile')
-    return NextResponse.json({ results: [] })
+  const rl = rateLimit(request, { limit: 20, windowMs: 60_000, prefix: 'books' })
+  if (!rl.ok) {
+    return NextResponse.json(
+      { results: [], error: 'Troppe richieste. Riprova tra qualche secondo.' },
+      { status: 429, headers: rl.headers }
+    )
   }
 
-  // Fallback: se 0 risultati con title=, prova q= full-text
-  if (!searchData.docs?.length) {
-    const p2 = new URLSearchParams({ q, limit: '3', fields: SEARCH_FIELDS })
-    searchData = (await fetchOL(`${OL_SEARCH_BASE}?${p2}`)) ?? searchData
+  const { searchParams } = new URL(request.url)
+  const search = searchParams.get('search') || searchParams.get('q')
+  const lang = searchParams.get('lang') || 'it'
+  const apiKey = process.env.GOOGLE_BOOKS_API_KEY
+
+  if (!apiKey) {
+    return NextResponse.json(
+      { results: [], error: 'Google Books API key non configurata' },
+      { status: 503, headers: rl.headers }
+    )
   }
 
-  // Filtro: le parole della query devono comparire nel titolo dell'opera
-  const queryWords = q.toLowerCase().split(/\s+/).filter(w => w.length > 1)
-  const works: any[] = (searchData.docs ?? []).filter((work: any) => {
-    if (!queryWords.length) return true
-    const title = (work.title ?? '').toLowerCase()
-    return queryWords.some(word => title.includes(word))
-  })
+  // ── MODALITÀ RICERCA ──────────────────────────────────────────────────────
+  if (search) {
+    if (typeof search !== 'string' || search.trim().length < 2 || search.length > 200) {
+      return NextResponse.json({ results: [] }, { status: 400, headers: rl.headers })
+    }
 
-  console.log(`[BOOKS] opere trovate: ${works.length}`)
-  if (!works.length) return NextResponse.json({ results: [] })
+    const term = search.trim()
 
-  // Step 2: per ogni opera, recupera edizioni e JSON dell'opera in parallelo
-  const groups = await Promise.all(
-    works.map(async (work: any) => {
-      const genres    = mapSubjectsToGenres(work.subject?.slice(0, 20) ?? [])
-      const workScore = work.ratings_average ? Math.round(work.ratings_average * 20) : null
-      const authors   = work.author_name ?? []
+    const queries = [
+      `intitle:${encodeURIComponent(term)}`,
+      `inauthor:${encodeURIComponent(term)}`,
+    ]
 
-      const [{ entries, italian }, workJson] = await Promise.all([
-        getEditions(work.key),
-        fetchOL(`${OL_BASE}${work.key}.json`, 5000),
-      ])
+    const seen = new Set<string>()
+    const allItems: any[] = []
 
-      const description = extractDescription(workJson)
-      console.log(`[BOOKS] ${work.key} → edizioni ${italian ? 'italiane' : 'inglesi (piano B)'}: ${entries.length}`)
+    await Promise.all(
+      queries.map(async (q) => {
+        try {
+          const url =
+            `https://www.googleapis.com/books/v1/volumes` +
+            `?q=${q}` +
+            `&maxResults=15` +
+            `&printType=books` +
+            `&orderBy=relevance` +
+            `&langRestrict=${lang}` +
+            `&key=${apiKey}`
 
-      entries.sort((a, b) => (parseYear(b.publish_date) ?? 0) - (parseYear(a.publish_date) ?? 0))
-
-      return entries.slice(0, 10).map((ed: any) => {
-        const isbn      = ed.isbn_13?.[0] ?? ed.isbn_10?.[0] ?? null
-        const coverId   = ed.covers?.[0] ?? work.cover_i ?? null
-        const coverImage = coverId ? `${OL_COVER_BASE}/id/${coverId}-L.jpg` : null
-        const year      = parseYear(ed.publish_date) ?? work.first_publish_year ?? null
-
-        return {
-          id:           `ol-${ed.key.replace('/books/', '')}`,
-          external_id:  ed.key,
-          title:        ed.title ?? work.title ?? 'Titolo sconosciuto',
-          type:         'book',
-          coverImage,
-          year,
-          genres,
-          categories:   genres,
-          score:        workScore,
-          description,
-          authors,
-          publisher:    ed.publishers?.[0]?.name ?? null,
-          pageCount:    ed.number_of_pages ?? work.number_of_pages_median ?? null,
-          isbn,
-          language:     italian ? 'it' : 'en',
-          previewLink:  `${OL_BASE}${ed.key}`,
-        }
+          const res = await fetch(url, {
+            headers: { Accept: 'application/json' },
+            signal: AbortSignal.timeout(10_000),
+          })
+          if (!res.ok) return
+          const json = await res.json()
+          for (const item of json.items || []) {
+            if (!seen.has(item.id)) {
+              seen.add(item.id)
+              allItems.push(item)
+            }
+          }
+        } catch { /* ignora errori singola query */ }
       })
+    )
+
+    // Seconda passata senza langRestrict se pochi risultati
+    if (allItems.length < 5) {
+      try {
+        const url =
+          `https://www.googleapis.com/books/v1/volumes` +
+          `?q=${encodeURIComponent(term)}` +
+          `&maxResults=20` +
+          `&printType=books` +
+          `&orderBy=relevance` +
+          `&key=${apiKey}`
+
+        const res = await fetch(url, {
+          headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout(10_000),
+        })
+        if (res.ok) {
+          const json = await res.json()
+          for (const item of json.items || []) {
+            if (!seen.has(item.id)) {
+              seen.add(item.id)
+              allItems.push(item)
+            }
+          }
+        }
+      } catch { /* ignora */ }
+    }
+
+    const rawResults = allItems
+      .map(parseVolume)
+      .filter(Boolean)
+      .slice(0, 20)
+
+    // Ordina per rilevanza titolo
+    const q = term.toLowerCase()
+    rawResults.sort((a: any, b: any) => {
+      const scoreTitle = (t: string) => {
+        const tl = t.toLowerCase()
+        return tl === q ? 0 : tl.startsWith(q) ? 1 : tl.includes(q) ? 2 : 3
+      }
+      return scoreTitle(a.title) - scoreTitle(b.title)
     })
+
+    // Traduzione descrizioni (solo se non già nella lingua target)
+    if (lang === 'it') {
+      const toTranslate = rawResults.filter(
+        (r: any) => r.description && r.original_language !== 'it'
+      )
+      if (toTranslate.length > 0) {
+        const items = toTranslate.map((r: any) => ({ id: r.id, text: r.description as string }))
+        try {
+          const translated = await translateWithCache(items, 'IT', 'EN')
+          toTranslate.forEach((r: any) => {
+            if (translated[r.id]) r.description = translated[r.id]
+          })
+        } catch { /* ignora errori traduzione */ }
+      }
+    }
+
+    return NextResponse.json({ results: rawResults }, { headers: rl.headers })
+  }
+
+  // ── MODALITÀ TRENDING (senza parametri di ricerca) ────────────────────────
+  const supabaseService = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const all = groups
-    .flat()
-    .filter(r => r.title !== 'Titolo sconosciuto' || r.coverImage)
+  try {
+    const { data: cache } = await supabaseService
+      .from('books_cache')
+      .select('*')
+      .single()
 
-  all.sort((a, b) => (b.year ?? 0) - (a.year ?? 0))
-  const results = all.slice(0, 10)
+    const now = Date.now()
+    if (cache && now - new Date(cache.updated_at).getTime() < CACHE_DURATION_MS) {
+      return NextResponse.json({ articles: cache.data }, { headers: rl.headers })
+    }
 
-  // Traduce le descrizioni in italiano (batch, con cache)
-  const toTranslate = results.filter(r => r.description)
-  if (toTranslate.length > 0) {
-    const translated = await translateWithCache(
-      toTranslate.map(r => ({ id: r.id, text: r.description! })),
-      'IT', 'EN',
+    const trendingQueries = lang === 'it'
+      ? [
+          'subject:narrativa&langRestrict=it',
+          'subject:thriller&langRestrict=it',
+          'subject:fantasy&langRestrict=it',
+          'subject:saggistica&langRestrict=it',
+        ]
+      : [
+          'subject:fiction&langRestrict=en',
+          'subject:thriller&langRestrict=en',
+          'subject:fantasy&langRestrict=en',
+          'subject:biography&langRestrict=en',
+        ]
+
+    const seen = new Set<string>()
+    const allItems: any[] = []
+
+    await Promise.all(
+      trendingQueries.map(async (q) => {
+        try {
+          const url =
+            `https://www.googleapis.com/books/v1/volumes` +
+            `?q=${q}` +
+            `&maxResults=10` +
+            `&printType=books` +
+            `&orderBy=newest` +
+            `&key=${apiKey}`
+
+          const res = await fetch(url, {
+            headers: { Accept: 'application/json' },
+            cache: 'no-store',
+            signal: AbortSignal.timeout(10_000),
+          })
+          if (!res.ok) return
+          const json = await res.json()
+          for (const item of json.items || []) {
+            if (!seen.has(item.id)) {
+              seen.add(item.id)
+              allItems.push(item)
+            }
+          }
+        } catch { /* ignora */ }
+      })
     )
-    toTranslate.forEach(r => { if (translated[r.id]) r.description = translated[r.id] })
-  }
 
-  console.log(`[BOOKS] risultati finali: ${results.length}`)
-  return NextResponse.json({ results })
+    const cleanedArticles = allItems
+      .map(parseVolume)
+      .filter(Boolean)
+      .slice(0, 20)
+
+    await supabaseService.from('books_cache').upsert({
+      id: 1,
+      data: cleanedArticles,
+      updated_at: new Date().toISOString(),
+    })
+
+    return NextResponse.json({ articles: cleanedArticles }, { headers: rl.headers })
+  } catch (e) {
+    console.error('[Books] trending error:', e)
+    return NextResponse.json({ articles: [] }, { headers: rl.headers })
+  }
 }

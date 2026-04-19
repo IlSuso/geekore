@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { logger } from '@/lib/logger'
 
-const VALID_CATEGORIES = ['all', 'gaming', 'cinema', 'anime', 'tv', 'manga']
+const VALID_CATEGORIES = ['all', 'gaming', 'cinema', 'anime', 'tv', 'manga', 'book', 'boardgame']
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000 // 12 ore
 
 export async function GET(request: Request) {
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     const suffix = `_${lang}`
 
     const categoriesNeeded = cat === 'all'
-      ? ['cinema', 'tv', 'anime', 'gaming', 'manga'].map(c => `${c}${suffix}`)
+      ? ['cinema', 'tv', 'anime', 'gaming', 'manga', 'book', 'boardgame'].map(c => `${c}${suffix}`)
       : [`${cat}${suffix}`]
 
     const { data, error } = await supabase

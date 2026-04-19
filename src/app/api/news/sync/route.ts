@@ -1,12 +1,11 @@
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { parseStringPromise } from 'xml2js'
 import { translateTexts } from '@/lib/deepl'
 import { truncateAtSentence } from '@/lib/utils'
 
-// Vercel: estende il timeout della funzione a 60s (richiede piano Pro)
 export const maxDuration = 60
-// Impedisce la cache edge di Vercel — questa route deve sempre eseguire la funzione
 export const dynamic = 'force-dynamic'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -63,7 +62,6 @@ async function fetchCinema(lang: string) {
   const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
   const region   = lang === 'en' ? 'US' : 'IT'
   const { from, to } = dateRange(60, 60)
-
   try {
     const res = await fetch(
       `https://api.themoviedb.org/3/discover/movie?language=${tmdbLang}&region=${region}&sort_by=popularity.desc&primary_release_date.gte=${from}&primary_release_date.lte=${to}`,
@@ -71,13 +69,10 @@ async function fetchCinema(lang: string) {
     )
     if (!res.ok) return []
     const json = await res.json()
-    const movies = (json.results || []).slice(0, 15)
-      .filter((m: any) => m.poster_path && m.overview)
-
+    const movies = (json.results || []).slice(0, 15).filter((m: any) => m.poster_path && m.overview)
     const details = await Promise.all(
       movies.map((m: any) => tmdbDetail(`/movie/${m.id}?language=${tmdbLang}&append_to_response=credits,keywords,watch%2Fproviders`))
     )
-
     return movies.map((m: any, i: number) => {
       const d = details[i]
       const director  = d?.credits?.crew?.find((p: any) => p.job === 'Director')?.name
@@ -86,9 +81,7 @@ async function fetchCinema(lang: string) {
       const keywords  = (d?.keywords?.keywords || []).slice(0, 6).map((k: any) => k.name).filter(Boolean)
       const providers = (d?.['watch/providers']?.results?.[region]?.flatrate || []).map((p: any) => p.provider_name).filter(Boolean)
       return {
-        id: `tmdb-${m.id}`,
-        type: 'movie',
-        source_api: 'tmdb',
+        id: `tmdb-${m.id}`, type: 'movie', source_api: 'tmdb',
         title: m.title,
         description: m.overview ? truncateAtSentence(m.overview, 500) : undefined,
         coverImage: tmdbImageUrl(m.poster_path),
@@ -103,8 +96,7 @@ async function fetchCinema(lang: string) {
         cast: cast.length ? cast : undefined,
         themes: keywords.length ? keywords : undefined,
         watchProviders: providers.length ? providers : undefined,
-        category: 'cinema',
-        source: 'TMDb',
+        category: 'cinema', source: 'TMDb',
         url: `https://www.themoviedb.org/movie/${m.id}`,
       }
     })
@@ -115,7 +107,6 @@ async function fetchTV(lang: string) {
   const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
   const region   = lang === 'en' ? 'US' : 'IT'
   const { from, to } = dateRange(60, 60)
-
   try {
     const res = await fetch(
       `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&air_date.gte=${from}&air_date.lte=${to}&include_null_first_air_dates=false`,
@@ -123,30 +114,25 @@ async function fetchTV(lang: string) {
     )
     if (!res.ok) return []
     const json = await res.json()
-    const shows = (json.results || []).slice(0, 15)
-      .filter((m: any) => m.poster_path && m.overview)
-
+    const shows = (json.results || []).slice(0, 15).filter((m: any) => m.poster_path && m.overview)
     const details = await Promise.all(
       shows.map((s: any) => tmdbDetail(`/tv/${s.id}?language=${tmdbLang}&append_to_response=aggregate_credits,watch%2Fproviders,keywords`))
     )
-
     return shows.map((m: any, i: number) => {
       const d        = details[i]
       const networks = (d?.networks || []).slice(0, 2).map((n: any) => n.name).filter(Boolean)
       const creators = (d?.created_by || []).slice(0, 2).map((c: any) => c.name).filter(Boolean)
       const runtime  = d?.episode_run_time?.[0] || undefined
       const cast     = (d?.aggregate_credits?.cast || []).slice(0, 5).map((a: any) => a.name).filter(Boolean)
-      const providers        = (d?.['watch/providers']?.results?.[region]?.flatrate || []).map((p: any) => p.provider_name).filter(Boolean)
-      const keywords         = (d?.keywords?.results || []).slice(0, 6).map((k: any) => k.name).filter(Boolean)
-      const nextEpisodeDate  = d?.next_episode_to_air?.air_date || null
+      const providers       = (d?.['watch/providers']?.results?.[region]?.flatrate || []).map((p: any) => p.provider_name).filter(Boolean)
+      const keywords        = (d?.keywords?.results || []).slice(0, 6).map((k: any) => k.name).filter(Boolean)
+      const nextEpisodeDate = d?.next_episode_to_air?.air_date || null
       const seasons: Record<number, { episode_count: number }> = {}
       for (const s of (d?.seasons || [])) {
         if (s.season_number > 0) seasons[s.season_number] = { episode_count: s.episode_count }
       }
       return {
-        id: `tmdb-${m.id}`,
-        type: 'tv',
-        source_api: 'tmdb',
+        id: `tmdb-${m.id}`, type: 'tv', source_api: 'tmdb',
         title: m.name,
         description: m.overview ? truncateAtSentence(m.overview, 500) : undefined,
         coverImage: tmdbImageUrl(m.poster_path),
@@ -154,8 +140,7 @@ async function fetchTV(lang: string) {
         year: m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined,
         genres: (m.genre_ids || []).map((id: number) => TMDB_TV_GENRES[id]).filter(Boolean),
         score: m.vote_average > 0 ? Math.round(m.vote_average * 5) / 10 : undefined,
-        original_language: m.original_language,
-        playing_time: runtime,
+        original_language: m.original_language, playing_time: runtime,
         studios: networks.length ? networks : undefined,
         directors: creators.length ? creators : undefined,
         cast: cast.length ? cast : undefined,
@@ -164,8 +149,7 @@ async function fetchTV(lang: string) {
         watchProviders: providers.length ? providers : undefined,
         themes: keywords.length ? keywords : undefined,
         nextEpisodeDate: nextEpisodeDate || undefined,
-        category: 'tv',
-        source: 'TMDb',
+        category: 'tv', source: 'TMDb',
         url: `https://www.themoviedb.org/tv/${m.id}`,
       }
     })
@@ -176,7 +160,6 @@ async function fetchAnime(lang: string) {
   const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
   const region   = lang === 'en' ? 'US' : 'IT'
   const { from, to } = dateRange(60, 60)
-
   try {
     const res = await fetch(
       `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&with_original_language=ja&with_genres=16&air_date.gte=${from}&air_date.lte=${to}&include_null_first_air_dates=false`,
@@ -184,13 +167,10 @@ async function fetchAnime(lang: string) {
     )
     if (!res.ok) return []
     const json = await res.json()
-    const shows = (json.results || []).slice(0, 20)
-      .filter((m: any) => m.poster_path && m.overview)
-
+    const shows = (json.results || []).slice(0, 20).filter((m: any) => m.poster_path && m.overview)
     const details = await Promise.all(
       shows.map((s: any) => tmdbDetail(`/tv/${s.id}?language=${tmdbLang}&append_to_response=aggregate_credits,watch%2Fproviders,keywords`))
     )
-
     return shows.map((m: any, i: number) => {
       const d             = details[i]
       const studios       = (d?.networks || []).slice(0, 2).map((n: any) => n.name).filter(Boolean)
@@ -199,9 +179,7 @@ async function fetchAnime(lang: string) {
       const keywords      = (d?.keywords?.results || []).slice(0, 6).map((k: any) => k.name).filter(Boolean)
       const nextEpisodeDate = d?.next_episode_to_air?.air_date || null
       return {
-        id: `tmdb-anime-${m.id}`,
-        type: 'anime',
-        source_api: 'tmdb' as const,
+        id: `tmdb-anime-${m.id}`, type: 'anime', source_api: 'tmdb' as const,
         title: m.name,
         description: m.overview ? truncateAtSentence(m.overview, 500) : undefined,
         coverImage: tmdbImageUrl(m.poster_path),
@@ -216,8 +194,7 @@ async function fetchAnime(lang: string) {
         watchProviders: providers.length ? providers : undefined,
         themes: keywords.length ? keywords : undefined,
         nextEpisodeDate: nextEpisodeDate || undefined,
-        category: 'anime' as const,
-        source: 'TMDb',
+        category: 'anime' as const, source: 'TMDb',
         url: `https://www.themoviedb.org/tv/${m.id}`,
       }
     })
@@ -229,28 +206,19 @@ async function fetchGaming(lang: string) {
     const clientId     = process.env.IGDB_CLIENT_ID
     const clientSecret = process.env.IGDB_CLIENT_SECRET
     if (!clientId || !clientSecret) return []
-
     const tokenRes = await fetch('https://id.twitch.tv/oauth2/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: clientId, client_secret: clientSecret, grant_type: 'client_credentials',
-      }),
+      body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, grant_type: 'client_credentials' }),
     })
     const tokenData = await tokenRes.json()
     if (!tokenData.access_token) return []
-
     const nowUnix        = Math.floor(Date.now() / 1000)
     const thirtyDaysBack = nowUnix - 60 * 24 * 3600
     const thirtyDaysFwd  = nowUnix + 60 * 24 * 3600
-
     const res = await fetch('https://api.igdb.com/v4/games', {
       method: 'POST',
-      headers: {
-        'Client-ID': clientId,
-        'Authorization': `Bearer ${tokenData.access_token}`,
-        'Content-Type': 'text/plain',
-      },
+      headers: { 'Client-ID': clientId, 'Authorization': `Bearer ${tokenData.access_token}`, 'Content-Type': 'text/plain' },
       body: `
         fields id, name, cover.url, first_release_date, summary, storyline, slug, rating, rating_count,
                total_rating, hypes, genres.name, involved_companies.company.name, involved_companies.developer,
@@ -266,13 +234,9 @@ async function fetchGaming(lang: string) {
     const mapped = (Array.isArray(games) ? games : [])
       .filter((g: any) => g.cover?.url)
       .map((g: any) => {
-        const releaseDate = g.first_release_date
-          ? new Date(g.first_release_date * 1000).toISOString().split('T')[0]
-          : null
+        const releaseDate = g.first_release_date ? new Date(g.first_release_date * 1000).toISOString().split('T')[0] : null
         return {
-          id: `igdb-${g.id}`,
-          type: 'game',
-          source_api: 'igdb',
+          id: `igdb-${g.id}`, type: 'game', source_api: 'igdb',
           title: g.name,
           description: (g.summary || g.storyline) ? truncateAtSentence(g.summary || g.storyline, 500) : null,
           coverImage: `https:${g.cover.url.replace('t_thumb', 't_1080p')}`,
@@ -280,19 +244,12 @@ async function fetchGaming(lang: string) {
           year: releaseDate ? parseInt(releaseDate.slice(0, 4)) : undefined,
           genres: (g.genres || []).map((gr: any) => gr.name).filter(Boolean),
           score: (g.total_rating || g.rating) ? Math.round((g.total_rating ?? g.rating) / 2) / 10 : undefined,
-          italianSupportTypes: (g.language_supports || [])
-            .filter((ls: any) => ls.language?.locale?.startsWith('it'))
-            .map((ls: any) => ls.language_support_type?.name)
-            .filter(Boolean),
-          developers: (g.involved_companies || [])
-            .filter((c: any) => c.developer)
-            .map((c: any) => c.company?.name)
-            .filter(Boolean),
+          italianSupportTypes: (g.language_supports || []).filter((ls: any) => ls.language?.locale?.startsWith('it')).map((ls: any) => ls.language_support_type?.name).filter(Boolean),
+          developers: (g.involved_companies || []).filter((c: any) => c.developer).map((c: any) => c.company?.name).filter(Boolean),
           platforms: (g.platforms || []).map((p: any) => p.name).filter(Boolean),
           mechanics: (g.game_modes || []).map((m: any) => m.name).filter(Boolean),
           themes: (g.themes || []).map((t: any) => t.name).filter(Boolean),
-          category: 'gaming',
-          source: 'IGDB',
+          category: 'gaming', source: 'IGDB',
           url: `https://www.igdb.com/games/${g.slug || g.name?.toLowerCase().replace(/\s+/g, '-')}`,
         }
       })
@@ -310,117 +267,357 @@ async function fetchGaming(lang: string) {
 const ANILIST_URL = 'https://graphql.anilist.co'
 
 async function fetchManga(lang: string): Promise<any[]> {
-  const toFuzzy = (d: Date) =>
-    d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate()
-
+  const toFuzzy = (d: Date) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate()
   const now    = new Date()
   const plus60 = new Date(now); plus60.setDate(now.getDate() + 60)
   const minus60 = new Date(now); minus60.setDate(now.getDate() - 60)
   const plus60Int  = toFuzzy(plus60)
   const minus60Int = toFuzzy(minus60)
-
-  const mediaFields = `
-    id siteUrl format
-    title { romaji english }
-    coverImage { extraLarge large }
-    startDate { year month day }
-    description(asHtml: false)
-    genres averageScore chapters volumes
-    staff(sort: [RELEVANCE], page: 1, perPage: 3) { nodes { name { full } } }
-    studios(isMain: true) { nodes { name } }
-  `
-
-  const query = `
-    query {
-      upcoming: Page(page: 1, perPage: 10) {
-        media(type: MANGA, status: NOT_YET_RELEASED, sort: [START_DATE], isAdult: false,
-              format_not_in: [NOVEL], startDate_lesser: ${plus60Int}) {
-          ${mediaFields}
-        }
-      }
-      trending: Page(page: 1, perPage: 20) {
-        media(type: MANGA, status: RELEASING, sort: [TRENDING_DESC], isAdult: false,
-              format_not_in: [NOVEL], startDate_greater: ${minus60Int}) {
-          ${mediaFields}
-        }
-      }
-      popular: Page(page: 1, perPage: 10) {
-        media(type: MANGA, status: RELEASING, sort: [POPULARITY_DESC], isAdult: false,
-              format_not_in: [NOVEL]) {
-          ${mediaFields}
-        }
-      }
-    }
-  `
+  const mediaFields = `id siteUrl format title { romaji english } coverImage { extraLarge large } startDate { year month day } description(asHtml: false) genres averageScore chapters volumes staff(sort: [RELEVANCE], page: 1, perPage: 3) { nodes { name { full } } } studios(isMain: true) { nodes { name } }`
+  const query = `query { upcoming: Page(page: 1, perPage: 10) { media(type: MANGA, status: NOT_YET_RELEASED, sort: [START_DATE], isAdult: false, format_not_in: [NOVEL], startDate_lesser: ${plus60Int}) { ${mediaFields} } } trending: Page(page: 1, perPage: 20) { media(type: MANGA, status: RELEASING, sort: [TRENDING_DESC], isAdult: false, format_not_in: [NOVEL], startDate_greater: ${minus60Int}) { ${mediaFields} } } popular: Page(page: 1, perPage: 10) { media(type: MANGA, status: RELEASING, sort: [POPULARITY_DESC], isAdult: false, format_not_in: [NOVEL]) { ${mediaFields} } } }`
   try {
-    const res = await fetch(ANILIST_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query }),
-      signal: AbortSignal.timeout(10_000),
-    })
+    const res = await fetch(ANILIST_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }), signal: AbortSignal.timeout(10_000) })
     if (!res.ok) return []
     const json = await res.json()
-    if (json.errors) {
-      logger.error('[fetchManga] AniList GraphQL errors:', json.errors)
-      return []
-    }
-
+    if (json.errors) { logger.error('[fetchManga] AniList GraphQL errors:', json.errors); return [] }
     const upcoming: any[] = (json.data?.upcoming?.media || []).filter((m: any) => m.startDate?.year)
     const trending: any[] = json.data?.trending?.media || []
     const popular: any[] = json.data?.popular?.media || []
-
     const isRealCover = (url?: string) => !!url && !url.includes('default')
-    const seen = new Set<number>()
-    const all: any[] = []
+    const seen = new Set<number>(); const all: any[] = []
     for (const m of [...upcoming, ...trending, ...popular]) {
       const img = m.coverImage?.extraLarge || m.coverImage?.large
-      if (!seen.has(m.id) && isRealCover(img)) {
-        seen.add(m.id)
-        all.push(m)
-      }
+      if (!seen.has(m.id) && isRealCover(img)) { seen.add(m.id); all.push(m) }
       if (all.length >= 20) break
     }
-
     const mapped = all.map((m: any) => {
       const sd = m.startDate
-      const date = sd?.year
-        ? `${sd.year}-${String(sd.month || 1).padStart(2, '0')}-${String(sd.day || 1).padStart(2, '0')}`
-        : null
+      const date = sd?.year ? `${sd.year}-${String(sd.month || 1).padStart(2, '0')}-${String(sd.day || 1).padStart(2, '0')}` : null
       const authors = (m.staff?.nodes || []).map((s: any) => s.name?.full).filter(Boolean)
       const publishers = (m.studios?.nodes || []).map((s: any) => s.name).filter(Boolean)
-      return {
-        id: `anilist-manga-${m.id}`,
-        type: 'manga',
-        source_api: 'anilist',
-        title: m.title?.english || m.title?.romaji || 'Senza titolo',
-        description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 500) : null,
-        coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
-        date,
-        year: sd?.year || undefined,
-        genres: m.genres || [],
-        score: m.averageScore ? Math.round(m.averageScore / 20) / 10 : undefined,
-        episodes: m.chapters || undefined,
-        developers: authors.length ? authors : undefined,
-        studios: publishers.length ? publishers : undefined,
-        category: 'manga',
-        source: 'AniList',
-        url: m.siteUrl || `https://anilist.co/manga/${m.id}`,
-      }
+      return { id: `anilist-manga-${m.id}`, type: 'manga', source_api: 'anilist', title: m.title?.english || m.title?.romaji || 'Senza titolo', description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 500) : null, coverImage: m.coverImage?.extraLarge || m.coverImage?.large, date, year: sd?.year || undefined, genres: m.genres || [], score: m.averageScore ? Math.round(m.averageScore / 20) / 10 : undefined, episodes: m.chapters || undefined, developers: authors.length ? authors : undefined, studios: publishers.length ? publishers : undefined, category: 'manga', source: 'AniList', url: m.siteUrl || `https://anilist.co/manga/${m.id}` }
     })
-
     if (lang === 'it') {
       const descriptions = mapped.map(m => m.description ?? '')
       const translated = await translateTexts(descriptions)
       mapped.forEach((m, i) => { if (m.description) m.description = translated[i] || m.description })
     }
-
     return mapped
-  } catch (err) {
-    logger.error('[fetchManga] error:', err)
-    return []
+  } catch (err) { logger.error('[fetchManga] error:', err); return [] }
+}
+
+// ── BGG ───────────────────────────────────────────────────────────────────────
+
+function bggHeaders(): HeadersInit {
+  const token = process.env.BGG_BEARER_TOKEN
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+async function bggFetchSync(url: string, signal?: AbortSignal): Promise<string | null> {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, attempt < 3 ? 2000 : 4000))
+    try {
+      const res = await fetch(url, { cache: 'no-store', headers: bggHeaders(), signal: signal ?? AbortSignal.timeout(15000) })
+      if (res.status === 202) { logger.info(`[BGG] 202 attempt ${attempt + 1}/6`); continue }
+      if (!res.ok) { logger.info(`[BGG] HTTP ${res.status} for ${url}`); return null }
+      const text = await res.text()
+      if (!text.trim().startsWith('<')) { logger.info(`[BGG] non-XML response`); return null }
+      return text
+    } catch (e: any) { logger.info(`[BGG] attempt ${attempt + 1} error: ${e?.message}`); if (attempt === 5) return null }
+  }
+  return null
+}
+
+function mapBggCategories(categories: string[]): string[] {
+  const map: Record<string, string> = { Fantasy: 'Fantasy', 'Science Fiction': 'Science Fiction', Horror: 'Horror', Medieval: 'Medieval', Adventure: 'Adventure', Fighting: 'Fighting', Deduction: 'Mystery', 'Murder/Mystery': 'Mystery', 'Thriller/Suspense': 'Thriller', Humor: 'Comedy', Wargame: 'War', 'World War II': 'War', Historical: 'History', Economic: 'Strategy', 'Card Game': 'Card Game', 'Abstract Strategy': 'Abstract', 'Cooperative Game': 'Cooperative', 'Party Game': 'Party', Family: 'Family', Sports: 'Sports', Exploration: 'Adventure', Civilization: 'Strategy', 'Space Exploration': 'Science Fiction', Zombies: 'Horror', Mythology: 'Fantasy' }
+  const genres = new Set<string>()
+  for (const cat of categories) { const m = map[cat]; if (m) genres.add(m) }
+  return Array.from(genres)
+}
+
+async function fetchBoardgameNews(lang: string): Promise<any[]> {
+  logger.info(`[BGG] fetchBoardgameNews START lang=${lang}`)
+  const ctrl = new AbortController()
+  const budget = setTimeout(() => ctrl.abort(), 50_000)
+  try {
+    const hotXml = await bggFetchSync('https://boardgamegeek.com/xmlapi2/hot?type=boardgame', ctrl.signal)
+    if (!hotXml) { logger.info(`[BGG] hot list failed`); return [] }
+    const hotResult = await parseStringPromise(hotXml)
+    const hotItems: any[] = hotResult?.items?.item || []
+    const currentYear = new Date().getFullYear()
+    const recent = hotItems.filter((item: any) => {
+      const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : null
+      if (year === null) return true
+      return year >= currentYear - 1 && year <= currentYear
+    })
+    const candidates = recent.length >= 8 ? recent : hotItems.filter((item: any) => {
+      const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : null
+      if (year === null) return true
+      return year >= currentYear - 1 && year <= currentYear + 1
+    })
+    const ids = candidates.slice(0, 25).map((i: any) => i.$.id)
+    if (ids.length === 0) return []
+    await new Promise(r => setTimeout(r, 300))
+    const detailXml = await bggFetchSync(`https://boardgamegeek.com/xmlapi2/thing?id=${ids.join(',')}&type=boardgame&stats=1`, ctrl.signal)
+    if (!detailXml) {
+      const basicCards = candidates.slice(0, 25).map((item: any) => {
+        const id = item.$.id; const title = item.name?.[0]?.$?.value || 'Unknown'
+        const rawThumb = item.thumbnail?.[0]?.$?.value || ''
+        const coverImage = rawThumb ? (rawThumb.startsWith('http') ? rawThumb : `https:${rawThumb}`) : null
+        if (!coverImage) return null
+        const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : undefined
+        return { id: `bgg-${id}`, type: 'boardgame', source_api: 'bgg', title, coverImage, year, date: year ? `${year}-01-01` : undefined, genres: [], category: 'boardgame', source: 'BGG', url: `https://boardgamegeek.com/boardgame/${id}` }
+      }).filter(Boolean)
+      return basicCards
+    }
+    const detailResult = await parseStringPromise(detailXml)
+    const detailItems: any[] = detailResult?.items?.item || []
+    const mapped = detailItems.map((item: any) => {
+      const id = item.$.id
+      const nameEl = (item.name || []).find((n: any) => n.$.type === 'primary')
+      const title = nameEl?.$.value || 'Senza titolo'
+      const rawImg = item.image?.[0]?.trim?.() || item.thumbnail?.[0]?.trim?.() || null
+      const coverImage = rawImg ? (rawImg.startsWith('http') ? rawImg : `https:${rawImg}`) : null
+      if (!coverImage) return null
+      const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : undefined
+      const description = item.description?.[0] ? truncateAtSentence(item.description[0].replace(/&#10;/g, ' ').replace(/&amp;/g, '&').replace(/<[^>]+>/g, ''), 500) : null
+      const links: any[] = item.link || []
+      const cats = links.filter((l: any) => l.$.type === 'boardgamecategory').map((l: any) => l.$.value).filter(Boolean)
+      const mechanics = links.filter((l: any) => l.$.type === 'boardgamemechanic').map((l: any) => l.$.value).filter(Boolean).slice(0, 5)
+      const designers = links.filter((l: any) => l.$.type === 'boardgamedesigner').map((l: any) => l.$.value).filter(Boolean)
+      const publishers = links.filter((l: any) => l.$.type === 'boardgamepublisher').map((l: any) => l.$.value).filter(Boolean).slice(0, 3)
+      const playingTime = item.playingtime?.[0]?.$?.value ? parseInt(item.playingtime[0].$.value) : undefined
+      const bggRating = item.statistics?.[0]?.ratings?.[0]?.average?.[0]?.$?.value ? parseFloat(item.statistics[0].ratings[0].average[0].$.value) : undefined
+      return { id: `bgg-${id}`, type: 'boardgame', source_api: 'bgg', title, description, coverImage, date: year ? `${year}-01-01` : undefined, year, genres: mapBggCategories(cats), score: bggRating ? Math.round(bggRating * 10) / 10 : undefined, developers: designers.length ? designers : undefined, studios: publishers.length ? publishers : undefined, mechanics: mechanics.length ? mechanics : undefined, playing_time: playingTime || undefined, category: 'boardgame', source: 'BGG', url: `https://boardgamegeek.com/boardgame/${id}` }
+    }).filter(Boolean)
+    if (lang === 'it') {
+      const descriptions = mapped.map((m: any) => m.description ?? '')
+      const translated = await translateTexts(descriptions)
+      mapped.forEach((m: any, i: number) => { if (m.description) m.description = translated[i] || m.description })
+    }
+    return mapped
+  } catch (e: any) { logger.info(`[BGG] CATCH: ${e?.name}: ${e?.message}`); return [] }
+  finally { clearTimeout(budget) }
+}
+
+// ── Books (Google Books API) — VERSIONE CORRETTA ──────────────────────────────
+//
+// PERCHÉ IL FIX:
+// - langRestrict=it su Google Books restituisce pochissimi risultati
+//   perché pochissimi libri hanno language='it' nel metadata
+// - La strategia corretta è: cercare per EDITORE ITALIANO (inpublisher:)
+//   o per termini italiani nel titolo, senza langRestrict
+// - Fallback Open Library via ISBN per copertine mancanti
+// - Filtro year allargato a 3 anni per avere più risultati
+
+function buildBookCoverUrl(item: any): string | null {
+  const links = item?.volumeInfo?.imageLinks
+  if (!links) return null
+
+  // Tenta zoom crescenti fino a trovare qualcosa
+  const raw =
+    links.extraLarge ||
+    links.large ||
+    links.medium ||
+    links.thumbnail ||
+    links.smallThumbnail
+
+  if (!raw) return null
+
+  return raw
+    .replace('zoom=1', 'zoom=3')
+    .replace('zoom=5', 'zoom=3')
+    .replace('&edge=curl', '')
+    .replace('http://', 'https://')
+}
+
+function openLibraryCoverByIsbn(isbn: string | null): string | null {
+  if (!isbn) return null
+  return `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`
+}
+
+function mapBookCategories(categories: string[]): string[] {
+  const result = new Set<string>()
+  for (const cat of categories) {
+    for (const part of cat.split(/\s*[/&]\s*/)) {
+      const clean = part.trim()
+      if (clean.length > 2) result.add(clean)
+    }
+  }
+  return Array.from(result).slice(0, 5)
+}
+
+function parseBookItem(item: any): any | null {
+  const info = item?.volumeInfo
+  if (!info?.title) return null
+
+  const isbn13 = (info.industryIdentifiers || []).find((i: any) => i.type === 'ISBN_13')?.identifier ?? null
+  const isbn10 = (info.industryIdentifiers || []).find((i: any) => i.type === 'ISBN_10')?.identifier ?? null
+  const isbn = isbn13 || isbn10
+
+  const googleCover = buildBookCoverUrl(item)
+  const olCover = openLibraryCoverByIsbn(isbn)
+  const coverImage = googleCover || olCover
+
+  if (!coverImage) return null
+
+  const publishedDate = info.publishedDate as string | undefined
+  const year = publishedDate ? parseInt(publishedDate.slice(0, 4)) : undefined
+  const fullDate = publishedDate?.length === 10 ? publishedDate : year ? `${year}-01-01` : undefined
+
+  const description = info.description ? truncateAtSentence(info.description, 500) : null
+  const score = info.averageRating && info.ratingsCount && info.ratingsCount >= 10
+    ? Math.round(info.averageRating * 10) / 10 : undefined
+
+  return {
+    id: `gbooks-${item.id}`,
+    type: 'book',
+    source_api: 'google_books',
+    title: info.title as string,
+    description,
+    coverImage,
+    date: fullDate,
+    year,
+    genres: mapBookCategories(info.categories || []),
+    score,
+    authors: info.authors?.length ? info.authors : undefined,
+    studios: info.publisher ? [info.publisher] : undefined,
+    publisher: info.publisher || undefined,
+    pageCount: info.pageCount || undefined,
+    isbn,
+    original_language: info.language || 'und',
+    category: 'book',
+    source: 'Google Books',
+    url: info.infoLink || `https://books.google.com/books?id=${item.id}`,
   }
 }
+
+async function fetchBooks(lang: string): Promise<any[]> {
+  const apiKey = process.env.GOOGLE_BOOKS_API_KEY
+  if (!apiKey) { logger.info('[Books] GOOGLE_BOOKS_API_KEY mancante — skip'); return [] }
+
+  logger.info(`[Books] fetchBooks START lang=${lang}`)
+
+  // ── STRATEGIA QUERY ────────────────────────────────────────────────────────
+  // Non usiamo langRestrict=it perché filtra troppo.
+  // Per l'italiano usiamo:
+  //   1. inpublisher: per i grandi editori italiani (risultati localizzati)
+  //   2. Termini di genere in italiano (es. "romanzo italiano")
+  //   3. Query in inglese come fallback per varietà
+  // La copertura reale è molto migliore così.
+
+  const itQueries = [
+    // Grandi editori italiani — risultati quasi sempre in italiano
+    'inpublisher:Mondadori',
+    'inpublisher:Feltrinelli',
+    'inpublisher:Einaudi',
+    'inpublisher:Rizzoli',
+    'inpublisher:Garzanti',
+    'inpublisher:Longanesi',
+    'inpublisher:Adelphi',
+    'inpublisher:Sellerio',
+    // Termini italiani — amplia il pool
+    'romanzo+italiano',
+    'narrativa+italiana',
+  ]
+
+  const enQueries = [
+    'subject:fiction+bestseller',
+    'subject:thriller+mystery',
+    'subject:fantasy+adventure',
+    'subject:science+fiction',
+    'subject:historical+fiction',
+  ]
+
+  const queries = lang === 'it' ? [...itQueries, ...enQueries] : enQueries
+
+  const seen = new Set<string>()
+  const allItems: any[] = []
+
+  await Promise.all(
+    queries.map(async (q) => {
+      try {
+        const url =
+          `https://www.googleapis.com/books/v1/volumes` +
+          `?q=${encodeURIComponent(q)}` +
+          `&maxResults=10` +
+          `&printType=books` +
+          `&orderBy=newest` +
+          `&key=${apiKey}`
+
+        const res = await fetch(url, {
+          headers: { Accept: 'application/json' },
+          cache: 'no-store',
+          signal: AbortSignal.timeout(12_000),
+        })
+        if (!res.ok) return
+        const json = await res.json()
+        for (const item of json.items || []) {
+          if (!seen.has(item.id)) {
+            seen.add(item.id)
+            allItems.push(item)
+          }
+        }
+      } catch (e: any) {
+        logger.info(`[Books] query "${q}" error: ${e?.message}`)
+      }
+    })
+  )
+
+  logger.info(`[Books] raw items fetched: ${allItems.length}`)
+
+  const currentYear = new Date().getFullYear()
+
+  const mapped = allItems
+    .map(parseBookItem)
+    .filter(Boolean)
+    // ── FILTRO ANNO ALLARGATO ────────────────────────────────────────────────
+    // Includi libri degli ultimi 3 anni (non 2) per avere più risultati
+    // Se l'anno è undefined, includi comunque (meglio un libro senza anno che nessuno)
+    .filter((b: any) => !b.year || b.year >= currentYear - 3)
+
+  logger.info(`[Books] after filter: ${mapped.length} items`)
+
+  // Traduci solo le descrizioni in inglese
+  if (lang === 'it') {
+    const toTranslate = mapped.filter(
+      (b: any) => b.description && b.original_language === 'en'
+    )
+    if (toTranslate.length > 0) {
+      try {
+        const descriptions = toTranslate.map((b: any) => b.description ?? '')
+        const translated = await translateTexts(descriptions)
+        toTranslate.forEach((b: any, i: number) => {
+          if (b.description && translated[i]) b.description = translated[i]
+        })
+      } catch (e) {
+        logger.info(`[Books] translation error: ${e}`)
+      }
+    }
+  }
+
+  // Ordina: libri con data più recente prima, senza data in fondo
+  mapped.sort((a: any, b: any) => {
+    if (a.date && b.date) return new Date(b.date).getTime() - new Date(a.date).getTime()
+    if (a.date) return -1
+    if (b.date) return 1
+    return 0
+  })
+
+  // Deduplica per titolo (stessa opera da editori diversi)
+  const titleSeen = new Set<string>()
+  const deduped = mapped.filter((b: any) => {
+    const key = b.title.toLowerCase().trim()
+    if (titleSeen.has(key)) return false
+    titleSeen.add(key)
+    return true
+  })
+
+  logger.info(`[Books] fetchBooks DONE: ${deduped.length} items`)
+  return deduped.slice(0, 20)
+}
+
+// ── runSync ───────────────────────────────────────────────────────────────────
 
 async function runSync(lang: 'it' | 'en') {
   logger.info(`[runSync] START lang=${lang} at ${new Date().toISOString()}`)
@@ -431,14 +628,14 @@ async function runSync(lang: 'it' | 'en') {
 
   const suffix = `_${lang}`
 
-  // ── Step 1: fast fetchers in parallel ─────────────────────────────────────
   logger.info(`[runSync] launching fast fetchers in parallel`)
-  const [cinema, tv, anime, gaming, manga] = await Promise.all([
+  const [cinema, tv, anime, gaming, manga, books] = await Promise.all([
     fetchCinema(lang),
     fetchTV(lang),
     fetchAnime(lang),
     fetchGaming(lang),
     fetchManga(lang),
+    fetchBooks(lang),
   ])
 
   const now = new Date().toISOString()
@@ -449,11 +646,27 @@ async function runSync(lang: 'it' | 'en') {
     supabase.from('news_cache').upsert({ category: `anime${suffix}`,     data: anime,     updated_at: now }, { onConflict: 'category' }),
     supabase.from('news_cache').upsert({ category: `gaming${suffix}`,    data: gaming,    updated_at: now }, { onConflict: 'category' }),
     supabase.from('news_cache').upsert({ category: `manga${suffix}`,     data: manga,     updated_at: now }, { onConflict: 'category' }),
+    supabase.from('news_cache').upsert({ category: `book${suffix}`,      data: books,     updated_at: now }, { onConflict: 'category' }),
   ])
 
-  logger.info(`[runSync] fast fetchers done: cinema=${cinema.length} tv=${tv.length} anime=${anime.length} gaming=${gaming.length} manga=${manga.length}`)
+  logger.info(`[runSync] fast fetchers done: cinema=${cinema.length} tv=${tv.length} anime=${anime.length} gaming=${gaming.length} manga=${manga.length} books=${books.length}`)
 
-  const counts = { cinema: cinema.length, tv: tv.length, anime: anime.length, gaming: gaming.length, manga: manga.length }
+  // BGG sequenziale dopo
+  logger.info(`[runSync] starting BGG fetch`)
+  const bggStart = Date.now()
+  const boardgame = await fetchBoardgameNews(lang)
+  logger.info(`[runSync] BGG done in ${Date.now() - bggStart}ms, ${boardgame.length} items`)
+
+  if (boardgame.length > 0) {
+    const { error: bggErr } = await supabase.from('news_cache').upsert(
+      { category: `boardgame${suffix}`, data: boardgame, updated_at: new Date().toISOString() },
+      { onConflict: 'category' }
+    )
+    if (bggErr) logger.info(`[runSync] boardgame upsert FAILED: ${bggErr.message}`)
+    else logger.info(`[runSync] boardgame upsert OK`)
+  }
+
+  const counts = { cinema: cinema.length, tv: tv.length, anime: anime.length, gaming: gaming.length, manga: manga.length, books: books.length, boardgame: boardgame.length }
   logger.info(`[runSync] DONE counts=${JSON.stringify(counts)}`)
   return counts
 }
@@ -461,11 +674,7 @@ async function runSync(lang: 'it' | 'en') {
 export async function POST(request: NextRequest) {
   try {
     let lang: 'it' | 'en' = 'it'
-    try {
-      const body = await request.json()
-      if (body?.lang === 'en') lang = 'en'
-    } catch {}
-
+    try { const body = await request.json(); if (body?.lang === 'en') lang = 'en' } catch {}
     const counts = await runSync(lang)
     return NextResponse.json({ status: 'ok', lang, counts })
   } catch (err) {

@@ -1,9 +1,9 @@
 // DESTINAZIONE: src/types/index.ts
-// V3: aggiornato con campi creator, velocity, rewatch
+// V3: aggiornato con campi creator, velocity, rewatch + book support
 
 // ─── Media Types ───────────────────────────────────────────────────────────────
 
-export type MediaType = 'anime' | 'manga' | 'game' | 'tv' | 'movie'
+export type MediaType = 'anime' | 'manga' | 'game' | 'tv' | 'movie' | 'book'
 
 export type MediaStatus =
   | 'watching'
@@ -40,6 +40,10 @@ export interface MediaItem {
   directors?: string[]
   authors?: string[]
   developer?: string
+  // Book fields
+  pageCount?: number
+  publisher?: string
+  isbn?: string
 }
 
 // ─── User & Profile ────────────────────────────────────────────────────────────
@@ -73,7 +77,7 @@ export interface UserMediaEntry {
   rewatch_count?: number    // V3: numero di rewatch
   studios?: string[]        // V3: studio (anime)
   directors?: string[]      // V3: regista (anime)
-  authors?: string[]        // V3: autore (manga)
+  authors?: string[]        // V3: autore (manga/book)
   developer?: string        // V3: sviluppatore (game)
 }
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Gamepad2, Film, Tv, BookOpen, Loader2, CalendarDays, RefreshCw, Swords, Layers } from 'lucide-react'
+import { Gamepad2, Film, Tv, BookOpen, Loader2, CalendarDays, RefreshCw, Swords, Dices, Library } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { translateGenre } from '@/lib/genres'
 import { ErrorState } from '@/components/ui/ErrorState'
@@ -15,7 +15,7 @@ const NEWS_CACHE_TTL = 5 * 60 * 1000
 type UpcomingItem = {
   id?: string
   type?: string
-  source_api?: 'tmdb' | 'anilist' | 'igdb'
+  source_api?: 'tmdb' | 'anilist' | 'igdb' | 'bgg' | 'google_books'
   title: string
   description?: string
   coverImage?: string
@@ -27,7 +27,7 @@ type UpcomingItem = {
   studios?: string[]
   developers?: string[]
   original_language?: string
-  category: 'gaming' | 'cinema' | 'anime' | 'tv' | 'manga'
+  category: 'gaming' | 'cinema' | 'anime' | 'tv' | 'manga' | 'boardgame' | 'book'
   source: string
   url?: string
   nextEpisode?: number
@@ -44,14 +44,21 @@ type UpcomingItem = {
   watchProviders?: string[]
   nextEpisodeDate?: string
   italianSupportTypes?: string[]
+  // Book specific
+  authors?: string[]
+  publisher?: string
+  pageCount?: number
+  isbn?: string
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  cinema: 'bg-red-600 text-white',
-  tv:     'bg-purple-600 text-white',
-  anime:  'bg-orange-500 text-white',
-  gaming: 'bg-emerald-600 text-white',
-  manga:  'bg-pink-600 text-white',
+  cinema:    'bg-red-600 text-white',
+  tv:        'bg-purple-600 text-white',
+  anime:     'bg-orange-500 text-white',
+  gaming:    'bg-emerald-600 text-white',
+  manga:     'bg-pink-600 text-white',
+  boardgame: 'bg-yellow-600 text-white',
+  book:      'bg-amber-600 text-white',
 }
 
 function formatDate(dateStr?: string, locale?: string) {
@@ -66,6 +73,7 @@ function formatDate(dateStr?: string, locale?: string) {
 function toMediaDetails(item: UpcomingItem): MediaDetails | null {
   if (!item.id || !item.type) return null
   const isManga = item.category === 'manga'
+  const isBook = item.category === 'book'
   return {
     id: item.id,
     title: item.title,
@@ -76,9 +84,9 @@ function toMediaDetails(item: UpcomingItem): MediaDetails | null {
     genres: item.genres || [],
     score: item.score,
     episodes: item.episodes,
-    studios: item.studios,
-    authors: isManga ? item.developers : undefined,
-    developers: isManga ? undefined : item.developers,
+    studios: isBook ? undefined : item.studios,
+    authors: (isManga || isBook) ? (item.authors || item.developers) : undefined,
+    developers: (isManga || isBook) ? undefined : item.developers,
     directors: item.directors,
     cast: item.cast,
     platforms: item.platforms,
@@ -89,6 +97,8 @@ function toMediaDetails(item: UpcomingItem): MediaDetails | null {
     seasons: item.seasons,
     watchProviders: item.watchProviders,
     italianSupportTypes: item.italianSupportTypes,
+    publisher: item.publisher,
+    pageCount: item.pageCount,
     externalUrl: item.url,
   }
 }
@@ -109,7 +119,9 @@ export default function NewsPage() {
     { id: 'tv',        label: t.news.tv,        icon: Tv        },
     { id: 'anime',     label: t.news.anime,     icon: BookOpen  },
     { id: 'manga',     label: t.news.manga,     icon: Swords    },
-    { id: 'gaming', label: t.news.gaming, icon: Gamepad2 },
+    { id: 'gaming',    label: t.news.gaming,    icon: Gamepad2  },
+    { id: 'boardgame', label: t.news.boardgame, icon: Dices     },
+    { id: 'book',      label: t.news.book,      icon: Library   },
   ]
 
   const CATEGORY_LABELS: Record<string, string> = {
@@ -117,15 +129,19 @@ export default function NewsPage() {
     tv:        t.news.tv,
     anime:     t.news.anime,
     manga:     t.news.manga,
-    gaming: t.news.gaming,
+    gaming:    t.news.gaming,
+    boardgame: t.news.boardgame,
+    book:      t.news.book,
   }
 
   const CATEGORY_ICONS: Record<string, React.ElementType> = {
     cinema:    Film,
     tv:        Tv,
     anime:     Swords,
-    manga:     Layers,
-    gaming: Gamepad2,
+    manga:     BookOpen,
+    gaming:    Gamepad2,
+    boardgame: Dices,
+    book:      Library,
   }
 
   const fetchItems = async (cat: string, forceRefresh = false) => {
@@ -290,6 +306,14 @@ export default function NewsPage() {
                     <h3 className="font-semibold text-xs leading-snug line-clamp-2 text-white group-hover:text-violet-300 transition-colors">
                       {item.title}
                     </h3>
+
+                    {/* Autori per i libri */}
+                    {item.category === 'book' && item.authors && item.authors.length > 0 && (
+                      <p className="text-[10px] text-zinc-500 line-clamp-1">
+                        {item.authors.slice(0, 2).join(', ')}
+                      </p>
+                    )}
+
                     {item.genres && item.genres.length > 0 && (
                       <div className="flex flex-wrap gap-1">
                         {item.genres.slice(0, 2).map(g => (
@@ -299,12 +323,19 @@ export default function NewsPage() {
                         ))}
                       </div>
                     )}
+
                     {item.category === 'gaming' && item.italianSupportTypes && item.italianSupportTypes.length > 0 && (
                       <div className="flex items-center gap-1">
                         <span className="text-[9px] text-zinc-500">🇮🇹</span>
                         <span className="text-[9px] text-zinc-500">{item.italianSupportTypes.join(' · ')}</span>
                       </div>
                     )}
+
+                    {/* Pagine per i libri */}
+                    {item.category === 'book' && item.pageCount && (
+                      <p className="text-[9px] text-zinc-600">{item.pageCount} pag.</p>
+                    )}
+
                     <div className="mt-auto pt-1">
                       {item.nextEpisodeDate ? (
                         <div className="flex items-center gap-1 text-[11px] text-violet-400 font-medium">

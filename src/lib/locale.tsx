@@ -81,13 +81,13 @@ const translations = {
     discover: {
       title: 'Discover',
       subtitle: 'Solo contenuti con copertina valida',
-      searchPlaceholder: 'Cerca anime, giochi, film, serie...',
+      searchPlaceholder: 'Cerca anime, giochi, film, serie, libri...',
       searching: 'Ricerca in corso...',
       noResults: 'Nessun risultato con copertina valida trovato.',
       minChars: 'Scrivi almeno 2 caratteri per cercare.',
       searchError: 'Errore durante la ricerca. Verifica la connessione o riprova tra qualche secondo.',
       all: 'Tutto', anime: 'Anime', manga: 'Manga', movie: 'Film',
-      tv: 'Serie TV', game: 'Videogiochi',
+      tv: 'Serie TV', game: 'Videogiochi', book: 'Libri',
       added: 'Aggiunto', add: 'Aggiungi',
       wishlistAdd: 'Aggiunto alla wishlist', wishlistRemove: 'Rimosso dalla wishlist',
       addToWishlist: 'Aggiungi alla wishlist', removeFromWishlist: 'Rimuovi dalla wishlist',
@@ -110,8 +110,8 @@ const translations = {
     },
     news: {
       title: 'Novità',
-      subtitle: 'Uscite imminenti e in corso — Film, Serie, Anime, Manga, Videogiochi',
-      all: 'Tutto', cinema: 'Film', tv: 'Serie TV', anime: 'Anime', gaming: 'Videogiochi', manga: 'Manga',
+      subtitle: 'Uscite imminenti e in corso — Film, Serie, Anime, Manga, Videogiochi, Libri',
+      all: 'Tutto', cinema: 'Film', tv: 'Serie TV', anime: 'Anime', gaming: 'Videogiochi', manga: 'Manga', boardgame: 'Giochi da tavolo', book: 'Libri',
       refresh: 'Aggiorna', load: 'Carica contenuti', loading: 'Caricamento...',
       empty: 'Nessun contenuto disponibile.',
       updated: 'Aggiornato alle',
@@ -148,7 +148,7 @@ const translations = {
       categories: {
         games: 'Videogiochi',
         anime: 'Anime',
-        tv: 'Serie TV',          // ← NUOVO: TV separato da Anime
+        tv: 'Serie TV',
         manga: 'Manga',
         movies: 'Film',
         books: 'Libri',
@@ -171,7 +171,7 @@ const translations = {
         n === 0 ? 'Non ancora giocato' : `${n} ${n === 1 ? 'partita' : 'partite'}`,
       progress: (n: number) => `${n}% completato`,
       cancel: 'Annulla', delete: 'Elimina', reset: 'Ripristina',
-      typeLabels: { anime: 'Anime', manga: 'Manga', game: 'Game', tv: 'Serie', movie: 'Film' },
+      typeLabels: { anime: 'Anime', manga: 'Manga', game: 'Game', tv: 'Serie', movie: 'Film', book: 'Libro' },
     },
     toasts: {
       deleted: 'Eliminato dalla collezione',
@@ -328,13 +328,13 @@ const translations = {
     discover: {
       title: 'Discover',
       subtitle: 'Only content with valid covers',
-      searchPlaceholder: 'Search anime, games, movies, series...',
+      searchPlaceholder: 'Search anime, games, movies, series, books...',
       searching: 'Searching...',
       noResults: 'No results with valid cover found.',
       minChars: 'Type at least 2 characters to search.',
       searchError: 'Search error. Check your connection or try again.',
       all: 'All', anime: 'Anime', manga: 'Manga', movie: 'Movies',
-      tv: 'TV Shows', game: 'Games',
+      tv: 'TV Shows', game: 'Games', book: 'Books',
       added: 'Added', add: 'Add',
       wishlistAdd: 'Added to wishlist', wishlistRemove: 'Removed from wishlist',
       addToWishlist: 'Add to wishlist', removeFromWishlist: 'Remove from wishlist',
@@ -357,8 +357,8 @@ const translations = {
     },
     news: {
       title: 'New & Upcoming',
-      subtitle: 'Coming soon and now airing — Movies, TV, Anime, Manga, Games',
-      all: 'All', cinema: 'Movies', tv: 'TV Shows', anime: 'Anime', gaming: 'Games', manga: 'Manga',
+      subtitle: 'Coming soon and now airing — Movies, TV, Anime, Manga, Games, Books',
+      all: 'All', cinema: 'Movies', tv: 'TV Shows', anime: 'Anime', gaming: 'Games', manga: 'Manga', boardgame: 'Board Games', book: 'Books',
       refresh: 'Refresh', load: 'Load content', loading: 'Loading...',
       empty: 'No content available.',
       updated: 'Updated at',
@@ -395,7 +395,7 @@ const translations = {
       categories: {
         games: 'Games',
         anime: 'Anime',
-        tv: 'TV Shows',          // ← NUOVO: TV separato da Anime
+        tv: 'TV Shows',
         manga: 'Manga',
         movies: 'Movies',
         books: 'Books',
@@ -418,7 +418,7 @@ const translations = {
         n === 0 ? 'Not played yet' : `${n} ${n === 1 ? 'session' : 'sessions'}`,
       progress: (n: number) => `${n}% complete`,
       cancel: 'Cancel', delete: 'Delete', reset: 'Reset',
-      typeLabels: { anime: 'Anime', manga: 'Manga', game: 'Game', tv: 'TV', movie: 'Movie' },
+      typeLabels: { anime: 'Anime', manga: 'Manga', game: 'Game', tv: 'TV', movie: 'Movie', book: 'Book' },
     },
     toasts: {
       deleted: 'Removed from collection',
@@ -520,10 +520,6 @@ function setCookieLocale(l: Locale) {
 }
 
 export function LocaleProvider({ children, initialLocale = 'it' }: { children: ReactNode; initialLocale?: Locale }) {
-  // initialLocale viene dal layout server (cookie via next/headers) — garantisce
-  // che server e client partano con lo stesso valore (no hydration mismatch).
-  // localStorage ha priorità: se l'utente ha scelto manualmente una lingua,
-  // quella viene usata subito al mount senza flash.
   const [locale, setLocaleState] = useState<Locale>(() => {
     if (typeof window === 'undefined') return initialLocale
     const fromStorage = localStorage.getItem('geekore_locale')
@@ -532,7 +528,6 @@ export function LocaleProvider({ children, initialLocale = 'it' }: { children: R
   })
 
   useEffect(() => {
-    // Sincronizza cookie con la scelta attuale
     setCookieLocale(locale)
   }, [locale])
 
