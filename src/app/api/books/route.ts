@@ -96,15 +96,29 @@ export async function GET(request: NextRequest) {
 
   console.log(`[BOOKS] query="${q}"`)
 
-  // Step 1: cerca le opere
-  const p = new URLSearchParams({ q, limit: '5', fields: SEARCH_FIELDS })
-  const searchData = await fetchOL(`${OL_SEARCH_BASE}?${p}`)
+  // Step 1: cerca le opere per TITOLO (non full-text) per evitare falsi positivi
+  // da soggetti/tag come "Dune (Imaginary place)" che inquinano i risultati
+  const p1 = new URLSearchParams({ title: q, limit: '5', fields: SEARCH_FIELDS })
+  let searchData = await fetchOL(`${OL_SEARCH_BASE}?${p1}`)
   if (!searchData) {
     console.error('[BOOKS] Open Library non raggiungibile')
     return NextResponse.json({ results: [] })
   }
 
-  const works: any[] = searchData.docs ?? []
+  // Fallback: se 0 risultati con title=, prova q= full-text
+  if (!searchData.docs?.length) {
+    const p2 = new URLSearchParams({ q, limit: '5', fields: SEARCH_FIELDS })
+    searchData = (await fetchOL(`${OL_SEARCH_BASE}?${p2}`)) ?? searchData
+  }
+
+  // Filtro aggiuntivo: le parole della query devono comparire nel titolo dell'opera
+  const queryWords = q.toLowerCase().split(/\s+/).filter(w => w.length > 1)
+  const works: any[] = (searchData.docs ?? []).filter((work: any) => {
+    if (!queryWords.length) return true
+    const title = (work.title ?? '').toLowerCase()
+    return queryWords.some(word => title.includes(word))
+  })
+
   console.log(`[BOOKS] opere trovate: ${works.length}`)
   if (!works.length) return NextResponse.json({ results: [] })
 
