@@ -1,10 +1,13 @@
 'use client'
 // DESTINAZIONE: src/components/for-you/SwipeMode.tsx
+// v4: half-stars senza flash, categorie centrate, testo sempre visibile,
+//     skip persistente su Supabase, mix consigli + opere belle (isDiscovery)
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { X, Check, ChevronRight, Star, Gamepad2, Tv, Film, Layers, Swords, RotateCcw } from 'lucide-react'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
+import { createClient } from '@/lib/supabase/client'
 
 // ─── Tipi ────────────────────────────────────────────────────────────────────
 
@@ -27,6 +30,7 @@ export interface SwipeItem {
   platforms?: string[]
   isAwardWinner?: boolean
   source?: string
+  isDiscovery?: boolean // true = opera bella non per forza in linea coi gusti
 }
 
 type CategoryFilter = 'all' | SwipeMediaType
@@ -67,39 +71,27 @@ const SWIPE_THRESHOLD = 80
 const ROTATION_FACTOR = 0.08
 const REFILL_THRESHOLD = 20
 
+// Stili per visibilità garantita su qualsiasi copertina
+const TEXT_SHADOW = { textShadow: '0 1px 6px rgba(0,0,0,1), 0 2px 16px rgba(0,0,0,0.9)' }
+const ICON_DROP = { filter: 'drop-shadow(0 1px 4px rgba(0,0,0,1)) drop-shadow(0 0 2px rgba(0,0,0,0.8))' }
+
 // ─── HalfStarRating ──────────────────────────────────────────────────────────
+// Fix flash: onMouseMove aggiorna lo stato solo se il valore cambia realmente.
+// La chiave è che setHovered usa la funzione con prev => per evitare re-render
+// inutili quando si sposta il mouse all'interno della stessa "zona" della stella.
 
 function HalfStarRating({ rating, onChange }: { rating: number | null; onChange: (r: number | null) => void }) {
   const [hovered, setHovered] = useState<number | null>(null)
-
-  const handleClick = (value: number) => {
-    onChange(rating === value ? null : value)
-  }
-
-  const handleMouseMove = (e: React.MouseEvent, star: number) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const half = x < rect.width / 2
-    setHovered(half ? star - 0.5 : star)
-  }
-
-  const handleTouchMove = (e: React.TouchEvent, star: number) => {
-    const touch = e.touches[0]
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    const x = touch.clientX - rect.left
-    const half = x < rect.width / 2
-    setHovered(half ? star - 0.5 : star)
-  }
-
-  const handleTouchEnd = () => {
-    if (hovered !== null) handleClick(hovered)
-    setHovered(null)
-  }
-
   const displayValue = hovered !== null ? hovered : (rating ?? 0)
 
+  const computeValue = (clientX: number, el: HTMLElement, star: number): number => {
+    const rect = el.getBoundingClientRect()
+    const isLeft = (clientX - rect.left) < rect.width / 2
+    return isLeft ? star - 0.5 : star
+  }
+
   return (
-    <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
       {[1, 2, 3, 4, 5].map(star => {
         const full = displayValue >= star
         const half = !full && displayValue >= star - 0.5
@@ -107,45 +99,57 @@ function HalfStarRating({ rating, onChange }: { rating: number | null; onChange:
         return (
           <button
             key={star}
-            onMouseMove={e => handleMouseMove(e, star)}
+            className="relative w-8 h-8 flex items-center justify-center touch-none select-none"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+            onMouseMove={e => {
+              const next = computeValue(e.clientX, e.currentTarget, star)
+              // Aggiorna SOLO se il valore cambia — elimina il flash giallo
+              setHovered(prev => prev === next ? prev : next)
+            }}
             onMouseLeave={() => setHovered(null)}
-            onTouchMove={e => { e.preventDefault(); handleTouchMove(e, star) }}
-            onTouchEnd={handleTouchEnd}
             onClick={e => {
               e.stopPropagation()
-              const rect = e.currentTarget.getBoundingClientRect()
-              const x = e.clientX - rect.left
-              const value = x < rect.width / 2 ? star - 0.5 : star
-              handleClick(value)
+              const value = computeValue(e.clientX, e.currentTarget, star)
+              onChange(rating === value ? null : value)
             }}
-            className="relative w-8 h-8 flex items-center justify-center transition-transform active:scale-125 touch-none"
-            style={{ WebkitTapHighlightColor: 'transparent' }}
+            onTouchStart={e => {
+              e.preventDefault()
+              const value = computeValue(e.touches[0].clientX, e.currentTarget, star)
+              setHovered(value)
+            }}
+            onTouchMove={e => {
+              e.preventDefault()
+              // Su touch, ricalcola la stella corrente dal touch point
+              const touch = e.touches[0]
+              const els = document.elementsFromPoint(touch.clientX, touch.clientY)
+              const starEl = els.find(el => el.hasAttribute('data-star')) as HTMLElement | undefined
+              if (starEl) {
+                const s = parseInt(starEl.getAttribute('data-star') || '0')
+                if (s > 0) {
+                  const value = computeValue(touch.clientX, starEl, s)
+                  setHovered(prev => prev === value ? prev : value)
+                }
+              }
+            }}
+            onTouchEnd={e => {
+              e.preventDefault()
+              if (hovered !== null) onChange(rating === hovered ? null : hovered)
+              setHovered(null)
+            }}
+            data-star={star}
           >
-            {/* Background star (empty) */}
-            <Star
-              size={30}
-              className="absolute text-white/20"
-              fill="none"
-              strokeWidth={1.5}
-            />
-            {/* Full fill */}
+            {/* Base vuota */}
+            <Star size={28} className="absolute text-white/25" fill="none" strokeWidth={1.5}
+              style={ICON_DROP} />
+            {/* Piena */}
             {full && (
-              <Star
-                size={30}
-                className="absolute text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.9)]"
-                fill="currentColor"
-                strokeWidth={0}
-              />
+              <Star size={28} className="absolute text-amber-400" fill="currentColor" strokeWidth={0}
+                style={{ filter: 'drop-shadow(0 0 7px rgba(251,191,36,0.85)) drop-shadow(0 1px 3px rgba(0,0,0,0.9))' }} />
             )}
-            {/* Half fill via clip */}
+            {/* Mezza */}
             {half && (
-              <Star
-                size={30}
-                className="absolute text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.9)]"
-                fill="currentColor"
-                strokeWidth={0}
-                style={{ clipPath: 'inset(0 50% 0 0)' }}
-              />
+              <Star size={28} className="absolute text-amber-400" fill="currentColor" strokeWidth={0}
+                style={{ clipPath: 'inset(0 50% 0 0)', filter: 'drop-shadow(0 0 7px rgba(251,191,36,0.85)) drop-shadow(0 1px 3px rgba(0,0,0,0.9))' }} />
             )}
           </button>
         )
@@ -221,7 +225,7 @@ function SwipeCard({
   const stackY = stackIndex * 10
   const rotation = isFlying ? (flyDirection === 'right' ? 22 : -22) : dragX * ROTATION_FACTOR
   const translateX = isFlying ? (flyDirection === 'right' ? '160%' : '-160%') : `${dragX}px`
-  const cardOpacity = isFlying ? 0 : 1 - stackIndex * 0.15
+  const cardOpacity = isFlying ? 0 : 1 - stackIndex * 0.12
   const swipeProgress = Math.min(Math.abs(dragX) / SWIPE_THRESHOLD, 1)
   const showRight = dragX > 20
   const showLeft = dragX < -20
@@ -248,35 +252,48 @@ function SwipeCard({
     >
       <div className="relative w-full h-full rounded-3xl overflow-hidden bg-zinc-900 shadow-2xl shadow-black/80">
         {item.coverImage ? (
-          <img src={item.coverImage} alt={item.title} className="absolute inset-0 w-full h-full object-cover" draggable={false} />
+          <img src={item.coverImage} alt={item.title}
+            className="absolute inset-0 w-full h-full object-cover" draggable={false} />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-zinc-900">
             <Icon size={64} className="text-zinc-700" />
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/10 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-transparent" />
 
-        {/* Chiudi — X in alto a destra della card */}
+        {/* Gradienti robusti — garantiscono leggibilità su copertine chiare o scure */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/5 to-black/45" />
+
+        {/* X Chiudi — in alto a destra nella card */}
         <button
           onClick={e => { e.stopPropagation(); onClose() }}
-          className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white/70 hover:text-white hover:bg-black/60 active:scale-90 transition-all z-20"
+          className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/55 backdrop-blur-sm flex items-center justify-center text-white/80 hover:text-white hover:bg-black/75 active:scale-90 transition-all z-20"
+          style={ICON_DROP}
         >
-          <X size={18} strokeWidth={2.5} />
+          <X size={17} strokeWidth={2.5} />
         </button>
 
         {/* Badge tipo */}
-        <div className="absolute top-4 left-4 pointer-events-none z-10">
-          <div className={`bg-gradient-to-r ${colorClass} text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg`}>
+        <div className="absolute top-3 left-3 z-10">
+          <div className={`bg-gradient-to-r ${colorClass} text-white text-xs font-bold px-3 py-1 rounded-full`}
+            style={ICON_DROP}>
             {TYPE_LABEL[item.type]}
           </div>
         </div>
 
-        {/* Match score */}
-        {item.matchScore >= 75 && (
-          <div className="absolute top-14 left-4 pointer-events-none z-10">
-            <div className="flex items-center gap-1 bg-violet-600/90 backdrop-blur-sm text-white text-xs font-black px-2.5 py-1 rounded-full shadow-lg">
+        {/* Badge match / scoperta */}
+        {!item.isDiscovery && item.matchScore >= 75 && (
+          <div className="absolute top-12 left-3 z-10">
+            <div className="flex items-center gap-1 bg-violet-600/90 backdrop-blur-sm text-white text-xs font-black px-2.5 py-1 rounded-full"
+              style={ICON_DROP}>
               <Star size={10} fill="currentColor" />{item.matchScore}%
+            </div>
+          </div>
+        )}
+        {item.isDiscovery && (
+          <div className="absolute top-12 left-3 z-10">
+            <div className="flex items-center gap-1 bg-emerald-600/90 backdrop-blur-sm text-white text-xs font-bold px-2.5 py-1 rounded-full"
+              style={ICON_DROP}>
+              ✨ Scoperta
             </div>
           </div>
         )}
@@ -286,60 +303,66 @@ function SwipeCard({
           <>
             <div
               className="absolute top-16 left-5 border-[3px] border-emerald-400 text-emerald-400 font-black text-xl px-4 py-1.5 rounded-2xl tracking-widest uppercase rotate-[-18deg] pointer-events-none z-10"
-              style={{ opacity: showRight ? swipeProgress : 0, transition: 'opacity 0.08s' }}
+              style={{ opacity: showRight ? swipeProgress : 0, transition: 'opacity 0.08s', ...TEXT_SHADOW }}
             >Visto ✓</div>
             <div
               className="absolute top-16 right-5 border-[3px] border-red-400 text-red-400 font-black text-xl px-4 py-1.5 rounded-2xl tracking-widest uppercase rotate-[18deg] pointer-events-none z-10"
-              style={{ opacity: showLeft ? swipeProgress : 0, transition: 'opacity 0.08s' }}
+              style={{ opacity: showLeft ? swipeProgress : 0, transition: 'opacity 0.08s', ...TEXT_SHADOW }}
             >Skip ✗</div>
           </>
         )}
 
         {/* Contenuto in basso */}
-        <div className="absolute bottom-0 left-0 right-0 p-5 pb-5 z-10">
-          <h2 className="text-white font-bold text-[22px] leading-tight mb-1 drop-shadow-lg line-clamp-2">{item.title}</h2>
-          <p className="text-white/55 text-sm mb-4 flex items-center gap-2 flex-wrap">
+        <div className="absolute bottom-0 left-0 right-0 p-5 pb-4 z-10">
+          <h2 className="text-white font-bold text-[22px] leading-tight mb-1 line-clamp-2" style={TEXT_SHADOW}>
+            {item.title}
+          </h2>
+          <p className="text-white/75 text-sm mb-4 flex items-center gap-2 flex-wrap" style={TEXT_SHADOW}>
             {item.year && <span>{item.year}</span>}
             {item.episodes && item.type !== 'movie' && (
               <span>{item.type === 'manga' ? `${item.episodes} cap.` : `${item.episodes} ep.`}</span>
             )}
-            {item.genres.length > 0 && <span className="text-white/35">· {item.genres.slice(0, 2).join(', ')}</span>}
+            {item.genres.length > 0 && <span className="text-white/50">· {item.genres.slice(0, 2).join(', ')}</span>}
           </p>
 
-          {/* Stelle — sempre visibili su tutte le card per precaricamento visivo, ma interattive solo sulla top */}
+          {/* Stelle — sempre nel DOM su tutte le card per evitare layout shift */}
           <div className={`flex items-center justify-center mb-4 ${!isTop ? 'opacity-0 pointer-events-none' : ''}`}>
             <HalfStarRating rating={rating} onChange={onRatingChange} />
           </div>
 
-          {/* Bottoni azione — sempre nel DOM per evitare layout shift, visibili su tutte le card */}
+          {/* Azioni */}
           <div className="flex items-center justify-between">
-            {/* Annulla (stile Tinder, in basso a sinistra) */}
+            {/* Annulla — stile Tinder, basso sinistra */}
             <button
-              onClick={e => { e.stopPropagation(); if (isTop) onUndo() }}
+              onClick={e => { e.stopPropagation(); if (isTop && canUndo) onUndo() }}
               disabled={!canUndo || !isTop}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-zinc-400 hover:text-white disabled:opacity-25 disabled:pointer-events-none transition-colors"
+              className="flex items-center gap-1.5 px-2 py-2 rounded-xl text-white/65 hover:text-white disabled:opacity-20 disabled:pointer-events-none transition-colors"
+              style={TEXT_SHADOW}
             >
-              <RotateCcw size={15} />
+              <RotateCcw size={14} style={ICON_DROP} />
               <span className="text-xs font-medium">Annulla</span>
             </button>
 
-            {/* Skip + Info + Visto centrati */}
+            {/* Skip · Info · Visto */}
             <div className="flex items-center gap-4">
               <button
                 onClick={e => { e.stopPropagation(); if (isTop) triggerSwipe('left') }}
-                className={`w-14 h-14 rounded-full bg-red-500/15 border-2 border-red-400/50 flex items-center justify-center text-red-400 hover:bg-red-500/30 hover:border-red-400 active:scale-90 transition-all shadow-lg ${!isTop ? 'opacity-0 pointer-events-none' : ''}`}
+                className={`w-14 h-14 rounded-full bg-red-500/20 border-2 border-red-400/60 flex items-center justify-center text-red-400 hover:bg-red-500/35 hover:border-red-400 active:scale-90 transition-all ${!isTop ? 'opacity-0 pointer-events-none' : ''}`}
+                style={ICON_DROP}
               >
                 <X size={24} strokeWidth={3} />
               </button>
               <button
                 onClick={e => { e.stopPropagation(); if (isTop) onDetailOpen(item) }}
-                className={`w-10 h-10 rounded-full bg-white/10 border border-white/25 flex items-center justify-center text-white/60 hover:bg-white/20 hover:text-white active:scale-90 transition-all ${!isTop ? 'opacity-0 pointer-events-none' : ''}`}
+                className={`w-10 h-10 rounded-full bg-white/15 border border-white/35 flex items-center justify-center text-white/75 hover:bg-white/25 hover:text-white active:scale-90 transition-all ${!isTop ? 'opacity-0 pointer-events-none' : ''}`}
+                style={ICON_DROP}
               >
                 <ChevronRight size={20} strokeWidth={2.5} />
               </button>
               <button
                 onClick={e => { e.stopPropagation(); if (isTop) triggerSwipe('right') }}
-                className={`w-14 h-14 rounded-full bg-emerald-500/15 border-2 border-emerald-400/50 flex items-center justify-center text-emerald-400 hover:bg-emerald-500/30 hover:border-emerald-400 active:scale-90 transition-all shadow-lg ${!isTop ? 'opacity-0 pointer-events-none' : ''}`}
+                className={`w-14 h-14 rounded-full bg-emerald-500/20 border-2 border-emerald-400/60 flex items-center justify-center text-emerald-400 hover:bg-emerald-500/35 hover:border-emerald-400 active:scale-90 transition-all ${!isTop ? 'opacity-0 pointer-events-none' : ''}`}
+                style={ICON_DROP}
               >
                 <Check size={24} strokeWidth={3} />
               </button>
@@ -357,89 +380,113 @@ function SwipeCard({
 // ─── SwipeMode ────────────────────────────────────────────────────────────────
 
 export function SwipeMode({ items: initialItems, onSeen, onClose, onRequestMore }: SwipeModeProps) {
+  const supabase = createClient()
   const [activeFilter, setActiveFilter] = useState<CategoryFilter>('all')
   const [queue, setQueue] = useState<SwipeItem[]>(initialItems)
   const [currentRating, setCurrentRating] = useState<number | null>(null)
   const [detailItem, setDetailItem] = useState<MediaDetails | null>(null)
   const [history, setHistory] = useState<SwipeItem[]>([])
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set())
   const [seenIds, setSeenIds] = useState<Set<string>>(new Set(initialItems.map(i => i.id)))
   const loadingRef = useRef(false)
 
+  // Carica gli ID già skippati per non riproporli mai
+  useEffect(() => {
+    const loadSkipped = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase
+        .from('swipe_skipped')
+        .select('external_id')
+        .eq('user_id', user.id)
+      if (data && data.length > 0) {
+        const ids = new Set(data.map((r: any) => r.external_id as string))
+        setSkippedIds(ids)
+        setQueue(prev => prev.filter(i => !ids.has(i.id)))
+      }
+    }
+    loadSkipped()
+  }, [])
+
   useEffect(() => { setCurrentRating(null) }, [queue[0]?.id])
 
-  // Filtra la coda per la categoria attiva
-  const filteredQueue = activeFilter === 'all'
+  // Coda filtrata (categoria + già skippati)
+  const filteredQueue = (activeFilter === 'all'
     ? queue
     : queue.filter(i => i.type === activeFilter)
+  ).filter(i => !skippedIds.has(i.id))
 
-  // Ricarica automatica quando restano poche card (sia nella coda filtrata che totale)
+  const loadMore = useCallback(async (filter: CategoryFilter) => {
+    if (loadingRef.current) return
+    loadingRef.current = true
+    setIsLoadingMore(true)
+    try {
+      const newItems = await onRequestMore(filter)
+      const fresh = newItems.filter(i => !seenIds.has(i.id) && !skippedIds.has(i.id))
+      if (fresh.length > 0) {
+        setQueue(prev => [...prev, ...fresh])
+        setSeenIds(prev => {
+          const next = new Set(prev)
+          fresh.forEach(i => next.add(i.id))
+          return next
+        })
+      }
+    } catch {}
+    setIsLoadingMore(false)
+    loadingRef.current = false
+  }, [onRequestMore, seenIds, skippedIds])
+
+  // Ricarica automatica quando la coda filtrata si assottiglia
   useEffect(() => {
-    const checkCount = activeFilter === 'all' ? queue.length : filteredQueue.length
-    if (checkCount <= REFILL_THRESHOLD && !loadingRef.current) {
-      loadingRef.current = true
-      setIsLoadingMore(true)
-      onRequestMore(activeFilter).then(newItems => {
-        const fresh = newItems.filter(i => !seenIds.has(i.id))
-        if (fresh.length > 0) {
-          setQueue(prev => [...prev, ...fresh])
-          setSeenIds(prev => {
-            const next = new Set(prev)
-            fresh.forEach(i => next.add(i.id))
-            return next
-          })
-        }
-        setIsLoadingMore(false)
-        loadingRef.current = false
-      }).catch(() => {
-        setIsLoadingMore(false)
-        loadingRef.current = false
-      })
+    if (filteredQueue.length <= REFILL_THRESHOLD && !loadingRef.current) {
+      loadMore(activeFilter)
     }
-  }, [queue.length, filteredQueue.length, activeFilter, onRequestMore, seenIds])
+  }, [filteredQueue.length, activeFilter])
 
-  // Al cambio filtro, ricarica subito se servono card
   const handleFilterChange = useCallback((filter: CategoryFilter) => {
     setActiveFilter(filter)
     setHistory([])
-    // Ricarica immediata in background se poche card disponibili per la categoria
-    const available = filter === 'all' ? queue : queue.filter(i => i.type === filter)
-    if (available.length <= REFILL_THRESHOLD && !loadingRef.current) {
-      loadingRef.current = true
-      setIsLoadingMore(true)
-      onRequestMore(filter).then(newItems => {
-        const fresh = newItems.filter(i => !seenIds.has(i.id))
-        if (fresh.length > 0) {
-          setQueue(prev => [...prev, ...fresh])
-          setSeenIds(prev => {
-            const next = new Set(prev)
-            fresh.forEach(i => next.add(i.id))
-            return next
-          })
-        }
-        setIsLoadingMore(false)
-        loadingRef.current = false
-      }).catch(() => {
-        setIsLoadingMore(false)
-        loadingRef.current = false
-      })
+    const available = (filter === 'all' ? queue : queue.filter(i => i.type === filter))
+      .filter(i => !skippedIds.has(i.id))
+    if (available.length <= REFILL_THRESHOLD) {
+      loadMore(filter)
     }
-  }, [queue, seenIds, onRequestMore])
+  }, [queue, skippedIds, loadMore])
+
+  const persistSkip = useCallback(async (item: SwipeItem) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    supabase.from('swipe_skipped').upsert(
+      { user_id: user.id, external_id: item.id, title: item.title, type: item.type },
+      { onConflict: 'user_id,external_id' }
+    ).then(() => {}) // fire and forget
+  }, [supabase])
 
   const handleSwipe = useCallback((direction: 'left' | 'right', item: SwipeItem) => {
     setHistory(prev => [item, ...prev].slice(0, 10))
-    // Rimuovi l'item dalla coda globale
     setQueue(prev => prev.filter(i => i.id !== item.id))
+
     if (direction === 'right') {
       onSeen(item, currentRating)
+    } else {
+      // Skip: persiste su Supabase — non verrà mai più mostrata
+      setSkippedIds(prev => new Set([...prev, item.id]))
+      persistSkip(item)
     }
-  }, [currentRating, onSeen])
+  }, [currentRating, onSeen, persistSkip])
 
   const handleUndo = useCallback(() => {
     if (!history.length) return
     const [last, ...rest] = history
     setHistory(rest)
     setQueue(prev => [last, ...prev])
+    // Ripristina: rimuovi dallo skipped locale (non tocca Supabase)
+    setSkippedIds(prev => {
+      const next = new Set(prev)
+      next.delete(last.id)
+      return next
+    })
   }, [history])
 
   const handleDetailOpen = useCallback((item: SwipeItem) => {
@@ -453,16 +500,13 @@ export function SwipeMode({ items: initialItems, onSeen, onClose, onRequestMore 
     })
   }, [])
 
-  // Le card da mostrare sono quelle filtrate
-  const displayQueue = filteredQueue
-
   return (
     <>
       <div className="fixed inset-0 bg-black flex flex-col" style={{ zIndex: 9999 }}>
 
-        {/* Filtri categoria — sopra la card, niente header "Swipe" */}
+        {/* Filtri categoria — centrati */}
         <div
-          className="flex-shrink-0 px-4 pt-safe"
+          className="flex-shrink-0 flex justify-center px-4"
           style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
         >
           <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -482,31 +526,28 @@ export function SwipeMode({ items: initialItems, onSeen, onClose, onRequestMore 
           </div>
         </div>
 
-        {/* Area card — occupa quasi tutto lo schermo */}
+        {/* Area card */}
         <div className="flex-1 flex items-center justify-center px-4 py-2 min-h-0">
-          {displayQueue.length === 0 && !isLoadingMore ? (
+          {filteredQueue.length === 0 && !isLoadingMore ? (
             <div className="text-center px-6">
               <div className="w-20 h-20 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-violet-500/30">
                 <Check size={36} className="text-white" />
               </div>
               <h2 className="text-white text-2xl font-bold mb-2">Hai finito!</h2>
               <p className="text-zinc-400 text-sm mb-8">Aggiorna i consigli per scoprire altri titoli.</p>
-              <button onClick={onClose} className="px-8 py-3 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-2xl transition-colors">
+              <button onClick={onClose}
+                className="px-8 py-3 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-2xl transition-colors">
                 Torna ai consigli
               </button>
             </div>
-          ) : displayQueue.length === 0 ? (
+          ) : filteredQueue.length === 0 ? (
             <div className="text-center">
               <div className="w-12 h-12 border-2 border-violet-500/40 border-t-violet-500 rounded-full animate-spin mx-auto mb-4" />
               <p className="text-zinc-500 text-sm">Caricamento nuovi titoli…</p>
             </div>
           ) : (
-            // Card area: quasi schermo intero
-            <div
-              className="relative w-full max-w-sm"
-              style={{ height: 'min(680px, 82svh)' }}
-            >
-              {displayQueue.slice(0, 3).map((item, idx) => (
+            <div className="relative w-full max-w-sm" style={{ height: 'min(680px, 82svh)' }}>
+              {filteredQueue.slice(0, 3).map((item, idx) => (
                 <SwipeCard
                   key={item.id}
                   item={item}
@@ -525,8 +566,8 @@ export function SwipeMode({ items: initialItems, onSeen, onClose, onRequestMore 
           )}
         </div>
 
-        {/* Hint skip/visto in fondo */}
-        {displayQueue.length > 0 && (
+        {/* Hint */}
+        {filteredQueue.length > 0 && (
           <div
             className="text-center flex-shrink-0 pointer-events-none select-none"
             style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
@@ -536,7 +577,6 @@ export function SwipeMode({ items: initialItems, onSeen, onClose, onRequestMore 
         )}
       </div>
 
-      {/* Drawer dettagli */}
       {detailItem && (
         <div style={{ zIndex: 10000, position: 'fixed', inset: 0 }}>
           <MediaDetailsDrawer media={detailItem} onClose={() => setDetailItem(null)} />

@@ -1217,7 +1217,7 @@ export default function ForYouPage() {
     .filter(r => ['anime', 'manga', 'movie', 'tv', 'game'].includes(r.type) && !dismissedIds.has(r.id))
     .slice(0, 50)
     .map(r => ({
-      id: r.id, title: r.title, type: r.type as SwipeItem['type'],
+      id: r.id, title: r.title, type: r.type as SwipeItem['type'], isDiscovery: r.isDiscovery,
       coverImage: r.coverImage, year: r.year, genres: r.genres,
       score: r.score, description: r.description, why: r.why,
       matchScore: r.matchScore, episodes: r.episodes,
