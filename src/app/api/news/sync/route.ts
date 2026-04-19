@@ -400,211 +400,177 @@ async function fetchBoardgameNews(lang: string): Promise<any[]> {
   finally { clearTimeout(budget) }
 }
 
-// ── Books (Google Books API) — VERSIONE CORRETTA ──────────────────────────────
+
+// ── Books (Open Library) — Nuove Uscite ───────────────────────────────────────
 //
-// PERCHÉ IL FIX:
-// - langRestrict=it su Google Books restituisce pochissimi risultati
-//   perché pochissimi libri hanno language='it' nel metadata
-// - La strategia corretta è: cercare per EDITORE ITALIANO (inpublisher:)
-//   o per termini italiani nel titolo, senza langRestrict
-// - Fallback Open Library via ISBN per copertine mancanti
-// - Filtro year allargato a 3 anni per avere più risultati
+// STRATEGIA:
+//   1. Open Library /search.json?sort=new  → libri pubblicati di recente
+//      con date REALI (non inventate) e copertine affidabili via cover_i
+//   2. Query per soggetti di tendenza in italiano + inglese
+//   3. Filtro: solo libri degli ultimi 2 anni con cover_i valorizzato
+//   4. Deduplica per titolo, ordina per data discendente
 
-function buildBookCoverUrl(item: any): string | null {
-  const links = item?.volumeInfo?.imageLinks
-  if (!links) return null
+const OL_SEARCH_URL  = 'https://openlibrary.org/search.json'
+const OL_COVERS_URL  = 'https://covers.openlibrary.org/b'
+const OL_AGENT       = { 'User-Agent': 'Geekore (info@geekore.it)' }
+const OL_BOOK_FIELDS = 'key,title,author_name,cover_i,cover_edition_key,isbn,first_publish_year,subject,ratings_average,ratings_count,language,publisher,edition_count'
 
-  // Tenta zoom crescenti fino a trovare qualcosa
-  const raw =
-    links.extraLarge ||
-    links.large ||
-    links.medium ||
-    links.thumbnail ||
-    links.smallThumbnail
-
-  if (!raw) return null
-
-  return raw
-    .replace('zoom=1', 'zoom=3')
-    .replace('zoom=5', 'zoom=3')
-    .replace('&edge=curl', '')
-    .replace('http://', 'https://')
+const OL_SUBJ_GENRE: Record<string, string> = {
+  'fantasy': 'Fantasy', 'science fiction': 'Science Fiction', 'horror': 'Horror',
+  'mystery': 'Mystery', 'thriller': 'Thriller', 'romance': 'Romance',
+  'adventure': 'Adventure', 'historical fiction': 'Historical Fiction',
+  'literary fiction': 'Literary Fiction', 'crime': 'Crime',
+  'biography': 'Biography', 'memoir': 'Memoir', 'psychological': 'Psychological',
+  'action': 'Action', 'drama': 'Drama', 'young adult': 'Young Adult',
+  'dystopian': 'Dystopian', 'supernatural': 'Supernatural', 'war': 'War',
+  'political': 'Political', 'detective': 'Mystery', 'spy': 'Thriller',
 }
 
-function openLibraryCoverByIsbn(isbn: string | null): string | null {
-  if (!isbn) return null
-  return `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`
-}
-
-function mapBookCategories(categories: string[]): string[] {
+function olNewsGenres(subjects: string[]): string[] {
   const result = new Set<string>()
-  for (const cat of categories) {
-    for (const part of cat.split(/\s*[/&]\s*/)) {
-      const clean = part.trim()
-      if (clean.length > 2) result.add(clean)
+  for (const sub of (subjects || []).slice(0, 30)) {
+    const low = sub.toLowerCase()
+    for (const [key, genre] of Object.entries(OL_SUBJ_GENRE)) {
+      if (low.includes(key)) { result.add(genre); break }
     }
+    if (result.size >= 4) break
   }
-  return Array.from(result).slice(0, 5)
+  return Array.from(result)
 }
 
-function parseBookItem(item: any): any | null {
-  const info = item?.volumeInfo
-  if (!info?.title) return null
+function olNewsDoc(doc: any): any | null {
+  if (!doc?.title) return null
 
-  const isbn13 = (info.industryIdentifiers || []).find((i: any) => i.type === 'ISBN_13')?.identifier ?? null
-  const isbn10 = (info.industryIdentifiers || []).find((i: any) => i.type === 'ISBN_10')?.identifier ?? null
-  const isbn = isbn13 || isbn10
+  // Richiede cover_i: garanzia che l'immagine esista
+  if (!doc.cover_i) return null
 
-  const googleCover = buildBookCoverUrl(item)
-  const olCover = openLibraryCoverByIsbn(isbn)
-  const coverImage = googleCover || olCover
+  const workId = (doc.key || '').replace('/works/', '')
+  const isbn = (doc.isbn || [])[0] || null
+  const year = doc.first_publish_year || undefined
 
-  if (!coverImage) return null
+  // Scarta libri troppo vecchi (vogliamo news/nuove uscite)
+  const currentYear = new Date().getFullYear()
+  if (year && year < currentYear - 2) return null
 
-  const publishedDate = info.publishedDate as string | undefined
-  const year = publishedDate ? parseInt(publishedDate.slice(0, 4)) : undefined
-  const fullDate = publishedDate?.length === 10 ? publishedDate : year ? `${year}-01-01` : undefined
+  const authors: string[] = doc.author_name || []
+  const genres = olNewsGenres(doc.subject || [])
+  const publishers: string[] = (doc.publisher || []).slice(0, 2)
+  const rating = doc.ratings_average
+  const ratingCount = doc.ratings_count || 0
+  // OL scala 0-5 → scala 0-10
+  const score = rating && ratingCount >= 5
+    ? Math.round(rating * 20) / 10
+    : undefined
 
-  const description = info.description ? truncateAtSentence(info.description, 500) : null
-  const score = info.averageRating && info.ratingsCount && info.ratingsCount >= 10
-    ? Math.round(info.averageRating * 10) / 10 : undefined
+  // Data: se abbiamo l'anno preciso usiamola, altrimenti null
+  // NON inventiamo date: se non abbiamo mese/giorno precisi, usiamo solo l'anno
+  const date = year ? `${year}-01-01` : undefined
 
   return {
-    id: `gbooks-${item.id}`,
+    id: `ol-${workId}`,
     type: 'book',
-    source_api: 'google_books',
-    title: info.title as string,
-    description,
-    coverImage,
-    date: fullDate,
+    source_api: 'open_library',
+    title: doc.title as string,
+    coverImage: `${OL_COVERS_URL}/id/${doc.cover_i}-L.jpg`,
+    date,
     year,
-    genres: mapBookCategories(info.categories || []),
+    genres,
     score,
-    authors: info.authors?.length ? info.authors : undefined,
-    studios: info.publisher ? [info.publisher] : undefined,
-    publisher: info.publisher || undefined,
-    pageCount: info.pageCount || undefined,
+    authors: authors.length ? authors : undefined,
+    studios: publishers.length ? publishers : undefined,
+    publisher: publishers[0] || undefined,
     isbn,
-    original_language: info.language || 'und',
+    original_language: (doc.language || [])[0] || 'und',
     category: 'book',
-    source: 'Google Books',
-    url: info.infoLink || `https://books.google.com/books?id=${item.id}`,
+    source: 'Open Library',
+    url: `https://openlibrary.org${doc.key || ''}`,
   }
 }
 
 async function fetchBooks(lang: string): Promise<any[]> {
-  const apiKey = process.env.GOOGLE_BOOKS_API_KEY
-  if (!apiKey) { logger.info('[Books] GOOGLE_BOOKS_API_KEY mancante — skip'); return [] }
-
   logger.info(`[Books] fetchBooks START lang=${lang}`)
 
-  // ── STRATEGIA QUERY ────────────────────────────────────────────────────────
-  // Non usiamo langRestrict=it perché filtra troppo.
-  // Per l'italiano usiamo:
-  //   1. inpublisher: per i grandi editori italiani (risultati localizzati)
-  //   2. Termini di genere in italiano (es. "romanzo italiano")
-  //   3. Query in inglese come fallback per varietà
-  // La copertura reale è molto migliore così.
+  const currentYear = new Date().getFullYear()
 
-  const itQueries = [
-    // Grandi editori italiani — risultati quasi sempre in italiano
-    'inpublisher:Mondadori',
-    'inpublisher:Feltrinelli',
-    'inpublisher:Einaudi',
-    'inpublisher:Rizzoli',
-    'inpublisher:Garzanti',
-    'inpublisher:Longanesi',
-    'inpublisher:Adelphi',
-    'inpublisher:Sellerio',
-    // Termini italiani — amplia il pool
-    'romanzo+italiano',
-    'narrativa+italiana',
+  // Query per nuove uscite: sort=new restituisce i libri aggiunti/aggiornati
+  // più di recente su OL — ottima approssimazione delle nuove pubblicazioni
+  const itSubjects = [
+    'narrativa italiana',
+    'romanzo italiano',
+    'letteratura italiana',
+    'fantasy',
+    'thriller',
+    'giallo italiano',
+    'romanzo storico',
+    'fantascienza',
+  ]
+  const enSubjects = [
+    'fiction',
+    'fantasy fiction',
+    'science fiction',
+    'thriller',
+    'mystery fiction',
+    'historical fiction',
+    'literary fiction',
+    'young adult fiction',
   ]
 
-  const enQueries = [
-    'subject:fiction+bestseller',
-    'subject:thriller+mystery',
-    'subject:fantasy+adventure',
-    'subject:science+fiction',
-    'subject:historical+fiction',
-  ]
-
-  const queries = lang === 'it' ? [...itQueries, ...enQueries] : enQueries
+  const subjects = lang === 'it' ? [...itSubjects, ...enSubjects] : enSubjects
 
   const seen = new Set<string>()
-  const allItems: any[] = []
+  const allDocs: any[] = []
 
   await Promise.all(
-    queries.map(async (q) => {
+    subjects.map(async (subject) => {
       try {
-        const url =
-          `https://www.googleapis.com/books/v1/volumes` +
-          `?q=${encodeURIComponent(q)}` +
-          `&maxResults=10` +
-          `&printType=books` +
-          `&orderBy=newest` +
-          `&key=${apiKey}`
+        const params = new URLSearchParams({
+          q: `subject:"${subject}"`,
+          sort: 'new',              // libri recenti
+          limit: '15',
+          fields: OL_BOOK_FIELDS,
+          // Filtro pubblicazione: ultimi 2 anni
+          'publish_year': `[${currentYear - 2} TO ${currentYear + 1}]`,
+        })
+        if (lang === 'it' && itSubjects.includes(subject)) {
+          params.set('language', 'ita')
+        }
 
-        const res = await fetch(url, {
-          headers: { Accept: 'application/json' },
+        const res = await fetch(`${OL_SEARCH_URL}?${params}`, {
+          headers: OL_AGENT,
           cache: 'no-store',
-          signal: AbortSignal.timeout(12_000),
+          signal: AbortSignal.timeout(10_000),
         })
         if (!res.ok) return
         const json = await res.json()
-        for (const item of json.items || []) {
-          if (!seen.has(item.id)) {
-            seen.add(item.id)
-            allItems.push(item)
+        for (const doc of (json.docs || [])) {
+          if (!seen.has(doc.key) && doc.cover_i) {
+            seen.add(doc.key)
+            allDocs.push(doc)
           }
         }
       } catch (e: any) {
-        logger.info(`[Books] query "${q}" error: ${e?.message}`)
+        logger.info(`[Books] subject "${subject}" error: ${e?.message}`)
       }
     })
   )
 
-  logger.info(`[Books] raw items fetched: ${allItems.length}`)
+  logger.info(`[Books] raw docs: ${allDocs.length}`)
 
-  const currentYear = new Date().getFullYear()
-
-  const mapped = allItems
-    .map(parseBookItem)
+  const mapped = allDocs
+    .map(olNewsDoc)
     .filter(Boolean)
-    // ── FILTRO ANNO ALLARGATO ────────────────────────────────────────────────
-    // Includi libri degli ultimi 3 anni (non 2) per avere più risultati
-    // Se l'anno è undefined, includi comunque (meglio un libro senza anno che nessuno)
-    .filter((b: any) => !b.year || b.year >= currentYear - 3)
 
-  logger.info(`[Books] after filter: ${mapped.length} items`)
+  logger.info(`[Books] after filter: ${mapped.length}`)
 
-  // Traduci solo le descrizioni in inglese
-  if (lang === 'it') {
-    const toTranslate = mapped.filter(
-      (b: any) => b.description && b.original_language === 'en'
-    )
-    if (toTranslate.length > 0) {
-      try {
-        const descriptions = toTranslate.map((b: any) => b.description ?? '')
-        const translated = await translateTexts(descriptions)
-        toTranslate.forEach((b: any, i: number) => {
-          if (b.description && translated[i]) b.description = translated[i]
-        })
-      } catch (e) {
-        logger.info(`[Books] translation error: ${e}`)
-      }
-    }
-  }
-
-  // Ordina: libri con data più recente prima, senza data in fondo
+  // Ordina per anno decrescente (più recenti prima)
   mapped.sort((a: any, b: any) => {
-    if (a.date && b.date) return new Date(b.date).getTime() - new Date(a.date).getTime()
-    if (a.date) return -1
-    if (b.date) return 1
+    if (a.year && b.year) return b.year - a.year
+    if (a.year) return -1
+    if (b.year) return 1
     return 0
   })
 
-  // Deduplica per titolo (stessa opera da editori diversi)
+  // Deduplica per titolo
   const titleSeen = new Set<string>()
   const deduped = mapped.filter((b: any) => {
     const key = b.title.toLowerCase().trim()

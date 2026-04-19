@@ -35,7 +35,6 @@ import { MALImport } from '@/components/import/MALImport'
 import { LetterboxdImport } from '@/components/import/LetterboxdImport'
 import { XboxImport } from '@/components/import/XboxImport'
 import { SteamImport } from '@/components/import/SteamImport'
-import { BookImport } from '@/components/import/BookImport'
 import { ProfileActivityFeed } from '@/components/profile/ProfileActivityFeed'
 import { NotesModal } from '@/components/profile/NotesModal'
 import { DeleteAccountModal } from '@/components/profile/DeleteAccountModal'
@@ -1310,7 +1309,6 @@ export default function ProfilePage() {
               {importPlatform === 'letterboxd' && <LetterboxdImport />}
               {importPlatform === 'xbox' && <XboxImport />}
               {importPlatform === 'steam' && <SteamImport onImportDone={async () => { if (currentUserId) { await new Promise(r => setTimeout(r, 800)); refreshMedia(currentUserId) } }} />}
-              {importPlatform === 'book' && <BookImport />}
             </div>
           </div>
         </div>

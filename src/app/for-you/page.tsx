@@ -11,7 +11,7 @@ import {
   Zap, Plus, Bookmark, X, Check, ChevronDown, ChevronUp, Users, Compass,
   ThumbsDown, Eye, Flame, Brain, Star, ArrowRight, Clapperboard, Swords,
   TrendingUp, Search, BookmarkCheck, Sun, Trophy, Calendar,
-  MessageCircleQuestion, Tag, MonitorPlay, AlertCircle, Layers
+  MessageCircleQuestion, Tag, MonitorPlay, AlertCircle, Layers, Shuffle
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -26,6 +26,8 @@ import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 import { PreferencesModal } from '@/components/for-you/PreferencesModal'
 import { DNAWidget } from '@/components/for-you/DNAWidget'
 import type { TasteProfile } from '@/components/for-you/DNAWidget'
+import { SwipeMode } from '@/components/for-you/SwipeMode'
+import type { SwipeItem } from '@/components/for-you/SwipeMode'
 
 // V5: Tipi per feedback granulare
 type FeedbackAction = 'not_interested' | 'already_seen' | 'added' | 'wishlist_add';
@@ -939,6 +941,7 @@ export default function ForYouPage() {
   const [detailItem, setDetailItem] = useState<Recommendation | null>(null)  // titolo aperto nel detail modal
   const [similarSection, setSimilarSection] = useState<{ sourceTitle: string; sourceType: MediaType; items: Recommendation[] } | null>(null)
   const [showNewRecsBadge, setShowNewRecsBadge] = useState(false)  // Fix 2.10: badge nuovi consigli
+  const [showSwipeMode, setShowSwipeMode] = useState(false)
 
   const fetchRecommendations = useCallback(async (force = false) => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -1218,6 +1221,69 @@ export default function ForYouPage() {
   })
   const primarySectionKey = SECTIONS[0]?.key
 
+  // Swipe mode handlers
+  const swipeItems: SwipeItem[] = allRecs
+    .filter(r => ['anime', 'manga', 'movie', 'tv', 'game'].includes(r.type) && !dismissedIds.has(r.id))
+    .slice(0, 50)
+    .map(r => ({
+      id: r.id, title: r.title, type: r.type as SwipeItem['type'],
+      coverImage: r.coverImage, year: r.year, genres: r.genres,
+      score: r.score, description: r.description, why: r.why,
+      matchScore: r.matchScore, episodes: r.episodes,
+      authors: r.authors, developers: r.developers, platforms: r.platforms,
+      isAwardWinner: r.isAwardWinner,
+    }))
+
+  // Swipe destra: aggiunge al profilo + dismiss istantaneo dalla pagina Per Te
+  const handleSwipeSeen = useCallback(async (item: SwipeItem, rating: number | null) => {
+    // Dismiss subito (sincrono) — l'utente non la vede più nella Per Te
+    setAddedIds(prev => new Set([...prev, item.id]))
+    setDismissedIds(prev => new Set([...prev, item.id]))
+    showToast(`"${item.title}" aggiunto${rating ? ` · ${rating}★` : ''}`)
+    // Salva in background
+    const { data: { user } } = await supabase.auth.getUser(); if (!user) return
+    const insertData: any = {
+      user_id: user.id, external_id: item.id, title: item.title,
+      type: item.type, cover_image: item.coverImage, genres: item.genres,
+      status: 'completed',
+    }
+    if (rating !== null) insertData.user_rating = rating
+    supabase.from('user_media_entries').upsert(insertData, { onConflict: 'user_id,external_id' }).then(() => {
+      fetch('/api/recommendations/feedback', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres, action: 'added' })
+      }).catch(() => {})
+    })
+  }, [supabase])
+
+  // Swipe sinistra: nessun effetto — skip silenzioso, opera rimane nei consigli
+  // (non viene modificato dismissedIds né inviato feedback negativo)
+
+  // Ricarica nuove card quando SwipeMode chiede refill
+  const handleSwipeRequestMore = useCallback(async (): Promise<SwipeItem[]> => {
+    try {
+      const res = await fetch('/api/recommendations?type=all&refresh=1')
+      if (!res.ok) return []
+      const json = await res.json()
+      // Aggiorna anche lo stato dei consigli nella pagina Per Te
+      if (json.recommendations) {
+        setRecommendations(json.recommendations)
+        setTasteProfile(json.tasteProfile || null)
+      }
+      const freshRecs: Recommendation[] = Object.values(json.recommendations || {}).flat() as Recommendation[]
+      return freshRecs
+        .filter(r => ['anime', 'manga', 'movie', 'tv', 'game'].includes(r.type))
+        .map(r => ({
+          id: r.id, title: r.title, type: r.type as SwipeItem['type'],
+          coverImage: r.coverImage, year: r.year, genres: r.genres,
+          score: r.score, description: r.description, why: r.why,
+          matchScore: r.matchScore, episodes: r.episodes,
+          authors: (r as any).authors, developers: (r as any).developers,
+          platforms: (r as any).platforms, isAwardWinner: r.isAwardWinner,
+        }))
+    } catch { return [] }
+  }, [])
+
   if (loading) return (
     <div className="min-h-screen bg-black text-white">
       <div className="pt-2 md:pt-8 pb-28 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
@@ -1246,6 +1312,12 @@ export default function ForYouPage() {
           </div>
           <div className="flex items-center gap-3">
             <MoodPill mood={mood} onClick={() => setShowMoodSheet(true)} />
+            {swipeItems.length > 0 && (
+              <button onClick={() => setShowSwipeMode(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500 rounded-2xl text-sm font-semibold text-white transition-all shadow-lg shadow-violet-900/40">
+                <Shuffle size={16} />Swipe
+              </button>
+            )}
             <button onClick={() => setShowPrefs(true)}
               className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl text-sm font-medium text-zinc-300 transition-all">
               <SlidersHorizontal size={16} />{fy.preferences}
@@ -1264,7 +1336,15 @@ export default function ForYouPage() {
         </div>
         {/* Mobile: solo bottone preferenze in alto a destra */}
         <div className="flex md:hidden justify-between items-center mb-4">
-          <MoodPill mood={mood} onClick={() => setShowMoodSheet(true)} />
+          <div className="flex items-center gap-2">
+            <MoodPill mood={mood} onClick={() => setShowMoodSheet(true)} />
+            {swipeItems.length > 0 && (
+              <button onClick={() => setShowSwipeMode(true)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-fuchsia-600 to-violet-600 rounded-xl text-sm font-semibold text-white transition-all">
+                <Shuffle size={14} />Swipe
+              </button>
+            )}
+          </div>
           <button onClick={() => setShowPrefs(true)}
             className="flex items-center gap-2 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-400 transition-all">
             <SlidersHorizontal size={15} />{fy.preferences}
@@ -1366,6 +1446,15 @@ export default function ForYouPage() {
         )}
       </div>
       {showPrefs && <PreferencesModal onClose={() => setShowPrefs(false)} onSaved={handleRefresh} />}
+      {/* Swipe mode */}
+      {showSwipeMode && (
+        <SwipeMode
+          items={swipeItems}
+          onSeen={handleSwipeSeen}
+          onRequestMore={handleSwipeRequestMore}
+          onClose={() => setShowSwipeMode(false)}
+        />
+      )}
       {/* Drawer dettaglio titolo — stesso del Discover */}
       {detailItem && (
         <MediaDetailsDrawer

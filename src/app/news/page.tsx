@@ -15,7 +15,7 @@ const NEWS_CACHE_TTL = 5 * 60 * 1000
 type UpcomingItem = {
   id?: string
   type?: string
-  source_api?: 'tmdb' | 'anilist' | 'igdb' | 'bgg' | 'google_books'
+  source_api?: 'tmdb' | 'anilist' | 'igdb' | 'bgg' | 'google_books' | 'open_library'
   title: string
   description?: string
   coverImage?: string
