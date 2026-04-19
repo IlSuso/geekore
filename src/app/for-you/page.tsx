@@ -33,7 +33,7 @@ import type { SwipeItem } from '@/components/for-you/SwipeMode'
 type FeedbackAction = 'not_interested' | 'already_seen' | 'added' | 'wishlist_add';
 type FeedbackReason = 'too_similar' | 'not_my_genre' | 'already_know' | 'bad_rec' | undefined;
 
-type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'book'
+type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game'
 type Mood = 'light' | 'intense' | 'deep' | null
 
 interface FriendActivity {
