@@ -41,7 +41,7 @@ type CategoryFilter = 'all' | SwipeMediaType
 
 interface SwipeModeProps {
   items: SwipeItem[]
-  onSeen: (item: SwipeItem, rating: number | null) => void
+  onSeen: (item: SwipeItem, rating: number | null, skipPersist?: boolean) => void
   onClose: () => void
   onRequestMore: (filter?: CategoryFilter) => Promise<SwipeItem[]>
 }
@@ -437,10 +437,28 @@ export function SwipeMode({ items: initialItems, onSeen, onClose, onRequestMore 
     //  per il profilo utente, e riceve il rating corretto come parametro)
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
+      // 1. Inserisce in swipe_skipped
       supabase.from('swipe_skipped').upsert(
         { user_id: user.id, external_id: item.id, title: item.title, type: item.type },
         { onConflict: 'user_id,external_id' }
       ).then(() => {})
+
+      // 2. FIX: Rimuove la card dalle tabelle swipe_queue_* in Supabase
+      //    così al prossimo refill non viene ricaricata tra quelle da proporre
+      const tables = [
+        'swipe_queue_all',
+        `swipe_queue_${item.type}`,
+      ]
+      for (const table of tables) {
+        supabase.from(table)
+          .delete()
+          .eq('user_id', user.id)
+          .eq('external_id', item.id)
+          .then(({ error }) => {
+            if (error) console.debug(`[SwipeMode] persistSkipped: rimozione da ${table} fallita`, error)
+            else console.debug(`[SwipeMode] persistSkipped: rimosso ${item.id} da ${table}`)
+          })
+      }
     })
   }, [supabase])
 
@@ -451,7 +469,7 @@ export function SwipeMode({ items: initialItems, onSeen, onClose, onRequestMore 
     })
   }, [supabase])
 
-  const handleSwipe = useCallback((dir: 'left' | 'right', item: SwipeItem) => {
+  const handleSwipe = useCallback((dir: 'left' | 'right', item: SwipeItem, skipPersist = false) => {
     // Legge il rating DAL REF nel corpo sincrono della funzione —
     // prima che qualsiasi setState/useEffect possa azzerarlo.
     // Questo è il momento esatto in cui l'utente ha swipato.
@@ -465,9 +483,22 @@ export function SwipeMode({ items: initialItems, onSeen, onClose, onRequestMore 
     persistSkipped(item)
 
     if (dir === 'right') {
+      // ─── DEBUG COMPLETO SWIPE DESTRA ────────────────────────────────
+      console.group(`[SwipeMode] 👉 SWIPE DESTRA — "${item.title}"`)
+      console.log('📦 Item completo:', JSON.stringify(item, null, 2))
+      console.log('⭐ Rating al momento dello swipe (dal ref):', ratingAtSwipeTime)
+      console.log('🆔 external_id da passare a Supabase:', item.id)
+      console.log('🎭 type:', item.type)
+      console.log('🖼️ coverImage:', item.coverImage)
+      console.log('🎬 genres:', item.genres)
+      console.log('📤 Chiamo onSeen(item, rating) → handleSwipeSeen in page.tsx')
+      console.log('⚠️  skipPersist (viene dal Drawer, già scritto):', skipPersist)
+      console.groupEnd()
+
       // Passa il rating a onSeen → handleSwipeSeen in page.tsx
       // handleSwipeSeen è l'UNICO che scrive su user_media_entries
-      onSeen(item, ratingAtSwipeTime)
+      // skipPersist=true quando viene dal Drawer (che ha già scritto lui stesso)
+      onSeen(item, ratingAtSwipeTime, skipPersist)
     }
     // Swipe sinistra: solo skip, nessun effetto profilo
   }, [onSeen, persistSkipped])
@@ -552,11 +583,22 @@ export function SwipeMode({ items: initialItems, onSeen, onClose, onRequestMore 
                 authors: (media as any).authors, developers: (media as any).developers,
                 platforms: (media as any).platforms, isAwardWinner: (media as any).isAwardWinner,
               }
+
+              // ─── DEBUG: Drawer → onAdd ───────────────────────────────────
+              console.group(`[SwipeMode] 🎬 DRAWER onAdd — "${media.title}"`)
+              console.log('📦 media dal drawer:', JSON.stringify(media, null, 2))
+              console.log('📦 swipeItem costruito:', JSON.stringify(swipeItem, null, 2))
+              console.log('⭐ Rating dal ref al momento del click Aggiungi:', ratingAtAcceptTime)
+              console.log('⚠️  Il drawer ha già scritto su user_media_entries con formRating interno.')
+              console.log('✅ Chiamo handleSwipe("right", swipeItem, skipPersist=true)')
+              console.groupEnd()
+
               setDetailItem(null)
               // Aggiorna il ref col rating corrente prima di chiamare handleSwipe
-              // (handleSwipe lo leggerà immediatamente)
               currentRatingRef.current = ratingAtAcceptTime
-              handleSwipe('right', swipeItem)
+              // skipPersist=true: il Drawer ha già scritto su user_media_entries,
+              // handleSwipeSeen NON deve fare un secondo upsert
+              handleSwipe('right', swipeItem, true)
             }}
           />
         </div>

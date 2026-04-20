@@ -1226,51 +1226,254 @@ export default function ForYouPage() {
     }))
 
   // Swipe destra: aggiunge al profilo + dismiss istantaneo dalla pagina Per Te
-  const handleSwipeSeen = useCallback(async (item: SwipeItem, rating: number | null) => {
+  const handleSwipeSeen = useCallback(async (item: SwipeItem, rating: number | null, skipPersist = false) => {
     // Dismiss subito (sincrono) — l'utente non la vede più nella Per Te
     setAddedIds(prev => new Set([...prev, item.id]))
     setDismissedIds(prev => new Set([...prev, item.id]))
     showToast(`"${item.title}" aggiunto${rating ? ` · ${rating}★` : ''}`)
-    // Salva in background
-    const { data: { user } } = await supabase.auth.getUser(); if (!user) return
+
+    // ─── DEBUG HANDLESWIPESEEN ────────────────────────────────────────
+    console.group(`[ForYouPage] handleSwipeSeen — "${item.title}"`)
+    console.log('📦 SwipeItem ricevuto:', JSON.stringify(item, null, 2))
+    console.log('⭐ Rating ricevuto:', rating)
+    console.log('⏭️  skipPersist (drawer ha già scritto):', skipPersist)
+    if (skipPersist) {
+      console.log('✅ SKIP scrittura su user_media_entries — il Drawer ha già scritto.')
+      console.log('📤 Invio solo feedback recommendation + taste delta.')
+      console.groupEnd()
+      // Anche se skipPersist, invia comunque feedback per le raccomandazioni
+      fetch('/api/recommendations/feedback', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres, action: 'added' })
+      }).catch(() => {})
+      if (item.genres.length > 0) {
+        triggerTasteDelta({ action: 'status_change', mediaId: item.id, mediaType: item.type, genres: item.genres, status: 'completed' })
+        if (rating) triggerTasteDelta({ action: 'rating', mediaId: item.id, mediaType: item.type, genres: item.genres, rating })
+      }
+      return
+    }
+
+    // Salva in background (solo se non skipPersist)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      console.warn('[ForYouPage] handleSwipeSeen: utente non autenticato!')
+      console.groupEnd()
+      return
+    }
     const insertData: any = {
       user_id: user.id, external_id: item.id, title: item.title,
       type: item.type, cover_image: item.coverImage, genres: item.genres,
       status: 'completed',
     }
     if (rating !== null) insertData.user_rating = rating
-    supabase.from('user_media_entries').upsert(insertData, { onConflict: 'user_id,external_id' }).then(() => {
+
+    console.log('💾 Dati da upsertare su user_media_entries:', JSON.stringify(insertData, null, 2))
+
+    supabase.from('user_media_entries').upsert(insertData, { onConflict: 'user_id,external_id' }).then(({ data, error }) => {
+      if (error) {
+        console.error('[ForYouPage] handleSwipeSeen: ERRORE upsert user_media_entries:', error)
+        console.error('Codice errore:', error.code, '— Messaggio:', error.message)
+        console.error('Dettagli:', error.details)
+      } else {
+        console.log('[ForYouPage] handleSwipeSeen: ✅ upsert OK. data:', data)
+      }
       fetch('/api/recommendations/feedback', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres, action: 'added' })
       }).catch(() => {})
     })
+    if (item.genres.length > 0) {
+      triggerTasteDelta({ action: 'status_change', mediaId: item.id, mediaType: item.type, genres: item.genres, status: 'completed' })
+      if (rating) triggerTasteDelta({ action: 'rating', mediaId: item.id, mediaType: item.type, genres: item.genres, rating })
+    }
+    console.groupEnd()
   }, [supabase])
 
-  // Swipe sinistra: nessun effetto — skip silenzioso, opera rimane nei consigli
-  // (non viene modificato dismissedIds né inviato feedback negativo)
+  // ─── Helper: mappa CategoryFilter → nome tabella Supabase ──────
+  const getQueueTable = (filter: string) => {
+    const map: Record<string, string> = {
+      all: 'swipe_queue_all',
+      anime: 'swipe_queue_anime',
+      manga: 'swipe_queue_manga',
+      movie: 'swipe_queue_movie',
+      tv: 'swipe_queue_tv',
+      game: 'swipe_queue_game',
+    }
+    return map[filter] ?? 'swipe_queue_all'
+  }
+
+  // ─── Helper: converte row Supabase → SwipeItem ──────────────────
+  const rowToSwipeItem = (row: any): SwipeItem => ({
+    id: row.external_id,
+    title: row.title,
+    type: row.type as SwipeItem['type'],
+    coverImage: row.cover_image,
+    year: row.year,
+    genres: row.genres || [],
+    score: row.score,
+    description: row.description,
+    why: row.why,
+    matchScore: row.match_score || 0,
+    episodes: row.episodes,
+    authors: row.authors,
+    developers: row.developers,
+    platforms: row.platforms,
+    isAwardWinner: row.is_award_winner,
+    isDiscovery: row.is_discovery,
+    source: row.source,
+  })
+
+  // ─── Helper: converte SwipeItem/Recommendation → row Supabase ───
+  const toQueueRow = (r: any, userId: string) => ({
+    user_id: userId,
+    external_id: r.id,
+    title: r.title,
+    type: r.type,
+    cover_image: r.coverImage || r.cover_image,
+    year: r.year,
+    genres: r.genres || [],
+    score: r.score ?? null,
+    description: r.description ?? null,
+    why: r.why ?? null,
+    match_score: r.matchScore || 0,
+    episodes: r.episodes ?? null,
+    authors: r.authors || [],
+    developers: r.developers || [],
+    platforms: r.platforms || [],
+    is_award_winner: r.isAwardWinner || false,
+    is_discovery: r.isDiscovery || false,
+    source: r.source ?? null,
+  })
 
   // Ricarica nuove card quando SwipeMode chiede refill
-  const handleSwipeRequestMore = useCallback(async (): Promise<SwipeItem[]> => {
+  // Ora usa le tabelle swipe_queue_* su Supabase:
+  // 1. Legge le card già presenti in tabella (evita ricarichi inutili)
+  // 2. Se <50 card, chiama /api/recommendations per rinfoltire
+  // 3. Filtra le card già in swipe_skipped
+  // 4. Upserta le nuove card nella tabella corretta
+  const handleSwipeRequestMore = useCallback(async (filter: string = 'all'): Promise<SwipeItem[]> => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+
+    const table = getQueueTable(filter)
+    const TARGET = 50
+    const REFILL_TRIGGER = 20
+
+    // 1. Leggi skipped per questo utente
+    const { data: skippedRows } = await supabase
+      .from('swipe_skipped')
+      .select('external_id')
+      .eq('user_id', user.id)
+    const skippedSet = new Set((skippedRows || []).map((r: any) => r.external_id as string))
+
+    // 2. Leggi card già in coda su Supabase (quelle non ancora viste)
+    const { data: queueRows } = await supabase
+      .from(table)
+      .select('*')
+      .eq('user_id', user.id)
+      .order('inserted_at', { ascending: true })
+    const existingRows = (queueRows || []).filter((r: any) => !skippedSet.has(r.external_id))
+    const existingIds = new Set(existingRows.map((r: any) => r.external_id as string))
+
+    // 3. Se ho già abbastanza card, ritorna quelle esistenti
+    if (existingRows.length >= REFILL_TRIGGER) {
+      return existingRows.map(rowToSwipeItem)
+    }
+
+    // 4. Rinfoltisci: chiama /api/recommendations
     try {
-      const res = await fetch('/api/recommendations?type=all&refresh=1')
-      if (!res.ok) return []
+      const apiFilter = filter === 'all' ? 'all' : filter
+      const res = await fetch(`/api/recommendations?type=${apiFilter}&refresh=1`)
+      if (!res.ok) return existingRows.map(rowToSwipeItem)
       const json = await res.json()
-      // NON aggiorna setRecommendations — evita il re-render massivo della Per Te
-      // durante/dopo la swipe mode. La Per Te si aggiorna solo al refresh manuale.
-      const freshRecs: Recommendation[] = Object.values(json.recommendations || {}).flat() as Recommendation[]
-      return freshRecs
-        .filter(r => ['anime', 'manga', 'movie', 'tv', 'game'].includes(r.type))
-        .map(r => ({
+
+      let freshRecs: any[] = []
+      if (filter === 'all') {
+        freshRecs = (Object.values(json.recommendations || {}) as any[][]).flat()
+      } else {
+        // Per filtro specifico prende solo quel tipo, con fallback su tutti
+        const typed = (json.recommendations?.[filter] || []) as any[]
+        if (typed.length > 0) {
+          freshRecs = typed
+        } else {
+          // fallback: prende tutti ma filtra per tipo
+          freshRecs = (Object.values(json.recommendations || {}) as any[][])
+            .flat()
+            .filter((r: any) => r.type === filter)
+        }
+      }
+
+      // Filtra: no skipped, no già in coda, solo tipi validi
+      const validTypes = ['anime', 'manga', 'movie', 'tv', 'game']
+      const newRecs = freshRecs
+        .filter((r: any) =>
+          validTypes.includes(r.type) &&
+          !skippedSet.has(r.id) &&
+          !existingIds.has(r.id)
+        )
+        .slice(0, TARGET - existingRows.length)
+
+      // Upserta nuove card in tabella
+      if (newRecs.length > 0) {
+        const rows = newRecs.map((r: any) => toQueueRow(r, user.id))
+        await supabase.from(table).upsert(rows, { onConflict: 'user_id,external_id' })
+      }
+
+      // Ritorna tutto: esistenti + nuove
+      const allItems: SwipeItem[] = [
+        ...existingRows.map(rowToSwipeItem),
+        ...newRecs.map((r: any) => ({
           id: r.id, title: r.title, type: r.type as SwipeItem['type'],
-          coverImage: r.coverImage, year: r.year, genres: r.genres,
+          coverImage: r.coverImage, year: r.year, genres: r.genres || [],
           score: r.score, description: r.description, why: r.why,
-          matchScore: r.matchScore, episodes: r.episodes,
-          authors: (r as any).authors, developers: (r as any).developers,
-          platforms: (r as any).platforms, isAwardWinner: r.isAwardWinner,
+          matchScore: r.matchScore || 0, episodes: r.episodes,
+          authors: r.authors, developers: r.developers,
+          platforms: r.platforms, isAwardWinner: r.isAwardWinner,
+          isDiscovery: r.isDiscovery, source: r.source,
         }))
-    } catch { return [] }
-  }, [])
+      ]
+      return allItems
+    } catch {
+      return existingRows.map(rowToSwipeItem)
+    }
+  }, [supabase])
+
+  // Pre-popola tutte le swipe_queue_* con i titoli già in memoria al momento dell'apertura
+  const initSwipeQueues = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const validTypes = ['anime', 'manga', 'movie', 'tv', 'game']
+    const { data: skippedRows } = await supabase.from('swipe_skipped').select('external_id').eq('user_id', user.id)
+    const skippedSet = new Set((skippedRows || []).map((r: any) => r.external_id as string))
+    const allRecs: Recommendation[] = Object.values(recommendations).flat()
+    const candidates = allRecs.filter(r =>
+      validTypes.includes(r.type) && !dismissedIds.has(r.id) && !skippedSet.has(r.id)
+    ).slice(0, 50)
+    if (!candidates.length) return
+    const makeRow = (r: Recommendation, userId: string) => ({
+      user_id: userId,
+      external_id: r.id, title: r.title, type: r.type,
+      cover_image: r.coverImage, year: r.year, genres: r.genres || [],
+      score: r.score ?? null, description: r.description ?? null, why: r.why ?? null,
+      match_score: r.matchScore || 0, episodes: r.episodes ?? null,
+      authors: (r as any).authors || [], developers: (r as any).developers || [],
+      platforms: (r as any).platforms || [],
+      is_award_winner: r.isAwardWinner || false, is_discovery: r.isDiscovery || false,
+    })
+    const rows = candidates.map(r => makeRow(r, user.id))
+    await supabase.from('swipe_queue_all').upsert(rows, { onConflict: 'user_id,external_id' })
+    for (const type of validTypes) {
+      const typed = rows.filter(r => r.type === type)
+      if (typed.length > 0) {
+        await supabase.from(`swipe_queue_${type}`).upsert(typed, { onConflict: 'user_id,external_id' })
+      }
+    }
+  }, [supabase, recommendations, dismissedIds])
+
+  const handleOpenSwipeMode = useCallback(() => {
+    setShowSwipeMode(true)
+    initSwipeQueues().catch(() => {})
+  }, [initSwipeQueues])
 
   if (loading) return (
     <div className="min-h-screen bg-black text-white">
@@ -1301,7 +1504,7 @@ export default function ForYouPage() {
           <div className="flex items-center gap-3">
             <MoodPill mood={mood} onClick={() => setShowMoodSheet(true)} />
             {swipeItems.length > 0 && (
-              <button onClick={() => setShowSwipeMode(true)}
+              <button onClick={handleOpenSwipeMode}
                 className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500 rounded-2xl text-sm font-semibold text-white transition-all shadow-lg shadow-violet-900/40">
                 <Shuffle size={16} />Swipe
               </button>
@@ -1327,7 +1530,7 @@ export default function ForYouPage() {
           <div className="flex items-center gap-2">
             <MoodPill mood={mood} onClick={() => setShowMoodSheet(true)} />
             {swipeItems.length > 0 && (
-              <button onClick={() => setShowSwipeMode(true)}
+              <button onClick={handleOpenSwipeMode}
                 className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-fuchsia-600 to-violet-600 rounded-xl text-sm font-semibold text-white transition-all">
                 <Shuffle size={14} />Swipe
               </button>
