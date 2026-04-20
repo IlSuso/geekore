@@ -212,11 +212,42 @@ export default function OnboardingPage() {
   const [poolReady, setPoolReady] = useState(false)
   const [swipePool, setSwipePool] = useState<SwipeItem[]>([])
 
-  const categoryCache = useRef<Partial<Record<CategoryKey, SwipeItem[]>>>({})
-  const categoryLoading = useRef<Partial<Record<CategoryKey, boolean>>>({})
-  const categoryLoaded = useRef<Partial<Record<CategoryKey, boolean>>>({})
-  const globalSeenIds = useRef<Set<string>>(new Set())
   const skippedItemsRef = useRef<SwipeItem[]>([])
+
+  // ─── Helpers Supabase (stessa logica di for-you) ──────────────────────────
+
+  const getQueueTable = (filter: string) => {
+    const map: Record<string, string> = {
+      all: 'swipe_queue_all', anime: 'swipe_queue_anime', manga: 'swipe_queue_manga',
+      movie: 'swipe_queue_movie', tv: 'swipe_queue_tv', game: 'swipe_queue_game',
+    }
+    return map[filter] ?? 'swipe_queue_all'
+  }
+
+  const rowToSwipeItem = (row: any): SwipeItem => ({
+    id: row.external_id, title: row.title, type: row.type as SwipeItem['type'],
+    coverImage: row.cover_image, year: row.year, genres: row.genres || [],
+    score: row.score, description: row.description, why: row.why,
+    matchScore: row.match_score || 0, episodes: row.episodes,
+    authors: row.authors, developers: row.developers, platforms: row.platforms,
+    isAwardWinner: row.is_award_winner, isDiscovery: row.is_discovery, source: row.source,
+  })
+
+  const toQueueRow = (r: any, uid: string) => ({
+    user_id: uid, external_id: r.id, title: r.title, type: r.type,
+    cover_image: r.coverImage || r.cover_image, year: r.year, genres: r.genres || [],
+    score: r.score ?? null, description: r.description ?? null, why: r.why ?? null,
+    match_score: r.matchScore || 0, episodes: r.episodes ?? null,
+    authors: r.authors || [], developers: r.developers || [], platforms: r.platforms || [],
+    is_award_winner: r.isAwardWinner || false, is_discovery: r.isDiscovery || false,
+    source: r.source ?? null,
+  })
+
+  // Pulisce tutte le swipe_queue_* per questo utente (chiamata alla fine onboarding)
+  const clearOnboardingQueues = useCallback(async (uid: string) => {
+    const tables = ['swipe_queue_all', 'swipe_queue_anime', 'swipe_queue_manga', 'swipe_queue_movie', 'swipe_queue_tv', 'swipe_queue_game']
+    await Promise.all(tables.map(t => supabase.from(t).delete().eq('user_id', uid)))
+  }, [supabase])
 
   // Auth check
   useEffect(() => {
@@ -227,96 +258,96 @@ export default function OnboardingPage() {
     })
   }, []) // eslint-disable-line
 
-  // Preload 3 fasi
+  // Preload 3 fasi — ora scrive su Supabase invece del cache in-memory
   useEffect(() => {
     const run = async () => {
-      // FASE 1: 15 "Tutti" interleaved → sblocca bottone swipe
-      const quickAll = await fetchCategoryTitles('all', [], globalSeenIds.current, POOL_QUICK)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const uid = user.id
+
+      // FASE 1: 15 "Tutti" → swipe_queue_all → sblocca bottone
+      const quickAll = await fetchCategoryTitles('all', [], new Set(), POOL_QUICK)
       if (quickAll.length > 0) {
-        quickAll.forEach(i => globalSeenIds.current.add(i.id))
-        categoryCache.current['all'] = quickAll
+        const rows = quickAll.map(i => toQueueRow(i, uid))
+        await supabase.from('swipe_queue_all').upsert(rows, { onConflict: 'user_id,external_id' })
         setSwipePool(quickAll)
         setPoolReady(true)
       }
 
-      // FASE 2: 15 per ogni categoria specifica in sequenza (Tutti è già pronto)
-      // Ordine: anime → manga → movie → tv → game
+      // FASE 2: 15 per ogni categoria specifica in sequenza
       const specificTypes: CategoryKey[] = ['anime', 'manga', 'movie', 'tv', 'game']
       for (const cat of specificTypes) {
-        const items = await fetchCategoryTitles(cat, [], globalSeenIds.current, POOL_QUICK)
+        const items = await fetchCategoryTitles(cat, [], new Set(), POOL_QUICK)
         if (items.length > 0) {
-          categoryCache.current[cat] = items
-          categoryLoaded.current[cat] = true
+          const rows = items.map(i => toQueueRow(i, uid))
+          await supabase.from(`swipe_queue_${cat}`).upsert(rows, { onConflict: 'user_id,external_id' })
         }
       }
 
-      // FASE 3: porta ogni categoria a 50 in background (sequenziale, senza 'all')
-      // 'all' viene già espanso tramite refreshAllPoolForTypes quando l'utente entra in swipe
-      const specificTypesForTopUp: CategoryKey[] = ['anime', 'manga', 'movie', 'tv', 'game']
-      for (const cat of specificTypesForTopUp) {
-        fetchCategoryTitles(cat, [], globalSeenIds.current, POOL_TARGET).then(items => {
+      // FASE 3: porta ogni categoria a 50 in background (fire-and-forget, sequenziale)
+      for (const cat of specificTypes) {
+        fetchCategoryTitles(cat, [], new Set(), POOL_TARGET).then(async items => {
           if (items.length === 0) return
-          const existing = categoryCache.current[cat] || []
-          const fresh = items.filter(i => !existing.some(e => e.id === i.id))
-          if (fresh.length > 0) {
-            categoryCache.current[cat] = [...existing, ...fresh]
-          }
+          const rows = items.map(i => toQueueRow(i, uid))
+          await supabase.from(`swipe_queue_${cat}`).upsert(rows, { onConflict: 'user_id,external_id' })
         }).catch(() => {})
       }
+      // Top-up "all" in background
+      fetchCategoryTitles('all', [], new Set(), POOL_TARGET).then(async items => {
+        if (items.length === 0) return
+        const rows = items.map(i => toQueueRow(i, uid))
+        await supabase.from('swipe_queue_all').upsert(rows, { onConflict: 'user_id,external_id' })
+      }).catch(() => {})
     }
     run()
   }, []) // eslint-disable-line
-
-  const refreshAllPoolForTypes = useCallback(async (types: string[]) => {
-    if (types.length === 0) return
-    categoryLoading.current['all'] = true
-    const items = await fetchCategoryTitles('all', types, new Set())
-    if (items.length > 0) {
-      categoryCache.current['all'] = items
-      const fresh = items.filter(i => !globalSeenIds.current.has(i.id))
-      setSwipePool(prev => prev.length < 5 ? items : [...prev, ...fresh].slice(0, POOL_TARGET))
-      fresh.forEach(i => globalSeenIds.current.add(i.id))
-    }
-    categoryLoading.current['all'] = false
-  }, [])
 
   const toggleType = (id: string) =>
     setSelectedTypes(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id])
 
   const handleOnboardingSeen = useCallback((item: SwipeItem, rating: number | null) => {
-    globalSeenIds.current.add(item.id)
     if (userId) persistAccepted(supabase, userId, item, rating)
   }, [userId, supabase])
 
   const handleOnboardingSkip = useCallback((item: SwipeItem) => {
-    globalSeenIds.current.add(item.id)
     skippedItemsRef.current.push(item)
   }, [])
 
+  // Refill identico a handleSwipeRequestMore di for-you — usa swipe_queue_* su Supabase
   const handleOnboardingRequestMore = useCallback(async (filter: string = 'all'): Promise<SwipeItem[]> => {
-    const cat = filter as CategoryKey
-    const cached = categoryCache.current[cat] || []
-    const fromCache = cached.filter(i => !globalSeenIds.current.has(i.id))
-    if (fromCache.length >= REFILL_THRESHOLD) {
-      fromCache.forEach(i => globalSeenIds.current.add(i.id))
-      setTimeout(async () => {
-        const fresh = await fetchCategoryTitles(cat, selectedTypes, globalSeenIds.current)
-        if (fresh.length > 0) { categoryCache.current[cat] = fresh }
-      }, 200)
-      return fromCache
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+    const uid = user.id
+
+    const table = getQueueTable(filter)
+    const TARGET = 50
+    const REFILL_TRIGGER = 20
+
+    // Leggi skipped
+    const { data: skippedRows } = await supabase.from('swipe_skipped').select('external_id').eq('user_id', uid)
+    const skippedSet = new Set((skippedRows || []).map((r: any) => r.external_id as string))
+
+    // Leggi card in coda
+    const { data: queueRows } = await supabase.from(table).select('*').eq('user_id', uid).order('inserted_at', { ascending: true })
+    const existingRows = (queueRows || []).filter((r: any) => !skippedSet.has(r.external_id))
+    const existingIds = new Set(existingRows.map((r: any) => r.external_id as string))
+
+    // Se ho già abbastanza card, ritorna quelle esistenti
+    if (existingRows.length >= REFILL_TRIGGER) return existingRows.map(rowToSwipeItem)
+
+    // Rinfoltisci via fast-path onboarding
+    try {
+      const items = await fetchCategoryTitles(filter as CategoryKey, selectedTypes, skippedSet, TARGET)
+      const newItems = items.filter(i => !skippedSet.has(i.id) && !existingIds.has(i.id)).slice(0, TARGET - existingRows.length)
+      if (newItems.length > 0) {
+        const rows = newItems.map(i => toQueueRow(i, uid))
+        await supabase.from(table).upsert(rows, { onConflict: 'user_id,external_id' })
+      }
+      return [...existingRows.map(rowToSwipeItem), ...newItems]
+    } catch {
+      return existingRows.map(rowToSwipeItem)
     }
-    const items = await fetchCategoryTitles(cat, selectedTypes, globalSeenIds.current)
-    if (items.length > 0) {
-      categoryCache.current[cat] = items
-      items.forEach(i => globalSeenIds.current.add(i.id))
-      return items
-    }
-    const skippedIds = new Set(skippedItemsRef.current.map(i => i.id))
-    globalSeenIds.current = skippedIds
-    const retryItems = await fetchCategoryTitles(cat, selectedTypes, globalSeenIds.current)
-    retryItems.forEach(i => globalSeenIds.current.add(i.id))
-    return retryItems
-  }, [selectedTypes])
+  }, [supabase, selectedTypes])
 
   const completeOnboarding = useCallback(async () => {
     const uid = userIdRef.current
@@ -335,15 +366,17 @@ export default function OnboardingPage() {
       await supabase.from('profiles').update({ preferred_types: selectedTypes }).eq('id', uid).then(() => {})
     }
 
+    // Pulizia swipe_queue_* usate solo durante l'onboarding
+    await clearOnboardingQueues(uid)
+
     setOnboardingCookie()
     fetch('/api/recommendations?refresh=1').catch(() => {})
     router.push('/feed')
-  }, [userId, selectedTypes, supabase, router])
+  }, [userId, selectedTypes, supabase, router, clearOnboardingQueues])
 
   const goToSwipe = useCallback(() => {
     setStep(2)
-    refreshAllPoolForTypes(selectedTypes)
-  }, [selectedTypes, refreshAllPoolForTypes])
+  }, [])
 
   // Step 2: SwipeMode
   if (step === 2) {
