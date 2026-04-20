@@ -1,20 +1,19 @@
 'use client'
 // DESTINAZIONE: src/app/onboarding/page.tsx
-// Onboarding v3:
+// Onboarding v4:
 //   • Step 0 — Welcome
-//     → avvia SUBITO in background il preload di TUTTE le categorie:
-//       swipe_all, swipe_anime, swipe_manga, swipe_movie, swipe_tv, swipe_game
-//     → le fetch partono scaglionate (stagger 400ms) per non saturare il server
+//     → avvia SUBITO il preload veloce via /api/recommendations/onboarding
+//       (endpoint dedicato: fetch parallele, no taste profile, ~2-4s)
+//     → Una volta caricati i primi 50 per categoria, lancia in background
+//       il build del master pool via /api/recommendations?refresh=1&onboarding=1
 //   • Step 1 — Selezione media types
-//     → se l'utente ha selezionato dei tipi, aggiorna il pool "all" con quei tipi
 //   • Step 2 — SwipeMode onboarding
-//     → onRequestMore serve prima dalla cache in-memory per categoria,
-//       poi fetch fresh solo se la cache è esaurita
+//     → onRequestMore serve dalla cache in-memory, poi refetch quick
 //
 // Logica scrittura:
-//   • Swipe DESTRA → persistAccepted() chiamato SUBITO (user_media_entries aggiornato)
-//   • Swipe SINISTRA → batch in memoria, scritto in upsert alla fine
-//   • Alla chiusura → batch skip → swipe_skipped, update profile, trigger reco refresh
+//   • Swipe DESTRA → persistAccepted() chiamato SUBITO
+//   • Swipe SINISTRA → batch in memoria, scritto alla fine
+//   • Alla chiusura → batch skip → swipe_skipped, update profile → /feed
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -33,11 +32,8 @@ const MEDIA_TYPES = [
   { id: 'movie',  label: 'Film',        icon: Film,     color: 'bg-red-500/20 border-red-500/50 text-red-300' },
 ]
 
-// Tutte le categorie da precaricare (uguale a CATEGORIES in SwipeMode)
 type CategoryKey = 'all' | 'anime' | 'manga' | 'movie' | 'tv' | 'game'
-const ALL_CATEGORIES: CategoryKey[] = ['all', 'anime', 'manga', 'movie', 'tv', 'game']
 
-const POOL_TARGET = 50       // card per categoria
 const REFILL_THRESHOLD = 20  // card rimaste prima di chiedere il refill
 
 // ─── Helper: converte risposta API → SwipeItem ────────────────────────────────
@@ -64,57 +60,27 @@ function recToSwipeItem(r: any): SwipeItem {
   }
 }
 
-// ─── Fetch titoli dall'API per una specifica categoria ───────────────────────
-// ?onboarding=1 bypassa il filtro allTypesInCollection (profilo vuoto)
-// ?types=anime,game limita i tipi se l'utente ha fatto una selezione
+// ─── Fetch rapido via endpoint dedicato onboarding ───────────────────────────
+// Usa /api/recommendations/onboarding che fa fetch parallele senza taste profile.
+// types: lista di tipi da caricare (undefined = tutti)
 
-async function fetchCategoryTitles(
-  category: CategoryKey,
-  selectedTypes: string[],
-  globalSeenIds: Set<string>
-): Promise<SwipeItem[]> {
-  const params = new URLSearchParams({
-    type: 'all',
-    refresh: '1',
-    onboarding: '1',
-  })
-
-  // Per "all" con tipi selezionati, filtra per quei tipi
-  // Per categorie specifiche, ignora selectedTypes (l'utente potrebbe filtrare su anime
-  // anche se non l'ha selezionato, e va bene avere quei titoli pronti)
-  if (category === 'all' && selectedTypes.length > 0) {
-    params.set('types', selectedTypes.join(','))
-  } else if (category !== 'all') {
-    params.set('types', category)
-  }
+async function fetchQuick(types?: string[]): Promise<Partial<Record<CategoryKey, SwipeItem[]>>> {
+  const params = new URLSearchParams()
+  if (types && types.length > 0) params.set('types', types.join(','))
 
   try {
-    const res = await fetch(`/api/recommendations?${params.toString()}`)
-    if (!res.ok) return []
+    const res = await fetch(`/api/recommendations/onboarding?${params.toString()}`)
+    if (!res.ok) return {}
     const json = await res.json()
+    const recs = json.recommendations || {}
 
-    let recs: any[]
-    if (category === 'all') {
-      recs = (Object.values(json.recommendations || {}) as any[][]).flat()
-    } else {
-      // Prendi solo i titoli del tipo richiesto
-      recs = (json.recommendations?.[category] || []) as any[]
-      if (recs.length === 0) {
-        // Fallback: prendi tutti e filtra
-        recs = (Object.values(json.recommendations || {}) as any[][])
-          .flat()
-          .filter((r: any) => r.type === category)
-      }
+    const result: Partial<Record<CategoryKey, SwipeItem[]>> = {}
+    for (const [type, items] of Object.entries(recs)) {
+      result[type as CategoryKey] = (items as any[]).map(recToSwipeItem)
     }
-
-    // Shuffle leggero per varietà visiva
-    return recs
-      .sort(() => Math.random() - 0.4)
-      .filter(r => !globalSeenIds.has(r.id))
-      .slice(0, POOL_TARGET)
-      .map(recToSwipeItem)
+    return result
   } catch {
-    return []
+    return {}
   }
 }
 
@@ -158,13 +124,10 @@ export default function OnboardingPage() {
 
   // Pool "all" passato come initialItems a SwipeMode
   const [swipePool, setSwipePool] = useState<SwipeItem[]>([])
+  const [poolLoading, setPoolLoading] = useState(true)
 
-  // ── Cache per categoria ──────────────────────────────────────────────────────
-  // Precaricata in background dal Step 0.
-  // onRequestMore(filter) serve prima da qui, poi fetch fresh se esaurita.
+  // Cache per categoria — precaricata in background dal Step 0
   const categoryCache = useRef<Partial<Record<CategoryKey, SwipeItem[]>>>({})
-  const categoryLoading = useRef<Partial<Record<CategoryKey, boolean>>>({})
-  const categoryLoaded = useRef<Partial<Record<CategoryKey, boolean>>>({})
 
   // IDs globalmente visti in questo onboarding (evita duplicati inter-categoria)
   const globalSeenIds = useRef<Set<string>>(new Set())
@@ -180,62 +143,64 @@ export default function OnboardingPage() {
     })
   }, []) // eslint-disable-line
 
-  // ── Preload ALL categorie al mount (Step 0) ──────────────────────────────────
-  // Scaglionate ogni 400ms per non saturare il server con 6 fetch simultanee.
-  // Ordine: 'all' prima (serve subito come initialItems), poi le singole categorie.
+  // ── Preload veloce al mount (Step 0) ─────────────────────────────────────────
+  // 1. Carica SUBITO tutti e 5 i tipi via /api/recommendations/onboarding (parallelo, ~2-4s)
+  // 2. Appena arrivano i dati, popola swipePool ("all") e categoryCache
+  // 3. Lancia in background il build del master pool (nessuna urgenza)
   useEffect(() => {
-    const loadCategory = async (cat: CategoryKey, delay: number) => {
-      await new Promise(r => setTimeout(r, delay))
-      if (categoryLoading.current[cat] || categoryLoaded.current[cat]) return
-      categoryLoading.current[cat] = true
+    const load = async () => {
+      setPoolLoading(true)
+      console.log('[Onboarding] avvio quick fetch...')
 
-      console.log(`[Onboarding] preload categoria "${cat}" avviato`)
-      const items = await fetchCategoryTitles(cat, [], globalSeenIds.current)
+      const data = await fetchQuick()
 
-      if (items.length > 0) {
-        // Aggiungi a globalSeenIds solo per "all" — le categorie specifiche
-        // possono avere sovrapposizioni intenzionali (stesso titolo in anime e in all)
-        if (cat === 'all') {
-          items.forEach(i => globalSeenIds.current.add(i.id))
-          setSwipePool(items) // aggiorna il pool visibile
-        }
-        categoryCache.current[cat] = items
-        categoryLoaded.current[cat] = true
-        console.log(`[Onboarding] preload "${cat}" completato: ${items.length} titoli`)
+      // Costruisce il pool "all" unendo tutti i tipi e shufflando
+      const all: SwipeItem[] = []
+      for (const [type, items] of Object.entries(data)) {
+        categoryCache.current[type as CategoryKey] = items
+        all.push(...items)
       }
-      categoryLoading.current[cat] = false
+
+      // Shuffle leggero per varietà visiva nel pool "all"
+      const shuffled = all.sort(() => Math.random() - 0.4)
+      shuffled.forEach(i => globalSeenIds.current.add(i.id))
+
+      // "all" = mix di tutti i tipi (max 50)
+      categoryCache.current['all'] = shuffled.slice(0, 50)
+      setSwipePool(shuffled.slice(0, 50))
+      setPoolLoading(false)
+
+      console.log(`[Onboarding] quick fetch completato: ${all.length} titoli totali`)
+
+      // Build master pool in background — non blocca l'utente
+      fetch('/api/recommendations?refresh=1&onboarding=1').catch(() => {})
     }
 
-    // 'all' subito, poi le categorie specifiche scaglionate ogni 400ms
-    loadCategory('all', 0)
-    loadCategory('anime', 600)
-    loadCategory('manga', 1000)
-    loadCategory('movie', 1400)
-    loadCategory('tv',    1800)
-    loadCategory('game',  2200)
+    load()
   }, []) // eslint-disable-line
 
-  // ── Quando l'utente conferma i tipi: aggiorna il pool "all" per quei tipi ────
-  // Parte in background mentre avviene la transizione Step1→Step2.
-  // Se il pool "all" era già caricato con tipi generici, lo sostituiamo
-  // con uno ottimizzato per i tipi selezionati.
-  const refreshAllPoolForTypes = useCallback(async (types: string[]) => {
+  // ── Quando l'utente conferma i tipi: filtra/riordina il pool "all" ───────────
+  // Se ha selezionato dei tipi specifici, prioritizza quelli nel pool
+  const refreshAllPoolForTypes = useCallback((types: string[]) => {
     if (types.length === 0) return
-    categoryLoading.current['all'] = true
-    const items = await fetchCategoryTitles('all', types, new Set()) // no filter su seenIds
-    if (items.length > 0) {
-      categoryCache.current['all'] = items
-      // Aggiorna il pool visibile filtrando i già-visti
-      const fresh = items.filter(i => !globalSeenIds.current.has(i.id))
-      // Se abbiamo già swipato qualcosa, appendiamo; altrimenti sostituiamo
+
+    // Recupera dalla cache solo i tipi selezionati
+    const filtered: SwipeItem[] = []
+    for (const t of types) {
+      const cached = categoryCache.current[t as CategoryKey] || []
+      filtered.push(...cached.filter(i => !globalSeenIds.current.has(i.id)))
+    }
+
+    if (filtered.length > 0) {
+      const shuffled = filtered.sort(() => Math.random() - 0.4).slice(0, 50)
+      categoryCache.current['all'] = shuffled
       setSwipePool(prev =>
         prev.length < 5
-          ? items // non ha ancora iniziato a swipare → rimpiazza tutto
-          : [...prev, ...fresh].slice(0, POOL_TARGET)
+          ? shuffled
+          : [...prev, ...shuffled.filter(i => !globalSeenIds.current.has(i.id))].slice(0, 50)
       )
-      fresh.forEach(i => globalSeenIds.current.add(i.id))
+      shuffled.forEach(i => globalSeenIds.current.add(i.id))
     }
-    categoryLoading.current['all'] = false
   }, [])
 
   // ── Toggle media type ───────────────────────────────────────────────────────
@@ -245,65 +210,69 @@ export default function OnboardingPage() {
     )
   }
 
-  // ── Handler swipe DESTRA: scrivi SUBITO su user_media_entries ────────────────
+  // ── Handler swipe DESTRA ─────────────────────────────────────────────────────
   const handleOnboardingSeen = useCallback((item: SwipeItem, rating: number | null) => {
     globalSeenIds.current.add(item.id)
     if (userId) persistAccepted(supabase, userId, item, rating)
   }, [userId, supabase])
 
-  // ── Handler swipe SINISTRA: accumula in memoria ──────────────────────────────
+  // ── Handler swipe SINISTRA ───────────────────────────────────────────────────
   const handleOnboardingSkip = useCallback((item: SwipeItem) => {
     globalSeenIds.current.add(item.id)
     skippedItemsRef.current.push(item)
   }, [])
 
-  // ── onRequestMore: serve prima dalla cache, poi fetch fresh ──────────────────
-  // Quando SwipeMode chiede più card per un filtro:
-  //   1. Controlla la cache per quella categoria
-  //   2. Se ha card non ancora viste → le restituisce subito (zero latenza)
-  //   3. Se la cache è esaurita → fetch fresh (API legge già il profilo aggiornato)
-  //   4. Prima del fetch, trigghera aggiornamento taste in background
+  // ── onRequestMore: serve dalla cache, poi refetch quick ──────────────────────
   const handleOnboardingRequestMore = useCallback(async (
     filter: string = 'all'
   ): Promise<SwipeItem[]> => {
     const cat = filter as CategoryKey
 
-    // 1. Servi dalla cache in-memory se disponibile
+    // 1. Servi dalla cache se disponibile
     const cached = categoryCache.current[cat] || []
     const fromCache = cached.filter(i => !globalSeenIds.current.has(i.id))
     if (fromCache.length >= REFILL_THRESHOLD) {
       console.log(`[Onboarding] requestMore "${cat}" → ${fromCache.length} dalla cache`)
       fromCache.forEach(i => globalSeenIds.current.add(i.id))
-      // Ricarica la cache per questa categoria in background per il prossimo refill
+
+      // Ricarica la cache in background
+      const types = cat === 'all'
+        ? (selectedTypes.length > 0 ? selectedTypes : undefined)
+        : [cat]
       setTimeout(async () => {
-        categoryLoading.current[cat] = true
-        const fresh = await fetchCategoryTitles(cat, selectedTypes, globalSeenIds.current)
-        if (fresh.length > 0) {
-          categoryCache.current[cat] = fresh
-          fresh.forEach(i => globalSeenIds.current.add(i.id))
-        }
-        categoryLoading.current[cat] = false
-      }, 200)
+        const fresh = await fetchQuick(types)
+        const freshItems = cat === 'all'
+          ? Object.values(fresh).flat()
+          : (fresh[cat] || [])
+        categoryCache.current[cat] = freshItems.filter(i => !globalSeenIds.current.has(i.id))
+      }, 500)
+
       return fromCache
     }
 
-    // 2. Cache esaurita → fetch fresh
-    //    Il profilo ha già i titoli accettati (scritti in real-time), quindi
-    //    l'API restituisce raccomandazioni più personalizzate rispetto all'inizio
-    console.log(`[Onboarding] requestMore "${cat}" → cache esaurita, fetch fresh`)
-    const items = await fetchCategoryTitles(cat, selectedTypes, globalSeenIds.current)
+    // 2. Cache esaurita → refetch quick
+    console.log(`[Onboarding] requestMore "${cat}" → refetch quick`)
+    const types = cat === 'all'
+      ? (selectedTypes.length > 0 ? selectedTypes : undefined)
+      : [cat]
+    const fresh = await fetchQuick(types)
+    const freshItems = cat === 'all'
+      ? Object.values(fresh).flat().filter(i => !globalSeenIds.current.has(i.id))
+      : (fresh[cat] || []).filter(i => !globalSeenIds.current.has(i.id))
 
-    if (items.length > 0) {
-      categoryCache.current[cat] = items
-      items.forEach(i => globalSeenIds.current.add(i.id))
-      return items
+    if (freshItems.length > 0) {
+      categoryCache.current[cat] = freshItems
+      freshItems.forEach(i => globalSeenIds.current.add(i.id))
+      return freshItems
     }
 
-    // 3. Nessun titolo nuovo → reset globalSeenIds (escludi solo gli skippati)
-    //    e riprova per permettere il ricircolo del pool
+    // 3. Reset parziale se esaurito completamente
     const skippedIds = new Set(skippedItemsRef.current.map(i => i.id))
     globalSeenIds.current = skippedIds
-    const retryItems = await fetchCategoryTitles(cat, selectedTypes, globalSeenIds.current)
+    const retry = await fetchQuick(types)
+    const retryItems = cat === 'all'
+      ? Object.values(retry).flat()
+      : (retry[cat] || [])
     retryItems.forEach(i => globalSeenIds.current.add(i.id))
     return retryItems
   }, [selectedTypes])
@@ -325,15 +294,14 @@ export default function OnboardingPage() {
         .upsert(rows, { onConflict: 'user_id,external_id' })
     }
 
-    // 2. Segna onboarding completato
+    // 2. Segna onboarding completato (SOLO qui — mai prima)
     await supabase.from('profiles').update({
       onboarding_done: true,
       onboarding_step: 3,
       preferred_types: selectedTypes.length > 0 ? selectedTypes : null,
     }).eq('id', userId)
 
-    // 3. Aggiorna master pool + pre-popola recommendation_pool in background
-    //    for-you al mount trova ?source=pool già pronto
+    // 3. Trigger refresh raccomandazioni personalizzate in background
     fetch('/api/recommendations?refresh=1').catch(() => {})
 
     router.push('/feed')
@@ -462,9 +430,17 @@ export default function OnboardingPage() {
               </button>
               <button
                 onClick={goToSwipe}
-                className="flex-1 py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-semibold transition-all flex items-center justify-center gap-2"
+                disabled={poolLoading}
+                className="flex-1 py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 disabled:opacity-60 rounded-2xl font-semibold transition-all flex items-center justify-center gap-2"
               >
-                {swipePool.length > 0 ? 'Scopri i titoli →' : 'Caricamento…'}
+                {poolLoading ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Caricamento titoli…
+                  </>
+                ) : (
+                  'Scopri i titoli →'
+                )}
               </button>
             </div>
           </div>

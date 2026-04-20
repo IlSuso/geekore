@@ -17,19 +17,16 @@ function ConfirmContent() {
 
   useEffect(() => {
     const confirm = async () => {
-      // Se c'è già una sessione attiva, vai direttamente
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.user) {
-        setStatus('success')
-        await redirectUser(session.user.id)
-        return
-      }
-
       const token_hash = searchParams.get('token_hash')
       const type = searchParams.get('type')
       const code = searchParams.get('code')
       const emailParam = searchParams.get('email')
       if (emailParam) setResendEmail(decodeURIComponent(emailParam))
+
+      // Effettua sempre il logout prima di verificare il token,
+      // così il redirect finale alla pagina di login è sempre pulito
+      // (se era loggato con un altro account, viene disconnesso)
+      await supabase.auth.signOut()
 
       if (token_hash) {
         const finalType = (type && type.trim() !== '') ? type : 'signup'
@@ -40,17 +37,14 @@ function ConfirmContent() {
         })
 
         if (!error) {
-          const { data: { session: s } } = await supabase.auth.getSession()
+          // Rimuovi immediatamente la sessione appena creata dalla verifica OTP:
+          // l'utente deve fare login manualmente dopo la conferma
+          await supabase.auth.signOut()
           setStatus('success')
-          if (s?.user) {
-            await redirectUser(s.user.id)
-          } else {
-            setTimeout(() => router.push('/feed'), 1500)
-          }
+          setTimeout(() => router.push('/login'), 2500)
           return
         }
 
-        // Token fallito → quasi sempre prefetching o WebView
         setErrorMessage(
           'Il link di conferma è scaduto o è già stato utilizzato.\n\n' +
           'Questo succede spesso quando si apre il link dall\'app Gmail, Outlook o da un WebView.'
@@ -62,32 +56,15 @@ function ConfirmContent() {
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code)
         if (!error) {
-          const { data: { session: s } } = await supabase.auth.getSession()
+          await supabase.auth.signOut()
           setStatus('success')
-          if (s?.user) await redirectUser(s.user.id)
-          else setTimeout(() => router.push('/feed'), 1500)
+          setTimeout(() => router.push('/login'), 2500)
           return
         }
       }
 
       setErrorMessage('Link non valido o mancante. Prova a registrarti di nuovo.')
       setStatus('error')
-    }
-
-    const redirectUser = async (userId: string) => {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('username, onboarding_done')
-        .eq('id', userId)
-        .single()
-
-      setTimeout(() => {
-        if (!profile?.onboarding_done) {
-          router.push('/onboarding')
-        } else {
-          router.push(profile?.username ? `/profile/${profile.username}` : '/feed')
-        }
-      }, 1500)
     }
 
     confirm()
@@ -110,7 +87,7 @@ function ConfirmContent() {
 
   const handleOpenInBrowser = () => {
     const fullUrl = window.location.href
-    window.open(fullUrl, '_system') // prova ad aprire nel browser di sistema
+    window.open(fullUrl, '_system')
   }
 
   return (
@@ -128,7 +105,7 @@ function ConfirmContent() {
           <>
             <CheckCircle size={56} className="mx-auto mb-6 text-emerald-400" />
             <h1 className="text-2xl font-bold mb-2">Email confermata!</h1>
-            <p className="text-zinc-400">Account attivato. Ti stiamo portando...</p>
+            <p className="text-zinc-400">Account attivato. Tra poco ti portiamo al login…</p>
           </>
         )}
 
@@ -136,7 +113,7 @@ function ConfirmContent() {
           <>
             <XCircle size={56} className="mx-auto mb-6 text-red-400" />
             <h1 className="text-2xl font-bold mb-2">Problema con il link</h1>
-            
+
             <p className="text-zinc-400 mb-6 whitespace-pre-line">{errorMessage}</p>
 
             <div className="flex flex-col gap-3">
@@ -159,8 +136,8 @@ function ConfirmContent() {
                   </button>
                 )
               ) : (
-                <a 
-                  href="/register" 
+                <a
+                  href="/register"
                   className="w-full py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl font-semibold transition"
                 >
                   Registrati di nuovo
@@ -174,8 +151,8 @@ function ConfirmContent() {
                 Apri questo link nel browser
               </button>
 
-              <a 
-                href="/login" 
+              <a
+                href="/login"
                 className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition text-sm"
               >
                 Ho già un account — accedi

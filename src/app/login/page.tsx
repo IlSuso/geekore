@@ -30,13 +30,23 @@ export default function LoginPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) goToProfile(session.user.id)
+      if (session?.user) redirectAfterLogin(session.user.id)
     })
-  }, [])
+  }, []) // eslint-disable-line
 
-  const goToProfile = async (userId: string) => {
-    const { data: profile } = await supabase.from('profiles').select('username').eq('id', userId).single()
-    router.push(profile?.username ? `/profile/${profile.username}` : '/profile/me')
+  // Dopo il login: /feed se onboarding completato, /onboarding altrimenti
+  const redirectAfterLogin = async (userId: string) => {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('username, onboarding_done')
+      .eq('id', userId)
+      .single()
+
+    if (!profile?.onboarding_done) {
+      router.push('/onboarding')
+    } else {
+      router.push('/feed')
+    }
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -46,7 +56,7 @@ export default function LoginPage() {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
-      await goToProfile(data.user.id)
+      await redirectAfterLogin(data.user.id)
     } catch {
       setError(l.error)
     } finally {
