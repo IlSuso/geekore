@@ -267,10 +267,6 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
         ? <MatchBadge score={item.matchScore} />
         : null
       }
-      {/* Descrizione breve — solo nella sezione Simili */}
-      {showDetails && item.description && (
-        <p className="text-[10px] text-zinc-500 leading-tight line-clamp-3 mt-1.5">{item.description}</p>
-      )}
     </div>
   )
 })

@@ -45,7 +45,8 @@ export function TrendingCard({ item, rank }: { item: TrendingItem; rank: number 
             src={item.cover_image}
             alt={item.title}
             className="w-full h-full object-cover"
-            loading="lazy"
+            loading={rank < 8 ? 'eager' : 'lazy'}
+            fetchPriority={rank < 4 ? 'high' : 'auto'}
             onError={(e) => {
               e.currentTarget.style.display = 'none'
             }}

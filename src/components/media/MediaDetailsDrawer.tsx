@@ -288,7 +288,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     .filter(r => ['SEQUEL', 'PREQUEL', 'SIDE_STORY', 'SPIN_OFF'].includes(r.relationType))
     .slice(0, 4)
 
-  const isLongDesc = (media.description?.length ?? 0) > 200
+  const isLongDesc = (media.description?.length ?? 0) > 350
 
   const timeLabel = (media.type === 'anime' || media.type === 'tv') ? 'min/ep' : 'min'
 
@@ -504,7 +504,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             {/* Descrizione con expand */}
             {media.description && (
               <div>
-                <p className={`text-sm text-zinc-300 leading-relaxed ${!descExpanded ? 'line-clamp-4' : ''}`}>
+                <p className={`text-sm text-zinc-300 leading-relaxed ${!descExpanded ? 'line-clamp-6' : ''}`}>
                   {media.description}
                 </p>
                 {isLongDesc && (
