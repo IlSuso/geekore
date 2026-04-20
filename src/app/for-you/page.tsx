@@ -368,11 +368,11 @@ const TYPE_LABEL_SEARCH: Record<string, string> = {
 interface SearchSuggestion {
   id: string; title: string; type: string
   genres?: string[]; year?: number; coverImage?: string
-  description?: string
+  description?: string; keywords?: string[]
 }
 
 function SimilarSearchBar({ onSearch, loading }: {
-  onSearch: (title: string, genres: string[]) => void
+  onSearch: (title: string, genres: string[], keywords?: string[], type?: string) => void
   loading: boolean
 }) {
   const [query, setQuery] = useState('')
@@ -410,19 +410,19 @@ function SimilarSearchBar({ onSearch, loading }: {
       if (anilistRes.status === 'fulfilled' && anilistRes.value.ok) {
         const j = await anilistRes.value.json()
         for (const r of parse(j).slice(0, 1)) {
-          all.push({ id: r.id || r.external_id, title: r.title, type: r.type || 'anime', genres: r.genres, year: r.year, coverImage: r.coverImage || r.cover_image })
+          all.push({ id: r.id || r.external_id, title: r.title, type: r.type || 'anime', genres: r.genres, year: r.year, coverImage: r.coverImage || r.cover_image, keywords: r.tags })
         }
       }
       if (tmdbRes.status === 'fulfilled' && tmdbRes.value.ok) {
         const j = await tmdbRes.value.json()
         for (const r of parse(j).slice(0, 1)) {
-          all.push({ id: r.id || r.external_id, title: r.title, type: r.type || 'movie', genres: r.genres, year: r.year, coverImage: r.coverImage || r.cover_image, description: r.description })
+          all.push({ id: r.id || r.external_id, title: r.title, type: r.type || 'movie', genres: r.genres, year: r.year, coverImage: r.coverImage || r.cover_image, description: r.description, keywords: r.keywords })
         }
       }
       if (igdbRes.status === 'fulfilled' && igdbRes.value.ok) {
         const j = await igdbRes.value.json()
         for (const r of parse(j).slice(0, 1)) {
-          all.push({ id: r.id || r.external_id, title: r.title, type: 'game', genres: r.genres, year: r.year, coverImage: r.coverImage || r.cover_image })
+          all.push({ id: r.id || r.external_id, title: r.title, type: 'game', genres: r.genres, year: r.year, coverImage: r.coverImage || r.cover_image, keywords: r.keywords })
         }
       }
 
@@ -444,7 +444,7 @@ function SimilarSearchBar({ onSearch, loading }: {
     setOpen(false)
     setSuggestions([])
     const genres = s.genres?.filter(Boolean) || []
-    onSearch(s.title, genres)
+    onSearch(s.title, genres, (s as any).keywords, s.type)
   }
 
   const handleClear = () => {
@@ -1649,7 +1649,7 @@ export default function ForYouPage() {
             {tasteProfile && <DNAWidget tasteProfile={tasteProfile} totalEntries={totalEntries} />}
             {/* Barra ricerca libera "Trova simili a..." */}
             <SimilarSearchBar
-              onSearch={(title, genres) => searchSimilar(title, genres)}
+              onSearch={(title, genres, keywords, type) => searchSimilar(title, genres, undefined, undefined, keywords, type)}
               loading={!!similarLoading}
             />
 

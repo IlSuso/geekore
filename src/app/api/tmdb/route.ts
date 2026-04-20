@@ -8,6 +8,25 @@ import { truncateAtSentence } from '@/lib/utils'
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
 
+// Mapping genre_ids → nomi EN (usato dalla funzione simili per passare generi alla route /similar)
+const TMDB_MOVIE_GENRES: Record<number, string> = {
+  28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy', 80: 'Crime',
+  99: 'Documentary', 18: 'Drama', 10751: 'Family', 14: 'Fantasy', 36: 'History',
+  27: 'Horror', 10402: 'Music', 9648: 'Mystery', 10749: 'Romance', 878: 'Science Fiction',
+  10770: 'TV Movie', 53: 'Thriller', 10752: 'War', 37: 'Western',
+}
+const TMDB_TV_GENRES: Record<number, string> = {
+  10759: 'Action', 16: 'Animation', 35: 'Comedy', 80: 'Crime', 99: 'Documentary',
+  18: 'Drama', 10751: 'Family', 10762: 'Kids', 9648: 'Mystery', 10763: 'News',
+  10764: 'Reality', 10765: 'Science Fiction', 10766: 'Soap', 10767: 'Talk',
+  10768: 'War', 37: 'Western',
+}
+
+function resolveGenreNames(ids: number[], type: 'movie' | 'tv'): string[] {
+  const map = type === 'movie' ? TMDB_MOVIE_GENRES : TMDB_TV_GENRES
+  return (ids || []).map(id => map[id]).filter(Boolean)
+}
+
 function tmdbHeaders() {
   return {
     'Authorization': `Bearer ${process.env.TMDB_API_KEY}`,
@@ -124,6 +143,7 @@ export async function GET(request: NextRequest) {
               ? parseInt(m.release_date.substring(0, 4))
               : m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined,
             description: m.overview ? truncateAtSentence(m.overview, 400) : undefined,
+            genres: resolveGenreNames(m.genre_ids || [], mediaType),
             episodes: totalEpisodes,
             totalSeasons: seasons ? Object.keys(seasons).length : undefined,
             seasons,
