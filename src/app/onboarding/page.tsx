@@ -66,14 +66,15 @@ async function fetchCategoryTitles(
   globalSeenIds: Set<string>,
   limit: number = POOL_TARGET
 ): Promise<SwipeItem[]> {
-  const params = new URLSearchParams({ type: 'all', refresh: '1', onboarding: '1' })
+  // Usa il fast path dedicato all'onboarding (bypassa il Taste Engine V5)
+  const params = new URLSearchParams()
   if (category === 'all' && selectedTypes.length > 0) {
     params.set('types', selectedTypes.join(','))
   } else if (category !== 'all') {
     params.set('types', category)
   }
   try {
-    const res = await fetch(`/api/recommendations?${params.toString()}`)
+    const res = await fetch(`/api/recommendations/onboarding?${params.toString()}`)
     if (!res.ok) return []
     const json = await res.json()
     if (category === 'all') {
