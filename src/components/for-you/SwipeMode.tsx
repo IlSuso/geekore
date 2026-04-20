@@ -244,7 +244,7 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
           </div>
         </div>
 
-        {!item.isDiscovery && item.matchScore >= 75 && (
+        {!item.isDiscovery && item.matchScore >= 75 && item.matchScore <= 100 && (
           <div className="absolute top-12 left-3 z-10">
             <div className="flex items-center gap-1 bg-violet-600/90 backdrop-blur-sm text-white text-xs font-black px-2.5 py-1 rounded-full" style={ICON_DROP}>
               <Star size={10} fill="currentColor" />{item.matchScore}%
