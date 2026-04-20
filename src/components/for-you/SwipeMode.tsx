@@ -42,6 +42,7 @@ type CategoryFilter = 'all' | SwipeMediaType
 interface SwipeModeProps {
   items: SwipeItem[]
   onSeen: (item: SwipeItem, rating: number | null, skipPersist?: boolean) => void
+  onSkip: (item: SwipeItem) => void
   onClose: () => void
   onRequestMore: (filter?: CategoryFilter) => Promise<SwipeItem[]>
 }
@@ -303,7 +304,7 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
 
 // ─── SwipeMode ─────────────────────────────────────────────────────────────────
 
-export function SwipeMode({ items: initialItems, onSeen, onClose, onRequestMore }: SwipeModeProps) {
+export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequestMore }: SwipeModeProps) {
   const supabase = createClient()
   const [activeFilter, setActiveFilter] = useState<CategoryFilter>('all')
 
@@ -490,13 +491,12 @@ export function SwipeMode({ items: initialItems, onSeen, onClose, onRequestMore 
       console.log('⚠️  skipPersist (viene dal Drawer, già scritto):', skipPersist)
       console.groupEnd()
 
-      // Passa il rating a onSeen → handleSwipeSeen in page.tsx
-      // handleSwipeSeen è l'UNICO che scrive su user_media_entries
-      // skipPersist=true quando viene dal Drawer (che ha già scritto lui stesso)
       onSeen(item, ratingAtSwipeTime, skipPersist)
+    } else {
+      // Swipe sinistra: notifica page.tsx per escludere la card al prossimo open
+      onSkip(item)
     }
-    // Swipe sinistra: solo skip, nessun effetto profilo
-  }, [onSeen, persistSkipped])
+  }, [onSeen, onSkip, persistSkipped])
 
   const handleUndo = useCallback(() => {
     if (!history.length) return

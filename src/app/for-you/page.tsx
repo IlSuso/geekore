@@ -1261,9 +1261,16 @@ export default function ForYouPage() {
   })
   const primarySectionKey = SECTIONS[0]?.key
 
+  // Card skippate nello swipe mode — escluse da swipeItems al prossimo open
+  const [swipeSkippedIds, setSwipeSkippedIds] = useState<Set<string>>(new Set())
+
   // Swipe mode handlers
   const swipeItems: SwipeItem[] = allRecs
-    .filter(r => ['anime', 'manga', 'movie', 'tv', 'game'].includes(r.type) && !dismissedIds.has(r.id))
+    .filter(r =>
+      ['anime', 'manga', 'movie', 'tv', 'game'].includes(r.type) &&
+      !dismissedIds.has(r.id) &&
+      !swipeSkippedIds.has(r.id)
+    )
     .slice(0, 50)
     .map(r => ({
       id: r.id, title: r.title, type: r.type as SwipeItem['type'], isDiscovery: r.isDiscovery,
@@ -1274,7 +1281,11 @@ export default function ForYouPage() {
       isAwardWinner: r.isAwardWinner,
     }))
 
-  // Rimuove un singolo titolo da recommendations_pool su Supabase (fire-and-forget)
+  // Swipe sinistra: aggiorna swipeSkippedIds in page.tsx
+  // così al prossimo open di SwipeMode la card è già esclusa da swipeItems
+  const handleSwipeSkip = useCallback((item: SwipeItem) => {
+    setSwipeSkippedIds(prev => new Set([...prev, item.id]))
+  }, [])
   // Aggiorna il campo data di ogni riga dove il titolo compare
   const removeFromPool = useCallback(async (userId: string, externalId: string) => {
     const { data: poolRows } = await supabase
@@ -1721,6 +1732,7 @@ export default function ForYouPage() {
         <SwipeMode
           items={swipeItems}
           onSeen={handleSwipeSeen}
+          onSkip={handleSwipeSkip}
           onRequestMore={handleSwipeRequestMore}
           onClose={() => setShowSwipeMode(false)}
         />
