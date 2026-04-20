@@ -302,11 +302,14 @@ export default function OnboardingPage() {
     }
 
     const insertData: any = {
-      user_id: user.id, external_id: item.id, title: item.title,
-      type: item.type, cover_image: item.coverImage ?? null, genres: item.genres,
+      user_id: user.id,
+      external_id: item.id,
+      title: item.title,
+      type: item.type,
+      cover_image: item.coverImage ?? null,
+      genres: item.genres ?? [],
       status: rating !== null ? 'completed' : 'wishlist',
-      year: item.year ?? null, score: item.score ?? null,
-      description: item.description ?? null, episodes: item.episodes ?? null,
+      episodes: item.episodes ?? null,
       updated_at: new Date().toISOString(),
     }
     if (rating !== null) insertData.rating = rating
