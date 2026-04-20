@@ -316,8 +316,8 @@ export function SwipeMode({ items: initialItems, onSeen, onClose, onRequestMore 
     setCurrentRating(r)
   }, [])
 
-  // FLASH: la queue parte con initialItems già pronti (passati da page.tsx che li ha già filtrati).
-  // Gli skipped vengono rimossi silenziosamente in background, senza bloccare il render iniziale.
+  // La queue parte con initialItems già pronti. Gli skipped NON filtrano la queue attiva —
+  // vengono consultati solo durante il refill per non riproporre card già scartate.
   const [queue, setQueue] = useState<SwipeItem[]>(initialItems)
   const [seenIds] = useState<Set<string>>(() => new Set(initialItems.map(i => i.id)))
   const seenIdsRef = useRef(seenIds)
@@ -325,32 +325,27 @@ export function SwipeMode({ items: initialItems, onSeen, onClose, onRequestMore 
   const [detailItem, setDetailItem] = useState<MediaDetails | null>(null)
   const [history, setHistory] = useState<SwipeItem[]>([])
   const [isLoadingMore, setIsLoadingMore] = useState(false)
-  // skippedIds parte vuoto — viene popolato in background senza bloccare il render
   const skippedIdsRef = useRef<Set<string>>(new Set())
   const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set())
   const loadingRef = useRef(false)
   const categoryQueues = useRef<Partial<Record<CategoryFilter, SwipeItem[]>>>({})
   const categoryLoading = useRef<Partial<Record<CategoryFilter, boolean>>>({})
 
-  // Carica skipped in BACKGROUND — rimuove silenziosamente le card già processate
-  // senza mostrare nessun loading screen
+  // Carica skipped in background — usati SOLO durante il refill, non per filtrare la queue attiva
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
       supabase.from('swipe_skipped').select('external_id').eq('user_id', user.id).then(({ data }) => {
-        if (!data?.length) return
-        const ids = new Set(data.map((r: any) => r.external_id as string))
-        skippedIdsRef.current = ids
-        setSkippedIds(ids)
-        // Rimuove dalla coda in modo silenzioso — nessun flash perché le card
-        // non skippate erano già visibili
-        setQueue(prev => prev.filter(i => !ids.has(i.id)))
+        if (data?.length) {
+          const ids = new Set(data.map((r: any) => r.external_id as string))
+          skippedIdsRef.current = ids
+          setSkippedIds(ids)
+        }
       })
     })
   }, []) // eslint-disable-line
 
-  const filteredQueue = (activeFilter === 'all' ? queue : queue.filter(i => i.type === activeFilter))
-    .filter(i => !skippedIds.has(i.id))
+  const filteredQueue = activeFilter === 'all' ? queue : queue.filter(i => i.type === activeFilter)
 
   // Reset rating quando cambia la card in cima
   // IMPORTANTE: il reset aggiorna sia lo stato che il ref, ma handleSwipe
