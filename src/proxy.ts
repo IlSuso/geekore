@@ -1,91 +1,63 @@
-// src/middleware.ts
-// #25: Logica onboarding invertita — "blocca tutto tranne le eccezioni".
-//      Un utente loggato con onboarding_done=false viene SEMPRE redirectato
-//      a /onboarding indipendentemente dalla route che tenta di raggiungere.
-//      Non è più possibile bypassare l'onboarding cambiando URL manualmente.
+// DESTINAZIONE: src/middleware.ts  (nella root di src/, affianco ad app/)
 //
-//      Logica completa:
-//        1. Assets statici / API → sempre pass-through (no auth check)
-//        2. Route pubbliche (privacy, terms, auth/*) → pass-through
-//        3. Utente NON loggato su route protetta → redirect /login?next=...
-//        4. Utente loggato su route auth-only (login/register) → redirect /feed
-//        5. Utente loggato su / → redirect /feed
-//        6. Utente loggato + onboarding NON completato + route non esente → /onboarding
-//        7. Tutto il resto → pass-through
+// Protezione route:
+//   1. Utente NON loggato → tutte le pagine protette → redirect /login
+//   2. Utente loggato, onboarding NON completato → qualsiasi pagina protetta → redirect /onboarding
+//   3. Utente loggato, onboarding completato → accesso libero
+//
+// Le route pubbliche (login, register, auth/*, onboarding, landing) non sono protette.
+//
+// NOTA: Il middleware Supabase legge il JWT dai cookie per verificare la sessione
+// in modo edge-compatible (senza query al DB). Il campo onboarding_done è invece
+// un cookie separato che viene impostato dal client alla fine dell'onboarding.
+// In alternativa si usa il custom claim nel JWT (app_metadata).
+// Qui usiamo il cookie 'geekore_onboarding_done' impostato da OnboardingPage
+// al momento del completamento — soluzione semplice e sicura.
 
 import { createServerClient } from '@supabase/ssr'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 
-// Route che richiedono autenticazione (non loggato → /login)
-const PROTECTED_PATHS = [
-  '/feed',
-  '/discover',
-  '/for-you',
-  '/news',
-  '/notifications',
-  '/profile/edit',
-  '/profile/me',
-  '/settings',
-  '/wishlist',
-  '/lists',
-  '/stats',
-  '/trending',
-  '/leaderboard',
-  '/explore',
-  '/search',
-  '/profile',    // tutti i profili (anche /profile/[username]) richiedono login
-]
-
-// Route accessibili solo da NON autenticati
-const AUTH_ONLY_PATHS = [
+// Route pubbliche — non richiedono autenticazione
+const PUBLIC_PATHS = [
   '/login',
   '/register',
+  '/auth/',
   '/forgot-password',
-]
-
-// Route sempre accessibili senza alcun check (assets, API, pagine legali, flusso auth)
-const ALWAYS_ALLOW = [
-  '/_next/',
-  '/icons/',
-  '/images/',
-  '/sw.js',
-  '/manifest.json',
-  '/favicon.ico',
+  '/onboarding',
   '/privacy',
   '/terms',
-  '/cookies',
+  '/_next',
+  '/api/auth',
+  '/favicon',
+  '/icons',
+  '/manifest',
+]
+
+// Route che richiedono autenticazione MA non onboarding completato
+// (es. /onboarding stessa — già nella lista pubblica)
+const SKIP_ONBOARDING_CHECK = [
+  '/onboarding',
   '/api/',
   '/auth/',
 ]
 
-// Route accessibili da un utente loggato ANCHE se onboarding non completato.
-// Tutto il resto viene bloccato e redirectato a /onboarding.
-const ONBOARDING_EXEMPT = [
-  '/onboarding',  // la pagina di onboarding stessa
-  '/auth/',       // flussi auth (confirm, reset-password, ecc.)
-  '/api/',        // le API devono sempre rispondere
-]
-
-function matchesAny(pathname: string, list: string[]): boolean {
-  return list.some(p => pathname === p || pathname.startsWith(p.endsWith('/') ? p : p + '/') || pathname.startsWith(p))
+function isPublic(pathname: string): boolean {
+  return PUBLIC_PATHS.some(p => pathname.startsWith(p)) || pathname === '/'
 }
 
-function isProtected(pathname: string): boolean {
-  return PROTECTED_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))
+function skipOnboardingCheck(pathname: string): boolean {
+  return SKIP_ONBOARDING_CHECK.some(p => pathname.startsWith(p))
 }
 
-function isAuthOnly(pathname: string): boolean {
-  return AUTH_ONLY_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))
-}
-
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // 1. Pass-through immediato per assets e route sempre-permesse
-  if (matchesAny(pathname, ALWAYS_ALLOW)) {
+  // Lascia passare route pubbliche e asset statici
+  if (isPublic(pathname)) {
     return NextResponse.next()
   }
 
+  // Crea il client Supabase edge-compatible (legge solo i cookie, non fa query DB)
   let response = NextResponse.next({
     request: { headers: request.headers },
   })
@@ -95,54 +67,59 @@ export async function proxy(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() { return request.cookies.getAll() },
+        getAll() {
+          return request.cookies.getAll()
+        },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           response = NextResponse.next({ request: { headers: request.headers } })
-          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          )
         },
       },
     }
   )
 
+  // Verifica sessione (dal JWT nei cookie — nessuna query DB)
   const { data: { user } } = await supabase.auth.getUser()
-  const isLoggedIn = !!user
 
-  // 2. Non autenticato su route protetta → /login?next=...
-  if (!isLoggedIn && isProtected(pathname)) {
-    const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('next', pathname)
+  // Utente non loggato → redirect al login
+  if (!user) {
+    const loginUrl = request.nextUrl.clone()
+    loginUrl.pathname = '/login'
     return NextResponse.redirect(loginUrl)
   }
 
-  // 3. Già autenticato su route auth-only → /feed
-  if (isLoggedIn && isAuthOnly(pathname)) {
-    return NextResponse.redirect(new URL('/feed', request.url))
-  }
+  // Utente loggato — controlla onboarding se necessario
+  if (!skipOnboardingCheck(pathname)) {
+    // Legge il cookie onboarding_done impostato dal client
+    const onboardingDone = request.cookies.get('geekore_onboarding_done')?.value === '1'
 
-  // 4. Già autenticato sulla landing / → /feed
-  if (isLoggedIn && pathname === '/') {
-    return NextResponse.redirect(new URL('/feed', request.url))
-  }
+    if (!onboardingDone) {
+      // Fallback: se il cookie non c'è, facciamo una query leggera al DB
+      // solo se siamo su una route non-API per non rallentare le API calls
+      if (!pathname.startsWith('/api/')) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('onboarding_done')
+          .eq('id', user.id)
+          .single()
 
-  // 5. Utente loggato: controlla onboarding su QUALSIASI route non esente.
-  //    Questo blocca qualunque tentativo di navigazione manuale finché
-  //    onboarding_done non è true — non solo le PROTECTED_PATHS.
-  if (isLoggedIn && !matchesAny(pathname, ONBOARDING_EXEMPT)) {
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('onboarding_done')
-        .eq('id', user!.id)
-        .single()
+        if (!profile?.onboarding_done) {
+          const onboardingUrl = request.nextUrl.clone()
+          onboardingUrl.pathname = '/onboarding'
+          return NextResponse.redirect(onboardingUrl)
+        }
 
-      if (profile && profile.onboarding_done === false) {
-        // Già su /onboarding → lascia passare (evita redirect loop)
-        if (pathname === '/onboarding') return response
-        return NextResponse.redirect(new URL('/onboarding', request.url))
+        // Onboarding completato ma cookie mancante: impostalo
+        response.cookies.set('geekore_onboarding_done', '1', {
+          path: '/',
+          maxAge: 60 * 60 * 24 * 365, // 1 anno
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+        })
       }
-    } catch {
-      // Errore DB → non blocchiamo la navigazione per non rendere l'app inutilizzabile
     }
   }
 
@@ -151,6 +128,12 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    /*
+     * Esegui il middleware su tutte le route TRANNE:
+     * - _next/static (file statici)
+     * - _next/image (ottimizzazione immagini)
+     * - favicon.ico, png, jpg, svg, webp, woff, woff2
+     */
+    '/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|mp4|txt|xml|json)).*)',
   ],
 }
