@@ -941,7 +941,18 @@ export default function ForYouPage() {
     const res = await fetch(`/api/recommendations?type=all${force ? '&refresh=1' : ''}`)
     if (!res.ok) return
     const json = await res.json()
-    setRecommendations(json.recommendations || {})
+    const incoming = json.recommendations || {}
+    // Merge invece di replace: non sovrascrivere con dati parziali.
+    // Se la risposta contiene meno tipi di quelli in memoria, manteniamo i vecchi.
+    setRecommendations(prev => {
+      const merged = { ...prev }
+      for (const [type, items] of Object.entries(incoming)) {
+        if (Array.isArray(items) && items.length > 0) {
+          merged[type] = items as Recommendation[]
+        }
+      }
+      return merged
+    })
     setTasteProfile(json.tasteProfile || null)
     setIsCached(!!json.cached)
   }, [])
@@ -999,32 +1010,56 @@ export default function ForYouPage() {
       const [
         { data: entries },
         { data: wish },
-        recsPromise,
       ] = await Promise.all([
         supabase.from('user_media_entries').select('external_id').eq('user_id', user.id),
         supabase.from('wishlist').select('external_id').eq('user_id', user.id),
-        fetch('/api/recommendations?type=all').then(r => r.ok ? r.json() : null),
       ])
 
       setAddedIds(new Set((entries || []).map((e: any) => e.external_id).filter(Boolean)))
       setWishlistIds(new Set((wish || []).map((w: any) => w.external_id).filter(Boolean)))
       setTotalEntries(entries?.length || 0)
 
-      if (recsPromise) {
-        setRecommendations(recsPromise.recommendations || {})
-        setTasteProfile(recsPromise.tasteProfile || null)
-        setIsCached(!!recsPromise.cached)
+      // 1. Prova a leggere dalla pool persistente su Supabase (fast path ~50ms)
+      const poolRes = await fetch('/api/recommendations?source=pool')
+      if (poolRes.ok) {
+        const poolJson = await poolRes.json()
+        if (poolJson.source === 'pool' && poolJson.recommendations) {
+          // Pool trovata → mostra subito, nessun altro fetch automatico
+          setRecommendations(poolJson.recommendations || {})
+          setTasteProfile(poolJson.tasteProfile || null)
+          setIsCached(true)
+          setLoading(false)
+          fetchFriends(user.id)
+          const lastVisit = localStorage.getItem('for_you_last_visit')
+          const now = Date.now()
+          if (lastVisit && now - parseInt(lastVisit) > 4 * 3600000) setShowNewRecsBadge(true)
+          localStorage.setItem('for_you_last_visit', String(now))
+          return
+        }
       }
-      setLoading(false)
 
+      // 2. Pool vuota (primo accesso o dati cancellati) → calcola tutto
+      const recsRes = await fetch('/api/recommendations?type=all')
+      if (recsRes.ok) {
+        const json = await recsRes.json()
+        const incoming = json.recommendations || {}
+        setRecommendations(prev => {
+          const merged = { ...prev }
+          for (const [type, items] of Object.entries(incoming)) {
+            if (Array.isArray(items) && (items as any[]).length > 0) merged[type] = items as Recommendation[]
+          }
+          return merged
+        })
+        setTasteProfile(json.tasteProfile || null)
+        setIsCached(!!json.cached)
+      }
+
+      setLoading(false)
       fetchFriends(user.id)
 
-      // Fix 2.10: badge "Nuovi consigli" dopo 4h dall'ultima visita
       const lastVisit = localStorage.getItem('for_you_last_visit')
       const now = Date.now()
-      if (lastVisit && now - parseInt(lastVisit) > 4 * 3600000) {
-        setShowNewRecsBadge(true)
-      }
+      if (lastVisit && now - parseInt(lastVisit) > 4 * 3600000) setShowNewRecsBadge(true)
       localStorage.setItem('for_you_last_visit', String(now))
     }
     init()
@@ -1034,7 +1069,21 @@ export default function ForYouPage() {
     setRefreshing(true)
     setShowNewRecsBadge(false)
     const { data: { user } } = await supabase.auth.getUser()
-    await Promise.all([fetchRecommendations(true), user ? fetchFriends(user.id) : Promise.resolve()])
+    const recsPromise = fetch('/api/recommendations?type=all&refresh=1').then(r => r.ok ? r.json() : null)
+    await Promise.all([recsPromise, user ? fetchFriends(user.id) : Promise.resolve()])
+    const json = await recsPromise.catch(() => null)
+    if (json) {
+      const incoming = json.recommendations || {}
+      setRecommendations(prev => {
+        const merged = { ...prev }
+        for (const [type, items] of Object.entries(incoming)) {
+          if (Array.isArray(items) && (items as any[]).length > 0) merged[type] = items as Recommendation[]
+        }
+        return merged
+      })
+      setTasteProfile(json.tasteProfile || null)
+      setIsCached(false)
+    }
     setRefreshing(false)
   }
 
@@ -1225,6 +1274,30 @@ export default function ForYouPage() {
       isAwardWinner: r.isAwardWinner,
     }))
 
+  // Rimuove un singolo titolo da recommendations_pool su Supabase (fire-and-forget)
+  // Aggiorna il campo data di ogni riga dove il titolo compare
+  const removeFromPool = useCallback(async (userId: string, externalId: string) => {
+    const { data: poolRows } = await supabase
+      .from('recommendations_pool')
+      .select('media_type, data')
+      .eq('user_id', userId)
+    if (!poolRows) return
+    const updates = poolRows
+      .map(row => {
+        const filtered = (row.data as any[]).filter((r: any) => r.id !== externalId)
+        if (filtered.length === (row.data as any[]).length) return null // nessuna modifica
+        return { media_type: row.media_type, data: filtered }
+      })
+      .filter(Boolean)
+    for (const upd of updates) {
+      supabase.from('recommendations_pool')
+        .update({ data: upd!.data })
+        .eq('user_id', userId)
+        .eq('media_type', upd!.media_type)
+        .then(() => {})
+    }
+  }, [supabase])
+
   // Swipe destra: aggiunge al profilo + dismiss istantaneo dalla pagina Per Te
   const handleSwipeSeen = useCallback(async (item: SwipeItem, rating: number | null, skipPersist = false) => {
     // Dismiss subito (sincrono) — l'utente non la vede più nella Per Te
@@ -1241,7 +1314,11 @@ export default function ForYouPage() {
       console.log('✅ SKIP scrittura su user_media_entries — il Drawer ha già scritto.')
       console.log('📤 Invio solo feedback recommendation + taste delta.')
       console.groupEnd()
-      // Anche se skipPersist, invia comunque feedback per le raccomandazioni
+      // Rimuove il titolo dalla pool Supabase (anche se skipPersist)
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) return
+        removeFromPool(user.id, item.id)
+      })
       fetch('/api/recommendations/feedback', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres, action: 'added' })
@@ -1265,7 +1342,7 @@ export default function ForYouPage() {
       type: item.type, cover_image: item.coverImage, genres: item.genres,
       status: 'completed',
     }
-    if (rating !== null) insertData.user_rating = rating
+    if (rating !== null) insertData.rating = rating
 
     console.log('💾 Dati da upsertare su user_media_entries:', JSON.stringify(insertData, null, 2))
 
@@ -1282,6 +1359,8 @@ export default function ForYouPage() {
         body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres, action: 'added' })
       }).catch(() => {})
     })
+    // Rimuove dalla pool Supabase in background
+    removeFromPool(user.id, item.id)
     if (item.genres.length > 0) {
       triggerTasteDelta({ action: 'status_change', mediaId: item.id, mediaType: item.type, genres: item.genres, status: 'completed' })
       if (rating) triggerTasteDelta({ action: 'rating', mediaId: item.id, mediaType: item.type, genres: item.genres, rating })

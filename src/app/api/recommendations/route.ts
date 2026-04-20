@@ -2157,16 +2157,63 @@ export async function GET(request: NextRequest) {
     const similarToId = searchParams.get('similar_to_id') || null  // Fix 1.15: "simili a questo"
     const similarToGenres = searchParams.get('similar_to_genres')?.split(',').filter(Boolean) || []
 
+    // ── FAST PATH: legge solo da recommendations_pool, zero API esterne ──────
+    // Usato da page.tsx al mount → risposta in ~50ms
+    const poolOnly = searchParams.get('source') === 'pool'
+    if (poolOnly && !forceRefresh) {
+      const { data: poolRows } = await supabase
+        .from('recommendations_pool')
+        .select('media_type, data, taste_profile, total_entries, generated_at')
+        .eq('user_id', user.id)
+
+      if (poolRows && poolRows.length > 0) {
+        const recommendations: Record<string, any[]> = {}
+        let tasteProfile: any = null
+        let totalEntries = 0
+        for (const row of poolRows) {
+          if (Array.isArray(row.data) && row.data.length > 0) {
+            recommendations[row.media_type] = row.data
+          }
+          if (!tasteProfile && row.taste_profile) tasteProfile = row.taste_profile
+          if (row.total_entries) totalEntries = Math.max(totalEntries, row.total_entries)
+        }
+        const hasData = Object.values(recommendations).some(arr => arr.length > 0)
+        if (hasData) {
+          return NextResponse.json({
+            recommendations,
+            tasteProfile: tasteProfile ? { ...tasteProfile, totalEntries } : null,
+            cached: true,
+            source: 'pool',
+          }, { headers: { 'X-Cache': 'POOL_HIT' } })
+        }
+      }
+      // Pool vuota → segnala al client di fare il calcolo completo
+      return NextResponse.json({ recommendations: {}, tasteProfile: null, cached: false, source: 'pool_empty' })
+    }
+
     // ── In-memory cache check — bypassa se similar_to query (sempre fresh) ───
     if (!forceRefresh && !similarToId) {
       const memHit = memCacheGet(user.id)
       if (memHit) {
+        // Per type=all ritorna SEMPRE tutti i dati — mai un sottoinsieme
         const recs = requestedType === 'all'
           ? memHit.data
           : { [requestedType]: memHit.data[requestedType] || [] }
-        return NextResponse.json({ recommendations: recs, tasteProfile: memHit.tasteProfile, cached: true }, {
-          headers: { 'X-Cache': 'MEM_HIT' }
-        })
+        // Sanity check: se type=all ma i dati sembrano parziali (un solo tipo), non usare cache
+        if (requestedType === 'all') {
+          const types = Object.keys(recs).filter(k => Array.isArray(recs[k]) && recs[k].length > 0)
+          if (types.length < 1) {
+            // Cache vuota o corrotta — cade attraverso al ricalcolo
+          } else {
+            return NextResponse.json({ recommendations: recs, tasteProfile: memHit.tasteProfile, cached: true }, {
+              headers: { 'X-Cache': 'MEM_HIT' }
+            })
+          }
+        } else {
+          return NextResponse.json({ recommendations: recs, tasteProfile: memHit.tasteProfile, cached: true }, {
+            headers: { 'X-Cache': 'MEM_HIT' }
+          })
+        }
       }
     }
 
@@ -2435,6 +2482,7 @@ export async function GET(request: NextRequest) {
             data: poolItems,
             generated_at: new Date().toISOString(),
             collection_hash: collectionHash,
+            total_entries: allEntries.length,
           }
         })
 
@@ -2527,6 +2575,22 @@ export async function GET(request: NextRequest) {
       searchIntentGenres: tasteProfile.searchIntentGenres,
     }
     memCacheSet(user.id, recommendations, tasteProfile)
+
+    // Aggiorna taste_profile e total_entries in ogni riga del pool (per il fast path)
+    const profileUpdateUpserts = Object.keys(recommendations).map(type => ({
+      user_id: user.id,
+      media_type: type,
+      data: (poolByType.get(type as MediaType) || recommendations[type]),
+      generated_at: new Date().toISOString(),
+      collection_hash: collectionHash,
+      taste_profile: tasteProfileResponse,
+      total_entries: allEntries.length,
+    }))
+    if (profileUpdateUpserts.length > 0) {
+      supabase.from('recommendations_pool').upsert(profileUpdateUpserts, {
+        onConflict: 'user_id,media_type',
+      }).then(() => {}) // fire-and-forget
+    }
 
     return NextResponse.json({
       recommendations,
