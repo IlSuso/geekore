@@ -2176,7 +2176,8 @@ export async function GET(request: NextRequest) {
         let totalEntries = 0
         for (const row of poolRows) {
           if (Array.isArray(row.data) && row.data.length > 0) {
-            recommendations[row.media_type] = row.data
+            // Applica il limite SERVE_SIZE_PER_TYPE — il pool può contenerne di più
+            recommendations[row.media_type] = (row.data as any[]).slice(0, SERVE_SIZE_PER_TYPE)
           }
           if (!tasteProfile && row.taste_profile) tasteProfile = row.taste_profile
           if (row.total_entries) totalEntries = Math.max(totalEntries, row.total_entries)
