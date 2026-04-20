@@ -563,16 +563,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
         {filteredQueue.length > 0 && (
           <div className="text-center flex-shrink-0 select-none"
             style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-            {isOnboarding && onOnboardingComplete ? (
-              <button
-                onClick={onOnboardingComplete}
-                className="text-zinc-500 text-xs hover:text-zinc-300 transition-colors underline underline-offset-2 pointer-events-auto"
-              >
-                Ho finito, entra in Geekore →
-              </button>
-            ) : (
-              <p className="text-zinc-700 text-xs pointer-events-none">← Skip &nbsp;·&nbsp; Visto →</p>
-            )}
+            <p className="text-zinc-700 text-xs pointer-events-none">← Skip &nbsp;·&nbsp; Visto →</p>
           </div>
         )}
       </div>

@@ -13,7 +13,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Avatar, getLocalAvatarSvg } from '@/components/ui/Avatar'
 import { useLocale } from '@/lib/locale'
 
-const AUTH_PATHS = ['/login', '/register', '/auth/confirm', '/forgot-password', '/auth/reset-password']
+const AUTH_PATHS = ['/login', '/register', '/auth/confirm', '/forgot-password', '/auth/reset-password', '/onboarding']
 
 // ─── Tipi ─────────────────────────────────────────────────────────────────────
 
