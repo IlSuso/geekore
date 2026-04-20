@@ -45,6 +45,10 @@ interface SwipeModeProps {
   onSkip: (item: SwipeItem) => void
   onClose: () => void
   onRequestMore: (filter?: CategoryFilter) => Promise<SwipeItem[]>
+  // Onboarding mode: disabilita persistSkipped real-time (gestito dal parent in batch)
+  isOnboarding?: boolean
+  // Chiamato quando l'utente preme "Ho finito" o X nell'onboarding
+  onOnboardingComplete?: () => void
 }
 
 const TYPE_ICONS: Record<SwipeMediaType, React.ElementType> = {
@@ -304,7 +308,7 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
 
 // ─── SwipeMode ─────────────────────────────────────────────────────────────────
 
-export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequestMore }: SwipeModeProps) {
+export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequestMore, isOnboarding = false, onOnboardingComplete }: SwipeModeProps) {
   const supabase = createClient()
   const [activeFilter, setActiveFilter] = useState<CategoryFilter>('all')
 
@@ -468,7 +472,6 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
   const handleSwipe = useCallback((dir: 'left' | 'right', item: SwipeItem, skipPersist = false) => {
     // Legge il rating DAL REF nel corpo sincrono della funzione —
     // prima che qualsiasi setState/useEffect possa azzerarlo.
-    // Questo è il momento esatto in cui l'utente ha swipato.
     const ratingAtSwipeTime = currentRatingRef.current
 
     setHistory(prev => [item, ...prev].slice(0, 10))
@@ -476,10 +479,13 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
     setSkippedIds(prev => { const n = new Set(prev); n.add(item.id); return n })
     skippedIdsRef.current.add(item.id)
 
-    persistSkipped(item)
+    // In onboarding gli skippati vengono gestiti in batch dal parent (OnboardingPage)
+    // → non chiamiamo persistSkipped per evitare scritture real-time su swipe_skipped
+    if (!isOnboarding) {
+      persistSkipped(item)
+    }
 
     if (dir === 'right') {
-      // ─── DEBUG COMPLETO SWIPE DESTRA ────────────────────────────────
       console.group(`[SwipeMode] 👉 SWIPE DESTRA — "${item.title}"`)
       console.log('📦 Item completo:', JSON.stringify(item, null, 2))
       console.log('⭐ Rating al momento dello swipe (dal ref):', ratingAtSwipeTime)
@@ -489,14 +495,14 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
       console.log('🎬 genres:', item.genres)
       console.log('📤 Chiamo onSeen(item, rating) → handleSwipeSeen in page.tsx')
       console.log('⚠️  skipPersist (viene dal Drawer, già scritto):', skipPersist)
+      console.log('🎓 isOnboarding:', isOnboarding)
       console.groupEnd()
 
       onSeen(item, ratingAtSwipeTime, skipPersist)
     } else {
-      // Swipe sinistra: notifica page.tsx per escludere la card al prossimo open
       onSkip(item)
     }
-  }, [onSeen, onSkip, persistSkipped])
+  }, [onSeen, onSkip, persistSkipped, isOnboarding])
 
   const handleUndo = useCallback(() => {
     if (!history.length) return
@@ -546,7 +552,8 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
                   rating={idx === 0 ? currentRating : null}
                   onRatingChange={setRating}
                   onDetailOpen={handleDetailOpen}
-                  onUndo={handleUndo} canUndo={history.length > 0} onClose={onClose}
+                  onUndo={handleUndo} canUndo={history.length > 0}
+                  onClose={isOnboarding && onOnboardingComplete ? onOnboardingComplete : onClose}
                 />
               ))}
             </div>
@@ -554,9 +561,18 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
         </div>
 
         {filteredQueue.length > 0 && (
-          <div className="text-center flex-shrink-0 pointer-events-none select-none"
+          <div className="text-center flex-shrink-0 select-none"
             style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-            <p className="text-zinc-700 text-xs">← Skip &nbsp;·&nbsp; Visto →</p>
+            {isOnboarding && onOnboardingComplete ? (
+              <button
+                onClick={onOnboardingComplete}
+                className="text-zinc-500 text-xs hover:text-zinc-300 transition-colors underline underline-offset-2 pointer-events-auto"
+              >
+                Ho finito, entra in Geekore →
+              </button>
+            ) : (
+              <p className="text-zinc-700 text-xs pointer-events-none">← Skip &nbsp;·&nbsp; Visto →</p>
+            )}
           </div>
         )}
       </div>

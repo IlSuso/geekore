@@ -2160,6 +2160,10 @@ export async function GET(request: NextRequest) {
     const forceRefresh = searchParams.get('refresh') === '1'
     const similarToId = searchParams.get('similar_to_id') || null  // Fix 1.15: "simili a questo"
     const similarToGenres = searchParams.get('similar_to_genres')?.split(',').filter(Boolean) || []
+    // Onboarding: utente nuovo senza entries → bypassa il filtro allTypesInCollection
+    // e usa i tipi passati esplicitamente (o tutti e 5 se non specificati)
+    const isOnboardingCall = searchParams.get('onboarding') === '1'
+    const onboardingTypes = searchParams.get('types')?.split(',').filter(Boolean) as MediaType[] | undefined
 
     // ── FAST PATH: legge solo da recommendations_pool, zero API esterne ──────
     // Usato da page.tsx al mount → risposta in ~50ms
@@ -2340,16 +2344,21 @@ export async function GET(request: NextRequest) {
     const igdbClientId = process.env.IGDB_CLIENT_ID || ''
     const igdbClientSecret = process.env.IGDB_CLIENT_SECRET || ''
 
+    const ALL_MEDIA_TYPES: MediaType[] = ['anime', 'manga', 'movie', 'tv', 'game']
+
     // Tipi per cui l'utente ha almeno 1 titolo in collezione (o wishlist)
     const allTypesInCollection = new Set<string>([
       ...allEntries.map(e => e.type),
       ...wishlistItems.map(w => w.type),
     ])
-    // I tipi vengono inclusi solo se l'utente ha già contenuti di quel tipo
+
+    // I tipi vengono inclusi solo se l'utente ha già contenuti di quel tipo —
+    // ECCEZIONE: in modalità onboarding il profilo è vuoto per definizione,
+    // quindi usiamo i tipi passati esplicitamente (o tutti e 5 come fallback)
     const typesToFetch: MediaType[] = requestedType === 'all'
-      ? (['anime', 'manga', 'movie', 'tv', 'game'] as MediaType[]).filter(t =>
-          allTypesInCollection.has(t)
-        )
+      ? isOnboardingCall
+        ? (onboardingTypes && onboardingTypes.length > 0 ? onboardingTypes : ALL_MEDIA_TYPES)
+        : ALL_MEDIA_TYPES.filter(t => allTypesInCollection.has(t))
       : [requestedType as MediaType]
 
     // ── V6: Carica titoli mostrati nella sessione corrente (TTL: 4h) ──────────
