@@ -32,20 +32,23 @@ export default function LoginPage() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) redirectAfterLogin(session.user.id)
     })
-  }, []) // eslint-disable-line
+  }, [])
 
-  // Dopo il login: /feed se onboarding completato, /onboarding altrimenti
   const redirectAfterLogin = async (userId: string) => {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('username, onboarding_done')
+      .select('onboarding_done')
       .eq('id', userId)
       .single()
 
-    if (!profile?.onboarding_done) {
-      router.push('/onboarding')
-    } else {
+    if (profile?.onboarding_done === true) {
+      // Imposta il cookie così il middleware non deve fare una query DB ad ogni navigazione
+      const maxAge = 60 * 60 * 24 * 365
+      const secure = location.protocol === 'https:' ? '; Secure' : ''
+      document.cookie = `geekore_onboarding_done=1; path=/; max-age=${maxAge}; SameSite=Lax${secure}`
       router.push('/feed')
+    } else {
+      router.push('/onboarding')
     }
   }
 
