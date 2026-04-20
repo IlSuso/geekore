@@ -229,7 +229,7 @@ export default function OnboardingPage() {
   // Preload 3 fasi
   useEffect(() => {
     const run = async () => {
-      // FASE 1: 15 "all" interleaved → sblocca bottone
+      // FASE 1: 15 "Tutti" interleaved → sblocca bottone swipe
       const quickAll = await fetchCategoryTitles('all', [], globalSeenIds.current, POOL_QUICK)
       if (quickAll.length > 0) {
         quickAll.forEach(i => globalSeenIds.current.add(i.id))
@@ -238,31 +238,26 @@ export default function OnboardingPage() {
         setPoolReady(true)
       }
 
-      // FASE 2: 15 per ogni categoria specifica in parallelo
+      // FASE 2: 15 per ogni categoria specifica in sequenza (Tutti è già pronto)
+      // Ordine: anime → manga → movie → tv → game
       const specificTypes: CategoryKey[] = ['anime', 'manga', 'movie', 'tv', 'game']
-      await Promise.all(specificTypes.map(async (cat) => {
-        const items = await fetchCategoryTitles(cat, [], new Set(), POOL_QUICK)
+      for (const cat of specificTypes) {
+        const items = await fetchCategoryTitles(cat, [], globalSeenIds.current, POOL_QUICK)
         if (items.length > 0) {
           categoryCache.current[cat] = items
           categoryLoaded.current[cat] = true
         }
-      }))
+      }
 
-      // FASE 3: completa fino a 50 in background
-      const allTypes: CategoryKey[] = ['all', 'anime', 'manga', 'movie', 'tv', 'game']
-      for (const cat of allTypes) {
+      // FASE 3: porta ogni categoria a 50 in background (sequenziale, senza 'all')
+      // 'all' viene già espanso tramite refreshAllPoolForTypes quando l'utente entra in swipe
+      const specificTypesForTopUp: CategoryKey[] = ['anime', 'manga', 'movie', 'tv', 'game']
+      for (const cat of specificTypesForTopUp) {
         fetchCategoryTitles(cat, [], globalSeenIds.current, POOL_TARGET).then(items => {
           if (items.length === 0) return
-          if (cat === 'all') {
-            const fresh = items.filter(i => !globalSeenIds.current.has(i.id))
-            if (fresh.length > 0) {
-              fresh.forEach(i => globalSeenIds.current.add(i.id))
-              categoryCache.current['all'] = [...(categoryCache.current['all'] || []), ...fresh]
-              setSwipePool(prev => [...prev, ...fresh])
-            }
-          } else {
-            const existing = categoryCache.current[cat] || []
-            const fresh = items.filter(i => !existing.some(e => e.id === i.id))
+          const existing = categoryCache.current[cat] || []
+          const fresh = items.filter(i => !existing.some(e => e.id === i.id))
+          if (fresh.length > 0) {
             categoryCache.current[cat] = [...existing, ...fresh]
           }
         }).catch(() => {})
