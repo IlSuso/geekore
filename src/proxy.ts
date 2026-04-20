@@ -1,4 +1,4 @@
-// DESTINAZIONE: src/middleware.ts  (nella root di src/, affianco ad app/)
+// DESTINAZIONE: src/proxy.ts  (nella root di src/, affianco ad app/)
 //
 // Protezione route:
 //   1. Utente NON loggato → tutte le pagine protette → redirect /login
@@ -7,7 +7,7 @@
 //
 // Le route pubbliche (login, register, auth/*, onboarding, landing) non sono protette.
 //
-// NOTA: Il middleware Supabase legge il JWT dai cookie per verificare la sessione
+// NOTA: Il proxy Supabase legge il JWT dai cookie per verificare la sessione
 // in modo edge-compatible (senza query al DB). Il campo onboarding_done è invece
 // un cookie separato che viene impostato dal client alla fine dell'onboarding.
 // In alternativa si usa il custom claim nel JWT (app_metadata).
@@ -49,7 +49,7 @@ function skipOnboardingCheck(pathname: string): boolean {
   return SKIP_ONBOARDING_CHECK.some(p => pathname.startsWith(p))
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Lascia passare route pubbliche e asset statici
@@ -129,7 +129,7 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Esegui il middleware su tutte le route TRANNE:
+     * Esegui il proxy su tutte le route TRANNE:
      * - _next/static (file statici)
      * - _next/image (ottimizzazione immagini)
      * - favicon.ico, png, jpg, svg, webp, woff, woff2
