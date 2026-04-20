@@ -639,6 +639,9 @@ export async function GET(request: NextRequest) {
     })())
   }
 
+  // Attendi tutte le fetch in parallelo prima di procedere con lo scoring
+  await Promise.allSettled(fetches)
+
   // ── Ranking per similarità reale ─────────────────────────────────────────
   // Keywords = segnale primario (peso alto), generi = segnale secondario (peso basso)
   // Usa effectiveKeywords (che include proxy se rawTags/rawKeywords vuoti), filtra meta-keyword
