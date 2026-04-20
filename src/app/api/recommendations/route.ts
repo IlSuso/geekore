@@ -2407,40 +2407,36 @@ export async function GET(request: NextRequest) {
     const collectionHash = `${allEntries.length}_${lastCollectionUpdate.getTime()}`
 
     // ── MASTER POOL: controlla se esiste ed è ancora valido ──────────────────
-    // Il master pool è il bacino grande (~200 titoli/tipo) da cui si campiona.
-    // Va rigenerato solo se: età > 7gg E collezione cresciuta di >10 titoli.
+    // Una riga per tipo, data = array Recommendation completi (cover, matchScore, isDiscovery inclusi)
+    // Viene rigenerato solo se: troppo piccolo, età > 7gg E collezione +10 titoli, o forceRefresh
     const masterPoolCutoff = new Date(Date.now() - MASTER_POOL_MAX_AGE_DAYS * 24 * 3600 * 1000).toISOString()
 
     const { data: masterPoolRows } = await supabase
       .from('master_recommendations_pool')
-      .select('media_type, external_id, title, score, genres, collection_hash, collection_size, updated_at')
+      .select('media_type, data, collection_hash, collection_size, generated_at')
       .eq('user_id', user.id)
       .in('media_type', typesToFetch)
 
-    // Raggruppa master pool per tipo
-    const masterByType = new Map<string, Array<{ external_id: string; title: string; score: number; genres: string[] }>>()
-    for (const type of typesToFetch) {
-      const rows = (masterPoolRows || []).filter((r: any) => r.media_type === type)
-      masterByType.set(type, rows)
+    // Raggruppa master pool per tipo — data è già array Recommendation completo
+    const masterByType = new Map<string, Recommendation[]>()
+    for (const row of (masterPoolRows || [])) {
+      if (Array.isArray(row.data)) masterByType.set(row.media_type, row.data as Recommendation[])
     }
 
-    // Determina se il master pool va rigenerato
+    // Determina se il master pool va rigenerato per ogni tipo
     const typesNeedingMasterRegen: MediaType[] = []
     for (const type of typesToFetch) {
-      const rows = masterByType.get(type) || []
-      if (rows.length === 0) { typesNeedingMasterRegen.push(type as MediaType); continue }
-      const lastUpdated = rows[0] ? (masterPoolRows || []).find((r: any) => r.media_type === type)?.updated_at : null
-      const isOld = !lastUpdated || new Date(lastUpdated) < new Date(masterPoolCutoff)
-      const collectionSizeAtGen = (masterPoolRows || []).find((r: any) => r.media_type === type)?.collection_size || 0
-      const hasGrown = allEntries.length - collectionSizeAtGen >= MASTER_POOL_REGEN_DELTA
-      const tooSmall = rows.length < MASTER_POOL_MIN_VALID
+      const items = masterByType.get(type) || []
+      const row = (masterPoolRows || []).find((r: any) => r.media_type === type)
+      const isOld = !row || new Date(row.generated_at) < new Date(masterPoolCutoff)
+      const hasGrown = allEntries.length - (row?.collection_size || 0) >= MASTER_POOL_REGEN_DELTA
+      const tooSmall = items.length < MASTER_POOL_MIN_VALID
       if (forceRefresh || tooSmall || (isOld && hasGrown)) {
         typesNeedingMasterRegen.push(type as MediaType)
       }
     }
 
-    // ── Rigenera master pool per i tipi che lo necessitano (in background) ───
-    // Usa MASTER_POOL_SIZE_PER_TYPE slot → raccoglie molti più candidati
+    // ── Rigenera master pool in background per i tipi che lo necessitano ─────
     if (typesNeedingMasterRegen.length > 0) {
       const emptyShownIds = new Set<string>()
 
@@ -2451,20 +2447,21 @@ export async function GET(request: NextRequest) {
       const [continuityRecs, ...masterResults] = await Promise.all([
         continuityRecsPromise,
         ...typesNeedingMasterRegen.map(async type => {
+          // Usa MASTER_POOL_SIZE_PER_TYPE slot → raccoglie molti più candidati
           const slots = buildDiversitySlots(type, tasteProfile, MASTER_POOL_SIZE_PER_TYPE)
-          if (slots.length === 0) return { type, items: [] }
+          if (slots.length === 0) return { type, items: [] as Recommendation[] }
           switch (type) {
             case 'anime': return { type, items: await fetchAnimeRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites) }
             case 'manga': return { type, items: await fetchMangaRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds, socialFavorites) }
             case 'movie': return { type, items: await fetchMovieRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds) }
             case 'tv':    return { type, items: await fetchTvRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds) }
             case 'game':  return { type, items: await fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret, isAlreadyOwned, emptyShownIds) }
-            default: return { type, items: [] }
+            default: return { type, items: [] as Recommendation[] }
           }
         })
       ])
 
-      // Aggiorna masterByType con i nuovi risultati + continuity
+      // Prepend continuity recs per tipo
       const continuityByType = new Map<string, Recommendation[]>()
       for (const contRec of continuityRecs) {
         const arr = continuityByType.get(contRec.type) || []
@@ -2472,65 +2469,51 @@ export async function GET(request: NextRequest) {
         continuityByType.set(contRec.type, arr)
       }
 
-      // Salva nel master pool: DELETE vecchie righe del tipo + INSERT nuove
+      // Aggiorna masterByType + salva su Supabase (upsert — una riga per tipo)
+      const masterUpserts: any[] = []
       for (const result of masterResults) {
-        if (!result || !result.type || !result.items.length) continue
+        if (!result?.type || !result.items.length) continue
         const type = result.type as MediaType
 
-        // Prepend continuity recs
         const contRecs = continuityByType.get(type) || []
         const contIds = new Set(contRecs.map(r => r.id))
-        const allItems: Recommendation[] = [
+        const allItems: Recommendation[] = applyFormatDiversity([
           ...contRecs,
           ...result.items.filter(r => !contIds.has(r.id)),
-        ]
+        ], type)
 
-        // Aggiorna masterByType (per il campionamento sotto)
-        masterByType.set(type, allItems.map(r => ({ external_id: r.id, title: r.title, score: r.score || 0, genres: r.genres })))
-
-        // Salva in Supabase: prima cancella le vecchie, poi inserisce le nuove
-        // (DELETE + INSERT è più pulito di upsert per grandi volumi)
-        const masterInserts = allItems.map(r => ({
+        masterByType.set(type, allItems)
+        masterUpserts.push({
           user_id: user.id,
           media_type: type,
-          external_id: r.id,
-          title: r.title,
-          score: r.score || null,
-          genres: r.genres || [],
+          data: allItems,              // Recommendation[] completo — cover, matchScore, isDiscovery tutto incluso
           collection_hash: collectionHash,
           collection_size: allEntries.length,
-          updated_at: new Date().toISOString(),
-        }))
+          generated_at: new Date().toISOString(),
+        })
+      }
 
-        // Fire-and-forget in background — non blocca la risposta
-        ;(async () => {
-          await supabase.from('master_recommendations_pool')
-            .delete()
-            .eq('user_id', user.id)
-            .eq('media_type', type)
-          if (masterInserts.length > 0) {
-            // Inserisci in batch da 100 per non superare limiti Supabase
-            for (let i = 0; i < masterInserts.length; i += 100) {
-              await supabase.from('master_recommendations_pool').insert(masterInserts.slice(i, i + 100))
-            }
-          }
-        })()
+      // Fire-and-forget — non blocca la risposta
+      if (masterUpserts.length > 0) {
+        supabase.from('master_recommendations_pool')
+          .upsert(masterUpserts, { onConflict: 'user_id,media_type' })
+          .then(() => {})
       }
     }
 
     // ── Campiona dal master pool per riempire recommendations_pool ───────────
-    // Al click Aggiorna (forceRefresh) o se recommendations_pool è vuota:
-    // pesca SERVE_SIZE_PER_TYPE*3 titoli random dal master, li usa come pool attivo.
-    // Altrimenti usa il recommendations_pool esistente (fast path dal mount).
+    // Al forceRefresh o se recommendations_pool mancante: pesca POOL_SIZE_PER_TYPE titoli
+    // casualmente dal master (shuffle diverso ogni volta → risultati sempre diversi).
+    // La pagina mostrerà poi SERVE_SIZE_PER_TYPE per tipo tramite il fast path.
 
     const poolByType = new Map<string, Recommendation[]>()
     const typesNeedingPoolRefill: MediaType[] = []
 
     for (const type of typesToFetch) {
-      const poolRow = (poolRows as Array<{ media_type: string; data: Recommendation[]; generated_at: string; collection_hash: string }> | null)?.find(r => r.media_type === type)
+      const poolRow = (poolRows as Array<{ media_type: string; data: Recommendation[]; generated_at: string; collection_hash: string }> | null)
+        ?.find(r => r.media_type === type)
       const poolIsValid =
-        poolRow &&
-        !forceRefresh &&
+        poolRow && !forceRefresh &&
         Array.isArray(poolRow.data) && poolRow.data.length >= 5
 
       if (poolIsValid) {
@@ -2541,49 +2524,19 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Per i tipi senza pool valido: campiona dal master pool
-    // Il master contiene i Recommendation completi → campionamento diretto
     if (typesNeedingPoolRefill.length > 0) {
       const poolUpserts: any[] = []
 
       for (const type of typesNeedingPoolRefill) {
         const masterItems = masterByType.get(type) || []
+        // Filtra già posseduti (potrebbero essere stati aggiunti dopo la generazione del master)
+        const available = masterItems.filter(r => !isAlreadyOwned(r.type, r.id, r.title))
+        // Shuffle casuale — ogni Aggiorna dà un campione diverso
+        const shuffled = [...available].sort(() => Math.random() - 0.5)
+        // Prende POOL_SIZE_PER_TYPE per il pool attivo (la UI ne mostra SERVE_SIZE_PER_TYPE)
+        const poolItems = shuffled.slice(0, POOL_SIZE_PER_TYPE)
 
-        // Il master contiene già Recommendation completi quando appena rigenerato.
-        // Se invece viene da Supabase (righe con solo external_id/title/score/genres),
-        // dobbiamo usare i dati che abbiamo — il rating parziale è sufficiente per mostrare le card.
-        // In questo caso le card avranno meno dettagli (no coverImage, no description) solo se
-        // il master non è stato appena rigenerato. Questo è accettabile: al prossimo Aggiorna
-        // il master viene ricalcolato con tutti i dettagli.
-
-        // Shuffle casuale (non deterministico — ogni Aggiorna dà risultati diversi)
-        const shuffled = [...masterItems].sort(() => Math.random() - 0.5)
-        const sample = shuffled.slice(0, POOL_SIZE_PER_TYPE)
-
-        // Converti in Recommendation[] — i campi completi vengono dal master rigenerato
-        // Se il master è stato appena rigenerato, masterByType contiene oggetti completi
-        // (li abbiamo messi sopra da allItems). Se viene da Supabase, sono parziali.
-        const poolItems: Recommendation[] = sample.map((item: any) => {
-          // Se item è un Recommendation completo (da rigenerazione appena fatta)
-          if ('coverImage' in item || 'matchScore' in item) return item as Recommendation
-          // Altrimenti è una riga Supabase parziale — costruiamo un Recommendation minimo
-          return {
-            id: item.external_id,
-            title: item.title,
-            type: type,
-            score: item.score || undefined,
-            genres: item.genres || [],
-            coverImage: undefined,
-            year: undefined,
-            description: undefined,
-            why: '',
-            matchScore: 50,
-            isDiscovery: false,
-            isAwardWinner: false,
-          } as unknown as Recommendation
-        })
-
-        poolByType.set(type, applyFormatDiversity(poolItems, type))
+        poolByType.set(type, poolItems)
         poolUpserts.push({
           user_id: user.id,
           media_type: type,
