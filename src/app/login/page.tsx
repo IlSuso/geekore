@@ -35,21 +35,26 @@ export default function LoginPage() {
   }, [])
 
   const redirectAfterLogin = async (userId: string) => {
-    const { data: profile } = await supabase
+    const { data: profile, error } = await supabase
       .from('profiles')
       .select('onboarding_done')
       .eq('id', userId)
       .single()
 
-    if (profile?.onboarding_done === true) {
-      // Imposta il cookie così il middleware non deve fare una query DB ad ogni navigazione
-      const maxAge = 60 * 60 * 24 * 365
-      const secure = location.protocol === 'https:' ? '; Secure' : ''
-      document.cookie = `geekore_onboarding_done=1; path=/; max-age=${maxAge}; SameSite=Lax${secure}`
-      router.push('/feed')
-    } else {
+    // Se onboarding_done è esplicitamente false → onboarding
+    // In qualsiasi altro caso (true, null, errore query) → feed
+    // Questo evita che un errore temporaneo del DB blocchi l'accesso
+    if (profile?.onboarding_done === false) {
       router.push('/onboarding')
+      return
     }
+
+    // onboarding_done è true oppure la query ha avuto un problema:
+    // in entrambi i casi mandiamo al feed (safe default)
+    const maxAge = 60 * 60 * 24 * 365
+    const secure = location.protocol === 'https:' ? '; Secure' : ''
+    document.cookie = `geekore_onboarding_done=1; path=/; max-age=${maxAge}; SameSite=Lax${secure}`
+    router.push('/feed')
   }
 
   const handleLogin = async (e: React.FormEvent) => {
