@@ -99,19 +99,6 @@ async function fetchCategoryTitles(
   } catch { return [] }
 }
 
-async function persistAccepted(
-  supabase: ReturnType<typeof createClient>,
-  userId: string, item: SwipeItem, rating: number | null
-) {
-  await supabase.from('user_media_entries').upsert({
-    user_id: userId, external_id: item.id, title: item.title, type: item.type,
-    cover_image: item.coverImage ?? null, genres: item.genres, rating: rating ?? null,
-    status: rating !== null ? 'completed' : 'wishlist', year: item.year ?? null,
-    score: item.score ?? null, description: item.description ?? null,
-    episodes: item.episodes ?? null, updated_at: new Date().toISOString(),
-  }, { onConflict: 'user_id,external_id' })
-}
-
 function setOnboardingCookie() {
   const maxAge = 60 * 60 * 24 * 365
   const secure = location.protocol === 'https:' ? '; Secure' : ''
@@ -305,9 +292,30 @@ export default function OnboardingPage() {
   const toggleType = (id: string) =>
     setSelectedTypes(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id])
 
-  const handleOnboardingSeen = useCallback((item: SwipeItem, rating: number | null) => {
-    if (userId) persistAccepted(supabase, userId, item, rating)
-  }, [userId, supabase])
+  const handleOnboardingSeen = useCallback(async (item: SwipeItem, rating: number | null, skipPersist = false) => {
+    if (skipPersist) return // il Drawer ha già scritto, non riscrivere
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      console.warn('[Onboarding] handleOnboardingSeen: utente non autenticato!')
+      return
+    }
+
+    const insertData: any = {
+      user_id: user.id, external_id: item.id, title: item.title,
+      type: item.type, cover_image: item.coverImage ?? null, genres: item.genres,
+      status: rating !== null ? 'completed' : 'wishlist',
+      year: item.year ?? null, score: item.score ?? null,
+      description: item.description ?? null, episodes: item.episodes ?? null,
+      updated_at: new Date().toISOString(),
+    }
+    if (rating !== null) insertData.rating = rating
+
+    const { error } = await supabase.from('user_media_entries').upsert(insertData, { onConflict: 'user_id,external_id' })
+    if (error) {
+      console.error('[Onboarding] ERRORE upsert user_media_entries:', error.message, error.details)
+    }
+  }, [supabase])
 
   const handleOnboardingSkip = useCallback((item: SwipeItem) => {
     skippedItemsRef.current.push(item)
