@@ -2576,11 +2576,11 @@ export async function GET(request: NextRequest) {
             coverImage: undefined,
             year: undefined,
             description: undefined,
-            why: undefined,
+            why: '',
             matchScore: 50,
             isDiscovery: false,
             isAwardWinner: false,
-          } as Recommendation
+          } as unknown as Recommendation
         })
 
         poolByType.set(type, applyFormatDiversity(poolItems, type))
