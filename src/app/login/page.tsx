@@ -35,26 +35,31 @@ export default function LoginPage() {
   }, [])
 
   const redirectAfterLogin = async (userId: string) => {
+    console.log('[LOGIN DEBUG] redirectAfterLogin chiamato con userId:', userId)
+
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('onboarding_done')
       .eq('id', userId)
       .single()
 
-    // Se onboarding_done è esplicitamente false → onboarding
-    // In qualsiasi altro caso (true, null, errore query) → feed
-    // Questo evita che un errore temporaneo del DB blocchi l'accesso
-    if (profile?.onboarding_done === false) {
-      router.push('/onboarding')
-      return
-    }
+    console.log('[LOGIN DEBUG] risultato query profile:', {
+      profile,
+      error,
+      onboarding_done: profile?.onboarding_done,
+      type: typeof profile?.onboarding_done,
+    })
 
-    // onboarding_done è true oppure la query ha avuto un problema:
-    // in entrambi i casi mandiamo al feed (safe default)
-    const maxAge = 60 * 60 * 24 * 365
-    const secure = location.protocol === 'https:' ? '; Secure' : ''
-    document.cookie = `geekore_onboarding_done=1; path=/; max-age=${maxAge}; SameSite=Lax${secure}`
-    router.push('/feed')
+    if (profile?.onboarding_done === true) {
+      console.log('[LOGIN DEBUG] → onboarding_done TRUE, vado a /feed')
+      const maxAge = 60 * 60 * 24 * 365
+      const secure = location.protocol === 'https:' ? '; Secure' : ''
+      document.cookie = `geekore_onboarding_done=1; path=/; max-age=${maxAge}; SameSite=Lax${secure}`
+      router.push('/feed')
+    } else {
+      console.log('[LOGIN DEBUG] → onboarding_done NON TRUE, vado a /onboarding. Valore:', profile?.onboarding_done, 'Error:', error)
+      router.push('/onboarding')
+    }
   }
 
   const handleLogin = async (e: React.FormEvent) => {
