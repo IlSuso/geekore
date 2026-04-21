@@ -63,33 +63,51 @@ async function fetchCinema(lang: string) {
   const region   = lang === 'en' ? 'US' : 'IT'
   const { from: pastFrom, to: today } = dateRange(60, 0)
   const { from: todayFrom, to: futureTo } = dateRange(0, 120)
+
+  logger.info(`[fetchCinema] START lang=${lang} region=${region}`)
+  logger.info(`[fetchCinema] PAST  range: ${pastFrom} -> ${today}`)
+  logger.info(`[fetchCinema] FUTURE range: ${todayFrom} -> ${futureTo}`)
+
+  const urlPast   = `https://api.themoviedb.org/3/discover/movie?language=${tmdbLang}&region=${region}&sort_by=popularity.desc&primary_release_date.gte=${pastFrom}&primary_release_date.lte=${today}`
+  const urlFuture = `https://api.themoviedb.org/3/discover/movie?language=${tmdbLang}&region=${region}&sort_by=primary_release_date.asc&primary_release_date.gte=${todayFrom}&primary_release_date.lte=${futureTo}`
+
+  logger.info(`[fetchCinema] URL_PAST:   ${urlPast}`)
+  logger.info(`[fetchCinema] URL_FUTURE: ${urlFuture}`)
+
   try {
-    // Due fetch separati: film usciti negli ultimi 2 mesi (per popolarità)
-    // e film in uscita nei prossimi 4 mesi (per data)
     const [resPast, resFuture] = await Promise.all([
-      fetch(
-        `https://api.themoviedb.org/3/discover/movie?language=${tmdbLang}&region=${region}&sort_by=popularity.desc&primary_release_date.gte=${pastFrom}&primary_release_date.lte=${today}`,
-        { headers: tmdbHeaders(), cache: 'no-store' }
-      ),
-      fetch(
-        `https://api.themoviedb.org/3/discover/movie?language=${tmdbLang}&region=${region}&sort_by=primary_release_date.asc&primary_release_date.gte=${todayFrom}&primary_release_date.lte=${futureTo}`,
-        { headers: tmdbHeaders(), cache: 'no-store' }
-      ),
+      fetch(urlPast,   { headers: tmdbHeaders(), cache: 'no-store' }),
+      fetch(urlFuture, { headers: tmdbHeaders(), cache: 'no-store' }),
     ])
+
+    logger.info(`[fetchCinema] HTTP past=${resPast.status} future=${resFuture.status}`)
+
     const [jsonPast, jsonFuture] = await Promise.all([
-      resPast.ok ? resPast.json() : { results: [] },
+      resPast.ok   ? resPast.json()   : { results: [] },
       resFuture.ok ? resFuture.json() : { results: [] },
     ])
+
+    logger.info(`[fetchCinema] TMDB past results=${jsonPast.results?.length ?? 0}  future results=${jsonFuture.results?.length ?? 0}`)
+
+    const pastTitles   = (jsonPast.results   || []).slice(0, 5).map((m: any) => `${m.title} (${m.release_date})`)
+    const futureTitles = (jsonFuture.results || []).slice(0, 5).map((m: any) => `${m.title} (${m.release_date})`)
+    logger.info(`[fetchCinema] PAST sample:   ${JSON.stringify(pastTitles)}`)
+    logger.info(`[fetchCinema] FUTURE sample: ${JSON.stringify(futureTitles)}`)
+
     const seen = new Set<number>()
     const merged: any[] = []
     for (const m of [...(jsonPast.results || []).slice(0, 10), ...(jsonFuture.results || []).slice(0, 10)]) {
       if (!seen.has(m.id) && m.poster_path && m.overview) { seen.add(m.id); merged.push(m) }
     }
+
+    logger.info(`[fetchCinema] merged after dedup+filter (poster+overview): ${merged.length}`)
+    logger.info(`[fetchCinema] merged titles: ${JSON.stringify(merged.map((m: any) => m.title + " (" + m.release_date + ")"))}`)
+
     const movies = merged
     const details = await Promise.all(
       movies.map((m: any) => tmdbDetail(`/movie/${m.id}?language=${tmdbLang}&append_to_response=credits,keywords,watch%2Fproviders`))
     )
-    return movies.map((m: any, i: number) => {
+    const result = movies.map((m: any, i: number) => {
       const d = details[i]
       const director  = d?.credits?.crew?.find((p: any) => p.job === 'Director')?.name
       const studios   = (d?.production_companies || []).slice(0, 2).map((c: any) => c.name).filter(Boolean)
@@ -116,7 +134,12 @@ async function fetchCinema(lang: string) {
         url: `https://www.themoviedb.org/movie/${m.id}`,
       }
     })
-  } catch { return [] }
+    logger.info(`[fetchCinema] DONE returning ${result.length} movies: ${JSON.stringify(result.map((m: any) => m.title + " (" + m.date + ")"))}`)
+    return result
+  } catch (err) {
+    logger.error(`[fetchCinema] CATCH ERROR:`, err)
+    return []
+  }
 }
 
 async function fetchTV(lang: string) {

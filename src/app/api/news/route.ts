@@ -49,19 +49,28 @@ export async function GET(request: Request) {
       })
     }
 
+    logger.info(`[news/route] cat=${cat} lang=${lang} total items from cache BEFORE filter: ${allNews.length}`)
+
     // Finestra: -2 mesi (passato) / +4 mesi (futuro) rispetto ad oggi
     const nowDate      = new Date()
     const twoMonthsAgo = new Date(nowDate); twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
     const fourMonthsFwd = new Date(nowDate); fourMonthsFwd.setMonth(fourMonthsFwd.getMonth() + 4)
 
+    logger.info(`[news/route] filter window: ${twoMonthsAgo.toISOString().split('T')[0]} -> ${fourMonthsFwd.toISOString().split('T')[0]}`)
+
+    const beforeFilter = allNews.length
+    const excluded: string[] = []
     allNews = allNews.filter(item => {
-      // TV e anime: usa nextEpisodeDate se presente (data episodio imminente),
-      // altrimenti usa date (first_air_date)
       const relevantDate = item.nextEpisodeDate || item.date
       if (!relevantDate) return true
       const d = new Date(relevantDate)
-      return d >= twoMonthsAgo && d <= fourMonthsFwd
+      const pass = d >= twoMonthsAgo && d <= fourMonthsFwd
+      if (!pass) excluded.push(`${item.title} (${relevantDate})`)
+      return pass
     })
+
+    logger.info(`[news/route] after filter: ${allNews.length} (excluded ${beforeFilter - allNews.length}): ${JSON.stringify(excluded.slice(0, 10))}`)
+    logger.info(`[news/route] passing items dates: ${JSON.stringify(allNews.slice(0, 20).map(i => i.title + " (" + (i.nextEpisodeDate || i.date) + ")"))}`)
 
     allNews.sort((a, b) => {
       const dateA = a.nextEpisodeDate || a.date
