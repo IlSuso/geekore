@@ -119,7 +119,7 @@ function FooterLinks() {
 
 export function FeedSidebar({ currentUserId }: { currentUserId: string | null }) {
   return (
-    <aside className="py-4 max-h-[calc(100vh-5rem)] overflow-y-auto scrollbar-hide">
+    <aside className="py-4 h-full overflow-y-auto scrollbar-hide">
       <TrendingMini />
       {currentUserId && <SuggestedUsersCompact currentUserId={currentUserId} />}
       <FooterLinks />
