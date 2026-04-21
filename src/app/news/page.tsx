@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Gamepad2, Film, Tv, Loader2, CalendarDays, RefreshCw, Swords, Dices } from 'lucide-react'
+import { Gamepad2, Film, Tv, Loader2, CalendarDays, RefreshCw, Swords } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { translateGenre } from '@/lib/genres'
 import { ErrorState } from '@/components/ui/ErrorState'
@@ -27,7 +27,7 @@ type UpcomingItem = {
   studios?: string[]
   developers?: string[]
   original_language?: string
-  category: 'gaming' | 'cinema' | 'anime' | 'tv' | 'manga' | 'boardgame'
+  category: 'gaming' | 'cinema' | 'anime' | 'tv' | 'manga'
   source: string
   url?: string
   nextEpisode?: number
@@ -53,7 +53,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   anime:     'bg-orange-500 text-white',
   gaming:    'bg-emerald-600 text-white',
   manga:     'bg-pink-600 text-white',
-  boardgame: 'bg-yellow-600 text-white',
 }
 
 function formatDate(dateStr?: string, locale?: string) {
@@ -106,31 +105,28 @@ export default function NewsPage() {
   const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null)
 
   const CATEGORIES = [
-    { id: 'all',       label: t.news.all,       icon: null      },
-    { id: 'cinema',    label: t.news.cinema,    icon: Film      },
-    { id: 'tv',        label: t.news.tv,        icon: Tv        },
-    { id: 'anime',     label: t.news.anime,     icon: Swords    },
-    { id: 'manga',     label: t.news.manga,     icon: Swords    },
-    { id: 'gaming',    label: t.news.gaming,    icon: Gamepad2  },
-    { id: 'boardgame', label: t.news.boardgame, icon: Dices     },
+    { id: 'all',    label: t.news.all,    icon: null     },
+    { id: 'cinema', label: t.news.cinema, icon: Film     },
+    { id: 'tv',     label: t.news.tv,     icon: Tv       },
+    { id: 'anime',  label: t.news.anime,  icon: Swords   },
+    { id: 'manga',  label: t.news.manga,  icon: Swords   },
+    { id: 'gaming', label: t.news.gaming, icon: Gamepad2 },
   ]
 
   const CATEGORY_LABELS: Record<string, string> = {
-    cinema:    t.news.cinema,
-    tv:        t.news.tv,
-    anime:     t.news.anime,
-    manga:     t.news.manga,
-    gaming:    t.news.gaming,
-    boardgame: t.news.boardgame,
+    cinema: t.news.cinema,
+    tv:     t.news.tv,
+    anime:  t.news.anime,
+    manga:  t.news.manga,
+    gaming: t.news.gaming,
   }
 
   const CATEGORY_ICONS: Record<string, React.ElementType> = {
-    cinema:    Film,
-    tv:        Tv,
-    anime:     Swords,
-    manga:     Swords,
-    gaming:    Gamepad2,
-    boardgame: Dices,
+    cinema: Film,
+    tv:     Tv,
+    anime:  Swords,
+    manga:  Swords,
+    gaming: Gamepad2,
   }
 
   const fetchItems = async (cat: string, forceRefresh = false) => {
@@ -156,7 +152,6 @@ export default function NewsPage() {
         const list = Array.isArray(data) ? data : []
         setItems(list)
         newsCache.set(cacheKey, { data: list, ts: Date.now() })
-        // Cache vecchia (senza id): triggera sync in background e invalida cache
         if (list.some((i: any) => !i.id)) {
           newsCache.delete(cacheKey)
           fetch(`/api/news/sync?lang=${locale}`, { method: 'GET' }).catch(() => {})
