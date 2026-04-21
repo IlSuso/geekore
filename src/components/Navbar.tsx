@@ -258,6 +258,7 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
+    document.cookie = 'geekore_onboarding_done=; path=/; max-age=0'
     router.push('/login')
   }
 

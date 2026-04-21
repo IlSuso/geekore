@@ -30,6 +30,7 @@ function LogoutButton() {
     setLoading(true)
     try {
       await supabase.auth.signOut()
+      document.cookie = 'geekore_onboarding_done=; path=/; max-age=0'
       router.push('/login')
     } catch {
       setLoading(false)
@@ -175,6 +176,7 @@ function GlobalLogoutButton() {
     setLoading(true)
     try {
       await supabase.auth.signOut({ scope: 'global' })
+      document.cookie = 'geekore_onboarding_done=; path=/; max-age=0'
       router.push('/login')
     } catch {
       showToast('Errore durante il logout globale')

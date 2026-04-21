@@ -457,7 +457,7 @@ export default function OnboardingPage() {
 
               {/* Titolo desktop */}
               <div className="hidden lg:block mb-8">
-                <h1 className="text-3xl font-bold text-white mb-2">Cominciamo 👋</h1>
+                <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-2">Cominciamo <Sparkles size={26} className="text-violet-400" /></h1>
                 <p className="text-zinc-400">Ci vorranno meno di 2 minuti.</p>
               </div>
 
@@ -467,10 +467,7 @@ export default function OnboardingPage() {
               >
                 Inizia <ArrowRight size={20} />
               </button>
-              <p className="text-zinc-700 text-xs text-center mt-6">
-                Hai già un account?{' '}
-                <a href="/login" className="text-zinc-500 hover:text-zinc-300 underline transition-colors">Accedi</a>
-              </p>
+
             </>
           )}
 

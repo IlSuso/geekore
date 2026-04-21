@@ -834,6 +834,7 @@ export default function ProfilePage() {
     const res = await csrfFetch('/api/user/delete', { method: 'DELETE' })
     if (res.ok) {
       await supabase.auth.signOut()
+      document.cookie = 'geekore_onboarding_done=; path=/; max-age=0'
       window.location.href = '/'
     } else {
       showToast('Errore nella cancellazione. Riprova.', 'error')
