@@ -142,11 +142,14 @@ export async function middleware(request: NextRequest) {
       // 5b. Cookie assente → verifica su DB.
       if (!matchesAny(pathname, ONBOARDING_EXEMPT)) {
         try {
-          const { data: profile } = await supabase
+          console.log(`[MW] Query DB onboarding per user=${user!.id}`)
+          const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('onboarding_done')
             .eq('id', user!.id)
             .single()
+
+          console.log(`[MW] DB result: profile=${JSON.stringify(profile)} error=${JSON.stringify(profileError)}`)
 
           if (!profile || profile.onboarding_done !== true) {
             return NextResponse.redirect(new URL('/onboarding', request.url))
@@ -160,8 +163,10 @@ export async function middleware(request: NextRequest) {
             secure: process.env.NODE_ENV === 'production',
             httpOnly: false,
           })
-        } catch {
-          // Errore DB → non blocchiamo la navigazione
+        } catch (err) {
+          console.error('[MW] Errore query DB onboarding:', err)
+          // Errore DB → blocca per sicurezza
+          return NextResponse.redirect(new URL('/onboarding', request.url))
         }
       } else if (pathname === '/onboarding') {
         // Cookie assente + sta andando su /onboarding → verifica DB per sicurezza
