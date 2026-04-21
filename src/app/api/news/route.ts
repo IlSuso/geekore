@@ -49,7 +49,20 @@ export async function GET(request: Request) {
       })
     }
 
-    // Ordinamento: per TV/anime usa nextEpisodeDate se disponibile, altrimenti date
+    // Finestra ±2 mesi rispetto ad oggi
+    const nowDate = new Date()
+    const twoMonthsAgo = new Date(nowDate); twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
+    const twoMonthsFwd = new Date(nowDate); twoMonthsFwd.setMonth(twoMonthsFwd.getMonth() + 2)
+
+    allNews = allNews.filter(item => {
+      // Per TV e anime: se c'è nextEpisodeDate, usa quella per il filtro
+      // Per tutto il resto: usa date
+      const relevantDate = item.nextEpisodeDate || item.date
+      if (!relevantDate) return true
+      const d = new Date(relevantDate)
+      return d >= twoMonthsAgo && d <= twoMonthsFwd
+    })
+
     allNews.sort((a, b) => {
       const dateA = a.nextEpisodeDate || a.date
       const dateB = b.nextEpisodeDate || b.date

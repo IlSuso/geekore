@@ -61,15 +61,32 @@ const TMDB_TV_GENRES: Record<number, string> = {
 async function fetchCinema(lang: string) {
   const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
   const region   = lang === 'en' ? 'US' : 'IT'
-  const { from, to } = dateRange(60, 60)
+  const { from: pastFrom, to: pastTo } = dateRange(60, 0)   // ultimi 60 giorni
+  const { from: futureFrom, to: futureTo } = dateRange(0, 60) // prossimi 60 giorni
   try {
-    const res = await fetch(
-      `https://api.themoviedb.org/3/discover/movie?language=${tmdbLang}&region=${region}&sort_by=popularity.desc&primary_release_date.gte=${from}&primary_release_date.lte=${to}`,
-      { headers: tmdbHeaders(), cache: 'no-store' }
-    )
-    if (!res.ok) return []
-    const json = await res.json()
-    const movies = (json.results || []).slice(0, 15).filter((m: any) => m.poster_path && m.overview)
+    // Due query parallele: film recenti (ordinati per popolarità) + film in uscita (upcoming)
+    const [recentRes, upcomingRes] = await Promise.all([
+      fetch(
+        `https://api.themoviedb.org/3/discover/movie?language=${tmdbLang}&region=${region}&sort_by=popularity.desc&primary_release_date.gte=${pastFrom}&primary_release_date.lte=${pastTo}`,
+        { headers: tmdbHeaders(), cache: 'no-store' }
+      ),
+      fetch(
+        `https://api.themoviedb.org/3/discover/movie?language=${tmdbLang}&region=${region}&sort_by=primary_release_date.asc&primary_release_date.gte=${futureFrom}&primary_release_date.lte=${futureTo}&with_release_type=2|3`,
+        { headers: tmdbHeaders(), cache: 'no-store' }
+      ),
+    ])
+
+    const recentJson   = recentRes.ok   ? await recentRes.json()   : { results: [] }
+    const upcomingJson = upcomingRes.ok ? await upcomingRes.json() : { results: [] }
+
+    // Deduplicazione per id
+    const seen = new Set<number>()
+    const allMovies: any[] = []
+    for (const m of [...(recentJson.results || []), ...(upcomingJson.results || [])]) {
+      if (!seen.has(m.id) && m.poster_path && m.overview) { seen.add(m.id); allMovies.push(m) }
+    }
+    const movies = allMovies.slice(0, 20)
+
     const details = await Promise.all(
       movies.map((m: any) => tmdbDetail(`/movie/${m.id}?language=${tmdbLang}&append_to_response=credits,keywords,watch%2Fproviders`))
     )
