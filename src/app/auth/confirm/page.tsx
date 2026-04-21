@@ -27,6 +27,7 @@ function ConfirmContent() {
       // così il redirect finale alla pagina di login è sempre pulito
       // (se era loggato con un altro account, viene disconnesso)
       await supabase.auth.signOut()
+      document.cookie = 'geekore_onboarding_done=; path=/; max-age=0'
 
       if (token_hash) {
         const finalType = (type && type.trim() !== '') ? type : 'signup'
@@ -40,6 +41,7 @@ function ConfirmContent() {
           // Rimuovi immediatamente la sessione appena creata dalla verifica OTP:
           // l'utente deve fare login manualmente dopo la conferma
           await supabase.auth.signOut()
+          document.cookie = 'geekore_onboarding_done=; path=/; max-age=0'
           setStatus('success')
           setTimeout(() => router.push('/login'), 2500)
           return
@@ -57,6 +59,7 @@ function ConfirmContent() {
         const { error } = await supabase.auth.exchangeCodeForSession(code)
         if (!error) {
           await supabase.auth.signOut()
+          document.cookie = 'geekore_onboarding_done=; path=/; max-age=0'
           setStatus('success')
           setTimeout(() => router.push('/login'), 2500)
           return

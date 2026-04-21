@@ -73,7 +73,7 @@ function TrendingMini() {
           return (
             <div key={`${item.type}-${item.title}`} className="flex items-center gap-3 group">
               <span className="text-[11px] font-bold text-[var(--text-muted)] w-4 text-center flex-shrink-0 tabular-nums">{i + 1}</span>
-              <div className="w-9 h-12 rounded-lg overflow-hidden bg-zinc-800 flex-shrink-0 ring-1 ring-zinc-700/50">
+              <div className="w-12 h-16 rounded-lg overflow-hidden bg-zinc-800 flex-shrink-0 ring-1 ring-zinc-700/50">
                 {item.cover_image
                   ? <img src={item.cover_image} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   : <div className="w-full h-full flex items-center justify-center"><Icon size={15} className="text-[var(--text-muted)]" /></div>
@@ -119,7 +119,7 @@ function FooterLinks() {
 
 export function FeedSidebar({ currentUserId }: { currentUserId: string | null }) {
   return (
-    <aside className="py-4">
+    <aside className="py-4 max-h-[calc(100vh-5rem)] overflow-y-auto scrollbar-hide">
       <TrendingMini />
       {currentUserId && <SuggestedUsersCompact currentUserId={currentUserId} />}
       <FooterLinks />

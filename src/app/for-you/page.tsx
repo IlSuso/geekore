@@ -10,7 +10,7 @@ import {
   Sparkles, RefreshCw, SlidersHorizontal, Gamepad2, Tv, Film,
   Zap, Plus, Bookmark, X, Check, ChevronDown, ChevronUp, Users, Compass,
   ThumbsDown, Eye, Flame, Brain, Star, ArrowRight, Clapperboard, Swords,
-  TrendingUp, Search, BookmarkCheck, Sun, Trophy, Calendar,
+  TrendingUp, Search, BookmarkCheck, Trophy, Calendar,
   MessageCircleQuestion, Tag, MonitorPlay, AlertCircle, Layers, Shuffle
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -34,7 +34,6 @@ type FeedbackAction = 'not_interested' | 'already_seen' | 'added' | 'wishlist_ad
 type FeedbackReason = 'too_similar' | 'not_my_genre' | 'already_know' | 'bad_rec' | undefined;
 
 type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game'
-type Mood = 'light' | 'intense' | 'deep' | null
 
 interface FriendActivity {
   userId: string; username: string; displayName?: string; avatarUrl?: string
@@ -80,42 +79,6 @@ function ContinuityBadge({ from }: { from: string }) {
   )
 }
 
-const MOOD_OPTIONS: Array<{ value: NonNullable<Mood>; label: string; emoji: string }> = [
-  { value: 'light', label: 'Leggero', emoji: '😄' },
-  { value: 'intense', label: 'Intenso', emoji: '🔥' },
-  { value: 'deep', label: 'Profondo', emoji: '🧠' },
-]
-
-function MoodPill({ mood, onClick }: { mood: Mood; onClick: () => void }) {
-  const opt = MOOD_OPTIONS.find(m => m.value === mood)
-  return (
-    <button onClick={onClick}
-      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${mood ? 'bg-violet-600/20 border-violet-500/40 text-violet-300' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-600'}`}>
-      {opt ? <>{opt.emoji} {opt.label}</> : <><Sun size={13} /> Umore</>}
-    </button>
-  )
-}
-
-function MoodBottomSheet({ mood, onChange, onClose }: { mood: Mood; onChange: (m: Mood) => void; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60" />
-      <div className="relative w-full max-w-sm bg-zinc-900 border border-zinc-700 rounded-t-3xl p-5 pb-8" onClick={e => e.stopPropagation()}>
-        <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-4" />
-        <p className="text-sm font-semibold text-white mb-4">Come ti senti stasera?</p>
-        <div className="space-y-2">
-          {MOOD_OPTIONS.map(({ value, label, emoji }) => (
-            <button key={value} onClick={() => { onChange(mood === value ? null : value); onClose() }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm text-left transition-all ${mood === value ? 'bg-violet-600 text-white' : 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700'}`}>
-              <span className="text-lg">{emoji}</span>{label}
-            </button>
-          ))}
-        </div>
-        <button onClick={() => { onChange(null); onClose() }} className="w-full mt-3 text-xs text-zinc-600 hover:text-zinc-400 py-2">Nessun filtro</button>
-      </div>
-    </div>
-  )
-}
 
 interface Recommendation {
   id: string; title: string; type: MediaType; coverImage?: string; year?: number
@@ -886,26 +849,6 @@ const FriendsWatchingSection = memo(function FriendsWatchingSection({ items }: {
 })
 
 // Fix 2.15: quick presets per onboarding rapido
-function applyMood(recs: Record<string, Recommendation[]>, mood: Mood): Record<string, Recommendation[]> {
-  if (!mood) return recs
-  const BOOST: Record<NonNullable<Mood>, string[]> = {
-    light: ['Comedy', 'Slice of Life', 'Adventure', 'Romance', 'Animation'],
-    intense: ['Action', 'Thriller', 'Horror', 'Shooter', 'Crime'],
-    deep: ['Drama', 'Psychological', 'Mystery', 'Role-playing (RPG)', 'Science Fiction']
-  }
-  const boosted = new Set(BOOST[mood])
-  const result: Record<string, Recommendation[]> = {}
-  for (const [type, items] of Object.entries(recs)) {
-    result[type] = [...items].sort((a, b) => {
-      if (a.isContinuity && !b.isContinuity) return -1
-      if (!a.isContinuity && b.isContinuity) return 1
-      const ab = a.genres.some(g => boosted.has(g)) ? 20 : 0
-      const bb = b.genres.some(g => boosted.has(g)) ? 20 : 0
-      return (b.matchScore + bb) - (a.matchScore + ab)
-    })
-  }
-  return result
-}
 
 export default function ForYouPage() {
   const supabase = createClient(); const router = useRouter()
@@ -919,12 +862,10 @@ export default function ForYouPage() {
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
   const [showPrefs, setShowPrefs] = useState(false)
   const [isCached, setIsCached] = useState(false)
-  const [mood, setMood] = useState<Mood>(null)
   const [friendsActivity, setFriendsActivity] = useState<FriendActivity[]>([])
   const [friendsLoading, setFriendsLoading] = useState(true)
   const [addingIds, setAddingIds] = useState<Set<string>>(new Set())   // Fix 2.5: loading state add
   const [reasonPending, setReasonPending] = useState<Recommendation | null>(null)  // Fix 2.6: quick-reason
-  const [showMoodSheet, setShowMoodSheet] = useState(false)  // Fix 2.3: bottom sheet umore
   const [similarLoading, setSimilarLoading] = useState<string | null>(null)  // id del titolo in caricamento
   const [detailItem, setDetailItem] = useState<Recommendation | null>(null)  // titolo aperto nel detail modal
   const [similarSection, setSimilarSection] = useState<{ sourceTitle: string; sourceType: MediaType; items: Recommendation[] } | null>(null)
@@ -1212,7 +1153,7 @@ export default function ForYouPage() {
     }
   }, [sendFeedback])
 
-  const displayRecs = applyMood(recommendations, mood)
+  const displayRecs = recommendations
   const allRecs = Object.values(displayRecs).flat()
 
   // Fix 2.9: eleva nelle sezioni i titoli guardati da amici con sim ≥80%
@@ -1588,7 +1529,6 @@ export default function ForYouPage() {
             <p className="text-zinc-400 mt-2">{fy.subtitle}</p>
           </div>
           <div className="flex items-center gap-3">
-            <MoodPill mood={mood} onClick={() => setShowMoodSheet(true)} />
             {swipeItems.length > 0 && (
               <button onClick={handleOpenSwipeMode}
                 className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500 rounded-2xl text-sm font-semibold text-white transition-all shadow-lg shadow-violet-900/40">
@@ -1614,7 +1554,6 @@ export default function ForYouPage() {
         {/* Mobile: solo bottone preferenze in alto a destra */}
         <div className="flex md:hidden justify-between items-center mb-4">
           <div className="flex items-center gap-2">
-            <MoodPill mood={mood} onClick={() => setShowMoodSheet(true)} />
             {swipeItems.length > 0 && (
               <button onClick={handleOpenSwipeMode}
                 className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-fuchsia-600 to-violet-600 rounded-xl text-sm font-semibold text-white transition-all">
@@ -1744,10 +1683,6 @@ export default function ForYouPage() {
             showToast(t.discover.added)
           }}
         />
-      )}
-      {/* Fix 2.3: mood bottom sheet */}
-      {showMoodSheet && (
-        <MoodBottomSheet mood={mood} onChange={setMood} onClose={() => setShowMoodSheet(false)} />
       )}
       {/* Fix 2.6: quick-reason sheet */}
       {reasonPending && (
