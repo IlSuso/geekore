@@ -61,6 +61,9 @@ export async function GET(request: Request) {
     const beforeFilter = allNews.length
     const excluded: string[] = []
     allNews = allNews.filter(item => {
+      // Anime/TV in onda (RELEASING) passano sempre — hanno date storiche ma episodi correnti
+      if (item.status === 'RELEASING') return true
+
       const relevantDate = item.nextEpisodeDate || item.date
       if (!relevantDate) return true
       const d = new Date(relevantDate)

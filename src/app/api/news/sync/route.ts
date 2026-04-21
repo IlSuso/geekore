@@ -206,81 +206,173 @@ async function fetchTV(lang: string) {
   } catch { return [] }
 }
 
-async function fetchAnime(lang: string) {
-  const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
-  const region   = lang === 'en' ? 'US' : 'IT'
-  try {
-    // Strategia diversa dal cinema: TMDB non sa in anticipo le date dei prossimi episodi
-    // di anime in corso (next_episode_to_air esiste solo per l'ep immediatamente successivo).
-    // Usiamo 3 query:
-    // 1. "airing" — anime con episodi in onda questa settimana (endpoint dedicato)
-    // 2. "on_the_air" — anime con episodi nei prossimi 7gg (endpoint dedicato)
-    // 3. "upcoming" — anime con first_air_date nei prossimi 120gg (nuovi titoli annunciati)
-    const urlAiring    = `https://api.themoviedb.org/3/tv/airing_today?language=${tmdbLang}&with_original_language=ja&page=1`
-    const urlOnTheAir  = `https://api.themoviedb.org/3/tv/on_the_air?language=${tmdbLang}&with_original_language=ja&page=1`
-    const { from: pastFrom, to: today }    = dateRange(60, 0)
-    const { from: todayFrom, to: futureTo } = dateRange(0, 120)
-    const urlUpcoming  = `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&with_original_language=ja&with_genres=16&first_air_date.gte=${todayFrom}&first_air_date.lte=${futureTo}&include_null_first_air_dates=false&page=1`
-    const urlRecent    = `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&with_original_language=ja&with_genres=16&first_air_date.gte=${pastFrom}&first_air_date.lte=${today}&include_null_first_air_dates=false&page=1`
+async function fetchAnime(lang: string): Promise<any[]> {
+  const ANILIST_URL = 'https://graphql.anilist.co'
 
-    const [resAiring, resOnTheAir, resUpcoming, resRecent] = await Promise.all([
-      fetch(urlAiring,   { headers: tmdbHeaders(), cache: 'no-store' }),
-      fetch(urlOnTheAir, { headers: tmdbHeaders(), cache: 'no-store' }),
-      fetch(urlUpcoming, { headers: tmdbHeaders(), cache: 'no-store' }),
-      fetch(urlRecent,   { headers: tmdbHeaders(), cache: 'no-store' }),
-    ])
-    const [jsonAiring, jsonOnTheAir, jsonUpcoming, jsonRecent] = await Promise.all([
-      resAiring.ok    ? resAiring.json()   : { results: [] },
-      resOnTheAir.ok  ? resOnTheAir.json() : { results: [] },
-      resUpcoming.ok  ? resUpcoming.json() : { results: [] },
-      resRecent.ok    ? resRecent.json()   : { results: [] },
-    ])
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
 
-    // Filtro lingua giapponese sugli endpoint generici (airing/on_the_air non supportano with_original_language)
-    const isJpAnime = (m: any) => m.original_language === 'ja' && (m.genre_ids || []).includes(16)
-
-    const seen = new Set<number>()
-    const merged: any[] = []
-    const sources = [
-      ...(jsonAiring.results   || []).filter(isJpAnime).slice(0, 15),
-      ...(jsonOnTheAir.results || []).filter(isJpAnime).slice(0, 15),
-      ...(jsonUpcoming.results || []).slice(0, 10),
-      ...(jsonRecent.results   || []).slice(0, 10),
-    ]
-    for (const m of sources) {
-      if (!seen.has(m.id) && m.poster_path && m.overview) { seen.add(m.id); merged.push(m) }
+  const getSeason = (m: number): string => {
+    if (m >= 1 && m <= 3) return 'WINTER'
+    if (m >= 4 && m <= 6) return 'SPRING'
+    if (m >= 7 && m <= 9) return 'SUMMER'
+    return 'FALL'
+  }
+  const getNextSeason = (season: string, y: number): { season: string; year: number } => {
+    const map: Record<string, { season: string; offset: number }> = {
+      WINTER: { season: 'SPRING', offset: 0 },
+      SPRING: { season: 'SUMMER', offset: 0 },
+      SUMMER: { season: 'FALL', offset: 0 },
+      FALL:   { season: 'WINTER', offset: 1 },
     }
-    const details = await Promise.all(
-      merged.map((s: any) => tmdbDetail(`/tv/${s.id}?language=${tmdbLang}&append_to_response=aggregate_credits,watch%2Fproviders,keywords`))
-    )
-    return merged.map((m: any, i: number) => {
-      const d             = details[i]
-      const studios       = (d?.networks || []).slice(0, 2).map((n: any) => n.name).filter(Boolean)
-      const cast          = (d?.aggregate_credits?.cast || []).slice(0, 5).map((a: any) => a.name).filter(Boolean)
-      const providers     = (d?.['watch/providers']?.results?.[region]?.flatrate || []).map((p: any) => p.provider_name).filter(Boolean)
-      const keywords      = (d?.keywords?.results || []).slice(0, 6).map((k: any) => k.name).filter(Boolean)
-      const nextEpisodeDate = d?.next_episode_to_air?.air_date || null
+    const next = map[season]
+    return { season: next.season, year: y + next.offset }
+  }
+
+  const currentSeason = getSeason(month)
+  const { season: nextSeason, year: nextYear } = getNextSeason(currentSeason, year)
+
+  const toFuzzy = (d: Date) =>
+    d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate()
+  const twoMonthsAgo = new Date(now)
+  twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
+  const minus60Int = toFuzzy(twoMonthsAgo)
+
+  const mediaFields = `
+    id siteUrl
+    title { romaji english }
+    coverImage { extraLarge large }
+    startDate { year month day }
+    nextAiringEpisode { airingAt episode }
+    description(asHtml: false)
+    genres averageScore episodes status
+    studios(isMain: true) { nodes { name } }
+    staff(sort: [RELEVANCE], page: 1, perPage: 3) { nodes { name { full } } }
+  `
+
+  // 4 query parallele:
+  // 1. releasing     — anime IN ONDA ora, ordinati per trending
+  // 2. currentSeason — tutti gli anime della stagione corrente per popolarità
+  // 3. nextSeason    — anime della prossima stagione (upcoming)
+  // 4. recentlyStarted — iniziati negli ultimi 2 mesi ancora in onda
+  const query = `query {
+    releasing: Page(page: 1, perPage: 25) {
+      media(type: ANIME, status: RELEASING, sort: [TRENDING_DESC], isAdult: false, format_not_in: [MUSIC]) {
+        ${mediaFields}
+      }
+    }
+    currentSeason: Page(page: 1, perPage: 20) {
+      media(type: ANIME, season: ${currentSeason}, seasonYear: ${year}, sort: [POPULARITY_DESC], isAdult: false, format_not_in: [MUSIC]) {
+        ${mediaFields}
+      }
+    }
+    nextSeason: Page(page: 1, perPage: 15) {
+      media(type: ANIME, season: ${nextSeason}, seasonYear: ${nextYear}, sort: [POPULARITY_DESC], isAdult: false, format_not_in: [MUSIC]) {
+        ${mediaFields}
+      }
+    }
+    recentlyStarted: Page(page: 1, perPage: 15) {
+      media(type: ANIME, status: RELEASING, sort: [START_DATE_DESC], isAdult: false, format_not_in: [MUSIC], startDate_greater: ${minus60Int}) {
+        ${mediaFields}
+      }
+    }
+  }`
+
+  try {
+    const res = await fetch(ANILIST_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+      signal: AbortSignal.timeout(12_000),
+    })
+    if (!res.ok) {
+      logger.error(`[fetchAnime] AniList HTTP ${res.status}`)
+      return []
+    }
+    const json = await res.json()
+    if (json.errors) {
+      logger.error('[fetchAnime] AniList errors:', JSON.stringify(json.errors))
+      return []
+    }
+
+    const releasing:        any[] = json.data?.releasing?.media        || []
+    const currentSeasonArr: any[] = json.data?.currentSeason?.media    || []
+    const nextSeasonArr:    any[] = json.data?.nextSeason?.media       || []
+    const recentlyStarted:  any[] = json.data?.recentlyStarted?.media  || []
+
+    logger.info(`[fetchAnime] AniList raw: releasing=${releasing.length} current=${currentSeasonArr.length} next=${nextSeasonArr.length} recent=${recentlyStarted.length}`)
+
+    const isRealCover = (url?: string) => !!url && !url.includes('default')
+    const seen = new Set<number>()
+    const all: any[] = []
+
+    // Priorità: in onda ora → stagione corrente → recenti → prossima stagione
+    for (const m of [...releasing, ...currentSeasonArr, ...recentlyStarted, ...nextSeasonArr]) {
+      const img = m.coverImage?.extraLarge || m.coverImage?.large
+      if (!seen.has(m.id) && isRealCover(img) && m.title) {
+        seen.add(m.id)
+        all.push(m)
+      }
+      if (all.length >= 30) break
+    }
+
+    const mapped = all.map((m: any) => {
+      const sd = m.startDate
+      const date = sd?.year
+        ? `${sd.year}-${String(sd.month || 1).padStart(2, '0')}-${String(sd.day || 1).padStart(2, '0')}`
+        : null
+
+      let nextEpisodeDate: string | undefined
+      if (m.nextAiringEpisode?.airingAt) {
+        nextEpisodeDate = new Date(m.nextAiringEpisode.airingAt * 1000)
+          .toISOString()
+          .split('T')[0]
+      }
+
+      const studios = (m.studios?.nodes || []).map((s: any) => s.name).filter(Boolean)
+      const cast    = (m.staff?.nodes  || []).map((s: any) => s.name?.full).filter(Boolean)
+
       return {
-        id: `tmdb-anime-${m.id}`, type: 'anime', source_api: 'tmdb' as const,
-        title: m.name,
-        description: m.overview ? truncateAtSentence(m.overview, 500) : undefined,
-        coverImage: tmdbImageUrl(m.poster_path),
-        date: m.first_air_date,
-        year: m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined,
-        genres: (m.genre_ids || []).map((id: number) => TMDB_TV_GENRES[id]).filter(Boolean),
-        score: m.vote_average > 0 ? Math.round(m.vote_average * 5) / 10 : undefined,
-        episodes: d?.number_of_episodes || undefined,
+        id: `anilist-anime-${m.id}`,
+        type: 'anime',
+        source_api: 'anilist' as const,
+        title: m.title?.english || m.title?.romaji || 'Senza titolo',
+        description: m.description
+          ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 500)
+          : null,
+        coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
+        date,
+        year: sd?.year || undefined,
+        genres: m.genres || [],
+        score: m.averageScore ? Math.round(m.averageScore / 20) / 10 : undefined,
+        episodes: m.episodes || undefined,
         studios: studios.length ? studios : undefined,
         cast: cast.length ? cast : undefined,
-        totalSeasons: d?.number_of_seasons || undefined,
-        watchProviders: providers.length ? providers : undefined,
-        themes: keywords.length ? keywords : undefined,
-        nextEpisodeDate: nextEpisodeDate || undefined,
-        category: 'anime' as const, source: 'TMDb',
-        url: `https://www.themoviedb.org/tv/${m.id}`,
+        nextEpisodeDate,
+        status: m.status,
+        category: 'anime' as const,
+        source: 'AniList',
+        url: m.siteUrl || `https://anilist.co/anime/${m.id}`,
       }
     })
-  } catch { return [] }
+
+    logger.info(`[fetchAnime] AniList mapped: ${mapped.length} anime`)
+    logger.info(`[fetchAnime] sample: ${JSON.stringify(mapped.slice(0, 5).map(m => m.title + ' (' + (m.nextEpisodeDate || m.date) + ') status=' + m.status))}`)
+
+    if (lang === 'it') {
+      const descriptions = mapped.map(m => m.description ?? '')
+      const translated = await translateTexts(descriptions)
+      mapped.forEach((m, i) => {
+        if (m.description) m.description = translated[i] || m.description
+      })
+    }
+
+    return mapped
+  } catch (err) {
+    logger.error('[fetchAnime] error:', err)
+    return []
+  }
 }
 
 async function fetchGaming(lang: string) {
