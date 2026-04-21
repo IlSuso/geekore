@@ -1872,10 +1872,8 @@ export default function FeedPage() {
           </div>
 
           {/* ── Sidebar desktop ─────────────────────────────────────── */}
-          <div className="hidden lg:block w-80 flex-shrink-0 self-start">
-            <div className="sticky top-16 h-[calc(100vh-4rem)]">
+          <div className="hidden lg:block w-80 flex-shrink-0">
               <FeedSidebar currentUserId={currentUser?.id ?? null} />
-            </div>
           </div>
 
         </div>
