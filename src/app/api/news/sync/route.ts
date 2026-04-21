@@ -61,7 +61,7 @@ const TMDB_TV_GENRES: Record<number, string> = {
 async function fetchCinema(lang: string) {
   const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
   const region   = lang === 'en' ? 'US' : 'IT'
-  const { from, to } = dateRange(60, 60)
+  const { from, to } = dateRange(60, 120)
   try {
     const res = await fetch(
       `https://api.themoviedb.org/3/discover/movie?language=${tmdbLang}&region=${region}&sort_by=popularity.desc&primary_release_date.gte=${from}&primary_release_date.lte=${to}`,
@@ -106,7 +106,7 @@ async function fetchCinema(lang: string) {
 async function fetchTV(lang: string) {
   const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
   const region   = lang === 'en' ? 'US' : 'IT'
-  const { from, to } = dateRange(60, 60)
+  const { from, to } = dateRange(60, 120)
   try {
     const res = await fetch(
       `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&air_date.gte=${from}&air_date.lte=${to}&include_null_first_air_dates=false`,
@@ -159,7 +159,7 @@ async function fetchTV(lang: string) {
 async function fetchAnime(lang: string) {
   const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
   const region   = lang === 'en' ? 'US' : 'IT'
-  const { from, to } = dateRange(60, 60)
+  const { from, to } = dateRange(60, 120)
   try {
     const res = await fetch(
       `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&with_original_language=ja&with_genres=16&air_date.gte=${from}&air_date.lte=${to}&include_null_first_air_dates=false`,
