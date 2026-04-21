@@ -68,8 +68,10 @@ async function fetchCinema(lang: string) {
   logger.info(`[fetchCinema] PAST  range: ${pastFrom} -> ${today}`)
   logger.info(`[fetchCinema] FUTURE range: ${todayFrom} -> ${futureTo}`)
 
-  const urlPast   = `https://api.themoviedb.org/3/discover/movie?language=${tmdbLang}&region=${region}&sort_by=popularity.desc&primary_release_date.gte=${pastFrom}&primary_release_date.lte=${today}`
-  const urlFuture = `https://api.themoviedb.org/3/discover/movie?language=${tmdbLang}&region=${region}&sort_by=primary_release_date.asc&primary_release_date.gte=${todayFrom}&primary_release_date.lte=${futureTo}`
+  const urlPast   = `https://api.themoviedb.org/3/discover/movie?language=${tmdbLang}&region=${region}&sort_by=popularity.desc&primary_release_date.gte=${pastFrom}&primary_release_date.lte=${today}&page=1`
+  // urlFuture: NO region — molti film futuri non hanno ancora la data IT confermata su TMDB,
+  // quindi senza region prendiamo la release date globale/USA che è sempre presente.
+  const urlFuture = `https://api.themoviedb.org/3/discover/movie?language=${tmdbLang}&sort_by=popularity.desc&primary_release_date.gte=${todayFrom}&primary_release_date.lte=${futureTo}&page=1`
 
   logger.info(`[fetchCinema] URL_PAST:   ${urlPast}`)
   logger.info(`[fetchCinema] URL_FUTURE: ${urlFuture}`)
@@ -96,7 +98,7 @@ async function fetchCinema(lang: string) {
 
     const seen = new Set<number>()
     const merged: any[] = []
-    for (const m of [...(jsonPast.results || []).slice(0, 10), ...(jsonFuture.results || []).slice(0, 10)]) {
+    for (const m of [...(jsonPast.results || []).slice(0, 15), ...(jsonFuture.results || []).slice(0, 15)]) {
       if (!seen.has(m.id) && m.poster_path && m.overview) { seen.add(m.id); merged.push(m) }
     }
 
