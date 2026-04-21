@@ -61,17 +61,18 @@ const TMDB_TV_GENRES: Record<number, string> = {
 async function fetchCinema(lang: string) {
   const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
   const region   = lang === 'en' ? 'US' : 'IT'
-  const { from: pastFrom, to: pastTo } = dateRange(60, 0)   // ultimi 60 giorni
-  const { from: futureFrom, to: futureTo } = dateRange(0, 60) // prossimi 60 giorni
+  const { from: pastFrom } = dateRange(60, 0)
+  const { to: futureTo }   = dateRange(0, 60)
   try {
-    // Due query parallele: film recenti (ordinati per popolarità) + film in uscita (upcoming)
+    // Query 1: film recenti usciti (ultimi 60gg), ordinati per popolarità
+    // Query 2: film in arrivo nei prossimi 60gg via endpoint /upcoming (fatto apposta per film futuri)
     const [recentRes, upcomingRes] = await Promise.all([
       fetch(
-        `https://api.themoviedb.org/3/discover/movie?language=${tmdbLang}&region=${region}&sort_by=popularity.desc&primary_release_date.gte=${pastFrom}&primary_release_date.lte=${pastTo}`,
+        `https://api.themoviedb.org/3/discover/movie?language=${tmdbLang}&region=${region}&sort_by=popularity.desc&primary_release_date.gte=${pastFrom}&primary_release_date.lte=${new Date().toISOString().split('T')[0]}`,
         { headers: tmdbHeaders(), cache: 'no-store' }
       ),
       fetch(
-        `https://api.themoviedb.org/3/discover/movie?language=${tmdbLang}&region=${region}&sort_by=primary_release_date.asc&primary_release_date.gte=${futureFrom}&primary_release_date.lte=${futureTo}&with_release_type=2|3`,
+        `https://api.themoviedb.org/3/movie/upcoming?language=${tmdbLang}&region=${region}&page=1`,
         { headers: tmdbHeaders(), cache: 'no-store' }
       ),
     ])
@@ -79,11 +80,19 @@ async function fetchCinema(lang: string) {
     const recentJson   = recentRes.ok   ? await recentRes.json()   : { results: [] }
     const upcomingJson = upcomingRes.ok ? await upcomingRes.json() : { results: [] }
 
-    // Deduplicazione per id
+    // Filtra upcoming solo nella finestra futureTo
+    const upcomingFiltered = (upcomingJson.results || []).filter((m: any) =>
+      m.release_date && m.release_date <= futureTo
+    )
+
+    // Deduplicazione per id, recenti prima poi upcoming
     const seen = new Set<number>()
     const allMovies: any[] = []
-    for (const m of [...(recentJson.results || []), ...(upcomingJson.results || [])]) {
-      if (!seen.has(m.id) && m.poster_path && m.overview) { seen.add(m.id); allMovies.push(m) }
+    for (const m of [...(recentJson.results || []), ...upcomingFiltered]) {
+      if (!seen.has(m.id) && m.poster_path && m.overview) {
+        seen.add(m.id)
+        allMovies.push(m)
+      }
     }
     const movies = allMovies.slice(0, 20)
 
@@ -125,17 +134,36 @@ async function fetchTV(lang: string) {
   const region   = lang === 'en' ? 'US' : 'IT'
   const { from, to } = dateRange(60, 60)
   try {
-    const res = await fetch(
-      `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&air_date.gte=${from}&air_date.lte=${to}&include_null_first_air_dates=false`,
-      { headers: tmdbHeaders(), cache: 'no-store' }
-    )
-    if (!res.ok) return []
-    const json = await res.json()
-    const shows = (json.results || []).slice(0, 15).filter((m: any) => m.poster_path && m.overview)
+    // Query 1: discover con finestra ±60gg per popolarità
+    // Query 2: on_the_air = serie con episodi in onda nelle prossime 4 settimane (endpoint dedicato TMDB)
+    const [discoverRes, onAirRes] = await Promise.all([
+      fetch(
+        `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&air_date.gte=${from}&air_date.lte=${to}&include_null_first_air_dates=false`,
+        { headers: tmdbHeaders(), cache: 'no-store' }
+      ),
+      fetch(
+        `https://api.themoviedb.org/3/tv/on_the_air?language=${tmdbLang}&page=1`,
+        { headers: tmdbHeaders(), cache: 'no-store' }
+      ),
+    ])
+
+    const discoverJson = discoverRes.ok ? await discoverRes.json() : { results: [] }
+    const onAirJson    = onAirRes.ok    ? await onAirRes.json()    : { results: [] }
+
+    const seen = new Set<number>()
+    const allShows: any[] = []
+    for (const m of [...(discoverJson.results || []), ...(onAirJson.results || [])]) {
+      if (!seen.has(m.id) && m.poster_path && m.overview) { seen.add(m.id); allShows.push(m) }
+    }
+    const shows = allShows.slice(0, 20)
+
     const details = await Promise.all(
       shows.map((s: any) => tmdbDetail(`/tv/${s.id}?language=${tmdbLang}&append_to_response=aggregate_credits,watch%2Fproviders,keywords`))
     )
-    return shows.map((m: any, i: number) => {
+
+    const twoYearsAgo = new Date(); twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2)
+
+    const mapped = shows.map((m: any, i: number) => {
       const d        = details[i]
       const networks = (d?.networks || []).slice(0, 2).map((n: any) => n.name).filter(Boolean)
       const creators = (d?.created_by || []).slice(0, 2).map((c: any) => c.name).filter(Boolean)
@@ -168,8 +196,15 @@ async function fetchTV(lang: string) {
         nextEpisodeDate: nextEpisodeDate || undefined,
         category: 'tv', source: 'TMDb',
         url: `https://www.themoviedb.org/tv/${m.id}`,
+        _firstAirDate: m.first_air_date,
+        _nextEpisodeDate: nextEpisodeDate,
       }
     })
+    // Tieni solo serie con nextEpisodeDate OPPURE iniziate da meno di 2 anni
+    return mapped
+      .filter(s => s._nextEpisodeDate || (s._firstAirDate && new Date(s._firstAirDate) >= twoYearsAgo))
+      .map(({ _firstAirDate, _nextEpisodeDate, ...rest }) => rest)
+      .slice(0, 15)
   } catch { return [] }
 }
 
@@ -178,17 +213,41 @@ async function fetchAnime(lang: string) {
   const region   = lang === 'en' ? 'US' : 'IT'
   const { from, to } = dateRange(60, 60)
   try {
-    const res = await fetch(
-      `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&with_original_language=ja&with_genres=16&air_date.gte=${from}&air_date.lte=${to}&include_null_first_air_dates=false`,
-      { headers: tmdbHeaders(), cache: 'no-store' }
+    // Query 1: discover anime finestra ±60gg
+    // Query 2: on_the_air filtrato per anime giapponesi (lingua ja + genere 16 animation)
+    const [discoverRes, onAirRes] = await Promise.all([
+      fetch(
+        `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&with_original_language=ja&with_genres=16&air_date.gte=${from}&air_date.lte=${to}&include_null_first_air_dates=false`,
+        { headers: tmdbHeaders(), cache: 'no-store' }
+      ),
+      fetch(
+        `https://api.themoviedb.org/3/tv/on_the_air?language=${tmdbLang}&page=1`,
+        { headers: tmdbHeaders(), cache: 'no-store' }
+      ),
+    ])
+
+    const discoverJson = discoverRes.ok ? await discoverRes.json() : { results: [] }
+    const onAirJson    = onAirRes.ok    ? await onAirRes.json()    : { results: [] }
+
+    // Filtra on_the_air solo per anime giapponesi animazione
+    const onAirAnime = (onAirJson.results || []).filter((m: any) =>
+      m.original_language === 'ja' && (m.genre_ids || []).includes(16)
     )
-    if (!res.ok) return []
-    const json = await res.json()
-    const shows = (json.results || []).slice(0, 20).filter((m: any) => m.poster_path && m.overview)
+
+    const seen = new Set<number>()
+    const allShows: any[] = []
+    for (const m of [...(discoverJson.results || []), ...onAirAnime]) {
+      if (!seen.has(m.id) && m.poster_path && m.overview) { seen.add(m.id); allShows.push(m) }
+    }
+    const shows = allShows.slice(0, 25)
+
     const details = await Promise.all(
       shows.map((s: any) => tmdbDetail(`/tv/${s.id}?language=${tmdbLang}&append_to_response=aggregate_credits,watch%2Fproviders,keywords`))
     )
-    return shows.map((m: any, i: number) => {
+
+    const twoYearsAgo = new Date(); twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2)
+
+    const mapped = shows.map((m: any, i: number) => {
       const d             = details[i]
       const studios       = (d?.networks || []).slice(0, 2).map((n: any) => n.name).filter(Boolean)
       const cast          = (d?.aggregate_credits?.cast || []).slice(0, 5).map((a: any) => a.name).filter(Boolean)
@@ -213,8 +272,15 @@ async function fetchAnime(lang: string) {
         nextEpisodeDate: nextEpisodeDate || undefined,
         category: 'anime' as const, source: 'TMDb',
         url: `https://www.themoviedb.org/tv/${m.id}`,
+        _firstAirDate: m.first_air_date,
+        _nextEpisodeDate: nextEpisodeDate,
       }
     })
+    // Tieni solo anime con nextEpisodeDate OPPURE iniziati da meno di 2 anni
+    return mapped
+      .filter(s => s._nextEpisodeDate || (s._firstAirDate && new Date(s._firstAirDate) >= twoYearsAgo))
+      .map(({ _firstAirDate, _nextEpisodeDate, ...rest }) => rest)
+      .slice(0, 20)
   } catch { return [] }
 }
 
