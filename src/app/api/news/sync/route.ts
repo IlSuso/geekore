@@ -487,9 +487,7 @@ async function fetchManga(lang: string): Promise<any[]> {
     d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate()
 
   const twoMonthsAgo = new Date(now); twoMonthsAgo.setMonth(now.getMonth() - 2)
-  const fourMonthsFwd = new Date(now); fourMonthsFwd.setMonth(now.getMonth() + 4)
   const minus60Int  = toFuzzy(twoMonthsAgo)
-  const plus120Int  = toFuzzy(fourMonthsFwd)
 
   const mediaFields = `
     id siteUrl format status
@@ -502,19 +500,27 @@ async function fetchManga(lang: string): Promise<any[]> {
     studios(isMain: true) { nodes { name } }
   `
 
-  // 4 query parallele (stesso approccio degli anime):
-  // 1. releasing    — manga in corso, ordinati per trending (più rilevanti ora)
-  // 2. upcoming     — manga NON ancora usciti nei prossimi 4 mesi
-  // 3. recentStart  — manga iniziati negli ultimi 2 mesi, ordinati per data
-  // 4. popularRecent— manga in corso iniziati negli ultimi 2 mesi, per popolarità
+  // 5 query parallele:
+  // 1. releasing        — manga in corso, ordinati per trending (più rilevanti ora)
+  // 2. upcomingPopular  — manga NON ancora usciti, per popolarità (senza filtro data:
+  //                       AniList raramente compila startDate per manga futuri, quindi
+  //                       filtrare per data esclude quasi tutto — meglio popularity puro)
+  // 3. upcomingTrending — manga NOT_YET_RELEASED che stanno guadagnando hype (trending)
+  // 4. recentStart      — manga iniziati negli ultimi 2 mesi, ordinati per data
+  // 5. popularRecent    — manga in corso iniziati negli ultimi 2 mesi, per popolarità
   const query = `query {
     releasing: Page(page: 1, perPage: 25) {
       media(type: MANGA, status: RELEASING, sort: [TRENDING_DESC], isAdult: false, format_not_in: [NOVEL]) {
         ${mediaFields}
       }
     }
-    upcoming: Page(page: 1, perPage: 15) {
-      media(type: MANGA, status: NOT_YET_RELEASED, sort: [START_DATE], isAdult: false, format_not_in: [NOVEL], startDate_lesser: ${plus120Int}) {
+    upcomingPopular: Page(page: 1, perPage: 15) {
+      media(type: MANGA, status: NOT_YET_RELEASED, sort: [POPULARITY_DESC], isAdult: false, format_not_in: [NOVEL]) {
+        ${mediaFields}
+      }
+    }
+    upcomingTrending: Page(page: 1, perPage: 15) {
+      media(type: MANGA, status: NOT_YET_RELEASED, sort: [TRENDING_DESC], isAdult: false, format_not_in: [NOVEL]) {
         ${mediaFields}
       }
     }
@@ -547,19 +553,23 @@ async function fetchManga(lang: string): Promise<any[]> {
       return []
     }
 
-    const releasing:     any[] = json.data?.releasing?.media     || []
-    const upcoming:      any[] = (json.data?.upcoming?.media     || []).filter((m: any) => m.startDate?.year)
-    const recentStart:   any[] = json.data?.recentStart?.media   || []
-    const popularRecent: any[] = json.data?.popularRecent?.media || []
+    const releasing:        any[] = json.data?.releasing?.media        || []
+    // Non filtrare per startDate?.year: la maggior parte dei manga futuri su AniList
+    // non ha ancora la data di uscita impostata — escluderli vanificherebbe il bucket
+    const upcomingPopular:  any[] = json.data?.upcomingPopular?.media  || []
+    const upcomingTrending: any[] = json.data?.upcomingTrending?.media || []
+    const recentStart:      any[] = json.data?.recentStart?.media      || []
+    const popularRecent:    any[] = json.data?.popularRecent?.media    || []
 
-    logger.info(`[fetchManga] AniList raw: releasing=${releasing.length} upcoming=${upcoming.length} recentStart=${recentStart.length} popularRecent=${popularRecent.length}`)
+    logger.info(`[fetchManga] AniList raw: releasing=${releasing.length} upcomingPopular=${upcomingPopular.length} upcomingTrending=${upcomingTrending.length} recentStart=${recentStart.length} popularRecent=${popularRecent.length}`)
 
     const isRealCover = (url?: string) => !!url && !url.includes('default')
     const seen = new Set<number>()
     const all: any[] = []
 
-    // Priorità: in corso trending → upcoming (futuri) → recenti per data → recenti per popolarità
-    for (const m of [...releasing, ...upcoming, ...recentStart, ...popularRecent]) {
+    // Priorità: in corso trending → upcoming per popolarità → upcoming per hype/trending
+    //           → recenti per data → recenti per popolarità
+    for (const m of [...releasing, ...upcomingPopular, ...upcomingTrending, ...recentStart, ...popularRecent]) {
       const img = m.coverImage?.extraLarge || m.coverImage?.large
       if (!seen.has(m.id) && isRealCover(img) && m.title) {
         seen.add(m.id)
