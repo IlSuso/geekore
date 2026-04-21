@@ -33,6 +33,13 @@ function isAuthOnly(pathname: string): boolean {
   return AUTH_ONLY_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))
 }
 
+function noCacheResponse(res: NextResponse): NextResponse {
+  res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+  res.headers.set('Pragma', 'no-cache')
+  res.headers.set('Expires', '0')
+  return res
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -58,8 +65,6 @@ export async function middleware(request: NextRequest) {
   const isLoggedIn = !!user
   const cookieDone = request.cookies.get('geekore_onboarding_done')?.value === '1'
 
-  console.log(`[MW] ${pathname} | loggedIn=${isLoggedIn} | user=${user?.id ?? 'none'} | cookieDone=${cookieDone}`)
-
   // 2. Non autenticato su route protetta → /login
   if (!isLoggedIn && isProtected(pathname)) {
     const loginUrl = new URL('/login', request.url)
@@ -82,10 +87,8 @@ export async function middleware(request: NextRequest) {
 
     // 5a. Cookie presente → onboarding già fatto
     if (cookieDone) {
-      console.log('[MW] 5a: cookie presente → onboarding fatto')
       // Blocca accesso a /onboarding
       if (pathname === '/onboarding') {
-        console.log('[MW] 5a: redirect /feed (onboarding già fatto)')
         return NextResponse.redirect(new URL('/feed', request.url))
       }
       // Lascia passare tutto il resto
@@ -93,7 +96,6 @@ export async function middleware(request: NextRequest) {
     }
 
     // 5b. Cookie assente → query DB
-    console.log(`[MW] 5b: cookie assente, query DB per user=${user!.id}`)
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -101,15 +103,11 @@ export async function middleware(request: NextRequest) {
         .eq('id', user!.id)
         .single()
 
-      console.log(`[MW] 5b: DB → onboarding_done=${profile?.onboarding_done} error=${error?.message ?? 'null'}`)
-
       const onboardingDone = profile?.onboarding_done === true
 
       if (onboardingDone) {
         // Onboarding completato — imposta cookie e gestisci routing
-        console.log('[MW] 5b: onboarding completato')
         if (pathname === '/onboarding') {
-          console.log('[MW] 5b: redirect /feed + set cookie')
           const res = NextResponse.redirect(new URL('/feed', request.url))
           res.cookies.set('geekore_onboarding_done', '1', {
             path: '/', maxAge: 60 * 60 * 24 * 365,
@@ -118,7 +116,7 @@ export async function middleware(request: NextRequest) {
           return res
         }
         // Qualsiasi altra pagina: lascia passare e imposta cookie
-        const res = NextResponse.next()
+        const res = noCacheResponse(NextResponse.next())
         res.cookies.set('geekore_onboarding_done', '1', {
           path: '/', maxAge: 60 * 60 * 24 * 365,
           sameSite: 'lax', secure: process.env.NODE_ENV === 'production', httpOnly: false,
@@ -127,14 +125,11 @@ export async function middleware(request: NextRequest) {
       } else {
         // Onboarding NON completato
         if (matchesAny(pathname, ONBOARDING_EXEMPT)) {
-          console.log('[MW] 5b: onboarding non fatto ma path esente, lascio passare')
           return NextResponse.next()
         }
-        console.log('[MW] 5b: redirect /onboarding')
         return NextResponse.redirect(new URL('/onboarding', request.url))
       }
     } catch (err) {
-      console.error('[MW] 5b: errore DB:', err)
       // Errore DB → se non è una path esente, blocca per sicurezza
       if (!matchesAny(pathname, ONBOARDING_EXEMPT)) {
         return NextResponse.redirect(new URL('/onboarding', request.url))
@@ -143,7 +138,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  return NextResponse.next()
+  return noCacheResponse(NextResponse.next())
 }
 
 export const config = {
