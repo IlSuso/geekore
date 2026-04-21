@@ -1,17 +1,22 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { Download, X, Zap } from 'lucide-react'
+
+const SKIP_PATHS = ['/login', '/register', '/forgot-password', '/onboarding', '/auth']
 
 const DISMISSED_KEY = 'pwa-install-dismissed-v1'
 const VISIT_COUNT_KEY = 'geekore-visit-count'
 const PWA_HANDLED_KEY = 'pwa-handled' // installata o dismissata
 
 export function PWAInstallBanner() {
+  const pathname = usePathname()
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [show, setShow] = useState(false)
   const [installing, setInstalling] = useState(false)
 
   useEffect(() => {
+    if (SKIP_PATHS.some(p => pathname.startsWith(p))) return
     if (window.matchMedia('(display-mode: standalone)').matches) return
     if ((window.navigator as any).standalone === true) return
 
@@ -30,9 +35,9 @@ export function PWAInstallBanner() {
       e.preventDefault()
       setDeferredPrompt(e)
 
-      // Prima visita: aspetta 60s. Dalla seconda: aspetta 10s
-      const delay = visits === 1 ? 60_000 : 10_000
-      setTimeout(() => setShow(true), delay)
+      // Prima visita: aspetta 5s. Dalla seconda: aspetta 3s
+      const delay = visits === 1 ? 5_000 : 3_000
+      setTimeout(() => { setShow(true); localStorage.setItem('pwa-showing', '1') }, delay)
     }
 
     window.addEventListener('beforeinstallprompt', handler)
@@ -47,6 +52,7 @@ export function PWAInstallBanner() {
       const { outcome } = await deferredPrompt.userChoice
       if (outcome === 'accepted') {
         localStorage.setItem(PWA_HANDLED_KEY, '1')
+        localStorage.removeItem('pwa-showing')
         setShow(false)
         setDeferredPrompt(null)
       }
@@ -57,6 +63,7 @@ export function PWAInstallBanner() {
 
   const handleDismiss = () => {
     setShow(false)
+    localStorage.removeItem('pwa-showing')
     localStorage.setItem(DISMISSED_KEY, Date.now().toString())
     localStorage.setItem(PWA_HANDLED_KEY, '1')
   }

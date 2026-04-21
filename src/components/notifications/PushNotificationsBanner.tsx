@@ -1,7 +1,10 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import { Bell, X } from 'lucide-react'
 import { showToast } from '@/components/ui/Toast'
+
+const SKIP_PATHS = ['/login', '/register', '/forgot-password', '/onboarding', '/auth']
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
 const DISMISSED_KEY = 'push-banner-dismissed-v1'
@@ -15,10 +18,12 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 }
 
 export function PushNotificationsBanner() {
+  const pathname = usePathname()
   const [show, setShow] = useState(false)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
+    if (SKIP_PATHS.some(p => pathname.startsWith(p))) return
     if (typeof window === 'undefined') return
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
     if (!VAPID_PUBLIC_KEY) return
@@ -29,13 +34,14 @@ export function PushNotificationsBanner() {
     // e solo dopo 30 secondi per non sovrapporsi
     const checkAndShow = () => {
       const pwaHandled = localStorage.getItem(PWA_HANDLED_KEY)
-      if (!pwaHandled) {
-        // PWA non ancora gestita — riprova tra 5 secondi
+      const pwaShowing = localStorage.getItem('pwa-showing')
+      if (!pwaHandled || pwaShowing) {
+        // PWA non ancora gestita o ancora visibile — riprova tra 5 secondi
         setTimeout(checkAndShow, 5000)
         return
       }
-      // PWA gestita → aspetta 30s poi mostra notifiche
-      setTimeout(() => setShow(true), 30_000)
+      // PWA gestita e non più visibile → aspetta 10s poi mostra notifiche
+      setTimeout(() => setShow(true), 10_000)
     }
 
     // Inizia il check dopo 15 secondi dal mount
