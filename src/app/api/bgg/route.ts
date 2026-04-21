@@ -1,9 +1,10 @@
 // src/app/api/bgg/route.ts
 // BoardGameGeek XML API v2
 // Richiede Authorization: Bearer <token> per tutte le richieste.
-// Flow: search (lista ID) → thing (dettagli per batch di 50 ID, max 150 totali)
+// Flow: search (lista ID) → thing (dettagli per batch da 20, max 60 totali)
 
 import { NextRequest, NextResponse } from 'next/server'
+import { truncateAtSentence } from '@/lib/utils'
 
 const BGG_BASE = 'https://boardgamegeek.com/xmlapi2'
 
@@ -129,7 +130,7 @@ async function fetchBGGBatch(ids: string[]): Promise<BGGItem[]> {
       .replace(/&#\d+;/g, '')
       .replace(/<[^>]+>/g, '')
       .trim()
-      .slice(0, 500) || undefined
+    const trimmedDesc = description ? truncateAtSentence(description, 400) || undefined : undefined
 
     // Categorie → generi, meccaniche, designer
     const genres = extractLinks(chunk, 'boardgamecategory')
@@ -158,7 +159,7 @@ async function fetchBGGBatch(ids: string[]): Promise<BGGItem[]> {
       source: 'bgg',
       coverImage: cover,
       year: isNaN(year!) ? undefined : year,
-      description,
+      description: trimmedDesc,
       genres: genres.length > 0 ? genres : undefined,
       mechanics: mechanics.length > 0 ? mechanics : undefined,
       designers: designers.length > 0 ? designers : undefined,
@@ -205,9 +206,10 @@ export async function GET(req: NextRequest) {
 
     const items = await fetchBGGDetails(ids)
 
-    // Filtra: tieni solo i giochi il cui titolo inizia con la query (case-insensitive)
-    const qLower = q.toLowerCase()
-    const filtered = items.filter(item => item.title.toLowerCase().startsWith(qLower))
+    // Normalizza: lowercase + rimuovi punteggiatura per confronto titolo
+    const normalize = (s: string) => s.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim()
+    const qNorm = normalize(q)
+    const filtered = items.filter(item => normalize(item.title).startsWith(qNorm))
 
     // Ordina: con cover prima, poi per score BGG decrescente
     const sorted = [...filtered].sort((a, b) => {
