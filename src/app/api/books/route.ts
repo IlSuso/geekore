@@ -98,7 +98,7 @@ function isItalianPublisher(publisher: string | undefined): boolean {
   if (!publisher) return false
   const p = publisher.toLowerCase().trim()
   for (const known of ITALIAN_PUBLISHERS) {
-    if (p.includes(known) || known.includes(p)) return true
+    if (p.includes(known)) return true
   }
   return false
 }
