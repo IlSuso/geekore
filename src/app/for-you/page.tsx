@@ -1520,26 +1520,38 @@ export default function ForYouPage() {
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPulling} />
       <div className="pt-2 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
 
-        {/* Action bar — desktop e mobile */}
-        <div className="flex justify-end items-center gap-2 mb-6">
-          {swipeItems.length > 0 && (
+        {/* Action bar */}
+        <div className="flex items-center gap-3 mb-6">
+          {/* Swipe — hero a sinistra */}
+          {swipeItems.length > 0 ? (
             <button onClick={handleOpenSwipeMode}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500 rounded-2xl text-sm font-semibold text-white transition-all shadow-lg shadow-violet-900/30">
-              <Shuffle size={15} />Swipe
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500 rounded-2xl text-sm font-bold text-white transition-all shadow-lg shadow-violet-900/40 tracking-wide">
+              <Shuffle size={15} />
+              Swipe
             </button>
+          ) : (
+            <div className="flex items-center gap-2 px-5 py-2.5 bg-zinc-900/60 border border-zinc-800 rounded-2xl opacity-40 cursor-not-allowed">
+              <Shuffle size={15} className="text-zinc-500" />
+              <span className="text-sm font-bold text-zinc-500 tracking-wide">Swipe</span>
+            </div>
           )}
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Bottoni secondari */}
           <button onClick={() => setShowPrefs(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl text-sm font-medium text-zinc-300 transition-all">
-            <SlidersHorizontal size={15} />{fy.preferences}
+            className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl text-sm font-medium text-zinc-300 transition-all">
+            <SlidersHorizontal size={15} />
+            <span className="hidden sm:inline">{fy.preferences}</span>
           </button>
           <div className="relative">
             <button onClick={handleRefresh} disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-2xl text-sm font-medium text-white transition-all">
+              className="w-10 h-10 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 disabled:opacity-50 rounded-2xl text-zinc-300 transition-all">
               <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
-              <span className="hidden sm:inline">{refreshing ? fy.refreshing : fy.refresh}</span>
             </button>
             {showNewRecsBadge && (
-              <span className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-fuchsia-500 rounded-full border-2 border-black animate-pulse" />
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-fuchsia-500 rounded-full border-2 border-black animate-pulse" />
             )}
           </div>
         </div>

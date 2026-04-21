@@ -195,21 +195,8 @@ export default function NewsPage() {
     <div className="min-h-screen bg-black text-white">
       <div className="pt-2 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
 
-        {/* Header — solo refresh */}
-        <div className="flex justify-end mb-6">
-          <button
-            onClick={triggerSync}
-            disabled={syncing}
-            title={t.news.refresh}
-            className="flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-2xl text-sm text-zinc-400 hover:text-white transition disabled:opacity-50"
-          >
-            <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-            {lastSync ? `${t.news.updated} ${lastSync}` : t.news.refresh}
-          </button>
-        </div>
-
-        {/* Category filters */}
-        <div className="flex flex-wrap gap-2 mb-8">
+        {/* Category filters + refresh */}
+        <div className="flex flex-wrap gap-2 mb-8 items-center">
           {CATEGORIES.map(cat => {
             const Icon = cat.icon
             const active = activeCategory === cat.id
@@ -228,6 +215,17 @@ export default function NewsPage() {
               </button>
             )
           })}
+          <div className="ml-auto">
+            <button
+              onClick={triggerSync}
+              disabled={syncing}
+              title={t.news.refresh}
+              className="flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-sm text-zinc-400 hover:text-white transition disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+              {lastSync ? `${t.news.updated} ${lastSync}` : t.news.refresh}
+            </button>
+          </div>
         </div>
 
         {/* Content */}
