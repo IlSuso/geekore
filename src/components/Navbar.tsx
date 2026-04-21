@@ -4,7 +4,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  Home, Search, Bell, Zap, CalendarDays, Sparkles, TrendingUp,
+  Home, Search, Bell, Zap, Sparkles, TrendingUp,
   ChevronDown, Edit3, Bookmark, User, Settings, LogOut,
   X, Users, Heart, UserPlus, MessageSquare, Star,
 } from 'lucide-react'
@@ -270,7 +270,6 @@ export default function Navbar() {
     { href: '/feed',     label: t.nav.home,    icon: Home      },
     { href: '/discover', label: t.nav.discover, icon: Search   },
     { href: '/for-you',  label: t.nav.forYou,  icon: Sparkles  },
-    { href: '/news',     label: t.nav.news,    icon: CalendarDays },
   ]
 
   const MOBILE_NAV_ITEMS = [
