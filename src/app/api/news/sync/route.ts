@@ -147,19 +147,28 @@ async function fetchCinema(lang: string) {
 async function fetchTV(lang: string) {
   const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
   const region   = lang === 'en' ? 'US' : 'IT'
-  const { from, to } = dateRange(60, 120)
+  const { from: pastFrom, to: today }    = dateRange(60, 0)
+  const { from: todayFrom, to: futureTo } = dateRange(0, 120)
   try {
-    const res = await fetch(
-      `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&air_date.gte=${from}&air_date.lte=${to}&include_null_first_air_dates=false`,
-      { headers: tmdbHeaders(), cache: 'no-store' }
-    )
-    if (!res.ok) return []
-    const json = await res.json()
-    const shows = (json.results || []).slice(0, 15).filter((m: any) => m.poster_path && m.overview)
+    const urlPast   = `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&first_air_date.gte=${pastFrom}&first_air_date.lte=${today}&include_null_first_air_dates=false&page=1`
+    const urlFuture = `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&first_air_date.gte=${todayFrom}&first_air_date.lte=${futureTo}&include_null_first_air_dates=false&page=1`
+    const [resPast, resFuture] = await Promise.all([
+      fetch(urlPast,   { headers: tmdbHeaders(), cache: 'no-store' }),
+      fetch(urlFuture, { headers: tmdbHeaders(), cache: 'no-store' }),
+    ])
+    const [jsonPast, jsonFuture] = await Promise.all([
+      resPast.ok   ? resPast.json()   : { results: [] },
+      resFuture.ok ? resFuture.json() : { results: [] },
+    ])
+    const seen = new Set<number>()
+    const merged: any[] = []
+    for (const m of [...(jsonPast.results || []).slice(0, 15), ...(jsonFuture.results || []).slice(0, 15)]) {
+      if (!seen.has(m.id) && m.poster_path && m.overview) { seen.add(m.id); merged.push(m) }
+    }
     const details = await Promise.all(
-      shows.map((s: any) => tmdbDetail(`/tv/${s.id}?language=${tmdbLang}&append_to_response=aggregate_credits,watch%2Fproviders,keywords`))
+      merged.map((s: any) => tmdbDetail(`/tv/${s.id}?language=${tmdbLang}&append_to_response=aggregate_credits,watch%2Fproviders,keywords`))
     )
-    return shows.map((m: any, i: number) => {
+    return merged.map((m: any, i: number) => {
       const d        = details[i]
       const networks = (d?.networks || []).slice(0, 2).map((n: any) => n.name).filter(Boolean)
       const creators = (d?.created_by || []).slice(0, 2).map((c: any) => c.name).filter(Boolean)
@@ -200,19 +209,29 @@ async function fetchTV(lang: string) {
 async function fetchAnime(lang: string) {
   const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
   const region   = lang === 'en' ? 'US' : 'IT'
-  const { from, to } = dateRange(60, 120)
+  const { from: pastFrom, to: today }    = dateRange(60, 0)
+  const { from: todayFrom, to: futureTo } = dateRange(0, 120)
   try {
-    const res = await fetch(
-      `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&with_original_language=ja&with_genres=16&air_date.gte=${from}&air_date.lte=${to}&include_null_first_air_dates=false`,
-      { headers: tmdbHeaders(), cache: 'no-store' }
-    )
-    if (!res.ok) return []
-    const json = await res.json()
-    const shows = (json.results || []).slice(0, 20).filter((m: any) => m.poster_path && m.overview)
+    // Stesso pattern del cinema: past con region, future senza (date IT non sempre presenti su TMDB)
+    const urlPast   = `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&with_original_language=ja&with_genres=16&first_air_date.gte=${pastFrom}&first_air_date.lte=${today}&include_null_first_air_dates=false&page=1`
+    const urlFuture = `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&with_original_language=ja&with_genres=16&first_air_date.gte=${todayFrom}&first_air_date.lte=${futureTo}&include_null_first_air_dates=false&page=1`
+    const [resPast, resFuture] = await Promise.all([
+      fetch(urlPast,   { headers: tmdbHeaders(), cache: 'no-store' }),
+      fetch(urlFuture, { headers: tmdbHeaders(), cache: 'no-store' }),
+    ])
+    const [jsonPast, jsonFuture] = await Promise.all([
+      resPast.ok   ? resPast.json()   : { results: [] },
+      resFuture.ok ? resFuture.json() : { results: [] },
+    ])
+    const seen = new Set<number>()
+    const merged: any[] = []
+    for (const m of [...(jsonPast.results || []).slice(0, 15), ...(jsonFuture.results || []).slice(0, 15)]) {
+      if (!seen.has(m.id) && m.poster_path && m.overview) { seen.add(m.id); merged.push(m) }
+    }
     const details = await Promise.all(
-      shows.map((s: any) => tmdbDetail(`/tv/${s.id}?language=${tmdbLang}&append_to_response=aggregate_credits,watch%2Fproviders,keywords`))
+      merged.map((s: any) => tmdbDetail(`/tv/${s.id}?language=${tmdbLang}&append_to_response=aggregate_credits,watch%2Fproviders,keywords`))
     )
-    return shows.map((m: any, i: number) => {
+    return merged.map((m: any, i: number) => {
       const d             = details[i]
       const studios       = (d?.networks || []).slice(0, 2).map((n: any) => n.name).filter(Boolean)
       const cast          = (d?.aggregate_credits?.cast || []).slice(0, 5).map((a: any) => a.name).filter(Boolean)
