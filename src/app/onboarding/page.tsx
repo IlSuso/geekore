@@ -478,12 +478,13 @@ export default function OnboardingPage() {
                 <h1 className="text-3xl font-bold text-white mb-2">Cosa tracci?</h1>
                 <p className="text-zinc-400">Seleziona i media che ti interessano.</p>
               </div>
-              <div className="grid grid-cols-3 gap-3 mb-7">
-                {MEDIA_TYPES.map(({ id, label, icon: Icon, color, active, inactive }) => {
+              {/* Riga 1: 3 bottoni */}
+              <div className="flex gap-3 mb-3">
+                {MEDIA_TYPES.slice(0, 3).map(({ id, label, icon: Icon, color, active, inactive }) => {
                   const sel = selectedTypes.includes(id)
                   return (
                     <button key={id} onClick={() => toggleType(id)}
-                      className={`relative flex items-center gap-3 p-4 rounded-2xl border transition-all hover:scale-[1.02] active:scale-[0.98] ${sel ? active : inactive} ${MEDIA_TYPES.indexOf(MEDIA_TYPES.find(m => m.id === id)!) === MEDIA_TYPES.length - 1 && MEDIA_TYPES.length % 3 !== 0 ? 'col-span-3' : ''}`}
+                      className={`relative flex-1 flex items-center gap-2 p-4 rounded-2xl border transition-all hover:scale-[1.02] active:scale-[0.98] ${sel ? active : inactive}`}
                     >
                       <Icon size={19} style={sel ? { color } : {}} />
                       <span className="font-medium text-sm">{label}</span>
@@ -495,6 +496,27 @@ export default function OnboardingPage() {
                     </button>
                   )
                 })}
+              </div>
+              {/* Riga 2: 2 bottoni centrati — allineati ai gap della riga sopra */}
+              <div className="flex gap-3 mb-7">
+                <div className="flex-1" />
+                {MEDIA_TYPES.slice(3).map(({ id, label, icon: Icon, color, active, inactive }) => {
+                  const sel = selectedTypes.includes(id)
+                  return (
+                    <button key={id} onClick={() => toggleType(id)}
+                      className={`relative flex-[2] flex items-center gap-2 p-4 rounded-2xl border transition-all hover:scale-[1.02] active:scale-[0.98] ${sel ? active : inactive}`}
+                    >
+                      <Icon size={19} style={sel ? { color } : {}} />
+                      <span className="font-medium text-sm">{label}</span>
+                      {sel && (
+                        <div className="absolute top-2 right-2 w-5 h-5 bg-violet-500 rounded-full flex items-center justify-center shadow-sm shadow-violet-500/50">
+                          <Check size={11} className="text-white" strokeWidth={3} />
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+                <div className="flex-1" />
               </div>
 
               <div className="flex gap-3">
