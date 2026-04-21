@@ -109,6 +109,8 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const isLoggedIn = !!user
 
+  console.log(`[MW] ${pathname} | isLoggedIn=${isLoggedIn} | user=${user?.id ?? 'none'} | cookie=${request.cookies.get('geekore_onboarding_done')?.value ?? 'absent'}`)
+
   // 2. Non autenticato su route protetta → /login?next=...
   if (!isLoggedIn && isProtected(pathname)) {
     const loginUrl = new URL('/login', request.url)
@@ -127,38 +129,64 @@ export async function middleware(request: NextRequest) {
   }
 
   // 5. Utente loggato: controlla onboarding su QUALSIASI route non esente.
-  //    Fast path: legge il cookie 'geekore_onboarding_done' impostato dal client
-  //    al completamento — evita una query DB ad ogni navigazione.
-  //    Fallback: se il cookie manca (primo login dopo completamento, logout/login),
-  //    fa una query leggera al DB e poi imposta il cookie per le richieste successive.
-  if (isLoggedIn && !matchesAny(pathname, ONBOARDING_EXEMPT)) {
+  if (isLoggedIn) {
     const cookieDone = request.cookies.get('geekore_onboarding_done')?.value === '1'
 
-    if (!cookieDone) {
-      try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('onboarding_done')
-          .eq('id', user!.id)
-          .single()
+    // 5a. Cookie presente → onboarding già fatto.
+    //     Se tenta di accedere a /onboarding → redirect a /feed.
+    if (cookieDone) {
+      if (pathname === '/onboarding') {
+        return NextResponse.redirect(new URL('/feed', request.url))
+      }
+    } else {
+      // 5b. Cookie assente → verifica su DB.
+      if (!matchesAny(pathname, ONBOARDING_EXEMPT)) {
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('onboarding_done')
+            .eq('id', user!.id)
+            .single()
 
-        if (!profile || profile.onboarding_done !== true) {
-          // Già su /onboarding → lascia passare (evita redirect loop)
-          if (pathname === '/onboarding') return response
-          return NextResponse.redirect(new URL('/onboarding', request.url))
+          if (!profile || profile.onboarding_done !== true) {
+            return NextResponse.redirect(new URL('/onboarding', request.url))
+          }
+
+          // Onboarding completato ma cookie assente: lo imposta per le prossime richieste
+          response.cookies.set('geekore_onboarding_done', '1', {
+            path: '/',
+            maxAge: 60 * 60 * 24 * 365,
+            sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production',
+            httpOnly: false,
+          })
+        } catch {
+          // Errore DB → non blocchiamo la navigazione
         }
+      } else if (pathname === '/onboarding') {
+        // Cookie assente + sta andando su /onboarding → verifica DB per sicurezza
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('onboarding_done')
+            .eq('id', user!.id)
+            .single()
 
-        // Onboarding completato ma cookie assente (es. dopo logout/login):
-        // lo imposta così le navigazioni successive usano il fast path
-        response.cookies.set('geekore_onboarding_done', '1', {
-          path: '/',
-          maxAge: 60 * 60 * 24 * 365,
-          sameSite: 'lax',
-          secure: process.env.NODE_ENV === 'production',
-          httpOnly: false, // deve essere leggibile anche dal client JS
-        })
-      } catch {
-        // Errore DB → non blocchiamo la navigazione per non rendere l'app inutilizzabile
+          if (profile?.onboarding_done === true) {
+            // Onboarding già fatto ma cookie perso → redirect a /feed e ripristina cookie
+            response = NextResponse.redirect(new URL('/feed', request.url))
+            response.cookies.set('geekore_onboarding_done', '1', {
+              path: '/',
+              maxAge: 60 * 60 * 24 * 365,
+              sameSite: 'lax',
+              secure: process.env.NODE_ENV === 'production',
+              httpOnly: false,
+            })
+            return response
+          }
+        } catch {
+          // Errore DB → lascia accedere a /onboarding
+        }
       }
     }
   }
