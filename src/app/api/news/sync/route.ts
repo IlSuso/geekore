@@ -61,41 +61,15 @@ const TMDB_TV_GENRES: Record<number, string> = {
 async function fetchCinema(lang: string) {
   const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
   const region   = lang === 'en' ? 'US' : 'IT'
-  const { from: pastFrom } = dateRange(60, 0)
-  const { to: futureTo }   = dateRange(0, 60)
+  const { from, to } = dateRange(60, 60)
   try {
-    // Query 1: film recenti usciti (ultimi 60gg), ordinati per popolarità
-    // Query 2: film in arrivo nei prossimi 60gg via endpoint /upcoming (fatto apposta per film futuri)
-    const [recentRes, upcomingRes] = await Promise.all([
-      fetch(
-        `https://api.themoviedb.org/3/discover/movie?language=${tmdbLang}&region=${region}&sort_by=popularity.desc&primary_release_date.gte=${pastFrom}&primary_release_date.lte=${new Date().toISOString().split('T')[0]}`,
-        { headers: tmdbHeaders(), cache: 'no-store' }
-      ),
-      fetch(
-        `https://api.themoviedb.org/3/movie/upcoming?language=${tmdbLang}&region=${region}&page=1`,
-        { headers: tmdbHeaders(), cache: 'no-store' }
-      ),
-    ])
-
-    const recentJson   = recentRes.ok   ? await recentRes.json()   : { results: [] }
-    const upcomingJson = upcomingRes.ok ? await upcomingRes.json() : { results: [] }
-
-    // Filtra upcoming solo nella finestra futureTo
-    const upcomingFiltered = (upcomingJson.results || []).filter((m: any) =>
-      m.release_date && m.release_date <= futureTo
+    const res = await fetch(
+      `https://api.themoviedb.org/3/discover/movie?language=${tmdbLang}&region=${region}&sort_by=popularity.desc&primary_release_date.gte=${from}&primary_release_date.lte=${to}`,
+      { headers: tmdbHeaders(), cache: 'no-store' }
     )
-
-    // Deduplicazione per id, recenti prima poi upcoming
-    const seen = new Set<number>()
-    const allMovies: any[] = []
-    for (const m of [...(recentJson.results || []), ...upcomingFiltered]) {
-      if (!seen.has(m.id) && m.poster_path && m.overview) {
-        seen.add(m.id)
-        allMovies.push(m)
-      }
-    }
-    const movies = allMovies.slice(0, 20)
-
+    if (!res.ok) return []
+    const json = await res.json()
+    const movies = (json.results || []).slice(0, 15).filter((m: any) => m.poster_path && m.overview)
     const details = await Promise.all(
       movies.map((m: any) => tmdbDetail(`/movie/${m.id}?language=${tmdbLang}&append_to_response=credits,keywords,watch%2Fproviders`))
     )
@@ -134,36 +108,17 @@ async function fetchTV(lang: string) {
   const region   = lang === 'en' ? 'US' : 'IT'
   const { from, to } = dateRange(60, 60)
   try {
-    // Query 1: discover con finestra ±60gg per popolarità
-    // Query 2: on_the_air = serie con episodi in onda nelle prossime 4 settimane (endpoint dedicato TMDB)
-    const [discoverRes, onAirRes] = await Promise.all([
-      fetch(
-        `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&air_date.gte=${from}&air_date.lte=${to}&include_null_first_air_dates=false`,
-        { headers: tmdbHeaders(), cache: 'no-store' }
-      ),
-      fetch(
-        `https://api.themoviedb.org/3/tv/on_the_air?language=${tmdbLang}&page=1`,
-        { headers: tmdbHeaders(), cache: 'no-store' }
-      ),
-    ])
-
-    const discoverJson = discoverRes.ok ? await discoverRes.json() : { results: [] }
-    const onAirJson    = onAirRes.ok    ? await onAirRes.json()    : { results: [] }
-
-    const seen = new Set<number>()
-    const allShows: any[] = []
-    for (const m of [...(discoverJson.results || []), ...(onAirJson.results || [])]) {
-      if (!seen.has(m.id) && m.poster_path && m.overview) { seen.add(m.id); allShows.push(m) }
-    }
-    const shows = allShows.slice(0, 20)
-
+    const res = await fetch(
+      `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&air_date.gte=${from}&air_date.lte=${to}&include_null_first_air_dates=false`,
+      { headers: tmdbHeaders(), cache: 'no-store' }
+    )
+    if (!res.ok) return []
+    const json = await res.json()
+    const shows = (json.results || []).slice(0, 15).filter((m: any) => m.poster_path && m.overview)
     const details = await Promise.all(
       shows.map((s: any) => tmdbDetail(`/tv/${s.id}?language=${tmdbLang}&append_to_response=aggregate_credits,watch%2Fproviders,keywords`))
     )
-
-    const twoYearsAgo = new Date(); twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2)
-
-    const mapped = shows.map((m: any, i: number) => {
+    return shows.map((m: any, i: number) => {
       const d        = details[i]
       const networks = (d?.networks || []).slice(0, 2).map((n: any) => n.name).filter(Boolean)
       const creators = (d?.created_by || []).slice(0, 2).map((c: any) => c.name).filter(Boolean)
@@ -196,15 +151,8 @@ async function fetchTV(lang: string) {
         nextEpisodeDate: nextEpisodeDate || undefined,
         category: 'tv', source: 'TMDb',
         url: `https://www.themoviedb.org/tv/${m.id}`,
-        _firstAirDate: m.first_air_date,
-        _nextEpisodeDate: nextEpisodeDate,
       }
     })
-    // Tieni solo serie con nextEpisodeDate OPPURE iniziate da meno di 2 anni
-    return mapped
-      .filter(s => s._nextEpisodeDate || (s._firstAirDate && new Date(s._firstAirDate) >= twoYearsAgo))
-      .map(({ _firstAirDate, _nextEpisodeDate, ...rest }) => rest)
-      .slice(0, 15)
   } catch { return [] }
 }
 
@@ -213,41 +161,17 @@ async function fetchAnime(lang: string) {
   const region   = lang === 'en' ? 'US' : 'IT'
   const { from, to } = dateRange(60, 60)
   try {
-    // Query 1: discover anime finestra ±60gg
-    // Query 2: on_the_air filtrato per anime giapponesi (lingua ja + genere 16 animation)
-    const [discoverRes, onAirRes] = await Promise.all([
-      fetch(
-        `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&with_original_language=ja&with_genres=16&air_date.gte=${from}&air_date.lte=${to}&include_null_first_air_dates=false`,
-        { headers: tmdbHeaders(), cache: 'no-store' }
-      ),
-      fetch(
-        `https://api.themoviedb.org/3/tv/on_the_air?language=${tmdbLang}&page=1`,
-        { headers: tmdbHeaders(), cache: 'no-store' }
-      ),
-    ])
-
-    const discoverJson = discoverRes.ok ? await discoverRes.json() : { results: [] }
-    const onAirJson    = onAirRes.ok    ? await onAirRes.json()    : { results: [] }
-
-    // Filtra on_the_air solo per anime giapponesi animazione
-    const onAirAnime = (onAirJson.results || []).filter((m: any) =>
-      m.original_language === 'ja' && (m.genre_ids || []).includes(16)
+    const res = await fetch(
+      `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&with_original_language=ja&with_genres=16&air_date.gte=${from}&air_date.lte=${to}&include_null_first_air_dates=false`,
+      { headers: tmdbHeaders(), cache: 'no-store' }
     )
-
-    const seen = new Set<number>()
-    const allShows: any[] = []
-    for (const m of [...(discoverJson.results || []), ...onAirAnime]) {
-      if (!seen.has(m.id) && m.poster_path && m.overview) { seen.add(m.id); allShows.push(m) }
-    }
-    const shows = allShows.slice(0, 25)
-
+    if (!res.ok) return []
+    const json = await res.json()
+    const shows = (json.results || []).slice(0, 20).filter((m: any) => m.poster_path && m.overview)
     const details = await Promise.all(
       shows.map((s: any) => tmdbDetail(`/tv/${s.id}?language=${tmdbLang}&append_to_response=aggregate_credits,watch%2Fproviders,keywords`))
     )
-
-    const twoYearsAgo = new Date(); twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2)
-
-    const mapped = shows.map((m: any, i: number) => {
+    return shows.map((m: any, i: number) => {
       const d             = details[i]
       const studios       = (d?.networks || []).slice(0, 2).map((n: any) => n.name).filter(Boolean)
       const cast          = (d?.aggregate_credits?.cast || []).slice(0, 5).map((a: any) => a.name).filter(Boolean)
@@ -272,15 +196,8 @@ async function fetchAnime(lang: string) {
         nextEpisodeDate: nextEpisodeDate || undefined,
         category: 'anime' as const, source: 'TMDb',
         url: `https://www.themoviedb.org/tv/${m.id}`,
-        _firstAirDate: m.first_air_date,
-        _nextEpisodeDate: nextEpisodeDate,
       }
     })
-    // Tieni solo anime con nextEpisodeDate OPPURE iniziati da meno di 2 anni
-    return mapped
-      .filter(s => s._nextEpisodeDate || (s._firstAirDate && new Date(s._firstAirDate) >= twoYearsAgo))
-      .map(({ _firstAirDate, _nextEpisodeDate, ...rest }) => rest)
-      .slice(0, 20)
   } catch { return [] }
 }
 
@@ -296,46 +213,72 @@ async function fetchGaming(lang: string) {
     })
     const tokenData = await tokenRes.json()
     if (!tokenData.access_token) return []
-    const nowUnix        = Math.floor(Date.now() / 1000)
-    const thirtyDaysBack = nowUnix - 60 * 24 * 3600
-    const thirtyDaysFwd  = nowUnix + 60 * 24 * 3600
-    const res = await fetch('https://api.igdb.com/v4/games', {
-      method: 'POST',
-      headers: { 'Client-ID': clientId, 'Authorization': `Bearer ${tokenData.access_token}`, 'Content-Type': 'text/plain' },
-      body: `
-        fields id, name, cover.url, first_release_date, summary, storyline, slug, rating, rating_count,
+
+    const nowUnix       = Math.floor(Date.now() / 1000)
+    const sixtyDaysBack = nowUnix - 60 * 24 * 3600   // -2 mesi
+    const fourMonthsFwd = nowUnix + 120 * 24 * 3600  // +4 mesi
+
+    const fields = `fields id, name, cover.url, first_release_date, summary, storyline, slug, rating, rating_count,
                total_rating, hypes, genres.name, involved_companies.company.name, involved_companies.developer,
                platforms.name, game_modes.name, themes.name,
-               language_supports.language.locale, language_supports.language_support_type.name;
-        where first_release_date > ${thirtyDaysBack} & first_release_date < ${thirtyDaysFwd} & cover != null & (rating_count > 0 | hypes > 0 | first_release_date > ${nowUnix});
-        sort first_release_date desc;
-        limit 30;
-      `,
-    })
-    if (!res.ok) return []
-    const games = await res.json()
-    const mapped = (Array.isArray(games) ? games : [])
-      .filter((g: any) => g.cover?.url)
-      .map((g: any) => {
-        const releaseDate = g.first_release_date ? new Date(g.first_release_date * 1000).toISOString().split('T')[0] : null
-        return {
-          id: `igdb-${g.id}`, type: 'game', source_api: 'igdb',
-          title: g.name,
-          description: (g.summary || g.storyline) ? truncateAtSentence(g.summary || g.storyline, 500) : null,
-          coverImage: `https:${g.cover.url.replace('t_thumb', 't_1080p')}`,
-          date: releaseDate,
-          year: releaseDate ? parseInt(releaseDate.slice(0, 4)) : undefined,
-          genres: (g.genres || []).map((gr: any) => gr.name).filter(Boolean),
-          score: (g.total_rating || g.rating) ? Math.round((g.total_rating ?? g.rating) / 2) / 10 : undefined,
-          italianSupportTypes: (g.language_supports || []).filter((ls: any) => ls.language?.locale?.startsWith('it')).map((ls: any) => ls.language_support_type?.name).filter(Boolean),
-          developers: (g.involved_companies || []).filter((c: any) => c.developer).map((c: any) => c.company?.name).filter(Boolean),
-          platforms: (g.platforms || []).map((p: any) => p.name).filter(Boolean),
-          mechanics: (g.game_modes || []).map((m: any) => m.name).filter(Boolean),
-          themes: (g.themes || []).map((t: any) => t.name).filter(Boolean),
-          category: 'gaming', source: 'IGDB',
-          url: `https://www.igdb.com/games/${g.slug || g.name?.toLowerCase().replace(/\s+/g, '-')}`,
-        }
+               language_supports.language.locale, language_supports.language_support_type.name;`
+
+    const igdbPost = async (body: string) => {
+      const res = await fetch('https://api.igdb.com/v4/games', {
+        method: 'POST',
+        headers: { 'Client-ID': clientId!, 'Authorization': `Bearer ${tokenData.access_token}`, 'Content-Type': 'text/plain' },
+        body,
       })
+      if (!res.ok) return []
+      const data = await res.json()
+      return Array.isArray(data) ? data : []
+    }
+
+    // Passato: giochi già usciti negli ultimi 2 mesi — SENZA filtro hypes/rating
+    // perché i giochi appena usciti non hanno ancora recensioni
+    // Futuro: giochi in arrivo nei prossimi 4 mesi — con hypes per filtrare titoli rilevanti
+    const [pastGames, futureGames] = await Promise.all([
+      igdbPost(`
+        ${fields}
+        where first_release_date >= ${sixtyDaysBack} & first_release_date <= ${nowUnix} & cover != null;
+        sort first_release_date desc;
+        limit 15;
+      `),
+      igdbPost(`
+        ${fields}
+        where first_release_date > ${nowUnix} & first_release_date <= ${fourMonthsFwd} & cover != null & (hypes > 0 | rating_count > 0);
+        sort first_release_date asc;
+        limit 15;
+      `),
+    ])
+
+    // Deduplicazione e merge: passati prima (più recenti), poi futuri (più imminenti)
+    const seen = new Set<number>()
+    const allGames: any[] = []
+    for (const g of [...pastGames, ...futureGames]) {
+      if (!seen.has(g.id) && g.cover?.url) { seen.add(g.id); allGames.push(g) }
+    }
+
+    const mapped = allGames.slice(0, 30).map((g: any) => {
+      const releaseDate = g.first_release_date ? new Date(g.first_release_date * 1000).toISOString().split('T')[0] : null
+      return {
+        id: `igdb-${g.id}`, type: 'game', source_api: 'igdb',
+        title: g.name,
+        description: (g.summary || g.storyline) ? truncateAtSentence(g.summary || g.storyline, 500) : null,
+        coverImage: `https:${g.cover.url.replace('t_thumb', 't_1080p')}`,
+        date: releaseDate,
+        year: releaseDate ? parseInt(releaseDate.slice(0, 4)) : undefined,
+        genres: (g.genres || []).map((gr: any) => gr.name).filter(Boolean),
+        score: (g.total_rating || g.rating) ? Math.round((g.total_rating ?? g.rating) / 2) / 10 : undefined,
+        italianSupportTypes: (g.language_supports || []).filter((ls: any) => ls.language?.locale?.startsWith('it')).map((ls: any) => ls.language_support_type?.name).filter(Boolean),
+        developers: (g.involved_companies || []).filter((c: any) => c.developer).map((c: any) => c.company?.name).filter(Boolean),
+        platforms: (g.platforms || []).map((p: any) => p.name).filter(Boolean),
+        mechanics: (g.game_modes || []).map((m: any) => m.name).filter(Boolean),
+        themes: (g.themes || []).map((t: any) => t.name).filter(Boolean),
+        category: 'gaming', source: 'IGDB',
+        url: `https://www.igdb.com/games/${g.slug || g.name?.toLowerCase().replace(/\s+/g, '-')}`,
+      }
+    })
     if (lang === 'it') {
       const descriptions = mapped.map(g => g.description ?? '')
       const translated = await translateTexts(descriptions)
@@ -351,13 +294,33 @@ const ANILIST_URL = 'https://graphql.anilist.co'
 
 async function fetchManga(lang: string): Promise<any[]> {
   const toFuzzy = (d: Date) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate()
-  const now    = new Date()
-  const plus60 = new Date(now); plus60.setDate(now.getDate() + 60)
-  const minus60 = new Date(now); minus60.setDate(now.getDate() - 60)
-  const plus60Int  = toFuzzy(plus60)
+  const nowDate   = new Date()
+  const plus120   = new Date(nowDate); plus120.setDate(nowDate.getDate() + 120)  // +4 mesi
+  const minus60   = new Date(nowDate); minus60.setDate(nowDate.getDate() - 60)   // -2 mesi
+  const plus120Int = toFuzzy(plus120)
   const minus60Int = toFuzzy(minus60)
   const mediaFields = `id siteUrl format title { romaji english } coverImage { extraLarge large } startDate { year month day } description(asHtml: false) genres averageScore chapters volumes staff(sort: [RELEVANCE], page: 1, perPage: 3) { nodes { name { full } } } studios(isMain: true) { nodes { name } }`
-  const query = `query { upcoming: Page(page: 1, perPage: 10) { media(type: MANGA, status: NOT_YET_RELEASED, sort: [START_DATE], isAdult: false, format_not_in: [NOVEL], startDate_lesser: ${plus60Int}) { ${mediaFields} } } trending: Page(page: 1, perPage: 20) { media(type: MANGA, status: RELEASING, sort: [TRENDING_DESC], isAdult: false, format_not_in: [NOVEL], startDate_greater: ${minus60Int}) { ${mediaFields} } } recent: Page(page: 1, perPage: 10) { media(type: MANGA, status: RELEASING, sort: [START_DATE_DESC], isAdult: false, format_not_in: [NOVEL], startDate_greater: ${minus60Int}, startDate_lesser: ${plus60Int}) { ${mediaFields} } } }`
+  // 3 query:
+  // upcoming: manga NON ancora usciti con startDate nei prossimi 4 mesi
+  // trending: manga in corso popolari, iniziati negli ultimi 2 mesi
+  // recent: manga in corso, iniziati negli ultimi 2 mesi ordinati per data
+  const query = `query {
+    upcoming: Page(page: 1, perPage: 15) {
+      media(type: MANGA, status: NOT_YET_RELEASED, sort: [START_DATE], isAdult: false, format_not_in: [NOVEL], startDate_lesser: ${plus120Int}) {
+        ${mediaFields}
+      }
+    }
+    trending: Page(page: 1, perPage: 20) {
+      media(type: MANGA, status: RELEASING, sort: [TRENDING_DESC], isAdult: false, format_not_in: [NOVEL], startDate_greater: ${minus60Int}) {
+        ${mediaFields}
+      }
+    }
+    recent: Page(page: 1, perPage: 15) {
+      media(type: MANGA, status: RELEASING, sort: [START_DATE_DESC], isAdult: false, format_not_in: [NOVEL], startDate_greater: ${minus60Int}) {
+        ${mediaFields}
+      }
+    }
+  }`
   try {
     const res = await fetch(ANILIST_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }), signal: AbortSignal.timeout(10_000) })
     if (!res.ok) return []
@@ -365,9 +328,10 @@ async function fetchManga(lang: string): Promise<any[]> {
     if (json.errors) { logger.error('[fetchManga] AniList GraphQL errors:', json.errors); return [] }
     const upcoming: any[] = (json.data?.upcoming?.media || []).filter((m: any) => m.startDate?.year)
     const trending: any[] = json.data?.trending?.media || []
-    const recent: any[] = json.data?.recent?.media || []
+    const recent: any[]   = json.data?.recent?.media   || []
     const isRealCover = (url?: string) => !!url && !url.includes('default')
     const seen = new Set<number>(); const all: any[] = []
+    // upcoming prima (futuri), poi trending (popolari recenti), poi recent
     for (const m of [...upcoming, ...trending, ...recent]) {
       const img = m.coverImage?.extraLarge || m.coverImage?.large
       if (!seen.has(m.id) && isRealCover(img)) { seen.add(m.id); all.push(m) }

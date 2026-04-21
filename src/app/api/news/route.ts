@@ -49,18 +49,18 @@ export async function GET(request: Request) {
       })
     }
 
-    // Finestra ±2 mesi rispetto ad oggi
-    const nowDate = new Date()
+    // Finestra: -2 mesi (passato) / +4 mesi (futuro) rispetto ad oggi
+    const nowDate      = new Date()
     const twoMonthsAgo = new Date(nowDate); twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
-    const twoMonthsFwd = new Date(nowDate); twoMonthsFwd.setMonth(twoMonthsFwd.getMonth() + 2)
+    const fourMonthsFwd = new Date(nowDate); fourMonthsFwd.setMonth(fourMonthsFwd.getMonth() + 4)
 
     allNews = allNews.filter(item => {
-      // Per TV e anime: se c'è nextEpisodeDate, usa quella per il filtro
-      // Per tutto il resto: usa date
+      // TV e anime: usa nextEpisodeDate se presente (data episodio imminente),
+      // altrimenti usa date (first_air_date)
       const relevantDate = item.nextEpisodeDate || item.date
       if (!relevantDate) return true
       const d = new Date(relevantDate)
-      return d >= twoMonthsAgo && d <= twoMonthsFwd
+      return d >= twoMonthsAgo && d <= fourMonthsFwd
     })
 
     allNews.sort((a, b) => {
