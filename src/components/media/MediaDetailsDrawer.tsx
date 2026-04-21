@@ -1,13 +1,13 @@
 'use client'
 // DESTINAZIONE: src/components/media/MediaDetailsDrawer.tsx
-// V4: layout compatto — header fisso + scroll centrale + footer sticky CTA
+// V5: + boardgame (meccaniche, designer, link BGG) + book (autori, pagine, ISBN, link Google Books)
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import {
   X, ExternalLink, Star, Clock, Users, Layers,
   Gamepad2, Film, Tv, Clapperboard, Check, Bookmark,
-  Sparkles, Trophy, Monitor,
+  Sparkles, Trophy, Monitor, Dices, BookOpen, Hash, FileText,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -29,26 +29,34 @@ export interface MediaDetails {
   description?: string
   genres?: string[]
   source?: string
+  // Stats generali
+  score?: number
+  playing_time?: number
+  // Boardgame specifics
   min_players?: number
   max_players?: number
-  playing_time?: number
   complexity?: number
   mechanics?: string[]
   designers?: string[]
+  // Game / Anime / TV
   developers?: string[]
   themes?: string[]
   platforms?: string[]
   cast?: string[]
   watchProviders?: string[]
   italianSupportTypes?: string[]
-  score?: number
+  studios?: string[]
+  directors?: string[]
+  // Manga / Book
+  authors?: string[]
+  pages?: number
+  isbn?: string
+  publisher?: string
+  // Per Te
   externalUrl?: string
   why?: string
   matchScore?: number
   isAwardWinner?: boolean
-  studios?: string[]
-  directors?: string[]
-  authors?: string[]
   relations?: Array<{
     relationType: string; id: string; type: string
     title: string; coverImage?: string; year?: number; genres: string[]
@@ -67,17 +75,27 @@ interface MediaDetailsDrawerProps {
 function buildExternalUrl(media: MediaDetails): string | undefined {
   if (media.externalUrl) return media.externalUrl
   const id = media.id
-  if (id.startsWith('tmdb-anime-')) return `https://www.themoviedb.org/tv/${id.replace('tmdb-anime-', '')}`
+  // BGG
+  if (id.startsWith('bgg-')) return `https://boardgamegeek.com/boardgame/${id.replace('bgg-', '')}`
+  // Google Books
+  if (id.startsWith('book-')) return `https://books.google.com/books?id=${id.replace('book-', '')}`
+  // AniList
   if (id.startsWith('anilist-anime-')) return `https://anilist.co/anime/${id.replace('anilist-anime-', '')}`
   if (id.startsWith('anilist-manga-') || id.startsWith('anilist-novel-')) return `https://anilist.co/manga/${id.replace(/anilist-(manga|novel)-/, '')}`
-  if (/^\d+$/.test(id)) {
-    if (media.type === 'movie') return `https://www.themoviedb.org/movie/${id}`
-    if (media.type === 'tv' || media.type === 'anime') return `https://www.themoviedb.org/tv/${id}`
-    return undefined // IGDB: no valid URL from numeric ID alone (slug needed)
-  }
+  // TMDB
+  if (id.startsWith('tmdb-anime-')) return `https://www.themoviedb.org/tv/${id.replace('tmdb-anime-', '')}`
   if (media.source === 'tmdb' && media.type === 'movie') return `https://www.themoviedb.org/movie/${id}`
   if (media.source === 'tmdb' && media.type === 'tv') return `https://www.themoviedb.org/tv/${id}`
   return undefined
+}
+
+function buildSourceLabel(media: MediaDetails): string {
+  const id = media.id
+  if (id.startsWith('bgg-')) return 'BGG'
+  if (id.startsWith('book-')) return 'Google Books'
+  if (id.startsWith('anilist-')) return 'AniList'
+  if (id.startsWith('igdb-')) return 'IGDB'
+  return 'TMDb'
 }
 
 function triggerTasteDelta(options: {
@@ -94,15 +112,17 @@ function triggerTasteDelta(options: {
 
 const TYPE_ICON: Record<string, React.ElementType> = {
   anime: Film, manga: Layers, game: Gamepad2,
-  tv: Tv, movie: Film,
+  tv: Tv, movie: Film, boardgame: Dices, book: BookOpen,
 }
 const TYPE_COLOR: Record<string, string> = {
   anime: 'bg-sky-500', manga: 'bg-orange-500', game: 'bg-green-500',
   tv: 'bg-purple-500', movie: 'bg-red-500',
+  boardgame: 'bg-amber-500', book: 'bg-cyan-500',
 }
 const TYPE_LABEL: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', game: 'Gioco',
   tv: 'Serie TV', movie: 'Film',
+  boardgame: 'Tavolo', book: 'Libro',
 }
 
 const RELATION_LABEL: Record<string, string> = {
@@ -127,22 +147,14 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   const supabase = createClient()
 
   useEffect(() => {
-    if (media) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
+    if (media) { document.body.style.overflow = 'hidden' }
+    else { document.body.style.overflow = '' }
     return () => { document.body.style.overflow = '' }
   }, [media])
 
   useEffect(() => {
-    setShowAddForm(false)
-    setFormRating(0)
-    setFormEpisode('0')
-    setFormSeason('1')
-    setFormEpisodeError(null)
-    setFormSeasonError(null)
-    setDescExpanded(false)
+    setShowAddForm(false); setFormRating(0); setFormEpisode('0'); setFormSeason('1')
+    setFormEpisodeError(null); setFormSeasonError(null); setDescExpanded(false)
   }, [media?.id])
 
   useEffect(() => {
@@ -167,9 +179,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
         supabase.from('user_media_entries').select('id').eq('user_id', user.id).eq('external_id', media.id).maybeSingle(),
         supabase.from('wishlist').select('id').eq('user_id', user.id).eq('external_id', media.id).maybeSingle(),
       ])
-      setInCollection(!!col)
-      setInWishlist(!!wish)
-      setCheckDone(true)
+      setInCollection(!!col); setInWishlist(!!wish); setCheckDone(true)
     }
     check()
   }, [media?.id])
@@ -180,16 +190,17 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     if (!user) return
 
     const isMovie = media.type === 'movie'
+    const isBoardgame = media.type === 'boardgame'
+    const isBook = media.type === 'book'
 
     const seasonNum = opts?.season ?? 1
     const maxEpThisSeason = media.seasons?.[seasonNum]?.episode_count ?? media.episodes ?? null
     const maxSeasons = media.totalSeasons ?? (media.seasons ? Object.keys(media.seasons).length : null)
-
     const isLastSeason = !maxSeasons || seasonNum >= maxSeasons
     const isLastEpisode = maxEpThisSeason !== null && opts?.episode !== undefined && opts.episode >= maxEpThisSeason
-    const autoCompleted = isMovie || (isLastSeason && isLastEpisode)
+    const autoCompleted = isMovie || isBoardgame || (isBook && opts?.episode !== undefined && media.pages !== undefined && opts.episode >= media.pages) || (isLastSeason && isLastEpisode)
 
-    const status = autoCompleted ? 'completed' : 'watching'
+    const status = autoCompleted ? 'completed' : (isBoardgame ? 'playing' : (isBook ? 'reading' : 'watching'))
 
     const { error } = await supabase.from('user_media_entries').insert({
       user_id: user.id,
@@ -200,7 +211,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
       cover_image: media.coverImage,
       genres: media.genres || [],
       status,
-      current_episode: opts?.episode ?? (isMovie ? null : 0),
+      current_episode: opts?.episode ?? (isMovie || isBoardgame ? null : 0),
       current_season: opts?.season ?? null,
       episodes: media.episodes ?? null,
       season_episodes: media.seasons ?? null,
@@ -212,27 +223,13 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
       display_order: Date.now() + Math.round((opts?.rating ?? 0) * 1_000_000),
     })
     if (!error) {
-      setInCollection(true)
-      setShowAddForm(false)
+      setInCollection(true); setShowAddForm(false)
       showToast(`"${media.title}" aggiunto alla collezione`)
       onAdd?.(media)
-
       if ((media.genres || []).length > 0) {
-        triggerTasteDelta({
-          action: 'status_change',
-          mediaId: media.id,
-          mediaType: media.type,
-          genres: media.genres || [],
-          status,
-        })
+        triggerTasteDelta({ action: 'status_change', mediaId: media.id, mediaType: media.type, genres: media.genres || [], status })
         if (opts?.rating) {
-          triggerTasteDelta({
-            action: 'rating',
-            mediaId: media.id,
-            mediaType: media.type,
-            genres: media.genres || [],
-            rating: opts.rating,
-          })
+          triggerTasteDelta({ action: 'rating', mediaId: media.id, mediaType: media.type, genres: media.genres || [], rating: opts.rating })
         }
       }
     }
@@ -244,26 +241,17 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     if (!user) return
     if (inWishlist) {
       await supabase.from('wishlist').delete().eq('user_id', user.id).eq('external_id', media.id)
-      setInWishlist(false)
-      showToast('Rimosso dalla wishlist')
+      setInWishlist(false); showToast('Rimosso dalla wishlist')
     } else {
       await supabase.from('wishlist').upsert({
         user_id: user.id, external_id: media.id,
-        title: media.title, title_en: media.title_en || media.title, type: media.type, cover_image: media.coverImage,
-        genres: media.genres || [],
-        media_type: media.type,
+        title: media.title, title_en: media.title_en || media.title, type: media.type,
+        cover_image: media.coverImage, genres: media.genres || [], media_type: media.type,
         studios: media.studios || [],
       }, { onConflict: 'user_id,external_id' })
-      setInWishlist(true)
-      showToast('Aggiunto alla wishlist')
-
+      setInWishlist(true); showToast('Aggiunto alla wishlist')
       if ((media.genres || []).length > 0) {
-        triggerTasteDelta({
-          action: 'wishlist_add',
-          mediaId: media.id,
-          mediaType: media.type,
-          genres: media.genres || [],
-        })
+        triggerTasteDelta({ action: 'wishlist_add', mediaId: media.id, mediaType: media.type, genres: media.genres || [] })
       }
     }
   }, [media, inWishlist])
@@ -272,51 +260,39 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
   const Icon = TYPE_ICON[media.type] || Film
   const externalUrl = buildExternalUrl(media)
+  const sourceLabel = buildSourceLabel(media)
 
   const isManga = media.type === 'manga' || media.type === 'novel'
+  const isBoardgame = media.type === 'boardgame'
+  const isBook = media.type === 'book'
 
-  const creatorList = isManga
+  // Autori/creatori priorità per tipo
+  const creatorList = isManga || isBook
     ? (media.authors?.length ? media.authors : media.developers?.length ? media.developers : media.studios?.length ? media.studios : null)
     : (media.studios?.length ? media.studios : media.directors?.length ? media.directors : media.authors?.length ? media.authors : null)
 
   const creatorLabel = creatorList?.slice(0, 2).join(', ') ?? null
-  const creatorTitle = isManga
-    ? (media.authors?.length ? 'Autori' : media.developers?.length ? 'Autori' : 'Editori')
-    : (media.studios?.length ? 'Studio' : media.directors?.length ? 'Registi' : media.authors?.length ? 'Autori' : 'Registi')
+  const creatorTitle = isManga || isBook
+    ? (media.authors?.length ? 'Autori' : 'Editori')
+    : (media.studios?.length ? 'Studio' : media.directors?.length ? 'Registi' : 'Autori')
 
   const continuityRelations = (media.relations || [])
     .filter(r => ['SEQUEL', 'PREQUEL', 'SIDE_STORY', 'SPIN_OFF'].includes(r.relationType))
     .slice(0, 4)
 
   const isLongDesc = (media.description?.length ?? 0) > 350
-
   const timeLabel = (media.type === 'anime' || media.type === 'tv') ? 'min/ep' : 'min'
-
-  const sourceLabel = (() => {
-    const id = media.id
-    if (id.startsWith('anilist-')) return 'AniList'
-    if (id.startsWith('igdb-')) return 'IGDB'
-    return 'TMDb'
-  })()
 
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
-        aria-hidden
-      />
+      <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm" onClick={onClose} aria-hidden />
 
-      {/* Drawer — flex column: header | scroll | footer */}
+      {/* Drawer */}
       <div
-        className="fixed right-0 top-0 bottom-0 z-[200] w-full max-w-md bg-zinc-950 border-l border-zinc-800
-                   flex flex-col animate-in slide-in-from-right duration-300"
-        role="dialog"
-        aria-modal
-        aria-label={media.title}
+        className="fixed right-0 top-0 bottom-0 z-[200] w-full max-w-md bg-zinc-950 border-l border-zinc-800 flex flex-col animate-in slide-in-from-right duration-300"
+        role="dialog" aria-modal aria-label={media.title}
       >
-        {/* Bottone chiudi */}
         <button
           onClick={onClose}
           className="absolute top-3 right-3 z-[100] w-8 h-8 bg-black/60 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-black/80 transition"
@@ -325,20 +301,14 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
           <X size={16} />
         </button>
 
-        {/* ── HEADER (non scorribile) ────────────────────────────────── */}
+        {/* ── HEADER ──────────────────────────────────────────────────── */}
         <div className="flex gap-4 p-5 pr-12 border-b border-zinc-800/60 flex-shrink-0">
-          {/* Locandina compatta */}
           <div className="flex-shrink-0 w-20 h-28 rounded-xl overflow-hidden bg-zinc-800 shadow-lg ring-1 ring-white/10">
-            {media.coverImage ? (
-              <img src={media.coverImage} alt={media.title} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Icon size={28} className="text-zinc-600" />
-              </div>
-            )}
+            {media.coverImage
+              ? <img src={media.coverImage} alt={media.title} className="w-full h-full object-cover" />
+              : <div className="w-full h-full flex items-center justify-center"><Icon size={28} className="text-zinc-600" /></div>}
           </div>
 
-          {/* Info a destra */}
           <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full text-white ${TYPE_COLOR[media.type] || 'bg-zinc-700'}`}>
@@ -358,12 +328,10 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
             <h2 className="text-base font-bold text-white leading-tight line-clamp-2">{media.title}</h2>
 
-            {/* Stats inline: anno · score · ep · durata · giocatori · complessità */}
+            {/* Stats inline */}
             <div className="flex items-center gap-1 flex-wrap">
-              {media.year && (
-                <span className="text-[10px] text-zinc-400">{media.year}</span>
-              )}
-              {(media.score != null) && (
+              {media.year && <span className="text-[10px] text-zinc-400">{media.year}</span>}
+              {media.score != null && (
                 <div className="flex items-center gap-0.5 bg-zinc-800 border border-zinc-700 rounded-full px-1.5 py-0.5">
                   <Star size={9} className="text-yellow-400 fill-yellow-400" />
                   <span className="text-[10px] font-bold text-white">{media.score!.toFixed(1)}</span>
@@ -376,13 +344,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                   <span className="text-[10px] text-zinc-500">ep.</span>
                 </div>
               )}
-              {media.playing_time != null && (
-                <div className="flex items-center gap-0.5 bg-zinc-800 border border-zinc-700 rounded-full px-1.5 py-0.5">
-                  <Clock size={9} className="text-zinc-400" />
-                  <span className="text-[10px] font-bold text-white">{media.playing_time}</span>
-                  <span className="text-[10px] text-zinc-500">{timeLabel}</span>
-                </div>
-              )}
+              {/* Boardgame: giocatori */}
               {(media.min_players != null || media.max_players != null) && (
                 <div className="flex items-center gap-0.5 bg-zinc-800 border border-zinc-700 rounded-full px-1.5 py-0.5">
                   <Users size={9} className="text-zinc-400" />
@@ -393,10 +355,27 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                   </span>
                 </div>
               )}
+              {/* Durata (boardgame o film) */}
+              {media.playing_time != null && (
+                <div className="flex items-center gap-0.5 bg-zinc-800 border border-zinc-700 rounded-full px-1.5 py-0.5">
+                  <Clock size={9} className="text-zinc-400" />
+                  <span className="text-[10px] font-bold text-white">{media.playing_time}</span>
+                  <span className="text-[10px] text-zinc-500">{timeLabel}</span>
+                </div>
+              )}
+              {/* Boardgame: complessità */}
               {media.complexity != null && (
                 <div className="flex items-center gap-0.5 bg-zinc-800 border border-zinc-700 rounded-full px-1.5 py-0.5">
                   <span className="text-[10px] font-bold text-white">{media.complexity.toFixed(1)}</span>
-                  <span className="text-[10px] text-zinc-500">cmplx</span>
+                  <span className="text-[10px] text-zinc-500">/5</span>
+                </div>
+              )}
+              {/* Book: pagine */}
+              {media.pages != null && (
+                <div className="flex items-center gap-0.5 bg-zinc-800 border border-zinc-700 rounded-full px-1.5 py-0.5">
+                  <FileText size={9} className="text-zinc-400" />
+                  <span className="text-[10px] font-bold text-white">{media.pages}</span>
+                  <span className="text-[10px] text-zinc-500">pp.</span>
                 </div>
               )}
             </div>
@@ -447,7 +426,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                   <div className="flex items-center justify-center gap-1">
                     <Star size={11} className="text-yellow-400 fill-yellow-400" />
                     <p className="text-lg font-bold text-white">{(media.score!).toFixed(1)}</p>
-                    <span className="text-[10px] text-zinc-600">/5</span>
+                    <span className="text-[10px] text-zinc-600">/10</span>
                   </div>
                 </div>
               )
@@ -493,15 +472,21 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                   </p>
                 </div>
               )
+              if (media.pages) cells.push(
+                <div key="pages" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Pagine</p>
+                  <p className="text-lg font-bold text-white">{media.pages}</p>
+                </div>
+              )
               if (cells.length === 0) return null
               return (
-                <div className={`grid gap-2 ${cells.length <= 2 ? 'grid-cols-2' : cells.length === 3 ? 'grid-cols-3' : 'grid-cols-3'}`}>
+                <div className={`grid gap-2 ${cells.length <= 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
                   {cells}
                 </div>
               )
             })()}
 
-            {/* Descrizione con expand */}
+            {/* Descrizione */}
             {media.description && (
               <div>
                 <p className={`text-sm text-zinc-300 leading-relaxed ${!descExpanded ? 'line-clamp-6' : ''}`}>
@@ -518,7 +503,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               </div>
             )}
 
-            {/* Studios / Directors / Authors */}
+            {/* Autori / Studio / Registi */}
             {creatorList && creatorList.length > 0 && (
               <div>
                 <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5 flex items-center gap-1">
@@ -534,8 +519,58 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               </div>
             )}
 
-            {/* Sviluppatori (games) — mostrati solo se non già in creatorList */}
-            {media.developers && media.developers.length > 0 && !isManga && (
+            {/* ── BOARDGAME: Meccaniche ─────────────────────────────── */}
+            {isBoardgame && media.mechanics && media.mechanics.length > 0 && (
+              <div>
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5 flex items-center gap-1">
+                  <Dices size={10} />Meccaniche
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {media.mechanics.slice(0, 10).map(m => (
+                    <span key={m} className="text-xs bg-amber-500/10 text-amber-300 border border-amber-500/20 px-2.5 py-1 rounded-full">
+                      {m}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── BOARDGAME: Designer ───────────────────────────────── */}
+            {isBoardgame && media.designers && media.designers.length > 0 && (
+              <div>
+                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Designer</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {media.designers.map(d => (
+                    <span key={d} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">
+                      {d}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── BOOK: Editore + ISBN ──────────────────────────────── */}
+            {isBook && (media.publisher || media.isbn) && (
+              <div className="flex flex-col gap-2">
+                {media.publisher && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-zinc-500 uppercase tracking-widest w-16 flex-shrink-0">Editore</span>
+                    <span className="text-xs text-zinc-300">{media.publisher}</span>
+                  </div>
+                )}
+                {media.isbn && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-zinc-500 uppercase tracking-widest w-16 flex-shrink-0">ISBN</span>
+                    <span className="text-xs font-mono text-zinc-400 flex items-center gap-1">
+                      <Hash size={9} />{media.isbn}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Sviluppatori (games) */}
+            {media.developers && media.developers.length > 0 && !isManga && !isBook && (
               <div>
                 <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Sviluppatori</h3>
                 <div className="flex flex-wrap gap-1.5">
@@ -545,18 +580,6 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                 </div>
               </div>
             )}
-
-            {/* Editori (manga only, shown separately from authors) */}
-            {isManga && media.developers?.length && media.studios?.length ? (
-              <div>
-                <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Editori</h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {media.studios.slice(0, 3).map(name => (
-                    <span key={name} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{name}</span>
-                  ))}
-                </div>
-              </div>
-            ) : null}
 
             {/* Cast */}
             {media.cast && media.cast.length > 0 && (
@@ -584,7 +607,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               </div>
             )}
 
-            {/* Disponibile su (streaming) */}
+            {/* Disponibile su */}
             {media.watchProviders && media.watchProviders.length > 0 && (
               <div>
                 <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Disponibile su</h3>
@@ -614,17 +637,14 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             {/* Continuity / Relations */}
             {continuityRelations.length > 0 && (
               <div>
-                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-2">
-                  Nella stessa serie
-                </h3>
+                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest mb-2">Nella stessa serie</h3>
                 <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide">
                   {continuityRelations.map(rel => (
                     <div key={rel.id} className="flex-shrink-0 w-16">
                       <div className="relative h-24 rounded-xl overflow-hidden bg-zinc-800 mb-1">
                         {rel.coverImage
                           ? <Image src={rel.coverImage} alt={rel.title} fill className="object-cover" sizes="64px" loading="lazy" />
-                          : <div className="w-full h-full flex items-center justify-center text-zinc-700"><Tv size={28} /></div>
-                        }
+                          : <div className="w-full h-full flex items-center justify-center text-zinc-700"><Tv size={28} /></div>}
                         <div className="absolute top-1 left-1 bg-amber-500/90 text-[7px] font-bold px-1 py-0.5 rounded text-white">
                           {RELATION_LABEL[rel.relationType] || rel.relationType}
                         </div>
@@ -637,7 +657,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               </div>
             )}
 
-            {/* Form aggiunta (appare in fondo al contenuto) */}
+            {/* Form aggiunta */}
             {showAddForm && (
               <div ref={formRef} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-4">
                 <div>
@@ -649,68 +669,43 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                   const maxSeasons = media.totalSeasons ?? (media.seasons ? Object.keys(media.seasons).length : null)
                   return (
                     <div>
-                      <p className="text-xs text-zinc-500 mb-1">
-                        Stagione{maxSeasons ? ` (max ${maxSeasons})` : ''}
-                      </p>
+                      <p className="text-xs text-zinc-500 mb-1">Stagione{maxSeasons ? ` (max ${maxSeasons})` : ''}</p>
                       <input
-                        type="number"
-                        min={1}
-                        max={maxSeasons ?? undefined}
-                        value={formSeason}
+                        type="number" min={1} max={maxSeasons ?? undefined} value={formSeason}
                         onChange={e => {
-                          const val = e.target.value
-                          setFormSeason(val)
+                          const val = e.target.value; setFormSeason(val)
                           const n = parseInt(val)
-                          if (isNaN(n) || n < 1) {
-                            setFormSeasonError('Minimo 1')
-                          } else if (maxSeasons && n > maxSeasons) {
-                            setFormSeasonError(`Massimo ${maxSeasons}`)
-                          } else {
-                            setFormSeasonError(null)
-                          }
-                          setFormEpisode('0')
-                          setFormEpisodeError(null)
+                          if (isNaN(n) || n < 1) setFormSeasonError('Minimo 1')
+                          else if (maxSeasons && n > maxSeasons) setFormSeasonError(`Massimo ${maxSeasons}`)
+                          else setFormSeasonError(null)
+                          setFormEpisode('0'); setFormEpisodeError(null)
                         }}
                         className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
                       />
-                      {formSeasonError && (
-                        <p className="text-xs text-red-400 mt-1">{formSeasonError}</p>
-                      )}
+                      {formSeasonError && <p className="text-xs text-red-400 mt-1">{formSeasonError}</p>}
                     </div>
                   )
                 })()}
 
-                {media.type !== 'movie' && (() => {
+                {media.type !== 'movie' && !isBoardgame && (() => {
                   const seasonNum = parseInt(formSeason) || 1
-                  const maxEp = media.seasons?.[seasonNum]?.episode_count ?? media.episodes ?? null
-                  const label = media.type === 'manga' || media.type === 'novel' ? 'Capitolo corrente' : media.type === 'book' ? 'Pagina corrente' : 'Episodio corrente'
+                  const maxEp = media.seasons?.[seasonNum]?.episode_count ?? media.episodes ?? (isBook ? media.pages : null) ?? null
+                  const label = media.type === 'manga' || media.type === 'novel' ? 'Capitolo corrente' : isBook ? 'Pagina corrente' : 'Episodio corrente'
                   return (
                     <div>
-                      <p className="text-xs text-zinc-500 mb-1">
-                        {label}{maxEp ? ` (max ${maxEp})` : ''}
-                      </p>
+                      <p className="text-xs text-zinc-500 mb-1">{label}{maxEp ? ` (max ${maxEp})` : ''}</p>
                       <input
-                        type="number"
-                        min={0}
-                        max={maxEp ?? undefined}
-                        value={formEpisode}
+                        type="number" min={0} max={maxEp ?? undefined} value={formEpisode}
                         onChange={e => {
-                          const val = e.target.value
-                          setFormEpisode(val)
+                          const val = e.target.value; setFormEpisode(val)
                           const n = parseInt(val)
-                          if (isNaN(n) || n < 0) {
-                            setFormEpisodeError('Il valore non può essere negativo')
-                          } else if (maxEp && n > maxEp) {
-                            setFormEpisodeError(`Massimo ${maxEp}`)
-                          } else {
-                            setFormEpisodeError(null)
-                          }
+                          if (isNaN(n) || n < 0) setFormEpisodeError('Il valore non può essere negativo')
+                          else if (maxEp && n > maxEp) setFormEpisodeError(`Massimo ${maxEp}`)
+                          else setFormEpisodeError(null)
                         }}
                         className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
                       />
-                      {formEpisodeError && (
-                        <p className="text-xs text-red-400 mt-1">{formEpisodeError}</p>
-                      )}
+                      {formEpisodeError && <p className="text-xs text-red-400 mt-1">{formEpisodeError}</p>}
                     </div>
                   )
                 })()}
@@ -720,7 +715,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
           </div>
         </div>
 
-        {/* ── FOOTER STICKY (CTA) ────────────────────────────────────── */}
+        {/* ── FOOTER STICKY ────────────────────────────────────────── */}
         <div className="flex-shrink-0 p-3 border-t border-zinc-800/80 bg-zinc-950 space-y-2">
           {!checkDone ? (
             <div className="animate-pulse space-y-2">
@@ -782,8 +777,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                     rel="noopener noreferrer"
                     className="flex-1 py-2 rounded-xl font-medium text-xs bg-zinc-900 border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-all flex items-center justify-center gap-1.5"
                   >
-                    <ExternalLink size={12} />
-                    {sourceLabel}
+                    <ExternalLink size={12} />{sourceLabel}
                   </a>
                 )}
               </div>

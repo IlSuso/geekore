@@ -56,7 +56,9 @@ import {
 import {
   CROSS_TO_IGDB_GENRE, CROSS_TO_IGDB_THEME, IGDB_VALID_GENRES,
   TMDB_GENRE_MAP, TMDB_TV_GENRE_MAP, IGDB_TO_CROSS_GENRE,
-  ADJACENCY_GRAPH
+  ADJACENCY_GRAPH,
+  CROSS_TO_BGG_CATEGORY, CROSS_TO_BOOK_GENRE,
+  BGG_TO_CROSS_GENRE, BOOK_TO_CROSS_GENRE,
 } from '@/lib/reco/genre-maps'
 
 
@@ -444,7 +446,7 @@ function computeTasteProfile(
   const globalScores: Record<string, number> = {}
   const negativeGenreScores: Record<string, number> = {}
   const perTypeScores: Record<string, Record<string, number>> = {
-    anime: {}, manga: {}, movie: {}, tv: {}, game: {}, book: {},
+    anime: {}, manga: {}, movie: {}, tv: {}, game: {}, book: {}, boardgame: {},
   }
   const genreToTitles: Record<string, Array<any>> = {}
   const deepKeywords: Record<string, number> = {}
@@ -485,7 +487,7 @@ function computeTasteProfile(
 
   // Adaptive window per tipo (V3)
   const activeWindowByType: Record<string, number> = {}
-  for (const type of ['anime', 'manga', 'movie', 'tv', 'game', 'book']) {
+  for (const type of ['anime', 'manga', 'movie', 'tv', 'game', 'book', 'boardgame']) {
     activeWindowByType[type] = determineActiveWindowForType(entries, type as MediaType)
   }
   const activeWindow = Math.round(
@@ -526,6 +528,26 @@ function computeTasteProfile(
       const crossExpanded = new Set<string>(genres)
       for (const g of genres) {
         const mapped = IGDB_TO_CROSS_GENRE[g]
+        if (mapped) for (const cg of mapped) crossExpanded.add(cg)
+      }
+      genres = [...crossExpanded]
+    }
+
+    // Per i boardgame: espandi categorie BGG → generi cross-media
+    if (type === 'boardgame') {
+      const crossExpanded = new Set<string>(genres)
+      for (const g of genres) {
+        const mapped = BGG_TO_CROSS_GENRE[g]
+        if (mapped) for (const cg of mapped) crossExpanded.add(cg)
+      }
+      genres = [...crossExpanded]
+    }
+
+    // Per i libri: espandi categorie Google Books → generi cross-media
+    if (type === 'book') {
+      const crossExpanded = new Set<string>(genres)
+      for (const g of genres) {
+        const mapped = BOOK_TO_CROSS_GENRE[g]
         if (mapped) for (const cg of mapped) crossExpanded.add(cg)
       }
       genres = [...crossExpanded]
@@ -1058,6 +1080,81 @@ function buildDiversitySlots(type: MediaType, tasteProfile: TasteProfile, totalS
   const typeGenres = tasteProfile.topGenres[type]?.map(g => g.genre) || []
   const fallbackGenres = tasteProfile.globalGenres.map(g => g.genre)
   const sourceGenres = typeGenres.length >= 2 ? typeGenres : fallbackGenres
+
+  // ── Logica specifica per giochi da tavolo (BGG) ──────────────────────────
+  // Generi nel profilo sono cross-media → mappa in categorie BGG
+  if (type === 'boardgame') {
+    const bggCatScore: Record<string, number> = {}
+    const sourceScores = Object.fromEntries(
+      (typeGenres.length >= 2 ? tasteProfile.topGenres.boardgame : tasteProfile.globalGenres)
+        .map(g => [g.genre, g.score])
+    )
+    for (const srcGenre of sourceGenres.slice(0, 8)) {
+      const mapped = CROSS_TO_BGG_CATEGORY[srcGenre] || [srcGenre]
+      const score = sourceScores[srcGenre] || 1
+      for (const bggCat of mapped) {
+        bggCatScore[bggCat] = (bggCatScore[bggCat] || 0) + score
+      }
+    }
+    const rankedCats = Object.entries(bggCatScore)
+      .sort(([, a], [, b]) => b - a)
+      .map(([g]) => g)
+      .slice(0, 6)
+
+    if (rankedCats.length === 0) {
+      return [
+        { genre: 'Strategy', quota: 6, isDiscovery: false },
+        { genre: 'Adventure', quota: 5, isDiscovery: false },
+        { genre: 'Cooperative Play', quota: 4, isDiscovery: false },
+        { genre: 'Social Deduction', quota: 3, isDiscovery: true },
+        { genre: 'Deduction', quota: 2, isDiscovery: true },
+      ]
+    }
+    const slots: GenreSlot[] = []
+    const distributions = [0.28, 0.22, 0.18, 0.14, 0.10, 0.08]
+    for (let i = 0; i < rankedCats.length; i++) {
+      const quota = Math.max(2, Math.round(totalSlots * distributions[i]))
+      slots.push({ genre: rankedCats[i], quota, isDiscovery: i >= 4 })
+    }
+    return slots
+  }
+
+  // ── Logica specifica per libri (Google Books) ────────────────────────────
+  if (type === 'book') {
+    const bookCatScore: Record<string, number> = {}
+    const sourceScores = Object.fromEntries(
+      (typeGenres.length >= 2 ? tasteProfile.topGenres.book : tasteProfile.globalGenres)
+        .map(g => [g.genre, g.score])
+    )
+    for (const srcGenre of sourceGenres.slice(0, 8)) {
+      const mapped = CROSS_TO_BOOK_GENRE[srcGenre] || [srcGenre]
+      const score = sourceScores[srcGenre] || 1
+      for (const bookCat of mapped) {
+        bookCatScore[bookCat] = (bookCatScore[bookCat] || 0) + score
+      }
+    }
+    const rankedCats = Object.entries(bookCatScore)
+      .sort(([, a], [, b]) => b - a)
+      .map(([g]) => g)
+      .slice(0, 6)
+
+    if (rankedCats.length === 0) {
+      return [
+        { genre: 'Fiction', quota: 6, isDiscovery: false },
+        { genre: 'Thriller', quota: 5, isDiscovery: false },
+        { genre: 'Fantasy', quota: 4, isDiscovery: false },
+        { genre: 'Science Fiction', quota: 4, isDiscovery: false },
+        { genre: 'Mystery', quota: 3, isDiscovery: true },
+      ]
+    }
+    const slots: GenreSlot[] = []
+    const distributions = [0.28, 0.22, 0.18, 0.14, 0.10, 0.08]
+    for (let i = 0; i < rankedCats.length; i++) {
+      const quota = Math.max(2, Math.round(totalSlots * distributions[i]))
+      slots.push({ genre: rankedCats[i], quota, isDiscovery: i >= 4 })
+    }
+    return slots
+  }
 
   // ── Logica specifica per giochi ──────────────────────────────────────────
   // I generi nel profilo utente sono cross-media (es. Fantasy, Drama, Action).
@@ -2085,6 +2182,295 @@ async function fetchGameRecs(
 
 
 
+// ── fetchBoardgameRecs ────────────────────────────────────────────────────────
+// Usa BGG /xmlapi2/search per trovare giochi per categoria, poi /thing per dettagli.
+// Le categorie BGG non sono filtrabili via API — si cerca per query del nome-categoria,
+// quindi si filtrano i risultati per categoria nel body XML.
+async function fetchBoardgameRecs(
+  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile,
+  isAlreadyOwned: (type: string, id: string, title: string) => boolean,
+  shownIds?: Set<string>
+): Promise<Recommendation[]> {
+  const BGG_BASE = 'https://boardgamegeek.com/xmlapi2'
+  const bggHeaders: HeadersInit = {
+    'User-Agent': 'Geekore/1.0 (geekore.it)',
+    ...(process.env.BGG_BEARER_TOKEN ? { Authorization: `Bearer ${process.env.BGG_BEARER_TOKEN}` } : {}),
+  }
+
+  const results: Recommendation[] = []
+  const seen = new Set<string>()
+
+  // Per ogni slot di categoria, usa la BGG Hot list + /thing per arricchire
+  // poi filtra/score in base al profilo
+  for (const slot of slots.slice(0, 6)) {
+    try {
+      // Strategia: ricerca per nome-categoria su BGG search (type=boardgame)
+      // restituisce una lista di ID; poi fetch /thing per dettagli (max 20)
+      const searchUrl = `${BGG_BASE}/search?query=${encodeURIComponent(slot.genre)}&type=boardgame`
+      const searchRes = await fetch(searchUrl, {
+        headers: bggHeaders,
+        signal: AbortSignal.timeout(8000),
+        next: { revalidate: 3600 },
+      })
+      if (!searchRes.ok) continue
+      const searchXml = await searchRes.text()
+
+      // Estrai ID
+      const idRe = /<item[^>]*id="(\d+)"/g
+      const ids: string[] = []
+      let m
+      while ((m = idRe.exec(searchXml)) !== null) {
+        ids.push(m[1])
+        if (ids.length >= 20) break
+      }
+      if (!ids.length) continue
+
+      // Fetch dettagli
+      const thingUrl = `${BGG_BASE}/thing?id=${ids.join(',')}&stats=1`
+      const thingRes = await fetch(thingUrl, {
+        headers: bggHeaders,
+        signal: AbortSignal.timeout(10000),
+        next: { revalidate: 3600 },
+      })
+      if (!thingRes.ok) continue
+      const thingXml = await thingRes.text()
+
+      // Parse ogni item
+      const itemRe = /<item[^>]*type="boardgame"[^>]*>([\s\S]*?)<\/item>/gi
+      while ((m = itemRe.exec(thingXml)) !== null) {
+        const chunk = m[0]
+        const idM = chunk.match(/\bid="(\d+)"/)
+        if (!idM) continue
+        const recId = `bgg-${idM[1]}`
+        if (seen.has(recId) || shownIds?.has(recId)) continue
+        if (isAlreadyOwned('boardgame', recId, '')) continue
+
+        const nameM = chunk.match(/<name[^>]*type="primary"[^>]*value="([^"]*)"/)
+        if (!nameM) continue
+        const title = nameM[1].trim()
+
+        const thumbnail = (chunk.match(/<thumbnail>([^<]+)<\/thumbnail>/) || [])[1]?.trim()
+        const image = (chunk.match(/<image>([^<]+)<\/image>/) || [])[1]?.trim()
+        const cover = thumbnail || image
+        if (!cover || cover.length < 10) continue
+
+        const yearM = chunk.match(/<yearpublished[^>]*value="(\d+)"/)
+        const year = yearM ? parseInt(yearM[1]) : undefined
+
+        const rawDesc = (chunk.match(/<description>([^<]*)<\/description>/) || [])[1] || ''
+        const description = rawDesc
+          .replace(/&#10;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#\d+;/g, '')
+          .replace(/<[^>]+>/g, '').trim().slice(0, 300) || undefined
+
+        // Estrai categorie e meccaniche
+        const catRe = /<link[^>]*type="boardgamecategory"[^>]*value="([^"]*)"/g
+        const categories: string[] = []
+        let cm
+        while ((cm = catRe.exec(chunk)) !== null) categories.push(cm[1])
+        const mechRe = /<link[^>]*type="boardgamemechanic"[^>]*value="([^"]*)"/g
+        const mechanics: string[] = []
+        while ((cm = mechRe.exec(chunk)) !== null) mechanics.push(cm[1])
+        const designerRe = /<link[^>]*type="boardgamedesigner"[^>]*value="([^"]*)"/g
+        const designers: string[] = []
+        while ((cm = designerRe.exec(chunk)) !== null) {
+          if (cm[1] !== '(Uncredited)') designers.push(cm[1])
+        }
+
+        const ratingM = chunk.match(/<average[^>]*value="([\d.]+)"/)
+        const bggScore = ratingM ? parseFloat(ratingM[1]) : undefined
+        if (bggScore !== undefined && bggScore < 6.0) continue  // quality gate
+
+        const minpM = chunk.match(/<minplayers[^>]*value="(\d+)"/)
+        const maxpM = chunk.match(/<maxplayers[^>]*value="(\d+)"/)
+        const timeM = chunk.match(/<playingtime[^>]*value="(\d+)"/)
+        const weightM = chunk.match(/<averageweight[^>]*value="([\d.]+)"/)
+
+        // Converti categorie BGG → generi cross-media per matchScore
+        const crossGenres = new Set<string>()
+        for (const cat of categories) {
+          crossGenres.add(cat)
+          const mapped = BGG_TO_CROSS_GENRE[cat]
+          if (mapped) for (const cg of mapped) crossGenres.add(cg)
+        }
+        const recGenres = [...crossGenres]
+
+        const matchScore = computeMatchScore(recGenres, mechanics, tasteProfile, [], [])
+        if (matchScore < 8) continue  // soglia bassa — BGG ha categorie meno precise
+
+        let finalScore = matchScore
+        // Award boost: BGG score >= 7.5 con molti voti è un titolo acclamato
+        const ratingCountM = chunk.match(/<usersrated[^>]*value="(\d+)"/)
+        const ratingCount = ratingCountM ? parseInt(ratingCountM[1]) : 0
+        if (bggScore !== undefined && bggScore >= 7.5 && ratingCount >= 500) {
+          finalScore = Math.min(100, finalScore + 8)
+        }
+        finalScore = Math.round(finalScore * releaseFreshnessMult(year))
+
+        seen.add(recId)
+        results.push({
+          id: recId,
+          title,
+          type: 'boardgame',
+          coverImage: cover,
+          year,
+          genres: categories.length > 0 ? categories : recGenres,
+          score: bggScore,
+          description,
+          why: buildWhyV3(recGenres, recId, title, tasteProfile, matchScore, slot.isDiscovery, {}),
+          matchScore: finalScore,
+          isDiscovery: slot.isDiscovery,
+          isAwardWinner: bggScore !== undefined && bggScore >= 7.5 && ratingCount >= 500,
+          min_players: minpM ? parseInt(minpM[1]) : undefined,
+          max_players: maxpM ? parseInt(maxpM[1]) : undefined,
+          playing_time: timeM ? parseInt(timeM[1]) : undefined,
+          complexity: weightM ? Math.round(parseFloat(weightM[1]) * 10) / 10 : undefined,
+          mechanics: mechanics.slice(0, 8),
+          designers: designers.slice(0, 3),
+        } as any)
+
+        if (results.length >= 50) break
+      }
+    } catch { /* continua */ }
+  }
+
+  return results.sort((a, b) => b.matchScore - a.matchScore)
+}
+
+// ── fetchBookRecs ─────────────────────────────────────────────────────────────
+// Google Books API — ricerca per categoria/soggetto e restituisce raccomandazioni
+async function fetchBookRecs(
+  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile,
+  isAlreadyOwned: (type: string, id: string, title: string) => boolean,
+  shownIds?: Set<string>
+): Promise<Recommendation[]> {
+  const GOOGLE_BOOKS_KEY = process.env.GOOGLE_BOOKS_API_KEY
+  const results: Recommendation[] = []
+  const seen = new Set<string>()
+
+  for (const slot of slots.slice(0, 6)) {
+    try {
+      // Google Books: ricerca per subject (categoria)
+      const query = `subject:${encodeURIComponent(slot.genre)}`
+      const params = new URLSearchParams({
+        q: query,
+        maxResults: '20',
+        printType: 'books',
+        orderBy: 'relevance',
+        langRestrict: 'it',
+        ...(GOOGLE_BOOKS_KEY ? { key: GOOGLE_BOOKS_KEY } : {}),
+      })
+
+      // Prima prova con restrizione italiana; se < 5 risultati riprova senza
+      let items: any[] = []
+      const res = await fetch(`https://www.googleapis.com/books/v1/volumes?${params}`, {
+        signal: AbortSignal.timeout(8000),
+        next: { revalidate: 3600 },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        items = data.items || []
+      }
+
+      // Fallback senza restrizione lingua se risultati scarsi
+      if (items.length < 5) {
+        const params2 = new URLSearchParams({
+          q: query,
+          maxResults: '20',
+          printType: 'books',
+          orderBy: 'relevance',
+          ...(GOOGLE_BOOKS_KEY ? { key: GOOGLE_BOOKS_KEY } : {}),
+        })
+        const res2 = await fetch(`https://www.googleapis.com/books/v1/volumes?${params2}`, {
+          signal: AbortSignal.timeout(8000),
+          next: { revalidate: 3600 },
+        })
+        if (res2.ok) {
+          const data2 = await res2.json()
+          items = data2.items || []
+        }
+      }
+
+      for (const vol of items) {
+        const info = vol.volumeInfo
+        if (!info?.title) continue
+
+        const recId = `book-${vol.id}`
+        if (seen.has(recId) || shownIds?.has(recId)) continue
+        if (isAlreadyOwned('book', recId, info.title)) continue
+
+        // Cover
+        const gbThumb = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail
+        let cover = gbThumb
+          ? gbThumb.replace('http://', 'https://').replace('&edge=curl', '').replace('zoom=1', 'zoom=3')
+          : undefined
+        // Fallback Open Library via ISBN
+        if (!cover) {
+          const identifiers: Array<{ type: string; identifier: string }> = info.industryIdentifiers || []
+          const isbn = identifiers.find((i: any) => i.type === 'ISBN_13')?.identifier
+            || identifiers.find((i: any) => i.type === 'ISBN_10')?.identifier
+          if (isbn) cover = `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`
+        }
+        if (!cover) continue
+
+        // Quality gate: almeno 3.5/5 se ha rating
+        if (info.averageRating !== undefined && info.averageRating < 3.5) continue
+
+        const year = info.publishedDate ? parseInt(info.publishedDate.slice(0, 4)) : undefined
+        const genres: string[] = info.categories || []
+
+        // Converti categorie libro → cross-media per matchScore
+        const crossGenres = new Set<string>(genres)
+        for (const cat of genres) {
+          const mapped = BOOK_TO_CROSS_GENRE[cat]
+          if (mapped) for (const cg of mapped) crossGenres.add(cg)
+        }
+        const recGenres = [...crossGenres]
+
+        const matchScore = computeMatchScore(recGenres, [], tasteProfile, [], [])
+        if (matchScore < 8) continue
+
+        const rawDesc = (info.description || '').replace(/<[^>]+>/g, '').trim()
+        const description = rawDesc.slice(0, 300) || undefined
+
+        const score = info.averageRating ? Math.round(info.averageRating * 2 * 10) / 10 : undefined
+        const identifiers: Array<{ type: string; identifier: string }> = info.industryIdentifiers || []
+        const isbn = identifiers.find((i: any) => i.type === 'ISBN_13')?.identifier
+          || identifiers.find((i: any) => i.type === 'ISBN_10')?.identifier
+
+        let finalScore = matchScore
+        if (score !== undefined && score >= 8.0 && (info.ratingsCount || 0) >= 100) {
+          finalScore = Math.min(100, finalScore + 6)
+        }
+        finalScore = Math.round(finalScore * releaseFreshnessMult(year))
+
+        seen.add(recId)
+        results.push({
+          id: recId,
+          title: info.title,
+          type: 'book',
+          coverImage: cover,
+          year: isNaN(year!) ? undefined : year,
+          genres,
+          score,
+          description,
+          why: buildWhyV3(recGenres, recId, info.title, tasteProfile, matchScore, slot.isDiscovery, {}),
+          matchScore: finalScore,
+          isDiscovery: slot.isDiscovery,
+          authors: info.authors || [],
+          pages: info.pageCount || undefined,
+          isbn,
+          publisher: info.publisher || undefined,
+        } as any)
+
+        if (results.length >= 50) break
+      }
+    } catch { /* continua */ }
+  }
+
+  return results.sort((a, b) => b.matchScore - a.matchScore)
+}
+
 // Helper per computeMatchScore con developer
 function computeMatchScoreWithDev(
   recGenres: string[],
@@ -2288,7 +2674,7 @@ export async function GET(request: NextRequest) {
     type OwnedByType = { ids: Set<string>; titles: Set<string>; tokenSets: Array<Set<string>> }
     const ownedByType = new Map<string, OwnedByType>()
 
-    for (const type of ['anime', 'manga', 'movie', 'tv', 'game', 'book']) {
+    for (const type of ['anime', 'manga', 'movie', 'tv', 'game', 'book', 'boardgame']) {
       ownedByType.set(type, { ids: new Set(), titles: new Set(), tokenSets: [] })
     }
 
@@ -2466,6 +2852,8 @@ export async function GET(request: NextRequest) {
             case 'movie': return { type, items: await fetchMovieRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds) }
             case 'tv':    return { type, items: await fetchTvRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds) }
             case 'game':  return { type, items: await fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret, isAlreadyOwned, emptyShownIds) }
+            case 'boardgame': return { type, items: await fetchBoardgameRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds) }
+            case 'book':  return { type, items: await fetchBookRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds) }
             default: return { type, items: [] as Recommendation[] }
           }
         })

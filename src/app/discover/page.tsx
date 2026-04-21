@@ -1,10 +1,13 @@
 'use client';
 // src/app/discover/page.tsx
-// V3: Search Intent Tracking + Wishlist Amplifier + Taste Delta updates
+// V4: + Boardgame (BGG) + Libri (Google Books) — News rimossa
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
-import { Search, Plus, X, Film, Tv, Gamepad2, Bookmark, BookmarkCheck, Mic, MicOff, Loader2, Swords, Check, Layers } from 'lucide-react';
+import {
+  Search, Plus, X, Film, Tv, Gamepad2, Bookmark, BookmarkCheck,
+  Mic, MicOff, Loader2, Swords, Check, Layers, Dices, BookOpen,
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { showToast } from '@/components/ui/Toast';
 import { useLocale } from '@/lib/locale';
@@ -17,14 +20,18 @@ import type { MediaDetails } from '@/components/media/MediaDetailsDrawer';
 type MediaItem = {
   id: string; title: string; title_en?: string; type: string; coverImage?: string; year?: number;
   episodes?: number; totalSeasons?: number; seasons?: Record<number, { episode_count: number }>;
-  description?: string; genres?: string[]; source: 'anilist' | 'tmdb' | 'igdb';
+  description?: string; genres?: string[]; source: 'anilist' | 'tmdb' | 'igdb' | 'bgg' | 'google_books';
   tags?: string[]; keywords?: string[]; themes?: string[]; player_perspectives?: string[];
   game_modes?: string[]; developers?: string[]; categories?: string[]; mechanics?: string[];
   designers?: string[]; min_players?: number; max_players?: number; playing_time?: number;
-  score?: number; authors?: string[];
+  complexity?: number; score?: number; authors?: string[]; pages?: number;
+  isbn?: string; publisher?: string;
 };
 
-const TYPE_ORDER: Record<string, number> = { anime: 0, manga: 1, movie: 2, tv: 3, game: 4 };
+// Ordine sezioni nei risultati raggruppati
+const TYPE_ORDER: Record<string, number> = {
+  anime: 0, manga: 1, movie: 2, tv: 3, game: 4, boardgame: 5, book: 6,
+};
 
 function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
   if (!item?.coverImage || typeof item.coverImage !== 'string') return false;
@@ -32,15 +39,61 @@ function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
   return url.length >= 10 && !url.includes('N/A') && !url.includes('placeholder') && !url.includes('no-image');
 }
 
-const TYPE_LABELS: Record<string, string> = { anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Videogiochi', book: 'Libri' };
+const TYPE_LABELS: Record<string, string> = {
+  anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV',
+  game: 'Videogiochi', boardgame: 'Giochi da tavolo', book: 'Libri',
+};
+
 const TYPE_COLORS: Record<string, string> = {
-  anime: 'text-sky-400 border-sky-500/30 bg-sky-500/10', manga: 'text-orange-400 border-orange-500/30 bg-orange-500/10',
-  movie: 'text-red-400 border-red-500/30 bg-red-500/10', tv: 'text-purple-400 border-purple-500/30 bg-purple-500/10',
-  game: 'text-green-400 border-green-500/30 bg-green-500/10',
+  anime:     'text-sky-400 border-sky-500/30 bg-sky-500/10',
+  manga:     'text-orange-400 border-orange-500/30 bg-orange-500/10',
+  movie:     'text-red-400 border-red-500/30 bg-red-500/10',
+  tv:        'text-purple-400 border-purple-500/30 bg-purple-500/10',
+  game:      'text-green-400 border-green-500/30 bg-green-500/10',
+  boardgame: 'text-amber-400 border-amber-500/30 bg-amber-500/10',
+  book:      'text-cyan-400 border-cyan-500/30 bg-cyan-500/10',
+};
+
+// Icona placeholder nelle card senza copertina
+const TYPE_PLACEHOLDER_ICON: Record<string, React.ReactNode> = {
+  game:      <Gamepad2 size={28} />,
+  boardgame: <Dices size={28} />,
+  manga:     <Layers size={28} />,
+  book:      <BookOpen size={28} />,
+  anime:     <Swords size={28} />,
+  movie:     <Film size={28} />,
+  tv:        <Tv size={28} />,
 };
 
 function toMediaDetails(item: MediaItem): MediaDetails {
-  return { id: item.id, title: item.title, title_en: item.title_en, type: item.type, coverImage: item.coverImage, year: item.year, episodes: item.episodes, totalSeasons: item.totalSeasons, seasons: item.seasons, description: item.description, genres: item.genres, source: item.source, score: item.score, min_players: item.min_players, max_players: item.max_players, playing_time: item.playing_time, mechanics: item.mechanics, designers: item.designers, developers: item.developers, themes: item.themes, authors: item.authors };
+  return {
+    id: item.id,
+    title: item.title,
+    title_en: item.title_en,
+    type: item.type,
+    coverImage: item.coverImage,
+    year: item.year,
+    episodes: item.episodes,
+    totalSeasons: item.totalSeasons,
+    seasons: item.seasons,
+    description: item.description,
+    genres: item.genres,
+    source: item.source,
+    score: item.score,
+    min_players: item.min_players,
+    max_players: item.max_players,
+    playing_time: item.playing_time,
+    complexity: item.complexity,
+    mechanics: item.mechanics,
+    designers: item.designers,
+    developers: item.developers,
+    themes: item.themes,
+    authors: item.authors,
+    // campi libro
+    ...(item.pages ? { pages: item.pages } as any : {}),
+    ...(item.isbn ? { isbn: item.isbn } as any : {}),
+    ...(item.publisher ? { publisher: item.publisher } as any : {}),
+  };
 }
 
 function haptic(duration: number | number[] = 50) {
@@ -82,15 +135,17 @@ function useVoiceSearch(onResult: (text: string) => void) {
 const DEBOUNCE_MS = 350;
 
 const FILTERS: { id: string; label: string; icon: React.ReactNode }[] = [
-  { id: 'all',       label: 'Tutti',  icon: null },
-  { id: 'anime',     label: 'Anime',  icon: <Swords size={13} /> },
-  { id: 'manga',     label: 'Manga',  icon: <Layers size={13} /> },
-  { id: 'movie',     label: 'Film',   icon: <Film size={13} /> },
-  { id: 'tv',        label: 'Serie',  icon: <Tv size={13} /> },
-  { id: 'game',      label: 'Giochi', icon: <Gamepad2 size={13} /> },
+  { id: 'all',       label: 'Tutti',    icon: null },
+  { id: 'anime',     label: 'Anime',    icon: <Swords size={13} /> },
+  { id: 'manga',     label: 'Manga',    icon: <Layers size={13} /> },
+  { id: 'movie',     label: 'Film',     icon: <Film size={13} /> },
+  { id: 'tv',        label: 'Serie',    icon: <Tv size={13} /> },
+  { id: 'game',      label: 'Giochi',   icon: <Gamepad2 size={13} /> },
+  { id: 'boardgame', label: 'Tavolo',   icon: <Dices size={13} /> },
+  { id: 'book',      label: 'Libri',    icon: <BookOpen size={13} /> },
 ];
 
-// ── V3: Search tracking helpers (fire-and-forget, non blocca l'UI) ─────────
+// ── V3: Search tracking helpers (fire-and-forget) ────────────────────────────
 
 function trackSearchQuery(query: string, mediaType?: string) {
   if (!query || query.trim().length < 2) return;
@@ -117,13 +172,8 @@ function trackSearchClick(query: string, item: MediaItem) {
 
 function triggerTasteDelta(options: {
   action: 'rating' | 'status_change' | 'wishlist_add' | 'rewatch' | 'progress';
-  mediaId: string;
-  mediaType: string;
-  genres: string[];
-  rating?: number;
-  prevRating?: number;
-  status?: string;
-  prevStatus?: string;
+  mediaId: string; mediaType: string; genres: string[];
+  rating?: number; prevRating?: number; status?: string; prevStatus?: string;
 }) {
   fetch('/api/taste/update', {
     method: 'POST',
@@ -147,7 +197,6 @@ export default function DiscoverPage() {
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-  // V3: ref per il debounce del search tracking (800ms, più lungo del debounce UI)
   const trackDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTrackedQueryRef = useRef<string>('');
 
@@ -166,24 +215,54 @@ export default function DiscoverPage() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
-      supabase.from('wishlist').select('external_id').eq('user_id', user.id).then(({ data }) => { if (data) setWishlistIds(data.map((w: any) => w.external_id)); });
-      supabase.from('user_media_entries').select('external_id').eq('user_id', user.id).then(({ data }) => { if (data) setAlreadyAdded(data.map((e: any) => e.external_id)); });
+      supabase.from('wishlist').select('external_id').eq('user_id', user.id)
+        .then(({ data }) => { if (data) setWishlistIds(data.map((w: any) => w.external_id)); });
+      supabase.from('user_media_entries').select('external_id').eq('user_id', user.id)
+        .then(({ data }) => { if (data) setAlreadyAdded(data.map((e: any) => e.external_id)); });
     });
   }, []);
 
   const search = useCallback(async (term: string, type: string, lang: string) => {
-    if (!term.trim() || term.trim().length < 2) { setResults([]); setSearchError(null); setIsPending(false); return; }
+    if (!term.trim() || term.trim().length < 2) {
+      setResults([]); setSearchError(null); setIsPending(false); return;
+    }
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     setLoading(true); setIsPending(false); setSearchError(null);
+
     try {
       const reqs: Promise<Response>[] = [];
-      if (type === 'all' || type === 'anime' || type === 'manga') reqs.push(fetch(`/api/anilist?q=${encodeURIComponent(term)}${type !== 'all' ? `&type=${type}` : ''}&lang=${lang}`, { signal: controller.signal }));
-      if (type === 'all' || type === 'movie' || type === 'tv') reqs.push(fetch(`/api/tmdb?q=${encodeURIComponent(term)}${type !== 'all' ? `&type=${type}` : ''}&lang=${lang}`, { signal: controller.signal }));
-      if (type === 'all' || type === 'game') reqs.push(fetch(`/api/igdb?q=${encodeURIComponent(term)}&lang=${lang}`, { signal: controller.signal }));
+
+      // Anime / Manga — AniList
+      if (type === 'all' || type === 'anime' || type === 'manga')
+        reqs.push(fetch(
+          `/api/anilist?q=${encodeURIComponent(term)}${type !== 'all' ? `&type=${type}` : ''}&lang=${lang}`,
+          { signal: controller.signal }
+        ));
+
+      // Film / Serie — TMDB
+      if (type === 'all' || type === 'movie' || type === 'tv')
+        reqs.push(fetch(
+          `/api/tmdb?q=${encodeURIComponent(term)}${type !== 'all' ? `&type=${type}` : ''}&lang=${lang}`,
+          { signal: controller.signal }
+        ));
+
+      // Videogiochi — IGDB
+      if (type === 'all' || type === 'game')
+        reqs.push(fetch(`/api/igdb?q=${encodeURIComponent(term)}&lang=${lang}`, { signal: controller.signal }));
+
+      // Giochi da tavolo — BGG
+      if (type === 'all' || type === 'boardgame')
+        reqs.push(fetch(`/api/bgg?q=${encodeURIComponent(term)}`, { signal: controller.signal }));
+
+      // Libri — Google Books
+      if (type === 'all' || type === 'book')
+        reqs.push(fetch(`/api/books?q=${encodeURIComponent(term)}&lang=${lang}`, { signal: controller.signal }));
+
       const responses = await Promise.allSettled(reqs);
       if (controller.signal.aborted) return;
+
       const all: MediaItem[] = [];
       for (const r of responses) {
         if (r.status === 'fulfilled' && r.value.ok) {
@@ -194,14 +273,17 @@ export default function DiscoverPage() {
         }
       }
       if (controller.signal.aborted) return;
+
+      // Deduplicazione
       const seen = new Set<string>();
       const deduped = all.filter(i => { if (seen.has(i.id)) return false; seen.add(i.id); return true; });
+
+      // Filtra per cover valida
       const withCover = deduped.filter(hasValidCover);
       const filtered = type !== 'all' ? withCover.filter(i => i.type === type) : withCover;
       setResults(filtered);
 
-      // V3: traccia la ricerca dopo che i risultati sono tornati
-      // Deduplica: non tracciare la stessa query due volte di fila
+      // Traccia query
       const trimmed = term.trim();
       if (trimmed !== lastTrackedQueryRef.current && trimmed.length >= 2) {
         lastTrackedQueryRef.current = trimmed;
@@ -209,8 +291,11 @@ export default function DiscoverPage() {
       }
     } catch (err: any) {
       if (err?.name === 'AbortError') return;
-      setSearchError(d.searchError || 'Errore durante la ricerca'); setResults([]);
-    } finally { if (!controller.signal.aborted) setLoading(false); }
+      setSearchError(d.searchError || 'Errore durante la ricerca');
+      setResults([]);
+    } finally {
+      if (!controller.signal.aborted) setLoading(false);
+    }
   }, [supabase, d, locale]);
 
   useEffect(() => {
@@ -238,20 +323,17 @@ export default function DiscoverPage() {
       setWishlistIds(prev => prev.filter(id => id !== media.id));
       showToast(d.wishlistRemove);
     } else {
-      // V3: salva i generi nella wishlist per amplificazione profilo
       await supabase.from('wishlist').insert({
         user_id: user.id,
         external_id: media.id,
         title: media.title,
         type: media.type,
         cover_image: media.coverImage,
-        genres: media.genres || [],        // V3: generi per amplificazione
-        media_type: media.type,            // V3: tipo per slot corretti
+        genres: media.genres || [],
+        media_type: media.type,
       });
       setWishlistIds(prev => [...prev, media.id]);
       showToast(d.wishlistAdd);
-
-      // V3: aggiorna il profilo gusti in real-time
       if ((media.genres || []).length > 0) {
         triggerTasteDelta({
           action: 'wishlist_add',
@@ -263,13 +345,9 @@ export default function DiscoverPage() {
     }
   };
 
-  // V3: handleResultClick — traccia il click sul risultato
   const handleResultClick = useCallback((item: MediaItem) => {
     haptic(30);
-    // V3: traccia il click solo se c'era una ricerca attiva
-    if (searchTerm.trim().length >= 2) {
-      trackSearchClick(searchTerm, item);
-    }
+    if (searchTerm.trim().length >= 2) trackSearchClick(searchTerm, item);
     setDrawerMedia(toMediaDetails(item));
   }, [searchTerm]);
 
@@ -281,17 +359,15 @@ export default function DiscoverPage() {
     }, {} as Record<string, MediaItem[]>)
   ).sort(([a], [b]) => (TYPE_ORDER[a] ?? 99) - (TYPE_ORDER[b] ?? 99));
 
-  // Pull-to-refresh: ricarica i risultati attuali
   const handlePullRefresh = async () => {
     if (searchTerm.trim().length >= 2) {
-      setResults([])
-      // Re-trigger della ricerca tramite re-set del termine
-      const term = searchTerm
-      setSearchTerm('')
-      setTimeout(() => setSearchTerm(term), 50)
+      setResults([]);
+      const term = searchTerm;
+      setSearchTerm('');
+      setTimeout(() => setSearchTerm(term), 50);
     }
-  }
-  const { distance: pullDistance, refreshing: isPullRefreshing } = usePullToRefresh({ onRefresh: handlePullRefresh })
+  };
+  const { distance: pullDistance, refreshing: isPullRefreshing } = usePullToRefresh({ onRefresh: handlePullRefresh });
 
   const showingResults = !loading && !searchError && results.length > 0;
 
@@ -300,7 +376,7 @@ export default function DiscoverPage() {
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
       <div className="max-w-screen-2xl mx-auto px-4 pt-2 md:pt-6">
 
-        {/* Instagram-style search bar: full-width, pill-shaped, muted bg */}
+        {/* Search bar */}
         <div className="relative mb-4">
           <Search
             size={16}
@@ -312,7 +388,7 @@ export default function DiscoverPage() {
             value={searchTerm}
             ref={searchInputRef}
             onChange={e => setSearchTerm(e.target.value)}
-            placeholder={isListening ? 'In ascolto...' : (d.searchPlaceholder || 'Cerca anime, film, giochi...')}
+            placeholder={isListening ? 'In ascolto...' : 'Cerca anime, film, giochi, libri...'}
             className={`w-full rounded-xl pl-10 pr-20 py-2.5 text-[15px] outline-none transition-colors ${
               isListening
                 ? 'bg-red-500/10 border border-red-500/40 text-[var(--text-primary)] placeholder-red-400/60'
@@ -342,7 +418,7 @@ export default function DiscoverPage() {
           </div>
         </div>
 
-        {/* Listening indicator — compact */}
+        {/* Listening indicator */}
         {isListening && (
           <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-red-500/8 border border-red-500/20 rounded-xl">
             <div className="flex gap-0.5 items-end">
@@ -355,7 +431,7 @@ export default function DiscoverPage() {
           </div>
         )}
 
-        {/* Type filter chips — horizontal scroll, pill style */}
+        {/* Filtri tipo — scroll orizzontale */}
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 mb-5 -mx-4 px-4">
           {FILTERS.map(tf => (
             <button
@@ -380,7 +456,7 @@ export default function DiscoverPage() {
           </div>
         )}
 
-        {/* Pending search indicator */}
+        {/* Pending indicator */}
         {isPending && !loading && searchTerm.trim().length >= 2 && (
           <div className="flex items-center justify-center gap-2 py-4">
             <Loader2 size={16} className="animate-spin text-violet-400" />
@@ -392,14 +468,16 @@ export default function DiscoverPage() {
           <p className="text-center py-12 text-[var(--text-muted)] text-[14px]">{searchError}</p>
         )}
 
-        {/* Empty state — search prompt */}
+        {/* Empty state */}
         {!loading && !searchTerm.trim() && (
           <div className="flex flex-col items-center justify-center py-20 text-center px-8">
             <div className="w-16 h-16 rounded-full bg-[var(--bg-card)] border border-[var(--border)] flex items-center justify-center mb-4">
               <Search size={26} className="text-[var(--text-muted)]" />
             </div>
             <p className="text-[16px] font-semibold text-[var(--text-primary)] mb-1">Cerca qualcosa</p>
-            <p className="text-[14px] text-[var(--text-secondary)]">Anime, manga, film, serie TV e giochi.</p>
+            <p className="text-[14px] text-[var(--text-secondary)]">
+              Anime, manga, film, serie TV, videogiochi, giochi da tavolo e libri.
+            </p>
           </div>
         )}
 
@@ -411,10 +489,10 @@ export default function DiscoverPage() {
           </div>
         )}
 
-        {/* Results — Instagram explore grid style: 3 cols, tight gap */}
+        {/* Risultati raggruppati per tipo */}
         {showingResults && grouped.map(([type, items]) => items.length === 0 ? null : (
           <div key={type} className="mb-8">
-            {/* Section header */}
+            {/* Header sezione */}
             <div className="flex items-center gap-2 mb-3">
               <span
                 className="text-[12px] font-semibold px-2.5 py-1 rounded-full"
@@ -425,7 +503,7 @@ export default function DiscoverPage() {
               <span className="text-[12px] text-[var(--text-muted)]">{items.length} risultati</span>
             </div>
 
-            {/* 3-col tight grid */}
+            {/* Grid 3 colonne */}
             <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
               {items.map((item, i) => (
                 <div
@@ -436,26 +514,34 @@ export default function DiscoverPage() {
                 >
                   <div className="aspect-[2/3] overflow-hidden bg-[var(--bg-card)] rounded-xl">
                     {hasValidCover(item)
-                      ? <img src={item.coverImage} alt={item.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy"
+                      ? <img
+                          src={item.coverImage}
+                          alt={item.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          loading="lazy"
                           onError={e => {
-                            const el = e.currentTarget
+                            const el = e.currentTarget;
                             if (el.src.includes('zoom=3')) {
-                              // prova zoom=1 + fife più piccolo
-                              el.src = el.src.replace('zoom=3', 'zoom=1').replace('fife=w400', 'fife=w200')
+                              el.src = el.src.replace('zoom=3', 'zoom=1').replace('fife=w400', 'fife=w200');
                             } else {
-                              el.style.display = 'none'
-                              const fb = el.nextElementSibling as HTMLElement | null
-                              if (fb) fb.style.display = 'flex'
+                              el.style.display = 'none';
+                              const fb = el.nextElementSibling as HTMLElement | null;
+                              if (fb) fb.style.display = 'flex';
                             }
-                          }} />
+                          }}
+                        />
                       : null}
-                    <div className="w-full h-full items-center justify-center text-[var(--text-muted)]"
-                      style={{ display: hasValidCover(item) ? 'none' : 'flex' }}>
-                      {type === 'game' ? <Gamepad2 size={28} /> : type === 'manga' ? <Layers size={28} /> : <Tv size={28} />}
+                    {/* Placeholder icon */}
+                    <div
+                      className="w-full h-full items-center justify-center text-[var(--text-muted)]"
+                      style={{ display: hasValidCover(item) ? 'none' : 'flex' }}
+                    >
+                      {TYPE_PLACEHOLDER_ICON[type] ?? <Film size={28} />}
                     </div>
+
                     {/* Hover overlay */}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+
                     {/* Action buttons on hover */}
                     <div className="absolute inset-0 flex flex-col justify-between p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <div className="flex justify-end">
@@ -471,7 +557,7 @@ export default function DiscoverPage() {
                       <div className="flex justify-end">
                         {!alreadyAdded.includes(item.id) ? (
                           <button
-                            onClick={e => { e.stopPropagation(); setDrawerMedia(item as any); }}
+                            onClick={e => { e.stopPropagation(); setDrawerMedia(toMediaDetails(item)); }}
                             className="w-6 h-6 bg-violet-600 rounded-md flex items-center justify-center"
                           >
                             <Plus size={11} className="text-white" />
@@ -484,7 +570,8 @@ export default function DiscoverPage() {
                       </div>
                     </div>
                   </div>
-                  {/* Title below image */}
+
+                  {/* Titolo sotto */}
                   <p className="text-[11px] font-medium text-[var(--text-primary)] line-clamp-2 leading-snug mt-1 px-0.5">
                     {locale === 'en' && item.title_en ? item.title_en : item.title}
                   </p>

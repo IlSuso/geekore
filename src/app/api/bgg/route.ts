@@ -1,0 +1,207 @@
+// src/app/api/bgg/route.ts
+// BoardGameGeek XML API v2
+// Richiede Authorization: Bearer <token> per tutte le richieste.
+// Flow: search (lista ID) → thing (dettagli per max 20 ID alla volta)
+
+import { NextRequest, NextResponse } from 'next/server'
+
+const BGG_BASE = 'https://boardgamegeek.com/xmlapi2'
+
+function bggHeaders(): HeadersInit {
+  const token = process.env.BGG_BEARER_TOKEN
+  return {
+    'User-Agent': 'Geekore/1.0 (geekore.it)',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  }
+}
+
+// ── XML parsing leggero (no librerie esterne) ────────────────────────────────
+
+function extractText(xml: string, tag: string): string {
+  const m = xml.match(new RegExp(`<${tag}[^>]*>([^<]*)<\\/${tag}>`, 'i'))
+  return m ? m[1].trim() : ''
+}
+
+function extractAttr(xml: string, tag: string, attr: string): string {
+  const m = xml.match(new RegExp(`<${tag}[^>]*\\s${attr}="([^"]*)"`, 'i'))
+  return m ? m[1].trim() : ''
+}
+
+function extractPrimaryName(xml: string): string {
+  const m = xml.match(/<name[^>]*type="primary"[^>]*value="([^"]*)"/)
+  return m ? m[1].trim() : ''
+}
+
+function extractLinks(xml: string, linkType: string): string[] {
+  const re = new RegExp(`<link[^>]*type="${linkType}"[^>]*value="([^"]*)"`, 'gi')
+  const results: string[] = []
+  let m
+  while ((m = re.exec(xml)) !== null) results.push(m[1].trim())
+  return results
+}
+
+// ── Tipi ─────────────────────────────────────────────────────────────────────
+
+interface BGGItem {
+  id: string
+  title: string
+  type: 'boardgame'
+  source: 'bgg'
+  coverImage?: string
+  year?: number
+  description?: string
+  genres?: string[]
+  mechanics?: string[]
+  designers?: string[]
+  min_players?: number
+  max_players?: number
+  playing_time?: number
+  complexity?: number
+  score?: number
+}
+
+// ── Step 1: ricerca → lista ID ───────────────────────────────────────────────
+
+async function searchBGG(query: string): Promise<string[]> {
+  const url = `${BGG_BASE}/search?query=${encodeURIComponent(query)}&type=boardgame`
+  const res = await fetch(url, {
+    headers: bggHeaders(),
+    next: { revalidate: 300 },
+  })
+  if (!res.ok) {
+    console.error(`[BGG] search status ${res.status}`)
+    return []
+  }
+  const xml = await res.text()
+  const itemRe = /<item[^>]*id="(\d+)"/g
+  const ids: string[] = []
+  let m
+  while ((m = itemRe.exec(xml)) !== null) {
+    ids.push(m[1])
+    if (ids.length >= 20) break // BGG max 20 per thing request
+  }
+  return ids
+}
+
+// ── Step 2: dettagli per gli ID trovati ──────────────────────────────────────
+
+async function fetchBGGDetails(ids: string[]): Promise<BGGItem[]> {
+  if (!ids.length) return []
+
+  // BGG consente max 20 ID per richiesta
+  const url = `${BGG_BASE}/thing?id=${ids.join(',')}&stats=1`
+  const res = await fetch(url, {
+    headers: bggHeaders(),
+    next: { revalidate: 3600 },
+  })
+  if (!res.ok) {
+    console.error(`[BGG] thing status ${res.status}`)
+    return []
+  }
+  const xml = await res.text()
+
+  const itemRe = /<item[^>]*type="boardgame"[^>]*>([\s\S]*?)<\/item>/gi
+  const items: BGGItem[] = []
+  let m
+
+  while ((m = itemRe.exec(xml)) !== null) {
+    const chunk = m[0]
+    const idM = chunk.match(/\bid="(\d+)"/)
+    if (!idM) continue
+
+    const name = extractPrimaryName(chunk)
+    if (!name) continue
+
+    // Cover: preferisci image (alta risoluzione) su thumbnail
+    const image = extractText(chunk, 'image').replace(/^\s+|\s+$/g, '')
+    const thumbnail = extractText(chunk, 'thumbnail').replace(/^\s+|\s+$/g, '')
+    const cover = (image || thumbnail) || undefined
+
+    // Anno
+    const yearStr = extractAttr(chunk, 'yearpublished', 'value')
+    const year = yearStr ? parseInt(yearStr) : undefined
+
+    // Descrizione: decodifica entità HTML base
+    const rawDesc = extractText(chunk, 'description')
+    const description = rawDesc
+      .replace(/&#10;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#\d+;/g, '')
+      .replace(/<[^>]+>/g, '')
+      .trim()
+      .slice(0, 500) || undefined
+
+    // Categorie → generi, meccaniche, designer
+    const genres = extractLinks(chunk, 'boardgamecategory')
+    const mechanics = extractLinks(chunk, 'boardgamemechanic')
+    const designers = extractLinks(chunk, 'boardgamedesigner')
+      .filter(d => d !== '(Uncredited)')
+      .slice(0, 5)
+
+    // Giocatori e tempo
+    const minPlayers = parseInt(extractAttr(chunk, 'minplayers', 'value')) || undefined
+    const maxPlayers = parseInt(extractAttr(chunk, 'maxplayers', 'value')) || undefined
+    const playingTime = parseInt(extractAttr(chunk, 'playingtime', 'value')) || undefined
+
+    // Rating BGG (media su 10)
+    const ratingM = chunk.match(/<average[^>]*value="([\d.]+)"/)
+    const score = ratingM ? Math.round(parseFloat(ratingM[1]) * 10) / 10 : undefined
+
+    // Complessità/weight (da 1 a 5)
+    const weightM = chunk.match(/<averageweight[^>]*value="([\d.]+)"/)
+    const complexity = weightM ? Math.round(parseFloat(weightM[1]) * 10) / 10 : undefined
+
+    items.push({
+      id: `bgg-${idM[1]}`,
+      title: name,
+      type: 'boardgame',
+      source: 'bgg',
+      coverImage: cover,
+      year: isNaN(year!) ? undefined : year,
+      description,
+      genres: genres.length > 0 ? genres : undefined,
+      mechanics: mechanics.length > 0 ? mechanics : undefined,
+      designers: designers.length > 0 ? designers : undefined,
+      min_players: minPlayers,
+      max_players: maxPlayers,
+      playing_time: playingTime,
+      complexity,
+      score,
+    })
+
+    if (items.length >= 10) break
+  }
+
+  return items
+}
+
+// ── Handler ───────────────────────────────────────────────────────────────────
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const q = searchParams.get('q')?.trim()
+  if (!q || q.length < 2) return NextResponse.json([])
+
+  try {
+    const ids = await searchBGG(q)
+    if (!ids.length) return NextResponse.json([])
+
+    const items = await fetchBGGDetails(ids)
+
+    // Ordina: con cover prima, poi per score BGG decrescente
+    const sorted = [...items].sort((a, b) => {
+      if (!!a.coverImage !== !!b.coverImage) return a.coverImage ? -1 : 1
+      return (b.score ?? 0) - (a.score ?? 0)
+    })
+
+    return NextResponse.json(sorted, {
+      headers: { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=3600' },
+    })
+  } catch (err) {
+    console.error('[BGG API]', err)
+    return NextResponse.json([])
+  }
+}
