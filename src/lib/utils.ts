@@ -13,6 +13,8 @@ export function mediaColor(type: MediaType): string {
     game: '#4ade80',
     tv: '#a78bfa',
     movie: '#f43f5e',
+    boardgame: '#fb923c',
+    book: '#facc15',
   }
   return map[type] ?? '#71717a'
 }
@@ -24,6 +26,8 @@ export function mediaLabel(type: MediaType): string {
     game: 'Videogioco',
     tv: 'Serie TV',
     movie: 'Film',
+    boardgame: 'Gioco da tavolo',
+    book: 'Libro',
   }
   return map[type] ?? type
 }
@@ -35,6 +39,8 @@ export function progressLabel(type: MediaType, progress: number): string {
     game: `${progress}h`,
     tv: `Ep. ${progress}`,
     movie: progress > 0 ? 'Completato' : 'Non visto',
+    boardgame: `${progress} partite`,
+    book: `Pag. ${progress}`,
   }
   return map[type] ?? `${progress}`
 }
