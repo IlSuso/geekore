@@ -105,6 +105,10 @@ export async function GET(req: NextRequest) {
       const info = vol.volumeInfo
       if (!info?.title) continue
 
+      // Filtro hard: solo edizioni realmente in italiano e disponibili in Italia
+      if (info.language !== 'it') continue
+      if (vol.saleInfo?.country && vol.saleInfo.country !== 'IT') continue
+
       // Anno pubblicazione (prende solo i primi 4 caratteri per gestire formati tipo "2021-03")
       const rawYear = info.publishedDate ? parseInt(info.publishedDate.slice(0, 4)) : undefined
       const year = rawYear && !isNaN(rawYear) ? rawYear : undefined
