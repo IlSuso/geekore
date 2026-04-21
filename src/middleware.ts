@@ -1,70 +1,24 @@
 // src/middleware.ts
-// #25: Logica onboarding invertita — "blocca tutto tranne le eccezioni".
-//      Un utente loggato con onboarding_done=false viene SEMPRE redirectato
-//      a /onboarding indipendentemente dalla route che tenta di raggiungere.
-//      Non è più possibile bypassare l'onboarding cambiando URL manualmente.
-//
-//      Logica completa:
-//        1. Assets statici / API → sempre pass-through (no auth check)
-//        2. Route pubbliche (privacy, terms, auth/*) → pass-through
-//        3. Utente NON loggato su route protetta → redirect /login?next=...
-//        4. Utente loggato su route auth-only (login/register) → redirect /feed
-//        5. Utente loggato su / → redirect /feed
-//        6. Utente loggato + onboarding NON completato + route non esente → /onboarding
-//        7. Tutto il resto → pass-through
 
 import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 
-// Route che richiedono autenticazione (non loggato → /login)
 const PROTECTED_PATHS = [
-  '/feed',
-  '/discover',
-  '/for-you',
-  '/news',
-  '/notifications',
-  '/profile/edit',
-  '/profile/me',
-  '/settings',
-  '/wishlist',
-  '/lists',
-  '/stats',
-  '/trending',
-  '/leaderboard',
-  '/explore',
-  '/search',
-  '/profile',    // tutti i profili (anche /profile/[username]) richiedono login
+  '/feed', '/discover', '/for-you', '/news', '/notifications',
+  '/profile/edit', '/profile/me', '/settings', '/wishlist',
+  '/lists', '/stats', '/trending', '/leaderboard', '/explore',
+  '/search', '/profile',
 ]
 
-// Route accessibili solo da NON autenticati
-const AUTH_ONLY_PATHS = [
-  '/login',
-  '/register',
-  '/forgot-password',
-]
+const AUTH_ONLY_PATHS = ['/login', '/register', '/forgot-password']
 
-// Route sempre accessibili senza alcun check (assets, API, pagine legali, flusso auth)
 const ALWAYS_ALLOW = [
-  '/_next/',
-  '/icons/',
-  '/images/',
-  '/sw.js',
-  '/manifest.json',
-  '/favicon.ico',
-  '/privacy',
-  '/terms',
-  '/cookies',
-  '/api/',
-  '/auth/',
+  '/_next/', '/icons/', '/images/', '/sw.js', '/manifest.json',
+  '/favicon.ico', '/privacy', '/terms', '/cookies', '/api/', '/auth/',
 ]
 
-// Route accessibili da un utente loggato ANCHE se onboarding non completato.
-// Tutto il resto viene bloccato e redirectato a /onboarding.
 const ONBOARDING_EXEMPT = [
-  '/onboarding',  // la pagina di onboarding stessa
-  '/auth/',       // flussi auth (confirm, reset-password, ecc.)
-  '/api/',        // le API devono sempre rispondere
-  '/profile/setup', // setup username prima del completamento onboarding
+  '/onboarding', '/auth/', '/api/', '/profile/setup',
 ]
 
 function matchesAny(pathname: string, list: string[]): boolean {
@@ -82,125 +36,116 @@ function isAuthOnly(pathname: string): boolean {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // 1. Pass-through immediato per assets e route sempre-permesse
+  // 1. Assets e route sempre-permesse → pass-through immediato
   if (matchesAny(pathname, ALWAYS_ALLOW)) {
     return NextResponse.next()
   }
 
-  let response = NextResponse.next({
-    request: { headers: request.headers },
-  })
-
+  // Costruiamo i cookie per Supabase separatamente — NON usiamo setAll
+  // per evitare che sovrascriva la response dopo che abbiamo già deciso il redirect
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() { return request.cookies.getAll() },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          response = NextResponse.next({ request: { headers: request.headers } })
-          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
-        },
+        setAll() { /* intentionally empty in middleware — gestiamo i cookie nella response finale */ },
       },
     }
   )
 
   const { data: { user } } = await supabase.auth.getUser()
   const isLoggedIn = !!user
+  const cookieDone = request.cookies.get('geekore_onboarding_done')?.value === '1'
 
-  console.log(`[MW] ${pathname} | isLoggedIn=${isLoggedIn} | user=${user?.id ?? 'none'} | cookie=${request.cookies.get('geekore_onboarding_done')?.value ?? 'absent'}`)
+  console.log(`[MW] ${pathname} | loggedIn=${isLoggedIn} | user=${user?.id ?? 'none'} | cookieDone=${cookieDone}`)
 
-  // 2. Non autenticato su route protetta → /login?next=...
+  // 2. Non autenticato su route protetta → /login
   if (!isLoggedIn && isProtected(pathname)) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('next', pathname)
     return NextResponse.redirect(loginUrl)
   }
 
-  // 3. Già autenticato su route auth-only → /feed
+  // 3. Autenticato su route auth-only → /feed
   if (isLoggedIn && isAuthOnly(pathname)) {
     return NextResponse.redirect(new URL('/feed', request.url))
   }
 
-  // 4. Già autenticato sulla landing / → /feed
+  // 4. Autenticato su / → /feed
   if (isLoggedIn && pathname === '/') {
     return NextResponse.redirect(new URL('/feed', request.url))
   }
 
-  // 5. Utente loggato: controlla onboarding su QUALSIASI route non esente.
+  // 5. Controllo onboarding
   if (isLoggedIn) {
-    const cookieDone = request.cookies.get('geekore_onboarding_done')?.value === '1'
 
-    // 5a. Cookie presente → onboarding già fatto.
-    //     Se tenta di accedere a /onboarding → redirect a /feed.
+    // 5a. Cookie presente → onboarding già fatto
     if (cookieDone) {
+      console.log('[MW] 5a: cookie presente → onboarding fatto')
+      // Blocca accesso a /onboarding
       if (pathname === '/onboarding') {
+        console.log('[MW] 5a: redirect /feed (onboarding già fatto)')
         return NextResponse.redirect(new URL('/feed', request.url))
       }
-    } else {
-      // 5b. Cookie assente → verifica su DB.
-      if (!matchesAny(pathname, ONBOARDING_EXEMPT)) {
-        try {
-          console.log(`[MW] Query DB onboarding per user=${user!.id}`)
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('onboarding_done')
-            .eq('id', user!.id)
-            .single()
+      // Lascia passare tutto il resto
+      return NextResponse.next()
+    }
 
-          console.log(`[MW] DB result: profile=${JSON.stringify(profile)} error=${JSON.stringify(profileError)}`)
+    // 5b. Cookie assente → query DB
+    console.log(`[MW] 5b: cookie assente, query DB per user=${user!.id}`)
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('onboarding_done')
+        .eq('id', user!.id)
+        .single()
 
-          if (!profile || profile.onboarding_done !== true) {
-            return NextResponse.redirect(new URL('/onboarding', request.url))
-          }
+      console.log(`[MW] 5b: DB → onboarding_done=${profile?.onboarding_done} error=${error?.message ?? 'null'}`)
 
-          // Onboarding completato ma cookie assente: lo imposta per le prossime richieste
-          response.cookies.set('geekore_onboarding_done', '1', {
-            path: '/',
-            maxAge: 60 * 60 * 24 * 365,
-            sameSite: 'lax',
-            secure: process.env.NODE_ENV === 'production',
-            httpOnly: false,
+      const onboardingDone = profile?.onboarding_done === true
+
+      if (onboardingDone) {
+        // Onboarding completato — imposta cookie e gestisci routing
+        console.log('[MW] 5b: onboarding completato')
+        if (pathname === '/onboarding') {
+          console.log('[MW] 5b: redirect /feed + set cookie')
+          const res = NextResponse.redirect(new URL('/feed', request.url))
+          res.cookies.set('geekore_onboarding_done', '1', {
+            path: '/', maxAge: 60 * 60 * 24 * 365,
+            sameSite: 'lax', secure: process.env.NODE_ENV === 'production', httpOnly: false,
           })
-        } catch (err) {
-          console.error('[MW] Errore query DB onboarding:', err)
-          // Errore DB → blocca per sicurezza
-          return NextResponse.redirect(new URL('/onboarding', request.url))
+          return res
         }
-      } else if (pathname === '/onboarding') {
-        // Cookie assente + sta andando su /onboarding → verifica DB per sicurezza
-        try {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('onboarding_done')
-            .eq('id', user!.id)
-            .single()
-
-          if (profile?.onboarding_done === true) {
-            // Onboarding già fatto ma cookie perso → redirect a /feed e ripristina cookie
-            response = NextResponse.redirect(new URL('/feed', request.url))
-            response.cookies.set('geekore_onboarding_done', '1', {
-              path: '/',
-              maxAge: 60 * 60 * 24 * 365,
-              sameSite: 'lax',
-              secure: process.env.NODE_ENV === 'production',
-              httpOnly: false,
-            })
-            return response
-          }
-        } catch {
-          // Errore DB → lascia accedere a /onboarding
+        // Qualsiasi altra pagina: lascia passare e imposta cookie
+        const res = NextResponse.next()
+        res.cookies.set('geekore_onboarding_done', '1', {
+          path: '/', maxAge: 60 * 60 * 24 * 365,
+          sameSite: 'lax', secure: process.env.NODE_ENV === 'production', httpOnly: false,
+        })
+        return res
+      } else {
+        // Onboarding NON completato
+        if (matchesAny(pathname, ONBOARDING_EXEMPT)) {
+          console.log('[MW] 5b: onboarding non fatto ma path esente, lascio passare')
+          return NextResponse.next()
         }
+        console.log('[MW] 5b: redirect /onboarding')
+        return NextResponse.redirect(new URL('/onboarding', request.url))
       }
+    } catch (err) {
+      console.error('[MW] 5b: errore DB:', err)
+      // Errore DB → se non è una path esente, blocca per sicurezza
+      if (!matchesAny(pathname, ONBOARDING_EXEMPT)) {
+        return NextResponse.redirect(new URL('/onboarding', request.url))
+      }
+      return NextResponse.next()
     }
   }
 
-  return response
+  return NextResponse.next()
 }
 
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }
