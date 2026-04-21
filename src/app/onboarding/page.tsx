@@ -478,12 +478,12 @@ export default function OnboardingPage() {
                 <h1 className="text-3xl font-bold text-white mb-2">Cosa tracci?</h1>
                 <p className="text-zinc-400">Seleziona i media che ti interessano.</p>
               </div>
-              <div className="grid grid-cols-2 gap-3 mb-7">
+              <div className="grid grid-cols-3 gap-3 mb-7">
                 {MEDIA_TYPES.map(({ id, label, icon: Icon, color, active, inactive }) => {
                   const sel = selectedTypes.includes(id)
                   return (
                     <button key={id} onClick={() => toggleType(id)}
-                      className={`relative flex items-center gap-3 p-4 rounded-2xl border transition-all hover:scale-[1.02] active:scale-[0.98] ${sel ? active : inactive}`}
+                      className={`relative flex items-center gap-3 p-4 rounded-2xl border transition-all hover:scale-[1.02] active:scale-[0.98] ${sel ? active : inactive} ${MEDIA_TYPES.indexOf(MEDIA_TYPES.find(m => m.id === id)!) === MEDIA_TYPES.length - 1 && MEDIA_TYPES.length % 3 !== 0 ? 'col-span-3' : ''}`}
                     >
                       <Icon size={19} style={sel ? { color } : {}} />
                       <span className="font-medium text-sm">{label}</span>
@@ -496,9 +496,7 @@ export default function OnboardingPage() {
                   )
                 })}
               </div>
-              {selectedTypes.length === 0 && (
-                <p className="text-zinc-600 text-xs text-center mb-5">Nessuna selezione? Ti mostreremo un po' di tutto 👍</p>
-              )}
+
               <div className="flex gap-3">
                 <button onClick={() => setStep(0)}
                   className="px-5 py-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-2xl font-medium transition-all text-zinc-300 text-sm">
