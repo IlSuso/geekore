@@ -209,23 +209,45 @@ async function fetchTV(lang: string) {
 async function fetchAnime(lang: string) {
   const tmdbLang = lang === 'en' ? 'en-US' : 'it-IT'
   const region   = lang === 'en' ? 'US' : 'IT'
-  const { from: pastFrom, to: today }    = dateRange(60, 0)
-  const { from: todayFrom, to: futureTo } = dateRange(0, 120)
   try {
-    // Stesso pattern del cinema: past con region, future senza (date IT non sempre presenti su TMDB)
-    const urlPast   = `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&with_original_language=ja&with_genres=16&first_air_date.gte=${pastFrom}&first_air_date.lte=${today}&include_null_first_air_dates=false&page=1`
-    const urlFuture = `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&with_original_language=ja&with_genres=16&first_air_date.gte=${todayFrom}&first_air_date.lte=${futureTo}&include_null_first_air_dates=false&page=1`
-    const [resPast, resFuture] = await Promise.all([
-      fetch(urlPast,   { headers: tmdbHeaders(), cache: 'no-store' }),
-      fetch(urlFuture, { headers: tmdbHeaders(), cache: 'no-store' }),
+    // Strategia diversa dal cinema: TMDB non sa in anticipo le date dei prossimi episodi
+    // di anime in corso (next_episode_to_air esiste solo per l'ep immediatamente successivo).
+    // Usiamo 3 query:
+    // 1. "airing" — anime con episodi in onda questa settimana (endpoint dedicato)
+    // 2. "on_the_air" — anime con episodi nei prossimi 7gg (endpoint dedicato)
+    // 3. "upcoming" — anime con first_air_date nei prossimi 120gg (nuovi titoli annunciati)
+    const urlAiring    = `https://api.themoviedb.org/3/tv/airing_today?language=${tmdbLang}&with_original_language=ja&page=1`
+    const urlOnTheAir  = `https://api.themoviedb.org/3/tv/on_the_air?language=${tmdbLang}&with_original_language=ja&page=1`
+    const { from: pastFrom, to: today }    = dateRange(60, 0)
+    const { from: todayFrom, to: futureTo } = dateRange(0, 120)
+    const urlUpcoming  = `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&with_original_language=ja&with_genres=16&first_air_date.gte=${todayFrom}&first_air_date.lte=${futureTo}&include_null_first_air_dates=false&page=1`
+    const urlRecent    = `https://api.themoviedb.org/3/discover/tv?language=${tmdbLang}&sort_by=popularity.desc&with_original_language=ja&with_genres=16&first_air_date.gte=${pastFrom}&first_air_date.lte=${today}&include_null_first_air_dates=false&page=1`
+
+    const [resAiring, resOnTheAir, resUpcoming, resRecent] = await Promise.all([
+      fetch(urlAiring,   { headers: tmdbHeaders(), cache: 'no-store' }),
+      fetch(urlOnTheAir, { headers: tmdbHeaders(), cache: 'no-store' }),
+      fetch(urlUpcoming, { headers: tmdbHeaders(), cache: 'no-store' }),
+      fetch(urlRecent,   { headers: tmdbHeaders(), cache: 'no-store' }),
     ])
-    const [jsonPast, jsonFuture] = await Promise.all([
-      resPast.ok   ? resPast.json()   : { results: [] },
-      resFuture.ok ? resFuture.json() : { results: [] },
+    const [jsonAiring, jsonOnTheAir, jsonUpcoming, jsonRecent] = await Promise.all([
+      resAiring.ok    ? resAiring.json()   : { results: [] },
+      resOnTheAir.ok  ? resOnTheAir.json() : { results: [] },
+      resUpcoming.ok  ? resUpcoming.json() : { results: [] },
+      resRecent.ok    ? resRecent.json()   : { results: [] },
     ])
+
+    // Filtro lingua giapponese sugli endpoint generici (airing/on_the_air non supportano with_original_language)
+    const isJpAnime = (m: any) => m.original_language === 'ja' && (m.genre_ids || []).includes(16)
+
     const seen = new Set<number>()
     const merged: any[] = []
-    for (const m of [...(jsonPast.results || []).slice(0, 15), ...(jsonFuture.results || []).slice(0, 15)]) {
+    const sources = [
+      ...(jsonAiring.results   || []).filter(isJpAnime).slice(0, 15),
+      ...(jsonOnTheAir.results || []).filter(isJpAnime).slice(0, 15),
+      ...(jsonUpcoming.results || []).slice(0, 10),
+      ...(jsonRecent.results   || []).slice(0, 10),
+    ]
+    for (const m of sources) {
       if (!seen.has(m.id) && m.poster_path && m.overview) { seen.add(m.id); merged.push(m) }
     }
     const details = await Promise.all(
