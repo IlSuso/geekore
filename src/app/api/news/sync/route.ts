@@ -339,7 +339,7 @@ async function fetchAnime(lang: string): Promise<any[]> {
         source_api: 'anilist' as const,
         title: m.title?.english || m.title?.romaji || 'Senza titolo',
         description: m.description
-          ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 500)
+          ? truncateAtSentence(cleanDescription(m.description.replace(/<[^>]+>/g, '')), 500)
           : null,
         coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
         date,
@@ -462,69 +462,165 @@ async function fetchGaming(lang: string) {
   } catch { return [] }
 }
 
-// ── Manga (AniList) ───────────────────────────────────────────────────────────
+// ── AniList shared ────────────────────────────────────────────────────────────
 
 const ANILIST_URL = 'https://graphql.anilist.co'
 
+/**
+ * Rimuove note fonte tipo "(Source: "MAL")" o "(Fonte: "AniList")" in fondo alle descrizioni.
+ * Gestisce varianti con parentesi tonde/quadre, maiuscole/minuscole, virgolette singole/doppie.
+ */
+function cleanDescription(text: string): string {
+  return text
+    // es. (Source: "MyAnimeList") / (Source: MAL) / [Source: AniList]
+    .replace(/[\(\[]\s*(?:source|fonte|src)\s*:\s*["']?[^)\]"']*["']?\s*[\)\]]/gi, '')
+    // pulizia spazi/newline residui in coda
+    .trim()
+}
+
+// ── Manga (AniList) ───────────────────────────────────────────────────────────
+
 async function fetchManga(lang: string): Promise<any[]> {
-  const toFuzzy = (d: Date) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate()
-  const nowDate   = new Date()
-  const plus120   = new Date(nowDate); plus120.setDate(nowDate.getDate() + 120)  // +4 mesi
-  const minus60   = new Date(nowDate); minus60.setDate(nowDate.getDate() - 60)   // -2 mesi
-  const plus120Int = toFuzzy(plus120)
-  const minus60Int = toFuzzy(minus60)
-  const mediaFields = `id siteUrl format title { romaji english } coverImage { extraLarge large } startDate { year month day } description(asHtml: false) genres averageScore chapters volumes staff(sort: [RELEVANCE], page: 1, perPage: 3) { nodes { name { full } } } studios(isMain: true) { nodes { name } }`
-  // 3 query:
-  // upcoming: manga NON ancora usciti con startDate nei prossimi 4 mesi
-  // trending: manga in corso popolari, iniziati negli ultimi 2 mesi
-  // recent: manga in corso, iniziati negli ultimi 2 mesi ordinati per data
+  const now = new Date()
+
+  const toFuzzy = (d: Date) =>
+    d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate()
+
+  const twoMonthsAgo = new Date(now); twoMonthsAgo.setMonth(now.getMonth() - 2)
+  const fourMonthsFwd = new Date(now); fourMonthsFwd.setMonth(now.getMonth() + 4)
+  const minus60Int  = toFuzzy(twoMonthsAgo)
+  const plus120Int  = toFuzzy(fourMonthsFwd)
+
+  const mediaFields = `
+    id siteUrl format status
+    title { romaji english }
+    coverImage { extraLarge large }
+    startDate { year month day }
+    description(asHtml: false)
+    genres averageScore chapters volumes
+    staff(sort: [RELEVANCE], page: 1, perPage: 3) { nodes { name { full } } }
+    studios(isMain: true) { nodes { name } }
+  `
+
+  // 4 query parallele (stesso approccio degli anime):
+  // 1. releasing    — manga in corso, ordinati per trending (più rilevanti ora)
+  // 2. upcoming     — manga NON ancora usciti nei prossimi 4 mesi
+  // 3. recentStart  — manga iniziati negli ultimi 2 mesi, ordinati per data
+  // 4. popularRecent— manga in corso iniziati negli ultimi 2 mesi, per popolarità
   const query = `query {
+    releasing: Page(page: 1, perPage: 25) {
+      media(type: MANGA, status: RELEASING, sort: [TRENDING_DESC], isAdult: false, format_not_in: [NOVEL]) {
+        ${mediaFields}
+      }
+    }
     upcoming: Page(page: 1, perPage: 15) {
       media(type: MANGA, status: NOT_YET_RELEASED, sort: [START_DATE], isAdult: false, format_not_in: [NOVEL], startDate_lesser: ${plus120Int}) {
         ${mediaFields}
       }
     }
-    trending: Page(page: 1, perPage: 20) {
-      media(type: MANGA, status: RELEASING, sort: [TRENDING_DESC], isAdult: false, format_not_in: [NOVEL], startDate_greater: ${minus60Int}) {
-        ${mediaFields}
-      }
-    }
-    recent: Page(page: 1, perPage: 15) {
+    recentStart: Page(page: 1, perPage: 15) {
       media(type: MANGA, status: RELEASING, sort: [START_DATE_DESC], isAdult: false, format_not_in: [NOVEL], startDate_greater: ${minus60Int}) {
         ${mediaFields}
       }
     }
-  }`
-  try {
-    const res = await fetch(ANILIST_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }), signal: AbortSignal.timeout(10_000) })
-    if (!res.ok) return []
-    const json = await res.json()
-    if (json.errors) { logger.error('[fetchManga] AniList GraphQL errors:', json.errors); return [] }
-    const upcoming: any[] = (json.data?.upcoming?.media || []).filter((m: any) => m.startDate?.year)
-    const trending: any[] = json.data?.trending?.media || []
-    const recent: any[]   = json.data?.recent?.media   || []
-    const isRealCover = (url?: string) => !!url && !url.includes('default')
-    const seen = new Set<number>(); const all: any[] = []
-    // upcoming prima (futuri), poi trending (popolari recenti), poi recent
-    for (const m of [...upcoming, ...trending, ...recent]) {
-      const img = m.coverImage?.extraLarge || m.coverImage?.large
-      if (!seen.has(m.id) && isRealCover(img)) { seen.add(m.id); all.push(m) }
-      if (all.length >= 20) break
+    popularRecent: Page(page: 1, perPage: 15) {
+      media(type: MANGA, status: RELEASING, sort: [POPULARITY_DESC], isAdult: false, format_not_in: [NOVEL], startDate_greater: ${minus60Int}) {
+        ${mediaFields}
+      }
     }
+  }`
+
+  try {
+    const res = await fetch(ANILIST_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+      signal: AbortSignal.timeout(12_000),
+    })
+    if (!res.ok) {
+      logger.error(`[fetchManga] AniList HTTP ${res.status}`)
+      return []
+    }
+    const json = await res.json()
+    if (json.errors) {
+      logger.error('[fetchManga] AniList errors:', JSON.stringify(json.errors))
+      return []
+    }
+
+    const releasing:     any[] = json.data?.releasing?.media     || []
+    const upcoming:      any[] = (json.data?.upcoming?.media     || []).filter((m: any) => m.startDate?.year)
+    const recentStart:   any[] = json.data?.recentStart?.media   || []
+    const popularRecent: any[] = json.data?.popularRecent?.media || []
+
+    logger.info(`[fetchManga] AniList raw: releasing=${releasing.length} upcoming=${upcoming.length} recentStart=${recentStart.length} popularRecent=${popularRecent.length}`)
+
+    const isRealCover = (url?: string) => !!url && !url.includes('default')
+    const seen = new Set<number>()
+    const all: any[] = []
+
+    // Priorità: in corso trending → upcoming (futuri) → recenti per data → recenti per popolarità
+    for (const m of [...releasing, ...upcoming, ...recentStart, ...popularRecent]) {
+      const img = m.coverImage?.extraLarge || m.coverImage?.large
+      if (!seen.has(m.id) && isRealCover(img) && m.title) {
+        seen.add(m.id)
+        all.push(m)
+      }
+      if (all.length >= 30) break
+    }
+
     const mapped = all.map((m: any) => {
       const sd = m.startDate
-      const date = sd?.year ? `${sd.year}-${String(sd.month || 1).padStart(2, '0')}-${String(sd.day || 1).padStart(2, '0')}` : null
-      const authors = (m.staff?.nodes || []).map((s: any) => s.name?.full).filter(Boolean)
+      const date = sd?.year
+        ? `${sd.year}-${String(sd.month || 1).padStart(2, '0')}-${String(sd.day || 1).padStart(2, '0')}`
+        : null
+
+      const rawDesc = m.description
+        ? m.description.replace(/<[^>]+>/g, '')
+        : null
+      const description = rawDesc
+        ? truncateAtSentence(cleanDescription(rawDesc), 500)
+        : null
+
+      const authors    = (m.staff?.nodes   || []).map((s: any) => s.name?.full).filter(Boolean)
       const publishers = (m.studios?.nodes || []).map((s: any) => s.name).filter(Boolean)
-      return { id: `anilist-manga-${m.id}`, type: 'manga', source_api: 'anilist', title: m.title?.english || m.title?.romaji || 'Senza titolo', description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 500) : null, coverImage: m.coverImage?.extraLarge || m.coverImage?.large, date, year: sd?.year || undefined, genres: m.genres || [], score: m.averageScore ? Math.round(m.averageScore / 20) / 10 : undefined, episodes: m.chapters || undefined, developers: authors.length ? authors : undefined, studios: publishers.length ? publishers : undefined, category: 'manga', source: 'AniList', url: m.siteUrl || `https://anilist.co/manga/${m.id}` }
+
+      return {
+        id: `anilist-manga-${m.id}`,
+        type: 'manga',
+        source_api: 'anilist' as const,
+        title: m.title?.english || m.title?.romaji || 'Senza titolo',
+        description,
+        coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
+        date,
+        year: sd?.year || undefined,
+        genres: m.genres || [],
+        score: m.averageScore ? Math.round(m.averageScore / 20) / 10 : undefined,
+        episodes: m.chapters || undefined,
+        developers: authors.length ? authors : undefined,
+        studios: publishers.length ? publishers : undefined,
+        status: m.status,
+        category: 'manga' as const,
+        source: 'AniList',
+        url: m.siteUrl || `https://anilist.co/manga/${m.id}`,
+      }
     })
+
+    logger.info(`[fetchManga] AniList mapped: ${mapped.length} manga`)
+    logger.info(`[fetchManga] sample: ${JSON.stringify(mapped.slice(0, 5).map(m => m.title + ' (' + m.date + ') status=' + m.status))}`)
+
     if (lang === 'it') {
       const descriptions = mapped.map(m => m.description ?? '')
       const translated = await translateTexts(descriptions)
-      mapped.forEach((m, i) => { if (m.description) m.description = translated[i] || m.description })
+      mapped.forEach((m, i) => {
+        if (m.description) m.description = translated[i] || m.description
+      })
     }
+
     return mapped
-  } catch (err) { logger.error('[fetchManga] error:', err); return [] }
+  } catch (err) {
+    logger.error('[fetchManga] error:', err)
+    return []
+  }
 }
 
 // ── BGG ───────────────────────────────────────────────────────────────────────
