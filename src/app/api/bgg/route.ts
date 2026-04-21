@@ -1,7 +1,7 @@
 // src/app/api/bgg/route.ts
 // BoardGameGeek XML API v2
 // Richiede Authorization: Bearer <token> per tutte le richieste.
-// Flow: search (lista ID) → thing (dettagli per max 20 ID alla volta)
+// Flow: search (lista ID) → thing (dettagli per batch di 50 ID, max 150 totali)
 
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -78,17 +78,14 @@ async function searchBGG(query: string): Promise<string[]> {
   let m
   while ((m = itemRe.exec(xml)) !== null) {
     ids.push(m[1])
-    if (ids.length >= 20) break // BGG max 20 per thing request
+    if (ids.length >= 150) break
   }
   return ids
 }
 
-// ── Step 2: dettagli per gli ID trovati ──────────────────────────────────────
+// ── Step 2a: dettagli per un singolo batch di ID ─────────────────────────────
 
-async function fetchBGGDetails(ids: string[]): Promise<BGGItem[]> {
-  if (!ids.length) return []
-
-  // BGG consente max 20 ID per richiesta
+async function fetchBGGBatch(ids: string[]): Promise<BGGItem[]> {
   const url = `${BGG_BASE}/thing?id=${ids.join(',')}&stats=1`
   const res = await fetch(url, {
     headers: bggHeaders(),
@@ -171,11 +168,28 @@ async function fetchBGGDetails(ids: string[]): Promise<BGGItem[]> {
       complexity,
       score,
     })
-
-    if (items.length >= 10) break
   }
 
   return items
+}
+
+// ── Step 2b: divide gli ID in batch da 50 e li richiede in parallelo ─────────
+
+async function fetchBGGDetails(ids: string[]): Promise<BGGItem[]> {
+  if (!ids.length) return []
+
+  const BATCH_SIZE = 50
+  const batches: string[][] = []
+  for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+    batches.push(ids.slice(i, i + BATCH_SIZE))
+  }
+
+  const results = await Promise.allSettled(batches.map(b => fetchBGGBatch(b)))
+  const all: BGGItem[] = []
+  for (const r of results) {
+    if (r.status === 'fulfilled') all.push(...r.value)
+  }
+  return all
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────────
