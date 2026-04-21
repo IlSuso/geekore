@@ -1202,21 +1202,40 @@ export default function ForYouPage() {
   const [swipeSkippedIds, setSwipeSkippedIds] = useState<Set<string>>(new Set())
 
   // Swipe mode handlers
-  const swipeItems: SwipeItem[] = allRecs
-    .filter(r =>
-      ['anime', 'manga', 'movie', 'tv', 'game'].includes(r.type) &&
-      !dismissedIds.has(r.id) &&
-      !swipeSkippedIds.has(r.id)
-    )
-    .slice(0, 50)
-    .map(r => ({
-      id: r.id, title: r.title, type: r.type as SwipeItem['type'], isDiscovery: r.isDiscovery,
-      coverImage: r.coverImage, year: r.year, genres: r.genres,
-      score: r.score, description: r.description, why: r.why,
-      matchScore: r.matchScore, episodes: r.episodes,
-      authors: r.authors, developers: r.developers, platforms: r.platforms,
-      isAwardWinner: r.isAwardWinner,
-    }))
+  const swipeItems: SwipeItem[] = (() => {
+    const mapped = allRecs
+      .filter(r =>
+        ['anime', 'manga', 'movie', 'tv', 'game'].includes(r.type) &&
+        !dismissedIds.has(r.id) &&
+        !swipeSkippedIds.has(r.id)
+      )
+      .slice(0, 50)
+      .map(r => ({
+        id: r.id, title: r.title, type: r.type as SwipeItem['type'], isDiscovery: r.isDiscovery,
+        coverImage: r.coverImage, year: r.year, genres: r.genres,
+        score: r.score, description: r.description, why: r.why,
+        matchScore: r.matchScore, episodes: r.episodes,
+        authors: r.authors, developers: r.developers, platforms: r.platforms,
+        isAwardWinner: r.isAwardWinner,
+      }))
+    // Interleave per tipo: round-robin tra bucket
+    const buckets = new Map<string, SwipeItem[]>()
+    for (const item of mapped) {
+      if (!buckets.has(item.type)) buckets.set(item.type, [])
+      buckets.get(item.type)!.push(item)
+    }
+    const result: SwipeItem[] = []
+    const queues = [...buckets.values()]
+    let i = 0
+    while (queues.length > 0) {
+      const idx = i % queues.length
+      const q = queues[idx]
+      result.push(q.shift()!)
+      if (q.length === 0) queues.splice(idx, 1)
+      else i++
+    }
+    return result
+  })()
 
   // Swipe sinistra: aggiorna swipeSkippedIds in page.tsx
   // così al prossimo open di SwipeMode la card è già esclusa da swipeItems
