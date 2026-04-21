@@ -1588,7 +1588,7 @@ export default function ForYouPage() {
           </div>
         ) : (
           <>
-            {tasteProfile?.lowConfidence && <LowConfidenceBanner totalEntries={totalEntries} />}
+            {totalEntries < 15 && <LowConfidenceBanner totalEntries={totalEntries} />}
             {tasteProfile && <DNAWidget tasteProfile={tasteProfile} totalEntries={totalEntries} />}
             {/* Barra ricerca libera "Trova simili a..." */}
             <SimilarSearchBar
