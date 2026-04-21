@@ -195,25 +195,17 @@ export default function NewsPage() {
     <div className="min-h-screen bg-black text-white">
       <div className="pt-2 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
 
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="hidden md:block text-5xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-cyan-400 mb-2">
-                {t.news.title}
-              </h1>
-              <p className="text-zinc-500 text-sm">{t.news.subtitle}</p>
-            </div>
-            <button
-              onClick={triggerSync}
-              disabled={syncing}
-              title={t.news.refresh}
-              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-2xl text-sm text-zinc-400 hover:text-white transition disabled:opacity-50"
-            >
-              <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-              {lastSync ? `${t.news.updated} ${lastSync}` : t.news.refresh}
-            </button>
-          </div>
+        {/* Header — solo refresh */}
+        <div className="flex justify-end mb-6">
+          <button
+            onClick={triggerSync}
+            disabled={syncing}
+            title={t.news.refresh}
+            className="flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-2xl text-sm text-zinc-400 hover:text-white transition disabled:opacity-50"
+          >
+            <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+            {lastSync ? `${t.news.updated} ${lastSync}` : t.news.refresh}
+          </button>
         </div>
 
         {/* Category filters */}

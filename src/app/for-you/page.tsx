@@ -1520,51 +1520,28 @@ export default function ForYouPage() {
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPulling} />
       <div className="pt-2 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
 
-        {/* Header — titolo solo desktop, su mobile c'è MobileHeader */}
-        <div className="hidden md:flex flex-row items-end gap-4 mb-10">
-          <div className="flex-1">
-            <h1 className="text-5xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-fuchsia-400">
-              {fy.title}
-            </h1>
-            <p className="text-zinc-400 mt-2">{fy.subtitle}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            {swipeItems.length > 0 && (
-              <button onClick={handleOpenSwipeMode}
-                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500 rounded-2xl text-sm font-semibold text-white transition-all shadow-lg shadow-violet-900/40">
-                <Shuffle size={16} />Swipe
-              </button>
-            )}
-            <button onClick={() => setShowPrefs(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl text-sm font-medium text-zinc-300 transition-all">
-              <SlidersHorizontal size={16} />{fy.preferences}
+        {/* Action bar — desktop e mobile */}
+        <div className="flex justify-end items-center gap-2 mb-6">
+          {swipeItems.length > 0 && (
+            <button onClick={handleOpenSwipeMode}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500 rounded-2xl text-sm font-semibold text-white transition-all shadow-lg shadow-violet-900/30">
+              <Shuffle size={15} />Swipe
             </button>
-            <div className="relative">
-              <button onClick={handleRefresh} disabled={refreshing}
-                className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-2xl text-sm font-medium text-white transition-all">
-                <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-                {refreshing ? fy.refreshing : fy.refresh}
-              </button>
-              {showNewRecsBadge && (
-                <span className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-fuchsia-500 rounded-full border-2 border-black animate-pulse" />
-              )}
-            </div>
-          </div>
-        </div>
-        {/* Mobile: solo bottone preferenze in alto a destra */}
-        <div className="flex md:hidden justify-between items-center mb-4">
-          <div className="flex items-center gap-2">
-            {swipeItems.length > 0 && (
-              <button onClick={handleOpenSwipeMode}
-                className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-fuchsia-600 to-violet-600 rounded-xl text-sm font-semibold text-white transition-all">
-                <Shuffle size={14} />Swipe
-              </button>
-            )}
-          </div>
+          )}
           <button onClick={() => setShowPrefs(true)}
-            className="flex items-center gap-2 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-400 transition-all">
+            className="flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl text-sm font-medium text-zinc-300 transition-all">
             <SlidersHorizontal size={15} />{fy.preferences}
           </button>
+          <div className="relative">
+            <button onClick={handleRefresh} disabled={refreshing}
+              className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-2xl text-sm font-medium text-white transition-all">
+              <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
+              <span className="hidden sm:inline">{refreshing ? fy.refreshing : fy.refresh}</span>
+            </button>
+            {showNewRecsBadge && (
+              <span className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-fuchsia-500 rounded-full border-2 border-black animate-pulse" />
+            )}
+          </div>
         </div>
 
         {!hasEnoughData ? (
