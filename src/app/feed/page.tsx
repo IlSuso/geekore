@@ -383,9 +383,19 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
                 <span className={`text-[11px] font-semibold text-zinc-500 uppercase tracking-wider ${openAboveRef.current ? 'mt-3' : ''}`}>Seleziona categoria</span>
                 <button type="button" onClick={close} className="text-zinc-600 hover:text-zinc-400 transition-colors p-0.5"><X size={13} /></button>
               </div>
-              <div className="grid grid-cols-3 gap-1.5">
-                {MACRO_CATEGORIES.map(cat => (
+              <div className="grid grid-cols-3 gap-1.5 mb-1.5">
+                {MACRO_CATEGORIES.slice(0, 3).map(cat => (
                   <button key={cat} type="button" onClick={() => selectMacro(cat)}
+                    className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 hover:bg-zinc-800 hover:border-violet-500/50 transition-all group">
+                    <CategoryIcon category={cat} size={18} className="text-zinc-400 group-hover:text-violet-400 transition-colors" />
+                    <span className="text-[11px] font-medium text-zinc-300 group-hover:text-white leading-tight text-center">{cat}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="flex justify-center gap-1.5">
+                {MACRO_CATEGORIES.slice(3).map(cat => (
+                  <button key={cat} type="button" onClick={() => selectMacro(cat)}
+                    style={{ width: 'calc(33.333% - 3px)' }}
                     className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 hover:bg-zinc-800 hover:border-violet-500/50 transition-all group">
                     <CategoryIcon category={cat} size={18} className="text-zinc-400 group-hover:text-violet-400 transition-colors" />
                     <span className="text-[11px] font-medium text-zinc-300 group-hover:text-white leading-tight text-center">{cat}</span>
@@ -568,19 +578,35 @@ function CategoryFilter({
         <div className="fixed sm:absolute top-auto sm:top-full left-0 right-0 sm:left-auto sm:right-auto bottom-0 sm:bottom-auto mt-0 sm:mt-2 bg-zinc-900 border border-zinc-700 rounded-t-3xl sm:rounded-2xl shadow-2xl shadow-black/60 w-full sm:w-[300px] p-3 pb-6 sm:pb-3" style={{ zIndex: 20000 }}>
           <p className="text-[10px] text-zinc-500 font-semibold px-1 pb-2 uppercase tracking-wider">Filtra per categoria</p>
 
-          {/* Macro chips */}
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            {MACRO_CATEGORIES.map(cat => (
-              <button key={cat} onClick={() => handleMacro(cat)}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
-                  activeMacro === cat
-                    ? 'bg-fuchsia-600/30 border-fuchsia-500/60 text-fuchsia-300'
-                    : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-500'
-                }`}>
-                <CategoryIcon category={cat} size={11} />
-                {cat}
-              </button>
-            ))}
+          {/* Macro chips — 3+2 centrati */}
+          <div className="mb-3">
+            <div className="grid grid-cols-3 gap-1.5 mb-1.5">
+              {MACRO_CATEGORIES.slice(0, 3).map(cat => (
+                <button key={cat} onClick={() => handleMacro(cat)}
+                  className={`flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                    activeMacro === cat
+                      ? 'bg-fuchsia-600/30 border-fuchsia-500/60 text-fuchsia-300'
+                      : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-500'
+                  }`}>
+                  <CategoryIcon category={cat} size={11} />
+                  {cat}
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-center gap-1.5">
+              {MACRO_CATEGORIES.slice(3).map(cat => (
+                <button key={cat} onClick={() => handleMacro(cat)}
+                  style={{ width: 'calc(33.333% - 3px)' }}
+                  className={`flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                    activeMacro === cat
+                      ? 'bg-fuchsia-600/30 border-fuchsia-500/60 text-fuchsia-300'
+                      : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-500'
+                  }`}>
+                  <CategoryIcon category={cat} size={11} />
+                  {cat}
+                </button>
+              ))}
+            </div>
           </div>
 
           {activeMacro && (
@@ -1873,7 +1899,9 @@ export default function FeedPage() {
 
           {/* ── Sidebar desktop ─────────────────────────────────────── */}
           <div className="hidden lg:block w-80 flex-shrink-0">
+            <div className="sticky top-16">
               <FeedSidebar currentUserId={currentUser?.id ?? null} />
+            </div>
           </div>
 
         </div>

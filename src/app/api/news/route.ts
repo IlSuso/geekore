@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { logger } from '@/lib/logger'
 
-const VALID_CATEGORIES = ['all', 'gaming', 'cinema', 'anime', 'tv', 'manga', 'boardgame']
+const VALID_CATEGORIES = ['all', 'gaming', 'cinema', 'anime', 'tv', 'manga']
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000 // 12 ore
 
 export async function GET(request: Request) {
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     const suffix = `_${lang}`
 
     const categoriesNeeded = cat === 'all'
-      ? ['cinema', 'tv', 'anime', 'gaming', 'manga', 'boardgame'].map(c => `${c}${suffix}`)
+      ? ['cinema', 'tv', 'anime', 'gaming', 'manga'].map(c => `${c}${suffix}`)
       : [`${cat}${suffix}`]
 
     const { data, error } = await supabase
@@ -29,9 +29,9 @@ export async function GET(request: Request) {
 
     if (error) throw error
 
-    const now = Date.now()
+    const nowMs = Date.now()
     const isCacheStale = !data || data.length === 0 ||
-      data.some(row => !row.updated_at || now - new Date(row.updated_at).getTime() > CACHE_TTL_MS)
+      data.some(row => !row.updated_at || nowMs - new Date(row.updated_at).getTime() > CACHE_TTL_MS)
 
     if (isCacheStale) {
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
@@ -48,6 +48,18 @@ export async function GET(request: Request) {
         if (Array.isArray(parsed)) allNews = [...allNews, ...parsed]
       })
     }
+
+    // Filtra per finestra ±2 mesi — logica: mostriamo novità recenti o imminenti
+    const nowDate = new Date()
+    const twoMonthsAgo = new Date(nowDate); twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
+    const twoMonthsFwd = new Date(nowDate); twoMonthsFwd.setMonth(twoMonthsFwd.getMonth() + 2)
+
+    allNews = allNews.filter(item => {
+      const relevantDate = item.nextEpisodeDate || item.date
+      if (!relevantDate) return true
+      const d = new Date(relevantDate)
+      return d >= twoMonthsAgo && d <= twoMonthsFwd
+    })
 
     allNews.sort((a, b) => {
       const dateA = a.nextEpisodeDate || a.date

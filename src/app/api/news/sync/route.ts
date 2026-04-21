@@ -274,7 +274,7 @@ async function fetchManga(lang: string): Promise<any[]> {
   const plus60Int  = toFuzzy(plus60)
   const minus60Int = toFuzzy(minus60)
   const mediaFields = `id siteUrl format title { romaji english } coverImage { extraLarge large } startDate { year month day } description(asHtml: false) genres averageScore chapters volumes staff(sort: [RELEVANCE], page: 1, perPage: 3) { nodes { name { full } } } studios(isMain: true) { nodes { name } }`
-  const query = `query { upcoming: Page(page: 1, perPage: 10) { media(type: MANGA, status: NOT_YET_RELEASED, sort: [START_DATE], isAdult: false, format_not_in: [NOVEL], startDate_lesser: ${plus60Int}) { ${mediaFields} } } trending: Page(page: 1, perPage: 20) { media(type: MANGA, status: RELEASING, sort: [TRENDING_DESC], isAdult: false, format_not_in: [NOVEL], startDate_greater: ${minus60Int}) { ${mediaFields} } } popular: Page(page: 1, perPage: 10) { media(type: MANGA, status: RELEASING, sort: [POPULARITY_DESC], isAdult: false, format_not_in: [NOVEL]) { ${mediaFields} } } }`
+  const query = `query { upcoming: Page(page: 1, perPage: 10) { media(type: MANGA, status: NOT_YET_RELEASED, sort: [START_DATE], isAdult: false, format_not_in: [NOVEL], startDate_lesser: ${plus60Int}) { ${mediaFields} } } trending: Page(page: 1, perPage: 20) { media(type: MANGA, status: RELEASING, sort: [TRENDING_DESC], isAdult: false, format_not_in: [NOVEL], startDate_greater: ${minus60Int}) { ${mediaFields} } } recent: Page(page: 1, perPage: 10) { media(type: MANGA, status: RELEASING, sort: [START_DATE_DESC], isAdult: false, format_not_in: [NOVEL], startDate_greater: ${minus60Int}, startDate_lesser: ${plus60Int}) { ${mediaFields} } } }`
   try {
     const res = await fetch(ANILIST_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }), signal: AbortSignal.timeout(10_000) })
     if (!res.ok) return []
@@ -282,10 +282,10 @@ async function fetchManga(lang: string): Promise<any[]> {
     if (json.errors) { logger.error('[fetchManga] AniList GraphQL errors:', json.errors); return [] }
     const upcoming: any[] = (json.data?.upcoming?.media || []).filter((m: any) => m.startDate?.year)
     const trending: any[] = json.data?.trending?.media || []
-    const popular: any[] = json.data?.popular?.media || []
+    const recent: any[] = json.data?.recent?.media || []
     const isRealCover = (url?: string) => !!url && !url.includes('default')
     const seen = new Set<number>(); const all: any[] = []
-    for (const m of [...upcoming, ...trending, ...popular]) {
+    for (const m of [...upcoming, ...trending, ...recent]) {
       const img = m.coverImage?.extraLarge || m.coverImage?.large
       if (!seen.has(m.id) && isRealCover(img)) { seen.add(m.id); all.push(m) }
       if (all.length >= 20) break
@@ -344,17 +344,25 @@ async function fetchBoardgameNews(lang: string): Promise<any[]> {
     if (!hotXml) { logger.info(`[BGG] hot list failed`); return [] }
     const hotResult = await parseStringPromise(hotXml)
     const hotItems: any[] = hotResult?.items?.item || []
-    const currentYear = new Date().getFullYear()
-    const recent = hotItems.filter((item: any) => {
+    const now60 = new Date()
+    const twoMonthsAgo = new Date(now60); twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
+    const twoMonthsFwd = new Date(now60); twoMonthsFwd.setMonth(twoMonthsFwd.getMonth() + 2)
+    const currentYear = now60.getFullYear()
+    // BGG non ha date precise — filtriamo per anno di pubblicazione abbastanza vicino
+    // Un gioco pubblicato quest'anno o l'anno scorso dopo ottobre rientra nella finestra ±2 mesi
+    const inWindow = (item: any) => {
       const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : null
       if (year === null) return true
-      return year >= currentYear - 1 && year <= currentYear
-    })
-    const candidates = recent.length >= 8 ? recent : hotItems.filter((item: any) => {
-      const year = item.yearpublished?.[0]?.$?.value ? parseInt(item.yearpublished[0].$.value) : null
-      if (year === null) return true
-      return year >= currentYear - 1 && year <= currentYear + 1
-    })
+      if (year > currentYear) return true // futuro
+      if (year === currentYear) return true // anno corrente
+      if (year === currentYear - 1) {
+        // Solo se siamo nei primi 2 mesi dell'anno (quindi il titolo di fine anno scorso è nella finestra)
+        return now60.getMonth() < 2
+      }
+      return false
+    }
+    const recent = hotItems.filter(inWindow)
+    const candidates = recent.length >= 5 ? recent : hotItems.slice(0, 25) // fallback se pochissimi
     const ids = candidates.slice(0, 25).map((i: any) => i.$.id)
     if (ids.length === 0) return []
     await new Promise(r => setTimeout(r, 300))

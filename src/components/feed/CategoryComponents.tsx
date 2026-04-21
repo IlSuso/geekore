@@ -261,9 +261,19 @@ export function CategorySelector({ value, onChange }: {
                 <span className={`text-[11px] font-semibold text-zinc-500 uppercase tracking-wider ${openAboveRef.current ? 'mt-3' : ''}`}>Seleziona categoria</span>
                 <button type="button" onClick={close} className="text-zinc-600 hover:text-zinc-400 transition-colors p-0.5"><X size={13} /></button>
               </div>
-              <div className="grid grid-cols-3 gap-1.5">
-                {MACRO_CATEGORIES.map(cat => (
+              <div className="grid grid-cols-3 gap-1.5 mb-1.5">
+                {MACRO_CATEGORIES.slice(0, 3).map(cat => (
                   <button key={cat} type="button" onClick={() => selectMacro(cat)}
+                    className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 hover:bg-zinc-800 hover:border-violet-500/50 transition-all group">
+                    <CategoryIcon category={cat} size={18} className="text-zinc-400 group-hover:text-violet-400 transition-colors" />
+                    <span className="text-[11px] font-medium text-zinc-300 group-hover:text-white leading-tight text-center">{cat}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="flex justify-center gap-1.5">
+                {MACRO_CATEGORIES.slice(3).map(cat => (
+                  <button key={cat} type="button" onClick={() => selectMacro(cat)}
+                    style={{ width: 'calc(33.333% - 3px)' }}
                     className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 hover:bg-zinc-800 hover:border-violet-500/50 transition-all group">
                     <CategoryIcon category={cat} size={18} className="text-zinc-400 group-hover:text-violet-400 transition-colors" />
                     <span className="text-[11px] font-medium text-zinc-300 group-hover:text-white leading-tight text-center">{cat}</span>
