@@ -1,9 +1,9 @@
 // public/sw.js
 // Service Worker Geekore — PWA offline support + navigation speed
-// v6: fix push notifications Android (silent:false, renotify, tag)
+// v7: network-first per nav pages — permette al middleware di intercettare redirect onboarding
 
-const CACHE_NAME = 'geekore-v6'
-const STATIC_CACHE = 'geekore-static-v6'
+const CACHE_NAME = 'geekore-v7'
+const STATIC_CACHE = 'geekore-static-v7'
 
 // Pagine navigate precachate all'installazione
 const NAV_PAGES = [
@@ -98,9 +98,11 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Pagine nav principali: stale-while-revalidate
+  // Pagine nav principali: network-first
+  // IMPORTANTE: non usare stale-while-revalidate qui — il middleware server
+  // deve sempre poter intercettare la richiesta (es. redirect onboarding)
   if (request.mode === 'navigate' && isNavPage(url)) {
-    event.respondWith(staleWhileRevalidate(request, CACHE_NAME))
+    event.respondWith(networkFirst(request))
     return
   }
 
