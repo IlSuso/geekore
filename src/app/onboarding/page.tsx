@@ -200,6 +200,7 @@ export default function OnboardingPage() {
   const [swipePool, setSwipePool] = useState<SwipeItem[]>([])
 
   const skippedItemsRef = useRef<SwipeItem[]>([])
+  const acceptedItemsRef = useRef<Map<string, { item: SwipeItem; rating: number | null }>>(new Map())
 
   // ─── Helpers Supabase (stessa logica di for-you) ──────────────────────────
 
@@ -292,35 +293,15 @@ export default function OnboardingPage() {
   const toggleType = (id: string) =>
     setSelectedTypes(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id])
 
-  const handleOnboardingSeen = useCallback(async (item: SwipeItem, rating: number | null, skipPersist = false) => {
-    if (skipPersist) return // il Drawer ha già scritto, non riscrivere
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      console.warn('[Onboarding] handleOnboardingSeen: utente non autenticato!')
-      return
-    }
-
-    const insertData: any = {
-      user_id: user.id,
-      external_id: item.id,
-      title: item.title,
-      type: item.type,
-      cover_image: item.coverImage ?? null,
-      genres: item.genres ?? [],
-      status: rating !== null ? 'completed' : 'wishlist',
-      episodes: item.episodes ?? null,
-      updated_at: new Date().toISOString(),
-    }
-    if (rating !== null) insertData.rating = rating
-
-    const { error } = await supabase.from('user_media_entries').upsert(insertData, { onConflict: 'user_id,external_id' })
-    if (error) {
-      console.error('[Onboarding] ERRORE upsert user_media_entries:', error.message, error.details)
-    }
-  }, [supabase])
+  const handleOnboardingSeen = useCallback((item: SwipeItem, rating: number | null, skipPersist = false) => {
+    if (skipPersist) return
+    // Salva in coda pendente — non scrive subito per permettere l'undo
+    acceptedItemsRef.current.set(item.id, { item, rating })
+  }, [])
 
   const handleOnboardingSkip = useCallback((item: SwipeItem) => {
+    // Se era in coda come accettato (undo → skip) rimuovilo
+    acceptedItemsRef.current.delete(item.id)
     skippedItemsRef.current.push(item)
   }, [])
 
@@ -363,6 +344,25 @@ export default function OnboardingPage() {
   const completeOnboarding = useCallback(async () => {
     const uid = userIdRef.current
     if (!uid) return
+
+    // Scrivi tutti gli accepted in batch (esclusi quelli poi skippati via undo)
+    const accepted = Array.from(acceptedItemsRef.current.values())
+    if (accepted.length > 0) {
+      const rows = accepted.map(({ item, rating }) => ({
+        user_id: uid,
+        external_id: item.id,
+        title: item.title,
+        type: item.type,
+        cover_image: item.coverImage ?? null,
+        genres: item.genres ?? [],
+        status: rating !== null ? 'completed' : 'wishlist',
+        episodes: item.episodes ?? null,
+        rating: rating ?? null,
+        updated_at: new Date().toISOString(),
+      }))
+      const { error } = await supabase.from('user_media_entries').upsert(rows, { onConflict: 'user_id,external_id' })
+      if (error) console.error('[Onboarding] ERRORE upsert batch:', error.message)
+    }
 
     if (skippedItemsRef.current.length > 0) {
       await supabase.from('swipe_skipped').upsert(
