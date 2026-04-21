@@ -77,11 +77,13 @@ export async function GET(req: NextRequest) {
 
   const GOOGLE_BOOKS_KEY = process.env.GOOGLE_BOOKS_API_KEY
 
+  // Usa intitle: per cercare solo nel titolo, langRestrict=it per libri italiani
   const params = new URLSearchParams({
-    q,
+    q: `intitle:${q}`,
     maxResults: '20',
     printType: 'books',
     orderBy: 'relevance',
+    langRestrict: 'it',
     ...(GOOGLE_BOOKS_KEY ? { key: GOOGLE_BOOKS_KEY } : {}),
   })
 
@@ -150,8 +152,12 @@ export async function GET(req: NextRequest) {
       if (items.length >= 15) break
     }
 
+    // Filtra: tieni solo i libri il cui titolo inizia con la query (case-insensitive)
+    const qLower = q.toLowerCase()
+    const filtered = items.filter(item => item.title.toLowerCase().startsWith(qLower))
+
     // Ordina: con cover prima, poi per score decrescente
-    const sorted = [...items].sort((a, b) => {
+    const sorted = [...filtered].sort((a, b) => {
       if (!!a.coverImage !== !!b.coverImage) return a.coverImage ? -1 : 1
       return (b.score ?? 0) - (a.score ?? 0)
     })

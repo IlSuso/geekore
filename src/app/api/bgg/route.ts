@@ -191,8 +191,12 @@ export async function GET(req: NextRequest) {
 
     const items = await fetchBGGDetails(ids)
 
+    // Filtra: tieni solo i giochi il cui titolo inizia con la query (case-insensitive)
+    const qLower = q.toLowerCase()
+    const filtered = items.filter(item => item.title.toLowerCase().startsWith(qLower))
+
     // Ordina: con cover prima, poi per score BGG decrescente
-    const sorted = [...items].sort((a, b) => {
+    const sorted = [...filtered].sort((a, b) => {
       if (!!a.coverImage !== !!b.coverImage) return a.coverImage ? -1 : 1
       return (b.score ?? 0) - (a.score ?? 0)
     })
