@@ -564,41 +564,6 @@ function computeTasteProfile(
     }
     return slots
   }
-  if (type ===) {
-    const bookCatScore: Record<string, number> = {}
-    const sourceScores = Object.fromEntries(
-      (typeGenres.length >= 2 ? tasteProfile.globalGenres : tasteProfile.globalGenres)
-        .map(g => [g.genre, g.score])
-    )
-    for (const srcGenre of sourceGenres.slice(0, 8)) {
-      const mapped = CROSS_TO_BOOK_GENRE[srcGenre] || [srcGenre]
-      const score = sourceScores[srcGenre] || 1
-      for (const bookCat of mapped) {
-        bookCatScore[bookCat] = (bookCatScore[bookCat] || 0) + score
-      }
-    }
-    const rankedCats = Object.entries(bookCatScore)
-      .sort(([, a], [, b]) => b - a)
-      .map(([g]) => g)
-      .slice(0, 6)
-
-    if (rankedCats.length === 0) {
-      return [
-        { genre: 'Fiction', quota: 6, isDiscovery: false },
-        { genre: 'Thriller', quota: 5, isDiscovery: false },
-        { genre: 'Fantasy', quota: 4, isDiscovery: false },
-        { genre: 'Science Fiction', quota: 4, isDiscovery: false },
-        { genre: 'Mystery', quota: 3, isDiscovery: true },
-      ]
-    }
-    const slots: GenreSlot[] = []
-    const distributions = [0.28, 0.22, 0.18, 0.14, 0.10, 0.08]
-    for (let i = 0; i < rankedCats.length; i++) {
-      const quota = Math.max(2, Math.round(totalSlots * distributions[i]))
-      slots.push({ genre: rankedCats[i], quota, isDiscovery: i >= 4 })
-    }
-    return slots
-  }
 
   // ── Logica specifica per giochi ──────────────────────────────────────────
   // I generi nel profilo utente sono cross-media (es. Fantasy, Drama, Action).
