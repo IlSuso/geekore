@@ -3,6 +3,8 @@
 // Estratto da api/recommendations/route.ts per Fix #17 (riduzione any) e #14 (refactor)
 
 
+export type RecoMediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame' 
+
 export type RuntimeRange = 'short' | 'standard' | 'long' | null
 
 export interface CreatorScores {
