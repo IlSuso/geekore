@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
 
   const makeParams = (startIndex: number, langIt: boolean) => {
     const p = new URLSearchParams({
-      q: `intitle:${q}`,
+      q: q,
       maxResults: String(PAGE_SIZE),
       startIndex: String(startIndex),
       printType: 'books',
