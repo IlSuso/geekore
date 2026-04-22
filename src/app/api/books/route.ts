@@ -1,9 +1,5 @@
 // src/app/api/books/route.ts
-// Edge Function su ams1 (Amsterdam) — Google vede IP europeo e rispetta langRestrict=it
 // Key env: GOOGLE_BOOKS_API_KEY
-
-export const runtime = 'edge'
-export const preferredRegion = 'ams1' // Amsterdam
 
 import { NextRequest, NextResponse } from 'next/server'
 
