@@ -79,11 +79,16 @@ export async function GET(req: NextRequest) {
   const GOOGLE_BOOKS_KEY = process.env.GOOGLE_BOOKS_API_KEY
 
   // Usa intitle: per cercare solo nel titolo, langRestrict=it per libri italiani
-  // Due fetch parallele da 40 (0-39 + 40-79) per 80 risultati totali
+  // Chiamate sequenziali da 40 risultati ciascuna, max 5 chiamate (200 totali)
+  // Si ferma non appena si raggiungono 15 titoli validi
+  const TARGET = 15
+  const MAX_CALLS = 5
+  const PAGE_SIZE = 40
+
   const makeParams = (startIndex: number) => {
     const p = new URLSearchParams({
       q: `intitle:${q} lang:it`,
-      maxResults: '40',
+      maxResults: String(PAGE_SIZE),
       startIndex: String(startIndex),
       printType: 'books',
       orderBy: 'relevance',
@@ -94,104 +99,117 @@ export async function GET(req: NextRequest) {
     return `${GOOGLE_BOOKS_BASE}/volumes?${p}`
   }
 
+  // Normalizza per confronto titolo (definita qui perché serve nel loop)
+  const STOP_WORDS = new Set([
+    'il','lo','la','i','gli','le','un','uno','una',
+    'del','dello','della','dei','degli','delle',
+    'al','allo','alla','ai','agli','alle',
+    'dal','dallo','dalla','dai','dagli','dalle',
+    'nel','nello','nella','nei','negli','nelle',
+    'sul','sullo','sulla','sui','sugli','sulle',
+    'di','da','in','con','su','per','tra','fra',
+    'the','a','an',
+  ])
+  const normalize = (s: string) => {
+    let r = s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
+    const firstSpace = r.indexOf(' ')
+    if (firstSpace > 0) {
+      const firstWord = r.slice(0, firstSpace)
+      if (STOP_WORDS.has(firstWord)) r = r.slice(firstSpace + 1).trim()
+    }
+    return r
+  }
+  const qNorm = normalize(q)
+
   try {
-    const [res1, res2] = await Promise.allSettled([
-      fetch(makeParams(0), { next: { revalidate: 300 } }),
-      fetch(makeParams(40), { next: { revalidate: 300 } }),
-    ])
-
-    const rawVolumes: any[] = []
-    for (const r of [res1, res2]) {
-      if (r.status === 'fulfilled' && r.value.ok) {
-        try {
-          const data = await r.value.json()
-          if (Array.isArray(data.items)) rawVolumes.push(...data.items)
-        } catch {}
-      }
-    }
     const items: BookItem[] = []
+    const seenIds = new Set<string>()
 
-    for (const vol of rawVolumes) {
-      const info = vol.volumeInfo
-      if (!info?.title) continue
+    for (let call = 0; call < MAX_CALLS; call++) {
+      // Stop anticipato se abbiamo già raggiunto il target
+      if (items.length >= TARGET) break
 
-      // Filtro hard: solo volumi con contenuto in italiano (language è affidabile,
-      // saleInfo.country NON lo è: riflette il paese del server, non dell'utente)
-      if (info.language !== 'it') continue
-
-      // Anno pubblicazione (prende solo i primi 4 caratteri per gestire formati tipo "2021-03")
-      const rawYear = info.publishedDate ? parseInt(info.publishedDate.slice(0, 4)) : undefined
-      const year = rawYear && !isNaN(rawYear) ? rawYear : undefined
-
-      // Cover (Google Books → Open Library fallback)
-      const coverImage = resolveCoverUrl(info)
-
-      // ISBN per link esterno e fallback cover
-      const identifiers: Array<{ type: string; identifier: string }> =
-        info.industryIdentifiers || []
-      const isbn =
-        identifiers.find(i => i.type === 'ISBN_13')?.identifier ||
-        identifiers.find(i => i.type === 'ISBN_10')?.identifier
-
-      // Rating Google Books (da 1 a 5) → normalizzato su 10
-      const score = info.averageRating
-        ? Math.round(info.averageRating * 2 * 10) / 10
-        : undefined
-
-      // Descrizione pulita, tagliata al punto come gli altri media
-      const rawDesc = (info.description || '').replace(/<[^>]+>/g, '').trim()
-      const description = rawDesc ? truncateAtSentence(rawDesc, 400) || undefined : undefined
-
-      // Generi/categorie da Google Books
-      const genres: string[] = info.categories || []
-
-      items.push({
-        id: `book-${vol.id}`,
-        title: info.title,
-        type: 'book',
-        source: 'google_books',
-        coverImage,
-        year,
-        description,
-        genres,
-        authors: info.authors || [],
-        pages: info.pageCount || undefined,
-        score,
-        isbn,
-        publisher: info.publisher || undefined,
-        language: info.language || undefined,
-      })
-    }
-
-    // Normalizza per confronto titolo:
-    // 1. lowercase
-    // 2. rimuovi punteggiatura (ma tieni lettere accentate)
-    // 3. comprimi spazi
-    // 4. strip articolo/preposizione SOLO se è una parola intera iniziale seguita da spazio
-    //    (evita di tagliare "la" da "lavoro", "a" da "avventura", ecc.)
-    const STOP_WORDS = new Set([
-      'il','lo','la','i','gli','le','un','uno','una',
-      'del','dello','della','dei','degli','delle',
-      'al','allo','alla','ai','agli','alle',
-      'dal','dallo','dalla','dai','dagli','dalle',
-      'nel','nello','nella','nei','negli','nelle',
-      'sul','sullo','sulla','sui','sugli','sulle',
-      'di','da','in','con','su','per','tra','fra',
-      'the','a','an',
-    ])
-    const normalize = (s: string) => {
-      // Rimuovi punteggiatura tenendo lettere unicode (accentate incluse)
-      let r = s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
-      // Strip prima parola SOLO se è stop word esatta
-      const firstSpace = r.indexOf(' ')
-      if (firstSpace > 0) {
-        const firstWord = r.slice(0, firstSpace)
-        if (STOP_WORDS.has(firstWord)) r = r.slice(firstSpace + 1).trim()
+      const startIndex = call * PAGE_SIZE
+      let res: Response
+      try {
+        res = await fetch(makeParams(startIndex), { next: { revalidate: 300 } })
+      } catch {
+        break // errore di rete: interrompi il loop
       }
-      return r
-    }
-    const qNorm = normalize(q)
-    const filtered = items.filter(item => normalize(item.title).startsWith(qNorm))
+
+      if (!res.ok) break
+
+      let data: any
+      try { data = await res.json() } catch { break }
+
+      const rawVolumes: any[] = Array.isArray(data.items) ? data.items : []
+
+      // Se Google Books non restituisce più risultati, inutile continuare
+      if (rawVolumes.length === 0) break
+
+      for (const vol of rawVolumes) {
+        // Stop anticipato nel loop interno
+        if (items.length >= TARGET) break
+
+        const info = vol.volumeInfo
+        if (!info?.title) continue
+
+        // Filtro hard: solo volumi con contenuto in italiano
+        if (info.language !== 'it') continue
+
+        // Filtro titolo: deve iniziare con la query normalizzata
+        if (!normalize(info.title).startsWith(qNorm)) continue
+
+        // Deduplicazione per id Google Books
+        const bookId = `book-${vol.id}`
+        if (seenIds.has(bookId)) continue
+        seenIds.add(bookId)
+
+        // Anno pubblicazione
+        const rawYear = info.publishedDate ? parseInt(info.publishedDate.slice(0, 4)) : undefined
+        const year = rawYear && !isNaN(rawYear) ? rawYear : undefined
+
+        // Cover (Google Books → Open Library fallback)
+        const coverImage = resolveCoverUrl(info)
+
+        // ISBN per link esterno e fallback cover
+        const identifiers: Array<{ type: string; identifier: string }> =
+          info.industryIdentifiers || []
+        const isbn =
+          identifiers.find(i => i.type === 'ISBN_13')?.identifier ||
+          identifiers.find(i => i.type === 'ISBN_10')?.identifier
+
+        // Rating Google Books (da 1 a 5) → normalizzato su 10
+        const score = info.averageRating
+          ? Math.round(info.averageRating * 2 * 10) / 10
+          : undefined
+
+        // Descrizione pulita
+        const rawDesc = (info.description || '').replace(/<[^>]+>/g, '').trim()
+        const description = rawDesc ? truncateAtSentence(rawDesc, 400) || undefined : undefined
+
+        const genres: string[] = info.categories || []
+
+        items.push({
+          id: bookId,
+          title: info.title,
+          type: 'book',
+          source: 'google_books',
+          coverImage,
+          year,
+          description,
+          genres,
+          authors: info.authors || [],
+          pages: info.pageCount || undefined,
+          score,
+          isbn,
+          publisher: info.publisher || undefined,
+          language: info.language || undefined,
+        })
+      }
+    } // fine loop chiamate
+
+    const filtered = items
 
     // Ordina: con cover prima, poi per score decrescente
     const sorted = [...filtered].sort((a, b) => {
