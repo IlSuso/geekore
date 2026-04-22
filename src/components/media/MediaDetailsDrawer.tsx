@@ -346,6 +346,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                 <div className="flex items-center gap-0.5 bg-zinc-800 border border-zinc-700 rounded-full px-1.5 py-0.5">
                   <Star size={9} className="text-yellow-400 fill-yellow-400" />
                   <span className="text-[10px] font-bold text-white">{media.score!.toFixed(1)}</span>
+                  <span className="text-[10px] text-zinc-500">/5</span>
                 </div>
               )}
               {media.episodes != null && media.episodes > 1 && (
@@ -430,7 +431,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                   <div className="flex items-center justify-center gap-1">
                     <Star size={11} className="text-yellow-400 fill-yellow-400" />
                     <p className="text-lg font-bold text-white">{(media.score!).toFixed(1)}</p>
-                    <span className="text-[10px] text-zinc-600">/10</span>
+                    <span className="text-[10px] text-zinc-600">/5</span>
                   </div>
                 </div>
               )

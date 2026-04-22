@@ -1473,7 +1473,7 @@ export default function ForYouPage() {
       }
 
       // Filtra: no skipped, no già in coda, solo tipi validi
-      const validTypes = ['anime', 'manga', 'movie', 'tv', 'game']
+      const validTypes = ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame']
       const newRecs = freshRecs
         .filter((r: any) =>
           validTypes.includes(r.type) &&
@@ -1511,7 +1511,7 @@ export default function ForYouPage() {
   const initSwipeQueues = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const validTypes = ['anime', 'manga', 'movie', 'tv', 'game']
+    const validTypes = ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame']
     const { data: skippedRows } = await supabase.from('swipe_skipped').select('external_id').eq('user_id', user.id)
     const skippedSet = new Set((skippedRows || []).map((r: any) => r.external_id as string))
     const allRecs: Recommendation[] = Object.values(recommendations).flat()

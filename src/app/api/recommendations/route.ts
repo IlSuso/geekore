@@ -2285,7 +2285,7 @@ async function fetchBoardgameRecs(
           coverImage: cover,
           year,
           genres: categories.length > 0 ? categories : recGenres,
-          score: bggScore,
+          score: bggScore !== undefined ? Math.round((bggScore / 2) * 10) / 10 : undefined,
           description,
           why: buildWhyV3(recGenres, recId, title, tasteProfile, matchScore, slot.isDiscovery, {}),
           matchScore: finalScore,
@@ -2548,7 +2548,7 @@ export async function GET(request: NextRequest) {
     const igdbClientId = process.env.IGDB_CLIENT_ID || ''
     const igdbClientSecret = process.env.IGDB_CLIENT_SECRET || ''
 
-    const ALL_MEDIA_TYPES: MediaType[] = ['anime', 'manga', 'movie', 'tv', 'game']
+    const ALL_MEDIA_TYPES: MediaType[] = ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame']
 
     // Tipi per cui l'utente ha almeno 1 titolo in collezione (o wishlist)
     const allTypesInCollection = new Set<string>([

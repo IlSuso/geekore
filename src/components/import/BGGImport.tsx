@@ -146,7 +146,7 @@ export function BGGImport({ onImportDone }: Props) {
           Inserisci il tuo username BGG. La collezione deve essere <span className="text-amber-300 font-medium">pubblica</span> nelle impostazioni BGG.
         </p>
         <a
-          href="https://boardgamegeek.com/user"
+          href="https://boardgamegeek.com"
           target="_blank"
           rel="noopener noreferrer"
           className="text-xs text-amber-400/70 hover:text-amber-300 flex items-center gap-1 transition-colors"
