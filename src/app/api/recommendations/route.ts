@@ -1746,28 +1746,6 @@ async function fetchBoardgameRecs(
   return results.sort((a, b) => b.matchScore - a.matchScore)
 }
 
-// ── fetchBookRecs ─────────────────────────────────────────────────────────────
-// Google Books API — ricerca per categoria/soggetto e restituisce raccomandazioni
-
-// Helper per computeMatchScore con developer
-function computeMatchScoreWithDev(
-  recGenres: string[],
-  recTags: string[],
-  tasteProfile: TasteProfile,
-  recStudios: string[] = [],
-  recDirectors: string[] = [],
-  recDevelopers: string[] = []
-): number {
-  const base = computeMatchScore(recGenres, recTags, tasteProfile, recStudios, recDirectors)
-  let devBonus = 0
-  const topDevs = new Set(
-    Object.entries(tasteProfile.creatorScores.developers).sort(([,a],[,b]) => b - a).slice(0, 5).map(([d]) => d)
-  )
-  for (const dev of recDevelopers) {
-    if (topDevs.has(dev)) devBonus += 10
-  }
-  return Math.min(100, base + devBonus)
-}
 
 // ── Handler principale V6 — Pool-based recommendations ───────────────────────
 //
@@ -2131,7 +2109,6 @@ export async function GET(request: NextRequest) {
             case 'tv':    return { type, items: await fetchTvRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds) }
             case 'game':  return { type, items: await fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret, isAlreadyOwned, emptyShownIds) }
             case 'boardgame': return { type, items: await fetchBoardgameRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds) }
-            case:  return { type, items: await fetchBookRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds) }
             default: return { type, items: [] as Recommendation[] }
           }
         })
