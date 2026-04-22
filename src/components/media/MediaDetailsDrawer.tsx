@@ -77,7 +77,6 @@ function buildExternalUrl(media: MediaDetails): string | undefined {
   // BGG
   if (id.startsWith('bgg-')) return `https://boardgamegeek.com/boardgame/${id.replace('bgg-', '')}`
   // Google Books
-  if (id.startsWith('book-')) return `https://books.google.com/books?id=${id.replace('book-', '')}`
   // AniList
   if (id.startsWith('anilist-anime-')) return `https://anilist.co/anime/${id.replace('anilist-anime-', '')}`
   if (id.startsWith('anilist-manga-') || id.startsWith('anilist-novel-')) return `https://anilist.co/manga/${id.replace(/anilist-(manga|novel)-/, '')}`
@@ -91,7 +90,6 @@ function buildExternalUrl(media: MediaDetails): string | undefined {
 function buildSourceLabel(media: MediaDetails): string {
   const id = media.id
   if (id.startsWith('bgg-')) return 'BGG'
-  if (id.startsWith('book-')) return 'Google Books'
   if (id.startsWith('anilist-')) return 'AniList'
   if (id.startsWith('igdb-')) return 'IGDB'
   return 'TMDb'
@@ -115,12 +113,12 @@ const TYPE_ICON: Record<string, React.ElementType> = {
 const TYPE_COLOR: Record<string, string> = {
   anime: 'bg-sky-500', manga: 'bg-orange-500', game: 'bg-green-500',
   tv: 'bg-purple-500', movie: 'bg-red-500',
-  boardgame: 'bg-amber-500', book: 'bg-cyan-500',
+  boardgame: 'bg-amber-500',
 }
 const TYPE_LABEL: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', game: 'Gioco',
   tv: 'Serie TV', movie: 'Film',
-  boardgame: 'Tavolo', book: 'Libro',
+  boardgame: 'Tavolo',
 }
 
 const RELATION_LABEL: Record<string, string> = {
@@ -189,7 +187,6 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
     const isMovie = media.type === 'movie'
     const isBoardgame = media.type === 'boardgame'
-    const isBook = media.type === 'book'
 
     const seasonNum = opts?.season ?? 1
     const maxEpThisSeason = media.seasons?.[seasonNum]?.episode_count ?? media.episodes ?? null
@@ -262,7 +259,6 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
   const isManga = media.type === 'manga' || media.type === 'novel'
   const isBoardgame = media.type === 'boardgame'
-  const isBook = media.type === 'book'
 
   // Autori/creatori priorità per tipo
   const creatorList = isManga || isBook

@@ -48,7 +48,7 @@ type UserMedia = {
   id: string
   title: string
   title_en?: string  // titolo inglese per switch lingua real-time
-  type: 'anime' | 'tv' | 'movie' | 'game' | 'manga' | 'book'
+  type: 'anime' | 'tv' | 'movie' | 'game' | 'manga' 
   cover_image?: string
   current_episode: number
   current_season?: number

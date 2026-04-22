@@ -20,7 +20,7 @@ import type { MediaDetails } from '@/components/media/MediaDetailsDrawer';
 type MediaItem = {
   id: string; title: string; title_en?: string; type: string; coverImage?: string; year?: number;
   episodes?: number; totalSeasons?: number; seasons?: Record<number, { episode_count: number }>;
-  description?: string; genres?: string[]; source: 'anilist' | 'tmdb' | 'igdb' | 'bgg' | 'google_books';
+  description?: string; genres?: string[]; source: 'anilist' | 'tmdb' | 'igdb' | 'bgg';
   tags?: string[]; keywords?: string[]; themes?: string[]; player_perspectives?: string[];
   game_modes?: string[]; developers?: string[]; categories?: string[]; mechanics?: string[];
   designers?: string[]; min_players?: number; max_players?: number; playing_time?: number;
@@ -29,7 +29,7 @@ type MediaItem = {
 
 // Ordine sezioni nei risultati raggruppati
 const TYPE_ORDER: Record<string, number> = {
-  anime: 0, manga: 1, movie: 2, tv: 3, game: 4, boardgame: 5, book: 6,
+  anime: 0, manga: 1, movie: 2, tv: 3, game: 4, boardgame: 5,
 };
 
 function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
@@ -40,7 +40,7 @@ function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
 
 const TYPE_LABELS: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV',
-  game: 'Videogiochi', boardgame: 'Giochi da tavolo', book: 'Libri',
+  game: 'Videogiochi', boardgame: 'Giochi da tavolo',
 };
 
 const TYPE_COLORS: Record<string, string> = {

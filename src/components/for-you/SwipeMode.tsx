@@ -54,7 +54,7 @@ const TYPE_ICONS: Record<SwipeMediaType, React.ElementType> = {
 }
 const TYPE_LABEL: Record<SwipeMediaType, string> = {
   anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Gioco',
-  boardgame: 'Tavolo', book: 'Libro',
+  boardgame: 'Tavolo',
 }
 const TYPE_COLORS: Record<SwipeMediaType, string> = {
   anime:     'from-sky-500 to-blue-600',
@@ -63,7 +63,6 @@ const TYPE_COLORS: Record<SwipeMediaType, string> = {
   tv:        'from-purple-500 to-violet-600',
   game:      'from-emerald-500 to-green-600',
   boardgame: 'from-amber-500 to-yellow-600',
-  book:      'from-cyan-500 to-teal-600',
 }
 const CATEGORIES: { key: CategoryFilter; label: string }[] = [
   { key: 'all',       label: 'Tutti' },

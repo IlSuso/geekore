@@ -414,7 +414,7 @@ const translations = {
         n === 0 ? 'Not played yet' : `${n} ${n === 1 ? 'session' : 'sessions'}`,
       progress: (n: number) => `${n}% complete`,
       cancel: 'Cancel', delete: 'Delete', reset: 'Reset',
-      typeLabels: { anime: 'Anime', manga: 'Manga', game: 'Game', tv: 'TV', movie: 'Movie', book: 'Book' },
+      typeLabels: { anime: 'Anime', manga: 'Manga', game: 'Game', tv: 'TV', movie: 'Movie' },
     },
     toasts: {
       deleted: 'Removed from collection',

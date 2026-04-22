@@ -34,7 +34,7 @@ import type { SwipeItem } from '@/components/for-you/SwipeMode'
 type FeedbackAction = 'not_interested' | 'already_seen' | 'added' | 'wishlist_add';
 type FeedbackReason = 'too_similar' | 'not_my_genre' | 'already_know' | 'bad_rec' | undefined;
 
-type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame' | 'book'
+type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame'
 
 interface FriendActivity {
   userId: string; username: string; displayName?: string; avatarUrl?: string
@@ -57,7 +57,6 @@ const TYPE_COLORS: Record<string, string> = {
   tv: 'from-purple-500 to-violet-600',
   game: 'from-emerald-500 to-green-600',
   boardgame: 'from-amber-500 to-yellow-600',
-  book: 'from-cyan-500 to-teal-600',
   }
 
 function triggerTasteDelta(options: {
@@ -1192,7 +1191,7 @@ export default function ForYouPage() {
     { key: 'tv', label: fy.sections.tv },
     { key: 'manga', label: fy.sections.manga },
     { key: 'boardgame', label: 'Giochi da Tavolo' },
-    { key: 'book', label: 'Libri' },
+    
   ]
   // Fix 2.4: ordina per affinità reale (collectionSize nel profilo) non per count consigli
   // Chi ha più titoli nel profilo viene prima — riflette il tipo centrale per l'utente
@@ -1352,7 +1351,6 @@ export default function ForYouPage() {
       tv: 'swipe_queue_tv',
       game: 'swipe_queue_game',
       boardgame: 'swipe_queue_boardgame',
-      book: 'swipe_queue_book',
     }
     return map[filter] ?? 'swipe_queue_all'
   }

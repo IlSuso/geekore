@@ -446,7 +446,7 @@ function computeTasteProfile(
   const globalScores: Record<string, number> = {}
   const negativeGenreScores: Record<string, number> = {}
   const perTypeScores: Record<string, Record<string, number>> = {
-    anime: {}, manga: {}, movie: {}, tv: {}, game: {}, book: {}, boardgame: {},
+    anime: {}, manga: {}, movie: {}, tv: {}, game: {}, boardgame: {},
   }
   const genreToTitles: Record<string, Array<any>> = {}
   const deepKeywords: Record<string, number> = {}
@@ -487,7 +487,7 @@ function computeTasteProfile(
 
   // Adaptive window per tipo (V3)
   const activeWindowByType: Record<string, number> = {}
-  for (const type of ['anime', 'manga', 'movie', 'tv', 'game', 'book', 'boardgame']) {
+  for (const type of ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame']) {
     activeWindowByType[type] = determineActiveWindowForType(entries, type as MediaType)
   }
   const activeWindow = Math.round(
@@ -544,7 +544,7 @@ function computeTasteProfile(
     }
 
     // Per i libri: espandi categorie Google Books → generi cross-media
-    if (type === 'book') {
+    if (type ===) {
       const crossExpanded = new Set<string>(genres)
       for (const g of genres) {
         const mapped = BOOK_TO_CROSS_GENRE[g]
@@ -1118,12 +1118,10 @@ function buildDiversitySlots(type: MediaType, tasteProfile: TasteProfile, totalS
     }
     return slots
   }
-
-  // ── Logica specifica per libri (Google Books) ────────────────────────────
-  if (type === 'book') {
+  if (type ===) {
     const bookCatScore: Record<string, number> = {}
     const sourceScores = Object.fromEntries(
-      (typeGenres.length >= 2 ? tasteProfile.topGenres.book : tasteProfile.globalGenres)
+      (typeGenres.length >= 2 ? tasteProfile.globalGenres : tasteProfile.globalGenres)
         .map(g => [g.genre, g.score])
     )
     for (const srcGenre of sourceGenres.slice(0, 8)) {
@@ -2339,137 +2337,6 @@ async function fetchBoardgameRecs(
 
 // ── fetchBookRecs ─────────────────────────────────────────────────────────────
 // Google Books API — ricerca per categoria/soggetto e restituisce raccomandazioni
-async function fetchBookRecs(
-  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile,
-  isAlreadyOwned: (type: string, id: string, title: string) => boolean,
-  shownIds?: Set<string>
-): Promise<Recommendation[]> {
-  const GOOGLE_BOOKS_KEY = process.env.GOOGLE_BOOKS_API_KEY
-  const results: Recommendation[] = []
-  const seen = new Set<string>()
-
-  for (const slot of slots.slice(0, 6)) {
-    try {
-      // Google Books: ricerca per subject (categoria)
-      const query = `subject:${encodeURIComponent(slot.genre)}`
-      const params = new URLSearchParams({
-        q: query,
-        maxResults: '20',
-        printType: 'books',
-        orderBy: 'relevance',
-        langRestrict: 'it',
-        ...(GOOGLE_BOOKS_KEY ? { key: GOOGLE_BOOKS_KEY } : {}),
-      })
-
-      // Prima prova con restrizione italiana; se < 5 risultati riprova senza
-      let items: any[] = []
-      const res = await fetch(`https://www.googleapis.com/books/v1/volumes?${params}`, {
-        signal: AbortSignal.timeout(8000),
-        next: { revalidate: 3600 },
-      })
-      if (res.ok) {
-        const data = await res.json()
-        items = data.items || []
-      }
-
-      // Fallback senza restrizione lingua se risultati scarsi
-      if (items.length < 5) {
-        const params2 = new URLSearchParams({
-          q: query,
-          maxResults: '20',
-          printType: 'books',
-          orderBy: 'relevance',
-          ...(GOOGLE_BOOKS_KEY ? { key: GOOGLE_BOOKS_KEY } : {}),
-        })
-        const res2 = await fetch(`https://www.googleapis.com/books/v1/volumes?${params2}`, {
-          signal: AbortSignal.timeout(8000),
-          next: { revalidate: 3600 },
-        })
-        if (res2.ok) {
-          const data2 = await res2.json()
-          items = data2.items || []
-        }
-      }
-
-      for (const vol of items) {
-        const info = vol.volumeInfo
-        if (!info?.title) continue
-
-        const recId = `book-${vol.id}`
-        if (seen.has(recId) || shownIds?.has(recId)) continue
-        if (isAlreadyOwned('book', recId, info.title)) continue
-
-        // Cover
-        const gbThumb = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail
-        let cover = gbThumb
-          ? gbThumb.replace('http://', 'https://').replace('&edge=curl', '').replace('zoom=1', 'zoom=3')
-          : undefined
-        // Fallback Open Library via ISBN
-        if (!cover) {
-          const identifiers: Array<{ type: string; identifier: string }> = info.industryIdentifiers || []
-          const isbn = identifiers.find((i: any) => i.type === 'ISBN_13')?.identifier
-            || identifiers.find((i: any) => i.type === 'ISBN_10')?.identifier
-          if (isbn) cover = `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`
-        }
-        if (!cover) continue
-
-        // Quality gate: almeno 3.5/5 se ha rating
-        if (info.averageRating !== undefined && info.averageRating < 3.5) continue
-
-        const year = info.publishedDate ? parseInt(info.publishedDate.slice(0, 4)) : undefined
-        const genres: string[] = info.categories || []
-
-        // Converti categorie libro → cross-media per matchScore
-        const crossGenres = new Set<string>(genres)
-        for (const cat of genres) {
-          const mapped = BOOK_TO_CROSS_GENRE[cat]
-          if (mapped) for (const cg of mapped) crossGenres.add(cg)
-        }
-        const recGenres = [...crossGenres]
-
-        const matchScore = computeMatchScore(recGenres, [], tasteProfile, [], [])
-        if (matchScore < 8) continue
-
-        const rawDesc = (info.description || '').replace(/<[^>]+>/g, '').trim()
-        const description = rawDesc.slice(0, 300) || undefined
-
-        const score = info.averageRating ? Math.round(info.averageRating * 2 * 10) / 10 : undefined
-        const identifiers: Array<{ type: string; identifier: string }> = info.industryIdentifiers || []
-        const isbn = identifiers.find((i: any) => i.type === 'ISBN_13')?.identifier
-          || identifiers.find((i: any) => i.type === 'ISBN_10')?.identifier
-
-        let finalScore = matchScore
-        if (score !== undefined && score >= 8.0 && (info.ratingsCount || 0) >= 100) {
-          finalScore = Math.min(100, finalScore + 6)
-        }
-        finalScore = Math.round(finalScore * releaseFreshnessMult(year))
-
-        seen.add(recId)
-        results.push({
-          id: recId,
-          title: info.title,
-          type: 'book',
-          coverImage: cover,
-          year: isNaN(year!) ? undefined : year,
-          genres,
-          score,
-          description,
-          why: buildWhyV3(recGenres, recId, info.title, tasteProfile, matchScore, slot.isDiscovery, {}),
-          matchScore: finalScore,
-          isDiscovery: slot.isDiscovery,
-          authors: info.authors || [],
-          pages: info.pageCount || undefined,
-          isbn,
-          publisher: info.publisher || undefined,
-        } as any)
-
-        if (results.length >= 50) break
-      }
-    } catch { /* continua */ }
-  }
-
-  return results.sort((a, b) => b.matchScore - a.matchScore)
-}
 
 // Helper per computeMatchScore con developer
 function computeMatchScoreWithDev(
@@ -2674,7 +2541,7 @@ export async function GET(request: NextRequest) {
     type OwnedByType = { ids: Set<string>; titles: Set<string>; tokenSets: Array<Set<string>> }
     const ownedByType = new Map<string, OwnedByType>()
 
-    for (const type of ['anime', 'manga', 'movie', 'tv', 'game', 'book', 'boardgame']) {
+    for (const type of ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame']) {
       ownedByType.set(type, { ids: new Set(), titles: new Set(), tokenSets: [] })
     }
 
@@ -2853,7 +2720,7 @@ export async function GET(request: NextRequest) {
             case 'tv':    return { type, items: await fetchTvRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds) }
             case 'game':  return { type, items: await fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret, isAlreadyOwned, emptyShownIds) }
             case 'boardgame': return { type, items: await fetchBoardgameRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds) }
-            case 'book':  return { type, items: await fetchBookRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds) }
+            case:  return { type, items: await fetchBookRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds) }
             default: return { type, items: [] as Recommendation[] }
           }
         })
