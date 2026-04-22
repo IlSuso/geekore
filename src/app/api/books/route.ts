@@ -79,29 +79,38 @@ export async function GET(req: NextRequest) {
   const GOOGLE_BOOKS_KEY = process.env.GOOGLE_BOOKS_API_KEY
 
   // Usa intitle: per cercare solo nel titolo, langRestrict=it per libri italiani
-  const params = new URLSearchParams({
-    q: `intitle:${q}`,
-    maxResults: '40',
-    printType: 'books',
-    orderBy: 'relevance',
-    langRestrict: 'it',
-    ...(GOOGLE_BOOKS_KEY ? { key: GOOGLE_BOOKS_KEY } : {}),
-  })
+  // Due fetch parallele da 40 (0-39 + 40-79) per 80 risultati totali
+  const makeParams = (startIndex: number) => {
+    const p = new URLSearchParams({
+      q: `intitle:${q}`,
+      maxResults: '40',
+      startIndex: String(startIndex),
+      printType: 'books',
+      orderBy: 'relevance',
+      langRestrict: 'it',
+      ...(GOOGLE_BOOKS_KEY ? { key: GOOGLE_BOOKS_KEY } : {}),
+    })
+    return `${GOOGLE_BOOKS_BASE}/volumes?${p}`
+  }
 
   try {
-    const res = await fetch(`${GOOGLE_BOOKS_BASE}/volumes?${params}`, {
-      next: { revalidate: 300 },
-    })
+    const [res1, res2] = await Promise.allSettled([
+      fetch(makeParams(0), { next: { revalidate: 300 } }),
+      fetch(makeParams(40), { next: { revalidate: 300 } }),
+    ])
 
-    if (!res.ok) {
-      console.error('[Books API] Google Books error:', res.status, await res.text())
-      return NextResponse.json([])
+    const rawVolumes: any[] = []
+    for (const r of [res1, res2]) {
+      if (r.status === 'fulfilled' && r.value.ok) {
+        try {
+          const data = await r.value.json()
+          if (Array.isArray(data.items)) rawVolumes.push(...data.items)
+        } catch {}
+      }
     }
-
-    const data = await res.json()
     const items: BookItem[] = []
 
-    for (const vol of data.items || []) {
+    for (const vol of rawVolumes) {
       const info = vol.volumeInfo
       if (!info?.title) continue
 
@@ -153,8 +162,16 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // Normalizza: lowercase + rimuovi punteggiatura per confronto titolo
-    const normalize = (s: string) => s.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim()
+    // Normalizza: lowercase + rimuovi punteggiatura + strip articoli/preposizioni italiani
+    // così "piccolo principe" trova "Il piccolo principe", "harry potter" trova "Harry Potter e..."
+    const STOP_IT = /^(il|lo|la|i|gli|le|un|uno|una|l|d|dell|dello|della|dei|degli|delle|del|al|allo|alla|ai|agli|alle|dal|dallo|dalla|dai|dagli|dalle|nel|nello|nella|nei|negli|nelle|sul|sullo|sulla|sui|sugli|sulle|di|a|da|in|con|su|per|tra|fra|e|ed)\s+/i
+    const normalize = (s: string) =>
+      s.toLowerCase()
+       .replace(/[^\w\s]/g, ' ')
+       .replace(/\s+/g, ' ')
+       .trim()
+       .replace(STOP_IT, '')
+       .trim()
     const qNorm = normalize(q)
     const filtered = items.filter(item => normalize(item.title).startsWith(qNorm))
 

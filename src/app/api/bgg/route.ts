@@ -206,8 +206,15 @@ export async function GET(req: NextRequest) {
 
     const items = await fetchBGGDetails(ids)
 
-    // Normalizza: lowercase + rimuovi punteggiatura per confronto titolo
-    const normalize = (s: string) => s.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim()
+    // Normalizza: lowercase + rimuovi punteggiatura + strip articoli/preposizioni
+    const STOP_IT = /^(il|lo|la|i|gli|le|un|uno|una|l|d|dell|dello|della|dei|degli|delle|del|al|allo|alla|ai|agli|alle|dal|dallo|dalla|dai|dagli|dalle|nel|nello|nella|nei|negli|nelle|sul|sullo|sulla|sui|sugli|sulle|di|a|da|in|con|su|per|tra|fra|e|ed|the|a|an)\s+/i
+    const normalize = (s: string) =>
+      s.toLowerCase()
+       .replace(/[^\w\s]/g, ' ')
+       .replace(/\s+/g, ' ')
+       .trim()
+       .replace(STOP_IT, '')
+       .trim()
     const qNorm = normalize(q)
     const filtered = items.filter(item => normalize(item.title).startsWith(qNorm))
 
