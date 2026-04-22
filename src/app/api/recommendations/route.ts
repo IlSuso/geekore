@@ -547,16 +547,6 @@ function computeTasteProfile(
         if (mapped) for (const cg of mapped) crossExpanded.add(cg)
       }
       genres = [...crossExpanded]
-
-      // Traccia designers (in authors) come creator scores
-      if (!isNegative) {
-        for (const designer of (entry.authors || [])) {
-          if (designer) {
-            creatorScores.authors[designer] = (creatorScores.authors[designer] || 0) +
-              (weight * 0.4)
-          }
-        }
-      }
     }
 
     if (entry.status === 'dropped') droppedTitles.add(title)
@@ -616,6 +606,14 @@ function computeTasteProfile(
         deepKeywords[tl] = (deepKeywords[tl] || 0) + deepWeight
         const mapped = KEYWORD_TO_DEEP[tl]
         if (mapped) addDeep(mapped, deepWeight)
+      }
+      // Per boardgame: traccia designer (in authors) come creator scores
+      if (type === 'boardgame') {
+        for (const designer of (entry.authors || [])) {
+          if (designer) {
+            creatorScores.authors[designer] = (creatorScores.authors[designer] || 0) + (weight * 0.4)
+          }
+        }
       }
       for (const kw of keywords) {
         const kl = kw.toLowerCase()
