@@ -145,9 +145,9 @@ async function fetchBGGBatch(ids: string[]): Promise<BGGItem[]> {
     const maxPlayers = parseInt(extractAttr(chunk, 'maxplayers', 'value')) || undefined
     const playingTime = parseInt(extractAttr(chunk, 'playingtime', 'value')) || undefined
 
-    // Rating BGG (media su 10)
+    // Rating BGG normalizzato su /5 (BGG usa scala 1-10)
     const ratingM = chunk.match(/<average[^>]*value="([\d.]+)"/)
-    const score = ratingM ? Math.round(parseFloat(ratingM[1]) * 10) / 10 : undefined
+    const score = ratingM ? Math.round((parseFloat(ratingM[1]) / 2) * 10) / 10 : undefined
 
     // Complessità/weight (da 1 a 5)
     const weightM = chunk.match(/<averageweight[^>]*value="([\d.]+)"/)

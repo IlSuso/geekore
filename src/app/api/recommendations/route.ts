@@ -2151,8 +2151,7 @@ async function fetchGameRecs(
 
 // ── fetchBoardgameRecs ────────────────────────────────────────────────────────
 // Usa BGG /xmlapi2/search per trovare giochi per categoria, poi /thing per dettagli.
-// Le categorie BGG non sono filtrabili via API — si cerca per query del nome-categoria,
-// quindi si filtrano i risultati per categoria nel body XML.
+// V2: fetch parallelo delle categorie, niente sleep tra slot, filtro anno>=2005 e rank<=1000.
 async function fetchBoardgameRecs(
   slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile,
   isAlreadyOwned: (type: string, id: string, title: string) => boolean,
@@ -2164,25 +2163,24 @@ async function fetchBoardgameRecs(
     ...(process.env.BGG_BEARER_TOKEN ? { Authorization: `Bearer ${process.env.BGG_BEARER_TOKEN}` } : {}),
   }
 
+  const BGG_MIN_YEAR = 2005       // solo giochi moderni
+  const BGG_MAX_RANK = 1000       // solo top 1000 BGG
+
   const results: Recommendation[] = []
   const seen = new Set<string>()
 
-  // Per ogni slot di categoria, usa la BGG Hot list + /thing per arricchire
-  // poi filtra/score in base al profilo
-  for (const slot of slots.slice(0, 6)) {
+  // ── Step 1: raccogli ID da tutti gli slot in parallelo (search per categoria) ──
+  const activeSlots = slots.slice(0, 6)
+  const idLists = await Promise.all(activeSlots.map(async (slot) => {
     try {
-      // Strategia: ricerca per nome-categoria su BGG search (type=boardgame)
-      // restituisce una lista di ID; poi fetch /thing per dettagli (max 20)
       const searchUrl = `${BGG_BASE}/search?query=${encodeURIComponent(slot.genre)}&type=boardgame`
       const searchRes = await fetch(searchUrl, {
         headers: bggHeaders,
         signal: AbortSignal.timeout(8000),
         next: { revalidate: 3600 },
       })
-      if (!searchRes.ok) continue
+      if (!searchRes.ok) return { slot, ids: [] as string[] }
       const searchXml = await searchRes.text()
-
-      // Estrai ID
       const idRe = /<item[^>]*id="(\d+)"/g
       const ids: string[] = []
       let m
@@ -2190,120 +2188,154 @@ async function fetchBoardgameRecs(
         ids.push(m[1])
         if (ids.length >= 20) break
       }
-      if (!ids.length) continue
+      return { slot, ids }
+    } catch {
+      return { slot, ids: [] as string[] }
+    }
+  }))
 
-      // Rispetta rate limit BGG: 5s tra chiamate (policy ufficiale)
-      await new Promise(r => setTimeout(r, 5000))
+  // ── Step 2: deduplicа gli ID, poi fetch dettagli in un'unica chiamata /thing ──
+  const allIds = new Set<string>()
+  for (const { ids } of idLists) for (const id of ids) allIds.add(id)
+  if (allIds.size === 0) return []
 
-      // Fetch dettagli
-      const thingUrl = `${BGG_BASE}/thing?id=${ids.join(',')}&stats=1`
+  // Batch in gruppi da 20 (limite BGG), fetch in parallelo
+  const idArray = [...allIds]
+  const batches: string[][] = []
+  for (let i = 0; i < idArray.length; i += 20) batches.push(idArray.slice(i, i + 20))
+
+  const batchXmls = await Promise.all(batches.map(async (batch) => {
+    try {
+      const thingUrl = `${BGG_BASE}/thing?id=${batch.join(',')}&stats=1`
       const thingRes = await fetch(thingUrl, {
         headers: bggHeaders,
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(12000),
         next: { revalidate: 3600 },
       })
-      if (!thingRes.ok) continue
-      const thingXml = await thingRes.text()
+      if (!thingRes.ok) return ''
+      return thingRes.text()
+    } catch {
+      return ''
+    }
+  }))
 
-      // Parse ogni item
-      const itemRe = /<item[^>]*type="boardgame"[^>]*>([\s\S]*?)<\/item>/gi
-      while ((m = itemRe.exec(thingXml)) !== null) {
-        const chunk = m[0]
-        const idM = chunk.match(/\bid="(\d+)"/)
-        if (!idM) continue
-        const recId = `bgg-${idM[1]}`
-        if (seen.has(recId) || shownIds?.has(recId)) continue
-        if (isAlreadyOwned('boardgame', recId, '')) continue
+  // ── Step 3: parse + filtri (rank, anno, qualità) ──
+  for (let bi = 0; bi < batchXmls.length; bi++) {
+    const thingXml = batchXmls[bi]
+    if (!thingXml) continue
+    const slotForBatch = idLists[bi]?.slot || activeSlots[0]
 
-        const nameM = chunk.match(/<name[^>]*type="primary"[^>]*value="([^"]*)"/)
-        if (!nameM) continue
-        const title = nameM[1].trim()
+    const itemRe = /<item[^>]*type="boardgame"[^>]*>([\s\S]*?)<\/item>/gi
+    let m
+    while ((m = itemRe.exec(thingXml)) !== null) {
+      const chunk = m[0]
+      const idM = chunk.match(/\bid="(\d+)"/)
+      if (!idM) continue
+      const recId = `bgg-${idM[1]}`
+      if (seen.has(recId) || shownIds?.has(recId)) continue
+      if (isAlreadyOwned('boardgame', recId, '')) continue
 
-        const thumbnail = (chunk.match(/<thumbnail>([^<]+)<\/thumbnail>/) || [])[1]?.trim()
-        const image = (chunk.match(/<image>([^<]+)<\/image>/) || [])[1]?.trim()
-        const cover = thumbnail || image
-        if (!cover || cover.length < 10) continue
+      const nameM = chunk.match(/<name[^>]*type="primary"[^>]*value="([^"]*)"/)
+      if (!nameM) continue
+      const title = nameM[1].trim()
 
-        const yearM = chunk.match(/<yearpublished[^>]*value="(\d+)"/)
-        const year = yearM ? parseInt(yearM[1]) : undefined
+      // ── Filtro rank: solo top 1000 BGG ──
+      const rankM = chunk.match(/<rank[^>]*name="boardgame"[^>]*value="(\d+)"/)
+      const bggRank = rankM ? parseInt(rankM[1]) : undefined
+      if (bggRank !== undefined && bggRank > BGG_MAX_RANK) continue
 
-        const rawDesc = (chunk.match(/<description>([^<]*)<\/description>/) || [])[1] || ''
-        const description = rawDesc
-          .replace(/&#10;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#\d+;/g, '')
-          .replace(/<[^>]+>/g, '').trim().slice(0, 300) || undefined
+      // ── Filtro anno: solo giochi dal 2005 in poi ──
+      const yearM = chunk.match(/<yearpublished[^>]*value="(\d+)"/)
+      const year = yearM ? parseInt(yearM[1]) : undefined
+      if (year !== undefined && year < BGG_MIN_YEAR) continue
 
-        // Estrai categorie e meccaniche
-        const catRe = /<link[^>]*type="boardgamecategory"[^>]*value="([^"]*)"/g
-        const categories: string[] = []
-        let cm
-        while ((cm = catRe.exec(chunk)) !== null) categories.push(cm[1])
-        const mechRe = /<link[^>]*type="boardgamemechanic"[^>]*value="([^"]*)"/g
-        const mechanics: string[] = []
-        while ((cm = mechRe.exec(chunk)) !== null) mechanics.push(cm[1])
-        const designerRe = /<link[^>]*type="boardgamedesigner"[^>]*value="([^"]*)"/g
-        const designers: string[] = []
-        while ((cm = designerRe.exec(chunk)) !== null) {
-          if (cm[1] !== '(Uncredited)') designers.push(cm[1])
-        }
+      // Usa <image> (full-res) con fallback a <thumbnail>
+      const image = (chunk.match(/<image>([^<]+)<\/image>/) || [])[1]?.trim()
+      const thumbnail = (chunk.match(/<thumbnail>([^<]+)<\/thumbnail>/) || [])[1]?.trim()
+      const cover = image || thumbnail
+      if (!cover || cover.length < 10) continue
 
-        const ratingM = chunk.match(/<average[^>]*value="([\d.]+)"/)
-        const bggScore = ratingM ? parseFloat(ratingM[1]) : undefined
-        if (bggScore !== undefined && bggScore < 6.0) continue  // quality gate
+      const rawDesc = (chunk.match(/<description>([^<]*)<\/description>/) || [])[1] || ''
+      const description = rawDesc
+        .replace(/&#10;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#\d+;/g, '')
+        .replace(/<[^>]+>/g, '').trim().slice(0, 300) || undefined
 
-        const minpM = chunk.match(/<minplayers[^>]*value="(\d+)"/)
-        const maxpM = chunk.match(/<maxplayers[^>]*value="(\d+)"/)
-        const timeM = chunk.match(/<playingtime[^>]*value="(\d+)"/)
-        const weightM = chunk.match(/<averageweight[^>]*value="([\d.]+)"/)
-
-        // Converti categorie BGG → generi cross-media per matchScore
-        const crossGenres = new Set<string>()
-        for (const cat of categories) {
-          crossGenres.add(cat)
-          const mapped = BGG_TO_CROSS_GENRE[cat]
-          if (mapped) for (const cg of mapped) crossGenres.add(cg)
-        }
-        const recGenres = [...crossGenres]
-
-        const matchScore = computeMatchScore(recGenres, mechanics, tasteProfile, [], [])
-        if (matchScore < 8) continue  // soglia bassa — BGG ha categorie meno precise
-
-        let finalScore = matchScore
-        // Award boost: BGG score >= 7.5 con molti voti è un titolo acclamato
-        const ratingCountM = chunk.match(/<usersrated[^>]*value="(\d+)"/)
-        const ratingCount = ratingCountM ? parseInt(ratingCountM[1]) : 0
-        if (bggScore !== undefined && bggScore >= 7.5 && ratingCount >= 500) {
-          finalScore = Math.min(100, finalScore + 8)
-        }
-        finalScore = Math.round(finalScore * releaseFreshnessMult(year))
-
-        seen.add(recId)
-        results.push({
-          id: recId,
-          title,
-          type: 'boardgame',
-          coverImage: cover,
-          year,
-          genres: categories.length > 0 ? categories : recGenres,
-          score: bggScore !== undefined ? Math.round((bggScore / 2) * 10) / 10 : undefined,
-          description,
-          why: buildWhyV3(recGenres, recId, title, tasteProfile, matchScore, slot.isDiscovery, {}),
-          matchScore: finalScore,
-          isDiscovery: slot.isDiscovery,
-          isAwardWinner: bggScore !== undefined && bggScore >= 7.5 && ratingCount >= 500,
-          min_players: minpM ? parseInt(minpM[1]) : undefined,
-          max_players: maxpM ? parseInt(maxpM[1]) : undefined,
-          playing_time: timeM ? parseInt(timeM[1]) : undefined,
-          complexity: weightM ? Math.round(parseFloat(weightM[1]) * 10) / 10 : undefined,
-          mechanics: mechanics.slice(0, 8),
-          designers: designers.slice(0, 3),
-        } as any)
-
-        if (results.length >= 50) break
+      const catRe = /<link[^>]*type="boardgamecategory"[^>]*value="([^"]*)"/g
+      const categories: string[] = []
+      let cm
+      while ((cm = catRe.exec(chunk)) !== null) categories.push(cm[1])
+      const mechRe = /<link[^>]*type="boardgamemechanic"[^>]*value="([^"]*)"/g
+      const mechanics: string[] = []
+      while ((cm = mechRe.exec(chunk)) !== null) mechanics.push(cm[1])
+      const designerRe = /<link[^>]*type="boardgamedesigner"[^>]*value="([^"]*)"/g
+      const designers: string[] = []
+      while ((cm = designerRe.exec(chunk)) !== null) {
+        if (cm[1] !== '(Uncredited)') designers.push(cm[1])
       }
-    } catch { /* continua */ }
-    // Rispetta rate limit BGG tra slot: 5s (policy ufficiale)
-    if (results.length < 50) await new Promise(r => setTimeout(r, 5000))
+
+      const ratingM = chunk.match(/<average[^>]*value="([\d.]+)"/)
+      const bggScore = ratingM ? parseFloat(ratingM[1]) : undefined
+      if (bggScore !== undefined && bggScore < 6.0) continue  // quality gate
+
+      const minpM = chunk.match(/<minplayers[^>]*value="(\d+)"/)
+      const maxpM = chunk.match(/<maxplayers[^>]*value="(\d+)"/)
+      const timeM = chunk.match(/<playingtime[^>]*value="(\d+)"/)
+      const weightM = chunk.match(/<averageweight[^>]*value="([\d.]+)"/)
+
+      const crossGenres = new Set<string>()
+      for (const cat of categories) {
+        crossGenres.add(cat)
+        const mapped = BGG_TO_CROSS_GENRE[cat]
+        if (mapped) for (const cg of mapped) crossGenres.add(cg)
+      }
+      const recGenres = [...crossGenres]
+
+      // Determina lo slot corretto in base all'ID del gioco
+      const rawId = idM[1]
+      const matchingSlot = idLists.find(({ ids }) => ids.includes(rawId))?.slot || slotForBatch
+
+      const matchScore = computeMatchScore(recGenres, mechanics, tasteProfile, [], [])
+      if (matchScore < 8) continue
+
+      let finalScore = matchScore
+      const ratingCountM = chunk.match(/<usersrated[^>]*value="(\d+)"/)
+      const ratingCount = ratingCountM ? parseInt(ratingCountM[1]) : 0
+      if (bggScore !== undefined && bggScore >= 7.5 && ratingCount >= 500) {
+        finalScore = Math.min(100, finalScore + 8)
+      }
+      // Boost per rank alto (top 100 = +5, top 500 = +2)
+      if (bggRank !== undefined) {
+        if (bggRank <= 100) finalScore = Math.min(100, finalScore + 5)
+        else if (bggRank <= 500) finalScore = Math.min(100, finalScore + 2)
+      }
+      finalScore = Math.round(finalScore * releaseFreshnessMult(year))
+
+      seen.add(recId)
+      results.push({
+        id: recId,
+        title,
+        type: 'boardgame',
+        coverImage: cover,
+        year,
+        genres: categories.length > 0 ? categories : recGenres,
+        score: bggScore !== undefined ? Math.round((bggScore / 2) * 10) / 10 : undefined,
+        description,
+        why: buildWhyV3(recGenres, recId, title, tasteProfile, matchScore, matchingSlot.isDiscovery, {}),
+        matchScore: finalScore,
+        isDiscovery: matchingSlot.isDiscovery,
+        isAwardWinner: bggScore !== undefined && bggScore >= 7.5 && ratingCount >= 500,
+        min_players: minpM ? parseInt(minpM[1]) : undefined,
+        max_players: maxpM ? parseInt(maxpM[1]) : undefined,
+        playing_time: timeM ? parseInt(timeM[1]) : undefined,
+        complexity: weightM ? Math.round(parseFloat(weightM[1]) * 10) / 10 : undefined,
+        mechanics: mechanics.slice(0, 8),
+        designers: designers.slice(0, 3),
+      } as any)
+
+      if (results.length >= 50) break
+    }
+    if (results.length >= 50) break
   }
 
   return results.sort((a, b) => b.matchScore - a.matchScore)
