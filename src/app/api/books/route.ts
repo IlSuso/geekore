@@ -1,7 +1,8 @@
 // src/app/api/books/route.ts
-// FIX: Google Books ignora langRestrict=it dai server USA (Vercel iad1)
-// Soluzione: aggiunta hl=it (host language) che forza metadati in italiano
-// + country=IT + langRestrict=it + inlanguage:ita nella query
+// FIX: Edge Function su region cdg1 (Parigi) — Google vede IP europeo e rispetta langRestrict=it
+
+export const runtime = 'edge'
+export const preferredRegion = 'cdg1' // Parigi — IP europeo, Google rispetta langRestrict=it
 
 import { NextRequest, NextResponse } from 'next/server'
 import { truncateAtSentence } from '@/lib/utils'
