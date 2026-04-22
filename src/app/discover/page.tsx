@@ -179,47 +179,44 @@ function truncate(text: string, maxLen: number): string {
   return sub.slice(0, sub.lastIndexOf(' ')).trim() || sub;
 }
 
+function cleanGoogleUrl(url: string): string {
+  return url.replace('http://', 'https://').replace('&edge=curl', '').replace('zoom=1', 'zoom=3');
+}
+
+// Accetta SOLO URL che terminano con .jpg o .jpeg (case insensitive)
+// Tutto il resto (PNG, WebP, HTML, placeholder, ecc.) viene scartato
+function isJpeg(url: string): boolean {
+  const clean = url.split('?')[0].toLowerCase();
+  return clean.endsWith('.jpg') || clean.endsWith('.jpeg');
+}
+
 function resolveCover(volumeInfo: any): { url: string | undefined; source: string; quality: string } {
   const links = volumeInfo.imageLinks || {};
-  const ids: Array<{ type: string; identifier: string }> = volumeInfo.industryIdentifiers || [];
-  const isbn13 = ids.find(i => i.type === 'ISBN_13')?.identifier;
-  const isbn10 = ids.find(i => i.type === 'ISBN_10')?.identifier;
 
-  // Log debug: tutte le copertine disponibili per questo volume
   const available: string[] = [];
-  if (links.large)         available.push(`large`);
-  if (links.medium)        available.push(`medium`);
-  if (links.small)         available.push(`small`);
-  if (links.thumbnail)     available.push(`thumbnail`);
-  if (links.smallThumbnail) available.push(`smallThumbnail`);
-  if (isbn13)              available.push(`openLibrary(ISBN13)`);
-  if (isbn10)              available.push(`openLibrary(ISBN10)`);
+  if (links.large)          available.push('large');
+  if (links.medium)         available.push('medium');
+  if (links.small)          available.push('small');
+  if (links.thumbnail)      available.push('thumbnail');
+  if (links.smallThumbnail) available.push('smallThumbnail');
 
-  // Sceglie la migliore disponibile
-  if (links.large) {
-    const url = links.large.replace('http://', 'https://').replace('&edge=curl', '');
-    return { url, source: 'google:large', quality: 'alta' };
-  }
-  if (links.medium) {
-    const url = links.medium.replace('http://', 'https://').replace('&edge=curl', '').replace('zoom=1', 'zoom=3');
-    return { url, source: 'google:medium→zoom3', quality: 'media' };
-  }
-  if (links.thumbnail) {
-    const url = links.thumbnail.replace('http://', 'https://').replace('&edge=curl', '').replace('zoom=1', 'zoom=3');
-    return { url, source: 'google:thumbnail→zoom3', quality: available.includes('medium') ? 'media' : 'bassa' };
-  }
-  if (links.smallThumbnail) {
-    const url = links.smallThumbnail.replace('http://', 'https://').replace('&edge=curl', '').replace('zoom=1', 'zoom=3');
-    return { url, source: 'google:smallThumbnail→zoom3', quality: 'molto bassa' };
-  }
-  if (isbn13) {
-    return { url: `${OPEN_LIBRARY_COVERS}/isbn/${isbn13}-L.jpg`, source: 'openLibrary:ISBN13', quality: 'sconosciuta' };
-  }
-  if (isbn10) {
-    return { url: `${OPEN_LIBRARY_COVERS}/isbn/${isbn10}-L.jpg`, source: 'openLibrary:ISBN10', quality: 'sconosciuta' };
+  const candidates = [
+    { raw: links.large,          label: 'large',          quality: 'alta' },
+    { raw: links.medium,         label: 'medium',         quality: 'media' },
+    { raw: links.small,          label: 'small',          quality: 'media' },
+    { raw: links.thumbnail,      label: 'thumbnail',      quality: 'bassa' },
+    { raw: links.smallThumbnail, label: 'smallThumbnail', quality: 'molto bassa' },
+  ];
+
+  for (const c of candidates) {
+    if (!c.raw) continue;
+    const url = cleanGoogleUrl(c.raw);
+    if (isJpeg(url)) {
+      return { url, source: `google:${c.label}`, quality: c.quality };
+    }
   }
 
-  console.log(`[BOOKS COVER] "${volumeInfo.title}" → NESSUNA copertina disponibile`);
+  // Nessun JPEG trovato
   return { url: undefined, source: 'none', quality: 'nessuna' };
 }
 
@@ -246,11 +243,16 @@ async function searchGoogleBooks(q: string, signal: AbortSignal): Promise<MediaI
   const items: MediaItem[] = [];
   const seenIds = new Set<string>();
 
-  // Fetch paginato: si ferma quando ha TARGET italiani o esaurisce i risultati
-  for (let page = 0; page < 5 && items.length < TARGET; page++) {
+  // Fetch paginato: max 2 pagine per evitare throttling Google (503)
+  // La prima pagina da sola restituisce già 40 risultati, sufficienti per 15 italiani
+  for (let page = 0; page < 2 && items.length < TARGET; page++) {
     let data: any;
     try {
       const res = await fetch(makeUrl(page * PAGE_SIZE), { signal });
+      if (res.status === 503 || res.status === 429) {
+        console.warn(`[BOOKS] Google throttling (${res.status}) alla pagina ${page + 1} — stop`);
+        break;
+      }
       if (!res.ok) break;
       data = await res.json();
     } catch { break; }
