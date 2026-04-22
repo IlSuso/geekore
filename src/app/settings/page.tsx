@@ -592,6 +592,25 @@ export default function SettingsPage() {
         <div className="text-center text-zinc-700 text-xs pt-4">
           <span className="inline-flex items-center gap-1">Geekore · {locale === 'it' ? 'Fatto con' : 'Made with'} <Heart size={11} className="text-red-500 fill-red-500" /> {locale === 'it' ? 'per i nerd' : 'for nerds'}</span>
         </div>
+
+        {/* Crediti API — mostrati discretamente in fondo come fanno Letterboxd/Trakt */}
+        <div className="flex flex-col items-center gap-3 pt-2 pb-2">
+          <p className="text-[10px] text-zinc-700 uppercase tracking-widest">
+            {locale === 'it' ? 'Dati forniti da' : 'Data provided by'}
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-4 opacity-40 hover:opacity-70 transition-opacity">
+            <a href="https://boardgamegeek.com" target="_blank" rel="noopener noreferrer" aria-label="Powered by BoardGameGeek">
+              <img
+                src="/powered-by-bgg.svg"
+                alt="Powered by BGG"
+                className="h-5 w-auto"
+              />
+            </a>
+            <span className="text-zinc-700 text-[10px]">TMDb</span>
+            <span className="text-zinc-700 text-[10px]">AniList</span>
+            <span className="text-zinc-700 text-[10px]">IGDB</span>
+          </div>
+        </div>
       </div>
     </div>
   )

@@ -143,6 +143,8 @@ const TYPE_COLORS: Record<string, string> = {
   game: 'bg-green-500',
   tv: 'bg-purple-500',
   movie: 'bg-red-500',
+  board_game: 'bg-amber-500',
+  boardgame: 'bg-amber-500',
 }
 
 function MediaCard({
@@ -906,15 +908,17 @@ export default function ProfilePage() {
     else if (item.type === 'anime') cat = cats.anime
     else if (item.type === 'tv') cat = cats.tv
     else if (item.type === 'movie') cat = cats.movies
+    else if (item.type === 'board_game' || item.type === 'boardgame') cat = cats.boardgames
     else cat = cats.other
     if (!acc[cat]) acc[cat] = []
     acc[cat].push(item)
     return acc
   }, {})
 
-  const categoryOrder = [cats.games, cats.anime, cats.tv, cats.manga, cats.movies, cats.other]
+  const categoryOrder = [cats.games, cats.boardgames, cats.anime, cats.tv, cats.manga, cats.movies, cats.other]
   const categoryToType: Record<string, string> = {
     [cats.games]: 'game',
+    [cats.boardgames]: 'boardgame',
     [cats.anime]: 'anime',
     [cats.tv]: 'tv',
     [cats.manga]: 'manga',

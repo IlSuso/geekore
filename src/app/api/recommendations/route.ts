@@ -59,6 +59,7 @@ import {
   ADJACENCY_GRAPH,
   CROSS_TO_BGG_CATEGORY,
   BGG_TO_CROSS_GENRE,
+  BGG_MECHANIC_TO_GENRE,
 } from '@/lib/reco/genre-maps'
 
 
@@ -540,7 +541,22 @@ function computeTasteProfile(
         const mapped = BGG_TO_CROSS_GENRE[g]
         if (mapped) for (const cg of mapped) crossExpanded.add(cg)
       }
+      // Espandi anche le meccaniche (in tags) → generi cross-media
+      for (const mech of tags) {
+        const mapped = BGG_MECHANIC_TO_GENRE[mech]
+        if (mapped) for (const cg of mapped) crossExpanded.add(cg)
+      }
       genres = [...crossExpanded]
+
+      // Traccia designers (in authors) come creator scores
+      if (!isNegative) {
+        for (const designer of (entry.authors || [])) {
+          if (designer) {
+            creatorScores.authors[designer] = (creatorScores.authors[designer] || 0) +
+              (weight * 0.4)
+          }
+        }
+      }
     }
 
     if (entry.status === 'dropped') droppedTitles.add(title)
@@ -2178,6 +2194,9 @@ async function fetchBoardgameRecs(
       }
       if (!ids.length) continue
 
+      // Rispetta rate limit BGG: 5s tra chiamate (policy ufficiale)
+      await new Promise(r => setTimeout(r, 5000))
+
       // Fetch dettagli
       const thingUrl = `${BGG_BASE}/thing?id=${ids.join(',')}&stats=1`
       const thingRes = await fetch(thingUrl, {
@@ -2285,6 +2304,8 @@ async function fetchBoardgameRecs(
         if (results.length >= 50) break
       }
     } catch { /* continua */ }
+    // Rispetta rate limit BGG tra slot: 5s (policy ufficiale)
+    if (results.length < 50) await new Promise(r => setTimeout(r, 5000))
   }
 
   return results.sort((a, b) => b.matchScore - a.matchScore)

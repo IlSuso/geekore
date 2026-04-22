@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { truncateAtSentence } from '@/lib/utils'
+import { translateWithCache } from '@/lib/deepl'
 
 const BGG_BASE = 'https://boardgamegeek.com/xmlapi2'
 
@@ -204,7 +205,23 @@ export async function GET(req: NextRequest) {
     const ids = await searchBGG(q)
     if (!ids.length) return NextResponse.json([])
 
+    // Rispetta rate limit BGG: 5s tra chiamate distinte (policy ufficiale)
+    await new Promise(r => setTimeout(r, 5000))
+
     const items = await fetchBGGDetails(ids)
+
+    // Traduci descrizioni in italiano se la lingua richiesta è IT
+    const lang = req.headers.get('x-lang') || req.nextUrl.searchParams.get('lang') || 'it'
+    if (lang === 'it') {
+      const toTranslate = items.filter(r => r.description)
+      if (toTranslate.length > 0) {
+        const descItems = toTranslate.map(r => ({ id: r.id, text: r.description! }))
+        const translated = await translateWithCache(descItems, 'IT', 'EN')
+        toTranslate.forEach(r => {
+          if (translated[r.id]) r.description = translated[r.id]
+        })
+      }
+    }
 
     const STOP_WORDS = new Set([
       'il','lo','la','i','gli','le','un','uno','una',

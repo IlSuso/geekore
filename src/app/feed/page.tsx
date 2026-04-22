@@ -21,7 +21,7 @@ import { User } from '@supabase/supabase-js'
 import {
   Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X,
   Loader2, Pin, ArrowUp, Trash2, Tag, ChevronDown, Filter, Search, MoreHorizontal,
-  Film, Tv, Gamepad2, Swords, Check, PartyPopper, Layers,
+  Film, Tv, Gamepad2, Swords, Check, PartyPopper, Layers, Dices,
   Bell, ChevronRight, ArrowLeft, Flame
 } from 'lucide-react'
 import { SkeletonFeedPost } from '@/components/ui/SkeletonCard'
@@ -40,7 +40,7 @@ import { ReportButton } from '@/components/ui/ReportButton'
 // ── Macro-categorie ───────────────────────────────────────────────────────────
 
 const MACRO_CATEGORIES = [
-  'Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga',
+  'Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga', 'Giochi da tavolo',
 ]
 
 // ── Icone categoria (Lucide) ──────────────────────────────────────────────────
@@ -52,6 +52,7 @@ const CATEGORY_ICON_MAP: Record<string, LucideIcon> = {
   'Videogiochi': Gamepad2,
   'Anime': Swords,
   'Manga': Layers,
+  'Giochi da tavolo': Dices,
 }
 
 function CategoryIcon({ category, size = 13, className = '' }: { category: string; size?: number; className?: string }) {
@@ -66,6 +67,7 @@ const QUICK_SUBS: Record<string, string[]> = {
   'Videogiochi': ['RPG', 'FPS', 'Battle Royale', 'Strategia', 'Indie'],
   'Anime': ['Shonen', 'Shojo', 'Seinen', 'Isekai', 'Slice of Life'],
   'Manga': ['Shonen', 'Shojo', 'Seinen', 'Josei', 'Webtoon'],
+  'Giochi da tavolo': ['Eurogame', 'Cooperativo', 'Astratto', 'Family', 'Deck Building'],
 }
 
 // ── Tipi ─────────────────────────────────────────────────────────────────────
@@ -225,6 +227,19 @@ async function searchByCategory(category: string, query: string): Promise<Search
       })).filter((i: SearchResult) => i.title)
     }
 
+    if (category === 'Giochi da tavolo') {
+      const res = await fetch(`/api/bgg?q=${q}`, { signal: AbortSignal.timeout(6000) })
+      if (!res.ok) { console.warn('[CategorySearch] BGG error:', res.status); return [] }
+      const data = await res.json()
+      const items = Array.isArray(data) ? data : []
+      return items.slice(0, 8).map((item: any) => ({
+        id: String(item.id),
+        title: item.title || '',
+        subtitle: item.year ? String(item.year) : undefined,
+        image: item.coverImage,
+      })).filter((i: SearchResult) => i.title)
+    }
+
   } catch (err) {
     console.warn('[CategorySearch] fetch error:', err)
   }
@@ -252,7 +267,7 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
 
-  const API_CATEGORIES = new Set(['Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga'])
+  const API_CATEGORIES = new Set(['Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga', 'Giochi da tavolo'])
 
   // Chiudi cliccando fuori
   useEffect(() => {
@@ -342,7 +357,7 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
     : selectedCat === 'Videogiochi' ? 'Cerca un videogioco...'
     : selectedCat === 'Anime' ? 'Cerca un anime...'
     : selectedCat === 'Manga' ? 'Cerca un manga...'
-    
+    : selectedCat === 'Giochi da tavolo' ? 'Cerca un gioco da tavolo...'
     : 'Cerca un titolo...'
 
   return (
@@ -392,10 +407,9 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
                   </button>
                 ))}
               </div>
-              <div className="flex justify-center gap-1.5">
+              <div className="grid grid-cols-3 gap-1.5">
                 {MACRO_CATEGORIES.slice(3).map(cat => (
                   <button key={cat} type="button" onClick={() => selectMacro(cat)}
-                    style={{ width: 'calc(33.333% - 3px)' }}
                     className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 hover:bg-zinc-800 hover:border-violet-500/50 transition-all group">
                     <CategoryIcon category={cat} size={18} className="text-zinc-400 group-hover:text-violet-400 transition-colors" />
                     <span className="text-[11px] font-medium text-zinc-300 group-hover:text-white leading-tight text-center">{cat}</span>
@@ -523,7 +537,7 @@ function CategoryFilter({
   const [isSearching, setIsSearching] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const ref = useRef<HTMLDivElement>(null)
-  const API_CATEGORIES = new Set(['Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga'])
+  const API_CATEGORIES = new Set(['Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga', 'Giochi da tavolo'])
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -578,7 +592,7 @@ function CategoryFilter({
         <div className="fixed sm:absolute top-auto sm:top-full left-0 right-0 sm:left-auto sm:right-auto bottom-0 sm:bottom-auto mt-0 sm:mt-2 bg-zinc-900 border border-zinc-700 rounded-t-3xl sm:rounded-2xl shadow-2xl shadow-black/60 w-full sm:w-[300px] p-3 pb-6 sm:pb-3" style={{ zIndex: 20000 }}>
           <p className="text-[10px] text-zinc-500 font-semibold px-1 pb-2 uppercase tracking-wider">Filtra per categoria</p>
 
-          {/* Macro chips — 3+2 centrati */}
+          {/* Macro chips — 3+3 */}
           <div className="mb-3">
             <div className="grid grid-cols-3 gap-1.5 mb-1.5">
               {MACRO_CATEGORIES.slice(0, 3).map(cat => (
@@ -593,10 +607,9 @@ function CategoryFilter({
                 </button>
               ))}
             </div>
-            <div className="flex justify-center gap-1.5">
+            <div className="grid grid-cols-3 gap-1.5">
               {MACRO_CATEGORIES.slice(3).map(cat => (
                 <button key={cat} onClick={() => handleMacro(cat)}
-                  style={{ width: 'calc(33.333% - 3px)' }}
                   className={`flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-all ${
                     activeMacro === cat
                       ? 'bg-fuchsia-600/30 border-fuchsia-500/60 text-fuchsia-300'

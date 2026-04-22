@@ -1033,10 +1033,18 @@ export default function ForYouPage() {
 
   const handleAdd = useCallback(async (item: Recommendation) => {
     const { data: { user } } = await supabase.auth.getUser(); if (!user) return
+    const isBoardgame = item.type === 'boardgame'
+    const bggAchievementData = isBoardgame && ((item as any).complexity != null || (item as any).min_players != null || (item as any).playing_time != null)
+      ? { bgg: { score: (item as any).score ?? null, complexity: (item as any).complexity ?? null, min_players: (item as any).min_players ?? null, max_players: (item as any).max_players ?? null, playing_time: (item as any).playing_time ?? null } }
+      : null
     const { error } = await supabase.from('user_media_entries').insert({
       user_id: user.id, external_id: item.id, title: item.title, type: item.type,
       cover_image: item.coverImage, genres: item.genres,
-      status: item.type === 'movie' ? 'completed' : 'watching', current_episode: 1
+      tags: isBoardgame ? ((item as any).mechanics || []) : [],
+      authors: isBoardgame ? ((item as any).designers || []) : [],
+      achievement_data: bggAchievementData,
+      status: (item.type === 'movie' || isBoardgame) ? 'completed' : 'watching',
+      current_episode: isBoardgame ? null : 1,
     })
     if (!error) {
       setAddedIds(prev => new Set([...prev, item.id]))
@@ -1095,6 +1103,8 @@ export default function ForYouPage() {
             : item.id.startsWith('tmdb-') ? 'tmdb'
             : item.id.startsWith('igdb-') ? 'igdb'
             : item.id.startsWith('ol-') ? 'ol'
+            : item.id.startsWith('bgg-') ? 'bgg'
+            : item.type === 'boardgame' ? 'bgg'
             : /^\d+$/.test(item.id) && item.type === 'game' ? 'igdb'
             : /^\d+$/.test(item.id) && (item.type === 'movie' || item.type === 'tv' || item.type === 'anime') ? 'tmdb'
             : undefined,
@@ -1190,7 +1200,7 @@ export default function ForYouPage() {
     { key: 'movie', label: fy.sections.movie },
     { key: 'tv', label: fy.sections.tv },
     { key: 'manga', label: fy.sections.manga },
-    { key: 'boardgame', label: 'Giochi da Tavolo' },
+    { key: 'boardgame', label: fy.sections.boardgame },
   ]
   // Fix 2.4: ordina per affinità reale (collectionSize nel profilo) non per count consigli
   // Chi ha più titoli nel profilo viene prima — riflette il tipo centrale per l'utente
@@ -1309,9 +1319,16 @@ export default function ForYouPage() {
       console.groupEnd()
       return
     }
+    const isBoardgame = item.type === 'boardgame'
+    const bggAchievementData = isBoardgame && ((item as any).complexity != null || (item as any).min_players != null || (item as any).playing_time != null)
+      ? { bgg: { score: (item as any).score ?? null, complexity: (item as any).complexity ?? null, min_players: (item as any).min_players ?? null, max_players: (item as any).max_players ?? null, playing_time: (item as any).playing_time ?? null } }
+      : null
     const insertData: any = {
       user_id: user.id, external_id: item.id, title: item.title,
       type: item.type, cover_image: item.coverImage, genres: item.genres,
+      tags: isBoardgame ? ((item as any).mechanics || []) : [],
+      authors: isBoardgame ? ((item as any).designers || []) : [],
+      ...(bggAchievementData ? { achievement_data: bggAchievementData } : {}),
       status: 'completed',
     }
     if (rating !== null) insertData.rating = rating

@@ -5,7 +5,7 @@
 import { memo, useState } from 'react'
 import { Brain, Flame, Sparkles, ChevronDown, ChevronUp, Clapperboard, Search, Bookmark } from 'lucide-react'
 
-type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game'
+type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame'
 
 export interface TasteProfile {
   globalGenres: Array<{ genre: string; score: number }>

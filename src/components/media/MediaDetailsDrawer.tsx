@@ -198,6 +198,19 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
     const status = autoCompleted ? 'completed' : (isBoardgame ? 'playing' : 'watching')
 
+    // Per i boardgame: mappa i campi BGG sulle colonne disponibili
+    const bggAchievementData = isBoardgame && (media.complexity != null || media.min_players != null || media.playing_time != null)
+      ? {
+          bgg: {
+            score: (media as any).score ?? null,
+            complexity: media.complexity ?? null,
+            min_players: media.min_players ?? null,
+            max_players: media.max_players ?? null,
+            playing_time: media.playing_time ?? null,
+          }
+        }
+      : null
+
     const { error } = await supabase.from('user_media_entries').insert({
       user_id: user.id,
       external_id: media.id,
@@ -206,16 +219,20 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
       type: media.type,
       cover_image: media.coverImage,
       genres: media.genres || [],
+      // boardgame: meccaniche in tags, designer in authors
+      tags: isBoardgame ? (media.mechanics || []) : [],
+      authors: isBoardgame ? (media.designers || media.authors || []) : (media.authors || []),
+      keywords: isBoardgame ? [] : [],
       status,
       current_episode: opts?.episode ?? (isMovie || isBoardgame ? null : 0),
       current_season: opts?.season ?? null,
       episodes: media.episodes ?? null,
       season_episodes: media.seasons ?? null,
       rating: opts?.rating ?? null,
-      studios: media.studios || [],
-      directors: media.directors || [],
-      authors: media.authors || [],
-      developer: media.developers?.[0] || null,
+      studios: isBoardgame ? [] : (media.studios || []),
+      directors: isBoardgame ? [] : (media.directors || []),
+      developer: isBoardgame ? null : (media.developers?.[0] || null),
+      achievement_data: bggAchievementData,
       display_order: Date.now() + Math.round((opts?.rating ?? 0) * 1_000_000),
     })
     if (!error) {

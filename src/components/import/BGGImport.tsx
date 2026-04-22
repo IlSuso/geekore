@@ -67,11 +67,24 @@ export function BGGImport({ onImportDone }: Props) {
           return
         }
 
-        // Step 2: inserisci nel DB
+        // Step 2: l'arricchimento avviene server-side nella route /api/bgg/collection
+        // (le richieste a BGG devono essere server-side per policy BGG)
+        const enrichMap: Record<string, any> = {}
+        if (data.enriched) {
+          for (const item of data.enriched) {
+            enrichMap[item.objectid] = item
+          }
+        }
+
+        // Step 3: inserisci nel DB
         setProgress(`Importazione di ${data.items.length} giochi…`)
         const stats: ImportResult = { imported: 0, skipped: 0, errors: 0 }
 
         for (const item of data.items) {
+          const enrich = enrichMap[item.objectid] || {}
+          const bggAchievementData = (enrich.bggScore != null || enrich.complexity != null)
+            ? { bgg: { score: enrich.bggScore ?? null, complexity: enrich.complexity ?? null, min_players: enrich.min_players ?? item.minplayers ?? null, max_players: enrich.max_players ?? item.maxplayers ?? null, playing_time: enrich.playing_time ?? item.playingtime ?? null } }
+            : null
           const { error } = await supabase.from('user_media_entries').upsert({
             user_id: user.id,
             external_id: `bgg-${item.objectid}`,
@@ -80,16 +93,18 @@ export function BGGImport({ onImportDone }: Props) {
             type: 'boardgame',
             cover_image: item.thumbnail || null,
             genres: item.categories || [],
+            tags: enrich.mechanics || [],
+            authors: enrich.designers || [],
             status: 'completed',
-            rating: item.rating ? Math.round(item.rating * 2) : null, // BGG 1-10 → 1-10 (già su 10)
-            current_episode: null,
+            rating: item.rating ? Math.round(item.rating * 2) : null,
+            current_episode: item.numplays || null,
             current_season: null,
             episodes: null,
             season_episodes: null,
             studios: [],
             directors: [],
-            authors: [],
             developer: null,
+            achievement_data: bggAchievementData,
             display_order: Date.now(),
           }, { onConflict: 'user_id,external_id' })
 
