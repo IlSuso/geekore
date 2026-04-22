@@ -170,7 +170,7 @@ const translations = {
         n === 0 ? 'Non ancora giocato' : `${n} ${n === 1 ? 'partita' : 'partite'}`,
       progress: (n: number) => `${n}% completato`,
       cancel: 'Annulla', delete: 'Elimina', reset: 'Ripristina',
-      typeLabels: { anime: 'Anime', manga: 'Manga', game: 'Game', tv: 'Serie', movie: 'Film', book: 'Libro' },
+      typeLabels: { anime: 'Anime', manga: 'Manga', game: 'Game', tv: 'Serie', movie: 'Film' },
     },
     toasts: {
       deleted: 'Eliminato dalla collezione',
@@ -415,7 +415,7 @@ const translations = {
         n === 0 ? 'Not played yet' : `${n} ${n === 1 ? 'session' : 'sessions'}`,
       progress: (n: number) => `${n}% complete`,
       cancel: 'Cancel', delete: 'Delete', reset: 'Reset',
-      typeLabels: { anime: 'Anime', manga: 'Manga', game: 'Game', tv: 'TV', movie: 'Movie', book: 'Book' },
+      typeLabels: { anime: 'Anime', manga: 'Manga', game: 'Game', tv: 'TV', movie: 'Movie' },
     },
     toasts: {
       deleted: 'Removed from collection',

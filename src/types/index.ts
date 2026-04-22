@@ -2,7 +2,7 @@
 
 // ─── Media Types ───────────────────────────────────────────────────────────────
 
-export type MediaType = 'anime' | 'manga' | 'game' | 'tv' | 'movie' | 'boardgame' | 'book'
+export type MediaType = 'anime' | 'manga' | 'game' | 'tv' | 'movie' | 'boardgame'
 
 export type MediaStatus =
   | 'watching'
