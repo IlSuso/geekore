@@ -65,17 +65,19 @@ export async function GET(req: NextRequest) {
 
   const TARGET = 15
   const PAGE_SIZE = 40
+  // Fetch molti più risultati perché filtriamo lato codice per lang=it
+  const PAGE_SIZE_LARGE = 40
+  const MAX_PAGES = 5 // fino a 200 risultati totali per trovare abbastanza italiani
 
-  const makeUrl = (q_str: string, langIt: boolean) => {
+  const makeUrl = (q_str: string, startIndex: number) => {
     const p = new URLSearchParams({
       q: q_str,
-      maxResults: String(PAGE_SIZE),
-      startIndex: '0',
+      maxResults: String(PAGE_SIZE_LARGE),
+      startIndex: String(startIndex),
       printType: 'books',
       orderBy: 'relevance',
-      country: 'IT',   // mercato italiano
-      hl: 'it',        // host language: forza metadati in italiano
-      ...(langIt ? { langRestrict: 'it' } : {}),
+      country: 'IT',
+      hl: 'it',
       ...(GOOGLE_BOOKS_KEY ? { key: GOOGLE_BOOKS_KEY } : {}),
     })
     return `${GOOGLE_BOOKS_BASE}/volumes?${p}`
@@ -105,56 +107,46 @@ export async function GET(req: NextRequest) {
   const qNorm = normalize(q)
 
   try {
-    // Tre query parallele in ordine di priorità:
-    // 1. intitle + langRestrict=it + hl=it  → edizioni italiane (massima priorità)
-    // 2. intitle + inlanguage:ita + hl=it   → filtro lingua nella query stessa
-    // 3. intitle globale + hl=it            → fallback con almeno metadati italiani
-    const [resIt, resItLang, resGlobal] = await Promise.allSettled([
-      fetch(makeUrl(`intitle:${q}`, true)),
-      fetch(makeUrl(`intitle:${q}+inlanguage:ita`, false)),
-      fetch(makeUrl(`intitle:${q}`, false)),
-    ])
+    // Strategia: fetch paginato su più pagine, raccogliamo TUTTI i risultati
+    // e filtriamo lato codice per lang=it — unica soluzione affidabile
+    // dato che langRestrict=it viene ignorato dai server USA di Vercel
 
-    const fetchLabel = ['IT+langRestrict', 'IT+inlanguage', 'GLOBAL']
-    const fetchResults = [resIt, resItLang, resGlobal]
-
+    const seenRaw = new Set<string>()
     let allRaw: any[] = []
 
-    for (let i = 0; i < fetchResults.length; i++) {
-      const r = fetchResults[i]
-      if (r.status !== 'fulfilled' || !r.value.ok) {
-        console.log(`[BOOKS] ${fetchLabel[i]}: FAILED`)
-        continue
-      }
+    // Fetch parallelo di MAX_PAGES pagine per raccogliere molti risultati
+    const pageRequests = Array.from({ length: MAX_PAGES }, (_, i) =>
+      fetch(makeUrl(`intitle:${q}`, i * PAGE_SIZE_LARGE))
+    )
+    const pageResults = await Promise.allSettled(pageRequests)
+
+    for (let i = 0; i < pageResults.length; i++) {
+      const r = pageResults[i]
+      if (r.status !== 'fulfilled' || !r.value.ok) continue
       try {
         const data = await r.value.json()
         const raw = Array.isArray(data.items) ? data.items : []
-        console.log(`[BOOKS] ${fetchLabel[i]}: ${raw.length} risultati | lingue: ${[...new Set(raw.map((v: any) => v.volumeInfo?.language))].join(',')}`)
-        allRaw.push(...raw)
+        if (raw.length === 0) break // niente più risultati
+        const itCount = raw.filter((v: any) => v.volumeInfo?.language === 'it').length
+        console.log(`[BOOKS] Pagina ${i+1}: ${raw.length} risultati | it=${itCount} | lingue: ${[...new Set(raw.map((v: any) => v.volumeInfo?.language))].join(',')}`)
+        for (const v of raw) {
+          if (!seenRaw.has(v.id)) { seenRaw.add(v.id); allRaw.push(v) }
+        }
       } catch {}
     }
 
-    // Dedup: il primo che compare vince (IT+langRestrict è primo)
-    const seenRaw = new Set<string>()
-    allRaw = allRaw.filter(v => {
-      if (seenRaw.has(v.id)) return false
-      seenRaw.add(v.id)
-      return true
-    })
+    // Separa italiani da non-italiani
+    const itRaw = allRaw.filter(v => v.volumeInfo?.language === 'it')
+    const otherRaw = allRaw.filter(v => v.volumeInfo?.language !== 'it')
+    console.log(`[BOOKS] Totale: ${allRaw.length} | italiani: ${itRaw.length} | altri: ${otherRaw.length}`)
 
-    // Riordina: lang=it sempre prima
-    allRaw.sort((a, b) => {
-      const aIt = a.volumeInfo?.language === 'it' ? 0 : 1
-      const bIt = b.volumeInfo?.language === 'it' ? 0 : 1
-      return aIt - bIt
-    })
-
-    console.log(`[BOOKS] Dopo dedup+sort: ${allRaw.length} volumi | lingue: ${[...new Set(allRaw.map((v: any) => v.volumeInfo?.language))].join(',')}`)
+    // Usa italiani se ne abbiamo abbastanza, altrimenti fallback su tutti
+    const sourceRaw = itRaw.length >= 3 ? itRaw : allRaw
 
     const items: BookItem[] = []
     const seenIds = new Set<string>()
 
-    for (const vol of allRaw) {
+    for (const vol of sourceRaw) {
       if (items.length >= TARGET) break
 
       const info = vol.volumeInfo
