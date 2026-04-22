@@ -4,7 +4,7 @@
 // Integrare in /settings o /profile/edit
 
 import { useState } from 'react'
-import { Download, CheckCircle, AlertTriangle, Loader2, ExternalLink, Swords } from 'lucide-react'
+import { Download, CheckCircle, AlertTriangle, Loader2, ExternalLink, Swords, Layers } from 'lucide-react'
 
 interface ImportResult {
   imported: number
