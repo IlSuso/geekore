@@ -82,12 +82,13 @@ export async function GET(req: NextRequest) {
   // Due fetch parallele da 40 (0-39 + 40-79) per 80 risultati totali
   const makeParams = (startIndex: number) => {
     const p = new URLSearchParams({
-      q: `intitle:${q}`,
+      q: `intitle:${q} lang:it`,
       maxResults: '40',
       startIndex: String(startIndex),
       printType: 'books',
       orderBy: 'relevance',
       langRestrict: 'it',
+      country: 'IT',
       ...(GOOGLE_BOOKS_KEY ? { key: GOOGLE_BOOKS_KEY } : {}),
     })
     return `${GOOGLE_BOOKS_BASE}/volumes?${p}`
@@ -162,16 +163,33 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // Normalizza: lowercase + rimuovi punteggiatura + strip articoli/preposizioni italiani
-    // così "piccolo principe" trova "Il piccolo principe", "harry potter" trova "Harry Potter e..."
-    const STOP_IT = /^(il|lo|la|i|gli|le|un|uno|una|l|d|dell|dello|della|dei|degli|delle|del|al|allo|alla|ai|agli|alle|dal|dallo|dalla|dai|dagli|dalle|nel|nello|nella|nei|negli|nelle|sul|sullo|sulla|sui|sugli|sulle|di|a|da|in|con|su|per|tra|fra|e|ed)\s+/i
-    const normalize = (s: string) =>
-      s.toLowerCase()
-       .replace(/[^\w\s]/g, ' ')
-       .replace(/\s+/g, ' ')
-       .trim()
-       .replace(STOP_IT, '')
-       .trim()
+    // Normalizza per confronto titolo:
+    // 1. lowercase
+    // 2. rimuovi punteggiatura (ma tieni lettere accentate)
+    // 3. comprimi spazi
+    // 4. strip articolo/preposizione SOLO se è una parola intera iniziale seguita da spazio
+    //    (evita di tagliare "la" da "lavoro", "a" da "avventura", ecc.)
+    const STOP_WORDS = new Set([
+      'il','lo','la','i','gli','le','un','uno','una',
+      'del','dello','della','dei','degli','delle',
+      'al','allo','alla','ai','agli','alle',
+      'dal','dallo','dalla','dai','dagli','dalle',
+      'nel','nello','nella','nei','negli','nelle',
+      'sul','sullo','sulla','sui','sugli','sulle',
+      'di','da','in','con','su','per','tra','fra',
+      'the','a','an',
+    ])
+    const normalize = (s: string) => {
+      // Rimuovi punteggiatura tenendo lettere unicode (accentate incluse)
+      let r = s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
+      // Strip prima parola SOLO se è stop word esatta
+      const firstSpace = r.indexOf(' ')
+      if (firstSpace > 0) {
+        const firstWord = r.slice(0, firstSpace)
+        if (STOP_WORDS.has(firstWord)) r = r.slice(firstSpace + 1).trim()
+      }
+      return r
+    }
     const qNorm = normalize(q)
     const filtered = items.filter(item => normalize(item.title).startsWith(qNorm))
 
