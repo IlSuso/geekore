@@ -1,9 +1,9 @@
 // src/app/api/books/route.ts
-// Edge Function su fra1 (Francoforte) — Google vede IP europeo e rispetta langRestrict=it
+// Edge Function su ams1 (Amsterdam) — Google vede IP europeo e rispetta langRestrict=it
 // Key env: GOOGLE_BOOKS_API_KEY
 
 export const runtime = 'edge'
-export const preferredRegion = 'fra1' // Francoforte
+export const preferredRegion = 'ams1' // Amsterdam
 
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -146,7 +146,27 @@ export async function GET(req: NextRequest) {
         for (const [label, r] of [['GLOBAL', resGlobal], ['IT', resIt]] as [string, PromiseSettledResult<Response>][]) {
           if (r.status !== 'fulfilled') { console.log(`[BOOKS DEBUG] ${label}: fetch FALLITA`); continue }
           console.log(`[BOOKS DEBUG] ${label}: HTTP ${r.value.status}`)
-          if (!r.value.ok) { console.log(`[BOOKS DEBUG] ${label}: risposta non OK`); continue }
+          if (!r.value.ok) {
+            // 503 = sovraccarico temporaneo Google — retry con exponential backoff
+            if (r.value.status === 503 || r.value.status === 429) {
+              console.log(`[BOOKS DEBUG] ${label}: ${r.value.status} throttling — retry tra 1s`)
+              await new Promise(res => setTimeout(res, 1000))
+              try {
+                const retry = await fetch(label === 'IT' ? makeParams(startIndex, true) : makeParams(startIndex, false))
+                console.log(`[BOOKS DEBUG] ${label}: retry HTTP ${retry.status}`)
+                if (retry.ok) {
+                  const data = await retry.json()
+                  const count = Array.isArray(data.items) ? data.items.length : 0
+                  const langs = Array.isArray(data.items) ? [...new Set(data.items.map((v: any) => v.volumeInfo?.language))].join(',') : 'N/D'
+                  console.log(`[BOOKS DEBUG] ${label}: retry OK — ${count} volumi | lingue: ${langs}`)
+                  if (Array.isArray(data.items)) results.push(...data.items)
+                }
+              } catch (e) { console.log(`[BOOKS DEBUG] ${label}: retry fallito`, e) }
+            } else {
+              console.log(`[BOOKS DEBUG] ${label}: risposta non OK`)
+            }
+            continue
+          }
           let data: any
           try { data = await r.value.json() } catch (e) { console.log(`[BOOKS DEBUG] ${label}: JSON parse error`, e); continue }
           const count = Array.isArray(data.items) ? data.items.length : 0
