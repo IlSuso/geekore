@@ -85,13 +85,18 @@ export async function GET(req: NextRequest) {
   const MAX_CALLS = 5
   const PAGE_SIZE = 40
 
-  const makeParams = (startIndex: number) => {
+  // Due query parallele per ogni "pagina":
+  // - query globale (tutti i libri per rilevanza)  
+  // - query con langRestrict=it (forza edizioni italiane)
+  // Così si pescano sia i titoli italiani che eventuali edizioni straniere
+  const makeParams = (startIndex: number, langIt: boolean) => {
     const p = new URLSearchParams({
       q: `intitle:${q}`,
       maxResults: String(PAGE_SIZE),
       startIndex: String(startIndex),
       printType: 'books',
       orderBy: 'relevance',
+      ...(langIt ? { langRestrict: 'it' } : {}),
       ...(GOOGLE_BOOKS_KEY ? { key: GOOGLE_BOOKS_KEY } : {}),
     })
     return `${GOOGLE_BOOKS_BASE}/volumes?${p}`
@@ -140,38 +145,39 @@ export async function GET(req: NextRequest) {
       }
 
       const startIndex = call * PAGE_SIZE
-      const url = makeParams(startIndex)
-      dbg(`Chiamata #${call + 1} — startIndex=${startIndex}`, { url })
+      dbg(`Chiamata #${call + 1} — startIndex=${startIndex} (2 query parallele: globale + langRestrict=it)`)
 
-      let res: Response
+      // Fetch parallelo: query globale + query italiana
+      let results: any[] = []
       try {
-        res = await fetch(url, { next: { revalidate: 300 } })
-      } catch (fetchErr) {
-        dbg(`Chiamata #${call + 1} — ERRORE DI RETE`, { error: String(fetchErr) })
+        const [resGlobal, resIt] = await Promise.allSettled([
+          fetch(makeParams(startIndex, false), { next: { revalidate: 300 } }),
+          fetch(makeParams(startIndex, true), { next: { revalidate: 300 } }),
+        ])
+
+        for (const [label, r] of [['globale', resGlobal], ['it', resIt]] as [string, PromiseSettledResult<Response>][]) {
+          if (r.status !== 'fulfilled' || !r.value.ok) {
+            dbg(`Query ${label} fallita`, { status: r.status === 'fulfilled' ? r.value.status : 'network error' })
+            continue
+          }
+          let data: any
+          try { data = await r.value.json() } catch { continue }
+          dbg(`Query ${label} risposta`, { totalItems: data.totalItems, itemsReturned: Array.isArray(data.items) ? data.items.length : 0 })
+          if (Array.isArray(data.items)) results.push(...data.items)
+        }
+      } catch {
         break
       }
 
-      dbg(`Chiamata #${call + 1} — HTTP status`, { status: res.status, ok: res.ok })
-      if (!res.ok) {
-        const errText = await res.text().catch(() => '(no body)')
-        dbg(`Chiamata #${call + 1} — risposta HTTP non OK`, { body: errText.slice(0, 500) })
-        break
-      }
-
-      let data: any
-      try { data = await res.json() } catch (jsonErr) {
-        dbg(`Chiamata #${call + 1} — ERRORE JSON parse`, { error: String(jsonErr) })
-        break
-      }
-
-      dbg(`Chiamata #${call + 1} — risposta Google Books`, {
-        totalItems: data.totalItems,
-        itemsReturned: Array.isArray(data.items) ? data.items.length : 0,
-        kind: data.kind,
-        error: data.error || null,
+      // Deduplica tra le due query (stesso id Google Books)
+      const seenPageIds = new Set<string>()
+      results = results.filter(v => {
+        if (seenPageIds.has(v.id)) return false
+        seenPageIds.add(v.id)
+        return true
       })
 
-      const rawVolumes: any[] = Array.isArray(data.items) ? data.items : []
+      const rawVolumes = results
 
       if (rawVolumes.length === 0) {
         dbg(`Chiamata #${call + 1} — nessun volume restituito, stop loop`)
@@ -205,10 +211,9 @@ export async function GET(req: NextRequest) {
 
         if (!info?.title) { skippedNoTitle++; continue }
 
-        if (info.language !== 'it') {
-          skippedLang++
-          continue
-        }
+        // Preferenza italiana: accetta it + en + altre lingue comuni
+        // NON filtriamo hard per lingua — mostriamo tutto ciò che l'utente ha cercato
+        const lang = info.language || 'unknown'
 
         const normalizedBookTitle = normalize(info.title)
         if (!normalizedBookTitle.startsWith(qNorm)) {
@@ -250,7 +255,7 @@ export async function GET(req: NextRequest) {
           language: info.language || undefined,
         })
         addedThisPage++
-        dbg(`AGGIUNTO | "${info.title}" | lang=${info.language} | cover=${!!coverImage}`)
+        dbg(`AGGIUNTO | "${info.title}" | lang=${lang} | cover=${!!coverImage}`)
       }
 
       dbg(`Chiamata #${call + 1} — riepilogo filtri`, {
@@ -267,8 +272,11 @@ export async function GET(req: NextRequest) {
 
     const filtered = items
 
-    // Ordina: con cover prima, poi per score decrescente
+    // Ordina: italiano prima, poi con cover, poi per score decrescente
     const sorted = [...filtered].sort((a, b) => {
+      const aIt = a.language === 'it' ? 0 : 1
+      const bIt = b.language === 'it' ? 0 : 1
+      if (aIt !== bIt) return aIt - bIt
       if (!!a.coverImage !== !!b.coverImage) return a.coverImage ? -1 : 1
       return (b.score ?? 0) - (a.score ?? 0)
     })
