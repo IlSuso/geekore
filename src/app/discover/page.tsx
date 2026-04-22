@@ -25,7 +25,6 @@ type MediaItem = {
   game_modes?: string[]; developers?: string[]; categories?: string[]; mechanics?: string[];
   designers?: string[]; min_players?: number; max_players?: number; playing_time?: number;
   complexity?: number; score?: number; authors?: string[]; pages?: number;
-  isbn?: string; publisher?: string;
 };
 
 // Ordine sezioni nei risultati raggruppati
@@ -51,7 +50,6 @@ const TYPE_COLORS: Record<string, string> = {
   tv:        'text-purple-400 border-purple-500/30 bg-purple-500/10',
   game:      'text-green-400 border-green-500/30 bg-green-500/10',
   boardgame: 'text-amber-400 border-amber-500/30 bg-amber-500/10',
-  book:      'text-cyan-400 border-cyan-500/30 bg-cyan-500/10',
 };
 
 // Icona placeholder nelle card senza copertina
@@ -59,7 +57,6 @@ const TYPE_PLACEHOLDER_ICON: Record<string, React.ReactNode> = {
   game:      <Gamepad2 size={28} />,
   boardgame: <Dices size={28} />,
   manga:     <Layers size={28} />,
-  book:      <BookOpen size={28} />,
   anime:     <Swords size={28} />,
   movie:     <Film size={28} />,
   tv:        <Tv size={28} />,
@@ -89,10 +86,7 @@ function toMediaDetails(item: MediaItem): MediaDetails {
     developers: item.developers,
     themes: item.themes,
     authors: item.authors,
-    // campi libro
     ...(item.pages ? { pages: item.pages } as any : {}),
-    ...(item.isbn ? { isbn: item.isbn } as any : {}),
-    ...(item.publisher ? { publisher: item.publisher } as any : {}),
   };
 }
 
@@ -142,7 +136,6 @@ const FILTERS: { id: string; label: string; icon: React.ReactNode }[] = [
   { id: 'tv',        label: 'Serie',    icon: <Tv size={13} /> },
   { id: 'game',      label: 'Giochi',   icon: <Gamepad2 size={13} /> },
   { id: 'boardgame', label: 'Tavolo',   icon: <Dices size={13} /> },
-  { id: 'book',      label: 'Libri',    icon: <BookOpen size={13} /> },
 ];
 
 // ── V3: Search tracking helpers (fire-and-forget) ────────────────────────────
@@ -256,9 +249,6 @@ export default function DiscoverPage() {
       if (type === 'all' || type === 'boardgame')
         reqs.push(fetch(`/api/bgg?q=${encodeURIComponent(term)}`, { signal: controller.signal }));
 
-      // Libri — Google Books
-      if (type === 'all' || type === 'book')
-        reqs.push(fetch(`/api/books?q=${encodeURIComponent(term)}&lang=${lang}`, { signal: controller.signal }));
 
       const responses = await Promise.allSettled(reqs);
       if (controller.signal.aborted) return;

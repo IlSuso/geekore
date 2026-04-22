@@ -12,7 +12,6 @@ import {
   ThumbsDown, Eye, Flame, Brain, Star, ArrowRight, Clapperboard, Swords,
   TrendingUp, Search, BookmarkCheck, Trophy, Calendar,
   MessageCircleQuestion, Tag, MonitorPlay, AlertCircle, Layers, Shuffle,
-  Dices, BookOpen,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -34,7 +33,6 @@ import type { SwipeItem } from '@/components/for-you/SwipeMode'
 type FeedbackAction = 'not_interested' | 'already_seen' | 'added' | 'wishlist_add';
 type FeedbackReason = 'too_similar' | 'not_my_genre' | 'already_know' | 'bad_rec' | undefined;
 
-type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame' | 'book'
 
 interface FriendActivity {
   userId: string; username: string; displayName?: string; avatarUrl?: string
@@ -44,7 +42,6 @@ interface FriendActivity {
 
 const TYPE_ICONS: Record<MediaType, React.ElementType> = {
   anime: Swords, manga: Layers, movie: Film, tv: Tv, game: Gamepad2,
-  boardgame: Dices, book: BookOpen, }
 
 const TYPE_LABEL: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Gioco',
@@ -1192,7 +1189,6 @@ export default function ForYouPage() {
     { key: 'tv', label: fy.sections.tv },
     { key: 'manga', label: fy.sections.manga },
     { key: 'boardgame', label: 'Giochi da Tavolo' },
-    { key: 'book', label: 'Libri' },
   ]
   // Fix 2.4: ordina per affinità reale (collectionSize nel profilo) non per count consigli
   // Chi ha più titoli nel profilo viene prima — riflette il tipo centrale per l'utente

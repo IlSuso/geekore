@@ -84,7 +84,6 @@ export default async function TrendingPage() {
     return acc
   }, {})
 
-  const typeOrder = ['game', 'anime', 'tv', 'movie', 'manga', 'book']
 
   return (
     <div className="min-h-screen bg-black text-white pb-24">

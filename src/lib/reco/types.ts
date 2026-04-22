@@ -2,7 +2,6 @@
 // Tipi condivisi del Taste Engine V5
 // Estratto da api/recommendations/route.ts per Fix #17 (riduzione any) e #14 (refactor)
 
-export type RecoMediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame' | 'book'
 
 export type RuntimeRange = 'short' | 'standard' | 'long' | null
 

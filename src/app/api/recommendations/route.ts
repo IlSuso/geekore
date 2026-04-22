@@ -86,7 +86,6 @@ interface UserEntry {
   studio?: string
   director?: string
   author?: string
-  authors?: string[]   // array autori — usato da libri (e manga via DB)
   developer?: string
   platform?: string[]
   runtime?: number
@@ -200,7 +199,6 @@ function computeCreatorScores(entries: UserEntry[], preferences?: Record<string,
     if (entry.author) {
       authors[entry.author] = (authors[entry.author] || 0) + weight
     }
-    // I libri salvano gli autori come array — li accumuliamo tutti
     if (entry.authors && Array.isArray(entry.authors)) {
       for (const a of entry.authors) {
         if (a) authors[a] = (authors[a] || 0) + weight
@@ -487,7 +485,6 @@ function computeTasteProfile(
 
   // Adaptive window per tipo (V3)
   const activeWindowByType: Record<string, number> = {}
-  for (const type of ['anime', 'manga', 'movie', 'tv', 'game', 'book', 'boardgame']) {
     activeWindowByType[type] = determineActiveWindowForType(entries, type as MediaType)
   }
   const activeWindow = Math.round(
@@ -543,7 +540,6 @@ function computeTasteProfile(
       genres = [...crossExpanded]
     }
 
-    // Per i libri: espandi categorie Google Books → generi cross-media
     if (type === 'book') {
       const crossExpanded = new Set<string>(genres)
       for (const g of genres) {
@@ -855,7 +851,6 @@ function computeMatchScore(
   for (const director of (recDirectors || [])) {
     if (topDirectors.some(([d]) => d === director)) creatorScore += 8
   }
-  // Autori libri: controllati separatamente da directors per non confonderli con registi
   const topAuthors = Object.entries(tasteProfile.creatorScores.authors).sort(([,a],[,b]) => b - a).slice(0, 10)
   for (const director of (recDirectors || [])) {
     if (topAuthors.some(([a]) => a === director)) creatorScore += 10
@@ -1119,7 +1114,6 @@ function buildDiversitySlots(type: MediaType, tasteProfile: TasteProfile, totalS
     return slots
   }
 
-  // ── Logica specifica per libri (Google Books) ────────────────────────────
   if (type === 'book') {
     const bookCatScore: Record<string, number> = {}
     const sourceScores = Object.fromEntries(
@@ -2397,7 +2391,6 @@ async function fetchBookRecs(
 
         const recId = `book-${vol.id}`
         if (seen.has(recId) || shownIds?.has(recId)) continue
-        if (isAlreadyOwned('book', recId, info.title)) continue
 
         // Cover
         const gbThumb = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail
@@ -2448,7 +2441,6 @@ async function fetchBookRecs(
         results.push({
           id: recId,
           title: info.title,
-          type: 'book',
           coverImage: cover,
           year: isNaN(year!) ? undefined : year,
           genres,
@@ -2674,7 +2666,6 @@ export async function GET(request: NextRequest) {
     type OwnedByType = { ids: Set<string>; titles: Set<string>; tokenSets: Array<Set<string>> }
     const ownedByType = new Map<string, OwnedByType>()
 
-    for (const type of ['anime', 'manga', 'movie', 'tv', 'game', 'book', 'boardgame']) {
       ownedByType.set(type, { ids: new Set(), titles: new Set(), tokenSets: [] })
     }
 
