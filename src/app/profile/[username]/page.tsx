@@ -36,8 +36,6 @@ import { LetterboxdImport } from '@/components/import/LetterboxdImport'
 import { XboxImport } from '@/components/import/XboxImport'
 import { SteamImport } from '@/components/import/SteamImport'
 import { BGGImport } from '@/components/import/BGGImport'
-import { BooksImport } from '@/components/import/BooksImport'
-// BookImport removed
 import { ProfileActivityFeed } from '@/components/profile/ProfileActivityFeed'
 import { NotesModal } from '@/components/profile/NotesModal'
 import { DeleteAccountModal } from '@/components/profile/DeleteAccountModal'
@@ -1323,7 +1321,7 @@ export default function ProfilePage() {
               {importPlatform === 'xbox' && <XboxImport />}
               {importPlatform === 'steam' && <SteamImport onImportDone={async () => { if (currentUserId) { await new Promise(r => setTimeout(r, 800)); refreshMedia(currentUserId) } }} />}
               {importPlatform === 'bgg' && <BGGImport onImportDone={async () => { if (currentUserId) { await new Promise(r => setTimeout(r, 800)); refreshMedia(currentUserId) } }} />}
-              {importPlatform === 'books' && <BooksImport onImportDone={async () => { if (currentUserId) { await new Promise(r => setTimeout(r, 800)); refreshMedia(currentUserId) } }} />}
+              {importPlatform === 'books' && }
             </div>
           </div>
         </div>
