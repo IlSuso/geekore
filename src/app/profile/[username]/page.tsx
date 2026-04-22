@@ -36,8 +36,6 @@ import { LetterboxdImport } from '@/components/import/LetterboxdImport'
 import { XboxImport } from '@/components/import/XboxImport'
 import { SteamImport } from '@/components/import/SteamImport'
 import { BGGImport } from '@/components/import/BGGImport'
-import { BooksImport } from '@/components/import/BooksImport'
-// BookImport removed
 import { ProfileActivityFeed } from '@/components/profile/ProfileActivityFeed'
 import { NotesModal } from '@/components/profile/NotesModal'
 import { DeleteAccountModal } from '@/components/profile/DeleteAccountModal'
@@ -50,7 +48,7 @@ type UserMedia = {
   id: string
   title: string
   title_en?: string  // titolo inglese per switch lingua real-time
-  type: 'anime' | 'tv' | 'movie' | 'game' | 'manga' | 'book'
+  type: 'anime' | 'tv' | 'movie' | 'game' | 'manga'
   cover_image?: string
   current_episode: number
   current_season?: number
@@ -1062,15 +1060,6 @@ export default function ProfilePage() {
                 </svg>
               </button>
 
-              {/* Books */}
-              <button onClick={() => setImportPlatform('books')} title="Libri (Google Books)"
-                className="w-8 h-8 rounded-full overflow-hidden border border-zinc-700 hover:border-cyan-500/60 transition-all hover:scale-110 bg-[#4285F4] flex items-center justify-center flex-shrink-0">
-                <svg viewBox="0 0 40 40" className="w-full h-full" style={{display:'block'}}>
-                  <rect width="40" height="40" fill="#4285F4"/>
-                  <text x="20" y="27" textAnchor="middle" fontFamily="Georgia,serif" fontWeight="bold" fontSize="16" fill="white">G</text>
-                </svg>
-              </button>
-
               {/* Eliminazione account — nascosta, non in primo piano */}
               <button onClick={() => setShowDeleteModal(true)} className="ml-2 text-[10px] text-zinc-700 hover:text-red-400 transition-colors flex-shrink-0">
                 <Trash2 size={13} />
@@ -1309,7 +1298,6 @@ export default function ProfilePage() {
                   {importPlatform === 'xbox' && 'Importa da Xbox'}
                   {importPlatform === 'steam' && 'Importa da Steam'}
                   {importPlatform === 'bgg' && 'Importa da BoardGameGeek'}
-                  {importPlatform === 'books' && 'Aggiungi libri'}
                 </h2>
               </div>
               <button onClick={() => setImportPlatform(null)} className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-zinc-800 transition">
@@ -1323,7 +1311,6 @@ export default function ProfilePage() {
               {importPlatform === 'xbox' && <XboxImport />}
               {importPlatform === 'steam' && <SteamImport onImportDone={async () => { if (currentUserId) { await new Promise(r => setTimeout(r, 800)); refreshMedia(currentUserId) } }} />}
               {importPlatform === 'bgg' && <BGGImport onImportDone={async () => { if (currentUserId) { await new Promise(r => setTimeout(r, 800)); refreshMedia(currentUserId) } }} />}
-              {importPlatform === 'books' && <BooksImport onImportDone={async () => { if (currentUserId) { await new Promise(r => setTimeout(r, 800)); refreshMedia(currentUserId) } }} />}
             </div>
           </div>
         </div>
