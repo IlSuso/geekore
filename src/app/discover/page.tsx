@@ -179,14 +179,48 @@ function truncate(text: string, maxLen: number): string {
   return sub.slice(0, sub.lastIndexOf(' ')).trim() || sub;
 }
 
-function resolveCover(volumeInfo: any): string | undefined {
-  const gb = volumeInfo.imageLinks?.large || volumeInfo.imageLinks?.medium ||
-             volumeInfo.imageLinks?.thumbnail || volumeInfo.imageLinks?.smallThumbnail;
-  if (gb) return gb.replace('http://', 'https://').replace('&edge=curl', '').replace('zoom=1', 'zoom=3');
+function resolveCover(volumeInfo: any): { url: string | undefined; source: string; quality: string } {
+  const links = volumeInfo.imageLinks || {};
   const ids: Array<{ type: string; identifier: string }> = volumeInfo.industryIdentifiers || [];
-  const isbn = ids.find(i => i.type === 'ISBN_13')?.identifier || ids.find(i => i.type === 'ISBN_10')?.identifier;
-  if (isbn) return `${OPEN_LIBRARY_COVERS}/isbn/${isbn}-L.jpg`;
-  return undefined;
+  const isbn13 = ids.find(i => i.type === 'ISBN_13')?.identifier;
+  const isbn10 = ids.find(i => i.type === 'ISBN_10')?.identifier;
+
+  // Log debug: tutte le copertine disponibili per questo volume
+  const available: string[] = [];
+  if (links.large)         available.push(`large`);
+  if (links.medium)        available.push(`medium`);
+  if (links.small)         available.push(`small`);
+  if (links.thumbnail)     available.push(`thumbnail`);
+  if (links.smallThumbnail) available.push(`smallThumbnail`);
+  if (isbn13)              available.push(`openLibrary(ISBN13)`);
+  if (isbn10)              available.push(`openLibrary(ISBN10)`);
+
+  // Sceglie la migliore disponibile
+  if (links.large) {
+    const url = links.large.replace('http://', 'https://').replace('&edge=curl', '');
+    return { url, source: 'google:large', quality: 'alta' };
+  }
+  if (links.medium) {
+    const url = links.medium.replace('http://', 'https://').replace('&edge=curl', '').replace('zoom=1', 'zoom=3');
+    return { url, source: 'google:medium→zoom3', quality: 'media' };
+  }
+  if (links.thumbnail) {
+    const url = links.thumbnail.replace('http://', 'https://').replace('&edge=curl', '').replace('zoom=1', 'zoom=3');
+    return { url, source: 'google:thumbnail→zoom3', quality: available.includes('medium') ? 'media' : 'bassa' };
+  }
+  if (links.smallThumbnail) {
+    const url = links.smallThumbnail.replace('http://', 'https://').replace('&edge=curl', '').replace('zoom=1', 'zoom=3');
+    return { url, source: 'google:smallThumbnail→zoom3', quality: 'molto bassa' };
+  }
+  if (isbn13) {
+    return { url: `${OPEN_LIBRARY_COVERS}/isbn/${isbn13}-L.jpg`, source: 'openLibrary:ISBN13', quality: 'sconosciuta' };
+  }
+  if (isbn10) {
+    return { url: `${OPEN_LIBRARY_COVERS}/isbn/${isbn10}-L.jpg`, source: 'openLibrary:ISBN10', quality: 'sconosciuta' };
+  }
+
+  console.log(`[BOOKS COVER] "${volumeInfo.title}" → NESSUNA copertina disponibile`);
+  return { url: undefined, source: 'none', quality: 'nessuna' };
 }
 
 async function searchGoogleBooks(q: string, signal: AbortSignal): Promise<MediaItem[]> {
@@ -237,7 +271,28 @@ async function searchGoogleBooks(q: string, signal: AbortSignal): Promise<MediaI
 
       const rawYear = info.publishedDate ? parseInt(info.publishedDate.slice(0, 4)) : undefined;
       const year = rawYear && !isNaN(rawYear) ? rawYear : undefined;
-      const coverImage = resolveCover(info);
+      const coverResult = resolveCover(info);
+      const coverImage = coverResult.url;
+
+      // ── DEBUG COPERTINE ──────────────────────────────────────────────────
+      const links = info.imageLinks || {};
+      const availableCovers: string[] = [];
+      if (links.large)          availableCovers.push('large');
+      if (links.medium)         availableCovers.push('medium');
+      if (links.small)          availableCovers.push('small');
+      if (links.thumbnail)      availableCovers.push('thumbnail');
+      if (links.smallThumbnail) availableCovers.push('smallThumbnail');
+      console.log(
+        `[BOOKS COVER] "${info.title}" (${info.language})
+` +
+        `  Disponibili: ${availableCovers.length > 0 ? availableCovers.join(', ') : 'NESSUNA google'}
+` +
+        `  Scelta: ${coverResult.source} | Qualità: ${coverResult.quality}
+` +
+        `  URL: ${coverImage || 'N/D'}`
+      );
+      // ────────────────────────────────────────────────────────────────────
+
       const ids: Array<{ type: string; identifier: string }> = info.industryIdentifiers || [];
       const isbn = ids.find(i => i.type === 'ISBN_13')?.identifier || ids.find(i => i.type === 'ISBN_10')?.identifier;
       const score = info.averageRating ? Math.round(info.averageRating * 2 * 10) / 10 : undefined;
