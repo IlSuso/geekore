@@ -1,6 +1,6 @@
 'use client';
 // src/app/discover/page.tsx
-// V4: + Boardgame (BGG) + Libri (Google Books) — News rimossa
+// Libri: chiamata Google Books diretta dal browser (IP italiano) invece che da Vercel (IP USA)
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
@@ -28,7 +28,6 @@ type MediaItem = {
   isbn?: string; publisher?: string;
 };
 
-// Ordine sezioni nei risultati raggruppati
 const TYPE_ORDER: Record<string, number> = {
   anime: 0, manga: 1, movie: 2, tv: 3, game: 4, boardgame: 5, book: 6,
 };
@@ -54,7 +53,6 @@ const TYPE_COLORS: Record<string, string> = {
   book:      'text-cyan-400 border-cyan-500/30 bg-cyan-500/10',
 };
 
-// Icona placeholder nelle card senza copertina
 const TYPE_PLACEHOLDER_ICON: Record<string, React.ReactNode> = {
   game:      <Gamepad2 size={28} />,
   boardgame: <Dices size={28} />,
@@ -89,7 +87,6 @@ function toMediaDetails(item: MediaItem): MediaDetails {
     developers: item.developers,
     themes: item.themes,
     authors: item.authors,
-    // campi libro
     ...(item.pages ? { pages: item.pages } as any : {}),
     ...(item.isbn ? { isbn: item.isbn } as any : {}),
     ...(item.publisher ? { publisher: item.publisher } as any : {}),
@@ -145,7 +142,133 @@ const FILTERS: { id: string; label: string; icon: React.ReactNode }[] = [
   { id: 'book',      label: 'Libri',    icon: <BookOpen size={13} /> },
 ];
 
-// ── V3: Search tracking helpers (fire-and-forget) ────────────────────────────
+// ── Google Books client-side (IP dell'utente = italiano) ──────────────────────
+
+const GOOGLE_BOOKS_BASE = 'https://www.googleapis.com/books/v1';
+const OPEN_LIBRARY_COVERS = 'https://covers.openlibrary.org/b';
+const GOOGLE_BOOKS_KEY = process.env.NEXT_PUBLIC_GOOGLE_BOOKS_KEY || '';
+
+const STOP_WORDS = new Set([
+  'il','lo','la','i','gli','le','un','uno','una',
+  'del','dello','della','dei','degli','delle',
+  'al','allo','alla','ai','agli','alle',
+  'dal','dallo','dalla','dai','dagli','dalle',
+  'nel','nello','nella','nei','negli','nelle',
+  'sul','sullo','sulla','sui','sugli','sulle',
+  'di','da','in','con','su','per','tra','fra',
+  'the','a','an',
+]);
+
+function normalizeTitle(s: string): string {
+  let r = s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+  const firstSpace = r.indexOf(' ');
+  if (firstSpace > 0) {
+    const firstWord = r.slice(0, firstSpace);
+    if (STOP_WORDS.has(firstWord)) r = r.slice(firstSpace + 1).trim();
+  }
+  return r;
+}
+
+function truncate(text: string, maxLen: number): string {
+  if (!text || text.length <= maxLen) return text;
+  const sub = text.slice(0, maxLen);
+  const last = Math.max(
+    sub.lastIndexOf('. '), sub.lastIndexOf('! '), sub.lastIndexOf('? '),
+  );
+  if (last > maxLen * 0.4) return sub.slice(0, last + 1).trim();
+  return sub.slice(0, sub.lastIndexOf(' ')).trim() || sub;
+}
+
+function resolveCover(volumeInfo: any): string | undefined {
+  const gb = volumeInfo.imageLinks?.large || volumeInfo.imageLinks?.medium ||
+             volumeInfo.imageLinks?.thumbnail || volumeInfo.imageLinks?.smallThumbnail;
+  if (gb) return gb.replace('http://', 'https://').replace('&edge=curl', '').replace('zoom=1', 'zoom=3');
+  const ids: Array<{ type: string; identifier: string }> = volumeInfo.industryIdentifiers || [];
+  const isbn = ids.find(i => i.type === 'ISBN_13')?.identifier || ids.find(i => i.type === 'ISBN_10')?.identifier;
+  if (isbn) return `${OPEN_LIBRARY_COVERS}/isbn/${isbn}-L.jpg`;
+  return undefined;
+}
+
+async function searchGoogleBooks(q: string, signal: AbortSignal): Promise<MediaItem[]> {
+  const TARGET = 15;
+  const PAGE_SIZE = 40;
+  const qNorm = normalizeTitle(q);
+
+  const makeUrl = (startIndex: number) => {
+    const p = new URLSearchParams({
+      q: `intitle:${q}`,
+      maxResults: String(PAGE_SIZE),
+      startIndex: String(startIndex),
+      printType: 'books',
+      orderBy: 'relevance',
+      langRestrict: 'it',
+      country: 'IT',
+      hl: 'it',
+      ...(GOOGLE_BOOKS_KEY ? { key: GOOGLE_BOOKS_KEY } : {}),
+    });
+    return `${GOOGLE_BOOKS_BASE}/volumes?${p}`;
+  };
+
+  const items: MediaItem[] = [];
+  const seenIds = new Set<string>();
+
+  // Fetch paginato: si ferma quando ha TARGET italiani o esaurisce i risultati
+  for (let page = 0; page < 5 && items.length < TARGET; page++) {
+    let data: any;
+    try {
+      const res = await fetch(makeUrl(page * PAGE_SIZE), { signal });
+      if (!res.ok) break;
+      data = await res.json();
+    } catch { break; }
+
+    const raw: any[] = Array.isArray(data.items) ? data.items : [];
+    if (raw.length === 0) break;
+
+    for (const vol of raw) {
+      if (items.length >= TARGET) break;
+      const info = vol.volumeInfo;
+      if (!info?.title) continue;
+      if (!normalizeTitle(info.title).startsWith(qNorm)) continue;
+      // Dal browser con IP italiano langRestrict=it funziona — teniamo solo italiani
+      // ma se per qualche motivo non ne arrivano abbastanza accettiamo tutto
+      const bookId = `book-${vol.id}`;
+      if (seenIds.has(bookId)) continue;
+      seenIds.add(bookId);
+
+      const rawYear = info.publishedDate ? parseInt(info.publishedDate.slice(0, 4)) : undefined;
+      const year = rawYear && !isNaN(rawYear) ? rawYear : undefined;
+      const coverImage = resolveCover(info);
+      const ids: Array<{ type: string; identifier: string }> = info.industryIdentifiers || [];
+      const isbn = ids.find(i => i.type === 'ISBN_13')?.identifier || ids.find(i => i.type === 'ISBN_10')?.identifier;
+      const score = info.averageRating ? Math.round(info.averageRating * 2 * 10) / 10 : undefined;
+      const rawDesc = (info.description || '').replace(/<[^>]+>/g, '').trim();
+
+      items.push({
+        id: bookId,
+        title: info.title,
+        type: 'book',
+        source: 'google_books',
+        coverImage,
+        year,
+        description: rawDesc ? truncate(rawDesc, 400) || undefined : undefined,
+        genres: info.categories || [],
+        authors: info.authors || [],
+        pages: info.pageCount || undefined,
+        score,
+        isbn,
+        publisher: info.publisher || undefined,
+      });
+    }
+  }
+
+  // Ordina: con cover prima, poi per score
+  return items.sort((a, b) => {
+    if (!!a.coverImage !== !!b.coverImage) return a.coverImage ? -1 : 1;
+    return (b.score ?? 0) - (a.score ?? 0);
+  });
+}
+
+// ── Search tracking helpers ───────────────────────────────────────────────────
 
 function trackSearchQuery(query: string, mediaType?: string) {
   if (!query || query.trim().length < 2) return;
@@ -197,7 +320,6 @@ export default function DiscoverPage() {
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const trackDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTrackedQueryRef = useRef<string>('');
 
   const supabase = createClient();
@@ -232,58 +354,61 @@ export default function DiscoverPage() {
     setLoading(true); setIsPending(false); setSearchError(null);
 
     try {
-      const reqs: Promise<Response>[] = [];
+      const reqs: Promise<MediaItem[] | Response>[] = [];
 
-      // Anime / Manga — AniList
+      // Anime / Manga — AniList (server-side)
       if (type === 'all' || type === 'anime' || type === 'manga')
         reqs.push(fetch(
           `/api/anilist?q=${encodeURIComponent(term)}${type !== 'all' ? `&type=${type}` : ''}&lang=${lang}`,
           { signal: controller.signal }
         ));
 
-      // Film / Serie — TMDB
+      // Film / Serie — TMDB (server-side)
       if (type === 'all' || type === 'movie' || type === 'tv')
         reqs.push(fetch(
           `/api/tmdb?q=${encodeURIComponent(term)}${type !== 'all' ? `&type=${type}` : ''}&lang=${lang}`,
           { signal: controller.signal }
         ));
 
-      // Videogiochi — IGDB
+      // Videogiochi — IGDB (server-side)
       if (type === 'all' || type === 'game')
         reqs.push(fetch(`/api/igdb?q=${encodeURIComponent(term)}&lang=${lang}`, { signal: controller.signal }));
 
-      // Giochi da tavolo — BGG
+      // Giochi da tavolo — BGG (server-side)
       if (type === 'all' || type === 'boardgame')
         reqs.push(fetch(`/api/bgg?q=${encodeURIComponent(term)}`, { signal: controller.signal }));
 
-      // Libri — Google Books
+      // Libri — Google Books CLIENT-SIDE (IP italiano dell'utente)
+      // NON passa per /api/books su Vercel per evitare la geolocalizzazione USA
       if (type === 'all' || type === 'book')
-        reqs.push(fetch(`/api/books?q=${encodeURIComponent(term)}&lang=${lang}`, { signal: controller.signal }));
+        reqs.push(searchGoogleBooks(term, controller.signal));
 
       const responses = await Promise.allSettled(reqs);
       if (controller.signal.aborted) return;
 
       const all: MediaItem[] = [];
       for (const r of responses) {
-        if (r.status === 'fulfilled' && r.value.ok) {
+        if (r.status !== 'fulfilled') continue;
+        const val = r.value;
+        // Se è un array (searchGoogleBooks) lo usiamo direttamente
+        if (Array.isArray(val)) {
+          all.push(...val);
+        } else if (val instanceof Response && val.ok) {
+          // Se è una Response (fetch server-side)
           try {
-            const data = await r.value.json();
+            const data = await val.json();
             if (Array.isArray(data)) all.push(...data);
           } catch {}
         }
       }
       if (controller.signal.aborted) return;
 
-      // Deduplicazione
       const seen = new Set<string>();
       const deduped = all.filter(i => { if (seen.has(i.id)) return false; seen.add(i.id); return true; });
-
-      // Filtra per cover valida
       const withCover = deduped.filter(hasValidCover);
       const filtered = type !== 'all' ? withCover.filter(i => i.type === type) : withCover;
       setResults(filtered);
 
-      // Traccia query
       const trimmed = term.trim();
       if (trimmed !== lastTrackedQueryRef.current && trimmed.length >= 2) {
         lastTrackedQueryRef.current = trimmed;
@@ -302,7 +427,6 @@ export default function DiscoverPage() {
     if (!searchTerm.trim() || searchTerm.trim().length < 2) {
       setResults([]); setIsPending(false);
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      if (trackDebounceRef.current) clearTimeout(trackDebounceRef.current);
       return;
     }
     setIsPending(true);
@@ -313,7 +437,6 @@ export default function DiscoverPage() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [searchTerm, activeType, search, locale]);
 
-  // V3: Wishlist con generi salvati + delta profilo gusti
   const toggleWishlist = async (media: MediaItem) => {
     haptic(30);
     const { data: { user } } = await supabase.auth.getUser();
@@ -431,7 +554,7 @@ export default function DiscoverPage() {
           </div>
         )}
 
-        {/* Filtri tipo — scroll orizzontale */}
+        {/* Filtri tipo */}
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 mb-5 -mx-4 px-4">
           {FILTERS.map(tf => (
             <button
@@ -449,14 +572,12 @@ export default function DiscoverPage() {
           ))}
         </div>
 
-        {/* Loading skeleton */}
         {loading && (
           <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
             {Array.from({ length: 12 }).map((_, i) => <SkeletonDiscoverCard key={i} />)}
           </div>
         )}
 
-        {/* Pending indicator */}
         {isPending && !loading && searchTerm.trim().length >= 2 && (
           <div className="flex items-center justify-center gap-2 py-4">
             <Loader2 size={16} className="animate-spin text-violet-400" />
@@ -468,7 +589,6 @@ export default function DiscoverPage() {
           <p className="text-center py-12 text-[var(--text-muted)] text-[14px]">{searchError}</p>
         )}
 
-        {/* Empty state */}
         {!loading && !searchTerm.trim() && (
           <div className="flex flex-col items-center justify-center py-20 text-center px-8">
             <div className="w-16 h-16 rounded-full bg-[var(--bg-card)] border border-[var(--border)] flex items-center justify-center mb-4">
@@ -481,7 +601,6 @@ export default function DiscoverPage() {
           </div>
         )}
 
-        {/* No results */}
         {!loading && !searchError && results.length === 0 && searchTerm.trim().length >= 2 && !isPending && (
           <div className="flex flex-col items-center justify-center py-20 text-center px-8">
             <p className="text-[16px] font-semibold text-[var(--text-primary)] mb-1">Nessun risultato</p>
@@ -489,10 +608,8 @@ export default function DiscoverPage() {
           </div>
         )}
 
-        {/* Risultati raggruppati per tipo */}
         {showingResults && grouped.map(([type, items]) => items.length === 0 ? null : (
           <div key={type} className="mb-8">
-            {/* Header sezione */}
             <div className="flex items-center gap-2 mb-3">
               <span
                 className="text-[12px] font-semibold px-2.5 py-1 rounded-full"
@@ -503,7 +620,6 @@ export default function DiscoverPage() {
               <span className="text-[12px] text-[var(--text-muted)]">{items.length} risultati</span>
             </div>
 
-            {/* Grid 3 colonne */}
             <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
               {items.map((item, i) => (
                 <div
@@ -531,18 +647,13 @@ export default function DiscoverPage() {
                           }}
                         />
                       : null}
-                    {/* Placeholder icon */}
                     <div
                       className="w-full h-full items-center justify-center text-[var(--text-muted)]"
                       style={{ display: hasValidCover(item) ? 'none' : 'flex' }}
                     >
                       {TYPE_PLACEHOLDER_ICON[type] ?? <Film size={28} />}
                     </div>
-
-                    {/* Hover overlay */}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-
-                    {/* Action buttons on hover */}
                     <div className="absolute inset-0 flex flex-col justify-between p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <div className="flex justify-end">
                         <button
@@ -570,8 +681,6 @@ export default function DiscoverPage() {
                       </div>
                     </div>
                   </div>
-
-                  {/* Titolo sotto */}
                   <p className="text-[11px] font-medium text-[var(--text-primary)] line-clamp-2 leading-snug mt-1 px-0.5">
                     {locale === 'en' && item.title_en ? item.title_en : item.title}
                   </p>
