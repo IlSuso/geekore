@@ -1,42 +1,23 @@
 // src/app/api/books/route.ts
-// FIX: Edge Function su region cdg1 (Parigi) — Google vede IP europeo e rispetta langRestrict=it
+// Edge Function su fra1 (Francoforte) — Google vede IP europeo e rispetta langRestrict=it
+// Key: GOOGLE_BOOKS_API_KEY (segreta, server-side)
 
 export const runtime = 'edge'
-export const preferredRegion = 'cdg1' // Parigi — IP europeo, Google rispetta langRestrict=it
+export const preferredRegion = 'fra1' // Francoforte
 
 import { NextRequest, NextResponse } from 'next/server'
 import { truncateAtSentence } from '@/lib/utils'
 
 const GOOGLE_BOOKS_BASE = 'https://www.googleapis.com/books/v1'
-const OPEN_LIBRARY_COVERS = 'https://covers.openlibrary.org/b'
 
-function openLibraryCoverByISBN(isbn: string): string {
-  return `${OPEN_LIBRARY_COVERS}/isbn/${isbn}-L.jpg`
-}
-
-function resolveCoverUrl(volumeInfo: any): string | undefined {
-  const gbThumb =
-    volumeInfo.imageLinks?.large ||
-    volumeInfo.imageLinks?.medium ||
-    volumeInfo.imageLinks?.thumbnail ||
-    volumeInfo.imageLinks?.smallThumbnail
-
-  if (gbThumb) {
-    return gbThumb
-      .replace('http://', 'https://')
-      .replace('&edge=curl', '')
-      .replace('zoom=1', 'zoom=3')
-  }
-
-  const identifiers: Array<{ type: string; identifier: string }> =
-    volumeInfo.industryIdentifiers || []
-  const isbn13 = identifiers.find(i => i.type === 'ISBN_13')?.identifier
-  const isbn10 = identifiers.find(i => i.type === 'ISBN_10')?.identifier
-
-  if (isbn13) return openLibraryCoverByISBN(isbn13)
-  if (isbn10) return openLibraryCoverByISBN(isbn10)
-
-  return undefined
+function resolveCover(volumeInfo: any): string | undefined {
+  const links = volumeInfo.imageLinks || {}
+  const best = links.large || links.medium || links.small || links.thumbnail || links.smallThumbnail
+  if (!best) return undefined
+  return best
+    .replace('http://', 'https://')
+    .replace('&edge=curl', '')
+    .replace('zoom=1', 'zoom=3')
 }
 
 interface BookItem {
@@ -59,27 +40,23 @@ interface BookItem {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const q = searchParams.get('q')?.trim()
-
   if (!q || q.length < 2) return NextResponse.json([])
 
-  const GOOGLE_BOOKS_KEY = process.env.GOOGLE_BOOKS_API_KEY
-
+  const KEY = process.env.GOOGLE_BOOKS_API_KEY
   const TARGET = 15
   const PAGE_SIZE = 40
-  // Fetch molti più risultati perché filtriamo lato codice per lang=it
-  const PAGE_SIZE_LARGE = 40
-  const MAX_PAGES = 5 // fino a 200 risultati totali per trovare abbastanza italiani
 
-  const makeUrl = (q_str: string, startIndex: number) => {
+  const makeUrl = (startIndex: number) => {
     const p = new URLSearchParams({
-      q: q_str,
-      maxResults: String(PAGE_SIZE_LARGE),
+      q: `intitle:${q}`,
+      maxResults: String(PAGE_SIZE),
       startIndex: String(startIndex),
       printType: 'books',
       orderBy: 'relevance',
+      langRestrict: 'it',
       country: 'IT',
       hl: 'it',
-      ...(GOOGLE_BOOKS_KEY ? { key: GOOGLE_BOOKS_KEY } : {}),
+      ...(KEY ? { key: KEY } : {}),
     })
     return `${GOOGLE_BOOKS_BASE}/volumes?${p}`
   }
@@ -108,53 +85,25 @@ export async function GET(req: NextRequest) {
   const qNorm = normalize(q)
 
   try {
-    // Strategia: fetch paginato su più pagine, raccogliamo TUTTI i risultati
-    // e filtriamo lato codice per lang=it — unica soluzione affidabile
-    // dato che langRestrict=it viene ignorato dai server USA di Vercel
-
-    const seenRaw = new Set<string>()
-    let allRaw: any[] = []
-
-    // Fetch parallelo di MAX_PAGES pagine per raccogliere molti risultati
-    const pageRequests = Array.from({ length: MAX_PAGES }, (_, i) =>
-      fetch(makeUrl(`intitle:${q}`, i * PAGE_SIZE_LARGE))
-    )
-    const pageResults = await Promise.allSettled(pageRequests)
-
-    for (let i = 0; i < pageResults.length; i++) {
-      const r = pageResults[i]
-      if (r.status !== 'fulfilled' || !r.value.ok) continue
-      try {
-        const data = await r.value.json()
-        const raw = Array.isArray(data.items) ? data.items : []
-        if (raw.length === 0) break // niente più risultati
-        const itCount = raw.filter((v: any) => v.volumeInfo?.language === 'it').length
-        console.log(`[BOOKS] Pagina ${i+1}: ${raw.length} risultati | it=${itCount} | lingue: ${[...new Set(raw.map((v: any) => v.volumeInfo?.language))].join(',')}`)
-        for (const v of raw) {
-          if (!seenRaw.has(v.id)) { seenRaw.add(v.id); allRaw.push(v) }
-        }
-      } catch {}
-    }
-
-    // Separa italiani da non-italiani
-    const itRaw = allRaw.filter(v => v.volumeInfo?.language === 'it')
-    const otherRaw = allRaw.filter(v => v.volumeInfo?.language !== 'it')
-    console.log(`[BOOKS] Totale: ${allRaw.length} | italiani: ${itRaw.length} | altri: ${otherRaw.length}`)
-
-    // Usa italiani se ne abbiamo abbastanza, altrimenti fallback su tutti
-    const sourceRaw = itRaw.length >= 3 ? itRaw : allRaw
-
     const items: BookItem[] = []
     const seenIds = new Set<string>()
 
-    for (const vol of sourceRaw) {
+    // Solo prima pagina — la paginazione causa throttling 503
+    const res = await fetch(makeUrl(0))
+    if (!res.ok) return NextResponse.json([])
+
+    const data = await res.json()
+    const raw: any[] = Array.isArray(data.items) ? data.items : []
+
+    console.log(`[BOOKS] region=fra1 | query="${q}" | risultati=${raw.length} | lingue: ${[...new Set(raw.map((v: any) => v.volumeInfo?.language))].join(',')}`)
+
+    for (const vol of raw) {
       if (items.length >= TARGET) break
 
       const info = vol.volumeInfo
       if (!info?.title) continue
 
-      const normalizedBookTitle = normalize(info.title)
-      if (!normalizedBookTitle.startsWith(qNorm)) continue
+      if (!normalize(info.title).startsWith(qNorm)) continue
 
       const bookId = `book-${vol.id}`
       if (seenIds.has(bookId)) continue
@@ -162,7 +111,7 @@ export async function GET(req: NextRequest) {
 
       const rawYear = info.publishedDate ? parseInt(info.publishedDate.slice(0, 4)) : undefined
       const year = rawYear && !isNaN(rawYear) ? rawYear : undefined
-      const coverImage = resolveCoverUrl(info)
+      const coverImage = resolveCover(info)
       const identifiers: Array<{ type: string; identifier: string }> = info.industryIdentifiers || []
       const isbn =
         identifiers.find(i => i.type === 'ISBN_13')?.identifier ||
@@ -189,14 +138,8 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // Filtro intelligente: se abbiamo almeno 5 italiani usiamo solo quelli,
-    // altrimenti teniamo tutto per non lasciare la pagina vuota
-    const italianItems = items.filter(b => b.language === 'it')
-    const finalItems = italianItems.length >= 5 ? italianItems : items
-    console.log(`[BOOKS] Filtro IT: ${italianItems.length} italiani / ${items.length} totali → ${finalItems === italianItems ? 'SOLO IT' : 'TUTTI (it insufficienti)'}`)
-
-    // Sort finale: it prima, poi cover, poi score
-    const sorted = [...finalItems].sort((a, b) => {
+    // Italiani prima, poi con cover, poi score
+    const sorted = [...items].sort((a, b) => {
       const aIt = a.language === 'it' ? 0 : 1
       const bIt = b.language === 'it' ? 0 : 1
       if (aIt !== bIt) return aIt - bIt
@@ -204,13 +147,13 @@ export async function GET(req: NextRequest) {
       return (b.score ?? 0) - (a.score ?? 0)
     })
 
-    console.log(`[BOOKS] Risposta finale: ${sorted.length} libri | lingue: ${[...new Set(sorted.map(b => b.language))].join(',')}`)
+    console.log(`[BOOKS] risposta finale: ${sorted.length} libri | lingue: ${[...new Set(sorted.map(b => b.language))].join(',')}`)
 
     return NextResponse.json(sorted, {
       headers: { 'Cache-Control': 'no-store' },
     })
   } catch (err) {
-    console.error('[BOOKS] ERRORE:', err)
+    console.error('[BOOKS] errore:', err)
     return NextResponse.json([])
   }
 }

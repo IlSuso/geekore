@@ -83,29 +83,6 @@
       "purpose": "any"
     }
   ],
-  "screenshots": [
-    {
-      "src": "/screenshots/feed-mobile.png",
-      "sizes": "390x844",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Feed della community"
-    },
-    {
-      "src": "/screenshots/profile-mobile.png",
-      "sizes": "390x844",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Collezione personale"
-    },
-    {
-      "src": "/screenshots/discover-desktop.png",
-      "sizes": "1280x800",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Discover"
-    }
-  ],
   "shortcuts": [
     {
       "name": "Feed",
@@ -175,7 +152,8 @@
       "title": "title",
       "text": "search",
       "url": "url"
-    }
+    },
+    "enctype": "application/x-www-form-urlencoded"
   },
   "protocol_handlers": [
     {
