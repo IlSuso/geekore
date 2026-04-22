@@ -6,7 +6,19 @@ export const runtime = 'edge'
 export const preferredRegion = 'fra1' // Francoforte
 
 import { NextRequest, NextResponse } from 'next/server'
-import { truncateAtSentence } from '@/lib/utils'
+
+function truncateAtSentence(text: string, maxLen: number): string {
+  if (!text || text.length <= maxLen) return text
+  const sub = text.slice(0, maxLen)
+  const last = Math.max(
+    sub.lastIndexOf('. '), sub.lastIndexOf('! '), sub.lastIndexOf('? '),
+    sub.lastIndexOf('.\n'), sub.lastIndexOf('!\n'), sub.lastIndexOf('?\n'),
+    sub.lastIndexOf('."'), sub.lastIndexOf('!"'), sub.lastIndexOf('?"'),
+  )
+  if (last > maxLen * 0.4) return sub.slice(0, last + 1).trim()
+  const lastSpace = sub.lastIndexOf(' ')
+  return lastSpace > 0 ? sub.slice(0, lastSpace).trim() : sub
+}
 
 const GOOGLE_BOOKS_BASE = 'https://www.googleapis.com/books/v1'
 const OPEN_LIBRARY_COVERS = 'https://covers.openlibrary.org/b'
@@ -115,6 +127,10 @@ export async function GET(req: NextRequest) {
     const items: BookItem[] = []
     const seenIds = new Set<string>()
 
+    console.log(`[BOOKS DEBUG] ========================================`)
+    console.log(`[BOOKS DEBUG] Query: "${q}" | qNorm: "${qNorm}"`)
+    console.log(`[BOOKS DEBUG] KEY presente: ${!!GOOGLE_BOOKS_KEY}`)
+
     for (let call = 0; call < MAX_CALLS; call++) {
       if (items.length >= TARGET) break
 
@@ -127,10 +143,15 @@ export async function GET(req: NextRequest) {
           fetch(makeParams(startIndex, true)),
         ])
 
-        for (const r of [resGlobal, resIt] as PromiseSettledResult<Response>[]) {
-          if (r.status !== 'fulfilled' || !r.value.ok) continue
+        for (const [label, r] of [['GLOBAL', resGlobal], ['IT', resIt]] as [string, PromiseSettledResult<Response>][]) {
+          if (r.status !== 'fulfilled') { console.log(`[BOOKS DEBUG] ${label}: fetch FALLITA`); continue }
+          console.log(`[BOOKS DEBUG] ${label}: HTTP ${r.value.status}`)
+          if (!r.value.ok) { console.log(`[BOOKS DEBUG] ${label}: risposta non OK`); continue }
           let data: any
-          try { data = await r.value.json() } catch { continue }
+          try { data = await r.value.json() } catch (e) { console.log(`[BOOKS DEBUG] ${label}: JSON parse error`, e); continue }
+          const count = Array.isArray(data.items) ? data.items.length : 0
+          const langs = Array.isArray(data.items) ? [...new Set(data.items.map((v: any) => v.volumeInfo?.language))].join(',') : 'N/D'
+          console.log(`[BOOKS DEBUG] ${label}: ${count} volumi | lingue: ${langs} | totalItems: ${data.totalItems ?? '?'}`)
           if (Array.isArray(data.items)) results.push(...data.items)
         }
       } catch {
@@ -145,7 +166,8 @@ export async function GET(req: NextRequest) {
         return true
       })
 
-      if (results.length === 0) break
+      console.log(`[BOOKS DEBUG] Dopo dedup: ${results.length} volumi`)
+      if (results.length === 0) { console.log(`[BOOKS DEBUG] Nessun risultato, stop`); break }
 
       for (const vol of results) {
         if (items.length >= TARGET) break
@@ -155,7 +177,10 @@ export async function GET(req: NextRequest) {
 
         const normalizedBookTitle = normalize(info.title)
 
-        if (!normalizedBookTitle.startsWith(qNorm)) continue
+        if (!normalizedBookTitle.startsWith(qNorm)) {
+          console.log(`[BOOKS DEBUG] SCARTATO titolo: "${info.title}" (norm: "${normalizedBookTitle}")`)
+          continue
+        }
 
         const bookId = `book-${vol.id}`
         if (seenIds.has(bookId)) continue
@@ -173,6 +198,7 @@ export async function GET(req: NextRequest) {
         const description = rawDesc ? truncateAtSentence(rawDesc, 400) || undefined : undefined
         const genres: string[] = info.categories || []
 
+        console.log(`[BOOKS DEBUG] AGGIUNTO: "${info.title}" | lang=${info.language} | cover=${!!resolveCoverUrl(info)}`)
         items.push({
           id: bookId,
           title: info.title,
@@ -201,11 +227,15 @@ export async function GET(req: NextRequest) {
       return (b.score ?? 0) - (a.score ?? 0)
     })
 
+    console.log(`[BOOKS DEBUG] RISPOSTA FINALE: ${sorted.length} libri`)
+    sorted.forEach((b, i) => console.log(`[BOOKS DEBUG]   [${i+1}] "${b.title}" lang=${b.language} cover=${!!b.coverImage}`))
+    console.log(`[BOOKS DEBUG] ========================================`)
+
     return NextResponse.json(sorted, {
       headers: { 'Cache-Control': 'no-store' },
     })
   } catch (err) {
-    console.error('[Books API]', err)
+    console.error('[BOOKS DEBUG] ERRORE CRITICO:', err)
     return NextResponse.json([])
   }
 }
