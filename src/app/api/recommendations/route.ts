@@ -2728,6 +2728,61 @@ const BGG_CATEGORY_SEED_IDS: Record<string, string[]> = {
     '257078',  // Clank! In! Space!
     '367220',  // Altered (TCG)
   ],
+  'Classics': [
+    // Classici pre-2005 di altissima qualità che meritano di stare nel pool
+    '13',      // Catan
+    '68448',   // 7 Wonders
+    '30549',   // Pandemic
+    '9220',    // Ticket to Ride (2004)
+    '31260',   // Agricola
+    '9209',    // Carcassonne
+    '12333',   // Twilight Struggle
+    '25613',   // War of the Ring
+    '3076',    // Puerto Rico
+    '37111',   // Twilight Imperium 3rd Ed
+    '476',     // Risk (storico)
+    '9065',    // Blokus
+    '522',     // Cluedo/Clue
+    '11901',   // Bohnanza
+    '40692',   // Coup
+    '22545',   // Memoir '44
+    '50380',   // Commands & Colors: Ancients
+    '9217',    // Twilight Struggle (già presente)
+    '148228',  // Cosmic Encounter
+    '199478',  // Anachrony
+    '163412',  // Skull
+    '198773',  // Hive
+    '171650',  // Takenoko
+    '143741',  // Barenpark
+  ],
+  'Family': [
+    // Giochi adatti a tutti, non solo hardcore — amplia la fascia accessibile
+    '13',      // Catan
+    '9220',    // Ticket to Ride
+    '9209',    // Carcassonne
+    '317985',  // Cascadia
+    '146021',  // Patchwork
+    '230802',  // Azul
+    '283355',  // Azul Summer Pavilion
+    '260180',  // Sagrada
+    '198994',  // Santorini
+    '171650',  // Takenoko
+    '143741',  // Barenpark
+    '276025',  // The Mind
+    '287954',  // Just One
+    '364073',  // So Clover!
+    '310873',  // Calico
+    '329354',  // Forest Shuffle
+    '299801',  // Quacks of Quedlinburg
+    '311043',  // Meadow
+    '372782',  // Kabuto Sumo
+    '350184',  // Sky Team
+    '284217',  // Mysterium Park
+    '213052',  // Mysterium
+    '219513',  // The Grizzled
+    '148949',  // Flash Point: Fire Rescue
+    '210996',  // Magic Maze
+  ],
 }
 
 async function fetchBGGHotList(headers: HeadersInit): Promise<string[]> {
@@ -2755,18 +2810,37 @@ async function fetchBoardgameRecs(
     'User-Agent': 'Geekore/1.0 (geekore.it)',
     ...(process.env.BGG_BEARER_TOKEN ? { Authorization: `Bearer ${process.env.BGG_BEARER_TOKEN}` } : {}),
   }
-  const BGG_MIN_YEAR = 1995  // includi classici moderni dal '95
-  const BGG_MAX_RANK = 1500  // amplia pool a top 1500 per titoli di nicchia
+  const BGG_MIN_YEAR = 1990  // includi classici moderni dal '90
+  const BGG_MAX_RANK = 2500  // amplia pool a top 2500 per titoli di nicchia
 
   // ── Step 1: raccogli ID pool in parallelo ────────────────────────────────
-  const activeSlots = slots.slice(0, 8)  // considera più slot per pool più vario
+  const activeSlots = slots.slice(0, 12)  // più slot per pool più vario
   const seedIds = new Set<string>()
   for (const slot of activeSlots) {
     const seeds = BGG_CATEGORY_SEED_IDS[slot.genre] || BGG_CATEGORY_SEED_IDS['Strategy'] || []
     for (const id of seeds) seedIds.add(id)
   }
   const hotIds = await fetchBGGHotList(bggHeaders)
-  const allIds = [...new Set([...hotIds, ...seedIds])]
+
+  // Fetch top BGG per rank (pagine 1 e 2 = top ~200 titoli oggettivamente buoni)
+  // Integra seed ID fissi con titoli che il ranking BGG promuove organicamente
+  const topRankedIds = await (async () => {
+    try {
+      const pages = await Promise.all([1, 2, 3].map(page =>
+        fetch(`${BGG_BASE}/search?query=&type=boardgame&page=${page}`, {
+          headers: bggHeaders, signal: AbortSignal.timeout(8000), next: { revalidate: 86400 },
+        }).then(r => r.ok ? r.text() : '').catch(() => '')
+      ))
+      const ids: string[] = []
+      for (const xml of pages) {
+        const re = /<item[^>]*id="(\d+)"/g; let m
+        while ((m = re.exec(xml)) !== null) ids.push(m[1])
+      }
+      return ids
+    } catch { return [] as string[] }
+  })()
+
+  const allIds = [...new Set([...hotIds, ...topRankedIds, ...seedIds])]
   if (allIds.length === 0) return []
 
   // ── Step 2: fetch dettagli in batch paralleli da 20 ──────────────────────
@@ -2839,7 +2913,7 @@ async function fetchBoardgameRecs(
 
       const ratingM = chunk.match(/<average[^>]*value="([\d.]+)"/)
       const bggScore = ratingM ? parseFloat(ratingM[1]) : undefined
-      if (bggScore !== undefined && bggScore < 6.0) continue
+      if (bggScore !== undefined && bggScore < 5.8) continue
 
       const minpM = chunk.match(/<minplayers[^>]*value="(\d+)"/)
       const maxpM = chunk.match(/<maxplayers[^>]*value="(\d+)"/)
@@ -2855,7 +2929,7 @@ async function fetchBoardgameRecs(
       const recGenres = [...crossGenres]
 
       const matchScore = computeMatchScore(recGenres, mechanics, tasteProfile, [], [])
-      if (matchScore < 5) continue  // soglia bassa per pool master ampio
+      if (matchScore < 3) continue  // soglia minima per pool master ampio — filtra solo titoli totalmente fuori gusto
 
       const bestSlot = activeSlots.find(s =>
         (BGG_CATEGORY_SEED_IDS[s.genre] || []).includes(idM[1]) ||

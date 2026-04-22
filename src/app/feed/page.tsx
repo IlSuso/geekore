@@ -161,6 +161,10 @@ function CategoryBadge({ category, onClick }: { category: string | null | undefi
 
 // ── API search per categoria ─────────────────────────────────────────────────
 
+function normalize(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+}
+
 type SearchResult = { id: string; title: string; subtitle?: string; image?: string }
 
 async function searchByCategory(category: string, query: string): Promise<SearchResult[]> {
@@ -298,7 +302,9 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
     setIsSearching(true)
     debounceRef.current = setTimeout(async () => {
       const results = await searchByCategory(selectedCat, subInput)
-      setSuggestions(results); setIsSearching(false); setActiveSuggestion(-1)
+      const qNorm = normalize(subInput.trim())
+      const filtered = results.filter(r => normalize(r.title).startsWith(qNorm))
+      setSuggestions(filtered); setIsSearching(false); setActiveSuggestion(-1)
     }, 300)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [subInput, selectedCat, step])
@@ -554,7 +560,9 @@ function CategoryFilter({
     setIsSearching(true)
     debounceRef.current = setTimeout(async () => {
       const results = await searchByCategory(activeMacro, subSearch)
-      setSuggestions(results)
+      const qNorm = normalize(subSearch.trim())
+      const filtered = results.filter(r => normalize(r.title).startsWith(qNorm))
+      setSuggestions(filtered)
       setIsSearching(false)
     }, 300)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }

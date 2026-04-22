@@ -39,6 +39,10 @@ function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
   return url.length >= 10 && !url.includes('N/A') && !url.includes('placeholder') && !url.includes('no-image');
 }
 
+function normalize(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
 const TYPE_LABELS: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV',
   game: 'Videogiochi', boardgame: 'Giochi da tavolo',
@@ -274,7 +278,11 @@ export default function DiscoverPage() {
       // Filtra per cover valida
       const withCover = deduped.filter(hasValidCover);
       const filtered = type !== 'all' ? withCover.filter(i => i.type === type) : withCover;
-      setResults(filtered);
+      const qNorm = normalize(term.trim());
+      const startFiltered = qNorm.length >= 2
+        ? filtered.filter(item => normalize(item.title).startsWith(qNorm))
+        : filtered;
+      setResults(startFiltered);
 
       // Traccia query
       const trimmed = term.trim();
