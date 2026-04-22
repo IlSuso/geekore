@@ -183,22 +183,9 @@ function cleanGoogleUrl(url: string): string {
   return url.replace('http://', 'https://').replace('&edge=curl', '').replace('zoom=1', 'zoom=3');
 }
 
-// Accetta SOLO URL che terminano con .jpg o .jpeg (case insensitive)
-// Tutto il resto (PNG, WebP, HTML, placeholder, ecc.) viene scartato
-function isJpeg(url: string): boolean {
-  const clean = url.split('?')[0].toLowerCase();
-  return clean.endsWith('.jpg') || clean.endsWith('.jpeg');
-}
-
+// Estrae l'URL candidato migliore dai link Google Books (senza ancora verificare il formato)
 function resolveCover(volumeInfo: any): { url: string | undefined; source: string; quality: string } {
   const links = volumeInfo.imageLinks || {};
-
-  const available: string[] = [];
-  if (links.large)          available.push('large');
-  if (links.medium)         available.push('medium');
-  if (links.small)          available.push('small');
-  if (links.thumbnail)      available.push('thumbnail');
-  if (links.smallThumbnail) available.push('smallThumbnail');
 
   const candidates = [
     { raw: links.large,          label: 'large',          quality: 'alta' },
@@ -211,13 +198,24 @@ function resolveCover(volumeInfo: any): { url: string | undefined; source: strin
   for (const c of candidates) {
     if (!c.raw) continue;
     const url = cleanGoogleUrl(c.raw);
-    if (isJpeg(url)) {
-      return { url, source: `google:${c.label}`, quality: c.quality };
-    }
+    return { url, source: `google:${c.label}`, quality: c.quality };
   }
 
-  // Nessun JPEG trovato
   return { url: undefined, source: 'none', quality: 'nessuna' };
+}
+
+// Verifica tramite richiesta HEAD se l'URL è un JPEG reale
+// Restituisce l'URL se è image/jpeg, undefined altrimenti
+async function verifyJpeg(url: string): Promise<string | undefined> {
+  try {
+    const res = await fetch(url, { method: 'HEAD' });
+    const ct = res.headers.get('content-type') || '';
+    const isJpeg = ct.includes('image/jpeg');
+    console.log(`[BOOKS COVER] HEAD ${url.slice(0, 60)}... → ${ct} → ${isJpeg ? 'JPEG ✓' : 'NON JPEG ✗'}`);
+    return isJpeg ? url : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 async function searchGoogleBooks(q: string, signal: AbortSignal): Promise<MediaItem[]> {
@@ -274,9 +272,9 @@ async function searchGoogleBooks(q: string, signal: AbortSignal): Promise<MediaI
       const rawYear = info.publishedDate ? parseInt(info.publishedDate.slice(0, 4)) : undefined;
       const year = rawYear && !isNaN(rawYear) ? rawYear : undefined;
       const coverResult = resolveCover(info);
-      const coverImage = coverResult.url;
+      const candidateUrl = coverResult.url;
 
-      // ── DEBUG COPERTINE ──────────────────────────────────────────────────
+      // DEBUG: log copertine disponibili e candidata scelta (HEAD verificherà se è JPEG)
       const links = info.imageLinks || {};
       const availableCovers: string[] = [];
       if (links.large)          availableCovers.push('large');
@@ -287,13 +285,12 @@ async function searchGoogleBooks(q: string, signal: AbortSignal): Promise<MediaI
       console.log(
         `[BOOKS COVER] "${info.title}" (${info.language})
 ` +
-        `  Disponibili: ${availableCovers.length > 0 ? availableCovers.join(', ') : 'NESSUNA google'}
+        `  Disponibili: ${availableCovers.length > 0 ? availableCovers.join(', ') : 'NESSUNA'}
 ` +
-        `  Scelta: ${coverResult.source} | Qualità: ${coverResult.quality}
+        `  Candidata: ${coverResult.source} | Qualità stimata: ${coverResult.quality}
 ` +
-        `  URL: ${coverImage || 'N/D'}`
+        `  URL candidato: ${candidateUrl || 'N/D'} → verrà verificato JPEG via HEAD`
       );
-      // ────────────────────────────────────────────────────────────────────
 
       const ids: Array<{ type: string; identifier: string }> = info.industryIdentifiers || [];
       const isbn = ids.find(i => i.type === 'ISBN_13')?.identifier || ids.find(i => i.type === 'ISBN_10')?.identifier;
@@ -305,7 +302,7 @@ async function searchGoogleBooks(q: string, signal: AbortSignal): Promise<MediaI
         title: info.title,
         type: 'book',
         source: 'google_books',
-        coverImage,
+        coverImage: candidateUrl, // verrà verificato JPEG dopo il loop
         year,
         description: rawDesc ? truncate(rawDesc, 400) || undefined : undefined,
         genres: info.categories || [],
@@ -317,6 +314,14 @@ async function searchGoogleBooks(q: string, signal: AbortSignal): Promise<MediaI
       });
     }
   }
+
+  // Verifica in parallelo se ogni copertina candidata è davvero un JPEG
+  // HEAD request: scarica solo gli header, non l'immagine intera
+  await Promise.all(items.map(async (item) => {
+    if (!item.coverImage) return;
+    const verified = await verifyJpeg(item.coverImage);
+    item.coverImage = verified; // undefined se non è JPEG
+  }));
 
   // Ordina: con cover prima, poi per score
   return items.sort((a, b) => {
