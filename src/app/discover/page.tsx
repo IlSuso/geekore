@@ -6,6 +6,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
 import {
   Search, Plus, X, Film, Tv, Gamepad2, Bookmark, BookmarkCheck,
+  Dices, Layers, Swords, Mic, MicOff, Loader2, Check,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { showToast } from '@/components/ui/Toast';
@@ -251,7 +252,6 @@ export default function DiscoverPage() {
       // Giochi da tavolo — BGG
       if (type === 'all' || type === 'boardgame')
         reqs.push(fetch(`/api/bgg?q=${encodeURIComponent(term)}`, { signal: controller.signal }));
-
 
       const responses = await Promise.allSettled(reqs);
       if (controller.signal.aborted) return;
