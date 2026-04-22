@@ -87,13 +87,11 @@ export async function GET(req: NextRequest) {
 
   const makeParams = (startIndex: number) => {
     const p = new URLSearchParams({
-      q: `intitle:${q} lang:it`,
+      q: `intitle:${q}`,
       maxResults: String(PAGE_SIZE),
       startIndex: String(startIndex),
       printType: 'books',
       orderBy: 'relevance',
-      langRestrict: 'it',
-      country: 'IT',
       ...(GOOGLE_BOOKS_KEY ? { key: GOOGLE_BOOKS_KEY } : {}),
     })
     return `${GOOGLE_BOOKS_BASE}/volumes?${p}`
