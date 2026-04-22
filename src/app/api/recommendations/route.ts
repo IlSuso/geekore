@@ -2150,9 +2150,194 @@ async function fetchGameRecs(
 
 
 // ── fetchBoardgameRecs ────────────────────────────────────────────────────────
-// Usa BGG /xmlapi2/search per trovare giochi per categoria, poi /thing per dettagli.
-// V2: fetch parallelo delle categorie, niente sleep tra slot, filtro anno>=2005 e rank<=1000.
+// V3: hot list BGG + seed ID per categoria → pool master ricco.
+// Niente sleep, fetch parallelo, filtro rank<=1000 e anno>=2005.
+
+// ID BGG seed per categoria — top games dalla BGG top 500
+const BGG_CATEGORY_SEED_IDS: Record<string, string[]> = {
+  'Strategy':         ['161936','120677','167791','174430','169786','233078','266192','342942','311031','293006','295947','316554','28720','30549','37111','68448','9209','476','3076','31260','187645','182028','173346','270844'],
+  'Fantasy':          ['174430','167791','170042','182028','205637','262543','291457','316554','329082','342942','3076','9209','37111','70323','31260','25613','110327','220308','233078'],
+  'Science Fiction':  ['169786','173346','187645','193840','220308','233078','266192','271324','295947','342942','12333','28720','31260','37111','68448','9209','311031'],
+  'Adventure':        ['167791','174430','182028','220308','233078','270844','291457','316554','329082','342942','3076','9209','37111','70323','110327','25613','266192'],
+  'Cooperative Play': ['161936','174430','182028','215312','220308','271324','291457','316554','329082','342942','9209','37111','12333','68448','266192','293006'],
+  'Social Deduction': ['178900','220308','231080','266192','271324','291457','342942','9220','13','203993','230802'],
+  'Deduction':        ['178900','220308','266192','295947','316554','342942','9220','13','203993','30549','271324'],
+  'Wargame':          ['12333','28720','37111','68448','124361','182028','233078','266192','342942','9209','173346'],
+  'Economic':         ['120677','161936','169786','173346','187645','220308','233078','266192','295947','311031','31260','270844'],
+  'Role Playing':     ['161936','174430','182028','220308','291457','316554','329082','342942','9209','3076','70323','266192'],
+  'Horror':           ['182028','220308','266192','271324','316554','329082','342942','12333','68448','293006'],
+  'Party Game':       ['13','9220','203993','291457','178900','220308','266192','230802','316554'],
+  'Murder/Mystery':   ['178900','9220','13','203993','220308','266192','295947','271324'],
+  'Puzzle':           ['342942','295947','266192','220308','169786','120677','31260','293006'],
+  'Abstract Strategy':['37111','31260','28720','9209','169786','120677','295947','342942'],
+}
+
+async function fetchBGGHotList(headers: HeadersInit): Promise<string[]> {
+  try {
+    const res = await fetch('https://boardgamegeek.com/xmlapi2/hot?type=boardgame', {
+      headers, signal: AbortSignal.timeout(8000), next: { revalidate: 3600 },
+    })
+    if (!res.ok) return []
+    const xml = await res.text()
+    const idRe = /<item[^>]*id="(\d+)"/g
+    const ids: string[] = []
+    let m
+    while ((m = idRe.exec(xml)) !== null) ids.push(m[1])
+    return ids
+  } catch { return [] }
+}
+
 async function fetchBoardgameRecs(
+  slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile,
+  isAlreadyOwned: (type: string, id: string, title: string) => boolean,
+  shownIds?: Set<string>
+): Promise<Recommendation[]> {
+  const BGG_BASE = 'https://boardgamegeek.com/xmlapi2'
+  const bggHeaders: HeadersInit = {
+    'User-Agent': 'Geekore/1.0 (geekore.it)',
+    ...(process.env.BGG_BEARER_TOKEN ? { Authorization: `Bearer ${process.env.BGG_BEARER_TOKEN}` } : {}),
+  }
+  const BGG_MIN_YEAR = 2005
+  const BGG_MAX_RANK = 1000
+
+  // ── Step 1: raccogli ID pool in parallelo ────────────────────────────────
+  const activeSlots = slots.slice(0, 6)
+  const seedIds = new Set<string>()
+  for (const slot of activeSlots) {
+    const seeds = BGG_CATEGORY_SEED_IDS[slot.genre] || BGG_CATEGORY_SEED_IDS['Strategy'] || []
+    for (const id of seeds) seedIds.add(id)
+  }
+  const hotIds = await fetchBGGHotList(bggHeaders)
+  const allIds = [...new Set([...hotIds, ...seedIds])]
+  if (allIds.length === 0) return []
+
+  // ── Step 2: fetch dettagli in batch paralleli da 20 ──────────────────────
+  const batches: string[][] = []
+  for (let i = 0; i < allIds.length; i += 20) batches.push(allIds.slice(i, i + 20))
+
+  const batchXmls = await Promise.all(batches.map(async (batch) => {
+    try {
+      const res = await fetch(`${BGG_BASE}/thing?id=${batch.join(',')}&stats=1`, {
+        headers: bggHeaders, signal: AbortSignal.timeout(12000), next: { revalidate: 3600 },
+      })
+      return res.ok ? res.text() : ''
+    } catch { return '' }
+  }))
+
+  // ── Step 3: parse, filtra, scoringa ──────────────────────────────────────
+  const results: Recommendation[] = []
+  const seen = new Set<string>()
+
+  for (const thingXml of batchXmls) {
+    if (!thingXml) continue
+    const itemRe = /<item[^>]*type="boardgame"[^>]*>([\s\S]*?)<\/item>/gi
+    let m
+    while ((m = itemRe.exec(thingXml)) !== null) {
+      const chunk = m[0]
+      const idM = chunk.match(/\bid="(\d+)"/)
+      if (!idM) continue
+      const recId = `bgg-${idM[1]}`
+      if (seen.has(recId) || shownIds?.has(recId)) continue
+      if (isAlreadyOwned('boardgame', recId, '')) continue
+
+      const nameM = chunk.match(/<name[^>]*type="primary"[^>]*value="([^"]*)"/)
+      if (!nameM) continue
+      const title = nameM[1].trim()
+
+      // Filtro rank: solo top 1000
+      const rankM = chunk.match(/<rank[^>]*name="boardgame"[^>]*value="(\d+)"/)
+      const bggRank = rankM ? parseInt(rankM[1]) : undefined
+      if (bggRank !== undefined && bggRank > BGG_MAX_RANK) continue
+
+      // Filtro anno: solo dal 2005
+      const yearM = chunk.match(/<yearpublished[^>]*value="(\d+)"/)
+      const year = yearM ? parseInt(yearM[1]) : undefined
+      if (year !== undefined && year < BGG_MIN_YEAR) continue
+
+      // Cover full-res, fallback thumbnail
+      const image = (chunk.match(/<image>([^<]+)<\/image>/) || [])[1]?.trim()
+      const thumbnail = (chunk.match(/<thumbnail>([^<]+)<\/thumbnail>/) || [])[1]?.trim()
+      const cover = image || thumbnail
+      if (!cover || cover.length < 10) continue
+
+      const rawDesc = (chunk.match(/<description>([^<]*)<\/description>/) || [])[1] || ''
+      const description = rawDesc
+        .replace(/&#10;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#\d+;/g, '')
+        .replace(/<[^>]+>/g, '').trim().slice(0, 300) || undefined
+
+      const catRe = /<link[^>]*type="boardgamecategory"[^>]*value="([^"]*)"/g
+      const categories: string[] = []
+      let cm
+      while ((cm = catRe.exec(chunk)) !== null) categories.push(cm[1])
+      const mechRe = /<link[^>]*type="boardgamemechanic"[^>]*value="([^"]*)"/g
+      const mechanics: string[] = []
+      while ((cm = mechRe.exec(chunk)) !== null) mechanics.push(cm[1])
+      const designerRe = /<link[^>]*type="boardgamedesigner"[^>]*value="([^"]*)"/g
+      const designers: string[] = []
+      while ((cm = designerRe.exec(chunk)) !== null) {
+        if (cm[1] !== '(Uncredited)') designers.push(cm[1])
+      }
+
+      const ratingM = chunk.match(/<average[^>]*value="([\d.]+)"/)
+      const bggScore = ratingM ? parseFloat(ratingM[1]) : undefined
+      if (bggScore !== undefined && bggScore < 6.0) continue
+
+      const minpM = chunk.match(/<minplayers[^>]*value="(\d+)"/)
+      const maxpM = chunk.match(/<maxplayers[^>]*value="(\d+)"/)
+      const timeM = chunk.match(/<playingtime[^>]*value="(\d+)"/)
+      const weightM = chunk.match(/<averageweight[^>]*value="([\d.]+)"/)
+
+      const crossGenres = new Set<string>()
+      for (const cat of categories) {
+        crossGenres.add(cat)
+        const mapped = BGG_TO_CROSS_GENRE[cat]
+        if (mapped) for (const cg of mapped) crossGenres.add(cg)
+      }
+      const recGenres = [...crossGenres]
+
+      const matchScore = computeMatchScore(recGenres, mechanics, tasteProfile, [], [])
+      if (matchScore < 5) continue  // soglia bassa per pool master ampio
+
+      const bestSlot = activeSlots.find(s =>
+        (BGG_CATEGORY_SEED_IDS[s.genre] || []).includes(idM[1]) ||
+        categories.some(c => c.toLowerCase().includes(s.genre.toLowerCase()))
+      ) || activeSlots[0]
+
+      let finalScore = matchScore
+      const ratingCountM = chunk.match(/<usersrated[^>]*value="(\d+)"/)
+      const ratingCount = ratingCountM ? parseInt(ratingCountM[1]) : 0
+      if (bggScore !== undefined && bggScore >= 7.5 && ratingCount >= 500) {
+        finalScore = Math.min(100, finalScore + 8)
+      }
+      if (bggRank !== undefined) {
+        if (bggRank <= 100) finalScore = Math.min(100, finalScore + 5)
+        else if (bggRank <= 500) finalScore = Math.min(100, finalScore + 2)
+      }
+      finalScore = Math.round(finalScore * releaseFreshnessMult(year))
+
+      seen.add(recId)
+      results.push({
+        id: recId, title, type: 'boardgame', coverImage: cover, year,
+        genres: categories.length > 0 ? categories : recGenres,
+        score: bggScore !== undefined ? Math.round((bggScore / 2) * 10) / 10 : undefined,
+        description,
+        why: buildWhyV3(recGenres, recId, title, tasteProfile, matchScore, bestSlot.isDiscovery, {}),
+        matchScore: finalScore,
+        isDiscovery: bestSlot.isDiscovery,
+        isAwardWinner: bggScore !== undefined && bggScore >= 7.5 && ratingCount >= 500,
+        min_players: minpM ? parseInt(minpM[1]) : undefined,
+        max_players: maxpM ? parseInt(maxpM[1]) : undefined,
+        playing_time: timeM ? parseInt(timeM[1]) : undefined,
+        complexity: weightM ? Math.round(parseFloat(weightM[1]) * 10) / 10 : undefined,
+        mechanics: mechanics.slice(0, 8),
+        designers: designers.slice(0, 3),
+      } as any)
+    }
+  }
+
+  return results.sort((a, b) => b.matchScore - a.matchScore)
+}
   slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile,
   isAlreadyOwned: (type: string, id: string, title: string) => boolean,
   shownIds?: Set<string>
