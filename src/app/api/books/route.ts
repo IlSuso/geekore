@@ -1,14 +1,14 @@
 // src/app/api/books/route.ts
 // Google Books API + Open Library fallback per copertine mancanti
 // Key env: GOOGLE_BOOKS_API_KEY
+// FIX: country=IT su tutte le query (non solo langRestrict=it)
+//      per forzare risultati italiani anche dai server Vercel (USA)
 
 import { NextRequest, NextResponse } from 'next/server'
 import { truncateAtSentence } from '@/lib/utils'
 
 const GOOGLE_BOOKS_BASE = 'https://www.googleapis.com/books/v1'
 const OPEN_LIBRARY_COVERS = 'https://covers.openlibrary.org/b'
-
-// ── Cover helpers ─────────────────────────────────────────────────────────────
 
 function openLibraryCoverByISBN(isbn: string): string {
   return `${OPEN_LIBRARY_COVERS}/isbn/${isbn}-L.jpg`
@@ -39,8 +39,6 @@ function resolveCoverUrl(volumeInfo: any): string | undefined {
   return undefined
 }
 
-// ── Tipo output ───────────────────────────────────────────────────────────────
-
 interface BookItem {
   id: string
   title: string
@@ -57,8 +55,6 @@ interface BookItem {
   publisher?: string
   language?: string
 }
-
-// ── Handler ───────────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -79,7 +75,10 @@ export async function GET(req: NextRequest) {
       startIndex: String(startIndex),
       printType: 'books',
       orderBy: 'relevance',
-      ...(langIt ? { langRestrict: 'it', country: 'IT' } : {}),
+      // country=IT su TUTTE le query: indica a Google il mercato di riferimento
+      // senza questo, i server Vercel (USA) ricevono risultati in inglese
+      country: 'IT',
+      ...(langIt ? { langRestrict: 'it' } : {}),
       ...(GOOGLE_BOOKS_KEY ? { key: GOOGLE_BOOKS_KEY } : {}),
     })
     return `${GOOGLE_BOOKS_BASE}/volumes?${p}`
@@ -117,26 +116,39 @@ export async function GET(req: NextRequest) {
 
       const startIndex = call * PAGE_SIZE
 
-      let results: any[] = []
+      let resultsIt: any[] = []
+      let resultsGlobal: any[] = []
+
       try {
-        const [resGlobal, resIt] = await Promise.allSettled([
-          fetch(makeParams(startIndex, false)),
+        // Fetch parallelo: italiana + globale
+        const [resIt, resGlobal] = await Promise.allSettled([
           fetch(makeParams(startIndex, true)),
+          fetch(makeParams(startIndex, false)),
         ])
 
-        for (const r of [resGlobal, resIt] as PromiseSettledResult<Response>[]) {
-          if (r.status !== 'fulfilled' || !r.value.ok) continue
-          let data: any
-          try { data = await r.value.json() } catch { continue }
-          if (Array.isArray(data.items)) results.push(...data.items)
+        if (resIt.status === 'fulfilled' && resIt.value.ok) {
+          try {
+            const data = await resIt.value.json()
+            if (Array.isArray(data.items)) resultsIt = data.items
+          } catch {}
+        }
+
+        if (resGlobal.status === 'fulfilled' && resGlobal.value.ok) {
+          try {
+            const data = await resGlobal.value.json()
+            if (Array.isArray(data.items)) resultsGlobal = data.items
+          } catch {}
         }
       } catch {
         break
       }
 
-      // Deduplica tra le due query
+      // Italiani PRIMA nella lista combinata: in fase di dedup
+      // i duplicati inglesi vengono scartati perché l'italiano arriva prima
+      const combined = [...resultsIt, ...resultsGlobal]
+
       const seenPageIds = new Set<string>()
-      results = results.filter(v => {
+      const results = combined.filter(v => {
         if (seenPageIds.has(v.id)) return false
         seenPageIds.add(v.id)
         return true
@@ -151,7 +163,6 @@ export async function GET(req: NextRequest) {
         if (!info?.title) continue
 
         const normalizedBookTitle = normalize(info.title)
-
         if (!normalizedBookTitle.startsWith(qNorm)) continue
 
         const bookId = `book-${vol.id}`
