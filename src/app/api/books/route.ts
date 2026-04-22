@@ -1,5 +1,7 @@
 // src/app/api/books/route.ts
-// DEBUG VERSION — log completi su terminale (locale) e Vercel Function Logs (web)
+// FIX: Google Books ignora langRestrict=it dai server USA (Vercel iad1)
+// Soluzione: aggiunta hl=it (host language) che forza metadati in italiano
+// + country=IT + langRestrict=it + inlanguage:ita nella query
 
 import { NextRequest, NextResponse } from 'next/server'
 import { truncateAtSentence } from '@/lib/utils'
@@ -60,28 +62,19 @@ export async function GET(req: NextRequest) {
   if (!q || q.length < 2) return NextResponse.json([])
 
   const GOOGLE_BOOKS_KEY = process.env.GOOGLE_BOOKS_API_KEY
-  const isVercel = !!process.env.VERCEL
-  const region = process.env.VERCEL_REGION || 'unknown'
-
-  // ── LOG INTESTAZIONE ──────────────────────────────────────────────────────
-  console.log('\n' + '='.repeat(60))
-  console.log(`[BOOKS DEBUG] Ambiente: ${isVercel ? `VERCEL (region: ${region})` : 'LOCALE'}`)
-  console.log(`[BOOKS DEBUG] Query: "${q}"`)
-  console.log(`[BOOKS DEBUG] API Key presente: ${!!GOOGLE_BOOKS_KEY}`)
-  console.log('='.repeat(60))
 
   const TARGET = 15
-  const MAX_CALLS = 5
   const PAGE_SIZE = 40
 
-  const makeParams = (startIndex: number, langIt: boolean) => {
+  const makeUrl = (q_str: string, langIt: boolean) => {
     const p = new URLSearchParams({
-      q: `intitle:${q}`,
+      q: q_str,
       maxResults: String(PAGE_SIZE),
-      startIndex: String(startIndex),
+      startIndex: '0',
       printType: 'books',
       orderBy: 'relevance',
-      country: 'IT',
+      country: 'IT',   // mercato italiano
+      hl: 'it',        // host language: forza metadati in italiano
       ...(langIt ? { langRestrict: 'it' } : {}),
       ...(GOOGLE_BOOKS_KEY ? { key: GOOGLE_BOOKS_KEY } : {}),
     })
@@ -110,145 +103,100 @@ export async function GET(req: NextRequest) {
   }
 
   const qNorm = normalize(q)
-  console.log(`[BOOKS DEBUG] Query normalizzata: "${qNorm}"`)
 
   try {
+    // Tre query parallele in ordine di priorità:
+    // 1. intitle + langRestrict=it + hl=it  → edizioni italiane (massima priorità)
+    // 2. intitle + inlanguage:ita + hl=it   → filtro lingua nella query stessa
+    // 3. intitle globale + hl=it            → fallback con almeno metadati italiani
+    const [resIt, resItLang, resGlobal] = await Promise.allSettled([
+      fetch(makeUrl(`intitle:${q}`, true)),
+      fetch(makeUrl(`intitle:${q}+inlanguage:ita`, false)),
+      fetch(makeUrl(`intitle:${q}`, false)),
+    ])
+
+    const fetchLabel = ['IT+langRestrict', 'IT+inlanguage', 'GLOBAL']
+    const fetchResults = [resIt, resItLang, resGlobal]
+
+    let allRaw: any[] = []
+
+    for (let i = 0; i < fetchResults.length; i++) {
+      const r = fetchResults[i]
+      if (r.status !== 'fulfilled' || !r.value.ok) {
+        console.log(`[BOOKS] ${fetchLabel[i]}: FAILED`)
+        continue
+      }
+      try {
+        const data = await r.value.json()
+        const raw = Array.isArray(data.items) ? data.items : []
+        console.log(`[BOOKS] ${fetchLabel[i]}: ${raw.length} risultati | lingue: ${[...new Set(raw.map((v: any) => v.volumeInfo?.language))].join(',')}`)
+        allRaw.push(...raw)
+      } catch {}
+    }
+
+    // Dedup: il primo che compare vince (IT+langRestrict è primo)
+    const seenRaw = new Set<string>()
+    allRaw = allRaw.filter(v => {
+      if (seenRaw.has(v.id)) return false
+      seenRaw.add(v.id)
+      return true
+    })
+
+    // Riordina: lang=it sempre prima
+    allRaw.sort((a, b) => {
+      const aIt = a.volumeInfo?.language === 'it' ? 0 : 1
+      const bIt = b.volumeInfo?.language === 'it' ? 0 : 1
+      return aIt - bIt
+    })
+
+    console.log(`[BOOKS] Dopo dedup+sort: ${allRaw.length} volumi | lingue: ${[...new Set(allRaw.map((v: any) => v.volumeInfo?.language))].join(',')}`)
+
     const items: BookItem[] = []
     const seenIds = new Set<string>()
 
-    for (let call = 0; call < MAX_CALLS; call++) {
+    for (const vol of allRaw) {
       if (items.length >= TARGET) break
 
-      const startIndex = call * PAGE_SIZE
-      const urlIt     = makeParams(startIndex, true)
-      const urlGlobal = makeParams(startIndex, false)
+      const info = vol.volumeInfo
+      if (!info?.title) continue
 
-      console.log(`\n[BOOKS DEBUG] --- Chiamata #${call + 1} (startIndex=${startIndex}) ---`)
-      console.log(`[BOOKS DEBUG] URL italiana:  ${urlIt}`)
-      console.log(`[BOOKS DEBUG] URL globale:   ${urlGlobal}`)
+      const normalizedBookTitle = normalize(info.title)
+      if (!normalizedBookTitle.startsWith(qNorm)) continue
 
-      let resultsIt: any[] = []
-      let resultsGlobal: any[] = []
+      const bookId = `book-${vol.id}`
+      if (seenIds.has(bookId)) continue
+      seenIds.add(bookId)
 
-      try {
-        const [resIt, resGlobal] = await Promise.allSettled([
-          fetch(urlIt),
-          fetch(urlGlobal),
-        ])
+      const rawYear = info.publishedDate ? parseInt(info.publishedDate.slice(0, 4)) : undefined
+      const year = rawYear && !isNaN(rawYear) ? rawYear : undefined
+      const coverImage = resolveCoverUrl(info)
+      const identifiers: Array<{ type: string; identifier: string }> = info.industryIdentifiers || []
+      const isbn =
+        identifiers.find(i => i.type === 'ISBN_13')?.identifier ||
+        identifiers.find(i => i.type === 'ISBN_10')?.identifier
+      const score = info.averageRating ? Math.round(info.averageRating * 2 * 10) / 10 : undefined
+      const rawDesc = (info.description || '').replace(/<[^>]+>/g, '').trim()
+      const description = rawDesc ? truncateAtSentence(rawDesc, 400) || undefined : undefined
 
-        // Risultati italiani
-        if (resIt.status === 'fulfilled') {
-          console.log(`[BOOKS DEBUG] Risposta italiana: HTTP ${resIt.value.status}`)
-          if (resIt.value.ok) {
-            try {
-              const data = await resIt.value.json()
-              resultsIt = Array.isArray(data.items) ? data.items : []
-              console.log(`[BOOKS DEBUG] Volumi italiani ricevuti: ${resultsIt.length} (totalItems: ${data.totalItems ?? '?'})`)
-              console.log(`[BOOKS DEBUG] Titoli italiani grezzi:`)
-              resultsIt.forEach((v: any, i: number) => {
-                console.log(`  [IT ${i+1}] "${v.volumeInfo?.title}" | lang=${v.volumeInfo?.language} | cover=${!!v.volumeInfo?.imageLinks}`)
-              })
-            } catch (e) { console.log(`[BOOKS DEBUG] Errore parse JSON italiana: ${e}`) }
-          }
-        } else {
-          console.log(`[BOOKS DEBUG] Fetch italiana FALLITA: ${resIt.reason}`)
-        }
-
-        // Risultati globali
-        if (resGlobal.status === 'fulfilled') {
-          console.log(`[BOOKS DEBUG] Risposta globale: HTTP ${resGlobal.value.status}`)
-          if (resGlobal.value.ok) {
-            try {
-              const data = await resGlobal.value.json()
-              resultsGlobal = Array.isArray(data.items) ? data.items : []
-              console.log(`[BOOKS DEBUG] Volumi globali ricevuti: ${resultsGlobal.length} (totalItems: ${data.totalItems ?? '?'})`)
-              console.log(`[BOOKS DEBUG] Titoli globali grezzi:`)
-              resultsGlobal.forEach((v: any, i: number) => {
-                console.log(`  [GL ${i+1}] "${v.volumeInfo?.title}" | lang=${v.volumeInfo?.language} | cover=${!!v.volumeInfo?.imageLinks}`)
-              })
-            } catch (e) { console.log(`[BOOKS DEBUG] Errore parse JSON globale: ${e}`) }
-          }
-        } else {
-          console.log(`[BOOKS DEBUG] Fetch globale FALLITA: ${resGlobal.reason}`)
-        }
-      } catch (e) {
-        console.log(`[BOOKS DEBUG] Eccezione fetch: ${e}`)
-        break
-      }
-
-      // Italiani prima nel merge
-      const combined = [...resultsIt, ...resultsGlobal]
-      const seenPageIds = new Set<string>()
-      const results = combined.filter(v => {
-        if (seenPageIds.has(v.id)) return false
-        seenPageIds.add(v.id)
-        return true
+      items.push({
+        id: bookId,
+        title: info.title,
+        type: 'book',
+        source: 'google_books',
+        coverImage,
+        year,
+        description,
+        genres: info.categories || [],
+        authors: info.authors || [],
+        pages: info.pageCount || undefined,
+        score,
+        isbn,
+        publisher: info.publisher || undefined,
+        language: info.language || undefined,
       })
-
-      console.log(`[BOOKS DEBUG] Dopo dedup: ${results.length} volumi (${resultsIt.length} it + ${resultsGlobal.length} gl - duplicati)`)
-
-      if (results.length === 0) {
-        console.log(`[BOOKS DEBUG] Nessun volume, stop loop`)
-        break
-      }
-
-      let addedCount = 0
-      let skippedTitle = 0
-      let skippedDupe = 0
-
-      for (const vol of results) {
-        if (items.length >= TARGET) break
-
-        const info = vol.volumeInfo
-        if (!info?.title) continue
-
-        const normalizedBookTitle = normalize(info.title)
-        if (!normalizedBookTitle.startsWith(qNorm)) {
-          skippedTitle++
-          console.log(`[BOOKS DEBUG] SCARTATO (titolo): "${info.title}" → norm="${normalizedBookTitle}" vs query="${qNorm}"`)
-          continue
-        }
-
-        const bookId = `book-${vol.id}`
-        if (seenIds.has(bookId)) { skippedDupe++; continue }
-        seenIds.add(bookId)
-
-        const rawYear = info.publishedDate ? parseInt(info.publishedDate.slice(0, 4)) : undefined
-        const year = rawYear && !isNaN(rawYear) ? rawYear : undefined
-        const coverImage = resolveCoverUrl(info)
-        const identifiers: Array<{ type: string; identifier: string }> = info.industryIdentifiers || []
-        const isbn =
-          identifiers.find(i => i.type === 'ISBN_13')?.identifier ||
-          identifiers.find(i => i.type === 'ISBN_10')?.identifier
-        const score = info.averageRating ? Math.round(info.averageRating * 2 * 10) / 10 : undefined
-        const rawDesc = (info.description || '').replace(/<[^>]+>/g, '').trim()
-        const description = rawDesc ? truncateAtSentence(rawDesc, 400) || undefined : undefined
-        const genres: string[] = info.categories || []
-
-        items.push({
-          id: bookId,
-          title: info.title,
-          type: 'book',
-          source: 'google_books',
-          coverImage,
-          year,
-          description,
-          genres,
-          authors: info.authors || [],
-          pages: info.pageCount || undefined,
-          score,
-          isbn,
-          publisher: info.publisher || undefined,
-          language: info.language || undefined,
-        })
-        addedCount++
-        console.log(`[BOOKS DEBUG] AGGIUNTO: "${info.title}" | lang=${info.language} | cover=${!!coverImage} | year=${year}`)
-      }
-
-      console.log(`[BOOKS DEBUG] Chiamata #${call + 1} riepilogo: +${addedCount} aggiunti, ${skippedTitle} scartati (titolo), ${skippedDupe} duplicati | totale=${items.length}`)
     }
 
-    // Ordina: italiano prima, poi con cover, poi score
+    // Sort finale: it prima, poi cover, poi score
     const sorted = [...items].sort((a, b) => {
       const aIt = a.language === 'it' ? 0 : 1
       const bIt = b.language === 'it' ? 0 : 1
@@ -257,17 +205,13 @@ export async function GET(req: NextRequest) {
       return (b.score ?? 0) - (a.score ?? 0)
     })
 
-    console.log(`\n[BOOKS DEBUG] RISPOSTA FINALE (${sorted.length} libri):`)
-    sorted.forEach((b, i) => {
-      console.log(`  [${i+1}] "${b.title}" | lang=${b.language} | cover=${!!b.coverImage} | year=${b.year}`)
-    })
-    console.log('='.repeat(60) + '\n')
+    console.log(`[BOOKS] Risposta finale: ${sorted.length} libri | lingue: ${[...new Set(sorted.map(b => b.language))].join(',')}`)
 
     return NextResponse.json(sorted, {
       headers: { 'Cache-Control': 'no-store' },
     })
   } catch (err) {
-    console.error('[BOOKS DEBUG] ERRORE CRITICO:', err)
+    console.error('[BOOKS] ERRORE:', err)
     return NextResponse.json([])
   }
 }
