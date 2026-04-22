@@ -10,12 +10,12 @@
 //              che handleSwipe ha già letto il valore dal ref.
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { X, Check, ChevronRight, Star, Gamepad2, Tv, Film, Layers, Swords, RotateCcw, Dices } from 'lucide-react'
+import { X, Check, ChevronRight, Star, Gamepad2, Tv, Film, Layers, Swords, RotateCcw, Dices, BookOpen } from 'lucide-react'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { createClient } from '@/lib/supabase/client'
 
-type SwipeMediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame'
+type SwipeMediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame' | 'book'
 
 export interface SwipeItem {
   id: string
@@ -53,10 +53,11 @@ interface SwipeModeProps {
 
 const TYPE_ICONS: Record<SwipeMediaType, React.ElementType> = {
   anime: Swords, manga: Layers, movie: Film, tv: Tv, game: Gamepad2,
-  boardgame: Dices, }
+  boardgame: Dices, book: BookOpen,
+}
 const TYPE_LABEL: Record<SwipeMediaType, string> = {
   anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Gioco',
-  boardgame: 'Tavolo',
+  boardgame: 'Tavolo', book: 'Libro',
 }
 const TYPE_COLORS: Record<SwipeMediaType, string> = {
   anime:     'from-sky-500 to-blue-600',
@@ -65,6 +66,7 @@ const TYPE_COLORS: Record<SwipeMediaType, string> = {
   tv:        'from-purple-500 to-violet-600',
   game:      'from-emerald-500 to-green-600',
   boardgame: 'from-amber-500 to-yellow-600',
+  book:      'from-cyan-500 to-teal-600',
 }
 const CATEGORIES: { key: CategoryFilter; label: string }[] = [
   { key: 'all',       label: 'Tutti' },
@@ -74,7 +76,7 @@ const CATEGORIES: { key: CategoryFilter; label: string }[] = [
   { key: 'tv',        label: 'Serie TV' },
   { key: 'game',      label: 'Giochi' },
   { key: 'boardgame', label: 'Tavolo' },
-  
+  { key: 'book',      label: 'Libri' },
 ]
 
 const SWIPE_THRESHOLD = 80

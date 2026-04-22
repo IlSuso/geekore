@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
 import {
   Search, Plus, X, Film, Tv, Gamepad2, Bookmark, BookmarkCheck,
-  Dices, Layers, Swords, Mic, MicOff, Loader2, Check,
+  Mic, MicOff, Loader2, Swords, Check, Layers, Dices, BookOpen,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { showToast } from '@/components/ui/Toast';
@@ -20,7 +20,7 @@ import type { MediaDetails } from '@/components/media/MediaDetailsDrawer';
 type MediaItem = {
   id: string; title: string; title_en?: string; type: string; coverImage?: string; year?: number;
   episodes?: number; totalSeasons?: number; seasons?: Record<number, { episode_count: number }>;
-  description?: string; genres?: string[]; source: 'anilist' | 'tmdb' | 'igdb' | 'bgg';
+  description?: string; genres?: string[]; source: 'anilist' | 'tmdb' | 'igdb' | 'bgg' | 'google_books';
   tags?: string[]; keywords?: string[]; themes?: string[]; player_perspectives?: string[];
   game_modes?: string[]; developers?: string[]; categories?: string[]; mechanics?: string[];
   designers?: string[]; min_players?: number; max_players?: number; playing_time?: number;
@@ -30,7 +30,7 @@ type MediaItem = {
 
 // Ordine sezioni nei risultati raggruppati
 const TYPE_ORDER: Record<string, number> = {
-  anime: 0, manga: 1, movie: 2, tv: 3, game: 4, boardgame: 5,
+  anime: 0, manga: 1, movie: 2, tv: 3, game: 4, boardgame: 5, book: 6,
 };
 
 function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
@@ -51,6 +51,7 @@ const TYPE_COLORS: Record<string, string> = {
   tv:        'text-purple-400 border-purple-500/30 bg-purple-500/10',
   game:      'text-green-400 border-green-500/30 bg-green-500/10',
   boardgame: 'text-amber-400 border-amber-500/30 bg-amber-500/10',
+  book:      'text-cyan-400 border-cyan-500/30 bg-cyan-500/10',
 };
 
 // Icona placeholder nelle card senza copertina
@@ -58,6 +59,7 @@ const TYPE_PLACEHOLDER_ICON: Record<string, React.ReactNode> = {
   game:      <Gamepad2 size={28} />,
   boardgame: <Dices size={28} />,
   manga:     <Layers size={28} />,
+  book:      <BookOpen size={28} />,
   anime:     <Swords size={28} />,
   movie:     <Film size={28} />,
   tv:        <Tv size={28} />,
@@ -140,6 +142,7 @@ const FILTERS: { id: string; label: string; icon: React.ReactNode }[] = [
   { id: 'tv',        label: 'Serie',    icon: <Tv size={13} /> },
   { id: 'game',      label: 'Giochi',   icon: <Gamepad2 size={13} /> },
   { id: 'boardgame', label: 'Tavolo',   icon: <Dices size={13} /> },
+  { id: 'book',      label: 'Libri',    icon: <BookOpen size={13} /> },
 ];
 
 // ── V3: Search tracking helpers (fire-and-forget) ────────────────────────────
@@ -252,6 +255,10 @@ export default function DiscoverPage() {
       // Giochi da tavolo — BGG
       if (type === 'all' || type === 'boardgame')
         reqs.push(fetch(`/api/bgg?q=${encodeURIComponent(term)}`, { signal: controller.signal }));
+
+      // Libri — Google Books
+      if (type === 'all' || type === 'book')
+        reqs.push(fetch(`/api/books?q=${encodeURIComponent(term)}&lang=${lang}`, { signal: controller.signal }));
 
       const responses = await Promise.allSettled(reqs);
       if (controller.signal.aborted) return;

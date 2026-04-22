@@ -36,6 +36,8 @@ import { LetterboxdImport } from '@/components/import/LetterboxdImport'
 import { XboxImport } from '@/components/import/XboxImport'
 import { SteamImport } from '@/components/import/SteamImport'
 import { BGGImport } from '@/components/import/BGGImport'
+import { BooksImport } from '@/components/import/BooksImport'
+// BookImport removed
 import { ProfileActivityFeed } from '@/components/profile/ProfileActivityFeed'
 import { NotesModal } from '@/components/profile/NotesModal'
 import { DeleteAccountModal } from '@/components/profile/DeleteAccountModal'
@@ -48,7 +50,7 @@ type UserMedia = {
   id: string
   title: string
   title_en?: string  // titolo inglese per switch lingua real-time
-  type: 'anime' | 'tv' | 'movie' | 'game' | 'manga'
+  type: 'anime' | 'tv' | 'movie' | 'game' | 'manga' | 'book'
   cover_image?: string
   current_episode: number
   current_season?: number
@@ -1307,6 +1309,7 @@ export default function ProfilePage() {
                   {importPlatform === 'xbox' && 'Importa da Xbox'}
                   {importPlatform === 'steam' && 'Importa da Steam'}
                   {importPlatform === 'bgg' && 'Importa da BoardGameGeek'}
+                  {importPlatform === 'books' && 'Aggiungi libri'}
                 </h2>
               </div>
               <button onClick={() => setImportPlatform(null)} className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-zinc-800 transition">
@@ -1320,6 +1323,7 @@ export default function ProfilePage() {
               {importPlatform === 'xbox' && <XboxImport />}
               {importPlatform === 'steam' && <SteamImport onImportDone={async () => { if (currentUserId) { await new Promise(r => setTimeout(r, 800)); refreshMedia(currentUserId) } }} />}
               {importPlatform === 'bgg' && <BGGImport onImportDone={async () => { if (currentUserId) { await new Promise(r => setTimeout(r, 800)); refreshMedia(currentUserId) } }} />}
+              {importPlatform === 'books' && <BooksImport onImportDone={async () => { if (currentUserId) { await new Promise(r => setTimeout(r, 800)); refreshMedia(currentUserId) } }} />}
             </div>
           </div>
         </div>
