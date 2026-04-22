@@ -7,6 +7,7 @@ import Image from 'next/image'
 import {
   X, ExternalLink, Star, Clock, Users, Layers,
   Gamepad2, Film, Tv, Clapperboard, Check, Bookmark,
+  Sparkles, Trophy, Monitor, Dices, BookOpen, Hash, FileText,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -77,6 +78,7 @@ function buildExternalUrl(media: MediaDetails): string | undefined {
   // BGG
   if (id.startsWith('bgg-')) return `https://boardgamegeek.com/boardgame/${id.replace('bgg-', '')}`
   // Google Books
+  if (id.startsWith('book-')) return `https://books.google.com/books?id=${id.replace('book-', '')}`
   // AniList
   if (id.startsWith('anilist-anime-')) return `https://anilist.co/anime/${id.replace('anilist-anime-', '')}`
   if (id.startsWith('anilist-manga-') || id.startsWith('anilist-novel-')) return `https://anilist.co/manga/${id.replace(/anilist-(manga|novel)-/, '')}`
@@ -90,6 +92,7 @@ function buildExternalUrl(media: MediaDetails): string | undefined {
 function buildSourceLabel(media: MediaDetails): string {
   const id = media.id
   if (id.startsWith('bgg-')) return 'BGG'
+  if (id.startsWith('book-')) return 'Google Books'
   if (id.startsWith('anilist-')) return 'AniList'
   if (id.startsWith('igdb-')) return 'IGDB'
   return 'TMDb'
@@ -109,6 +112,7 @@ function triggerTasteDelta(options: {
 
 const TYPE_ICON: Record<string, React.ElementType> = {
   anime: Film, manga: Layers, game: Gamepad2,
+  tv: Tv, movie: Film, boardgame: Dices, book: BookOpen,
 }
 const TYPE_COLOR: Record<string, string> = {
   anime: 'bg-sky-500', manga: 'bg-orange-500', game: 'bg-green-500',
@@ -193,9 +197,9 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     const maxSeasons = media.totalSeasons ?? (media.seasons ? Object.keys(media.seasons).length : null)
     const isLastSeason = !maxSeasons || seasonNum >= maxSeasons
     const isLastEpisode = maxEpThisSeason !== null && opts?.episode !== undefined && opts.episode >= maxEpThisSeason
-    const autoCompleted = isMovie || isBoardgame || (isBook && opts?.episode !== undefined && media.pages !== undefined && opts.episode >= media.pages) || (isLastSeason && isLastEpisode)
+    const autoCompleted = isMovie || isBoardgame || (false && opts?.episode !== undefined && media.pages !== undefined && opts.episode >= media.pages) || (isLastSeason && isLastEpisode)
 
-    const status = autoCompleted ? 'completed' : (isBoardgame ? 'playing' : (isBook ? 'reading' : 'watching'))
+    const status = autoCompleted ? 'completed' : (isBoardgame ? 'playing' : (false ? 'reading' : 'watching'))
 
     const { error } = await supabase.from('user_media_entries').insert({
       user_id: user.id,
@@ -261,12 +265,12 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   const isBoardgame = media.type === 'boardgame'
 
   // Autori/creatori priorità per tipo
-  const creatorList = isManga || isBook
+  const creatorList = isManga || false
     ? (media.authors?.length ? media.authors : media.developers?.length ? media.developers : media.studios?.length ? media.studios : null)
     : (media.studios?.length ? media.studios : media.directors?.length ? media.directors : media.authors?.length ? media.authors : null)
 
   const creatorLabel = creatorList?.slice(0, 2).join(', ') ?? null
-  const creatorTitle = isManga || isBook
+  const creatorTitle = isManga || false
     ? (media.authors?.length ? 'Autori' : 'Editori')
     : (media.studios?.length ? 'Studio' : media.directors?.length ? 'Registi' : 'Autori')
 
@@ -544,7 +548,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             )}
 
             {/* ── BOOK: Editore + ISBN ──────────────────────────────── */}
-            {isBook && (media.publisher || media.isbn) && (
+            {false && (media.publisher || media.isbn) && (
               <div className="flex flex-col gap-2">
                 {media.publisher && (
                   <div className="flex items-center gap-2">
@@ -564,7 +568,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             )}
 
             {/* Sviluppatori (games) */}
-            {media.developers && media.developers.length > 0 && !isManga && !isBook && (
+            {media.developers && media.developers.length > 0 && !isManga && !false && (
               <div>
                 <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Sviluppatori</h3>
                 <div className="flex flex-wrap gap-1.5">
@@ -683,8 +687,8 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
                 {media.type !== 'movie' && !isBoardgame && (() => {
                   const seasonNum = parseInt(formSeason) || 1
-                  const maxEp = media.seasons?.[seasonNum]?.episode_count ?? media.episodes ?? (isBook ? media.pages : null) ?? null
-                  const label = media.type === 'manga' || media.type === 'novel' ? 'Capitolo corrente' : isBook ? 'Pagina corrente' : 'Episodio corrente'
+                  const maxEp = media.seasons?.[seasonNum]?.episode_count ?? media.episodes ?? (false ? media.pages : null) ?? null
+                  const label = media.type === 'manga' || media.type === 'novel' ? 'Capitolo corrente' : false ? 'Pagina corrente' : 'Episodio corrente'
                   return (
                     <div>
                       <p className="text-xs text-zinc-500 mb-1">{label}{maxEp ? ` (max ${maxEp})` : ''}</p>

@@ -202,6 +202,7 @@ export const BOOK_TO_CROSS_GENRE: Record<string, string[]> = {
   'Mythology':                 ['Fantasy', 'Supernatural', 'History'],
 }
 
+// Generi cross-media → categorie libro per consigliare libri
 export const CROSS_TO_BOOK_GENRE: Record<string, string[]> = {
   'Action':           ['Adventure', 'Thriller'],
   'Adventure':        ['Adventure', 'Fiction'],

@@ -10,10 +10,12 @@
 //              che handleSwipe ha già letto il valore dal ref.
 
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { X, Check, ChevronRight, Star, Gamepad2, Tv, Film, Layers, Swords, RotateCcw, Dices, BookOpen } from 'lucide-react'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { createClient } from '@/lib/supabase/client'
 
+type SwipeMediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame'
 
 export interface SwipeItem {
   id: string
@@ -51,6 +53,7 @@ interface SwipeModeProps {
 
 const TYPE_ICONS: Record<SwipeMediaType, React.ElementType> = {
   anime: Swords, manga: Layers, movie: Film, tv: Tv, game: Gamepad2,
+  boardgame: Dices, book: BookOpen,
 }
 const TYPE_LABEL: Record<SwipeMediaType, string> = {
   anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Gioco',
@@ -72,6 +75,7 @@ const CATEGORIES: { key: CategoryFilter; label: string }[] = [
   { key: 'tv',        label: 'Serie TV' },
   { key: 'game',      label: 'Giochi' },
   { key: 'boardgame', label: 'Tavolo' },
+  
 ]
 
 const SWIPE_THRESHOLD = 80

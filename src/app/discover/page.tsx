@@ -25,6 +25,7 @@ type MediaItem = {
   game_modes?: string[]; developers?: string[]; categories?: string[]; mechanics?: string[];
   designers?: string[]; min_players?: number; max_players?: number; playing_time?: number;
   complexity?: number; score?: number; authors?: string[]; pages?: number;
+  isbn?: string; publisher?: string;
 };
 
 // Ordine sezioni nei risultati raggruppati
@@ -56,8 +57,7 @@ const TYPE_COLORS: Record<string, string> = {
 const TYPE_PLACEHOLDER_ICON: Record<string, React.ReactNode> = {
   game:      <Gamepad2 size={28} />,
   boardgame: <Dices size={28} />,
-  manga:     <Layers size={28} />,
-  anime:     <Swords size={28} />,
+  manga:     <Layers size={28} />  anime:     <Swords size={28} />,
   movie:     <Film size={28} />,
   tv:        <Tv size={28} />,
 };
@@ -86,7 +86,10 @@ function toMediaDetails(item: MediaItem): MediaDetails {
     developers: item.developers,
     themes: item.themes,
     authors: item.authors,
+    // campi libro
     ...(item.pages ? { pages: item.pages } as any : {}),
+    ...(item.isbn ? { isbn: item.isbn } as any : {}),
+    ...(item.publisher ? { publisher: item.publisher } as any : {}),
   };
 }
 
@@ -136,6 +139,7 @@ const FILTERS: { id: string; label: string; icon: React.ReactNode }[] = [
   { id: 'tv',        label: 'Serie',    icon: <Tv size={13} /> },
   { id: 'game',      label: 'Giochi',   icon: <Gamepad2 size={13} /> },
   { id: 'boardgame', label: 'Tavolo',   icon: <Dices size={13} /> },
+   /> },
 ];
 
 // ── V3: Search tracking helpers (fire-and-forget) ────────────────────────────
@@ -248,7 +252,6 @@ export default function DiscoverPage() {
       // Giochi da tavolo — BGG
       if (type === 'all' || type === 'boardgame')
         reqs.push(fetch(`/api/bgg?q=${encodeURIComponent(term)}`, { signal: controller.signal }));
-
 
       const responses = await Promise.allSettled(reqs);
       if (controller.signal.aborted) return;
