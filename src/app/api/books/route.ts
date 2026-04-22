@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
   // Così si pescano sia i titoli italiani che eventuali edizioni straniere
   const makeParams = (startIndex: number, langIt: boolean) => {
     const p = new URLSearchParams({
-      q: `intitle:${q}`,
+      q: q,
       maxResults: String(PAGE_SIZE),
       startIndex: String(startIndex),
       printType: 'books',
