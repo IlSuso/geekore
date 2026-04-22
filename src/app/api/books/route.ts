@@ -196,8 +196,14 @@ export async function GET(req: NextRequest) {
       })
     }
 
+    // Filtro intelligente: se abbiamo almeno 5 italiani usiamo solo quelli,
+    // altrimenti teniamo tutto per non lasciare la pagina vuota
+    const italianItems = items.filter(b => b.language === 'it')
+    const finalItems = italianItems.length >= 5 ? italianItems : items
+    console.log(`[BOOKS] Filtro IT: ${italianItems.length} italiani / ${items.length} totali → ${finalItems === italianItems ? 'SOLO IT' : 'TUTTI (it insufficienti)'}`)
+
     // Sort finale: it prima, poi cover, poi score
-    const sorted = [...items].sort((a, b) => {
+    const sorted = [...finalItems].sort((a, b) => {
       const aIt = a.language === 'it' ? 0 : 1
       const bIt = b.language === 'it' ? 0 : 1
       if (aIt !== bIt) return aIt - bIt
