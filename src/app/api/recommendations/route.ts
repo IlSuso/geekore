@@ -508,6 +508,9 @@ function computeTasteProfile(
   // nicheUser = almeno 20% della collezione con score community basso, min 5 titoli assoluti
   const nicheUser = nicheScore >= 0.20 && nicheSignals >= 5
 
+  // V3: Creator scores (dichiarato prima del loop per consentire aggiornamenti inline)
+  const creatorScores = computeCreatorScores(entries, preferences)
+
   for (const entry of entries) {
     const title: string = entry.title || ''
     const type: string = entry.type || 'game'
@@ -659,9 +662,6 @@ function computeTasteProfile(
   for (const genre of sessionSoftDisliked) {
     if (globalScores[genre]) globalScores[genre] *= 0.3
   }
-
-  // V3: Creator scores
-  const creatorScores = computeCreatorScores(entries, preferences)
 
   // V3: Wishlist come amplificatore
   // V3: Search intent (prima, per passare i generi a wishlist intent score)
