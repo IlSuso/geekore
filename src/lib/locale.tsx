@@ -170,6 +170,7 @@ const translations = {
         n === 0 ? 'Non ancora giocato' : `${n} ${n === 1 ? 'partita' : 'partite'}`,
       progress: (n: number) => `${n}% completato`,
       cancel: 'Annulla', delete: 'Elimina', reset: 'Ripristina',
+      typeLabels: { anime: 'Anime', manga: 'Manga', game: 'Game', tv: 'Serie', movie: 'Film' },
     },
     toasts: {
       deleted: 'Eliminato dalla collezione',
