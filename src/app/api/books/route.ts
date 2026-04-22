@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
 
   const makeParams = (startIndex: number, langIt: boolean) => {
     const p = new URLSearchParams({
-      q: q,
+      q: `intitle:${q}`,
       maxResults: String(PAGE_SIZE),
       startIndex: String(startIndex),
       printType: 'books',
@@ -193,7 +193,10 @@ export async function GET(req: NextRequest) {
 
         const normalizedBookTitle = normalize(info.title)
 
-        if (!normalizedBookTitle.startsWith(qNorm)) {
+        // Controlla che ogni parola della query sia presente nel titolo
+        const qWords = qNorm.split(' ').filter(w => w.length > 1)
+        const titleMatches = qWords.length === 0 || qWords.every(w => normalizedBookTitle.includes(w))
+        if (!titleMatches) {
           console.log(`[BOOKS DEBUG] SCARTATO titolo: "${info.title}" (norm: "${normalizedBookTitle}")`)
           continue
         }
