@@ -10,7 +10,7 @@
 //              che handleSwipe ha già letto il valore dal ref.
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { X, Check, ChevronRight, Star, Gamepad2, Tv, Film, Layers, Swords, RotateCcw, Dices, BookOpen } from 'lucide-react'
+import { X, Check, ChevronRight, Star, Gamepad2, Tv, Film, Layers, Swords, RotateCcw, Dices } from 'lucide-react'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { createClient } from '@/lib/supabase/client'
@@ -53,8 +53,7 @@ interface SwipeModeProps {
 
 const TYPE_ICONS: Record<SwipeMediaType, React.ElementType> = {
   anime: Swords, manga: Layers, movie: Film, tv: Tv, game: Gamepad2,
-  boardgame: Dices, book: BookOpen,
-}
+  boardgame: Dices, }
 const TYPE_LABEL: Record<SwipeMediaType, string> = {
   anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Gioco',
   boardgame: 'Tavolo',

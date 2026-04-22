@@ -1307,7 +1307,6 @@ export default function ProfilePage() {
                   {importPlatform === 'xbox' && 'Importa da Xbox'}
                   {importPlatform === 'steam' && 'Importa da Steam'}
                   {importPlatform === 'bgg' && 'Importa da BoardGameGeek'}
-                  
                 </h2>
               </div>
               <button onClick={() => setImportPlatform(null)} className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-zinc-800 transition">
@@ -1321,7 +1320,6 @@ export default function ProfilePage() {
               {importPlatform === 'xbox' && <XboxImport />}
               {importPlatform === 'steam' && <SteamImport onImportDone={async () => { if (currentUserId) { await new Promise(r => setTimeout(r, 800)); refreshMedia(currentUserId) } }} />}
               {importPlatform === 'bgg' && <BGGImport onImportDone={async () => { if (currentUserId) { await new Promise(r => setTimeout(r, 800)); refreshMedia(currentUserId) } }} />}
-               }} />}
             </div>
           </div>
         </div>

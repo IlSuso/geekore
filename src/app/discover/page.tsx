@@ -6,7 +6,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
 import {
   Search, Plus, X, Film, Tv, Gamepad2, Bookmark, BookmarkCheck,
-  Mic, MicOff, Loader2, Swords, Check, Layers, Dices, BookOpen,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { showToast } from '@/components/ui/Toast';
@@ -41,7 +40,7 @@ function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
 
 const TYPE_LABELS: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV',
-  game: 'Videogiochi', boardgame: 'Giochi da tavolo',
+  game: 'Videogiochi', boardgame: 'Giochi da tavolo', book: 'Libri',
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -57,7 +56,8 @@ const TYPE_COLORS: Record<string, string> = {
 const TYPE_PLACEHOLDER_ICON: Record<string, React.ReactNode> = {
   game:      <Gamepad2 size={28} />,
   boardgame: <Dices size={28} />,
-  manga:     <Layers size={28} />  anime:     <Swords size={28} />,
+  manga:     <Layers size={28} />,
+  anime:     <Swords size={28} />,
   movie:     <Film size={28} />,
   tv:        <Tv size={28} />,
 };
@@ -139,7 +139,6 @@ const FILTERS: { id: string; label: string; icon: React.ReactNode }[] = [
   { id: 'tv',        label: 'Serie',    icon: <Tv size={13} /> },
   { id: 'game',      label: 'Giochi',   icon: <Gamepad2 size={13} /> },
   { id: 'boardgame', label: 'Tavolo',   icon: <Dices size={13} /> },
-   /> },
 ];
 
 // ── V3: Search tracking helpers (fire-and-forget) ────────────────────────────
@@ -252,6 +251,7 @@ export default function DiscoverPage() {
       // Giochi da tavolo — BGG
       if (type === 'all' || type === 'boardgame')
         reqs.push(fetch(`/api/bgg?q=${encodeURIComponent(term)}`, { signal: controller.signal }));
+
 
       const responses = await Promise.allSettled(reqs);
       if (controller.signal.aborted) return;

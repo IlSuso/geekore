@@ -12,7 +12,7 @@ import {
   ThumbsDown, Eye, Flame, Brain, Star, ArrowRight, Clapperboard, Swords,
   TrendingUp, Search, BookmarkCheck, Trophy, Calendar,
   MessageCircleQuestion, Tag, MonitorPlay, AlertCircle, Layers, Shuffle,
-  Dices, BookOpen,
+  Dices,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -44,7 +44,7 @@ interface FriendActivity {
 
 const TYPE_ICONS: Record<MediaType, React.ElementType> = {
   anime: Swords, manga: Layers, movie: Film, tv: Tv, game: Gamepad2,
-  boardgame: Dices, book: BookOpen, }
+  boardgame: Dices, }
 
 const TYPE_LABEL: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Gioco',

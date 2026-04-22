@@ -7,7 +7,7 @@ import Image from 'next/image'
 import {
   X, ExternalLink, Star, Clock, Users, Layers,
   Gamepad2, Film, Tv, Clapperboard, Check, Bookmark,
-  Sparkles, Trophy, Monitor, Dices, BookOpen, Hash, FileText,
+  Sparkles, Trophy, Monitor, Dices, Hash, FileText,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -112,8 +112,7 @@ function triggerTasteDelta(options: {
 
 const TYPE_ICON: Record<string, React.ElementType> = {
   anime: Film, manga: Layers, game: Gamepad2,
-  tv: Tv, movie: Film, boardgame: Dices, book: BookOpen,
-}
+  tv: Tv, movie: Film, boardgame: Dices, }
 const TYPE_COLOR: Record<string, string> = {
   anime: 'bg-sky-500', manga: 'bg-orange-500', game: 'bg-green-500',
   tv: 'bg-purple-500', movie: 'bg-red-500',
