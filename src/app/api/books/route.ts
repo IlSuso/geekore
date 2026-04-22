@@ -1,6 +1,6 @@
 // src/app/api/books/route.ts
 // Edge Function su fra1 (Francoforte) — Google vede IP europeo e rispetta langRestrict=it
-// Key: GOOGLE_BOOKS_API_KEY (segreta, server-side)
+// Key env: GOOGLE_BOOKS_API_KEY
 
 export const runtime = 'edge'
 export const preferredRegion = 'fra1' // Francoforte
@@ -9,16 +9,40 @@ import { NextRequest, NextResponse } from 'next/server'
 import { truncateAtSentence } from '@/lib/utils'
 
 const GOOGLE_BOOKS_BASE = 'https://www.googleapis.com/books/v1'
+const OPEN_LIBRARY_COVERS = 'https://covers.openlibrary.org/b'
 
-function resolveCover(volumeInfo: any): string | undefined {
-  const links = volumeInfo.imageLinks || {}
-  const best = links.large || links.medium || links.small || links.thumbnail || links.smallThumbnail
-  if (!best) return undefined
-  return best
-    .replace('http://', 'https://')
-    .replace('&edge=curl', '')
-    .replace('zoom=1', 'zoom=3')
+// ── Cover helpers ─────────────────────────────────────────────────────────────
+
+function openLibraryCoverByISBN(isbn: string): string {
+  return `${OPEN_LIBRARY_COVERS}/isbn/${isbn}-L.jpg`
 }
+
+function resolveCoverUrl(volumeInfo: any): string | undefined {
+  const gbThumb =
+    volumeInfo.imageLinks?.large ||
+    volumeInfo.imageLinks?.medium ||
+    volumeInfo.imageLinks?.thumbnail ||
+    volumeInfo.imageLinks?.smallThumbnail
+
+  if (gbThumb) {
+    return gbThumb
+      .replace('http://', 'https://')
+      .replace('&edge=curl', '')
+      .replace('zoom=1', 'zoom=3')
+  }
+
+  const identifiers: Array<{ type: string; identifier: string }> =
+    volumeInfo.industryIdentifiers || []
+  const isbn13 = identifiers.find(i => i.type === 'ISBN_13')?.identifier
+  const isbn10 = identifiers.find(i => i.type === 'ISBN_10')?.identifier
+
+  if (isbn13) return openLibraryCoverByISBN(isbn13)
+  if (isbn10) return openLibraryCoverByISBN(isbn10)
+
+  return undefined
+}
+
+// ── Tipo output ───────────────────────────────────────────────────────────────
 
 interface BookItem {
   id: string
@@ -37,26 +61,29 @@ interface BookItem {
   language?: string
 }
 
+// ── Handler ───────────────────────────────────────────────────────────────────
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const q = searchParams.get('q')?.trim()
+
   if (!q || q.length < 2) return NextResponse.json([])
 
-  const KEY = process.env.GOOGLE_BOOKS_API_KEY
+  const GOOGLE_BOOKS_KEY = process.env.GOOGLE_BOOKS_API_KEY
+
   const TARGET = 15
+  const MAX_CALLS = 5
   const PAGE_SIZE = 40
 
-  const makeUrl = (startIndex: number) => {
+  const makeParams = (startIndex: number, langIt: boolean) => {
     const p = new URLSearchParams({
       q: `intitle:${q}`,
       maxResults: String(PAGE_SIZE),
       startIndex: String(startIndex),
       printType: 'books',
       orderBy: 'relevance',
-      langRestrict: 'it',
-      country: 'IT',
-      hl: 'it',
-      ...(KEY ? { key: KEY } : {}),
+      ...(langIt ? { langRestrict: 'it', country: 'IT' } : {}),
+      ...(GOOGLE_BOOKS_KEY ? { key: GOOGLE_BOOKS_KEY } : {}),
     })
     return `${GOOGLE_BOOKS_BASE}/volumes?${p}`
   }
@@ -88,57 +115,84 @@ export async function GET(req: NextRequest) {
     const items: BookItem[] = []
     const seenIds = new Set<string>()
 
-    // Solo prima pagina — la paginazione causa throttling 503
-    const res = await fetch(makeUrl(0))
-    if (!res.ok) return NextResponse.json([])
-
-    const data = await res.json()
-    const raw: any[] = Array.isArray(data.items) ? data.items : []
-
-    console.log(`[BOOKS] region=fra1 | query="${q}" | risultati=${raw.length} | lingue: ${[...new Set(raw.map((v: any) => v.volumeInfo?.language))].join(',')}`)
-
-    for (const vol of raw) {
+    for (let call = 0; call < MAX_CALLS; call++) {
       if (items.length >= TARGET) break
 
-      const info = vol.volumeInfo
-      if (!info?.title) continue
+      const startIndex = call * PAGE_SIZE
 
-      if (!normalize(info.title).startsWith(qNorm)) continue
+      let results: any[] = []
+      try {
+        const [resGlobal, resIt] = await Promise.allSettled([
+          fetch(makeParams(startIndex, false)),
+          fetch(makeParams(startIndex, true)),
+        ])
 
-      const bookId = `book-${vol.id}`
-      if (seenIds.has(bookId)) continue
-      seenIds.add(bookId)
+        for (const r of [resGlobal, resIt] as PromiseSettledResult<Response>[]) {
+          if (r.status !== 'fulfilled' || !r.value.ok) continue
+          let data: any
+          try { data = await r.value.json() } catch { continue }
+          if (Array.isArray(data.items)) results.push(...data.items)
+        }
+      } catch {
+        break
+      }
 
-      const rawYear = info.publishedDate ? parseInt(info.publishedDate.slice(0, 4)) : undefined
-      const year = rawYear && !isNaN(rawYear) ? rawYear : undefined
-      const coverImage = resolveCover(info)
-      const identifiers: Array<{ type: string; identifier: string }> = info.industryIdentifiers || []
-      const isbn =
-        identifiers.find(i => i.type === 'ISBN_13')?.identifier ||
-        identifiers.find(i => i.type === 'ISBN_10')?.identifier
-      const score = info.averageRating ? Math.round(info.averageRating * 2 * 10) / 10 : undefined
-      const rawDesc = (info.description || '').replace(/<[^>]+>/g, '').trim()
-      const description = rawDesc ? truncateAtSentence(rawDesc, 400) || undefined : undefined
-
-      items.push({
-        id: bookId,
-        title: info.title,
-        type: 'book',
-        source: 'google_books',
-        coverImage,
-        year,
-        description,
-        genres: info.categories || [],
-        authors: info.authors || [],
-        pages: info.pageCount || undefined,
-        score,
-        isbn,
-        publisher: info.publisher || undefined,
-        language: info.language || undefined,
+      // Deduplica tra le due query
+      const seenPageIds = new Set<string>()
+      results = results.filter(v => {
+        if (seenPageIds.has(v.id)) return false
+        seenPageIds.add(v.id)
+        return true
       })
+
+      if (results.length === 0) break
+
+      for (const vol of results) {
+        if (items.length >= TARGET) break
+
+        const info = vol.volumeInfo
+        if (!info?.title) continue
+
+        const normalizedBookTitle = normalize(info.title)
+
+        if (!normalizedBookTitle.startsWith(qNorm)) continue
+
+        const bookId = `book-${vol.id}`
+        if (seenIds.has(bookId)) continue
+        seenIds.add(bookId)
+
+        const rawYear = info.publishedDate ? parseInt(info.publishedDate.slice(0, 4)) : undefined
+        const year = rawYear && !isNaN(rawYear) ? rawYear : undefined
+        const coverImage = resolveCoverUrl(info)
+        const identifiers: Array<{ type: string; identifier: string }> = info.industryIdentifiers || []
+        const isbn =
+          identifiers.find(i => i.type === 'ISBN_13')?.identifier ||
+          identifiers.find(i => i.type === 'ISBN_10')?.identifier
+        const score = info.averageRating ? Math.round(info.averageRating * 2 * 10) / 10 : undefined
+        const rawDesc = (info.description || '').replace(/<[^>]+>/g, '').trim()
+        const description = rawDesc ? truncateAtSentence(rawDesc, 400) || undefined : undefined
+        const genres: string[] = info.categories || []
+
+        items.push({
+          id: bookId,
+          title: info.title,
+          type: 'book',
+          source: 'google_books',
+          coverImage,
+          year,
+          description,
+          genres,
+          authors: info.authors || [],
+          pages: info.pageCount || undefined,
+          score,
+          isbn,
+          publisher: info.publisher || undefined,
+          language: info.language || undefined,
+        })
+      }
     }
 
-    // Italiani prima, poi con cover, poi score
+    // Ordina: italiano prima, poi con cover, poi per score decrescente
     const sorted = [...items].sort((a, b) => {
       const aIt = a.language === 'it' ? 0 : 1
       const bIt = b.language === 'it' ? 0 : 1
@@ -147,13 +201,11 @@ export async function GET(req: NextRequest) {
       return (b.score ?? 0) - (a.score ?? 0)
     })
 
-    console.log(`[BOOKS] risposta finale: ${sorted.length} libri | lingue: ${[...new Set(sorted.map(b => b.language))].join(',')}`)
-
     return NextResponse.json(sorted, {
       headers: { 'Cache-Control': 'no-store' },
     })
   } catch (err) {
-    console.error('[BOOKS] errore:', err)
+    console.error('[Books API]', err)
     return NextResponse.json([])
   }
 }
