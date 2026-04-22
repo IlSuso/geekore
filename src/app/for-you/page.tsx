@@ -44,7 +44,7 @@ interface FriendActivity {
 
 const TYPE_ICONS: Record<MediaType, React.ElementType> = {
   anime: Swords, manga: Layers, movie: Film, tv: Tv, game: Gamepad2,
-  boardgame: Dices, book:, }
+  boardgame: Dices, }
 
 const TYPE_LABEL: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Gioco',
