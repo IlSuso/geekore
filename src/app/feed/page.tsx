@@ -374,9 +374,9 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
       >
         <Tag size={14} strokeWidth={1.6} />
         {value ? (
-          <span className="flex items-center gap-1 max-w-[160px] truncate">
-            <CategoryIcon category={parsed?.category || ''} size={12} />
-            {parsed?.subcategory ? `${parsed.category}: ${parsed.subcategory}` : parsed?.category}
+          <span className="flex items-center gap-1 min-w-0">
+            <CategoryIcon category={parsed?.category || ''} size={12} className="flex-shrink-0" />
+            <span className="whitespace-nowrap">{parsed?.subcategory ? `${parsed.category}: ${parsed.subcategory}` : parsed?.category}</span>
             <X size={11} className="flex-shrink-0 ml-0.5" />
           </span>
         ) : (

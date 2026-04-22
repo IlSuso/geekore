@@ -2898,6 +2898,15 @@ async function fetchBoardgameRecs(
     }
   }
 
+  // Traduci le descrizioni in italiano (stesso pattern di manga e videogiochi)
+  const bgDescItems = results
+    .filter(r => r.description)
+    .map(r => ({ id: `bgg:${r.id}`, text: r.description! }))
+  if (bgDescItems.length > 0) {
+    const t = await translateWithCache(bgDescItems)
+    results.forEach(r => { if (r.description) r.description = t[`bgg:${r.id}`] || r.description })
+  }
+
   return results.sort((a, b) => b.matchScore - a.matchScore)
 }
 

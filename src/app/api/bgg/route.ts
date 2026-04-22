@@ -205,10 +205,9 @@ export async function GET(req: NextRequest) {
     const ids = await searchBGG(q)
     if (!ids.length) return NextResponse.json([])
 
-    // Rispetta rate limit BGG: 5s tra chiamate distinte (policy ufficiale)
-    await new Promise(r => setTimeout(r, 5000))
-
-    const items = await fetchBGGDetails(ids)
+    // Fetch dettagli — BGG raccomanda di non bombardare l'API ma per search UI
+    // il rate limit di 5s è troppo per l'autocomplete. Usiamo solo il primo batch.
+    const items = await fetchBGGDetails(ids.slice(0, 20))
 
     // Traduci descrizioni in italiano se la lingua richiesta è IT
     const lang = req.headers.get('x-lang') || req.nextUrl.searchParams.get('lang') || 'it'
@@ -243,7 +242,8 @@ export async function GET(req: NextRequest) {
       return r
     }
     const qNorm = normalize(q)
-    const filtered = items.filter(item => normalize(item.title).startsWith(qNorm))
+    // includes invece di startsWith: "catan" trova anche "Die Siedler von Catan"
+    const filtered = items.filter(item => normalize(item.title).includes(qNorm))
 
     // Ordina: con cover prima, poi per score BGG decrescente
     const sorted = [...filtered].sort((a, b) => {
