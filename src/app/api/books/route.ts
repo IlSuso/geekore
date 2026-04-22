@@ -96,7 +96,7 @@ export async function GET(req: NextRequest) {
       startIndex: String(startIndex),
       printType: 'books',
       orderBy: 'relevance',
-      ...(langIt ? { langRestrict: 'it' } : {}),
+      ...(langIt ? { langRestrict: 'it', country: 'IT' } : {}),
       ...(GOOGLE_BOOKS_KEY ? { key: GOOGLE_BOOKS_KEY } : {}),
     })
     return `${GOOGLE_BOOKS_BASE}/volumes?${p}`
