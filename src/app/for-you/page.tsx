@@ -9,7 +9,7 @@ import Link from 'next/link'
 import {
   Sparkles, RefreshCw, SlidersHorizontal, Gamepad2, Tv, Film,
   Zap, Plus, Bookmark, X, Check, ChevronDown, ChevronUp, Users,
-  ThumbsDown, Eye, Flame, Brain, Star, ArrowRight, Clapperboard, Swords,
+  ThumbsDown, Eye, Flame, Brain, Star, Clapperboard, Swords,
   TrendingUp, Search, BookmarkCheck, Trophy, Calendar,
   MessageCircleQuestion, Tag, MonitorPlay, AlertCircle, Layers, Shuffle,
   Dices,
@@ -71,14 +71,6 @@ function MatchBadge({ score }: { score: number }) {
   return (
     <span className="inline-flex items-center gap-1 text-[10px] font-bold text-violet-300 bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 rounded-full">
       <Star size={8} fill="currentColor" />{score}%
-    </span>
-  )
-}
-
-function ContinuityBadge({ from }: { from: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full truncate max-w-full">
-      <ArrowRight size={8} />→ {from}
     </span>
   )
 }
@@ -156,9 +148,6 @@ const ContinuitySection = memo(function ContinuitySection({ items, onFeedback, o
                 </div>
               </div>
               <p className="text-xs font-bold text-white leading-tight line-clamp-2 mb-0.5">{item.title}</p>
-              {item.continuityFrom && (
-                <p className="text-[10px] text-amber-400/80 line-clamp-1">→ {item.continuityFrom}</p>
-              )}
             </div>
           )
         })}
@@ -229,10 +218,7 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
           <span className="text-[10px] text-zinc-500">{episodeLabel}</span>
         )}
       </div>
-      {item.isContinuity
-        ? <ContinuityBadge from={item.continuityFrom || ''} />
-        : <MatchBadge score={item.matchScore} />
-      }
+      <MatchBadge score={item.isContinuity ? 100 : item.matchScore} />
     </div>
   )
 })
@@ -591,28 +577,50 @@ function QuickReasonSheet({ item, onConfirm, onDismiss }: {
   onConfirm: (reason: FeedbackReason) => void
   onDismiss: () => void
 }) {
+  const options: { reason: FeedbackReason; label: string; sub: string; icon: React.ReactNode }[] = [
+    {
+      reason: 'not_my_genre',
+      label: 'Non è il mio genere',
+      sub: 'Aiuta a calibrare i tuoi gusti',
+      icon: <X size={15} className="text-zinc-400" />,
+    },
+    {
+      reason: 'already_know',
+      label: 'L\'ho già visto / letto',
+      sub: 'Lo aggiungiamo alla tua libreria',
+      icon: <Eye size={15} className="text-zinc-400" />,
+    },
+    {
+      reason: 'bad_rec',
+      label: 'Non fa per me',
+      sub: 'Non suggerirlo più',
+      icon: <ThumbsDown size={15} className="text-zinc-400" />,
+    },
+  ]
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onDismiss}>
-      <div className="absolute inset-0 bg-black/60" />
-      <div className="relative w-full max-w-sm bg-zinc-900 border border-zinc-700 rounded-t-3xl p-5 pb-8"
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <div className="relative w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-t-3xl p-5 pb-8"
         onClick={e => e.stopPropagation()}>
-        <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-4" />
-        <p className="text-sm font-semibold text-white mb-1">Perché non ti interessa?</p>
-        <p className="text-xs text-zinc-500 mb-4 truncate">{item.title}</p>
+        <div className="w-8 h-0.5 bg-zinc-700 rounded-full mx-auto mb-5" />
+        <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-1">Perché non ti interessa?</p>
+        <p className="text-sm font-semibold text-white mb-5 truncate">{item.title}</p>
         <div className="space-y-2">
-          {([
-            { reason: 'already_know' as FeedbackReason, label: 'Ho già visto / lo conosco', icon: '👁️' },
-            { reason: 'not_my_genre' as FeedbackReason, label: 'Non è il mio genere', icon: '🚫' },
-            { reason: 'too_similar' as FeedbackReason, label: 'Troppo simile ad altro', icon: '🔁' },
-            { reason: 'bad_rec' as FeedbackReason, label: 'Consiglio non pertinente', icon: '👎' },
-          ]).map(({ reason, label, icon }) => (
+          {options.map(({ reason, label, sub, icon }) => (
             <button key={reason} onClick={() => onConfirm(reason)}
-              className="w-full flex items-center gap-3 px-4 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl text-sm text-zinc-200 transition-all text-left">
-              <span className="text-base">{icon}</span>{label}
+              className="w-full flex items-center gap-3.5 px-4 py-3.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl transition-all text-left group">
+              <div className="w-8 h-8 rounded-xl bg-zinc-800 group-hover:bg-zinc-700 flex items-center justify-center flex-shrink-0 transition-colors">
+                {icon}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-white">{label}</p>
+                <p className="text-[11px] text-zinc-500">{sub}</p>
+              </div>
             </button>
           ))}
         </div>
-        <button onClick={() => onConfirm(undefined)} className="w-full mt-3 text-xs text-zinc-600 hover:text-zinc-400 py-2">
+        <button onClick={() => onConfirm(undefined)} className="w-full mt-4 text-xs text-zinc-600 hover:text-zinc-400 py-1.5 transition-colors">
           Salta
         </button>
       </div>
