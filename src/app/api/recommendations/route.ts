@@ -3391,9 +3391,9 @@ export async function GET(request: NextRequest) {
 
     // collection_size salvato nel pool — usiamo il valore del primo tipo disponibile
     // come riferimento del totale al momento dell'ultima regen
-    const savedTotalSize = (masterPoolRows || []).reduce((sum: number, r: any) => {
-      return sum + (r.collection_size || 0)
-    }, 0)
+    // collection_size ora contiene il totale collezione al momento dell'ultima regen
+    // quindi basta prendere il valore di una qualsiasi riga (sono tutti uguali)
+    const savedTotalSize = (masterPoolRows || [])[0]?.collection_size || 0
 
     const totalHasGrown = totalCollectionSize - savedTotalSize >= regenDelta
     const anyTooSmall = typesToFetch.some(type => {
