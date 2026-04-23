@@ -3363,7 +3363,9 @@ export async function GET(request: NextRequest) {
       const hasGrown = (entriesByType.get(type) ?? 0) - (row?.collection_size || 0) >= MASTER_POOL_REGEN_DELTA
       // tooSmall solo se la riga non esiste proprio — se esiste con pochi item (es. BGG) non rigenerare ogni volta
       const tooSmall = !row || items.length === 0
-      if (forceRefresh || tooSmall || hasGrown) {
+      // invalidated: la Edge Function ha settato collection_size = -1 per forzare regen
+      const isInvalidated = row?.collection_size === -1
+      if (forceRefresh || tooSmall || hasGrown || isInvalidated) {
         if (!row && !ALWAYS_INCLUDE.includes(type as MediaType)) {
           // Tipo completamente assente dal master pool → rigenera in background
           // così la risposta non viene bloccata per questo tipo mancante.
