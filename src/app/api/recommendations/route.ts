@@ -1623,7 +1623,7 @@ async function fetchAnimeRecs(
             matchScore = Math.round(matchScore * freshMult)
             return { m, boost, matchScore, recGenres, mTags, mStudios, mDirectors, socialFriend, year, trendingBoost: 0, creatorBoost: undefined as string | undefined }
           })
-          .filter(({ matchScore }: any) => matchScore >= 20)
+          .filter(({ matchScore }: any) => matchScore >= 40)
           .sort((a: any, b: any) => (b.boost + b.matchScore) - (a.boost + a.matchScore))
 
         for (const { m, matchScore, recGenres, mTags, mStudios, mDirectors, socialFriend, year, trendingBoost, creatorBoost } of candidates) {
@@ -1748,7 +1748,7 @@ async function fetchMangaRecs(
           matchScore = Math.round(matchScore * releaseFreshnessMult(m.seasonYear, m.averageScore, m.popularity))
           return { m, boost, matchScore, recGenres, mTags, mAuthors, creatorBoost, trendingBoost, socialFriend }
         })
-        .filter(({ matchScore }: any) => matchScore >= 20)
+        .filter(({ matchScore }: any) => matchScore >= 40)
         .sort((a: any, b: any) => (b.boost + b.matchScore) - (a.boost + a.matchScore))
         .slice(0, slot.quota + 5)
 
@@ -1834,7 +1834,7 @@ async function fetchMangaRecs(
           const recGenres: string[] = m.genres || []
           let matchScore = computeMatchScore(recGenres, mTags, tasteProfile, [], mAuthors)
           matchScore = Math.round(matchScore * releaseFreshnessMult(m.seasonYear, m.averageScore, m.popularity))
-          if (matchScore < 20) continue
+          if (matchScore < 40) continue
           if (isAwardWorthy(m.averageScore, m.popularity, undefined, 'anilist')) matchScore = Math.min(100, matchScore + 8)
           results.push({
             id,
@@ -1990,7 +1990,7 @@ async function fetchMovieRecs(
           matchScore = Math.round(matchScore * releaseFreshnessMult(year))
           return { m, boost, matchScore, recGenres, kws, trendingBoost: isTrending ? 0.8 : 0, platformMatch }
         })
-        .filter(({ matchScore }: any) => matchScore >= 20)
+        .filter(({ matchScore }: any) => matchScore >= 40)
         .sort((a: any, b: any) => (b.boost + b.matchScore) - (a.boost + a.matchScore))
         .slice(0, slot.quota + 3)
 
@@ -2064,7 +2064,7 @@ async function fetchMovieRecs(
           if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
           const year = m.release_date ? parseInt(m.release_date.substring(0, 4)) : undefined
           matchScore = Math.round(matchScore * releaseFreshnessMult(year))
-          if (matchScore < 20) continue
+          if (matchScore < 40) continue
           results.push({
             id: m.id.toString(),
             title: m.title || m.original_title || 'Senza titolo',
@@ -2193,7 +2193,7 @@ async function fetchTvRecs(
           matchScore = Math.round(matchScore * releaseFreshnessMult(year))
           return { m, boost, matchScore, recGenres, kws, trendingBoost: isTrending ? 0.8 : 0, platformMatch }
         })
-        .filter(({ matchScore }: any) => matchScore >= 20)
+        .filter(({ matchScore }: any) => matchScore >= 40)
         .sort((a: any, b: any) => (b.boost + b.matchScore) - (a.boost + a.matchScore))
         .slice(0, slot.quota + 3)
 
@@ -2243,7 +2243,7 @@ async function fetchTvRecs(
   // Strategia corretta: per ogni genere degli slot, fetcha pagine 4→8 sistematicamente.
   // Non usare modulo su page globale (ricicla generi a caso su pagine vuote).
   // vote_count.gte abbassato a 100 nel top-up (qualità ancora accettabile, più risultati).
-  // Soglia matchScore >= 20 mantenuta: il profilo crossmediale è ricco anche con pochi TV.
+  // Soglia matchScore >= 40: titoli sotto soglia non verranno mai campionati dal pool.
   const TV_POOL_TARGET = 200
   if (results.length < TV_POOL_TARGET && slots.length > 0) {
     const voteAvgMin = tasteProfile.qualityThresholds.tmdbVoteAvg
@@ -2281,7 +2281,7 @@ async function fetchTvRecs(
             if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
             const year = m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined
             matchScore = Math.round(matchScore * releaseFreshnessMult(year))
-            if (matchScore < 20) continue  // soglia invariata: crossmedia garantisce profilo ricco
+            if (matchScore < 40) continue
             results.push({
               id: m.id.toString(),
               title: m.name || m.original_name || 'Senza titolo',
@@ -2538,6 +2538,7 @@ async function fetchGameRecs(
             if (isAwardWorthy(g.rating, undefined, g.rating_count, 'igdb')) matchScore = Math.min(100, matchScore + 8)
             const year = g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : undefined
             matchScore = Math.round(matchScore * releaseFreshnessMult(year))
+            if (matchScore < 40) continue
             results.push({
               id: g.id.toString(),
               title: g.name,
@@ -3244,6 +3245,7 @@ async function fetchBoardgameRecs(
         else if (bggRank <= 800) finalScore = Math.min(100, finalScore + 2)
       }
       finalScore = Math.round(finalScore * releaseFreshnessMult(year))
+      if (finalScore < 40) continue
 
       seen.add(recId)
       results.push({
@@ -3394,6 +3396,7 @@ async function fetchBoardgameRecs(
             else if (bggRank2 <= 800) finalScore2 = Math.min(100, finalScore2 + 2)
           }
           finalScore2 = Math.round(finalScore2 * releaseFreshnessMult(year2))
+          if (finalScore2 < 40) continue
 
           const minpM2 = chunk.match(/<minplayers[^>]*value="(\d+)"/)
           const maxpM2 = chunk.match(/<maxplayers[^>]*value="(\d+)"/)
@@ -3517,6 +3520,7 @@ async function fetchBoardgameRecs(
             else if (bggRank2 <= 800) finalScore2 = Math.min(100, finalScore2 + 2)
           }
           finalScore2 = Math.round(finalScore2 * releaseFreshnessMult(year2))
+          if (finalScore2 < 40) continue
 
           const minpM2 = chunk.match(/<minplayers[^>]*value="(\d+)"/)
           const maxpM2 = chunk.match(/<maxplayers[^>]*value="(\d+)"/)
@@ -3570,7 +3574,7 @@ async function fetchBoardgameRecs(
 const MASTER_POOL_SIZE_PER_TYPE = 200  // titoli nel master pool per tipo (grande serbatoio)
 const MASTER_POOL_MIN_VALID = 40       // minimo realistico — BGG ha meno titoli di altri sorgenti
 const MASTER_POOL_MAX_AGE_DAYS = 7     // rigenera master se più vecchio di N giorni
-const SERVE_SIZE_PER_TYPE = 15         // titoli campionati dal master e serviti ad ogni GET
+const SERVE_SIZE_PER_TYPE = 20         // titoli campionati dal master e serviti ad ogni GET
 
 // Delta dinamico basato sul totale titoli nel profilo (tutti i media combined)
 // 0-50 titoli   → regen ogni +5 totali
@@ -3605,6 +3609,19 @@ function shuffleSeeded<T>(arr: T[], seed: number): T[] {
     [a[i], a[j]] = [a[j], a[i]]
   }
   return a
+}
+
+// Campionamento a tier dal master pool: 10 da 80-100%, 5 da 60-79%, 5 da 40-59%.
+// Se un tier non ha abbastanza titoli, il deficit confluisce nel tier successivo.
+function sampleMasterPool(items: Recommendation[]): Recommendation[] {
+  const shuffle = <T>(arr: T[]) => [...arr].sort(() => Math.random() - 0.5)
+  const t1 = shuffle(items.filter(r => r.matchScore >= 80))
+  const t2 = shuffle(items.filter(r => r.matchScore >= 60 && r.matchScore < 80))
+  const t3 = shuffle(items.filter(r => r.matchScore >= 40 && r.matchScore < 60))
+  const taken1 = t1.slice(0, 10)
+  const taken2 = t2.slice(0, 5 + (10 - taken1.length))
+  const taken3 = t3.slice(0, 5 + Math.max(0, (5 + (10 - taken1.length)) - taken2.length))
+  return [...taken1, ...taken2, ...taken3]
 }
 
 export async function GET(request: NextRequest) {
@@ -3685,6 +3702,43 @@ export async function GET(request: NextRequest) {
       }
       // Pool vuota → segnala al client di fare il calcolo completo
       return NextResponse.json({ recommendations: {}, tasteProfile: null, cached: false, source: 'pool_empty' })
+    }
+
+    // ── REFRESH POOL: campiona dal master pool con logica a tier (senza ricalcolo profilo) ──
+    // Chiamato dal tasto Aggiorna — veloce perché legge solo da Supabase, zero API esterne.
+    const refreshPoolOnly = searchParams.get('source') === 'refresh_pool'
+    if (refreshPoolOnly) {
+      const [{ data: masterRows }, { data: currentPool }] = await Promise.all([
+        supabase.from('master_recommendations_pool').select('media_type, data').eq('user_id', userId),
+        supabase.from('recommendations_pool').select('taste_profile, total_entries').eq('user_id', userId).limit(1),
+      ])
+      if (!masterRows || masterRows.length === 0) {
+        return NextResponse.json({ recommendations: {}, tasteProfile: null, source: 'pool_empty' })
+      }
+      const savedTasteProfile = currentPool?.[0]?.taste_profile || null
+      const savedTotalEntries = currentPool?.[0]?.total_entries || 0
+      const recommendations: Record<string, any[]> = {}
+      const poolUpserts: any[] = []
+      for (const row of masterRows) {
+        if (!Array.isArray(row.data) || row.data.length === 0) continue
+        const sampled = sampleMasterPool(row.data as Recommendation[])
+        if (sampled.length === 0) continue
+        recommendations[row.media_type] = sampled
+        poolUpserts.push({
+          user_id: userId,
+          media_type: row.media_type,
+          data: sampled,
+          generated_at: new Date().toISOString(),
+        })
+      }
+      if (poolUpserts.length > 0) {
+        await supabase.from('recommendations_pool').upsert(poolUpserts, { onConflict: 'user_id,media_type' })
+      }
+      return NextResponse.json({
+        recommendations,
+        tasteProfile: savedTasteProfile ? { ...savedTasteProfile, totalEntries: savedTotalEntries } : null,
+        source: 'refresh_pool',
+      })
     }
 
     // ── In-memory cache check — bypassa se similar_to query (sempre fresh) ───
@@ -4011,11 +4065,11 @@ export async function GET(request: NextRequest) {
 
         const contRecs = continuityByType.get(type) || []
         const contIds = new Set(contRecs.map(r => r.id))
-        // Nel master pool NON applicare applyFormatDiversity — serve il serbatoio più ampio possibile
-        // applyFormatDiversity viene applicata solo quando si serve al client
+        // Nel master pool mantieni solo titoli con affinità >= 40%: sotto soglia non vengono mai campionati.
+        // I continuity recs (sequel/prequel) sono esenti dal filtro: hanno priorità speciale.
         const allItems: Recommendation[] = [
           ...contRecs,
-          ...result.items.filter(r => !contIds.has(r.id)),
+          ...result.items.filter(r => !contIds.has(r.id) && r.matchScore >= 40),
         ]
 
         masterByType.set(type, allItems)
@@ -4097,9 +4151,8 @@ export async function GET(request: NextRequest) {
     }
 
     // ── Campiona dal master pool → recommendations_pool ─────────────────────
-    // Il pool NON genera nulla di proprio: pesca sempre e solo SERVE_SIZE_PER_TYPE
-    // titoli casuali dal master pool. Se il master non esiste per un tipo → vuoto.
-    // Ogni chiamata dà un campione diverso grazie allo shuffle casuale.
+    // Usa logica a tier: 10 da 80-100%, 5 da 60-79%, 5 da 40-59% (con cascata).
+    // Se il master non esiste per un tipo → vuoto.
 
     const poolByType = new Map<string, Recommendation[]>()
     const poolUpserts: any[] = []
@@ -4113,10 +4166,8 @@ export async function GET(request: NextRequest) {
       }
       // Filtra già posseduti (potrebbero essere stati aggiunti dopo la generazione del master)
       const available = masterItems.filter(r => !isAlreadyOwned(r.type, r.id, r.title))
-      // Shuffle casuale — ogni chiamata dà un campione diverso
-      const shuffled = [...available].sort(() => Math.random() - 0.5)
-      // Pesca esattamente SERVE_SIZE_PER_TYPE titoli — niente di più
-      const poolItems = shuffled.slice(0, SERVE_SIZE_PER_TYPE)
+      // Campiona con logica a tier (10/5/5 con cascata)
+      const poolItems = sampleMasterPool(available)
 
       poolByType.set(type, poolItems)
       poolUpserts.push({
@@ -4150,8 +4201,7 @@ export async function GET(request: NextRequest) {
       }, { onConflict: 'user_id' })
     })()
 
-    // ── Serve dal pool — i 15 titoli sono già stati campionati dal master qui sopra
-    // Il pool contiene esattamente SERVE_SIZE_PER_TYPE titoli casuali dal master.
+    // ── Serve dal pool — i titoli (max 20) sono già stati campionati con logica a tier
     // Li serviamo direttamente senza ulteriori manipolazioni.
     const recommendations: Record<string, Recommendation[]> = {}
     for (const type of typesToFetch) {

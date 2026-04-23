@@ -238,88 +238,6 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
   )
 })
 
-const HeroMatchSection = memo(function HeroMatchSection({ items, onFeedback, onSimilar, onDetail, dismissedIds }: {
-  items: Recommendation[]
-  onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
-  onSimilar?: (i: Recommendation) => void
-  onDetail?: (i: Recommendation) => void
-  dismissedIds: Set<string>
-}) {
-  const { t } = useLocale(); const fy = t.forYou
-  const top = items
-    .filter(i => i.matchScore >= 75 && !dismissedIds.has(i.id) && !i.isContinuity)
-    .sort((a, b) => b.matchScore - a.matchScore)
-    .slice(0, 6)
-  if (top.length < 2) return null
-
-  return (
-    <div className="mb-12">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl flex items-center justify-center">
-          <Flame size={16} className="text-white" />
-        </div>
-        <div>
-          <h2 className="text-base font-bold text-white">Match Forte</h2>
-          <p className="text-xs text-zinc-500">I più compatibili con i tuoi gusti</p>
-        </div>
-      </div>
-      <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
-        {top.map(item => {
-          const Icon = TYPE_ICONS[item.type]; const colorClass = TYPE_COLORS[item.type]
-          return (
-            <div key={item.id} className="flex-shrink-0 w-44 group relative cursor-pointer" onClick={() => onDetail?.(item)}>
-              <div className="relative h-64 rounded-2xl overflow-hidden bg-zinc-900 mb-2">
-                {item.coverImage
-                  ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" />
-                  : <div className="w-full h-full flex items-center justify-center"><Icon size={36} className="text-zinc-700" /></div>
-                }
-                <div className="absolute bottom-0 inset-x-0 h-20 bg-gradient-to-t from-black/80 to-transparent" />
-                <div className="absolute top-2 right-2 bg-violet-600 text-white text-[10px] font-black px-2 py-1 rounded-full flex items-center gap-1">
-                  <Star size={9} fill="currentColor" />{item.matchScore}%
-                </div>
-                <div className={`absolute top-2 left-2 bg-gradient-to-r ${colorClass} text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full`}>
-                  {TYPE_LABEL[item.type]}
-                </div>
-                {item.creatorBoost && (
-                  <div className="absolute bottom-10 left-2 right-2">
-                    <span className="text-[9px] bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded-full border border-sky-500/30 flex items-center gap-0.5 w-fit max-w-full truncate">
-                      <Clapperboard size={7} />{item.creatorBoost}
-                    </span>
-                  </div>
-                )}
-                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-                  <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }}
-                    className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-red-300 hover:bg-red-900/60 transition-colors">
-                    <ThumbsDown size={11} />
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'already_seen') }}
-                    className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-white hover:bg-zinc-600/60 transition-colors">
-                    <Eye size={11} />
-                  </button>
-                  {onSimilar && (
-                    <button onClick={(e) => { e.stopPropagation(); onSimilar(item) }}
-                      className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-violet-200 hover:bg-violet-900/60 transition-colors">
-                      <Search size={11} />
-                    </button>
-                  )}
-                </div>
-              </div>
-              <p className="text-xs font-bold text-white leading-tight line-clamp-2 mb-0.5">{item.title}</p>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {item.year && <span className="text-[10px] text-zinc-500">{item.year}</span>}
-                {item.score && (
-                  <span className="flex items-center gap-0.5 text-[10px] text-yellow-400 font-semibold">
-                    <Star size={8} fill="currentColor" />{Math.min(item.score, 5).toFixed(1)}
-                  </span>
-                )}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-})
 
 // Sezione "Simili a X" — persiste finché l'utente non la chiude o cerca un altro simile
 // Barra di ricerca "Trova titoli simili a..." — stile identico alla navbar
@@ -986,8 +904,7 @@ export default function ForYouPage() {
       if (poolRes.ok) {
         const poolJson = await poolRes.json()
         if (poolJson.source === 'pool' && poolJson.recommendations) {
-          console.log('[FOR-YOU] pool hit, launching background regen')
-          // Pool trovata → mostra subito i dati vecchi (stale-while-revalidate)
+          // Pool trovata → mostra i dati salvati senza rigenera in background
           setRecommendations(poolJson.recommendations || {})
           setTasteProfile(poolJson.tasteProfile || null)
           setIsCached(true)
@@ -997,11 +914,6 @@ export default function ForYouPage() {
           const now = Date.now()
           if (lastVisit && now - parseInt(lastVisit || '') > 4 * 3600000) setShowNewRecsBadge(true)
           localStorage.setItem('for_you_last_visit', String(now))
-          // Rigenera in background dopo un piccolo delay per evitare che il browser
-          // cancelli la fetch mentre è ancora in corso la risposta della pool
-          setTimeout(() => {
-            fetch('/api/recommendations?type=all', { keepalive: true }).catch(() => {})
-          }, 500)
           return
         }
       }
@@ -1038,19 +950,22 @@ export default function ForYouPage() {
     setRefreshing(true)
     setShowNewRecsBadge(false)
     const { data: { user } } = await supabase.auth.getUser()
-    const recsPromise = fetch('/api/recommendations?type=all&refresh=1').then(r => r.ok ? r.json() : null)
-    await Promise.all([recsPromise, user ? fetchFriends(user.id) : Promise.resolve()])
-    const json = await recsPromise.catch(() => null)
-    if (json) {
-      const incoming = json.recommendations || {}
+    const [json] = await Promise.all([
+      fetch('/api/recommendations?source=refresh_pool')
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null),
+      user ? fetchFriends(user.id) : Promise.resolve(),
+    ])
+    if (json && json.recommendations) {
+      const incoming = json.recommendations as Record<string, Recommendation[]>
       setRecommendations(prev => {
         const merged = { ...prev }
         for (const [type, items] of Object.entries(incoming)) {
-          if (Array.isArray(items) && (items as any[]).length > 0) merged[type] = items as Recommendation[]
+          if (Array.isArray(items) && items.length > 0) merged[type] = items
         }
         return merged
       })
-      setTasteProfile(json.tasteProfile || null)
+      if (json.tasteProfile) setTasteProfile(json.tasteProfile)
       setIsCached(false)
     }
     setRefreshing(false)
@@ -1666,16 +1581,6 @@ export default function ForYouPage() {
                 onClose={() => setSimilarSection(null)}
                 dismissedIds={dismissedIds}
                 similarLoadingId={similarLoading}
-              />
-            )}
-            {allRecs.length >= 2 && (
-              <HeroMatchSection
-                key={`hero-${allRecs.length}`}
-                items={allRecs}
-                onFeedback={handleFeedback}
-                onSimilar={handleSimilar}
-                onDetail={handleDetail}
-                dismissedIds={dismissedIds}
               />
             )}
             {friendsLoading ? <SkeletonFriendsWatching /> : <FriendsWatchingSection items={friendsActivity} />}
