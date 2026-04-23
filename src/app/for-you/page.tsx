@@ -9,7 +9,7 @@ import Link from 'next/link'
 import {
   Sparkles, RefreshCw, SlidersHorizontal, Gamepad2, Tv, Film,
   Zap, Plus, Bookmark, X, Check, ChevronDown, ChevronUp, Users,
-  ThumbsDown, Eye, Flame, Brain, Star, Clapperboard, Swords,
+  ThumbsDown, Eye, Flame, Brain, Star, ArrowRight, Clapperboard, Swords,
   TrendingUp, Search, BookmarkCheck, Trophy, Calendar,
   MessageCircleQuestion, Tag, MonitorPlay, AlertCircle, Layers, Shuffle,
   Dices,
