@@ -817,7 +817,7 @@ export default function ForYouPage() {
       if (poolRes.ok) {
         const poolJson = await poolRes.json()
         if (poolJson.source === 'pool' && poolJson.recommendations) {
-          // Pool trovata → mostra subito i dati salvati
+          // Pool trovata → mostra i dati salvati
           setRecommendations(poolJson.recommendations || {})
           setTasteProfile(poolJson.tasteProfile || null)
           setIsCached(true)
@@ -827,24 +827,6 @@ export default function ForYouPage() {
           const now = Date.now()
           if (lastVisit && now - parseInt(lastVisit || '') > 4 * 3600000) setShowNewRecsBadge(true)
           localStorage.setItem('for_you_last_visit', String(now))
-          // Se un tipo ha meno di 20 titoli (pool stale/incompleta) ricampiona dal master in background
-          const hasIncomplete = Object.values(poolJson.recommendations as Record<string, any[]>)
-            .some(items => items.length < 20)
-          if (hasIncomplete) {
-            fetch('/api/recommendations?source=refresh_pool')
-              .then(r => r.ok ? r.json() : null)
-              .then(json => {
-                if (!json?.recommendations) return
-                setRecommendations(prev => {
-                  const merged = { ...prev }
-                  for (const [type, items] of Object.entries(json.recommendations as Record<string, Recommendation[]>)) {
-                    if (Array.isArray(items) && items.length > 0) merged[type as MediaType] = items
-                  }
-                  return merged
-                })
-              })
-              .catch(() => {})
-          }
           return
         }
       }
