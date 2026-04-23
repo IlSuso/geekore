@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Sparkles, RefreshCw, SlidersHorizontal, Gamepad2, Tv, Film,
-  Zap, Plus, Bookmark, X, Check, ChevronDown, ChevronUp, Users, Compass,
+  Zap, Plus, Bookmark, X, Check, ChevronDown, ChevronUp, Users,
   ThumbsDown, Eye, Flame, Brain, Star, ArrowRight, Clapperboard, Swords,
   TrendingUp, Search, BookmarkCheck, Trophy, Calendar,
   MessageCircleQuestion, Tag, MonitorPlay, AlertCircle, Layers, Shuffle,
@@ -183,9 +183,9 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
     : (item.episodes && item.type !== 'movie' ? `${item.episodes} ep.` : null)
 
   return (
-    <div className={`flex-shrink-0 group ${showDetails ? 'w-48' : 'w-36'}`}>
+    <div className={`flex-shrink-0 group ${showDetails ? 'w-52' : 'w-40'}`}>
       <div
-        className={`relative ${showDetails ? 'h-64' : 'h-52'} rounded-2xl overflow-hidden bg-zinc-900 mb-2 cursor-pointer`}
+        className={`relative ${showDetails ? 'h-72' : 'h-60'} rounded-2xl overflow-hidden bg-zinc-900 mb-2 cursor-pointer`}
         onClick={() => onDetail?.(item)}
       >
         {item.coverImage
@@ -417,7 +417,7 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
   dismissedIds: Set<string>
   similarLoadingId?: string | null
 }) {
-  const [visibleCount, setVisibleCount] = useState(15)
+  const [visibleCount, setVisibleCount] = useState(20)
   const [typeFilter, setTypeFilter] = useState<MediaType | 'all'>('all')
 
   // Tipi effettivamente presenti nei risultati
@@ -434,7 +434,7 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
   // Reset visibleCount quando cambia il filtro
   const handleFilterChange = (key: MediaType | 'all') => {
     setTypeFilter(key)
-    setVisibleCount(15)
+    setVisibleCount(20)
   }
 
   return (
@@ -501,7 +501,7 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
             />
           ))}
           {hasMore && (
-            <div className="flex-shrink-0 w-36 flex items-center justify-center">
+            <div className="flex-shrink-0 w-40 flex items-center justify-center">
               <button onClick={() => setVisibleCount(v => v + 10)}
                 className="flex flex-col items-center gap-2 text-zinc-500 hover:text-zinc-300 transition-colors">
                 <div className="w-10 h-10 rounded-full border border-zinc-700 hover:border-zinc-500 flex items-center justify-center">
@@ -517,93 +517,8 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
   )
 })
 
-// Fix 2.8: sezione separata per titoli "Scoperta" — nuovo per te
-const DiscoverySection = memo(function DiscoverySection({ items, onFeedback, onSimilar, onDetail, dismissedIds }: {
-  items: Recommendation[]
-  onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
-  onSimilar?: (i: Recommendation) => void
-  onDetail?: (i: Recommendation) => void
-  dismissedIds: Set<string>
-}) {
-  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
-  const visible = items.filter(i => i.isDiscovery && !dismissedIds.has(i.id))
-  if (visible.length < 2) return null
-  const shown = visible.slice(0, visibleCount)
-  const hasMore = visible.length > visibleCount
 
-  return (
-    <div className="mb-10">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
-          <Compass size={16} className="text-white" />
-        </div>
-        <div>
-          <h2 className="text-base font-bold text-white">Esplora oltre i tuoi confini</h2>
-          <p className="text-[10px] text-zinc-500">{visible.length} titoli fuori dal tuo solito — potrebbe sorprenderti</p>
-        </div>
-      </div>
-      <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
-        {shown.map(item => {
-          const Icon = TYPE_ICONS[item.type]
-          return (
-            <div key={item.id} className="flex-shrink-0 w-36 group">
-              <div className="relative h-52 rounded-2xl overflow-hidden bg-zinc-900 mb-2 cursor-pointer"
-                onClick={() => onDetail?.(item)}>
-                {item.coverImage
-                  ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" />
-                  : <div className="w-full h-full flex items-center justify-center"><Icon size={32} className="text-zinc-700" /></div>
-                }
-                {/* Bordo verde — div interno per evitare clip da overflow-hidden */}
-                <div className="absolute inset-0 rounded-2xl border-2 border-emerald-400 pointer-events-none z-10" />
-                <div className="absolute top-2 left-2 bg-emerald-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 z-20">
-                  <Compass size={8} /> Nuovo per te
-                </div>
-                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-                  <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }}
-                    className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-red-300 hover:bg-red-900/60 transition-colors">
-                    <ThumbsDown size={11} />
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'already_seen') }}
-                    className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-white hover:bg-zinc-600/60 transition-colors">
-                    <Eye size={11} />
-                  </button>
-                  {onSimilar && (
-                    <button onClick={(e) => { e.stopPropagation(); onSimilar(item) }} title="Simili"
-                      className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-violet-200 hover:bg-violet-900/60 transition-colors">
-                      <Search size={11} />
-                    </button>
-                  )}
-                </div>
-              </div>
-              <p className="text-xs font-semibold text-white leading-tight line-clamp-2 mb-0.5">{item.title}</p>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {item.year && <span className="text-[10px] text-zinc-500">{item.year}</span>}
-                {item.score && (
-                  <span className="flex items-center gap-0.5 text-[10px] text-yellow-400 font-semibold">
-                    <Star size={8} fill="currentColor" />{Math.min(item.score, 5).toFixed(1)}
-                  </span>
-                )}
-              </div>
-            </div>
-          )
-        })}
-        {hasMore && (
-          <div className="flex-shrink-0 w-36 flex items-center justify-center">
-            <button onClick={() => setVisibleCount(v => v + LOAD_MORE_STEP)}
-              className="flex flex-col items-center gap-2 text-zinc-500 hover:text-zinc-300 transition-colors">
-              <div className="w-10 h-10 rounded-full border border-zinc-700 hover:border-zinc-500 flex items-center justify-center">
-                <ChevronDown size={18} />
-              </div>
-              <span className="text-[10px]">+{visible.length - visibleCount} altri</span>
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-})
-
-const INITIAL_VISIBLE = 15
+const INITIAL_VISIBLE = 20
 const LOAD_MORE_STEP = 10
 
 const RecommendationSection = memo(function RecommendationSection({ type, items, label, onFeedback, dismissedIds, onSimilar, onDetail, similarLoadingId, isPrimary }: {
@@ -655,9 +570,8 @@ const RecommendationSection = memo(function RecommendationSection({ type, items,
             isSimilarLoading={similarLoadingId === item.id} dismissed={dismissedIds.has(item.id)}
           />
         ))}
-        {/* Fix 2.13: "Mostra altri" senza refresh */}
         {hasMore && (
-          <div className="flex-shrink-0 w-36 flex items-center justify-center">
+          <div className="flex-shrink-0 w-40 flex items-center justify-center">
             <button onClick={() => setVisibleCount(v => v + LOAD_MORE_STEP)}
               className="flex flex-col items-center gap-2 text-zinc-500 hover:text-zinc-300 transition-colors">
               <div className="w-10 h-10 rounded-full border border-zinc-700 hover:border-zinc-500 flex items-center justify-center">
@@ -1600,15 +1514,6 @@ export default function ForYouPage() {
             {friendsLoading ? <SkeletonFriendsWatching /> : <FriendsWatchingSection items={friendsActivity} />}
             <SimilarTasteFriends />
 
-
-            <DiscoverySection
-              key={`discovery-${Object.keys(recommendations).join('-')}-${allRecs.length}`}
-              items={allRecs}
-              onFeedback={handleFeedback}
-              onSimilar={handleSimilar}
-              onDetail={handleDetail}
-              dismissedIds={dismissedIds}
-            />
 
             {SECTIONS.map(({ key, label }) => {
               const items = displayRecs[key] || []
