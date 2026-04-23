@@ -154,7 +154,15 @@ export async function GET(request: NextRequest) {
         })
       )
 
-      allResults.push(...mapped.filter(Boolean))
+      allResults.push(...mapped.filter(Boolean).filter((m: any) => {
+        // Escludi film anime (lingua giapponese + genere Animation) dalla categoria movie
+        if (mediaType === 'movie' && m.genres?.includes('Animation')) {
+          // Non abbiamo original_language nella mapped, usiamo i risultati raw
+          const raw = results.find((r: any) => r.id.toString() === m.id)
+          if (raw && raw.original_language === 'ja') return false
+        }
+        return true
+      }))
     } catch { /* continua */ }
   }
 
