@@ -23,7 +23,6 @@ import { SimilarTasteFriends } from '@/components/social/SimilarTasteFriends'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
-import { enqueueRegenJob } from '@/lib/reco/enqueue-regen'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 import { PreferencesModal } from '@/components/for-you/PreferencesModal'
 import { DNAWidget } from '@/components/for-you/DNAWidget'
@@ -964,9 +963,8 @@ export default function ForYouPage() {
       setTotalEntries(entries?.length || 0)
 
       // ── Realtime: osserva profiles.entry_count ────────────────────────────
-      // Il trigger Postgres aggiorna entry_count ad ogni INSERT su user_media_entries,
-      // indipendentemente dalla sorgente (swipe, import Steam/Xbox/BGG, discovery).
-      // Quando entry_count raggiunge 15 per la prima volta → genera il master pool.
+      // Aggiorna solo il contatore locale — il trigger Postgres su profiles
+      // gestisce già l'inserimento del job di regen automaticamente.
       const profileSub = supabase
         .channel('profile-entry-count')
         .on('postgres_changes', {
@@ -976,39 +974,9 @@ export default function ForYouPage() {
           filter: `id=eq.${userId}`,
         }, (payload: any) => {
           const newCount = payload.new?.entry_count ?? 0
-          const oldCount = payload.old?.entry_count ?? 0
           setTotalEntries(newCount)
-          // Caso 1: passaggio soglia 14→15 → genera master pool per tutti i tipi
-          if (oldCount < 15 && newCount >= 15) {
-            enqueueRegenJob({ forceRefresh: true })
-            return
-          }
-          // Caso 2: già sopra soglia ma master pool parziale → i tipi mancanti
-          // vengono gestiti da typesToRegenBackground in route.ts alla prossima
-          // chiamata normale — non serve triggare qui (evita chiamate ridondanti)
         })
         .subscribe()
-
-      // ── Controllo avvio: master pool assente o parziale ──────────────────
-      // Fire-and-forget: NON await — non blocca il rendering della pagina.
-      // Se l'utente ha ≥15 titoli ma mancano righe nel master pool per uno
-      // qualsiasi dei tipi noti → triggera la generazione in background.
-      if ((entries?.length || 0) >= 15) {
-        ;(async () => {
-          try {
-            const ALL_TYPES = ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame']
-            const { data: masterRows } = await supabase
-              .from('master_recommendations_pool')
-              .select('media_type')
-              .eq('user_id', userId)
-            const existingTypes = new Set((masterRows || []).map((r: any) => r.media_type))
-            const hasMissing = ALL_TYPES.some(t => !existingTypes.has(t))
-            if (hasMissing) {
-              enqueueRegenJob({ forceRefresh: true })
-            }
-          } catch { /* ignora — non blocca nulla */ }
-        })()
-      }
 
       // Ritorna il cleanup del canale realtime all'useEffect
       cleanupRef.current = () => { supabase.removeChannel(profileSub) }

@@ -3035,9 +3035,30 @@ export async function GET(request: NextRequest) {
     const rl = rateLimit(request, { limit: 10, windowMs: 60_000 })
     if (!rl.ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
 
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+    // ── Background regen bypass: chiamata interna da background-regen/route.ts ─
+    // Usa service role + X-Service-User-Id header per agire per conto dell'utente
+    // senza bisogno della sua sessione.
+    const serviceUserId = request.headers.get('X-Service-User-Id')
+    const serviceSecret = request.headers.get('X-Service-Secret')
+    const isServiceCall = serviceUserId && serviceSecret === (process.env.CRON_SECRET || '')
+
+    let supabase = await createClient()
+    let userId: string
+
+    if (isServiceCall) {
+      // Crea client con service role per leggere dati dell'utente
+      const { createClient: createServiceClient } = await import('@supabase/supabase-js')
+      supabase = createServiceClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      ) as any
+      userId = serviceUserId
+    } else {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+      userId = user.id
+    }
 
     const { searchParams } = new URL(request.url)
     const requestedType = searchParams.get('type') || 'all'
@@ -3056,7 +3077,7 @@ export async function GET(request: NextRequest) {
       const { data: poolRows } = await supabase
         .from('recommendations_pool')
         .select('media_type, data, taste_profile, total_entries, generated_at')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
 
       if (poolRows && poolRows.length > 0) {
         const recommendations: Record<string, any[]> = {}
@@ -3086,7 +3107,7 @@ export async function GET(request: NextRequest) {
 
     // ── In-memory cache check — bypassa se similar_to query (sempre fresh) ───
     if (!forceRefresh && !similarToId) {
-      const memHit = memCacheGet(user.id)
+      const memHit = memCacheGet(userId)
       if (memHit) {
         // Per type=all ritorna SEMPRE tutti i dati — mai un sottoinsieme
         const recs = requestedType === 'all'
@@ -3114,7 +3135,7 @@ export async function GET(request: NextRequest) {
     const { data: entries } = await supabase
       .from('user_media_entries')
       .select('type, rating, genres, current_episode, episodes, status, is_steam, title, title_en, external_id, appid, updated_at, tags, keywords, themes, player_perspectives, studios, directors, authors, developer, rewatch_count, started_at')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
 
     const allEntries: UserEntry[] = (entries || []) as UserEntry[]
 
@@ -3130,9 +3151,9 @@ export async function GET(request: NextRequest) {
       { data: wishlistRaw },
       { data: searchHistory },
     ] = await Promise.all([
-      supabase.from('user_preferences').select('*').eq('user_id', user.id).single(),
-      supabase.from('wishlist').select('external_id, genres, media_type, title, studios').eq('user_id', user.id),
-      supabase.from('search_history').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(100),
+      supabase.from('user_preferences').select('*').eq('user_id', userId).single(),
+      supabase.from('wishlist').select('external_id, genres, media_type, title, studios').eq('user_id', userId),
+      supabase.from('search_history').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(100),
     ])
 
     const wishlistItems: UserEntry[] = (wishlistRaw || []).map((w: { external_id: string; genres: string[]; media_type: string; title: string; studios: string }) => ({
@@ -3254,7 +3275,7 @@ export async function GET(request: NextRequest) {
     const { data: sessionShownRows } = await supabase
       .from('recommendations_shown')
       .select('rec_id')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .gte('shown_at', sessionCutoff)
 
     const sessionShownIds = new Set<string>((sessionShownRows || []).map((r: any) => r.rec_id))
@@ -3263,7 +3284,7 @@ export async function GET(request: NextRequest) {
     const { data: similarFriends } = await supabase
       .from('taste_similarity')
       .select('other_user_id, similarity_score')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .gte('similarity_score', 70)
       .order('similarity_score', { ascending: false })
       .limit(5)
@@ -3296,7 +3317,7 @@ export async function GET(request: NextRequest) {
     const { data: poolRows } = await supabase
       .from('recommendations_pool')
       .select('media_type, data, generated_at, collection_hash')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .in('media_type', typesToFetch)
 
     // Hash semplice della collezione: numero di entry + timestamp ultima modifica
@@ -3316,7 +3337,7 @@ export async function GET(request: NextRequest) {
     const { data: masterPoolRows } = await supabase
       .from('master_recommendations_pool')
       .select('media_type, data, collection_hash, collection_size, generated_at')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .in('media_type', typesToFetch)
 
     // Raggruppa master pool per tipo — data è già array Recommendation completo
@@ -3400,7 +3421,7 @@ export async function GET(request: NextRequest) {
 
         masterByType.set(type, allItems)
         masterUpserts.push({
-          user_id: user.id,
+          user_id: userId,
           media_type: type,
           data: allItems,              // Recommendation[] completo — cover, matchScore, isDiscovery tutto incluso
           collection_hash: collectionHash,
@@ -3454,7 +3475,7 @@ export async function GET(request: NextRequest) {
               ...items.filter(r => !contIds.has(r.id)),
             ], type)
             await supabase.from('master_recommendations_pool').upsert({
-              user_id: user.id,
+              user_id: userId,
               media_type: type,
               data: allItems,
               collection_hash: collectionHash,
@@ -3490,7 +3511,7 @@ export async function GET(request: NextRequest) {
 
       poolByType.set(type, poolItems)
       poolUpserts.push({
-        user_id: user.id,
+        user_id: userId,
         media_type: type,
         data: poolItems,
         generated_at: new Date().toISOString(),
@@ -3508,7 +3529,7 @@ export async function GET(request: NextRequest) {
       const topStudios = Object.entries(tasteProfile.creatorScores.studios).sort(([,a],[,b]) => b - a).slice(0, 30)
       const topDirectors = Object.entries(tasteProfile.creatorScores.directors).sort(([,a],[,b]) => b - a).slice(0, 30)
       await supabase.from('user_creator_profile').upsert({
-        user_id: user.id,
+        user_id: userId,
         studios: Object.fromEntries(topStudios),
         directors: Object.fromEntries(topDirectors),
         authors: Object.fromEntries(Object.entries(tasteProfile.creatorScores.authors).sort(([,a],[,b]) => b - a).slice(0, 20)),
@@ -3528,7 +3549,7 @@ export async function GET(request: NextRequest) {
     // ── V6: Registra i titoli mostrati (sessione corrente) ────────────────────
     const shownInserts = Object.entries(recommendations).flatMap(([type, recs]) =>
       recs.map(r => ({
-        user_id: user.id,
+        user_id: userId,
         rec_id: r.id,
         rec_type: type,
         shown_at: new Date().toISOString(),
@@ -3569,14 +3590,14 @@ export async function GET(request: NextRequest) {
       wishlistGenres: tasteProfile.wishlistGenres,
       searchIntentGenres: tasteProfile.searchIntentGenres,
     }
-    memCacheSet(user.id, recommendations, tasteProfile)
+    memCacheSet(userId, recommendations, tasteProfile)
 
     // Aggiorna solo taste_profile e total_entries nel pool (fast path) — NON sovrascrive data
     // I dati del pool (i 15 titoli) sono già stati scritti sopra dal campionamento master
     const profileUpdateUpserts = Object.keys(recommendations)
       .filter(type => (poolByType.get(type as MediaType) || []).length > 0)
       .map(type => ({
-        user_id: user.id,
+        user_id: userId,
         media_type: type,
         data: poolByType.get(type as MediaType) || [],
         generated_at: new Date().toISOString(),
