@@ -381,7 +381,7 @@ export default function OnboardingPage() {
     await clearOnboardingQueues(uid)
 
     setOnboardingCookie()
-    fetch('/api/recommendations?refresh=1').catch(() => {})
+    fetch('/api/recommendations?refresh=1&onboarding=1').catch(() => {})
     router.push('/feed')
   }, [userId, selectedTypes, supabase, router, clearOnboardingQueues])
 

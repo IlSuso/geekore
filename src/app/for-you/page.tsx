@@ -947,18 +947,63 @@ export default function ForYouPage() {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
+      const userId = user.id
 
       const [
         { data: entries },
         { data: wish },
       ] = await Promise.all([
-        supabase.from('user_media_entries').select('external_id').eq('user_id', user.id),
-        supabase.from('wishlist').select('external_id').eq('user_id', user.id),
+        supabase.from('user_media_entries').select('external_id').eq('user_id', userId),
+        supabase.from('wishlist').select('external_id').eq('user_id', userId),
       ])
 
       setAddedIds(new Set((entries || []).map((e: any) => e.external_id).filter(Boolean)))
       setWishlistIds(new Set((wish || []).map((w: any) => w.external_id).filter(Boolean)))
       setTotalEntries(entries?.length || 0)
+
+      // ── Realtime: osserva profiles.entry_count ────────────────────────────
+      // Il trigger Postgres aggiorna entry_count ad ogni INSERT su user_media_entries,
+      // indipendentemente dalla sorgente (swipe, import Steam/Xbox/BGG, discovery).
+      // Quando entry_count raggiunge 15 per la prima volta → genera il master pool.
+      const profileSub = supabase
+        .channel('profile-entry-count')
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${userId}`,
+        }, (payload: any) => {
+          const newCount = payload.new?.entry_count ?? 0
+          const oldCount = payload.old?.entry_count ?? 0
+          setTotalEntries(newCount)
+          // Caso 1: passaggio soglia 14→15 → genera master pool per tutti i tipi
+          if (oldCount < 15 && newCount >= 15) {
+            fetch('/api/recommendations?refresh=1&onboarding=1').catch(() => {})
+            return
+          }
+          // Caso 2: già sopra soglia ma master pool parziale → i tipi mancanti
+          // vengono gestiti da typesToRegenBackground in route.ts alla prossima
+          // chiamata normale — non serve triggare qui (evita chiamate ridondanti)
+        })
+        .subscribe()
+
+      return () => { supabase.removeChannel(profileSub) }
+
+      // ── Controllo avvio: master pool assente o parziale ──────────────────
+      // Se l'utente ha ≥15 titoli ma mancano righe nel master pool per uno
+      // qualsiasi dei tipi noti → triggera la generazione subito.
+      if ((entries?.length || 0) >= 15) {
+        const ALL_TYPES = ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame']
+        const { data: masterRows } = await supabase
+          .from('master_recommendations_pool')
+          .select('media_type')
+          .eq('user_id', userId)
+        const existingTypes = new Set((masterRows || []).map((r: any) => r.media_type))
+        const hasMissing = ALL_TYPES.some(t => !existingTypes.has(t))
+        if (hasMissing) {
+          fetch('/api/recommendations?refresh=1&onboarding=1').catch(() => {})
+        }
+      }
 
       // 1. Prova a leggere dalla pool persistente su Supabase (fast path ~50ms)
       const poolRes = await fetch('/api/recommendations?source=pool')
@@ -970,10 +1015,10 @@ export default function ForYouPage() {
           setTasteProfile(poolJson.tasteProfile || null)
           setIsCached(true)
           setLoading(false)
-          fetchFriends(user.id)
+          fetchFriends(userId)
           const lastVisit = localStorage.getItem('for_you_last_visit')
           const now = Date.now()
-          if (lastVisit && now - parseInt(lastVisit) > 4 * 3600000) setShowNewRecsBadge(true)
+          if (lastVisit && now - parseInt(lastVisit || '') > 4 * 3600000) setShowNewRecsBadge(true)
           localStorage.setItem('for_you_last_visit', String(now))
           return
         }
@@ -996,11 +1041,11 @@ export default function ForYouPage() {
       }
 
       setLoading(false)
-      fetchFriends(user.id)
+      fetchFriends(userId)
 
       const lastVisit = localStorage.getItem('for_you_last_visit')
       const now = Date.now()
-      if (lastVisit && now - parseInt(lastVisit) > 4 * 3600000) setShowNewRecsBadge(true)
+      if (lastVisit && now - parseInt(lastVisit || '') > 4 * 3600000) setShowNewRecsBadge(true)
       localStorage.setItem('for_you_last_visit', String(now))
     }
     init()
@@ -1354,6 +1399,7 @@ export default function ForYouPage() {
       triggerTasteDelta({ action: 'status_change', mediaId: item.id, mediaType: item.type, genres: item.genres, status: 'completed' })
       if (rating) triggerTasteDelta({ action: 'rating', mediaId: item.id, mediaType: item.type, genres: item.genres, rating })
     }
+
     console.groupEnd()
   }, [supabase])
 
