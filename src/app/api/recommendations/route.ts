@@ -3553,6 +3553,7 @@ async function fetchBoardgameRecs(
 
   return results.sort((a, b) => b.matchScore - a.matchScore)
 }
+}
 
 // ── Handler principale V6 — Pool-based recommendations ───────────────────────
 //
