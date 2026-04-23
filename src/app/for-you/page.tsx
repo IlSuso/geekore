@@ -1231,6 +1231,13 @@ export default function ForYouPage() {
     // Dismiss subito (sincrono) — l'utente non la vede più nella Per Te
     setAddedIds(prev => new Set([...prev, item.id]))
     setDismissedIds(prev => new Set([...prev, item.id]))
+
+    // Se il titolo è già in libreria mostra feedback onesto e stoppa qui
+    if (!skipPersist && addedTitlesRef.current.has(item.title.toLowerCase())) {
+      showToast(`"${item.title}" è già nella tua libreria`)
+      return
+    }
+
     showToast(`"${item.title}" aggiunto${rating ? ` · ${rating}★` : ''}`)
 
     // ─── DEBUG HANDLESWIPESEEN ────────────────────────────────────────
@@ -1281,13 +1288,6 @@ export default function ForYouPage() {
     if (rating !== null) insertData.rating = rating
 
     console.log('💾 Dati da upsertare su user_media_entries:', JSON.stringify(insertData, null, 2))
-
-    // Se il titolo è già in libreria (anche con external_id diverso) skip silenzioso, senza fare la call HTTP
-    if (addedTitlesRef.current.has(item.title.toLowerCase())) {
-      console.log('[ForYouPage] handleSwipeSeen: titolo già in libreria (via ref), skip upsert.')
-      console.groupEnd()
-      return
-    }
 
     supabase.from('user_media_entries').upsert(insertData, { onConflict: 'user_id,external_id' }).then(({ data, error }) => {
       if (error) {
