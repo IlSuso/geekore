@@ -3434,21 +3434,28 @@ export async function GET(request: NextRequest) {
         ], type)
 
         masterByType.set(type, allItems)
+        console.log(`[RECO] result type=${type} items=${result.items.length} allItems=${allItems.length}`)
         masterUpserts.push({
           user_id: userId,
           media_type: type,
-          data: allItems,              // Recommendation[] completo — cover, matchScore, isDiscovery tutto incluso
+          data: allItems,
           collection_hash: collectionHash,
           collection_size: entriesByType.get(type) ?? 0,
           generated_at: new Date().toISOString(),
         })
       }
 
+      console.log('[RECO] masterResults length:', masterResults.length)
+      console.log('[RECO] masterResults types:', masterResults.map(r => `${r?.type}:${r?.items?.length ?? 'null'}`))
+
       // Await — garantisce che il master sia scritto prima che il pool venga campionato
       if (masterUpserts.length > 0) {
         console.log('[RECO] upserting master pool:', masterUpserts.map(u => `${u.media_type}:${u.data.length}items:size${u.collection_size}`))
-        await supabase.from('master_recommendations_pool')
+        const { error: upsertError, data: upsertData } = await supabase.from('master_recommendations_pool')
           .upsert(masterUpserts, { onConflict: 'user_id,media_type' })
+          .select('media_type, collection_size, generated_at')
+        if (upsertError) console.log('[RECO] upsert ERROR:', JSON.stringify(upsertError))
+        else console.log('[RECO] upsert SUCCESS, rows written:', JSON.stringify(upsertData?.map(r => `${r.media_type}:${r.collection_size}`)))
       } else {
         console.log('[RECO] masterUpserts is EMPTY — nothing written to pool')
       }
@@ -3538,7 +3545,10 @@ export async function GET(request: NextRequest) {
     }
 
     if (poolUpserts.length > 0) {
-      await supabase.from('recommendations_pool').upsert(poolUpserts, { onConflict: 'user_id,media_type' })
+      console.log('[RECO] upserting recommendations_pool:', poolUpserts.map(u => `${u.media_type}:${u.data.length}items`))
+      const { error: poolUpsertError } = await supabase.from('recommendations_pool').upsert(poolUpserts, { onConflict: 'user_id,media_type' })
+      if (poolUpsertError) console.log('[RECO] recommendations_pool upsert ERROR:', JSON.stringify(poolUpsertError))
+      else console.log('[RECO] recommendations_pool upsert SUCCESS')
     }
 
     // Salva creator profile aggiornato (fire-and-forget)
