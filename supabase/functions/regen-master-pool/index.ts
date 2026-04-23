@@ -1,13 +1,13 @@
 // supabase/functions/regen-master-pool/index.ts
-// Edge Function chiamata da pg_cron ogni minuto.
-// Chiama direttamente /api/recommendations con header service role,
-// bypassando il problema delle chiamate self-referenziali di Vercel.
+// Strategia: invalida il master pool per l'utente.
+// Alla prossima visita alla pagina Per Te, la route rigenera tutto
+// (incluso boardgame) in foreground con la logica completa già esistente.
+// Questo è il metodo più affidabile: zero dipendenze da chiamate HTTP a Vercel.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const APP_URL = Deno.env.get('APP_URL')!
 const CRON_SECRET = Deno.env.get('CRON_SECRET')!
 
 Deno.serve(async (req: Request) => {
@@ -26,44 +26,41 @@ Deno.serve(async (req: Request) => {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-  // Prendi fino a 3 job pending
   const { data: jobs, error: jobsError } = await supabase
     .from('regen_jobs')
     .select('*')
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
-    .limit(3)
+    .limit(5)
 
   if (jobsError || !jobs?.length) {
+    console.log('No pending jobs')
     return new Response(JSON.stringify({ processed: 0 }), {
       headers: { 'Content-Type': 'application/json' }
     })
   }
 
+  console.log(`Processing ${jobs.length} jobs`)
   let processed = 0
 
   for (const job of jobs) {
-    // Marca come running
     await supabase
       .from('regen_jobs')
       .update({ status: 'running', started_at: new Date().toISOString() })
       .eq('id', job.id)
 
     try {
-      // Chiama direttamente /api/recommendations con X-Service headers
-      // La Edge Function può chiamare Vercel senza il problema self-referenziale
-      const url = `${APP_URL}/api/recommendations?type=all&refresh=1&onboarding=1`
-      const res = await fetch(url, {
-        headers: {
-          'X-Service-User-Id': job.user_id,
-          'X-Service-Secret': CRON_SECRET,
-        },
-      })
+      // Invalida il master pool: azzera generated_at su tutte le righe dell'utente
+      // e cancella la riga boardgame se assente (verrà ricreata alla prossima visita).
+      // La route /api/recommendations rigenera tutto in foreground alla prossima richiesta.
+      const { error: updateError } = await supabase
+        .from('master_recommendations_pool')
+        .update({ generated_at: new Date(0).toISOString(), collection_size: -1 })
+        .eq('user_id', job.user_id)
 
-      if (!res.ok) {
-        const text = await res.text()
-        throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`)
-      }
+      if (updateError) throw new Error(updateError.message)
+
+      console.log(`Invalidated pool for user ${job.user_id}`)
 
       await supabase
         .from('regen_jobs')
@@ -72,6 +69,7 @@ Deno.serve(async (req: Request) => {
 
       processed++
     } catch (err: any) {
+      console.error(`Job ${job.id} error: ${err?.message}`)
       await supabase
         .from('regen_jobs')
         .update({
