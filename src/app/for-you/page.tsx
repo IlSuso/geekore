@@ -227,12 +227,9 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
           <span className="text-[10px] text-zinc-500">{episodeLabel}</span>
         )}
       </div>
-      {/* Badge: Sequel per continuity, % match per le card normali, niente per scoperta */}
       {item.isContinuity
         ? <ContinuityBadge from={item.continuityFrom || ''} />
-        : !item.isDiscovery
-        ? <MatchBadge score={item.matchScore} />
-        : null
+        : <MatchBadge score={item.matchScore} />
       }
     </div>
   )
@@ -533,7 +530,7 @@ const RecommendationSection = memo(function RecommendationSection({ type, items,
 }) {
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)  // Fix 2.13
   const Icon = TYPE_ICONS[type]; const colorClass = TYPE_COLORS[type]
-  const visible = items.filter(i => !dismissedIds.has(i.id) && !i.isDiscovery)
+  const visible = items.filter(i => !dismissedIds.has(i.id))
   if (!visible.length) return null
 
   const shown = visible.slice(0, visibleCount)
@@ -1536,7 +1533,7 @@ export default function ForYouPage() {
             {SECTIONS.map(({ key, label }) => {
               const items = displayRecs[key] || []
               const allItems = items
-                .filter(i => !i.isContinuity && !i.isDiscovery && !dismissedIds.has(i.id))
+                .filter(i => !i.isContinuity && !dismissedIds.has(i.id))
                 .sort((a, b) => b.matchScore - a.matchScore)
               if (!allItems.length) return null
               return (
@@ -1558,7 +1555,7 @@ export default function ForYouPage() {
             })}
 
             {SECTIONS.every(({ key }) => {
-              const items = (displayRecs[key] || []).filter(i => !i.isContinuity && !i.isDiscovery && !dismissedIds.has(i.id))
+              const items = (displayRecs[key] || []).filter(i => !i.isContinuity && !dismissedIds.has(i.id))
               return !items.length
             }) && (
               <div className="text-center py-20">
