@@ -3549,6 +3549,7 @@ async function fetchBoardgameRecs(
       topUpPage++
     }
   }
+  }
   // ─────────────────────────────────────────────────────────────────────────
 
   return results.sort((a, b) => b.matchScore - a.matchScore)
