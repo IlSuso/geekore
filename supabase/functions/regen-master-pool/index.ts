@@ -16,11 +16,12 @@ Deno.serve(async (req: Request) => {
     return new Response('Method Not Allowed', { status: 405 })
   }
 
-  // Verifica autorizzazione — accetta sia cron interno che chiamate con secret
-  const authHeader = req.headers.get('Authorization') || ''
+  // Verifica autorizzazione — il gateway Supabase richiede un JWT valido in Authorization,
+  // quindi il CRON_SECRET viaggia in un header separato X-Cron-Secret
+  const cronHeader = req.headers.get('X-Cron-Secret') || ''
   const body = await req.json().catch(() => ({}))
   const isFromCron = body?.source === 'cron'
-  const hasSecret = authHeader === `Bearer ${CRON_SECRET}`
+  const hasSecret = cronHeader === CRON_SECRET
 
   if (!isFromCron && !hasSecret) {
     return new Response('Unauthorized', { status: 401 })
