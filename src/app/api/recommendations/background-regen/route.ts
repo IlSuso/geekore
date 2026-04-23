@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     email: (await supabase.auth.admin.getUserById(user_id)).data.user?.email || '',
   })
 
-  if (linkError || !linkData?.properties?.access_token) {
+  if (linkError || !(linkData?.properties as any)?.access_token) {
     // Fallback: chiama direttamente senza sessione usando il service role
     // In questo caso non possiamo usare la GET esistente (richiede cookies),
     // quindi triggeriamo un refresh via update della tabella che forza
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: 'invalidated', user_id })
   }
 
-  const accessToken = linkData.properties.access_token
+  const accessToken = (linkData?.properties as any)?.access_token
 
   // Chiama la GET /api/recommendations con il token dell'utente
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
