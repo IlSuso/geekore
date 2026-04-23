@@ -14,7 +14,8 @@ query ($search: String, $type: MediaType) {
   Page(page: 1, perPage: 20) {
     media(search: $search, type: $type, sort: [SEARCH_MATCH, POPULARITY_DESC], isAdult: false) {
       id type
-      title { romaji english }
+      title { romaji english native }
+      synonyms
       coverImage { large }
       seasonYear episodes chapters
       description(asHtml: false)
@@ -122,7 +123,8 @@ export async function GET(request: NextRequest) {
 
           return {
             id: `anilist-${type}-${m.id}`,
-            title: m.title?.romaji || m.title?.english || 'Senza titolo',
+            title: m.title?.english || m.title?.romaji || 'Senza titolo',
+            titleRomaji: m.title?.romaji || undefined,
             type,
             coverImage: m.coverImage.large,
             year: m.seasonYear,
