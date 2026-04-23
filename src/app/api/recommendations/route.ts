@@ -3386,11 +3386,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Se almeno un tipo deve essere rigenerato, aggiungi anche i tipi mancanti (es. boardgame)
+    // Se almeno un tipo deve essere rigenerato, rigenera TUTTI i tipi
+    // così il master pool viene sempre ricalcolato completo
     if (typesNeedingMasterRegen.length > 0) {
       for (const type of typesToFetch) {
-        const row = (masterPoolRows || []).find((r: any) => r.media_type === type)
-        if (!row && !typesNeedingMasterRegen.includes(type as MediaType)) {
+        if (!typesNeedingMasterRegen.includes(type as MediaType)) {
           typesNeedingMasterRegen.push(type as MediaType)
         }
       }
