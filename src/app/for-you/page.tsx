@@ -1333,6 +1333,7 @@ export default function ForYouPage() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres, action: 'added' })
       }).catch(() => {})
+      fetch('/api/recommendations?invalidateCache=true', { method: 'POST', keepalive: true }).catch(() => {})
       if (item.genres.length > 0) {
         triggerTasteDelta({ action: 'status_change', mediaId: item.id, mediaType: item.type, genres: item.genres, status: 'completed' })
         if (rating) triggerTasteDelta({ action: 'rating', mediaId: item.id, mediaType: item.type, genres: item.genres, rating })
@@ -1375,6 +1376,7 @@ export default function ForYouPage() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres, action: 'added' })
       }).catch(() => {})
+      fetch('/api/recommendations?invalidateCache=true', { method: 'POST', keepalive: true }).catch(() => {})
     })
     // Rimuove dalla pool Supabase in background
     removeFromPool(user.id, item.id)
