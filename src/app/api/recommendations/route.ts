@@ -1539,7 +1539,7 @@ async function fetchAnimeRecs(
         let matchScore = computeMatchScore(recGenres, mTags, tasteProfile, mStudios, [])
         if (isAwardWorthy(m.vote_average, m.popularity, m.vote_count, 'tmdb')) { matchScore = Math.min(100, matchScore + 8) }
         const freshMult = releaseFreshnessMult(year, m.vote_average * 10, m.popularity)
-        matchScore = Math.round(matchScore * freshMult)
+        matchScore = Math.min(100, Math.round(matchScore * freshMult))
         const socialFriend = socialFavorites?.get(id)
         if (socialFriend) { const sim = parseInt(socialFriend) || 75; matchScore = Math.min(100, matchScore + Math.round((sim - 70) / 30 * 20)) }
         results.push({
@@ -1622,7 +1622,7 @@ async function fetchAnimeRecs(
             const freshMult = releaseFreshnessMult(year, m.vote_average * 10, m.popularity)
 
             let matchScore = computeMatchScore(recGenres, mTags, tasteProfile, mStudios, mDirectors)
-            matchScore = Math.round(matchScore * freshMult)
+            matchScore = Math.min(100, Math.round(matchScore * freshMult))
             return { m, boost, matchScore, recGenres, mTags, mStudios, mDirectors, socialFriend, year, trendingBoost: 0, creatorBoost: undefined as string | undefined }
           })
           .filter(({ matchScore }: any) => matchScore >= 40)
@@ -1747,7 +1747,7 @@ async function fetchMangaRecs(
           const recGenres: string[] = m.genres || []
           let matchScore = computeMatchScore(recGenres, mTags, tasteProfile, [], mAuthors)
           // Freshness inline
-          matchScore = Math.round(matchScore * releaseFreshnessMult(m.seasonYear, m.averageScore, m.popularity))
+          matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(m.seasonYear, m.averageScore, m.popularity)))
           return { m, boost, matchScore, recGenres, mTags, mAuthors, creatorBoost, trendingBoost, socialFriend }
         })
         .filter(({ matchScore }: any) => matchScore >= 40)
@@ -1835,7 +1835,7 @@ async function fetchMangaRecs(
             .map((e: any) => e.node?.name?.full).filter(Boolean)
           const recGenres: string[] = m.genres || []
           let matchScore = computeMatchScore(recGenres, mTags, tasteProfile, [], mAuthors)
-          matchScore = Math.round(matchScore * releaseFreshnessMult(m.seasonYear, m.averageScore, m.popularity))
+          matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(m.seasonYear, m.averageScore, m.popularity)))
           if (matchScore < 40) continue
           if (isAwardWorthy(m.averageScore, m.popularity, undefined, 'anilist')) matchScore = Math.min(100, matchScore + 8)
           results.push({
@@ -1989,7 +1989,7 @@ async function fetchMovieRecs(
           if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
           // V4: freshness
           const year = m.release_date ? parseInt(m.release_date.substring(0, 4)) : undefined
-          matchScore = Math.round(matchScore * releaseFreshnessMult(year))
+          matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year)))
           return { m, boost, matchScore, recGenres, kws, trendingBoost: isTrending ? 0.8 : 0, platformMatch }
         })
         .filter(({ matchScore }: any) => matchScore >= 40)
@@ -2065,7 +2065,7 @@ async function fetchMovieRecs(
           let matchScore = computeMatchScore(recGenres.length > 0 ? recGenres : [], [], tasteProfile)
           if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
           const year = m.release_date ? parseInt(m.release_date.substring(0, 4)) : undefined
-          matchScore = Math.round(matchScore * releaseFreshnessMult(year))
+          matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year)))
           if (matchScore < 40) continue
           results.push({
             id: m.id.toString(),
@@ -2192,7 +2192,7 @@ async function fetchTvRecs(
           if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
           // V4: freshness
           const year = m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined
-          matchScore = Math.round(matchScore * releaseFreshnessMult(year))
+          matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year)))
           return { m, boost, matchScore, recGenres, kws, trendingBoost: isTrending ? 0.8 : 0, platformMatch }
         })
         .filter(({ matchScore }: any) => matchScore >= 40)
@@ -2282,7 +2282,7 @@ async function fetchTvRecs(
             let matchScore = computeMatchScore(recGenres.length > 0 ? recGenres : [], [], tasteProfile)
             if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
             const year = m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined
-            matchScore = Math.round(matchScore * releaseFreshnessMult(year))
+            matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year)))
             if (matchScore < 40) continue
             results.push({
               id: m.id.toString(),
@@ -2454,7 +2454,7 @@ async function fetchGameRecs(
         // V4: award boost
         if (isAwardWorthy(g.rating, undefined, g.rating_count, 'igdb')) finalScore = Math.min(100, finalScore + 8)
         // V4: freshness
-        finalScore = Math.round(finalScore * releaseFreshnessMult(year))
+        finalScore = Math.min(100, Math.round(finalScore * releaseFreshnessMult(year)))
         results.push({
           id: recId,
           title: g.name,
@@ -2545,7 +2545,7 @@ async function fetchGameRecs(
             if (platformNames.length > 0 && platformNames.every(p => p.includes('web') || p.includes('browser'))) continue
             if (isAwardWorthy(g.rating, undefined, g.rating_count, 'igdb')) matchScore = Math.min(100, matchScore + 8)
             const year = g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : undefined
-            matchScore = Math.round(matchScore * releaseFreshnessMult(year))
+            matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year)))
             if (matchScore < 40) continue
             results.push({
               id: g.id.toString(),
@@ -3252,7 +3252,7 @@ async function fetchBoardgameRecs(
         else if (bggRank <= 300) finalScore = Math.min(100, finalScore + 4)  // hidden gem bonus
         else if (bggRank <= 800) finalScore = Math.min(100, finalScore + 2)
       }
-      finalScore = Math.round(finalScore * releaseFreshnessMult(year))
+      finalScore = Math.min(100, Math.round(finalScore * releaseFreshnessMult(year)))
       if (finalScore < 40) continue
 
       seen.add(recId)
@@ -3403,7 +3403,7 @@ async function fetchBoardgameRecs(
             else if (bggRank2 <= 300) finalScore2 = Math.min(100, finalScore2 + 4)
             else if (bggRank2 <= 800) finalScore2 = Math.min(100, finalScore2 + 2)
           }
-          finalScore2 = Math.round(finalScore2 * releaseFreshnessMult(year2))
+          finalScore2 = Math.min(100, Math.round(finalScore2 * releaseFreshnessMult(year2)))
           if (finalScore2 < 40) continue
 
           const minpM2 = chunk.match(/<minplayers[^>]*value="(\d+)"/)
@@ -3527,7 +3527,7 @@ async function fetchBoardgameRecs(
             else if (bggRank2 <= 300) finalScore2 = Math.min(100, finalScore2 + 4)
             else if (bggRank2 <= 800) finalScore2 = Math.min(100, finalScore2 + 2)
           }
-          finalScore2 = Math.round(finalScore2 * releaseFreshnessMult(year2))
+          finalScore2 = Math.min(100, Math.round(finalScore2 * releaseFreshnessMult(year2)))
           if (finalScore2 < 40) continue
 
           const minpM2 = chunk.match(/<minplayers[^>]*value="(\d+)"/)
