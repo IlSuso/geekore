@@ -3077,6 +3077,7 @@ export async function GET(request: NextRequest) {
     // ── FAST PATH: legge solo da recommendations_pool, zero API esterne ──────
     // Usato da page.tsx al mount → risposta in ~50ms
     const poolOnly = searchParams.get('source') === 'pool'
+    console.log('[RECO] poolOnly:', poolOnly, 'forceRefresh:', forceRefresh, 'requestedType:', requestedType)
     if (poolOnly && !forceRefresh) {
       const { data: poolRows } = await supabase
         .from('recommendations_pool')
@@ -3112,6 +3113,7 @@ export async function GET(request: NextRequest) {
     // ── In-memory cache check — bypassa se similar_to query (sempre fresh) ───
     if (!forceRefresh && !similarToId) {
       const memHit = memCacheGet(userId)
+      console.log('[RECO] memHit:', !!memHit)
       if (memHit) {
         // Per type=all ritorna SEMPRE tutti i dati — mai un sottoinsieme
         const recs = requestedType === 'all'
