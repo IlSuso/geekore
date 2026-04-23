@@ -3032,15 +3032,16 @@ function shuffleSeeded<T>(arr: T[], seed: number): T[] {
 
 export async function GET(request: NextRequest) {
   try {
-    const rl = rateLimit(request, { limit: 10, windowMs: 60_000 })
-    if (!rl.ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
-
     // ── Background regen bypass: chiamata interna da background-regen/route.ts ─
-    // Usa service role + X-Service-User-Id header per agire per conto dell'utente
-    // senza bisogno della sua sessione.
     const serviceUserId = request.headers.get('X-Service-User-Id')
     const serviceSecret = request.headers.get('X-Service-Secret')
-    const isServiceCall = serviceUserId && serviceSecret === (process.env.CRON_SECRET || '')
+    const isServiceCall = !!(serviceUserId && serviceSecret === (process.env.CRON_SECRET || ''))
+
+    // Rate limit solo per chiamate esterne — le interne sono già serializzate dal cron
+    if (!isServiceCall) {
+      const rl = rateLimit(request, { limit: 10, windowMs: 60_000 })
+      if (!rl.ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
 
     let supabase = await createClient()
     let userId: string
@@ -3053,7 +3054,8 @@ export async function GET(request: NextRequest) {
         process.env.SUPABASE_SERVICE_ROLE_KEY!,
         { auth: { autoRefreshToken: false, persistSession: false } }
       ) as any
-      userId = serviceUserId
+      userId = serviceUserId!
+      logger.info('recommendations', `[SERVICE CALL] Regen per userId=${userId}`)
     } else {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
