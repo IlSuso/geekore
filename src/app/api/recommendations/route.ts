@@ -3668,3 +3668,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Errore interno' }, { status: 500 })
   }
 }
+
+// POST /api/recommendations?invalidateCache=true
+// Chiamato dal client dopo aver aggiunto un titolo — svuota la memCache
+// così la prossima apertura di Per Te triggera una regen fresca
+export async function POST(request: NextRequest) {
+  try {
+    const invalidateCache = request.nextUrl.searchParams.get('invalidateCache')
+    if (invalidateCache !== 'true') return NextResponse.json({ ok: false }, { status: 400 })
+
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ ok: false }, { status: 401 })
+
+    memCacheInvalidate(user.id)
+    return NextResponse.json({ ok: true })
+  } catch {
+    return NextResponse.json({ ok: false }, { status: 500 })
+  }
+}

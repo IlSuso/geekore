@@ -239,6 +239,8 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
       setInCollection(true); setShowAddForm(false)
       showToast(`"${media.title}" aggiunto alla collezione`)
       onAdd?.(media)
+      // Invalida la memCache così la prossima apertura di Per Te rigenera il pool
+      fetch('/api/recommendations?invalidateCache=true', { method: 'POST', keepalive: true }).catch(() => {})
       if ((media.genres || []).length > 0) {
         triggerTasteDelta({ action: 'status_change', mediaId: media.id, mediaType: media.type, genres: media.genres || [], status })
         if (opts?.rating) {
