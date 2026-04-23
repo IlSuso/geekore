@@ -1009,7 +1009,7 @@ export default function ProfilePage() {
 
           {/* Import piattaforme — solo owner, riga discreta */}
           {isOwner && (
-            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1 max-w-full">
+            <div className="flex items-center gap-2 scrollbar-hide py-2 max-w-full overflow-x-auto" style={{overflowY: 'visible', paddingLeft: '2px', paddingRight: '2px'}}>
               <span className="text-[10px] text-zinc-600 mr-1 flex-shrink-0">Importa da</span>
 
               {/* overflow-hidden spostato sul div interno: il button scala liberamente senza tagli */}

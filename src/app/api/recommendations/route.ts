@@ -1561,7 +1561,7 @@ async function fetchAnimeRecs(
     const animeGenreIds = [...new Set([16, genreId].filter(Boolean) as number[])]
 
     try {
-      const params = new URLSearchParams({
+      const baseParamsAnime = new URLSearchParams({
         with_original_language: 'ja',
         with_genres: animeGenreIds.join(','),
         sort_by: 'vote_average.desc',
@@ -1569,12 +1569,14 @@ async function fetchAnimeRecs(
         'vote_count.gte': '100',
         language: 'it-IT',
       })
-      const res = await fetch(`${TMDB_BASE_ANIME}/discover/tv?${params}`, {
-        headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000),
-      })
-      if (!res.ok) continue
-      const json = await res.json()
-      const media: any[] = json.results || []
+      const pagesToFetchAnime = slot.quota > 20 ? [1, 2, 3] : [1]
+      const animePageResults = await Promise.all(pagesToFetchAnime.map(page => {
+        const p = new URLSearchParams(baseParamsAnime); p.set('page', String(page))
+        return fetch(`${TMDB_BASE_ANIME}/discover/tv?${p}`, {
+          headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000),
+        }).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
+      }))
+      const media: any[] = animePageResults.flatMap((json: any) => json.results || [])
 
       const candidates = media
         .filter((m: any) => {
@@ -1670,9 +1672,10 @@ async function fetchMangaRecs(
     const genre = ANILIST_MANGA_GENRES.has(slot.genre) ? slot.genre : null
     if (!genre) continue
 
-    const query = `
+    const pagesToFetchManga = slot.quota > 20 ? [1, 2] : [1]
+    const mangaQuery = (page: number) => `
       query($genres: [String], $minScore: Int, $minPop: Int) {
-        Page(page: 1, perPage: 60) {
+        Page(page: ${page}, perPage: 50) {
           media(genre_in: $genres, type: MANGA, format_in: [MANGA, ONE_SHOT],
                 sort: [SCORE_DESC, POPULARITY_DESC],
                 averageScore_greater: $minScore, popularity_greater: $minPop) {
@@ -1685,14 +1688,14 @@ async function fetchMangaRecs(
       }
     `
     try {
-      const res = await fetch('https://graphql.anilist.co', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, variables: { genres: [genre], minScore: qt.anilistScore, minPop: qt.anilistPopularity } }),
-        signal: AbortSignal.timeout(8000),
-      })
-      if (!res.ok) continue
-      const json = await res.json()
-      const media = json.data?.Page?.media || []
+      const mangaPageResults = await Promise.all(pagesToFetchManga.map(page =>
+        fetch('https://graphql.anilist.co', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: mangaQuery(page), variables: { genres: [genre], minScore: qt.anilistScore, minPop: qt.anilistPopularity } }),
+          signal: AbortSignal.timeout(8000),
+        }).then(r => r.ok ? r.json() : { data: null }).catch(() => ({ data: null }))
+      ))
+      const media = mangaPageResults.flatMap((json: any) => json.data?.Page?.media || [])
 
       const candidates = media
         .filter((m: any) => {
@@ -1824,18 +1827,19 @@ async function fetchMovieRecs(
       const voteAvgMin = tasteProfile.qualityThresholds.tmdbVoteAvg
       const preferNonEn = tasteProfile.languagePreference.preferNonEnglish
 
-      const res = await fetch(
-        `https://api.themoviedb.org/3/discover/movie?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=80&vote_average.gte=${voteAvgMin}&language=it-IT&page=1`,
-        { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
-      )
-      if (!res.ok) continue
-      const json = await res.json()
-      const candidates = (json.results || [])
+      const moviePagesToFetch = slot.quota > 20 ? [1, 2, 3] : [1]
+      const moviePageResults = await Promise.all(moviePagesToFetch.map(page =>
+        fetch(
+          `https://api.themoviedb.org/3/discover/movie?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=80&vote_average.gte=${voteAvgMin}&language=it-IT&page=${page}`,
+          { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
+        ).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
+      ))
+      const candidates = moviePageResults.flatMap((json: any) => json.results || [])
         .filter((m: any) => {
           const title = m.title || m.original_title || ''
           return !isAlreadyOwned('movie', m.id.toString(), title) && m.poster_path && !seen.has(m.id.toString())
         })
-        .slice(0, 20)
+        .slice(0, slot.quota + 10)
 
       const kwMap = new Map<number, string[]>()
       const providerMap = new Map<number, Set<number>>()  // #8: provider IDs disponibili in IT
@@ -1978,18 +1982,19 @@ async function fetchTvRecs(
       const preferNonEn = tasteProfile.languagePreference.preferNonEnglish
       // vote_count.gte=200 (era 40 — troppo basso, portava serie tailandesi con 50 voti)
       // popularity.gte=15 esclude produzioni sconosciute a livello internazionale
-      const res = await fetch(
-        `https://api.themoviedb.org/3/discover/tv?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=200&vote_average.gte=${voteAvgMin}&popularity.gte=15&language=it-IT&page=1`,
-        { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
-      )
-      if (!res.ok) continue
-      const json = await res.json()
-      const candidates = (json.results || [])
+      const tvPagesToFetch = slot.quota > 20 ? [1, 2, 3] : [1]
+      const tvPageResults = await Promise.all(tvPagesToFetch.map(page =>
+        fetch(
+          `https://api.themoviedb.org/3/discover/tv?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=200&vote_average.gte=${voteAvgMin}&popularity.gte=15&language=it-IT&page=${page}`,
+          { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
+        ).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
+      ))
+      const candidates = tvPageResults.flatMap((json: any) => json.results || [])
         .filter((m: any) => {
           const title = m.name || m.original_name || ''
           return !isAlreadyOwned('tv', m.id.toString(), title) && m.poster_path && !seen.has(m.id.toString())
         })
-        .slice(0, 20)
+        .slice(0, slot.quota + 10)
 
       const kwMap = new Map<number, string[]>()
       const providerMap = new Map<number, Set<number>>()  // #8: provider IDs disponibili in IT
@@ -2996,12 +3001,12 @@ async function fetchBoardgameRecs(
 //     dello stesso pool ampio, ruotando i contenuti senza escluderli definitivamente
 // ─────────────────────────────────────────────────────────────────────────────
 
-const MASTER_POOL_SIZE_PER_TYPE = 200  // titoli nel master pool per tipo (bacino totale)
-const MASTER_POOL_MIN_VALID = 80       // minimo per considerare il master pool valido
-const MASTER_POOL_MAX_AGE_DAYS = 7     // rigenera se più vecchio di N giorni
-const MASTER_POOL_REGEN_DELTA = 10     // rigenera se collezione cresciuta di N titoli
-const POOL_SIZE_PER_TYPE = 80          // titoli nel bacino attivo (recommendations_pool)
-const SERVE_SIZE_PER_TYPE = 15         // titoli serviti per tipo ad ogni GET
+const MASTER_POOL_SIZE_PER_TYPE = 200  // titoli nel master pool per tipo (grande serbatoio)
+const MASTER_POOL_MIN_VALID = 40       // minimo realistico — BGG ha meno titoli di altri sorgenti
+const MASTER_POOL_MAX_AGE_DAYS = 7     // rigenera master se più vecchio di N giorni
+const MASTER_POOL_REGEN_DELTA = 10     // rigenera master se collezione cresciuta di N titoli per tipo
+const SERVE_SIZE_PER_TYPE = 15         // titoli campionati dal master e serviti ad ogni GET
+// POOL_SIZE_PER_TYPE rimosso — il recommendations_pool ora contiene sempre esattamente SERVE_SIZE_PER_TYPE titoli
 // Fix 1.13: TTL dinamico — più l'utente è attivo, più il pool si rigenera spesso
 // Formula: max(4h, min(48h, 24h - (titoli_aggiunti_ultime_12h × 2h)))
 // const POOL_TTL_HOURS = 24  // rimpiazzato con computePoolTTL()
@@ -3297,6 +3302,12 @@ export async function GET(request: NextRequest) {
     // Hash semplice della collezione: numero di entry + timestamp ultima modifica
     const collectionHash = `${allEntries.length}_${lastCollectionUpdate.getTime()}`
 
+    // Conta entry per tipo — usato per hasGrown per-tipo e collection_size per-tipo
+    const entriesByType = new Map<string, number>()
+    for (const type of typesToFetch) {
+      entriesByType.set(type, allEntries.filter((e: any) => e.media_type === type).length)
+    }
+
     // ── MASTER POOL: controlla se esiste ed è ancora valido ──────────────────
     // Una riga per tipo, data = array Recommendation completi (cover, matchScore, isDiscovery inclusi)
     // Viene rigenerato solo se: troppo piccolo, età > 7gg E collezione +10 titoli, o forceRefresh
@@ -3320,8 +3331,9 @@ export async function GET(request: NextRequest) {
       const items = masterByType.get(type) || []
       const row = (masterPoolRows || []).find((r: any) => r.media_type === type)
       const isOld = !row || new Date(row.generated_at) < new Date(masterPoolCutoff)
-      const hasGrown = allEntries.length - (row?.collection_size || 0) >= MASTER_POOL_REGEN_DELTA
-      const tooSmall = items.length < MASTER_POOL_MIN_VALID
+      const hasGrown = (entriesByType.get(type) ?? 0) - (row?.collection_size || 0) >= MASTER_POOL_REGEN_DELTA
+      // tooSmall solo se la riga non esiste proprio — se esiste con pochi item (es. BGG) non rigenerare ogni volta
+      const tooSmall = !row || items.length === 0
       if (forceRefresh || tooSmall || (isOld && hasGrown)) {
         typesNeedingMasterRegen.push(type as MediaType)
       }
@@ -3380,68 +3392,53 @@ export async function GET(request: NextRequest) {
           media_type: type,
           data: allItems,              // Recommendation[] completo — cover, matchScore, isDiscovery tutto incluso
           collection_hash: collectionHash,
-          collection_size: allEntries.length,
+          collection_size: entriesByType.get(type) ?? 0,
           generated_at: new Date().toISOString(),
         })
       }
 
-      // Fire-and-forget — non blocca la risposta
+      // Await — garantisce che il master sia scritto prima che il pool venga campionato
       if (masterUpserts.length > 0) {
-        supabase.from('master_recommendations_pool')
+        await supabase.from('master_recommendations_pool')
           .upsert(masterUpserts, { onConflict: 'user_id,media_type' })
-          .then(() => {})
       }
     }
 
-    // ── Campiona dal master pool per riempire recommendations_pool ───────────
-    // Al forceRefresh o se recommendations_pool mancante: pesca POOL_SIZE_PER_TYPE titoli
-    // casualmente dal master (shuffle diverso ogni volta → risultati sempre diversi).
-    // La pagina mostrerà poi SERVE_SIZE_PER_TYPE per tipo tramite il fast path.
+    // ── Campiona dal master pool → recommendations_pool ─────────────────────
+    // Il pool NON genera nulla di proprio: pesca sempre e solo SERVE_SIZE_PER_TYPE
+    // titoli casuali dal master pool. Se il master non esiste per un tipo → vuoto.
+    // Ogni chiamata dà un campione diverso grazie allo shuffle casuale.
 
     const poolByType = new Map<string, Recommendation[]>()
-    const typesNeedingPoolRefill: MediaType[] = []
+    const poolUpserts: any[] = []
 
     for (const type of typesToFetch) {
-      const poolRow = (poolRows as Array<{ media_type: string; data: Recommendation[]; generated_at: string; collection_hash: string }> | null)
-        ?.find(r => r.media_type === type)
-      const poolIsValid =
-        poolRow && !forceRefresh &&
-        Array.isArray(poolRow.data) && poolRow.data.length >= 5
-
-      if (poolIsValid) {
-        const freshPool = (poolRow.data as Recommendation[]).filter(r => !isAlreadyOwned(r.type, r.id, r.title))
-        poolByType.set(type, freshPool)
-      } else {
-        typesNeedingPoolRefill.push(type as MediaType)
+      const masterItems = masterByType.get(type) || []
+      if (masterItems.length === 0) {
+        // Master non ancora generato per questo tipo — non inventiamo nulla
+        poolByType.set(type, [])
+        continue
       }
+      // Filtra già posseduti (potrebbero essere stati aggiunti dopo la generazione del master)
+      const available = masterItems.filter(r => !isAlreadyOwned(r.type, r.id, r.title))
+      // Shuffle casuale — ogni chiamata dà un campione diverso
+      const shuffled = [...available].sort(() => Math.random() - 0.5)
+      // Pesca esattamente SERVE_SIZE_PER_TYPE titoli — niente di più
+      const poolItems = shuffled.slice(0, SERVE_SIZE_PER_TYPE)
+
+      poolByType.set(type, poolItems)
+      poolUpserts.push({
+        user_id: user.id,
+        media_type: type,
+        data: poolItems,
+        generated_at: new Date().toISOString(),
+        collection_hash: collectionHash,
+        total_entries: allEntries.length,
+      })
     }
 
-    if (typesNeedingPoolRefill.length > 0) {
-      const poolUpserts: any[] = []
-
-      for (const type of typesNeedingPoolRefill) {
-        const masterItems = masterByType.get(type) || []
-        // Filtra già posseduti (potrebbero essere stati aggiunti dopo la generazione del master)
-        const available = masterItems.filter(r => !isAlreadyOwned(r.type, r.id, r.title))
-        // Shuffle casuale — ogni Aggiorna dà un campione diverso
-        const shuffled = [...available].sort(() => Math.random() - 0.5)
-        // Prende POOL_SIZE_PER_TYPE per il pool attivo (la UI ne mostra SERVE_SIZE_PER_TYPE)
-        const poolItems = shuffled.slice(0, POOL_SIZE_PER_TYPE)
-
-        poolByType.set(type, poolItems)
-        poolUpserts.push({
-          user_id: user.id,
-          media_type: type,
-          data: poolItems,
-          generated_at: new Date().toISOString(),
-          collection_hash: collectionHash,
-          total_entries: allEntries.length,
-        })
-      }
-
-      if (poolUpserts.length > 0) {
-        await supabase.from('recommendations_pool').upsert(poolUpserts, { onConflict: 'user_id,media_type' })
-      }
+    if (poolUpserts.length > 0) {
+      await supabase.from('recommendations_pool').upsert(poolUpserts, { onConflict: 'user_id,media_type' })
     }
 
     // Salva creator profile aggiornato (fire-and-forget)
@@ -3458,29 +3455,12 @@ export async function GET(request: NextRequest) {
       }, { onConflict: 'user_id' })
     })()
 
-    // ── V6: Pesca dal pool — shuffle + slice, evitando solo la sessione corrente
+    // ── Serve dal pool — i 15 titoli sono già stati campionati dal master qui sopra
+    // Il pool contiene esattamente SERVE_SIZE_PER_TYPE titoli casuali dal master.
+    // Li serviamo direttamente senza ulteriori manipolazioni.
     const recommendations: Record<string, Recommendation[]> = {}
-
-    // Seed basato su userId + ora corrente (cambia ogni ora → rotazione automatica)
-    const hourSeed = parseInt(user.id.replace(/[^0-9]/g, '').slice(0, 8) || '0', 10) +
-      Math.floor(Date.now() / (60 * 60 * 1000))
-
     for (const type of typesToFetch) {
-      const pool = poolByType.get(type) || []
-      if (pool.length === 0) { recommendations[type] = []; continue }
-
-      // Separa titoli non ancora mostrati in sessione da quelli già mostrati
-      const notShown = pool.filter(r => !sessionShownIds.has(r.id))
-      const alreadyShown = pool.filter(r => sessionShownIds.has(r.id))
-
-      // Shuffle deterministico (seed diverso per tipo)
-      const typeOffset = type.charCodeAt(0)
-      const shuffled = shuffleSeeded(notShown, hourSeed + typeOffset)
-
-      // Se non abbiamo abbastanza non-mostrati, aggiungi i già-mostrati in fondo
-      const combined = [...shuffled, ...shuffleSeeded(alreadyShown, hourSeed + typeOffset + 1)]
-
-      recommendations[type] = combined.slice(0, SERVE_SIZE_PER_TYPE)
+      recommendations[type] = poolByType.get(type) || []
     }
 
     // ── V6: Registra i titoli mostrati (sessione corrente) ────────────────────
@@ -3529,20 +3509,23 @@ export async function GET(request: NextRequest) {
     }
     memCacheSet(user.id, recommendations, tasteProfile)
 
-    // Aggiorna taste_profile e total_entries in ogni riga del pool (per il fast path)
-    const profileUpdateUpserts = Object.keys(recommendations).map(type => ({
-      user_id: user.id,
-      media_type: type,
-      data: (poolByType.get(type as MediaType) || recommendations[type]),
-      generated_at: new Date().toISOString(),
-      collection_hash: collectionHash,
-      taste_profile: tasteProfileResponse,
-      total_entries: allEntries.length,
-    }))
+    // Aggiorna solo taste_profile e total_entries nel pool (fast path) — NON sovrascrive data
+    // I dati del pool (i 15 titoli) sono già stati scritti sopra dal campionamento master
+    const profileUpdateUpserts = Object.keys(recommendations)
+      .filter(type => (poolByType.get(type as MediaType) || []).length > 0)
+      .map(type => ({
+        user_id: user.id,
+        media_type: type,
+        data: poolByType.get(type as MediaType) || [],
+        generated_at: new Date().toISOString(),
+        collection_hash: collectionHash,
+        taste_profile: tasteProfileResponse,
+        total_entries: allEntries.length,
+      }))
     if (profileUpdateUpserts.length > 0) {
       supabase.from('recommendations_pool').upsert(profileUpdateUpserts, {
         onConflict: 'user_id,media_type',
-      }).then(() => {}) // fire-and-forget
+      }).then(() => {})
     }
 
     return NextResponse.json({
