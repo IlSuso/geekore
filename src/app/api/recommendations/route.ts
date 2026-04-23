@@ -1787,6 +1787,78 @@ async function fetchMangaRecs(
     } catch { /* continua */ }
   }
 
+  // ── TOP-UP: continua a fetchare finché il pool raggiunge 200 ─────────────
+  const MANGA_POOL_TARGET = 200
+  if (results.length < MANGA_POOL_TARGET && slots.length > 0) {
+    const qt = tasteProfile.qualityThresholds
+    // Prendi i generi disponibili dai slot
+    const availableGenres = slots
+      .map(s => ANILIST_MANGA_GENRES.has(s.genre) ? s.genre : null)
+      .filter(Boolean) as string[]
+    let topUpPage = 3
+    const MAX_TOPUP_PAGES = 10
+    while (results.length < MANGA_POOL_TARGET && topUpPage <= MAX_TOPUP_PAGES) {
+      try {
+        const genreToUse = availableGenres[topUpPage % availableGenres.length] || availableGenres[0]
+        const topUpQuery = `
+          query($genres: [String], $minScore: Int, $minPop: Int) {
+            Page(page: ${topUpPage}, perPage: 50) {
+              media(genre_in: $genres, type: MANGA, format_in: [MANGA, ONE_SHOT],
+                    sort: [SCORE_DESC, POPULARITY_DESC],
+                    averageScore_greater: $minScore, popularity_greater: $minPop) {
+                id title { romaji english } coverImage { large }
+                seasonYear chapters genres description(asHtml: false) averageScore popularity trending
+                tags { name rank }
+                staff(sort: RELEVANCE) { edges { role node { name { full } } } }
+              }
+            }
+          }
+        `
+        const topUpRes = await fetch('https://graphql.anilist.co', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: topUpQuery, variables: { genres: [genreToUse], minScore: qt.anilistScore, minPop: qt.anilistPopularity } }),
+          signal: AbortSignal.timeout(8000),
+        }).then(r => r.ok ? r.json() : { data: null }).catch(() => ({ data: null }))
+        const media = topUpRes.data?.Page?.media || []
+        if (media.length === 0) break
+        for (const m of media) {
+          const id = `anilist-manga-${m.id}`
+          const title = m.title?.romaji || m.title?.english || ''
+          if (isAlreadyOwned('manga', id, title) || seen.has(id)) continue
+          if (!m.coverImage?.large) continue
+          seen.add(id)
+          const mTags: string[] = (m.tags || []).map((t: any) => t.name.toLowerCase())
+          const mAuthors: string[] = (m.staff?.edges || [])
+            .filter((e: any) => ['Story', 'Story & Art', 'Original Creator'].includes(e.role))
+            .map((e: any) => e.node?.name?.full).filter(Boolean)
+          const recGenres: string[] = m.genres || []
+          let matchScore = computeMatchScore(recGenres, mTags, tasteProfile, [], mAuthors)
+          matchScore = Math.round(matchScore * releaseFreshnessMult(m.seasonYear, m.averageScore, m.popularity))
+          if (matchScore < 20) continue
+          if (isAwardWorthy(m.averageScore, m.popularity, undefined, 'anilist')) matchScore = Math.min(100, matchScore + 8)
+          results.push({
+            id,
+            title: m.title.romaji || m.title.english || 'Senza titolo',
+            type: 'manga',
+            coverImage: m.coverImage?.large,
+            year: m.seasonYear,
+            genres: recGenres,
+            tags: mTags,
+            score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
+            description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 300) : undefined,
+            why: buildWhyV3(recGenres, id, m.title.romaji || '', tasteProfile, matchScore, false, { recStudios: [], recDirectors: mAuthors }),
+            matchScore,
+            authors: mAuthors.length > 0 ? mAuthors : undefined,
+            episodes: m.chapters || undefined,
+          })
+          if (results.length >= MANGA_POOL_TARGET) break
+        }
+      } catch { /* continua */ }
+      topUpPage++
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   const mangaDescItems = results
     .filter(r => r.description)
     .map(r => ({ id: r.id, text: r.description! }))
@@ -1964,6 +2036,56 @@ async function fetchMovieRecs(
     } catch { /* continua */ }
   }
 
+  // ── TOP-UP Movie: continua a fetchare finché pool raggiunge 200 ───────────
+  const MOVIE_POOL_TARGET = 200
+  if (results.length < MOVIE_POOL_TARGET && slots.length > 0) {
+    const voteAvgMin = tasteProfile.qualityThresholds.tmdbVoteAvg
+    const availableGenreIds = slots.map(s => TMDB_GENRE_MAP[s.genre]).filter(Boolean)
+    let topUpPage = 4
+    const MAX_TOPUP_PAGES = 15
+    while (results.length < MOVIE_POOL_TARGET && topUpPage <= MAX_TOPUP_PAGES) {
+      try {
+        const genreId = availableGenreIds[topUpPage % availableGenreIds.length] || availableGenreIds[0]
+        const r = await fetch(
+          `https://api.themoviedb.org/3/discover/movie?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=80&vote_average.gte=${voteAvgMin}&language=it-IT&page=${topUpPage}`,
+          { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
+        ).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
+        const candidates = r.results || []
+        if (candidates.length === 0) break
+        for (const m of candidates) {
+          const title = m.title || m.original_title || ''
+          if (isAlreadyOwned('movie', m.id.toString(), title) || seen.has(m.id.toString())) continue
+          if (!m.poster_path) continue
+          seen.add(m.id.toString())
+          const recGenres = m.genre_ids
+            ? m.genre_ids.map((id: number) => TMDB_MOVIE_GENRE_NAMES[id]).filter(Boolean)
+            : []
+          let matchScore = computeMatchScore(recGenres.length > 0 ? recGenres : [], [], tasteProfile)
+          if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
+          const year = m.release_date ? parseInt(m.release_date.substring(0, 4)) : undefined
+          matchScore = Math.round(matchScore * releaseFreshnessMult(year))
+          if (matchScore < 20) continue
+          results.push({
+            id: m.id.toString(),
+            title: m.title || m.original_title || 'Senza titolo',
+            type: 'movie',
+            coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
+            year,
+            genres: recGenres,
+            score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
+            description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
+            why: buildWhyV3(recGenres, m.id.toString(), m.title || '', tasteProfile, matchScore, false, {}),
+            matchScore,
+            isAwardWinner: isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb'),
+          })
+          if (results.length >= MOVIE_POOL_TARGET) break
+        }
+      } catch { /* continua */ }
+      topUpPage++
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   return results.sort((a, b) => b.matchScore - a.matchScore)
 }
 
@@ -2116,6 +2238,56 @@ async function fetchTvRecs(
       }
     } catch { /* continua */ }
   }
+
+  // ── TOP-UP TV: continua a fetchare finché pool raggiunge 200 ─────────────
+  const TV_POOL_TARGET = 200
+  if (results.length < TV_POOL_TARGET && slots.length > 0) {
+    const voteAvgMin = tasteProfile.qualityThresholds.tmdbVoteAvg
+    const availableGenreIds = slots.map(s => TMDB_TV_GENRE_MAP[s.genre]).filter(Boolean)
+    let topUpPage = 4
+    const MAX_TOPUP_PAGES = 15
+    while (results.length < TV_POOL_TARGET && topUpPage <= MAX_TOPUP_PAGES) {
+      try {
+        const genreId = availableGenreIds[topUpPage % availableGenreIds.length] || availableGenreIds[0]
+        const r = await fetch(
+          `https://api.themoviedb.org/3/discover/tv?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=200&vote_average.gte=${voteAvgMin}&popularity.gte=15&language=it-IT&page=${topUpPage}`,
+          { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
+        ).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
+        const candidates = r.results || []
+        if (candidates.length === 0) break
+        for (const m of candidates) {
+          const title = m.name || m.original_name || ''
+          if (isAlreadyOwned('tv', m.id.toString(), title) || seen.has(m.id.toString())) continue
+          if (!m.poster_path) continue
+          seen.add(m.id.toString())
+          const recGenres = m.genre_ids
+            ? m.genre_ids.map((id: number) => TMDB_TV_GENRE_NAMES[id]).filter(Boolean)
+            : []
+          let matchScore = computeMatchScore(recGenres.length > 0 ? recGenres : [], [], tasteProfile)
+          if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
+          const year = m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined
+          matchScore = Math.round(matchScore * releaseFreshnessMult(year))
+          if (matchScore < 20) continue
+          results.push({
+            id: m.id.toString(),
+            title: m.name || m.original_name || 'Senza titolo',
+            type: 'tv',
+            coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
+            year,
+            genres: recGenres,
+            score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
+            description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
+            why: buildWhyV3(recGenres, m.id.toString(), m.name || '', tasteProfile, matchScore, false, {}),
+            matchScore,
+            isAwardWinner: isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb'),
+          })
+          if (results.length >= TV_POOL_TARGET) break
+        }
+      } catch { /* continua */ }
+      topUpPage++
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   return results.sort((a, b) => b.matchScore - a.matchScore)
 }
@@ -2289,6 +2461,94 @@ async function fetchGameRecs(
       }
     } catch { /* continua */ }
   }
+
+  // ── TOP-UP Game: continua con offset IGDB finché pool raggiunge 200 ───────
+  const GAME_POOL_TARGET = 200
+  if (results.length < GAME_POOL_TARGET && slots.length > 0) {
+    const igdbRatingMin = tasteProfile.qualityThresholds.igdbRating
+    const igdbCountMin = tasteProfile.qualityThresholds.igdbRatingCount
+    const topProfileThemes = new Set(
+      Object.entries(tasteProfile.deepSignals.themes)
+        .sort(([, a], [, b]) => b - a).slice(0, 10).map(([t]) => t.toLowerCase())
+    )
+    const topProfileKeywords = new Set(
+      Object.entries(tasteProfile.deepSignals.keywords)
+        .sort(([, a], [, b]) => b - a).slice(0, 15).map(([k]) => k.toLowerCase())
+    )
+    const profileCrossGenres = new Set(tasteProfile.globalGenres.slice(0, 8).map(g => g.genre.toLowerCase()))
+    const validSlots = slots.filter(s => IGDB_VALID_GENRES.has(s.genre))
+    let offsetStep = 0
+    const MAX_OFFSET_STEPS = 6
+    while (results.length < GAME_POOL_TARGET && offsetStep < MAX_OFFSET_STEPS) {
+      offsetStep++
+      const offsetVal = offsetStep * 50
+      for (const slot of validSlots) {
+        if (results.length >= GAME_POOL_TARGET) break
+        try {
+          const body = `
+            fields name, cover.url, first_release_date, summary, genres.name, themes.name,
+                   rating, rating_count, keywords.name,
+                   involved_companies.company.name, involved_companies.developer,
+                   platforms.name;
+            where genres.name = ("${slot.genre}") & rating_count > ${igdbCountMin} & rating >= ${igdbRatingMin} & cover != null;
+            sort rating desc;
+            limit 50;
+            offset ${offsetVal};
+          `
+          const res = await fetch('https://api.igdb.com/v4/games', {
+            method: 'POST',
+            headers: { 'Client-ID': clientId, Authorization: `Bearer ${token}`, 'Content-Type': 'text/plain' },
+            body, signal: AbortSignal.timeout(8000),
+          })
+          if (!res.ok) continue
+          const games = await res.json()
+          if (!Array.isArray(games) || games.length === 0) continue
+          for (const g of games) {
+            const title = g.name || ''
+            if (isAlreadyOwned('game', g.id.toString(), title) || seen.has(g.id.toString())) continue
+            if (!g.cover?.url) continue
+            seen.add(g.id.toString())
+            const gameThemes: string[] = (g.themes || []).map((t: any) => t.name.toLowerCase())
+            const gameKws: string[] = (g.keywords || []).map((k: any) => k.name.toLowerCase())
+            const allTags = [...gameThemes, ...gameKws]
+            let boost = 0
+            for (const theme of topProfileThemes) { if (gameThemes.some(t => t === theme || t.includes(theme))) boost += 4 }
+            for (const kw of topProfileKeywords) { if (gameKws.some(k => k.includes(kw) || kw.includes(k))) boost += 2 }
+            for (const theme of gameThemes) { if (profileCrossGenres.has(theme)) boost += 5 }
+            const developer = (g.involved_companies || [])
+              .filter((ic: any) => ic.developer)
+              .map((ic: any) => ic.company?.name)
+              .filter(Boolean)[0] as string | undefined
+            const recGenres: string[] = g.genres?.map((gen: any) => gen.name) || []
+            let matchScore = computeMatchScore(recGenres, allTags, tasteProfile, [], developer ? [developer] : [])
+            if (matchScore + boost < 10) continue
+            if (isAwardWorthy(g.rating, undefined, g.rating_count, 'igdb')) matchScore = Math.min(100, matchScore + 8)
+            const year = g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : undefined
+            matchScore = Math.round(matchScore * releaseFreshnessMult(year))
+            results.push({
+              id: g.id.toString(),
+              title: g.name,
+              type: 'game',
+              coverImage: `https:${g.cover.url.replace('t_thumb', 't_1080p')}`,
+              year,
+              genres: recGenres,
+              tags: (g.themes || []).map((t: any) => t.name),
+              keywords: (g.keywords || []).map((k: any) => k.name).slice(0, 20),
+              score: g.rating ? Math.min(Math.round(g.rating) / 20, 5) : undefined,
+              description: g.summary ? truncateAtSentence(g.summary, 300) : undefined,
+              why: buildWhyV3(recGenres, g.id.toString(), g.name, tasteProfile, matchScore, false, { recDeveloper: developer }),
+              matchScore,
+              isAwardWinner: isAwardWorthy(g.rating, undefined, g.rating_count, 'igdb'),
+              developers: developer ? [developer] : undefined,
+              platforms: (g.platforms || []).map((p: any) => p.name).filter(Boolean).slice(0, 6) as string[] || undefined,
+            })
+            if (results.length >= GAME_POOL_TARGET) break
+          }
+        } catch { /* continua */ }
+      }
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   const gameDescItems = results
     .filter(r => r.description)
@@ -3000,6 +3260,136 @@ async function fetchBoardgameRecs(
     const t = await translateWithCache(bgDescItems)
     results.forEach(r => { if (r.description) r.description = t[`bgg:${r.id}`] || r.description })
   }
+
+  // ── TOP-UP BGG: se il pool è sotto 200, fetcha più pagine per rank ────────
+  const BGG_POOL_TARGET = 200
+  if (results.length < BGG_POOL_TARGET) {
+    // BGG non ha browse API pubblica paginata in XMLAPI2, ma possiamo usare
+    // più pagine di hot + range di rank più ampi fetchando ID da top boardgame
+    // Strategia: fetch top 5000 BGG via search paginato (20 item/pag) e filtra per affinità
+    let topUpPage = 4  // già fetchate 1-3 nella topRankedIds
+    const MAX_BGG_TOPUP_PAGES = 20
+    while (results.length < BGG_POOL_TARGET && topUpPage <= MAX_BGG_TOPUP_PAGES) {
+      try {
+        // BGG search paginato per boardgame — restituisce ~20 risultati per pagina
+        const searchXml = await fetch(
+          `${BGG_BASE}/search?query=boardgame&type=boardgame&page=${topUpPage}`,
+          { headers: bggHeaders, signal: AbortSignal.timeout(8000), next: { revalidate: 86400 } }
+        ).then(r => r.ok ? r.text() : '').catch(() => '')
+
+        const pageIds: string[] = []
+        const re = /<item[^>]*id="(\d+)"/g; let mi
+        while ((mi = re.exec(searchXml)) !== null) {
+          if (!seen.has(`bgg-${mi[1]}`)) pageIds.push(mi[1])
+        }
+        if (pageIds.length === 0) break
+
+        // Fetcha dettagli per questi ID
+        const detailXml = await fetch(
+          `${BGG_BASE}/thing?id=${pageIds.join(',')}&stats=1`,
+          { headers: bggHeaders, signal: AbortSignal.timeout(12000), next: { revalidate: 3600 } }
+        ).then(r => r.ok ? r.text() : '').catch(() => '')
+
+        if (!detailXml) { topUpPage++; continue }
+
+        const itemRe2 = /<item[^>]*type="boardgame"[^>]*>([\s\S]*?)<\/item>/gi
+        let m2
+        while ((m2 = itemRe2.exec(detailXml)) !== null) {
+          if (results.length >= BGG_POOL_TARGET) break
+          const chunk = m2[0]
+          const idM2 = chunk.match(/\bid="(\d+)"/)
+          if (!idM2) continue
+          const recId = `bgg-${idM2[1]}`
+          if (seen.has(recId) || shownIds?.has(recId)) continue
+          if (isAlreadyOwned('boardgame', recId, '')) continue
+
+          const nameM2 = chunk.match(/<name[^>]*type="primary"[^>]*value="([^"]*)"/)
+          if (!nameM2) continue
+
+          const rankM2 = chunk.match(/<rank[^>]*name="boardgame"[^>]*value="(\d+)"/)
+          const bggRank2 = rankM2 ? parseInt(rankM2[1]) : undefined
+          if (bggRank2 !== undefined && bggRank2 > BGG_MAX_RANK) continue
+
+          const yearM2 = chunk.match(/<yearpublished[^>]*value="(\d+)"/)
+          const year2 = yearM2 ? parseInt(yearM2[1]) : undefined
+          if (year2 !== undefined && year2 < BGG_MIN_YEAR) continue
+
+          const image2 = (chunk.match(/<image>([^<]+)<\/image>/) || [])[1]?.trim()
+          const thumbnail2 = (chunk.match(/<thumbnail>([^<]+)<\/thumbnail>/) || [])[1]?.trim()
+          const cover2 = image2 || thumbnail2
+          if (!cover2 || cover2.length < 10) continue
+
+          const ratingM2 = chunk.match(/<average[^>]*value="([\d.]+)"/)
+          const bggScore2 = ratingM2 ? parseFloat(ratingM2[1]) : undefined
+          if (bggScore2 !== undefined && bggScore2 < 5.8) continue
+
+          const catRe2 = /<link[^>]*type="boardgamecategory"[^>]*value="([^"]*)"/g
+          const categories2: string[] = []; let cm2
+          while ((cm2 = catRe2.exec(chunk)) !== null) categories2.push(cm2[1])
+          const mechRe2 = /<link[^>]*type="boardgamemechanic"[^>]*value="([^"]*)"/g
+          const mechanics2: string[] = []
+          while ((cm2 = mechRe2.exec(chunk)) !== null) mechanics2.push(cm2[1])
+
+          const crossGenres2 = new Set<string>()
+          for (const cat of categories2) {
+            crossGenres2.add(cat)
+            const mapped = BGG_TO_CROSS_GENRE[cat]
+            if (mapped) for (const cg of mapped) crossGenres2.add(cg)
+          }
+          const recGenres2 = [...crossGenres2]
+          const matchScore2 = computeMatchScore(recGenres2, mechanics2, tasteProfile, [], [])
+          if (matchScore2 < 3) continue  // stessa soglia minima del loop principale
+
+          const rawDesc2 = (chunk.match(/<description>([^<]*)<\/description>/) || [])[1] || ''
+          const description2 = rawDesc2
+            .replace(/&#10;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#\d+;/g, '')
+            .replace(/<[^>]+>/g, '').trim().slice(0, 300) || undefined
+
+          const ratingCountM2 = chunk.match(/<usersrated[^>]*value="(\d+)"/)
+          const ratingCount2 = ratingCountM2 ? parseInt(ratingCountM2[1]) : 0
+          let finalScore2 = matchScore2
+          if (bggScore2 !== undefined && bggScore2 >= 7.5 && ratingCount2 >= 500) finalScore2 = Math.min(100, finalScore2 + 8)
+          if (bggRank2 !== undefined) {
+            if (bggRank2 <= 30) finalScore2 = Math.min(100, finalScore2 + 2)
+            else if (bggRank2 <= 100) finalScore2 = Math.min(100, finalScore2 + 5)
+            else if (bggRank2 <= 300) finalScore2 = Math.min(100, finalScore2 + 4)
+            else if (bggRank2 <= 800) finalScore2 = Math.min(100, finalScore2 + 2)
+          }
+          finalScore2 = Math.round(finalScore2 * releaseFreshnessMult(year2))
+
+          const minpM2 = chunk.match(/<minplayers[^>]*value="(\d+)"/)
+          const maxpM2 = chunk.match(/<maxplayers[^>]*value="(\d+)"/)
+          const timeM2 = chunk.match(/<playingtime[^>]*value="(\d+)"/)
+          const weightM2 = chunk.match(/<averageweight[^>]*value="([\d.]+)"/)
+          const designerRe2 = /<link[^>]*type="boardgamedesigner"[^>]*value="([^"]*)"/g
+          const designers2: string[] = []
+          while ((cm2 = designerRe2.exec(chunk)) !== null) {
+            if (cm2[1] !== '(Uncredited)') designers2.push(cm2[1])
+          }
+
+          seen.add(recId)
+          results.push({
+            id: recId, title: nameM2[1].trim(), type: 'boardgame', coverImage: cover2, year: year2,
+            genres: categories2.length > 0 ? categories2 : recGenres2,
+            score: bggScore2 !== undefined ? Math.round((bggScore2 / 2) * 10) / 10 : undefined,
+            description: description2,
+            why: buildWhyV3(recGenres2, recId, nameM2[1].trim(), tasteProfile, matchScore2, false, {}),
+            matchScore: finalScore2,
+            isAwardWinner: bggScore2 !== undefined && bggScore2 >= 7.5 && ratingCount2 >= 500,
+            min_players: minpM2 ? parseInt(minpM2[1]) : undefined,
+            max_players: maxpM2 ? parseInt(maxpM2[1]) : undefined,
+            playing_time: timeM2 ? parseInt(timeM2[1]) : undefined,
+            complexity: weightM2 ? Math.round(parseFloat(weightM2[1]) * 10) / 10 : undefined,
+            mechanics: mechanics2.slice(0, 8),
+            designers: designers2.slice(0, 3),
+          } as any)
+        }
+      } catch { /* continua */ }
+      topUpPage++
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   return results.sort((a, b) => b.matchScore - a.matchScore)
 }
