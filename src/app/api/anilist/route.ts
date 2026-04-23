@@ -14,6 +14,7 @@ query ($search: String, $type: MediaType) {
   Page(page: 1, perPage: 20) {
     media(search: $search, type: $type, sort: [SEARCH_MATCH, POPULARITY_DESC], isAdult: false) {
       id type
+      format
       title { romaji english native }
       synonyms
       coverImage { large }
@@ -65,22 +66,58 @@ export async function GET(request: NextRequest) {
   if (typeParam === 'anime') types = ['ANIME']
   else if (typeParam === 'manga') types = ['MANGA']
 
+  // Se la lingua è IT, traduci il termine in EN per migliorare il match su AniList
+  // AniList non indicizza titoli italiani, ma indicizza titoli inglesi e romaji
+  let termEn: string | null = null
+  if (lang === 'it') {
+    try {
+      const deeplKey = process.env.DEEPL_API_KEY
+      if (deeplKey) {
+        const deeplBase = deeplKey.endsWith(':fx')
+          ? 'https://api-free.deepl.com/v2'
+          : 'https://api.deepl.com/v2'
+        const tr = await fetch(`${deeplBase}/translate`, {
+          method: 'POST',
+          headers: { 'Authorization': `DeepL-Auth-Key ${deeplKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: [term], source_lang: 'IT', target_lang: 'EN' }),
+          signal: AbortSignal.timeout(3000),
+        })
+        if (tr.ok) {
+          const tj = await tr.json()
+          const translated = tj.translations?.[0]?.text?.trim()
+          if (translated && translated.toLowerCase() !== term.toLowerCase()) termEn = translated
+        }
+      }
+    } catch { /* skip, usa solo term originale */ }
+  }
+
   const allResults: any[] = []
+
+  const seenIds = new Set<string>()
 
   for (const mediaType of types) {
     try {
-      const res = await fetch(ANILIST_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: QUERY, variables: { search: term, type: mediaType } }),
-        signal: AbortSignal.timeout(8000),
-      })
-      if (!res.ok) continue
-      const json = await res.json()
-      const media: any[] = json.data?.Page?.media || []
+      // Cerca in parallelo col termine originale e con la traduzione EN (se disponibile)
+      const searchTerms = [term, ...(termEn ? [termEn] : [])]
+      const responses = await Promise.all(searchTerms.map(t =>
+        fetch(ANILIST_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: QUERY, variables: { search: t, type: mediaType } }),
+          signal: AbortSignal.timeout(8000),
+        }).then(r => r.ok ? r.json() : { data: null }).catch(() => ({ data: null }))
+      ))
+      const media: any[] = responses.flatMap((json: any) => json.data?.Page?.media || [])
 
       allResults.push(...media
-        .filter((m: any) => m.coverImage?.large)
+        .filter((m: any) => {
+          if (!m.coverImage?.large) return false
+          if (m.format === 'MOVIE') return false  // film anime → esclusi, vanno su TMDB
+          const uid = `${m.type}-${m.id}`
+          if (seenIds.has(uid)) return false
+          seenIds.add(uid)
+          return true
+        })
         .map((m: any) => {
           const isAnime = m.type === 'ANIME'
           const type = isAnime ? 'anime' : 'manga'

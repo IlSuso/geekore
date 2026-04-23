@@ -1917,15 +1917,14 @@ async function fetchMovieRecs(
       const moviePagesToFetch = slot.quota > 20 ? [1, 2, 3] : [1]
       const moviePageResults = await Promise.all(moviePagesToFetch.map(page =>
         fetch(
-          `https://api.themoviedb.org/3/discover/movie?with_genres=${genreId}&without_genres=16&sort_by=vote_average.desc&vote_count.gte=80&vote_average.gte=${voteAvgMin}&language=it-IT&page=${page}`,
+          `https://api.themoviedb.org/3/discover/movie?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=80&vote_average.gte=${voteAvgMin}&language=it-IT&page=${page}`,
           { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
         ).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
       ))
       const candidates = moviePageResults.flatMap((json: any) => json.results || [])
         .filter((m: any) => {
           const title = m.title || m.original_title || ''
-          const isAnimeMovie = m.original_language === 'ja' && (m.genre_ids || []).includes(16)
-          return !isAlreadyOwned('movie', m.id.toString(), title) && m.poster_path && !seen.has(m.id.toString()) && !isAnimeMovie
+          return !isAlreadyOwned('movie', m.id.toString(), title) && m.poster_path && !seen.has(m.id.toString())
         })
         .slice(0, slot.quota + 10)
 
@@ -2048,7 +2047,7 @@ async function fetchMovieRecs(
       try {
         const genreId = availableGenreIds[topUpPage % availableGenreIds.length] || availableGenreIds[0]
         const r = await fetch(
-          `https://api.themoviedb.org/3/discover/movie?with_genres=${genreId}&without_genres=16&sort_by=vote_average.desc&vote_count.gte=80&vote_average.gte=${voteAvgMin}&language=it-IT&page=${topUpPage}`,
+          `https://api.themoviedb.org/3/discover/movie?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=80&vote_average.gte=${voteAvgMin}&language=it-IT&page=${topUpPage}`,
           { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
         ).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
         const candidates = r.results || []
@@ -2057,8 +2056,6 @@ async function fetchMovieRecs(
           const title = m.title || m.original_title || ''
           if (isAlreadyOwned('movie', m.id.toString(), title) || seen.has(m.id.toString())) continue
           if (!m.poster_path) continue
-          const isAnimeMovie = m.original_language === 'ja' && (m.genre_ids || []).includes(16)
-          if (isAnimeMovie) continue
           seen.add(m.id.toString())
           const recGenres = m.genre_ids
             ? m.genre_ids.map((id: number) => TMDB_MOVIE_GENRE_NAMES[id]).filter(Boolean)
