@@ -3283,11 +3283,16 @@ export async function GET(request: NextRequest) {
     // quindi usiamo i tipi passati esplicitamente (o tutti e 5 come fallback)
     // boardgame è sempre incluso anche senza import BGG (consigli universali)
     const ALWAYS_INCLUDE: MediaType[] = ['boardgame']
-    const typesToFetch: MediaType[] = requestedType === 'all'
-      ? isOnboardingCall
-        ? (onboardingTypes && onboardingTypes.length > 0 ? onboardingTypes : ALL_MEDIA_TYPES)
-        : ALL_MEDIA_TYPES.filter(t => allTypesInCollection.has(t) || ALWAYS_INCLUDE.includes(t))
-      : [requestedType as MediaType]
+    // Per la regen del master pool usiamo sempre tutti i tipi della collezione
+    // anche se requestedType è un singolo tipo (es. 'anime') — così il pool viene
+    // sempre ricalcolato completo quando scatta la regen
+    const typesToFetch: MediaType[] = isOnboardingCall
+      ? (onboardingTypes && onboardingTypes.length > 0 ? onboardingTypes : ALL_MEDIA_TYPES)
+      : ALL_MEDIA_TYPES.filter(t => allTypesInCollection.has(t) || ALWAYS_INCLUDE.includes(t))
+    // Il tipo richiesto esplicitamente viene comunque incluso
+    if (requestedType !== 'all' && !typesToFetch.includes(requestedType as MediaType)) {
+      typesToFetch.push(requestedType as MediaType)
+    }
 
     // ── V6: Carica titoli mostrati nella sessione corrente (TTL: 4h) ──────────
     // NON escludiamo titoli per settimane — solo quelli mostrati nelle ultime 4 ore
@@ -3443,10 +3448,12 @@ export async function GET(request: NextRequest) {
 
         const contRecs = continuityByType.get(type) || []
         const contIds = new Set(contRecs.map(r => r.id))
-        const allItems: Recommendation[] = applyFormatDiversity([
+        // Nel master pool NON applicare applyFormatDiversity — serve il serbatoio più ampio possibile
+        // applyFormatDiversity viene applicata solo quando si serve al client
+        const allItems: Recommendation[] = [
           ...contRecs,
           ...result.items.filter(r => !contIds.has(r.id)),
-        ], type)
+        ]
 
         masterByType.set(type, allItems)
         console.log(`[RECO] result type=${type} items=${result.items.length} allItems=${allItems.length}`)
