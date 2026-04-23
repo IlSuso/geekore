@@ -39,6 +39,8 @@
 //   • Adaptive Windows per tipo di media
 // ═══════════════════════════════════════════════════════════════════════════
 
+export const maxDuration = 60
+
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'

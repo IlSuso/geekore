@@ -3,6 +3,8 @@
 // di un utente specifico, senza bisogno della sua sessione.
 // Usa X-Service-User-Id + X-Service-Secret per bypassare l'auth.
 
+export const maxDuration = 60
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { logger } from '@/lib/logger'
