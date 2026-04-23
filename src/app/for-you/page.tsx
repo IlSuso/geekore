@@ -1516,7 +1516,7 @@ export default function ForYouPage() {
             {SECTIONS.map(({ key, label }) => {
               const items = displayRecs[key] || []
               const allItems = items
-                .filter(i => !i.isContinuity && !dismissedIds.has(i.id))
+                .filter(i => !dismissedIds.has(i.id))
                 .sort((a, b) => b.matchScore - a.matchScore)
               if (!allItems.length) return null
               return (
@@ -1538,7 +1538,7 @@ export default function ForYouPage() {
             })}
 
             {SECTIONS.every(({ key }) => {
-              const items = (displayRecs[key] || []).filter(i => !i.isContinuity && !dismissedIds.has(i.id))
+              const items = (displayRecs[key] || []).filter(i => !dismissedIds.has(i.id))
               return !items.length
             }) && (
               <div className="text-center py-20">
