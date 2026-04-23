@@ -1,11 +1,11 @@
 // src/app/api/recommendations/background-regen/route.ts
-// Chiamata dalla Edge Function Supabase per rigenerare il master pool
-// di un utente specifico, senza bisogno della sua sessione.
-// Usa X-Service-User-Id + X-Service-Secret per bypassare l'auth.
+// Chiamata dal trigger pg_net per rigenerare il master pool di un utente.
+// Risponde 202 immediatamente (entro il timeout pg_net di 5s), poi esegue
+// il regen asincrono via after() dopo che la risposta è stata inviata.
 
 export const maxDuration = 60
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { logger } from '@/lib/logger'
 
@@ -49,24 +49,24 @@ export async function POST(request: NextRequest) {
   const refreshParam = force_refresh !== false ? '&refresh=1' : ''
   const url = `${appUrl}/api/recommendations?type=all${refreshParam}&onboarding=1`
 
-  try {
-    const res = await fetch(url, {
-      headers: {
-        'X-Service-User-Id': user_id,
-        'X-Service-Secret': CRON_SECRET,
-      },
-    })
-
-    if (!res.ok) {
-      const text = await res.text()
-      logger.error('background-regen', `Regen failed for ${user_id}: ${res.status} ${text}`)
-      return NextResponse.json({ error: `Upstream ${res.status}` }, { status: 500 })
+  after(async () => {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'X-Service-User-Id': user_id,
+          'X-Service-Secret': CRON_SECRET,
+        },
+      })
+      if (!res.ok) {
+        const text = await res.text()
+        logger.error('background-regen', `Regen failed for ${user_id}: ${res.status} ${text}`)
+      } else {
+        logger.info('background-regen', `Master pool regenerated for user ${user_id}`)
+      }
+    } catch (err: any) {
+      logger.error('background-regen', `Fetch error for ${user_id}: ${err?.message}`)
     }
+  })
 
-    logger.info('background-regen', `Master pool regenerated for user ${user_id}`)
-    return NextResponse.json({ status: 'done', user_id })
-  } catch (err: any) {
-    logger.error('background-regen', `Fetch error for ${user_id}: ${err?.message}`)
-    return NextResponse.json({ error: err?.message }, { status: 500 })
-  }
+  return NextResponse.json({ status: 'accepted', user_id }, { status: 202 })
 }
