@@ -3326,7 +3326,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Determina se il master pool va rigenerato per ogni tipo
+    // Distinzione importante:
+    //   • typesNeedingMasterRegen (foreground): tipo già esistente nel master ma da aggiornare
+    //   • typesToRegenBackground: tipo ASSENTE dal master pool → rigenerato in background
+    //     senza bloccare la risposta, così i tipi già presenti vengono serviti subito
     const typesNeedingMasterRegen: MediaType[] = []
+    const typesToRegenBackground: MediaType[] = []
     for (const type of typesToFetch) {
       const items = masterByType.get(type) || []
       const row = (masterPoolRows || []).find((r: any) => r.media_type === type)
@@ -3335,7 +3340,14 @@ export async function GET(request: NextRequest) {
       // tooSmall solo se la riga non esiste proprio — se esiste con pochi item (es. BGG) non rigenerare ogni volta
       const tooSmall = !row || items.length === 0
       if (forceRefresh || tooSmall || (isOld && hasGrown)) {
-        typesNeedingMasterRegen.push(type as MediaType)
+        if (!row) {
+          // Tipo completamente assente dal master pool → rigenera in background
+          // così la risposta non viene bloccata per questo tipo mancante
+          typesToRegenBackground.push(type as MediaType)
+        } else {
+          // Tipo presente ma vecchio/cresciuto → rigenera normalmente (foreground)
+          typesNeedingMasterRegen.push(type as MediaType)
+        }
       }
     }
 
@@ -3402,6 +3414,56 @@ export async function GET(request: NextRequest) {
         await supabase.from('master_recommendations_pool')
           .upsert(masterUpserts, { onConflict: 'user_id,media_type' })
       }
+    }
+
+    // ── Rigenera in background i tipi ASSENTI dal master pool ────────────────
+    // Questi tipi non hanno ancora nessuna riga in master_recommendations_pool.
+    // Li rigeneriamo in fire-and-forget: la risposta corrente non li aspetta
+    // (saranno disponibili alla prossima chiamata), ma vengono comunque generati
+    // e salvati su Supabase dietro le quinte, uno per uno, per evitare timeout.
+    if (typesToRegenBackground.length > 0) {
+      ;(async () => {
+        const emptyShownIds = new Set<string>()
+        const continuityRecsForBg = (typesToRegenBackground.includes('anime') || typesToRegenBackground.includes('manga'))
+          ? await fetchContinuityRecs(allEntries, ownedIds, tasteProfile, supabase).catch(() => [])
+          : []
+        const continuityByTypeBg = new Map<string, Recommendation[]>()
+        for (const contRec of continuityRecsForBg) {
+          const arr = continuityByTypeBg.get(contRec.type) || []
+          arr.push(contRec)
+          continuityByTypeBg.set(contRec.type, arr)
+        }
+        for (const type of typesToRegenBackground) {
+          try {
+            const slots = buildDiversitySlots(type, tasteProfile, MASTER_POOL_SIZE_PER_TYPE)
+            if (slots.length === 0) continue
+            let items: Recommendation[] = []
+            switch (type) {
+              case 'anime': items = await fetchAnimeRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites); break
+              case 'manga': items = await fetchMangaRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds, socialFavorites); break
+              case 'movie': items = await fetchMovieRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds); break
+              case 'tv':    items = await fetchTvRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, emptyShownIds, socialFavorites, userPlatformIds); break
+              case 'game':  items = await fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret, isAlreadyOwned, emptyShownIds); break
+              case 'boardgame': items = await fetchBoardgameRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, emptyShownIds); break
+            }
+            if (!items.length) continue
+            const contRecs = continuityByTypeBg.get(type) || []
+            const contIds = new Set(contRecs.map(r => r.id))
+            const allItems = applyFormatDiversity([
+              ...contRecs,
+              ...items.filter(r => !contIds.has(r.id)),
+            ], type)
+            await supabase.from('master_recommendations_pool').upsert({
+              user_id: user.id,
+              media_type: type,
+              data: allItems,
+              collection_hash: collectionHash,
+              collection_size: entriesByType.get(type) ?? 0,
+              generated_at: new Date().toISOString(),
+            }, { onConflict: 'user_id,media_type' })
+          } catch { /* ignora errori singoli tipi — non blocca gli altri */ }
+        }
+      })()
     }
 
     // ── Campiona dal master pool → recommendations_pool ─────────────────────
