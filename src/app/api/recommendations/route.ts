@@ -2471,7 +2471,7 @@ async function fetchGameRecs(
           creatorBoost,
           isAwardWinner: isAwardWorthy(g.rating, undefined, g.rating_count, 'igdb'),
           developers: developer ? [developer] : undefined,
-          platforms: (g.platforms || []).map((p: any) => p.name).filter(Boolean).slice(0, 6) as string[] || undefined,
+          platforms: (g.platforms || []).map((p: any) => (p.name as string || '').replace(/ \(Windows\)$/i, '')).filter(Boolean).slice(0, 6) as string[] || undefined,
         })
       }
     } catch { /* continua */ }
@@ -2556,7 +2556,7 @@ async function fetchGameRecs(
               matchScore,
               isAwardWinner: isAwardWorthy(g.rating, undefined, g.rating_count, 'igdb'),
               developers: developer ? [developer] : undefined,
-              platforms: (g.platforms || []).map((p: any) => p.name).filter(Boolean).slice(0, 6) as string[] || undefined,
+              platforms: (g.platforms || []).map((p: any) => (p.name as string || '').replace(/ \(Windows\)$/i, '')).filter(Boolean).slice(0, 6) as string[] || undefined,
             })
             if (results.length >= GAME_POOL_TARGET) break
           }

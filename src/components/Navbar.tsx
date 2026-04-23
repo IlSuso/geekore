@@ -166,19 +166,7 @@ function NotificationPopover({
 
       {/* Lista */}
       <div>
-        {loading ? (
-          <>
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800/50 last:border-0 animate-pulse">
-                <div className="w-9 h-9 rounded-full bg-zinc-800 flex-shrink-0" />
-                <div className="flex-1 space-y-1.5">
-                  <div className="h-3 bg-zinc-800 rounded-full w-3/4" />
-                  <div className="h-2 bg-zinc-800 rounded-full w-1/3" />
-                </div>
-              </div>
-            ))}
-          </>
-        ) : preview.length === 0 ? (
+        {preview.length === 0 ? (
           <div className="px-4 py-8 text-center">
             <Bell size={26} className="text-zinc-700 mx-auto mb-2" />
             <p className="text-sm text-zinc-500">Nessuna notifica</p>

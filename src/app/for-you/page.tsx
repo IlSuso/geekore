@@ -882,8 +882,6 @@ export default function ForYouPage() {
       setIsCached(false)
     }
     setRefreshing(false)
-    // Rigenera il master pool in background con la formula aggiornata — pronto per il prossimo Aggiorna
-    fetch('/api/recommendations?type=all&refresh=1', { keepalive: true }).catch(() => {})
   }
 
   // Pull-to-refresh su mobile — deve stare DOPO handleRefresh
@@ -1428,7 +1426,6 @@ export default function ForYouPage() {
           <div className="h-10 w-48 bg-zinc-800 rounded-2xl mb-3" />
           <div className="h-5 w-80 bg-zinc-900 rounded-xl" />
         </div>
-        <SkeletonFriendsWatching />
         {[1, 2, 3].map(i => <SkeletonForYouRow key={i} />)}
       </div>
     </div>
