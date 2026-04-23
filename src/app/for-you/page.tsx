@@ -997,9 +997,11 @@ export default function ForYouPage() {
           const now = Date.now()
           if (lastVisit && now - parseInt(lastVisit || '') > 4 * 3600000) setShowNewRecsBadge(true)
           localStorage.setItem('for_you_last_visit', String(now))
-          // Rigenera in background — aggiorna il master pool con nuovi dati
-          // keepalive: true garantisce che la fetch sopravviva anche se la pagina si chiude
-          fetch('/api/recommendations?type=all', { keepalive: true }).catch(() => {})
+          // Rigenera in background dopo un piccolo delay per evitare che il browser
+          // cancelli la fetch mentre è ancora in corso la risposta della pool
+          setTimeout(() => {
+            fetch('/api/recommendations?type=all', { keepalive: true }).catch(() => {})
+          }, 500)
           return
         }
       }
