@@ -794,6 +794,7 @@ export default function ForYouPage() {
   const [showNewRecsBadge, setShowNewRecsBadge] = useState(false)  // Fix 2.10: badge nuovi consigli
   const [showSwipeMode, setShowSwipeMode] = useState(false)
   const cleanupRef = useRef<(() => void) | null>(null)
+  const addedTitlesRef = useRef<Set<string>>(new Set())
 
   const fetchRecommendations = useCallback(async (force = false) => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -872,11 +873,12 @@ export default function ForYouPage() {
         { data: entries },
         { data: wish },
       ] = await Promise.all([
-        supabase.from('user_media_entries').select('external_id').eq('user_id', userId),
+        supabase.from('user_media_entries').select('external_id, title').eq('user_id', userId),
         supabase.from('wishlist').select('external_id').eq('user_id', userId),
       ])
 
       setAddedIds(new Set((entries || []).map((e: any) => e.external_id).filter(Boolean)))
+      addedTitlesRef.current = new Set((entries || []).map((e: any) => (e.title as string)?.toLowerCase()).filter(Boolean))
       setWishlistIds(new Set((wish || []).map((w: any) => w.external_id).filter(Boolean)))
       setTotalEntries(entries?.length || 0)
 
@@ -991,6 +993,7 @@ export default function ForYouPage() {
     })
     if (!error) {
       setAddedIds(prev => new Set([...prev, item.id]))
+      addedTitlesRef.current.add(item.title.toLowerCase())
       showToast(`"${item.title}" aggiunto`)
       await fetch('/api/recommendations/feedback', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1279,16 +1282,23 @@ export default function ForYouPage() {
 
     console.log('💾 Dati da upsertare su user_media_entries:', JSON.stringify(insertData, null, 2))
 
+    // Se il titolo è già in libreria (anche con external_id diverso) skip silenzioso, senza fare la call HTTP
+    if (addedTitlesRef.current.has(item.title.toLowerCase())) {
+      console.log('[ForYouPage] handleSwipeSeen: titolo già in libreria (via ref), skip upsert.')
+      console.groupEnd()
+      return
+    }
+
     supabase.from('user_media_entries').upsert(insertData, { onConflict: 'user_id,external_id' }).then(({ data, error }) => {
       if (error) {
         if (error.code === '23505') {
-          // Entry già presente con stesso titolo (constraint ux_user_media_non_steam) — ignorato, obiettivo raggiunto
           console.log('[ForYouPage] handleSwipeSeen: entry già esistente (duplicate title), skip silenzioso.')
         } else {
           console.error('[ForYouPage] handleSwipeSeen: ERRORE upsert user_media_entries:', error)
           console.error('Codice errore:', error.code, '— Messaggio:', error.message)
         }
       } else {
+        addedTitlesRef.current.add(item.title.toLowerCase())
         console.log('[ForYouPage] handleSwipeSeen: ✅ upsert OK. data:', data)
       }
       fetch('/api/recommendations/feedback', {
@@ -1650,6 +1660,7 @@ export default function ForYouPage() {
           onClose={() => setDetailItem(null)}
           onAdd={(media) => {
             setAddedIds(prev => new Set([...prev, media.id]))
+            addedTitlesRef.current.add((media.title as string)?.toLowerCase())
             setDetailItem(null)
             showToast(t.discover.added)
           }}
