@@ -40,7 +40,20 @@ function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
 }
 
 function normalize(s: string): string {
-  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function rankByQuery(items: MediaItem[], query: string): MediaItem[] {
+  if (query.length < 2) return items;
+  const q = normalize(query);
+  const starts: MediaItem[] = [];
+  const contains: MediaItem[] = [];
+  for (const item of items) {
+    const t = normalize(item.title);
+    if (t.startsWith(q)) starts.push(item);
+    else if (t.includes(q)) contains.push(item);
+  }
+  return [...starts, ...contains];
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -278,11 +291,7 @@ export default function DiscoverPage() {
       // Filtra per cover valida
       const withCover = deduped.filter(hasValidCover);
       const filtered = type !== 'all' ? withCover.filter(i => i.type === type) : withCover;
-      const qNorm = normalize(term.trim());
-      const startFiltered = qNorm.length >= 2
-        ? filtered.filter(item => normalize(item.title).startsWith(qNorm))
-        : filtered;
-      setResults(startFiltered);
+      setResults(rankByQuery(filtered, term.trim()));
 
       // Traccia query
       const trimmed = term.trim();

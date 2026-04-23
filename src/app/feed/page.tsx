@@ -162,7 +162,20 @@ function CategoryBadge({ category, onClick }: { category: string | null | undefi
 // ── API search per categoria ─────────────────────────────────────────────────
 
 function normalize(s: string): string {
-  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function rankByQuery(items: SearchResult[], query: string): SearchResult[] {
+  if (query.length < 2) return items
+  const q = normalize(query)
+  const starts: SearchResult[] = []
+  const contains: SearchResult[] = []
+  for (const item of items) {
+    const t = normalize(item.title)
+    if (t.startsWith(q)) starts.push(item)
+    else if (t.includes(q)) contains.push(item)
+  }
+  return [...starts, ...contains]
 }
 
 type SearchResult = { id: string; title: string; subtitle?: string; image?: string }
@@ -302,9 +315,7 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
     setIsSearching(true)
     debounceRef.current = setTimeout(async () => {
       const results = await searchByCategory(selectedCat, subInput)
-      const qNorm = normalize(subInput.trim())
-      const filtered = results.filter(r => normalize(r.title).startsWith(qNorm))
-      setSuggestions(filtered); setIsSearching(false); setActiveSuggestion(-1)
+      setSuggestions(rankByQuery(results, subInput.trim())); setIsSearching(false); setActiveSuggestion(-1)
     }, 300)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [subInput, selectedCat, step])
@@ -560,9 +571,7 @@ function CategoryFilter({
     setIsSearching(true)
     debounceRef.current = setTimeout(async () => {
       const results = await searchByCategory(activeMacro, subSearch)
-      const qNorm = normalize(subSearch.trim())
-      const filtered = results.filter(r => normalize(r.title).startsWith(qNorm))
-      setSuggestions(filtered)
+      setSuggestions(rankByQuery(results, subSearch.trim()))
       setIsSearching(false)
     }, 300)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }

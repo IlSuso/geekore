@@ -205,9 +205,8 @@ export async function GET(req: NextRequest) {
     const ids = await searchBGG(q)
     if (!ids.length) return NextResponse.json([])
 
-    // Fetch dettagli — BGG raccomanda di non bombardare l'API ma per search UI
-    // il rate limit di 5s è troppo per l'autocomplete. Usiamo solo il primo batch.
-    const items = await fetchBGGDetails(ids.slice(0, 20))
+    // Fetch dettagli — tutti e 60 gli ID trovati dalla search, in batch paralleli
+    const items = await fetchBGGDetails(ids)
 
     // Traduci descrizioni in italiano se la lingua richiesta è IT
     const lang = req.headers.get('x-lang') || req.nextUrl.searchParams.get('lang') || 'it'
@@ -222,34 +221,29 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const STOP_WORDS = new Set([
-      'il','lo','la','i','gli','le','un','uno','una',
-      'del','dello','della','dei','degli','delle',
-      'al','allo','alla','ai','agli','alle',
-      'dal','dallo','dalla','dai','dagli','dalle',
-      'nel','nello','nella','nei','negli','nelle',
-      'sul','sullo','sulla','sui','sugli','sulle',
-      'di','da','in','con','su','per','tra','fra',
-      'the','a','an',
-    ])
-    const normalize = (s: string) => {
-      let r = s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
-      const firstSpace = r.indexOf(' ')
-      if (firstSpace > 0) {
-        const firstWord = r.slice(0, firstSpace)
-        if (STOP_WORDS.has(firstWord)) r = r.slice(firstSpace + 1).trim()
-      }
-      return r
-    }
-    const qNorm = normalize(q)
-    // includes invece di startsWith: "catan" trova anche "Die Siedler von Catan"
-    const filtered = items.filter(item => normalize(item.title).includes(qNorm))
+    // Normalizza: rimuove accenti, punteggiatura, spazi multipli — NON rimuove stop words
+    // così "the crew" matcha "The Crew: ...", "The Crew 2", ecc.
+    const normalizeQ = (s: string) =>
+      s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()
 
-    // Ordina: con cover prima, poi per score BGG decrescente
-    const sorted = [...filtered].sort((a, b) => {
+    const qNorm = normalizeQ(q)
+
+    // Ordine: prima i titoli che iniziano con la query, poi quelli che la contengono
+    const starts: BGGItem[] = []
+    const contains: BGGItem[] = []
+    for (const item of items) {
+      const t = normalizeQ(item.title)
+      if (t.startsWith(qNorm)) starts.push(item)
+      else if (t.includes(qNorm)) contains.push(item)
+    }
+    const ranked = [...starts, ...contains]
+
+    // Ordina dentro ogni gruppo: con cover prima, poi score BGG decrescente
+    const sortGroup = (g: BGGItem[]) => g.sort((a, b) => {
       if (!!a.coverImage !== !!b.coverImage) return a.coverImage ? -1 : 1
       return (b.score ?? 0) - (a.score ?? 0)
     })
+    const sorted = [...sortGroup(starts), ...sortGroup(contains)]
 
     return NextResponse.json(sorted, {
       headers: { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=3600' },
