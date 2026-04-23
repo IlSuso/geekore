@@ -330,7 +330,13 @@ export default function OnboardingPage() {
     // Rinfoltisci via fast-path onboarding
     try {
       const items = await fetchCategoryTitles(filter as CategoryKey, selectedTypes, skippedSet, TARGET)
-      const newItems = items.filter(i => !skippedSet.has(i.id) && !existingIds.has(i.id)).slice(0, TARGET - existingRows.length)
+      const newItems = items
+        .filter(i =>
+          !skippedSet.has(i.id) &&
+          !existingIds.has(i.id) &&
+          !acceptedItemsRef.current.has(i.id)
+        )
+        .slice(0, TARGET - existingRows.length)
       if (newItems.length > 0) {
         const rows = newItems.map(i => toQueueRow(i, uid))
         await supabase.from(table).upsert(rows, { onConflict: 'user_id,external_id' })

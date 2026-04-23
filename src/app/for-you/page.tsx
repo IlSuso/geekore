@@ -1432,13 +1432,14 @@ export default function ForYouPage() {
         }
       }
 
-      // Filtra: no skipped, no già in coda, solo tipi validi
+      // Filtra: no skipped, no già in coda, non già in libreria, solo tipi validi
       const validTypes = ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame']
       const newRecs = freshRecs
         .filter((r: any) =>
           validTypes.includes(r.type) &&
           !skippedSet.has(r.id) &&
-          !existingIds.has(r.id)
+          !existingIds.has(r.id) &&
+          !addedTitlesRef.current.has((r.title as string)?.toLowerCase())
         )
         .slice(0, TARGET - existingRows.length)
 
@@ -1476,7 +1477,10 @@ export default function ForYouPage() {
     const skippedSet = new Set((skippedRows || []).map((r: any) => r.external_id as string))
     const allRecs: Recommendation[] = Object.values(recommendations).flat()
     const candidates = allRecs.filter(r =>
-      validTypes.includes(r.type) && !dismissedIds.has(r.id) && !skippedSet.has(r.id)
+      validTypes.includes(r.type) &&
+      !dismissedIds.has(r.id) &&
+      !skippedSet.has(r.id) &&
+      !addedTitlesRef.current.has(r.title?.toLowerCase())
     ).slice(0, 50)
     if (!candidates.length) return
     const makeRow = (r: Recommendation, userId: string) => ({
