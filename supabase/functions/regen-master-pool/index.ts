@@ -1,8 +1,9 @@
 // supabase/functions/regen-master-pool/index.ts
-// Strategia: invalida il master pool per l'utente.
-// Alla prossima visita alla pagina Per Te, la route rigenera tutto
-// (incluso boardgame) in foreground con la logica completa già esistente.
-// Questo è il metodo più affidabile: zero dipendenze da chiamate HTTP a Vercel.
+// Chiamata da pg_cron ogni minuto se ci sono job pending.
+// Resetta collection_size a -999 per forzare hasGrown su tutti i tipi
+// alla prossima apertura della pagina Per Te.
+// NON invalida i dati esistenti — l'utente vede sempre i consigli vecchi
+// finché non apre Per Te, dove trova tutto rigenerato.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -26,14 +27,15 @@ Deno.serve(async (req: Request) => {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-  const { data: jobs, error: jobsError } = await supabase
+  // Prendi job pending
+  const { data: jobs } = await supabase
     .from('regen_jobs')
     .select('*')
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
     .limit(5)
 
-  if (jobsError || !jobs?.length) {
+  if (!jobs?.length) {
     console.log('No pending jobs')
     return new Response(JSON.stringify({ processed: 0 }), {
       headers: { 'Content-Type': 'application/json' }
@@ -50,17 +52,18 @@ Deno.serve(async (req: Request) => {
       .eq('id', job.id)
 
     try {
-      // Invalida il master pool: azzera generated_at su tutte le righe dell'utente
-      // e cancella la riga boardgame se assente (verrà ricreata alla prossima visita).
-      // La route /api/recommendations rigenera tutto in foreground alla prossima richiesta.
-      const { error: updateError } = await supabase
+      // Setta collection_size = -999 su tutte le righe esistenti dell'utente.
+      // Questo fa scattare hasGrown = (entries - (-999)) >= 5 → sempre true.
+      // I dati (raccomandazioni) rimangono intatti — l'utente non vede nulla di rotto.
+      // Alla prossima apertura di Per Te, la route rigenera tutto incluso boardgame.
+      const { error } = await supabase
         .from('master_recommendations_pool')
-        .update({ generated_at: new Date(0).toISOString(), collection_size: -1 })
+        .update({ collection_size: -999 })
         .eq('user_id', job.user_id)
 
-      if (updateError) throw new Error(updateError.message)
+      if (error) throw new Error(error.message)
 
-      console.log(`Invalidated pool for user ${job.user_id}`)
+      console.log(`Marked pool for regen: user ${job.user_id}`)
 
       await supabase
         .from('regen_jobs')

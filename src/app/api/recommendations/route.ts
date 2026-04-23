@@ -3329,7 +3329,7 @@ export async function GET(request: NextRequest) {
     // Conta entry per tipo — usato per hasGrown per-tipo e collection_size per-tipo
     const entriesByType = new Map<string, number>()
     for (const type of typesToFetch) {
-      entriesByType.set(type, allEntries.filter((e: any) => e.media_type === type).length)
+      entriesByType.set(type, allEntries.filter((e: any) => e.type === type).length)
     }
 
     // ── MASTER POOL: controlla se esiste ed è ancora valido ──────────────────
