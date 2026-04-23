@@ -192,6 +192,8 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
           ? <img src={item.coverImage} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
           : <div className="w-full h-full flex items-center justify-center"><Icon size={32} className="text-zinc-700" /></div>
         }
+        {/* Bordo inset sottile — invisibile su cover colorate, separa quelle nere dallo sfondo */}
+        <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/10 pointer-events-none" />
         {/* Solo badge tipo media in alto a sinistra */}
         <div className={`absolute top-2 left-2 bg-gradient-to-r ${colorClass} text-white text-[10px] font-bold px-2 py-0.5 rounded-full`}>
           {TYPE_LABEL[item.type] || item.type.toUpperCase()}
