@@ -3363,12 +3363,15 @@ export async function GET(request: NextRequest) {
       // tooSmall solo se la riga non esiste proprio — se esiste con pochi item (es. BGG) non rigenerare ogni volta
       const tooSmall = !row || items.length === 0
       if (forceRefresh || tooSmall || hasGrown) {
-        if (!row) {
+        if (!row && !isServiceCall) {
           // Tipo completamente assente dal master pool → rigenera in background
-          // così la risposta non viene bloccata per questo tipo mancante
+          // così la risposta non viene bloccata per questo tipo mancante.
+          // ECCEZIONE: nelle service call (background-regen) trattiamo tutto in foreground
+          // perché non c'è un client da servire e il timeout è più lungo.
           typesToRegenBackground.push(type as MediaType)
         } else {
           // Tipo presente ma vecchio/cresciuto → rigenera normalmente (foreground)
+          // oppure: service call con tipo assente → foreground comunque
           typesNeedingMasterRegen.push(type as MediaType)
         }
       }
