@@ -1554,8 +1554,8 @@ async function fetchAnimeRecs(
   } catch { /* continua */ }
 
   const TMDB_BASE_ANIME = 'https://api.themoviedb.org/3'
-  const MIN_POOL_ITEMS = 80
-  const MAX_PAGES = 10
+  const MIN_POOL_ITEMS = 200
+  const MAX_PAGES = 15
 
   for (const slot of slots) {
     if (results.length >= MIN_POOL_ITEMS) break
@@ -3019,8 +3019,19 @@ async function fetchBoardgameRecs(
 const MASTER_POOL_SIZE_PER_TYPE = 200  // titoli nel master pool per tipo (grande serbatoio)
 const MASTER_POOL_MIN_VALID = 40       // minimo realistico — BGG ha meno titoli di altri sorgenti
 const MASTER_POOL_MAX_AGE_DAYS = 7     // rigenera master se più vecchio di N giorni
-const MASTER_POOL_REGEN_DELTA = 5        // rigenera master se collezione cresciuta di N titoli per tipo
 const SERVE_SIZE_PER_TYPE = 15         // titoli campionati dal master e serviti ad ogni GET
+
+// Delta dinamico basato sul totale titoli nel profilo (tutti i media combined)
+// 0-50 titoli   → regen ogni +5 totali
+// 51-100        → regen ogni +10 totali
+// 101-150       → regen ogni +15 totali
+// 151+          → regen ogni +20 totali
+function computeRegenDelta(totalEntries: number): number {
+  if (totalEntries <= 50) return 5
+  if (totalEntries <= 100) return 10
+  if (totalEntries <= 150) return 15
+  return 20
+}
 // POOL_SIZE_PER_TYPE rimosso — il recommendations_pool ora contiene sempre esattamente SERVE_SIZE_PER_TYPE titoli
 // Fix 1.13: TTL dinamico — più l'utente è attivo, più il pool si rigenera spesso
 // Formula: max(4h, min(48h, 24h - (titoli_aggiunti_ultime_12h × 2h)))
@@ -3372,32 +3383,33 @@ export async function GET(request: NextRequest) {
       if (Array.isArray(row.data)) masterByType.set(row.media_type, row.data as Recommendation[])
     }
 
-    // Determina se il master pool va rigenerato per ogni tipo
-    // Distinzione importante:
-    //   • typesNeedingMasterRegen (foreground): tipo già esistente nel master ma da aggiornare
-    //   • typesToRegenBackground: tipo ASSENTE dal master pool → rigenerato in background
-    //     senza bloccare la risposta, così i tipi già presenti vengono serviti subito
-    const typesNeedingMasterRegen: MediaType[] = []
-    const typesToRegenBackground: MediaType[] = []
-    for (const type of typesToFetch) {
+    // Determina se il master pool va rigenerato
+    // Il trigger è basato sul TOTALE titoli nel profilo (tutti i media combined),
+    // non per singolo tipo. Il delta cresce con la dimensione del profilo.
+    const totalCollectionSize = allEntries.length
+    const regenDelta = computeRegenDelta(totalCollectionSize)
+
+    // collection_size salvato nel pool — usiamo il valore del primo tipo disponibile
+    // come riferimento del totale al momento dell'ultima regen
+    const savedTotalSize = (masterPoolRows || []).reduce((sum: number, r: any) => {
+      return sum + (r.collection_size || 0)
+    }, 0)
+
+    const totalHasGrown = totalCollectionSize - savedTotalSize >= regenDelta
+    const anyTooSmall = typesToFetch.some(type => {
       const items = masterByType.get(type) || []
       const row = (masterPoolRows || []).find((r: any) => r.media_type === type)
-      const hasGrown = (entriesByType.get(type) ?? 0) - (row?.collection_size || 0) >= MASTER_POOL_REGEN_DELTA
-      const tooSmall = !row || items.length === 0
-      const isInvalidated = row?.collection_size === -1
-      if (forceRefresh || tooSmall || hasGrown || isInvalidated) {
-        // Tutto va in foreground — niente fire-and-forget
-        typesNeedingMasterRegen.push(type as MediaType)
-      }
-    }
+      return !row || items.length === 0
+    })
+    const anyInvalidated = (masterPoolRows || []).some((r: any) => r.collection_size === -1)
 
-    // Se almeno un tipo deve essere rigenerato, rigenera TUTTI i tipi
-    // così il master pool viene sempre ricalcolato completo
-    if (typesNeedingMasterRegen.length > 0) {
+    const typesNeedingMasterRegen: MediaType[] = []
+    const typesToRegenBackground: MediaType[] = []
+
+    // Se scatta la regen, rigenera SEMPRE tutti i tipi insieme
+    if (forceRefresh || anyTooSmall || totalHasGrown || anyInvalidated) {
       for (const type of typesToFetch) {
-        if (!typesNeedingMasterRegen.includes(type as MediaType)) {
-          typesNeedingMasterRegen.push(type as MediaType)
-        }
+        typesNeedingMasterRegen.push(type as MediaType)
       }
     }
 
@@ -3462,7 +3474,7 @@ export async function GET(request: NextRequest) {
           media_type: type,
           data: allItems,
           collection_hash: collectionHash,
-          collection_size: entriesByType.get(type) ?? 0,
+          collection_size: totalCollectionSize,
           generated_at: new Date().toISOString(),
         })
       }
@@ -3525,7 +3537,7 @@ export async function GET(request: NextRequest) {
               media_type: type,
               data: allItems,
               collection_hash: collectionHash,
-              collection_size: entriesByType.get(type) ?? 0,
+              collection_size: totalCollectionSize,
               generated_at: new Date().toISOString(),
             }, { onConflict: 'user_id,media_type' })
           } catch { /* ignora errori singoli tipi — non blocca gli altri */ }
