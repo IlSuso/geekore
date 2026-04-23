@@ -1366,9 +1366,13 @@ export default function ForYouPage() {
 
     supabase.from('user_media_entries').upsert(insertData, { onConflict: 'user_id,external_id' }).then(({ data, error }) => {
       if (error) {
-        console.error('[ForYouPage] handleSwipeSeen: ERRORE upsert user_media_entries:', error)
-        console.error('Codice errore:', error.code, '— Messaggio:', error.message)
-        console.error('Dettagli:', error.details)
+        if (error.code === '23505') {
+          // Entry già presente con stesso titolo (constraint ux_user_media_non_steam) — ignorato, obiettivo raggiunto
+          console.log('[ForYouPage] handleSwipeSeen: entry già esistente (duplicate title), skip silenzioso.')
+        } else {
+          console.error('[ForYouPage] handleSwipeSeen: ERRORE upsert user_media_entries:', error)
+          console.error('Codice errore:', error.code, '— Messaggio:', error.message)
+        }
       } else {
         console.log('[ForYouPage] handleSwipeSeen: ✅ upsert OK. data:', data)
       }
