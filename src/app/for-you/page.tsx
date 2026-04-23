@@ -986,7 +986,7 @@ export default function ForYouPage() {
       if (poolRes.ok) {
         const poolJson = await poolRes.json()
         if (poolJson.source === 'pool' && poolJson.recommendations) {
-          // Pool trovata → mostra subito, nessun altro fetch automatico
+          // Pool trovata → mostra subito i dati vecchi (stale-while-revalidate)
           setRecommendations(poolJson.recommendations || {})
           setTasteProfile(poolJson.tasteProfile || null)
           setIsCached(true)
@@ -996,6 +996,9 @@ export default function ForYouPage() {
           const now = Date.now()
           if (lastVisit && now - parseInt(lastVisit || '') > 4 * 3600000) setShowNewRecsBadge(true)
           localStorage.setItem('for_you_last_visit', String(now))
+          // Rigenera in background — aggiorna il master pool con nuovi dati
+          // L'utente vede i vecchi consigli subito, quelli nuovi alla prossima visita
+          fetch('/api/recommendations?type=all').catch(() => {})
           return
         }
       }
