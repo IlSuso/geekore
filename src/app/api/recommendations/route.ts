@@ -3004,7 +3004,7 @@ async function fetchBoardgameRecs(
 const MASTER_POOL_SIZE_PER_TYPE = 200  // titoli nel master pool per tipo (grande serbatoio)
 const MASTER_POOL_MIN_VALID = 40       // minimo realistico — BGG ha meno titoli di altri sorgenti
 const MASTER_POOL_MAX_AGE_DAYS = 7     // rigenera master se più vecchio di N giorni
-const MASTER_POOL_REGEN_DELTA = 10     // rigenera master se collezione cresciuta di N titoli per tipo
+const MASTER_POOL_REGEN_DELTA = 5        // rigenera master se collezione cresciuta di N titoli per tipo
 const SERVE_SIZE_PER_TYPE = 15         // titoli campionati dal master e serviti ad ogni GET
 // POOL_SIZE_PER_TYPE rimosso — il recommendations_pool ora contiene sempre esattamente SERVE_SIZE_PER_TYPE titoli
 // Fix 1.13: TTL dinamico — più l'utente è attivo, più il pool si rigenera spesso
@@ -3335,11 +3335,11 @@ export async function GET(request: NextRequest) {
     for (const type of typesToFetch) {
       const items = masterByType.get(type) || []
       const row = (masterPoolRows || []).find((r: any) => r.media_type === type)
-      const isOld = !row || new Date(row.generated_at) < new Date(masterPoolCutoff)
+      // isOld rimosso — rigenera solo in base alla crescita della collezione
       const hasGrown = (entriesByType.get(type) ?? 0) - (row?.collection_size || 0) >= MASTER_POOL_REGEN_DELTA
       // tooSmall solo se la riga non esiste proprio — se esiste con pochi item (es. BGG) non rigenerare ogni volta
       const tooSmall = !row || items.length === 0
-      if (forceRefresh || tooSmall || (isOld && hasGrown)) {
+      if (forceRefresh || tooSmall || hasGrown) {
         if (!row) {
           // Tipo completamente assente dal master pool → rigenera in background
           // così la risposta non viene bloccata per questo tipo mancante
