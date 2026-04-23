@@ -3446,8 +3446,11 @@ export async function GET(request: NextRequest) {
 
       // Await — garantisce che il master sia scritto prima che il pool venga campionato
       if (masterUpserts.length > 0) {
+        console.log('[RECO] upserting master pool:', masterUpserts.map(u => `${u.media_type}:${u.data.length}items:size${u.collection_size}`))
         await supabase.from('master_recommendations_pool')
           .upsert(masterUpserts, { onConflict: 'user_id,media_type' })
+      } else {
+        console.log('[RECO] masterUpserts is EMPTY — nothing written to pool')
       }
     }
 
