@@ -2445,6 +2445,9 @@ async function fetchGameRecs(
         const recId = g.id.toString()
         if (seen.has(recId)) continue
         if (shownIds?.has(recId)) continue
+        // Escludi giochi esclusivamente su Web browser
+        const platformNames: string[] = (g.platforms || []).map((p: any) => (p.name as string || '').toLowerCase())
+        if (platformNames.length > 0 && platformNames.every(p => p.includes('web') || p.includes('browser'))) continue
         seen.add(recId)
         const year = g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : undefined
         let finalScore = matchScore
@@ -2537,6 +2540,9 @@ async function fetchGameRecs(
             const recGenres: string[] = g.genres?.map((gen: any) => gen.name) || []
             let matchScore = computeMatchScore(recGenres, allTags, tasteProfile, [], developer ? [developer] : [])
             if (matchScore + boost < 10) continue
+            // Escludi giochi esclusivamente su Web browser
+            const platformNames: string[] = (g.platforms || []).map((p: any) => (p.name as string || '').toLowerCase())
+            if (platformNames.length > 0 && platformNames.every(p => p.includes('web') || p.includes('browser'))) continue
             if (isAwardWorthy(g.rating, undefined, g.rating_count, 'igdb')) matchScore = Math.min(100, matchScore + 8)
             const year = g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : undefined
             matchScore = Math.round(matchScore * releaseFreshnessMult(year))
