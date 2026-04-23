@@ -882,6 +882,8 @@ export default function ForYouPage() {
       setIsCached(false)
     }
     setRefreshing(false)
+    // Rigenera il master pool in background con la formula aggiornata — pronto per il prossimo Aggiorna
+    fetch('/api/recommendations?type=all&refresh=1', { keepalive: true }).catch(() => {})
   }
 
   // Pull-to-refresh su mobile — deve stare DOPO handleRefresh

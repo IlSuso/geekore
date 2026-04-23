@@ -837,16 +837,16 @@ function computeMatchScore(
     const s = topGenreScores[g] || 0
     // I generi espansi (cross-equivalenti) pesano meno dei generi diretti
     const isOriginal = recGenres.includes(g)
-    genreScore += (s / maxScore) * (isOriginal ? 27 : 18)
+    genreScore += (s / maxScore) * (isOriginal ? 40 : 26)
 
     // V3: boost per binge genres
-    if (tasteProfile.bingeProfile.bingeGenres.includes(g)) genreScore += 5
+    if (tasteProfile.bingeProfile.bingeGenres.includes(g)) genreScore += 6
     // V3: boost per wishlist genres
-    if (tasteProfile.wishlistGenres.includes(g)) genreScore += 4
+    if (tasteProfile.wishlistGenres.includes(g)) genreScore += 5
     // V3: boost per search intent genres
-    if (tasteProfile.searchIntentGenres.includes(g)) genreScore += 3
+    if (tasteProfile.searchIntentGenres.includes(g)) genreScore += 4
   }
-  genreScore = Math.min(55, genreScore)
+  genreScore = Math.min(72, genreScore)
 
   // Tag/theme overlap score (0-25)
   const topKeywords = new Set(
