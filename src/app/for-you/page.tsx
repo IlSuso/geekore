@@ -23,6 +23,7 @@ import { SimilarTasteFriends } from '@/components/social/SimilarTasteFriends'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
+import { enqueueRegenJob } from '@/lib/reco/enqueue-regen'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 import { PreferencesModal } from '@/components/for-you/PreferencesModal'
 import { DNAWidget } from '@/components/for-you/DNAWidget'
@@ -875,6 +876,7 @@ export default function ForYouPage() {
   const [similarSection, setSimilarSection] = useState<{ sourceTitle: string; sourceType: MediaType; items: Recommendation[] } | null>(null)
   const [showNewRecsBadge, setShowNewRecsBadge] = useState(false)  // Fix 2.10: badge nuovi consigli
   const [showSwipeMode, setShowSwipeMode] = useState(false)
+  const cleanupRef = useRef<(() => void) | null>(null)
 
   const fetchRecommendations = useCallback(async (force = false) => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -978,7 +980,7 @@ export default function ForYouPage() {
           setTotalEntries(newCount)
           // Caso 1: passaggio soglia 14→15 → genera master pool per tutti i tipi
           if (oldCount < 15 && newCount >= 15) {
-            fetch('/api/recommendations?refresh=1&onboarding=1').catch(() => {})
+            enqueueRegenJob({ forceRefresh: true })
             return
           }
           // Caso 2: già sopra soglia ma master pool parziale → i tipi mancanti
@@ -987,23 +989,29 @@ export default function ForYouPage() {
         })
         .subscribe()
 
-      return () => { supabase.removeChannel(profileSub) }
-
       // ── Controllo avvio: master pool assente o parziale ──────────────────
+      // Fire-and-forget: NON await — non blocca il rendering della pagina.
       // Se l'utente ha ≥15 titoli ma mancano righe nel master pool per uno
-      // qualsiasi dei tipi noti → triggera la generazione subito.
+      // qualsiasi dei tipi noti → triggera la generazione in background.
       if ((entries?.length || 0) >= 15) {
-        const ALL_TYPES = ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame']
-        const { data: masterRows } = await supabase
-          .from('master_recommendations_pool')
-          .select('media_type')
-          .eq('user_id', userId)
-        const existingTypes = new Set((masterRows || []).map((r: any) => r.media_type))
-        const hasMissing = ALL_TYPES.some(t => !existingTypes.has(t))
-        if (hasMissing) {
-          fetch('/api/recommendations?refresh=1&onboarding=1').catch(() => {})
-        }
+        ;(async () => {
+          try {
+            const ALL_TYPES = ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame']
+            const { data: masterRows } = await supabase
+              .from('master_recommendations_pool')
+              .select('media_type')
+              .eq('user_id', userId)
+            const existingTypes = new Set((masterRows || []).map((r: any) => r.media_type))
+            const hasMissing = ALL_TYPES.some(t => !existingTypes.has(t))
+            if (hasMissing) {
+              enqueueRegenJob({ forceRefresh: true })
+            }
+          } catch { /* ignora — non blocca nulla */ }
+        })()
       }
+
+      // Ritorna il cleanup del canale realtime all'useEffect
+      cleanupRef.current = () => { supabase.removeChannel(profileSub) }
 
       // 1. Prova a leggere dalla pool persistente su Supabase (fast path ~50ms)
       const poolRes = await fetch('/api/recommendations?source=pool')
@@ -1049,6 +1057,7 @@ export default function ForYouPage() {
       localStorage.setItem('for_you_last_visit', String(now))
     }
     init()
+    return () => { cleanupRef.current?.() }
   }, [])
 
   const handleRefresh = async () => {
