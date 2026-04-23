@@ -3033,11 +3033,12 @@ function shuffleSeeded<T>(arr: T[], seed: number): T[] {
 export async function GET(request: NextRequest) {
   try {
     // ── Background regen bypass ───────────────────────────────────────────────
-    // Usa query params invece di header custom — Cloudflare/proxy strippano gli header.
     const { searchParams } = new URL(request.url)
     const serviceUserId = request.headers.get('X-Service-User-Id') || searchParams.get('_suid')
     const serviceSecret = request.headers.get('X-Service-Secret') || searchParams.get('_ssec')
     const isServiceCall = !!(serviceUserId && serviceSecret === (process.env.CRON_SECRET || ''))
+
+    console.log('[RECO] GET called, isServiceCall:', isServiceCall)
 
     // Rate limit solo per chiamate esterne — le interne sono già serializzate dal cron
     if (!isServiceCall) {
@@ -3377,6 +3378,11 @@ export async function GET(request: NextRequest) {
         }
       }
     }
+
+    console.log('[RECO] typesNeedingMasterRegen:', typesNeedingMasterRegen)
+    console.log('[RECO] typesToRegenBackground:', typesToRegenBackground)
+    console.log('[RECO] entriesByType:', Object.fromEntries(entriesByType))
+    console.log('[RECO] masterPoolRows types:', (masterPoolRows || []).map((r: any) => `${r.media_type}:${r.collection_size}`))
 
     // ── Rigenera master pool in background per i tipi che lo necessitano ─────
     if (typesNeedingMasterRegen.length > 0) {
