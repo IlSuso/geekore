@@ -24,7 +24,7 @@ import ProfilePage from '@/app/profile/[username]/page'
 type KATab = 'feed' | 'for-you' | 'swipe' | 'profile'
 
 function getKATab(pathname: string): KATab | null {
-  if (pathname === '/' || pathname === '/feed') return 'feed'
+  if (pathname === '/feed') return 'feed'
   if (pathname === '/for-you') return 'for-you'
   if (pathname === '/swipe') return 'swipe'
   if (pathname.startsWith('/profile/') && pathname.split('/').length === 3) return 'profile'

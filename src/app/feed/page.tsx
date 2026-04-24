@@ -32,6 +32,7 @@ import { it } from 'date-fns/locale/it'
 import { enUS } from 'date-fns/locale/en-US'
 import { useLocale } from '@/lib/locale'
 import { FeedSidebar } from '@/components/feed/FeedSidebar'
+import { FeedLeftSidebar } from '@/components/feed/FeedLeftSidebar'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 import { PullWrapper } from '@/components/ui/PullWrapper'
@@ -1631,10 +1632,15 @@ export default function FeedPage() {
       <PullWrapper distance={pullDistance} refreshing={isPullRefreshing}>
       {/* Layout: full-bleed su mobile, due colonne su desktop */}
       <div className="pt-0 pb-24 max-w-screen-2xl mx-auto px-0 sm:px-4 md:px-6">
-        <div className="flex gap-8 items-start min-h-screen">
+        <div className="flex gap-6 items-start min-h-screen">
+
+          {/* ── Sidebar sinistra — solo desktop xl ─────────────────── */}
+          <div className="hidden xl:block w-52 flex-shrink-0">
+            <FeedLeftSidebar profile={currentProfile} />
+          </div>
 
           {/* ── Colonna principale ─────────────────────────────────── */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 max-w-2xl">
 
             {/* Composer — barra statica non invasiva, modal fullscreen al tap */}
             {currentUser && (
