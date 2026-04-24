@@ -45,6 +45,9 @@ interface SwipeModeProps {
   onSkip: (item: SwipeItem) => void
   onClose: () => void
   onRequestMore: (filter?: CategoryFilter) => Promise<SwipeItem[]>
+  // Standalone: rende SwipeMode come elemento di pagina (senza fixed inset-0)
+  // e nasconde il pulsante X sulla card — la navigazione avviene via navbar
+  standalone?: boolean
   // Onboarding mode: disabilita persistSkipped real-time (gestito dal parent in batch)
   isOnboarding?: boolean
   // Chiamato quando l'utente preme "Ho finito" o X nell'onboarding
@@ -177,9 +180,10 @@ interface SwipeCardProps {
   rating: number|null; onRatingChange: (r: number|null) => void
   onDetailOpen: (item: SwipeItem) => void
   onUndo: () => void; canUndo: boolean; onClose: () => void
+  hideClose?: boolean
 }
 
-function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, onDetailOpen, onUndo, canUndo, onClose }: SwipeCardProps) {
+function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, onDetailOpen, onUndo, canUndo, onClose, hideClose }: SwipeCardProps) {
   const cardRef = useRef<HTMLDivElement>(null)
   const startX = useRef(0); const currentX = useRef(0); const isDragging = useRef(false)
   const [dragX, setDragX] = useState(0)
@@ -237,10 +241,12 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
         }
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/5 to-black/45" />
 
-        <button onClick={e => { e.stopPropagation(); onClose() }}
-          className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/55 backdrop-blur-sm flex items-center justify-center text-white/80 hover:text-white active:scale-90 transition-all z-20" style={ICON_DROP}>
-          <X size={17} strokeWidth={2.5} />
-        </button>
+        {!hideClose && (
+          <button onClick={e => { e.stopPropagation(); onClose() }}
+            className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/55 backdrop-blur-sm flex items-center justify-center text-white/80 hover:text-white active:scale-90 transition-all z-20" style={ICON_DROP}>
+            <X size={17} strokeWidth={2.5} />
+          </button>
+        )}
 
         <div className="absolute top-3 left-3 z-10">
           <div className={`bg-gradient-to-r ${TYPE_COLORS[item.type]} text-white text-xs font-bold px-3 py-1 rounded-full`} style={ICON_DROP}>
@@ -312,7 +318,7 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
 
 // ─── SwipeMode ─────────────────────────────────────────────────────────────────
 
-export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequestMore, isOnboarding = false, onOnboardingComplete }: SwipeModeProps) {
+export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequestMore, standalone = false, isOnboarding = false, onOnboardingComplete }: SwipeModeProps) {
   const supabase = createClient()
   const [activeFilter, setActiveFilter] = useState<CategoryFilter>('all')
 
@@ -528,11 +534,23 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
     })
   }, [])
 
+  const containerClass = standalone
+    ? 'flex flex-col flex-1 bg-black min-h-0'
+    : 'fixed inset-0 bg-black flex flex-col'
+  const containerStyle = standalone ? {} : { zIndex: 9999 }
+
+  const filterPaddingTop = standalone
+    ? { paddingTop: '0.75rem' }
+    : { paddingTop: 'max(1rem, env(safe-area-inset-top))' }
+
+  const hintPaddingBottom = standalone
+    ? { paddingBottom: '0.75rem' }
+    : { paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }
+
   return (
     <>
-      <div className="fixed inset-0 bg-black flex flex-col" style={{ zIndex: 9999 }}>
-        <div className="flex-shrink-0 flex justify-center px-4"
-          style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
+      <div className={containerClass} style={containerStyle}>
+        <div className="flex-shrink-0 flex justify-center px-4" style={filterPaddingTop}>
           <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
             {CATEGORIES.map(cat => (
               <button key={cat.key} onClick={() => handleFilterChange(cat.key)}
@@ -558,6 +576,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
                   onDetailOpen={handleDetailOpen}
                   onUndo={handleUndo} canUndo={history.length > 0}
                   onClose={isOnboarding && onOnboardingComplete ? onOnboardingComplete : onClose}
+                  hideClose={standalone}
                 />
               ))}
             </div>
@@ -565,8 +584,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
         </div>
 
         {filteredQueue.length > 0 && (
-          <div className="text-center flex-shrink-0 select-none"
-            style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+          <div className="text-center flex-shrink-0 select-none" style={hintPaddingBottom}>
             <p className="text-zinc-700 text-xs pointer-events-none">← Skip &nbsp;·&nbsp; Visto →</p>
           </div>
         )}

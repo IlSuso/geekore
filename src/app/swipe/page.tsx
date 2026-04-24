@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Shuffle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -308,9 +308,17 @@ export default function SwipePage() {
     }
   }, [supabase])
 
+  // Pagina standalone: flex column che occupa tutto lo schermo
+  // md:pt-16 → compensa la navbar top fissa sul desktop (64px)
+  // pb-[49px] + safe-area-bottom → compensa la navbar bottom su mobile (49px)
+  const pageStyle: React.CSSProperties = {
+    height: '100dvh',
+    paddingBottom: 'calc(49px + env(safe-area-inset-bottom))',
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="bg-black flex flex-col items-center justify-center md:pt-16" style={pageStyle}>
         <div className="flex flex-col items-center gap-5 text-center">
           <div className="relative">
             <div className="absolute inset-0 w-16 h-16 rounded-3xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 blur-xl" />
@@ -328,12 +336,15 @@ export default function SwipePage() {
   }
 
   return (
-    <SwipeMode
-      items={initialItems}
-      onSeen={handleSwipeSeen}
-      onSkip={handleSwipeSkip}
-      onRequestMore={handleSwipeRequestMore}
-      onClose={() => router.back()}
-    />
+    <div className="bg-black flex flex-col md:pt-16" style={pageStyle}>
+      <SwipeMode
+        standalone
+        items={initialItems}
+        onSeen={handleSwipeSeen}
+        onSkip={handleSwipeSkip}
+        onRequestMore={handleSwipeRequestMore}
+        onClose={() => {}}
+      />
+    </div>
   )
 }
