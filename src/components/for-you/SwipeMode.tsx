@@ -542,7 +542,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
   const containerStyle = standalone ? {} : { zIndex: 9999 }
 
   const filterPaddingTop = standalone
-    ? { paddingTop: '0.5rem' }
+    ? { paddingTop: '0.75rem' }
     : { paddingTop: 'max(1rem, env(safe-area-inset-top))' }
 
   const hintPaddingBottom = standalone
@@ -582,7 +582,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
           </div>
         </div>
 
-        <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-2 min-h-0">
+        <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-1 min-h-0">
           {filteredQueue.length === 0 ? (
             <LoadingScreen message={isLoadingMore ? 'Caricamento nuovi titoli' : 'Preparazione in corso'} />
           ) : (
@@ -590,7 +590,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
               className="relative w-full"
               style={{
                 maxWidth: standalone ? 'min(420px, 90vw)' : '384px',
-                height: standalone ? 'min(680px, calc(100svh - 190px))' : 'min(680px, 82svh)',
+                height: standalone ? 'min(680px, calc(100svh - 145px))' : 'min(680px, 82svh)',
               }}
             >
               {filteredQueue.slice(0, 3).map((item, idx) => (
