@@ -15,7 +15,7 @@ import { showToast } from '@/components/ui/Toast'
 const TYPE_CONFIG: Record<string, { label: string; color: string; dot: string; icon: React.ElementType }> = {
   anime:     { label: 'Anime',   color: 'bg-sky-500',    dot: 'bg-sky-400',    icon: Swords },
   manga:     { label: 'Manga',   color: 'bg-orange-500', dot: 'bg-orange-400', icon: Layers },
-  game:      { label: 'Gioco',   color: 'bg-emerald-500', dot: 'bg-emerald-400', icon: Gamepad2 },
+  game:      { label: 'Videogioco', color: 'bg-emerald-500', dot: 'bg-emerald-400', icon: Gamepad2 },
   movie:     { label: 'Film',    color: 'bg-red-500',    dot: 'bg-red-400',    icon: Film },
   tv:        { label: 'Serie',   color: 'bg-purple-500', dot: 'bg-purple-400', icon: Tv },
 }

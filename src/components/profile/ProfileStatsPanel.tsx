@@ -18,9 +18,9 @@ const TYPE_CONFIG: Record<string, { label: string; color: string; accent: string
   anime:     { label: 'Anime',    color: 'text-sky-400',    accent: 'bg-sky-500/10 border-sky-500/20' },
   tv:        { label: 'Serie TV', color: 'text-purple-400', accent: 'bg-purple-500/10 border-purple-500/20' },
   manga:     { label: 'Manga',    color: 'text-orange-400', accent: 'bg-orange-500/10 border-orange-500/20' },
-  game:      { label: 'Giochi',   color: 'text-green-400',  accent: 'bg-green-500/10 border-green-500/20' },
-  movie:     { label: 'Film',     color: 'text-red-400',    accent: 'bg-red-500/10 border-red-500/20' },
-  boardgame: { label: 'Tavolo',   color: 'text-amber-400',  accent: 'bg-amber-500/10 border-amber-500/20' },
+  game:      { label: 'Videogiochi',      color: 'text-green-400',  accent: 'bg-green-500/10 border-green-500/20' },
+  movie:     { label: 'Film',            color: 'text-red-400',    accent: 'bg-red-500/10 border-red-500/20' },
+  boardgame: { label: 'Giochi da Tavolo', color: 'text-amber-400',  accent: 'bg-amber-500/10 border-amber-500/20' },
 }
 
 export function ProfileStatsPanel({ mediaList }: { mediaList: UserMedia[] }) {

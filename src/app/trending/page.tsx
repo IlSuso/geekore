@@ -26,8 +26,8 @@ export const TYPE_COLOR: Record<string, string> = {
   }
 
 export const TYPE_LABEL: Record<string, string> = {
-  anime: 'Anime', manga: 'Manga', game: 'Gioco',
-  tv: 'Serie TV', movie: 'Film', boardgame: 'Tavolo',
+  anime: 'Anime', manga: 'Manga', game: 'Videogioco',
+  tv: 'Serie TV', movie: 'Film', boardgame: 'Gioco da Tavolo',
 }
 
 async function getTrending(): Promise<{ byAdditions: TrendingItem[]; byRating: TrendingItem[] }> {

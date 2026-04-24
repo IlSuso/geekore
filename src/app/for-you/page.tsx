@@ -45,8 +45,8 @@ const TYPE_ICONS: Record<MediaType, React.ElementType> = {
   boardgame: Dices, }
 
 const TYPE_LABEL: Record<string, string> = {
-  anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Gioco',
-  boardgame: 'Tavolo', }
+  anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Videogioco',
+  boardgame: 'Gioco da Tavolo', }
 
 const TYPE_COLORS: Record<string, string> = {
   anime: 'from-sky-500 to-blue-600',
@@ -227,7 +227,7 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
 // Cerca in tutte le API (AniList, TMDb, IGDB) in parallelo — stesso pattern della discover
 const TYPE_LABEL_SEARCH: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV',
-  game: 'Gioco', }
+  game: 'Videogioco', }
 
 interface SearchSuggestion {
   id: string; title: string; type: string
@@ -385,7 +385,7 @@ const SIMILAR_TYPE_FILTERS: Array<{ key: MediaType | 'all'; label: string }> = [
   { key: 'anime',     label: 'Anime' },
   { key: 'movie',     label: 'Film' },
   { key: 'tv',        label: 'Serie TV' },
-  { key: 'game',      label: 'Giochi' },
+  { key: 'game',      label: 'Videogiochi' },
   { key: 'manga',     label: 'Manga' },
 ]
 

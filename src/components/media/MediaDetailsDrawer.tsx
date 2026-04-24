@@ -117,9 +117,9 @@ const TYPE_COLOR: Record<string, string> = {
   boardgame: 'bg-amber-500',
 }
 const TYPE_LABEL: Record<string, string> = {
-  anime: 'Anime', manga: 'Manga', game: 'Gioco',
+  anime: 'Anime', manga: 'Manga', game: 'Videogioco',
   tv: 'Serie TV', movie: 'Film',
-  boardgame: 'Tavolo',
+  boardgame: 'Gioco da Tavolo',
 }
 
 const RELATION_LABEL: Record<string, string> = {

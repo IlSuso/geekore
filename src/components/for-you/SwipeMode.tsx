@@ -59,8 +59,8 @@ const TYPE_ICONS: Record<SwipeMediaType, React.ElementType> = {
   boardgame: Dices,
 }
 const TYPE_LABEL: Record<SwipeMediaType, string> = {
-  anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Gioco',
-  boardgame: 'Tavolo',
+  anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Videogioco',
+  boardgame: 'Gioco da Tavolo',
 }
 const TYPE_COLORS: Record<SwipeMediaType, string> = {
   anime:     'from-sky-500 to-blue-600',
@@ -76,8 +76,8 @@ const CATEGORIES: { key: CategoryFilter; label: string }[] = [
   { key: 'manga',     label: 'Manga' },
   { key: 'movie',     label: 'Film' },
   { key: 'tv',        label: 'Serie TV' },
-  { key: 'game',      label: 'Giochi' },
-  { key: 'boardgame', label: 'Tavolo' },
+  { key: 'game',      label: 'Videogiochi' },
+  { key: 'boardgame', label: 'Giochi da Tavolo' },
 ]
 
 const SWIPE_THRESHOLD = 80
@@ -542,7 +542,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
   const containerStyle = standalone ? {} : { zIndex: 9999 }
 
   const filterPaddingTop = standalone
-    ? { paddingTop: '0.75rem' }
+    ? { paddingTop: '0.5rem' }
     : { paddingTop: 'max(1rem, env(safe-area-inset-top))' }
 
   const hintPaddingBottom = standalone
@@ -582,13 +582,16 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
           </div>
         </div>
 
-        <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-2 min-h-0">
+        <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-3 min-h-0">
           {filteredQueue.length === 0 ? (
             <LoadingScreen message={isLoadingMore ? 'Caricamento nuovi titoli' : 'Preparazione in corso'} />
           ) : (
             <div
               className="relative w-full"
-              style={{ maxWidth: standalone ? 'min(420px, 90vw)' : '384px', height: 'min(680px, 82svh)' }}
+              style={{
+                maxWidth: standalone ? 'min(420px, 90vw)' : '384px',
+                height: standalone ? 'min(680px, calc(100svh - 190px))' : 'min(680px, 82svh)',
+              }}
             >
               {filteredQueue.slice(0, 3).map((item, idx) => (
                 <SwipeCard key={item.id} item={item} isTop={idx === 0} stackIndex={idx}

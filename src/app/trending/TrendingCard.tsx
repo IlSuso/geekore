@@ -19,7 +19,7 @@ const TYPE_ICON: Record<string, React.ElementType> = {
 }
 
 const TYPE_LABEL: Record<string, string> = {
-  anime: 'Anime', manga: 'Manga', game: 'Gioco',
+  anime: 'Anime', manga: 'Manga', game: 'Videogioco',
   tv: 'Serie TV', movie: 'Film',
 }
 

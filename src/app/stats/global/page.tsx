@@ -105,7 +105,7 @@ const TYPE_COLOR: Record<string, string> = {
   tv: 'bg-purple-500', movie: 'bg-red-500',
 }
 const TYPE_LABEL: Record<string, string> = {
-  anime: 'Anime', manga: 'Manga', game: 'Gioco', tv: 'Serie TV', movie: 'Film',
+  anime: 'Anime', manga: 'Manga', game: 'Videogioco', tv: 'Serie TV', movie: 'Film',
 }
 
 function StatCard({ label, value, sub, icon: Icon, color }: {

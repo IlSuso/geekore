@@ -155,8 +155,8 @@ const FILTERS: { id: string; label: string; icon: React.ReactNode }[] = [
   { id: 'manga',     label: 'Manga',    icon: <Layers size={13} /> },
   { id: 'movie',     label: 'Film',     icon: <Film size={13} /> },
   { id: 'tv',        label: 'Serie',    icon: <Tv size={13} /> },
-  { id: 'game',      label: 'Giochi',   icon: <Gamepad2 size={13} /> },
-  { id: 'boardgame', label: 'Tavolo',   icon: <Dices size={13} /> },
+  { id: 'game',      label: 'Videogiochi',      icon: <Gamepad2 size={13} /> },
+  { id: 'boardgame', label: 'Giochi da Tavolo', icon: <Dices size={13} /> },
 ];
 
 // ── V3: Search tracking helpers (fire-and-forget) ────────────────────────────
