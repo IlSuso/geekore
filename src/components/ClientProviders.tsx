@@ -5,7 +5,6 @@ import { LocaleProvider } from '@/lib/locale'
 import { ThemeProvider } from '@/lib/theme'
 import { ServiceWorkerRegistrar } from '@/components/ServiceWorkerRegistrar'
 import { SyncStatusListener } from '@/components/ui/SyncToast'
-import { NavigationProgress } from '@/components/ui/NavigationProgress'
 import { useEffect, useRef } from 'react'
 import { PWAInstallBanner } from '@/components/PWAInstallBanner'
 import { usePathname, useRouter } from 'next/navigation'
@@ -107,7 +106,6 @@ export function ClientProviders({ children, initialLocale = 'it' }: { children: 
         <ThemeColorEnforcer />
         <ServiceWorkerRegistrar />
         <SyncStatusListener />
-        <NavigationProgress />
         <OnboardingGuard />
         <RecsWarmer />
         <PWAInstallBanner />

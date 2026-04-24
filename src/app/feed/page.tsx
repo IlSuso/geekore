@@ -1838,7 +1838,7 @@ export default function FeedPage() {
 
                 {/* Category filter button */}
                 <div className="flex items-center pr-2">
-                  <CategoryFilter activeFilter={categoryFilter} onFilterChange={setCategoryFilter} />
+                  <CategorySelector value={categoryFilter} onChange={setCategoryFilter} />
                 </div>
               </div>
             )}
