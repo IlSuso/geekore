@@ -569,7 +569,7 @@ const RecommendationSection = memo(function RecommendationSection({ type, items,
   )
 })
 
-// Fix 2.6: Quick-reason sheet — raccoglie il motivo dopo "non mi interessa"
+// Quick-reason modal — raccoglie il motivo dopo "non mi interessa"
 function QuickReasonSheet({ item, onConfirm, onDismiss }: {
   item: Recommendation
   onConfirm: (reason: FeedbackReason) => void
@@ -583,12 +583,6 @@ function QuickReasonSheet({ item, onConfirm, onDismiss }: {
       icon: <X size={15} className="text-zinc-400" />,
     },
     {
-      reason: 'already_know',
-      label: 'L\'ho già visto / letto',
-      sub: 'Lo aggiungiamo alla tua libreria',
-      icon: <Eye size={15} className="text-zinc-400" />,
-    },
-    {
       reason: 'bad_rec',
       label: 'Non fa per me',
       sub: 'Non suggerirlo più',
@@ -597,11 +591,10 @@ function QuickReasonSheet({ item, onConfirm, onDismiss }: {
   ]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onDismiss}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" onClick={onDismiss}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-      <div className="relative w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-t-3xl p-5 pb-8"
+      <div className="relative w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-3xl p-5"
         onClick={e => e.stopPropagation()}>
-        <div className="w-8 h-0.5 bg-zinc-700 rounded-full mx-auto mb-5" />
         <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-1">Perché non ti interessa?</p>
         <p className="text-sm font-semibold text-white mb-5 truncate">{item.title}</p>
         <div className="space-y-2">
@@ -618,8 +611,9 @@ function QuickReasonSheet({ item, onConfirm, onDismiss }: {
             </button>
           ))}
         </div>
-        <button onClick={() => onConfirm(undefined)} className="w-full mt-4 text-xs text-zinc-600 hover:text-zinc-400 py-1.5 transition-colors">
-          Salta
+        <button onClick={onDismiss}
+          className="w-full mt-3 py-2.5 px-4 rounded-2xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-sm font-medium text-zinc-400 hover:text-zinc-200 transition-all">
+          Annulla
         </button>
       </div>
     </div>
