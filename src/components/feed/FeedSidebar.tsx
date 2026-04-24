@@ -58,14 +58,9 @@ function TrendingMini() {
 
   return (
     <div className="px-1">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-1.5">
-          <TrendingUp size={13} className="text-fuchsia-400" />
-          <p className="text-[12px] font-semibold text-[var(--text-secondary)]">Trending questa settimana</p>
-        </div>
-        <Link href="/trending" className="text-[11px] font-semibold text-violet-400 hover:text-violet-300 transition-colors">
-          Vedi tutti
-        </Link>
+      <div className="flex items-center gap-1.5 mb-3">
+        <TrendingUp size={13} className="text-fuchsia-400" />
+        <p className="text-[12px] font-semibold text-[var(--text-secondary)]">Trending questa settimana</p>
       </div>
       <div className="space-y-2.5">
         {items.map((item, i) => {
@@ -91,6 +86,11 @@ function TrendingMini() {
             </div>
           )
         })}
+      </div>
+      <div className="mt-3 flex justify-end">
+        <Link href="/trending" className="text-[11px] font-semibold text-violet-400 hover:text-violet-300 transition-colors">
+          Vedi tutti →
+        </Link>
       </div>
     </div>
   )

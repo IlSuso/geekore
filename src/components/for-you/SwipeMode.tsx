@@ -225,7 +225,7 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
   return (
     <div ref={cardRef}
       className={`absolute inset-0 select-none ${isTop ? 'cursor-grab active:cursor-grabbing' : 'pointer-events-none'}`}
-      style={{
+      style={{ touchAction: isTop ? 'none' : 'auto',
         transform: isTop ? `translateX(${translateX}) rotate(${rotation}deg)` : `scale(${stackScale}) translateY(${stackY}px)`,
         transition: isDragging.current ? 'none' : 'transform .34s cubic-bezier(.25,.46,.45,.94), opacity .34s ease',
         opacity: isFlying ? 0 : 1 - stackIndex * 0.12,
@@ -541,12 +541,9 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
     : 'fixed inset-0 bg-black flex flex-col'
   const containerStyle = standalone ? {} : { zIndex: 9999 }
 
-  // ← CAMBIA SOLO QUESTO VALORE per regolare la distanza delle categorie dalla navbar
-  // Originale: '0.75rem'. Ogni rem = ~16px. La card si riduce dello stesso offset.
-  const SWIPE_CATEGORY_TOP = '1.25rem'
-
+  // Su mobile standalone, dobbiamo stare sotto il MobileHeader (52px + safe-area-inset-top)
   const filterPaddingTop = standalone
-    ? { paddingTop: SWIPE_CATEGORY_TOP }
+    ? { paddingTop: 'calc(52px + env(safe-area-inset-top, 0px) + 0.5rem)' }
     : { paddingTop: 'max(1rem, env(safe-area-inset-top))' }
 
   const hintPaddingBottom = standalone
@@ -594,7 +591,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
               className="relative w-full"
               style={{
                 maxWidth: standalone ? 'min(420px, 90vw)' : '384px',
-                height: standalone ? `min(680px, calc(100svh - 145px - ${SWIPE_CATEGORY_TOP} + 0.75rem))` : 'min(680px, 82svh)',
+                height: standalone ? 'min(680px, 100%)' : 'min(680px, 82svh)',
               }}
             >
               {filteredQueue.slice(0, 3).map((item, idx) => (

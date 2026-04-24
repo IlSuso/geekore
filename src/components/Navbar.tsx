@@ -55,7 +55,7 @@ export default function Navbar() {
     { href: '/discover',   label: t.nav.discover, icon: Search,     hasDot: false },
     { href: '/for-you',    label: t.nav.forYou,   icon: Sparkles,   hasDot: false },
     { href: '/swipe',      label: 'Swipe',        icon: Shuffle,    hasDot: false },
-    { href: '/profile/me', label: t.nav.profile,  icon: User,       hasDot: false },
+    { href: username ? `/profile/${username}` : '/profile/me', label: t.nav.profile, icon: User, hasDot: false },
   ]
 
   useEffect(() => {
@@ -251,7 +251,7 @@ export default function Navbar() {
       >
         <div className="flex items-stretch h-[56px]">
           {MOBILE_NAV_ITEMS.map((item) => {
-            const isActive = item.href === '/profile/me'
+            const isActive = item.href.startsWith('/profile/')
               ? isProfileActive
               : item.href === '/feed'
               ? pathname === '/feed' || pathname === '/'
@@ -279,7 +279,7 @@ export default function Navbar() {
                 )}
 
                 {/* Icona */}
-                {item.href === '/profile/me' && (avatarUrl || currentUsername) ? (
+                {item.href.startsWith('/profile/') && (avatarUrl || currentUsername) ? (
                   <div
                     className="rounded-full p-[2px]"
                     style={{

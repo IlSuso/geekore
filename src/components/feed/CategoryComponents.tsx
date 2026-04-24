@@ -423,8 +423,8 @@ export function CategoryFilter({
 
   const parsed = parseCategoryString(activeFilter)
   const displayLabel = activeFilter
-    ? (parsed?.subcategory ? `${parsed.category}: ${parsed.subcategory}` : parsed?.category || 'Filtra categoria')
-    : 'Filtra categoria'
+    ? (parsed?.subcategory ? `${parsed.category}: ${parsed.subcategory}` : parsed?.category || 'Filtro categoria')
+    : 'Filtro categoria'
 
   return (
     <div ref={ref} className="relative">
