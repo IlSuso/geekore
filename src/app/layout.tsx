@@ -14,6 +14,7 @@ import { ClientProviders } from '@/components/ClientProviders'
 import { Footer } from '@/components/Footer'
 import { MobileHeader } from '@/components/MobileHeader'
 import { SwipeablePageContainer } from '@/components/SwipeablePageContainer'
+import { KeepAliveTabShell } from '@/components/KeepAliveTabShell'
 import { cookies } from 'next/headers'
 
 export const metadata: Metadata = {
@@ -72,7 +73,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Navbar />
           <SwipeablePageContainer>
             <main className="pt-14 md:pt-16 pb-20 md:pb-8">
-              {children}
+              <KeepAliveTabShell>
+                {children}
+              </KeepAliveTabShell>
             </main>
           </SwipeablePageContainer>
           <Footer />
