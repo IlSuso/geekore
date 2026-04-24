@@ -534,8 +534,10 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
     })
   }, [])
 
+  const topCoverImage = filteredQueue[0]?.coverImage
+
   const containerClass = standalone
-    ? 'flex flex-col flex-1 bg-black min-h-0'
+    ? 'relative flex flex-col flex-1 bg-black min-h-0 overflow-hidden'
     : 'fixed inset-0 bg-black flex flex-col'
   const containerStyle = standalone ? {} : { zIndex: 9999 }
 
@@ -550,7 +552,24 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
   return (
     <>
       <div className={containerClass} style={containerStyle}>
-        <div className="flex-shrink-0 flex justify-center px-4" style={filterPaddingTop}>
+
+        {/* Backdrop sfumato: visibile solo in standalone, riempie le bande laterali */}
+        {standalone && topCoverImage && (
+          <div className="absolute inset-0 z-0 pointer-events-none" aria-hidden>
+            <img
+              key={topCoverImage}
+              src={topCoverImage}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ filter: 'blur(48px)', transform: 'scale(1.15)', opacity: 0.18, transition: 'opacity .6s ease' }}
+            />
+            {/* Vignette scura sui bordi e più intensa in basso */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/70" />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-transparent to-black/70" />
+          </div>
+        )}
+
+        <div className="relative z-10 flex-shrink-0 flex justify-center px-4" style={filterPaddingTop}>
           <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
             {CATEGORIES.map(cat => (
               <button key={cat.key} onClick={() => handleFilterChange(cat.key)}
@@ -563,11 +582,14 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
           </div>
         </div>
 
-        <div className="flex-1 flex items-center justify-center px-4 py-2 min-h-0">
+        <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-2 min-h-0">
           {filteredQueue.length === 0 ? (
             <LoadingScreen message={isLoadingMore ? 'Caricamento nuovi titoli' : 'Preparazione in corso'} />
           ) : (
-            <div className="relative w-full max-w-sm" style={{ height: 'min(680px, 82svh)' }}>
+            <div
+              className="relative w-full"
+              style={{ maxWidth: standalone ? 'min(420px, 90vw)' : '384px', height: 'min(680px, 82svh)' }}
+            >
               {filteredQueue.slice(0, 3).map((item, idx) => (
                 <SwipeCard key={item.id} item={item} isTop={idx === 0} stackIndex={idx}
                   onSwipe={handleSwipe}
@@ -584,8 +606,8 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
         </div>
 
         {filteredQueue.length > 0 && (
-          <div className="text-center flex-shrink-0 select-none" style={hintPaddingBottom}>
-            <p className="text-zinc-700 text-xs pointer-events-none">← Skip &nbsp;·&nbsp; Visto →</p>
+          <div className="relative z-10 text-center flex-shrink-0 select-none" style={hintPaddingBottom}>
+            <p className="text-zinc-600 text-xs pointer-events-none">← Skip &nbsp;·&nbsp; Visto →</p>
           </div>
         )}
       </div>
