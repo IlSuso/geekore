@@ -683,30 +683,45 @@ const FriendsWatchingSection = memo(function FriendsWatchingSection({ items }: {
   )
 })
 
-// Fix 2.15: quick presets per onboarding rapido
+// Module-level cache — sopravvive alle navigazioni nella stessa sessione
+const forYouCache: {
+  recommendations: Record<string, Recommendation[]> | null
+  tasteProfile: TasteProfile | null
+  friendsActivity: FriendActivity[]
+  addedIds: Set<string>
+  wishlistIds: Set<string>
+  addedTitles: Set<string>
+  totalEntries: number
+  ts: number
+} = {
+  recommendations: null, tasteProfile: null, friendsActivity: [],
+  addedIds: new Set(), wishlistIds: new Set(), addedTitles: new Set(),
+  totalEntries: 0, ts: 0,
+}
 
 export default function ForYouPage() {
   const supabase = createClient(); const router = useRouter()
   const { t } = useLocale(); const fy = t.forYou
-  const [loading, setLoading] = useState(true); const [refreshing, setRefreshing] = useState(false)
-  const [recommendations, setRecommendations] = useState<Record<string, Recommendation[]>>({})
-  const [tasteProfile, setTasteProfile] = useState<TasteProfile | null>(null)
-  const [totalEntries, setTotalEntries] = useState(0)
-  const [addedIds, setAddedIds] = useState<Set<string>>(new Set())
-  const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set())
+  const hasCachedData = forYouCache.recommendations !== null
+  const [loading, setLoading] = useState(!hasCachedData); const [refreshing, setRefreshing] = useState(false)
+  const [recommendations, setRecommendations] = useState<Record<string, Recommendation[]>>(forYouCache.recommendations ?? {})
+  const [tasteProfile, setTasteProfile] = useState<TasteProfile | null>(forYouCache.tasteProfile)
+  const [totalEntries, setTotalEntries] = useState(forYouCache.totalEntries)
+  const [addedIds, setAddedIds] = useState<Set<string>>(forYouCache.addedIds)
+  const [wishlistIds, setWishlistIds] = useState<Set<string>>(forYouCache.wishlistIds)
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
   const [showPrefs, setShowPrefs] = useState(false)
-  const [isCached, setIsCached] = useState(false)
-  const [friendsActivity, setFriendsActivity] = useState<FriendActivity[]>([])
-  const [friendsLoading, setFriendsLoading] = useState(true)
-  const [addingIds, setAddingIds] = useState<Set<string>>(new Set())   // Fix 2.5: loading state add
-  const [reasonPending, setReasonPending] = useState<Recommendation | null>(null)  // Fix 2.6: quick-reason
-  const [similarLoading, setSimilarLoading] = useState<string | null>(null)  // id del titolo in caricamento
-  const [detailItem, setDetailItem] = useState<Recommendation | null>(null)  // titolo aperto nel detail modal
+  const [isCached, setIsCached] = useState(hasCachedData)
+  const [friendsActivity, setFriendsActivity] = useState<FriendActivity[]>(forYouCache.friendsActivity)
+  const [friendsLoading, setFriendsLoading] = useState(!hasCachedData || forYouCache.friendsActivity.length === 0)
+  const [addingIds, setAddingIds] = useState<Set<string>>(new Set())
+  const [reasonPending, setReasonPending] = useState<Recommendation | null>(null)
+  const [similarLoading, setSimilarLoading] = useState<string | null>(null)
+  const [detailItem, setDetailItem] = useState<Recommendation | null>(null)
   const [similarSection, setSimilarSection] = useState<{ sourceTitle: string; sourceType: MediaType; items: Recommendation[] } | null>(null)
-  const [showNewRecsBadge, setShowNewRecsBadge] = useState(false)  // Fix 2.10: badge nuovi consigli
+  const [showNewRecsBadge, setShowNewRecsBadge] = useState(false)
   const cleanupRef = useRef<(() => void) | null>(null)
-  const addedTitlesRef = useRef<Set<string>>(new Set())
+  const addedTitlesRef = useRef<Set<string>>(forYouCache.addedTitles)
 
   const fetchRecommendations = useCallback(async (force = false) => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -764,7 +779,9 @@ export default function ForYouPage() {
           isHighSim: highSimIds.has(e.user_id), simScore: simMap[e.user_id] || 0,
         })
       }
-      setFriendsActivity(activity.slice(0, 12))
+      const result = activity.slice(0, 12)
+      setFriendsActivity(result)
+      forYouCache.friendsActivity = result
     } catch { setFriendsActivity([]) }
     setFriendsLoading(false)
   }, [supabase])
@@ -775,50 +792,59 @@ export default function ForYouPage() {
       if (!user) { router.push('/login'); return }
       const userId = user.id
 
-      const [
-        { data: entries },
-        { data: wish },
-      ] = await Promise.all([
+      // Realtime: aggiorna entry_count senza bloccare il rendering
+      const profileSub = supabase
+        .channel('profile-entry-count')
+        .on('postgres_changes', {
+          event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}`,
+        }, (payload: any) => { setTotalEntries(payload.new?.entry_count ?? 0) })
+        .subscribe()
+      cleanupRef.current = () => { supabase.removeChannel(profileSub) }
+
+      // ── Cache hit: mostra tutto immediatamente, poi aggiorna in background ──
+      if (forYouCache.recommendations !== null) {
+        // Aggiorna libreria e amici in background senza bloccare la UI
+        Promise.all([
+          supabase.from('user_media_entries').select('external_id, title').eq('user_id', userId),
+          supabase.from('wishlist').select('external_id').eq('user_id', userId),
+        ]).then(([{ data: entries }, { data: wish }]) => {
+          const newAddedIds = new Set((entries || []).map((e: any) => e.external_id as string).filter(Boolean))
+          const newTitles   = new Set((entries || []).map((e: any) => (e.title as string)?.toLowerCase()).filter(Boolean))
+          const newWishIds  = new Set((wish || []).map((w: any) => w.external_id as string).filter(Boolean))
+          setAddedIds(newAddedIds); setWishlistIds(newWishIds); setTotalEntries(entries?.length || 0)
+          addedTitlesRef.current = newTitles
+          forYouCache.addedIds = newAddedIds; forYouCache.wishlistIds = newWishIds
+          forYouCache.addedTitles = newTitles; forYouCache.totalEntries = entries?.length || 0
+        })
+        fetchFriends(userId)
+        return
+      }
+
+      // ── Cold start: fetch sequenziale ────────────────────────────────────────
+      const [{ data: entries }, { data: wish }] = await Promise.all([
         supabase.from('user_media_entries').select('external_id, title').eq('user_id', userId),
         supabase.from('wishlist').select('external_id').eq('user_id', userId),
       ])
 
-      setAddedIds(new Set((entries || []).map((e: any) => e.external_id).filter(Boolean)))
-      addedTitlesRef.current = new Set((entries || []).map((e: any) => (e.title as string)?.toLowerCase()).filter(Boolean))
-      setWishlistIds(new Set((wish || []).map((w: any) => w.external_id).filter(Boolean)))
-      setTotalEntries(entries?.length || 0)
+      const newAddedIds = new Set((entries || []).map((e: any) => e.external_id as string).filter(Boolean))
+      const newTitles   = new Set((entries || []).map((e: any) => (e.title as string)?.toLowerCase()).filter(Boolean))
+      const newWishIds  = new Set((wish || []).map((w: any) => w.external_id as string).filter(Boolean))
+      setAddedIds(newAddedIds); setWishlistIds(newWishIds); setTotalEntries(entries?.length || 0)
+      addedTitlesRef.current = newTitles
+      forYouCache.addedIds = newAddedIds; forYouCache.wishlistIds = newWishIds
+      forYouCache.addedTitles = newTitles; forYouCache.totalEntries = entries?.length || 0
 
-      // ── Realtime: osserva profiles.entry_count ────────────────────────────
-      // Aggiorna solo il contatore locale — il trigger Postgres su profiles
-      // gestisce già l'inserimento del job di regen automaticamente.
-      const profileSub = supabase
-        .channel('profile-entry-count')
-        .on('postgres_changes', {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-          filter: `id=eq.${userId}`,
-        }, (payload: any) => {
-          const newCount = payload.new?.entry_count ?? 0
-          setTotalEntries(newCount)
-        })
-        .subscribe()
-
-      // Ritorna il cleanup del canale realtime all'useEffect
-      cleanupRef.current = () => { supabase.removeChannel(profileSub) }
-
-      // Avvia il fetch degli amici in parallelo con le raccomandazioni
       fetchFriends(userId)
 
-      // 1. Prova a leggere dalla pool persistente su Supabase (fast path ~50ms)
+      // 1. Pool persistente (fast path ~50ms)
       const poolRes = await fetch('/api/recommendations?source=pool')
       if (poolRes.ok) {
         const poolJson = await poolRes.json()
         if (poolJson.source === 'pool' && poolJson.recommendations) {
-          // Pool trovata → mostra i dati salvati
-          setRecommendations(poolJson.recommendations || {})
-          setTasteProfile(poolJson.tasteProfile || null)
-          setIsCached(true)
+          const recs = poolJson.recommendations || {}
+          setRecommendations(recs); setTasteProfile(poolJson.tasteProfile || null); setIsCached(true)
+          forYouCache.recommendations = recs; forYouCache.tasteProfile = poolJson.tasteProfile || null
+          forYouCache.ts = Date.now()
           setLoading(false)
           const lastVisit = localStorage.getItem('for_you_last_visit')
           const now = Date.now()
@@ -828,24 +854,21 @@ export default function ForYouPage() {
         }
       }
 
-      // 2. Pool vuota (primo accesso o dati cancellati) → calcola tutto
+      // 2. Pool vuota → calcola tutto
       const recsRes = await fetch('/api/recommendations?type=all')
       if (recsRes.ok) {
         const json = await recsRes.json()
         const incoming = json.recommendations || {}
-        setRecommendations(prev => {
-          const merged = { ...prev }
-          for (const [type, items] of Object.entries(incoming)) {
-            if (Array.isArray(items) && (items as any[]).length > 0) merged[type] = items as Recommendation[]
-          }
-          return merged
-        })
-        setTasteProfile(json.tasteProfile || null)
-        setIsCached(!!json.cached)
+        const merged: Record<string, Recommendation[]> = {}
+        for (const [type, items] of Object.entries(incoming)) {
+          if (Array.isArray(items) && (items as any[]).length > 0) merged[type] = items as Recommendation[]
+        }
+        setRecommendations(merged); setTasteProfile(json.tasteProfile || null); setIsCached(!!json.cached)
+        forYouCache.recommendations = merged; forYouCache.tasteProfile = json.tasteProfile || null
+        forYouCache.ts = Date.now()
       }
 
       setLoading(false)
-
       const lastVisit = localStorage.getItem('for_you_last_visit')
       const now = Date.now()
       if (lastVisit && now - parseInt(lastVisit || '') > 4 * 3600000) setShowNewRecsBadge(true)
@@ -872,9 +895,11 @@ export default function ForYouPage() {
         for (const [type, items] of Object.entries(incoming)) {
           if (Array.isArray(items) && items.length > 0) merged[type] = items
         }
+        forYouCache.recommendations = merged
+        forYouCache.ts = Date.now()
         return merged
       })
-      if (json.tasteProfile) setTasteProfile(json.tasteProfile)
+      if (json.tasteProfile) { setTasteProfile(json.tasteProfile); forYouCache.tasteProfile = json.tasteProfile }
       setIsCached(false)
     }
     setRefreshing(false)

@@ -42,6 +42,18 @@ import { DeleteAccountModal } from '@/components/profile/DeleteAccountModal'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 
+// ─── Cache ───────────────────────────────────────────────────────────────────
+
+type ProfileCacheEntry = {
+  profile: { id: string; username: string; display_name?: string; avatar_url?: string; bio?: string }
+  mediaList: any[]
+  steamAccount: any
+  followersCount: number
+  followingCount: number
+  ts: number
+}
+const profileCache: Record<string, ProfileCacheEntry> = {}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type UserMedia = {
@@ -595,18 +607,20 @@ export default function ProfilePage() {
   const sensors = useDndSensors()
   const { csrfFetch } = useCsrf()
 
+  const cp = profileCache[username]
+
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [isOwner, setIsOwner] = useState(false)
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [steamAccount, setSteamAccount] = useState<any>(null)
-  const [mediaList, setMediaList] = useState<UserMedia[]>([])
-  const [loading, setLoading] = useState(true)
+  const [profile, setProfile] = useState<Profile | null>(cp?.profile ?? null)
+  const [steamAccount, setSteamAccount] = useState<any>(cp?.steamAccount ?? null)
+  const [mediaList, setMediaList] = useState<UserMedia[]>(cp?.mediaList ?? [])
+  const [loading, setLoading] = useState(!cp)
   const [importingGames, setImportingGames] = useState(false)
   const [reorderingGames, setReorderingGames] = useState(false)
   const [steamMessage, setSteamMessage] = useState<{ text: string; type: 'error' | 'success' } | null>(null)
   const [steamProgressMsg, setSteamProgressMsg] = useState<string | null>(null)
-  const [followersCount, setFollowersCount] = useState(0)
-  const [followingCount, setFollowingCount] = useState(0)
+  const [followersCount, setFollowersCount] = useState(cp?.followersCount ?? 0)
+  const [followingCount, setFollowingCount] = useState(cp?.followingCount ?? 0)
   const [isFollowing, setIsFollowing] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [selectedMedia, setSelectedMedia] = useState<UserMedia | null>(null)
@@ -617,7 +631,8 @@ export default function ProfilePage() {
 
   // Pull-to-refresh su mobile — ricarica tutto il profilo
   const fetchProfileData = useCallback(async () => {
-    setLoading(true)
+    const silent = !!profileCache[username]
+    if (!silent) setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     setCurrentUserId(user?.id || null)
 
@@ -641,11 +656,19 @@ export default function ProfilePage() {
       (user && !ownerCheck) ? supabase.from('follows').select('follower_id').eq('follower_id', user.id).eq('following_id', profileData.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     ])
 
+    const sortedMedia = sortMediaList(mediaResult.data || [])
     if (ownerCheck) setSteamAccount(steamResult.data)
-    if (mediaResult.data) setMediaList(sortMediaList(mediaResult.data))
+    if (mediaResult.data) setMediaList(sortedMedia)
     setFollowersCount(fwersResult.count || 0)
     setFollowingCount(fwingResult.count || 0)
     if (user && !ownerCheck) setIsFollowing(!!followResult.data)
+
+    profileCache[username] = {
+      profile: profileData, mediaList: sortedMedia,
+      steamAccount: ownerCheck ? steamResult.data : null,
+      followersCount: fwersResult.count || 0, followingCount: fwingResult.count || 0,
+      ts: Date.now(),
+    }
     setLoading(false)
   }, [username])
 
