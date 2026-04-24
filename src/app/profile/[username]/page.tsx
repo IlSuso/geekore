@@ -127,7 +127,7 @@ function SortableBox({ media, children }: { media: UserMedia; children: React.Re
       className={`cursor-grab active:cursor-grabbing rounded-3xl overflow-hidden min-h-[400px] sm:min-h-[460px] md:min-h-[520px] h-full flex flex-col transition-all duration-200 ${
         isDragging
           ? 'border-2 border-violet-500 shadow-2xl scale-[1.02] z-50'
-          : 'border border-zinc-800 hover:border-violet-500/50 hover:shadow-xl'
+          : 'border border-zinc-800 md:hover:border-violet-500/50 md:hover:shadow-xl'
       }`}
     >
       {children}

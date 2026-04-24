@@ -3,6 +3,7 @@
 // V5: + boardgame (meccaniche, designer, link BGG) + book (autori, pagine, ISBN, link Google Books)
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { gestureState } from '@/hooks/gestureState'
 import Image from 'next/image'
 import {
   X, ExternalLink, Star, Clock, Users, Layers,
@@ -140,8 +141,31 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   const [formEpisodeError, setFormEpisodeError] = useState<string | null>(null)
   const [formSeasonError, setFormSeasonError] = useState<string | null>(null)
   const [descExpanded, setDescExpanded] = useState(false)
-  const formRef = useRef<HTMLDivElement>(null)
-  const supabase = createClient()
+  const formRef    = useRef<HTMLDivElement>(null)
+  const drawerRef  = useRef<HTMLDivElement>(null)
+  const supabase   = createClient()
+
+  const historyPushedRef = useRef(false)
+  const [drawerOffset, setDrawerOffset] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth : 450
+  )
+  const [drawerAnimate, setDrawerAnimate] = useState(false)
+
+  // Swipe-right-to-close refs
+  const swipeStartX   = useRef(0)
+  const swipeStartY   = useRef(0)
+  const swipeStartT   = useRef(0)
+  const swipeLastDx   = useRef(0)
+  const swipeIsH      = useRef<boolean | null>(null)
+  const swipeCaptured = useRef(false)
+
+  const handleClose = useCallback(() => {
+    if (historyPushedRef.current) {
+      historyPushedRef.current = false
+      history.back()
+    }
+    onClose()
+  }, [onClose])
 
   useEffect(() => {
     if (media) { document.body.style.overflow = 'hidden' }
@@ -271,6 +295,97 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     }
   }, [media, inWishlist])
 
+  // gestureState sync + history.pushState on open
+  useEffect(() => {
+    if (!media) { gestureState.drawerActive = false; return }
+    gestureState.drawerActive = true
+    history.pushState({ gkDrawer: true }, '')
+    historyPushedRef.current = true
+    return () => { gestureState.drawerActive = false }
+  }, [media?.id])
+
+  // OS back button closes the drawer
+  useEffect(() => {
+    if (!media) return
+    const handler = () => { historyPushedRef.current = false; onClose() }
+    window.addEventListener('popstate', handler)
+    return () => window.removeEventListener('popstate', handler)
+  }, [media?.id, onClose])
+
+  // Slide-in animation whenever a new item opens
+  useEffect(() => {
+    if (!media) { setDrawerAnimate(false); return }
+    setDrawerAnimate(false)
+    setDrawerOffset(typeof window !== 'undefined' ? window.innerWidth : 450)
+    const frame = requestAnimationFrame(() => { setDrawerAnimate(true); setDrawerOffset(0) })
+    return () => cancelAnimationFrame(frame)
+  }, [media?.id])
+
+  // Swipe-right touch callbacks
+  const onSwipeTouchStart = useCallback((e: TouchEvent) => {
+    swipeCaptured.current = false
+    swipeIsH.current      = null
+    swipeStartX.current   = e.touches[0].clientX
+    swipeStartY.current   = e.touches[0].clientY
+    swipeStartT.current   = performance.now()
+    swipeLastDx.current   = 0
+  }, [])
+
+  const onSwipeTouchMove = useCallback((e: TouchEvent) => {
+    const dx = e.touches[0].clientX - swipeStartX.current
+    const dy = e.touches[0].clientY - swipeStartY.current
+    if (swipeIsH.current === null) {
+      if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return
+      const horiz = Math.abs(dx) > Math.abs(dy) * 1.4 && dx > 0
+      swipeIsH.current = horiz
+      if (!horiz) return
+      swipeCaptured.current = true
+    }
+    if (!swipeCaptured.current) return
+    e.preventDefault()
+    swipeLastDx.current = dx
+    setDrawerAnimate(false)
+    setDrawerOffset(Math.max(0, dx))
+  }, [])
+
+  const onSwipeTouchEnd = useCallback(() => {
+    if (!swipeCaptured.current) { swipeIsH.current = null; return }
+    swipeCaptured.current = false
+    swipeIsH.current      = null
+    const dx       = swipeLastDx.current
+    const velocity = dx / Math.max(performance.now() - swipeStartT.current, 1)
+    if (dx > 80 || velocity > 0.4) {
+      setDrawerAnimate(true)
+      setDrawerOffset(typeof window !== 'undefined' ? window.innerWidth : 450)
+      setTimeout(() => handleClose(), 260)
+    } else {
+      setDrawerAnimate(true)
+      setDrawerOffset(0)
+    }
+  }, [handleClose])
+
+  const onSwipeTouchCancel = useCallback(() => {
+    swipeCaptured.current = false
+    swipeIsH.current      = null
+    setDrawerAnimate(true)
+    setDrawerOffset(0)
+  }, [])
+
+  useEffect(() => {
+    const el = drawerRef.current
+    if (!el) return
+    el.addEventListener('touchstart',  onSwipeTouchStart,  { passive: true })
+    el.addEventListener('touchmove',   onSwipeTouchMove,   { passive: false })
+    el.addEventListener('touchend',    onSwipeTouchEnd,    { passive: true })
+    el.addEventListener('touchcancel', onSwipeTouchCancel, { passive: true })
+    return () => {
+      el.removeEventListener('touchstart',  onSwipeTouchStart)
+      el.removeEventListener('touchmove',   onSwipeTouchMove)
+      el.removeEventListener('touchend',    onSwipeTouchEnd)
+      el.removeEventListener('touchcancel', onSwipeTouchCancel)
+    }
+  }, [onSwipeTouchStart, onSwipeTouchMove, onSwipeTouchEnd, onSwipeTouchCancel])
+
   if (!media) return null
 
   const Icon = TYPE_ICON[media.type] || Film
@@ -298,16 +413,27 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
   return (
     <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm" onClick={onClose} aria-hidden />
+      {/* Backdrop — fades with swipe */}
+      <div
+        className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm"
+        onClick={handleClose}
+        aria-hidden
+        style={{ opacity: drawerOffset > 0 ? Math.max(0, 1 - drawerOffset / 400) : undefined }}
+      />
 
       {/* Drawer */}
       <div
-        className="fixed right-0 top-0 bottom-0 z-[200] w-full max-w-md bg-zinc-950 border-l border-zinc-800 flex flex-col animate-in slide-in-from-right duration-300"
+        ref={drawerRef}
+        className="fixed right-0 top-0 bottom-0 z-[200] w-full max-w-md bg-zinc-950 border-l border-zinc-800 flex flex-col"
         role="dialog" aria-modal aria-label={media.title}
+        style={{
+          transform:  `translateX(${drawerOffset}px)`,
+          transition: drawerAnimate ? 'transform 0.26s cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
+          willChange: drawerOffset > 0 ? 'transform' : 'auto',
+        }}
       >
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="absolute top-3 right-3 z-[100] w-8 h-8 bg-black/60 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-black/80 transition"
           aria-label="Chiudi"
         >

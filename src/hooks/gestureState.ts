@@ -1,9 +1,10 @@
 'use client'
 // src/hooks/gestureState.ts
-// Stato condiviso tra useSwipeNavigation e usePullToRefresh
-// per garantire che i due gesti non si attivino contemporaneamente
+// Stato condiviso tra SwipeablePageContainer, usePullToRefresh e drawer
+// per garantire che i gesti non si attivino contemporaneamente
 
 export const gestureState = {
-  swipeActive: false,   // sta avvenendo uno swipe orizzontale
-  pullActive: false,    // sta avvenendo un pull-to-refresh
+  swipeActive: false,   // sta avvenendo uno swipe orizzontale tra pagine
+  pullActive:  false,   // sta avvenendo un pull-to-refresh
+  drawerActive: false,  // un drawer/modal è aperto — blocca il page-switch swipe
 }
