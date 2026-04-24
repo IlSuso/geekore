@@ -2,11 +2,15 @@
 // KeepAliveTabShell — Instagram-style tab persistence
 //
 // Come funziona:
-//   1. children viene salvato in panels.current[tab] ad ogni render
+//   1. children viene salvato in panels.current[tab] SOLO alla prima visita (o cambio URL per profile)
 //   2. Ogni pannello è sempre nel DOM (mai smontato), solo display:none/block
 //   3. React riconcilia la stessa istanza del componente → stato preservato al 100%
 //   4. Per le route non-tab (settings, trending, search…) children si renderizza normalmente
 //   5. Scroll position salvato continuamente e ripristinato al ritorno
+//
+// Bug fix: in precedenza panels.current[tab] veniva sovrascritto ad ogni navigation,
+// causando unmount/remount del componente e perdita dello stato. Ora usiamo panelUrls
+// per aggiornare il pannello solo quando l'URL cambia realmente.
 
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef } from 'react'
@@ -26,9 +30,19 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const tab = getKATab(pathname)
 
-  // Persiste il contenuto renderizzato per ogni tab (ref = no re-render on update)
   const panels = useRef<Partial<Record<KATab, ReactNode>>>({})
-  if (tab) panels.current[tab] = children
+  const panelUrls = useRef<Partial<Record<KATab, string>>>({})
+
+  if (tab) {
+    // Per feed/for-you/swipe: la URL non cambia mai → usa il nome del tab come chiave stabile
+    //   → children viene memorizzato una volta sola → stessa istanza React → stato preservato
+    // Per profile: la URL cambia per ogni profilo → aggiorna solo quando si visita un profilo diverso
+    const stableKey = tab === 'profile' ? pathname : tab
+    if (panelUrls.current[tab] !== stableKey) {
+      panels.current[tab] = children
+      panelUrls.current[tab] = stableKey
+    }
+  }
 
   const tabRef = useRef(tab)
   tabRef.current = tab
