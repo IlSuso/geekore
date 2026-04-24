@@ -5,18 +5,20 @@
 //   1. children viene salvato in panels.current[tab] ad ogni render
 //   2. Ogni pannello è sempre nel DOM (mai smontato), solo display:none/block
 //   3. React riconcilia la stessa istanza del componente → stato preservato al 100%
-//   4. Per le route non-tab (settings, profile, trending…) children si renderizza normalmente
+//   4. Per le route non-tab (settings, trending, search…) children si renderizza normalmente
 //   5. Scroll position salvato continuamente e ripristinato al ritorno
 
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 
-type KATab = 'feed' | 'for-you'
+type KATab = 'feed' | 'for-you' | 'swipe' | 'profile'
 
 function getKATab(pathname: string): KATab | null {
   if (pathname === '/' || pathname === '/feed') return 'feed'
   if (pathname === '/for-you') return 'for-you'
+  if (pathname === '/swipe') return 'swipe'
+  if (pathname.startsWith('/profile/')) return 'profile'
   return null
 }
 
@@ -34,21 +36,23 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
   const savedY = useRef<Partial<Record<KATab, number>>>({})
   const prevTab = useRef<KATab | null>(null)
 
-  // Salva continuamente lo scroll della tab attiva
+  // Salva continuamente lo scroll della tab attiva (non per swipe: fixed inset-0)
   useEffect(() => {
     const onScroll = () => {
-      if (tabRef.current) savedY.current[tabRef.current] = window.scrollY
+      if (tabRef.current && tabRef.current !== 'swipe') savedY.current[tabRef.current] = window.scrollY
     }
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  // Ripristina scroll al cambio tab
+  // Ripristina scroll al cambio tab (non per swipe)
   useEffect(() => {
     if (prevTab.current === tab) return
-    requestAnimationFrame(() => {
-      window.scrollTo(0, tab ? (savedY.current[tab] ?? 0) : 0)
-    })
+    if (tab !== 'swipe') {
+      requestAnimationFrame(() => {
+        window.scrollTo(0, tab ? (savedY.current[tab] ?? 0) : 0)
+      })
+    }
     prevTab.current = tab
   }, [tab])
 
@@ -60,7 +64,13 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
       <div style={{ display: tab === 'for-you' ? undefined : 'none' }}>
         {panels.current['for-you']}
       </div>
-      {/* Route non-tab: trending, profile, settings, search, ecc. */}
+      <div style={{ display: tab === 'swipe' ? undefined : 'none' }}>
+        {panels.current.swipe}
+      </div>
+      <div style={{ display: tab === 'profile' ? undefined : 'none' }}>
+        {panels.current.profile}
+      </div>
+      {/* Route non-tab: trending, settings, search, ecc. */}
       {!tab && children}
     </>
   )
