@@ -4,9 +4,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  Home, Search, Bell, Zap, Sparkles, TrendingUp, Shuffle,
-  ChevronDown, Edit3, Bookmark, User, Settings, LogOut,
-  X, Users, Heart, UserPlus, MessageSquare, Star,
+  Home, Search, Zap, Sparkles, Shuffle, User, X,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -14,210 +12,6 @@ import { Avatar, getLocalAvatarSvg } from '@/components/ui/Avatar'
 import { useLocale } from '@/lib/locale'
 
 const AUTH_PATHS = ['/login', '/register', '/auth/confirm', '/forgot-password', '/auth/reset-password', '/onboarding']
-
-// ─── Tipi ─────────────────────────────────────────────────────────────────────
-
-interface Notification {
-  id: string
-  type: string
-  is_read: boolean
-  created_at: string
-  sender_id?: string
-  post_id?: string
-  sender?: { username: string; display_name: string; avatar_url: string | null }
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const m = Math.floor(diff / 60000)
-  if (m < 1) return 'Adesso'
-  if (m < 60) return `${m}m`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h`
-  const d = Math.floor(h / 24)
-  if (d < 7) return `${d}g`
-  return `${Math.floor(d / 7)}sett`
-}
-
-function notifAction(type: string): string {
-  switch (type) {
-    case 'like':    return 'ha messo like al tuo post'
-    case 'follow':  return 'ha iniziato a seguirti'
-    case 'comment': return 'ha commentato il tuo post'
-    case 'rating':  return 'ha votato un media'
-    default:        return 'ha interagito con te'
-  }
-}
-
-function NotifText({ n, onClose }: { n: Notification; onClose: () => void }) {
-  const username = n.sender?.username
-  const name = n.sender?.display_name || username || 'Qualcuno'
-  const action = notifAction(n.type)
-  return (
-    <p className="text-xs text-zinc-300 leading-snug">
-      {username ? (
-        <Link
-          href={`/profile/${username}`}
-          onClick={onClose}
-          className="font-semibold text-white hover:text-violet-400 transition-colors"
-        >
-          {name}
-        </Link>
-      ) : (
-        <span className="font-semibold text-white">{name}</span>
-      )}{' '}
-      {action}
-    </p>
-  )
-}
-
-function NotifIcon({ type }: { type: string }) {
-  switch (type) {
-    case 'like':    return <Heart size={11} className="text-red-400 fill-red-400" />
-    case 'follow':  return <UserPlus size={11} className="text-violet-400" />
-    case 'comment': return <MessageSquare size={11} className="text-sky-400" />
-    case 'rating':  return <Star size={11} className="text-yellow-400 fill-yellow-400" />
-    default:        return <Bell size={11} className="text-zinc-400" />
-  }
-}
-
-// ─── Notification Popover ─────────────────────────────────────────────────────
-
-const PREVIEW_LIMIT = 5
-
-function NotificationPopover({
-  open, onClose, userId, onRead, mobile = false,
-}: {
-  open: boolean
-  onClose: () => void
-  userId: string
-  onRead: () => void
-  mobile?: boolean
-}) {
-  const { t } = useLocale()                     // ← spostato in alto, prima di qualsiasi altro hook
-  const supabase = createClient()
-  const router = useRouter()
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [loading, setLoading] = useState(true)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
-    }
-    if (open) {
-      // Delay to avoid the same click that opened the popover closing it immediately
-      const timer = setTimeout(() => document.addEventListener('mousedown', handler), 10)
-      return () => {
-        clearTimeout(timer)
-        document.removeEventListener('mousedown', handler)
-      }
-    }
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open, onClose])
-
-  useEffect(() => {
-    if (!open || !userId) return
-    setLoading(true)
-
-    supabase
-      .from('notifications')
-      .select('id, type, is_read, created_at, sender_id, post_id, sender:sender_id(username, display_name, avatar_url)')
-      .eq('receiver_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(PREVIEW_LIMIT + 1)
-      .then(({ data }) => {
-        setNotifications((data as any) || [])
-        setLoading(false)
-      })
-
-    // Segna come lette
-    supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('receiver_id', userId)
-      .eq('is_read', false)
-      .then(() => onRead())
-  }, [open, userId, onRead])
-
-  if (!open) return null
-
-  const preview = notifications.slice(0, PREVIEW_LIMIT)
-  const hasMore = notifications.length > PREVIEW_LIMIT
-
-  return (
-    <div
-      ref={ref}
-      className={`absolute z-[110] bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden ${
-        mobile
-          ? 'bottom-full right-1/2 translate-x-1/2 mb-3 w-[calc(100vw-2rem)] max-w-sm'
-          : 'right-0 top-full mt-2 w-80'
-      }`}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-        <span className="text-sm font-semibold text-white">{t.nav.notifications}</span>
-        <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 transition-colors">
-          <X size={15} />
-        </button>
-      </div>
-
-      {/* Lista */}
-      <div>
-        {preview.length === 0 ? (
-          <div className="px-4 py-8 text-center">
-            <Bell size={26} className="text-zinc-700 mx-auto mb-2" />
-            <p className="text-sm text-zinc-500">Nessuna notifica</p>
-          </div>
-        ) : (
-          preview.map(n => (
-            <div
-              key={n.id}
-              className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-800/40 last:border-0 hover:bg-zinc-800/40 transition-colors ${!n.is_read ? 'bg-violet-500/5' : ''}`}
-            >
-              <div className="relative flex-shrink-0">
-                <div className="w-9 h-9 rounded-full overflow-hidden bg-zinc-800">
-                  {n.sender && (
-                    <Avatar
-                      src={n.sender.avatar_url}
-                      username={n.sender.username}
-                      displayName={n.sender.display_name}
-                      size={36}
-                    />
-                  )}
-                </div>
-                <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-zinc-900 border border-zinc-800 rounded-full flex items-center justify-center">
-                  <NotifIcon type={n.type} />
-                </div>
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <NotifText n={n} onClose={onClose} />
-                <p className="text-[10px] text-zinc-600 mt-0.5">{timeAgo(n.created_at)}</p>
-              </div>
-
-              {!n.is_read && (
-                <div className="w-1.5 h-1.5 rounded-full bg-violet-500 flex-shrink-0" />
-              )}
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Footer */}
-      {preview.length > 0 && (
-        <button
-          onClick={() => { onClose(); router.push('/notifications') }}
-          className="w-full flex items-center justify-center gap-1.5 px-4 py-3 border-t border-zinc-800 text-xs font-medium text-violet-400 hover:text-violet-300 hover:bg-zinc-800/40 transition-all"
-        >
-          {hasMore ? `Altre notifiche →` : 'Vedi tutte →'}
-        </button>
-      )}
-    </div>
-  )
-}
 
 // ─── Navbar ───────────────────────────────────────────────────────────────────
 
@@ -227,15 +21,10 @@ export default function Navbar() {
   const supabase = createClient()
   const { t } = useLocale()
 
-  const [hasNewNotifications, setHasNewNotifications] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [displayName, setDisplayName] = useState<string | null>(null)
   const [username, setUsername] = useState<string | null>(null)
-  const [userId, setUserId] = useState<string | null>(null)
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const [notifOpen, setNotifOpen] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
-  const dropdownRef = useRef<HTMLDivElement>(null)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<any[]>([])
@@ -271,7 +60,6 @@ export default function Navbar() {
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setDropdownOpen(false)
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
         setSearchOpen(false); setSearchQuery(''); setSearchResults([])
       }
@@ -282,14 +70,12 @@ export default function Navbar() {
 
   useEffect(() => {
     if (isAuthPage) return
-    const channelRef = { current: null as ReturnType<typeof supabase.channel> | null }
     let cancelled = false
 
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (cancelled) return
       setIsLoggedIn(!!user)
       if (!user) return
-      setUserId(user.id)
 
       supabase.from('profiles').select('avatar_url, display_name, username').eq('id', user.id).single()
         .then(({ data }) => {
@@ -298,31 +84,9 @@ export default function Navbar() {
           setDisplayName(data.display_name || null)
           setUsername(data.username || null)
         })
-
-      supabase.from('notifications').select('id', { count: 'exact', head: true })
-        .eq('receiver_id', user.id).eq('is_read', false)
-        .then(({ count }) => { if (!cancelled && count && count > 0) setHasNewNotifications(true) })
-
-      supabase.removeAllChannels()
-
-      channelRef.current = supabase.channel('navbar-notifications')
-        .on('postgres_changes', {
-          event: 'INSERT', schema: 'public', table: 'notifications',
-          filter: `receiver_id=eq.${user.id}`,
-        }, () => {
-          setHasNewNotifications(true)
-          if ('setAppBadge' in navigator) (navigator as any).setAppBadge(1).catch(() => {})
-        })
-        .subscribe()
     })
 
-    return () => {
-      cancelled = true
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current)
-        channelRef.current = null
-      }
-    }
+    return () => { cancelled = true }
   }, [isAuthPage])
 
   const searchUsers = useCallback(async (val: string) => {
@@ -350,12 +114,9 @@ export default function Navbar() {
   if (isAuthPage) return null
   if (isPublicLanding && isLoggedIn === false) return null
   if (isPublicLanding && isLoggedIn === null) return null
-  // Durante il caricamento iniziale su pagine autenticate, mostra solo
-  // il placeholder della bottom nav mobile per evitare il flash
   if (isLoggedIn === null) return (
     <>
       <nav className="hidden md:flex fixed top-0 left-0 right-0 z-[100] h-16 bg-black/80 backdrop-blur-2xl border-b border-zinc-800/60" />
-      {/* Mobile bottom nav sempre presente per evitare layout shift — icone invisibili */}
       <nav
         className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-black"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
@@ -380,10 +141,10 @@ export default function Navbar() {
     <>
       {/* ── Desktop navbar ───────────────────────────────────────────────────── */}
       <nav className="hidden md:flex fixed top-0 left-0 right-0 z-[100] bg-black/80 backdrop-blur-2xl border-b border-zinc-800/60">
-        <div className="max-w-screen-2xl mx-auto w-full px-6 py-4 flex items-center justify-between gap-6">
+        <div className="max-w-[1300px] mx-auto w-full px-6 py-4 flex items-center gap-6">
 
           {/* Sinistra: Logo + Nav links */}
-          <div className="flex items-center gap-6 flex-shrink-0">
+          <div className="flex items-center gap-5 flex-shrink-0">
             <Link href="/" className="flex items-center gap-2.5 group">
               <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl flex items-center justify-center shadow-md shadow-violet-500/30 group-hover:scale-105 transition-transform">
                 <Zap size={16} className="text-white" />
@@ -391,7 +152,7 @@ export default function Navbar() {
               <span className="text-xl font-bold tracking-tighter text-white">geekore</span>
             </Link>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
               {NAV_ITEMS.map((item) => {
                 const isActive = item.href === '/feed'
                   ? pathname === '/feed' || pathname === '/'
@@ -402,8 +163,8 @@ export default function Navbar() {
                     onMouseEnter={item.href === '/for-you' && !isActive
                       ? () => fetch('/api/recommendations?type=all', { credentials: 'include' }).catch(() => {})
                       : undefined}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${isActive ? 'bg-violet-500/10 text-violet-400' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'}`}>
-                    <item.icon size={18} />
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all ${isActive ? 'bg-violet-500/10 text-violet-400' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'}`}>
+                    <item.icon size={17} />
                     {item.label}
                   </Link>
                 )
@@ -411,8 +172,8 @@ export default function Navbar() {
             </div>
           </div>
 
-          {/* Centro: Search bar */}
-          <div ref={searchRef} className="flex-1 max-w-sm relative">
+          {/* Centro: Search bar — flex-1 */}
+          <div ref={searchRef} className="flex-1 relative">
             <div className="relative">
               <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${searchLoading ? 'text-violet-400 animate-pulse' : 'text-zinc-500'}`} />
               <input
@@ -453,93 +214,29 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Destra: campanella + theme + avatar */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-
-            {/* Campanella */}
-            <div className="relative">
-              <button
-                onClick={() => { setNotifOpen(v => !v); setDropdownOpen(false) }}
-                className={`relative w-9 h-9 flex items-center justify-center rounded-xl transition-all ${notifOpen ? 'bg-violet-500/10 text-violet-400' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'}`}
-                aria-label="Notifiche"
-              >
-                <Bell size={18} />
-                {hasNewNotifications && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-black" />
+          {/* Destra: Avatar → profilo */}
+          <div className="flex-shrink-0">
+            <Link
+              href={`/profile/${currentUsername || 'me'}`}
+              className={`flex items-center gap-2.5 px-3 py-1.5 rounded-2xl border transition-all ${isProfileActive ? 'bg-zinc-800 border-violet-500/50' : 'border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900'}`}
+            >
+              <div className="w-7 h-7 rounded-full overflow-hidden ring-2 ring-violet-500/30 flex-shrink-0">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="avatar" width={28} height={28} className="w-full h-full object-cover" />
+                ) : currentUsername ? (
+                  <img src={localAvatarSrc} alt="avatar" width={28} height={28} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-xs">
+                    <User size={14} />
+                  </div>
                 )}
-              </button>
-
-              {userId && (
-                <NotificationPopover
-                  open={notifOpen}
-                  onClose={() => setNotifOpen(false)}
-                  userId={userId}
-                  onRead={() => {
-                    setHasNewNotifications(false)
-                    if (typeof navigator !== 'undefined' && 'clearAppBadge' in navigator) {
-                      (navigator as any).clearAppBadge().catch(() => {})
-                    }
-                  }}
-                />
-              )}
-            </div>
-
-            {/* Avatar dropdown */}
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => { setDropdownOpen(v => !v); setNotifOpen(false) }}
-                className={`flex items-center gap-2.5 px-3 py-1.5 rounded-2xl border transition-all ${dropdownOpen ? 'bg-zinc-800 border-violet-500/50' : 'border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900'}`}
-              >
-                <div className="w-7 h-7 rounded-full overflow-hidden ring-2 ring-violet-500/30 flex-shrink-0">
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt="avatar" width={28} height={28} className="w-full h-full object-cover" />
-                  ) : currentUsername ? (
-                    <img src={localAvatarSrc} alt="avatar" width={28} height={28} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-xs">?</div>
-                  )}
-                </div>
-                <span className="text-sm font-medium text-zinc-300 max-w-[100px] truncate hidden lg:block">
-                  {currentDisplayName || '…'}
-                </span>
-                <ChevronDown size={14} className={`text-zinc-500 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {dropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-56 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden z-[110]">
-                  <div className="px-4 py-3 border-b border-zinc-800">
-                    <p className="text-sm font-semibold text-white truncate">{currentDisplayName}</p>
-                    {currentUsername && <p className="text-xs text-zinc-500">@{currentUsername}</p>}
-                  </div>
-                  <div className="p-1.5 space-y-0.5">
-                    <Link href={`/profile/${currentUsername || 'me'}`} onClick={() => setDropdownOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${isProfileActive ? 'text-violet-400 bg-violet-500/10' : 'text-zinc-300 hover:text-white hover:bg-zinc-800'}`}>
-                      <User size={16} /> {t.nav.profile}
-                    </Link>
-                    <Link href="/profile/edit" onClick={() => setDropdownOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all">
-                      <Edit3 size={16} /> Modifica profilo
-                    </Link>
-                    <Link href="/wishlist" onClick={() => setDropdownOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${pathname === '/wishlist' ? 'text-violet-400 bg-violet-500/10' : 'text-zinc-300 hover:text-white hover:bg-zinc-800'}`}>
-                      <Bookmark size={16} /> Wishlist
-                    </Link>
-                    <Link href="/settings" onClick={() => setDropdownOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${pathname === '/settings' ? 'text-violet-400 bg-violet-500/10' : 'text-zinc-300 hover:text-white hover:bg-zinc-800'}`}>
-                      <Settings size={16} /> {t.nav.settings}
-                    </Link>
-
-                  </div>
-                  <div className="p-1.5 border-t border-zinc-800">
-                    <button data-testid="nav-logout" onClick={() => { setDropdownOpen(false); handleLogout() }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-all">
-                      <LogOut size={16} /> {t.nav.logout}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+              </div>
+              <span className="text-sm font-medium text-zinc-300 max-w-[100px] truncate hidden lg:block">
+                {currentDisplayName || '…'}
+              </span>
+            </Link>
           </div>
+
         </div>
       </nav>
 
@@ -582,20 +279,7 @@ export default function Navbar() {
                 )}
 
                 {/* Icona */}
-                {item.href === '/notifications' ? (
-                  <div className="relative">
-                    <Bell
-                      size={22}
-                      strokeWidth={isActive ? 2.1 : 1.6}
-                      className={isActive ? 'text-white' : 'text-zinc-500'}
-                      fill={isActive ? 'white' : 'none'}
-                    />
-                    {hasNewNotifications && (
-                      <span className="absolute -top-0.5 -right-0.5 w-[7px] h-[7px] bg-red-500 rounded-full border border-black" />
-                    )}
-                  </div>
-                ) : item.href === '/profile/me' && (avatarUrl || currentUsername) ? (
-                  /* Avatar con ring gradient — stile Instagram */
+                {item.href === '/profile/me' && (avatarUrl || currentUsername) ? (
                   <div
                     className="rounded-full p-[2px]"
                     style={{

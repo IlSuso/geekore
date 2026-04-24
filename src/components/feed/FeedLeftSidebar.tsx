@@ -24,46 +24,46 @@ export function FeedLeftSidebar({ profile }: { profile: Profile | null }) {
   const pathname = usePathname()
 
   return (
-    <aside className="py-4 sticky top-16">
+    <aside className="sticky top-16 h-[calc(100vh-4rem)] flex flex-col py-6">
 
       {/* User card */}
       {profile && (
         <Link
           href={`/profile/${profile.username}`}
-          className="flex items-center gap-3 px-2 py-2.5 mb-4 rounded-2xl hover:bg-zinc-900 transition-colors group"
+          className="flex items-center gap-3 px-2 py-3 mb-2 rounded-2xl hover:bg-zinc-900 transition-colors group flex-shrink-0"
         >
-          <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-zinc-800 group-hover:ring-violet-500/40 transition-all">
+          <div className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-zinc-800 group-hover:ring-violet-500/40 transition-all">
             <Avatar
               src={profile.avatar_url}
               username={profile.username}
               displayName={profile.display_name}
-              size={40}
+              size={44}
             />
           </div>
           <div className="min-w-0">
-            <p className="text-[13px] font-semibold text-[var(--text-primary)] truncate leading-tight">
+            <p className="text-[14px] font-semibold text-[var(--text-primary)] truncate leading-tight">
               {profile.display_name || profile.username}
             </p>
-            <p className="text-[11px] text-zinc-500 truncate">@{profile.username}</p>
+            <p className="text-[12px] text-zinc-500 truncate">@{profile.username}</p>
           </div>
         </Link>
       )}
 
-      {/* Nav shortcuts */}
-      <nav className="space-y-0.5">
+      {/* Nav shortcuts — occupano tutta l'altezza rimanente */}
+      <nav className="flex-1 flex flex-col justify-around py-2">
         {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
           const active = pathname === href
           return (
             <Link
               key={href}
               href={href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors ${
+              className={`flex items-center gap-3.5 px-3 py-3 rounded-xl text-[14px] font-medium transition-colors ${
                 active
                   ? 'bg-violet-600/15 text-violet-300'
                   : 'text-zinc-400 hover:text-[var(--text-primary)] hover:bg-zinc-900'
               }`}
             >
-              <Icon size={16} className={active ? 'text-violet-400' : 'text-zinc-500'} />
+              <Icon size={18} className={active ? 'text-violet-400' : 'text-zinc-500'} />
               {label}
             </Link>
           )

@@ -802,29 +802,19 @@ function BottomSheet({
 }
 
 const PostCard = memo(function PostCard({
-  post, currentUser, currentProfile, isLiking, commentingPostId, commentContent, locale,
-  onLike, onToggleComment, onCommentChange, onAddComment, onDelete, onDeleteComment,
-  expandedComments, onExpandComments, onCategoryClick, onPostOptions, onCommentOptions,
+  post, currentUser, isLiking, locale,
+  onLike, onOpenModal, onPostOptions, onCategoryClick,
 }: {
-  post: Post; currentUser: User | null; currentProfile: any; isLiking: boolean
-  commentingPostId: string | null; commentContent: string; locale: string
-  onLike: (id: string) => void; onToggleComment: (id: string) => void
-  onCommentChange: (val: string) => void; onAddComment: (id: string) => void
-  onDelete: (id: string) => void; onDeleteComment: (commentId: string, postId: string) => void
-  expandedComments: Set<string>; onExpandComments: (id: string) => void
-  onCategoryClick?: (category: string) => void
+  post: Post
+  currentUser: User | null
+  isLiking: boolean
+  locale: string
+  onLike: (id: string) => void
+  onOpenModal: (id: string) => void
   onPostOptions: (postId: string) => void
-  onCommentOptions: (commentId: string, postId: string) => void
+  onCategoryClick?: (category: string) => void
 }) {
-  const isCommenting = commentingPostId === post.id
-  const isExpanded = expandedComments.has(post.id)
-  const visibleComments = isExpanded ? post.comments : post.comments.slice(0, 3)
-  const hiddenCount = post.comments.length - 3
-
   return (
-    <>
-
-    {/* Card Geekore */}
     <div className={`rounded-2xl transition-all duration-300 animate-fade-in ${
       post.pinned ? 'bg-zinc-900 border border-violet-500/30 ring-1 ring-violet-500/10'
       : post.isDiscovery ? 'bg-zinc-900 border border-fuchsia-500/25 ring-1 ring-fuchsia-500/10'
@@ -873,8 +863,8 @@ const PostCard = memo(function PostCard({
         )}
       </div>
 
-      {/* Testo del post — allineato con il nome autore */}
-      <div className="pr-5 pb-3" style={{paddingLeft: "72px"}}>
+      {/* Testo del post */}
+      <div className="px-5 pb-3">
         <p className="text-[var(--text-primary)] text-[15px] leading-relaxed whitespace-pre-wrap">{post.content.replace(/\n{3,}/g, '\n\n')}</p>
         {post.is_edited && (
           <p className="text-[11px] text-zinc-600 mt-1">modificato</p>
@@ -890,7 +880,7 @@ const PostCard = memo(function PostCard({
         </div>
       )}
 
-      {/* Azioni — Flame + MessageSquare, stile Geekore */}
+      {/* Azioni */}
       <div className="px-5 py-2.5 flex items-center gap-6 border-t border-zinc-800/50">
         <button
           onClick={() => onLike(post.id)}
@@ -904,11 +894,11 @@ const PostCard = memo(function PostCard({
         </button>
 
         <button
-          onClick={() => onToggleComment(post.id)}
-          aria-label={isCommenting ? 'Chiudi commenti' : 'Commenta'}
-          className={`flex items-center gap-2 group transition-all ${isCommenting ? 'text-violet-400' : 'text-zinc-500 hover:text-violet-400'}`}
+          onClick={() => onOpenModal(post.id)}
+          aria-label="Vedi commenti"
+          className="flex items-center gap-2 group transition-all text-zinc-500 hover:text-violet-400"
         >
-          <div className={`p-1.5 rounded-xl transition-colors ${isCommenting ? 'bg-violet-500/15' : 'group-hover:bg-violet-500/10'}`}>
+          <div className="p-1.5 rounded-xl transition-colors group-hover:bg-violet-500/10">
             <MessageCircle size={19} />
           </div>
           <span className="text-xs font-bold">{post.comments_count}</span>
@@ -920,96 +910,189 @@ const PostCard = memo(function PostCard({
           </div>
         )}
       </div>
+    </div>
+  )
+})
 
-      {/* Commenti preview — stile Instagram: username bold + testo inline, allineato al corpo */}
-      {post.comments.length > 0 && !isCommenting && (
-        <div className="pr-5 pb-3 space-y-1" style={{ paddingLeft: '72px' }}>
-          {post.comments.slice(0, 2).map(comment => (
-            <p key={comment.id} className="text-[13px] leading-snug group/pc">
-              <Link href={`/profile/${comment.username}`}
-                className="font-semibold text-white hover:text-violet-400 transition-colors mr-1">
-                {comment.username}
-              </Link>
-              <span className="text-zinc-400">{comment.content}</span>
-              {currentUser?.id === comment.user_id && (
-                <button
-                  onClick={() => onCommentOptions(comment.id, post.id)}
-                  className="ml-1.5 opacity-0 group-hover/pc:opacity-100 text-zinc-600 hover:text-white transition-all inline-flex items-center align-middle"
-                >
-                  <MoreHorizontal size={12} />
-                </button>
-              )}
-            </p>
-          ))}
-          {post.comments.length > 2 && (
-            <button onClick={() => onToggleComment(post.id)}
-              className="text-[12px] text-zinc-500 hover:text-violet-400 transition-colors mt-0.5 block">
-              Vedi tutti i {post.comments.length} commenti
-            </button>
-          )}
+// ── PostModal — Facebook style ────────────────────────────────────────────────
+
+function PostModal({
+  post, currentUser, currentProfile, onClose, onLike, onAddComment, onCommentOptions, isLiking, locale,
+}: {
+  post: Post
+  currentUser: User | null
+  currentProfile: any
+  onClose: () => void
+  onLike: (id: string) => void
+  onAddComment: (postId: string, content: string) => void
+  onCommentOptions: (commentId: string, postId: string) => void
+  isLiking: boolean
+  locale: string
+}) {
+  const [commentText, setCommentText] = useState('')
+
+  const submitComment = () => {
+    if (!commentText.trim()) return
+    onAddComment(post.id, commentText.trim())
+    setCommentText('')
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-800 flex-shrink-0">
+          <h3 className="font-semibold text-white text-[15px]">Post</h3>
+          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors p-1 rounded-lg hover:bg-zinc-800">
+            <X size={18} />
+          </button>
         </div>
-      )}
 
-      {/* Commenti espansi */}
-      {isCommenting && (
-        <div className="px-5 pt-3 border-t border-zinc-800/50">
-          {post.comments.length > 0 && (
-            <div className="space-y-3 pb-3 max-h-64 overflow-y-auto">
-              {visibleComments.map(comment => (
-                <div key={comment.id} className="flex items-start gap-2.5 group/ec">
-                  <Link href={`/profile/${comment.username}`} className="flex-shrink-0 mt-0.5">
-                    <div className="w-7 h-7 rounded-full overflow-hidden ring-1 ring-zinc-700/60">
-                      <Avatar src={undefined} username={comment.username || 'user'} displayName={comment.display_name} size={28} className="rounded-full" />
-                    </div>
-                  </Link>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] text-zinc-300 leading-snug">
-                      <Link href={`/profile/${comment.username}`} className="font-semibold text-white hover:text-violet-400 transition-colors mr-1">
-                        {comment.username}
-                      </Link>
-                      {comment.content}
-                    </p>
-                  </div>
-                  {currentUser?.id === comment.user_id && (
-                    <button onClick={() => onCommentOptions(comment.id, post.id)} className="text-zinc-600 hover:text-white transition-all flex-shrink-0 opacity-0 group-hover/ec:opacity-100 mt-0.5">
-                      <MoreHorizontal size={14} />
-                    </button>
-                  )}
-                </div>
-              ))}
-              {!isExpanded && hiddenCount > 0 && (
-                <button onClick={() => onExpandComments(post.id)} className="text-[12px] text-zinc-500 hover:text-violet-400 transition-colors pl-[38px]">
-                  Vedi altri {hiddenCount} commenti
-                </button>
-              )}
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto">
+          {post.pinned && (
+            <div className="flex items-center gap-1.5 px-5 pt-4 pb-1 text-violet-400">
+              <Pin size={11} className="rotate-45" />
+              <span className="text-[10px] font-bold uppercase tracking-widest">In evidenza</span>
             </div>
           )}
-          {/* Input commento */}
-          <div className="flex items-center gap-2.5 py-2.5 border-t border-zinc-800/40">
-            {currentUser && (
-              <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 ring-1 ring-zinc-700/60">
-                <Avatar src={currentProfile?.avatar_url} username={currentProfile?.username || 'user'} displayName={currentProfile?.display_name} size={28} className="rounded-full" />
+          {post.isDiscovery && !post.pinned && (
+            <div className="flex items-center gap-1.5 px-5 pt-4 pb-1 text-fuchsia-400">
+              <Sparkles size={11} />
+              <span className="text-[10px] font-bold uppercase tracking-widest">Consigliato per te</span>
+            </div>
+          )}
+
+          {/* Post header */}
+          <div className="flex items-center gap-3 px-5 pt-4 pb-2.5">
+            <Link href={`/profile/${post.profiles.username}`} onClick={onClose} className="group shrink-0">
+              <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-violet-500/20 group-hover:ring-violet-500/50 transition-all">
+                <Avatar src={post.profiles.avatar_url} username={post.profiles.username} displayName={post.profiles.display_name} size={40} className="rounded-full" />
               </div>
-            )}
+            </Link>
+            <div className="flex-1 min-w-0">
+              <Link href={`/profile/${post.profiles.username}`} onClick={onClose} className="hover:text-violet-400 transition-colors">
+                <p className="font-semibold text-[var(--text-primary)] text-[15px] leading-tight truncate">
+                  {post.profiles.display_name || post.profiles.username}
+                </p>
+              </Link>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <p className="text-xs text-[var(--text-muted)]">
+                  @{post.profiles.username} · {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })}
+                </p>
+                {post.category && <CategoryBadge category={post.category} />}
+              </div>
+            </div>
+          </div>
+
+          {/* Post content */}
+          <div className="px-5 pb-3">
+            <p className="text-[var(--text-primary)] text-[15px] leading-relaxed whitespace-pre-wrap">{post.content.replace(/\n{3,}/g, '\n\n')}</p>
+            {post.is_edited && <p className="text-[11px] text-zinc-600 mt-1">modificato</p>}
+          </div>
+
+          {/* Post image */}
+          {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
+            <div className="mx-5 mb-4 rounded-2xl overflow-hidden border border-zinc-800">
+              <img src={post.image_url} alt={`Post di ${post.profiles.username}`}
+                className="w-full max-h-[320px] object-cover" loading="lazy" />
+            </div>
+          )}
+
+          {/* Like/comment counts */}
+          <div className="px-5 py-2.5 flex items-center gap-6 border-t border-zinc-800/50">
+            <button
+              onClick={() => onLike(post.id)}
+              aria-label={post.liked_by_user ? 'Rimuovi like' : 'Metti like'}
+              className={`flex items-center gap-2 group transition-all ${post.liked_by_user ? 'text-orange-500' : 'text-zinc-500 hover:text-orange-400'}`}
+            >
+              <div className={`p-1.5 rounded-xl transition-colors ${post.liked_by_user ? 'bg-orange-500/15' : 'group-hover:bg-orange-500/10'}`}>
+                <Flame size={19} className={`transition-transform ${post.liked_by_user ? 'fill-orange-500' : ''} ${isLiking ? 'animate-heart-burst' : ''}`} />
+              </div>
+              <span className="text-xs font-bold">{post.likes_count}</span>
+            </button>
+            <div className="flex items-center gap-2 text-zinc-500">
+              <MessageCircle size={17} />
+              <span className="text-xs font-bold">{post.comments_count}</span>
+            </div>
+          </div>
+
+          {/* Comments */}
+          {post.comments.length > 0 ? (
+            <>
+              <div className="h-px bg-zinc-800/70 mx-5" />
+              <div className="px-5 py-3 space-y-4">
+                {post.comments.map(comment => (
+                  <div key={comment.id} className="flex items-start gap-3 group/mc">
+                    <Link href={`/profile/${comment.username}`} onClick={onClose} className="shrink-0">
+                      <div className="w-8 h-8 rounded-full overflow-hidden ring-1 ring-zinc-700/60">
+                        <Avatar src={undefined} username={comment.username || 'user'} displayName={comment.display_name} size={32} className="rounded-full" />
+                      </div>
+                    </Link>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] leading-snug">
+                        <Link href={`/profile/${comment.username}`} onClick={onClose}
+                          className="font-semibold text-white hover:text-violet-400 transition-colors mr-1">
+                          {comment.username}
+                        </Link>
+                        <span className="text-zinc-400">{comment.content}</span>
+                      </p>
+                      <p className="text-[10px] text-zinc-600 mt-0.5">
+                        {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })}
+                      </p>
+                    </div>
+                    {currentUser?.id === comment.user_id && (
+                      <button
+                        onClick={() => onCommentOptions(comment.id, post.id)}
+                        className="text-zinc-600 hover:text-white opacity-0 group-hover/mc:opacity-100 transition-all shrink-0 mt-0.5"
+                      >
+                        <MoreHorizontal size={14} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="px-5 py-8 text-center">
+              <p className="text-[13px] text-zinc-600">Nessun commento ancora. Sii il primo!</p>
+            </div>
+          )}
+        </div>
+
+        {/* Comment input */}
+        {currentUser && (
+          <div className="border-t border-zinc-800 px-5 py-3 flex items-center gap-3 flex-shrink-0">
+            <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 ring-1 ring-zinc-700/60">
+              <Avatar src={currentProfile?.avatar_url} username={currentProfile?.username || 'user'} displayName={currentProfile?.display_name} size={32} className="rounded-full" />
+            </div>
             <input
-              type="text" value={commentContent}
-              onChange={e => onCommentChange(e.target.value.slice(0, 500))}
-              placeholder="Aggiungi un commento..." maxLength={500}
+              type="text"
+              value={commentText}
+              onChange={e => setCommentText(e.target.value.slice(0, 500))}
+              placeholder="Aggiungi un commento..."
+              maxLength={500}
+              autoFocus
               className="flex-1 bg-transparent text-[14px] text-white placeholder-zinc-500 focus:outline-none min-w-0"
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onAddComment(post.id) } }}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment() } }}
             />
-            {commentContent.trim() && (
-              <button onClick={() => onAddComment(post.id)} className="text-violet-400 font-semibold text-sm hover:text-violet-300 transition-colors flex-shrink-0">
+            {commentText.trim() && (
+              <button onClick={submitComment} className="text-violet-400 font-semibold text-sm hover:text-violet-300 transition-colors shrink-0">
                 Pubblica
               </button>
             )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
-    </>
   )
-})
+}
 
 // ── Pagina principale ────────────────────────────────────────────────────────
 
@@ -1027,8 +1110,7 @@ export default function FeedPage() {
   const [page, setPage] = useState(0)
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [currentProfile, setCurrentProfile] = useState<any>(null)
-  const [commentContent, setCommentContent] = useState('')
-  const [commentingPostId, setCommentingPostId] = useState<string | null>(null)
+  const [modalPostId, setModalPostId] = useState<string | null>(null)
 
   // ── Bottom Sheet globale ──────────────────────────────────────────────────
   type SheetState = { open: false } | { open: true; type: 'post'; postId: string } | { open: true; type: 'comment'; commentId: string; postId: string } | { open: true; type: 'confirm-post'; postId: string } | { open: true; type: 'confirm-comment'; commentId: string; postId: string }
@@ -1044,7 +1126,6 @@ export default function FeedPage() {
   }, [])
   const [feedFilter, setFeedFilter] = useState<'all' | 'following'>('all')
   const [likingIds, setLikingIds] = useState<Set<string>>(new Set())
-  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set())
   const [newPostsCount, setNewPostsCount] = useState(0)
   const [categoryFilter, setCategoryFilter] = useState<string>('')
   const [composerOpen, setComposerOpen] = useState(false)
@@ -1416,23 +1497,20 @@ export default function FeedPage() {
     }
   }, [currentUser, pinnedPosts, supabase])
 
-  const handleAddComment = useCallback(async (postId: string) => {
-    if (!commentContent.trim() || !currentUser) return
+  const handleAddComment = useCallback(async (postId: string, content: string) => {
+    if (!content.trim() || !currentUser) return
     haptic(30)
-    const post = posts.find(p => p.id === postId)
+    const post = [...posts, ...pinnedPosts].find(p => p.id === postId)
     if (post?.category) trackAffinity(supabase, currentUser.id, post.category)
-    const content = commentContent.trim()
-    // UI ottimistica immediata
+    const trimmedContent = content.trim()
     const newCommentTemp: Comment = {
-      id: 'temp-' + Date.now(), content,
+      id: 'temp-' + Date.now(), content: trimmedContent,
       created_at: new Date().toISOString(), user_id: currentUser.id,
       username: currentProfile?.username || 'utente', display_name: currentProfile?.display_name,
     }
     setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments_count: p.comments_count + 1, comments: [newCommentTemp, ...p.comments] } : p))
-    setCommentContent(''); setCommentingPostId(null)
-    // Insert diretto — .single() per ottenere l'ID del commento inserito
-    const { data: commentData } = await supabase.from('comments').insert({ post_id: postId, user_id: currentUser.id, content }).select('id').single()
-    // Fire and forget: notifica in-app + push lato server
+    setPinnedPosts(prev => prev.map(p => p.id === postId ? { ...p, comments_count: p.comments_count + 1, comments: [newCommentTemp, ...p.comments] } : p))
+    const { data: commentData } = await supabase.from('comments').insert({ post_id: postId, user_id: currentUser.id, content: trimmedContent }).select('id').single()
     if (post && post.user_id !== currentUser.id && commentData?.id) {
       await supabase.from('notifications').insert({ receiver_id: post.user_id, sender_id: currentUser.id, type: 'comment', post_id: postId, comment_id: commentData.id })
       fetch('/api/social/comment', {
@@ -1441,15 +1519,7 @@ export default function FeedPage() {
         body: JSON.stringify({ post_id: postId }),
       }).catch(() => {})
     }
-  }, [commentContent, currentUser, currentProfile, posts, supabase])
-
-  const handleToggleComment = useCallback((postId: string) => {
-    setCommentingPostId(prev => prev === postId ? null : postId); setCommentContent('')
-  }, [])
-
-  const handleExpandComments = useCallback((postId: string) => {
-    setExpandedComments(prev => new Set([...prev, postId]))
-  }, [])
+  }, [currentUser, currentProfile, posts, pinnedPosts, supabase])
 
   const handleDeleteComment = useCallback(async (commentId: string, postId: string) => {
     if (!currentUser) return
@@ -1517,7 +1587,7 @@ export default function FeedPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
-        <div className="pt-0 pb-24 max-w-screen-2xl mx-auto px-0 sm:px-4 md:px-6">
+        <div className="pt-0 pb-24 max-w-[1280px] mx-auto px-4">
           <div className="flex gap-8 items-start min-h-screen">
             {/* Colonna principale */}
             <div className="flex-1 min-w-0">
@@ -1602,6 +1672,25 @@ export default function FeedPage() {
       {/* Bottom Sheet globale — fuori da qualsiasi overflow/transform */}
       <BottomSheet open={sheet.open} title={sheetTitle} actions={sheetActions} onClose={closeSheet} />
 
+      {/* Post Modal — Facebook style */}
+      {modalPostId && (() => {
+        const modalPost = [...posts, ...pinnedPosts].find(p => p.id === modalPostId)
+        if (!modalPost) return null
+        return (
+          <PostModal
+            post={modalPost}
+            currentUser={currentUser}
+            currentProfile={currentProfile}
+            onClose={() => setModalPostId(null)}
+            onLike={pinnedPosts.some(p => p.id === modalPostId) ? toggleLikePinned : toggleLike}
+            onAddComment={handleAddComment}
+            onCommentOptions={handleCommentOptions}
+            isLiking={likingIds.has(modalPostId)}
+            locale={locale}
+          />
+        )
+      })()}
+
       {/* Modal modifica post */}
       {editingPostId && (
         <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/80 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget && !window.getSelection()?.toString()) setEditingPostId(null) }}>
@@ -1631,7 +1720,7 @@ export default function FeedPage() {
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
       <PullWrapper distance={pullDistance} refreshing={isPullRefreshing}>
       {/* Layout: full-bleed su mobile, due colonne su desktop */}
-      <div className="pt-0 pb-24 max-w-screen-2xl mx-auto px-0 sm:px-4 md:px-6">
+      <div className="pt-0 pb-24 max-w-[1280px] mx-auto px-4">
         <div className="flex gap-6 items-start min-h-screen">
 
           {/* ── Sidebar sinistra — solo desktop xl ─────────────────── */}
@@ -1855,14 +1944,10 @@ export default function FeedPage() {
                 <div className="flex flex-col gap-3 pt-5">
                   {pinnedPosts.map(post => (
                     <PostCard key={`pinned-${post.id}`} post={post} currentUser={currentUser}
-                      isLiking={likingIds.has(post.id)} commentingPostId={commentingPostId}
-                      commentContent={commentContent} locale={locale}
-                      currentProfile={currentProfile} onLike={toggleLikePinned} onToggleComment={handleToggleComment}
-                      onCommentChange={setCommentContent} onAddComment={handleAddComment}
-                      onDelete={handleDeletePost} onDeleteComment={handleDeleteComment}
-                      expandedComments={expandedComments} onExpandComments={handleExpandComments}
+                      isLiking={likingIds.has(post.id)} locale={locale}
+                      onLike={toggleLikePinned} onOpenModal={setModalPostId}
                       onCategoryClick={handleCategoryClick}
-                      onPostOptions={handlePostOptions} onCommentOptions={handleCommentOptions} />
+                      onPostOptions={handlePostOptions} />
                   ))}
                 </div>
                 <div className="h-px bg-zinc-800 mt-5" />
@@ -1897,14 +1982,10 @@ export default function FeedPage() {
               ) : (
                 displayedPosts.map(post => (
                   <PostCard key={post.id} post={post} currentUser={currentUser}
-                    isLiking={likingIds.has(post.id)} commentingPostId={commentingPostId}
-                    commentContent={commentContent} locale={locale}
-                    currentProfile={currentProfile} onLike={toggleLike} onToggleComment={handleToggleComment}
-                    onCommentChange={setCommentContent} onAddComment={handleAddComment}
-                    onDelete={handleDeletePost} onDeleteComment={handleDeleteComment}
-                    expandedComments={expandedComments} onExpandComments={handleExpandComments}
+                    isLiking={likingIds.has(post.id)} locale={locale}
+                    onLike={toggleLike} onOpenModal={setModalPostId}
                     onCategoryClick={handleCategoryClick}
-                    onPostOptions={handlePostOptions} onCommentOptions={handleCommentOptions} />
+                    onPostOptions={handlePostOptions} />
                 ))
               )}
 
