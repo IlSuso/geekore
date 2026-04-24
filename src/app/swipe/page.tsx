@@ -308,43 +308,33 @@ export default function SwipePage() {
     }
   }, [supabase])
 
-  const MobileNavSpacer = () => (
-    <div className="md:hidden flex-shrink-0" style={{ height: 'calc(49px + env(safe-area-inset-bottom, 0px))' }} />
-  )
-
   if (loading) {
     return (
-      <div className="bg-black flex flex-col md:pt-16" style={{ height: '100dvh' }}>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-5 text-center">
-            <div className="relative">
-              <div className="absolute inset-0 w-16 h-16 rounded-3xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 blur-xl" />
-              <div className="relative w-16 h-16 bg-gradient-to-br from-violet-600 to-fuchsia-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-violet-900/50">
-                <Shuffle size={28} className="text-white" />
-              </div>
-            </div>
-            <div>
-              <p className="text-white font-semibold">Preparazione Swipe</p>
-              <p className="text-zinc-500 text-sm mt-1">Sto cercando i titoli migliori per te…</p>
+      <div className="fixed inset-0 md:pt-16 bg-black flex flex-col items-center justify-center">
+        <div className="flex flex-col items-center gap-5 text-center">
+          <div className="relative">
+            <div className="absolute inset-0 w-16 h-16 rounded-3xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 blur-xl" />
+            <div className="relative w-16 h-16 bg-gradient-to-br from-violet-600 to-fuchsia-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-violet-900/50">
+              <Shuffle size={28} className="text-white" />
             </div>
           </div>
+          <div>
+            <p className="text-white font-semibold">Preparazione Swipe</p>
+            <p className="text-zinc-500 text-sm mt-1">Sto cercando i titoli migliori per te…</p>
+          </div>
         </div>
-        <MobileNavSpacer />
       </div>
     )
   }
 
   return (
-    <div className="bg-black flex flex-col md:pt-16" style={{ height: '100dvh' }}>
-      <SwipeMode
-        standalone
-        items={initialItems}
-        onSeen={handleSwipeSeen}
-        onSkip={handleSwipeSkip}
-        onRequestMore={handleSwipeRequestMore}
-        onClose={() => {}}
-      />
-      <MobileNavSpacer />
-    </div>
+    <SwipeMode
+      standalone
+      items={initialItems}
+      onSeen={handleSwipeSeen}
+      onSkip={handleSwipeSkip}
+      onRequestMore={handleSwipeRequestMore}
+      onClose={() => {}}
+    />
   )
 }

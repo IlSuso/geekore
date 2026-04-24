@@ -537,7 +537,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
   const topCoverImage = filteredQueue[0]?.coverImage
 
   const containerClass = standalone
-    ? 'relative flex flex-col flex-1 bg-black min-h-0 overflow-hidden'
+    ? 'fixed inset-0 md:pt-16 bg-black flex flex-col overflow-hidden'
     : 'fixed inset-0 bg-black flex flex-col'
   const containerStyle = standalone ? {} : { zIndex: 9999 }
 
@@ -612,6 +612,11 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
           <div className="relative z-10 text-center flex-shrink-0 select-none" style={hintPaddingBottom}>
             <p className="text-zinc-600 text-xs pointer-events-none">← Skip &nbsp;·&nbsp; Visto →</p>
           </div>
+        )}
+
+        {/* Mobile bottom-nav spacer — only in standalone since SwipeMode is fixed/fullscreen */}
+        {standalone && (
+          <div className="md:hidden flex-shrink-0" style={{ height: 'calc(49px + env(safe-area-inset-bottom, 0px))' }} />
         )}
       </div>
 
