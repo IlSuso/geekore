@@ -600,8 +600,9 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function ProfilePage() {
-  const { username } = useParams<{ username: string }>()
+export default function ProfilePage({ usernameOverride }: { usernameOverride?: string } = {}) {
+  const params = useParams<{ username: string }>()
+  const username = usernameOverride || params.username
   const supabase = createClient()
   const { t, locale } = useLocale()
   const sensors = useDndSensors()
