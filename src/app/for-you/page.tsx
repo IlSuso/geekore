@@ -740,37 +740,31 @@ export default function ForYouPage() {
       const { data: entries } = await supabase.from('user_media_entries').select('user_id, external_id, title, cover_image, type, updated_at').in('user_id', ids).gte('updated_at', since).order('updated_at', { ascending: false }).limit(20)
       if (!entries?.length) { setFriendsActivity([]); setFriendsLoading(false); return }
       const uids = [...new Set(entries.map(e => e.user_id))]
-      const { data: profiles } = await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', uids)
+
+      // Profiles + similarity in parallel → single setState, no double-render wave
+      const [{ data: profiles }, { data: simData }] = await Promise.all([
+        supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', uids),
+        supabase.from('taste_similarity').select('other_user_id, similarity_score')
+          .eq('user_id', userId).in('other_user_id', ids).gte('similarity_score', 80),
+      ])
+
       const pm: Record<string, any> = {}; profiles?.forEach(p => { pm[p.id] = p })
+      const highSimIds = new Set((simData || []).map((s: any) => s.other_user_id))
+      const simMap = Object.fromEntries((simData || []).map((s: any) => [s.other_user_id, s.similarity_score]))
+
       const seen = new Set<string>(); const activity: FriendActivity[] = []
       for (const e of entries) {
         const key = `${e.user_id}-${e.external_id}`
         if (seen.has(key)) continue; seen.add(key)
         const p = pm[e.user_id]; if (!p) continue
-        activity.push({ userId: e.user_id, username: p.username, displayName: p.display_name, avatarUrl: p.avatar_url, mediaId: e.external_id, mediaTitle: e.title, mediaCover: e.cover_image, mediaType: e.type, updatedAt: e.updated_at })
+        activity.push({
+          userId: e.user_id, username: p.username, displayName: p.display_name,
+          avatarUrl: p.avatar_url, mediaId: e.external_id, mediaTitle: e.title,
+          mediaCover: e.cover_image, mediaType: e.type, updatedAt: e.updated_at,
+          isHighSim: highSimIds.has(e.user_id), simScore: simMap[e.user_id] || 0,
+        })
       }
       setFriendsActivity(activity.slice(0, 12))
-
-      // Fix 2.9: carica similarity score degli amici per elevare titoli ad alta affinità
-      const followIds = ids
-      if (followIds.length > 0) {
-        const { data: simData } = await supabase
-          .from('taste_similarity')
-          .select('other_user_id, similarity_score')
-          .eq('user_id', userId)
-          .in('other_user_id', followIds)
-          .gte('similarity_score', 80)
-        if (simData && simData.length > 0) {
-          const highSimIds = new Set(simData.map((s: any) => s.other_user_id))
-          const simMap = Object.fromEntries(simData.map((s: any) => [s.other_user_id, s.similarity_score]))
-          // Marca le attività degli amici ad alta sim
-          setFriendsActivity(prev => prev.map(a => ({
-            ...a,
-            isHighSim: highSimIds.has(a.userId),
-            simScore: simMap[a.userId] || 0,
-          })))
-        }
-      }
     } catch { setFriendsActivity([]) }
     setFriendsLoading(false)
   }, [supabase])
@@ -813,6 +807,9 @@ export default function ForYouPage() {
       // Ritorna il cleanup del canale realtime all'useEffect
       cleanupRef.current = () => { supabase.removeChannel(profileSub) }
 
+      // Avvia il fetch degli amici in parallelo con le raccomandazioni
+      fetchFriends(userId)
+
       // 1. Prova a leggere dalla pool persistente su Supabase (fast path ~50ms)
       const poolRes = await fetch('/api/recommendations?source=pool')
       if (poolRes.ok) {
@@ -823,7 +820,6 @@ export default function ForYouPage() {
           setTasteProfile(poolJson.tasteProfile || null)
           setIsCached(true)
           setLoading(false)
-          fetchFriends(userId)
           const lastVisit = localStorage.getItem('for_you_last_visit')
           const now = Date.now()
           if (lastVisit && now - parseInt(lastVisit || '') > 4 * 3600000) setShowNewRecsBadge(true)
@@ -849,7 +845,6 @@ export default function ForYouPage() {
       }
 
       setLoading(false)
-      fetchFriends(userId)
 
       const lastVisit = localStorage.getItem('for_you_last_visit')
       const now = Date.now()
