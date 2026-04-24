@@ -28,14 +28,6 @@ export interface TasteProfile {
   lowConfidence?: boolean
 }
 
-const GENRE_COLORS = [
-  'from-violet-500 to-fuchsia-500',
-  'from-sky-500 to-blue-500',
-  'from-emerald-500 to-teal-500',
-  'from-amber-500 to-orange-500',
-  'from-rose-500 to-pink-500',
-  'from-indigo-500 to-violet-500',
-]
 
 export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }: {
   tasteProfile: TasteProfile
@@ -49,7 +41,8 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
 
   const maxScore = tasteProfile.globalGenres[0]?.score || 1
   const binge = tasteProfile.bingeProfile
-  const top3 = tasteProfile.globalGenres.slice(0, 3)
+  const top5 = tasteProfile.globalGenres.slice(0, 5)
+  const top5Total = top5.reduce((s, g) => s + g.score, 0) || 1
   const hasCreators = tasteProfile.creatorScores &&
     ((tasteProfile.creatorScores.topStudios?.length ?? 0) > 0 ||
      (tasteProfile.creatorScores.topDirectors?.length ?? 0) > 0)
@@ -58,47 +51,67 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
   const hasSignals = (tasteProfile.searchIntentGenres?.length ?? 0) > 0 ||
     (tasteProfile.wishlistGenres?.length ?? 0) > 0
 
+  // Colori solidi per la barra DNA (gradient non funziona su flex segment)
+  const BAR_COLORS = [
+    '#8b5cf6', // violet-500
+    '#0ea5e9', // sky-500
+    '#10b981', // emerald-500
+    '#f59e0b', // amber-500
+    '#f43f5e', // rose-500
+  ]
+
   return (
     <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl overflow-hidden mb-8">
-      {/* Header */}
-      <button onClick={() => setOpen(v => !v)} className="w-full p-5 flex items-center justify-between">
+      {/* Header — uguale aperto e chiuso */}
+      <button onClick={() => setOpen(v => !v)} className="w-full px-5 pt-5 pb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl flex items-center justify-center shadow-lg shadow-violet-900/30">
+          <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl flex items-center justify-center shadow-lg shadow-violet-900/30 flex-shrink-0">
             <Brain size={17} className="text-white" />
           </div>
           <div className="text-left">
             <p className="text-sm font-bold text-white">Il tuo DNA Geekore</p>
             <p className="text-xs text-zinc-500">
-              {totalEntries} titoli analizzati · finestra {tasteProfile.recentWindow || 6} mesi
+              {totalEntries} titoli · finestra {tasteProfile.recentWindow || 6} mesi
+              {binge?.isBinger && (
+                <span className="ml-2 inline-flex items-center gap-0.5 text-orange-400">
+                  <Flame size={10} className="inline" />binge
+                </span>
+              )}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2.5">
-          {binge?.isBinger && (
-            <span className="hidden sm:flex items-center gap-1 text-[10px] text-orange-300 bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 rounded-full font-medium">
-              <Flame size={10} />Binge
-            </span>
-          )}
-          {open ? <ChevronUp size={16} className="text-zinc-500" /> : <ChevronDown size={16} className="text-zinc-500" />}
-        </div>
+        {open ? <ChevronUp size={16} className="text-zinc-500 flex-shrink-0" /> : <ChevronDown size={16} className="text-zinc-500 flex-shrink-0" />}
       </button>
 
-      {/* Collapsed: top 3 genre pills */}
-      {!open && top3.length > 0 && (
-        <div className="px-5 pb-4 flex items-center gap-2 flex-wrap">
-          {top3.map(({ genre, score }, i) => (
-            <div key={genre} className="flex items-center gap-2 bg-zinc-800/80 rounded-xl px-3 py-1.5">
-              <div className={`w-1.5 h-1.5 rounded-full bg-gradient-to-br ${GENRE_COLORS[i]}`} />
-              <span className="text-xs font-medium text-zinc-200">{genre}</span>
-              <span className="text-[10px] text-zinc-500 font-semibold">{Math.round((score / maxScore) * 100)}%</span>
-            </div>
-          ))}
-          {binge?.isBinger && (
-            <div className="sm:hidden flex items-center gap-1 bg-orange-500/10 border border-orange-500/20 rounded-xl px-3 py-1.5">
-              <Flame size={10} className="text-orange-400" />
-              <span className="text-xs text-orange-300 font-medium">Binge</span>
-            </div>
-          )}
+      {/* Collapsed: barra DNA + etichette generi */}
+      {!open && top5.length > 0 && (
+        <div className="px-5 pb-5">
+          {/* Barra proporzionale multi-colore */}
+          <div className="flex h-2 rounded-full overflow-hidden gap-px mb-3">
+            {top5.map(({ genre, score }, i) => (
+              <div
+                key={genre}
+                className="h-full flex-shrink-0"
+                style={{
+                  width: `${Math.round((score / top5Total) * 100)}%`,
+                  backgroundColor: BAR_COLORS[i],
+                  opacity: 1 - i * 0.1,
+                }}
+              />
+            ))}
+          </div>
+          {/* Legenda generi */}
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+            {top5.map(({ genre, score }, i) => (
+              <div key={genre} className="flex items-center gap-1.5 min-w-0">
+                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: BAR_COLORS[i] }} />
+                <span className="text-xs text-zinc-300 truncate max-w-[90px]">{genre}</span>
+                <span className="text-[10px] text-zinc-600 font-semibold flex-shrink-0">
+                  {Math.round((score / maxScore) * 100)}%
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -112,13 +125,14 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
               <div className="space-y-2.5">
                 {tasteProfile.globalGenres.slice(0, 6).map(({ genre, score }, i) => {
                   const pct = Math.round((score / maxScore) * 100)
+                  const barColor = BAR_COLORS[i % BAR_COLORS.length]
                   return (
                     <div key={genre} className="flex items-center gap-3">
                       <span className="text-xs text-zinc-300 w-28 truncate font-medium">{genre}</span>
                       <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                         <div
-                          className={`h-full bg-gradient-to-r ${GENRE_COLORS[i % GENRE_COLORS.length]} rounded-full`}
-                          style={{ width: `${pct}%` }}
+                          className="h-full rounded-full"
+                          style={{ width: `${pct}%`, backgroundColor: barColor }}
                         />
                       </div>
                       <span className="text-[10px] text-zinc-400 w-8 text-right font-bold">{pct}%</span>
