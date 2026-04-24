@@ -308,10 +308,6 @@ export default function SwipePage() {
     }
   }, [supabase])
 
-  // Spacer desktop: la navbar è fixed top-0 (~68px), va compensata con uno spacer
-  // Spacer mobile: la navbar è fixed bottom-0 (49px + safe-area)
-  // Si usano div separati invece di padding sul container così non si sommano
-  const DesktopNavSpacer = () => <div className="hidden md:block flex-shrink-0" style={{ height: '64px' }} />
   const MobileNavSpacer = () => (
     <div className="md:hidden flex-shrink-0" style={{ height: 'calc(49px + env(safe-area-inset-bottom, 0px))' }} />
   )
@@ -319,8 +315,7 @@ export default function SwipePage() {
   if (loading) {
     return (
       <div className="bg-black flex flex-col" style={{ height: '100dvh' }}>
-        <DesktopNavSpacer />
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 flex items-center justify-center md:pt-16">
           <div className="flex flex-col items-center gap-5 text-center">
             <div className="relative">
               <div className="absolute inset-0 w-16 h-16 rounded-3xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 blur-xl" />
@@ -341,7 +336,6 @@ export default function SwipePage() {
 
   return (
     <div className="bg-black flex flex-col" style={{ height: '100dvh' }}>
-      <DesktopNavSpacer />
       <SwipeMode
         standalone
         items={initialItems}
