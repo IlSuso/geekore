@@ -360,10 +360,11 @@ export default function Navbar() {
         className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-black"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        <div className="flex items-center justify-around h-[52px] px-2 opacity-0">
+        <div className="flex items-stretch h-[56px] px-2 opacity-0">
           {MOBILE_NAV_ITEMS.map((item) => (
-            <div key={item.href} className="flex items-center justify-center flex-1 h-full">
-              <item.icon size={24} strokeWidth={1.6} className="text-zinc-500" />
+            <div key={item.href} className="flex flex-col items-center justify-center flex-1 gap-[3px] py-2">
+              <item.icon size={22} strokeWidth={1.6} className="text-zinc-500" />
+              <span className="text-[10px] text-zinc-600">{item.label}</span>
             </div>
           ))}
         </div>
@@ -542,16 +543,16 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* ── Mobile bottom navbar — Instagram exact style ─────────────────── */}
+      {/* ── Mobile bottom navbar ─────────────────────────────────────────── */}
       <nav
         className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100]"
         style={{
           paddingBottom: 'env(safe-area-inset-bottom)',
-          background: 'rgba(0,0,0,0.96)',
-          borderTop: '0.5px solid #262626',
+          background: 'rgba(0,0,0,0.97)',
+          borderTop: '0.5px solid #1c1c1c',
         }}
       >
-        <div className="flex items-center h-[49px]">
+        <div className="flex items-stretch h-[56px]">
           {MOBILE_NAV_ITEMS.map((item) => {
             const isActive = item.href === '/profile/me'
               ? isProfileActive
@@ -565,43 +566,52 @@ export default function Navbar() {
                 href={item.href}
                 prefetch={true}
                 data-testid={`nav-mobile-${item.href.replace('/', '')}`}
-                className="flex items-center justify-center flex-1 h-full relative"
+                className="flex flex-col items-center justify-center flex-1 relative gap-[3px] py-2"
                 onClick={() => {
                   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
                     navigator.vibrate(8)
                   }
                 }}
               >
+                {/* Indicatore active: pillola sottile in cima */}
+                {isActive && (
+                  <span
+                    className="absolute top-0 left-1/2 -translate-x-1/2 rounded-full bg-violet-500"
+                    style={{ width: 28, height: 2 }}
+                  />
+                )}
+
+                {/* Icona */}
                 {item.href === '/notifications' ? (
                   <div className="relative">
                     <Bell
-                      size={26}
-                      strokeWidth={isActive ? 2 : 1.6}
+                      size={22}
+                      strokeWidth={isActive ? 2.1 : 1.6}
                       className={isActive ? 'text-white' : 'text-zinc-500'}
                       fill={isActive ? 'white' : 'none'}
                     />
                     {hasNewNotifications && (
-                      <span className="absolute -top-0.5 -right-0.5 w-[8px] h-[8px] bg-red-500 rounded-full border-[1.5px] border-black" />
+                      <span className="absolute -top-0.5 -right-0.5 w-[7px] h-[7px] bg-red-500 rounded-full border border-black" />
                     )}
                   </div>
                 ) : item.href === '/profile/me' && (avatarUrl || currentUsername) ? (
-                  /* Avatar with ring — Instagram's most recognizable detail */
+                  /* Avatar con ring gradient — stile Instagram */
                   <div
                     className="rounded-full p-[2px]"
                     style={{
                       background: isActive
-                        ? 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)'
+                        ? 'linear-gradient(45deg, #7c3aed 0%, #a855f7 50%, #db2777 100%)'
                         : 'transparent',
-                      border: isActive ? 'none' : '1.5px solid #555',
+                      border: isActive ? 'none' : '1.5px solid #3f3f3f',
                     }}
                   >
                     <div className="rounded-full overflow-hidden bg-black p-[1.5px]">
-                      <div className="w-[24px] h-[24px] rounded-full overflow-hidden">
+                      <div className="w-[22px] h-[22px] rounded-full overflow-hidden">
                         <img
                           src={avatarUrl || localAvatarSrc}
                           alt="avatar"
-                          width={24}
-                          height={24}
+                          width={22}
+                          height={22}
                           className="w-full h-full object-cover"
                         />
                       </div>
@@ -609,12 +619,21 @@ export default function Navbar() {
                   </div>
                 ) : (
                   <item.icon
-                    size={26}
-                    strokeWidth={isActive ? 2 : 1.6}
+                    size={22}
+                    strokeWidth={isActive ? 2.1 : 1.6}
                     className={isActive ? 'text-white' : 'text-zinc-500'}
-                    fill={isActive && (item.href === '/feed' || item.href === '/for-you') ? 'white' : 'none'}
+                    fill={isActive && (item.href === '/feed') ? 'white' : 'none'}
                   />
                 )}
+
+                {/* Label */}
+                <span
+                  className={`text-[10px] leading-none font-medium tracking-tight ${
+                    isActive ? 'text-white' : 'text-zinc-600'
+                  }`}
+                >
+                  {item.label}
+                </span>
               </Link>
             )
           })}

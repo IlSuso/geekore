@@ -1,12 +1,19 @@
 'use client'
-// MobileHeader — Instagram-style: wordmark on feed, back arrow on inner pages.
-// Edge-to-edge, no visible border, clean black bg.
+// MobileHeader — context-aware top bar per mobile.
+// Feed: wordmark geekore + campanella
+// Profilo proprio: username + edit + settings
+// Profilo altrui: back + username
+// Discover / For You / Trending / ...: icona colorata + titolo + campanella
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bell, Search, Settings, Edit3, ChevronLeft } from 'lucide-react'
+import {
+  Bell, Settings, Edit3, ChevronLeft,
+  Search, Sparkles, TrendingUp, Shuffle,
+  Bookmark, BarChart2, Trophy, List,
+} from 'lucide-react'
 import { useLocale } from '@/lib/locale'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 const AUTH_PATHS = ['/login', '/register', '/auth/', '/forgot-password', '/onboarding', '/profile/setup']
@@ -22,21 +29,35 @@ function BackButton() {
   )
 }
 
-// Instagram-style wordmark with gradient dot
+// Wordmark con dot gradient — identità visiva Geekore
 function GeekoreWordmark() {
   return (
-    <Link href="/feed" className="flex items-center gap-1 py-1 group">
+    <Link href="/feed" className="flex items-center gap-1 py-1">
       <span
         className="text-[24px] font-bold text-white tracking-tight"
-        style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif', letterSpacing: '-0.5px' }}
+        style={{ letterSpacing: '-0.5px' }}
       >
         geekore
       </span>
-      {/* Instagram-style gradient dot */}
-      <span
-        className="w-[7px] h-[7px] rounded-full mb-[1px] flex-shrink-0 bg-violet-500"
-      />
+      <span className="w-[7px] h-[7px] rounded-full mb-[1px] flex-shrink-0 bg-violet-500" />
     </Link>
+  )
+}
+
+// Titolo pagina con icona colorata — uguale allo stile del bottom nav
+interface PageTitleProps {
+  title: string
+  icon: ReactNode
+  iconBg: string  // classe tailwind gradient o colore solido
+}
+function PageTitle({ title, icon, iconBg }: PageTitleProps) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className={`w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}>
+        {icon}
+      </div>
+      <h1 className="text-[17px] font-semibold text-white tracking-tight">{title}</h1>
+    </div>
   )
 }
 
@@ -64,31 +85,95 @@ export function MobileHeader() {
 
   if (AUTH_PATHS.some(p => pathname.startsWith(p))) return null
 
-  const isFeed = pathname === '/feed' || pathname === '/'
-  const isOwnProfile = pathname === '/profile/me' || (username && pathname === `/profile/${username}`)
+  const isFeed      = pathname === '/feed' || pathname === '/'
+  const isOwnProfile  = pathname === '/profile/me' || (username && pathname === `/profile/${username}`)
   const isOtherProfile = isProfilePage && !isOwnProfile && pathname.split('/').length === 3
-  const isSubPage = (pathname.split('/').length > 3 && !isOtherProfile) ||
+  const isSubPage   = (pathname.split('/').length > 3 && !isOtherProfile) ||
     pathname.startsWith('/stats/') || pathname.startsWith('/lists/')
 
-  const titles: Record<string, string> = {
-    '/discover': 'Cerca',
-    '/for-you': 'Per te',
-    '/notifications': 'Notifiche',
-    '/settings': 'Impostazioni',
-    '/trending': 'Trending',
-    '/explore': 'Esplora',
-    '/search': 'Cerca',
-    '/stats': 'Statistiche',
-    '/wishlist': 'Wishlist',
-    '/leaderboard': 'Classifica',
-    '/lists': 'Liste',
-    '/news': 'News',
-  }
-
-  const title = Object.entries(titles).find(([k]) => pathname === k || pathname.startsWith(k + '/'))?.[1]
   const profileUsername = isProfilePage ? pathname.split('/')[2] : null
 
-  const iconCls = "w-10 h-10 flex items-center justify-center text-[var(--text-primary)] hover:opacity-70 transition-opacity"
+  const iconCls = 'w-10 h-10 flex items-center justify-center text-[var(--text-primary)] hover:opacity-70 transition-opacity'
+
+  // Mappa pathname → config titolo con icona e colore
+  const PAGE_CONFIG: Record<string, PageTitleProps> = {
+    '/discover':     { title: t.nav.discover,       icon: <Search size={14} className="text-white" />,      iconBg: 'bg-gradient-to-br from-sky-500 to-blue-600' },
+    '/for-you':      { title: t.nav.forYou,          icon: <Sparkles size={14} className="text-white" />,    iconBg: 'bg-gradient-to-br from-violet-500 to-fuchsia-500' },
+    '/trending':     { title: 'Trending',             icon: <TrendingUp size={14} className="text-white" />,  iconBg: 'bg-gradient-to-br from-orange-500 to-red-500' },
+    '/swipe':        { title: 'Swipe',                icon: <Shuffle size={14} className="text-white" />,     iconBg: 'bg-gradient-to-br from-emerald-500 to-teal-600' },
+    '/notifications':{ title: 'Notifiche',            icon: <Bell size={14} className="text-white" />,        iconBg: 'bg-gradient-to-br from-amber-500 to-orange-500' },
+    '/settings':     { title: t.nav.settings,         icon: <Settings size={14} className="text-white" />,    iconBg: 'bg-zinc-700' },
+    '/wishlist':     { title: 'Wishlist',             icon: <Bookmark size={14} className="text-white" />,    iconBg: 'bg-gradient-to-br from-pink-500 to-rose-600' },
+    '/stats':        { title: 'Statistiche',          icon: <BarChart2 size={14} className="text-white" />,   iconBg: 'bg-gradient-to-br from-indigo-500 to-violet-600' },
+    '/leaderboard':  { title: 'Classifica',           icon: <Trophy size={14} className="text-white" />,      iconBg: 'bg-gradient-to-br from-yellow-500 to-amber-600' },
+    '/lists':        { title: 'Liste',                icon: <List size={14} className="text-white" />,        iconBg: 'bg-gradient-to-br from-cyan-500 to-sky-600' },
+    '/search':       { title: 'Cerca',                icon: <Search size={14} className="text-white" />,      iconBg: 'bg-gradient-to-br from-sky-500 to-blue-600' },
+    '/explore':      { title: 'Esplora',              icon: <Search size={14} className="text-white" />,      iconBg: 'bg-gradient-to-br from-sky-500 to-blue-600' },
+  }
+
+  const pageConfig = Object.entries(PAGE_CONFIG).find(
+    ([k]) => pathname === k || pathname.startsWith(k + '/')
+  )?.[1]
+
+  // -- Rendering --
+
+  const renderLeft = () => {
+    if (isSubPage) return <BackButton />
+    if (isFeed)    return <GeekoreWordmark />
+    if (isOwnProfile) return (
+      <div className="flex items-center gap-1.5">
+        <span className="text-[17px] font-semibold text-white tracking-tight">
+          {username || 'Profilo'}
+        </span>
+      </div>
+    )
+    if (isOtherProfile && profileUsername && profileUsername !== 'me') return (
+      <div className="flex items-center gap-1.5">
+        <ChevronLeft size={26} strokeWidth={1.6} className="text-[var(--text-primary)] -ml-1 cursor-pointer" onClick={() => window.history.back()} />
+        <h1 className="text-[16px] font-semibold text-white truncate">{profileUsername}</h1>
+      </div>
+    )
+    if (pageConfig) return (
+      <div className="flex items-center gap-2">
+        {isSubPage && <BackButton />}
+        <PageTitle {...pageConfig} />
+      </div>
+    )
+    // Fallback generico con back button
+    return (
+      <div className="flex items-center gap-2">
+        <BackButton />
+      </div>
+    )
+  }
+
+  const renderRight = () => {
+    if (isFeed) return (
+      <Link href="/notifications" className={`${iconCls} relative`} onClick={() => setUnread(false)}>
+        <Bell size={23} strokeWidth={1.6} />
+        {unread && (
+          <span className="absolute top-2.5 right-2 w-[8px] h-[8px] bg-red-500 rounded-full border-[1.5px] border-black notif-badge-pulse" />
+        )}
+      </Link>
+    )
+    if (isOwnProfile) return (
+      <>
+        <Link href="/profile/edit" className={iconCls}>
+          <Edit3 size={21} strokeWidth={1.6} />
+        </Link>
+        <Link href="/settings" className={iconCls}>
+          <Settings size={21} strokeWidth={1.6} />
+        </Link>
+      </>
+    )
+    if (pathname === '/notifications') return null
+    return (
+      <Link href="/notifications" className={`${iconCls} relative`} onClick={() => setUnread(false)}>
+        <Bell size={23} strokeWidth={1.6} />
+        {unread && <span className="absolute top-2.5 right-2 w-[8px] h-[8px] bg-red-500 rounded-full border-[1.5px] border-black" />}
+      </Link>
+    )
+  }
 
   return (
     <header
@@ -96,90 +181,14 @@ export function MobileHeader() {
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       <div className="flex items-center justify-between h-[52px] px-3">
-
-        {/* Left */}
         <div className="flex items-center flex-1 min-w-0">
-          {isSubPage ? (
-            <BackButton />
-          ) : isFeed ? (
-            <GeekoreWordmark />
-          ) : isOwnProfile ? (
-            <div className="flex items-center gap-1.5">
-              <span className="text-[17px] font-semibold text-white tracking-tight">
-                {username || 'Profilo'}
-              </span>
-              {/* small lock icon for private feel */}
-
-            </div>
-          ) : isOtherProfile && profileUsername && profileUsername !== 'me' ? (
-            <div className="flex items-center gap-2">
-              <ChevronLeft
-                size={26}
-                strokeWidth={1.6}
-                className="text-[var(--text-primary)] -ml-1 cursor-pointer"
-                onClick={() => window.history.back()}
-              />
-              <h1 className="text-[16px] font-semibold text-white truncate">{profileUsername}</h1>
-            </div>
-          ) : pathname === '/notifications' ? (
-            <div className="flex items-center gap-2">
-              <ChevronLeft
-                size={26}
-                strokeWidth={1.6}
-                className="text-[var(--text-primary)] -ml-1 cursor-pointer"
-                onClick={() => window.history.back()}
-              />
-              <h1 className="text-[17px] font-semibold text-white">Notifiche</h1>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              {isSubPage && <BackButton />}
-              <h1 className="text-[17px] font-semibold text-white truncate">{title}</h1>
-            </div>
-          )}
+          {renderLeft()}
         </div>
-
-        {/* Right — contextual actions */}
-        <div className="flex items-center">
-          {isFeed && (
-            <>
-              <Link
-                href="/notifications"
-                className={`${iconCls} relative`}
-                onClick={() => setUnread(false)}
-              >
-                <Bell size={24} strokeWidth={1.6} />
-                {unread && (
-                  <span className="absolute top-2.5 right-2 w-[9px] h-[9px] bg-red-500 rounded-full border-[1.5px] border-black notif-badge-pulse" />
-                )}
-              </Link>
-            </>
-          )}
-
-          {isOwnProfile && (
-            <>
-              <Link href="/profile/edit" className={iconCls}>
-                <Edit3 size={22} strokeWidth={1.6} />
-              </Link>
-              <Link href="/settings" className={iconCls}>
-                <Settings size={22} strokeWidth={1.6} />
-              </Link>
-            </>
-          )}
-
-          {!isFeed && !isOwnProfile && !isOtherProfile && pathname !== '/notifications' && (
-            <Link href="/notifications" className={`${iconCls} relative`} onClick={() => setUnread(false)}>
-              <Bell size={24} strokeWidth={1.6} />
-              {unread && <span className="absolute top-2.5 right-2 w-[9px] h-[9px] bg-red-500 rounded-full border-[1.5px] border-black" />}
-            </Link>
-          )}
-
-          {/* nessuna azione destra su /notifications */}
+        <div className="flex items-center flex-shrink-0">
+          {renderRight()}
         </div>
-
       </div>
-
-      {/* Ultra-thin separator — barely visible, like Instagram */}
+      {/* Separatore ultra-sottile */}
       <div className="h-[0.5px] bg-[var(--border)]" />
     </header>
   )

@@ -6,6 +6,10 @@
 // - Curve di animazione identiche (cubic-bezier di iOS)
 // - Overflow clip per nascondere i bordi
 // - Mutex con pull-to-refresh
+//
+// FIX swipe conflict: se il touch parte dentro un elemento con scroll
+// orizzontale (overflow-x: auto/scroll) o con [data-no-swipe], il
+// page-switch NON si attiva — l'elemento interno possiede il gesto.
 
 import { usePathname, useRouter } from 'next/navigation'
 import { useRef, useState, useCallback, useEffect, type ReactNode } from 'react'
@@ -20,6 +24,21 @@ const EDGE_DEAD_ZONE = 28       // px dai bordi: riservato alle gesture OS (back
 const EASE_OUT  = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
 const EASE_SNAP = 'cubic-bezier(0.22, 1, 0.36, 1)'  // spring-ish snap back
 
+// Ritorna true se il target (o un suo antenato) è un elemento che gestisce
+// lo scroll orizzontale in modo nativo — in quel caso non attiviamo il
+// page-switch perché l'elemento si aspetta di ricevere il gesto.
+function isInsideHorizontalScroller(target: EventTarget | null): boolean {
+  let node = target as HTMLElement | null
+  while (node && node.tagName !== 'BODY') {
+    // Opt-out esplicito via attributo data
+    if (node.dataset && 'noSwipe' in node.dataset) return true
+    const ox = window.getComputedStyle(node).overflowX
+    if ((ox === 'auto' || ox === 'scroll') && node.scrollWidth > node.clientWidth) return true
+    node = node.parentElement
+  }
+  return false
+}
+
 export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -32,6 +51,8 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   const isH           = useRef<boolean | null>(null)
   const vw            = useRef(0)
   const isDragging    = useRef(false)
+  // true solo se onTouchStart ha accettato il touch (non era in un carousel)
+  const captured      = useRef(false)
 
   const [offset, setOffset] = useState(0)
   const [animate, setAnimate] = useState(false)
@@ -54,19 +75,27 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    isDragging.current = false
+    captured.current    = false
+    isDragging.current  = false
     gestureState.swipeActive = false
     setAnimate(false)
     setOffset(0)
   }, [pathname])
 
   const onTouchStart = useCallback((e: TouchEvent) => {
+    captured.current = false  // reset ad ogni nuovo touch
     if (!isMain) return
-    if (gestureState.pullActive) return  // pull-to-refresh attivo → no swipe
+    if (gestureState.pullActive) return
 
     const x = e.touches[0].clientX
     if (x <= EDGE_DEAD_ZONE || x >= (vw.current || window.innerWidth) - EDGE_DEAD_ZONE) return
 
+    // Se il touch parte dentro un carousel/scroller orizzontale,
+    // lasciamo che sia quell'elemento a gestire il gesto.
+    if (isInsideHorizontalScroller(e.target)) return
+
+    // Touch accettato: inizializziamo il tracking
+    captured.current    = true
     touchStartX.current = x
     touchStartY.current = e.touches[0].clientY
     touchStartT.current = performance.now()
@@ -77,8 +106,9 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   }, [isMain])
 
   const onTouchMove = useCallback((e: TouchEvent) => {
+    if (!captured.current) return  // touch non preso in carico → ignora
     if (!isMain) return
-    if (gestureState.pullActive) return  // pull attivo → cedi
+    if (gestureState.pullActive) return
 
     const dx = e.touches[0].clientX - touchStartX.current
     const dy = e.touches[0].clientY - touchStartY.current
@@ -104,11 +134,15 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   const onTouchEnd = useCallback(() => {
     gestureState.swipeActive = false
 
-    if (!isMain || !isDragging.current) {
+    if (!captured.current || !isMain || !isDragging.current) {
+      captured.current   = false
       setAnimate(true); setOffset(0)
-      isH.current = null; isDragging.current = false
+      isH.current        = null
+      isDragging.current = false
       return
     }
+
+    captured.current = false
 
     const dx       = lastDeltaX.current
     const elapsed  = Math.max(performance.now() - touchStartT.current, 1)
@@ -130,14 +164,15 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
       setOffset(0)
     }
 
-    isH.current = null
+    isH.current        = null
     isDragging.current = false
   }, [isMain, prevTab, nextTab, router])
 
   const onTouchCancel = useCallback(() => {
+    captured.current         = false
     gestureState.swipeActive = false
-    isDragging.current = false
-    isH.current = null
+    isDragging.current       = false
+    isH.current              = null
     setAnimate(true)
     setOffset(0)
   }, [])
@@ -145,14 +180,14 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   useEffect(() => {
     const el = wrapRef.current
     if (!el) return
-    el.addEventListener('touchstart', onTouchStart, { passive: true })
-    el.addEventListener('touchmove',  onTouchMove,  { passive: false })
-    el.addEventListener('touchend',   onTouchEnd,   { passive: true })
+    el.addEventListener('touchstart',  onTouchStart,  { passive: true })
+    el.addEventListener('touchmove',   onTouchMove,   { passive: false })
+    el.addEventListener('touchend',    onTouchEnd,    { passive: true })
     el.addEventListener('touchcancel', onTouchCancel, { passive: true })
     return () => {
-      el.removeEventListener('touchstart', onTouchStart)
-      el.removeEventListener('touchmove',  onTouchMove)
-      el.removeEventListener('touchend',   onTouchEnd)
+      el.removeEventListener('touchstart',  onTouchStart)
+      el.removeEventListener('touchmove',   onTouchMove)
+      el.removeEventListener('touchend',    onTouchEnd)
       el.removeEventListener('touchcancel', onTouchCancel)
     }
   }, [onTouchStart, onTouchMove, onTouchEnd, onTouchCancel])
@@ -166,13 +201,13 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     <div
       ref={wrapRef}
       style={{
-        transform:          translateX,
+        transform:                translateX,
         transition,
-        willChange:         offset !== 0 ? 'transform' : 'auto',
-        backfaceVisibility: 'hidden',
+        willChange:               offset !== 0 ? 'transform' : 'auto',
+        backfaceVisibility:       'hidden',
         WebkitBackfaceVisibility: 'hidden',
-        minHeight:          '100%',
-        overflow:           isMain && offset !== 0 ? 'hidden' : undefined,
+        minHeight:                '100%',
+        overflow:                 isMain && offset !== 0 ? 'hidden' : undefined,
       }}
     >
       {children}

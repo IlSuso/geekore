@@ -209,28 +209,29 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
   const showReport = user && user.id !== post.user_id
 
   return (
-    <div className={`bg-zinc-900 border rounded-3xl overflow-hidden transition-all duration-300 ${
+    <div className={`bg-zinc-900 border rounded-2xl md:rounded-3xl overflow-hidden transition-all duration-300 ${
       post.pinned
         ? 'border-violet-500/40 ring-1 ring-violet-500/20'
         : 'border-zinc-800 hover:border-violet-500/30'
     }`}>
 
       {post.pinned && (
-        <div className="flex items-center gap-1.5 px-6 pt-4 text-violet-400">
+        <div className="flex items-center gap-1.5 px-4 md:px-6 pt-3.5 text-violet-400">
           <Pin size={12} className="rotate-45" />
           <span className="text-[10px] font-bold uppercase tracking-widest">In evidenza</span>
         </div>
       )}
 
-      <div className="p-6 pb-4 flex items-center gap-3">
+      {/* Header: avatar + nome + timestamp */}
+      <div className="p-4 md:p-6 pb-3 md:pb-4 flex items-center gap-3">
         <Link href={`/profile/${profile?.username}`} className="group shrink-0">
-          <div className="w-11 h-11 rounded-2xl overflow-hidden ring-2 ring-violet-500/20 group-hover:ring-violet-500/50 transition-all">
+          <div className="w-10 h-10 md:w-11 md:h-11 rounded-full overflow-hidden ring-2 ring-violet-500/20 group-hover:ring-violet-500/50 transition-all">
             <Avatar
               src={profile?.avatar_url}
               username={profile?.username || 'user'}
               displayName={profile?.display_name}
               size={44}
-              className="rounded-2xl"
+              className="rounded-full"
             />
           </div>
         </Link>
@@ -254,21 +255,24 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
         )}
       </div>
 
-      <div className="px-6 pb-4">
+      {/* Contenuto testo */}
+      <div className="px-4 md:px-6 pb-3.5 md:pb-4">
         <p className="text-zinc-200 text-sm leading-relaxed whitespace-pre-wrap">{post.content}</p>
       </div>
 
+      {/* Immagine allegata */}
       {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
-        <div className="mx-4 mb-4 rounded-2xl overflow-hidden border border-zinc-800">
+        <div className="mx-3 md:mx-4 mb-3.5 md:mb-4 rounded-xl md:rounded-2xl overflow-hidden border border-zinc-800">
           <img
             src={post.image_url}
             alt={`Immagine del post di ${profile?.username || 'utente'}`}
-            className="w-full max-h-[420px] object-cover hover:scale-[1.02] transition-transform duration-500"
+            className="w-full max-h-[340px] md:max-h-[420px] object-cover"
           />
         </div>
       )}
 
-      <div className="px-6 py-4 border-t border-zinc-800/60 flex items-center gap-6">
+      {/* Azioni: like + commenti */}
+      <div className="px-4 md:px-6 py-3 md:py-4 border-t border-zinc-800/60 flex items-center gap-5 md:gap-6">
         <button
           onClick={handleLike}
           aria-label={hasLiked ? 'Rimuovi like' : 'Metti like'}
@@ -301,27 +305,28 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
         )}
       </div>
 
+      {/* Sezione commenti espandibile */}
       {showComments && (
-        <div className="px-6 pb-6 border-t border-zinc-800/60 pt-4 bg-black/20">
+        <div className="px-4 md:px-6 pb-4 md:pb-6 border-t border-zinc-800/60 pt-3.5 bg-black/20">
           {comments.length > 0 && (
             <div className="space-y-3 mb-4 max-h-56 overflow-y-auto">
               {comments.map((comment) => (
-                <div key={comment.id} className="flex gap-3">
-                  <Link href={`/profile/${comment.profiles?.username}`} className="w-7 h-7 rounded-xl overflow-hidden flex-shrink-0 hover:ring-2 hover:ring-violet-500/50 transition-all">
+                <div key={comment.id} className="flex gap-2.5">
+                  <Link href={`/profile/${comment.profiles?.username}`} className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 hover:ring-2 hover:ring-violet-500/50 transition-all">
                     <Avatar
                       src={comment.profiles?.avatar_url}
                       username={comment.profiles?.username || 'user'}
                       displayName={comment.profiles?.display_name}
                       size={28}
-                      className="rounded-xl"
+                      className="rounded-full"
                     />
                   </Link>
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-2 flex-1">
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3.5 py-2 flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <Link href={`/profile/${comment.profiles?.username}`} className="text-[10px] font-bold text-violet-400 uppercase tracking-wider hover:text-violet-300">
+                      <Link href={`/profile/${comment.profiles?.username}`} className="text-[10px] font-bold text-violet-400 uppercase tracking-wider hover:text-violet-300 truncate">
                         @{comment.profiles?.username || 'user'}
                       </Link>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 flex-shrink-0">
                         {user?.id === comment.user_id ? (
                           <button
                             onClick={() => handleDeleteComment(comment.id)}
@@ -334,7 +339,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
                         ) : null}
                       </div>
                     </div>
-                    <p className="text-zinc-300 text-xs mt-0.5">{comment.content}</p>
+                    <p className="text-zinc-300 text-xs mt-0.5 break-words">{comment.content}</p>
                   </div>
                 </div>
               ))}
@@ -348,7 +353,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
               onChange={handleCommentChange}
               placeholder="Scrivi un commento..."
               maxLength={MAX_COMMENT_LENGTH}
-              className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl py-3 px-5 pr-20 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
+              className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl py-3 px-4 pr-20 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
             />
             {commentCharCount > 0 && (
               <span className={`absolute right-11 top-1/2 -translate-y-1/2 text-[10px] font-medium transition-colors ${
