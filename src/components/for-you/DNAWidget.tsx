@@ -48,8 +48,6 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
      (tasteProfile.creatorScores.topDirectors?.length ?? 0) > 0)
   const hasStyle = (tasteProfile.deepSignals?.topTones?.length ?? 0) > 0 ||
     (tasteProfile.deepSignals?.topSettings?.length ?? 0) > 0
-  const hasSignals = (tasteProfile.searchIntentGenres?.length ?? 0) > 0 ||
-    (tasteProfile.wishlistGenres?.length ?? 0) > 0
 
   // Colori solidi per la barra DNA (gradient non funziona su flex segment)
   const BAR_COLORS = [
@@ -165,7 +163,7 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
           {/* Stile personale */}
           {hasStyle && (
             <div>
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Il tuo stile</p>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Toni e ambientazioni</p>
               <div className="grid grid-cols-2 gap-4">
                 {(tasteProfile.deepSignals?.topTones?.length ?? 0) > 0 && (
                   <div>
@@ -222,31 +220,32 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
             </div>
           )}
 
-          {/* Segnali attivi */}
-          {hasSignals && (
+          {/* Generi cercati di recente */}
+          {(tasteProfile.searchIntentGenres?.length ?? 0) > 0 && (
             <div>
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Segnali attivi</p>
-              <div className="space-y-2.5">
-                {(tasteProfile.searchIntentGenres?.length ?? 0) > 0 && (
-                  <div className="flex items-start gap-2.5">
-                    <Search size={12} className="text-amber-400 flex-shrink-0 mt-0.5" />
-                    <div className="flex flex-wrap gap-1.5">
-                      {tasteProfile.searchIntentGenres!.map(g => (
-                        <span key={g} className="text-[10px] bg-amber-500/10 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/15">{g}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {(tasteProfile.wishlistGenres?.length ?? 0) > 0 && (
-                  <div className="flex items-start gap-2.5">
-                    <Bookmark size={12} className="text-emerald-400 flex-shrink-0 mt-0.5" />
-                    <div className="flex flex-wrap gap-1.5">
-                      {tasteProfile.wishlistGenres!.slice(0, 5).map(g => (
-                        <span key={g} className="text-[10px] bg-emerald-500/10 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/15">{g}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                <Search size={9} />Cerchi spesso
+              </p>
+              <p className="text-[10px] text-zinc-700 mb-2">Generi che hai cercato di recente — li priorizziamo nei consigli</p>
+              <div className="flex flex-wrap gap-1.5">
+                {tasteProfile.searchIntentGenres!.map(g => (
+                  <span key={g} className="text-[10px] bg-amber-500/10 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/15">{g}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Generi dalla wishlist */}
+          {(tasteProfile.wishlistGenres?.length ?? 0) > 0 && (
+            <div>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                <Bookmark size={9} />Dalla wishlist
+              </p>
+              <p className="text-[10px] text-zinc-700 mb-2">Generi dei titoli nella tua wishlist — influenzano i consigli</p>
+              <div className="flex flex-wrap gap-1.5">
+                {tasteProfile.wishlistGenres!.slice(0, 5).map(g => (
+                  <span key={g} className="text-[10px] bg-emerald-500/10 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/15">{g}</span>
+                ))}
               </div>
             </div>
           )}

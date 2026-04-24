@@ -561,11 +561,11 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
               src={topCoverImage}
               alt=""
               className="absolute inset-0 w-full h-full object-cover"
-              style={{ filter: 'blur(48px)', transform: 'scale(1.15)', opacity: 0.18, transition: 'opacity .6s ease' }}
+              style={{ filter: 'blur(36px)', transform: 'scale(1.12)', opacity: 0.35 }}
             />
-            {/* Vignette scura sui bordi e più intensa in basso */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/70" />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-transparent to-black/70" />
+            {/* Vignette: scuro in basso e sulle fasce laterali, leggero in alto */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/55" />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-transparent to-black/80" />
           </div>
         )}
 

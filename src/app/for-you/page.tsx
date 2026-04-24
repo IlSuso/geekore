@@ -1096,32 +1096,20 @@ export default function ForYouPage() {
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPulling} />
       <div className="pt-2 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
 
-        {/* Action bar */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl flex items-center justify-center">
-              <Sparkles size={15} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-sm font-bold text-white leading-tight">Per te</h1>
-              {isCached && <p className="text-[10px] text-zinc-600 leading-none">Da pool</p>}
-            </div>
-          </div>
-
-          <div className="flex-1" />
-
+        {/* Utility bar — solo controlli, senza titolo ridondante */}
+        <div className="flex justify-end items-center gap-2 mb-4">
           <button onClick={() => setShowPrefs(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl text-sm font-medium text-zinc-300 transition-all">
-            <SlidersHorizontal size={15} />
+            className="flex items-center gap-2 px-3.5 py-2 bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all">
+            <SlidersHorizontal size={13} />
             <span className="hidden sm:inline">{fy.preferences}</span>
           </button>
           <div className="relative">
             <button onClick={handleRefresh} disabled={refreshing}
-              className="w-10 h-10 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 disabled:opacity-50 rounded-2xl text-zinc-300 transition-all">
-              <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
+              className="w-8 h-8 flex items-center justify-center bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 disabled:opacity-40 rounded-xl text-zinc-400 hover:text-zinc-200 transition-all">
+              <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
             </button>
             {showNewRecsBadge && (
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-fuchsia-500 rounded-full border-2 border-black animate-pulse" />
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-fuchsia-500 rounded-full border border-black animate-pulse" />
             )}
           </div>
         </div>
