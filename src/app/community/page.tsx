@@ -15,7 +15,7 @@ async function getCommunityData(userId: string) {
     { data: newMembers },
     { data: recentPosts },
     { data: publicLists },
-    { data: totalProfiles },
+    { count: totalProfilesCount },
   ] = await Promise.all([
     supabase.from('follows').select('following_id').eq('follower_id', userId),
 
@@ -93,7 +93,7 @@ async function getCommunityData(userId: string) {
     engagingPosts,
     publicLists: publicLists || [],
     freshMembers,
-    totalCount: totalProfiles?.count ?? 0,
+    totalCount: totalProfilesCount ?? 0,
     activeThisWeek: activeUsers.length,
   }
 }
