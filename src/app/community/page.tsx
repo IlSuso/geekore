@@ -75,7 +75,7 @@ async function getCommunityData(userId: string) {
     likes: { id: string }[]; comments: { id: string }[]
     author: { username: string; display_name: string | null; avatar_url: string | null } | null
   }
-  const engagingPosts = ((recentPosts || []) as RawPost[])
+  const engagingPosts = ((recentPosts || []) as unknown as RawPost[])
     .map(p => ({
       ...p,
       likes_count: (p.likes || []).length,
