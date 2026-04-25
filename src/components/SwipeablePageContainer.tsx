@@ -1,30 +1,27 @@
 'use client'
-// SwipeablePageContainer — Instagram-style horizontal page transitions.
+// SwipeablePageContainer — swipe orizzontale tra i tab principali.
 //
-// Come funziona:
-//   - La pagina corrente (wrapRef) viene traslata direttamente via DOM (no React state)
-//     durante il gesto, garantendo 0 lag rispetto alle pagine adiacenti.
-//   - KeepAliveTabShell riceve gli aggiornamenti tramite swipeNavBridge e sposta
-//     le pagine adiacenti (position:fixed) in sincronia → effetto side-by-side.
-//   - Rimosso lo sfondo nero: al suo posto si vedono le pagine reali.
+// Uguale all'originale eccetto:
+//   - TAB_ORDER aggiornato: /swipe al posto di /trending (allineato al mobile nav)
+//   - Rimosso lo sfondo scuro (il body è già nero)
 //
-// Conflict management (invariato):
+// Gestione conflitti:
 //   1. EDGE_DEAD_ZONE = 44px (gesture zone Samsung/iOS)
 //   2. isInsideHorizontalScroller: non ruba gesti da carousel
 //   3. gestureState.drawerActive: page-switch disabilitato se drawer aperto
-//   4. captured ref: solo touch accettati da onTouchStart vengono processati
+//   4. captured ref: solo touch accettati da onTouchStart
 
 import { usePathname, useRouter } from 'next/navigation'
-import { useRef, useCallback, useEffect, type ReactNode } from 'react'
+import { useRef, useState, useCallback, useEffect, type ReactNode } from 'react'
 import { gestureState } from '@/hooks/gestureState'
-import { swipeNavBridge } from '@/hooks/swipeNavBridge'
 
 export const TAB_ORDER = ['/feed', '/discover', '/for-you', '/swipe', '/profile/me']
 
 const CONFIRM_THRESHOLD  = 120   // px
 const VELOCITY_THRESHOLD = 0.35  // px/ms
-const EDGE_DEAD_ZONE     = 44    // px — copre gesture zone Samsung/iOS
+const EDGE_DEAD_ZONE     = 44
 
+const EASE_OUT  = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
 const EASE_SNAP = 'cubic-bezier(0.22, 1, 0.36, 1)'
 
 function isInsideHorizontalScroller(target: EventTarget | null): boolean {
@@ -38,18 +35,10 @@ function isInsideHorizontalScroller(target: EventTarget | null): boolean {
   return false
 }
 
-function tabIdx(pathname: string): number {
-  return TAB_ORDER.findIndex(t => {
-    if (t === '/profile/me') return pathname.startsWith('/profile/')
-    if (t === '/feed')       return pathname === '/feed' || pathname === '/'
-    return pathname === t
-  })
-}
-
 export function SwipeablePageContainer({ children }: { children: ReactNode }) {
-  const pathname   = usePathname()
-  const router     = useRouter()
-  const wrapRef    = useRef<HTMLDivElement>(null)
+  const pathname = usePathname()
+  const router   = useRouter()
+  const wrapRef  = useRef<HTMLDivElement>(null)
 
   const touchStartX = useRef(0)
   const touchStartY = useRef(0)
@@ -60,28 +49,18 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   const isDragging  = useRef(false)
   const captured    = useRef(false)
 
-  const currentIdx = tabIdx(pathname)
-  const isMain  = currentIdx !== -1
-  const prevTab = currentIdx > 0                       ? TAB_ORDER[currentIdx - 1] : null
-  const nextTab = currentIdx < TAB_ORDER.length - 1   ? TAB_ORDER[currentIdx + 1] : null
+  const [offset,  setOffset]  = useState(0)
+  const [animate, setAnimate] = useState(false)
 
-  // Keep refs so callbacks always see fresh values without stale closures
-  const isMainRef   = useRef(isMain)
-  const prevTabRef  = useRef(prevTab)
-  const nextTabRef  = useRef(nextTab)
-  const idxRef      = useRef(currentIdx)
-  useEffect(() => {
-    isMainRef.current  = isMain
-    prevTabRef.current = prevTab
-    nextTabRef.current = nextTab
-    idxRef.current     = currentIdx
+  const currentIdx = TAB_ORDER.findIndex(t => {
+    if (t === '/profile/me') return pathname.startsWith('/profile/')
+    if (t === '/feed')       return pathname === '/feed' || pathname === '/'
+    return pathname === t
   })
 
-  const setWrap = useCallback((x: number, transition = 'none') => {
-    const el = wrapRef.current; if (!el) return
-    el.style.transition = transition
-    el.style.transform  = x === 0 ? 'none' : `translateX(${x}px)`
-  }, [])
+  const isMain  = currentIdx !== -1
+  const prevTab = currentIdx > 0                     ? TAB_ORDER[currentIdx - 1] : null
+  const nextTab = currentIdx < TAB_ORDER.length - 1 ? TAB_ORDER[currentIdx + 1] : null
 
   useEffect(() => {
     vw.current = window.innerWidth
@@ -90,18 +69,17 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('resize', fn)
   }, [])
 
-  // Reset on route change
   useEffect(() => {
     captured.current         = false
     isDragging.current       = false
     gestureState.swipeActive = false
-    setWrap(0)
-    swipeNavBridge.update(0, currentIdx, false)
-  }, [pathname]) // eslint-disable-line
+    setAnimate(false)
+    setOffset(0)
+  }, [pathname])
 
   const onTouchStart = useCallback((e: TouchEvent) => {
     captured.current = false
-    if (!isMainRef.current)    return
+    if (!isMain) return
     if (gestureState.pullActive)   return
     if (gestureState.drawerActive) return
 
@@ -117,10 +95,11 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     lastDeltaX.current  = 0
     isH.current         = null
     isDragging.current  = false
-  }, [])
+    setAnimate(false)
+  }, [isMain])
 
   const onTouchMove = useCallback((e: TouchEvent) => {
-    if (!captured.current || !isMainRef.current || gestureState.pullActive) return
+    if (!captured.current || !isMain || gestureState.pullActive) return
 
     const dx = e.touches[0].clientX - touchStartX.current
     const dy = e.touches[0].clientY - touchStartY.current
@@ -137,60 +116,51 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     gestureState.swipeActive = true
     lastDeltaX.current       = dx
 
-    const p = prevTabRef.current; const n = nextTabRef.current
-    let effectiveDx = dx
-    if (dx > 0 && !p) effectiveDx =  Math.pow(dx, 0.6) * 0.5
-    if (dx < 0 && !n) effectiveDx = -Math.pow(-dx, 0.6) * 0.5
-
-    setWrap(effectiveDx)
-    swipeNavBridge.update(effectiveDx, idxRef.current, false)
-  }, [setWrap])
+    if (dx > 0 && !prevTab) { setOffset(Math.pow(dx, 0.6) * 0.5); return }
+    if (dx < 0 && !nextTab) { setOffset(-Math.pow(-dx, 0.6) * 0.5); return }
+    setOffset(dx)
+  }, [isMain, prevTab, nextTab])
 
   const onTouchEnd = useCallback(() => {
     gestureState.swipeActive = false
 
-    if (!captured.current || !isMainRef.current || !isDragging.current) {
+    if (!captured.current || !isMain || !isDragging.current) {
       captured.current   = false
-      setWrap(0, `transform 0.28s ${EASE_SNAP}`)
-      swipeNavBridge.update(0, idxRef.current, true)
+      setAnimate(true); setOffset(0)
       isH.current        = null
       isDragging.current = false
       return
     }
 
     captured.current = false
-    isH.current      = null
-    isDragging.current = false
 
     const dx       = lastDeltaX.current
     const elapsed  = Math.max(performance.now() - touchStartT.current, 1)
     const velocity = Math.abs(dx) / elapsed
     const w        = vw.current || window.innerWidth
     const shouldNav = Math.abs(dx) > CONFIRM_THRESHOLD || velocity > VELOCITY_THRESHOLD
-    const p = prevTabRef.current; const n = nextTabRef.current; const idx = idxRef.current
 
-    if (shouldNav && dx > 0 && p) {
-      setWrap(w, `transform 0.28s ${EASE_SNAP}`)
-      swipeNavBridge.update(w, idx, true)
-      setTimeout(() => { router.push(p) }, 260)
-    } else if (shouldNav && dx < 0 && n) {
-      setWrap(-w, `transform 0.28s ${EASE_SNAP}`)
-      swipeNavBridge.update(-w, idx, true)
-      setTimeout(() => { router.push(n) }, 260)
+    if (shouldNav && dx > 0 && prevTab) {
+      setAnimate(true); setOffset(w)
+      setTimeout(() => { router.push(prevTab) }, 260)
+    } else if (shouldNav && dx < 0 && nextTab) {
+      setAnimate(true); setOffset(-w)
+      setTimeout(() => { router.push(nextTab) }, 260)
     } else {
-      setWrap(0, `transform 0.28s ${EASE_SNAP}`)
-      swipeNavBridge.update(0, idx, true)
+      setAnimate(true); setOffset(0)
     }
-  }, [setWrap, router])
+
+    isH.current        = null
+    isDragging.current = false
+  }, [isMain, prevTab, nextTab, router])
 
   const onTouchCancel = useCallback(() => {
     captured.current         = false
     gestureState.swipeActive = false
     isDragging.current       = false
     isH.current              = null
-    setWrap(0, `transform 0.28s ${EASE_SNAP}`)
-    swipeNavBridge.update(0, idxRef.current, true)
-  }, [setWrap])
+    setAnimate(true); setOffset(0)
+  }, [])
 
   useEffect(() => {
     const el = wrapRef.current; if (!el) return
@@ -206,8 +176,25 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     }
   }, [onTouchStart, onTouchMove, onTouchEnd, onTouchCancel])
 
+  const translateX = offset !== 0 ? `translateX(${offset}px)` : 'none'
+  const transition = animate
+    ? `transform 0.28s ${offset === 0 ? EASE_SNAP : EASE_OUT}`
+    : 'none'
+
   return (
-    <div ref={wrapRef} style={{ minHeight: '100%', willChange: 'transform' }}>
+    <div
+      ref={wrapRef}
+      style={{
+        transform:                translateX,
+        transition,
+        // willChange solo quando c'è un offset attivo — evita stacking context
+        // permanente che trasforma position:fixed dei children in position:absolute
+        willChange:               offset !== 0 ? 'transform' : 'auto',
+        backfaceVisibility:       'hidden',
+        WebkitBackfaceVisibility: 'hidden',
+        minHeight:                '100%',
+      }}
+    >
       {children}
     </div>
   )

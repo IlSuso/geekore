@@ -52,7 +52,7 @@ export function FeedLeftSidebar({ profile }: { profile: Profile | null }) {
         )}
 
         {/* Nav shortcuts */}
-        <nav className="flex-1 flex flex-col justify-around py-2">
+        <nav className="flex flex-col gap-1 py-2">
           {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
             const active = pathname === href
             return (

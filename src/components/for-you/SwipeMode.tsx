@@ -541,9 +541,8 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
     : 'fixed inset-0 bg-black flex flex-col'
   const containerStyle = standalone ? {} : { zIndex: 9999 }
 
-  // Su mobile standalone, dobbiamo stare sotto il MobileHeader (52px + safe-area-inset-top)
   const filterPaddingTop = standalone
-    ? { paddingTop: 'calc(52px + env(safe-area-inset-top, 0px) + 0.5rem)' }
+    ? undefined
     : { paddingTop: 'max(1rem, env(safe-area-inset-top))' }
 
   const hintPaddingBottom = standalone
@@ -570,7 +569,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
           </div>
         )}
 
-        <div className="relative z-10 flex-shrink-0 flex justify-center px-4" style={filterPaddingTop}>
+        <div className={`relative z-10 flex-shrink-0 flex justify-center px-4${standalone ? ' swipe-filter-padding' : ''}`} style={filterPaddingTop}>
           <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
             {CATEGORIES.map(cat => (
               <button key={cat.key} onClick={() => handleFilterChange(cat.key)}

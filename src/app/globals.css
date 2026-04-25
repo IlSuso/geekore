@@ -597,3 +597,28 @@ body[style*="overflow: hidden"] {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
   }
 }
+
+
+/* ── SwipeMode standalone top offset ─────────────────────────────────────── */
+/* Mobile: parte subito sotto il MobileHeader */
+.swipe-standalone-top {
+  top: calc(52px + env(safe-area-inset-top, 0px));
+}
+/* Desktop: parte subito sotto la Navbar (md:pt-16 = 64px) */
+@media (min-width: 768px) {
+  .swipe-standalone-top {
+    top: 4rem;
+  }
+}
+
+/* Filter strip inside SwipeMode (standalone mode only).
+   Mobile: the container has no top padding → filter needs full offset.
+   Desktop: container already has md:pt-16 (64px) → filter just needs spacing. */
+.swipe-filter-padding {
+  padding-top: calc(52px + env(safe-area-inset-top, 0px) + 0.5rem);
+}
+@media (min-width: 768px) {
+  .swipe-filter-padding {
+    padding-top: 0.75rem;
+  }
+}
