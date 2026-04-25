@@ -50,8 +50,11 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   const isDragging  = useRef(false)
   const captured    = useRef(false)
 
-  const [offset,  setOffset]  = useState(0)
-  const [animate, setAnimate] = useState(false)
+  const [offset,       setOffset]       = useState(0)
+  const [animate,      setAnimate]      = useState(false)
+  // True while the snap-back CSS transition is playing — keeps the GPU layer
+  // alive and the stacking context stable until the animation is fully done.
+  const [snapping,     setSnapping]     = useState(false)
 
   const currentIdx = TAB_ORDER.findIndex(t => {
     if (t === '/profile/me') return pathname.startsWith('/profile/')
@@ -76,7 +79,17 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     gestureState.swipeActive = false
     setAnimate(false)
     setOffset(0)
+    setSnapping(false)
   }, [pathname])
+
+  // Clear snapping flag as soon as the CSS snap-back transition ends.
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const onEnd = () => setSnapping(false)
+    el.addEventListener('transitionend', onEnd)
+    return () => el.removeEventListener('transitionend', onEnd)
+  }, [])
 
   const onTouchStart = useCallback((e: TouchEvent) => {
     captured.current = false
@@ -152,6 +165,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
       setAnimate(true); setOffset(-w)
       setTimeout(() => { router.push(nextTab) }, 260)
     } else {
+      setSnapping(true)
       setAnimate(true); setOffset(0)
       swipeNavBridge.notifyEnd()
     }
@@ -165,6 +179,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     gestureState.swipeActive = false
     isDragging.current       = false
     isH.current              = null
+    setSnapping(true)
     setAnimate(true); setOffset(0)
     swipeNavBridge.notifyEnd()
   }, [])
@@ -183,12 +198,12 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     }
   }, [onTouchStart, onTouchMove, onTouchEnd, onTouchCancel])
 
-  // Always use translateX(Npx) — never 'none'. This keeps the GPU compositing
-  // layer alive for the full duration of the snap animation, preventing the
-  // mid-transition layer de-promotion that caused the nav to flicker.
-  // Modals/drawers inside pages use createPortal(…, document.body) so they are
-  // unaffected by this containing block.
-  const translateX = `translateX(${offset}px)`
+  // Use translateX(Npx) while dragging OR while the snap-back transition is
+  // playing (snapping=true). Switch to 'none' only after transitionend fires.
+  // This keeps the GPU layer stable for the whole animation without permanently
+  // trapping position:fixed descendants (which would break SwipeMode's inset-0).
+  const isActive   = offset !== 0 || snapping
+  const translateX = isActive ? `translateX(${offset}px)` : 'none'
   const transition = animate
     ? `transform 0.28s ${offset === 0 ? EASE_SNAP : EASE_OUT}`
     : 'none'
@@ -199,7 +214,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
       style={{
         transform:                translateX,
         transition,
-        willChange:               'transform',
+        willChange:               isActive ? 'transform' : 'auto',
         backfaceVisibility:       'hidden',
         WebkitBackfaceVisibility: 'hidden',
         minHeight:                '100%',
