@@ -9,7 +9,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   Bell, Settings, Edit3, ChevronLeft,
-  Search, Sparkles, TrendingUp, Shuffle,
+  Search, Sparkles, TrendingUp, Shuffle, Users,
   Bookmark, BarChart2, Trophy, List,
 } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
@@ -111,6 +111,7 @@ export function MobileHeader() {
     '/lists':        { title: 'Liste',                icon: <List size={14} className="text-white" />,        iconBg: 'bg-gradient-to-br from-cyan-500 to-sky-600' },
     '/search':       { title: 'Cerca',                icon: <Search size={14} className="text-white" />,      iconBg: 'bg-gradient-to-br from-sky-500 to-blue-600' },
     '/explore':      { title: 'Esplora',              icon: <Search size={14} className="text-white" />,      iconBg: 'bg-gradient-to-br from-sky-500 to-blue-600' },
+    '/community':    { title: 'Community',            icon: <Users size={14} className="text-white" />,       iconBg: 'bg-gradient-to-br from-violet-500 to-fuchsia-500' },
   }
 
   const pageConfig = Object.entries(PAGE_CONFIG).find(
