@@ -2,7 +2,7 @@
 
 import { logActivity } from '@/lib/activity'
 import { Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, List, Grid3X3, ChevronRight, Download, X as XIcon, Gamepad2, Tv, BarChart2, Users, TrendingUp } from 'lucide-react'
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -134,11 +134,15 @@ function InlineChapterInput({ value, max, onSave }: {
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
+  const committed = useRef(false)
 
   const commit = () => {
+    if (committed.current) return
+    committed.current = true
     const n = parseInt(draft, 10)
     if (!isNaN(n) && n >= 0 && (!max || n <= max)) onSave(n)
     setEditing(false)
+    setTimeout(() => { committed.current = false }, 100)
   }
 
   if (editing) {
@@ -151,8 +155,12 @@ function InlineChapterInput({ value, max, onSave }: {
         max={max}
         onChange={e => setDraft(e.target.value)}
         onBlur={commit}
-        onKeyDown={e => { if (e.key === 'Enter') commit() }}
+        onKeyDown={e => {
+          if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commit() }
+          if (e.key === 'Escape') { e.stopPropagation(); setEditing(false) }
+        }}
         onPointerDown={e => e.stopPropagation()}
+        onTouchStart={e => e.stopPropagation()}
         className="bg-transparent outline-none w-10 text-emerald-400 text-[11px] font-semibold p-0 text-center border-b border-emerald-400/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
     )
@@ -162,6 +170,7 @@ function InlineChapterInput({ value, max, onSave }: {
     <span
       onClick={() => { setDraft(value.toString()); setEditing(true) }}
       onPointerDown={e => e.stopPropagation()}
+      onTouchStart={e => e.stopPropagation()}
       className="text-emerald-400 font-semibold cursor-text hover:underline decoration-dotted underline-offset-2 select-none"
     >
       {value}
@@ -336,28 +345,30 @@ function MediaCard({
           />
         </div>
 
-        {/* Status row — select solo per tv/anime, badge statico per gli altri */}
+        {/* Status row — select/badge solo per tv/anime, niente per game/movie/boardgame */}
         <div className="flex items-center gap-1.5">
-          {(media.type === 'tv' || media.type === 'anime') && isOwner ? (
-            <select
-              value={media.status || 'watching'}
-              onChange={e => onStatusChange?.(media.id, e.target.value)}
-              onClick={e => e.stopPropagation()}
-              onPointerDown={e => e.stopPropagation()}
-              className="flex-1 min-w-0 text-[10px] font-semibold px-2 py-1 rounded-full border bg-zinc-900 border-zinc-800 text-zinc-400 focus:outline-none focus:border-violet-500 transition cursor-pointer appearance-none"
-            >
-              <option value="watching">In corso</option>
-              <option value="completed">Completato</option>
-              <option value="paused">In pausa</option>
-              <option value="dropped">Abbandonato</option>
-            </select>
-          ) : (
-            (() => {
-              const badge = statusBadge[media.status || 'watching']
-              return badge ? (
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit ${badge.cls}`}>{badge.label}</span>
-              ) : null
-            })()
+          {(media.type === 'tv' || media.type === 'anime') && (
+            isOwner ? (
+              <select
+                value={media.status || 'watching'}
+                onChange={e => onStatusChange?.(media.id, e.target.value)}
+                onClick={e => e.stopPropagation()}
+                onPointerDown={e => e.stopPropagation()}
+                className="flex-1 min-w-0 text-[10px] font-semibold px-2 py-1 rounded-full border bg-zinc-900 border-zinc-800 text-zinc-400 focus:outline-none focus:border-violet-500 transition cursor-pointer appearance-none"
+              >
+                <option value="watching">In corso</option>
+                <option value="completed">Completato</option>
+                <option value="paused">In pausa</option>
+                <option value="dropped">Abbandonato</option>
+              </select>
+            ) : (
+              (() => {
+                const badge = statusBadge[media.status || 'watching']
+                return badge ? (
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit ${badge.cls}`}>{badge.label}</span>
+                ) : null
+              })()
+            )
           )}
           {isOwner && (
             <button
@@ -404,24 +415,11 @@ function MediaCard({
               </div>
             )
           })() : media.type === 'manga' ? (() => {
-            const hasCh = !!(media.episodes && media.episodes > 1)
-            if (!hasCh) {
-              return isOwner ? (
-                <button
-                  onClick={() => onEnrichEpisodes?.(media.id)}
-                  onPointerDown={e => e.stopPropagation()}
-                  disabled={enriching}
-                  className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-violet-400 transition-colors disabled:opacity-50"
-                >
-                  {enriching ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
-                  {enriching ? 'Recupero…' : 'Recupera capitoli'}
-                </button>
-              ) : null
-            }
-            const maxCh = media.episodes!
-            const isChCompleted = (media.current_episode || 0) >= maxCh
+            const maxCh = media.episodes && media.episodes > 1 ? media.episodes : undefined
+            const current = media.current_episode || 0
+            const isChCompleted = !!maxCh && current >= maxCh
             return (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5" onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
                 {isChCompleted ? (
                   isOwner ? (
                     <div className="flex items-center justify-between">
@@ -441,26 +439,43 @@ function MediaCard({
                   )
                 ) : (
                   <>
-                    <div className="flex items-center gap-1 text-[11px]">
-                      <span className="text-zinc-500 flex-shrink-0">Cap.</span>
-                      {isOwner ? (
-                        <>
-                          <InlineChapterInput
-                            value={media.current_episode || 0}
-                            max={maxCh}
-                            onSave={n => onSaveProgress?.(media.id, n)}
-                          />
-                          <span className="text-zinc-600">/{maxCh}</span>
-                        </>
-                      ) : (
-                        <span className="text-emerald-400 font-semibold">
-                          {media.current_episode || 0}<span className="text-zinc-600">/{maxCh}</span>
-                        </span>
+                    <div className="flex items-center justify-between gap-1">
+                      {isOwner && (
+                        <button onClick={() => onSaveProgress?.(media.id, Math.max(0, current - 1))} onPointerDown={e => e.stopPropagation()} disabled={current <= 0} className="w-6 h-6 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 text-sm font-bold disabled:opacity-30">−</button>
+                      )}
+                      <div className="flex-1 text-[11px] font-semibold flex items-center justify-center gap-0.5">
+                        <span className="text-zinc-500 text-[10px] mr-0.5">Cap.</span>
+                        {isOwner ? (
+                          <>
+                            <InlineChapterInput value={current} max={maxCh} onSave={n => onSaveProgress?.(media.id, n)} />
+                            {maxCh && <span className="text-zinc-600">/{maxCh}</span>}
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-emerald-400">{current}</span>
+                            {maxCh && <span className="text-zinc-600">/{maxCh}</span>}
+                          </>
+                        )}
+                      </div>
+                      {isOwner && (
+                        <button
+                          onClick={() => { const next = current + 1; (maxCh && next > maxCh) ? onMarkComplete?.(media.id, media) : onSaveProgress?.(media.id, next) }}
+                          onPointerDown={e => e.stopPropagation()}
+                          className="w-6 h-6 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 text-sm font-bold"
+                        >+</button>
                       )}
                     </div>
-                    <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 transition-all duration-300 rounded-full" style={{ width: `${Math.min(100, Math.round(((media.current_episode || 0) / maxCh) * 100))}%` }} />
-                    </div>
+                    {maxCh && (
+                      <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 transition-all duration-300 rounded-full" style={{ width: `${Math.min(100, Math.round((current / maxCh) * 100))}%` }} />
+                      </div>
+                    )}
+                    {isOwner && !maxCh && (
+                      <button onClick={() => onEnrichEpisodes?.(media.id)} onPointerDown={e => e.stopPropagation()} disabled={enriching} className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-violet-400 transition-colors disabled:opacity-50">
+                        {enriching ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
+                        {enriching ? 'Recupero…' : 'Recupera totale'}
+                      </button>
+                    )}
                   </>
                 )}
               </div>
