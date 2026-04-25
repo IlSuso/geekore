@@ -1721,14 +1721,17 @@ export default function FeedPage() {
         </div>
       )}
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
+
+      {/* ── Sidebar sinistra — fixed al viewport, mai scorrevole.
+           Vive FUORI da PullWrapper per evitare che il suo transform
+           inline (translateY) rompa position:fixed. ── */}
+      <div className="hidden lg:block fixed top-16 left-0 w-[280px] h-[calc(100vh-4rem)] z-20 bg-[var(--bg-primary)] overflow-y-auto">
+        <FeedLeftSidebar profile={currentProfile} />
+      </div>
+
       <PullWrapper distance={pullDistance} refreshing={isPullRefreshing}>
       {/* Layout: full-bleed su mobile, tre colonne su desktop — stile Facebook */}
       <div className="pt-0 pb-24 relative min-h-screen">
-
-        {/* ── Sidebar sinistra — fixed al viewport, mai scorrevole ── */}
-        <div className="hidden lg:block fixed top-16 left-0 w-[280px] h-[calc(100vh-4rem)] z-20 bg-[var(--bg-primary)] overflow-y-auto">
-          <FeedLeftSidebar profile={currentProfile} />
-        </div>
 
         <div className="lg:pl-[280px] flex items-start gap-0 min-h-screen">
 
