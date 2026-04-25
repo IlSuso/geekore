@@ -51,11 +51,11 @@ export default function LoginPage() {
     })
 
     if (profile?.onboarding_done === true) {
-      console.log('[LOGIN DEBUG] → onboarding_done TRUE, vado a /feed')
+      console.log('[LOGIN DEBUG] → onboarding_done TRUE, vado a /home')
       const maxAge = 60 * 60 * 24 * 365
       const secure = location.protocol === 'https:' ? '; Secure' : ''
       document.cookie = `geekore_onboarding_done=1; path=/; max-age=${maxAge}; SameSite=Lax${secure}`
-      router.push('/feed')
+      router.push('/home')
     } else {
       console.log('[LOGIN DEBUG] → onboarding_done NON TRUE, vado a /onboarding. Valore:', profile?.onboarding_done, 'Error:', error)
       router.push('/onboarding')

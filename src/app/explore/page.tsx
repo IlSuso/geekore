@@ -204,7 +204,7 @@ function PopularPostCard({ post }: { post: { id: string; content: string; image_
     return `${Math.floor(h / 24)}g fa`
   })()
   return (
-    <Link href="/feed" className="flex gap-3 p-3 bg-zinc-900 border border-zinc-800 rounded-2xl hover:border-zinc-700 transition-colors group">
+    <Link href="/home" className="flex gap-3 p-3 bg-zinc-900 border border-zinc-800 rounded-2xl hover:border-zinc-700 transition-colors group">
       <Avatar
         src={post.author.avatar_url}
         username={post.author.username}
@@ -332,7 +332,7 @@ export default async function ExplorePage() {
                 <ThumbsUp size={14} className="text-pink-400" />
                 <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Post più apprezzati</h2>
               </div>
-              <Link href="/feed" className="text-xs text-violet-400 hover:text-violet-300 transition-colors">
+              <Link href="/home" className="text-xs text-violet-400 hover:text-violet-300 transition-colors">
                 Vai al feed →
               </Link>
             </div>

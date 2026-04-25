@@ -157,7 +157,7 @@ export function likePayload(senderUsername: string, postId: string): PushPayload
   return {
     title: 'Geekore',
     body: `@${senderUsername} ha messo like al tuo post`,
-    url: `/feed`,
+    url: `/home`,
     tag: `like-${postId}`,
   }
 }

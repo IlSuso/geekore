@@ -184,7 +184,7 @@ function CommunityLiveSkeleton() {
 export default async function HomePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (user) redirect('/feed')
+  if (user) redirect('/home')
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col -mt-16">

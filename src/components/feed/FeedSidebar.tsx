@@ -158,7 +158,7 @@ function SuggestedUsersCompact({ currentUserId }: { currentUserId: string }) {
     <div className="mt-6 px-1">
       <div className="flex items-center justify-between mb-3">
         <p className="text-[12px] font-semibold text-[var(--text-secondary)]">Suggeriti per te</p>
-        <Link href="/explore" className="text-[11px] font-semibold text-[var(--text-primary)] hover:opacity-70 transition-opacity">
+        <Link href="/community" className="text-[11px] font-semibold text-[var(--text-primary)] hover:opacity-70 transition-opacity">
           Vedi tutti
         </Link>
       </div>

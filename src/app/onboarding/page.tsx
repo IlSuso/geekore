@@ -388,7 +388,7 @@ export default function OnboardingPage() {
 
     setOnboardingCookie()
     fetch('/api/recommendations?refresh=1&onboarding=1').catch(() => {})
-    router.push('/feed')
+    router.push('/home')
   }, [userId, selectedTypes, supabase, router, clearOnboardingQueues])
 
   const goToSwipe = useCallback(() => {

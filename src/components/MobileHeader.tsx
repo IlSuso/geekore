@@ -32,7 +32,7 @@ function BackButton() {
 // Wordmark con dot gradient — identità visiva Geekore
 function GeekoreWordmark() {
   return (
-    <Link href="/feed" className="flex items-center gap-1 py-1">
+    <Link href="/home" className="flex items-center gap-1 py-1">
       <span
         className="text-[24px] font-bold text-white tracking-tight"
         style={{ letterSpacing: '-0.5px' }}
@@ -87,7 +87,7 @@ export function MobileHeader() {
   // Su /swipe la barra categorie dello SwipeMode prende il posto dell'header
   if (pathname === '/swipe') return null
 
-  const isFeed      = pathname === '/feed' || pathname === '/'
+  const isFeed      = pathname === '/home' || pathname === '/'
   const isOwnProfile  = pathname === '/profile/me' || (username && pathname === `/profile/${username}`)
   const isOtherProfile = isProfilePage && !isOwnProfile && pathname.split('/').length === 3
   const isSubPage   = (pathname.split('/').length > 3 && !isOtherProfile) ||

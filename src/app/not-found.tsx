@@ -72,10 +72,10 @@ export default function NotFound() {
       {/* 3 CTA rapidi */}
       <div className="flex flex-wrap gap-3 justify-center">
         <Link
-          href="/feed"
+          href="/home"
           className="flex items-center gap-2 px-6 py-3 bg-violet-600 hover:bg-violet-500 rounded-full font-semibold transition-all hover:scale-105 text-sm"
         >
-          <Home size={16} /> Feed
+          <Home size={16} /> Home
         </Link>
         <Link
           href="/discover"

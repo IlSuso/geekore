@@ -4,9 +4,9 @@ import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 
 const PROTECTED_PATHS = [
-  '/feed', '/discover', '/for-you', '/news', '/notifications',
+  '/home', '/feed', '/discover', '/for-you', '/news', '/notifications',
   '/profile/edit', '/profile/me', '/settings', '/wishlist',
-  '/lists', '/stats', '/trending', '/leaderboard', '/explore',
+  '/lists', '/stats', '/trending', '/leaderboard', '/explore', '/community',
   '/search', '/profile',
 ]
 
@@ -74,12 +74,12 @@ export async function middleware(request: NextRequest) {
 
   // 3. Autenticato su route auth-only → /feed
   if (isLoggedIn && isAuthOnly(pathname)) {
-    return NextResponse.redirect(new URL('/feed', request.url))
+    return NextResponse.redirect(new URL('/home', request.url))
   }
 
   // 4. Autenticato su / → /feed
   if (isLoggedIn && pathname === '/') {
-    return NextResponse.redirect(new URL('/feed', request.url))
+    return NextResponse.redirect(new URL('/home', request.url))
   }
 
   // 5. Controllo onboarding
@@ -89,7 +89,7 @@ export async function middleware(request: NextRequest) {
     if (cookieDone) {
       // Blocca accesso a /onboarding
       if (pathname === '/onboarding') {
-        return NextResponse.redirect(new URL('/feed', request.url))
+        return NextResponse.redirect(new URL('/home', request.url))
       }
       // Lascia passare tutto il resto
       return NextResponse.next()
@@ -108,7 +108,7 @@ export async function middleware(request: NextRequest) {
       if (onboardingDone) {
         // Onboarding completato — imposta cookie e gestisci routing
         if (pathname === '/onboarding') {
-          const res = NextResponse.redirect(new URL('/feed', request.url))
+          const res = NextResponse.redirect(new URL('/home', request.url))
           res.cookies.set('geekore_onboarding_done', '1', {
             path: '/', maxAge: 60 * 60 * 24 * 365,
             sameSite: 'lax', secure: process.env.NODE_ENV === 'production', httpOnly: false,

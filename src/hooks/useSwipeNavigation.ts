@@ -6,7 +6,7 @@
 import { useEffect, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 
-const TAB_ORDER = ['/feed', '/discover', '/for-you', '/trending', '/profile/me']
+const TAB_ORDER = ['/home', '/discover', '/for-you', '/trending', '/profile/me']
 
 // Larghezza safe zone laterale in px — Android usa ~20-24px per le gesture di sistema
 const EDGE_SAFE_ZONE = 24

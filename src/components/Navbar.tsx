@@ -45,14 +45,14 @@ export default function Navbar() {
   const isPublicLanding = pathname === '/'
 
   const NAV_ITEMS = [
-    { href: '/feed',     label: t.nav.home,    icon: Home     },
+    { href: '/home',     label: t.nav.home,    icon: Home     },
     { href: '/discover', label: t.nav.discover, icon: Search  },
     { href: '/for-you',  label: t.nav.forYou,  icon: Sparkles },
     { href: '/swipe',    label: 'Swipe',        icon: Shuffle  },
   ]
 
   const MOBILE_NAV_ITEMS = [
-    { href: '/feed',     label: t.nav.home,    icon: Home,     hasDot: false },
+    { href: '/home',     label: t.nav.home,    icon: Home,     hasDot: false },
     { href: '/discover', label: t.nav.discover, icon: Search,  hasDot: false },
     { href: '/for-you',  label: t.nav.forYou,  icon: Sparkles, hasDot: false },
     { href: '/swipe',    label: 'Swipe',        icon: Shuffle,  hasDot: false },
@@ -221,8 +221,8 @@ export default function Navbar() {
           {/* CENTER: Nav icon tabs ───────────────────────────────────────── */}
           <div className="flex items-end h-full flex-shrink-0">
             {NAV_ITEMS.map((item) => {
-              const isActive = item.href === '/feed'
-                ? pathname === '/feed' || pathname === '/'
+              const isActive = item.href === '/home'
+                ? pathname === '/home' || pathname === '/'
                 : pathname === item.href
               return (
                 <Link key={item.href} href={item.href} prefetch={true}
@@ -332,8 +332,8 @@ export default function Navbar() {
           {MOBILE_NAV_ITEMS.map((item) => {
             const isActive = item.href.startsWith('/profile/')
               ? isProfileActive
-              : item.href === '/feed'
-              ? pathname === '/feed' || pathname === '/'
+              : item.href === '/home'
+              ? pathname === '/home' || pathname === '/'
               : pathname === item.href
 
             return (
@@ -361,7 +361,7 @@ export default function Navbar() {
                 ) : (
                   <item.icon size={22} strokeWidth={isActive ? 2.1 : 1.6}
                     className={isActive ? 'text-white' : 'text-zinc-500'}
-                    fill={isActive && item.href === '/feed' ? 'white' : 'none'}
+                    fill={isActive && item.href === '/home' ? 'white' : 'none'}
                   />
                 )}
                 <span className={`text-[10px] leading-none font-medium tracking-tight ${isActive ? 'text-white' : 'text-zinc-600'}`}>

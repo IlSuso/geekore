@@ -15,7 +15,7 @@
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode, CSSProperties } from 'react'
-import FeedPage from '@/app/feed/page'
+import FeedPage from '@/app/home/page'
 import ForYouPage from '@/app/for-you/page'
 import SwipePage from '@/app/swipe/page'
 import ProfilePage from '@/app/profile/[username]/page'
@@ -36,7 +36,7 @@ const ADJ_RIGHT: CSSProperties = {
 }
 
 function getKATab(pathname: string): KATab | null {
-  if (pathname === '/feed' || pathname === '/') return 'feed'
+  if (pathname === '/home' || pathname === '/') return 'feed'
   if (pathname === '/for-you') return 'for-you'
   if (pathname === '/swipe') return 'swipe'
   if (pathname.startsWith('/profile/') && pathname.split('/').length === 3) return 'profile'

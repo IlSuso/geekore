@@ -16,7 +16,7 @@ import { useRef, useState, useCallback, useEffect, type ReactNode } from 'react'
 import { gestureState } from '@/hooks/gestureState'
 import { swipeNavBridge } from '@/hooks/swipeNavBridge'
 
-export const TAB_ORDER = ['/feed', '/discover', '/for-you', '/swipe', '/profile/me']
+export const TAB_ORDER = ['/home', '/discover', '/for-you', '/swipe', '/profile/me']
 
 const CONFIRM_THRESHOLD  = 120   // px
 const VELOCITY_THRESHOLD = 0.35  // px/ms
@@ -55,7 +55,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
 
   const currentIdx = TAB_ORDER.findIndex(t => {
     if (t === '/profile/me') return pathname.startsWith('/profile/')
-    if (t === '/feed')       return pathname === '/feed' || pathname === '/'
+    if (t === '/home')       return pathname === '/home' || pathname === '/'
     return pathname === t
   })
 

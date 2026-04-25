@@ -33,7 +33,7 @@ function OnboardingGuard() {
 
       if (cookieDone) {
         // Onboarding già fatto — blocca accesso a /onboarding
-        if (pathname === '/onboarding') router.replace('/feed')
+        if (pathname === '/onboarding') router.replace('/home')
         return
       }
 
@@ -44,7 +44,7 @@ function OnboardingGuard() {
       if (profile.onboarding_done === true) {
         // Fatto ma cookie perso → ripristina cookie e blocca /onboarding
         document.cookie = 'geekore_onboarding_done=1; path=/; max-age=31536000; SameSite=Lax'
-        if (pathname === '/onboarding') router.replace('/feed')
+        if (pathname === '/onboarding') router.replace('/home')
       } else {
         // Non fatto → blocca tutto tranne le path esenti
         if (!isExempt) router.replace('/onboarding')
