@@ -10,7 +10,7 @@
 //              che handleSwipe ha già letto il valore dal ref.
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { X, Check, ChevronRight, Star, Gamepad2, Tv, Film, Layers, Swords, RotateCcw, Dices } from 'lucide-react'
+import { X, Check, ChevronRight, Star, Gamepad2, Tv, Film, Layers, Swords, RotateCcw, Dices, Bookmark } from 'lucide-react'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { createClient } from '@/lib/supabase/client'
@@ -188,10 +188,11 @@ interface SwipeCardProps {
   rating: number|null; onRatingChange: (r: number|null) => void
   onDetailOpen: (item: SwipeItem) => void
   onUndo: () => void; canUndo: boolean; onClose: () => void
+  onWishlist: () => void; wishlistFlash: boolean
   hideClose?: boolean
 }
 
-function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, onDetailOpen, onUndo, canUndo, onClose, hideClose }: SwipeCardProps) {
+function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, onDetailOpen, onUndo, canUndo, onClose, onWishlist, wishlistFlash, hideClose }: SwipeCardProps) {
   const cardRef = useRef<HTMLDivElement>(null)
   const startX = useRef(0); const currentX = useRef(0); const isDragging = useRef(false)
   const [dragX, setDragX] = useState(0)
@@ -317,7 +318,14 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
                 <Check size={24} strokeWidth={3} />
               </button>
             </div>
-            <div className="w-[72px]" />
+            <button onClick={e => { e.stopPropagation(); if (isTop) onWishlist() }} disabled={!isTop}
+              className={`w-11 h-11 flex items-center justify-center rounded-full backdrop-blur-md border transition-all shadow-md disabled:opacity-35 disabled:pointer-events-none ${
+                wishlistFlash
+                  ? 'bg-violet-600/80 border-violet-400/80 text-violet-200'
+                  : 'bg-black/55 border-white/25 text-white/85 hover:bg-black/70 hover:border-white/45 hover:text-white'
+              }`}>
+              <Bookmark size={17} fill={wishlistFlash ? 'currentColor' : 'none'} style={ICON_DROP} />
+            </button>
           </div>
         </div>
       </div>
@@ -552,6 +560,27 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
     removeSkip(last)
   }, [history, removeSkip])
 
+  const [wishlistFlash, setWishlistFlash] = useState(false)
+
+  const handleWishlist = useCallback(async () => {
+    const topItem = filteredQueue[0]
+    if (!topItem) return
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from('user_media_entries').upsert({
+      user_id: user.id,
+      external_id: topItem.id,
+      title: topItem.title,
+      type: topItem.type,
+      status: 'wishlist',
+      cover_image: topItem.coverImage,
+      year: topItem.year,
+      genres: topItem.genres,
+    }, { onConflict: 'user_id,external_id' })
+    setWishlistFlash(true)
+    setTimeout(() => setWishlistFlash(false), 1200)
+  }, [supabase, filteredQueue])
+
   const handleDetailOpen = useCallback((item: SwipeItem) => {
     setDetailItem({
       id: item.id, title: item.title, type: item.type, coverImage: item.coverImage,
@@ -629,6 +658,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
                   onRatingChange={setRating}
                   onDetailOpen={handleDetailOpen}
                   onUndo={handleUndo} canUndo={history.length > 0}
+                  onWishlist={handleWishlist} wishlistFlash={idx === 0 && wishlistFlash}
                   onClose={isOnboarding && onOnboardingComplete ? onOnboardingComplete : onClose}
                   hideClose={standalone}
                 />
