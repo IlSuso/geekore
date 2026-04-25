@@ -188,22 +188,27 @@ interface SwipeCardProps {
   rating: number|null; onRatingChange: (r: number|null) => void
   onDetailOpen: (item: SwipeItem) => void
   onUndo: () => void; canUndo: boolean; onClose: () => void
-  onWishlist: () => void; wishlistFlash: boolean
+  onWishlist: (item: SwipeItem) => void
   hideClose?: boolean
 }
 
-function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, onDetailOpen, onUndo, canUndo, onClose, onWishlist, wishlistFlash, hideClose }: SwipeCardProps) {
+function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, onDetailOpen, onUndo, canUndo, onClose, onWishlist, hideClose }: SwipeCardProps) {
   const cardRef = useRef<HTMLDivElement>(null)
   const startX = useRef(0); const currentX = useRef(0); const isDragging = useRef(false)
   const [dragX, setDragX] = useState(0)
   const [isFlying, setIsFlying] = useState(false)
-  const [flyDir, setFlyDir] = useState<'left'|'right'|null>(null)
+  const [flyDir, setFlyDir] = useState<'left'|'right'|'down'|null>(null)
   const Icon = TYPE_ICONS[item.type]
 
   const triggerSwipe = useCallback((dir: 'left'|'right') => {
     setFlyDir(dir); setIsFlying(true)
     setTimeout(() => onSwipe(dir, item), 340)
   }, [item, onSwipe])
+
+  const triggerWishlist = useCallback(() => {
+    setFlyDir('down'); setIsFlying(true)
+    setTimeout(() => onWishlist(item), 340)
+  }, [item, onWishlist])
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (!isTop || (e.target as HTMLElement).closest('button,[data-stars]')) return
@@ -227,15 +232,22 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
 
   const stackScale = 1 - stackIndex * 0.04
   const stackY = stackIndex * 10
-  const rotation = isFlying ? (flyDir === 'right' ? 22 : -22) : dragX * ROTATION_FACTOR
-  const translateX = isFlying ? (flyDir === 'right' ? '160%' : '-160%') : `${dragX}px`
+  const rotation = isFlying
+    ? (flyDir === 'down' ? 0 : flyDir === 'right' ? 22 : -22)
+    : dragX * ROTATION_FACTOR
+  const translateX = isFlying
+    ? (flyDir === 'right' ? '160%' : flyDir === 'left' ? '-160%' : '0')
+    : `${dragX}px`
+  const translateY = isFlying && flyDir === 'down' ? '160%' : '0'
   const swipeProgress = Math.min(Math.abs(dragX) / SWIPE_THRESHOLD, 1)
 
   return (
     <div ref={cardRef}
       className={`absolute inset-0 select-none ${isTop ? 'cursor-grab active:cursor-grabbing' : 'pointer-events-none'}`}
       style={{ touchAction: isTop ? 'none' : 'auto',
-        transform: isTop ? `translateX(${translateX}) rotate(${rotation}deg)` : `scale(${stackScale}) translateY(${stackY}px)`,
+        transform: isTop
+          ? `translateX(${translateX}) translateY(${translateY}) rotate(${rotation}deg)`
+          : `scale(${stackScale}) translateY(${stackY}px)`,
         transition: isDragging.current ? 'none' : 'transform .34s cubic-bezier(.25,.46,.45,.94), opacity .34s ease',
         opacity: isFlying ? 0 : 1 - stackIndex * 0.12,
         zIndex: 10 - stackIndex, willChange: 'transform',
@@ -318,13 +330,9 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
                 <Check size={24} strokeWidth={3} />
               </button>
             </div>
-            <button onClick={e => { e.stopPropagation(); if (isTop) onWishlist() }} disabled={!isTop}
-              className={`w-11 h-11 flex items-center justify-center rounded-full backdrop-blur-md border transition-all shadow-md disabled:opacity-35 disabled:pointer-events-none ${
-                wishlistFlash
-                  ? 'bg-violet-600/80 border-violet-400/80 text-violet-200'
-                  : 'bg-black/55 border-white/25 text-white/85 hover:bg-black/70 hover:border-white/45 hover:text-white'
-              }`}>
-              <Bookmark size={17} fill={wishlistFlash ? 'currentColor' : 'none'} style={ICON_DROP} />
+            <button onClick={e => { e.stopPropagation(); if (isTop && !isFlying) triggerWishlist() }} disabled={!isTop || isFlying}
+              className="w-11 h-11 flex items-center justify-center rounded-full bg-black/55 backdrop-blur-md border border-white/25 text-white/85 hover:bg-black/70 hover:border-white/45 hover:text-white disabled:opacity-35 disabled:pointer-events-none active:scale-90 transition-all shadow-md">
+              <Bookmark size={17} fill="none" style={ICON_DROP} />
             </button>
           </div>
         </div>
@@ -560,26 +568,24 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
     removeSkip(last)
   }, [history, removeSkip])
 
-  const [wishlistFlash, setWishlistFlash] = useState(false)
-
-  const handleWishlist = useCallback(async () => {
-    const topItem = filteredQueue[0]
-    if (!topItem) return
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    await supabase.from('user_media_entries').upsert({
-      user_id: user.id,
-      external_id: topItem.id,
-      title: topItem.title,
-      type: topItem.type,
-      status: 'wishlist',
-      cover_image: topItem.coverImage,
-      year: topItem.year,
-      genres: topItem.genres,
-    }, { onConflict: 'user_id,external_id' })
-    setWishlistFlash(true)
-    setTimeout(() => setWishlistFlash(false), 1200)
-  }, [supabase, filteredQueue])
+  const handleWishlist = useCallback((item: SwipeItem) => {
+    // Behaves like a skip: removes from queue, adds to history, persists skip
+    handleSwipe('left', item)
+    // Also upsert to wishlist
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      supabase.from('user_media_entries').upsert({
+        user_id: user.id,
+        external_id: item.id,
+        title: item.title,
+        type: item.type,
+        status: 'wishlist',
+        cover_image: item.coverImage,
+        year: item.year,
+        genres: item.genres,
+      }, { onConflict: 'user_id,external_id' }).then(() => {})
+    })
+  }, [handleSwipe, supabase])
 
   const handleDetailOpen = useCallback((item: SwipeItem) => {
     setDetailItem({
@@ -658,7 +664,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
                   onRatingChange={setRating}
                   onDetailOpen={handleDetailOpen}
                   onUndo={handleUndo} canUndo={history.length > 0}
-                  onWishlist={handleWishlist} wishlistFlash={idx === 0 && wishlistFlash}
+                  onWishlist={handleWishlist}
                   onClose={isOnboarding && onOnboardingComplete ? onOnboardingComplete : onClose}
                   hideClose={standalone}
                 />

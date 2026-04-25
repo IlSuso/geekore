@@ -6,9 +6,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
 import {
   Search, Plus, X, Film, Tv, Gamepad2, Bookmark, BookmarkCheck,
-  Mic, MicOff, Loader2, Swords, Check, Layers, Dices, TrendingUp, Users,
+  Mic, MicOff, Loader2, Swords, Check, Layers, Dices,
 } from 'lucide-react';
-import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useLocale } from '@/lib/locale';
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer';
@@ -476,40 +475,16 @@ export default function DiscoverPage() {
           <p className="text-center py-12 text-[var(--text-muted)] text-[14px]">{searchError}</p>
         )}
 
-        {/* Empty state with nav shortcuts */}
+        {/* Empty state */}
         {!loading && !searchTerm.trim() && (
-          <div>
-            <div className="grid grid-cols-2 gap-3 mb-8">
-              <Link href="/trending"
-                className="flex items-center gap-3 p-4 bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] hover:border-orange-500/40 active:scale-[0.98] transition-all">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center flex-shrink-0">
-                  <TrendingUp size={18} className="text-white" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[14px] font-semibold text-[var(--text-primary)]">Trending</p>
-                  <p className="text-[12px] text-[var(--text-muted)]">I più popolari</p>
-                </div>
-              </Link>
-              <Link href="/community"
-                className="flex items-center gap-3 p-4 bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] hover:border-violet-500/40 active:scale-[0.98] transition-all">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center flex-shrink-0">
-                  <Users size={18} className="text-white" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[14px] font-semibold text-[var(--text-primary)]">Community</p>
-                  <p className="text-[12px] text-[var(--text-muted)]">Persone e liste</p>
-                </div>
-              </Link>
+          <div className="flex flex-col items-center justify-center py-20 text-center px-8">
+            <div className="w-16 h-16 rounded-full bg-[var(--bg-card)] border border-[var(--border)] flex items-center justify-center mb-4">
+              <Search size={26} className="text-[var(--text-muted)]" />
             </div>
-            <div className="flex flex-col items-center justify-center py-12 text-center px-8">
-              <div className="w-14 h-14 rounded-full bg-[var(--bg-card)] border border-[var(--border)] flex items-center justify-center mb-3">
-                <Search size={22} className="text-[var(--text-muted)]" />
-              </div>
-              <p className="text-[15px] font-semibold text-[var(--text-primary)] mb-1">Cerca qualcosa</p>
-              <p className="text-[13px] text-[var(--text-secondary)]">
-                Anime, manga, film, serie TV, videogiochi, giochi da tavolo e libri.
-              </p>
-            </div>
+            <p className="text-[16px] font-semibold text-[var(--text-primary)] mb-1">Cerca qualcosa</p>
+            <p className="text-[14px] text-[var(--text-secondary)]">
+              Anime, manga, film, serie TV, videogiochi, giochi da tavolo e libri.
+            </p>
           </div>
         )}
 
