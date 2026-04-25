@@ -85,6 +85,7 @@ type Profile = {
   display_name?: string
   avatar_url?: string
   bio?: string
+  badge?: string | null
 }
 
 type SortMode = 'default' | 'rating_desc' | 'title_asc' | 'title_desc' | 'progress_desc' | 'date_desc'
