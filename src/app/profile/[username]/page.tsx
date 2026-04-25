@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
-  CheckCircle, Clock, X, RotateCw, RotateCcw, Edit3, RefreshCw, Settings, Bookmark,
+  CheckCircle, Clock, X, RotateCw, RotateCcw, Edit3, RefreshCw, Settings, Bookmark, Loader2,
 } from 'lucide-react'
 import { SteamIcon } from '@/components/icons/SteamIcon'
 import { StarRating } from '@/components/ui/StarRating'
@@ -73,6 +73,7 @@ type UserMedia = {
   rating?: number
   status?: string
   genres?: string[]
+  external_id?: string
   achievement_data?: { curr: number; tot: number; gs_curr: number; gs_tot: number } | null
 }
 
@@ -124,6 +125,50 @@ function SteamCoverImg({ appid, title, className }: { appid?: string; title: str
 }
 
 
+// ─── InlineChapterInput ───────────────────────────────────────────────────────
+
+function InlineChapterInput({ value, max, onSave }: {
+  value: number
+  max?: number
+  onSave: (n: number) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+
+  const commit = () => {
+    const n = parseInt(draft, 10)
+    if (!isNaN(n) && n >= 0 && (!max || n <= max)) onSave(n)
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <input
+        type="number"
+        autoFocus
+        value={draft}
+        min={0}
+        max={max}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') commit() }}
+        onPointerDown={e => e.stopPropagation()}
+        className="bg-transparent outline-none w-10 text-emerald-400 text-[11px] font-semibold p-0 text-center border-b border-emerald-400/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+      />
+    )
+  }
+
+  return (
+    <span
+      onClick={() => { setDraft(value.toString()); setEditing(true) }}
+      onPointerDown={e => e.stopPropagation()}
+      className="text-emerald-400 font-semibold cursor-text hover:underline decoration-dotted underline-offset-2 select-none"
+    >
+      {value}
+    </span>
+  )
+}
+
 // ─── SortableBox ─────────────────────────────────────────────────────────────
 
 function SortableBox({ media, children }: { media: UserMedia; children: React.ReactNode }) {
@@ -134,7 +179,7 @@ function SortableBox({ media, children }: { media: UserMedia; children: React.Re
       style={{ transform: CSS.Transform.toString(transform), transition: transition || 'transform 50ms ease' }}
       {...attributes}
       {...listeners}
-      className={`cursor-grab active:cursor-grabbing rounded-3xl overflow-hidden min-h-[400px] sm:min-h-[460px] md:min-h-[520px] h-full flex flex-col transition-all duration-200 ${
+      className={`cursor-grab active:cursor-grabbing rounded-3xl overflow-hidden min-h-[340px] sm:min-h-[380px] md:min-h-[420px] h-full flex flex-col transition-all duration-200 ${
         isDragging
           ? 'border-2 border-violet-500 shadow-2xl scale-[1.02] z-50'
           : 'border border-zinc-800 md:hover:border-violet-500/50 md:hover:shadow-xl'
@@ -159,7 +204,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 function MediaCard({
   media, isOwner, deletingId,
-  onDelete, onDeleteRequest, onDeleteCancel, onRating, onNotes, onSaveProgress, onMarkComplete, onReset, onStatusChange,
+  onDelete, onDeleteRequest, onDeleteCancel, onRating, onNotes, onSaveProgress, onMarkComplete, onReset, onStatusChange, onEnrichEpisodes, enriching,
 }: {
   media: UserMedia
   isOwner: boolean
@@ -173,6 +218,8 @@ function MediaCard({
   onMarkComplete?: (id: string, media: UserMedia) => void
   onReset?: (id: string) => void
   onStatusChange?: (id: string, status: string) => void
+  onEnrichEpisodes?: (id: string) => void
+  enriching?: boolean
 }) {
   const { t, locale } = useLocale()
   const router = useRouter()
@@ -252,7 +299,7 @@ function MediaCard({
   return (
     <div className="group relative bg-zinc-950 rounded-3xl overflow-hidden h-full flex flex-col">
       {/* Cover */}
-      <div className="relative h-60 bg-zinc-900 flex-shrink-0 overflow-hidden">
+      <div className="relative h-56 bg-zinc-900 flex-shrink-0 overflow-hidden">
         {isOwner && isConfirmingDelete && (
           <div className="absolute top-3 right-3 z-30 flex gap-1.5">
             <button onClick={() => onDeleteCancel?.()} className="px-3 py-1.5 text-xs font-medium bg-zinc-900/95 border border-zinc-600 rounded-full hover:bg-zinc-800 transition">{m.cancel}</button>
@@ -279,9 +326,19 @@ function MediaCard({
       <div className="flex flex-col flex-1 px-3 pt-2.5 pb-3 gap-1.5">
         <h4 className="font-semibold line-clamp-2 text-[13px] leading-snug text-white">{displayTitle}</h4>
 
-        {/* Status row */}
+        {/* Stars */}
+        <div onPointerDown={isOwner ? e => e.stopPropagation() : undefined}>
+          <StarRating
+            value={rating}
+            onChange={isOwner ? (r) => onRating?.(media.id, r) : undefined}
+            size={14}
+            viewOnly={!isOwner}
+          />
+        </div>
+
+        {/* Status row — select solo per tv/anime, badge statico per gli altri */}
         <div className="flex items-center gap-1.5">
-          {isOwner ? (
+          {(media.type === 'tv' || media.type === 'anime') && isOwner ? (
             <select
               value={media.status || 'watching'}
               onChange={e => onStatusChange?.(media.id, e.target.value)}
@@ -306,7 +363,7 @@ function MediaCard({
             <button
               onClick={() => onNotes?.(media)}
               onPointerDown={e => e.stopPropagation()}
-              className={`flex-shrink-0 p-1.5 rounded-lg border transition-all ${
+              className={`flex-shrink-0 p-1.5 rounded-lg border transition-all ml-auto ${
                 hasNotes
                   ? 'bg-violet-600 border-violet-500 text-white'
                   : 'bg-zinc-900 border-zinc-800 hover:border-violet-500/60 text-zinc-600 hover:text-violet-400'
@@ -317,27 +374,21 @@ function MediaCard({
           )}
         </div>
 
-        {/* Stars */}
-        <div onPointerDown={isOwner ? e => e.stopPropagation() : undefined}>
-          <StarRating
-            value={rating}
-            onChange={isOwner ? (r) => onRating?.(media.id, r) : undefined}
-            size={14}
-            viewOnly={!isOwner}
-          />
-        </div>
+        {/* Spacer */}
+        <div className="flex-1 min-h-0" />
 
         {/* Progress area */}
-        <div className="mt-auto pt-1">
+        <div>
           {media.type === 'game' ? (() => {
             const ach = media.achievement_data
             const hours = media.current_episode || 0
             return (
               <div className="space-y-1.5">
                 {hours > 0 && (
-                  <p className="text-emerald-400 text-xs flex items-center gap-1">
-                    <Clock size={12} /> {m.hoursPlayed(hours)}
-                  </p>
+                  <span className="inline-flex items-center gap-1 text-[11px] text-zinc-400 bg-zinc-800/60 px-2 py-0.5 rounded-full">
+                    <Clock size={10} className="text-zinc-500 flex-shrink-0" />
+                    {m.hoursPlayed(hours)}
+                  </span>
                 )}
                 {ach && ach.tot > 0 && (
                   <div className="space-y-1">
@@ -349,6 +400,68 @@ function MediaCard({
                       <div className="h-full bg-[#107c10] rounded-full transition-all duration-300" style={{ width: `${Math.round((ach.curr / ach.tot) * 100)}%` }} />
                     </div>
                   </div>
+                )}
+              </div>
+            )
+          })() : media.type === 'manga' ? (() => {
+            const hasCh = !!(media.episodes && media.episodes > 1)
+            if (!hasCh) {
+              return isOwner ? (
+                <button
+                  onClick={() => onEnrichEpisodes?.(media.id)}
+                  onPointerDown={e => e.stopPropagation()}
+                  disabled={enriching}
+                  className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-violet-400 transition-colors disabled:opacity-50"
+                >
+                  {enriching ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
+                  {enriching ? 'Recupero…' : 'Recupera capitoli'}
+                </button>
+              ) : null
+            }
+            const maxCh = media.episodes!
+            const isChCompleted = (media.current_episode || 0) >= maxCh
+            return (
+              <div className="space-y-1.5">
+                {isChCompleted ? (
+                  isOwner ? (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1 text-emerald-400">
+                        <CheckCircle size={12} />
+                        <span className="text-[11px] font-semibold">Completato</span>
+                      </div>
+                      <button onClick={() => onReset?.(media.id)} onPointerDown={e => e.stopPropagation()} className="p-1 text-zinc-600 hover:text-zinc-400 transition-colors" title="Ricomincia">
+                        <RotateCcw size={13} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-emerald-400">
+                      <CheckCircle size={12} />
+                      <span className="text-[11px] font-semibold">Completato</span>
+                    </div>
+                  )
+                ) : (
+                  <>
+                    <div className="flex items-center gap-1 text-[11px]">
+                      <span className="text-zinc-500 flex-shrink-0">Cap.</span>
+                      {isOwner ? (
+                        <>
+                          <InlineChapterInput
+                            value={media.current_episode || 0}
+                            max={maxCh}
+                            onSave={n => onSaveProgress?.(media.id, n)}
+                          />
+                          <span className="text-zinc-600">/{maxCh}</span>
+                        </>
+                      ) : (
+                        <span className="text-emerald-400 font-semibold">
+                          {media.current_episode || 0}<span className="text-zinc-600">/{maxCh}</span>
+                        </span>
+                      )}
+                    </div>
+                    <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 transition-all duration-300 rounded-full" style={{ width: `${Math.min(100, Math.round(((media.current_episode || 0) / maxCh) * 100))}%` }} />
+                    </div>
+                  </>
                 )}
               </div>
             )
@@ -388,6 +501,16 @@ function MediaCard({
                 </div>
               </div>
             )
+          ) : (media.type === 'tv' || media.type === 'anime') && isOwner ? (
+            <button
+              onClick={() => onEnrichEpisodes?.(media.id)}
+              onPointerDown={e => e.stopPropagation()}
+              disabled={enriching}
+              className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-violet-400 transition-colors disabled:opacity-50"
+            >
+              {enriching ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
+              {enriching ? 'Recupero…' : 'Recupera episodi'}
+            </button>
           ) : null}
         </div>
       </div>
@@ -808,9 +931,41 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
 
   const saveProgress = async (id: string, val: number, field: 'current_episode' | 'current_season' = 'current_episode') => {
     if (!isOwner) return
-    const update = field === 'current_season' ? { current_season: val, current_episode: 1 } : { current_episode: val }
+    const item = mediaList.find(m => m.id === id)
+    const base = field === 'current_season' ? { current_season: val, current_episode: 1 } : { current_episode: val }
+    const update: Record<string, unknown> = { ...base }
+    // Manga: auto-complete when reaching the last chapter
+    if (item?.type === 'manga' && field === 'current_episode' && item.episodes && val >= item.episodes) {
+      update.status = 'completed'
+      update.completed_at = new Date().toISOString()
+    } else if (item?.type === 'manga' && field === 'current_episode' && item.status === 'completed') {
+      update.status = 'watching'
+    }
     await supabase.from('user_media_entries').update(update).eq('id', id)
-    setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
+    setMediaList(prev => prev.map(m => m.id === id ? { ...m, ...update } : m))
+  }
+
+  const [enrichingIds, setEnrichingIds] = useState<Set<string>>(new Set())
+
+  const enrichEpisodeData = async (id: string) => {
+    if (!isOwner || enrichingIds.has(id)) return
+    setEnrichingIds(prev => new Set(prev).add(id))
+    try {
+      const res = await fetch('/api/media/enrich', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_media_id: id }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setMediaList(prev => prev.map(m =>
+          m.id === id
+            ? { ...m, ...(data.episodes ? { episodes: data.episodes } : {}), ...(data.season_episodes ? { season_episodes: data.season_episodes } : {}) }
+            : m
+        ))
+      }
+    } catch { /* silent fail */ }
+    setEnrichingIds(prev => { const s = new Set(prev); s.delete(id); return s })
   }
 
   const setRating = async (mediaId: string, rating: number) => {
@@ -1207,14 +1362,15 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                                       <MediaCard media={media} isOwner={true} deletingId={deletingId}
                                         onDelete={handleDelete} onDeleteRequest={setDeletingId} onDeleteCancel={() => setDeletingId(null)}
                                         onRating={setRating} onNotes={openNotesModal} onSaveProgress={saveProgress}
-                                        onMarkComplete={markAsCompleted} onReset={resetProgress} onStatusChange={changeStatus} />
+                                        onMarkComplete={markAsCompleted} onReset={resetProgress} onStatusChange={changeStatus}
+                                        onEnrichEpisodes={enrichEpisodeData} enriching={enrichingIds.has(media.id)} />
                                     </SortableBox>
                                   </div>
                                 ))}
                                 {hasMore && (
                                   <Link
                                     href={`/profile/${profile.username}/${categoryToType[category] || category}`}
-                                    className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-violet-500/50 rounded-3xl min-h-[400px] sm:min-h-[460px] md:min-h-[520px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-violet-400 transition-all group snap-start"
+                                    className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-violet-500/50 rounded-3xl min-h-[340px] sm:min-h-[380px] md:min-h-[420px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-violet-400 transition-all group snap-start"
                                   >
                                     <ChevronRight size={16} />
                                     <span className="text-xs font-semibold">+{items.length - 6}</span>
@@ -1225,14 +1381,14 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                         ) : (
                           <div className="flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide snap-x snap-mandatory">
                             {preview.map((media) => (
-                              <div key={media.id} className="w-40 sm:w-48 md:w-52 flex-shrink-0 border border-zinc-800 rounded-3xl overflow-hidden min-h-[400px] sm:min-h-[460px] md:min-h-[520px] flex flex-col snap-start">
+                              <div key={media.id} className="w-40 sm:w-48 md:w-52 flex-shrink-0 border border-zinc-800 rounded-3xl overflow-hidden min-h-[340px] sm:min-h-[380px] md:min-h-[420px] flex flex-col snap-start">
                                 <MediaCard media={media} isOwner={false} onStatusChange={changeStatus} />
                               </div>
                             ))}
                             {hasMore && (
                               <Link
                                 href={`/profile/${profile.username}/${categoryToType[category] || category}`}
-                                className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-violet-500/50 rounded-3xl min-h-[400px] sm:min-h-[460px] md:min-h-[520px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-violet-400 transition-all group snap-start"
+                                className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-violet-500/50 rounded-3xl min-h-[340px] sm:min-h-[380px] md:min-h-[420px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-violet-400 transition-all group snap-start"
                               >
                                 <ChevronRight size={16} />
                                 <span className="text-xs font-semibold">+{items.length - 6}</span>
