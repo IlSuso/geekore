@@ -1,13 +1,23 @@
+'use client'
 // Bridge between SwipeablePageContainer (gesture source) and
-// KeepAliveTabShell (panel renderer) for Instagram-style side-by-side transitions.
-// Uses direct DOM manipulation via callbacks — no React re-renders per frame.
+// KeepAliveTabShell (panel renderer) for Instagram-style carousel transitions.
+//
+// SwipeablePageContainer calls notifyStart when horizontal direction is confirmed
+// and notifyEnd when the swipe is cancelled or snaps back.
+// Completed navigations are cleaned up by pathname-change effects in the shell.
 
-type PanelUpdater = (offset: number, activeIdx: number, snap?: boolean) => void
-
-let _updater: PanelUpdater | null = null
+type StartFn = (prevIdx: number | null, nextIdx: number | null) => void
+type EndFn = () => void
 
 export const swipeNavBridge = {
-  register(fn: PanelUpdater) { _updater = fn },
-  unregister() { _updater = null },
-  update(offset: number, activeIdx: number, snap = false) { _updater?.(offset, activeIdx, snap) },
+  _start: null as StartFn | null,
+  _end:   null as EndFn   | null,
+
+  register(onStart: StartFn, onEnd: EndFn) {
+    this._start = onStart
+    this._end   = onEnd
+  },
+  unregister() { this._start = null; this._end = null },
+  notifyStart(prevIdx: number | null, nextIdx: number | null) { this._start?.(prevIdx, nextIdx) },
+  notifyEnd() { this._end?.() },
 }

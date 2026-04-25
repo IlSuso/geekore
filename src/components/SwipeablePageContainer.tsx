@@ -14,6 +14,7 @@
 import { usePathname, useRouter } from 'next/navigation'
 import { useRef, useState, useCallback, useEffect, type ReactNode } from 'react'
 import { gestureState } from '@/hooks/gestureState'
+import { swipeNavBridge } from '@/hooks/swipeNavBridge'
 
 export const TAB_ORDER = ['/feed', '/discover', '/for-you', '/swipe', '/profile/me']
 
@@ -108,6 +109,10 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
       if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return
       isH.current = Math.abs(dx) > Math.abs(dy) * 1.4
       if (!isH.current) return
+      swipeNavBridge.notifyStart(
+        prevTab ? TAB_ORDER.indexOf(prevTab) : null,
+        nextTab ? TAB_ORDER.indexOf(nextTab) : null,
+      )
     }
     if (!isH.current) return
 
@@ -148,6 +153,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
       setTimeout(() => { router.push(nextTab) }, 260)
     } else {
       setAnimate(true); setOffset(0)
+      swipeNavBridge.notifyEnd()
     }
 
     isH.current        = null
@@ -160,6 +166,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     isDragging.current       = false
     isH.current              = null
     setAnimate(true); setOffset(0)
+    swipeNavBridge.notifyEnd()
   }, [])
 
   useEffect(() => {

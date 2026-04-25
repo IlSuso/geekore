@@ -1,20 +1,39 @@
 'use client'
 
-// KeepAliveTabShell — lazy-mount + scroll-restore for keep-alive tabs.
+// KeepAliveTabShell — lazy-mount + scroll-restore + Instagram-style carousel.
 //
 // Active tab renders in normal flow (document scroll works).
-// Inactive tabs are hidden with display:none — no stacking context issues,
-// no position:fixed containment side-effects, no bridge complexity.
+// Inactive tabs are hidden with display:none.
+//
+// Carousel: when SwipeablePageContainer detects a horizontal swipe, it calls
+// swipeNavBridge.notifyStart(prevIdx, nextIdx). The shell changes adjacent panels
+// from display:none to position:fixed with translateX(±100%). Since
+// SwipeablePageContainer applies a CSS transform, position:fixed children become
+// relative to it — so the panels slide in sync with the gesture for free,
+// without any per-frame React updates.
 
 import { usePathname } from 'next/navigation'
-import { useEffect, useRef } from 'react'
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { ReactNode, CSSProperties } from 'react'
 import FeedPage from '@/app/feed/page'
 import ForYouPage from '@/app/for-you/page'
 import SwipePage from '@/app/swipe/page'
 import ProfilePage from '@/app/profile/[username]/page'
+import { swipeNavBridge } from '@/hooks/swipeNavBridge'
 
 type KATab = 'feed' | 'for-you' | 'swipe' | 'profile'
+
+// Maps TAB_ORDER indices → KATab (null = not keep-alive, e.g. /discover)
+const TAB_IDX_TO_KA: Array<KATab | null> = ['feed', null, 'for-you', 'swipe', 'profile']
+
+const ADJ_LEFT: CSSProperties = {
+  position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+  transform: 'translateX(-100%)', overflow: 'hidden', pointerEvents: 'none',
+}
+const ADJ_RIGHT: CSSProperties = {
+  position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+  transform: 'translateX(100%)', overflow: 'hidden', pointerEvents: 'none',
+}
 
 function getKATab(pathname: string): KATab | null {
   if (pathname === '/feed' || pathname === '/') return 'feed'
@@ -63,23 +82,54 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
     prevTab.current = tab
   }, [tab])
 
+  // ── Carousel state ─────────────────────────────────────────────────────────
+  const [adjLeft,  setAdjLeft]  = useState<KATab | null>(null)
+  const [adjRight, setAdjRight] = useState<KATab | null>(null)
+
+  useEffect(() => {
+    swipeNavBridge.register(
+      (prevIdx, nextIdx) => {
+        const pk = prevIdx != null ? TAB_IDX_TO_KA[prevIdx] : null
+        const nk = nextIdx != null ? TAB_IDX_TO_KA[nextIdx] : null
+        setAdjLeft(pk  && visited.current.has(pk)  ? pk  : null)
+        setAdjRight(nk && visited.current.has(nk) ? nk : null)
+      },
+      () => { setTimeout(() => { setAdjLeft(null); setAdjRight(null) }, 300) },
+    )
+    return () => swipeNavBridge.unregister()
+  }, []) // eslint-disable-line
+
+  // Clear adjacent panels on navigation (completed swipe)
+  useEffect(() => {
+    setAdjLeft(null)
+    setAdjRight(null)
+  }, [pathname])
+
+  // ── Panel style helper ──────────────────────────────────────────────────────
+  const panelStyle = (panelTab: KATab): CSSProperties => {
+    if (tab === panelTab)       return {}
+    if (adjLeft  === panelTab)  return ADJ_LEFT
+    if (adjRight === panelTab)  return ADJ_RIGHT
+    return { display: 'none' }
+  }
+
   const profileUsername = latestProfileUsername.current
 
   return (
     <>
-      <div style={{ display: tab === 'feed' ? undefined : 'none' }}>
+      <div style={panelStyle('feed')}>
         {visited.current.has('feed') && <FeedPage />}
       </div>
 
-      <div style={{ display: tab === 'for-you' ? undefined : 'none' }}>
+      <div style={panelStyle('for-you')}>
         {visited.current.has('for-you') && <ForYouPage />}
       </div>
 
-      <div style={{ display: tab === 'swipe' ? undefined : 'none' }}>
+      <div style={panelStyle('swipe')}>
         {visited.current.has('swipe') && <SwipePage />}
       </div>
 
-      <div style={{ display: tab === 'profile' ? undefined : 'none' }}>
+      <div style={panelStyle('profile')}>
         {visited.current.has('profile') && profileUsername && (
           <ProfilePage usernameOverride={profileUsername} />
         )}
