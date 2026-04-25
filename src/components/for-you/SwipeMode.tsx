@@ -82,10 +82,27 @@ const CATEGORIES: { key: CategoryFilter; label: string }[] = [
 
 const SWIPE_THRESHOLD = 80
 const ROTATION_FACTOR = 0.08
-const REFILL_THRESHOLD = 20
+const REFILL_THRESHOLD = 25
 const PRELOAD_TARGET = 50
 const TEXT_SHADOW = { textShadow: '0 1px 10px rgba(0,0,0,1), 0 2px 24px rgba(0,0,0,1), 0 4px 48px rgba(0,0,0,0.9)' }
 const ICON_DROP = { filter: 'drop-shadow(0 1px 6px rgba(0,0,0,1)) drop-shadow(0 0 3px rgba(0,0,0,1))' }
+
+// Interleave by type — pure fn, stable, never reorders existing items at render time.
+// Only called at write-time (initial state + loadMore) so card positions never jump.
+function interleaveByType(items: SwipeItem[]): SwipeItem[] {
+  const buckets = new Map<string, SwipeItem[]>()
+  for (const item of items) {
+    if (!buckets.has(item.type)) buckets.set(item.type, [])
+    buckets.get(item.type)!.push(item)
+  }
+  const cols = Array.from(buckets.values())
+  const out: SwipeItem[] = []
+  const max = Math.max(0, ...cols.map(c => c.length))
+  for (let i = 0; i < max; i++) {
+    for (const col of cols) { if (i < col.length) out.push(col[i]) }
+  }
+  return out
+}
 
 // ─── LoadingScreen ─────────────────────────────────────────────────────────────
 
@@ -356,9 +373,8 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
     setCurrentRating(r)
   }, [])
 
-  // La queue parte con initialItems già pronti. Gli skipped NON filtrano la queue attiva —
-  // vengono consultati solo durante il refill per non riproporre card già scartate.
-  const [queue, setQueue] = useState<SwipeItem[]>(initialItems)
+  // La queue parte già interleaved — l'ordine non cambia mai a runtime, solo in append.
+  const [queue, setQueue] = useState<SwipeItem[]>(() => interleaveByType(initialItems))
   const [seenIds] = useState<Set<string>>(() => new Set(initialItems.map(i => i.id)))
   const seenIdsRef = useRef(seenIds)
 
@@ -385,25 +401,10 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
     })
   }, []) // eslint-disable-line
 
-  // Round-robin interleaving: in "all" mode prevents runs of the same type
-  // (e.g. 4 games in a row). Groups by type then zips buckets together.
-  function interleaveByType(items: SwipeItem[]): SwipeItem[] {
-    const buckets = new Map<string, SwipeItem[]>()
-    for (const item of items) {
-      if (!buckets.has(item.type)) buckets.set(item.type, [])
-      buckets.get(item.type)!.push(item)
-    }
-    const cols = Array.from(buckets.values())
-    const out: SwipeItem[] = []
-    const max = Math.max(...cols.map(c => c.length))
-    for (let i = 0; i < max; i++) {
-      for (const col of cols) { if (i < col.length) out.push(col[i]) }
-    }
-    return out
-  }
-
+  // filteredQueue: 'all' uses queue directly (already interleaved at write-time).
+  // Category filters just slice — no reordering.
   const filteredQueue = activeFilter === 'all'
-    ? interleaveByType(queue)
+    ? queue
     : queue.filter(i => i.type === activeFilter)
 
   // Reset rating quando cambia la card in cima
@@ -419,31 +420,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
     }
   })
 
-  const loadMore = useCallback(async (filter: CategoryFilter) => {
-    if (loadingRef.current) return
-    loadingRef.current = true; setIsLoadingMore(true)
-    try {
-      const skipped = skippedIdsRef.current
-      const seen = seenIdsRef.current
-      const items = await onRequestMore(filter)
-      const fresh = items.filter(i => !seen.has(i.id) && !skipped.has(i.id))
-      if (fresh.length) {
-        setQueue(prev => [...prev, ...fresh])
-        fresh.forEach(i => seen.add(i.id))
-      } else {
-        // Tutti già visti: svuota seenIds e riprova
-        seen.clear()
-        const retryItems = await onRequestMore(filter)
-        const retryFresh = retryItems.filter(i => !skipped.has(i.id))
-        if (retryFresh.length) {
-          setQueue(prev => [...prev, ...retryFresh])
-          retryFresh.forEach(i => seen.add(i.id))
-        }
-      }
-    } catch {}
-    setIsLoadingMore(false); loadingRef.current = false
-  }, [onRequestMore])
-
+  // preloadCategory declared before loadMore so loadMore can call it as a fast-path replenish.
   const preloadCategory = useCallback(async (filter: CategoryFilter) => {
     if (categoryLoading.current[filter]) return
     if ((categoryQueues.current[filter]?.length ?? 0) >= PRELOAD_TARGET) return
@@ -459,8 +436,55 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
     categoryLoading.current[filter] = false
   }, [onRequestMore])
 
+  const loadMore = useCallback(async (filter: CategoryFilter) => {
+    if (loadingRef.current) return
+    loadingRef.current = true
+
+    // ── Fast path: use preloaded cache — no loading screen, instant ──────────
+    const cached = categoryQueues.current[filter] || []
+    const skipped = skippedIdsRef.current
+    const seen = seenIdsRef.current
+    const cachedFresh = cached.filter(i => !seen.has(i.id) && !skipped.has(i.id))
+    if (cachedFresh.length >= 10) {
+      setQueue(prev => {
+        const existingIds = new Set(prev.map(i => i.id))
+        const newItems = cachedFresh.filter(i => !existingIds.has(i.id))
+        return [...prev, ...(filter === 'all' ? interleaveByType(newItems) : newItems)]
+      })
+      cachedFresh.forEach(i => seen.add(i.id))
+      categoryQueues.current[filter] = []
+      loadingRef.current = false
+      // Replenish the cache in background for next refill
+      preloadCategory(filter)
+      return
+    }
+
+    // ── Slow path: fetch from network ─────────────────────────────────────────
+    setIsLoadingMore(true)
+    try {
+      const items = await onRequestMore(filter)
+      const fresh = items.filter(i => !seen.has(i.id) && !skipped.has(i.id))
+      if (fresh.length) {
+        setQueue(prev => [...prev, ...(filter === 'all' ? interleaveByType(fresh) : fresh)])
+        fresh.forEach(i => seen.add(i.id))
+      } else {
+        // Tutti già visti: svuota seenIds e riprova
+        seen.clear()
+        const retryItems = await onRequestMore(filter)
+        const retryFresh = retryItems.filter(i => !skipped.has(i.id))
+        if (retryFresh.length) {
+          setQueue(prev => [...prev, ...(filter === 'all' ? interleaveByType(retryFresh) : retryFresh)])
+          retryFresh.forEach(i => seen.add(i.id))
+        }
+      }
+    } catch {}
+    setIsLoadingMore(false); loadingRef.current = false
+  }, [onRequestMore, preloadCategory])
+
+  // Preload all categories (including 'all') 1.5 s after mount so the cache
+  // is ready before the user exhausts the initial deck.
   useEffect(() => {
-    const cats: CategoryFilter[] = ['anime', 'manga', 'movie', 'tv', 'game']
+    const cats: CategoryFilter[] = ['all', 'anime', 'manga', 'movie', 'tv', 'game']
     cats.forEach((cat, i) => setTimeout(() => preloadCategory(cat), 1500 + i * 300))
   }, []) // eslint-disable-line
 
@@ -475,7 +499,8 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
       const skipped = skippedIdsRef.current
       setQueue(prev => {
         const existingIds = new Set(prev.map(i => i.id))
-        return [...prev, ...preloaded.filter(i => !existingIds.has(i.id) && !skipped.has(i.id))]
+        const newItems = preloaded.filter(i => !existingIds.has(i.id) && !skipped.has(i.id))
+        return [...prev, ...(filter === 'all' ? interleaveByType(newItems) : newItems)]
       })
       preloaded.forEach(i => seenIdsRef.current.add(i.id))
       categoryQueues.current[filter] = []
