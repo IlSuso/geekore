@@ -1588,38 +1588,38 @@ export default function FeedPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
-        <div className="pt-0 pb-24 max-w-[1400px] mx-auto px-4">
-          <div className="flex gap-4 xl:gap-6 items-start min-h-screen">
-            {/* Left sidebar skeleton */}
-            <div className="hidden lg:block w-[240px] xl:w-[260px] flex-shrink-0" />
+        <div className="pt-0 pb-24 relative min-h-screen">
+          <div className="lg:pl-[280px] flex items-start min-h-screen">
             {/* Colonna principale */}
-            <div className="flex-1 min-w-0 max-w-[680px] mx-auto lg:mx-0">
-              {/* Composer skeleton */}
-              <div className="mx-4 my-4 rounded-2xl border border-zinc-800 bg-zinc-900/60 px-4 py-3.5 flex items-center gap-3 animate-pulse">
-                <div className="w-9 h-9 rounded-full bg-zinc-800 flex-shrink-0" />
-                <div className="h-3.5 bg-zinc-800 rounded-full w-48" />
-              </div>
-              {/* Tab bar skeleton */}
-              <div className="flex items-stretch mb-0 mt-1">
-                <div className="flex-1 py-3 flex justify-center">
-                  <div className="h-3.5 w-10 bg-zinc-800 rounded-full animate-pulse" />
+            <div className="flex-1 min-w-0">
+              <div className="max-w-[680px] mx-auto px-4">
+                {/* Composer skeleton */}
+                <div className="my-4 rounded-2xl border border-zinc-800 bg-zinc-900/60 px-4 py-3.5 flex items-center gap-3 animate-pulse">
+                  <div className="w-9 h-9 rounded-full bg-zinc-800 flex-shrink-0" />
+                  <div className="h-3.5 bg-zinc-800 rounded-full w-48" />
                 </div>
-                <div className="flex-1 py-3 flex justify-center">
-                  <div className="h-3.5 w-20 bg-zinc-800 rounded-full animate-pulse" />
+                {/* Tab bar skeleton */}
+                <div className="flex items-stretch mb-0 mt-1">
+                  <div className="flex-1 py-3 flex justify-center">
+                    <div className="h-3.5 w-10 bg-zinc-800 rounded-full animate-pulse" />
+                  </div>
+                  <div className="flex-1 py-3 flex justify-center">
+                    <div className="h-3.5 w-20 bg-zinc-800 rounded-full animate-pulse" />
+                  </div>
                 </div>
-              </div>
-              {/* Post skeletons */}
-              <div className="flex flex-col gap-2 pt-3 px-0 sm:px-0">
-                {Array.from({ length: 4 }).map((_, i) => <SkeletonFeedPost key={i} />)}
+                {/* Post skeletons */}
+                <div className="flex flex-col gap-2 pt-3">
+                  {Array.from({ length: 4 }).map((_, i) => <SkeletonFeedPost key={i} />)}
+                </div>
               </div>
             </div>
             {/* Right sidebar skeleton */}
-            <div className="hidden lg:block w-[300px] xl:w-[340px] flex-shrink-0 sticky top-16 pt-4 space-y-6 animate-pulse">
+            <div className="hidden xl:block w-[380px] flex-shrink-0 sticky top-16 pt-4 px-4 space-y-6 animate-pulse">
               <div>
                 <div className="h-4 w-40 bg-zinc-800 rounded-full mb-4" />
                 {Array.from({ length: 5 }).map((_, i) => (
                   <div key={i} className="flex items-center gap-3 py-2.5">
-                    <div className="w-10 h-14 bg-zinc-800 rounded-xl flex-shrink-0" />
+                    <div className="w-16 h-[88px] bg-zinc-800 rounded-xl flex-shrink-0" />
                     <div className="flex-1 space-y-2">
                       <div className="h-3.5 bg-zinc-800 rounded-full w-3/4" />
                       <div className="h-2.5 bg-zinc-800 rounded-full w-1/3" />
@@ -1723,16 +1723,18 @@ export default function FeedPage() {
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
       <PullWrapper distance={pullDistance} refreshing={isPullRefreshing}>
       {/* Layout: full-bleed su mobile, tre colonne su desktop — stile Facebook */}
-      <div className="pt-0 pb-24 max-w-[1400px] mx-auto px-4">
-        <div className="flex gap-4 xl:gap-6 items-start min-h-screen">
+      <div className="pt-0 pb-24 relative min-h-screen">
 
-          {/* ── Sidebar sinistra — desktop lg+ ─────────────────── */}
-          <div className="hidden lg:block w-[240px] xl:w-[260px] flex-shrink-0">
-            <FeedLeftSidebar profile={currentProfile} />
-          </div>
+        {/* ── Sidebar sinistra — fixed al viewport, mai scorrevole ── */}
+        <div className="hidden lg:block fixed top-16 left-0 w-[280px] h-[calc(100vh-4rem)] z-20 bg-[var(--bg-primary)] overflow-y-auto">
+          <FeedLeftSidebar profile={currentProfile} />
+        </div>
+
+        <div className="lg:pl-[280px] flex items-start gap-0 min-h-screen">
 
           {/* ── Colonna principale ─────────────────────────────────── */}
-          <div className="flex-1 min-w-0 max-w-[680px] mx-auto lg:mx-0">
+          <div className="flex-1 min-w-0">
+          <div className="max-w-[680px] mx-auto px-4">
 
             {/* Composer — barra statica non invasiva, modal fullscreen al tap */}
             {currentUser && (
@@ -2010,9 +2012,10 @@ export default function FeedPage() {
               )}
             </div>
           </div>
+          </div>
 
-          {/* ── Sidebar destra ─────────────────────────────────────── */}
-          <div className="hidden lg:block w-[300px] xl:w-[340px] flex-shrink-0">
+          {/* ── Sidebar destra — sticky, scorre col feed e si ferma a fondo contenuto ── */}
+          <div className="hidden xl:block w-[380px] flex-shrink-0">
             <StickyFromBottom navHeight={64}>
               <FeedSidebar currentUserId={currentUser?.id ?? null} />
             </StickyFromBottom>
