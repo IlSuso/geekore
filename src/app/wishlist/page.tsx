@@ -46,7 +46,7 @@ export default function WishlistPage() {
       .from('wishlist')
       .select('*')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
+      .order('added_at', { ascending: false })
 
     setWishlist(data || [])
     setLoading(false)

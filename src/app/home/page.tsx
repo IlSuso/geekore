@@ -153,10 +153,10 @@ function CategoryBadge({ category, onClick }: { category: string | null | undefi
   return (
     <span
       onClick={onClick}
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-[10px] font-semibold text-zinc-300 ${onClick ? 'cursor-pointer hover:border-fuchsia-500/60 hover:text-fuchsia-300 transition-colors' : ''}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-[10px] font-semibold text-zinc-300 max-w-[160px] overflow-hidden ${onClick ? 'cursor-pointer hover:border-fuchsia-500/60 hover:text-fuchsia-300 transition-colors' : ''}`}
     >
-      <CategoryIcon category={parsed.category} size={10} />
-      {label}
+      <CategoryIcon category={parsed.category} size={10} className="flex-shrink-0" />
+      <span className="truncate">{label}</span>
     </span>
   )
 }
@@ -843,19 +843,19 @@ const PostCard = memo(function PostCard({
           </div>
         </Link>
         <div className="flex-1 min-w-0">
-          <Link href={`/profile/${post.profiles.username}`} className="hover:text-violet-400 transition-colors" onClick={e => e.stopPropagation()}>
-            <p className="font-semibold text-[var(--text-primary)] text-[15px] leading-tight truncate">
-              {post.profiles.display_name || post.profiles.username}
-            </p>
-          </Link>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <p className="text-xs text-[var(--text-muted)]">
-              @{post.profiles.username} · {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })}
-            </p>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Link href={`/profile/${post.profiles.username}`} className="hover:text-violet-400 transition-colors min-w-0" onClick={e => e.stopPropagation()}>
+              <p className="font-semibold text-[var(--text-primary)] text-[15px] leading-tight truncate">
+                {post.profiles.display_name || post.profiles.username}
+              </p>
+            </Link>
             {post.category && (
               <CategoryBadge category={post.category} onClick={onCategoryClick ? () => onCategoryClick(post.category!) : undefined} />
             )}
           </div>
+          <p className="text-xs text-[var(--text-muted)] mt-0.5">
+            {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })}
+          </p>
         </div>
         {currentUser?.id === post.user_id && (
           <button onClick={() => onPostOptions(post.id)} className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all">
@@ -1588,7 +1588,7 @@ export default function FeedPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
-        <div className="pt-0 pb-24 relative min-h-screen">
+        <div className="pt-0 pb-24 xl:pb-6 relative min-h-screen">
           <div className="lg:pl-[280px] flex items-start min-h-screen">
             {/* Colonna principale */}
             <div className="flex-1 min-w-0">
@@ -1614,7 +1614,7 @@ export default function FeedPage() {
               </div>
             </div>
             {/* Right sidebar skeleton */}
-            <div className="hidden xl:block w-[380px] flex-shrink-0 sticky top-16 pt-4 px-4 space-y-6 animate-pulse">
+            <div className="hidden xl:block w-[440px] flex-shrink-0 sticky top-16 pt-4 px-4 space-y-6 animate-pulse">
               <div>
                 <div className="h-4 w-40 bg-zinc-800 rounded-full mb-4" />
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -1731,7 +1731,7 @@ export default function FeedPage() {
 
       <PullWrapper distance={pullDistance} refreshing={isPullRefreshing}>
       {/* Layout: full-bleed su mobile, tre colonne su desktop — stile Facebook */}
-      <div className="pt-0 pb-24 relative min-h-screen">
+      <div className="pt-0 pb-24 xl:pb-6 relative min-h-screen">
 
         <div className="lg:pl-[280px] flex items-start gap-0 min-h-screen">
 
@@ -2018,7 +2018,7 @@ export default function FeedPage() {
           </div>
 
           {/* ── Sidebar destra — sticky, scorre col feed e si ferma a fondo contenuto ── */}
-          <div className="hidden xl:block w-[380px] flex-shrink-0 self-stretch">
+          <div className="hidden xl:block w-[440px] flex-shrink-0 self-stretch">
             <StickyFromBottom navHeight={64}>
               <FeedSidebar currentUserId={currentUser?.id ?? null} />
             </StickyFromBottom>
