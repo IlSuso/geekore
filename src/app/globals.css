@@ -612,10 +612,10 @@ body[style*="overflow: hidden"] {
 }
 
 /* Filter strip inside SwipeMode (standalone mode only).
-   Mobile: the container has no top padding → filter needs full offset.
-   Desktop: container already has md:pt-16 (64px) → filter just needs spacing. */
+   Mobile: MobileHeader è nascosto su /swipe → serve solo safe-area + small gap.
+   Desktop: container ha già md:pt-16 (64px) → filter aggiunge solo spacing. */
 .swipe-filter-padding {
-  padding-top: calc(52px + env(safe-area-inset-top, 0px) + 0.5rem);
+  padding-top: calc(env(safe-area-inset-top, 0px) + 0.625rem);
 }
 @media (min-width: 768px) {
   .swipe-filter-padding {

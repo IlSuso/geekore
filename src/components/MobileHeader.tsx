@@ -84,6 +84,8 @@ export function MobileHeader() {
   }, [pathname])
 
   if (AUTH_PATHS.some(p => pathname.startsWith(p))) return null
+  // Su /swipe la barra categorie dello SwipeMode prende il posto dell'header
+  if (pathname === '/swipe') return null
 
   const isFeed      = pathname === '/feed' || pathname === '/'
   const isOwnProfile  = pathname === '/profile/me' || (username && pathname === `/profile/${username}`)
