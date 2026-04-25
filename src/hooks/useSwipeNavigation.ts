@@ -5,6 +5,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
+import { gestureState } from './gestureState'
 
 const TAB_ORDER = ['/home', '/discover', '/for-you', '/trending', '/profile/me']
 
@@ -20,6 +21,9 @@ export function useSwipeNavigation() {
 
   useEffect(() => {
     const onStart = (e: TouchEvent) => {
+      // Block swipe navigation when a modal/drawer is open
+      if (gestureState.drawerActive) return
+
       const touch = e.touches[0]
       const x = touch.clientX
       const screenW = window.innerWidth

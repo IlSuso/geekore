@@ -38,6 +38,7 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 import { PullWrapper } from '@/components/ui/PullWrapper'
 import { ReportButton } from '@/components/ui/ReportButton'
+import { gestureState } from '@/hooks/gestureState'
 
 // ── Macro-categorie ───────────────────────────────────────────────────────────
 
@@ -296,6 +297,19 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
 
+  // Lock body scroll and page-swipe when the panel is open on mobile
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.innerWidth >= 768) return
+    if (open) {
+      document.body.style.overflow = 'hidden'
+      gestureState.drawerActive = true
+    } else {
+      document.body.style.overflow = ''
+      gestureState.drawerActive = false
+    }
+    return () => { document.body.style.overflow = ''; gestureState.drawerActive = false }
+  }, [open])
+
   const API_CATEGORIES = new Set(['Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga', 'Giochi da tavolo'])
 
   // Chiudi cliccando fuori
@@ -415,6 +429,7 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
       {open && mounted && typeof document !== 'undefined' && createPortal(
         <div
           id="category-portal-panel"
+          data-no-swipe
           className="fixed z-[10000] bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-2xl shadow-black/70 overflow-hidden"
           style={{ top: panelPos.top, left: panelPos.left, width: '300px', transform: openAboveRef.current ? 'translateY(-100%)' : 'none' }}
         >
@@ -481,7 +496,7 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
               </div>
             )
             const results = suggestions.length > 0 ? (
-              <div className="rounded-xl overflow-hidden border border-zinc-700/50 bg-zinc-950 max-h-[200px] overflow-y-auto mb-2">
+              <div className="rounded-xl overflow-hidden border border-zinc-700/50 bg-zinc-950 max-h-[200px] overflow-y-auto overscroll-contain mb-2">
                 {suggestions.map((result, idx) => (
                   <button key={result.id} type="button" onClick={() => selectSuggestion(result)}
                     className={`w-full flex items-center gap-3 px-3 py-2 text-left border-b border-zinc-800/60 last:border-0 transition-colors ${
@@ -672,7 +687,7 @@ function CategoryFilter({
 
               {/* Risultati API */}
               {suggestions.length > 0 && (
-                <div className="rounded-xl overflow-hidden border border-zinc-700/50 bg-zinc-950 max-h-[200px] overflow-y-auto mb-2">
+                <div className="rounded-xl overflow-hidden border border-zinc-700/50 bg-zinc-950 max-h-[200px] overflow-y-auto overscroll-contain mb-2">
                   {suggestions.map(result => (
                     <button key={result.id} onClick={() => applyFilter(`${activeMacro}:${result.title}`)}
                       className="w-full flex items-center gap-3 px-3 py-2 text-left border-b border-zinc-800/60 last:border-0 hover:bg-zinc-800/80 transition-colors">
@@ -951,6 +966,7 @@ function PostModal({
   return (
     <div
       className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      data-no-swipe
       onClick={onClose}
     >
       <div
@@ -1126,6 +1142,18 @@ export default function FeedPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [currentProfile, setCurrentProfile] = useState<any>(null)
   const [modalPostId, setModalPostId] = useState<string | null>(null)
+
+  // Lock body scroll + horizontal swipe when comment modal is open
+  useEffect(() => {
+    if (modalPostId) {
+      document.body.style.overflow = 'hidden'
+      gestureState.drawerActive = true
+    } else {
+      document.body.style.overflow = ''
+      gestureState.drawerActive = false
+    }
+    return () => { document.body.style.overflow = ''; gestureState.drawerActive = false }
+  }, [modalPostId])
 
   // ── Bottom Sheet globale ──────────────────────────────────────────────────
   type SheetState = { open: false } | { open: true; type: 'post'; postId: string } | { open: true; type: 'comment'; commentId: string; postId: string } | { open: true; type: 'confirm-post'; postId: string } | { open: true; type: 'confirm-comment'; commentId: string; postId: string }
