@@ -182,12 +182,13 @@ function SortableCard({ media, children }: { media: UserMedia; children: React.R
 // ─── Card griglia ─────────────────────────────────────────────────────────────
 
 const MediaCard = memo(function MediaCard({
-  media, isOwner, onRating, onNotes, onStatusChange, onSaveProgress, onMarkComplete, onReset, onEnrichEpisodes, enriching, onDelete, onMobileTap,
+  media, isOwner, onRating, onNotes, onViewNotes, onStatusChange, onSaveProgress, onMarkComplete, onReset, onEnrichEpisodes, enriching, onDelete, onMobileTap,
 }: {
   media: UserMedia
   isOwner: boolean
   onRating?: (id: string, r: number) => void
   onNotes?: (media: UserMedia) => void
+  onViewNotes?: (media: UserMedia) => void
   onStatusChange?: (id: string, status: string) => void
   onSaveProgress?: (id: string, value: number, field?: string) => void
   onMarkComplete?: (id: string) => void
@@ -231,16 +232,12 @@ const MediaCard = memo(function MediaCard({
             )}
           </div>
         )}
-        {/* Notes pencil — bottom-right of cover, desktop only */}
-        {isOwner && (
+        {/* Notes icon — only shown when notes exist; owner=edit, visitor=read-only */}
+        {hasNotes && (
           <button
-            onClick={e => { e.stopPropagation(); onNotes?.(media) }}
+            onClick={e => { e.stopPropagation(); isOwner ? onNotes?.(media) : onViewNotes?.(media) }}
             aria-label="Note"
-            className={`hidden md:flex absolute bottom-3 right-3 z-20 p-1.5 rounded-lg border transition-all ${
-              hasNotes
-                ? 'bg-violet-600 border-violet-500 text-white'
-                : 'bg-black/50 border-white/10 hover:border-violet-500/60 text-zinc-400 hover:text-violet-400'
-            }`}
+            className={`absolute bottom-3 right-3 z-20 p-1.5 rounded-lg border bg-violet-600 border-violet-500 text-white transition-all ${isOwner ? 'hidden md:flex' : 'flex'}`}
           >
             <Edit3 size={11} />
           </button>
@@ -630,6 +627,7 @@ export default function ProfileTypePage() {
   const [notesOpen, setNotesOpen] = useState(false)
   const [selectedMedia, setSelectedMedia] = useState<UserMedia | null>(null)
   const [notesInput, setNotesInput] = useState('')
+  const [viewingNotes, setViewingNotes] = useState<UserMedia | null>(null)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const [enrichingIds, setEnrichingIds] = useState<Set<string>>(new Set())
@@ -953,7 +951,8 @@ export default function ProfileTypePage() {
                             media={media}
                             isOwner={isOwner}
                             onRating={handleRating}
-                            onNotes={openNotes}
+                            onNotes={isOwner ? openNotes : undefined}
+                            onViewNotes={!isOwner ? setViewingNotes : undefined}
                             onStatusChange={handleStatusChange}
                             onSaveProgress={handleSaveProgress}
                             onMarkComplete={handleMarkComplete}
@@ -979,7 +978,8 @@ export default function ProfileTypePage() {
                       media={media}
                       isOwner={isOwner}
                       onRating={handleRating}
-                      onNotes={openNotes}
+                      onNotes={isOwner ? openNotes : undefined}
+                      onViewNotes={!isOwner ? setViewingNotes : undefined}
                       onStatusChange={handleStatusChange}
                       onSaveProgress={handleSaveProgress}
                       onMarkComplete={handleMarkComplete}
@@ -1055,6 +1055,18 @@ export default function ProfileTypePage() {
           saveLabel={t.common.save}
           cancelLabel={t.media.cancel}
           placeholder={t.profile.notesPlaceholder}
+        />
+      )}
+
+      {/* Read-only notes modal — for visitors */}
+      {viewingNotes && (
+        <NotesModal
+          title={viewingNotes.title}
+          value={viewingNotes.notes || ''}
+          onChange={() => {}}
+          onSave={() => {}}
+          onClose={() => setViewingNotes(null)}
+          readOnly
         />
       )}
     </div>

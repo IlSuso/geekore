@@ -15,6 +15,7 @@ interface NotesModalProps {
   saveLabel?: string
   cancelLabel?: string
   placeholder?: string
+  readOnly?: boolean
 }
 
 export function NotesModal({
@@ -26,6 +27,7 @@ export function NotesModal({
   saveLabel = 'Salva',
   cancelLabel = 'Annulla',
   placeholder = 'Scrivi le tue note...',
+  readOnly = false,
 }: NotesModalProps) {
   const charCount = value.length
 
@@ -43,37 +45,45 @@ export function NotesModal({
           </button>
         </div>
         <div className="p-6">
-          <div className="relative">
-            <textarea
-              value={value}
-              onChange={e => onChange(e.target.value.slice(0, MAX_NOTES_LENGTH))}
-              placeholder={placeholder}
-              maxLength={MAX_NOTES_LENGTH}
-              className="w-full h-40 bg-zinc-800 border border-zinc-700 rounded-2xl p-4 text-white resize-none overflow-y-auto focus:outline-none focus:border-violet-500 transition-colors"
-            />
-            <span className={`absolute bottom-3 right-3 text-[10px] font-medium transition-colors ${
-              charCount > MAX_NOTES_LENGTH * 0.9
-                ? charCount >= MAX_NOTES_LENGTH ? 'text-red-400' : 'text-yellow-400'
-                : 'text-zinc-600'
-            }`}>
-              {charCount}/{MAX_NOTES_LENGTH}
-            </span>
+          {readOnly ? (
+            <p className="text-zinc-300 text-sm leading-relaxed whitespace-pre-wrap min-h-[6rem] max-h-60 overflow-y-auto">
+              {value}
+            </p>
+          ) : (
+            <div className="relative">
+              <textarea
+                value={value}
+                onChange={e => onChange(e.target.value.slice(0, MAX_NOTES_LENGTH))}
+                placeholder={placeholder}
+                maxLength={MAX_NOTES_LENGTH}
+                className="w-full h-40 bg-zinc-800 border border-zinc-700 rounded-2xl p-4 text-white resize-none overflow-y-auto focus:outline-none focus:border-violet-500 transition-colors"
+              />
+              <span className={`absolute bottom-3 right-3 text-[10px] font-medium transition-colors ${
+                charCount > MAX_NOTES_LENGTH * 0.9
+                  ? charCount >= MAX_NOTES_LENGTH ? 'text-red-400' : 'text-yellow-400'
+                  : 'text-zinc-600'
+              }`}>
+                {charCount}/{MAX_NOTES_LENGTH}
+              </span>
+            </div>
+          )}
+        </div>
+        {!readOnly && (
+          <div className="p-6 border-t border-zinc-800 flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors font-medium"
+            >
+              {cancelLabel}
+            </button>
+            <button
+              onClick={onSave}
+              className="flex-1 py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl transition-colors font-medium"
+            >
+              {saveLabel}
+            </button>
           </div>
-        </div>
-        <div className="p-6 border-t border-zinc-800 flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors font-medium"
-          >
-            {cancelLabel}
-          </button>
-          <button
-            onClick={onSave}
-            className="flex-1 py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl transition-colors font-medium"
-          >
-            {saveLabel}
-          </button>
-        </div>
+        )}
       </div>
     </div>
   )
