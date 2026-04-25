@@ -403,9 +403,9 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
       >
         <Tag size={14} strokeWidth={1.6} />
         {value ? (
-          <span className="flex items-center gap-1 min-w-0">
+          <span className="flex items-center gap-1 min-w-0 max-w-[130px]">
             <CategoryIcon category={parsed?.category || ''} size={12} className="flex-shrink-0" />
-            <span className="whitespace-nowrap">{parsed?.subcategory ? `${parsed.category}: ${parsed.subcategory}` : parsed?.category}</span>
+            <span className="truncate">{parsed?.subcategory ? parsed.subcategory.trim() : parsed?.category}</span>
             <X size={11} className="flex-shrink-0 ml-0.5" />
           </span>
         ) : (
@@ -598,18 +598,18 @@ function CategoryFilter({
 
   const parsed = parseCategoryString(activeFilter)
   const displayLabel = activeFilter
-    ? (parsed?.subcategory ? `${parsed.category}: ${parsed.subcategory}` : parsed?.category || 'Filtra categoria')
+    ? (parsed?.subcategory ? parsed.subcategory.trim() : parsed?.category || 'Filtra categoria')
     : 'Filtra categoria'
 
   return (
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(o => !o)}
-        className={`flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm font-semibold border transition-all ${
+        className={`flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm font-semibold border transition-all max-w-[160px] sm:max-w-none ${
           activeFilter ? 'bg-fuchsia-600/20 border-fuchsia-500/40 text-fuchsia-300' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'
         }`}>
-        <Filter size={14} />
-        {activeFilter && <CategoryIcon category={parsed?.category || ''} size={13} />}
-        {displayLabel}
+        <Filter size={14} className="flex-shrink-0" />
+        {activeFilter && <CategoryIcon category={parsed?.category || ''} size={13} className="flex-shrink-0" />}
+        <span className="truncate">{displayLabel}</span>
         {activeFilter && (
           <span onClick={e => { e.stopPropagation(); applyFilter(''); setActiveMacro(''); setSubSearch('') }} className="ml-1 hover:text-red-400 transition-colors">
             <X size={12} />
@@ -1874,7 +1874,6 @@ export default function FeedPage() {
                               <p style={{ fontSize: 14, fontWeight: 700, color: 'white', marginBottom: 8 }}>{currentProfile?.display_name || currentProfile?.username}</p>
                               <textarea
                                 data-testid="post-composer"
-                                autoFocus
                                 value={newPostContent}
                                 onChange={e => { setNewPostContent(e.target.value.slice(0, 500)); const el = e.target; el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' }}
                                 placeholder={f.placeholder}
