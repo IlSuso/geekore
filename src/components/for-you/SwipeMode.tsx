@@ -298,9 +298,8 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
           </div>
           <div className="flex items-center justify-between">
             <button onClick={e => { e.stopPropagation(); if (isTop && canUndo) onUndo() }} disabled={!canUndo || !isTop}
-              className="flex items-center gap-1.5 px-2 py-2 rounded-xl text-white/65 hover:text-white disabled:opacity-20 disabled:pointer-events-none transition-colors" style={TEXT_SHADOW}>
-              <RotateCcw size={14} style={ICON_DROP} />
-              <span className="text-xs font-medium">Annulla</span>
+              className="w-10 h-10 flex items-center justify-center rounded-full text-white/65 hover:text-white disabled:opacity-20 disabled:pointer-events-none transition-colors" style={TEXT_SHADOW}>
+              <RotateCcw size={18} style={ICON_DROP} />
             </button>
             <div className="flex items-center gap-4">
               <button onClick={e => { e.stopPropagation(); if (isTop) triggerSwipe('left') }}
