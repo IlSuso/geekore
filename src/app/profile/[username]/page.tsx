@@ -665,10 +665,10 @@ function CollectionControls({
 
         {/* View toggle — pushed right */}
         <div className="flex bg-zinc-900 border border-zinc-800 rounded-xl p-1 gap-0.5 flex-shrink-0">
-          <button onClick={() => onView('grid')} className={`p-1.5 rounded-lg transition-colors ${view === 'grid' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
+          <button onClick={() => onView('grid')} className={`flex items-center justify-center p-1.5 rounded-lg transition-colors ${view === 'grid' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
             <Grid3X3 size={13} />
           </button>
-          <button onClick={() => onView('compact')} className={`p-1.5 rounded-lg transition-colors ${view === 'compact' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
+          <button onClick={() => onView('compact')} className={`flex items-center justify-center p-1.5 rounded-lg transition-colors ${view === 'compact' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
             <List size={13} />
           </button>
         </div>

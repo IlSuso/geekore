@@ -919,13 +919,13 @@ export default function ProfileTypePage() {
           <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-2xl p-1 ml-auto">
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-2 rounded-xl transition ${viewMode === 'grid' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+              className={`flex items-center justify-center p-2 rounded-xl transition ${viewMode === 'grid' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
               <Grid3X3 size={15} />
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`p-2 rounded-xl transition ${viewMode === 'list' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+              className={`flex items-center justify-center p-2 rounded-xl transition ${viewMode === 'list' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
               <List size={15} />
             </button>

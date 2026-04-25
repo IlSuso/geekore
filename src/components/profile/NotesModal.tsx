@@ -30,7 +30,7 @@ export function NotesModal({
   const charCount = value.length
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60]">
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[120]">
       <div className="bg-zinc-900 rounded-3xl w-full max-w-lg mx-4 overflow-hidden">
         <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
           <h3 className="text-xl font-semibold text-white truncate pr-4">{title}</h3>
