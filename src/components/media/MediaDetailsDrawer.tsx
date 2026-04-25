@@ -157,6 +157,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   const swipeLastDx   = useRef(0)
   const swipeIsH      = useRef<boolean | null>(null)
   const swipeCaptured = useRef(false)
+  const swipeBlocked  = useRef(false)
 
   const handleClose = useCallback(() => {
     if (historyPushedRef.current) {
@@ -323,13 +324,22 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   const onSwipeTouchStart = useCallback((e: TouchEvent) => {
     swipeCaptured.current = false
     swipeIsH.current      = null
+    swipeLastDx.current   = 0
+    // Block drawer swipe when touch starts inside a data-no-swipe element
+    let el = e.target as HTMLElement | null
+    let blocked = false
+    while (el && el !== drawerRef.current) {
+      if (el.hasAttribute('data-no-swipe')) { blocked = true; break }
+      el = el.parentElement
+    }
+    swipeBlocked.current  = blocked
     swipeStartX.current   = e.touches[0].clientX
     swipeStartY.current   = e.touches[0].clientY
     swipeStartT.current   = performance.now()
-    swipeLastDx.current   = 0
   }, [])
 
   const onSwipeTouchMove = useCallback((e: TouchEvent) => {
+    if (swipeBlocked.current) return
     const dx = e.touches[0].clientX - swipeStartX.current
     const dy = e.touches[0].clientY - swipeStartY.current
     if (swipeIsH.current === null) {
@@ -773,7 +783,9 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               <div ref={formRef} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-4">
                 <div>
                   <p className="text-xs text-zinc-500 mb-2">Il tuo voto (opzionale)</p>
-                  <StarRating value={formRating} onChange={setFormRating} size={28} />
+                  <div data-no-swipe="">
+                    <StarRating value={formRating} onChange={setFormRating} size={28} />
+                  </div>
                 </div>
 
                 {(media.type === 'tv' || media.type === 'anime') && (() => {
