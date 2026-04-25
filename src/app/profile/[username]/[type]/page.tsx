@@ -13,7 +13,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import Link from 'next/link'
 import {
   ArrowLeft, Search, SlidersHorizontal, Grid3X3, List,
-  Clock, CheckCircle, X, Edit3, Loader2, Gamepad2, Tv, Bookmark,
+  Clock, CheckCircle, X, Edit3, Loader2, Gamepad2, Tv, Bookmark, RefreshCw,
 } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { NotesModal } from '@/components/profile/NotesModal'
@@ -49,6 +49,50 @@ type UserMedia = {
   genres?: string[]
   external_id?: string
   achievement_data?: { curr: number; tot: number; gs_curr: number; gs_tot: number } | null
+}
+
+// ─── InlineChapterInput ───────────────────────────────────────────────────────
+
+function InlineChapterInput({ value, max, onSave }: {
+  value: number
+  max?: number
+  onSave: (n: number) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+
+  const commit = () => {
+    const n = parseInt(draft, 10)
+    if (!isNaN(n) && n >= 0 && (!max || n <= max)) onSave(n)
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <input
+        type="number"
+        autoFocus
+        value={draft}
+        min={0}
+        max={max}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') commit() }}
+        onPointerDown={e => e.stopPropagation()}
+        className="bg-transparent outline-none w-10 text-emerald-400 text-[11px] font-semibold p-0 text-center border-b border-emerald-400/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+      />
+    )
+  }
+
+  return (
+    <span
+      onClick={() => { setDraft(value.toString()); setEditing(true) }}
+      onPointerDown={e => e.stopPropagation()}
+      className="text-emerald-400 font-semibold cursor-text hover:underline decoration-dotted underline-offset-2 select-none"
+    >
+      {value}
+    </span>
+  )
 }
 
 type SortMode = 'default' | 'rating_desc' | 'rating_asc' | 'title_asc' | 'title_desc' | 'date_desc' | 'progress_desc'
@@ -201,6 +245,8 @@ const MediaCard = memo(function MediaCard({
       {/* Info */}
       <div className="flex flex-col flex-1 px-4 pt-3 pb-4 gap-2">
         <h4 className="font-semibold text-sm leading-snug text-white line-clamp-2">{media.title}</h4>
+
+        {/* Stars + notes */}
         <div className="flex items-center gap-2">
           <div onPointerDown={isOwner ? e => e.stopPropagation() : undefined}>
             <StarRating
@@ -224,7 +270,9 @@ const MediaCard = memo(function MediaCard({
             </button>
           )}
         </div>
-        {isOwner ? (
+
+        {/* Status — select solo per tv/anime, badge statico per gli altri */}
+        {(media.type === 'tv' || media.type === 'anime') && isOwner ? (
           <select
             value={media.status || 'watching'}
             onChange={e => onStatusChange?.(media.id, e.target.value)}
@@ -249,16 +297,21 @@ const MediaCard = memo(function MediaCard({
             </span>
           )
         )}
-        {/* Progress/hours + achievement Xbox */}
-        {media.type === 'game' && (() => {
+
+        {/* Spacer */}
+        <div className="flex-1 min-h-0" />
+
+        {/* Progress area */}
+        {media.type === 'game' ? (() => {
           const ach = media.achievement_data
           const hours = media.current_episode || 0
           return (
-            <div className="mt-auto space-y-2">
+            <div className="space-y-1.5">
               {hours > 0 && (
-                <p className="text-xs text-emerald-400 flex items-center gap-1">
-                  <Clock size={11} /> {hours}h
-                </p>
+                <span className="inline-flex items-center gap-1 text-[11px] text-zinc-400 bg-zinc-800/60 px-2 py-0.5 rounded-full">
+                  <Clock size={10} className="text-zinc-500 flex-shrink-0" />
+                  {hours}h
+                </span>
               )}
               {ach && ach.tot > 0 && (
                 <div className="space-y-1">
@@ -276,12 +329,47 @@ const MediaCard = memo(function MediaCard({
               )}
             </div>
           )
-        })()}
-        {media.episodes && media.episodes > 1 && media.type !== 'game' && (
-          <p className="text-xs text-emerald-400 mt-auto">
+        })() : media.type === 'manga' && media.episodes && media.episodes > 1 ? (() => {
+          const maxCh = media.episodes
+          const isChCompleted = (media.current_episode || 0) >= maxCh
+          return (
+            <div className="space-y-1">
+              {isChCompleted ? (
+                <div className="flex items-center gap-1 text-emerald-400">
+                  <CheckCircle size={12} />
+                  <span className="text-[11px] font-semibold">Completato</span>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-1 text-[11px]">
+                    <span className="text-zinc-500 flex-shrink-0">Cap.</span>
+                    {isOwner ? (
+                      <>
+                        <InlineChapterInput
+                          value={media.current_episode || 0}
+                          max={maxCh}
+                          onSave={n => onStatusChange?.(media.id, `chapter:${n}`)}
+                        />
+                        <span className="text-zinc-600">/{maxCh}</span>
+                      </>
+                    ) : (
+                      <span className="text-emerald-400 font-semibold">
+                        {media.current_episode || 0}<span className="text-zinc-600">/{maxCh}</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 rounded-full transition-all duration-300" style={{ width: `${Math.min(100, Math.round(((media.current_episode || 0) / maxCh) * 100))}%` }} />
+                  </div>
+                </>
+              )}
+            </div>
+          )
+        })() : (media.type === 'tv' || media.type === 'anime') && media.episodes && media.episodes > 1 ? (
+          <p className="text-xs text-emerald-400">
             {media.current_episode}/{media.episodes} ep.
           </p>
-        )}
+        ) : null}
       </div>
     </div>
   )
@@ -449,6 +537,22 @@ export default function ProfileTypePage() {
   }
 
   const handleStatusChange = async (mediaId: string, status: string) => {
+    // Special: manga chapter update encoded as "chapter:N"
+    if (status.startsWith('chapter:')) {
+      const chapter = parseInt(status.slice(8), 10)
+      if (isNaN(chapter)) return
+      const item = mediaList.find(m => m.id === mediaId)
+      const update: Record<string, unknown> = { current_episode: chapter }
+      if (item?.episodes && chapter >= item.episodes) {
+        update.status = 'completed'
+        update.completed_at = new Date().toISOString()
+      } else if (item?.status === 'completed') {
+        update.status = 'watching'
+      }
+      await supabase.from('user_media_entries').update(update).eq('id', mediaId)
+      setMediaList(prev => prev.map(m => m.id === mediaId ? { ...m, ...update } : m))
+      return
+    }
     await supabase.from('user_media_entries').update({ status }).eq('id', mediaId)
     setMediaList(prev => prev.map(m => m.id === mediaId ? { ...m, status } : m))
   }
