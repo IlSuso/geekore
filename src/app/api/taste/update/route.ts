@@ -127,21 +127,27 @@ export async function POST(request: NextRequest) {
     entry_count: action === 'status_change' && status === 'completed' ? entryCount + 1 : entryCount,
   }, { onConflict: 'user_id' })
 
-  // Fix 3.2: invalida sia recommendations_cache che recommendations_pool per il tipo coinvolto
-  // Così la prossima visita alla pagina "Per Te" vede il profilo aggiornato, non la cache stale
+  // Invalida recommendations_cache per il tipo coinvolto (sempre)
+  // recommendations_pool viene invalidato solo per azioni di consumo forte (non wishlist)
   if (mediaType) {
-    await Promise.all([
+    const poolInvalidatingActions: DeltaAction[] = ['status_change', 'rewatch']
+    const invalidations: Promise<any>[] = [
       supabase
         .from('recommendations_cache')
         .delete()
         .eq('user_id', user.id)
         .eq('media_type', mediaType),
-      supabase
-        .from('recommendations_pool')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('media_type', mediaType),
-    ])
+    ]
+    if (poolInvalidatingActions.includes(action)) {
+      invalidations.push(
+        supabase
+          .from('recommendations_pool')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('media_type', mediaType),
+      )
+    }
+    await Promise.all(invalidations)
   }
 
   // Invalida anche per azioni che toccano il profilo in modo cross-type
