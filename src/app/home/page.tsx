@@ -39,6 +39,7 @@ import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 import { PullWrapper } from '@/components/ui/PullWrapper'
 import { ReportButton } from '@/components/ui/ReportButton'
 import { gestureState } from '@/hooks/gestureState'
+import { UserBadge } from '@/components/ui/UserBadge'
 
 // ── Macro-categorie ───────────────────────────────────────────────────────────
 
@@ -96,6 +97,7 @@ type Post = {
     username: string
     display_name?: string
     avatar_url?: string
+    badge?: string | null
   }
   likes_count: number
   comments_count: number
@@ -868,7 +870,7 @@ const PostCard = memo(function PostCard({
         <div className="flex-1 min-w-0">
           <Link href={`/profile/${post.profiles.username}`} className="hover:text-violet-400 transition-colors" onClick={e => e.stopPropagation()}>
             <p className="font-semibold text-[var(--text-primary)] text-[15px] leading-tight">
-              {post.profiles.display_name || post.profiles.username}
+              <UserBadge badge={post.profiles.badge} displayName={post.profiles.display_name || post.profiles.username} />
             </p>
           </Link>
           <p className="text-xs text-[var(--text-muted)] mt-0.5">
@@ -1006,7 +1008,7 @@ function PostModal({
             <div className="flex-1 min-w-0">
               <Link href={`/profile/${post.profiles.username}`} onClick={onClose} className="hover:text-violet-400 transition-colors">
                 <p className="font-semibold text-[var(--text-primary)] text-[15px] leading-tight">
-                  {post.profiles.display_name || post.profiles.username}
+                  <UserBadge badge={post.profiles.badge} displayName={post.profiles.display_name || post.profiles.username} />
                 </p>
               </Link>
               <p className="text-xs text-[var(--text-muted)] mt-0.5">
@@ -1241,7 +1243,7 @@ export default function FeedPage() {
       .gte('created_at', since).order('created_at', { ascending: false }).limit(50)
     if (error || !data) return
     const uids1 = [...new Set(data.map((p: any) => p.user_id))]
-    const { data: profiles1 } = await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', uids1)
+    const { data: profiles1 } = await supabase.from('profiles').select('id, username, display_name, avatar_url, badge').in('id', uids1)
     const pm1: Record<string, any> = {}; (profiles1 || []).forEach((p: any) => { pm1[p.id] = p })
     const commentUids1 = [...new Set(data.flatMap((p: any) => (p.comments || []).map((c: any) => c.user_id)))]
     const { data: cProfiles1 } = commentUids1.length ? await supabase.from('profiles').select('id, username, display_name').in('id', commentUids1) : { data: [] }
@@ -1294,7 +1296,7 @@ export default function FeedPage() {
       .gte('created_at', since).limit(50)
     if (!discPosts) return []
     const discUids = [...new Set(discPosts.map((p: any) => p.user_id))]
-    const { data: discProfiles } = await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', discUids)
+    const { data: discProfiles } = await supabase.from('profiles').select('id, username, display_name, avatar_url, badge').in('id', discUids)
     const discPm: Record<string, any> = {}; (discProfiles || []).forEach((p: any) => { discPm[p.id] = p })
     const data = discPosts.map((p: any) => ({ ...p, profiles: discPm[p.user_id] || { username: '', display_name: null, avatar_url: null } }))
 
@@ -1338,7 +1340,7 @@ export default function FeedPage() {
 
     const { data: rawPosts } = await query
     const postUids = [...new Set((rawPosts || []).map((p: any) => p.user_id))]
-    const { data: postProfiles } = postUids.length ? await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', postUids) : { data: [] }
+    const { data: postProfiles } = postUids.length ? await supabase.from('profiles').select('id, username, display_name, avatar_url, badge').in('id', postUids) : { data: [] }
     const postPm: Record<string, any> = {}; (postProfiles || []).forEach((p: any) => { postPm[p.id] = p })
     const commentUids = [...new Set((rawPosts || []).flatMap((p: any) => (p.comments || []).map((c: any) => c.user_id)))]
     const { data: commentProfs } = commentUids.length ? await supabase.from('profiles').select('id, username, display_name').in('id', commentUids) : { data: [] }

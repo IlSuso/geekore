@@ -7,12 +7,14 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
 import { TrendingUp, Film, Gamepad2, Tv, Layers } from 'lucide-react'
+import { UserBadge } from '@/components/ui/UserBadge'
 
 interface SuggestedUser {
   id: string
   username: string
   display_name?: string
   avatar_url?: string
+  badge?: string | null
 }
 
 interface TrendingItem {
@@ -139,7 +141,7 @@ function SuggestedUsersCompact({ currentUserId }: { currentUserId: string }) {
       const { data: follows } = await supabase.from('follows').select('following_id').eq('follower_id', currentUserId)
       const followingIds = new Set((follows || []).map((f: any) => f.following_id))
       followingIds.add(currentUserId)
-      const { data } = await supabase.from('profiles').select('id, username, display_name, avatar_url')
+      const { data } = await supabase.from('profiles').select('id, username, display_name, avatar_url, badge')
         .order('created_at', { ascending: false }).limit(20)
       setUsers(((data || []).filter((u: any) => !followingIds.has(u.id)).slice(0, 5)))
     }
@@ -173,7 +175,7 @@ function SuggestedUsersCompact({ currentUserId }: { currentUserId: string }) {
             <div className="flex-1 min-w-0">
               <Link href={`/profile/${user.username}`}>
                 <p className="text-[13px] font-semibold text-[var(--text-primary)] truncate hover:opacity-70 transition-opacity">
-                  {user.username}
+                  <UserBadge badge={user.badge} displayName={user.display_name || user.username} />
                 </p>
               </Link>
               <p className="text-[11px] text-[var(--text-secondary)] truncate">
