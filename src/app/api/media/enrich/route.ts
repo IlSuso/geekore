@@ -121,6 +121,8 @@ export async function POST(request: NextRequest) {
       result = await fetchJikanAnime(parseInt(malMatch[1]))
     } else if (aniMatch) {
       result = await fetchAniList(parseInt(aniMatch[1]), 'ANIME')
+    } else if (external_id && /^\d+$/.test(external_id)) {
+      result = await fetchAniList(parseInt(external_id), 'ANIME')
     }
   } else if (type === 'manga') {
     const malMatch = external_id?.match(/^mal-manga-(\d+)$/)
@@ -129,6 +131,8 @@ export async function POST(request: NextRequest) {
       result = await fetchJikanManga(parseInt(malMatch[1]))
     } else if (aniMatch) {
       result = await fetchAniList(parseInt(aniMatch[1]), 'MANGA')
+    } else if (external_id && /^\d+$/.test(external_id)) {
+      result = await fetchAniList(parseInt(external_id), 'MANGA')
     }
   }
 

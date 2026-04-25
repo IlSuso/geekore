@@ -2,7 +2,7 @@
 
 import { logActivity } from '@/lib/activity'
 import { Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, List, Grid3X3, ChevronRight, Download, X as XIcon, Gamepad2, Tv, BarChart2, Users, TrendingUp } from 'lucide-react'
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { SteamIcon } from '@/components/icons/SteamIcon'
 import { StarRating } from '@/components/ui/StarRating'
+import { MobileMediaModal, type ModalMedia } from '@/components/profile/MobileMediaModal'
 import { Spinner } from '@/components/ui/Spinner'
 import { FollowButton } from '@/components/profile/follow-button'
 import { TasteSimilarityBadge } from '@/components/social/TasteSimilarityBadge'
@@ -134,11 +135,15 @@ function InlineChapterInput({ value, max, onSave }: {
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
+  const committed = useRef(false)
 
   const commit = () => {
+    if (committed.current) return
+    committed.current = true
     const n = parseInt(draft, 10)
     if (!isNaN(n) && n >= 0 && (!max || n <= max)) onSave(n)
     setEditing(false)
+    setTimeout(() => { committed.current = false }, 100)
   }
 
   if (editing) {
@@ -151,8 +156,12 @@ function InlineChapterInput({ value, max, onSave }: {
         max={max}
         onChange={e => setDraft(e.target.value)}
         onBlur={commit}
-        onKeyDown={e => { if (e.key === 'Enter') commit() }}
+        onKeyDown={e => {
+          if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commit() }
+          if (e.key === 'Escape') { e.stopPropagation(); setEditing(false) }
+        }}
         onPointerDown={e => e.stopPropagation()}
+        onTouchStart={e => e.stopPropagation()}
         className="bg-transparent outline-none w-10 text-emerald-400 text-[11px] font-semibold p-0 text-center border-b border-emerald-400/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
     )
@@ -162,6 +171,7 @@ function InlineChapterInput({ value, max, onSave }: {
     <span
       onClick={() => { setDraft(value.toString()); setEditing(true) }}
       onPointerDown={e => e.stopPropagation()}
+      onTouchStart={e => e.stopPropagation()}
       className="text-emerald-400 font-semibold cursor-text hover:underline decoration-dotted underline-offset-2 select-none"
     >
       {value}
@@ -204,7 +214,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 function MediaCard({
   media, isOwner, deletingId,
-  onDelete, onDeleteRequest, onDeleteCancel, onRating, onNotes, onSaveProgress, onMarkComplete, onReset, onStatusChange, onEnrichEpisodes, enriching,
+  onDelete, onDeleteRequest, onDeleteCancel, onRating, onNotes, onSaveProgress, onMarkComplete, onReset, onStatusChange, onEnrichEpisodes, enriching, onMobileTap,
 }: {
   media: UserMedia
   isOwner: boolean
@@ -220,6 +230,7 @@ function MediaCard({
   onStatusChange?: (id: string, status: string) => void
   onEnrichEpisodes?: (id: string) => void
   enriching?: boolean
+  onMobileTap?: () => void
 }) {
   const { t, locale } = useLocale()
   const router = useRouter()
@@ -297,22 +308,40 @@ function MediaCard({
   }
 
   return (
-    <div className="group relative bg-zinc-950 rounded-3xl overflow-hidden h-full flex flex-col">
+    <div
+      className="group relative bg-zinc-950 rounded-3xl overflow-hidden h-full flex flex-col"
+      onClick={() => { if (typeof window !== 'undefined' && window.innerWidth < 768) onMobileTap?.() }}
+    >
       {/* Cover */}
       <div className="relative h-56 bg-zinc-900 flex-shrink-0 overflow-hidden">
+        {/* Delete — hidden on mobile (in modal instead) */}
         {isOwner && isConfirmingDelete && (
-          <div className="absolute top-3 right-3 z-30 flex gap-1.5">
-            <button onClick={() => onDeleteCancel?.()} className="px-3 py-1.5 text-xs font-medium bg-zinc-900/95 border border-zinc-600 rounded-full hover:bg-zinc-800 transition">{m.cancel}</button>
-            <button onClick={() => onDelete?.(media.id)} className="px-3 py-1.5 text-xs font-medium bg-red-900/95 border border-red-700 text-red-300 rounded-full hover:bg-red-800 transition">{m.delete}</button>
+          <div className="hidden md:flex absolute top-3 right-3 z-30 gap-1.5">
+            <button onClick={e => { e.stopPropagation(); onDeleteCancel?.() }} className="px-3 py-1.5 text-xs font-medium bg-zinc-900/95 border border-zinc-600 rounded-full hover:bg-zinc-800 transition">{m.cancel}</button>
+            <button onClick={e => { e.stopPropagation(); onDelete?.(media.id) }} className="px-3 py-1.5 text-xs font-medium bg-red-900/95 border border-red-700 text-red-300 rounded-full hover:bg-red-800 transition">{m.delete}</button>
           </div>
         )}
         {isOwner && !isConfirmingDelete && (
           <button
-            onClick={() => onDeleteRequest?.(media.id)}
+            onClick={e => { e.stopPropagation(); onDeleteRequest?.(media.id) }}
             aria-label={`Elimina ${media.title}`}
-            className="absolute top-3 right-3 z-30 opacity-30 group-hover:opacity-100 bg-black/50 hover:bg-red-950/80 border border-white/10 hover:border-red-500/60 p-1.5 rounded-xl transition-all duration-200"
+            className="hidden md:flex absolute top-3 right-3 z-30 opacity-30 group-hover:opacity-100 bg-black/50 hover:bg-red-950/80 border border-white/10 hover:border-red-500/60 p-1.5 rounded-xl transition-all duration-200"
           >
             <X className="w-4 h-4 text-white group-hover:text-red-400 transition-colors" />
+          </button>
+        )}
+        {/* Notes pencil — bottom-right of cover, desktop only (mobile → modal) */}
+        {isOwner && (
+          <button
+            onClick={e => { e.stopPropagation(); onNotes?.(media) }}
+            aria-label="Note"
+            className={`hidden md:flex absolute bottom-3 right-3 z-20 p-1.5 rounded-lg border transition-all ${
+              hasNotes
+                ? 'bg-violet-600 border-violet-500 text-white'
+                : 'bg-black/50 border-white/10 hover:border-violet-500/60 text-zinc-400 hover:text-violet-400'
+            }`}
+          >
+            <Edit3 size={11} />
           </button>
         )}
         <div className="absolute bottom-0 inset-x-0 h-14 bg-gradient-to-t from-black/70 to-transparent z-10 pointer-events-none" />
@@ -322,8 +351,49 @@ function MediaCard({
         {renderCover()}
       </div>
 
-      {/* Info */}
-      <div className="flex flex-col flex-1 px-3 pt-2.5 pb-3 gap-1.5">
+      {/* ── Mobile: static read-only info (tap card to open modal) ─────────── */}
+      <div className="md:hidden flex flex-col flex-1 px-3 pt-2.5 pb-3 gap-1.5">
+        <h4 className="font-semibold line-clamp-2 text-[13px] leading-snug text-white">{displayTitle}</h4>
+        <StarRating value={rating} viewOnly size={13} />
+        {/* Status badge for tv/anime */}
+        {(media.type === 'tv' || media.type === 'anime') && (() => {
+          const badge = statusBadge[media.status || 'watching']
+          return badge ? <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit ${badge.cls}`}>{badge.label}</span> : null
+        })()}
+        {/* Static progress */}
+        <div className="flex-1 min-h-0" />
+        <div className="text-[11px] text-zinc-400">
+          {media.type === 'game' && (media.current_episode || 0) > 0 && (
+            <span className="inline-flex items-center gap-1 bg-zinc-800/60 px-2 py-0.5 rounded-full">
+              <Clock size={10} className="text-zinc-500" />{m.hoursPlayed(media.current_episode || 0)}
+            </span>
+          )}
+          {media.type === 'manga' && (
+            isCompleted || (media.episodes && media.episodes > 1 && (media.current_episode || 0) >= media.episodes) ? (
+              <span className="flex items-center gap-1 text-emerald-400"><CheckCircle size={11} />Completato</span>
+            ) : (
+              <span className="text-zinc-500">
+                Cap. <span className="text-emerald-400 font-semibold">{media.current_episode || 0}</span>
+                {media.episodes && media.episodes > 1 ? <span className="text-zinc-600"> / {media.episodes}</span> : null}
+              </span>
+            )
+          )}
+          {(media.type === 'tv' || media.type === 'anime') && (
+            isCompleted ? (
+              <span className="flex items-center gap-1 text-emerald-400"><CheckCircle size={11} />Completato</span>
+            ) : hasEpisodeData ? (
+              <span className="text-zinc-500">
+                {hasSeasonData && <span className="text-zinc-500">{m.season(currentSeasonNum)} · </span>}
+                Ep. <span className="text-emerald-400 font-semibold">{media.current_episode}</span>
+                <span className="text-zinc-600"> / {maxEpisodesThisSeason}</span>
+              </span>
+            ) : null
+          )}
+        </div>
+      </div>
+
+      {/* ── Desktop: full interactive info ────────────────────────────────── */}
+      <div className="hidden md:flex flex-col flex-1 px-3 pt-2.5 pb-3 gap-1.5">
         <h4 className="font-semibold line-clamp-2 text-[13px] leading-snug text-white">{displayTitle}</h4>
 
         {/* Stars */}
@@ -336,41 +406,30 @@ function MediaCard({
           />
         </div>
 
-        {/* Status row — select solo per tv/anime, badge statico per gli altri */}
+        {/* Status row */}
         <div className="flex items-center gap-1.5">
-          {(media.type === 'tv' || media.type === 'anime') && isOwner ? (
-            <select
-              value={media.status || 'watching'}
-              onChange={e => onStatusChange?.(media.id, e.target.value)}
-              onClick={e => e.stopPropagation()}
-              onPointerDown={e => e.stopPropagation()}
-              className="flex-1 min-w-0 text-[10px] font-semibold px-2 py-1 rounded-full border bg-zinc-900 border-zinc-800 text-zinc-400 focus:outline-none focus:border-violet-500 transition cursor-pointer appearance-none"
-            >
-              <option value="watching">In corso</option>
-              <option value="completed">Completato</option>
-              <option value="paused">In pausa</option>
-              <option value="dropped">Abbandonato</option>
-            </select>
-          ) : (
-            (() => {
-              const badge = statusBadge[media.status || 'watching']
-              return badge ? (
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit ${badge.cls}`}>{badge.label}</span>
-              ) : null
-            })()
-          )}
-          {isOwner && (
-            <button
-              onClick={() => onNotes?.(media)}
-              onPointerDown={e => e.stopPropagation()}
-              className={`flex-shrink-0 p-1.5 rounded-lg border transition-all ml-auto ${
-                hasNotes
-                  ? 'bg-violet-600 border-violet-500 text-white'
-                  : 'bg-zinc-900 border-zinc-800 hover:border-violet-500/60 text-zinc-600 hover:text-violet-400'
-              }`}
-            >
-              <Edit3 size={12} />
-            </button>
+          {(media.type === 'tv' || media.type === 'anime') && (
+            isOwner ? (
+              <select
+                value={media.status || 'watching'}
+                onChange={e => onStatusChange?.(media.id, e.target.value)}
+                onClick={e => e.stopPropagation()}
+                onPointerDown={e => e.stopPropagation()}
+                className="flex-1 min-w-0 text-[10px] font-semibold px-2 py-1 rounded-full border bg-zinc-900 border-zinc-800 text-zinc-400 focus:outline-none focus:border-violet-500 transition cursor-pointer appearance-none"
+              >
+                <option value="watching">In corso</option>
+                <option value="completed">Completato</option>
+                <option value="paused">In pausa</option>
+                <option value="dropped">Abbandonato</option>
+              </select>
+            ) : (
+              (() => {
+                const badge = statusBadge[media.status || 'watching']
+                return badge ? (
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit ${badge.cls}`}>{badge.label}</span>
+                ) : null
+              })()
+            )
           )}
         </div>
 
@@ -404,24 +463,11 @@ function MediaCard({
               </div>
             )
           })() : media.type === 'manga' ? (() => {
-            const hasCh = !!(media.episodes && media.episodes > 1)
-            if (!hasCh) {
-              return isOwner ? (
-                <button
-                  onClick={() => onEnrichEpisodes?.(media.id)}
-                  onPointerDown={e => e.stopPropagation()}
-                  disabled={enriching}
-                  className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-violet-400 transition-colors disabled:opacity-50"
-                >
-                  {enriching ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
-                  {enriching ? 'Recupero…' : 'Recupera capitoli'}
-                </button>
-              ) : null
-            }
-            const maxCh = media.episodes!
-            const isChCompleted = (media.current_episode || 0) >= maxCh
+            const maxCh = media.episodes && media.episodes > 1 ? media.episodes : undefined
+            const current = media.current_episode || 0
+            const isChCompleted = !!maxCh && current >= maxCh
             return (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5" onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
                 {isChCompleted ? (
                   isOwner ? (
                     <div className="flex items-center justify-between">
@@ -441,26 +487,43 @@ function MediaCard({
                   )
                 ) : (
                   <>
-                    <div className="flex items-center gap-1 text-[11px]">
-                      <span className="text-zinc-500 flex-shrink-0">Cap.</span>
-                      {isOwner ? (
-                        <>
-                          <InlineChapterInput
-                            value={media.current_episode || 0}
-                            max={maxCh}
-                            onSave={n => onSaveProgress?.(media.id, n)}
-                          />
-                          <span className="text-zinc-600">/{maxCh}</span>
-                        </>
-                      ) : (
-                        <span className="text-emerald-400 font-semibold">
-                          {media.current_episode || 0}<span className="text-zinc-600">/{maxCh}</span>
-                        </span>
+                    <div className="flex items-center justify-between gap-1">
+                      {isOwner && (
+                        <button onClick={() => onSaveProgress?.(media.id, Math.max(0, current - 1))} onPointerDown={e => e.stopPropagation()} disabled={current <= 0} className="w-6 h-6 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 text-sm font-bold disabled:opacity-30">−</button>
+                      )}
+                      <div className="flex-1 text-[11px] font-semibold flex items-center justify-center gap-0.5">
+                        <span className="text-zinc-500 text-[10px] mr-0.5">Cap.</span>
+                        {isOwner ? (
+                          <>
+                            <InlineChapterInput value={current} max={maxCh} onSave={n => onSaveProgress?.(media.id, n)} />
+                            {maxCh && <span className="text-zinc-600">/{maxCh}</span>}
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-emerald-400">{current}</span>
+                            {maxCh && <span className="text-zinc-600">/{maxCh}</span>}
+                          </>
+                        )}
+                      </div>
+                      {isOwner && (
+                        <button
+                          onClick={() => { const next = current + 1; (maxCh && next > maxCh) ? onMarkComplete?.(media.id, media) : onSaveProgress?.(media.id, next) }}
+                          onPointerDown={e => e.stopPropagation()}
+                          className="w-6 h-6 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 text-sm font-bold"
+                        >+</button>
                       )}
                     </div>
-                    <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 transition-all duration-300 rounded-full" style={{ width: `${Math.min(100, Math.round(((media.current_episode || 0) / maxCh) * 100))}%` }} />
-                    </div>
+                    {maxCh && (
+                      <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 transition-all duration-300 rounded-full" style={{ width: `${Math.min(100, Math.round((current / maxCh) * 100))}%` }} />
+                      </div>
+                    )}
+                    {isOwner && !maxCh && (
+                      <button onClick={() => onEnrichEpisodes?.(media.id)} onPointerDown={e => e.stopPropagation()} disabled={enriching} className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-violet-400 transition-colors disabled:opacity-50">
+                        {enriching ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
+                        {enriching ? 'Recupero…' : 'Recupera totale'}
+                      </button>
+                    )}
                   </>
                 )}
               </div>
@@ -748,6 +811,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
   const [selectedMedia, setSelectedMedia] = useState<UserMedia | null>(null)
   const [notesInput, setNotesInput] = useState('')
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
+  const [openMobileId, setOpenMobileId] = useState<string | null>(null)
 
   const router = useRouter()
 
@@ -1363,7 +1427,8 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                                         onDelete={handleDelete} onDeleteRequest={setDeletingId} onDeleteCancel={() => setDeletingId(null)}
                                         onRating={setRating} onNotes={openNotesModal} onSaveProgress={saveProgress}
                                         onMarkComplete={markAsCompleted} onReset={resetProgress} onStatusChange={changeStatus}
-                                        onEnrichEpisodes={enrichEpisodeData} enriching={enrichingIds.has(media.id)} />
+                                        onEnrichEpisodes={enrichEpisodeData} enriching={enrichingIds.has(media.id)}
+                                        onMobileTap={() => setOpenMobileId(media.id)} />
                                     </SortableBox>
                                   </div>
                                 ))}
@@ -1419,6 +1484,28 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
           <ProfileComments profileId={profile.id} profileUsername={profile.username} isOwner={isOwner} />
         )}
       </div>
+
+      {/* Mobile card modal (bottom sheet) */}
+      {openMobileId && isOwner && (() => {
+        const openMedia = mediaList.find(m => m.id === openMobileId)
+        if (!openMedia) return null
+        return (
+          <MobileMediaModal
+            media={openMedia as ModalMedia}
+            isOwner={true}
+            onClose={() => setOpenMobileId(null)}
+            onRating={setRating}
+            onStatusChange={changeStatus}
+            onSaveProgress={saveProgress}
+            onMarkComplete={(id, m) => markAsCompleted(id, m as UserMedia)}
+            onReset={resetProgress}
+            onEnrichEpisodes={enrichEpisodeData}
+            enriching={enrichingIds.has(openMobileId)}
+            onDelete={handleDelete}
+            onNotes={(m) => openNotesModal(m as UserMedia)}
+          />
+        )
+      })()}
 
       {/* Modal Note */}
       {isNotesModalOpen && selectedMedia && isOwner && (
