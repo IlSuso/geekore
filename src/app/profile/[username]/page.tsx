@@ -276,80 +276,77 @@ function MediaCard({
       </div>
 
       {/* Info */}
-      <div className="flex flex-col flex-1 px-4 pt-3 pb-4 gap-2">
-        <h4 className="font-semibold line-clamp-2 text-sm leading-snug text-white">{displayTitle}</h4>
-        <div className="flex items-center gap-2">
-          <div onPointerDown={isOwner ? e => e.stopPropagation() : undefined}>
-            <StarRating
-              value={rating}
-              onChange={isOwner ? (r) => onRating?.(media.id, r) : undefined}
-              size={15}
-              viewOnly={!isOwner}
-            />
-          </div>
-          {isOwner && (
-            <button
-              onClick={() => onNotes?.(media)}
-              onPointerDown={e => e.stopPropagation()}
-              className={`ml-auto p-1.5 rounded-lg border transition-all ${
-                hasNotes
-                  ? 'bg-violet-600 border-violet-500 text-white'
-                  : 'bg-zinc-900 border-zinc-800 hover:border-violet-500/60 text-zinc-600 hover:text-violet-400'
-              }`}
-            >
-              <Edit3 size={13} />
-            </button>
-          )}
-        </div>
+      <div className="flex flex-col flex-1 px-3 pt-2.5 pb-3 gap-1.5">
+        <h4 className="font-semibold line-clamp-2 text-[13px] leading-snug text-white">{displayTitle}</h4>
 
-        {isOwner ? (
-          <div className="flex">
+        {/* Status row */}
+        <div className="flex items-center gap-1.5">
+          {isOwner ? (
             <select
               value={media.status || 'watching'}
               onChange={e => onStatusChange?.(media.id, e.target.value)}
               onClick={e => e.stopPropagation()}
               onPointerDown={e => e.stopPropagation()}
-              className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-zinc-900 border-zinc-800 text-zinc-400 focus:outline-none focus:border-violet-500 transition cursor-pointer appearance-none"
+              className="flex-1 min-w-0 text-[10px] font-semibold px-2 py-1 rounded-full border bg-zinc-900 border-zinc-800 text-zinc-400 focus:outline-none focus:border-violet-500 transition cursor-pointer appearance-none"
             >
               <option value="watching">In corso</option>
               <option value="completed">Completato</option>
               <option value="paused">In pausa</option>
               <option value="dropped">Abbandonato</option>
             </select>
-          </div>
-        ) : (
-          (() => {
-            const badge = statusBadge[media.status || 'watching']
-            return badge ? (
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit ${badge.cls}`}>
-                {badge.label}
-              </span>
-            ) : null
-          })()
-        )}
+          ) : (
+            (() => {
+              const badge = statusBadge[media.status || 'watching']
+              return badge ? (
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit ${badge.cls}`}>{badge.label}</span>
+              ) : null
+            })()
+          )}
+          {isOwner && (
+            <button
+              onClick={() => onNotes?.(media)}
+              onPointerDown={e => e.stopPropagation()}
+              className={`flex-shrink-0 p-1.5 rounded-lg border transition-all ${
+                hasNotes
+                  ? 'bg-violet-600 border-violet-500 text-white'
+                  : 'bg-zinc-900 border-zinc-800 hover:border-violet-500/60 text-zinc-600 hover:text-violet-400'
+              }`}
+            >
+              <Edit3 size={12} />
+            </button>
+          )}
+        </div>
 
+        {/* Stars */}
+        <div onPointerDown={isOwner ? e => e.stopPropagation() : undefined}>
+          <StarRating
+            value={rating}
+            onChange={isOwner ? (r) => onRating?.(media.id, r) : undefined}
+            size={14}
+            viewOnly={!isOwner}
+          />
+        </div>
+
+        {/* Progress area */}
         <div className="mt-auto pt-1">
           {media.type === 'game' ? (() => {
             const ach = media.achievement_data
             const hours = media.current_episode || 0
             return (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {hours > 0 && (
-                  <p className="text-emerald-400 text-sm flex items-center justify-center gap-1.5">
-                    <Clock size={14} /> {m.hoursPlayed(hours)}
+                  <p className="text-emerald-400 text-xs flex items-center gap-1">
+                    <Clock size={12} /> {m.hoursPlayed(hours)}
                   </p>
                 )}
                 {ach && ach.tot > 0 && (
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[11px] text-zinc-500">
+                    <div className="flex items-center justify-between text-[10px] text-zinc-500">
                       <span>Achievement</span>
                       <span className="font-mono text-zinc-400">{ach.curr}/{ach.tot}</span>
                     </div>
-                    <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-[#107c10] rounded-full transition-all duration-300"
-                        style={{ width: `${Math.round((ach.curr / ach.tot) * 100)}%` }}
-                      />
+                    <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-[#107c10] rounded-full transition-all duration-300" style={{ width: `${Math.round((ach.curr / ach.tot) * 100)}%` }} />
                     </div>
                   </div>
                 )}
@@ -359,32 +356,35 @@ function MediaCard({
             isCompleted ? (
               isOwner ? (
                 <div className="flex items-center justify-end">
-                  <button onClick={() => onReset?.(media.id)} className="p-2 text-zinc-500 hover:text-zinc-300 transition-colors" title="Ripristina progresso"><RotateCcw size={18} /></button>
+                  <button onClick={() => onReset?.(media.id)} onPointerDown={e => e.stopPropagation()} className="p-1.5 text-zinc-600 hover:text-zinc-400 transition-colors" title="Ripristina progresso">
+                    <RotateCcw size={15} />
+                  </button>
                 </div>
-              ) : null
+              ) : (
+                <div className="flex items-center gap-1 text-emerald-400">
+                  <CheckCircle size={13} />
+                  <span className="text-[11px] font-semibold">Completato</span>
+                </div>
+              )
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-1.5">
                 {hasSeasonData && (
-                  <div className="flex items-center justify-between gap-2">
-                    {isOwner && <button onClick={() => onSaveProgress?.(media.id, Math.max(1, currentSeasonNum - 1), 'current_season')} disabled={currentSeasonNum <= 1} className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30">−</button>}
-                    <div className="flex-1 text-emerald-400 text-sm flex items-center justify-center">{m.season(currentSeasonNum)}</div>
-                    {isOwner && <button onClick={() => { if (currentSeasonNum + 1 <= maxSeasons) onSaveProgress?.(media.id, currentSeasonNum + 1, 'current_season') }} disabled={currentSeasonNum >= maxSeasons} className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30">+</button>}
+                  <div className="flex items-center justify-between gap-1">
+                    {isOwner && <button onClick={() => onSaveProgress?.(media.id, Math.max(1, currentSeasonNum - 1), 'current_season')} onPointerDown={e => e.stopPropagation()} disabled={currentSeasonNum <= 1} className="w-6 h-6 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 text-sm font-bold disabled:opacity-30">−</button>}
+                    <div className="flex-1 text-emerald-400 text-[11px] font-semibold flex items-center justify-center">{m.season(currentSeasonNum)}</div>
+                    {isOwner && <button onClick={() => { if (currentSeasonNum + 1 <= maxSeasons) onSaveProgress?.(media.id, currentSeasonNum + 1, 'current_season') }} onPointerDown={e => e.stopPropagation()} disabled={currentSeasonNum >= maxSeasons} className="w-6 h-6 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 text-sm font-bold disabled:opacity-30">+</button>}
                   </div>
                 )}
-                <div className="flex items-center justify-between gap-3">
-                  {isOwner && <button onClick={() => onSaveProgress?.(media.id, Math.max(1, media.current_episode - 1))} disabled={media.current_episode <= 1} className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold disabled:opacity-30">−</button>}
-                  <div className="flex-1 text-emerald-400 text-sm flex items-center justify-center gap-1.5">
-                    <span>{m.ep(media.current_episode)}</span>
-                    <span className="text-zinc-500">/ {maxEpisodesThisSeason}</span>
+                <div className="flex items-center justify-between gap-1">
+                  {isOwner && <button onClick={() => onSaveProgress?.(media.id, Math.max(1, media.current_episode - 1))} onPointerDown={e => e.stopPropagation()} disabled={media.current_episode <= 1} className="w-6 h-6 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 text-sm font-bold disabled:opacity-30">−</button>}
+                  <div className="flex-1 text-[11px] font-semibold flex items-center justify-center gap-0.5">
+                    <span className="text-emerald-400">{m.ep(media.current_episode)}</span>
+                    <span className="text-zinc-600">/{maxEpisodesThisSeason}</span>
                   </div>
-                  {isOwner && <button onClick={() => { const next = media.current_episode + 1; next <= maxEpisodesThisSeason ? onSaveProgress?.(media.id, next) : onMarkComplete?.(media.id, media) }} className="w-7 h-7 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 font-bold">+</button>}
+                  {isOwner && <button onClick={() => { const next = media.current_episode + 1; next <= maxEpisodesThisSeason ? onSaveProgress?.(media.id, next) : onMarkComplete?.(media.id, media) }} onPointerDown={e => e.stopPropagation()} className="w-6 h-6 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 text-sm font-bold">+</button>}
                 </div>
-                <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
                   <div className="h-full bg-emerald-500 transition-all duration-300 rounded-full" style={{ width: `${totalProgress}%` }} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-500">{m.progress(totalProgress)}</span>
-                  {isOwner && <button onClick={() => onMarkComplete?.(media.id, media)} className="p-1.5 text-emerald-400 hover:text-emerald-300 transition-colors"><CheckCircle size={20} /></button>}
                 </div>
               </div>
             )
@@ -451,11 +451,11 @@ function CollectionControls({
       </div>
 
       {/* Riga 2: filtri + view toggle — scrollabile su mobile */}
-      <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-0.5">
+      <div className="flex items-center gap-2">
         <select
           value={statusFilter}
           onChange={e => onStatusFilter(e.target.value)}
-          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-violet-500 transition-colors appearance-none flex-shrink-0"
+          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-violet-500 transition-colors appearance-none flex-1 min-w-0"
         >
           <option value="all">Tutti</option>
           <option value="watching">In corso</option>
@@ -467,7 +467,7 @@ function CollectionControls({
         <select
           value={sort}
           onChange={e => onSort(e.target.value as SortMode)}
-          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-violet-500 transition-colors appearance-none flex-shrink-0"
+          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-violet-500 transition-colors appearance-none flex-1 min-w-0"
         >
           <option value="default">Default</option>
           <option value="rating_desc">Voto ↓</option>
@@ -478,7 +478,7 @@ function CollectionControls({
         </select>
 
         {/* View toggle — pushed right */}
-        <div className="flex bg-zinc-900 border border-zinc-800 rounded-xl p-1 gap-0.5 ml-auto flex-shrink-0">
+        <div className="flex bg-zinc-900 border border-zinc-800 rounded-xl p-1 gap-0.5 flex-shrink-0">
           <button onClick={() => onView('grid')} className={`p-1.5 rounded-lg transition-colors ${view === 'grid' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
             <Grid3X3 size={13} />
           </button>
@@ -1091,7 +1091,6 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
               { href: '/stats',      icon: <BarChart2 size={14} className="text-indigo-400" />, label: 'Statistiche' },
               { href: '/trending',   icon: <TrendingUp size={14} className="text-orange-400" />,label: 'Trending' },
               { href: '/community',  icon: <Users size={14} className="text-violet-400" />,     label: 'Community' },
-              { href: '/settings',   icon: <Settings size={14} className="text-zinc-400" />,    label: 'Impostazioni' },
             ] as const).map(item => (
               <Link key={item.href} href={item.href}
                 className="flex items-center gap-2 px-3 py-2 bg-zinc-900 rounded-2xl border border-zinc-800 text-sm font-medium text-zinc-300 hover:border-zinc-600 transition-colors flex-shrink-0 whitespace-nowrap">
