@@ -129,7 +129,7 @@ export default function Navbar() {
       <nav className="hidden md:flex fixed top-0 left-0 right-0 z-[100] h-14 bg-black/80 backdrop-blur-2xl border-b border-zinc-800/60" />
       <nav
         className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-black"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)', transform: 'translateZ(0)' }}
       >
         <div className="flex items-stretch h-[56px] px-2 opacity-0">
           {MOBILE_NAV_ITEMS.map((item) => (
@@ -309,7 +309,7 @@ export default function Navbar() {
       {/* ── Mobile bottom navbar ─────────────────────────────────────────── */}
       <nav
         className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100]"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)', background: 'rgba(0,0,0,0.97)', borderTop: '0.5px solid #1c1c1c' }}
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)', background: 'rgba(0,0,0,0.97)', borderTop: '0.5px solid #1c1c1c', transform: 'translateZ(0)' }}
       >
         <div className="flex items-stretch h-[56px]">
           {MOBILE_NAV_ITEMS.map((item) => {

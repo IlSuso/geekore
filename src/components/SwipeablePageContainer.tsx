@@ -212,11 +212,14 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     <div
       ref={wrapRef}
       style={{
+        isolation:                'isolate',
         transform:                translateX,
         transition,
         willChange:               isActive ? 'transform' : 'auto',
-        backfaceVisibility:       'hidden',
-        WebkitBackfaceVisibility: 'hidden',
+        ...(isActive ? {
+          backfaceVisibility:       'hidden',
+          WebkitBackfaceVisibility: 'hidden',
+        } : {}),
         minHeight:                '100%',
       }}
     >
