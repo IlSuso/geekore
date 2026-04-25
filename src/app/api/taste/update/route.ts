@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
   // recommendations_pool viene invalidato solo per azioni di consumo forte (non wishlist)
   if (mediaType) {
     const poolInvalidatingActions: DeltaAction[] = ['status_change', 'rewatch']
-    const invalidations: Promise<any>[] = [
+    const invalidations: any[] = [
       supabase
         .from('recommendations_cache')
         .delete()
