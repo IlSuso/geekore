@@ -90,39 +90,47 @@ const ICON_DROP = { filter: 'drop-shadow(0 1px 4px rgba(0,0,0,1)) drop-shadow(0 
 // ─── LoadingScreen ─────────────────────────────────────────────────────────────
 
 function LoadingScreen({ message = 'Caricamento nuovi titoli' }: { message?: string }) {
-  const [dots, setDots] = useState(0)
-  useEffect(() => {
-    const t = setInterval(() => setDots(d => (d + 1) % 4), 500)
-    return () => clearInterval(t)
-  }, [])
   return (
-    <div className="flex flex-col items-center justify-center gap-8 px-8 text-center">
+    <div className="flex flex-col items-center justify-center gap-7 px-8 text-center"
+      style={{ animation: 'sw-enter 0.45s cubic-bezier(0.22,1,0.36,1) both' }}>
       <style>{`
-        @keyframes sw-spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        @keyframes sw-pulse { 0%,100%{opacity:.35;transform:scale(1)} 50%{opacity:.75;transform:scale(1.18)} }
-        @keyframes sw-bar { from{transform:scaleY(.3);opacity:.35} to{transform:scaleY(1);opacity:1} }
+        @keyframes sw-enter { from{opacity:0;transform:scale(0.96) translateY(8px)} to{opacity:1;transform:scale(1) translateY(0)} }
+        @keyframes sw-arc   { to{transform:rotate(360deg)} }
+        @keyframes sw-logo  { 0%,100%{opacity:0.75;transform:scale(0.97)} 50%{opacity:1;transform:scale(1)} }
+        @keyframes sw-shine { 0%,100%{opacity:0} 40%,60%{opacity:1} }
       `}</style>
-      <div className="relative flex items-center justify-center">
-        <div className="absolute w-32 h-32 rounded-full bg-gradient-to-br from-violet-600/25 to-fuchsia-600/25 blur-2xl"
-          style={{ animation: 'sw-pulse 2s ease-in-out infinite' }} />
-        <div className="absolute w-24 h-24 rounded-full border-[2.5px] border-transparent"
-          style={{ background: 'linear-gradient(black,black) padding-box,linear-gradient(135deg,#7c3aed,#d946ef,#7c3aed) border-box', animation: 'sw-spin 1.8s linear infinite' }} />
-        <div className="absolute w-14 h-14 rounded-full border-2 border-transparent opacity-50"
-          style={{ background: 'linear-gradient(black,black) padding-box,linear-gradient(225deg,#818cf8,#c084fc,#818cf8) border-box', animation: 'sw-spin 1.1s linear infinite reverse' }} />
+
+      {/* Arc spinner + logo */}
+      <div className="relative w-[88px] h-[88px] flex items-center justify-center">
+        {/* Soft glow backdrop */}
+        <div className="absolute inset-3 rounded-full"
+          style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.18) 0%, transparent 70%)' }} />
+        {/* Single arc — calm, 1.4s */}
+        <svg className="absolute inset-0 w-full h-full -rotate-90"
+          style={{ animation: 'sw-arc 1.4s linear infinite' }} viewBox="0 0 88 88">
+          <defs>
+            <linearGradient id="swG" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#7c3aed" stopOpacity="0" />
+              <stop offset="60%" stopColor="#a855f7" />
+              <stop offset="100%" stopColor="#d946ef" />
+            </linearGradient>
+          </defs>
+          {/* Track */}
+          <circle cx="44" cy="44" r="38" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
+          {/* Arc */}
+          <circle cx="44" cy="44" r="38" fill="none" stroke="url(#swG)" strokeWidth="3"
+            strokeLinecap="round" strokeDasharray="155 84" />
+        </svg>
+        {/* Logo — gentle breathing */}
         <img src="/icons/apple-touch-icon.png" alt="Geekore"
-          className="relative z-10 w-12 h-12 rounded-2xl shadow-2xl" style={{ objectFit: 'cover' }} />
+          className="relative z-10 w-11 h-11 rounded-2xl"
+          style={{ animation: 'sw-logo 2.2s ease-in-out infinite', objectFit: 'cover' }} />
       </div>
-      <div className="space-y-2">
-        <p className="text-white font-semibold text-base">
-          {message}<span className="inline-block w-5 text-left">{'.'.repeat(dots)}</span>
-        </p>
-        <p className="text-zinc-600 text-xs">Sto cercando i titoli migliori per te</p>
-      </div>
-      <div className="flex gap-1.5 items-end" style={{ height: 28 }}>
-        {[0,1,2,3,4].map(i => (
-          <div key={i} className="w-1 rounded-full bg-gradient-to-t from-violet-600 to-fuchsia-400"
-            style={{ height: 20, animation: `sw-bar 1.1s ease-in-out ${i*0.15}s infinite alternate` }} />
-        ))}
+
+      {/* Text */}
+      <div className="space-y-1.5">
+        <p className="text-white/85 font-medium text-[15px] tracking-tight">{message}</p>
+        <p className="text-zinc-600 text-[12px]">Stiamo preparando le card per te</p>
       </div>
     </div>
   )
