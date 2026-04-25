@@ -7,12 +7,11 @@
 
 import { useState, useEffect } from 'react'
 import { useLocale } from '@/lib/locale'
-import { useTheme } from '@/lib/theme'
 import { createClient } from '@/lib/supabase/client'
 import {
-  Settings, Globe, Sun, Moon, List, TrendingUp, BarChart3, Bell,
+  Settings, Globe, List, TrendingUp, BarChart3, Bell,
   Shield, KeyRound, LogOut, Eye, EyeOff, Loader2, ChevronDown, ChevronUp,
-  Circle, Sparkles, Mail, Check, Heart, Tv, Monitor, Trash2,
+  Mail, Check, Heart, Tv, Monitor, Trash2,
 } from 'lucide-react'
 import { DeleteAccountModal } from '@/components/profile/DeleteAccountModal'
 import { useCsrf } from '@/hooks/useCsrf'
@@ -471,7 +470,6 @@ function DeleteAccountSection() {
 
 export default function SettingsPage() {
   const { locale, setLocale, t } = useLocale()
-  const { theme, setTheme } = useTheme()
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
@@ -505,37 +503,6 @@ export default function SettingsPage() {
                 >
                   {lang === 'it' ? t.settings.italian : t.settings.english}
                   {locale === lang && <Check size={12} className="text-violet-300" />}
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Tema */}
-        <section>
-          <div className="flex items-center gap-2 mb-3">
-            {theme === 'dark' ? <Moon size={15} className="text-zinc-500" /> : <Sun size={15} className="text-zinc-500" />}
-            <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Tema</h2>
-          </div>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-            <div className="grid grid-cols-2 gap-2 p-3">
-              {([
-                { id: 'dark'  as const, label: 'Scuro',   Icon: Moon     },
-                { id: 'light' as const, label: 'Chiaro',  Icon: Sun      },
-                { id: 'oled'  as const, label: 'OLED',    Icon: Circle   },
-                { id: 'aura'  as const, label: 'Aura', Icon: Sparkles },
-              ]).map(({ id, label, Icon }) => (
-                <button
-                  key={id}
-                  onClick={() => setTheme(id)}
-                  className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold transition-all ${
-                    theme === id
-                      ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/20'
-                      : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
-                  }`}
-                >
-                  <Icon size={14} /> {label}
-                  {theme === id && <Check size={12} className="text-violet-300" />}
                 </button>
               ))}
             </div>
