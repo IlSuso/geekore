@@ -158,10 +158,10 @@ export function MobileMediaModal({
     (!hasSeasonData || currentSeasonNum >= maxSeasons)
   )
 
-  const btnBase = 'w-12 h-12 flex items-center justify-center bg-zinc-800 border border-zinc-700 hover:border-emerald-500/50 rounded-2xl text-emerald-400 text-2xl font-bold transition disabled:opacity-30'
+  const btnBase = 'w-12 h-12 flex items-center justify-center leading-none select-none bg-zinc-800 border border-zinc-700 hover:border-emerald-500/50 rounded-2xl text-emerald-400 text-2xl font-bold transition disabled:opacity-30'
 
   return (
-    <div className={`fixed inset-0 z-[50] flex flex-col justify-end transition-opacity duration-200 ${visible && !closing ? 'opacity-100' : 'opacity-0'}`}>
+    <div data-no-swipe className={`fixed inset-0 z-[110] flex flex-col justify-end transition-opacity duration-200 ${visible && !closing ? 'opacity-100' : 'opacity-0'}`}>
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={doClose} />
 
@@ -196,17 +196,19 @@ export function MobileMediaModal({
         </div>
 
         {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-10 space-y-5">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 space-y-5" style={{ paddingBottom: 'max(2.5rem, env(safe-area-inset-bottom, 2.5rem))' }}>
 
           {/* Cover */}
           {(media.cover_image && !imgFailed) && (
-            <div className="w-full h-44 rounded-2xl overflow-hidden bg-zinc-800 flex-shrink-0">
-              <img
-                src={media.cover_image}
-                alt={media.title}
-                className="w-full h-full object-cover object-top"
-                onError={() => setImgFailed(true)}
-              />
+            <div className="flex justify-center">
+              <div className="w-32 rounded-2xl overflow-hidden bg-zinc-800 flex-shrink-0" style={{ aspectRatio: '2/3' }}>
+                <img
+                  src={media.cover_image}
+                  alt={media.title}
+                  className="w-full h-full object-cover"
+                  onError={() => setImgFailed(true)}
+                />
+              </div>
             </div>
           )}
 
