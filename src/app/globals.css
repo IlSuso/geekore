@@ -486,6 +486,10 @@ html, body { background-color: #000000 !important; }
     background-color: #000000 !important;
     padding-bottom: env(safe-area-inset-bottom, 0px) !important;
     box-shadow: 0 20px 0 20px #000000;
+    /* Proprio layer GPU → nessun artefatto durante swipe pagine */
+    transform: translateZ(0);
+    /* Sopra la tastiera: var aggiornata da Navbar via visualViewport listener */
+    bottom: var(--vv-keyboard, 0px) !important;
   }
   /* Sfondo solido sotto il bottom nav (colma il gap safe-area su iPhone) */
   body::before {
