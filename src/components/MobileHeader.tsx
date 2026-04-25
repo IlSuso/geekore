@@ -181,7 +181,7 @@ export function MobileHeader() {
   return (
     <header
       className="md:hidden fixed top-0 left-0 right-0 z-[99] bg-black"
-      style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      style={{ paddingTop: 'env(safe-area-inset-top)', transform: 'translateZ(0)' }}
     >
       <div className="flex items-center justify-between h-[52px] px-3">
         <div className="flex items-center flex-1 min-w-0">

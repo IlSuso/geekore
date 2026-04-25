@@ -6,6 +6,7 @@
 
 import { useState, useEffect, memo } from 'react'
 import { Flame, MessageSquare, Send, Loader2, Pin, Trash2 } from 'lucide-react'
+import { UserBadge } from '@/components/ui/UserBadge'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
@@ -32,6 +33,7 @@ export interface PostProfile {
   username: string
   display_name?: string | null
   avatar_url?: string | null
+  badge?: string | null
 }
 
 export interface PostComment {
@@ -146,7 +148,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
   const fetchComments = async () => {
     const { data, error } = await supabase
       .from('comments')
-      .select('id, content, created_at, user_id, profiles(username, display_name, avatar_url)')
+      .select('id, content, created_at, user_id, profiles(username, display_name, avatar_url, badge)')
       .eq('post_id', post.id)
       .order('created_at', { ascending: true })
     if (!error && data) {
@@ -179,7 +181,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
     const { data, error } = await supabase
       .from('comments')
       .insert([{ content: newComment.trim(), post_id: post.id, user_id: user.id }])
-      .select('*, profiles(username, display_name, avatar_url)')
+      .select('*, profiles(username, display_name, avatar_url, badge)')
       .single()
 
     if (!error && data) {
@@ -238,7 +240,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
         <div className="flex-1 min-w-0">
           <Link href={`/profile/${profile?.username}`} className="hover:text-violet-400 transition-colors">
             <p className="font-semibold text-white text-sm leading-tight truncate">
-              {profile?.display_name || profile?.username || 'Utente'}
+              <UserBadge badge={profile?.badge} displayName={profile?.display_name || profile?.username || 'Utente'} />
             </p>
           </Link>
           <p className="text-xs text-zinc-500 mt-0.5">

@@ -38,6 +38,8 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 import { PullWrapper } from '@/components/ui/PullWrapper'
 import { ReportButton } from '@/components/ui/ReportButton'
+import { gestureState } from '@/hooks/gestureState'
+import { UserBadge } from '@/components/ui/UserBadge'
 
 // ── Macro-categorie ───────────────────────────────────────────────────────────
 
@@ -95,6 +97,7 @@ type Post = {
     username: string
     display_name?: string
     avatar_url?: string
+    badge?: string | null
   }
   likes_count: number
   comments_count: number
@@ -296,6 +299,19 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
 
+  // Lock body scroll and page-swipe when the panel is open on mobile
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.innerWidth >= 768) return
+    if (open) {
+      document.body.style.overflow = 'hidden'
+      gestureState.drawerActive = true
+    } else {
+      document.body.style.overflow = ''
+      gestureState.drawerActive = false
+    }
+    return () => { document.body.style.overflow = ''; gestureState.drawerActive = false }
+  }, [open])
+
   const API_CATEGORIES = new Set(['Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga', 'Giochi da tavolo'])
 
   // Chiudi cliccando fuori
@@ -415,6 +431,7 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
       {open && mounted && typeof document !== 'undefined' && createPortal(
         <div
           id="category-portal-panel"
+          data-no-swipe
           className="fixed z-[10000] bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-2xl shadow-black/70 overflow-hidden"
           style={{ top: panelPos.top, left: panelPos.left, width: '300px', transform: openAboveRef.current ? 'translateY(-100%)' : 'none' }}
         >
@@ -481,7 +498,7 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
               </div>
             )
             const results = suggestions.length > 0 ? (
-              <div className="rounded-xl overflow-hidden border border-zinc-700/50 bg-zinc-950 max-h-[200px] overflow-y-auto mb-2">
+              <div className="rounded-xl overflow-hidden border border-zinc-700/50 bg-zinc-950 max-h-[200px] overflow-y-auto overscroll-contain mb-2">
                 {suggestions.map((result, idx) => (
                   <button key={result.id} type="button" onClick={() => selectSuggestion(result)}
                     className={`w-full flex items-center gap-3 px-3 py-2 text-left border-b border-zinc-800/60 last:border-0 transition-colors ${
@@ -672,7 +689,7 @@ function CategoryFilter({
 
               {/* Risultati API */}
               {suggestions.length > 0 && (
-                <div className="rounded-xl overflow-hidden border border-zinc-700/50 bg-zinc-950 max-h-[200px] overflow-y-auto mb-2">
+                <div className="rounded-xl overflow-hidden border border-zinc-700/50 bg-zinc-950 max-h-[200px] overflow-y-auto overscroll-contain mb-2">
                   {suggestions.map(result => (
                     <button key={result.id} onClick={() => applyFilter(`${activeMacro}:${result.title}`)}
                       className="w-full flex items-center gap-3 px-3 py-2 text-left border-b border-zinc-800/60 last:border-0 hover:bg-zinc-800/80 transition-colors">
@@ -853,7 +870,7 @@ const PostCard = memo(function PostCard({
         <div className="flex-1 min-w-0">
           <Link href={`/profile/${post.profiles.username}`} className="hover:text-violet-400 transition-colors" onClick={e => e.stopPropagation()}>
             <p className="font-semibold text-[var(--text-primary)] text-[15px] leading-tight">
-              {post.profiles.display_name || post.profiles.username}
+              <UserBadge badge={post.profiles.badge} displayName={post.profiles.display_name || post.profiles.username} />
             </p>
           </Link>
           <p className="text-xs text-[var(--text-muted)] mt-0.5">
@@ -951,6 +968,7 @@ function PostModal({
   return (
     <div
       className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      data-no-swipe
       onClick={onClose}
     >
       <div
@@ -990,7 +1008,7 @@ function PostModal({
             <div className="flex-1 min-w-0">
               <Link href={`/profile/${post.profiles.username}`} onClick={onClose} className="hover:text-violet-400 transition-colors">
                 <p className="font-semibold text-[var(--text-primary)] text-[15px] leading-tight">
-                  {post.profiles.display_name || post.profiles.username}
+                  <UserBadge badge={post.profiles.badge} displayName={post.profiles.display_name || post.profiles.username} />
                 </p>
               </Link>
               <p className="text-xs text-[var(--text-muted)] mt-0.5">
@@ -1127,6 +1145,18 @@ export default function FeedPage() {
   const [currentProfile, setCurrentProfile] = useState<any>(null)
   const [modalPostId, setModalPostId] = useState<string | null>(null)
 
+  // Lock body scroll + horizontal swipe when comment modal is open
+  useEffect(() => {
+    if (modalPostId) {
+      document.body.style.overflow = 'hidden'
+      gestureState.drawerActive = true
+    } else {
+      document.body.style.overflow = ''
+      gestureState.drawerActive = false
+    }
+    return () => { document.body.style.overflow = ''; gestureState.drawerActive = false }
+  }, [modalPostId])
+
   // ── Bottom Sheet globale ──────────────────────────────────────────────────
   type SheetState = { open: false } | { open: true; type: 'post'; postId: string } | { open: true; type: 'comment'; commentId: string; postId: string } | { open: true; type: 'confirm-post'; postId: string } | { open: true; type: 'confirm-comment'; commentId: string; postId: string }
   const [sheet, setSheet] = useState<SheetState>({ open: false })
@@ -1213,7 +1243,7 @@ export default function FeedPage() {
       .gte('created_at', since).order('created_at', { ascending: false }).limit(50)
     if (error || !data) return
     const uids1 = [...new Set(data.map((p: any) => p.user_id))]
-    const { data: profiles1 } = await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', uids1)
+    const { data: profiles1 } = await supabase.from('profiles').select('id, username, display_name, avatar_url, badge').in('id', uids1)
     const pm1: Record<string, any> = {}; (profiles1 || []).forEach((p: any) => { pm1[p.id] = p })
     const commentUids1 = [...new Set(data.flatMap((p: any) => (p.comments || []).map((c: any) => c.user_id)))]
     const { data: cProfiles1 } = commentUids1.length ? await supabase.from('profiles').select('id, username, display_name').in('id', commentUids1) : { data: [] }
@@ -1266,7 +1296,7 @@ export default function FeedPage() {
       .gte('created_at', since).limit(50)
     if (!discPosts) return []
     const discUids = [...new Set(discPosts.map((p: any) => p.user_id))]
-    const { data: discProfiles } = await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', discUids)
+    const { data: discProfiles } = await supabase.from('profiles').select('id, username, display_name, avatar_url, badge').in('id', discUids)
     const discPm: Record<string, any> = {}; (discProfiles || []).forEach((p: any) => { discPm[p.id] = p })
     const data = discPosts.map((p: any) => ({ ...p, profiles: discPm[p.user_id] || { username: '', display_name: null, avatar_url: null } }))
 
@@ -1310,7 +1340,7 @@ export default function FeedPage() {
 
     const { data: rawPosts } = await query
     const postUids = [...new Set((rawPosts || []).map((p: any) => p.user_id))]
-    const { data: postProfiles } = postUids.length ? await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', postUids) : { data: [] }
+    const { data: postProfiles } = postUids.length ? await supabase.from('profiles').select('id, username, display_name, avatar_url, badge').in('id', postUids) : { data: [] }
     const postPm: Record<string, any> = {}; (postProfiles || []).forEach((p: any) => { postPm[p.id] = p })
     const commentUids = [...new Set((rawPosts || []).flatMap((p: any) => (p.comments || []).map((c: any) => c.user_id)))]
     const { data: commentProfs } = commentUids.length ? await supabase.from('profiles').select('id, username, display_name').in('id', commentUids) : { data: [] }

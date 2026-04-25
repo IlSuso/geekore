@@ -12,6 +12,7 @@ import { SteamIcon } from '@/components/icons/SteamIcon'
 import { StarRating } from '@/components/ui/StarRating'
 import { MobileMediaModal, type ModalMedia } from '@/components/profile/MobileMediaModal'
 import { Spinner } from '@/components/ui/Spinner'
+import { UserBadge } from '@/components/ui/UserBadge'
 import { FollowButton } from '@/components/profile/follow-button'
 import { TasteSimilarityBadge } from '@/components/social/TasteSimilarityBadge'
 import { ProfileComments } from '@/components/profile/ProfileComments'
@@ -44,7 +45,7 @@ import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 // ─── Cache ───────────────────────────────────────────────────────────────────
 
 type ProfileCacheEntry = {
-  profile: { id: string; username: string; display_name?: string; avatar_url?: string; bio?: string }
+  profile: { id: string; username: string; display_name?: string; avatar_url?: string; bio?: string; badge?: string | null }
   mediaList: any[]
   steamAccount: any
   followersCount: number
@@ -84,6 +85,7 @@ type Profile = {
   display_name?: string
   avatar_url?: string
   bio?: string
+  badge?: string | null
 }
 
 type SortMode = 'default' | 'rating_desc' | 'title_asc' | 'title_desc' | 'progress_desc' | 'date_desc'
@@ -822,7 +824,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
 
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
-      .select('id, username, display_name, avatar_url, bio')
+      .select('id, username, display_name, avatar_url, bio, badge')
       .ilike('username', username)
       .single()
 
@@ -1174,7 +1176,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
 
           {/* Nome + username */}
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-[var(--text-primary)] mb-1">
-            {profile.display_name || profile.username}
+            <UserBadge badge={profile.badge} displayName={profile.display_name || profile.username} className="text-2xl md:text-3xl font-bold" />
           </h1>
           <p className="text-sm text-zinc-500 mb-3">@{profile.username}</p>
 

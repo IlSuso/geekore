@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Avatar } from '@/components/ui/Avatar'
+import { UserBadge } from '@/components/ui/UserBadge'
 import { Users, MessageCircle, Heart, BookOpen, UserPlus, Flame, Clock } from 'lucide-react'
 
 async function getCommunityData(userId: string) {
@@ -21,19 +22,19 @@ async function getCommunityData(userId: string) {
 
     supabase
       .from('activity_log')
-      .select('user_id, profiles!user_id(id, username, display_name, avatar_url)')
+      .select('user_id, profiles!user_id(id, username, display_name, avatar_url, badge)')
       .gte('created_at', oneWeekAgo)
       .limit(200),
 
     supabase
       .from('profiles')
-      .select('id, username, display_name, avatar_url, created_at')
+      .select('id, username, display_name, avatar_url, badge, created_at')
       .order('created_at', { ascending: false })
       .limit(8),
 
     supabase
       .from('posts')
-      .select('id, user_id, content, image_url, created_at, category, likes(id), comments(id), author:profiles!user_id(username, display_name, avatar_url)')
+      .select('id, user_id, content, image_url, created_at, category, likes(id), comments(id), author:profiles!user_id(username, display_name, avatar_url, badge)')
       .gte('created_at', oneWeekAgo)
       .order('created_at', { ascending: false })
       .limit(200),
@@ -73,7 +74,7 @@ async function getCommunityData(userId: string) {
     id: string; user_id: string; content: string; image_url: string | null
     created_at: string; category: string | null
     likes: { id: string }[]; comments: { id: string }[]
-    author: { username: string; display_name: string | null; avatar_url: string | null } | null
+    author: { username: string; display_name: string | null; avatar_url: string | null; badge?: string | null } | null
   }
   const engagingPosts = ((recentPosts || []) as unknown as RawPost[])
     .map(p => ({
@@ -180,7 +181,7 @@ export default async function CommunityPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[14px] font-semibold text-white truncate group-hover:text-violet-300 transition-colors">
-                      {u.profile.display_name || u.profile.username}
+                      <UserBadge badge={(u.profile as any).badge} displayName={u.profile.display_name || u.profile.username} />
                     </p>
                     <p className="text-[12px] text-zinc-500 truncate">@{u.profile.username}</p>
                   </div>
@@ -219,7 +220,7 @@ export default async function CommunityPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-1">
                       <span className="text-[13px] font-semibold text-white group-hover:text-violet-300 transition-colors truncate">
-                        {post.author?.display_name || post.author?.username || '?'}
+                        <UserBadge badge={post.author?.badge} displayName={post.author?.display_name || post.author?.username || '?'} />
                       </span>
                       <span className="text-zinc-600 text-[11px]">·</span>
                       <span className="text-zinc-600 text-[11px] flex-shrink-0">{timeAgo(post.created_at)}</span>
@@ -259,7 +260,7 @@ export default async function CommunityPage() {
                   <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
                     <Avatar src={m.avatar_url} username={m.username} displayName={m.display_name ?? undefined} size={24} />
                   </div>
-                  <span className="text-[13px] text-zinc-300 font-medium">{m.display_name || m.username}</span>
+                  <span className="text-[13px] text-zinc-300 font-medium"><UserBadge badge={(m as any).badge} displayName={m.display_name || m.username} /></span>
                 </Link>
               ))}
             </div>

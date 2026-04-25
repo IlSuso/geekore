@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Search, Users, Loader2, X } from 'lucide-react'
 import Link from 'next/link'
 import { Avatar } from '@/components/ui/Avatar'
+import { UserBadge } from '@/components/ui/UserBadge'
 import { FollowButton } from '@/components/profile/follow-button'
 
 type UserResult = {
@@ -15,6 +16,7 @@ type UserResult = {
   display_name: string | null
   avatar_url: string | null
   bio: string | null
+  badge?: string | null
   media_count: number
   followers_count: number
 }
@@ -50,7 +52,7 @@ export default function SearchPage() {
 
     const { data: profilesData, error } = await supabase
       .from('profiles')
-      .select('id, username, display_name, avatar_url, bio')
+      .select('id, username, display_name, avatar_url, bio, badge')
       .or(`username.ilike.%${trimmed}%,display_name.ilike.%${trimmed}%`)
       .limit(20)
 
@@ -187,7 +189,7 @@ export default function SearchPage() {
                 <div className="flex-1 min-w-0">
                   <Link href={`/profile/${user.username}`} className="block">
                     <p className="font-semibold text-white truncate leading-tight">
-                      {user.display_name || user.username}
+                      <UserBadge badge={user.badge} displayName={user.display_name || user.username} />
                     </p>
                     <p className="text-xs text-zinc-500 truncate">@{user.username}</p>
                   </Link>
