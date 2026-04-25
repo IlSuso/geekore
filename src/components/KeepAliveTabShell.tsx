@@ -27,11 +27,11 @@ type KATab = 'feed' | 'for-you' | 'swipe' | 'profile'
 const TAB_IDX_TO_KA: Array<KATab | null> = ['feed', null, 'for-you', 'swipe', 'profile']
 
 const ADJ_LEFT: CSSProperties = {
-  position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+  position: 'fixed', top: 0, left: 0, width: '100%', height: '100vh',
   transform: 'translateX(-100%)', overflow: 'hidden', pointerEvents: 'none',
 }
 const ADJ_RIGHT: CSSProperties = {
-  position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+  position: 'fixed', top: 0, left: 0, width: '100%', height: '100vh',
   transform: 'translateX(100%)', overflow: 'hidden', pointerEvents: 'none',
 }
 
