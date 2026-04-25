@@ -587,6 +587,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
             <LoadingScreen message={isLoadingMore ? 'Caricamento nuovi titoli' : 'Preparazione in corso'} />
           ) : (
             <div
+              data-no-swipe=""
               className="relative w-full"
               style={{
                 maxWidth: standalone ? 'min(420px, 90vw)' : '384px',

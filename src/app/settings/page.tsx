@@ -13,9 +13,10 @@ import { showToast } from '@/components/ui/Toast'
 import {
   Settings, Globe, Sun, Moon, List, TrendingUp, BarChart3, Bell,
   Shield, KeyRound, LogOut, Eye, EyeOff, Loader2, ChevronDown, ChevronUp,
-  Circle, Sparkles, Mail, Check, Heart, Tv, Monitor,
+  Circle, Sparkles, Mail, Check, Heart, Tv, Monitor, Trash2,
 } from 'lucide-react'
 import { PushNotificationsToggle } from '@/components/notifications/PushNotificationsToggle'
+import { DeleteAccountModal } from '@/components/profile/DeleteAccountModal'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -440,8 +441,10 @@ function StreamingPlatformsSelector() {
 export default function SettingsPage() {
   const { locale, setLocale, t } = useLocale()
   const { theme, setTheme } = useTheme()
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
 
   return (
+    <>
     <div className="min-h-screen bg-zinc-950 text-white">
       <div className="max-w-xl mx-auto px-4 md:px-6 pt-3 md:pt-10 pb-28 space-y-6">
 
@@ -589,6 +592,29 @@ export default function SettingsPage() {
           </div>
         </section>
 
+        {/* Zona pericolosa */}
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <Trash2 size={15} className="text-red-600/60" />
+            <h2 className="text-xs font-semibold text-red-600/60 uppercase tracking-widest">Zona pericolosa</h2>
+          </div>
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="w-full flex items-center justify-between p-4 bg-red-950/20 border border-red-900/30 hover:border-red-700/50 rounded-2xl transition-colors group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-red-500/10 rounded-xl flex items-center justify-center">
+                <Trash2 size={16} className="text-red-500" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-medium text-red-400">Elimina account</p>
+                <p className="text-xs text-zinc-600">Rimuove tutti i tuoi dati in modo permanente</p>
+              </div>
+            </div>
+            <span className="text-red-900 group-hover:text-red-700 transition-colors">→</span>
+          </button>
+        </section>
+
         <div className="text-center text-zinc-700 text-xs pt-4">
           <span className="inline-flex items-center gap-1">Geekore · {locale === 'it' ? 'Fatto con' : 'Made with'} <Heart size={11} className="text-red-500 fill-red-500" /> {locale === 'it' ? 'per i nerd' : 'for nerds'}</span>
         </div>
@@ -613,5 +639,24 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
+
+    {showDeleteModal && (
+      <DeleteAccountModal
+        onConfirm={async () => {
+          const supabaseClient = (await import('@/lib/supabase/client')).createClient()
+          const res = await fetch('/api/user/delete', { method: 'DELETE' })
+          if (res.ok) {
+            await supabaseClient.auth.signOut()
+            document.cookie = 'geekore_onboarding_done=; path=/; max-age=0'
+            window.location.href = '/'
+          } else {
+            const { showToast: toast } = await import('@/components/ui/Toast')
+            toast('Errore nella cancellazione. Riprova.', 'error')
+          }
+        }}
+        onClose={() => setShowDeleteModal(false)}
+      />
+    )}
+    </>
   )
 }

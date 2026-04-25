@@ -14,6 +14,7 @@
 import { usePathname, useRouter } from 'next/navigation'
 import { useRef, useState, useCallback, useEffect, type ReactNode } from 'react'
 import { gestureState } from '@/hooks/gestureState'
+import { swipeNavBridge } from '@/hooks/swipeNavBridge'
 
 export const TAB_ORDER = ['/feed', '/discover', '/for-you', '/swipe', '/profile/me']
 
@@ -61,6 +62,10 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   const isMain  = currentIdx !== -1
   const prevTab = currentIdx > 0                     ? TAB_ORDER[currentIdx - 1] : null
   const nextTab = currentIdx < TAB_ORDER.length - 1 ? TAB_ORDER[currentIdx + 1] : null
+
+  // Ref keeps currentIdx fresh inside memoized callbacks without extra deps
+  const currentIdxRef = useRef(currentIdx)
+  currentIdxRef.current = currentIdx
 
   useEffect(() => {
     vw.current = window.innerWidth
@@ -116,9 +121,12 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     gestureState.swipeActive = true
     lastDeltaX.current       = dx
 
-    if (dx > 0 && !prevTab) { setOffset(Math.pow(dx, 0.6) * 0.5); return }
-    if (dx < 0 && !nextTab) { setOffset(-Math.pow(-dx, 0.6) * 0.5); return }
-    setOffset(dx)
+    let eff: number
+    if (dx > 0 && !prevTab)      eff = Math.pow(dx, 0.6) * 0.5
+    else if (dx < 0 && !nextTab) eff = -Math.pow(-dx, 0.6) * 0.5
+    else                         eff = dx
+    setOffset(eff)
+    swipeNavBridge.update(eff, currentIdxRef.current)
   }, [isMain, prevTab, nextTab])
 
   const onTouchEnd = useCallback(() => {
@@ -142,12 +150,15 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
 
     if (shouldNav && dx > 0 && prevTab) {
       setAnimate(true); setOffset(w)
+      swipeNavBridge.update(w, currentIdxRef.current, true)
       setTimeout(() => { router.push(prevTab) }, 260)
     } else if (shouldNav && dx < 0 && nextTab) {
       setAnimate(true); setOffset(-w)
+      swipeNavBridge.update(-w, currentIdxRef.current, true)
       setTimeout(() => { router.push(nextTab) }, 260)
     } else {
       setAnimate(true); setOffset(0)
+      swipeNavBridge.update(0, currentIdxRef.current, true)
     }
 
     isH.current        = null
@@ -160,6 +171,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     isDragging.current       = false
     isH.current              = null
     setAnimate(true); setOffset(0)
+    swipeNavBridge.update(0, currentIdxRef.current, true)
   }, [])
 
   useEffect(() => {
