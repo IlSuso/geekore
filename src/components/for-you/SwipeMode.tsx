@@ -571,18 +571,17 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
   const handleWishlist = useCallback((item: SwipeItem) => {
     // Behaves like a skip: removes from queue, adds to history, persists skip
     handleSwipe('left', item)
-    // Also upsert to wishlist
+    // Write to the `wishlist` table (same table the Discover page and wishlist page use)
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
-      supabase.from('user_media_entries').upsert({
+      supabase.from('wishlist').upsert({
         user_id: user.id,
         external_id: item.id,
         title: item.title,
         type: item.type,
-        status: 'wishlist',
+        media_type: item.type,
         cover_image: item.coverImage,
-        year: item.year,
-        genres: item.genres,
+        genres: item.genres || [],
       }, { onConflict: 'user_id,external_id' }).then(() => {})
     })
   }, [handleSwipe, supabase])
