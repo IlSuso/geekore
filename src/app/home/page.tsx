@@ -145,18 +145,28 @@ function parseCategoryString(cat: string | null | undefined): { category: string
   return { category: cat.slice(0, idx), subcategory: cat.slice(idx + 1) }
 }
 
+const CATEGORY_COLOR: Record<string, string> = {
+  'Film': 'bg-red-500',
+  'Serie TV': 'bg-purple-500',
+  'Videogiochi': 'bg-green-500',
+  'Anime': 'bg-sky-500',
+  'Manga': 'bg-orange-500',
+  'Giochi da tavolo': 'bg-amber-500',
+}
+
 function CategoryBadge({ category, onClick }: { category: string | null | undefined; onClick?: () => void }) {
   if (!category) return null
   const parsed = parseCategoryString(category)
   if (!parsed) return null
-  const label = parsed.subcategory ? `${parsed.category}: ${parsed.subcategory}` : parsed.category
+  const label = parsed.subcategory ? parsed.subcategory.trim() : parsed.category
+  const colorClass = CATEGORY_COLOR[parsed.category] || 'bg-zinc-600'
   return (
     <span
       onClick={onClick}
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-[10px] font-semibold text-zinc-300 max-w-[160px] overflow-hidden ${onClick ? 'cursor-pointer hover:border-fuchsia-500/60 hover:text-fuchsia-300 transition-colors' : ''}`}
+      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold text-white max-w-full overflow-hidden ${colorClass} ${onClick ? 'cursor-pointer opacity-90 hover:opacity-100 transition-opacity' : ''}`}
     >
-      <CategoryIcon category={parsed.category} size={10} className="flex-shrink-0" />
-      <span className="truncate">{label}</span>
+      <CategoryIcon category={parsed.category} size={11} className="flex-shrink-0" />
+      <span className="truncate sm:whitespace-normal sm:overflow-visible">{label}</span>
     </span>
   )
 }
@@ -843,16 +853,11 @@ const PostCard = memo(function PostCard({
           </div>
         </Link>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <Link href={`/profile/${post.profiles.username}`} className="hover:text-violet-400 transition-colors min-w-0" onClick={e => e.stopPropagation()}>
-              <p className="font-semibold text-[var(--text-primary)] text-[15px] leading-tight truncate">
-                {post.profiles.display_name || post.profiles.username}
-              </p>
-            </Link>
-            {post.category && (
-              <CategoryBadge category={post.category} onClick={onCategoryClick ? () => onCategoryClick(post.category!) : undefined} />
-            )}
-          </div>
+          <Link href={`/profile/${post.profiles.username}`} className="hover:text-violet-400 transition-colors" onClick={e => e.stopPropagation()}>
+            <p className="font-semibold text-[var(--text-primary)] text-[15px] leading-tight">
+              {post.profiles.display_name || post.profiles.username}
+            </p>
+          </Link>
           <p className="text-xs text-[var(--text-muted)] mt-0.5">
             {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })}
           </p>
@@ -871,6 +876,13 @@ const PostCard = memo(function PostCard({
           <p className="text-[11px] text-zinc-600 mt-1">modificato</p>
         )}
       </div>
+
+      {/* Categoria */}
+      {post.category && (
+        <div className="px-5 pb-3 -mt-1">
+          <CategoryBadge category={post.category} onClick={onCategoryClick ? () => onCategoryClick(post.category!) : undefined} />
+        </div>
+      )}
 
       {/* Immagine */}
       {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
@@ -979,16 +991,13 @@ function PostModal({
             </Link>
             <div className="flex-1 min-w-0">
               <Link href={`/profile/${post.profiles.username}`} onClick={onClose} className="hover:text-violet-400 transition-colors">
-                <p className="font-semibold text-[var(--text-primary)] text-[15px] leading-tight truncate">
+                <p className="font-semibold text-[var(--text-primary)] text-[15px] leading-tight">
                   {post.profiles.display_name || post.profiles.username}
                 </p>
               </Link>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <p className="text-xs text-[var(--text-muted)]">
-                  @{post.profiles.username} · {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })}
-                </p>
-                {post.category && <CategoryBadge category={post.category} />}
-              </div>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })}
+              </p>
             </div>
           </div>
 
@@ -997,6 +1006,13 @@ function PostModal({
             <p className="text-[var(--text-primary)] text-[15px] leading-relaxed whitespace-pre-wrap">{post.content.replace(/\n{3,}/g, '\n\n')}</p>
             {post.is_edited && <p className="text-[11px] text-zinc-600 mt-1">modificato</p>}
           </div>
+
+          {/* Categoria */}
+          {post.category && (
+            <div className="px-5 pb-3 -mt-1">
+              <CategoryBadge category={post.category} />
+            </div>
+          )}
 
           {/* Post image */}
           {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
