@@ -588,6 +588,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
           ) : (
             <div
               className="relative w-full"
+              data-no-swipe=""
               style={{
                 maxWidth: standalone ? 'min(420px, 90vw)' : '384px',
                 height: standalone ? 'min(680px, 100%)' : 'min(680px, 82svh)',
