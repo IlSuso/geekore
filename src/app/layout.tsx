@@ -9,7 +9,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import Navbar from '@/components/Navbar'
-import { ToastProvider } from '@/components/ui/Toast'
+
 import { ClientProviders } from '@/components/ClientProviders'
 import { Footer } from '@/components/Footer'
 import { MobileHeader } from '@/components/MobileHeader'
@@ -79,7 +79,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </main>
           </SwipeablePageContainer>
           <Footer />
-          <ToastProvider />
         </ClientProviders>
       </body>
     </html>

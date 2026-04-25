@@ -9,7 +9,6 @@ import {
   ChevronRight, Loader2, GripVertical,
 } from 'lucide-react'
 import Link from 'next/link'
-import { showToast } from '@/components/ui/Toast'
 
 // ─── Tipi ────────────────────────────────────────────────────────────────────
 
@@ -63,7 +62,6 @@ function ListModal({
 
       if (!error && data) {
         onSaved(data)
-        showToast('Lista aggiornata')
       }
     } else {
       // Insert
@@ -80,7 +78,6 @@ function ListModal({
 
       if (!error && data) {
         onSaved(data)
-        showToast('Lista creata!')
       }
     }
 
@@ -256,7 +253,6 @@ export default function ListsPage() {
     if (!confirm('Eliminare questa lista?')) return
     await supabase.from('user_lists').delete().eq('id', id)
     setLists(prev => prev.filter(l => l.id !== id))
-    showToast('Lista eliminata')
   }
 
   const handleSaved = (saved: UserList) => {

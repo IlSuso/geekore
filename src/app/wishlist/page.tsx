@@ -10,7 +10,6 @@ import {
   Bookmark, Calendar, Swords, Gamepad2, Film, Tv,
   Trash2, Check, Loader2, SlidersHorizontal, CheckCircle2, Layers,
 } from 'lucide-react'
-import { showToast } from '@/components/ui/Toast'
 
 const TYPE_CONFIG: Record<string, { label: string; color: string; dot: string; icon: React.ElementType }> = {
   anime:     { label: 'Anime',   color: 'bg-sky-500',    dot: 'bg-sky-400',    icon: Swords },
@@ -60,9 +59,7 @@ export default function WishlistPage() {
     const { error } = await supabase.from('wishlist').delete().eq('id', itemId)
     if (!error) {
       setWishlist(prev => prev.filter(i => i.id !== itemId))
-      showToast(`"${title}" rimosso dalla wishlist`)
     } else {
-      showToast('Errore nella rimozione')
     }
     setRemoving(null)
   }

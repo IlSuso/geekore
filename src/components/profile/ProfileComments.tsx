@@ -8,7 +8,6 @@ import { MessageSquare, Send, MoreHorizontal, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { it } from 'date-fns/locale'
-import { showToast } from '@/components/ui/Toast'
 
 interface Comment {
   id: string
@@ -81,7 +80,7 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
 
   const handlePost = async () => {
     if (!newComment.trim() || !currentUserId || posting) return
-    if (newComment.trim().length > 500) { showToast('Commento troppo lungo (max 500 caratteri)', 'error'); return }
+    if (newComment.trim().length > 500) { return }
 
     setPosting(true)
     const optimistic: Comment = {
@@ -103,7 +102,6 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
 
     if (error || !inserted) {
       setComments(prev => prev.filter(c => c.id !== optimistic.id))
-      showToast('Errore nell\'invio del commento', 'error')
     } else {
       const { data: authorProfile } = await supabase
         .from('profiles').select('username, display_name, avatar_url').eq('id', currentUserId).single()
@@ -130,9 +128,8 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
     if (!currentUserId) return
     if (currentUserId !== authorId && !isOwner) return
     const { error } = await supabase.from('profile_comments').delete().eq('id', commentId)
-    if (error) { showToast('Errore nella rimozione', 'error'); return }
+    if (error) { return }
     setComments(prev => prev.filter(c => c.id !== commentId))
-    showToast('Commento rimosso')
   }
 
   return (

@@ -15,7 +15,6 @@ import {
   Dices,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { showToast } from '@/components/ui/Toast'
 import { Avatar } from '@/components/ui/Avatar'
 import { useLocale } from '@/lib/locale'
 import { SkeletonForYouRow, SkeletonFriendsWatching } from '@/components/ui/SkeletonCard'
@@ -926,7 +925,6 @@ export default function ForYouPage() {
     if (!error) {
       setAddedIds(prev => new Set([...prev, item.id]))
       addedTitlesRef.current.add(item.title.toLowerCase())
-      showToast(`"${item.title}" aggiunto`)
       await fetch('/api/recommendations/feedback', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres, action: 'added' })
@@ -942,7 +940,6 @@ export default function ForYouPage() {
     if (wishlistIds.has(item.id)) {
       await supabase.from('wishlist').delete().eq('user_id', user.id).eq('external_id', item.id)
       setWishlistIds(prev => { const s = new Set(prev); s.delete(item.id); return s })
-      showToast(t.discover.wishlistRemove)
     } else {
       await supabase.from('wishlist').upsert({
         user_id: user.id, external_id: item.id, title: item.title,
@@ -951,7 +948,6 @@ export default function ForYouPage() {
         media_type: item.type,
       }, { onConflict: 'user_id,external_id' })
       setWishlistIds(prev => new Set([...prev, item.id]))
-      showToast(t.discover.wishlistAdd)
       if (item.genres.length > 0) {
         triggerTasteDelta({ action: 'wishlist_add', mediaId: item.id, mediaType: item.type, genres: item.genres })
       }
@@ -994,7 +990,6 @@ export default function ForYouPage() {
   // problemi di closure con useCallback deps=[]
   const searchSimilar = useCallback(async (title: string, genres: string[], excludeId?: string, tags?: string[], keywords?: string[], type?: string) => {
     if (!genres.length) {
-      showToast('Impossibile trovare simili: generi non disponibili')
       return
     }
     const params = new URLSearchParams({ title, genres: genres.slice(0, 5).join(',') })
@@ -1008,16 +1003,13 @@ export default function ForYouPage() {
       const items: Recommendation[] = (json.items || []).filter((r: Recommendation) => r.id !== excludeId)
       setSimilarSection({ sourceTitle: title, sourceType: (type as MediaType) || 'movie', items })
       window.scrollTo({ top: 0, behavior: 'smooth' })
-      if (items.length === 0) showToast('Nessun risultato trovato')
     } else {
-      showToast('Errore nella ricerca simili')
     }
   }, [])
 
   const handleSimilar = useCallback(async (item: Recommendation) => {
     if (!item.genres.length) return
     setSimilarLoading(item.id)
-    showToast(`Cercando titoli simili a "${item.title}"…`)
     await searchSimilar(item.title, item.genres, item.id, item.tags, item.keywords, item.type)
     setSimilarLoading(null)
   }, [searchSimilar])
@@ -1037,11 +1029,9 @@ export default function ForYouPage() {
     if (action === 'not_interested' && reason === undefined) {
       // Fix 2.6: mostra quick-reason sheet invece di dismiss diretto
       setReasonPending(item)
-      showToast('Rimosso dai consigli')
       sendFeedback(item, action, undefined)  // invia subito senza reason, aggiorna se arriva
     } else {
       sendFeedback(item, action, reason)
-      if (action === 'not_interested') showToast('Rimosso dai consigli')
     }
   }, [sendFeedback])
 
@@ -1218,7 +1208,6 @@ export default function ForYouPage() {
             setAddedIds(prev => new Set([...prev, media.id]))
             addedTitlesRef.current.add((media.title as string)?.toLowerCase())
             setDetailItem(null)
-            showToast(t.discover.added)
           }}
         />
       )}

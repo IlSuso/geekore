@@ -9,7 +9,6 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { StarRating } from '@/components/ui/StarRating'
 import { SteamIcon } from '@/components/icons/SteamIcon'
-import { showToast } from '@/components/ui/Toast'
 import { Avatar } from '@/components/ui/Avatar'
 import Link from 'next/link'
 import {
@@ -447,7 +446,6 @@ export default function ProfileTypePage() {
   const handleRating = async (mediaId: string, rating: number) => {
     await supabase.from('user_media_entries').update({ rating }).eq('id', mediaId)
     setMediaList(prev => prev.map(m => m.id === mediaId ? { ...m, rating } : m))
-    showToast(t.toasts.ratingSaved)
   }
 
   const handleStatusChange = async (mediaId: string, status: string) => {
@@ -458,7 +456,6 @@ export default function ProfileTypePage() {
   const handleDelete = async (mediaId: string) => {
     await supabase.from('user_media_entries').delete().eq('id', mediaId)
     setMediaList(prev => prev.filter(m => m.id !== mediaId))
-    showToast('Rimosso dalla collezione')
   }
 
   const openNotes = (media: UserMedia) => {
@@ -472,7 +469,6 @@ export default function ProfileTypePage() {
     await supabase.from('user_media_entries').update({ notes: notesInput.trim() }).eq('id', selectedMedia.id)
     setMediaList(prev => prev.map(m => m.id === selectedMedia.id ? { ...m, notes: notesInput.trim() } : m))
     setNotesOpen(false)
-    showToast(t.common.save)
   }
 
   // Filtra e ordina

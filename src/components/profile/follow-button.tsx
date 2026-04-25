@@ -6,7 +6,6 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { UserPlus, UserCheck } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
-import { showToast } from '@/components/ui/Toast'
 
 export function FollowButton({
   targetId, currentUserId, isFollowingInitial, onFollowChange,
@@ -44,13 +43,11 @@ export function FollowButton({
         // Rollback in caso di errore
         setIsFollowing(!nextFollowing)
         onFollowChange?.(!nextFollowing)
-        showToast('Operazione fallita. Riprova.')
       }
     } catch {
       // Rollback in caso di errore di rete
       setIsFollowing(!nextFollowing)
       onFollowChange?.(!nextFollowing)
-      showToast('Errore di connessione. Riprova.')
     } finally {
       setLoading(false)
     }

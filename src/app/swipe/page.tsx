@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Shuffle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { showToast } from '@/components/ui/Toast'
 import { SwipeMode } from '@/components/for-you/SwipeMode'
 import type { SwipeItem } from '@/components/for-you/SwipeMode'
 
@@ -184,11 +183,9 @@ export default function SwipePage() {
 
   const handleSwipeSeen = useCallback(async (item: SwipeItem, rating: number | null, skipPersist = false) => {
     if (!skipPersist && addedTitlesRef.current.has(item.title.toLowerCase())) {
-      showToast(`"${item.title}" è già nella tua libreria`)
       return
     }
 
-    showToast(`"${item.title}" aggiunto${rating ? ` · ${rating}★` : ''}`)
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return

@@ -5,7 +5,6 @@
 import { useState, useEffect } from 'react'
 import { X, ArrowRight, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { showToast } from '@/components/ui/Toast'
 import { useLocale } from '@/lib/locale'
 
 // ── Costanti generi ───────────────────────────────────────────────────────────
@@ -82,7 +81,6 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
       { onConflict: 'user_id' }
     )
     setSaving(false)
-    showToast(fy.prefsSaved)
     onSaved()
     onClose()
   }

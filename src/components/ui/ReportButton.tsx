@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Flag, X, Check, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { showToast } from '@/components/ui/Toast'
 
 type TargetType = 'post' | 'comment' | 'profile' | 'profile_comment'
 type Reason = 'spam' | 'harassment' | 'inappropriate' | 'misinformation' | 'other'
@@ -43,7 +42,6 @@ export function ReportButton({ targetType, targetId, iconOnly = false, className
     setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      showToast('Devi essere autenticato per segnalare', 'error')
       setSubmitting(false)
       return
     }
@@ -54,12 +52,8 @@ export function ReportButton({ targetType, targetId, iconOnly = false, className
       reason,
       notes: notes.trim() || null,
     })
-    if (error) {
-      if (error.code === '23505') showToast('Hai già segnalato questo contenuto', 'error')
-      else showToast('Errore nell\'invio della segnalazione', 'error')
-    } else {
+    if (!error) {
       setDone(true)
-      showToast('Segnalazione inviata. Grazie!')
       setTimeout(() => { handleClose(); setDone(false) }, 1500)
     }
     setSubmitting(false)

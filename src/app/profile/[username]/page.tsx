@@ -11,7 +11,6 @@ import {
 import { SteamIcon } from '@/components/icons/SteamIcon'
 import { StarRating } from '@/components/ui/StarRating'
 import { Spinner } from '@/components/ui/Spinner'
-import { showToast } from '@/components/ui/Toast'
 import { FollowButton } from '@/components/profile/follow-button'
 import { TasteSimilarityBadge } from '@/components/social/TasteSimilarityBadge'
 import { ProfileComments } from '@/components/profile/ProfileComments'
@@ -778,7 +777,6 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     await supabase.from('user_media_entries').delete().eq('id', id)
     setMediaList(prev => prev.filter(item => item.id !== id))
     setDeletingId(null)
-    showToast(t.toasts.deleted)
   }
 
   const markAsCompleted = async (id: string, media: UserMedia) => {
@@ -798,7 +796,6 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     // Film, game: solo status+completed_at, niente current_episode sentinella
     await supabase.from('user_media_entries').update(update).eq('id', id)
     setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
-    showToast(t.toasts.completed)
     await logActivity({ type: 'media_completed', media_id: media.id, media_title: media.title, media_type: media.type, media_cover: media.cover_image })
   }
 
@@ -807,7 +804,6 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     const update = { current_season: 1, current_episode: 1, status: 'watching' }
     await supabase.from('user_media_entries').update(update).eq('id', id)
     setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
-    showToast(t.toasts.progressReset)
   }
 
   const saveProgress = async (id: string, val: number, field: 'current_episode' | 'current_season' = 'current_episode') => {
@@ -815,7 +811,6 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     const update = field === 'current_season' ? { current_season: val, current_episode: 1 } : { current_episode: val }
     await supabase.from('user_media_entries').update(update).eq('id', id)
     setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
-    showToast(t.toasts.progressSaved)
   }
 
   const setRating = async (mediaId: string, rating: number) => {
@@ -823,7 +818,6 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     const item = mediaList.find(m => m.id === mediaId)
     await supabase.from('user_media_entries').update({ rating }).eq('id', mediaId)
     setMediaList(prev => sortMediaList(prev.map(item => item.id === mediaId ? { ...item, rating } : item)))
-    showToast(t.toasts.ratingSaved)
     if (item) await logActivity({ type: 'rating_given', media_id: item.id, media_title: item.title, media_type: item.type, media_cover: item.cover_image, rating_value: rating })
   }
 
@@ -840,7 +834,6 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     setMediaList(prev => prev.map(item => item.id === selectedMedia.id ? { ...item, notes: notesInput.trim() } : item))
     setIsNotesModalOpen(false)
     setSelectedMedia(null)
-    showToast(t.toasts.notesSaved)
   }
 
   const changeStatus = async (id: string, status: string) => {

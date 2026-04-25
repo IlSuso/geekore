@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from 'react'
 import { Bell, BellOff, Loader2, Smartphone, AlertTriangle } from 'lucide-react'
-import { showToast } from '@/components/ui/Toast'
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
 
@@ -70,7 +69,6 @@ export function PushNotificationsToggle() {
 
   const handleEnable = async () => {
     if (!VAPID_PUBLIC_KEY) {
-      showToast('Notifiche push non configurate (VAPID key mancante)', 'error')
       return
     }
 
@@ -79,7 +77,6 @@ export function PushNotificationsToggle() {
       const permission = await Notification.requestPermission()
       if (permission !== 'granted') {
         setState('denied')
-        showToast('Permesso notifiche negato', 'error')
         return
       }
 
@@ -98,17 +95,14 @@ export function PushNotificationsToggle() {
       if (res.ok) {
         setSubscription(sub)
         setState('granted')
-        showToast('Notifiche attivate!')
         if (isAndroid() && !isPWA()) {
           setShowAndroidTip(true)
         }
       } else {
         setState('default')
-        showToast('Errore nell\'attivazione delle notifiche', 'error')
       }
     } catch (e: any) {
       setState('default')
-      showToast('Errore: ' + (e.message || 'impossibile attivare le notifiche'), 'error')
     }
   }
 
@@ -125,10 +119,8 @@ export function PushNotificationsToggle() {
       setSubscription(null)
       setState('default')
       setShowAndroidTip(false)
-      showToast('Notifiche disattivate')
     } catch {
       setState('granted')
-      showToast('Errore nella disattivazione', 'error')
     }
   }
 

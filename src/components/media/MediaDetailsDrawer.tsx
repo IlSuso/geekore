@@ -11,7 +11,6 @@ import {
   Sparkles, Trophy, Monitor, Dices, Hash, FileText,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { showToast } from '@/components/ui/Toast'
 import { StarRating } from '@/components/ui/StarRating'
 import { translateGenre } from '@/lib/genres'
 
@@ -261,7 +260,6 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     })
     if (!error) {
       setInCollection(true); setShowAddForm(false)
-      showToast(`"${media.title}" aggiunto alla collezione`)
       onAdd?.(media)
       // Invalida la memCache così la prossima apertura di Per Te rigenera il pool
       fetch('/api/recommendations?invalidateCache=true', { method: 'POST', keepalive: true }).catch(() => {})
@@ -280,7 +278,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     if (!user) return
     if (inWishlist) {
       await supabase.from('wishlist').delete().eq('user_id', user.id).eq('external_id', media.id)
-      setInWishlist(false); showToast('Rimosso dalla wishlist')
+      setInWishlist(false);
     } else {
       await supabase.from('wishlist').upsert({
         user_id: user.id, external_id: media.id,
@@ -288,7 +286,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
         cover_image: media.coverImage, genres: media.genres || [], media_type: media.type,
         studios: media.studios || [],
       }, { onConflict: 'user_id,external_id' })
-      setInWishlist(true); showToast('Aggiunto alla wishlist')
+      setInWishlist(true);
       if ((media.genres || []).length > 0) {
         triggerTasteDelta({ action: 'wishlist_add', mediaId: media.id, mediaType: media.type, genres: media.genres || [] })
       }

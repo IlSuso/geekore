@@ -9,7 +9,6 @@ import { useState, useEffect } from 'react'
 import { useLocale } from '@/lib/locale'
 import { useTheme } from '@/lib/theme'
 import { createClient } from '@/lib/supabase/client'
-import { showToast } from '@/components/ui/Toast'
 import {
   Settings, Globe, Sun, Moon, List, TrendingUp, BarChart3, Bell,
   Shield, KeyRound, LogOut, Eye, EyeOff, Loader2, ChevronDown, ChevronUp,
@@ -72,7 +71,6 @@ function ChangePasswordSheet() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (newPass.length < 8) {
-      showToast('La nuova password deve avere almeno 8 caratteri')
       return
     }
     setLoading(true)
@@ -85,19 +83,16 @@ function ChangePasswordSheet() {
         password: currentPass,
       })
       if (signInError) {
-        showToast('Password attuale non corretta')
         return
       }
 
       const { error } = await supabase.auth.updateUser({ password: newPass })
       if (error) throw error
 
-      showToast('Password aggiornata con successo')
       setOpen(false)
       setCurrentPass('')
       setNewPass('')
     } catch {
-      showToast('Errore durante il cambio password')
     } finally {
       setLoading(false)
     }
@@ -181,7 +176,6 @@ function GlobalLogoutButton() {
       document.cookie = 'geekore_onboarding_done=; path=/; max-age=0'
       router.push('/login')
     } catch {
-      showToast('Errore durante il logout globale')
     } finally {
       setLoading(false)
     }
@@ -255,7 +249,6 @@ function DigestToggle() {
         }, { onConflict: 'user_id' })
         setEnabled(false)
         setLoading(false)
-        showToast('Digest settimanale disattivato')
         // Rimuovi il param dall'URL senza ricaricare la pagina
         window.history.replaceState({}, '', window.location.pathname)
         return
@@ -287,7 +280,6 @@ function DigestToggle() {
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' })
 
-    showToast(next ? 'Digest settimanale attivato' : 'Digest settimanale disattivato')
   }
 
   return (
@@ -381,7 +373,6 @@ function StreamingPlatformsSelector() {
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' })
     setSaving(false)
-    showToast(selected.length === 0 ? 'Filtro piattaforme rimosso' : `${selected.length} piattaforme salvate`)
   }
 
   return (
@@ -451,7 +442,6 @@ function DeleteAccountSection() {
       document.cookie = 'geekore_onboarding_done=; path=/; max-age=0'
       window.location.href = '/'
     } else {
-      showToast('Errore nella cancellazione. Riprova.', 'error')
     }
   }
 

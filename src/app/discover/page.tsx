@@ -9,7 +9,6 @@ import {
   Mic, MicOff, Loader2, Swords, Check, Layers, Dices,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { showToast } from '@/components/ui/Toast';
 import { useLocale } from '@/lib/locale';
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer';
 import { SkeletonDiscoverCard } from '@/components/ui/SkeletonCard';
@@ -136,7 +135,7 @@ function useVoiceSearch(onResult: (text: string) => void) {
       const t = e.results[0]?.[0]?.transcript?.trim();
       if (t) { haptic([30, 20, 30]); onResult(t); }
     };
-    rec.onerror = (e: any) => { if (e.error !== 'aborted') showToast('Riconoscimento vocale non riuscito'); setIsListening(false); };
+    rec.onerror = () => { setIsListening(false); };
     rec.onend = () => setIsListening(false);
     rec.start();
   }, [onResult]);
@@ -327,11 +326,10 @@ export default function DiscoverPage() {
   const toggleWishlist = async (media: MediaItem) => {
     haptic(30);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { showToast('Devi essere loggato per continuare'); return; }
+    if (!user) { return; }
     if (wishlistIds.includes(media.id)) {
       await supabase.from('wishlist').delete().match({ user_id: user.id, external_id: media.id });
       setWishlistIds(prev => prev.filter(id => id !== media.id));
-      showToast(d.wishlistRemove);
     } else {
       await supabase.from('wishlist').insert({
         user_id: user.id,
@@ -343,7 +341,6 @@ export default function DiscoverPage() {
         media_type: media.type,
       });
       setWishlistIds(prev => [...prev, media.id]);
-      showToast(d.wishlistAdd);
       if ((media.genres || []).length > 0) {
         triggerTasteDelta({
           action: 'wishlist_add',

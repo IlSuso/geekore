@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { Bell, X } from 'lucide-react'
-import { showToast } from '@/components/ui/Toast'
 
 const SKIP_PATHS = ['/login', '/register', '/forgot-password', '/onboarding', '/auth']
 
@@ -59,7 +58,6 @@ export function PushNotificationsBanner() {
     try {
       const permission = await Notification.requestPermission()
       if (permission !== 'granted') {
-        showToast('Permesso negato — puoi abilitarle dalle impostazioni', 'error')
         dismiss()
         return
       }
@@ -77,14 +75,11 @@ export function PushNotificationsBanner() {
         body: JSON.stringify({ subscription: subscriptionForServer }),
       })
       if (res.ok) {
-        showToast('Notifiche attivate!')
         localStorage.setItem(DISMISSED_KEY, '1')
         setShow(false)
       } else {
-        showToast('Errore nell\'attivazione', 'error')
       }
     } catch (e: any) {
-      showToast('Errore: ' + (e.message || 'riprova'), 'error')
     } finally {
       setLoading(false)
     }

@@ -11,7 +11,6 @@ import {
   Film, Gamepad2, Tv, Share2, Layers,
 } from 'lucide-react'
 import Link from 'next/link'
-import { showToast } from '@/components/ui/Toast'
 
 // ─── Tipi ────────────────────────────────────────────────────────────────────
 
@@ -124,7 +123,6 @@ export default function ListDetailPage() {
   const handleRemoveItem = async (itemId: string) => {
     await supabase.from('user_list_items').delete().eq('id', itemId)
     setItems(prev => prev.filter(i => i.id !== itemId))
-    showToast('Rimosso dalla lista')
   }
 
   const handleAddFromCollection = async (entry: any) => {
@@ -147,9 +145,7 @@ export default function ListDetailPage() {
 
     if (!error && data) {
       setItems(prev => [...prev, data])
-      showToast(`"${entry.title}" aggiunto alla lista`)
     } else if (error?.code === '23505') {
-      showToast('Già nella lista', 'error')
     }
   }
 
@@ -159,7 +155,6 @@ export default function ListDetailPage() {
       await navigator.share({ title: list?.title, url })
     } else {
       await navigator.clipboard.writeText(url)
-      showToast('Link copiato!')
     }
   }
 
