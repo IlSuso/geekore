@@ -84,8 +84,8 @@ const SWIPE_THRESHOLD = 80
 const ROTATION_FACTOR = 0.08
 const REFILL_THRESHOLD = 20
 const PRELOAD_TARGET = 50
-const TEXT_SHADOW = { textShadow: '0 1px 6px rgba(0,0,0,1), 0 2px 16px rgba(0,0,0,0.9)' }
-const ICON_DROP = { filter: 'drop-shadow(0 1px 4px rgba(0,0,0,1)) drop-shadow(0 0 2px rgba(0,0,0,0.8))' }
+const TEXT_SHADOW = { textShadow: '0 1px 10px rgba(0,0,0,1), 0 2px 24px rgba(0,0,0,1), 0 4px 48px rgba(0,0,0,0.9)' }
+const ICON_DROP = { filter: 'drop-shadow(0 1px 6px rgba(0,0,0,1)) drop-shadow(0 0 3px rgba(0,0,0,1))' }
 
 // ─── LoadingScreen ─────────────────────────────────────────────────────────────
 
@@ -167,7 +167,7 @@ function HalfStarRating({ rating, onChange }: { rating: number | null; onChange:
         return (
           <div key={star} className="flex items-center justify-center" style={{ width: 36, height: 36 }}>
             <div className="relative" style={{ width: 28, height: 28 }}>
-              <Star size={28} className="absolute inset-0 text-white/25" fill="none" strokeWidth={1.5} style={ICON_DROP} />
+              <Star size={28} className="absolute inset-0 text-white/50" fill="none" strokeWidth={1.5} style={ICON_DROP} />
               {full && <Star size={28} className="absolute inset-0 text-amber-400" fill="currentColor" strokeWidth={0}
                 style={{ filter: 'drop-shadow(0 0 7px rgba(251,191,36,.85))' }} />}
               {half && <Star size={28} className="absolute inset-0 text-amber-400" fill="currentColor" strokeWidth={0}
@@ -247,7 +247,7 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
           ? <img src={item.coverImage} alt={item.title} className="absolute inset-0 w-full h-full object-cover" draggable={false} />
           : <div className="absolute inset-0 flex items-center justify-center bg-zinc-900"><Icon size={64} className="text-zinc-700" /></div>
         }
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/5 to-black/45" />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, #000 0%, rgba(0,0,0,0.93) 18%, rgba(0,0,0,0.65) 36%, rgba(0,0,0,0.2) 58%, rgba(0,0,0,0.42) 100%)' }} />
 
         {!hideClose && (
           <button onClick={e => { e.stopPropagation(); onClose() }}
@@ -294,24 +294,26 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
             {item.genres.length > 0 && <span className="text-white/50">· {item.genres.slice(0,2).join(', ')}</span>}
           </p>
           <div data-stars="true" className={`flex items-center justify-center mb-4 ${!isTop ? 'opacity-0 pointer-events-none' : ''}`}>
-            <HalfStarRating rating={rating} onChange={onRatingChange} />
+            <div className="bg-black/55 backdrop-blur-md rounded-2xl px-2 py-1 shadow-lg ring-1 ring-white/10">
+              <HalfStarRating rating={rating} onChange={onRatingChange} />
+            </div>
           </div>
           <div className="flex items-center justify-between">
             <button onClick={e => { e.stopPropagation(); if (isTop && canUndo) onUndo() }} disabled={!canUndo || !isTop}
-              className="w-10 h-10 flex items-center justify-center rounded-full text-white/65 hover:text-white disabled:opacity-20 disabled:pointer-events-none transition-colors" style={TEXT_SHADOW}>
-              <RotateCcw size={18} style={ICON_DROP} />
+              className="w-11 h-11 flex items-center justify-center rounded-full bg-black/55 backdrop-blur-md border border-white/25 text-white/85 hover:bg-black/70 hover:border-white/45 hover:text-white disabled:opacity-35 disabled:pointer-events-none transition-all shadow-md">
+              <RotateCcw size={17} style={ICON_DROP} />
             </button>
             <div className="flex items-center gap-4">
               <button onClick={e => { e.stopPropagation(); if (isTop) triggerSwipe('left') }}
-                className={`w-14 h-14 rounded-full bg-red-500/20 border-2 border-red-400/60 flex items-center justify-center text-red-400 hover:bg-red-500/35 hover:border-red-400 active:scale-90 transition-all ${!isTop ? 'opacity-0 pointer-events-none' : ''}`} style={ICON_DROP}>
+                className={`w-14 h-14 rounded-full bg-black/55 backdrop-blur-md border-2 border-red-400/90 flex items-center justify-center text-red-400 hover:bg-red-500/30 hover:border-red-400 active:scale-90 transition-all shadow-lg ${!isTop ? 'opacity-0 pointer-events-none' : ''}`} style={ICON_DROP}>
                 <X size={24} strokeWidth={3} />
               </button>
               <button onClick={e => { e.stopPropagation(); if (isTop) onDetailOpen(item) }}
-                className={`w-10 h-10 rounded-full bg-white/15 border border-white/35 flex items-center justify-center text-white/75 hover:bg-white/25 hover:text-white active:scale-90 transition-all ${!isTop ? 'opacity-0 pointer-events-none' : ''}`} style={ICON_DROP}>
+                className={`w-10 h-10 rounded-full bg-black/55 backdrop-blur-md border border-white/50 flex items-center justify-center text-white/90 hover:bg-black/70 hover:text-white active:scale-90 transition-all shadow-md ${!isTop ? 'opacity-0 pointer-events-none' : ''}`} style={ICON_DROP}>
                 <ChevronRight size={20} strokeWidth={2.5} />
               </button>
               <button onClick={e => { e.stopPropagation(); if (isTop) triggerSwipe('right') }}
-                className={`w-14 h-14 rounded-full bg-emerald-500/20 border-2 border-emerald-400/60 flex items-center justify-center text-emerald-400 hover:bg-emerald-500/35 hover:border-emerald-400 active:scale-90 transition-all ${!isTop ? 'opacity-0 pointer-events-none' : ''}`} style={ICON_DROP}>
+                className={`w-14 h-14 rounded-full bg-black/55 backdrop-blur-md border-2 border-emerald-400/90 flex items-center justify-center text-emerald-400 hover:bg-emerald-500/30 hover:border-emerald-400 active:scale-90 transition-all shadow-lg ${!isTop ? 'opacity-0 pointer-events-none' : ''}`} style={ICON_DROP}>
                 <Check size={24} strokeWidth={3} />
               </button>
             </div>
