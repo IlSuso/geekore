@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { NotesModal } from '@/components/profile/NotesModal'
+import { MobileMediaModal, type ModalMedia } from '@/components/profile/MobileMediaModal'
 import {
   DndContext, closestCenter, DragEndEvent,
 } from '@dnd-kit/core'
@@ -181,7 +182,7 @@ function SortableCard({ media, children }: { media: UserMedia; children: React.R
 // ─── Card griglia ─────────────────────────────────────────────────────────────
 
 const MediaCard = memo(function MediaCard({
-  media, isOwner, onRating, onNotes, onStatusChange, onSaveProgress, onMarkComplete, onReset, onEnrichEpisodes, enriching, onDelete,
+  media, isOwner, onRating, onNotes, onStatusChange, onSaveProgress, onMarkComplete, onReset, onEnrichEpisodes, enriching, onDelete, onMobileTap,
 }: {
   media: UserMedia
   isOwner: boolean
@@ -194,30 +195,34 @@ const MediaCard = memo(function MediaCard({
   onEnrichEpisodes?: (id: string) => void
   enriching?: boolean
   onDelete?: (id: string) => void
+  onMobileTap?: () => void
 }) {
   const hasNotes = !!media.notes?.trim()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [imgFailed, setImgFailed] = useState(false)
 
   return (
-    <div className="group relative bg-zinc-950 rounded-3xl overflow-hidden flex flex-col h-full">
+    <div
+      className="group relative bg-zinc-950 rounded-3xl overflow-hidden flex flex-col h-full"
+      onClick={() => { if (typeof window !== 'undefined' && window.innerWidth < 768) onMobileTap?.() }}
+    >
       {/* Cover */}
       <div className="relative h-64 bg-zinc-900 flex-shrink-0 overflow-hidden">
         {/* Badge tipo */}
         <div className={`absolute bottom-3 left-3 z-20 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white tracking-wide ${TYPE_COLORS[media.type] || 'bg-zinc-700'}`}>
           {TYPE_LABELS[media.type] || media.type}
         </div>
-        {/* Delete button */}
+        {/* Delete — hidden on mobile (in modal instead) */}
         {isOwner && (
-          <div className="absolute top-3 right-3 z-30">
+          <div className="hidden md:block absolute top-3 right-3 z-30">
             {confirmDelete ? (
               <div className="flex gap-1">
-                <button onClick={() => setConfirmDelete(false)} onPointerDown={e => e.stopPropagation()} className="px-2 py-1 text-[10px] bg-zinc-900/95 border border-zinc-600 rounded-full">Annulla</button>
-                <button onClick={() => onDelete?.(media.id)} onPointerDown={e => e.stopPropagation()} className="px-2 py-1 text-[10px] bg-red-900/95 border border-red-700 text-red-300 rounded-full">Elimina</button>
+                <button onClick={e => { e.stopPropagation(); setConfirmDelete(false) }} onPointerDown={e => e.stopPropagation()} className="px-2 py-1 text-[10px] bg-zinc-900/95 border border-zinc-600 rounded-full">Annulla</button>
+                <button onClick={e => { e.stopPropagation(); onDelete?.(media.id) }} onPointerDown={e => e.stopPropagation()} className="px-2 py-1 text-[10px] bg-red-900/95 border border-red-700 text-red-300 rounded-full">Elimina</button>
               </div>
             ) : (
               <button
-                onClick={() => setConfirmDelete(true)}
+                onClick={e => { e.stopPropagation(); setConfirmDelete(true) }}
                 onPointerDown={e => e.stopPropagation()}
                 className="opacity-0 group-hover:opacity-100 bg-black/50 hover:bg-red-950/80 border border-white/10 hover:border-red-500/60 p-1.5 rounded-xl transition-all"
               >
@@ -225,6 +230,20 @@ const MediaCard = memo(function MediaCard({
               </button>
             )}
           </div>
+        )}
+        {/* Notes pencil — bottom-right of cover, desktop only */}
+        {isOwner && (
+          <button
+            onClick={e => { e.stopPropagation(); onNotes?.(media) }}
+            aria-label="Note"
+            className={`hidden md:flex absolute bottom-3 right-3 z-20 p-1.5 rounded-lg border transition-all ${
+              hasNotes
+                ? 'bg-violet-600 border-violet-500 text-white'
+                : 'bg-black/50 border-white/10 hover:border-violet-500/60 text-zinc-400 hover:text-violet-400'
+            }`}
+          >
+            <Edit3 size={11} />
+          </button>
         )}
         <div className="absolute bottom-0 inset-x-0 h-12 bg-gradient-to-t from-black/70 to-transparent z-10 pointer-events-none" />
         {/* Cover image */}
@@ -256,36 +275,58 @@ const MediaCard = memo(function MediaCard({
         )}
       </div>
 
-      {/* Info */}
-      <div className="flex flex-col flex-1 px-4 pt-3 pb-4 gap-2">
+      {/* ── Mobile: static read-only info ────────────────────────────────── */}
+      <div className="md:hidden flex flex-col flex-1 px-4 pt-3 pb-4 gap-1.5">
+        <h4 className="font-semibold text-sm leading-snug text-white line-clamp-2">{media.title}</h4>
+        <StarRating value={media.rating || 0} viewOnly size={13} />
+        {(media.type === 'tv' || media.type === 'anime') && media.status && (
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit bg-zinc-800 text-zinc-400">
+            {media.status === 'completed' ? 'Completato' : media.status === 'watching' ? 'In corso'
+              : media.status === 'paused' ? 'In pausa' : media.status === 'dropped' ? 'Abbandonato'
+              : media.status === 'wishlist' ? 'Wishlist' : media.status}
+          </span>
+        )}
+        <div className="flex-1 min-h-0" />
+        <div className="text-[11px] text-zinc-400">
+          {media.type === 'game' && (media.current_episode || 0) > 0 && (
+            <span className="inline-flex items-center gap-1 bg-zinc-800/60 px-2 py-0.5 rounded-full">
+              <Clock size={10} className="text-zinc-500" />{media.current_episode}h
+            </span>
+          )}
+          {media.type === 'manga' && (() => {
+            const maxCh = media.episodes && media.episodes > 1 ? media.episodes : undefined
+            const current = media.current_episode || 0
+            if (maxCh && current >= maxCh)
+              return <span className="flex items-center gap-1 text-emerald-400"><CheckCircle size={11} />Completato</span>
+            return <span className="text-zinc-500">Cap. <span className="text-emerald-400 font-semibold">{current}</span>{maxCh ? <span className="text-zinc-600"> / {maxCh}</span> : null}</span>
+          })()}
+          {(media.type === 'tv' || media.type === 'anime') && (() => {
+            const isCompleted = media.status === 'completed'
+            const hasEpData = !!(media.episodes && media.episodes > 1)
+            const csn = media.current_season || 1
+            const maxEps = media.season_episodes?.[csn]?.episode_count || media.episodes || 0
+            if (isCompleted) return <span className="flex items-center gap-1 text-emerald-400"><CheckCircle size={11} />Completato</span>
+            if (hasEpData) return <span className="text-zinc-500">{media.season_episodes ? `S${csn} · ` : ''}Ep. <span className="text-emerald-400 font-semibold">{media.current_episode}</span><span className="text-zinc-600"> / {maxEps}</span></span>
+            return null
+          })()}
+        </div>
+      </div>
+
+      {/* ── Desktop: full interactive info ────────────────────────────────── */}
+      <div className="hidden md:flex flex-col flex-1 px-4 pt-3 pb-4 gap-2">
         <h4 className="font-semibold text-sm leading-snug text-white line-clamp-2">{media.title}</h4>
 
-        {/* Stars + notes */}
-        <div className="flex items-center gap-2">
-          <div onPointerDown={isOwner ? e => e.stopPropagation() : undefined}>
-            <StarRating
-              value={media.rating || 0}
-              onChange={isOwner ? (r) => onRating?.(media.id, r) : undefined}
-              size={14}
-              viewOnly={!isOwner}
-            />
-          </div>
-          {isOwner && (
-            <button
-              onClick={() => onNotes?.(media)}
-              onPointerDown={e => e.stopPropagation()}
-              className={`ml-auto p-1.5 rounded-lg border transition-all ${
-                hasNotes
-                  ? 'bg-violet-600 border-violet-500 text-white'
-                  : 'bg-zinc-900 border-zinc-800 hover:border-violet-500/60 text-zinc-600 hover:text-violet-400'
-              }`}
-            >
-              <Edit3 size={12} />
-            </button>
-          )}
+        {/* Stars */}
+        <div onPointerDown={isOwner ? e => e.stopPropagation() : undefined}>
+          <StarRating
+            value={media.rating || 0}
+            onChange={isOwner ? (r) => onRating?.(media.id, r) : undefined}
+            size={14}
+            viewOnly={!isOwner}
+          />
         </div>
 
-        {/* Status — select/badge solo per tv/anime, niente per game/movie/boardgame */}
+        {/* Status — select/badge solo per tv/anime */}
         {(media.type === 'tv' || media.type === 'anime') && (
           isOwner ? (
             <select
@@ -483,6 +524,7 @@ const MediaCard = memo(function MediaCard({
 
 // ─── Riga lista compatta ──────────────────────────────────────────────────────
 
+
 const MediaRow = memo(function MediaRow({
   media, isOwner, onRating, onStatusChange, onDelete,
 }: {
@@ -591,6 +633,7 @@ export default function ProfileTypePage() {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const [enrichingIds, setEnrichingIds] = useState<Set<string>>(new Set())
+  const [openMobileId, setOpenMobileId] = useState<string | null>(null)
 
   const typeLabel = TYPE_LABELS[type] || type
 
@@ -918,6 +961,7 @@ export default function ProfileTypePage() {
                             onEnrichEpisodes={enrichEpisodeData}
                             enriching={enrichingIds.has(media.id)}
                             onDelete={handleDelete}
+                            onMobileTap={isOwner ? () => setOpenMobileId(media.id) : undefined}
                           />
                         </SortableCard>
                       ))}
@@ -943,6 +987,7 @@ export default function ProfileTypePage() {
                       onEnrichEpisodes={enrichEpisodeData}
                       enriching={enrichingIds.has(media.id)}
                       onDelete={handleDelete}
+                      onMobileTap={isOwner ? () => setOpenMobileId(media.id) : undefined}
                     />
                   ))}
                 </div>
@@ -976,6 +1021,28 @@ export default function ProfileTypePage() {
           </p>
         )}
       </div>
+
+      {/* Mobile card modal */}
+      {openMobileId && isOwner && (() => {
+        const openMedia = mediaList.find(m => m.id === openMobileId)
+        if (!openMedia) return null
+        return (
+          <MobileMediaModal
+            media={openMedia as ModalMedia}
+            isOwner={true}
+            onClose={() => setOpenMobileId(null)}
+            onRating={handleRating}
+            onStatusChange={handleStatusChange}
+            onSaveProgress={handleSaveProgress}
+            onMarkComplete={handleMarkComplete}
+            onReset={handleReset}
+            onEnrichEpisodes={enrichEpisodeData}
+            enriching={enrichingIds.has(openMobileId)}
+            onDelete={handleDelete}
+            onNotes={(m) => openNotes(m as UserMedia)}
+          />
+        )
+      })()}
 
       {/* Modal note */}
       {notesOpen && selectedMedia && isOwner && (

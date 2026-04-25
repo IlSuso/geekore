@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { SteamIcon } from '@/components/icons/SteamIcon'
 import { StarRating } from '@/components/ui/StarRating'
+import { MobileMediaModal, type ModalMedia } from '@/components/profile/MobileMediaModal'
 import { Spinner } from '@/components/ui/Spinner'
 import { FollowButton } from '@/components/profile/follow-button'
 import { TasteSimilarityBadge } from '@/components/social/TasteSimilarityBadge'
@@ -213,7 +214,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 function MediaCard({
   media, isOwner, deletingId,
-  onDelete, onDeleteRequest, onDeleteCancel, onRating, onNotes, onSaveProgress, onMarkComplete, onReset, onStatusChange, onEnrichEpisodes, enriching,
+  onDelete, onDeleteRequest, onDeleteCancel, onRating, onNotes, onSaveProgress, onMarkComplete, onReset, onStatusChange, onEnrichEpisodes, enriching, onMobileTap,
 }: {
   media: UserMedia
   isOwner: boolean
@@ -229,6 +230,7 @@ function MediaCard({
   onStatusChange?: (id: string, status: string) => void
   onEnrichEpisodes?: (id: string) => void
   enriching?: boolean
+  onMobileTap?: () => void
 }) {
   const { t, locale } = useLocale()
   const router = useRouter()
@@ -306,22 +308,40 @@ function MediaCard({
   }
 
   return (
-    <div className="group relative bg-zinc-950 rounded-3xl overflow-hidden h-full flex flex-col">
+    <div
+      className="group relative bg-zinc-950 rounded-3xl overflow-hidden h-full flex flex-col"
+      onClick={() => { if (typeof window !== 'undefined' && window.innerWidth < 768) onMobileTap?.() }}
+    >
       {/* Cover */}
       <div className="relative h-56 bg-zinc-900 flex-shrink-0 overflow-hidden">
+        {/* Delete — hidden on mobile (in modal instead) */}
         {isOwner && isConfirmingDelete && (
-          <div className="absolute top-3 right-3 z-30 flex gap-1.5">
-            <button onClick={() => onDeleteCancel?.()} className="px-3 py-1.5 text-xs font-medium bg-zinc-900/95 border border-zinc-600 rounded-full hover:bg-zinc-800 transition">{m.cancel}</button>
-            <button onClick={() => onDelete?.(media.id)} className="px-3 py-1.5 text-xs font-medium bg-red-900/95 border border-red-700 text-red-300 rounded-full hover:bg-red-800 transition">{m.delete}</button>
+          <div className="hidden md:flex absolute top-3 right-3 z-30 gap-1.5">
+            <button onClick={e => { e.stopPropagation(); onDeleteCancel?.() }} className="px-3 py-1.5 text-xs font-medium bg-zinc-900/95 border border-zinc-600 rounded-full hover:bg-zinc-800 transition">{m.cancel}</button>
+            <button onClick={e => { e.stopPropagation(); onDelete?.(media.id) }} className="px-3 py-1.5 text-xs font-medium bg-red-900/95 border border-red-700 text-red-300 rounded-full hover:bg-red-800 transition">{m.delete}</button>
           </div>
         )}
         {isOwner && !isConfirmingDelete && (
           <button
-            onClick={() => onDeleteRequest?.(media.id)}
+            onClick={e => { e.stopPropagation(); onDeleteRequest?.(media.id) }}
             aria-label={`Elimina ${media.title}`}
-            className="absolute top-3 right-3 z-30 opacity-30 group-hover:opacity-100 bg-black/50 hover:bg-red-950/80 border border-white/10 hover:border-red-500/60 p-1.5 rounded-xl transition-all duration-200"
+            className="hidden md:flex absolute top-3 right-3 z-30 opacity-30 group-hover:opacity-100 bg-black/50 hover:bg-red-950/80 border border-white/10 hover:border-red-500/60 p-1.5 rounded-xl transition-all duration-200"
           >
             <X className="w-4 h-4 text-white group-hover:text-red-400 transition-colors" />
+          </button>
+        )}
+        {/* Notes pencil — bottom-right of cover, desktop only (mobile → modal) */}
+        {isOwner && (
+          <button
+            onClick={e => { e.stopPropagation(); onNotes?.(media) }}
+            aria-label="Note"
+            className={`hidden md:flex absolute bottom-3 right-3 z-20 p-1.5 rounded-lg border transition-all ${
+              hasNotes
+                ? 'bg-violet-600 border-violet-500 text-white'
+                : 'bg-black/50 border-white/10 hover:border-violet-500/60 text-zinc-400 hover:text-violet-400'
+            }`}
+          >
+            <Edit3 size={11} />
           </button>
         )}
         <div className="absolute bottom-0 inset-x-0 h-14 bg-gradient-to-t from-black/70 to-transparent z-10 pointer-events-none" />
@@ -331,8 +351,49 @@ function MediaCard({
         {renderCover()}
       </div>
 
-      {/* Info */}
-      <div className="flex flex-col flex-1 px-3 pt-2.5 pb-3 gap-1.5">
+      {/* ── Mobile: static read-only info (tap card to open modal) ─────────── */}
+      <div className="md:hidden flex flex-col flex-1 px-3 pt-2.5 pb-3 gap-1.5">
+        <h4 className="font-semibold line-clamp-2 text-[13px] leading-snug text-white">{displayTitle}</h4>
+        <StarRating value={rating} viewOnly size={13} />
+        {/* Status badge for tv/anime */}
+        {(media.type === 'tv' || media.type === 'anime') && (() => {
+          const badge = statusBadge[media.status || 'watching']
+          return badge ? <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit ${badge.cls}`}>{badge.label}</span> : null
+        })()}
+        {/* Static progress */}
+        <div className="flex-1 min-h-0" />
+        <div className="text-[11px] text-zinc-400">
+          {media.type === 'game' && (media.current_episode || 0) > 0 && (
+            <span className="inline-flex items-center gap-1 bg-zinc-800/60 px-2 py-0.5 rounded-full">
+              <Clock size={10} className="text-zinc-500" />{m.hoursPlayed(media.current_episode || 0)}
+            </span>
+          )}
+          {media.type === 'manga' && (
+            isCompleted || (media.episodes && media.episodes > 1 && (media.current_episode || 0) >= media.episodes) ? (
+              <span className="flex items-center gap-1 text-emerald-400"><CheckCircle size={11} />Completato</span>
+            ) : (
+              <span className="text-zinc-500">
+                Cap. <span className="text-emerald-400 font-semibold">{media.current_episode || 0}</span>
+                {media.episodes && media.episodes > 1 ? <span className="text-zinc-600"> / {media.episodes}</span> : null}
+              </span>
+            )
+          )}
+          {(media.type === 'tv' || media.type === 'anime') && (
+            isCompleted ? (
+              <span className="flex items-center gap-1 text-emerald-400"><CheckCircle size={11} />Completato</span>
+            ) : hasEpisodeData ? (
+              <span className="text-zinc-500">
+                {hasSeasonData && <span className="text-zinc-500">{m.season(currentSeasonNum)} · </span>}
+                Ep. <span className="text-emerald-400 font-semibold">{media.current_episode}</span>
+                <span className="text-zinc-600"> / {maxEpisodesThisSeason}</span>
+              </span>
+            ) : null
+          )}
+        </div>
+      </div>
+
+      {/* ── Desktop: full interactive info ────────────────────────────────── */}
+      <div className="hidden md:flex flex-col flex-1 px-3 pt-2.5 pb-3 gap-1.5">
         <h4 className="font-semibold line-clamp-2 text-[13px] leading-snug text-white">{displayTitle}</h4>
 
         {/* Stars */}
@@ -345,7 +406,7 @@ function MediaCard({
           />
         </div>
 
-        {/* Status row — select/badge solo per tv/anime, niente per game/movie/boardgame */}
+        {/* Status row */}
         <div className="flex items-center gap-1.5">
           {(media.type === 'tv' || media.type === 'anime') && (
             isOwner ? (
@@ -369,19 +430,6 @@ function MediaCard({
                 ) : null
               })()
             )
-          )}
-          {isOwner && (
-            <button
-              onClick={() => onNotes?.(media)}
-              onPointerDown={e => e.stopPropagation()}
-              className={`flex-shrink-0 p-1.5 rounded-lg border transition-all ml-auto ${
-                hasNotes
-                  ? 'bg-violet-600 border-violet-500 text-white'
-                  : 'bg-zinc-900 border-zinc-800 hover:border-violet-500/60 text-zinc-600 hover:text-violet-400'
-              }`}
-            >
-              <Edit3 size={12} />
-            </button>
           )}
         </div>
 
@@ -763,6 +811,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
   const [selectedMedia, setSelectedMedia] = useState<UserMedia | null>(null)
   const [notesInput, setNotesInput] = useState('')
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
+  const [openMobileId, setOpenMobileId] = useState<string | null>(null)
 
   const router = useRouter()
 
@@ -1378,7 +1427,8 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                                         onDelete={handleDelete} onDeleteRequest={setDeletingId} onDeleteCancel={() => setDeletingId(null)}
                                         onRating={setRating} onNotes={openNotesModal} onSaveProgress={saveProgress}
                                         onMarkComplete={markAsCompleted} onReset={resetProgress} onStatusChange={changeStatus}
-                                        onEnrichEpisodes={enrichEpisodeData} enriching={enrichingIds.has(media.id)} />
+                                        onEnrichEpisodes={enrichEpisodeData} enriching={enrichingIds.has(media.id)}
+                                        onMobileTap={() => setOpenMobileId(media.id)} />
                                     </SortableBox>
                                   </div>
                                 ))}
@@ -1434,6 +1484,28 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
           <ProfileComments profileId={profile.id} profileUsername={profile.username} isOwner={isOwner} />
         )}
       </div>
+
+      {/* Mobile card modal (bottom sheet) */}
+      {openMobileId && isOwner && (() => {
+        const openMedia = mediaList.find(m => m.id === openMobileId)
+        if (!openMedia) return null
+        return (
+          <MobileMediaModal
+            media={openMedia as ModalMedia}
+            isOwner={true}
+            onClose={() => setOpenMobileId(null)}
+            onRating={setRating}
+            onStatusChange={changeStatus}
+            onSaveProgress={saveProgress}
+            onMarkComplete={(id, m) => markAsCompleted(id, m as UserMedia)}
+            onReset={resetProgress}
+            onEnrichEpisodes={enrichEpisodeData}
+            enriching={enrichingIds.has(openMobileId)}
+            onDelete={handleDelete}
+            onNotes={(m) => openNotesModal(m as UserMedia)}
+          />
+        )
+      })()}
 
       {/* Modal Note */}
       {isNotesModalOpen && selectedMedia && isOwner && (
