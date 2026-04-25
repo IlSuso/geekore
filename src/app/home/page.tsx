@@ -336,15 +336,13 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
     {
       const rect = e.currentTarget.getBoundingClientRect()
       const isMobile = window.innerWidth < 768
-      const panelWidth = 300
-      const panelHeight = 340
 
       if (isMobile) {
-        // Mobile: panel fisso in basso a sinistra, sopra il footer del composer
-        // Ancorato al bottom del trigger, parte da sinistra
-        openAboveRef.current = true
-        setOpenAbove(true)
-        setPanelPos({ top: rect.bottom, left: 12 })
+        // Mobile: position above or below depending on where the trigger sits
+        const above = rect.top + rect.height / 2 > window.innerHeight / 2
+        openAboveRef.current = above
+        setOpenAbove(above)
+        setPanelPos({ top: rect.bottom + (above ? 0 : 8), left: 12 })
       } else {
         // Desktop: a destra del tag
         const left = rect.right + 6
@@ -362,7 +360,7 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
   const close = () => { setOpen(false); setSubInput(''); setSuggestions([]) }
 
   const selectMacro = (cat: string) => {
-    setSelectedCat(cat); setSubInput(''); setSuggestions([]); onChange(cat); setStep('search')
+    setSelectedCat(cat); setSubInput(''); setSuggestions([]); setStep('search')
   }
 
   const selectSuggestion = (result: SearchResult) => {
