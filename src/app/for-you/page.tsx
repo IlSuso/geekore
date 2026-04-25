@@ -17,8 +17,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
 import { useLocale } from '@/lib/locale'
-import { SkeletonForYouRow, SkeletonFriendsWatching } from '@/components/ui/SkeletonCard'
-import { SimilarTasteFriends } from '@/components/social/SimilarTasteFriends'
+import { SkeletonForYouRow } from '@/components/ui/SkeletonCard'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
@@ -1093,7 +1092,6 @@ export default function ForYouPage() {
         </div>
         {/* Search bar "Trova simili a…" */}
         <div className="h-9 w-full bg-zinc-900 rounded-2xl mb-6 animate-pulse" />
-        <SkeletonFriendsWatching />
         <SkeletonForYouRow />
         <SkeletonForYouRow />
       </div>
@@ -1158,10 +1156,6 @@ export default function ForYouPage() {
                 similarLoadingId={similarLoading}
               />
             )}
-            {friendsLoading ? <SkeletonFriendsWatching /> : <FriendsWatchingSection items={friendsActivity} />}
-            <SimilarTasteFriends />
-
-
             {SECTIONS.map(({ key, label }) => {
               const items = displayRecs[key] || []
               const allItems = items
