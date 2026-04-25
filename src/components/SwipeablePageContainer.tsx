@@ -183,7 +183,12 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     }
   }, [onTouchStart, onTouchMove, onTouchEnd, onTouchCancel])
 
-  const translateX = offset !== 0 ? `translateX(${offset}px)` : 'none'
+  // Always use translateX(Npx) — never 'none'. This keeps the GPU compositing
+  // layer alive for the full duration of the snap animation, preventing the
+  // mid-transition layer de-promotion that caused the nav to flicker.
+  // Modals/drawers inside pages use createPortal(…, document.body) so they are
+  // unaffected by this containing block.
+  const translateX = `translateX(${offset}px)`
   const transition = animate
     ? `transform 0.28s ${offset === 0 ? EASE_SNAP : EASE_OUT}`
     : 'none'
@@ -194,9 +199,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
       style={{
         transform:                translateX,
         transition,
-        // willChange solo quando c'è un offset attivo — evita stacking context
-        // permanente che trasforma position:fixed dei children in position:absolute
-        willChange:               offset !== 0 ? 'transform' : 'auto',
+        willChange:               'transform',
         backfaceVisibility:       'hidden',
         WebkitBackfaceVisibility: 'hidden',
         minHeight:                '100%',

@@ -59,23 +59,6 @@ export default function Navbar() {
     { href: username ? `/profile/${username}` : '/profile/me', label: t.nav.profile, icon: User, hasDot: false },
   ]
 
-  // Mobile: viewport listener — keep bottom nav above keyboard (Android/iOS)
-  useEffect(() => {
-    const vv = (window as any).visualViewport
-    if (!vv) return
-    const update = () => {
-      const kh = Math.max(0, window.innerHeight - vv.height - (vv.offsetTop ?? 0))
-      document.documentElement.style.setProperty('--vv-keyboard', kh > 100 ? `${Math.round(kh)}px` : '0px')
-    }
-    vv.addEventListener('resize', update)
-    vv.addEventListener('scroll', update)
-    update()
-    return () => {
-      vv.removeEventListener('resize', update)
-      vv.removeEventListener('scroll', update)
-    }
-  }, [])
-
   // Close search on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
