@@ -1,7 +1,7 @@
 'use client'
 
 import { logActivity } from '@/lib/activity'
-import { Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, List, Grid3X3, ChevronRight, Download, X as XIcon, Gamepad2, Tv } from 'lucide-react'
+import { Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, List, Grid3X3, ChevronRight, Download, X as XIcon, Gamepad2, Tv, BarChart2, Users, TrendingUp } from 'lucide-react'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -1081,6 +1081,25 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
         </div>
 
 
+
+        {/* Quick links — mobile only, owner only */}
+        {isOwner && (
+          <div className="md:hidden flex items-center gap-2 mb-5 -mx-4 px-4 overflow-x-auto scrollbar-hide">
+            {([
+              { href: '/wishlist',   icon: <Bookmark size={14} className="text-pink-400" />,   label: 'Wishlist' },
+              { href: '/lists',      icon: <List size={14} className="text-cyan-400" />,        label: 'Liste' },
+              { href: '/stats',      icon: <BarChart2 size={14} className="text-indigo-400" />, label: 'Statistiche' },
+              { href: '/trending',   icon: <TrendingUp size={14} className="text-orange-400" />,label: 'Trending' },
+              { href: '/community',  icon: <Users size={14} className="text-violet-400" />,     label: 'Community' },
+              { href: '/settings',   icon: <Settings size={14} className="text-zinc-400" />,    label: 'Impostazioni' },
+            ] as const).map(item => (
+              <Link key={item.href} href={item.href}
+                className="flex items-center gap-2 px-3 py-2 bg-zinc-900 rounded-2xl border border-zinc-800 text-sm font-medium text-zinc-300 hover:border-zinc-600 transition-colors flex-shrink-0 whitespace-nowrap">
+                {item.icon}{item.label}
+              </Link>
+            ))}
+          </div>
+        )}
 
         {/* Stats */}
         {mediaList.length > 0 && <ProfileStatsPanel mediaList={mediaList} />}
