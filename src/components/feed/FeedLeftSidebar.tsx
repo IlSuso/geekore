@@ -49,7 +49,7 @@ export function FeedLeftSidebar({ profile }: { profile: Profile | null }) {
 
   return (
     <>
-      <aside className="sticky top-16 h-[calc(100vh-4rem)] flex flex-col overflow-y-auto py-3 pr-1 scrollbar-none">
+      <aside className="sticky top-16 h-[calc(100vh-4rem)] flex flex-col overflow-hidden py-3 pr-1">
 
         {/* User card */}
         {profile && (

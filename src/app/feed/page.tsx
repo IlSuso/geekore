@@ -33,6 +33,7 @@ import { enUS } from 'date-fns/locale/en-US'
 import { useLocale } from '@/lib/locale'
 import { FeedSidebar } from '@/components/feed/FeedSidebar'
 import { FeedLeftSidebar } from '@/components/feed/FeedLeftSidebar'
+import { StickyFromBottom } from '@/components/ui/StickyFromBottom'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 import { PullWrapper } from '@/components/ui/PullWrapper'
@@ -2012,9 +2013,9 @@ export default function FeedPage() {
 
           {/* ── Sidebar destra ─────────────────────────────────────── */}
           <div className="hidden lg:block w-[300px] xl:w-[340px] flex-shrink-0">
-            <div className="sticky top-16">
+            <StickyFromBottom navHeight={64}>
               <FeedSidebar currentUserId={currentUser?.id ?? null} />
-            </div>
+            </StickyFromBottom>
           </div>
 
         </div>
