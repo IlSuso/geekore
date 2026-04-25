@@ -216,7 +216,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 function MediaCard({
   media, isOwner, deletingId,
-  onDelete, onDeleteRequest, onDeleteCancel, onRating, onNotes, onSaveProgress, onMarkComplete, onReset, onStatusChange, onEnrichEpisodes, enriching, onMobileTap,
+  onDelete, onDeleteRequest, onDeleteCancel, onRating, onNotes, onViewNotes, onSaveProgress, onMarkComplete, onReset, onStatusChange, onEnrichEpisodes, enriching, onMobileTap,
 }: {
   media: UserMedia
   isOwner: boolean
@@ -226,6 +226,7 @@ function MediaCard({
   onDeleteCancel?: () => void
   onRating?: (id: string, r: number) => void
   onNotes?: (media: UserMedia) => void
+  onViewNotes?: (media: UserMedia) => void
   onSaveProgress?: (id: string, val: number, field?: 'current_episode' | 'current_season') => void
   onMarkComplete?: (id: string, media: UserMedia) => void
   onReset?: (id: string) => void
@@ -332,16 +333,12 @@ function MediaCard({
             <X className="w-4 h-4 text-white group-hover:text-red-400 transition-colors" />
           </button>
         )}
-        {/* Notes pencil — bottom-right of cover, desktop only (mobile → modal) */}
-        {isOwner && (
+        {/* Notes icon — only shown when notes exist; owner=edit, visitor=read-only */}
+        {hasNotes && (
           <button
-            onClick={e => { e.stopPropagation(); onNotes?.(media) }}
+            onClick={e => { e.stopPropagation(); isOwner ? onNotes?.(media) : onViewNotes?.(media) }}
             aria-label="Note"
-            className={`hidden md:flex absolute bottom-3 right-3 z-20 p-1.5 rounded-lg border transition-all ${
-              hasNotes
-                ? 'bg-violet-600 border-violet-500 text-white'
-                : 'bg-black/50 border-white/10 hover:border-violet-500/60 text-zinc-400 hover:text-violet-400'
-            }`}
+            className={`absolute bottom-3 right-3 z-20 p-1.5 rounded-lg border bg-violet-600 border-violet-500 text-white transition-all ${isOwner ? 'hidden md:flex' : 'flex'}`}
           >
             <Edit3 size={11} />
           </button>
@@ -814,6 +811,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
   const [notesInput, setNotesInput] = useState('')
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
   const [openMobileId, setOpenMobileId] = useState<string | null>(null)
+  const [viewingNotes, setViewingNotes] = useState<UserMedia | null>(null)
 
   const router = useRouter()
 
@@ -1449,7 +1447,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                           <div className="flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide snap-x snap-mandatory">
                             {preview.map((media) => (
                               <div key={media.id} className="w-40 sm:w-48 md:w-52 flex-shrink-0 border border-zinc-800 rounded-3xl overflow-hidden min-h-[340px] sm:min-h-[380px] md:min-h-[420px] flex flex-col snap-start">
-                                <MediaCard media={media} isOwner={false} onStatusChange={changeStatus} />
+                                <MediaCard media={media} isOwner={false} onStatusChange={changeStatus} onViewNotes={setViewingNotes} />
                               </div>
                             ))}
                             {hasMore && (
@@ -1520,6 +1518,18 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
           saveLabel={t.common.save}
           cancelLabel={t.media.cancel}
           placeholder={t.profile.notesPlaceholder}
+        />
+      )}
+
+      {/* Read-only notes modal — for visitors viewing another user's notes */}
+      {viewingNotes && (
+        <NotesModal
+          title={viewingNotes.title}
+          value={viewingNotes.notes || ''}
+          onChange={() => {}}
+          onSave={() => {}}
+          onClose={() => setViewingNotes(null)}
+          readOnly
         />
       )}
 
