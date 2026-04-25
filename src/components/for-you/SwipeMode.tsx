@@ -617,9 +617,10 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
         </div>
 
         {filteredQueue.length > 0 && (
-          <div className="relative z-10 text-center flex-shrink-0 select-none" style={hintPaddingBottom}>
+          <div className="relative z-10 text-center flex-shrink-0 select-none md:block hidden" style={hintPaddingBottom}>
             <p className="text-zinc-600 text-xs pointer-events-none">← Skip &nbsp;·&nbsp; Visto →</p>
           </div>
+          <div className="relative z-10 flex-shrink-0 md:hidden" style={hintPaddingBottom} />
         )}
 
         {/* Mobile bottom-nav spacer — only in standalone since SwipeMode is fixed/fullscreen */}
