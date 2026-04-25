@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bookmark, List, BarChart2, Trophy, Bell, TrendingUp, Newspaper, Users, Star, Settings } from 'lucide-react'
+import { Bookmark, List, BarChart2, Trophy, Bell, TrendingUp, Users, Settings } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { useState } from 'react'
 import { NotificationsDrawer } from './NotificationsDrawer'
@@ -22,9 +22,7 @@ const MAIN_NAV = [
 
 const EXPLORE_NAV = [
   { href: '/trending',   icon: TrendingUp,  label: 'Trending' },
-  { href: '/discover',   icon: Star,        label: 'Scopri' },
-  { href: '/news',       icon: Newspaper,   label: 'Notizie geek' },
-  { href: '/explore',    icon: Users,       label: 'Community' },
+  { href: '/community',  icon: Users,       label: 'Community' },
 ]
 
 function NavItem({ href, icon: Icon, label, active }: { href: string; icon: React.ElementType; label: string; active: boolean }) {
