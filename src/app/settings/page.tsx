@@ -15,8 +15,9 @@ import {
   Shield, KeyRound, LogOut, Eye, EyeOff, Loader2, ChevronDown, ChevronUp,
   Circle, Sparkles, Mail, Check, Heart, Tv, Monitor, Trash2,
 } from 'lucide-react'
-import { PushNotificationsToggle } from '@/components/notifications/PushNotificationsToggle'
 import { DeleteAccountModal } from '@/components/profile/DeleteAccountModal'
+import { useCsrf } from '@/hooks/useCsrf'
+import { PushNotificationsToggle } from '@/components/notifications/PushNotificationsToggle'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -438,13 +439,51 @@ function StreamingPlatformsSelector() {
   )
 }
 
-export default function SettingsPage() {
-  const { locale, setLocale, t } = useLocale()
-  const { theme, setTheme } = useTheme()
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
+function DeleteAccountSection() {
+  const [showModal, setShowModal] = useState(false)
+  const { csrfFetch } = useCsrf()
+  const supabase = createClient()
+
+  const handleDelete = async () => {
+    const res = await csrfFetch('/api/user/delete', { method: 'DELETE' })
+    if (res.ok) {
+      await supabase.auth.signOut()
+      document.cookie = 'geekore_onboarding_done=; path=/; max-age=0'
+      window.location.href = '/'
+    } else {
+      showToast('Errore nella cancellazione. Riprova.', 'error')
+    }
+  }
 
   return (
     <>
+      <button
+        onClick={() => setShowModal(true)}
+        className="w-full flex items-center gap-3 p-4 hover:bg-red-500/5 transition-colors group"
+      >
+        <div className="w-9 h-9 bg-red-500/10 rounded-xl flex items-center justify-center group-hover:bg-red-500/20 transition-colors">
+          <Trash2 size={16} className="text-red-400" />
+        </div>
+        <div className="text-left">
+          <p className="text-sm font-medium text-white group-hover:text-red-300 transition-colors">Elimina account</p>
+          <p className="text-xs text-zinc-500">Cancella tutti i tuoi dati in modo permanente</p>
+        </div>
+      </button>
+      {showModal && (
+        <DeleteAccountModal
+          onConfirm={handleDelete}
+          onClose={() => setShowModal(false)}
+        />
+      )}
+    </>
+  )
+}
+
+export default function SettingsPage() {
+  const { locale, setLocale, t } = useLocale()
+  const { theme, setTheme } = useTheme()
+
+  return (
     <div className="min-h-screen bg-zinc-950 text-white">
       <div className="max-w-xl mx-auto px-4 md:px-6 pt-3 md:pt-10 pb-28 space-y-6">
 
@@ -595,24 +634,12 @@ export default function SettingsPage() {
         {/* Zona pericolosa */}
         <section>
           <div className="flex items-center gap-2 mb-3">
-            <Trash2 size={15} className="text-red-600/60" />
-            <h2 className="text-xs font-semibold text-red-600/60 uppercase tracking-widest">Zona pericolosa</h2>
+            <Trash2 size={15} className="text-zinc-500" />
+            <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Zona pericolosa</h2>
           </div>
-          <button
-            onClick={() => setShowDeleteModal(true)}
-            className="w-full flex items-center justify-between p-4 bg-red-950/20 border border-red-900/30 hover:border-red-700/50 rounded-2xl transition-colors group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-red-500/10 rounded-xl flex items-center justify-center">
-                <Trash2 size={16} className="text-red-500" />
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-medium text-red-400">Elimina account</p>
-                <p className="text-xs text-zinc-600">Rimuove tutti i tuoi dati in modo permanente</p>
-              </div>
-            </div>
-            <span className="text-red-900 group-hover:text-red-700 transition-colors">→</span>
-          </button>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+            <DeleteAccountSection />
+          </div>
         </section>
 
         <div className="text-center text-zinc-700 text-xs pt-4">
@@ -639,24 +666,5 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
-
-    {showDeleteModal && (
-      <DeleteAccountModal
-        onConfirm={async () => {
-          const supabaseClient = (await import('@/lib/supabase/client')).createClient()
-          const res = await fetch('/api/user/delete', { method: 'DELETE' })
-          if (res.ok) {
-            await supabaseClient.auth.signOut()
-            document.cookie = 'geekore_onboarding_done=; path=/; max-age=0'
-            window.location.href = '/'
-          } else {
-            const { showToast: toast } = await import('@/components/ui/Toast')
-            toast('Errore nella cancellazione. Riprova.', 'error')
-          }
-        }}
-        onClose={() => setShowDeleteModal(false)}
-      />
-    )}
-    </>
   )
 }

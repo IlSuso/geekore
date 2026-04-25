@@ -135,21 +135,25 @@ export function SkeletonDiscoverCard() {
 // ── For You: riga di raccomandazioni orizzontale ──────────────────────────────
 export function SkeletonRecommendationCard() {
   return (
-    <div className="flex-shrink-0 w-36 animate-pulse">
-      <div className="h-52 skeleton rounded-2xl mb-2" />
-      <div className="h-3 skeleton rounded-full w-4/5 mb-1" />
+    <div className="flex-shrink-0 w-40 animate-pulse">
+      <div className="h-60 skeleton rounded-2xl mb-2" />
+      <div className="h-3 skeleton rounded-full w-4/5 mb-0.5" />
+      <div className="h-3 skeleton rounded-full w-3/5 mb-1.5" />
       <div className="h-2 skeleton rounded-full w-1/3 mb-1" />
-      <div className="h-2 skeleton rounded-full w-3/4" />
+      <div className="h-3.5 skeleton rounded-full w-2/3" />
     </div>
   )
 }
 
 export function SkeletonForYouRow() {
   return (
-    <div className="mb-12 animate-pulse">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-8 h-8 skeleton rounded-xl" />
-        <div className="h-5 skeleton rounded-full w-40" />
+    <div className="mb-10 animate-pulse">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-8 h-8 skeleton rounded-xl flex-shrink-0" />
+        <div>
+          <div className="h-5 skeleton rounded-full w-36 mb-1.5" />
+          <div className="h-2.5 skeleton rounded-full w-16" />
+        </div>
       </div>
       <div className="flex gap-4 overflow-hidden">
         {Array.from({ length: 5 }).map((_, i) => (

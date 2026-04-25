@@ -1096,10 +1096,12 @@ export default function ForYouPage() {
   if (loading) return (
     <div className="min-h-screen bg-black text-white">
       <div className="pt-2 md:pt-8 pb-28 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
-        <div className="flex justify-end items-center gap-2 mb-4">
-          <div className="h-8 w-24 bg-zinc-900 rounded-xl animate-pulse" />
-          <div className="h-8 w-8 bg-zinc-900 rounded-xl animate-pulse" />
+        {/* Utility bar skeleton */}
+        <div className="flex justify-end items-center gap-2 mb-4 animate-pulse">
+          <div className="h-8 w-28 bg-zinc-900 border border-zinc-800/80 rounded-xl" />
+          <div className="h-8 w-8 bg-zinc-900 border border-zinc-800/80 rounded-xl" />
         </div>
+        {/* Search bar "Trova simili a…" */}
         <div className="h-9 w-full bg-zinc-900 rounded-2xl mb-6 animate-pulse" />
         <SkeletonFriendsWatching />
         <SkeletonForYouRow />

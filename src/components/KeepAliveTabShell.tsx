@@ -1,32 +1,38 @@
 'use client'
 
-// KeepAliveTabShell — lazy-mount + scroll-restore + Instagram-style carousel preview.
+// KeepAliveTabShell — lazy-mount + scroll-restore + Instagram-style carousel.
 //
-// Normal state: inactive panels are display:none (no layout / paint cost).
-// During swipe: adjacent panels become position:absolute at ±100% of wrapRef width,
-//   so SwipeablePageContainer's own transform carries them into view automatically —
-//   no additional transform needed on the panels themselves.
-// After snap: panels revert to display:none via resetPanels().
+// Active tab renders in normal flow (document scroll works).
+// Inactive tabs are hidden with display:none.
 //
-// position:absolute (not fixed) avoids the CSS containment issue where
-// willChange:transform on an ancestor traps position:fixed descendants.
+// Carousel: when SwipeablePageContainer detects a horizontal swipe, it calls
+// swipeNavBridge.notifyStart(prevIdx, nextIdx). The shell changes adjacent panels
+// from display:none to position:fixed with translateX(±100%). Since
+// SwipeablePageContainer applies a CSS transform, position:fixed children become
+// relative to it — so the panels slide in sync with the gesture for free,
+// without any per-frame React updates.
 
 import { usePathname } from 'next/navigation'
-import { useEffect, useLayoutEffect, useRef, useCallback } from 'react'
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { ReactNode, CSSProperties } from 'react'
 import FeedPage from '@/app/feed/page'
 import ForYouPage from '@/app/for-you/page'
 import SwipePage from '@/app/swipe/page'
 import ProfilePage from '@/app/profile/[username]/page'
-import { TAB_ORDER } from '@/components/SwipeablePageContainer'
 import { swipeNavBridge } from '@/hooks/swipeNavBridge'
 
 type KATab = 'feed' | 'for-you' | 'swipe' | 'profile'
 
-const KA_TABS: KATab[] = ['feed', 'for-you', 'swipe', 'profile']
+// Maps TAB_ORDER indices → KATab (null = not keep-alive, e.g. /discover)
+const TAB_IDX_TO_KA: Array<KATab | null> = ['feed', null, 'for-you', 'swipe', 'profile']
 
-const KA_TO_PATH: Record<KATab, string> = {
-  feed: '/feed', 'for-you': '/for-you', swipe: '/swipe', profile: '/profile/me',
+const ADJ_LEFT: CSSProperties = {
+  position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+  transform: 'translateX(-100%)', overflow: 'hidden', pointerEvents: 'none',
+}
+const ADJ_RIGHT: CSSProperties = {
+  position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+  transform: 'translateX(100%)', overflow: 'hidden', pointerEvents: 'none',
 }
 
 function getKATab(pathname: string): KATab | null {
@@ -35,10 +41,6 @@ function getKATab(pathname: string): KATab | null {
   if (pathname === '/swipe') return 'swipe'
   if (pathname.startsWith('/profile/') && pathname.split('/').length === 3) return 'profile'
   return null
-}
-
-function tabOrderIdx(tab: KATab): number {
-  return TAB_ORDER.indexOf(KA_TO_PATH[tab])
 }
 
 export function KeepAliveTabShell({ children }: { children: ReactNode }) {
@@ -80,98 +82,54 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
     prevTab.current = tab
   }, [tab])
 
-  // Panel refs — bridge writes styles directly, no React re-renders per frame
-  const panelRefs = useRef<Partial<Record<KATab, HTMLDivElement | null>>>({})
-
-  const resetPanels = useCallback(() => {
-    const currentTab = tabRef.current
-    for (const key of KA_TABS) {
-      const el = panelRefs.current[key]
-      if (!el) continue
-      el.style.position   = ''
-      el.style.top        = ''
-      el.style.left       = ''
-      el.style.width      = ''
-      el.style.minHeight  = ''
-      el.style.paddingTop = ''
-      el.style.paddingBottom = ''
-      el.style.pointerEvents = ''
-      el.style.overflow   = ''
-      // Restore React-controlled display
-      el.style.display    = currentTab === key ? '' : 'none'
-    }
-  }, [])
-
-  const applyCarousel = useCallback((currActiveIdx: number) => {
-    const isDesktop = window.innerWidth >= 768
-    // Match the padding of <main> so adjacent panel content clears the navbar
-    const navH = isDesktop ? '64px' : 'calc(52px + env(safe-area-inset-top, 0px))'
-    const botH = isDesktop ? '32px' : '80px'
-
-    for (const key of KA_TABS) {
-      const el = panelRefs.current[key]
-      if (!el) continue
-      const panelIdx = tabOrderIdx(key)
-      if (panelIdx === -1) continue
-      const rel = panelIdx - currActiveIdx  // -1 = left, 0 = active, +1 = right
-
-      if (rel === 0) continue  // active panel: wrapRef transform handles it
-
-      if (Math.abs(rel) === 1 && visited.current.has(key)) {
-        // Adjacent visited panel: show at ±100% offset.
-        // wrapRef's own transform slides it into view — no extra transform needed.
-        el.style.display       = 'block'
-        el.style.position      = 'absolute'
-        el.style.top           = '0'
-        el.style.left          = rel > 0 ? '100%' : '-100%'
-        el.style.width         = '100%'
-        el.style.minHeight     = '100%'
-        el.style.paddingTop    = navH
-        el.style.paddingBottom = botH
-        el.style.pointerEvents = 'none'
-        el.style.overflow      = 'hidden'
-      }
-    }
-  }, [])
+  // ── Carousel state ─────────────────────────────────────────────────────────
+  const [adjLeft,  setAdjLeft]  = useState<KATab | null>(null)
+  const [adjRight, setAdjRight] = useState<KATab | null>(null)
 
   useEffect(() => {
-    swipeNavBridge.register((offset, currActiveIdx, snap) => {
-      if (offset !== 0) {
-        applyCarousel(currActiveIdx)
-      } else if (snap) {
-        // Snap back to current page — reset after transition completes
-        setTimeout(resetPanels, 310)
-      }
-    })
+    swipeNavBridge.register(
+      (prevIdx, nextIdx) => {
+        const pk = prevIdx != null ? TAB_IDX_TO_KA[prevIdx] : null
+        const nk = nextIdx != null ? TAB_IDX_TO_KA[nextIdx] : null
+        setAdjLeft(pk  && visited.current.has(pk)  ? pk  : null)
+        setAdjRight(nk && visited.current.has(nk) ? nk : null)
+      },
+      () => { setTimeout(() => { setAdjLeft(null); setAdjRight(null) }, 300) },
+    )
     return () => swipeNavBridge.unregister()
-  }, [applyCarousel, resetPanels])
+  }, []) // eslint-disable-line
 
-  // On route change: reset all panels synchronously before paint
-  useLayoutEffect(() => {
-    resetPanels()
-  }, [pathname, resetPanels])
+  // Clear adjacent panels on navigation (completed swipe)
+  useEffect(() => {
+    setAdjLeft(null)
+    setAdjRight(null)
+  }, [pathname])
+
+  // ── Panel style helper ──────────────────────────────────────────────────────
+  const panelStyle = (panelTab: KATab): CSSProperties => {
+    if (tab === panelTab)       return {}
+    if (adjLeft  === panelTab)  return ADJ_LEFT
+    if (adjRight === panelTab)  return ADJ_RIGHT
+    return { display: 'none' }
+  }
 
   const profileUsername = latestProfileUsername.current
 
   return (
     <>
-      <div ref={(el: HTMLDivElement | null) => { panelRefs.current['feed'] = el }}
-           style={{ display: tab === 'feed' ? undefined : 'none' }}>
+      <div style={panelStyle('feed')}>
         {visited.current.has('feed') && <FeedPage />}
       </div>
 
-      <div ref={(el: HTMLDivElement | null) => { panelRefs.current['for-you'] = el }}
-           style={{ display: tab === 'for-you' ? undefined : 'none' }}>
+      <div style={panelStyle('for-you')}>
         {visited.current.has('for-you') && <ForYouPage />}
       </div>
 
-      <div ref={(el: HTMLDivElement | null) => { panelRefs.current['swipe'] = el }}
-           style={{ display: tab === 'swipe' ? undefined : 'none' }}>
+      <div style={panelStyle('swipe')}>
         {visited.current.has('swipe') && <SwipePage />}
       </div>
 
-      <div ref={(el: HTMLDivElement | null) => { panelRefs.current['profile'] = el }}
-           style={{ display: tab === 'profile' ? undefined : 'none' }}>
+      <div style={panelStyle('profile')}>
         {visited.current.has('profile') && profileUsername && (
           <ProfilePage usernameOverride={profileUsername} />
         )}
