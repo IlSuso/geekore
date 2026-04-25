@@ -369,7 +369,26 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
     })
   }, []) // eslint-disable-line
 
-  const filteredQueue = activeFilter === 'all' ? queue : queue.filter(i => i.type === activeFilter)
+  // Round-robin interleaving: in "all" mode prevents runs of the same type
+  // (e.g. 4 games in a row). Groups by type then zips buckets together.
+  function interleaveByType(items: SwipeItem[]): SwipeItem[] {
+    const buckets = new Map<string, SwipeItem[]>()
+    for (const item of items) {
+      if (!buckets.has(item.type)) buckets.set(item.type, [])
+      buckets.get(item.type)!.push(item)
+    }
+    const cols = Array.from(buckets.values())
+    const out: SwipeItem[] = []
+    const max = Math.max(...cols.map(c => c.length))
+    for (let i = 0; i < max; i++) {
+      for (const col of cols) { if (i < col.length) out.push(col[i]) }
+    }
+    return out
+  }
+
+  const filteredQueue = activeFilter === 'all'
+    ? interleaveByType(queue)
+    : queue.filter(i => i.type === activeFilter)
 
   // Reset rating quando cambia la card in cima
   // IMPORTANTE: il reset aggiorna sia lo stato che il ref, ma handleSwipe

@@ -2018,7 +2018,7 @@ export default function FeedPage() {
           </div>
 
           {/* ── Sidebar destra — sticky, scorre col feed e si ferma a fondo contenuto ── */}
-          <div className="hidden xl:block w-[380px] flex-shrink-0">
+          <div className="hidden xl:block w-[380px] flex-shrink-0 self-stretch">
             <StickyFromBottom navHeight={64}>
               <FeedSidebar currentUserId={currentUser?.id ?? null} />
             </StickyFromBottom>
