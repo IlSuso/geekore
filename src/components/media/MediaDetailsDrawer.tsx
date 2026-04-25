@@ -283,9 +283,8 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     } else {
       await supabase.from('wishlist').upsert({
         user_id: user.id, external_id: media.id,
-        title: media.title, title_en: media.title_en || media.title, type: media.type,
-        cover_image: media.coverImage, genres: media.genres || [], media_type: media.type,
-        studios: media.studios || [],
+        title: media.title, type: media.type,
+        cover_image: media.coverImage,
       }, { onConflict: 'user_id,external_id' })
       setInWishlist(true);
       if ((media.genres || []).length > 0) {

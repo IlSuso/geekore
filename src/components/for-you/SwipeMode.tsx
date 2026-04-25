@@ -604,9 +604,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
         external_id: item.id,
         title: item.title,
         type: item.type,
-        media_type: item.type,
         cover_image: item.coverImage,
-        genres: item.genres || [],
       }, { onConflict: 'user_id,external_id' }).then(() => {})
     })
   }, [handleSwipe, supabase])

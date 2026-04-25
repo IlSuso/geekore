@@ -943,8 +943,6 @@ export default function ForYouPage() {
       await supabase.from('wishlist').upsert({
         user_id: user.id, external_id: item.id, title: item.title,
         type: item.type, cover_image: item.coverImage,
-        genres: item.genres || [],
-        media_type: item.type,
       }, { onConflict: 'user_id,external_id' })
       setWishlistIds(prev => new Set([...prev, item.id]))
       if (item.genres.length > 0) {

@@ -337,8 +337,6 @@ export default function DiscoverPage() {
         title: media.title,
         type: media.type,
         cover_image: media.coverImage,
-        genres: media.genres || [],
-        media_type: media.type,
       });
       setWishlistIds(prev => [...prev, media.id]);
       if ((media.genres || []).length > 0) {
