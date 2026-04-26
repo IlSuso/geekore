@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { X, Edit3, CheckCircle, RotateCcw, RefreshCw, Loader2, Clock, Trash2 } from 'lucide-react'
 import { StarRating } from '@/components/ui/StarRating'
+import { gestureState } from '@/hooks/gestureState'
 
 // ─── InlineChapterInput ───────────────────────────────────────────────────────
 
@@ -105,6 +106,11 @@ export function MobileMediaModal({
   const sheetRef = useRef<HTMLDivElement>(null)
   const handleStartY = useRef<number | null>(null)
   const handleCurrentY = useRef<number>(0)
+
+  useEffect(() => {
+    gestureState.drawerActive = true
+    return () => { gestureState.drawerActive = false }
+  }, [])
 
   // Slide-up entry
   useEffect(() => {

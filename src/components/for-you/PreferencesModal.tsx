@@ -3,6 +3,7 @@
 // Estratto da for-you/page.tsx — Fix #14 Repair Bible
 
 import { useState, useEffect } from 'react'
+import { gestureState } from '@/hooks/gestureState'
 import { X, ArrowRight, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useLocale } from '@/lib/locale'
@@ -35,6 +36,11 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
     fav_game_genres: [], fav_anime_genres: [], fav_movie_genres: [],
     fav_tv_genres: [], fav_manga_genres: [], disliked_genres: []
   })
+
+  useEffect(() => {
+    gestureState.drawerActive = true
+    return () => { gestureState.drawerActive = false }
+  }, [])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {

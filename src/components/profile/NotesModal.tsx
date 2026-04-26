@@ -2,7 +2,9 @@
 // src/components/profile/NotesModal.tsx
 // 7.4 — estratto da profile/[username]/page.tsx
 
+import { useEffect } from 'react'
 import { X } from 'lucide-react'
+import { gestureState } from '@/hooks/gestureState'
 
 const MAX_NOTES_LENGTH = 1000
 
@@ -29,6 +31,11 @@ export function NotesModal({
   placeholder = 'Scrivi le tue note...',
   readOnly = false,
 }: NotesModalProps) {
+  useEffect(() => {
+    gestureState.drawerActive = true
+    return () => { gestureState.drawerActive = false }
+  }, [])
+
   const charCount = value.length
 
   return (
