@@ -3,6 +3,7 @@
 import { logActivity } from '@/lib/activity'
 import { Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, List, Grid3X3, ChevronRight, Download, X as XIcon, Gamepad2, Tv, BarChart2, Users, TrendingUp } from 'lucide-react'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { gestureState } from '@/hooks/gestureState'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -868,6 +869,10 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
   const [collectionSearch, setCollectionSearch] = useState('')
   const [sortMode, setSortMode] = useState<SortMode>('default')
   const [importPlatform, setImportPlatform] = useState<string | null>(null)
+  useEffect(() => {
+    gestureState.drawerActive = importPlatform !== null
+    return () => { gestureState.drawerActive = false }
+  }, [importPlatform])
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [statusFilter, setStatusFilter] = useState('all')
 

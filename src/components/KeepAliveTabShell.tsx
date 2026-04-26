@@ -44,16 +44,15 @@ const ADJ_LEFT:  CSSProperties = { ...ADJ_BASE, transform: 'translateX(-100%)' }
 const ADJ_RIGHT: CSSProperties = { ...ADJ_BASE, transform: 'translateX(100%)' }
 
 // Pannelli visitati ma non attivi/adiacenti: pre-posizionati in absolute invisibili.
-// NESSUN transform — evita la GPU layer promotion su tutti i pannelli nascosti,
-// che su Samsung causa la scomparsa della navbar durante lo scroll.
+// NESSUN transform e NESSUN contain:paint — evita GPU layer promotion e pressure
+// (specialmente sul profilo con molte card sortabili) che causa la scomparsa
+// della navbar su Android/Samsung durante lo swipe.
 // Il layer GPU viene creato solo quando il pannello diventa ADJ (durante il gesto).
 const HIDDEN_VISITED: CSSProperties = {
   position: 'absolute',
   top: 0, left: 0, width: '100%', bottom: 0,
   overflow: 'hidden',
   pointerEvents: 'none',
-  zIndex: 1,
-  contain: 'paint',
   visibility: 'hidden',
 }
 
