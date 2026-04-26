@@ -15,6 +15,7 @@ import {
 import { useLocale } from '@/lib/locale'
 import { useState, useEffect, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { MobileNotificationsDrawer } from '@/components/feed/MobileNotificationsDrawer'
 
 const AUTH_PATHS = ['/login', '/register', '/auth/', '/forgot-password', '/onboarding', '/profile/setup']
 
@@ -67,6 +68,7 @@ export function MobileHeader() {
   const { t } = useLocale()
   const [unread, setUnread] = useState(false)
   const [username, setUsername] = useState<string | null>(null)
+  const [notifOpen, setNotifOpen] = useState(false)
   // mounted evita hydration mismatch: sul server username è sempre null,
   // quindi isOwnProfile è sempre false. Prima che il client risolva l'utente
   // usiamo la stessa logica del server (mounted=false → isOwnProfile=false).
@@ -156,14 +158,16 @@ export function MobileHeader() {
     )
   }
 
+  const openNotif = () => { setUnread(false); setNotifOpen(true) }
+
   const renderRight = () => {
     if (isFeed) return (
-      <Link href="/notifications" className={`${iconCls} relative`} onClick={() => setUnread(false)} aria-label="Notifiche">
+      <button onClick={openNotif} className={`${iconCls} relative`} aria-label="Notifiche">
         <Bell size={23} strokeWidth={1.6} />
         {unread && (
           <span className="absolute top-2.5 right-2 w-[8px] h-[8px] bg-red-500 rounded-full border-[1.5px] border-black notif-badge-pulse" />
         )}
-      </Link>
+      </button>
     )
     if (isOwnProfile) return (
       <>
@@ -177,16 +181,17 @@ export function MobileHeader() {
     )
     if (pathname === '/notifications') return null
     return (
-      <Link href="/notifications" className={`${iconCls} relative`} onClick={() => setUnread(false)} aria-label="Notifiche">
+      <button onClick={openNotif} className={`${iconCls} relative`} aria-label="Notifiche">
         <Bell size={23} strokeWidth={1.6} />
         {unread && <span className="absolute top-2.5 right-2 w-[8px] h-[8px] bg-red-500 rounded-full border-[1.5px] border-black" />}
-      </Link>
+      </button>
     )
   }
 
   const isSwipePage = pathname === '/swipe'
 
   return (
+    <>
     <header
       className="md:hidden fixed top-0 left-0 right-0 z-[99] bg-black swipe-header"
       style={{
@@ -207,5 +212,8 @@ export function MobileHeader() {
       {/* Separatore ultra-sottile */}
       <div className="h-[0.5px] bg-[var(--border)]" />
     </header>
+
+    <MobileNotificationsDrawer open={notifOpen} onClose={() => setNotifOpen(false)} />
+    </>
   )
 }
