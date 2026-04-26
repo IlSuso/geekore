@@ -1434,7 +1434,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                         </div>
                         {isOwner ? (
                             <SortableContext items={preview.map(m => m.id)} strategy={rectSortingStrategy}>
-                              <div className="flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide snap-x snap-mandatory">
+                              <div className="flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide snap-x snap-proximity">
                                 {preview.map((media) => (
                                   <div key={media.id} className="w-40 sm:w-48 md:w-52 flex-shrink-0 snap-start">
                                     <SortableBox media={media}>
@@ -1459,7 +1459,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                               </div>
                             </SortableContext>
                         ) : (
-                          <div className="flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide snap-x snap-mandatory">
+                          <div className="flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide snap-x snap-proximity">
                             {preview.map((media) => (
                               <div key={media.id} className="w-40 sm:w-48 md:w-52 flex-shrink-0 border border-zinc-800 rounded-3xl overflow-hidden min-h-[340px] sm:min-h-[380px] md:min-h-[420px] flex flex-col snap-start">
                                 <MediaCard media={media} isOwner={false} onStatusChange={changeStatus} onViewNotes={setViewingNotes} />

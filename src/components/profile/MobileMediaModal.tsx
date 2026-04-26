@@ -186,23 +186,29 @@ export function MobileMediaModal({
           <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto" />
         </div>
 
-        {/* Header: title + type badge + close */}
-        <div className="flex-shrink-0 flex items-center gap-3 px-4 pt-2 pb-3">
+        {/* Header: title + type badge + close — draggable to dismiss */}
+        <div
+          className="flex-shrink-0 flex items-center gap-3 px-4 py-3 touch-none cursor-grab"
+          onTouchStart={onHandleTouchStart}
+          onTouchMove={onHandleTouchMove}
+          onTouchEnd={onHandleTouchEnd}
+        >
           <span className={`text-[10px] font-bold text-white px-2.5 py-1 rounded-full flex-shrink-0 ${TYPE_COLORS[media.type] || 'bg-zinc-700'}`}>
             {TYPE_LABELS[media.type] || media.type}
           </span>
           <h3 className="flex-1 min-w-0 font-bold text-white text-[15px] leading-snug line-clamp-2">{media.title}</h3>
           <button
             onClick={doClose}
+            onTouchStart={e => e.stopPropagation()}
             aria-label="Chiudi"
-            className="flex-shrink-0 p-2 rounded-xl bg-zinc-800 text-zinc-500 hover:text-white transition"
+            className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-zinc-800 text-zinc-500 hover:text-white transition"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto overscroll-contain px-4 space-y-5" style={{ paddingBottom: 'max(2.5rem, env(safe-area-inset-bottom, 2.5rem))' }}>
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 space-y-5" style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px) + 1rem)' }}>
 
           {/* Cover */}
           {(media.cover_image && !imgFailed) && (
@@ -304,7 +310,7 @@ export function MobileMediaModal({
                           ? <InlineChapterInput value={current} max={maxCh} onSave={n => onSaveProgress?.(media.id, n)} />
                           : <span className="text-emerald-400">{current}</span>
                         }
-                        {maxCh && <span className="text-zinc-600 text-lg"> / {maxCh}</span>}
+                        {maxCh && <span className="text-zinc-400 text-lg"> / {maxCh}</span>}
                       </div>
                       {isOwner && (
                         <button onClick={() => onSaveProgress?.(media.id, Math.min(current + 1, maxCh ?? current + 1))} className={btnBase}>+</button>

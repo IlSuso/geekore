@@ -1112,7 +1112,6 @@ function PostModal({
               onChange={e => setCommentText(e.target.value.slice(0, 500))}
               placeholder="Aggiungi un commento..."
               maxLength={500}
-              autoFocus
               className="flex-1 bg-transparent text-[14px] text-white placeholder-zinc-500 focus:outline-none min-w-0"
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment() } }}
             />
