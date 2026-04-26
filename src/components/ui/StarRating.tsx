@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useId, useCallback } from 'react'
+import { useState, useRef, useId, useCallback, useEffect } from 'react'
 import { X } from 'lucide-react'
 
 const STAR_PATH = "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
@@ -18,10 +18,20 @@ export function StarRating({
   size = 22,
   viewOnly = false,
 }: StarRatingProps) {
-  const [hovered, setHovered] = useState<number | null>(null)
-  const displayed = hovered ?? value
-  const instanceId = useId()
-  const containerRef = useRef<HTMLDivElement>(null)
+  const [hovered,  setHovered]  = useState<number | null>(null)
+  // Optimistic value: holds the committed rating while the parent prop catches up,
+  // preventing the one-frame flash back to the old value after touchend.
+  const [pending,  setPending]  = useState<number | null>(null)
+  const gestureActive = useRef(false)
+  const instanceId    = useId()
+  const containerRef  = useRef<HTMLDivElement>(null)
+
+  const displayed = hovered ?? pending ?? value
+
+  // Once the parent value matches what we committed, drop the optimistic state.
+  useEffect(() => {
+    if (pending !== null && value === pending) setPending(null)
+  }, [value, pending])
 
   const GAP = 2
 
@@ -32,19 +42,20 @@ export function StarRating({
     const x = clientX - rect.left
     if (x <= 0) return 0
     const clampedX = Math.min(x, rect.width - 1)
-    const starIdx = Math.min(4, Math.floor(clampedX / (size + GAP)))
-    const xInStar = clampedX - starIdx * (size + GAP)
+    const starIdx  = Math.min(4, Math.floor(clampedX / (size + GAP)))
+    const xInStar  = clampedX - starIdx * (size + GAP)
     return xInStar < size / 2 ? starIdx + 0.5 : starIdx + 1
   }, [size])
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (viewOnly) return
     e.preventDefault()
+    gestureActive.current = true
     setHovered(ratingFromClientX(e.touches[0].clientX))
   }, [viewOnly, ratingFromClientX])
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (viewOnly) return
+    if (viewOnly || !gestureActive.current) return
     e.preventDefault()
     setHovered(ratingFromClientX(e.touches[0].clientX))
   }, [viewOnly, ratingFromClientX])
@@ -52,16 +63,20 @@ export function StarRating({
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     if (viewOnly) return
     e.preventDefault()
-    if (hovered !== null) onChange?.(hovered)
+    gestureActive.current = false
+    if (hovered !== null && hovered !== value) {
+      setPending(hovered)   // keep displaying new value while parent updates
+      onChange?.(hovered)
+    }
     setHovered(null)
-  }, [viewOnly, hovered, onChange])
+  }, [viewOnly, hovered, value, onChange])
 
   return (
     <div className={`inline-flex items-center gap-1 select-none ${viewOnly ? '' : 'group'}`}>
       {/* Clear button — outside containerRef to not affect star coordinate math */}
       {!viewOnly && (
         <button
-          onClick={() => { onChange?.(0); setHovered(null) }}
+          onClick={() => { onChange?.(0); setHovered(null); setPending(null) }}
           onMouseEnter={() => setHovered(0)}
           onMouseLeave={() => setHovered(null)}
           aria-label="Rimuovi voto"
@@ -76,9 +91,10 @@ export function StarRating({
         </button>
       )}
 
-      {/* Stars */}
+      {/* Stars — data-no-swipe prevents SwipeablePageContainer from stealing the touch */}
       <div
         ref={containerRef}
+        data-no-swipe
         className={`flex flex-row items-center gap-0.5 ${viewOnly ? 'pointer-events-none' : 'touch-none'}`}
         onMouseLeave={() => !viewOnly && setHovered(null)}
         onTouchStart={handleTouchStart}
@@ -86,8 +102,8 @@ export function StarRating({
         onTouchEnd={handleTouchEnd}
       >
         {[1, 2, 3, 4, 5].map((star) => {
-          const full = displayed >= star
-          const half = !full && displayed >= star - 0.5
+          const full   = displayed >= star
+          const half   = !full && displayed >= star - 0.5
           const clipId = `star-half-${instanceId}-${star}`
 
           return (
@@ -122,13 +138,13 @@ export function StarRating({
                     className="absolute inset-y-0 left-0 z-10"
                     style={{ width: '50%' }}
                     onMouseEnter={() => setHovered(star - 0.5)}
-                    onClick={() => onChange?.(star - 0.5)}
+                    onClick={() => { if (star - 0.5 !== value) onChange?.(star - 0.5) }}
                   />
                   <div
                     className="absolute inset-y-0 right-0 z-10"
                     style={{ width: '50%' }}
                     onMouseEnter={() => setHovered(star)}
-                    onClick={() => onChange?.(star)}
+                    onClick={() => { if (star !== value) onChange?.(star) }}
                   />
                 </>
               )}
