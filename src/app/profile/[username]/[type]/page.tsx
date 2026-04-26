@@ -116,6 +116,7 @@ const TYPE_LABELS: Record<string, string> = {
   game: 'Videogiochi',
   tv: 'Serie TV',
   movie: 'Film',
+  boardgame: 'Giochi da Tavolo',
 }
 
 const PAGE_SIZE = 48
@@ -126,6 +127,7 @@ const TYPE_COLORS: Record<string, string> = {
   game: 'bg-green-500',
   tv: 'bg-purple-500',
   movie: 'bg-red-500',
+  boardgame: 'bg-amber-500',
 }
 
 // ─── Steam cover ──────────────────────────────────────────────────────────────
@@ -879,9 +881,9 @@ export default function ProfileTypePage() {
         </div>
 
         {/* Controlli */}
-        <div className="flex flex-wrap items-center gap-3 mb-6">
+        <div className="flex flex-col gap-3 mb-6">
           {/* Ricerca */}
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
             <input
               type="text"
@@ -892,47 +894,52 @@ export default function ProfileTypePage() {
             />
           </div>
 
-          {/* Stato */}
-          <select
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value as StatusFilter)}
-            className="bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-4 py-2.5 text-sm text-zinc-300 focus:outline-none transition cursor-pointer"
-          >
-            <option value="all">Tutti gli stati</option>
-            <option value="completed">Completati</option>
-            <option value="watching">In corso</option>
-            <option value="paused">In pausa</option>
-            <option value="dropped">Abbandonati</option>
-            <option value="wishlist">Wishlist</option>
-          </select>
-
-          {/* Ordinamento */}
-          <select
-            value={sortMode}
-            onChange={e => setSortMode(e.target.value as SortMode)}
-            className="bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-4 py-2.5 text-sm text-zinc-300 focus:outline-none transition cursor-pointer"
-          >
-            <option value="default">Ordine personalizzato</option>
-            <option value="rating_desc">Voto (↓)</option>
-            <option value="rating_asc">Voto (↑)</option>
-            <option value="title_asc">Titolo (A-Z)</option>
-            <option value="title_desc">Titolo (Z-A)</option>
-            <option value="date_desc">Aggiunto di recente</option>
-            {type === 'game' && (
-              <option value="progress_desc">Ore (↓)</option>
-            )}
-          </select>
-
-          {/* Drag toggle — mobile + owner only */}
-          {isOwner && isMobile && (
-            <button
-              onClick={() => setIsDragEnabled(v => !v)}
-              className={`md:hidden flex items-center gap-1.5 px-3 py-2 border rounded-xl text-xs transition ${isDragEnabled ? 'bg-violet-600 border-violet-500 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-400'}`}
+          {/* Filtri + drag toggle */}
+          <div className="flex items-center gap-2">
+            <select
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value as StatusFilter)}
+              className="flex-1 md:flex-none md:w-44 bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-4 py-2.5 text-sm text-zinc-300 focus:outline-none transition cursor-pointer"
             >
-              <GripVertical size={13} />
-              {isDragEnabled ? 'Fine riordino' : 'Riordina'}
-            </button>
-          )}
+              <option value="all">Tutti gli stati</option>
+              <option value="completed">Completati</option>
+              <option value="watching">In corso</option>
+              <option value="paused">In pausa</option>
+              <option value="dropped">Abbandonati</option>
+              <option value="wishlist">Wishlist</option>
+            </select>
+
+            <select
+              value={sortMode}
+              onChange={e => setSortMode(e.target.value as SortMode)}
+              className="flex-1 md:flex-none md:w-44 bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-4 py-2.5 text-sm text-zinc-300 focus:outline-none transition cursor-pointer"
+            >
+              <option value="default">Ordine personalizzato</option>
+              <option value="rating_desc">Voto (↓)</option>
+              <option value="rating_asc">Voto (↑)</option>
+              <option value="title_asc">Titolo (A-Z)</option>
+              <option value="title_desc">Titolo (Z-A)</option>
+              <option value="date_desc">Aggiunto di recente</option>
+              {type === 'game' && (
+                <option value="progress_desc">Ore (↓)</option>
+              )}
+            </select>
+
+            {/* Drag toggle — mobile + owner only */}
+            {isOwner && isMobile && (
+              <button
+                onClick={() => setIsDragEnabled(v => !v)}
+                className={`ml-auto shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-medium border transition-all duration-200 ${
+                  isDragEnabled
+                    ? 'bg-violet-600 border-violet-500 text-white shadow-lg shadow-violet-500/20'
+                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 active:bg-zinc-800'
+                }`}
+              >
+                <GripVertical size={14} />
+                {isDragEnabled ? 'Fine' : 'Riordina'}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Risultati */}
