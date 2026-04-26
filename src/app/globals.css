@@ -441,6 +441,6 @@ body[style*="overflow: hidden"] {
 }
 @media (min-width: 768px) {
   .swipe-filter-padding {
-    padding-top: 1rem;
+    padding-top: 0.25rem;
   }
 }
