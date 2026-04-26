@@ -105,16 +105,24 @@ function setOnboardingCookie() {
   document.cookie = `geekore_onboarding_done=1; path=/; max-age=${maxAge}; SameSite=Lax${secure}`
 }
 
-// ─── StepDots ─────────────────────────────────────────────────────────────────
+// ─── StepBar — progress bar lineare ──────────────────────────────────────────
 
 function StepDots({ current, total }: { current: number; total: number }) {
+  const pct = Math.round(((current + 1) / total) * 100)
   return (
-    <div className="flex gap-2 items-center">
-      {Array.from({ length: total }).map((_, i) => (
-        <div key={i} className={`rounded-full transition-all duration-300 ${
-          i === current ? 'w-7 h-2 bg-violet-500' : i < current ? 'w-2 h-2 bg-violet-500/40' : 'w-2 h-2 bg-zinc-700'
-        }`} />
-      ))}
+    <div className="flex flex-col gap-1.5 w-full">
+      <div className="flex justify-between items-center">
+        <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest">
+          Passo {current + 1} di {total}
+        </span>
+        <span className="text-[11px] font-bold text-violet-400">{pct}%</span>
+      </div>
+      <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden w-full">
+        <div
+          className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-full transition-all duration-500"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
     </div>
   )
 }
@@ -201,6 +209,8 @@ export default function OnboardingPage() {
 
   const skippedItemsRef = useRef<SwipeItem[]>([])
   const acceptedItemsRef = useRef<Map<string, { item: SwipeItem; rating: number | null }>>(new Map())
+  // Traccia item aggiunti alla wishlist durante l'onboarding per poterli revertare con undo
+  const wishlistItemsRef = useRef<Set<string>>(new Set())
 
   // ─── Helpers Supabase (stessa logica di for-you) ──────────────────────────
 
@@ -299,9 +309,24 @@ export default function OnboardingPage() {
     acceptedItemsRef.current.set(item.id, { item, rating })
   }, [])
 
+  // Undo: rimuove l'item da acceptedItemsRef e da wishlistItemsRef — ISTANTANEO
+  const handleOnboardingUndo = useCallback((item: SwipeItem) => {
+    acceptedItemsRef.current.delete(item.id)
+    // Se era uno skip (non accepted), rimuovilo dalla lista skipped
+    skippedItemsRef.current = skippedItemsRef.current.filter(i => i.id !== item.id)
+  }, [])
+
+  // Undo wishlist: rimuove da wishlistItemsRef — ISTANTANEO (nessuna scrittura Supabase da revertare
+  // perché nell'onboarding la wishlist viene scritta solo al completeOnboarding)
+  const handleOnboardingUndoWishlist = useCallback((item: SwipeItem) => {
+    wishlistItemsRef.current.delete(item.id)
+    acceptedItemsRef.current.delete(item.id)
+  }, [])
+
   const handleOnboardingSkip = useCallback((item: SwipeItem) => {
     // Se era in coda come accettato (undo → skip) rimuovilo
     acceptedItemsRef.current.delete(item.id)
+    wishlistItemsRef.current.delete(item.id)
     skippedItemsRef.current.push(item)
   }, [])
 
@@ -354,20 +379,43 @@ export default function OnboardingPage() {
     // Scrivi tutti gli accepted in batch (esclusi quelli poi skippati via undo)
     const accepted = Array.from(acceptedItemsRef.current.values())
     if (accepted.length > 0) {
-      const rows = accepted.map(({ item, rating }) => ({
+      const ts = Date.now()
+      const rows = accepted.map(({ item, rating }, i) => ({
         user_id: uid,
         external_id: item.id,
         title: item.title,
         type: item.type,
         cover_image: item.coverImage ?? null,
         genres: item.genres ?? [],
-        status: rating !== null ? 'completed' : 'wishlist',
+        status: 'completed',
         episodes: item.episodes ?? null,
         rating: rating ?? null,
         updated_at: new Date().toISOString(),
+        display_order: ts - i * 1000,
       }))
       const { error } = await supabase.from('user_media_entries').upsert(rows, { onConflict: 'user_id,external_id' })
       if (error) console.error('[Onboarding] ERRORE upsert batch:', error.message)
+    }
+
+    // Scrivi wishlist in batch (item messi in wishlist via bottone bookmark)
+    const wishlistIds = Array.from(wishlistItemsRef.current)
+    if (wishlistIds.length > 0) {
+      const wishlistRows = wishlistIds.map(id => {
+        const entry = acceptedItemsRef.current.get(id) // fallback se ancora presente
+        // cerca nelle accepted o nelle skipped per i dati dell'item
+        const item = entry?.item ?? skippedItemsRef.current.find(i => i.id === id)
+        if (!item) return null
+        return {
+          user_id: uid,
+          external_id: item.id,
+          title: item.title,
+          type: item.type,
+          cover_image: item.coverImage ?? null,
+        }
+      }).filter(Boolean)
+      if (wishlistRows.length > 0) {
+        await supabase.from('wishlist').upsert(wishlistRows as any[], { onConflict: 'user_id,external_id' })
+      }
     }
 
     if (skippedItemsRef.current.length > 0) {
@@ -406,6 +454,8 @@ export default function OnboardingPage() {
         onRequestMore={handleOnboardingRequestMore}
         isOnboarding
         onOnboardingComplete={completeOnboarding}
+        onUndo={handleOnboardingUndo}
+        onUndoWishlist={handleOnboardingUndoWishlist}
       />
     )
   }

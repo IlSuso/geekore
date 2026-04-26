@@ -119,7 +119,7 @@ export default function RegisterPage() {
 
   if (success) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-zinc-950 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
         <div className="text-center max-w-md mx-auto">
           <div className="w-20 h-20 bg-violet-500/10 border border-violet-500/30 rounded-3xl flex items-center justify-center mx-auto mb-6">
             <Mail size={36} className="text-violet-400" />
@@ -147,7 +147,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-stretch bg-zinc-950">
+    <div className="min-h-screen flex items-stretch bg-zinc-950">
 
       {/* Left — Branding */}
       <div className="hidden lg:flex lg:w-[45%] relative flex-col justify-between p-16 overflow-hidden border-r border-zinc-800/50">

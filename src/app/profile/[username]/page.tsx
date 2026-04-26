@@ -1,6 +1,7 @@
 'use client'
 
 import { logActivity } from '@/lib/activity'
+import { profileInvalidateBridge } from '@/hooks/profileInvalidateBridge'
 import { Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, List, Grid3X3, ChevronRight, Download, X as XIcon, Gamepad2, Tv, BarChart2, Users, TrendingUp } from 'lucide-react'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { gestureState } from '@/hooks/gestureState'
@@ -189,10 +190,15 @@ function SortableBox({ media, children }: { media: UserMedia; children: React.Re
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition: transition || 'transform 50ms ease' }}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition: isDragging ? 'none' : (transition || undefined),
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+      }}
       {...attributes}
       {...listeners}
-      className={`cursor-grab active:cursor-grabbing rounded-3xl overflow-hidden min-h-[340px] sm:min-h-[380px] md:min-h-[420px] h-full flex flex-col transition-all duration-200 ${
+      className={`cursor-grab active:cursor-grabbing rounded-3xl overflow-hidden min-h-[340px] sm:min-h-[380px] md:min-h-[420px] h-full flex flex-col ${
         isDragging
           ? 'border-2 border-violet-500 shadow-2xl scale-[1.02] z-50'
           : 'border border-zinc-800 md:hover:border-violet-500/50 md:hover:shadow-xl'
@@ -329,17 +335,22 @@ function MediaCard({
           <button
             onClick={e => { e.stopPropagation(); onDeleteRequest?.(media.id) }}
             aria-label={`Elimina ${media.title}`}
-            className="hidden md:flex absolute top-3 right-3 z-30 opacity-30 group-hover:opacity-100 bg-black/50 hover:bg-red-950/80 border border-white/10 hover:border-red-500/60 p-1.5 rounded-xl transition-all duration-200"
+            className="hidden md:flex absolute top-3 right-3 z-30 opacity-0 group-hover:opacity-100 bg-black/70 hover:bg-red-950/90 border border-white/20 hover:border-red-500/80 p-1.5 rounded-xl transition-all duration-200"
           >
-            <X className="w-4 h-4 text-white group-hover:text-red-400 transition-colors" />
+            <X className="w-4 h-4 text-white hover:text-red-300 transition-colors" />
           </button>
         )}
-        {/* Notes icon — only shown when notes exist; owner=edit, visitor=read-only */}
-        {hasNotes && (
+        {/* Notes icon — owner: always visible on desktop (dimmed if empty, full if has notes)
+                       visitor: only when notes exist */}
+        {(isOwner || hasNotes) && (
           <button
             onClick={e => { e.stopPropagation(); isOwner ? onNotes?.(media) : onViewNotes?.(media) }}
             aria-label="Note"
-            className={`absolute bottom-3 right-3 z-20 p-1.5 rounded-lg border bg-violet-600 border-violet-500 text-white transition-all ${isOwner ? 'hidden md:flex' : 'flex'}`}
+            className={`absolute bottom-3 right-3 z-20 p-1.5 rounded-lg border text-white transition-all duration-200 hidden md:flex
+              ${hasNotes
+                ? 'bg-violet-600 border-violet-500 opacity-100'
+                : 'opacity-0 group-hover:opacity-100 bg-black/70 hover:bg-violet-600/90 border-white/20 hover:border-violet-400'
+              }`}
           >
             <Edit3 size={11} />
           </button>
@@ -355,38 +366,64 @@ function MediaCard({
       <div className="md:hidden flex flex-col flex-1 px-3 pt-2.5 pb-3 gap-1.5">
         <h4 className="font-semibold line-clamp-2 text-[13px] leading-snug text-white">{displayTitle}</h4>
         <StarRating value={rating} viewOnly size={13} />
-        {/* Status badge for tv/anime */}
-        {(media.type === 'tv' || media.type === 'anime') && (() => {
-          const badge = statusBadge[media.status || 'watching']
-          return badge ? <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit ${badge.cls}`}>{badge.label}</span> : null
-        })()}
         {/* Static progress */}
         <div className="flex-1 min-h-0" />
-        <div className="text-[11px] text-zinc-400">
-          {media.type === 'game' && (media.current_episode || 0) > 0 && (
-            <span className="inline-flex items-center gap-1 bg-zinc-800/60 px-2 py-0.5 rounded-full">
-              <Clock size={10} className="text-zinc-500" />{m.hoursPlayed(media.current_episode || 0)}
-            </span>
-          )}
-          {media.type === 'manga' && (
-            isCompleted || (media.episodes && media.episodes > 1 && (media.current_episode || 0) >= media.episodes) ? (
-              <span className="flex items-center gap-1 text-emerald-400"><CheckCircle size={11} />Completato</span>
-            ) : (
-              <span className="text-zinc-500">
-                Cap. <span className="text-emerald-400 font-semibold">{media.current_episode || 0}</span>
-                {media.episodes && media.episodes > 1 ? <span className="text-zinc-600"> / {media.episodes}</span> : null}
-              </span>
+        <div className="text-[11px] text-zinc-400 space-y-1.5">
+          {media.type === 'game' && (() => {
+            const ach = media.achievement_data
+            const hours = media.current_episode || 0
+            return (
+              <div className="space-y-1.5">
+                {hours > 0 && (
+                  <span className="inline-flex items-center gap-1 bg-zinc-800/60 px-2 py-0.5 rounded-full">
+                    <Clock size={10} className="text-zinc-500" />{m.hoursPlayed(hours)}
+                  </span>
+                )}
+                {ach && ach.tot > 0 && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-zinc-500">
+                      <span>Achievement</span>
+                      <span className="font-mono text-zinc-400">{ach.curr}/{ach.tot}</span>
+                    </div>
+                    <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-[#107c10] rounded-full" style={{ width: `${Math.round((ach.curr / ach.tot) * 100)}%` }} />
+                    </div>
+                  </div>
+                )}
+              </div>
             )
-          )}
+          })()}
+          {media.type === 'manga' && (() => {
+            const maxCh = media.episodes && media.episodes > 1 ? media.episodes : undefined
+            const current = media.current_episode || 0
+            return isCompleted || (maxCh && current >= maxCh) ? null : (
+              <div className="space-y-1.5">
+                <span className="text-zinc-500">
+                  Cap. <span className="text-emerald-400 font-semibold">{current}</span>
+                  {maxCh ? <span className="text-zinc-600"> / {maxCh}</span> : null}
+                </span>
+                {maxCh && (
+                  <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, Math.round((current / maxCh) * 100))}%` }} />
+                  </div>
+                )}
+              </div>
+            )
+          })()}
           {(media.type === 'tv' || media.type === 'anime') && (
-            isCompleted ? (
-              <span className="flex items-center gap-1 text-emerald-400"><CheckCircle size={11} />Completato</span>
-            ) : hasEpisodeData ? (
-              <span className="text-zinc-500">
-                {hasSeasonData && <span className="text-zinc-500">{m.season(currentSeasonNum)} · </span>}
-                Ep. <span className="text-emerald-400 font-semibold">{media.current_episode}</span>
-                <span className="text-zinc-600"> / {maxEpisodesThisSeason}</span>
-              </span>
+            isCompleted ? null : hasEpisodeData ? (
+              <div className="space-y-1.5">
+                <span className="text-zinc-500">
+                  {hasSeasonData && <span className="text-zinc-500">{m.season(currentSeasonNum)} · </span>}
+                  Ep. <span className="text-emerald-400 font-semibold">{media.current_episode}</span>
+                  <span className="text-zinc-600"> / {maxEpisodesThisSeason}</span>
+                </span>
+                {maxEpisodesThisSeason > 0 && (
+                  <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${totalProgress}%` }} />
+                  </div>
+                )}
+              </div>
             ) : null
           )}
         </div>
@@ -814,6 +851,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
   const [openMobileId, setOpenMobileId] = useState<string | null>(null)
   const [viewingNotes, setViewingNotes] = useState<UserMedia | null>(null)
+  const [isDraggingAny, setIsDraggingAny] = useState(false)
 
   const router = useRouter()
 
@@ -840,7 +878,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
 
     const [steamResult, mediaResult, fwersResult, fwingResult, followResult] = await Promise.all([
       ownerCheck ? supabase.from('steam_accounts').select('*').eq('user_id', user!.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
-      supabase.from('user_media_entries').select('*').eq('user_id', profileData.id),
+      supabase.from('user_media_entries').select('*').eq('user_id', profileData.id).order('display_order', { ascending: false, nullsFirst: false }),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profileData.id),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profileData.id),
       (user && !ownerCheck) ? supabase.from('follows').select('follower_id').eq('follower_id', user.id).eq('following_id', profileData.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -905,7 +943,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     })
 
   const refreshMedia = async (userId: string) => {
-    const { data, error } = await supabase.from('user_media_entries').select('*').eq('user_id', userId)
+    const { data, error } = await supabase.from('user_media_entries').select('*').eq('user_id', userId).order('display_order', { ascending: false, nullsFirst: false })
     if (error) { console.error('[Profile] Errore refresh media:', error); return }
     if (data) setMediaList(sortMediaList(data))
   }
@@ -977,7 +1015,9 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
       if (!data?.length) return
       const sorted = [...data].sort((a, b) => (b.current_episode || 0) - (a.current_episode || 0))
       const updates = sorted.map((g, i) => ({ id: g.id, display_order: Date.now() - i * 10000 }))
-      await supabase.from('user_media_entries').upsert(updates)
+      await supabase.rpc('update_display_orders', {
+        updates: updates.map(u => ({ id: u.id, display_order: u.display_order }))
+      })
       await refreshMedia(currentUserId)
     } finally { setReorderingGames(false) }
   }
@@ -1021,12 +1061,24 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     const item = mediaList.find(m => m.id === id)
     const base = field === 'current_season' ? { current_season: val, current_episode: 1 } : { current_episode: val }
     const update: Record<string, unknown> = { ...base }
-    // Manga: auto-complete when reaching the last chapter
-    if (item?.type === 'manga' && field === 'current_episode' && item.episodes && val >= item.episodes) {
-      update.status = 'completed'
-      update.completed_at = new Date().toISOString()
-    } else if (item?.type === 'manga' && field === 'current_episode' && item.status === 'completed') {
-      update.status = 'watching'
+    // Auto-complete when reaching the last episode/chapter
+    if (field === 'current_episode') {
+      const isManga = item?.type === 'manga'
+      const isTvAnime = item?.type === 'tv' || item?.type === 'anime'
+      if (isManga && item?.episodes && val >= item.episodes) {
+        update.status = 'completed'
+        update.completed_at = new Date().toISOString()
+      } else if (isManga && item?.status === 'completed') {
+        update.status = 'watching'
+      } else if (isTvAnime) {
+        const maxEps = item?.season_episodes?.[item.current_season || 1]?.episode_count || item?.episodes
+        if (maxEps && val >= maxEps) {
+          update.status = 'completed'
+          update.completed_at = new Date().toISOString()
+        } else if (item?.status === 'completed') {
+          update.status = 'watching'
+        }
+      }
     }
     await supabase.from('user_media_entries').update(update).eq('id', id)
     setMediaList(prev => prev.map(m => m.id === id ? { ...m, ...update } : m))
@@ -1089,23 +1141,21 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
   }
 
 
-  const onDragEnd = async (event: DragEndEvent) => {
-    if (!isOwner) return
-    const { active, over } = event
-    if (!over || active.id === over.id) return
-    const oldIndex = mediaList.findIndex(item => item.id === active.id)
-    const newIndex = mediaList.findIndex(item => item.id === over.id)
-    if (oldIndex === -1 || newIndex === -1) return
-    const newList = arrayMove(mediaList, oldIndex, newIndex).map((item, i) => ({
-      ...item, display_order: Date.now() - i * 10000,
-    }))
-    setMediaList(newList)
-    await supabase.from('user_media_entries').upsert(newList.map(item => ({ id: item.id, display_order: item.display_order })))
-  }
-
   useEffect(() => {
     fetchProfileData()
   }, [fetchProfileData])
+
+  // Quando un titolo viene aggiunto da Discover / ForYou / Swipe,
+  // il bridge segnala che il profilo va ricaricato silenziosamente.
+  // La cache viene invalidata così fetchProfileData fa una vera fetch.
+  useEffect(() => {
+    if (!isOwner) return
+    profileInvalidateBridge.register(() => {
+      delete profileCache[username]
+      fetchProfileData()
+    })
+    return () => profileInvalidateBridge.unregister()
+  }, [isOwner, username, fetchProfileData])
 
   useEffect(() => {
     if (!steamMessage) return
@@ -1157,9 +1207,31 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
       }
       case 'progress_desc': return (b.current_episode || 0) - (a.current_episode || 0)
       case 'date_desc': return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-      default: return 0 // keep original sort
+      default: return (b.display_order || 0) - (a.display_order || 0)
     }
   })
+
+  const onDragEnd = (event: DragEndEvent) => {
+    setIsDraggingAny(false)
+    if (!isOwner) return
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = sortedList.findIndex(item => item.id === active.id)
+    const newIndex = sortedList.findIndex(item => item.id === over.id)
+    if (oldIndex === -1 || newIndex === -1) return
+    const reordered = arrayMove(sortedList, oldIndex, newIndex)
+    const timestamp = Date.now()
+    const updatedSorted = reordered.map((item, i) => ({
+      ...item,
+      display_order: timestamp - i * 10000,
+    }))
+    const updatedMap = new Map(updatedSorted.map(item => [item.id, item]))
+    setMediaList(prev => prev.map(item => updatedMap.get(item.id) ?? item))
+    // Fire and forget — non blocca il render
+    supabase.rpc('update_display_orders', {
+      updates: updatedSorted.map(item => ({ id: item.id, display_order: item.display_order }))
+    }).then(({ error }) => { if (error) console.error('[DragEnd] rpc error:', error) })
+  }
 
   const grouped = sortedList.reduce((acc: Record<string, UserMedia[]>, item) => {
     let cat: string
@@ -1463,7 +1535,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                 ) : (
                   // Grid view (default) — mostra 5 card per categoria + "Vedi tutti"
                   // Fix #16 Repair Bible: DndContext singolo, SortableContext per categoria
-                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={() => setIsDraggingAny(true)} onDragEnd={onDragEnd}>
                   {orderedCategories.map((category) => {
                     const items = grouped[category]
                     const preview = items.slice(0, 6)
@@ -1486,7 +1558,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                         </div>
                         {isOwner ? (
                             <SortableContext items={preview.map(m => m.id)} strategy={rectSortingStrategy}>
-                              <div className="flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide snap-x snap-proximity">
+                              <div className={`flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide ${isDraggingAny ? '' : 'snap-x snap-proximity'}`}>
                                 {preview.map((media) => (
                                   <div key={media.id} className="w-40 sm:w-48 md:w-52 flex-shrink-0 snap-start">
                                     <SortableBox media={media}>

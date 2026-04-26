@@ -62,7 +62,7 @@ const hiddenVisited = (panelTab: KATab): CSSProperties => ({
 })
 
 function getKATab(pathname: string): KATab | null {
-  if (pathname === '/home' || pathname === '/') return 'feed'
+  if (pathname === '/home') return 'feed'
   if (pathname === '/discover') return 'discover'
   if (pathname === '/for-you') return 'for-you'
   if (pathname === '/swipe') return 'swipe'

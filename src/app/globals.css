@@ -209,12 +209,12 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
 }
 
 .profile-tab-active {
-  border-bottom: 2px solid var(--violet);
+  border-bottom: 2px solid var(--brand);
   color: var(--violet-light);
 }
 
 .gk-tab-active {
-  border-bottom: 2px solid var(--violet);
+  border-bottom: 2px solid var(--brand);
   color: var(--violet-light);
 }
 
@@ -253,7 +253,7 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
 
 @media (max-width: 767px) {
   /* Bottom nav ora è 56px + safe-area → padding aumentato di conseguenza */
-  main, .page-content { padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); }
+  .page-content { padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); }
   h1.text-5xl { font-size: 1.875rem; line-height: 2.25rem; }
   h1.text-4xl { font-size: 1.5rem; line-height: 2rem; }
   .post-image { max-height: 280px; }
@@ -303,12 +303,7 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes ptr-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-@media (max-width: 767px) {
-  main { padding-top: calc(3.5rem + env(safe-area-inset-top, 0px)) !important; }
-}
-@media (min-width: 768px) {
-  main { padding-top: 4rem !important; }
-}
+
 
 html, body { background-color: #000000 !important; }
 
@@ -487,4 +482,15 @@ h1, h2 { font-family: var(--font-display), 'Inter', sans-serif; }
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
+}
+/* App shell padding — compensa navbar/headbar fissa. Escluse pagine auth (data-auth). */
+main:not([data-auth]) {
+  padding-top: calc(3.5rem + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 768px) {
+  main:not([data-auth]) {
+    padding-top: 3rem;
+    padding-bottom: 2rem;
+  }
 }

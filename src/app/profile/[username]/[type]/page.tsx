@@ -165,10 +165,15 @@ function SortableCard({ media, children }: { media: UserMedia; children: React.R
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition: transition || 'transform 50ms ease' }}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition: isDragging ? 'none' : (transition || undefined),
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+      }}
       {...attributes}
       {...listeners}
-      className={`cursor-grab active:cursor-grabbing rounded-3xl overflow-hidden transition-all duration-200 h-full ${
+      className={`cursor-grab active:cursor-grabbing rounded-3xl overflow-hidden h-full ${
         isDragging
           ? 'border-2 border-violet-500 shadow-2xl z-50'
           : 'border border-zinc-800 hover:border-violet-500/50 hover:shadow-xl'
@@ -276,13 +281,6 @@ const MediaCard = memo(function MediaCard({
       <div className="md:hidden flex flex-col flex-1 px-4 pt-3 pb-4 gap-1.5">
         <h4 className="font-semibold text-sm leading-snug text-white line-clamp-2">{media.title}</h4>
         <StarRating value={media.rating || 0} viewOnly size={13} />
-        {(media.type === 'tv' || media.type === 'anime') && media.status && (
-          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit bg-zinc-800 text-zinc-400">
-            {media.status === 'completed' ? 'Completato' : media.status === 'watching' ? 'In corso'
-              : media.status === 'paused' ? 'In pausa' : media.status === 'dropped' ? 'Abbandonato'
-              : media.status === 'wishlist' ? 'Wishlist' : media.status}
-          </span>
-        )}
         <div className="flex-1 min-h-0" />
         <div className="text-[11px] text-zinc-400">
           {media.type === 'game' && (media.current_episode || 0) > 0 && (
@@ -293,8 +291,7 @@ const MediaCard = memo(function MediaCard({
           {media.type === 'manga' && (() => {
             const maxCh = media.episodes && media.episodes > 1 ? media.episodes : undefined
             const current = media.current_episode || 0
-            if (maxCh && current >= maxCh)
-              return <span className="flex items-center gap-1 text-emerald-400"><CheckCircle size={11} />Completato</span>
+            if (maxCh && current >= maxCh) return null
             return <span className="text-zinc-500">Cap. <span className="text-emerald-400 font-semibold">{current}</span>{maxCh ? <span className="text-zinc-600"> / {maxCh}</span> : null}</span>
           })()}
           {(media.type === 'tv' || media.type === 'anime') && (() => {
@@ -302,7 +299,7 @@ const MediaCard = memo(function MediaCard({
             const hasEpData = !!(media.episodes && media.episodes > 1)
             const csn = media.current_season || 1
             const maxEps = media.season_episodes?.[csn]?.episode_count || media.episodes || 0
-            if (isCompleted) return <span className="flex items-center gap-1 text-emerald-400"><CheckCircle size={11} />Completato</span>
+            if (isCompleted) return null
             if (hasEpData) return <span className="text-zinc-500">{media.season_episodes ? `S${csn} · ` : ''}Ep. <span className="text-emerald-400 font-semibold">{media.current_episode}</span><span className="text-zinc-600"> / {maxEps}</span></span>
             return null
           })()}
@@ -635,23 +632,6 @@ export default function ProfileTypePage() {
 
   const typeLabel = TYPE_LABELS[type] || type
 
-  const onDragEnd = async (event: DragEndEvent) => {
-    if (!isOwner) return
-    const { active, over } = event
-    if (!over || active.id === over.id) return
-    const oldIndex = mediaList.findIndex(item => item.id === active.id)
-    const newIndex = mediaList.findIndex(item => item.id === over.id)
-    if (oldIndex === -1 || newIndex === -1) return
-    const newList = arrayMove(mediaList, oldIndex, newIndex).map((item, i) => ({
-      ...item,
-      display_order: Date.now() - i * 10_000,
-    }))
-    setMediaList(newList)
-    await supabase.from('user_media_entries').upsert(
-      newList.map(item => ({ id: item.id, display_order: item.display_order }))
-    )
-  }
-
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -672,6 +652,7 @@ export default function ProfileTypePage() {
         .select('*')
         .eq('user_id', profile.id)
         .eq('type', type)
+        .order('display_order', { ascending: false, nullsFirst: false })
 
       setMediaList(data || [])
       setLoading(false)
@@ -803,6 +784,27 @@ export default function ProfileTypePage() {
 
     return list
   }, [mediaList, search, statusFilter, sortMode])
+
+  const onDragEnd = (event: DragEndEvent) => {
+    if (!isOwner) return
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = filtered.findIndex(item => item.id === active.id)
+    const newIndex = filtered.findIndex(item => item.id === over.id)
+    if (oldIndex === -1 || newIndex === -1) return
+    const reordered = arrayMove(filtered, oldIndex, newIndex)
+    const timestamp = Date.now()
+    const updatedFiltered = reordered.map((item, i) => ({
+      ...item,
+      display_order: timestamp - i * 10000,
+    }))
+    const updatedMap = new Map(updatedFiltered.map(item => [item.id, item]))
+    setMediaList(prev => prev.map(item => updatedMap.get(item.id) ?? item))
+    // Fire and forget — non blocca il render
+    supabase.rpc('update_display_orders', {
+      updates: updatedFiltered.map(item => ({ id: item.id, display_order: item.display_order }))
+    }).then(({ error }) => { if (error) console.error('[DragEnd] rpc error:', error) })
+  }
 
   // Reset visibleCount quando cambiano i filtri
   useEffect(() => {

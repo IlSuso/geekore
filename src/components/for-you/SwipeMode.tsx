@@ -14,6 +14,7 @@ import { X, Check, ChevronRight, Star, Gamepad2, Tv, Film, Layers, Swords, Rotat
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { createClient } from '@/lib/supabase/client'
+import { profileInvalidateBridge } from '@/hooks/profileInvalidateBridge'
 
 type SwipeMediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame'
 
@@ -52,6 +53,11 @@ interface SwipeModeProps {
   isOnboarding?: boolean
   // Chiamato quando l'utente preme "Ho finito" o X nell'onboarding
   onOnboardingComplete?: () => void
+  // Callback opzionale chiamato DOPO che l'undo è già stato applicato alla queue/history.
+  // Il parent riceve l'item rimosso e può fare il revert su Supabase.
+  onUndo?: (item: SwipeItem) => void
+  // Callback opzionale per revert wishlist (chiamato da handleUndo se l'item era in wishlist)
+  onUndoWishlist?: (item: SwipeItem) => void
 }
 
 const TYPE_ICONS: Record<SwipeMediaType, React.ElementType> = {
@@ -360,7 +366,7 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
 
 // ─── SwipeMode ─────────────────────────────────────────────────────────────────
 
-export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequestMore, standalone = false, isOnboarding = false, onOnboardingComplete }: SwipeModeProps) {
+export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequestMore, standalone = false, isOnboarding = false, onOnboardingComplete, onUndo: onUndoCallback, onUndoWishlist }: SwipeModeProps) {
   const supabase = createClient()
   const [activeFilter, setActiveFilter] = useState<CategoryFilter>('all')
 
@@ -380,6 +386,8 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
 
   const [detailItem, setDetailItem] = useState<MediaDetails | null>(null)
   const [history, setHistory] = useState<SwipeItem[]>([])
+  // Traccia quali item nello storico erano stati aggiunti alla wishlist
+  const wishlistHistoryRef = useRef<Set<string>>(new Set())
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const skippedIdsRef = useRef<Set<string>>(new Set())
   const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set())
@@ -590,11 +598,28 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
     setQueue(prev => [last, ...prev])
     setSkippedIds(prev => { const n = new Set(prev); n.delete(last.id); return n })
     skippedIdsRef.current.delete(last.id)
-    removeSkip(last)
-  }, [history, removeSkip])
+    // Revert wishlist se l'item era stato messo in wishlist
+    const wasWishlisted = wishlistHistoryRef.current.has(last.id)
+    if (wasWishlisted) {
+      wishlistHistoryRef.current.delete(last.id)
+      // Revert wishlist su Supabase (per swipe normale)
+      if (!isOnboarding) {
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (!user) return
+          supabase.from('wishlist').delete().eq('user_id', user.id).eq('external_id', last.id).then(() => {})
+        })
+      }
+      // Notifica il parent (per onboarding)
+      onUndoWishlist?.(last)
+    }
+    if (!isOnboarding) removeSkip(last)
+    // Notifica il parent dell'undo (usato dall'onboarding per rimuovere da acceptedItemsRef)
+    onUndoCallback?.(last)
+  }, [history, removeSkip, isOnboarding, supabase, onUndoCallback, onUndoWishlist])
 
   const handleWishlist = useCallback((item: SwipeItem) => {
     // Behaves like a skip: removes from queue, adds to history, persists skip
+    wishlistHistoryRef.current.add(item.id)
     handleSwipe('left', item)
     // Write to the `wishlist` table (same table the Discover page and wishlist page use)
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -638,8 +663,8 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
     <>
       <div className={containerClass} style={containerStyle}>
 
-        {/* Backdrop sfumato: visibile solo in standalone, riempie le bande laterali */}
-        {standalone && topCoverImage && (
+        {/* Backdrop sfumato: visibile in standalone e onboarding */}
+        {(standalone || isOnboarding) && topCoverImage && (
           <div className="absolute inset-0 z-0 pointer-events-none" aria-hidden>
             <img
               key={topCoverImage}
@@ -743,6 +768,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
               // skipPersist=true: il Drawer ha già scritto su user_media_entries,
               // handleSwipeSeen NON deve fare un secondo upsert
               handleSwipe('right', swipeItem, true)
+              profileInvalidateBridge.invalidate()
             }}
           />
         </div>

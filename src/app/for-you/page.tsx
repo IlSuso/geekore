@@ -26,6 +26,7 @@ import { PreferencesModal } from '@/components/for-you/PreferencesModal'
 import { DNAWidget } from '@/components/for-you/DNAWidget'
 import type { TasteProfile } from '@/components/for-you/DNAWidget'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { profileInvalidateBridge } from '@/hooks/profileInvalidateBridge'
 
 // V5: Tipi per feedback granulare
 type FeedbackAction = 'not_interested' | 'already_seen' | 'added' | 'wishlist_add';
@@ -929,6 +930,7 @@ export default function ForYouPage() {
       achievement_data: bggAchievementData,
       status: (item.type === 'movie' || isBoardgame) ? 'completed' : 'watching',
       current_episode: isBoardgame ? null : 1,
+      display_order: Date.now(),
     })
     if (!error) {
       setAddedIds(prev => new Set([...prev, item.id]))
@@ -1206,6 +1208,7 @@ export default function ForYouPage() {
             setAddedIds(prev => new Set([...prev, media.id]))
             addedTitlesRef.current.add((media.title as string)?.toLowerCase())
             setDetailItem(null)
+            profileInvalidateBridge.invalidate()
           }}
         />
       )}

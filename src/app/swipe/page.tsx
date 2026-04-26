@@ -6,6 +6,7 @@ import { Shuffle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { SwipeMode } from '@/components/for-you/SwipeMode'
 import type { SwipeItem } from '@/components/for-you/SwipeMode'
+import { profileInvalidateBridge } from '@/hooks/profileInvalidateBridge'
 
 function triggerTasteDelta(options: {
   action: 'rating' | 'status_change' | 'wishlist_add' | 'rewatch' | 'progress'
@@ -210,6 +211,7 @@ export default function SwipePage() {
       authors: isBoardgame ? ((item as any).designers || []) : [],
       ...(bggAchievementData ? { achievement_data: bggAchievementData } : {}),
       status: 'completed',
+      display_order: Date.now(),
     }
     if (rating !== null) insertData.rating = rating
 
@@ -220,6 +222,7 @@ export default function SwipePage() {
         body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres, action: 'added' })
       }).catch(() => {})
       fetch('/api/recommendations?invalidateCache=true', { method: 'POST', keepalive: true }).catch(() => {})
+      if (!error) profileInvalidateBridge.invalidate()
     })
 
     removeFromPool(user.id, item.id)
@@ -232,6 +235,21 @@ export default function SwipePage() {
   const handleSwipeSkip = useCallback((_item: SwipeItem) => {
     // SwipeMode handles persistence itself via persistSkipped
   }, [])
+
+  // Undo swipe destra: rimuove il titolo da user_media_entries e invalida il profilo.
+  // Chiamato da SwipeMode per qualsiasi tipo di undo (destra, sinistra, wishlist) —
+  // ma agisce su Supabase SOLO se il titolo era effettivamente stato aggiunto.
+  const handleSwipeUndo = useCallback(async (item: SwipeItem) => {
+    if (!addedTitlesRef.current.has(item.title.toLowerCase())) return
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from('user_media_entries')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('external_id', item.id)
+    addedTitlesRef.current.delete(item.title.toLowerCase())
+    profileInvalidateBridge.invalidate()
+  }, [supabase])
 
   const handleSwipeRequestMore = useCallback(async (filter: string = 'all'): Promise<SwipeItem[]> => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -330,6 +348,7 @@ export default function SwipePage() {
       items={initialItems}
       onSeen={handleSwipeSeen}
       onSkip={handleSwipeSkip}
+      onUndo={handleSwipeUndo}
       onRequestMore={handleSwipeRequestMore}
       onClose={() => {}}
     />

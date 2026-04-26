@@ -84,7 +84,7 @@ export default function LoginPage() {
   ]
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-stretch bg-zinc-950">
+    <div className="min-h-screen flex items-stretch bg-zinc-950">
       <div className="hidden lg:flex lg:w-[45%] relative flex-col justify-between p-16 overflow-hidden border-r border-zinc-800/50">
         <div className="absolute top-1/4 -left-20 w-96 h-96 bg-violet-600/20 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute bottom-1/3 right-0 w-72 h-72 bg-fuchsia-600/10 rounded-full blur-[100px] pointer-events-none" />

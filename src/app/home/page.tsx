@@ -23,7 +23,7 @@ import {
   Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X,
   Loader2, Pin, ArrowUp, Trash2, Tag, ChevronDown, Filter, Search, MoreHorizontal,
   Film, Tv, Gamepad2, Swords, Check, PartyPopper, Layers, Dices,
-  Bell, ChevronRight, ArrowLeft, Flame
+  Bell, ChevronRight, ArrowLeft, Flame, Plus
 } from 'lucide-react'
 import { SkeletonFeedPost } from '@/components/ui/SkeletonCard'
 import { Avatar } from '@/components/ui/Avatar'
@@ -879,8 +879,8 @@ const PostCard = memo(function PostCard({
           </p>
         </div>
         {currentUser?.id === post.user_id && (
-          <button onClick={() => onPostOptions(post.id)} className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all">
-            <MoreHorizontal size={18} />
+          <button onClick={() => onPostOptions(post.id)} className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all" aria-label="Opzioni post">
+            <MoreHorizontal size={18} aria-hidden="true" />
           </button>
         )}
       </div>
@@ -938,6 +938,24 @@ const PostCard = memo(function PostCard({
             <ReportButton targetType="post" targetId={post.id} iconOnly />
           </div>
         )}
+
+        {/* Share — Web Share API nativa, fallback clipboard */}
+        <button
+          onClick={async () => {
+            const url = `${window.location.origin}/home?post=${post.id}`
+            if (navigator.share) {
+              await navigator.share({ title: 'Geekore', text: post.content.slice(0, 80), url }).catch(() => {})
+            } else {
+              await navigator.clipboard.writeText(url).catch(() => {})
+            }
+          }}
+          aria-label="Condividi post"
+          className={`flex items-center gap-2 group text-zinc-500 hover:text-violet-400 transition-all ${currentUser && currentUser.id !== post.user_id ? '' : 'ml-auto'}`}
+        >
+          <div className="p-1.5 rounded-xl transition-colors group-hover:bg-violet-500/10">
+            <Send size={18} aria-hidden="true" />
+          </div>
+        </button>
       </div>
     </div>
   )
@@ -1084,9 +1102,10 @@ function PostModal({
                     {currentUser?.id === comment.user_id && (
                       <button
                         onClick={() => onCommentOptions(comment.id, post.id)}
+                        aria-label="Opzioni commento"
                         className="text-zinc-600 hover:text-white opacity-0 group-hover/mc:opacity-100 transition-all shrink-0 mt-0.5"
                       >
-                        <MoreHorizontal size={14} />
+                        <MoreHorizontal size={14} aria-hidden="true" />
                       </button>
                     )}
                   </div>
@@ -1637,7 +1656,7 @@ export default function FeedPage() {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
         <div className="pt-0 pb-24 xl:pb-6 relative min-h-screen">
-          <div className="lg:pl-[280px] flex items-start min-h-screen">
+          <div className="lg:pl-[360px] flex items-start min-h-screen">
             {/* Colonna principale */}
             <div className="flex-1 min-w-0">
               <div className="max-w-[680px] mx-auto px-4">
@@ -1662,7 +1681,7 @@ export default function FeedPage() {
               </div>
             </div>
             {/* Right sidebar skeleton */}
-            <div className="hidden xl:block w-[440px] flex-shrink-0 sticky top-12 pt-4 px-4 space-y-6 animate-pulse">
+            <div className="hidden xl:block w-[420px] flex-shrink-0 sticky top-12 pt-4 px-4 space-y-6 animate-pulse">
               <div>
                 <div className="h-4 w-40 bg-zinc-800 rounded-full mb-4" />
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -1773,7 +1792,7 @@ export default function FeedPage() {
       {/* ── Sidebar sinistra — fixed al viewport, mai scorrevole.
            Vive FUORI da PullWrapper per evitare che il suo transform
            inline (translateY) rompa position:fixed. ── */}
-      <div className="hidden lg:block fixed top-12 left-0 w-[280px] h-[calc(100vh-3rem)] z-20 bg-[var(--bg-primary)] overflow-y-auto">
+      <div className="hidden lg:block fixed top-12 left-0 w-[360px] h-[calc(100vh-3rem)] z-20 bg-[var(--bg-primary)] overflow-y-auto">
         <FeedLeftSidebar profile={currentProfile} />
       </div>
 
@@ -1781,11 +1800,11 @@ export default function FeedPage() {
       {/* Layout: full-bleed su mobile, tre colonne su desktop — stile Facebook */}
       <div className="pt-0 pb-24 xl:pb-6 relative min-h-screen">
 
-        <div className="lg:pl-[280px] flex items-start gap-0 min-h-screen">
+        <div className="lg:pl-[360px] flex items-start gap-0 min-h-screen">
 
           {/* ── Colonna principale ─────────────────────────────────── */}
-          <div className="flex-1 min-w-0">
-          <div className="max-w-[680px] mx-auto px-4">
+          <div className="flex-1 min-w-0 flex justify-center">
+          <div className="w-full max-w-[680px] px-4">
 
             {/* Composer — barra statica non invasiva, modal fullscreen al tap */}
             {currentUser && (
@@ -2065,7 +2084,7 @@ export default function FeedPage() {
           </div>
 
           {/* ── Sidebar destra — sticky, scorre col feed e si ferma a fondo contenuto ── */}
-          <div className="hidden xl:block w-[440px] flex-shrink-0 self-stretch">
+          <div className="hidden xl:block w-[420px] flex-shrink-0 self-stretch">
             <StickyFromBottom navHeight={64}>
               <FeedSidebar currentUserId={currentUser?.id ?? null} />
             </StickyFromBottom>
@@ -2074,6 +2093,24 @@ export default function FeedPage() {
         </div>
       </div>
       </PullWrapper>
+
+      {/* FAB mobile — Nuovo post, solo su mobile, sopra la bottom nav */}
+      {currentUser && (
+        <button
+          onClick={() => {
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+            setTimeout(() => {
+              const textarea = document.querySelector<HTMLTextAreaElement>('textarea[placeholder]')
+              textarea?.focus()
+            }, 400)
+          }}
+          aria-label="Crea nuovo post"
+          className="md:hidden fixed right-4 z-[90] w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-xl shadow-violet-500/40 flex items-center justify-center active:scale-95 transition-transform border border-violet-400/30"
+          style={{ bottom: `calc(56px + env(safe-area-inset-bottom, 0px) + 16px)` }}
+        >
+          <Plus size={26} className="text-white" strokeWidth={2.5} aria-hidden="true" />
+        </button>
+      )}
     </div>
   )
 }

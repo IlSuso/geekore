@@ -104,17 +104,22 @@ export default function StatsPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    const load = async () => {
+    let userId: string | null = null
+
+    const load = async (forceRefresh = false) => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setLoading(false); return }
       setIsLoggedIn(true)
+      userId = user.id
 
-      // A2: controlla cache prima di fare fetch
-      const cached = statsCache.get(user.id)
-      if (cached && Date.now() - cached.ts < CACHE_TTL) {
-        setEntries(cached.entries)
-        setLoading(false)
-        return
+      // A2: controlla cache prima di fare fetch (skip se forceRefresh)
+      if (!forceRefresh) {
+        const cached = statsCache.get(user.id)
+        if (cached && Date.now() - cached.ts < CACHE_TTL) {
+          setEntries(cached.entries)
+          setLoading(false)
+          return
+        }
       }
 
       const { data } = await supabase
@@ -128,7 +133,25 @@ export default function StatsPage() {
       setEntries(result)
       setLoading(false)
     }
+
     load()
+
+    // Realtime: ascolta INSERT/UPDATE/DELETE su user_media_entries
+    // e invalida la cache + ricarica immediatamente
+    const channel = supabase
+      .channel('stats-media-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'user_media_entries' },
+        () => {
+          // Invalida cache per questo utente
+          if (userId) statsCache.delete(userId)
+          load(true)
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
   }, [])
 
   // A2: useMemo per stats — non ricalcola ad ogni render
