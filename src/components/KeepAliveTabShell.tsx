@@ -27,11 +27,19 @@ type KATab = 'feed' | 'for-you' | 'swipe' | 'profile'
 const TAB_IDX_TO_KA: Array<KATab | null> = ['feed', null, 'for-you', 'swipe', 'profile']
 
 const ADJ_BASE = {
-  position: 'fixed' as const, top: 0, left: 0, width: '100%', height: '100vh',
-  overflow: 'hidden', pointerEvents: 'none' as const,
-  // zIndex below Navbar (100) / MobileHeader (99); contain:paint isolates inner
-  // GPU layers (SwipeMode blur, willChange cards) inside this stacking context.
-  zIndex: 50,
+  position: 'absolute' as const,
+  top: 0, left: 0,
+  width: '100%',
+  // bottom: 0 invece di height: 100vh — si adatta al wrapper genitore senza
+  // dipendere dall'altezza viewport. Su Samsung gesture nav, 100vh include la
+  // system/gesture area e copriva la navbar durante lo swipe.
+  bottom: 0,
+  overflow: 'hidden',
+  pointerEvents: 'none' as const,
+  // zIndex 1: sotto la chrome (Navbar z-100, MobileHeader z-99).
+  // Non serve più competere con il viewport — i pannelli adiacenti sono già
+  // traslati fuori schermo via translateX(±100%).
+  zIndex: 1,
   contain: 'paint',
 }
 const ADJ_LEFT:  CSSProperties = { ...ADJ_BASE, transform: 'translateX(-100%)' }
