@@ -28,15 +28,11 @@
   --mobile-navbar-h: calc(56px + env(safe-area-inset-bottom));
 }
 
-/* FIX 8: previene back gesture laterale del browser e isola il layout */
+/* FIX 8 (v2 corrected): previene back gesture laterale del browser */
 html, body {
   overscroll-behavior-x: none;
   overscroll-behavior-y: contain;
-  overflow-x: clip;
-}
-
-body {
-  contain: layout style;
+  overflow-x: hidden;
 }
 
 
@@ -314,21 +310,6 @@ html, body { background-color: #000000 !important; }
   nav.mobile-nav {
     background-color: #000000 !important;
     padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-    box-shadow: 0 20px 0 20px #000000;
-    /* Proprio layer GPU — mai nessun artefatto, mai nessun movimento */
-    transform: translateZ(0);
-  }
-  /* Sfondo solido sotto il bottom nav (colma il gap safe-area su iPhone) */
-  body::before {
-    content: '';
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: calc(env(safe-area-inset-bottom, 0px) + 68px);
-    background: #000000;
-    z-index: 98;
-    pointer-events: none;
   }
 }
 
@@ -452,4 +433,20 @@ body[style*="overflow: hidden"] {
   .swipe-filter-padding {
     padding-top: 0.75rem;
   }
+}
+
+/* ── FIX G (v2): defense-in-depth scroll + chrome fissa ─────────────────── */
+
+/* Il root scrollabile non deve creare overflow trap */
+#app-scroll-root {
+  min-height: 100vh;
+}
+@supports (min-height: 100dvh) {
+  #app-scroll-root { min-height: 100dvh; }
+}
+
+/* La chrome fissa NON deve avere transform/filter/contain — solo z-index */
+#app-fixed-chrome {
+  position: relative;
+  z-index: 100;
 }

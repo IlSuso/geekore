@@ -64,7 +64,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
         <meta name="theme-color" content="#000000" media="(prefers-color-scheme: light)" />
       </head>
-      <body suppressHydrationWarning className="bg-black text-white min-h-screen antialiased" style={{ isolation: 'isolate' }}>
+      <body suppressHydrationWarning className="bg-black text-white min-h-screen antialiased">
         <ClientProviders initialLocale={initialLocale}>
 
           {/* ── Pagine scrollabili / swipeable — l'unico ramo che subisce transform ── */}
