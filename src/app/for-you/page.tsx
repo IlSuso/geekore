@@ -4,7 +4,7 @@
 //     lowConfidence banner + Feedback granulare micro-menu + Anti-ripetizione (recommendations_shown)
 
 import { useState, useEffect, useCallback, memo, useRef } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Sparkles, RefreshCw, SlidersHorizontal, Gamepad2, Tv, Film,
@@ -698,7 +698,6 @@ const forYouCache: {
 }
 
 export default function ForYouPage() {
-  const pathname = usePathname()
   const supabase = createClient(); const router = useRouter()
   const { t } = useLocale(); const fy = t.forYou
   const hasCachedData = forYouCache.recommendations !== null
@@ -905,10 +904,7 @@ export default function ForYouPage() {
   }
 
   // Pull-to-refresh su mobile — deve stare DOPO handleRefresh
-  const { distance: pullDistance, refreshing: isPulling } = usePullToRefresh({
-    onRefresh: handleRefresh,
-    enabled: pathname === '/for-you',
-  })
+  const { distance: pullDistance, refreshing: isPulling } = usePullToRefresh({ onRefresh: handleRefresh })
 
   const handleAdd = useCallback(async (item: Recommendation) => {
     const { data: { user } } = await supabase.auth.getUser(); if (!user) return

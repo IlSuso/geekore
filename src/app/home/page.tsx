@@ -16,7 +16,6 @@
 import { useState, useEffect, useCallback, memo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { User } from '@supabase/supabase-js'
 import {
@@ -1131,7 +1130,6 @@ function PostModal({
 // ── Pagina principale ────────────────────────────────────────────────────────
 
 export default function FeedPage() {
-  const pathname = usePathname()
   const [posts, setPosts] = useState<Post[]>([])
   const [pinnedPosts, setPinnedPosts] = useState<Post[]>([])
   const [newPostContent, setNewPostContent] = useState('')
@@ -1432,10 +1430,7 @@ export default function FeedPage() {
     invalidateCache(feedFilter)
     await loadPosts(currentUser.id, 0, false, feedFilter)
   }
-  const { distance: pullDistance, refreshing: isPullRefreshing } = usePullToRefresh({
-    onRefresh: handlePullRefresh,
-    enabled: pathname === '/home' || pathname === '/',
-  })
+  const { distance: pullDistance, refreshing: isPullRefreshing } = usePullToRefresh({ onRefresh: handlePullRefresh })
 
   const handleFilterChange = async (filter: 'all' | 'following') => {
     if (!currentUser) return

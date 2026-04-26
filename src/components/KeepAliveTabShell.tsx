@@ -78,10 +78,7 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
   const latestProfileUsername = useRef<string | null>(null)
   if (tab === 'profile') {
     const u = pathname.split('/')[2]
-    // Skip 'me' — the router briefly lands on /profile/me before the server
-    // redirect resolves to the real username. Passing 'me' to ProfilePage would
-    // trigger a Supabase query for a user that doesn't exist.
-    if (u && u !== 'me') latestProfileUsername.current = u
+    if (u) latestProfileUsername.current = u
   }
 
   // Scroll save / restore
