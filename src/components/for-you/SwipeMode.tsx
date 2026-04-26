@@ -636,7 +636,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
 
   return (
     <>
-      <div className={containerClass} style={containerStyle}>
+      <div className={containerClass} style={containerStyle} data-no-swipe>
 
         {/* Backdrop sfumato: visibile solo in standalone, riempie le bande laterali */}
         {standalone && topCoverImage && (
