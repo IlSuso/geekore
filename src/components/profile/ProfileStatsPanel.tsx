@@ -15,12 +15,12 @@ type UserMedia = {
 }
 
 const TYPE_CONFIG: Record<string, { label: string; color: string; accent: string }> = {
-  anime:     { label: 'Anime',    color: 'text-sky-400',    accent: 'bg-sky-500/10 border-sky-500/20' },
-  tv:        { label: 'Serie TV', color: 'text-purple-400', accent: 'bg-purple-500/10 border-purple-500/20' },
-  manga:     { label: 'Manga',    color: 'text-orange-400', accent: 'bg-orange-500/10 border-orange-500/20' },
-  game:      { label: 'Videogiochi',      color: 'text-green-400',  accent: 'bg-green-500/10 border-green-500/20' },
-  movie:     { label: 'Film',            color: 'text-red-400',    accent: 'bg-red-500/10 border-red-500/20' },
-  boardgame: { label: 'Giochi da Tavolo', color: 'text-amber-400',  accent: 'bg-amber-500/10 border-amber-500/20' },
+  anime:     { label: 'Anime',    color: 'text-[var(--type-anime)]',    accent: 'bg-[var(--type-anime)]/10 border-[var(--type-anime)]/20' },
+  tv:        { label: 'Serie TV', color: 'text-[var(--type-tv)]',       accent: 'bg-[var(--type-tv)]/10 border-[var(--type-tv)]/20' },
+  manga:     { label: 'Manga',    color: 'text-[var(--type-manga)]',    accent: 'bg-[var(--type-manga)]/10 border-[var(--type-manga)]/20' },
+  game:      { label: 'Videogiochi',      color: 'text-[var(--type-game)]',  accent: 'bg-[var(--type-game)]/10 border-[var(--type-game)]/20' },
+  movie:     { label: 'Film',            color: 'text-[var(--type-movie)]', accent: 'bg-[var(--type-movie)]/10 border-[var(--type-movie)]/20' },
+  boardgame: { label: 'Giochi da Tavolo', color: 'text-[var(--type-board)]', accent: 'bg-[var(--type-board)]/10 border-[var(--type-board)]/20' },
 }
 
 export function ProfileStatsPanel({ mediaList }: { mediaList: UserMedia[] }) {

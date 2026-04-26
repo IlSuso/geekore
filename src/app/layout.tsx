@@ -7,8 +7,16 @@
 //   Rimosso anche viewTransitionName sull'<html> per lo stesso motivo.
 
 import type { Metadata, Viewport } from 'next'
+import { Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
 import Navbar from '@/components/Navbar'
+
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['600', '700', '800'],
+  variable: '--font-display',
+  display: 'swap',
+})
 
 import { ClientProviders } from '@/components/ClientProviders'
 import { Footer } from '@/components/Footer'
@@ -64,7 +72,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
         <meta name="theme-color" content="#000000" media="(prefers-color-scheme: light)" />
       </head>
-      <body suppressHydrationWarning className="bg-black text-white min-h-screen antialiased">
+      <body suppressHydrationWarning className={`${jakarta.variable} bg-black text-white min-h-screen antialiased`}>
         <ClientProviders initialLocale={initialLocale}>
           <SwipeablePageContainer>
             <main className="pt-14 md:pt-12 pb-20 md:pb-8">

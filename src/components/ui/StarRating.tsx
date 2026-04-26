@@ -72,7 +72,7 @@ export function StarRating({
   }, [viewOnly, hovered, value, onChange])
 
   return (
-    <div className={`inline-flex items-center gap-1 select-none ${viewOnly ? '' : 'group'}`}>
+    <div className={`inline-flex items-center gap-1.5 select-none ${viewOnly ? '' : 'group'}`}>
       {/* Clear button — outside containerRef to not affect star coordinate math */}
       {!viewOnly && (
         <button
@@ -126,7 +126,7 @@ export function StarRating({
                 </defs>
                 <path
                   d={STAR_PATH}
-                  fill={full || half ? '#fbbf24' : 'transparent'}
+                  fill={full || half ? 'var(--brand, #8b5cf6)' : 'transparent'}
                   clipPath={full ? undefined : half ? `url(#${clipId})` : undefined}
                 />
               </svg>
@@ -152,6 +152,12 @@ export function StarRating({
           )
         })}
       </div>
+      {/* Valore numerico — visibile quando c'è un voto */}
+      {displayed > 0 && (
+        <span className="text-[12px] font-bold text-zinc-400 tabular-nums leading-none ml-0.5">
+          {displayed % 1 === 0 ? displayed.toFixed(1) : displayed}
+        </span>
+      )}
     </div>
   )
 }

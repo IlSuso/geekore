@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  Home, Search, Zap, Sparkles, Shuffle, User, X, Settings, LogOut, ChevronDown,
+  Home, Search, Zap, Sparkles, Shuffle, User, X, Settings, LogOut, ChevronDown, Bell,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -139,10 +139,14 @@ export default function Navbar() {
 
           {/* LEFT: Logo + Search ─────────────────────────────────────────── */}
           <div className="flex items-center gap-3 flex-1 min-w-0 px-4">
-            <Link href="/" className="flex-shrink-0 group">
+            <Link href="/" className="flex-shrink-0 group flex items-center gap-2">
               <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl flex items-center justify-center shadow-md shadow-violet-500/25 group-hover:scale-105 transition-transform">
                 <Zap size={17} className="text-white" />
               </div>
+              {/* Wordmark — visibile da lg in su */}
+              <span className="hidden lg:block text-[15px] font-bold tracking-tight text-white font-display">
+                geekore<span className="text-violet-400">.</span>
+              </span>
             </Link>
 
             <div ref={searchRef} className="relative w-full max-w-[260px]">
@@ -202,7 +206,11 @@ export default function Navbar() {
                   }`}
                 >
                   <item.icon size={22} strokeWidth={isActive ? 2.2 : 1.6} />
-                  {/* Active bottom indicator — stile Facebook */}
+                  {/* Tooltip on hover */}
+                  <span className="absolute -top-9 left-1/2 -translate-x-1/2 bg-zinc-900 border border-zinc-700 text-zinc-200 text-[11px] font-semibold px-2.5 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[130]">
+                    {item.label}
+                  </span>
+                  {/* Active bottom indicator */}
                   {isActive && (
                     <span className="absolute bottom-0 left-3 right-3 h-[3px] rounded-t-full bg-violet-500" />
                   )}
@@ -213,6 +221,14 @@ export default function Navbar() {
 
           {/* RIGHT: Avatar + dropdown menu ───────────────────────────────── */}
           <div className="flex items-center justify-end flex-1 px-4">
+            {/* Campanella notifiche desktop */}
+            <Link
+              href="/notifications"
+              className="relative w-9 h-9 flex items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition-colors mr-3"
+              aria-label="Notifiche"
+            >
+              <Bell size={17} className="text-zinc-400" />
+            </Link>
             <div ref={menuRef} className="relative">
               <button
                 onClick={() => setMenuOpen(o => !o)}
