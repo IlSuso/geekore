@@ -67,7 +67,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body suppressHydrationWarning className="bg-black text-white min-h-screen antialiased">
         <ClientProviders initialLocale={initialLocale}>
           <SwipeablePageContainer>
-            <main className="pt-14 md:pt-16 pb-20 md:pb-8">
+            <main className="pt-14 md:pt-12 pb-20 md:pb-8">
               <KeepAliveTabShell>
                 {children}
               </KeepAliveTabShell>

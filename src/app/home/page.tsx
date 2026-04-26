@@ -1663,7 +1663,7 @@ export default function FeedPage() {
               </div>
             </div>
             {/* Right sidebar skeleton */}
-            <div className="hidden xl:block w-[440px] flex-shrink-0 sticky top-16 pt-4 px-4 space-y-6 animate-pulse">
+            <div className="hidden xl:block w-[440px] flex-shrink-0 sticky top-12 pt-4 px-4 space-y-6 animate-pulse">
               <div>
                 <div className="h-4 w-40 bg-zinc-800 rounded-full mb-4" />
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -1774,7 +1774,7 @@ export default function FeedPage() {
       {/* ── Sidebar sinistra — fixed al viewport, mai scorrevole.
            Vive FUORI da PullWrapper per evitare che il suo transform
            inline (translateY) rompa position:fixed. ── */}
-      <div className="hidden lg:block fixed top-16 left-0 w-[280px] h-[calc(100vh-4rem)] z-20 bg-[var(--bg-primary)] overflow-y-auto">
+      <div className="hidden lg:block fixed top-12 left-0 w-[280px] h-[calc(100vh-3rem)] z-20 bg-[var(--bg-primary)] overflow-y-auto">
         <FeedLeftSidebar profile={currentProfile} />
       </div>
 

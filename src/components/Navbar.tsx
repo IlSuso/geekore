@@ -134,7 +134,7 @@ export default function Navbar() {
   return (
     <>
       {/* ── Desktop navbar — Facebook layout ─────────────────────────────── */}
-      <nav className="hidden md:flex fixed top-0 left-0 right-0 z-[100] bg-black/90 backdrop-blur-2xl border-b border-zinc-800/60 h-14">
+      <nav className="hidden md:flex fixed top-0 left-0 right-0 z-[100] bg-black/90 backdrop-blur-2xl border-b border-zinc-800/60 h-12">
         <div className="w-full flex items-center h-full">
 
           {/* LEFT: Logo + Search ─────────────────────────────────────────── */}
