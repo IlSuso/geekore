@@ -33,37 +33,33 @@ const TAB_IDX_TO_KA: Array<KATab | null> = ['feed', 'discover', 'for-you', 'swip
 // Adjacent panels are position:absolute relative to wrapRef (which starts at
 // y=0, above the header). The active panel is in normal flow inside <main
 // className="pt-14"> so it starts at y=3.5rem (56px). We match that offset
-// here so the adjacent panel content is aligned with the active panel during
-// the swipe gesture — no jump when navigation completes.
-const HEADER_H  = '3.5rem'   // = pt-14 = 56px (mobile header height)
-const ADJ_BASE = {
-  position: 'absolute' as const,
-  top: HEADER_H, left: 0,
-  width: '100%',
-  height: `calc(100dvh - ${HEADER_H})`,
-  overflow: 'hidden',
-  pointerEvents: 'none' as const,
-  zIndex: 1,
-  contain: 'paint',
-}
-const ADJ_LEFT:  CSSProperties = { ...ADJ_BASE, transform: 'translateX(-100%)' }
-const ADJ_RIGHT: CSSProperties = { ...ADJ_BASE, transform: 'translateX(100%)' }
+// so the adjacent panel content is aligned with the active panel during the
+// swipe gesture — no jump when navigation completes.
+// Exception: 'swipe' is full-screen (no header offset).
+const HEADER_H = '3.5rem'   // = pt-14 = 56px (mobile header height)
 
-// Pannelli visitati ma non attivi/adiacenti: pre-posizionati fuori schermo.
-// Il transform translateX(-300%) pre-crea la GPU layer — così la transizione
-// a ADJ_LEFT/ADJ_RIGHT durante lo swipe è solo un cambio di posizione su una
-// layer già stabile, senza creare/distruggere layer a metà gestura (che causa
-// il flash/scomparsa della navbar su Android/Samsung).
-const HIDDEN_VISITED: CSSProperties = {
-  position: 'absolute',
-  top: HEADER_H, left: 0, width: '100%', height: `calc(100dvh - ${HEADER_H})`,
-  overflow: 'hidden',
-  pointerEvents: 'none',
-  zIndex: 1,
-  contain: 'paint',
-  visibility: 'hidden',
-  transform: 'translateX(-300%)',
+const FULL_SCREEN_TABS = new Set<KATab>(['swipe'])
+
+const adjBase = (panelTab: KATab) => {
+  const full = FULL_SCREEN_TABS.has(panelTab)
+  return {
+    position: 'absolute' as const,
+    top:   full ? 0 : HEADER_H,
+    left:  0,
+    width: '100%',
+    height: full ? '100dvh' : `calc(100dvh - ${HEADER_H})`,
+    overflow:      'hidden',
+    pointerEvents: 'none' as const,
+    zIndex:        1,
+    contain:       'paint',
+  }
 }
+
+const hiddenVisited = (panelTab: KATab): CSSProperties => ({
+  ...adjBase(panelTab),
+  visibility: 'hidden',
+  transform:  'translateX(-300%)',
+})
 
 function getKATab(pathname: string): KATab | null {
   if (pathname === '/home' || pathname === '/') return 'feed'
@@ -138,12 +134,12 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
 
   // ── Panel style helper ──────────────────────────────────────────────────────
   const panelStyle = (panelTab: KATab): CSSProperties => {
-    if (tab === panelTab)       return {}
-    if (adjLeft  === panelTab)  return ADJ_LEFT
-    if (adjRight === panelTab)  return ADJ_RIGHT
+    if (tab === panelTab) return {}
+    if (adjLeft  === panelTab) return { ...adjBase(panelTab), transform: 'translateX(-100%)' }
+    if (adjRight === panelTab) return { ...adjBase(panelTab), transform: 'translateX(100%)'  }
     // Visitato ma non attivo: pre-posizionato fuori schermo (no display:none)
     // → il passaggio ad adjacent è solo un transform change, zero reflow.
-    if (visited.current.has(panelTab)) return HIDDEN_VISITED
+    if (visited.current.has(panelTab)) return hiddenVisited(panelTab)
     // Non ancora visitato: fuori dal DOM.
     return { display: 'none' }
   }
