@@ -62,9 +62,12 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     return pathname === t
   })
 
-  const isMain  = currentIdx !== -1
-  const prevTab = currentIdx > 0                     ? TAB_ORDER[currentIdx - 1] : null
-  const nextTab = currentIdx < TAB_ORDER.length - 1 ? TAB_ORDER[currentIdx + 1] : null
+  const isMain   = currentIdx !== -1
+  const prevTab  = currentIdx > 0                     ? TAB_ORDER[currentIdx - 1] : null
+  const nextTab  = currentIdx < TAB_ORDER.length - 1 ? TAB_ORDER[currentIdx + 1] : null
+
+  // Declared early so useEffect below can reference it before the bottom-of-function aliases.
+  const isActive = offset !== 0 || snapping
 
   useEffect(() => {
     vw.current = window.innerWidth
@@ -214,7 +217,6 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   // playing (snapping=true). Switch to 'none' only after transitionend fires.
   // This keeps the GPU layer stable for the whole animation without permanently
   // trapping position:fixed descendants (which would break SwipeMode's inset-0).
-  const isActive   = offset !== 0 || snapping
   const translateX = isActive ? `translateX(${offset}px)` : 'none'
   const transition = animate
     ? `transform 0.28s ${offset === 0 ? EASE_SNAP : EASE_OUT}`
