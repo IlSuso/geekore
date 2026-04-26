@@ -190,10 +190,15 @@ function SortableBox({ media, children }: { media: UserMedia; children: React.Re
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition: transition || 'transform 50ms ease' }}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition: isDragging ? 'none' : (transition || undefined),
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+      }}
       {...attributes}
       {...listeners}
-      className={`cursor-grab active:cursor-grabbing rounded-3xl overflow-hidden min-h-[340px] sm:min-h-[380px] md:min-h-[420px] h-full flex flex-col transition-all duration-200 ${
+      className={`cursor-grab active:cursor-grabbing rounded-3xl overflow-hidden min-h-[340px] sm:min-h-[380px] md:min-h-[420px] h-full flex flex-col ${
         isDragging
           ? 'border-2 border-violet-500 shadow-2xl scale-[1.02] z-50'
           : 'border border-zinc-800 md:hover:border-violet-500/50 md:hover:shadow-xl'
@@ -846,6 +851,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
   const [openMobileId, setOpenMobileId] = useState<string | null>(null)
   const [viewingNotes, setViewingNotes] = useState<UserMedia | null>(null)
+  const [isDraggingAny, setIsDraggingAny] = useState(false)
 
   const router = useRouter()
 
@@ -1009,7 +1015,9 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
       if (!data?.length) return
       const sorted = [...data].sort((a, b) => (b.current_episode || 0) - (a.current_episode || 0))
       const updates = sorted.map((g, i) => ({ id: g.id, display_order: Date.now() - i * 10000 }))
-      await supabase.from('user_media_entries').upsert(updates)
+      await supabase.rpc('update_display_orders', {
+        updates: updates.map(u => ({ id: u.id, display_order: u.display_order }))
+      })
       await refreshMedia(currentUserId)
     } finally { setReorderingGames(false) }
   }
@@ -1203,11 +1211,11 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     }
   })
 
-  const onDragEnd = async (event: DragEndEvent) => {
+  const onDragEnd = (event: DragEndEvent) => {
+    setIsDraggingAny(false)
     if (!isOwner) return
     const { active, over } = event
     if (!over || active.id === over.id) return
-    // Operate on sortedList (what the user sees), not raw mediaList
     const oldIndex = sortedList.findIndex(item => item.id === active.id)
     const newIndex = sortedList.findIndex(item => item.id === over.id)
     if (oldIndex === -1 || newIndex === -1) return
@@ -1217,12 +1225,12 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
       ...item,
       display_order: timestamp - i * 10000,
     }))
-    // Merge back into mediaList preserving items not in sortedList (filtered out)
     const updatedMap = new Map(updatedSorted.map(item => [item.id, item]))
     setMediaList(prev => prev.map(item => updatedMap.get(item.id) ?? item))
-    await supabase.from('user_media_entries').upsert(
-      updatedSorted.map(item => ({ id: item.id, display_order: item.display_order }))
-    )
+    // Fire and forget — non blocca il render
+    supabase.rpc('update_display_orders', {
+      updates: updatedSorted.map(item => ({ id: item.id, display_order: item.display_order }))
+    }).then(({ error }) => { if (error) console.error('[DragEnd] rpc error:', error) })
   }
 
   const grouped = sortedList.reduce((acc: Record<string, UserMedia[]>, item) => {
@@ -1527,7 +1535,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                 ) : (
                   // Grid view (default) — mostra 5 card per categoria + "Vedi tutti"
                   // Fix #16 Repair Bible: DndContext singolo, SortableContext per categoria
-                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={() => setIsDraggingAny(true)} onDragEnd={onDragEnd}>
                   {orderedCategories.map((category) => {
                     const items = grouped[category]
                     const preview = items.slice(0, 6)
@@ -1550,7 +1558,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                         </div>
                         {isOwner ? (
                             <SortableContext items={preview.map(m => m.id)} strategy={rectSortingStrategy}>
-                              <div className="flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide snap-x snap-proximity">
+                              <div className={`flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide ${isDraggingAny ? '' : 'snap-x snap-proximity'}`}>
                                 {preview.map((media) => (
                                   <div key={media.id} className="w-40 sm:w-48 md:w-52 flex-shrink-0 snap-start">
                                     <SortableBox media={media}>

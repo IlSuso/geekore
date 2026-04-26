@@ -165,10 +165,15 @@ function SortableCard({ media, children }: { media: UserMedia; children: React.R
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition: transition || 'transform 50ms ease' }}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition: isDragging ? 'none' : (transition || undefined),
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+      }}
       {...attributes}
       {...listeners}
-      className={`cursor-grab active:cursor-grabbing rounded-3xl overflow-hidden transition-all duration-200 h-full ${
+      className={`cursor-grab active:cursor-grabbing rounded-3xl overflow-hidden h-full ${
         isDragging
           ? 'border-2 border-violet-500 shadow-2xl z-50'
           : 'border border-zinc-800 hover:border-violet-500/50 hover:shadow-xl'
@@ -780,11 +785,10 @@ export default function ProfileTypePage() {
     return list
   }, [mediaList, search, statusFilter, sortMode])
 
-  const onDragEnd = async (event: DragEndEvent) => {
+  const onDragEnd = (event: DragEndEvent) => {
     if (!isOwner) return
     const { active, over } = event
     if (!over || active.id === over.id) return
-    // Operate on filtered (what user sees), not raw mediaList
     const oldIndex = filtered.findIndex(item => item.id === active.id)
     const newIndex = filtered.findIndex(item => item.id === over.id)
     if (oldIndex === -1 || newIndex === -1) return
@@ -794,12 +798,12 @@ export default function ProfileTypePage() {
       ...item,
       display_order: timestamp - i * 10000,
     }))
-    // Merge back preserving items outside current filter
     const updatedMap = new Map(updatedFiltered.map(item => [item.id, item]))
     setMediaList(prev => prev.map(item => updatedMap.get(item.id) ?? item))
-    await supabase.from('user_media_entries').upsert(
-      updatedFiltered.map(item => ({ id: item.id, display_order: item.display_order }))
-    )
+    // Fire and forget — non blocca il render
+    supabase.rpc('update_display_orders', {
+      updates: updatedFiltered.map(item => ({ id: item.id, display_order: item.display_order }))
+    }).then(({ error }) => { if (error) console.error('[DragEnd] rpc error:', error) })
   }
 
   // Reset visibleCount quando cambiano i filtri
