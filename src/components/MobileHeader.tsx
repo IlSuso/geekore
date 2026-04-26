@@ -186,8 +186,6 @@ export function MobileHeader() {
         paddingTop: 'env(safe-area-inset-top)',
         visibility: isSwipePage ? 'hidden' : 'visible',
         pointerEvents: isSwipePage ? 'none' : 'auto',
-        transform: 'translateZ(0)',
-        willChange: 'transform',
       }}
       aria-hidden={isSwipePage}
     >

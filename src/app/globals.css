@@ -35,13 +35,10 @@
 .border-theme      { border-color: var(--border); }
 .border-subtle     { border-color: var(--border-subtle); }
 
-nav.fixed {
+.mobile-nav, nav.fixed {
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
 }
-/* .mobile-nav: background rgba(0,0,0,0.97) — blur invisibile ma forza
-   il compositor a ricampionare il layer sottostante ad ogni frame di swipe,
-   causando flicker/scomparsa della navbar su Android/Samsung. */
 
 /* ── Base ─────────────────────────────────────────────────────────────────── */
 
@@ -303,9 +300,7 @@ html, body { background-color: #000000 !important; }
     background-color: #000000 !important;
     padding-bottom: env(safe-area-inset-bottom, 0px) !important;
     box-shadow: 0 20px 0 20px #000000;
-    /* Layer GPU permanente — mai promosso/rimosso durante gli swipe */
     transform: translateZ(0);
-    will-change: transform;
   }
   /* Sfondo solido sotto il bottom nav (colma il gap safe-area su iPhone) */
   body::before {

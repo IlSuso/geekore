@@ -43,17 +43,20 @@ const ADJ_BASE = {
 const ADJ_LEFT:  CSSProperties = { ...ADJ_BASE, transform: 'translateX(-100%)' }
 const ADJ_RIGHT: CSSProperties = { ...ADJ_BASE, transform: 'translateX(100%)' }
 
-// Pannelli visitati ma non attivi/adiacenti: pre-posizionati in absolute invisibili.
-// NESSUN transform e NESSUN contain:paint — evita GPU layer promotion e pressure
-// (specialmente sul profilo con molte card sortabili) che causa la scomparsa
-// della navbar su Android/Samsung durante lo swipe.
-// Il layer GPU viene creato solo quando il pannello diventa ADJ (durante il gesto).
+// Pannelli visitati ma non attivi/adiacenti: pre-posizionati fuori schermo.
+// Il transform translateX(-300%) pre-crea la GPU layer — così la transizione
+// a ADJ_LEFT/ADJ_RIGHT durante lo swipe è solo un cambio di posizione su una
+// layer già stabile, senza creare/distruggere layer a metà gestura (che causa
+// il flash/scomparsa della navbar su Android/Samsung).
 const HIDDEN_VISITED: CSSProperties = {
   position: 'absolute',
   top: 0, left: 0, width: '100%', bottom: 0,
   overflow: 'hidden',
   pointerEvents: 'none',
+  zIndex: 1,
+  contain: 'paint',
   visibility: 'hidden',
+  transform: 'translateX(-300%)',
 }
 
 function getKATab(pathname: string): KATab | null {
