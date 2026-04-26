@@ -430,7 +430,7 @@ body[style*="overflow: hidden"] {
    Mobile: MobileHeader è nascosto su /swipe → serve solo safe-area + small gap.
    Desktop: container ha già md:pt-16 (64px) → filter aggiunge solo spacing. */
 .swipe-filter-padding {
-  padding-top: calc(env(safe-area-inset-top, 0px) + 0.625rem);
+  padding-top: env(safe-area-inset-top, 0px);
 }
 @media (min-width: 768px) {
   .swipe-filter-padding {

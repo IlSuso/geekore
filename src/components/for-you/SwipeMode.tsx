@@ -654,8 +654,8 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
           </div>
         )}
 
-        <div className={`relative z-10 flex-shrink-0 flex justify-center px-4${standalone ? ' swipe-filter-padding' : ''}`} style={filterPaddingTop}>
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <div className={`relative z-10 flex-shrink-0 flex${standalone ? '' : ' justify-center px-4'}${standalone ? ' swipe-filter-padding' : ''}`} style={filterPaddingTop}>
+          <div className={`flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide${standalone ? ' w-full px-3' : ''}`}>
             {CATEGORIES.map(cat => (
               <button key={cat.key} onClick={() => handleFilterChange(cat.key)}
                 className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
