@@ -30,14 +30,17 @@ type KATab = 'feed' | 'discover' | 'for-you' | 'swipe' | 'profile'
 // Maps TAB_ORDER indices → KATab. Tutte le tab principali sono keep-alive.
 const TAB_IDX_TO_KA: Array<KATab | null> = ['feed', 'discover', 'for-you', 'swipe', 'profile']
 
+// Adjacent panels are position:absolute relative to wrapRef (which starts at
+// y=0, above the header). The active panel is in normal flow inside <main
+// className="pt-14"> so it starts at y=3.5rem (56px). We match that offset
+// here so the adjacent panel content is aligned with the active panel during
+// the swipe gesture — no jump when navigation completes.
+const HEADER_H  = '3.5rem'   // = pt-14 = 56px (mobile header height)
 const ADJ_BASE = {
   position: 'absolute' as const,
-  top: 0, left: 0,
+  top: HEADER_H, left: 0,
   width: '100%',
-  // Use viewport height instead of bottom:0. bottom:0 would inherit the
-  // full document height from the active panel (e.g. 5000px profile page),
-  // making adjacent panels 5000px tall during swipe and stretching the layout.
-  height: '100dvh',
+  height: `calc(100dvh - ${HEADER_H})`,
   overflow: 'hidden',
   pointerEvents: 'none' as const,
   zIndex: 1,
@@ -53,7 +56,7 @@ const ADJ_RIGHT: CSSProperties = { ...ADJ_BASE, transform: 'translateX(100%)' }
 // il flash/scomparsa della navbar su Android/Samsung).
 const HIDDEN_VISITED: CSSProperties = {
   position: 'absolute',
-  top: 0, left: 0, width: '100%', height: '100dvh',
+  top: HEADER_H, left: 0, width: '100%', height: `calc(100dvh - ${HEADER_H})`,
   overflow: 'hidden',
   pointerEvents: 'none',
   zIndex: 1,
