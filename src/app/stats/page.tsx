@@ -52,7 +52,7 @@ function formatReadable(minutes: number): string {
   return parts.join(', ') || '0 minuti'
 }
 
-function StatBar({ label, icon: Icon, hours, color, detail }: { label: string; icon: React.ElementType; hours: number; color: string; detail: string }) {
+function StatBar({ label, icon: Icon, hours, color, detail, maxHours = 1 }: { label: string; icon: React.ElementType; hours: number; color: string; detail: string; maxHours?: number }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -67,8 +67,8 @@ function StatBar({ label, icon: Icon, hours, color, detail }: { label: string; i
       </div>
       <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all duration-700 ${color.replace('text-', 'bg-')}`}
-          style={{ width: `${Math.min((hours / 500) * 100, 100)}%` }}
+          className={`h-full rounded-full transition-all duration-700 ${color.startsWith('text-[') ? color.replace('text-[', 'bg-[') : color.replace('text-', 'bg-')}`}
+          style={{ width: `${Math.min(Math.round((hours / maxHours) * 100), 100)}%` }}
         />
       </div>
     </div>
@@ -206,24 +206,24 @@ export default function StatsPage() {
               <div className="flex items-end justify-center gap-4 mb-4">
                 {days > 0 && (
                   <div>
-                    <p className="text-6xl font-black tracking-tighter text-white">{days}</p>
+                    <p className="gk-display text-white">{days}</p>
                     <p className="text-zinc-500 text-sm">giorni</p>
                   </div>
                 )}
                 {remHours > 0 && (
                   <div>
-                    <p className="text-6xl font-black tracking-tighter text-violet-400">{remHours}</p>
+                    <p className="gk-display text-violet-400">{remHours}</p>
                     <p className="text-zinc-500 text-sm">ore</p>
                   </div>
                 )}
                 {remMins > 0 && days === 0 && (
                   <div>
-                    <p className="text-6xl font-black tracking-tighter text-fuchsia-400">{remMins}</p>
+                    <p className="gk-display text-fuchsia-400">{remMins}</p>
                     <p className="text-zinc-500 text-sm">minuti</p>
                   </div>
                 )}
                 {stats.totalMinutes === 0 && (
-                  <p className="text-4xl font-black text-zinc-600">0 minuti</p>
+                  <p className="gk-display text-zinc-600">0</p>
                 )}
               </div>
               <p className="text-zinc-600 text-xs">{formatReadable(stats.totalMinutes)}</p>
@@ -231,11 +231,16 @@ export default function StatsPage() {
 
             {/* Barre per categoria */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 mb-8 space-y-5">
-              {stats.animeHours > 0 && <StatBar label="Anime" icon={Tv} hours={stats.animeHours} color="text-sky-400" detail={`${stats.animeEpisodes} ep`} />}
-              {stats.gameHours > 0 && <StatBar label="Videogiochi" icon={Gamepad2} hours={stats.gameHours} color="text-green-400" detail="ore Steam" />}
-              {stats.tvHours > 0 && <StatBar label="Serie TV" icon={Tv} hours={stats.tvHours} color="text-purple-400" detail={`${stats.tvEpisodes} ep`} />}
-              {stats.movieHours > 0 && <StatBar label="Film" icon={Film} hours={stats.movieHours} color="text-red-400" detail={`${stats.movieCount} film`} />}
-              {stats.mangaHours > 0 && <StatBar label="Manga" icon={Layers} hours={stats.mangaHours} color="text-orange-400" detail={`${stats.mangaChapters} cap`} />}
+              {(() => {
+                const maxH = Math.max(stats.animeHours, stats.gameHours, stats.tvHours, stats.movieHours, stats.mangaHours, 1)
+                return (<>
+                  {stats.animeHours > 0 && <StatBar label="Anime" icon={Tv} hours={stats.animeHours} color="text-[var(--type-anime)]" detail={`${stats.animeEpisodes} ep`} maxHours={maxH} />}
+                  {stats.gameHours > 0 && <StatBar label="Videogiochi" icon={Gamepad2} hours={stats.gameHours} color="text-[var(--type-game)]" detail="ore Steam" maxHours={maxH} />}
+                  {stats.tvHours > 0 && <StatBar label="Serie TV" icon={Tv} hours={stats.tvHours} color="text-[var(--type-tv)]" detail={`${stats.tvEpisodes} ep`} maxHours={maxH} />}
+                  {stats.movieHours > 0 && <StatBar label="Film" icon={Film} hours={stats.movieHours} color="text-[var(--type-movie)]" detail={`${stats.movieCount} film`} maxHours={maxH} />}
+                  {stats.mangaHours > 0 && <StatBar label="Manga" icon={Layers} hours={stats.mangaHours} color="text-[var(--type-manga)]" detail={`${stats.mangaChapters} cap`} maxHours={maxH} />}
+                </>)
+              })()}
               
               {stats.totalMinutes === 0 && (
                 <p className="text-zinc-600 text-center py-4">Aggiungi media alla tua collezione per vedere le statistiche</p>

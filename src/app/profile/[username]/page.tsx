@@ -7,7 +7,7 @@ import { gestureState } from '@/hooks/gestureState'
 import { useParams, usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
-  CheckCircle, Clock, X, RotateCw, RotateCcw, Edit3, RefreshCw, Settings, Bookmark, Loader2,
+  CheckCircle, Clock, X, RotateCw, RotateCcw, Edit3, RefreshCw, Settings, Bookmark, Loader2, Sparkles,
 } from 'lucide-react'
 import { SteamIcon } from '@/components/icons/SteamIcon'
 import { StarRating } from '@/components/ui/StarRating'
@@ -1111,6 +1111,18 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
   const cats = t.profile.categories
 
   // Apply filters + sort
+  // ── Taste DNA — top generi estratti dalla media list ──────────────────────
+  const topGenres = useMemo(() => {
+    const freq: Record<string, number> = {}
+    mediaList.forEach(m => {
+      const gs: string[] = Array.isArray(m.genres) ? m.genres : []
+      gs.forEach(g => { if (g) freq[g] = (freq[g] || 0) + 1 })
+    })
+    return Object.entries(freq)
+      .sort(([, a], [, b]) => b - a)
+      .map(([g]) => g)
+  }, [mediaList])
+
   const filteredList = mediaList.filter(m => {
     const searchLower = collectionSearch.toLowerCase().trim()
     const matchSearch = !collectionSearch.trim() ||
@@ -1244,6 +1256,36 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
               </>
             )}
           </div>
+
+          {/* DNA Taste widget — mostrato se ci sono generi nella media list */}
+          {topGenres.length > 0 && (
+            <div className="mt-4 mb-4 px-4 w-full max-w-sm mx-auto">
+              <div className="p-4 bg-violet-500/5 border border-violet-500/15 rounded-2xl">
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles size={12} className="text-violet-400" />
+                  <span className="text-[11px] font-bold text-violet-400 uppercase tracking-[.08em]">
+                    Taste DNA
+                  </span>
+                  <span className="ml-auto text-[10px] text-zinc-600">
+                    {mediaList.length} media
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {topGenres.slice(0, 6).map((genre, i) => (
+                    <span key={genre} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-violet-500/10 border border-violet-500/20 text-violet-300">
+                      {genre}
+                      {i === 0 && <span className="ml-1 text-violet-500/50">#{i + 1}</span>}
+                    </span>
+                  ))}
+                  {topGenres.length > 6 && (
+                    <span className="px-3 py-1.5 rounded-lg text-xs font-bold bg-zinc-800 text-zinc-500">
+                      +{topGenres.length - 6}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Import piattaforme — solo owner */}
           {isOwner && (
