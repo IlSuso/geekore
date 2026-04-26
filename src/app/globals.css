@@ -98,13 +98,11 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
 }
 .gk-avatar-ring-muted { background: var(--border); }
 
-/* ── Header swipe-to-fullscreen animation ─────────────────────────────────── */
+/* ── Header instant-hide when swiping toward full-screen Swipe page ────────── */
 
-.swipe-animates-header {
-  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-}
-:root[data-swiping] .swipe-animates-header {
-  transition: none;
+:root[data-to-swipe] .swipe-header {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* ── Animations ───────────────────────────────────────────────────────────── */
