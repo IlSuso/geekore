@@ -4,7 +4,7 @@ import { logActivity } from '@/lib/activity'
 import { Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, List, Grid3X3, ChevronRight, Download, X as XIcon, Gamepad2, Tv, BarChart2, Users, TrendingUp } from 'lucide-react'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { gestureState } from '@/hooks/gestureState'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   CheckCircle, Clock, X, RotateCw, RotateCcw, Edit3, RefreshCw, Settings, Bookmark, Loader2,
@@ -785,8 +785,9 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ProfilePage({ usernameOverride }: { usernameOverride?: string } = {}) {
-  const params = useParams<{ username: string }>()
-  const username = usernameOverride || params.username
+  const params    = useParams<{ username: string }>()
+  const pathname  = usePathname()
+  const username  = usernameOverride || params.username
   const supabase = createClient()
   const { t, locale } = useLocale()
   const sensors = useDndSensors()
@@ -863,7 +864,10 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     await fetchProfileData()
   }, [fetchProfileData])
 
-  const { distance: pullDistance, refreshing: isPullRefreshing } = usePullToRefresh({ onRefresh: handleProfileRefresh })
+  const { distance: pullDistance, refreshing: isPullRefreshing } = usePullToRefresh({
+    onRefresh: handleProfileRefresh,
+    enabled: pathname.startsWith('/profile/'),
+  })
   // New state
   const [activeTab, setActiveTab] = useState<ProfileTab>('collection')
   const [collectionSearch, setCollectionSearch] = useState('')

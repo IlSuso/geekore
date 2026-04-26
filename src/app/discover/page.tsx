@@ -3,6 +3,7 @@
 // V4: + Boardgame (BGG) + Libri (Google Books) — News rimossa
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import React from 'react';
 import {
   Search, Plus, X, Film, Tv, Gamepad2, Bookmark, BookmarkCheck,
@@ -198,6 +199,7 @@ function triggerTasteDelta(options: {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function DiscoverPage() {
+  const pathname = usePathname()
   const [searchTerm, setSearchTerm] = useState('');
   const [activeType, setActiveType] = useState<string>('all');
   const [results, setResults] = useState<MediaItem[]>([]);
@@ -372,7 +374,10 @@ export default function DiscoverPage() {
       setTimeout(() => setSearchTerm(term), 50);
     }
   };
-  const { distance: pullDistance, refreshing: isPullRefreshing } = usePullToRefresh({ onRefresh: handlePullRefresh });
+  const { distance: pullDistance, refreshing: isPullRefreshing } = usePullToRefresh({
+    onRefresh: handlePullRefresh,
+    enabled: pathname === '/discover',
+  });
 
   const showingResults = !loading && !searchError && results.length > 0;
 
