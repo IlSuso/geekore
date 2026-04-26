@@ -1,7 +1,7 @@
 // src/app/wishlist/loading.tsx
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-black pt-8 pb-20 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
+    <div className="min-h-screen bg-black pt-8 pb-20 max-w-3xl mx-auto px-3 sm:px-4 md:px-6">
       <div className="mb-8 animate-pulse">
         <div className="h-10 w-40 bg-zinc-800 rounded-2xl mb-3" />
         <div className="h-4 w-52 bg-zinc-800 rounded-full" />

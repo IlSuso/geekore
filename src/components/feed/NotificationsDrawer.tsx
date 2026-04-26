@@ -85,7 +85,7 @@ export function NotificationsDrawer({ open, onClose }: { open: boolean; onClose:
 
       {/* Panel — slides in from the left, positioned next to the sidebar */}
       <div
-        className="fixed top-0 left-0 h-full z-[201] bg-zinc-950 border-r border-zinc-800 flex flex-col"
+        className="fixed top-0 md:top-14 left-0 h-full md:h-[calc(100%-3.5rem)] z-[201] bg-zinc-950 border-r border-zinc-800 flex flex-col"
         style={{
           width: 360,
           transform: open ? 'translateX(0)' : 'translateX(-100%)',

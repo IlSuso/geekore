@@ -133,7 +133,7 @@ export default async function GlobalStatsPage() {
 
   return (
     <div className="min-h-screen bg-black text-white pb-24">
-      <div className="max-w-screen-2xl mx-auto px-4 pt-8">
+      <div className="max-w-3xl mx-auto px-4 pt-8">
 
         {/* Header */}
         <div className="mb-10">
