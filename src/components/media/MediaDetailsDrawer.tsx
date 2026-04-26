@@ -147,6 +147,8 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   const historyPushedRef = useRef(false)
   const closingRef       = useRef(false)  // true while our own history.back() is in flight
   const isClosingRef     = useRef(false)  // guards against double-close
+  const onCloseRef       = useRef(onClose)
+  onCloseRef.current     = onClose
   const [drawerOffset, setDrawerOffset] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth : 450
   )
@@ -162,8 +164,8 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     }
     setDrawerAnimate(true)
     setDrawerOffset(typeof window !== 'undefined' ? window.innerWidth : 450)
-    setTimeout(() => { isClosingRef.current = false; onClose() }, 260)
-  }, [onClose])
+    setTimeout(() => { isClosingRef.current = false; onCloseRef.current() }, 260)
+  }, []) // onClose via ref — no dep needed
 
   useEffect(() => {
     if (media) { document.body.style.overflow = 'hidden' }
@@ -183,10 +185,10 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   }, [showAddForm])
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onCloseRef.current() }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
+  }, []) // onClose via ref — stable
 
   useEffect(() => {
     if (!media) { setCheckDone(false); return }
@@ -312,7 +314,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
       isClosingRef.current = true
       setDrawerAnimate(true)
       setDrawerOffset(typeof window !== 'undefined' ? window.innerWidth : 450)
-      setTimeout(() => { isClosingRef.current = false; onClose() }, 260)
+      setTimeout(() => { isClosingRef.current = false; onCloseRef.current() }, 260)
     }
     window.addEventListener('popstate', onPop, { capture: true })
 
@@ -323,7 +325,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
       // to avoid triggering Next.js navigation after listener is removed.
       historyPushedRef.current = false
     }
-  }, [media?.id, onClose])
+  }, [media?.id]) // onClose via ref — stable, no re-registration on every parent render
 
   // Slide-in animation whenever a new item opens
   useEffect(() => {
