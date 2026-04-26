@@ -622,8 +622,8 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
   const topCoverImage = filteredQueue[0]?.coverImage
 
   const containerClass = standalone
-    ? 'absolute inset-0 md:pt-16 bg-black flex flex-col overflow-hidden'
-    : 'absolute inset-0 bg-black flex flex-col'
+    ? 'fixed inset-0 md:pt-16 bg-black flex flex-col overflow-hidden'
+    : 'fixed inset-0 bg-black flex flex-col'
   const containerStyle = standalone ? {} : { zIndex: 9999 }
 
   const filterPaddingTop = standalone
@@ -636,7 +636,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
 
   return (
     <>
-      <div className={containerClass} style={containerStyle} data-no-swipe>
+      <div className={containerClass} style={containerStyle}>
 
         {/* Backdrop sfumato: visibile solo in standalone, riempie le bande laterali */}
         {standalone && topCoverImage && (
@@ -711,7 +711,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
       </div>
 
       {detailItem && (
-        <div style={{ zIndex: 10000, position: 'absolute', inset: 0 }}>
+        <div style={{ zIndex: 10000, position: 'fixed', inset: 0 }}>
           <MediaDetailsDrawer
             media={detailItem}
             onClose={() => setDetailItem(null)}
