@@ -34,7 +34,10 @@ const ADJ_BASE = {
   position: 'absolute' as const,
   top: 0, left: 0,
   width: '100%',
-  bottom: 0,
+  // Use viewport height instead of bottom:0. bottom:0 would inherit the
+  // full document height from the active panel (e.g. 5000px profile page),
+  // making adjacent panels 5000px tall during swipe and stretching the layout.
+  height: '100dvh',
   overflow: 'hidden',
   pointerEvents: 'none' as const,
   zIndex: 1,
@@ -50,7 +53,7 @@ const ADJ_RIGHT: CSSProperties = { ...ADJ_BASE, transform: 'translateX(100%)' }
 // il flash/scomparsa della navbar su Android/Samsung).
 const HIDDEN_VISITED: CSSProperties = {
   position: 'absolute',
-  top: 0, left: 0, width: '100%', bottom: 0,
+  top: 0, left: 0, width: '100%', height: '100dvh',
   overflow: 'hidden',
   pointerEvents: 'none',
   zIndex: 1,
