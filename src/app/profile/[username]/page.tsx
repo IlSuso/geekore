@@ -883,6 +883,14 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     gestureState.drawerActive = importPlatform !== null
     return () => { gestureState.drawerActive = false }
   }, [importPlatform])
+
+  // Close the modal when user navigates away from the profile tab (keep-alive).
+  useEffect(() => {
+    if (!pathname.startsWith('/profile/')) {
+      setSelectedMedia(null)
+    }
+  }, [pathname])
+
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [statusFilter, setStatusFilter] = useState('all')
 

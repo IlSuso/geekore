@@ -360,34 +360,34 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   const isLongDesc = (media.description?.length ?? 0) > 350
   const timeLabel = (media.type === 'anime' || media.type === 'tv') ? 'min/ep' : 'min'
 
-  // Rendered via portal so it escapes SwipeablePageContainer's stacking context
-  // (position:relative + zIndex:0 inside SPC traps the z-index at root level 0,
-  // causing Navbar/MobileHeader at z-99/100 to paint above the drawer).
+  // Portal to body so the drawer is in the root stacking context.
+  // z-[80]: below MobileHeader (z-99) and Navbar (z-100) — they overlay the edges.
+  // top/bottom in the style prop account for header + bottom-nav heights so
+  // the drawer content is never hidden behind those elements.
   return createPortal((
     <>
-      {/* Backdrop — fades with swipe */}
+      {/* Backdrop — below MobileHeader (z-99) and Navbar (z-100) */}
       <div
-        className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm"
+        className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm"
         onClick={handleClose}
         aria-hidden
       />
 
-      {/* Drawer */}
+      {/* Drawer — sits behind MobileHeader/Navbar; top/bottom account for their heights */}
       <div
-        className="fixed right-0 top-0 bottom-0 z-[200] w-full max-w-md bg-zinc-950 border-l border-zinc-800 flex flex-col"
+        className="fixed right-0 z-[80] w-full max-w-md bg-zinc-950 border-l border-zinc-800 flex flex-col"
         role="dialog" aria-modal aria-label={media.title}
         style={{
-          transform:    `translateX(${drawerOffset}px)`,
-          transition:   drawerAnimate ? 'transform 0.26s cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
-          willChange:   drawerOffset > 0 ? 'transform' : 'auto',
-          paddingTop:   'env(safe-area-inset-top, 0px)',
-          paddingBottom:'env(safe-area-inset-bottom, 0px)',
+          top:        'calc(env(safe-area-inset-top, 0px) + 52px)',
+          bottom:     'calc(env(safe-area-inset-bottom, 0px) + 56px)',
+          transform:  `translateX(${drawerOffset}px)`,
+          transition: drawerAnimate ? 'transform 0.26s cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
+          willChange: drawerOffset > 0 ? 'transform' : 'auto',
         }}
       >
         <button
           onClick={handleClose}
-          className="absolute right-3 z-[100] w-8 h-8 bg-black/60 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-black/80 transition"
-          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
+          className="absolute top-3 right-3 z-10 w-8 h-8 bg-black/60 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-black/80 transition"
           aria-label="Chiudi"
         >
           <X size={16} />
