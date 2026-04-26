@@ -144,6 +144,9 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
         prevTab ? TAB_ORDER.indexOf(prevTab) : null,
         nextTab ? TAB_ORDER.indexOf(nextTab) : null,
       )
+      // Set once when gesture direction is confirmed — not every frame, to
+      // avoid repeated style recalculations on all [data-swiping] rules.
+      document.documentElement.setAttribute('data-swiping', '')
     }
     if (!isH.current) return
 
@@ -158,7 +161,6 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
 
     const r = document.documentElement
     const toSwipe = (nextTab === '/swipe' && dx < 0) || (prevTab === '/swipe' && dx > 0)
-    r.setAttribute('data-swiping', '')
     r.style.setProperty(
       '--swipe-to-fullscreen',
       toSwipe ? String(Math.min(Math.abs(dx) / (vw.current || window.innerWidth), 1)) : '0'

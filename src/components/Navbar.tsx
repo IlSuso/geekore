@@ -292,7 +292,7 @@ export default function Navbar() {
       {/* ── Mobile bottom navbar ─────────────────────────────────────────── */}
       <nav
         className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100]"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)', background: 'rgba(0,0,0,0.97)', borderTop: '0.5px solid #1c1c1c' }}
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)', background: 'rgba(0,0,0,0.97)' }}
       >
         <div className="flex items-stretch h-[56px]">
           {MOBILE_NAV_ITEMS.map((item) => {
