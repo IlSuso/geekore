@@ -42,6 +42,14 @@
 
 /* ── Base ─────────────────────────────────────────────────────────────────── */
 
+/* Prevent the mobile browser from expanding the layout viewport beyond device
+   width when off-screen keep-alive panels are positioned at ±100vw.
+   overflow-x: clip clips the viewport without creating a scroll container,
+   so window.scrollTo / window.scrollY (used for scroll-restore) keep working. */
+html {
+  overflow-x: clip;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
   background: #000;
