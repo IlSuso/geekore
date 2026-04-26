@@ -82,6 +82,18 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     setSnapping(false)
   }, [pathname])
 
+  // Lock body scroll while a swipe is in progress. Without this, vertical
+  // drift during a swipe could scroll the (potentially very tall) document,
+  // which makes the fixed navbar appear to shift and reveals off-screen content.
+  useEffect(() => {
+    if (isActive) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [isActive])
+
   // Clear snapping flag as soon as the CSS snap-back transition ends.
   useEffect(() => {
     const el = wrapRef.current
