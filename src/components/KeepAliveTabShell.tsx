@@ -26,14 +26,16 @@ type KATab = 'feed' | 'for-you' | 'swipe' | 'profile'
 // Maps TAB_ORDER indices → KATab (null = not keep-alive, e.g. /discover)
 const TAB_IDX_TO_KA: Array<KATab | null> = ['feed', null, 'for-you', 'swipe', 'profile']
 
-const ADJ_LEFT: CSSProperties = {
-  position: 'fixed', top: 0, left: 0, width: '100%', height: '100vh',
-  transform: 'translateX(-100%)', overflow: 'hidden', pointerEvents: 'none',
+const ADJ_BASE = {
+  position: 'fixed' as const, top: 0, left: 0, width: '100%', height: '100vh',
+  overflow: 'hidden', pointerEvents: 'none' as const,
+  // zIndex below Navbar (100) / MobileHeader (99); contain:paint isolates inner
+  // GPU layers (SwipeMode blur, willChange cards) inside this stacking context.
+  zIndex: 50,
+  contain: 'paint',
 }
-const ADJ_RIGHT: CSSProperties = {
-  position: 'fixed', top: 0, left: 0, width: '100%', height: '100vh',
-  transform: 'translateX(100%)', overflow: 'hidden', pointerEvents: 'none',
-}
+const ADJ_LEFT:  CSSProperties = { ...ADJ_BASE, transform: 'translateX(-100%)' }
+const ADJ_RIGHT: CSSProperties = { ...ADJ_BASE, transform: 'translateX(100%)' }
 
 function getKATab(pathname: string): KATab | null {
   if (pathname === '/home' || pathname === '/') return 'feed'

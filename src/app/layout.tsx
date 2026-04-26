@@ -66,11 +66,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body suppressHydrationWarning className="bg-black text-white min-h-screen antialiased">
         <ClientProviders initialLocale={initialLocale}>
-          {/* Navbar senza wrapper — qualsiasi div/span con viewTransitionName,
-              isolation, transform, will-change, filter, opacity<1 crea uno
-              stacking context che imprigiona il z-index dei figli */}
-          <MobileHeader />
-          <Navbar />
           <SwipeablePageContainer>
             <main className="pt-14 md:pt-16 pb-20 md:pb-8">
               <KeepAliveTabShell>
@@ -79,6 +74,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </main>
           </SwipeablePageContainer>
           <Footer />
+          {/* Fixed UI — rendered AFTER page content so the GPU compositor
+              always layers them on top regardless of z-index confusion */}
+          <MobileHeader />
+          <Navbar />
         </ClientProviders>
       </body>
     </html>
