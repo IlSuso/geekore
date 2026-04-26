@@ -11,5 +11,5 @@ export const metadata: Metadata = {
 }
 
 export default function CommunityLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>
+  return <div className="pt-14 md:pt-12 pb-20 md:pb-8">{children}</div>
 }
