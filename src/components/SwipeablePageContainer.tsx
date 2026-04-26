@@ -222,23 +222,31 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     ? `transform 0.28s ${offset === 0 ? EASE_SNAP : EASE_OUT}`
     : 'none'
 
+  // Outer wrapper clips the off-screen keep-alive panels (position:absolute at
+  // ±100vw) without becoming a scroll container. overflow:clip (unlike hidden)
+  // does not force overflow-y to auto, so window.scrollTo / window.scrollY
+  // keep working normally. Per CSS spec, content clipped by overflow:clip is
+  // excluded from the ancestor's scrollable overflow, so the mobile browser
+  // does not expand the layout viewport beyond device-width.
   return (
-    <div
-      ref={wrapRef}
-      style={{
-        position:                 'relative',
-        zIndex:                   0,
-        transform:                translateX,
-        transition,
-        willChange:               isActive ? 'transform' : 'auto',
-        ...(isActive ? {
-          backfaceVisibility:       'hidden',
-          WebkitBackfaceVisibility: 'hidden',
-        } : {}),
-        minHeight:                '100%',
-      }}
-    >
-      {children}
+    <div style={{ overflow: 'clip' }}>
+      <div
+        ref={wrapRef}
+        style={{
+          position:                 'relative',
+          zIndex:                   0,
+          transform:                translateX,
+          transition,
+          willChange:               isActive ? 'transform' : 'auto',
+          ...(isActive ? {
+            backfaceVisibility:       'hidden',
+            WebkitBackfaceVisibility: 'hidden',
+          } : {}),
+          minHeight:                '100%',
+        }}
+      >
+        {children}
+      </div>
     </div>
   )
 }

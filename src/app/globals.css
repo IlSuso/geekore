@@ -42,16 +42,6 @@
 
 /* ── Base ─────────────────────────────────────────────────────────────────── */
 
-/* Prevent the mobile browser from expanding the layout viewport beyond device
-   width when off-screen keep-alive panels are positioned at ±100vw.
-   overflow-x: hidden propagates to the viewport level (via the root element
-   propagation rule) and clips horizontal overflow there. Per CSS spec the
-   other axis stays as auto (not clip), so vertical window.scrollTo /
-   window.scrollY continue to work normally. */
-html {
-  overflow-x: hidden;
-}
-
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
   background: #000;
