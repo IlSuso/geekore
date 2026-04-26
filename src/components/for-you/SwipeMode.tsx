@@ -622,7 +622,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
   const topCoverImage = filteredQueue[0]?.coverImage
 
   const containerClass = standalone
-    ? 'fixed inset-0 md:pt-16 bg-black flex flex-col overflow-hidden'
+    ? 'absolute inset-0 md:pt-16 bg-black flex flex-col overflow-hidden'
     : 'fixed inset-0 bg-black flex flex-col'
   const containerStyle = standalone ? {} : { zIndex: 9999 }
 
