@@ -169,6 +169,7 @@ function SortableCard({ media, children, dragEnabled }: { media: UserMedia; chil
         transition: isDragging ? 'none' : (transition || undefined),
         userSelect: 'none',
         WebkitUserSelect: 'none',
+        touchAction: dragEnabled ? 'none' : undefined,
       }}
       {...attributes}
       {...(dragEnabled ? listeners : {})}
