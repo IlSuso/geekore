@@ -473,7 +473,7 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
-      <div className="max-w-xl mx-auto px-4 md:px-6 pt-3 md:pt-10 pb-28 space-y-6">
+      <div className="max-w-3xl mx-auto px-4 md:px-6 pt-3 md:pt-10 pb-28 space-y-6">
 
         <div className="flex items-center gap-3 mb-2">
           <div className="w-10 h-10 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-center">

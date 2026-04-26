@@ -61,7 +61,7 @@ export default function LeaderboardPage() {
 
   return (
     <main className="min-h-screen bg-black pt-3 md:pt-8 pb-32 px-4 text-white">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         <div className="mb-6">
           <h1 className="hidden md:block text-5xl font-black tracking-tighter">Classifica</h1>
           <p className="text-zinc-500 text-sm mt-1">Geek Score su tutti i media tracciati</p>

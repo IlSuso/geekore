@@ -251,7 +251,7 @@ export default function NotificationsPage() {
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
       <PullToRefreshIndicator distance={pullDistance} refreshing={isRefreshing} />
 
-      <div className="max-w-screen-2xl mx-auto pb-24">
+      <div className="max-w-3xl mx-auto pb-24">
 
         {loading ? (
           <div className="px-4 pt-4 space-y-0">
