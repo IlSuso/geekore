@@ -3,7 +3,8 @@
 import { logActivity } from '@/lib/activity'
 import { Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, List, Grid3X3, ChevronRight, Download, X as XIcon, Gamepad2, Tv, BarChart2, Users, TrendingUp } from 'lucide-react'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { gestureState } from '@/hooks/gestureState'
+import { useParams, usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   CheckCircle, Clock, X, RotateCw, RotateCcw, Edit3, RefreshCw, Settings, Bookmark, Loader2,
@@ -784,8 +785,9 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ProfilePage({ usernameOverride }: { usernameOverride?: string } = {}) {
-  const params = useParams<{ username: string }>()
-  const username = usernameOverride || params.username
+  const params    = useParams<{ username: string }>()
+  const pathname  = usePathname()
+  const username  = usernameOverride || params.username
   const supabase = createClient()
   const { t, locale } = useLocale()
   const sensors = useDndSensors()
@@ -822,11 +824,13 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     const { data: { user } } = await supabase.auth.getUser()
     setCurrentUserId(user?.id || null)
 
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, username, display_name, avatar_url, bio, badge')
-      .ilike('username', username)
-      .single()
+    // 'me' arrives when swiping to the profile tab before the /profile/me
+    // server redirect resolves. Query by user ID so auth + isOwner work correctly.
+    const profileQuery = username === 'me'
+      ? supabase.from('profiles').select('id, username, display_name, avatar_url, bio, badge').eq('id', user?.id ?? '').single()
+      : supabase.from('profiles').select('id, username, display_name, avatar_url, bio, badge').ilike('username', username).single()
+
+    const { data: profileData, error: profileError } = await profileQuery
 
     if (profileError || !profileData) { setLoading(false); return }
     setProfile(profileData)
@@ -849,12 +853,16 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     setFollowingCount(fwingResult.count || 0)
     if (user && !ownerCheck) setIsFollowing(!!followResult.data)
 
-    profileCache[username] = {
+    const entry = {
       profile: profileData, mediaList: sortedMedia,
       steamAccount: ownerCheck ? steamResult.data : null,
       followersCount: fwersResult.count || 0, followingCount: fwingResult.count || 0,
       ts: Date.now(),
     }
+    profileCache[username] = entry
+    // Also pre-warm the cache under the real username so the re-render after
+    // the /profile/me → /profile/realUsername redirect is instant (no spinner).
+    if (username === 'me') profileCache[profileData.username] = entry
     setLoading(false)
   }, [username])
 
@@ -862,12 +870,19 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     await fetchProfileData()
   }, [fetchProfileData])
 
-  const { distance: pullDistance, refreshing: isPullRefreshing } = usePullToRefresh({ onRefresh: handleProfileRefresh })
+  const { distance: pullDistance, refreshing: isPullRefreshing } = usePullToRefresh({
+    onRefresh: handleProfileRefresh,
+    enabled: pathname.startsWith('/profile/'),
+  })
   // New state
   const [activeTab, setActiveTab] = useState<ProfileTab>('collection')
   const [collectionSearch, setCollectionSearch] = useState('')
   const [sortMode, setSortMode] = useState<SortMode>('default')
   const [importPlatform, setImportPlatform] = useState<string | null>(null)
+  useEffect(() => {
+    gestureState.drawerActive = importPlatform !== null
+    return () => { gestureState.drawerActive = false }
+  }, [importPlatform])
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [statusFilter, setStatusFilter] = useState('all')
 

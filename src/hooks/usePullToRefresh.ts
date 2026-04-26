@@ -8,6 +8,9 @@ import { gestureState } from './gestureState'
 interface Options {
   onRefresh: () => Promise<void>
   threshold?: number
+  // Pass false when the panel is hidden (keep-alive) so the hook does not
+  // accidentally set gestureState.pullActive and block page-switch swipes.
+  enabled?: boolean
 }
 
 interface State {
@@ -16,37 +19,57 @@ interface State {
   distance: number
 }
 
-export function usePullToRefresh({ onRefresh, threshold = 70 }: Options) {
+export function usePullToRefresh({ onRefresh, threshold = 70, enabled = true }: Options) {
   const [state, setState] = useState<State>({ pulling: false, refreshing: false, distance: 0 })
   const startY = useRef(0)
+  const startX = useRef(0)
   const active = useRef(false)
   const loading = useRef(false)
 
+  // Reset all state immediately when the panel becomes inactive.
+  useEffect(() => {
+    if (!enabled) {
+      active.current = false
+      gestureState.pullActive = false
+      setState({ pulling: false, refreshing: false, distance: 0 })
+    }
+  }, [enabled])
+
   const onStart = useCallback((e: TouchEvent) => {
+    if (!enabled) return
     if (loading.current) return
     if (gestureState.swipeActive) return  // swipe orizzontale attivo → no pull
     if (window.scrollY > 4) return
     startY.current = e.touches[0].clientY
+    startX.current = e.touches[0].clientX
     active.current = true
-  }, [])
+  }, [enabled])
 
   const onMove = useCallback((e: TouchEvent) => {
-    if (!active.current || loading.current) return
+    if (!enabled || !active.current || loading.current) return
     if (gestureState.swipeActive) { active.current = false; return }
     if (window.scrollY > 4) { active.current = false; return }
 
     const raw = e.touches[0].clientY - startY.current
-    const dx = Math.abs(e.touches[0].clientX - (e.touches[0].clientX)) // just for reference
+    const dx  = Math.abs(e.touches[0].clientX - startX.current)
 
     if (raw <= 0) { setState({ pulling: false, refreshing: false, distance: 0 }); return }
 
-    // Resistenza logaritmica come Instagram
-    // Resistenza progressiva: più trascini, più diventa lenta (come IG)
+    // If gesture is more horizontal than vertical, let SwipeablePageContainer
+    // claim it as a page-switch swipe instead.
+    if (dx > raw * 0.8) { active.current = false; return }
+
+    // Require at least 8px of vertical travel before committing to a pull.
+    // This gives SwipeablePageContainer one more touchmove tick to detect
+    // a horizontal intent before pullActive blocks it.
+    if (raw < 8) return
+
+    // Resistenza progressiva come Instagram
     const dist = Math.min(Math.pow(raw, 0.72) * 1.8, threshold * 1.4)
     setState({ pulling: true, refreshing: false, distance: dist })
     gestureState.pullActive = true
-    if (raw > 6) e.preventDefault()
-  }, [threshold])
+    e.preventDefault()
+  }, [enabled, threshold])
 
   const onEnd = useCallback(async () => {
     if (!active.current || loading.current) return
