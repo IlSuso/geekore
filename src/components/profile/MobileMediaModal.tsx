@@ -183,9 +183,12 @@ export function MobileMediaModal({
 
   // Drag-handle swipe-down to dismiss — only responds to primarily vertical gestures.
   const onHandleTouchStart = (e: React.TouchEvent) => {
+    // Edge zone reserved for Android/iOS system gestures — don't activate
+    const x = e.touches[0].clientX
+    if (x <= 44 || x >= window.innerWidth - 44) return
     handleStartY.current     = e.touches[0].clientY
     handleCurrentY.current   = e.touches[0].clientY
-    handleStartX.current     = e.touches[0].clientX
+    handleStartX.current     = x
     handleIsVertical.current = null
     if (sheetRef.current) sheetRef.current.style.transition = 'none'
   }
@@ -234,8 +237,8 @@ export function MobileMediaModal({
 
   return (
     <div data-no-swipe className={`fixed inset-0 z-[110] flex flex-col justify-end transition-opacity duration-200 ${visible && !closing ? 'opacity-100' : 'opacity-0'}`}>
-      {/* Backdrop — touch-none prevents left-edge system back-gesture animation */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm touch-none" onClick={doClose} />
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={doClose} />
 
       {/* Sheet */}
       <div

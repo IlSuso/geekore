@@ -40,8 +40,12 @@ export function usePullToRefresh({ onRefresh, threshold = 70, enabled = true }: 
     if (loading.current) return
     if (gestureState.swipeActive) return  // swipe orizzontale attivo → no pull
     if (window.scrollY > 4) return
+    // Edge zone reserved for Android/iOS system gestures — don't activate
+    const x = e.touches[0].clientX
+    const w = window.innerWidth
+    if (x <= 44 || x >= w - 44) return
     startY.current = e.touches[0].clientY
-    startX.current = e.touches[0].clientX
+    startX.current = x
     active.current = true
   }, [enabled])
 

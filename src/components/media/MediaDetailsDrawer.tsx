@@ -368,11 +368,9 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   // the drawer content is never hidden behind those elements.
   return createPortal((
     <>
-      {/* Backdrop — below MobileHeader (z-99) and Navbar (z-100).
-          touch-none: prevents the browser from treating left-edge swipes on the
-          backdrop as a system back-gesture (which animates the whole WebView). */}
+      {/* Backdrop — below MobileHeader (z-99) and Navbar (z-100) */}
       <div
-        className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm touch-none"
+        className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm"
         onClick={handleClose}
         aria-hidden
       />
