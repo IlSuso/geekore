@@ -2,7 +2,7 @@
 
 import { logActivity } from '@/lib/activity'
 import { profileInvalidateBridge } from '@/hooks/profileInvalidateBridge'
-import { Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, ChevronRight, Download, X as XIcon, Gamepad2, Tv, BarChart2, Users, TrendingUp, GripVertical } from 'lucide-react'
+import { Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, ChevronRight, Download, X as XIcon, Gamepad2, Tv, BarChart2, Users, TrendingUp, GripVertical, List } from 'lucide-react'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { gestureState } from '@/hooks/gestureState'
 import { useParams, usePathname, useRouter } from 'next/navigation'
