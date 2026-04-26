@@ -67,9 +67,14 @@ export function MobileHeader() {
   const { t } = useLocale()
   const [unread, setUnread] = useState(false)
   const [username, setUsername] = useState<string | null>(null)
+  // mounted evita hydration mismatch: sul server username è sempre null,
+  // quindi isOwnProfile è sempre false. Prima che il client risolva l'utente
+  // usiamo la stessa logica del server (mounted=false → isOwnProfile=false).
+  const [mounted, setMounted] = useState(false)
   const isProfilePage = pathname.startsWith('/profile/')
 
   useEffect(() => {
+    setMounted(true)
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
@@ -86,11 +91,12 @@ export function MobileHeader() {
 
   if (AUTH_PATHS.some(p => pathname.startsWith(p))) return null
 
-
-  const isFeed      = pathname === '/home' || pathname === '/'
-  const isOwnProfile  = pathname === '/profile/me' || (username && pathname === `/profile/${username}`)
+  const isFeed        = pathname === '/home' || pathname === '/'
+  // isOwnProfile dipende da username (auth) — usare solo dopo il mount
+  // per evitare divergenza SSR/client.
+  const isOwnProfile  = mounted && (pathname === '/profile/me' || (username && pathname === `/profile/${username}`))
   const isOtherProfile = isProfilePage && !isOwnProfile && pathname.split('/').length === 3
-  const isSubPage   = (pathname.split('/').length > 3 && !isOtherProfile) ||
+  const isSubPage     = (pathname.split('/').length > 3 && !isOtherProfile) ||
     pathname.startsWith('/stats/') || pathname.startsWith('/lists/')
 
   const profileUsername = isProfilePage ? pathname.split('/')[2] : null
