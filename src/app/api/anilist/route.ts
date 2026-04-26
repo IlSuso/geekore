@@ -11,7 +11,7 @@ const ANILIST_API = 'https://graphql.anilist.co'
 
 const QUERY = `
 query ($search: String, $type: MediaType) {
-  Page(page: 1, perPage: 20) {
+  Page(page: 1, perPage: 50) {
     media(search: $search, type: $type, sort: [SEARCH_MATCH, POPULARITY_DESC], isAdult: false) {
       id type
       format

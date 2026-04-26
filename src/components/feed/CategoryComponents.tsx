@@ -71,6 +71,24 @@ export function CategoryBadge({ category, onClick }: { category: string | null |
 
 // ── API search per categoria ──────────────────────────────────────────────────
 
+function normStr(s: string) {
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function rankByPrefix(items: SearchResult[], query: string): SearchResult[] {
+  const q = normStr(query)
+  const starts: SearchResult[] = []
+  const contains: SearchResult[] = []
+  const rest: SearchResult[] = []
+  for (const item of items) {
+    const t = normStr(item.title)
+    if (t.startsWith(q)) starts.push(item)
+    else if (t.includes(q)) contains.push(item)
+    else rest.push(item)
+  }
+  return [...starts, ...contains, ...rest]
+}
+
 async function searchByCategory(category: string, query: string): Promise<SearchResult[]> {
   if (!query || query.trim().length < 2) return []
   const q = encodeURIComponent(query.trim())
@@ -79,44 +97,44 @@ async function searchByCategory(category: string, query: string): Promise<Search
       const res = await fetch(`/api/tmdb?q=${q}&type=movie`, { signal: AbortSignal.timeout(5000) })
       if (!res.ok) return []
       const data = await res.json()
-      return (Array.isArray(data) ? data : []).slice(0, 8).map((item: Record<string, unknown>) => ({
+      const mapped = (Array.isArray(data) ? data : []).map((item: Record<string, unknown>) => ({
         id: String(item.id || item.title),
         title: String(item.title || item.name || ''),
         subtitle: item.year ? String(item.year) : String(item.releaseDate || '').slice(0, 4) || undefined,
         image: String(item.coverImage || item.poster || item.cover || ''),
       })).filter((i: SearchResult) => i.title)
+      return rankByPrefix(mapped, query.trim()).slice(0, 8)
     }
     if (category === 'Serie TV') {
       const res = await fetch(`/api/tmdb?q=${q}&type=tv`, { signal: AbortSignal.timeout(5000) })
       if (!res.ok) return []
       const data = await res.json()
-      return (Array.isArray(data) ? data : []).slice(0, 8).map((item: Record<string, unknown>) => ({
+      const mapped = (Array.isArray(data) ? data : []).map((item: Record<string, unknown>) => ({
         id: String(item.id || item.title),
         title: String(item.title || item.name || ''),
         subtitle: item.year ? String(item.year) : String(item.releaseDate || '').slice(0, 4) || undefined,
         image: String(item.coverImage || item.poster || item.cover || ''),
       })).filter((i: SearchResult) => i.title)
+      return rankByPrefix(mapped, query.trim()).slice(0, 8)
     }
     if (category === 'Videogiochi') {
       const res = await fetch(`/api/igdb`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ search: query.trim(), limit: 8 }),
+        body: JSON.stringify({ search: query.trim(), limit: 20 }),
         signal: AbortSignal.timeout(6000),
       })
       if (!res.ok) return []
       const data = await res.json()
       const items: Record<string, unknown>[] = Array.isArray(data) ? data : (data.results || data.games || [])
-      return items.slice(0, 8).map(item => ({
+      const mapped = items.map(item => ({
         id: String(item.id || item.name),
-        title: String(item.name || item.title || ''),
-        subtitle: item.first_release_date
-          ? new Date(Number(item.first_release_date) * 1000).getFullYear().toString()
-          : item.year ? String(item.year) : undefined,
-        image: item.cover && typeof item.cover === 'object' && 'url' in item.cover
-          ? `https:${String((item.cover as Record<string, unknown>).url).replace('t_thumb', 't_cover_small')}`
-          : String(item.cover || ''),
+        title: String(item.title || item.name || ''),
+        subtitle: item.year ? String(item.year) : undefined,
+        // La route IGDB POST restituisce già coverImage pre-formattato
+        image: String(item.coverImage || ''),
       })).filter((i: SearchResult) => i.title)
+      return rankByPrefix(mapped, query.trim()).slice(0, 8)
     }
     if (category === 'Anime' || category === 'Manga') {
       const type = category === 'Anime' ? 'anime' : 'manga'
@@ -124,12 +142,13 @@ async function searchByCategory(category: string, query: string): Promise<Search
       if (!res.ok) return []
       const data = await res.json()
       const items: Record<string, unknown>[] = Array.isArray(data) ? data : (data.results || data.media || [])
-      return items.slice(0, 8).map(item => ({
+      const mapped = items.map(item => ({
         id: String(item.id),
         title: String(item.title || ''),
         subtitle: item.year ? String(item.year) : item.seasonYear ? String(item.seasonYear) : undefined,
         image: String(item.coverImage || item.cover || ''),
       })).filter((i: SearchResult) => i.title)
+      return rankByPrefix(mapped, query.trim()).slice(0, 8)
     }
   } catch (err) {
     console.warn('[CategorySearch] fetch error:', err)
