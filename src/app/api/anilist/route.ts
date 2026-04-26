@@ -17,7 +17,7 @@ query ($search: String, $type: MediaType) {
       format
       title { romaji english native }
       synonyms
-      coverImage { large }
+      coverImage { extraLarge large }
       seasonYear episodes chapters
       description(asHtml: false)
       genres averageScore trending
@@ -35,7 +35,7 @@ query ($search: String, $type: MediaType) {
           node {
             id type
             title { romaji }
-            coverImage { large }
+            coverImage { extraLarge large }
             seasonYear
             genres
           }
@@ -152,7 +152,7 @@ export async function GET(request: NextRequest) {
               id: `anilist-${node.type === 'ANIME' ? 'anime' : 'manga'}-${node.id}`,
               type: node.type === 'ANIME' ? 'anime' : 'manga',
               title: node.title?.romaji || '',
-              coverImage: node.coverImage?.large,
+              coverImage: node.coverImage?.extraLarge || node.coverImage?.large,
               year: node.seasonYear,
               genres: node.genres || [],
             })
@@ -163,7 +163,7 @@ export async function GET(request: NextRequest) {
             title: m.title?.english || m.title?.romaji || 'Senza titolo',
             titleRomaji: m.title?.romaji || undefined,
             type,
-            coverImage: m.coverImage.large,
+            coverImage: m.coverImage.extraLarge || m.coverImage.large,
             year: m.seasonYear,
             episodes: isAnime ? m.episodes : m.chapters,
             description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 400) : undefined,

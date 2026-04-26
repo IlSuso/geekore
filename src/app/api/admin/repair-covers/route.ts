@@ -32,7 +32,7 @@ function createAdminClient() {
 }
 
 const TMDB_BASE       = 'https://api.themoviedb.org/3'
-const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
+const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w780'
 const ANILIST_API     = 'https://graphql.anilist.co'
 const JIKAN_BASE      = 'https://api.jikan.moe/v4'   // MAL proxy pubblico, no API key
 const BATCH_SIZE      = 10

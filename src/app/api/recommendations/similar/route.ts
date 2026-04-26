@@ -412,7 +412,7 @@ export async function GET(request: NextRequest) {
             const id = `tmdb-anime-${m.id}`
             const recGenres = tvGenreNames(m.genre_ids || [])
             add({ id, title: m.name || '', type: 'anime',
-              coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
+              coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`,
               year: m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined,
               genres: recGenres, tags: [],
               description: m.overview ? truncateAtSentence(m.overview, 500) : undefined,
@@ -442,7 +442,7 @@ export async function GET(request: NextRequest) {
               const id = `tmdb-anime-${m.id}`
               const recGenres = tvGenreNames(m.genre_ids || [])
               add({ id, title: m.name || '', type: 'anime',
-                coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
+                coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`,
                 year: m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined,
                 genres: recGenres, tags: [],
                 description: m.overview ? truncateAtSentence(m.overview, 500) : undefined,
@@ -506,7 +506,7 @@ export async function GET(request: NextRequest) {
           const recGenres = movieGenres(m.genre_ids || [])
           const actualKws = movieActualKws.get(id) || []
           add({ id, title: m.title || '', type: 'movie',
-            coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
+            coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w780${m.poster_path}` : undefined,
             year: m.release_date ? new Date(m.release_date).getFullYear() : undefined,
             genres: recGenres, keywords: actualKws,
             score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
@@ -565,7 +565,7 @@ export async function GET(request: NextRequest) {
           const recGenres = tvGenres(m.genre_ids || [])
           const actualKws = tvActualKws.get(id) || []
           add({ id, title: m.name || '', type: 'tv',
-            coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : undefined,
+            coverImage: m.poster_path ? `https://image.tmdb.org/t/p/w780${m.poster_path}` : undefined,
             year: m.first_air_date ? new Date(m.first_air_date).getFullYear() : undefined,
             genres: recGenres, keywords: actualKws,
             score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
@@ -595,7 +595,7 @@ export async function GET(request: NextRequest) {
               const id = `anilist-manga-${m.id}`
               const recGenres: string[] = m.genres || []
               add({ id, title: m.title?.romaji || m.title?.english || '', type: 'manga',
-                coverImage: m.coverImage?.large, year: m.startDate?.year, genres: recGenres,
+                coverImage: m.coverImage?.extraLarge || coverImage?.large, year: m.startDate?.year, genres: recGenres,
                 tags: (m.tags || []).map((t: any) => t.name),
                 episodes: m.chapters ?? undefined,
                 description: m.description ? truncateAtSentence(m.description.replace(/<[^>]*>/g, ''), 500) : undefined,
@@ -626,7 +626,7 @@ export async function GET(request: NextRequest) {
               const recGenres: string[] = m.genres || []
               const mangaTags2 = (m.tags || []).map((t: any) => t.name)
               add({ id, title: m.title?.romaji || m.title?.english || '', type: 'manga',
-                coverImage: m.coverImage?.large, year: m.startDate?.year, genres: recGenres,
+                coverImage: m.coverImage?.extraLarge || coverImage?.large, year: m.startDate?.year, genres: recGenres,
                 tags: mangaTags2,
                 episodes: m.chapters ?? undefined,
                 description: m.description ? truncateAtSentence(m.description.replace(/<[^>]*>/g, ''), 500) : undefined,

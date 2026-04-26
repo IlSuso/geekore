@@ -36,7 +36,7 @@ function tmdbHeaders() {
 
 function tmdbImage(path: string | null | undefined) {
   if (!path) return undefined
-  return `https://image.tmdb.org/t/p/w500${path}`
+  return `https://image.tmdb.org/t/p/w780${path}`
 }
 
 export async function GET(request: NextRequest) {

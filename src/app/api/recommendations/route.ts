@@ -1436,7 +1436,7 @@ async function fetchAniListContinuity(entries: UserEntry[], ownedIds: Set<string
           relations {
             edges {
               relationType
-              node { id type title { romaji } coverImage { large } seasonYear genres averageScore }
+              node { id type title { romaji } coverImage { extraLarge large } seasonYear genres averageScore }
             }
           }
         }
@@ -1467,7 +1467,7 @@ async function fetchAniListContinuity(entries: UserEntry[], ownedIds: Set<string
           to_id: toId,
           to_type: node.type === 'ANIME' ? 'anime' : 'manga',
           to_title: node.title?.romaji || '',
-          to_cover: node.coverImage?.large,
+          to_cover: node.coverImage?.extraLarge || coverImage?.large,
           to_year: node.seasonYear,
           edge_type: rel.toLowerCase(),
           priority,
@@ -1544,7 +1544,7 @@ async function fetchAnimeRecs(
         if (socialFriend) { const sim = parseInt(socialFriend) || 75; matchScore = Math.min(100, matchScore + Math.round((sim - 70) / 30 * 20)) }
         results.push({
           id, title, type: 'anime',
-          coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`, year, genres: recGenres, tags: mTags,
+          coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`, year, genres: recGenres, tags: mTags,
           score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
           why: socialFriend ? `Il tuo amico con gusti simili ha adorato questo` : `In corso questa stagione — ${seasonLabel}`,
           matchScore, isSeasonal: true,
@@ -1636,7 +1636,7 @@ async function fetchAnimeRecs(
             id: recId,
             title: m.name || 'Senza titolo',
             type: 'anime',
-            coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
+            coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`,
             year, genres: recGenres, tags: mTags,
             score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
             description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
@@ -1696,7 +1696,7 @@ async function fetchMangaRecs(
           media(genre_in: $genres, type: MANGA, format_in: [MANGA, ONE_SHOT],
                 sort: [SCORE_DESC, POPULARITY_DESC],
                 averageScore_greater: $minScore, popularity_greater: $minPop) {
-            id title { romaji english } coverImage { large }
+            id title { romaji english } coverImage { extraLarge large }
             seasonYear chapters genres description(asHtml: false) averageScore popularity trending
             tags { name rank }
             staff(sort: RELEVANCE) { edges { role node { name { full } } } }
@@ -1720,7 +1720,7 @@ async function fetchMangaRecs(
           const title = m.title?.romaji || m.title?.english || ''
           if (isAlreadyOwned('manga', id, title) || seen.has(id)) return false
           if (shownIds?.has(id)) return false
-          return !!m.coverImage?.large
+          return !!(m.coverImage?.extraLarge || m.coverImage?.large)
         })
         .map((m: any) => {
           const mTags: string[] = (m.tags || []).map((t: any) => t.name.toLowerCase())
@@ -1765,7 +1765,7 @@ async function fetchMangaRecs(
           id: recId,
           title: m.title.romaji || m.title.english || 'Senza titolo',
           type: 'manga',
-          coverImage: m.coverImage?.large,
+          coverImage: m.coverImage?.extraLarge || coverImage?.large,
           year: m.seasonYear,
           genres: recGenres,
           tags: mTags,
@@ -1808,7 +1808,7 @@ async function fetchMangaRecs(
               media(genre_in: $genres, type: MANGA, format_in: [MANGA, ONE_SHOT],
                     sort: [SCORE_DESC, POPULARITY_DESC],
                     averageScore_greater: $minScore, popularity_greater: $minPop) {
-                id title { romaji english } coverImage { large }
+                id title { romaji english } coverImage { extraLarge large }
                 seasonYear chapters genres description(asHtml: false) averageScore popularity trending
                 tags { name rank }
                 staff(sort: RELEVANCE) { edges { role node { name { full } } } }
@@ -1842,7 +1842,7 @@ async function fetchMangaRecs(
             id,
             title: m.title.romaji || m.title.english || 'Senza titolo',
             type: 'manga',
-            coverImage: m.coverImage?.large,
+            coverImage: m.coverImage?.extraLarge || coverImage?.large,
             year: m.seasonYear,
             genres: recGenres,
             tags: mTags,
@@ -2018,7 +2018,7 @@ async function fetchMovieRecs(
           id: recId,
           title: m.title || m.original_title || 'Senza titolo',
           type: 'movie',
-          coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
+          coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`,
           year,
           genres: recGenres,
           keywords: kws,
@@ -2071,7 +2071,7 @@ async function fetchMovieRecs(
             id: m.id.toString(),
             title: m.title || m.original_title || 'Senza titolo',
             type: 'movie',
-            coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
+            coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`,
             year,
             genres: recGenres,
             score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
@@ -2221,7 +2221,7 @@ async function fetchTvRecs(
           id: recId,
           title: m.name || m.original_name || 'Senza titolo',
           type: 'tv',
-          coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
+          coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`,
           year,
           genres: recGenres,
           keywords: kws,
@@ -2288,7 +2288,7 @@ async function fetchTvRecs(
               id: m.id.toString(),
               title: m.name || m.original_name || 'Senza titolo',
               type: 'tv',
-              coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
+              coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`,
               year,
               genres: recGenres,
               score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,

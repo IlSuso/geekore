@@ -22,7 +22,7 @@ import { upsertWithMerge } from '@/lib/importMerge'
 // ── Costanti TMDB ─────────────────────────────────────────────────────────────
 
 const TMDB_BASE       = 'https://api.themoviedb.org/3'
-const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
+const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w780'
 const MAX_PARALLEL    = 20
 const BATCH_DELAY_MS  = 100
 

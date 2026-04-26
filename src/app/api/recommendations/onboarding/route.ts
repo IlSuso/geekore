@@ -70,7 +70,7 @@ async function fetchAnimeQuick(token: string): Promise<any[]> {
         const year = m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined
         results.push({
           id, title: m.name || 'Senza titolo', type: 'anime',
-          coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
+          coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`,
           year, genres: [], score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
           description: m.overview || undefined,
           why: 'Popolare tra gli appassionati di anime',
@@ -91,7 +91,7 @@ async function fetchMangaQuick(): Promise<any[]> {
     query ($page: Int) {
       Page(page: $page, perPage: 25) {
         media(type: MANGA, sort: POPULARITY_DESC, status_not: NOT_YET_RELEASED, isAdult: false) {
-          id title { romaji english native } coverImage { large }
+          id title { romaji english native } coverImage { extraLarge large }
           genres averageScore popularity startDate { year }
           description(asHtml: false)
         }
@@ -115,7 +115,7 @@ async function fetchMangaQuick(): Promise<any[]> {
         const id = `anilist-manga-${m.id}`
         results.push({
           id, title, type: 'manga',
-          coverImage: m.coverImage?.large,
+          coverImage: m.coverImage?.extraLarge || coverImage?.large,
           year: m.startDate?.year,
           genres: m.genres || [],
           score: m.averageScore ? m.averageScore / 20 : undefined,
@@ -162,7 +162,7 @@ async function fetchMovieQuick(token: string): Promise<any[]> {
         const year = m.release_date ? parseInt(m.release_date.slice(0, 4)) : undefined
         results.push({
           id, title: m.title || 'Senza titolo', type: 'movie',
-          coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
+          coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`,
           year, genres: [],
           score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
           description: m.overview || undefined,
@@ -210,7 +210,7 @@ async function fetchTvQuick(token: string): Promise<any[]> {
         const year = m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined
         results.push({
           id, title: m.name || 'Senza titolo', type: 'tv',
-          coverImage: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
+          coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`,
           year, genres: [],
           score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
           description: m.overview || undefined,
@@ -254,7 +254,7 @@ async function fetchGameQuick(clientId: string, secret: string): Promise<any[]> 
       const games = await res.json()
       for (const g of games) {
         if (!g.cover?.url) continue
-        const coverUrl = g.cover.url.replace('t_thumb', 't_cover_big')
+        const coverUrl = g.cover.url.replace('t_thumb', 't_cover_big_2x')
         const id = `igdb-${g.id}`
         const year = g.first_release_date
           ? new Date(g.first_release_date * 1000).getFullYear()
