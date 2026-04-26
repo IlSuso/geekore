@@ -109,7 +109,7 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
 
   // ── Panel style helper ──────────────────────────────────────────────────────
   const panelStyle = (panelTab: KATab): CSSProperties => {
-    if (tab === panelTab)       return {}
+    if (tab === panelTab)       return { display: 'flex', flexDirection: 'column', minHeight: '100%' }
     if (adjLeft  === panelTab)  return ADJ_LEFT
     if (adjRight === panelTab)  return ADJ_RIGHT
     return { display: 'none' }

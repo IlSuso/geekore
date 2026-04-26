@@ -32,8 +32,8 @@ export function usePullToRefresh({ onRefresh, threshold = 70 }: Options) {
 
   const onMove = useCallback((e: TouchEvent) => {
     if (!active.current || loading.current) return
-    if (gestureState.swipeActive) { active.current = false; return }
-    if (window.scrollY > 4) { active.current = false; return }
+    if (gestureState.swipeActive) { active.current = false; gestureState.pullActive = false; return }
+    if (window.scrollY > 4) { active.current = false; gestureState.pullActive = false; return }
 
     const raw = e.touches[0].clientY - startY.current
     const dx = Math.abs(e.touches[0].clientX - (e.touches[0].clientX)) // just for reference
@@ -49,9 +49,9 @@ export function usePullToRefresh({ onRefresh, threshold = 70 }: Options) {
   }, [threshold])
 
   const onEnd = useCallback(async () => {
+    gestureState.pullActive = false   // sempre reset, prima di qualsiasi guard
     if (!active.current || loading.current) return
     active.current = false
-    gestureState.pullActive = false
 
     setState(prev => {
       if (prev.distance < threshold * 0.6) {
