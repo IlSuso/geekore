@@ -83,6 +83,9 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     setAnimate(false)
     setOffset(0)
     setSnapping(false)
+    // Reset header slide-out animation without triggering a CSS transition.
+    document.documentElement.removeAttribute('data-swiping')
+    document.documentElement.style.removeProperty('--swipe-to-fullscreen')
   }, [pathname])
 
   // Lock body scroll while a swipe is in progress. Without this, vertical
@@ -152,6 +155,14 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     if (dx > 0 && !prevTab) { setOffset(Math.pow(dx, 0.6) * 0.5); return }
     if (dx < 0 && !nextTab) { setOffset(-Math.pow(-dx, 0.6) * 0.5); return }
     setOffset(dx)
+
+    const r = document.documentElement
+    const toSwipe = (nextTab === '/swipe' && dx < 0) || (prevTab === '/swipe' && dx > 0)
+    r.setAttribute('data-swiping', '')
+    r.style.setProperty(
+      '--swipe-to-fullscreen',
+      toSwipe ? String(Math.min(Math.abs(dx) / (vw.current || window.innerWidth), 1)) : '0'
+    )
   }, [isMain, prevTab, nextTab])
 
   const onTouchEnd = useCallback(() => {
@@ -173,13 +184,19 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     const w        = vw.current || window.innerWidth
     const shouldNav = Math.abs(dx) > CONFIRM_THRESHOLD || velocity > VELOCITY_THRESHOLD
 
+    const r = document.documentElement
+    r.removeAttribute('data-swiping')
+
     if (shouldNav && dx > 0 && prevTab) {
+      if (prevTab === '/swipe') r.style.setProperty('--swipe-to-fullscreen', '1')
       setAnimate(true); setOffset(w)
       setTimeout(() => { router.push(prevTab) }, 260)
     } else if (shouldNav && dx < 0 && nextTab) {
+      if (nextTab === '/swipe') r.style.setProperty('--swipe-to-fullscreen', '1')
       setAnimate(true); setOffset(-w)
       setTimeout(() => { router.push(nextTab) }, 260)
     } else {
+      r.style.setProperty('--swipe-to-fullscreen', '0')
       setSnapping(true)
       setAnimate(true); setOffset(0)
       swipeNavBridge.notifyEnd()
@@ -194,6 +211,9 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     gestureState.swipeActive = false
     isDragging.current       = false
     isH.current              = null
+    const r = document.documentElement
+    r.removeAttribute('data-swiping')
+    r.style.setProperty('--swipe-to-fullscreen', '0')
     setSnapping(true)
     setAnimate(true); setOffset(0)
     swipeNavBridge.notifyEnd()

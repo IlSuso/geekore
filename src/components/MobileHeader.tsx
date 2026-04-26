@@ -181,11 +181,12 @@ export function MobileHeader() {
 
   return (
     <header
-      className="md:hidden fixed top-0 left-0 right-0 z-[99] bg-black"
+      className="md:hidden fixed top-0 left-0 right-0 z-[99] bg-black swipe-animates-header"
       style={{
         paddingTop: 'env(safe-area-inset-top)',
         visibility: isSwipePage ? 'hidden' : 'visible',
         pointerEvents: isSwipePage ? 'none' : 'auto',
+        transform: 'translateY(calc(var(--swipe-to-fullscreen, 0) * -100%))',
       }}
       aria-hidden={isSwipePage}
     >
