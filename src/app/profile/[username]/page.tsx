@@ -1105,13 +1105,8 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     return () => clearTimeout(timer)
   }, [steamMessage])
 
-  if (loading) return <Spinner />
-  if (!profile) return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white">{t.profile.notFound}</div>
-
-  const cats = t.profile.categories
-
-  // Apply filters + sort
   // ── Taste DNA — top generi estratti dalla media list ──────────────────────
+  // IMPORTANTE: useMemo deve stare PRIMA dei return condizionali (regola degli hooks)
   const topGenres = useMemo(() => {
     const freq: Record<string, number> = {}
     mediaList.forEach(m => {
@@ -1122,6 +1117,13 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
       .sort(([, a], [, b]) => b - a)
       .map(([g]) => g)
   }, [mediaList])
+
+  if (loading) return <Spinner />
+  if (!profile) return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white">{t.profile.notFound}</div>
+
+  const cats = t.profile.categories
+
+  // Apply filters + sort
 
   const filteredList = mediaList.filter(m => {
     const searchLower = collectionSearch.toLowerCase().trim()
