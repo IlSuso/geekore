@@ -209,12 +209,12 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
 }
 
 .profile-tab-active {
-  border-bottom: 2px solid var(--violet);
+  border-bottom: 2px solid var(--brand);
   color: var(--violet-light);
 }
 
 .gk-tab-active {
-  border-bottom: 2px solid var(--violet);
+  border-bottom: 2px solid var(--brand);
   color: var(--violet-light);
 }
 

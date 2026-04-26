@@ -489,6 +489,13 @@ export default function DiscoverPage() {
           />
         )}
 
+        {/* Hint — query troppo corta (1 carattere) */}
+        {!loading && searchTerm.trim().length === 1 && (
+          <div className="flex items-center justify-center gap-2 py-6 text-[var(--text-muted)]">
+            <span className="text-[13px]">Scrivi ancora qualcosa per avviare la ricerca…</span>
+          </div>
+        )}
+
         {/* No results */}
         {!loading && !searchError && results.length === 0 && searchTerm.trim().length >= 2 && !isPending && (
           <EmptyState
@@ -526,7 +533,7 @@ export default function DiscoverPage() {
                     {hasValidCover(item)
                       ? <img
                           src={item.coverImage}
-                          alt={item.title}
+                          alt={`Copertina di ${item.title} (${TYPE_LABELS[item.type] || item.type})`}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           loading="lazy"
                           onError={e => {

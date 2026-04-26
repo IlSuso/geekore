@@ -23,7 +23,7 @@ import {
   Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X,
   Loader2, Pin, ArrowUp, Trash2, Tag, ChevronDown, Filter, Search, MoreHorizontal,
   Film, Tv, Gamepad2, Swords, Check, PartyPopper, Layers, Dices,
-  Bell, ChevronRight, ArrowLeft, Flame
+  Bell, ChevronRight, ArrowLeft, Flame, Plus
 } from 'lucide-react'
 import { SkeletonFeedPost } from '@/components/ui/SkeletonCard'
 import { Avatar } from '@/components/ui/Avatar'
@@ -879,8 +879,8 @@ const PostCard = memo(function PostCard({
           </p>
         </div>
         {currentUser?.id === post.user_id && (
-          <button onClick={() => onPostOptions(post.id)} className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all">
-            <MoreHorizontal size={18} />
+          <button onClick={() => onPostOptions(post.id)} className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all" aria-label="Opzioni post">
+            <MoreHorizontal size={18} aria-hidden="true" />
           </button>
         )}
       </div>
@@ -938,6 +938,24 @@ const PostCard = memo(function PostCard({
             <ReportButton targetType="post" targetId={post.id} iconOnly />
           </div>
         )}
+
+        {/* Share — Web Share API nativa, fallback clipboard */}
+        <button
+          onClick={async () => {
+            const url = `${window.location.origin}/home?post=${post.id}`
+            if (navigator.share) {
+              await navigator.share({ title: 'Geekore', text: post.content.slice(0, 80), url }).catch(() => {})
+            } else {
+              await navigator.clipboard.writeText(url).catch(() => {})
+            }
+          }}
+          aria-label="Condividi post"
+          className={`flex items-center gap-2 group text-zinc-500 hover:text-violet-400 transition-all ${currentUser && currentUser.id !== post.user_id ? '' : 'ml-auto'}`}
+        >
+          <div className="p-1.5 rounded-xl transition-colors group-hover:bg-violet-500/10">
+            <Send size={18} aria-hidden="true" />
+          </div>
+        </button>
       </div>
     </div>
   )
@@ -1084,9 +1102,10 @@ function PostModal({
                     {currentUser?.id === comment.user_id && (
                       <button
                         onClick={() => onCommentOptions(comment.id, post.id)}
+                        aria-label="Opzioni commento"
                         className="text-zinc-600 hover:text-white opacity-0 group-hover/mc:opacity-100 transition-all shrink-0 mt-0.5"
                       >
-                        <MoreHorizontal size={14} />
+                        <MoreHorizontal size={14} aria-hidden="true" />
                       </button>
                     )}
                   </div>
@@ -2074,6 +2093,24 @@ export default function FeedPage() {
         </div>
       </div>
       </PullWrapper>
+
+      {/* FAB mobile — Nuovo post, solo su mobile, sopra la bottom nav */}
+      {currentUser && (
+        <button
+          onClick={() => {
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+            setTimeout(() => {
+              const textarea = document.querySelector<HTMLTextAreaElement>('textarea[placeholder]')
+              textarea?.focus()
+            }, 400)
+          }}
+          aria-label="Crea nuovo post"
+          className="md:hidden fixed right-4 z-[90] w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-xl shadow-violet-500/40 flex items-center justify-center active:scale-95 transition-transform border border-violet-400/30"
+          style={{ bottom: `calc(56px + env(safe-area-inset-bottom, 0px) + 16px)` }}
+        >
+          <Plus size={26} className="text-white" strokeWidth={2.5} aria-hidden="true" />
+        </button>
+      )}
     </div>
   )
 }

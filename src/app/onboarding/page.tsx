@@ -105,16 +105,24 @@ function setOnboardingCookie() {
   document.cookie = `geekore_onboarding_done=1; path=/; max-age=${maxAge}; SameSite=Lax${secure}`
 }
 
-// ─── StepDots ─────────────────────────────────────────────────────────────────
+// ─── StepBar — progress bar lineare ──────────────────────────────────────────
 
 function StepDots({ current, total }: { current: number; total: number }) {
+  const pct = Math.round(((current + 1) / total) * 100)
   return (
-    <div className="flex gap-2 items-center">
-      {Array.from({ length: total }).map((_, i) => (
-        <div key={i} className={`rounded-full transition-all duration-300 ${
-          i === current ? 'w-7 h-2 bg-violet-500' : i < current ? 'w-2 h-2 bg-violet-500/40' : 'w-2 h-2 bg-zinc-700'
-        }`} />
-      ))}
+    <div className="flex flex-col gap-1.5 w-full">
+      <div className="flex justify-between items-center">
+        <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest">
+          Passo {current + 1} di {total}
+        </span>
+        <span className="text-[11px] font-bold text-violet-400">{pct}%</span>
+      </div>
+      <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden w-full">
+        <div
+          className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-full transition-all duration-500"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
     </div>
   )
 }

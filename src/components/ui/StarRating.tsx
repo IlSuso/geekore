@@ -154,7 +154,7 @@ export function StarRating({
       </div>
       {/* Valore numerico — visibile quando c'è un voto */}
       {displayed > 0 && (
-        <span className="text-[12px] font-bold text-zinc-400 tabular-nums leading-none ml-0.5">
+        <span className="text-[12px] font-bold text-[var(--brand)] tabular-nums leading-none ml-0.5">
           {displayed % 1 === 0 ? displayed.toFixed(1) : displayed}
         </span>
       )}
