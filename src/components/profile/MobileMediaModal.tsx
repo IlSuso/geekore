@@ -103,14 +103,41 @@ export function MobileMediaModal({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [imgFailed, setImgFailed] = useState(false)
 
-  const sheetRef = useRef<HTMLDivElement>(null)
-  const handleStartY = useRef<number | null>(null)
-  const handleCurrentY = useRef<number>(0)
+  const sheetRef           = useRef<HTMLDivElement>(null)
+  const handleStartY       = useRef<number | null>(null)
+  const handleCurrentY     = useRef<number>(0)
+  const handleStartX       = useRef(0)
+  const handleIsVertical   = useRef<boolean | null>(null)
+  const historyPushed      = useRef(false)
+  const onCloseRef         = useRef(onClose)
+  onCloseRef.current       = onClose
 
   useEffect(() => {
     gestureState.drawerActive = true
     return () => { gestureState.drawerActive = false }
   }, [])
+
+  // Intercept Android/iOS system back gesture: push a fake history entry so the
+  // back gesture pops it (firing popstate) instead of navigating away from Profile.
+  useEffect(() => {
+    history.pushState({ modal: 'media' }, '', location.href)
+    historyPushed.current = true
+    const onPop = () => {
+      if (!historyPushed.current) return
+      historyPushed.current = false
+      setClosing(true)
+      setTimeout(() => onCloseRef.current(), 240)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      // If the modal is closing normally (not via back gesture), pop the fake entry.
+      if (historyPushed.current && history.state?.modal === 'media') {
+        historyPushed.current = false
+        history.back()
+      }
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Slide-up entry
   useEffect(() => {
@@ -127,28 +154,48 @@ export function MobileMediaModal({
   const doClose = () => {
     if (closing) return
     setClosing(true)
+    if (historyPushed.current) {
+      historyPushed.current = false
+      // Fires popstate, but historyPushed is already false so listener is a no-op.
+      history.back()
+    }
     setTimeout(onClose, 240)
   }
 
-  // Drag-handle swipe-down to dismiss
+  // Drag-handle swipe-down to dismiss — only responds to primarily vertical gestures.
   const onHandleTouchStart = (e: React.TouchEvent) => {
-    handleStartY.current = e.touches[0].clientY
-    handleCurrentY.current = e.touches[0].clientY
+    handleStartY.current     = e.touches[0].clientY
+    handleCurrentY.current   = e.touches[0].clientY
+    handleStartX.current     = e.touches[0].clientX
+    handleIsVertical.current = null
     if (sheetRef.current) sheetRef.current.style.transition = 'none'
   }
   const onHandleTouchMove = (e: React.TouchEvent) => {
     if (handleStartY.current === null) return
     handleCurrentY.current = e.touches[0].clientY
+    if (handleIsVertical.current === null) {
+      const dx = Math.abs(e.touches[0].clientX - handleStartX.current)
+      const dy = Math.abs(handleCurrentY.current - handleStartY.current)
+      if (dx < 6 && dy < 6) return
+      handleIsVertical.current = dy > dx
+      if (!handleIsVertical.current && sheetRef.current) {
+        // Horizontal gesture — restore transition so close animation stays smooth.
+        sheetRef.current.style.transition = ''
+        sheetRef.current.style.transform  = ''
+      }
+    }
+    if (!handleIsVertical.current) return
     const delta = Math.max(0, handleCurrentY.current - handleStartY.current)
     if (sheetRef.current) sheetRef.current.style.transform = `translateY(${delta}px)`
   }
   const onHandleTouchEnd = () => {
     if (sheetRef.current) {
       sheetRef.current.style.transition = ''
-      sheetRef.current.style.transform = ''
+      sheetRef.current.style.transform  = ''
     }
     const delta = handleCurrentY.current - (handleStartY.current ?? handleCurrentY.current)
-    handleStartY.current = null
+    handleStartY.current     = null
+    handleIsVertical.current = null
     if (delta > 80) doClose()
   }
 
