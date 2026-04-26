@@ -14,6 +14,7 @@ import { X, Check, ChevronRight, Star, Gamepad2, Tv, Film, Layers, Swords, Rotat
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { createClient } from '@/lib/supabase/client'
+import { profileInvalidateBridge } from '@/hooks/profileInvalidateBridge'
 
 type SwipeMediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame'
 
@@ -767,6 +768,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
               // skipPersist=true: il Drawer ha già scritto su user_media_entries,
               // handleSwipeSeen NON deve fare un secondo upsert
               handleSwipe('right', swipeItem, true)
+              profileInvalidateBridge.invalidate()
             }}
           />
         </div>

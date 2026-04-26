@@ -29,13 +29,13 @@ function NavItem({ href, icon: Icon, label, active }: { href: string; icon: Reac
   return (
     <Link
       href={href}
-      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-medium transition-colors ${
+      className={`flex items-center gap-4 px-4 py-3.5 rounded-xl text-[15px] font-medium transition-colors ${
         active
           ? 'bg-violet-600/15 text-violet-300'
           : 'text-zinc-300 hover:text-white hover:bg-zinc-800/70'
       }`}
     >
-      <Icon size={20} className={active ? 'text-violet-400' : 'text-zinc-400'} />
+      <Icon size={22} className={active ? 'text-violet-400' : 'text-zinc-400'} />
       {label}
     </Link>
   )
@@ -47,27 +47,27 @@ export function FeedLeftSidebar({ profile }: { profile: Profile | null }) {
 
   return (
     <>
-      <aside className="h-full flex flex-col py-3 pr-1">
+      <aside className="h-full flex flex-col py-4 pr-1">
 
         {/* User card */}
         {profile && (
           <Link
             href={`/profile/${profile.username}`}
-            className="flex items-center gap-3 px-2 py-3 mb-1 rounded-2xl hover:bg-zinc-800/70 transition-colors group flex-shrink-0"
+            className="flex items-center gap-3 px-3 py-3.5 mb-2 rounded-2xl hover:bg-zinc-800/70 transition-colors group flex-shrink-0"
           >
-            <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-zinc-700 group-hover:ring-violet-500/40 transition-all">
+            <div className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-zinc-700 group-hover:ring-violet-500/40 transition-all">
               <Avatar
                 src={profile.avatar_url}
                 username={profile.username}
                 displayName={profile.display_name}
-                size={40}
+                size={44}
               />
             </div>
             <div className="min-w-0">
-              <p className="text-[14px] font-semibold text-white truncate leading-tight">
+              <p className="text-[15px] font-semibold text-white truncate leading-tight">
                 {profile.display_name || profile.username}
               </p>
-              <p className="text-[12px] text-zinc-500 truncate">@{profile.username}</p>
+              <p className="text-[13px] text-zinc-500 truncate">@{profile.username}</p>
             </div>
           </Link>
         )}
@@ -84,19 +84,19 @@ export function FeedLeftSidebar({ profile }: { profile: Profile | null }) {
           {/* Notifiche — apre drawer */}
           <button
             onClick={() => setDrawerOpen(true)}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-medium transition-colors text-zinc-300 hover:text-white hover:bg-zinc-800/70 w-full text-left"
+            className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-[15px] font-medium transition-colors text-zinc-300 hover:text-white hover:bg-zinc-800/70 w-full text-left"
           >
-            <Bell size={20} className="text-zinc-400" />
+            <Bell size={22} className="text-zinc-400" />
             Notifiche
           </button>
         </nav>
 
         {/* Divider */}
-        <div className="h-px bg-zinc-800 mx-2 my-3" />
+        <div className="h-px bg-zinc-800 mx-2 my-4" />
 
         {/* Explore section */}
-        <div className="mb-2">
-          <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide px-3 mb-1.5">Scopri</p>
+        <div className="mb-4">
+          <p className="text-[12px] font-semibold text-zinc-500 uppercase tracking-wide px-4 mb-2">Scopri</p>
           <nav className="flex flex-col gap-0.5">
             {EXPLORE_NAV.map(({ href, icon, label }) => (
               <NavItem key={href} href={href} icon={icon} label={label} active={pathname === href} />
@@ -108,10 +108,10 @@ export function FeedLeftSidebar({ profile }: { profile: Profile | null }) {
         <div className="flex-1" />
 
         {/* Bottom: Settings */}
-        <div className="mt-3 pb-2">
+        <div className="pb-2">
           <div className="h-px bg-zinc-800 mx-2 mb-3" />
           <NavItem href="/settings" icon={Settings} label="Impostazioni" active={pathname === '/settings'} />
-          <p className="text-[10px] text-zinc-600 px-3 mt-3">© 2025 Geekore</p>
+          <p className="text-[11px] text-zinc-600 px-4 mt-4">© 2025 Geekore</p>
         </div>
       </aside>
 

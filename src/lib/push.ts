@@ -175,7 +175,7 @@ export function commentPayload(senderUsername: string, postId?: string): PushPay
   return {
     title: 'Geekore',
     body: `@${senderUsername} ha commentato`,
-    url: postId ? `/feed` : `/notifications`,
+    url: postId ? `/home` : `/notifications`,
     tag: `comment-${postId || 'profile'}`,
   }
 }

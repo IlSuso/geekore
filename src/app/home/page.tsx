@@ -1656,7 +1656,7 @@ export default function FeedPage() {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
         <div className="pt-0 pb-24 xl:pb-6 relative min-h-screen">
-          <div className="lg:pl-[280px] flex items-start min-h-screen">
+          <div className="lg:pl-[360px] flex items-start min-h-screen">
             {/* Colonna principale */}
             <div className="flex-1 min-w-0">
               <div className="max-w-[680px] mx-auto px-4">
@@ -1681,7 +1681,7 @@ export default function FeedPage() {
               </div>
             </div>
             {/* Right sidebar skeleton */}
-            <div className="hidden xl:block w-[440px] flex-shrink-0 sticky top-12 pt-4 px-4 space-y-6 animate-pulse">
+            <div className="hidden xl:block w-[420px] flex-shrink-0 sticky top-12 pt-4 px-4 space-y-6 animate-pulse">
               <div>
                 <div className="h-4 w-40 bg-zinc-800 rounded-full mb-4" />
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -1792,7 +1792,7 @@ export default function FeedPage() {
       {/* ── Sidebar sinistra — fixed al viewport, mai scorrevole.
            Vive FUORI da PullWrapper per evitare che il suo transform
            inline (translateY) rompa position:fixed. ── */}
-      <div className="hidden lg:block fixed top-12 left-0 w-[280px] h-[calc(100vh-3rem)] z-20 bg-[var(--bg-primary)] overflow-y-auto">
+      <div className="hidden lg:block fixed top-12 left-0 w-[360px] h-[calc(100vh-3rem)] z-20 bg-[var(--bg-primary)] overflow-y-auto">
         <FeedLeftSidebar profile={currentProfile} />
       </div>
 
@@ -1800,11 +1800,11 @@ export default function FeedPage() {
       {/* Layout: full-bleed su mobile, tre colonne su desktop — stile Facebook */}
       <div className="pt-0 pb-24 xl:pb-6 relative min-h-screen">
 
-        <div className="lg:pl-[280px] flex items-start gap-0 min-h-screen">
+        <div className="lg:pl-[360px] flex items-start gap-0 min-h-screen">
 
           {/* ── Colonna principale ─────────────────────────────────── */}
-          <div className="flex-1 min-w-0">
-          <div className="max-w-[680px] mx-auto px-4">
+          <div className="flex-1 min-w-0 flex justify-center">
+          <div className="w-full max-w-[680px] px-4">
 
             {/* Composer — barra statica non invasiva, modal fullscreen al tap */}
             {currentUser && (
@@ -2084,7 +2084,7 @@ export default function FeedPage() {
           </div>
 
           {/* ── Sidebar destra — sticky, scorre col feed e si ferma a fondo contenuto ── */}
-          <div className="hidden xl:block w-[440px] flex-shrink-0 self-stretch">
+          <div className="hidden xl:block w-[420px] flex-shrink-0 self-stretch">
             <StickyFromBottom navHeight={64}>
               <FeedSidebar currentUserId={currentUser?.id ?? null} />
             </StickyFromBottom>

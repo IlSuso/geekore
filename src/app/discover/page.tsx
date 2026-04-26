@@ -16,7 +16,8 @@ import { SkeletonDiscoverCard } from '@/components/ui/SkeletonCard';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState';
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { EmptyState } from '@/components/ui/EmptyState'
+import { profileInvalidateBridge } from '@/hooks/profileInvalidateBridge';
 
 type MediaItem = {
   id: string; title: string; title_en?: string; type: string; coverImage?: string; year?: number;
@@ -604,7 +605,7 @@ export default function DiscoverPage() {
         <MediaDetailsDrawer
           media={drawerMedia}
           onClose={() => setDrawerMedia(null)}
-          onAdd={(media) => { setAlreadyAdded(prev => [...prev, media.id]); setDrawerMedia(null); }}
+          onAdd={(media) => { setAlreadyAdded(prev => [...prev, media.id]); setDrawerMedia(null); profileInvalidateBridge.invalidate(); }}
         />
       )}
     </div>

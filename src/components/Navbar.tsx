@@ -189,7 +189,7 @@ export default function Navbar() {
           </div>
 
           {/* CENTER: Nav icon tabs ───────────────────────────────────────── */}
-          <div className="flex items-end h-full flex-shrink-0">
+          <div className="flex items-end h-full flex-shrink-0" style={{ transform: 'translateX(-30px)' }}>
             {NAV_ITEMS.map((item) => {
               const isActive = item.href === '/home'
                 ? pathname === '/home' || pathname === '/'

@@ -4,7 +4,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 
 const PROTECTED_PATHS = [
-  '/home', '/feed', '/discover', '/for-you', '/news', '/notifications',
+  '/home', '/discover', '/for-you', '/news', '/notifications',
   '/profile/edit', '/profile/me', '/settings', '/wishlist',
   '/lists', '/stats', '/trending', '/leaderboard', '/explore', '/community',
   '/search', '/profile',

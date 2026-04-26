@@ -208,7 +208,7 @@ export async function upsertWithMerge(
         } else {
           logger.error(`${logPrefix} merge update error:`, JSON.stringify(error))
           // Fallback: inserisci come nuova riga
-          const { error: e2 } = await supabase.from('user_media_entries').insert({ ...incoming, user_id: userId })
+          const { error: e2 } = await supabase.from('user_media_entries').insert({ ...incoming, user_id: userId, display_order: Date.now() })
           if (!e2) imported++
           else skipped++
         }
@@ -218,7 +218,7 @@ export async function upsertWithMerge(
       // ── Caso 3: titolo nuovo → INSERT ────────────────────────────────────
       const { error } = await supabase
         .from('user_media_entries')
-        .insert({ ...incoming, user_id: userId })
+        .insert({ ...incoming, user_id: userId, display_order: Date.now() })
 
       if (!error) {
         imported++
@@ -249,7 +249,11 @@ async function fallbackInsert(
   let skipped = 0
 
   for (let i = 0; i < toInsert.length; i += 50) {
-    const batch = toInsert.slice(i, i + 50)
+    const ts = Date.now()
+    const batch = toInsert.slice(i, i + 50).map((item, j) => ({
+      ...item,
+      display_order: item.display_order ?? (ts - j * 1000),
+    }))
     const { error } = await supabase.from('user_media_entries').insert(batch)
     if (!error) imported += batch.length
     else skipped += batch.length

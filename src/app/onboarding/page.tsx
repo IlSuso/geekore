@@ -379,7 +379,8 @@ export default function OnboardingPage() {
     // Scrivi tutti gli accepted in batch (esclusi quelli poi skippati via undo)
     const accepted = Array.from(acceptedItemsRef.current.values())
     if (accepted.length > 0) {
-      const rows = accepted.map(({ item, rating }) => ({
+      const ts = Date.now()
+      const rows = accepted.map(({ item, rating }, i) => ({
         user_id: uid,
         external_id: item.id,
         title: item.title,
@@ -390,6 +391,7 @@ export default function OnboardingPage() {
         episodes: item.episodes ?? null,
         rating: rating ?? null,
         updated_at: new Date().toISOString(),
+        display_order: ts - i * 1000,
       }))
       const { error } = await supabase.from('user_media_entries').upsert(rows, { onConflict: 'user_id,external_id' })
       if (error) console.error('[Onboarding] ERRORE upsert batch:', error.message)
