@@ -12,8 +12,8 @@ import { SteamIcon } from '@/components/icons/SteamIcon'
 import { Avatar } from '@/components/ui/Avatar'
 import Link from 'next/link'
 import {
-  ArrowLeft, Search, SlidersHorizontal, Grid3X3, List,
-  Clock, CheckCircle, X, Edit3, Loader2, Gamepad2, Tv, Bookmark, RefreshCw, RotateCcw,
+  ArrowLeft, Search,
+  Clock, CheckCircle, X, Edit3, Loader2, Gamepad2, Tv, Bookmark, RefreshCw, RotateCcw, GripVertical,
 } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { NotesModal } from '@/components/profile/NotesModal'
@@ -106,7 +106,6 @@ function InlineChapterInput({ value, max, onSave }: {
 }
 
 type SortMode = 'default' | 'rating_desc' | 'rating_asc' | 'title_asc' | 'title_desc' | 'date_desc' | 'progress_desc'
-type ViewMode = 'grid' | 'list'
 type StatusFilter = 'all' | 'completed' | 'watching' | 'paused' | 'dropped' | 'wishlist'
 
 // ─── Mapping tipo → label ─────────────────────────────────────────────────────
@@ -160,8 +159,8 @@ function SteamCoverImg({ appid, title }: { appid?: string; title: string }) {
 
 // ─── SortableCard ─────────────────────────────────────────────────────────────
 
-function SortableCard({ media, children }: { media: UserMedia; children: React.ReactNode }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: media.id })
+function SortableCard({ media, children, dragEnabled }: { media: UserMedia; children: React.ReactNode; dragEnabled: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: media.id, disabled: !dragEnabled })
   return (
     <div
       ref={setNodeRef}
@@ -172,8 +171,8 @@ function SortableCard({ media, children }: { media: UserMedia; children: React.R
         WebkitUserSelect: 'none',
       }}
       {...attributes}
-      {...listeners}
-      className={`cursor-grab active:cursor-grabbing rounded-3xl overflow-hidden h-full ${
+      {...(dragEnabled ? listeners : {})}
+      className={`${dragEnabled ? 'cursor-grab active:cursor-grabbing' : ''} rounded-3xl overflow-hidden h-full ${
         isDragging
           ? 'border-2 border-violet-500 shadow-2xl z-50'
           : 'border border-zinc-800 hover:border-violet-500/50 hover:shadow-xl'
@@ -618,8 +617,9 @@ export default function ProfileTypePage() {
 
   const [search, setSearch] = useState('')
   const [sortMode, setSortMode] = useState<SortMode>('default')
-  const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [isMobile, setIsMobile] = useState(false)
+  const [isDragEnabled, setIsDragEnabled] = useState(false)
 
   const [notesOpen, setNotesOpen] = useState(false)
   const [selectedMedia, setSelectedMedia] = useState<UserMedia | null>(null)
@@ -631,6 +631,13 @@ export default function ProfileTypePage() {
   const [openMobileId, setOpenMobileId] = useState<string | null>(null)
 
   const typeLabel = TYPE_LABELS[type] || type
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   useEffect(() => {
     const load = async () => {
@@ -915,21 +922,16 @@ export default function ProfileTypePage() {
             )}
           </select>
 
-          {/* Vista */}
-          <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-2xl p-1 ml-auto">
+          {/* Drag toggle — mobile + owner only */}
+          {isOwner && isMobile && (
             <button
-              onClick={() => setViewMode('grid')}
-              className={`flex items-center justify-center p-2 rounded-xl transition ${viewMode === 'grid' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+              onClick={() => setIsDragEnabled(v => !v)}
+              className={`md:hidden flex items-center gap-1.5 px-3 py-2 border rounded-xl text-xs transition ${isDragEnabled ? 'bg-violet-600 border-violet-500 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-400'}`}
             >
-              <Grid3X3 size={15} />
+              <GripVertical size={13} />
+              {isDragEnabled ? 'Fine riordino' : 'Riordina'}
             </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`flex items-center justify-center p-2 rounded-xl transition ${viewMode === 'list' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
-            >
-              <List size={15} />
-            </button>
-          </div>
+          )}
         </div>
 
         {/* Risultati */}
@@ -939,16 +941,16 @@ export default function ProfileTypePage() {
             <p className="text-lg font-medium">Nessun titolo trovato</p>
             {search && <p className="text-sm mt-1">Prova con un altro termine di ricerca</p>}
           </div>
-        ) : viewMode === 'grid' ? (
-          (() => {
+        ) : (() => {
             const visible = filtered.slice(0, visibleCount)
+            const effectiveDragEnabled = isOwner && (isMobile ? isDragEnabled : true)
             return isOwner ? (
               <>
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
                   <SortableContext items={visible.map(m => m.id)} strategy={rectSortingStrategy}>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-4">
                       {visible.map(media => (
-                        <SortableCard key={media.id} media={media}>
+                        <SortableCard key={media.id} media={media} dragEnabled={effectiveDragEnabled}>
                           <MediaCard
                             media={media}
                             isOwner={isOwner}
@@ -996,24 +998,7 @@ export default function ProfileTypePage() {
                 <div ref={sentinelRef} />
               </>
             )
-          })()
-        ) : (
-          <>
-            <div className="space-y-2">
-              {filtered.slice(0, visibleCount).map(media => (
-                <MediaRow
-                  key={media.id}
-                  media={media}
-                  isOwner={isOwner}
-                  onRating={handleRating}
-                  onStatusChange={handleStatusChange}
-                  onDelete={handleDelete}
-                />
-              ))}
-            </div>
-            <div ref={sentinelRef} />
-          </>
-        )}
+          })()}
 
         {/* Contatore risultati */}
         {filtered.length > 0 && (

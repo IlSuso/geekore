@@ -2,7 +2,7 @@
 
 import { logActivity } from '@/lib/activity'
 import { profileInvalidateBridge } from '@/hooks/profileInvalidateBridge'
-import { Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, List, Grid3X3, ChevronRight, Download, X as XIcon, Gamepad2, Tv, BarChart2, Users, TrendingUp } from 'lucide-react'
+import { Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, ChevronRight, Download, X as XIcon, Gamepad2, Tv, BarChart2, Users, TrendingUp, GripVertical } from 'lucide-react'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { gestureState } from '@/hooks/gestureState'
 import { useParams, usePathname, useRouter } from 'next/navigation'
@@ -185,8 +185,8 @@ function InlineChapterInput({ value, max, onSave }: {
 
 // ─── SortableBox ─────────────────────────────────────────────────────────────
 
-function SortableBox({ media, children }: { media: UserMedia; children: React.ReactNode }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: media.id })
+function SortableBox({ media, children, disabled }: { media: UserMedia; children: React.ReactNode; disabled?: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: media.id, disabled })
   return (
     <div
       ref={setNodeRef}
@@ -197,8 +197,8 @@ function SortableBox({ media, children }: { media: UserMedia; children: React.Re
         WebkitUserSelect: 'none',
       }}
       {...attributes}
-      {...listeners}
-      className={`cursor-grab active:cursor-grabbing rounded-3xl overflow-hidden min-h-[340px] sm:min-h-[380px] md:min-h-[420px] h-full flex flex-col ${
+      {...(disabled ? {} : listeners)}
+      className={`${disabled ? '' : 'cursor-grab active:cursor-grabbing'} rounded-3xl overflow-hidden min-h-[340px] sm:min-h-[380px] md:min-h-[420px] h-full flex flex-col ${
         isDragging
           ? 'border-2 border-violet-500 shadow-2xl scale-[1.02] z-50'
           : 'border border-zinc-800 md:hover:border-violet-500/50 md:hover:shadow-xl'
@@ -646,11 +646,10 @@ function CopyProfileLink({ username }: { username: string }) {
 // ─── CollectionControls ───────────────────────────────────────────────────────
 
 function CollectionControls({
-  search, onSearch, sort, onSort, view, onView, statusFilter, onStatusFilter,
+  search, onSearch, sort, onSort, statusFilter, onStatusFilter,
 }: {
   search: string; onSearch: (v: string) => void
   sort: SortMode; onSort: (v: SortMode) => void
-  view: ViewMode; onView: (v: ViewMode) => void
   statusFilter: string; onStatusFilter: (v: string) => void
 }) {
   return (
@@ -673,12 +672,12 @@ function CollectionControls({
         )}
       </div>
 
-      {/* Riga 2: filtri + view toggle — scrollabile su mobile */}
-      <div className="flex items-center gap-2">
+      {/* Riga 2: filtri — right-aligned on desktop, full-width on mobile */}
+      <div className="flex items-center gap-2 md:justify-end">
         <select
           value={statusFilter}
           onChange={e => onStatusFilter(e.target.value)}
-          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-violet-500 transition-colors appearance-none flex-1 min-w-0"
+          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-violet-500 transition-colors appearance-none flex-1 md:flex-none md:w-40 min-w-0"
         >
           <option value="all">Tutti</option>
           <option value="watching">In corso</option>
@@ -690,7 +689,7 @@ function CollectionControls({
         <select
           value={sort}
           onChange={e => onSort(e.target.value as SortMode)}
-          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-violet-500 transition-colors appearance-none flex-1 min-w-0"
+          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-violet-500 transition-colors appearance-none flex-1 md:flex-none md:w-40 min-w-0"
         >
           <option value="default">Default</option>
           <option value="rating_desc">Voto ↓</option>
@@ -699,16 +698,6 @@ function CollectionControls({
           <option value="progress_desc">Progresso ↓</option>
           <option value="date_desc">Recenti</option>
         </select>
-
-        {/* View toggle — pushed right */}
-        <div className="flex bg-zinc-900 border border-zinc-800 rounded-xl p-1 gap-0.5 flex-shrink-0">
-          <button onClick={() => onView('grid')} className={`flex items-center justify-center p-1.5 rounded-lg transition-colors ${view === 'grid' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
-            <Grid3X3 size={13} />
-          </button>
-          <button onClick={() => onView('compact')} className={`flex items-center justify-center p-1.5 rounded-lg transition-colors ${view === 'compact' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
-            <List size={13} />
-          </button>
-        </div>
       </div>
     </div>
   )
@@ -929,8 +918,14 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     }
   }, [pathname])
 
-  const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   const sortMediaList = (list: UserMedia[]) =>
     [...list].sort((a, b) => {
@@ -1497,7 +1492,6 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                   <CollectionControls
                     search={collectionSearch} onSearch={setCollectionSearch}
                     sort={sortMode} onSort={setSortMode}
-                    view={viewMode} onView={setViewMode}
                     statusFilter={statusFilter} onStatusFilter={setStatusFilter}
                   />
                 )}
@@ -1507,34 +1501,8 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                     <SearchIcon size={36} className="mx-auto mb-3 opacity-30" />
                     <p>Nessun titolo trovato</p>
                   </div>
-                ) : viewMode === 'compact' ? (
-                  // Compact list view
-                  <div className="space-y-2">
-                    {orderedCategories.map(category => (
-                      <div key={category} className="mb-8">
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-lg font-semibold">{category}</h3>
-                          <span className="text-xs text-zinc-500">{grouped[category].length}</span>
-                        </div>
-                        <div className="space-y-1.5">
-                          {grouped[category].map(media => (
-                            <CompactMediaRow
-                              key={media.id}
-                              media={media}
-                              isOwner={isOwner}
-                              onDelete={handleDelete}
-                              onRating={setRating}
-                              onSaveProgress={saveProgress}
-                              onStatusChange={changeStatus}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
                 ) : (
-                  // Grid view (default) — mostra 5 card per categoria + "Vedi tutti"
-                  // Fix #16 Repair Bible: DndContext singolo, SortableContext per categoria
+                  // Grid view — mostra 5 card per categoria + "Vedi tutti"
                   <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={() => setIsDraggingAny(true)} onDragEnd={onDragEnd}>
                   {orderedCategories.map((category) => {
                     const items = grouped[category]
@@ -1561,7 +1529,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                               <div className={`flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide ${isDraggingAny ? '' : 'snap-x snap-proximity'}`}>
                                 {preview.map((media) => (
                                   <div key={media.id} className="w-40 sm:w-48 md:w-52 flex-shrink-0 snap-start">
-                                    <SortableBox media={media}>
+                                    <SortableBox media={media} disabled={isMobile}>
                                       <MediaCard media={media} isOwner={true} deletingId={deletingId}
                                         onDelete={handleDelete} onDeleteRequest={setDeletingId} onDeleteCancel={() => setDeletingId(null)}
                                         onRating={setRating} onNotes={openNotesModal} onSaveProgress={saveProgress}
