@@ -84,8 +84,7 @@ export function MobileHeader() {
   }, [pathname])
 
   if (AUTH_PATHS.some(p => pathname.startsWith(p))) return null
-  // Su /swipe la barra categorie dello SwipeMode prende il posto dell'header
-  if (pathname === '/swipe') return null
+
 
   const isFeed      = pathname === '/home' || pathname === '/'
   const isOwnProfile  = pathname === '/profile/me' || (username && pathname === `/profile/${username}`)
@@ -178,10 +177,17 @@ export function MobileHeader() {
     )
   }
 
+  const isSwipePage = pathname === '/swipe'
+
   return (
     <header
       className="md:hidden fixed top-0 left-0 right-0 z-[99] bg-black"
-      style={{ paddingTop: 'env(safe-area-inset-top)', transform: 'translateZ(0)' }}
+      style={{
+        paddingTop: 'env(safe-area-inset-top)',
+        visibility: isSwipePage ? 'hidden' : 'visible',
+        pointerEvents: isSwipePage ? 'none' : 'auto',
+      }}
+      aria-hidden={isSwipePage}
     >
       <div className="flex items-center justify-between h-[52px] px-3">
         <div className="flex items-center flex-1 min-w-0">
