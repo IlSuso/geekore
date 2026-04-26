@@ -43,10 +43,10 @@ const ADJ_BASE = {
 const ADJ_LEFT:  CSSProperties = { ...ADJ_BASE, transform: 'translateX(-100%)' }
 const ADJ_RIGHT: CSSProperties = { ...ADJ_BASE, transform: 'translateX(100%)' }
 
-// Pannelli visitati ma non attivi/adiacenti: pre-posizionati fuori schermo
-// invece di display:none. Così la transizione ad ADJ_LEFT/ADJ_RIGHT durante lo
-// swipe è solo un cambio di transform+visibility (nessun layout recalc,
-// nessun flash della navbar su Samsung mid-gesture).
+// Pannelli visitati ma non attivi/adiacenti: pre-posizionati in absolute invisibili.
+// NESSUN transform — evita la GPU layer promotion su tutti i pannelli nascosti,
+// che su Samsung causa la scomparsa della navbar durante lo scroll.
+// Il layer GPU viene creato solo quando il pannello diventa ADJ (durante il gesto).
 const HIDDEN_VISITED: CSSProperties = {
   position: 'absolute',
   top: 0, left: 0, width: '100%', bottom: 0,
@@ -55,7 +55,6 @@ const HIDDEN_VISITED: CSSProperties = {
   zIndex: 1,
   contain: 'paint',
   visibility: 'hidden',
-  transform: 'translateX(-300%)',
 }
 
 function getKATab(pathname: string): KATab | null {
