@@ -165,7 +165,6 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
 
     if (!captured.current || !isMain || !isDragging.current) {
       captured.current   = false
-      setAnimate(true); setOffset(0)
       isH.current        = null
       isDragging.current = false
       return
@@ -200,6 +199,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   }, [isMain, prevTab, nextTab, router])
 
   const onTouchCancel = useCallback(() => {
+    const wasDragging        = isDragging.current
     captured.current         = false
     gestureState.swipeActive = false
     isDragging.current       = false
@@ -207,9 +207,11 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     const r = document.documentElement
     r.removeAttribute('data-swiping')
     r.removeAttribute('data-to-swipe')
-    setSnapping(true)
-    setAnimate(true); setOffset(0)
-    swipeNavBridge.notifyEnd()
+    if (wasDragging) {
+      setSnapping(true)
+      setAnimate(true); setOffset(0)
+      swipeNavBridge.notifyEnd()
+    }
   }, [])
 
   useEffect(() => {
