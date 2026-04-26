@@ -209,6 +209,8 @@ export default function OnboardingPage() {
 
   const skippedItemsRef = useRef<SwipeItem[]>([])
   const acceptedItemsRef = useRef<Map<string, { item: SwipeItem; rating: number | null }>>(new Map())
+  // Traccia item aggiunti alla wishlist durante l'onboarding per poterli revertare con undo
+  const wishlistItemsRef = useRef<Set<string>>(new Set())
 
   // ─── Helpers Supabase (stessa logica di for-you) ──────────────────────────
 
@@ -307,9 +309,24 @@ export default function OnboardingPage() {
     acceptedItemsRef.current.set(item.id, { item, rating })
   }, [])
 
+  // Undo: rimuove l'item da acceptedItemsRef e da wishlistItemsRef — ISTANTANEO
+  const handleOnboardingUndo = useCallback((item: SwipeItem) => {
+    acceptedItemsRef.current.delete(item.id)
+    // Se era uno skip (non accepted), rimuovilo dalla lista skipped
+    skippedItemsRef.current = skippedItemsRef.current.filter(i => i.id !== item.id)
+  }, [])
+
+  // Undo wishlist: rimuove da wishlistItemsRef — ISTANTANEO (nessuna scrittura Supabase da revertare
+  // perché nell'onboarding la wishlist viene scritta solo al completeOnboarding)
+  const handleOnboardingUndoWishlist = useCallback((item: SwipeItem) => {
+    wishlistItemsRef.current.delete(item.id)
+    acceptedItemsRef.current.delete(item.id)
+  }, [])
+
   const handleOnboardingSkip = useCallback((item: SwipeItem) => {
     // Se era in coda come accettato (undo → skip) rimuovilo
     acceptedItemsRef.current.delete(item.id)
+    wishlistItemsRef.current.delete(item.id)
     skippedItemsRef.current.push(item)
   }, [])
 
@@ -369,13 +386,34 @@ export default function OnboardingPage() {
         type: item.type,
         cover_image: item.coverImage ?? null,
         genres: item.genres ?? [],
-        status: rating !== null ? 'completed' : 'wishlist',
+        status: 'completed',
         episodes: item.episodes ?? null,
         rating: rating ?? null,
         updated_at: new Date().toISOString(),
       }))
       const { error } = await supabase.from('user_media_entries').upsert(rows, { onConflict: 'user_id,external_id' })
       if (error) console.error('[Onboarding] ERRORE upsert batch:', error.message)
+    }
+
+    // Scrivi wishlist in batch (item messi in wishlist via bottone bookmark)
+    const wishlistIds = Array.from(wishlistItemsRef.current)
+    if (wishlistIds.length > 0) {
+      const wishlistRows = wishlistIds.map(id => {
+        const entry = acceptedItemsRef.current.get(id) // fallback se ancora presente
+        // cerca nelle accepted o nelle skipped per i dati dell'item
+        const item = entry?.item ?? skippedItemsRef.current.find(i => i.id === id)
+        if (!item) return null
+        return {
+          user_id: uid,
+          external_id: item.id,
+          title: item.title,
+          type: item.type,
+          cover_image: item.coverImage ?? null,
+        }
+      }).filter(Boolean)
+      if (wishlistRows.length > 0) {
+        await supabase.from('wishlist').upsert(wishlistRows as any[], { onConflict: 'user_id,external_id' })
+      }
     }
 
     if (skippedItemsRef.current.length > 0) {
@@ -414,6 +452,8 @@ export default function OnboardingPage() {
         onRequestMore={handleOnboardingRequestMore}
         isOnboarding
         onOnboardingComplete={completeOnboarding}
+        onUndo={handleOnboardingUndo}
+        onUndoWishlist={handleOnboardingUndoWishlist}
       />
     )
   }

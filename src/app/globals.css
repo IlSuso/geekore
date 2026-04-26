@@ -483,3 +483,14 @@ h1, h2 { font-family: var(--font-display), 'Inter', sans-serif; }
   letter-spacing: 0.08em;
   color: var(--text-muted);
 }
+/* App shell padding — compensa navbar/headbar fissa. Escluse pagine auth (data-auth). */
+main:not([data-auth]) {
+  padding-top: calc(3.5rem + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 768px) {
+  main:not([data-auth]) {
+    padding-top: 3rem;
+    padding-bottom: 2rem;
+  }
+}

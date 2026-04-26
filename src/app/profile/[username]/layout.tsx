@@ -42,5 +42,5 @@ export async function generateMetadata(
 }
 
 export default function ProfileUsernameLayout({ children }: { children: React.ReactNode }) {
-  return <div className="pt-14 md:pt-12 pb-20 md:pb-8">{children}</div>
+  return <>{children}</>
 }

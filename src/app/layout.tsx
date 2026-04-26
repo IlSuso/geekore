@@ -22,7 +22,7 @@ import { ClientProviders } from '@/components/ClientProviders'
 import { Footer } from '@/components/Footer'
 import { MobileHeader } from '@/components/MobileHeader'
 import { SwipeablePageContainer } from '@/components/SwipeablePageContainer'
-import { KeepAliveTabShell } from '@/components/KeepAliveTabShell'
+import { KeepAliveTabShell } from '@/components/KeepAliveTabShell'import { MainShell } from '@/components/MainShell'
 import { cookies } from 'next/headers'
 
 export const metadata: Metadata = {
@@ -75,11 +75,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body suppressHydrationWarning className={`${jakarta.variable} bg-black text-white min-h-screen antialiased`}>
         <ClientProviders initialLocale={initialLocale}>
           <SwipeablePageContainer>
-            <main>
+            <MainShell>
               <KeepAliveTabShell>
                 {children}
               </KeepAliveTabShell>
-            </main>
+            </MainShell>
           </SwipeablePageContainer>
           <Footer />
           {/* Fixed UI — rendered AFTER page content so the GPU compositor
