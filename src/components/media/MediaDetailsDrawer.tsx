@@ -142,30 +142,27 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   const [formSeasonError, setFormSeasonError] = useState<string | null>(null)
   const [descExpanded, setDescExpanded] = useState(false)
   const formRef    = useRef<HTMLDivElement>(null)
-  const drawerRef  = useRef<HTMLDivElement>(null)
   const supabase   = createClient()
 
   const historyPushedRef = useRef(false)
+  const closingRef       = useRef(false)  // true while our own history.back() is in flight
+  const isClosingRef     = useRef(false)  // guards against double-close
   const [drawerOffset, setDrawerOffset] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth : 450
   )
   const [drawerAnimate, setDrawerAnimate] = useState(false)
 
-  // Swipe-right-to-close refs
-  const swipeStartX   = useRef(0)
-  const swipeStartY   = useRef(0)
-  const swipeStartT   = useRef(0)
-  const swipeLastDx   = useRef(0)
-  const swipeIsH      = useRef<boolean | null>(null)
-  const swipeCaptured = useRef(false)
-  const swipeBlocked  = useRef(false)
-
   const handleClose = useCallback(() => {
+    if (isClosingRef.current) return
+    isClosingRef.current = true
     if (historyPushedRef.current) {
       historyPushedRef.current = false
-      history.back()
+      closingRef.current = true
+      history.back() // capture handler will stop Next.js from re-navigating
     }
-    onClose()
+    setDrawerAnimate(true)
+    setDrawerOffset(typeof window !== 'undefined' ? window.innerWidth : 450)
+    setTimeout(() => { isClosingRef.current = false; onClose() }, 260)
   }, [onClose])
 
   useEffect(() => {
@@ -294,21 +291,38 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     }
   }, [media, inWishlist])
 
-  // gestureState sync + history.pushState on open
+  // gestureState + history entry + back-gesture handler (capture phase prevents Next.js re-navigation)
   useEffect(() => {
     if (!media) { gestureState.drawerActive = false; return }
     gestureState.drawerActive = true
-    history.pushState({ gkDrawer: true }, '')
+    history.pushState({ gkDrawer: true }, '', location.href)
     historyPushedRef.current = true
-    return () => { gestureState.drawerActive = false }
-  }, [media?.id])
 
-  // OS back button closes the drawer
-  useEffect(() => {
-    if (!media) return
-    const handler = () => { historyPushedRef.current = false; onClose() }
-    window.addEventListener('popstate', handler)
-    return () => window.removeEventListener('popstate', handler)
+    const onPop = (e: PopStateEvent) => {
+      if (closingRef.current) {
+        // history.back() called from handleClose: block Next.js from re-rendering the page
+        closingRef.current = false
+        e.stopImmediatePropagation()
+        return
+      }
+      if (!historyPushedRef.current) return
+      e.stopImmediatePropagation()
+      historyPushedRef.current = false
+      // Both Android and iOS: system back gesture slides the drawer out
+      isClosingRef.current = true
+      setDrawerAnimate(true)
+      setDrawerOffset(typeof window !== 'undefined' ? window.innerWidth : 450)
+      setTimeout(() => { isClosingRef.current = false; onClose() }, 260)
+    }
+    window.addEventListener('popstate', onPop, { capture: true })
+
+    return () => {
+      gestureState.drawerActive = false
+      window.removeEventListener('popstate', onPop, { capture: true })
+      // If still pushed (e.g. parent unmounted without closing), skip history.back()
+      // to avoid triggering Next.js navigation after listener is removed.
+      historyPushedRef.current = false
+    }
   }, [media?.id, onClose])
 
   // Slide-in animation whenever a new item opens
@@ -320,79 +334,6 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     return () => cancelAnimationFrame(frame)
   }, [media?.id])
 
-  // Swipe-right touch callbacks
-  const onSwipeTouchStart = useCallback((e: TouchEvent) => {
-    swipeCaptured.current = false
-    swipeIsH.current      = null
-    swipeLastDx.current   = 0
-    // Block drawer swipe when touch starts inside a data-no-swipe element
-    let el = e.target as HTMLElement | null
-    let blocked = false
-    while (el && el !== drawerRef.current) {
-      if (el.hasAttribute('data-no-swipe')) { blocked = true; break }
-      el = el.parentElement
-    }
-    swipeBlocked.current  = blocked
-    swipeStartX.current   = e.touches[0].clientX
-    swipeStartY.current   = e.touches[0].clientY
-    swipeStartT.current   = performance.now()
-  }, [])
-
-  const onSwipeTouchMove = useCallback((e: TouchEvent) => {
-    if (swipeBlocked.current) return
-    const dx = e.touches[0].clientX - swipeStartX.current
-    const dy = e.touches[0].clientY - swipeStartY.current
-    if (swipeIsH.current === null) {
-      if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return
-      const horiz = Math.abs(dx) > Math.abs(dy) * 1.4 && dx > 0
-      swipeIsH.current = horiz
-      if (!horiz) return
-      swipeCaptured.current = true
-    }
-    if (!swipeCaptured.current) return
-    e.preventDefault()
-    swipeLastDx.current = dx
-    setDrawerAnimate(false)
-    setDrawerOffset(Math.max(0, dx))
-  }, [])
-
-  const onSwipeTouchEnd = useCallback(() => {
-    if (!swipeCaptured.current) { swipeIsH.current = null; return }
-    swipeCaptured.current = false
-    swipeIsH.current      = null
-    const dx       = swipeLastDx.current
-    const velocity = dx / Math.max(performance.now() - swipeStartT.current, 1)
-    if (dx > 80 || velocity > 0.4) {
-      setDrawerAnimate(true)
-      setDrawerOffset(typeof window !== 'undefined' ? window.innerWidth : 450)
-      setTimeout(() => handleClose(), 260)
-    } else {
-      setDrawerAnimate(true)
-      setDrawerOffset(0)
-    }
-  }, [handleClose])
-
-  const onSwipeTouchCancel = useCallback(() => {
-    swipeCaptured.current = false
-    swipeIsH.current      = null
-    setDrawerAnimate(true)
-    setDrawerOffset(0)
-  }, [])
-
-  useEffect(() => {
-    const el = drawerRef.current
-    if (!el) return
-    el.addEventListener('touchstart',  onSwipeTouchStart,  { passive: true })
-    el.addEventListener('touchmove',   onSwipeTouchMove,   { passive: false })
-    el.addEventListener('touchend',    onSwipeTouchEnd,    { passive: true })
-    el.addEventListener('touchcancel', onSwipeTouchCancel, { passive: true })
-    return () => {
-      el.removeEventListener('touchstart',  onSwipeTouchStart)
-      el.removeEventListener('touchmove',   onSwipeTouchMove)
-      el.removeEventListener('touchend',    onSwipeTouchEnd)
-      el.removeEventListener('touchcancel', onSwipeTouchCancel)
-    }
-  }, [onSwipeTouchStart, onSwipeTouchMove, onSwipeTouchEnd, onSwipeTouchCancel])
 
   if (!media || typeof document === 'undefined') return null
 
@@ -429,12 +370,10 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
         className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm"
         onClick={handleClose}
         aria-hidden
-        style={{ opacity: drawerOffset > 0 ? Math.max(0, 1 - drawerOffset / 400) : undefined }}
       />
 
       {/* Drawer */}
       <div
-        ref={drawerRef}
         className="fixed right-0 top-0 bottom-0 z-[200] w-full max-w-md bg-zinc-950 border-l border-zinc-800 flex flex-col"
         role="dialog" aria-modal aria-label={media.title}
         style={{
