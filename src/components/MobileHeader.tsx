@@ -23,6 +23,7 @@ function BackButton() {
     <button
       onClick={() => window.history.back()}
       className="flex items-center justify-center w-10 h-10 -ml-2 text-[var(--text-primary)]"
+      aria-label="Torna indietro"
     >
       <ChevronLeft size={28} strokeWidth={1.6} />
     </button>
@@ -151,7 +152,7 @@ export function MobileHeader() {
 
   const renderRight = () => {
     if (isFeed) return (
-      <Link href="/notifications" className={`${iconCls} relative`} onClick={() => setUnread(false)}>
+      <Link href="/notifications" className={`${iconCls} relative`} onClick={() => setUnread(false)} aria-label="Notifiche">
         <Bell size={23} strokeWidth={1.6} />
         {unread && (
           <span className="absolute top-2.5 right-2 w-[8px] h-[8px] bg-red-500 rounded-full border-[1.5px] border-black notif-badge-pulse" />
@@ -160,17 +161,17 @@ export function MobileHeader() {
     )
     if (isOwnProfile) return (
       <>
-        <Link href="/profile/edit" className={iconCls}>
+        <Link href="/profile/edit" className={iconCls} aria-label="Modifica profilo">
           <Edit3 size={21} strokeWidth={1.6} />
         </Link>
-        <Link href="/settings" className={iconCls}>
+        <Link href="/settings" className={iconCls} aria-label="Impostazioni">
           <Settings size={21} strokeWidth={1.6} />
         </Link>
       </>
     )
     if (pathname === '/notifications') return null
     return (
-      <Link href="/notifications" className={`${iconCls} relative`} onClick={() => setUnread(false)}>
+      <Link href="/notifications" className={`${iconCls} relative`} onClick={() => setUnread(false)} aria-label="Notifiche">
         <Bell size={23} strokeWidth={1.6} />
         {unread && <span className="absolute top-2.5 right-2 w-[8px] h-[8px] bg-red-500 rounded-full border-[1.5px] border-black" />}
       </Link>

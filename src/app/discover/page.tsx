@@ -16,6 +16,7 @@ import { SkeletonDiscoverCard } from '@/components/ui/SkeletonCard';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState';
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 type MediaItem = {
   id: string; title: string; title_en?: string; type: string; coverImage?: string; year?: number;
@@ -478,25 +479,24 @@ export default function DiscoverPage() {
           <p className="text-center py-12 text-[var(--text-muted)] text-[14px]">{searchError}</p>
         )}
 
-        {/* Empty state */}
+        {/* Empty state — nessuna query ancora */}
         {!loading && !searchTerm.trim() && (
-          <div className="flex flex-col items-center justify-center py-20 text-center px-8">
-            <div className="w-16 h-16 rounded-full bg-[var(--bg-card)] border border-[var(--border)] flex items-center justify-center mb-4">
-              <Search size={26} className="text-[var(--text-muted)]" />
-            </div>
-            <p className="text-[16px] font-semibold text-[var(--text-primary)] mb-1">Cerca qualcosa</p>
-            <p className="text-[14px] text-[var(--text-secondary)]">
-              Anime, manga, film, serie TV, videogiochi, giochi da tavolo e libri.
-            </p>
-          </div>
+          <EmptyState
+            icon={Search}
+            title="Cerca qualcosa"
+            description="Anime, manga, film, serie TV, videogiochi, giochi da tavolo e libri."
+            accent="zinc"
+          />
         )}
 
         {/* No results */}
         {!loading && !searchError && results.length === 0 && searchTerm.trim().length >= 2 && !isPending && (
-          <div className="flex flex-col items-center justify-center py-20 text-center px-8">
-            <p className="text-[16px] font-semibold text-[var(--text-primary)] mb-1">Nessun risultato</p>
-            <p className="text-[14px] text-[var(--text-secondary)]">{d.noResults}</p>
-          </div>
+          <EmptyState
+            icon={Search}
+            title="Nessun risultato"
+            description={d.noResults}
+            accent="zinc"
+          />
         )}
 
         {/* Risultati raggruppati per tipo */}

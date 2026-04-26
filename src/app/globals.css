@@ -8,17 +8,27 @@
   --bg-primary:     #000000;
   --bg-secondary:   #0a0a0a;
   --bg-card:        #111111;
-  --bg-card-hover:  #181818;
+  --bg-card-hover:  #1c1c1c;   /* era #181818 — allineato a bg-hover */
   --bg-hover:       #1c1c1c;
   --bg-input:       #111111;
   --text-primary:   #ffffff;
-  --text-secondary: #a8a8a8;
-  --text-muted:     #555555;
-  --border:         #262626;
+  --text-secondary: #a0a0a0;   /* era #a8a8a8 — più coerente col design system */
+  --text-muted:     #505050;   /* era #555555 */
+  --border:         #222222;   /* era #262626 — più sottile */
   --border-subtle:  #1a1a1a;
-  /* Geekore brand gradient — violet to fuchsia */
+  /* Brand — UNICO valore viola (Tailwind accent.DEFAULT) */
+  --brand:          #8b5cf6;   /* rinominato da --violet per chiarezza semantica */
+  --brand-light:    #a78bfa;   /* rinominato da --violet-light */
+  /* Alias retrocompatibilità — da rimuovere in futuro */
   --violet:         #8b5cf6;
   --violet-light:   #a78bfa;
+  /* Media type — desaturati 35% per non competere col brand */
+  --type-anime:     #5fa8c8;   /* era #38bdf8 */
+  --type-manga:     #c47a6e;   /* era #f97066 */
+  --type-game:      #5a9e6e;   /* era #4ade80 */
+  --type-board:     #c49542;   /* era #fb923c */
+  --type-movie:     #b86262;
+  --type-tv:        #8b70c4;
   --skeleton-from:  #1a1a1a;
   --skeleton-to:    #252525;
   color-scheme: dark;
@@ -443,4 +453,38 @@ body[style*="overflow: hidden"] {
   .swipe-filter-padding {
     padding-top: 0.75rem;
   }
+}
+
+/* ── Font Display ────────────────────────────────────────────────────────── */
+/* Plus Jakarta Sans — usare su h1, h2, wordmark, score numbers */
+.font-display { font-family: var(--font-display), 'Inter', sans-serif; }
+h1, h2 { font-family: var(--font-display), 'Inter', sans-serif; }
+
+/* ── Type scale semantica ─────────────────────────────────────────────────── */
+.gk-display {
+  font-family: var(--font-display), 'Inter', sans-serif;
+  font-size: clamp(32px, 5vw, 56px);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+.gk-title {
+  font-family: var(--font-display), 'Inter', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.gk-headline {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.gk-body    { font-size: 14px; line-height: 1.7; color: var(--text-secondary); }
+.gk-caption { font-size: 11px; color: var(--text-muted); }
+.gk-label   {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
 }

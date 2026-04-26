@@ -25,6 +25,7 @@ import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 import { PreferencesModal } from '@/components/for-you/PreferencesModal'
 import { DNAWidget } from '@/components/for-you/DNAWidget'
 import type { TasteProfile } from '@/components/for-you/DNAWidget'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 // V5: Tipi per feedback granulare
 type FeedbackAction = 'not_interested' | 'already_seen' | 'added' | 'wishlist_add';
@@ -1128,16 +1129,13 @@ export default function ForYouPage() {
         </div>
 
         {!hasEnoughData ? (
-          <div className="text-center py-24">
-            <div className="w-16 h-16 bg-zinc-900 rounded-3xl flex items-center justify-center mx-auto mb-6">
-              <Sparkles size={28} className="text-zinc-600" />
-            </div>
-            <h2 className="text-xl font-bold text-white mb-3">{fy.title}</h2>
-            <p className="text-zinc-400 max-w-md mx-auto mb-8">{fy.emptyState}</p>
-            <Link href="/discover" className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white font-semibold px-3 sm:px-4 md:px-3 sm:px-4 md:px-6 py-3 rounded-2xl">
-              <Zap size={18} />{fy.emptyStateCta}
-            </Link>
-          </div>
+          <EmptyState
+            icon={Sparkles}
+            title={fy.title}
+            description={fy.emptyState}
+            action={{ label: fy.emptyStateCta, href: '/discover' }}
+            accent="fuchsia"
+          />
         ) : (
           <>
             {totalEntries < 15 && <LowConfidenceBanner totalEntries={totalEntries} />}
