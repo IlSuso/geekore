@@ -20,7 +20,7 @@ export const TAB_ORDER = ['/home', '/discover', '/for-you', '/swipe', '/profile/
 
 const CONFIRM_THRESHOLD  = 120   // px
 const VELOCITY_THRESHOLD = 0.35  // px/ms
-const EDGE_DEAD_ZONE     = 44
+const EDGE_DEAD_ZONE     = 72
 
 const EASE_OUT  = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
 const EASE_SNAP = 'cubic-bezier(0.22, 1, 0.36, 1)'
@@ -227,6 +227,31 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
       el.removeEventListener('touchcancel', onTouchCancel)
     }
   }, [onTouchStart, onTouchMove, onTouchEnd, onTouchCancel])
+
+  // If a system back gesture fires (Android predictive back / iOS edge swipe)
+  // while SPC has already captured a touch, abort the swipe immediately so the
+  // page doesn't slide AND navigate at the same time.
+  // We do NOT call stopImmediatePropagation — the popstate must still reach
+  // Next.js so the system navigation completes normally.
+  const abortSwipeRef = useRef<() => void>(() => {})
+  abortSwipeRef.current = () => {
+    if (!captured.current && !isDragging.current) return
+    captured.current         = false
+    isDragging.current       = false
+    gestureState.swipeActive = false
+    isH.current              = null
+    document.documentElement.removeAttribute('data-swiping')
+    document.documentElement.removeAttribute('data-to-swipe')
+    setSnapping(true)
+    setAnimate(true)
+    setOffset(0)
+    swipeNavBridge.notifyEnd()
+  }
+  useEffect(() => {
+    const handler = () => abortSwipeRef.current()
+    window.addEventListener('popstate', handler, { capture: true })
+    return () => window.removeEventListener('popstate', handler, { capture: true })
+  }, [])
 
   // Use translateX(Npx) while dragging OR while the snap-back transition is
   // playing (snapping=true). Switch to 'none' only after transitionend fires.

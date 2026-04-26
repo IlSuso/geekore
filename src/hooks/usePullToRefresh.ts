@@ -43,7 +43,7 @@ export function usePullToRefresh({ onRefresh, threshold = 70, enabled = true }: 
     // Edge zone reserved for Android/iOS system gestures — don't activate
     const x = e.touches[0].clientX
     const w = window.innerWidth
-    if (x <= 44 || x >= w - 44) return
+    if (x <= 72 || x >= w - 72) return
     startY.current = e.touches[0].clientY
     startX.current = x
     active.current = true

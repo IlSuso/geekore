@@ -185,7 +185,7 @@ export function MobileMediaModal({
   const onHandleTouchStart = (e: React.TouchEvent) => {
     // Edge zone reserved for Android/iOS system gestures — don't activate
     const x = e.touches[0].clientX
-    if (x <= 44 || x >= window.innerWidth - 44) return
+    if (x <= 72 || x >= window.innerWidth - 72) return
     handleStartY.current     = e.touches[0].clientY
     handleCurrentY.current   = e.touches[0].clientY
     handleStartX.current     = x
