@@ -124,6 +124,15 @@ export function MobileMediaModal({
     historyPushed.current = true
     const onPop = () => {
       if (!historyPushed.current) return
+      // iOS: re-push the fake entry so the edge swipe is a complete no-op.
+      // The modal can only close via X or drag-down on iOS.
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+      if (isIOS) {
+        history.pushState({ modal: 'media' }, '', location.href)
+        return
+      }
+      // Android: system back gesture closes the modal.
       historyPushed.current = false
       setClosing(true)
       setTimeout(() => onCloseRef.current(), 240)

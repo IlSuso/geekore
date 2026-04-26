@@ -3,6 +3,7 @@
 // V5: + boardgame (meccaniche, designer, link BGG) + book (autori, pagine, ISBN, link Google Books)
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { gestureState } from '@/hooks/gestureState'
 import Image from 'next/image'
 import {
@@ -393,7 +394,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     }
   }, [onSwipeTouchStart, onSwipeTouchMove, onSwipeTouchEnd, onSwipeTouchCancel])
 
-  if (!media) return null
+  if (!media || typeof document === 'undefined') return null
 
   const Icon = TYPE_ICON[media.type] || Film
   const externalUrl = buildExternalUrl(media)
@@ -418,7 +419,10 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   const isLongDesc = (media.description?.length ?? 0) > 350
   const timeLabel = (media.type === 'anime' || media.type === 'tv') ? 'min/ep' : 'min'
 
-  return (
+  // Rendered via portal so it escapes SwipeablePageContainer's stacking context
+  // (position:relative + zIndex:0 inside SPC traps the z-index at root level 0,
+  // causing Navbar/MobileHeader at z-99/100 to paint above the drawer).
+  return createPortal((
     <>
       {/* Backdrop — fades with swipe */}
       <div
@@ -434,14 +438,17 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
         className="fixed right-0 top-0 bottom-0 z-[200] w-full max-w-md bg-zinc-950 border-l border-zinc-800 flex flex-col"
         role="dialog" aria-modal aria-label={media.title}
         style={{
-          transform:  `translateX(${drawerOffset}px)`,
-          transition: drawerAnimate ? 'transform 0.26s cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
-          willChange: drawerOffset > 0 ? 'transform' : 'auto',
+          transform:    `translateX(${drawerOffset}px)`,
+          transition:   drawerAnimate ? 'transform 0.26s cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
+          willChange:   drawerOffset > 0 ? 'transform' : 'auto',
+          paddingTop:   'env(safe-area-inset-top, 0px)',
+          paddingBottom:'env(safe-area-inset-bottom, 0px)',
         }}
       >
         <button
           onClick={handleClose}
-          className="absolute top-3 right-3 z-[100] w-8 h-8 bg-black/60 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-black/80 transition"
+          className="absolute right-3 z-[100] w-8 h-8 bg-black/60 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-black/80 transition"
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
           aria-label="Chiudi"
         >
           <X size={16} />
@@ -909,5 +916,5 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
       </div>
     </>
-  )
+  ), document.body)
 }
