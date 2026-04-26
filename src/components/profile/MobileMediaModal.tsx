@@ -234,8 +234,8 @@ export function MobileMediaModal({
 
   return (
     <div data-no-swipe className={`fixed inset-0 z-[110] flex flex-col justify-end transition-opacity duration-200 ${visible && !closing ? 'opacity-100' : 'opacity-0'}`}>
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={doClose} />
+      {/* Backdrop — touch-none prevents left-edge system back-gesture animation */}
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm touch-none" onClick={doClose} />
 
       {/* Sheet */}
       <div

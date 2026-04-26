@@ -887,7 +887,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
   // Close the modal when user navigates away from the profile tab (keep-alive).
   useEffect(() => {
     if (!pathname.startsWith('/profile/')) {
-      setSelectedMedia(null)
+      setOpenMobileId(null)
     }
   }, [pathname])
 
