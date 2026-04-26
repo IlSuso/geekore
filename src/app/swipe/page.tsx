@@ -307,7 +307,7 @@ export default function SwipePage() {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 md:pt-16 bg-black flex flex-col items-center justify-center">
+      <div className="flex flex-col items-center justify-center" style={{ minHeight: '60vh' }}>
         <div className="flex flex-col items-center gap-5 text-center">
           <div className="relative">
             <div className="absolute inset-0 w-16 h-16 rounded-3xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 blur-xl" />
@@ -325,13 +325,16 @@ export default function SwipePage() {
   }
 
   return (
-    <SwipeMode
-      standalone
-      items={initialItems}
-      onSeen={handleSwipeSeen}
-      onSkip={handleSwipeSkip}
-      onRequestMore={handleSwipeRequestMore}
-      onClose={() => {}}
-    />
+    // FIX 4: position:relative necessario perché SwipeMode usa position:absolute
+    <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+      <SwipeMode
+        standalone
+        items={initialItems}
+        onSeen={handleSwipeSeen}
+        onSkip={handleSwipeSkip}
+        onRequestMore={handleSwipeRequestMore}
+        onClose={() => {}}
+      />
+    </div>
   )
 }

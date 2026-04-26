@@ -22,6 +22,21 @@
   --skeleton-from:  #1a1a1a;
   --skeleton-to:    #252525;
   color-scheme: dark;
+
+  /* FIX 8: altezze chrome mobile usate da SwipeMode per il layout absolute */
+  --mobile-header-h: calc(52px + env(safe-area-inset-top));
+  --mobile-navbar-h: calc(56px + env(safe-area-inset-bottom));
+}
+
+/* FIX 8: previene back gesture laterale del browser e isola il layout */
+html, body {
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: contain;
+  overflow-x: clip;
+}
+
+body {
+  contain: layout style;
 }
 
 

@@ -2,7 +2,8 @@
 // src/components/profile/DeleteAccountModal.tsx
 // 7.4 — estratto da profile/[username]/page.tsx
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Trash2, Loader2 } from 'lucide-react'
 
 interface DeleteAccountModalProps {
@@ -21,8 +22,12 @@ export function DeleteAccountModal({ onConfirm, onClose }: DeleteAccountModalPro
     setDeleting(false)
   }
 
-  return (
-    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[70] p-4">
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+  if (!mounted) return null
+
+  return createPortal(
+    (<div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[70] p-4">
       <div className="bg-zinc-900 border border-red-900/50 rounded-3xl max-w-md w-full p-8">
         <div className="w-14 h-14 bg-red-950 border border-red-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
           <Trash2 size={28} className="text-red-400" />
@@ -63,5 +68,5 @@ export function DeleteAccountModal({ onConfirm, onClose }: DeleteAccountModalPro
         </div>
       </div>
     </div>
-  )
+  ), document.body)
 }

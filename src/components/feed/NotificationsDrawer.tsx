@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
 import { X, Bell, Heart, MessageCircle, UserPlus } from 'lucide-react'
 import Link from 'next/link'
@@ -69,10 +70,16 @@ export function NotificationsDrawer({ open, onClose }: { open: boolean; onClose:
     return () => document.removeEventListener('keydown', handler)
   }, [onClose])
 
-  return (
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+  if (!mounted) return null
+
+  return createPortal(
+    (
     <>
       {/* Backdrop */}
       <div
+        data-drawer-open={open ? "true" : undefined}
         className="fixed inset-0 z-[200]"
         style={{
           background: 'rgba(0,0,0,0.5)',
@@ -180,5 +187,5 @@ export function NotificationsDrawer({ open, onClose }: { open: boolean; onClose:
         </div>
       </div>
     </>
-  )
+  ), document.body)
 }

@@ -124,24 +124,10 @@ export default function Navbar() {
   if (isAuthPage) return null
   if (isPublicLanding && isLoggedIn === false) return null
   if (isPublicLanding && isLoggedIn === null)  return null
-  if (isLoggedIn === null) return (
-    <>
-      <nav className="hidden md:flex fixed top-0 left-0 right-0 z-[100] h-14 bg-black/80 backdrop-blur-2xl border-b border-zinc-800/60" />
-      <nav
-        className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-black"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)', transform: 'translateZ(0)' }}
-      >
-        <div className="flex items-stretch h-[56px] px-2 opacity-0">
-          {MOBILE_NAV_ITEMS.map((item) => (
-            <div key={item.href} className="flex flex-col items-center justify-center flex-1 gap-[3px] py-2">
-              <item.icon size={22} strokeWidth={1.6} className="text-zinc-500" />
-              <span className="text-[10px] text-zinc-600">{item.label}</span>
-            </div>
-          ))}
-        </div>
-      </nav>
-    </>
-  )
+
+  // FIX 6: non usare più il placeholder con isLoggedIn === null
+  // La navbar reale viene sempre montata; in stato loading le icone sono in stato neutro
+  const isLoading = isLoggedIn === null
 
   const currentUsername    = username || ''
   const currentDisplayName = displayName || username || ''
@@ -309,7 +295,7 @@ export default function Navbar() {
       {/* ── Mobile bottom navbar ─────────────────────────────────────────── */}
       <nav
         className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100]"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)', background: 'rgba(0,0,0,0.97)', borderTop: '0.5px solid #1c1c1c', transform: 'translateZ(0)' }}
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)', background: 'rgba(0,0,0,0.97)', borderTop: '0.5px solid #1c1c1c', opacity: isLoading ? 0 : 1, transition: 'opacity 0.15s' }}
       >
         <div className="flex items-stretch h-[56px]">
           {MOBILE_NAV_ITEMS.map((item) => {

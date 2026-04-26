@@ -64,20 +64,29 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
         <meta name="theme-color" content="#000000" media="(prefers-color-scheme: light)" />
       </head>
-      <body suppressHydrationWarning className="bg-black text-white min-h-screen antialiased">
+      <body suppressHydrationWarning className="bg-black text-white min-h-screen antialiased" style={{ isolation: 'isolate' }}>
         <ClientProviders initialLocale={initialLocale}>
-          <SwipeablePageContainer>
-            <main className="pt-14 md:pt-16 pb-20 md:pb-8">
-              <KeepAliveTabShell>
-                {children}
-              </KeepAliveTabShell>
-            </main>
-          </SwipeablePageContainer>
-          <Footer />
-          {/* Fixed UI — rendered AFTER page content so the GPU compositor
-              always layers them on top regardless of z-index confusion */}
-          <MobileHeader />
-          <Navbar />
+
+          {/* ── Pagine scrollabili / swipeable — l'unico ramo che subisce transform ── */}
+          <div id="app-scroll-root">
+            <SwipeablePageContainer>
+              <main className="pt-14 md:pt-16 pb-20 md:pb-8">
+                <KeepAliveTabShell>
+                  {children}
+                </KeepAliveTabShell>
+              </main>
+            </SwipeablePageContainer>
+            <Footer />
+          </div>
+
+          {/* ── Chrome fissa — MAI dentro un antenato con transform/filter ──
+              Renderizzata DOPO il root scrollabile in un wrapper neutro (position:relative,
+              NO transform) così Navbar e MobileHeader hanno il viewport come containing block. */}
+          <div id="app-fixed-chrome" style={{ position: 'relative', zIndex: 100 }}>
+            <MobileHeader />
+            <Navbar />
+          </div>
+
         </ClientProviders>
       </body>
     </html>
