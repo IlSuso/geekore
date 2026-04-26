@@ -719,7 +719,6 @@ export default function ForYouPage() {
   const [detailItem, setDetailItem] = useState<Recommendation | null>(null)
   const [similarSection, setSimilarSection] = useState<{ sourceTitle: string; sourceType: MediaType; items: Recommendation[] } | null>(null)
   const [showNewRecsBadge, setShowNewRecsBadge] = useState(false)
-  const cleanupRef = useRef<(() => void) | null>(null)
   const addedTitlesRef = useRef<Set<string>>(forYouCache.addedTitles)
 
   const fetchRecommendations = useCallback(async (force = false) => {
@@ -786,19 +785,21 @@ export default function ForYouPage() {
   }, [supabase])
 
   useEffect(() => {
+    let cancelled = false
+    let profileChannel: ReturnType<typeof supabase.channel> | null = null
+
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      if (!user || cancelled) { if (!user) router.push('/login'); return }
       const userId = user.id
 
       // Realtime: aggiorna entry_count senza bloccare il rendering
-      const profileSub = supabase
-        .channel('profile-entry-count')
+      profileChannel = supabase
+        .channel(`profile-entry-count-${userId}`)
         .on('postgres_changes', {
           event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}`,
         }, (payload: any) => { setTotalEntries(payload.new?.entry_count ?? 0) })
         .subscribe()
-      cleanupRef.current = () => { supabase.removeChannel(profileSub) }
 
       // ── Cache hit: mostra tutto immediatamente, poi aggiorna in background ──
       if (forYouCache.recommendations !== null) {
@@ -874,7 +875,10 @@ export default function ForYouPage() {
       localStorage.setItem('for_you_last_visit', String(now))
     }
     init()
-    return () => { cleanupRef.current?.() }
+    return () => {
+      cancelled = true
+      if (profileChannel) supabase.removeChannel(profileChannel)
+    }
   }, [])
 
   const handleRefresh = async () => {
