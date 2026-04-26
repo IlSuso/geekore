@@ -3,7 +3,6 @@
 // Estratto da for-you/page.tsx — Fix #14 Repair Bible
 
 import { useState, useEffect } from 'react'
-import { createPortal } from 'react-dom'
 import { X, ArrowRight, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useLocale } from '@/lib/locale'
@@ -97,12 +96,9 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
 
   const currentSection = sections[step - 1]
   const totalSteps = sections.length
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
-  if (!mounted) return null
 
-  return createPortal(
-    (<div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4">
       <div className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-2xl max-h-[85vh] flex flex-col">
         {/* Header con progress bar */}
         <div className="flex items-center justify-between p-5 border-b border-zinc-800">
@@ -192,5 +188,5 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
         )}
       </div>
     </div>
-  ), document.body)
+  )
 }

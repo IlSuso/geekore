@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { createPortal } from 'react-dom'
 import { X, Edit3, CheckCircle, RotateCcw, RefreshCw, Loader2, Clock, Trash2 } from 'lucide-react'
 import { StarRating } from '@/components/ui/StarRating'
 
@@ -161,8 +160,8 @@ export function MobileMediaModal({
 
   const btnBase = 'w-12 h-12 flex items-center justify-center leading-none select-none bg-zinc-800 border border-zinc-700 hover:border-emerald-500/50 rounded-2xl text-emerald-400 text-2xl font-bold transition disabled:opacity-30'
 
-  return createPortal(
-    (<div data-no-swipe className={`fixed inset-0 z-[110] flex flex-col justify-end transition-opacity duration-200 ${visible && !closing ? 'opacity-100' : 'opacity-0'}`}>
+  return (
+    <div data-no-swipe className={`fixed inset-0 z-[110] flex flex-col justify-end transition-opacity duration-200 ${visible && !closing ? 'opacity-100' : 'opacity-0'}`}>
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={doClose} />
 
@@ -430,5 +429,5 @@ export function MobileMediaModal({
         </div>
       </div>
     </div>
-  ), document.body)
+  )
 }

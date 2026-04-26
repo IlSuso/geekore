@@ -21,7 +21,6 @@ export const TAB_ORDER = ['/home', '/discover', '/for-you', '/swipe', '/profile/
 const CONFIRM_THRESHOLD  = 120   // px
 const VELOCITY_THRESHOLD = 0.35  // px/ms
 const EDGE_DEAD_ZONE     = 44
-const EDGE_DEAD_ZONE_Y_BOTTOM = 24  // FIX 10: home indicator + navbar area
 
 const EASE_OUT  = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
 const EASE_SNAP = 'cubic-bezier(0.22, 1, 0.36, 1)'
@@ -41,7 +40,6 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const router   = useRouter()
   const wrapRef  = useRef<HTMLDivElement>(null)
-  const innerRef = useRef<HTMLDivElement>(null)
 
   const touchStartX = useRef(0)
   const touchStartY = useRef(0)
@@ -86,7 +84,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
 
   // Clear snapping flag as soon as the CSS snap-back transition ends.
   useEffect(() => {
-    const el = innerRef.current
+    const el = wrapRef.current
     if (!el) return
     const onEnd = () => setSnapping(false)
     el.addEventListener('transitionend', onEnd)
@@ -98,16 +96,10 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     if (!isMain) return
     if (gestureState.pullActive)   return
     if (gestureState.drawerActive) return
-    // FIX 9: defense in depth — controlla anche il DOM per drawer aperti
-    if (document.querySelector('[data-drawer-open="true"]')) return
 
     const x = e.touches[0].clientX
-    const y = e.touches[0].clientY
     const w = vw.current || window.innerWidth
-    const h = window.innerHeight
     if (x <= EDGE_DEAD_ZONE || x >= w - EDGE_DEAD_ZONE) return
-    // FIX 10: dead zone Y bottom — evita conflitti con home indicator / navbar
-    if (y >= h - EDGE_DEAD_ZONE_Y_BOTTOM) return
     if (isInsideHorizontalScroller(e.target)) return
 
     captured.current    = true
@@ -216,34 +208,23 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     ? `transform 0.28s ${offset === 0 ? EASE_SNAP : EASE_OUT}`
     : 'none'
 
-  // FIX 2: outer wrapper senza transform (non crea containing block per i fixed),
-  // inner wrapper con transform (contiene solo il contenuto scrollabile).
   return (
     <div
       ref={wrapRef}
       style={{
-        position: 'relative',
-        zIndex: 0,
-        minHeight: '100%',
-        // nessun transform qui — il containing block dei fixed discendenti
-        // resta il viewport
+        position:                 'relative',
+        zIndex:                   0,
+        transform:                translateX,
+        transition,
+        willChange:               isActive ? 'transform' : 'auto',
+        ...(isActive ? {
+          backfaceVisibility:       'hidden',
+          WebkitBackfaceVisibility: 'hidden',
+        } : {}),
+        minHeight:                '100%',
       }}
     >
-      <div
-        ref={innerRef}
-        style={{
-          transform: translateX,
-          transition,
-          willChange: isActive ? 'transform' : 'auto',
-          ...(isActive ? {
-            backfaceVisibility: 'hidden',
-            WebkitBackfaceVisibility: 'hidden',
-          } : {}),
-          minHeight: '100%',
-        }}
-      >
-        {children}
-      </div>
+      {children}
     </div>
   )
 }

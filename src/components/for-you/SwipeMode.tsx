@@ -621,28 +621,18 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
 
   const topCoverImage = filteredQueue[0]?.coverImage
 
-  // FIX 4: non usare fixed inset-0 — si aggancia al viewport come absolute
-  // dentro il suo normale flusso di pagina, delimitato dalle CSS vars header/navbar
-  const containerClass = 'bg-black flex flex-col overflow-hidden'
-  const containerStyle: React.CSSProperties = standalone
-    ? {
-        position: 'absolute',
-        top: 'var(--mobile-header-h, 52px)',
-        left: 0,
-        right: 0,
-        bottom: 'var(--mobile-navbar-h, 56px)',
-      }
-    : {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-      }
+  const containerClass = standalone
+    ? 'fixed inset-0 md:pt-16 bg-black flex flex-col overflow-hidden'
+    : 'fixed inset-0 bg-black flex flex-col'
+  const containerStyle = standalone ? {} : { zIndex: 9999 }
 
-  const filterPaddingTop = undefined
+  const filterPaddingTop = standalone
+    ? undefined
+    : { paddingTop: 'max(1rem, env(safe-area-inset-top))' }
 
-  const hintPaddingBottom = { paddingBottom: '0.75rem' }
+  const hintPaddingBottom = standalone
+    ? { paddingBottom: '0.75rem' }
+    : { paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }
 
   return (
     <>

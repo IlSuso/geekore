@@ -3,7 +3,6 @@
 // V5: + boardgame (meccaniche, designer, link BGG) + book (autori, pagine, ISBN, link Google Books)
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { createPortal } from 'react-dom'
 import { gestureState } from '@/hooks/gestureState'
 import Image from 'next/image'
 import {
@@ -141,8 +140,6 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   const [formEpisodeError, setFormEpisodeError] = useState<string | null>(null)
   const [formSeasonError, setFormSeasonError] = useState<string | null>(null)
   const [descExpanded, setDescExpanded] = useState(false)
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
   const formRef    = useRef<HTMLDivElement>(null)
   const drawerRef  = useRef<HTMLDivElement>(null)
   const supabase   = createClient()
@@ -421,13 +418,10 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   const isLongDesc = (media.description?.length ?? 0) > 350
   const timeLabel = (media.type === 'anime' || media.type === 'tv') ? 'min/ep' : 'min'
 
-  if (!mounted) return null
-  return createPortal(
-    (
+  return (
     <>
       {/* Backdrop — fades with swipe */}
       <div
-        data-drawer-open="true"
         className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm"
         onClick={handleClose}
         aria-hidden
@@ -915,5 +909,5 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
       </div>
     </>
-  ), document.body)
+  )
 }

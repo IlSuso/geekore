@@ -2,8 +2,6 @@
 // src/components/profile/NotesModal.tsx
 // 7.4 — estratto da profile/[username]/page.tsx
 
-import { useState, useEffect } from 'react'
-import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 const MAX_NOTES_LENGTH = 1000
@@ -32,12 +30,9 @@ export function NotesModal({
   readOnly = false,
 }: NotesModalProps) {
   const charCount = value.length
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
-  if (!mounted) return null
 
-  return createPortal(
-    (<div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[120]">
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[120]">
       <div className="bg-zinc-900 rounded-3xl w-full max-w-lg mx-4 overflow-hidden">
         <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
           <h3 className="text-xl font-semibold text-white truncate pr-4">{title}</h3>
@@ -91,5 +86,5 @@ export function NotesModal({
         )}
       </div>
     </div>
-  ), document.body)
+  )
 }
