@@ -60,9 +60,14 @@ export function usePullToRefresh({ onRefresh, threshold = 70 }: Options) {
       loading.current = true
       ;(async () => {
         setState({ pulling: false, refreshing: true, distance: threshold * 0.75 })
-        await onRefresh()
-        loading.current = false
-        setState({ pulling: false, refreshing: false, distance: 0 })
+        try {
+          await onRefresh()
+        } catch (err) {
+          console.error('[pullToRefresh] onRefresh failed:', err)
+        } finally {
+          loading.current = false
+          setState({ pulling: false, refreshing: false, distance: 0 })
+        }
       })()
       return prev
     })
