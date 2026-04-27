@@ -9,15 +9,10 @@ import { useEffect, useRef } from 'react'
 import { PWAInstallBanner } from '@/components/PWAInstallBanner'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { gestureState } from '@/hooks/gestureState'
 import { androidBack } from '@/hooks/androidBack'
 import { PushNotificationsBanner } from '@/components/notifications/PushNotificationsBanner'
 
 
-// Guard onboarding lato client — copre il caso in cui il browser serva
-// la pagina dalla cache bypassando il middleware server.
-// Eseguito su ogni navigazione: se l'utente non ha completato l'onboarding
-// viene redirectato a /onboarding; se lo ha già fatto non può tornare su /onboarding.
 const ONBOARDING_EXEMPT_PATHS = ['/onboarding', '/login', '/register', '/forgot-password', '/privacy', '/terms', '/cookies', '/auth']
 
 function OnboardingGuard() {
@@ -34,21 +29,17 @@ function OnboardingGuard() {
       const cookieDone = document.cookie.includes('geekore_onboarding_done=1')
 
       if (cookieDone) {
-        // Onboarding già fatto — blocca accesso a /onboarding
         if (pathname === '/onboarding') router.replace('/home')
         return
       }
 
-      // Cookie assente → verifica DB
       const { data: profile } = await supabase.from('profiles').select('onboarding_done').eq('id', user.id).single()
       if (!profile) return
 
       if (profile.onboarding_done === true) {
-        // Fatto ma cookie perso → ripristina cookie e blocca /onboarding
         document.cookie = 'geekore_onboarding_done=1; path=/; max-age=31536000; SameSite=Lax'
         if (pathname === '/onboarding') router.replace('/home')
       } else {
-        // Non fatto → blocca tutto tranne le path esenti
         if (!isExempt) router.replace('/onboarding')
       }
     }
@@ -58,15 +49,13 @@ function OnboardingGuard() {
   return null
 }
 
-// Preriscalda la cache server-side UNA SOLA VOLTA per sessione.
-// Non ripete la chiamata se l'utente naviga — serve solo per la prima apertura.
 function RecsWarmer() {
   const pathname = usePathname()
   const warmed = useRef(false)
 
   useEffect(() => {
-    if (warmed.current) return      // già eseguito in questa sessione
-    if (pathname === '/for-you') {  // già sulla pagina, carica direttamente
+    if (warmed.current) return
+    if (pathname === '/for-you') {
       warmed.current = true
       return
     }
@@ -77,15 +66,14 @@ function RecsWarmer() {
         method: 'GET',
         credentials: 'include',
       }).catch(() => {})
-    }, 5000) // 5s dopo il mount, ben lontano dal caricamento iniziale
+    }, 5000)
 
     return () => clearTimeout(t)
-  }, []) // [] — esegue solo al mount iniziale, mai più
+  }, []) // eslint-disable-line
 
   return null
 }
 
-// Forza theme-color nero via JS — più affidabile del solo meta tag su Android PWA
 function ThemeColorEnforcer() {
   useEffect(() => {
     const setBlack = () => {
@@ -94,7 +82,6 @@ function ThemeColorEnforcer() {
       })
     }
     setBlack()
-    // Ripeti ad ogni navigazione (Next.js router)
     window.addEventListener('popstate', setBlack)
     return () => window.removeEventListener('popstate', setBlack)
   }, [])
@@ -102,43 +89,52 @@ function ThemeColorEnforcer() {
 }
 
 
-
 // AndroidBackHandler — gestione centralizzata back gesture Android.
 //
-// STRATEGIA CUSCINETTO:
-//   Manteniamo sempre una entry extra nella history sopra quella corrente.
-//   La back gesture di Android consuma il cuscinetto → popstate → noi
-//   intercettiamo e decidiamo cosa fare, poi rifacciamo pushState per
-//   ricaricare il cuscinetto (eccetto quando vogliamo uscire dall'app).
+// STRATEGIA CUSCINETTO SINGOLO:
+//   Al mount iniziale dell'app inseriamo UNA SOLA entry extra nella history.
+//   Le navigazioni tra tab usano router.replace → non aggiungono entries.
+//   Quindi lo stack è sempre: [entry_reale, cuscinetto]
 //
-//   I drawer/modal NON fanno più pushState — registrano solo una callback
-//   tramite androidBack.push(). Così Android non vede entries extra e
-//   non mostra l'anteprima di scorrimento.
+//   Quando Android fa back → consuma il cuscinetto → popstate.
+//   Noi intercettiamo, decidiamo, e rifacciamo pushState del cuscinetto
+//   (tranne quando vogliamo uscire dall'app).
+//
+//   NON rifacciamo pushState ad ogni cambio pathname — questo era il
+//   problema: Android vedeva entries "nuove" e mostrava l'anteprima.
+//
+//   I drawer/modal registrano solo una callback tramite androidBack.push()
+//   senza toccare la history — così Android non vede nulla da mostrare.
+
 const MAIN_TABS = new Set(['/home', '/discover', '/for-you', '/swipe'])
 
 function AndroidBackHandler() {
   const pathname = usePathname()
   const router   = useRouter()
+  const cushionInstalled = useRef(false)
+
   const isAndroid = typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent)
 
-  // Installa il cuscinetto al mount e ad ogni cambio di pathname
+  // Inserisce il cuscinetto UNA SOLA VOLTA al mount iniziale
   useEffect(() => {
     if (!isAndroid) return
-    // Piccolo delay per lasciare che Next.js completi la navigazione
+    if (cushionInstalled.current) return
+    cushionInstalled.current = true
+    // Piccolo delay per lasciare che Next.js completi l'hydration
     const t = setTimeout(() => {
       history.pushState({ gkCushion: true }, '', location.href)
-    }, 50)
+    }, 100)
     return () => clearTimeout(t)
-  }, [pathname, isAndroid])
+  }, [isAndroid]) // [] effettivo — isAndroid non cambia mai
 
   useEffect(() => {
     if (!isAndroid) return
 
     const handler = (e: PopStateEvent) => {
-      // Il cuscinetto è stato consumato — intercettiamo sempre
+      // Intercettiamo sempre — il cuscinetto è stato consumato
       e.stopImmediatePropagation()
 
-      // 1. Drawer/modal aperto → chiudi quello (callback registrata)
+      // 1. Drawer/modal aperto → chiudi quello
       if (androidBack.handleBack()) {
         // Ricarichiamo il cuscinetto dopo la chiusura
         setTimeout(() => history.pushState({ gkCushion: true }, '', location.href), 50)
@@ -149,13 +145,14 @@ function AndroidBackHandler() {
       const isMainTab = MAIN_TABS.has(pathname) || pathname.startsWith('/profile/')
       if (isMainTab && pathname !== '/home' && pathname !== '/') {
         router.replace('/home')
-        // Il cuscinetto verrà ricreato dal useEffect sul pathname
+        // Ricarichiamo il cuscinetto (pathname cambierà ma il useEffect
+        // non lo reinstallerà perché cushionInstalled.current è già true)
+        setTimeout(() => history.pushState({ gkCushion: true }, '', location.href), 150)
         return
       }
 
-      // 3. Siamo su home (o pagina non-tab) → esci dall'app
-      // NON rifacciamo pushState — lasciamo che il prossimo back esca
-      // Chiamiamo history.back() di nuovo per consumare la entry reale
+      // 3. Siamo su home → esci dall'app
+      // NON rifacciamo pushState — il prossimo back uscirà dall'app
       history.back()
     }
 
