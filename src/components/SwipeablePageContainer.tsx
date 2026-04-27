@@ -35,6 +35,18 @@ const EASE_SNAP = 'cubic-bezier(0.22, 1, 0.36, 1)'
 const IS_IOS     = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent)
 const IS_ANDROID = typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent)
 
+// Restituisce true se il touch parte da una zona esplicitamente marcata come
+// zona di page-swipe (data-page-swipe-zone). In questo caso il gesto viene
+// sempre trattato come navigazione tra pagine, ignorando data-no-swipe.
+function isInPageSwipeZone(target: EventTarget | null): boolean {
+  let node = target as HTMLElement | null
+  while (node && node.tagName !== 'BODY') {
+    if (node.dataset && 'pageSwipeZone' in node.dataset) return true
+    node = node.parentElement
+  }
+  return false
+}
+
 // Restituisce true solo se il touch è dentro un elemento scrollabile orizzontalmente
 // CHE ha ancora spazio per scorrere nella direzione del gesto (dx>0 = verso destra = scroll a sx).
 // Se l'elemento è a fine corsa nella direzione del gesto, restituisce false:
@@ -72,7 +84,8 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   const vw          = useRef(0)
   const isDragging  = useRef(false)
   const captured    = useRef(false)
-  const touchTarget  = useRef<EventTarget | null>(null)
+  const touchTarget   = useRef<EventTarget | null>(null)
+  const inSwipeZone  = useRef(false)
 
   // offset e animate sono gestiti direttamente sul DOM durante il drag
   // per evitare re-render React ad ogni pixel — zero lag durante lo swipe.
@@ -121,6 +134,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     captured.current         = false
     isDragging.current       = false
     gestureState.swipeActive = false
+    inSwipeZone.current      = false
     applyTransform(0, false)
     setSnapping(false)
     document.documentElement.removeAttribute('data-swiping')
@@ -171,8 +185,10 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     }
     // Il check scroll-chaining viene fatto in onTouchMove quando
     // la direzione (dx) è nota. Qui salviamo solo il target.
-    captured.current    = true
-    touchTarget.current  = e.target
+    // Eccezione: data-page-swipe-zone forza sempre il page-swipe.
+    captured.current       = true
+    touchTarget.current    = e.target
+    inSwipeZone.current    = isInPageSwipeZone(e.target)
     touchStartX.current = x
     touchStartY.current = e.touches[0].clientY
     touchStartT.current = performance.now()
@@ -195,11 +211,11 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     }
 
     // ── Scroll chaining ────────────────────────────────────────────────────────
-    // Se il gesto è orizzontale (isH===true) ma l'elemento ha ancora spazio per
-    // scorrere nella direzione del drag → lascia fare scroll nativo (isH=false).
-    // Quando l'elemento raggiunge la fine corsa, isH torna null e al frame
-    // successivo riparte la detection: se ora non è bloccato → avvia page-swipe.
-    if (isH.current === true && isInsideHorizontalScroller(touchTarget.current, dx)) {
+    // data-page-swipe-zone: zona franca — il page-swipe ha sempre precedenza,
+    // ignora qualsiasi scroller nidificato.
+    // Altrimenti: se l'elemento ha ancora spazio per scorrere nella direzione
+    // del drag → lascia fare scroll nativo e ricontrolla al frame successivo.
+    if (isH.current === true && !inSwipeZone.current && isInsideHorizontalScroller(touchTarget.current, dx)) {
       isH.current = null // non ancora deciso: ricontrolla al prossimo frame
       return
     }

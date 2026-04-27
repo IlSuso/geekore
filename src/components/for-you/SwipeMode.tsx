@@ -733,6 +733,27 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
         {standalone && (
           <div className="md:hidden flex-shrink-0" style={{ height: 'calc(49px + env(safe-area-inset-bottom, 0px))' }} />
         )}
+
+        {/* ── Zona franca page-swipe (mobile standalone) ─────────────────────────
+             Striscia fissa in basso, sopra la navbar, sotto le stelline.
+             data-page-swipe-zone segnala a SwipeablePageContainer di trattare
+             qualsiasi swipe orizzontale qui come navigazione tra pagine,
+             ignorando data-no-swipe dei parent. ── */}
+        {standalone && (
+          <div
+            data-page-swipe-zone=""
+            className="md:hidden"
+            style={{
+              position: 'fixed',
+              bottom: 'calc(49px + env(safe-area-inset-bottom, 0px))',
+              left: 0,
+              right: 0,
+              height: 72,
+              zIndex: 10001, // sopra le card (9999) e il detail drawer (10000)
+              // debug: background: 'rgba(255,0,0,0.15)',
+            }}
+          />
+        )}
       </div>
 
       {detailItem && (
