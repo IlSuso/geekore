@@ -11,11 +11,11 @@ const config: CapacitorConfig = {
     backgroundColor: '#000000',
     allowMixedContent: false,
     captureInput: true,
-    webContentsDebuggingEnabled: false, // true solo durante sviluppo
+    webContentsDebuggingEnabled: false,
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 1500,
+      launchShowDuration: 1200,
       launchAutoHide: true,
       backgroundColor: '#000000',
       androidSplashResourceName: 'splash',
