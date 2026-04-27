@@ -646,123 +646,25 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
 
   const topCoverImage = filteredQueue[0]?.coverImage
 
-  // ── Layout standalone: in-flow come le altre pagine ─────────────────────────
-  // NON usa fixed inset-0 per evitare conflitti con il transform di
-  // SwipeablePageContainer durante la gesture di navigazione tra pagine.
-  // Il backdrop decorativo resta fixed ma è solo un layer visivo (pointer-events:none).
+  const containerClass = standalone
+    ? 'fixed inset-0 md:pt-12 bg-black flex flex-col overflow-hidden'
+    : 'fixed inset-0 bg-black flex flex-col'
+  const containerStyle = standalone ? {} : { zIndex: 9999 }
 
-  if (standalone) {
-    // Swipe page: niente header (è l'unica pagina senza).
-    // Layout: filtri in cima, card che occupa tutto lo spazio disponibile
-    // tra i filtri e la navbar bassa, card occupa l'intera altezza disponibile.
-    //
-    // Zona franca: striscia fixed che si sovrappone alla zona dei 5 pulsanti
-    // (tra le stelline e la navbar). Ha pointer-events:none così i click sui
-    // pulsanti passano attraverso — intercetta solo swipe orizzontali tramite
-    // data-page-swipe-zone, riconosciuto da SwipeablePageContainer.
-    //
-    // Altezze:
-    //   navbar bassa mobile = 49px + safe-area-bottom
-    //   zona pulsanti card = ~88px (stelline 44px + pulsanti 64px + padding)
-    //   zona franca = da navbar a sopra le stelline = ~104px
+  const filterPaddingTop = standalone
+    ? undefined
+    : { paddingTop: 'max(1rem, env(safe-area-inset-top))' }
 
-    const NAV_H = 'calc(49px + env(safe-area-inset-bottom, 0px))'
-    // Altezza card = viewport - navbar - filtri (48px) - padding (16px)
-    const CARD_H = 'calc(100dvh - 49px - env(safe-area-inset-bottom, 0px) - 64px)'
-
-    return (
-      <>
-        {/* Backdrop decorativo — fixed pointer-events:none, non interferisce con transform */}
-        {topCoverImage && (
-          <div className="fixed inset-0 z-0 pointer-events-none" aria-hidden>
-            <img
-              key={topCoverImage}
-              src={topCoverImage}
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover"
-              style={{ filter: 'blur(32px)', transform: 'scale(1.12)', opacity: 0.55 }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/35" />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-transparent to-black/50" />
-          </div>
-        )}
-
-        {/* Layout in-flow identico alle altre pagine — nessun fixed sul contenitore */}
-        <div
-          data-swipe-page-zone=""
-          className="relative z-10 flex flex-col bg-black md:bg-transparent"
-          style={{ minHeight: '100dvh', paddingBottom: NAV_H }}
-        >
-          {/* Filtri — safe-area-top per i notch, pt piccolo per respiro visivo */}
-          <div
-            className="flex-shrink-0 flex md:justify-center md:px-4"
-            style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))' }}
-          >
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide w-full px-3 md:w-auto md:px-0">
-              {CATEGORIES.map(cat => (
-                <button key={cat.key} onClick={() => handleFilterChange(cat.key)}
-                  className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
-                    activeFilter === cat.key ? 'bg-white text-black' : 'bg-white/10 text-white/60 hover:bg-white/15 hover:text-white'
-                  }`}>
-                  {cat.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Card — flex-1 per occupare tutto lo spazio rimanente */}
-          <div className="flex-1 flex items-center justify-center px-4 py-2 min-h-0">
-            {filteredQueue.length === 0 ? (
-              <LoadingScreen message={isLoadingMore ? 'Caricamento nuovi titoli' : 'Preparazione in corso'} />
-            ) : (
-              <div
-                data-no-swipe=""
-                className="relative w-full"
-                style={{ maxWidth: 'min(420px, 90vw)', height: CARD_H }}
-              >
-                {filteredQueue.slice(0, 3).map((item, idx) => (
-                  <SwipeCard key={item.id} item={item} isTop={idx === 0} stackIndex={idx}
-                    onSwipe={handleSwipe}
-                    rating={idx === 0 ? currentRating : null}
-                    onRatingChange={setRating}
-                    onDetailOpen={handleDetailOpen}
-                    onUndo={handleUndo} canUndo={history.length > 0}
-                    onWishlist={handleWishlist}
-                    onClose={onClose}
-                    hideClose={true}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Hint desktop */}
-          {filteredQueue.length > 0 && (
-            <div className="flex-shrink-0 text-center select-none hidden md:block pb-3">
-              <p className="text-zinc-600 text-xs pointer-events-none">← Skip &nbsp;·&nbsp; Visto →</p>
-            </div>
-          )}
-        </div>
-
-        {/* Zona franca page-swipe: gestita per coordinate in SwipeablePageContainer.
-             Nessun elemento DOM — data-swipe-page-zone è sul contenitore principale
-             della swipe page, e SwipeablePageContainer usa le coordinate Y del touch
-             per decidere se siamo nella zona pulsanti (navbar → stelline). */}
-      </>
-    )
-  }
-
-  // ── Layout non-standalone (overlay fullscreen: onboarding, for-you embed) ──
-  const containerStyle = { zIndex: 9999 }
-  const filterPaddingTop = { paddingTop: 'max(1rem, env(safe-area-inset-top))' }
-  const hintPaddingBottom = { paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }
+  const hintPaddingBottom = standalone
+    ? { paddingBottom: '0.75rem' }
+    : { paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }
 
   return (
     <>
-      <div className="fixed inset-0 bg-black flex flex-col" style={containerStyle}>
+      <div className={containerClass} style={containerStyle}>
 
-        {/* Backdrop sfumato onboarding */}
-        {isOnboarding && topCoverImage && (
+        {/* Backdrop sfumato: visibile in standalone e onboarding */}
+        {(standalone || isOnboarding) && topCoverImage && (
           <div className="absolute inset-0 z-0 pointer-events-none" aria-hidden>
             <img
               key={topCoverImage}
@@ -771,13 +673,14 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
               className="absolute inset-0 w-full h-full object-cover"
               style={{ filter: 'blur(32px)', transform: 'scale(1.12)', opacity: 0.55 }}
             />
+            {/* Vignette: leggero per far trasparire i colori della card */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/35" />
             <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-transparent to-black/50" />
           </div>
         )}
 
-        <div className="relative z-10 flex-shrink-0 flex justify-center px-4" style={filterPaddingTop}>
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <div className={`relative z-10 flex-shrink-0 flex${standalone ? ' swipe-filter-padding md:justify-center md:px-4' : ' justify-center px-4'}`} style={filterPaddingTop}>
+          <div className={`flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide${standalone ? ' w-full px-3 md:w-auto md:px-0' : ''}`}>
             {CATEGORIES.map(cat => (
               <button key={cat.key} onClick={() => handleFilterChange(cat.key)}
                 className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
@@ -796,7 +699,10 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
             <div
               data-no-swipe=""
               className="relative w-full"
-              style={{ maxWidth: '384px', height: 'min(680px, 82svh)' }}
+              style={{
+                maxWidth: standalone ? 'min(420px, 90vw)' : '384px',
+                height: standalone ? 'min(680px, 100%)' : 'min(680px, 82svh)',
+              }}
             >
               {filteredQueue.slice(0, 3).map((item, idx) => (
                 <SwipeCard key={item.id} item={item} isTop={idx === 0} stackIndex={idx}
@@ -807,7 +713,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
                   onUndo={handleUndo} canUndo={history.length > 0}
                   onWishlist={handleWishlist}
                   onClose={isOnboarding && onOnboardingComplete ? onOnboardingComplete : onClose}
-                  hideClose={false}
+                  hideClose={standalone}
                 />
               ))}
             </div>
@@ -821,6 +727,11 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
             </div>
             <div className="relative z-10 flex-shrink-0 md:hidden" style={hintPaddingBottom} />
           </>
+        )}
+
+        {/* Mobile bottom-nav spacer — only in standalone since SwipeMode is fixed/fullscreen */}
+        {standalone && (
+          <div className="md:hidden flex-shrink-0" style={{ height: 'calc(49px + env(safe-area-inset-bottom, 0px))' }} />
         )}
       </div>
 
