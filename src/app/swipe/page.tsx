@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { Shuffle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -77,6 +78,9 @@ export default function SwipePage() {
   const addedTitlesRef = useRef<Set<string>>(new Set())
   const [initialItems, setInitialItems] = useState<SwipeItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
     async function init() {
@@ -342,7 +346,11 @@ export default function SwipePage() {
     )
   }
 
-  return (
+  // SwipeMode usa position:fixed inset-0. Renderizzarlo via portal direttamente
+  // su document.body evita che il transform di SwipeablePageContainer (usato per
+  // l'animazione di swipe tra pagine) rompa il containing block di position:fixed,
+  // che causerebbe lo schiacciamento del contenuto durante la gesture.
+  const swipeUI = (
     <SwipeMode
       standalone
       items={initialItems}
@@ -353,4 +361,6 @@ export default function SwipePage() {
       onClose={() => {}}
     />
   )
+
+  return mounted ? createPortal(swipeUI, document.body) : null
 }
