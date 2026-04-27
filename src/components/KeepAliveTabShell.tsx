@@ -43,7 +43,7 @@ const FULL_SCREEN_TABS = new Set<KATab>(['swipe'])
 const adjBase = (panelTab: KATab) => {
   const full = FULL_SCREEN_TABS.has(panelTab)
   return {
-    position: 'absolute' as const,
+    position: 'fixed' as const,
     top:   full ? 0 : HEADER_H,
     left:  0,
     width: '100%',
@@ -51,7 +51,6 @@ const adjBase = (panelTab: KATab) => {
     overflow:      'hidden',
     pointerEvents: 'none' as const,
     zIndex:        1,
-    contain:       'paint',
   }
 }
 
@@ -101,12 +100,17 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (prevTab.current === tab) return
-    if (tab !== 'swipe') {
-      requestAnimationFrame(() => {
-        window.scrollTo(0, tab ? (savedY.current[tab] ?? 0) : 0)
-      })
-    }
     prevTab.current = tab
+    if (tab === 'swipe') return
+    // Doppio rAF: il primo frame completa il render della nuova tab (DOM paint),
+    // il secondo applica lo scroll — elimina il flash a scrollY=0 visibile
+    // tra il cambio di tab e il ripristino della posizione.
+    const targetY = tab ? (savedY.current[tab] ?? 0) : 0
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: targetY, behavior: 'instant' })
+      })
+    })
   }, [tab])
 
   // ── Carousel state ─────────────────────────────────────────────────────────

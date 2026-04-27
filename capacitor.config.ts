@@ -4,7 +4,7 @@ const config: CapacitorConfig = {
   appId: 'com.geekore.app',
   appName: 'Geekore',
   server: {
-    url: 'https://geekore.geekore.it',
+    url: 'https://geekore.it',
     cleartext: false,
   },
   android: {
@@ -15,10 +15,12 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 0,       // non nascondere automaticamente
-      launchAutoHide: false,       // lo nasconderemo noi da JS
+      launchShowDuration: 1800,     // splash visibile ~1.8s
+      launchAutoHide: true,         // sparisce automaticamente
+      launchFadeOutDuration: 400,   // fade out 400ms — fluido come IG
       backgroundColor: '#000000',
       androidSplashResourceName: 'splash',
+      androidScaleType: 'CENTER',   // logo centrato, non stretchato
       showSpinner: false,
     },
   },

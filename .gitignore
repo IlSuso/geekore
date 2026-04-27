@@ -68,3 +68,5 @@ tests/.env.test
 # Capacitor
 android/
 ios/
+*.jks
+*.keystore
