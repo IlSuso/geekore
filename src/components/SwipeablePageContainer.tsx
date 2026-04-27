@@ -35,12 +35,25 @@ const EASE_SNAP = 'cubic-bezier(0.22, 1, 0.36, 1)'
 const IS_IOS     = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent)
 const IS_ANDROID = typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent)
 
-function isInsideHorizontalScroller(target: EventTarget | null): boolean {
+// Restituisce true solo se il touch è dentro un elemento scrollabile orizzontalmente
+// CHE ha ancora spazio per scorrere nella direzione del gesto (dx>0 = verso destra = scroll a sx).
+// Se l'elemento è a fine corsa nella direzione del gesto, restituisce false:
+// il gesto viene "passato" al page-swipe (scroll chaining, come iOS/Android nativi).
+function isInsideHorizontalScroller(target: EventTarget | null, dx: number): boolean {
   let node = target as HTMLElement | null
   while (node && node.tagName !== 'BODY') {
     if (node.dataset && 'noSwipe' in node.dataset) return true
     const ox = window.getComputedStyle(node).overflowX
-    if ((ox === 'auto' || ox === 'scroll') && node.scrollWidth > node.clientWidth) return true
+    if ((ox === 'auto' || ox === 'scroll') && node.scrollWidth > node.clientWidth) {
+      const { scrollLeft, scrollWidth, clientWidth } = node
+      const atStart = scrollLeft <= 0
+      const atEnd   = scrollLeft + clientWidth >= scrollWidth - 1
+      // dx > 0 = dito verso destra = si sta scrollando verso sinistra (scrollLeft decresce)
+      // dx < 0 = dito verso sinistra = si sta scrollando verso destra (scrollLeft aumenta)
+      const blocksSwipe = dx > 0 ? !atStart : !atEnd
+      if (blocksSwipe) return true
+      // A fine corsa nella direzione del gesto: lascia passare al page-swipe
+    }
     node = node.parentElement
   }
   return false
@@ -59,6 +72,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   const vw          = useRef(0)
   const isDragging  = useRef(false)
   const captured    = useRef(false)
+  const touchTarget  = useRef<EventTarget | null>(null)
 
   // offset e animate sono gestiti direttamente sul DOM durante il drag
   // per evitare re-render React ad ogni pixel — zero lag durante lo swipe.
@@ -155,9 +169,10 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
       // Desktop: simmetrico
       if (x <= EDGE_DEAD_ZONE_RIGHT || x >= w - EDGE_DEAD_ZONE_RIGHT) return
     }
-    if (isInsideHorizontalScroller(e.target)) return
-
+    // Il check scroll-chaining viene fatto in onTouchMove quando
+    // la direzione (dx) è nota. Qui salviamo solo il target.
     captured.current    = true
+    touchTarget.current  = e.target
     touchStartX.current = x
     touchStartY.current = e.touches[0].clientY
     touchStartT.current = performance.now()
@@ -172,10 +187,25 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     const dx = e.touches[0].clientX - touchStartX.current
     const dy = e.touches[0].clientY - touchStartY.current
 
+    // ── Determina direzione al primo frame con movimento sufficiente ──────────
     if (isH.current === null) {
       if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return
       isH.current = Math.abs(dx) > Math.abs(dy) * 1.4
-      if (!isH.current) return
+      if (!isH.current) return // gesto verticale → non intercettare
+    }
+
+    // ── Scroll chaining ────────────────────────────────────────────────────────
+    // Se il gesto è orizzontale (isH===true) ma l'elemento ha ancora spazio per
+    // scorrere nella direzione del drag → lascia fare scroll nativo (isH=false).
+    // Quando l'elemento raggiunge la fine corsa, isH torna null e al frame
+    // successivo riparte la detection: se ora non è bloccato → avvia page-swipe.
+    if (isH.current === true && isInsideHorizontalScroller(touchTarget.current, dx)) {
+      isH.current = null // non ancora deciso: ricontrolla al prossimo frame
+      return
+    }
+
+    // ── Avvia page-swipe (prima volta che isH===true e scroller non blocca) ──
+    if (isH.current === true && !isDragging.current) {
       swipeNavBridge.notifyStart(
         prevTab ? TAB_ORDER.indexOf(prevTab) : null,
         nextTab ? TAB_ORDER.indexOf(nextTab) : null,
@@ -185,6 +215,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
       const toSwipe = (nextTab === '/swipe' && dx < 0) || (prevTab === '/swipe' && dx > 0)
       if (toSwipe) r.setAttribute('data-to-swipe', '')
     }
+
     if (!isH.current) return
 
     e.preventDefault()
