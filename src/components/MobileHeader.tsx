@@ -97,7 +97,8 @@ export function MobileHeader() {
   // isOwnProfile dipende da username (auth) — usare solo dopo il mount
   // per evitare divergenza SSR/client.
   const isOwnProfile  = mounted && (pathname === '/profile/me' || (username && pathname === `/profile/${username}`))
-  const isOtherProfile = isProfilePage && !isOwnProfile && pathname.split('/').length === 3
+  const PROFILE_RESERVED = new Set(['edit', 'setup', 'me', 'loading'])
+  const isOtherProfile = isProfilePage && !isOwnProfile && pathname.split('/').length === 3 && !PROFILE_RESERVED.has(pathname.split('/')[2] || '')
   const isSubPage     = (pathname.split('/').length > 3 && !isOtherProfile) ||
     pathname.startsWith('/stats/') || pathname.startsWith('/lists/')
 
@@ -113,6 +114,8 @@ export function MobileHeader() {
     '/swipe':        { title: 'Swipe',                icon: <Shuffle size={14} className="text-white" />,     iconBg: 'bg-gradient-to-br from-emerald-500 to-teal-600' },
     '/notifications':{ title: 'Notifiche',            icon: <Bell size={14} className="text-white" />,        iconBg: 'bg-gradient-to-br from-amber-500 to-orange-500' },
     '/settings':     { title: t.nav.settings,         icon: <Settings size={14} className="text-white" />,    iconBg: 'bg-zinc-700' },
+    '/profile/edit': { title: 'Modifica Profilo',      icon: <Edit3 size={14} className="text-white" />,       iconBg: 'bg-gradient-to-br from-violet-500 to-purple-600' },
+    '/profile/setup':{ title: 'Crea Profilo',          icon: <Edit3 size={14} className="text-white" />,       iconBg: 'bg-gradient-to-br from-violet-500 to-purple-600' },
     '/wishlist':     { title: 'Wishlist',             icon: <Bookmark size={14} className="text-white" />,    iconBg: 'bg-gradient-to-br from-pink-500 to-rose-600' },
     '/stats':        { title: 'Statistiche',          icon: <BarChart2 size={14} className="text-white" />,   iconBg: 'bg-gradient-to-br from-indigo-500 to-violet-600' },
     '/leaderboard':  { title: 'Classifica',           icon: <Trophy size={14} className="text-white" />,      iconBg: 'bg-gradient-to-br from-yellow-500 to-amber-600' },
@@ -146,7 +149,7 @@ export function MobileHeader() {
     )
     if (pageConfig) return (
       <div className="flex items-center gap-2">
-        {isSubPage && <BackButton />}
+        {(isSubPage || pathname === '/profile/edit' || pathname === '/profile/setup') && <BackButton />}
         <PageTitle {...pageConfig} />
       </div>
     )
