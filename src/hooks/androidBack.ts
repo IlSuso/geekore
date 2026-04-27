@@ -49,4 +49,12 @@ export const androidBack = {
   get hasOpenLayer() {
     return closeCallbacks.length > 0
   },
+
+  // Chiude tutti i layer aperti — usato quando l'utente naviga via navbar.
+  closeAll() {
+    for (let i = closeCallbacks.length - 1; i >= 0; i--) {
+      try { closeCallbacks[i]() } catch {}
+    }
+    closeCallbacks.length = 0
+  },
 }

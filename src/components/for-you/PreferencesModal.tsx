@@ -32,6 +32,7 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
   const fy = t.forYou
   const supabase = createClient()
   const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [step, setStep] = useState(0)
   const [prefs, setPrefs] = useState<Record<string, string[]>>({
     fav_game_genres: [], fav_anime_genres: [], fav_movie_genres: [],
@@ -46,7 +47,7 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
+      if (!user) { setLoading(false); return }
       supabase.from('user_preferences').select('*').eq('user_id', user.id).single().then(({ data }) => {
         if (data) {
           setPrefs({
@@ -60,6 +61,7 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
           const hasPrefs = Object.values(data).some(v => Array.isArray(v) && (v as unknown[]).length > 0)
           if (hasPrefs) setStep(1)
         }
+        setLoading(false)
       })
     })
   }, [])
@@ -104,6 +106,16 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
 
   const currentSection = sections[step - 1]
   const totalSteps = sections.length
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-2xl p-8 flex items-center justify-center" style={{ minHeight: 200 }}>
+          <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4">

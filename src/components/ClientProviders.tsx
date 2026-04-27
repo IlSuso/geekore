@@ -81,6 +81,21 @@ function ThemeColorEnforcer() {
 
 const MAIN_TABS = new Set(['/home', '/discover', '/for-you', '/swipe'])
 
+// Chiude tutti i layer (modal/drawer) quando l'utente naviga via navbar
+function NavbarLayerCloser() {
+  const pathname = usePathname()
+  const prevRef  = useRef<string>('')
+
+  useEffect(() => {
+    if (prevRef.current && prevRef.current !== pathname) {
+      androidBack.closeAll()
+    }
+    prevRef.current = pathname
+  }, [pathname])
+
+  return null
+}
+
 function AndroidBackHandler() {
   const router      = useRouter()
   const pathnameRef = useRef<string>('')
@@ -121,6 +136,7 @@ export function ClientProviders({ children, initialLocale = 'it' }: { children: 
       <LocaleProvider initialLocale={initialLocale}>
         <ThemeColorEnforcer />
         <AndroidBackHandler />
+        <NavbarLayerCloser />
         <ServiceWorkerRegistrar />
         <SyncStatusListener />
         <OnboardingGuard />
