@@ -15,6 +15,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useRef, useState, useCallback, useEffect, type ReactNode } from 'react'
 import { gestureState } from '@/hooks/gestureState'
 import { swipeNavBridge } from '@/hooks/swipeNavBridge'
+import { useActiveTab, pathnameToTab } from '@/context/ActiveTabContext'
 
 export const TAB_ORDER = ['/home', '/discover', '/for-you', '/swipe', '/profile/me']
 
@@ -63,6 +64,11 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const router   = useRouter()
   const wrapRef  = useRef<HTMLDivElement>(null)
+  const { activeTab, setActiveTab } = useActiveTab()
+  // intentRef: tab "intenzionale" corrente — aggiornato IMMEDIATAMENTE al rilascio
+  // del dito, senza aspettare il ciclo router/pathname (~260ms).
+  // Permette swipe rapidi consecutivi: 1→2→3→4 invece di sempre 1→2.
+  const intentTabRef = useRef<string>(''  )
 
   const touchStartX = useRef(0)
   const touchStartY = useRef(0)
@@ -96,10 +102,12 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // Usa intentTabRef per swipe rapidi consecutivi — altrimenti fallback a pathname
+  const effectivePath = intentTabRef.current || pathname
   const currentIdx = TAB_ORDER.findIndex(t => {
-    if (t === '/profile/me') return pathname.startsWith('/profile/')
-    if (t === '/home')       return pathname === '/home' || pathname === '/'
-    return pathname === t
+    if (t === '/profile/me') return effectivePath.startsWith('/profile/')
+    if (t === '/home')       return effectivePath === '/home' || effectivePath === '/'
+    return effectivePath === t
   })
 
   const isMain   = currentIdx !== -1
@@ -119,6 +127,8 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    // pathname aggiornato — resetta intentRef e stato swipe
+    intentTabRef.current     = ''
     captured.current         = false
     isDragging.current       = false
     gestureState.swipeActive = false
@@ -188,8 +198,8 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
 
     // ── Determina direzione al primo frame con movimento sufficiente ──────────
     if (isH.current === null) {
-      if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return
-      isH.current = Math.abs(dx) > Math.abs(dy) * 1.4
+      if (Math.abs(dx) < 3 && Math.abs(dy) < 3) return
+      isH.current = Math.abs(dx) > Math.abs(dy) * 1.2
       if (!isH.current) return // gesto verticale → non intercettare
     }
 
@@ -249,9 +259,15 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     r.removeAttribute('data-swiping')
 
     if (shouldNav && dx > 0 && prevTab) {
+      // Aggiorna intent SUBITO — il prossimo swipe rapido usa già prevTab come base
+      intentTabRef.current = prevTab
+      setActiveTab(pathnameToTab(prevTab))
       applyTransform(w, true, EASE_OUT)
       setTimeout(() => { router.replace(prevTab) }, 260)
     } else if (shouldNav && dx < 0 && nextTab) {
+      // Aggiorna intent SUBITO — il prossimo swipe rapido usa già nextTab come base
+      intentTabRef.current = nextTab
+      setActiveTab(pathnameToTab(nextTab))
       applyTransform(-w, true, EASE_OUT)
       setTimeout(() => { router.replace(nextTab) }, 260)
     } else {
