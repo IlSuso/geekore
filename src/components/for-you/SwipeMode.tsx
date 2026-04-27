@@ -652,11 +652,27 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
   // Il backdrop decorativo resta fixed ma è solo un layer visivo (pointer-events:none).
 
   if (standalone) {
-    // Altezza disponibile per le card: viewport - header mobile (53px) - navbar (49px+safe-area) - filtri (~48px) - hint (~32px)
-    const NAVBAR_H = 'calc(49px + env(safe-area-inset-bottom, 0px))'
+    // Swipe page: niente header (è l'unica pagina senza).
+    // Layout: filtri in cima, card che occupa tutto lo spazio disponibile
+    // tra i filtri e la navbar bassa, card occupa l'intera altezza disponibile.
+    //
+    // Zona franca: striscia fixed che si sovrappone alla zona dei 5 pulsanti
+    // (tra le stelline e la navbar). Ha pointer-events:none così i click sui
+    // pulsanti passano attraverso — intercetta solo swipe orizzontali tramite
+    // data-page-swipe-zone, riconosciuto da SwipeablePageContainer.
+    //
+    // Altezze:
+    //   navbar bassa mobile = 49px + safe-area-bottom
+    //   zona pulsanti card = ~88px (stelline 44px + pulsanti 64px + padding)
+    //   zona franca = da navbar a sopra le stelline = ~104px
+
+    const NAV_H = 'calc(49px + env(safe-area-inset-bottom, 0px))'
+    // Altezza card = viewport - navbar - filtri (48px) - padding (16px)
+    const CARD_H = 'calc(100dvh - 49px - env(safe-area-inset-bottom, 0px) - 64px)'
+
     return (
       <>
-        {/* Backdrop decorativo: fixed ma pointer-events:none, non crea conflitti */}
+        {/* Backdrop decorativo — fixed pointer-events:none, non interferisce con transform */}
         {topCoverImage && (
           <div className="fixed inset-0 z-0 pointer-events-none" aria-hidden>
             <img
@@ -671,13 +687,17 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
           </div>
         )}
 
-        {/* Contenuto in-flow: si comporta come le altre pagine */}
+        {/* Layout in-flow identico alle altre pagine — nessun fixed sul contenitore */}
         <div
-          className="relative z-10 min-h-screen bg-black md:bg-transparent flex flex-col"
-          style={{ paddingBottom: NAVBAR_H }}
+          data-swipe-page-zone=""
+          className="relative z-10 flex flex-col bg-black md:bg-transparent"
+          style={{ minHeight: '100dvh', paddingBottom: NAV_H }}
         >
-          {/* Filtri categoria */}
-          <div className="flex-shrink-0 flex swipe-filter-padding md:justify-center md:px-4">
+          {/* Filtri — safe-area-top per i notch, pt piccolo per respiro visivo */}
+          <div
+            className="flex-shrink-0 flex md:justify-center md:px-4"
+            style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))' }}
+          >
             <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide w-full px-3 md:w-auto md:px-0">
               {CATEGORIES.map(cat => (
                 <button key={cat.key} onClick={() => handleFilterChange(cat.key)}
@@ -690,15 +710,15 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
             </div>
           </div>
 
-          {/* Stack card: occupa lo spazio rimanente, centrato */}
-          <div className="flex-1 flex items-center justify-center px-4 py-1 min-h-0">
+          {/* Card — flex-1 per occupare tutto lo spazio rimanente */}
+          <div className="flex-1 flex items-center justify-center px-4 py-2 min-h-0">
             {filteredQueue.length === 0 ? (
               <LoadingScreen message={isLoadingMore ? 'Caricamento nuovi titoli' : 'Preparazione in corso'} />
             ) : (
               <div
                 data-no-swipe=""
                 className="relative w-full"
-                style={{ maxWidth: 'min(420px, 90vw)', height: 'min(640px, calc(100dvh - 220px))' }}
+                style={{ maxWidth: 'min(420px, 90vw)', height: CARD_H }}
               >
                 {filteredQueue.slice(0, 3).map((item, idx) => (
                   <SwipeCard key={item.id} item={item} isTop={idx === 0} stackIndex={idx}
@@ -722,18 +742,12 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
               <p className="text-zinc-600 text-xs pointer-events-none">← Skip &nbsp;·&nbsp; Visto →</p>
             </div>
           )}
-
-          {/* Zona franca page-swipe ── striscia in basso, sopra la navbar.
-               data-page-swipe-zone: SwipeablePageContainer ignora data-no-swipe
-               qui dentro e tratta qualsiasi swipe orizzontale come cambio pagina.
-               I 5 pulsanti dentro la card (X, Bookmark, ✓, Undo, Detail) usano
-               onClick con stopPropagation, quindi i click normali funzionano. ── */}
-          <div
-            data-page-swipe-zone=""
-            className="md:hidden flex-shrink-0"
-            style={{ height: 72 }}
-          />
         </div>
+
+        {/* Zona franca page-swipe: gestita per coordinate in SwipeablePageContainer.
+             Nessun elemento DOM — data-swipe-page-zone è sul contenitore principale
+             della swipe page, e SwipeablePageContainer usa le coordinate Y del touch
+             per decidere se siamo nella zona pulsanti (navbar → stelline). */}
       </>
     )
   }

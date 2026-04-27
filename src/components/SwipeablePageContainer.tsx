@@ -35,13 +35,24 @@ const EASE_SNAP = 'cubic-bezier(0.22, 1, 0.36, 1)'
 const IS_IOS     = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent)
 const IS_ANDROID = typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent)
 
-// Restituisce true se il touch parte da una zona esplicitamente marcata come
-// zona di page-swipe (data-page-swipe-zone). In questo caso il gesto viene
-// sempre trattato come navigazione tra pagine, ignorando data-no-swipe.
-function isInPageSwipeZone(target: EventTarget | null): boolean {
+// Restituisce true se il touch deve essere trattato sempre come page-swipe:
+// 1. data-page-swipe-zone: elemento esplicitamente marcato (approccio DOM)
+// 2. data-swipe-page-zone + coordinata Y nella zona pulsanti (approccio coordinate):
+//    usato dalla swipe page dove i pulsanti hanno pointer-events e non possiamo
+//    sovrapporre un overlay. La zona è: da (viewport - navbar - 104px) a (viewport - navbar).
+//    navbar = 49px + safe-area-bottom ≈ 49px su Android, variabile su iOS.
+function isInPageSwipeZone(target: EventTarget | null, clientY: number): boolean {
   let node = target as HTMLElement | null
   while (node && node.tagName !== 'BODY') {
+    // Approccio 1: elemento esplicitamente marcato
     if (node.dataset && 'pageSwipeZone' in node.dataset) return true
+    // Approccio 2: swipe page — controlla se Y è nella zona pulsanti
+    if (node.dataset && 'swipePageZone' in node.dataset) {
+      const navH = 49 // px, approssimazione sicura (safe-area gestita dal CSS)
+      const zoneTop = window.innerHeight - navH - 104
+      const zoneBottom = window.innerHeight - navH
+      return clientY >= zoneTop && clientY <= zoneBottom
+    }
     node = node.parentElement
   }
   return false
@@ -187,7 +198,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     // Eccezione: data-page-swipe-zone forza sempre il page-swipe.
     captured.current       = true
     touchTarget.current    = e.target
-    inSwipeZone.current    = isInPageSwipeZone(e.target)
+    inSwipeZone.current    = isInPageSwipeZone(e.target, e.touches[0].clientY)
     touchStartX.current = x
     touchStartY.current = e.touches[0].clientY
     touchStartT.current = performance.now()
