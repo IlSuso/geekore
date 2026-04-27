@@ -20,9 +20,9 @@ export const TAB_ORDER = ['/home', '/discover', '/for-you', '/swipe', '/profile/
 
 const CONFIRM_THRESHOLD  = 120   // px
 const VELOCITY_THRESHOLD = 0.35  // px/ms
-const EDGE_DEAD_ZONE_RIGHT = 72  // bordo destro (nessuna back gesture Android)
-// Dead zone sinistra = 22% viewport su Android — stessa strategia di Instagram.
-const ANDROID_LEFT_DEAD_ZONE_RATIO = 0.22
+const EDGE_DEAD_ZONE_RIGHT = 20  // bordo destro — zona sistema iOS/Android (~20px)
+// Dead zone sinistra Android = ~20px fissi (gesture di sistema)
+const ANDROID_LEFT_DEAD_ZONE = 20
 
 const EASE_OUT  = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
 const EASE_SNAP = 'cubic-bezier(0.22, 1, 0.36, 1)'
@@ -159,8 +159,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     // iOS: il bordo sinistro è lo swipe interattivo nativo (segue il dito) → lo gestiamo noi.
     // Desktop: dead zone simmetrica fissa.
     if (IS_ANDROID) {
-      const leftDeadZone = Math.round(w * ANDROID_LEFT_DEAD_ZONE_RATIO)
-      if (x <= leftDeadZone || x >= w - EDGE_DEAD_ZONE_RIGHT) return
+      if (x <= ANDROID_LEFT_DEAD_ZONE || x >= w - EDGE_DEAD_ZONE_RIGHT) return
     } else if (IS_IOS) {
       // Su iOS permettiamo swipe anche dal bordo sinistro estremo (come fa Instagram).
       // Solo bordo destro escluso (nessuna back gesture lì).

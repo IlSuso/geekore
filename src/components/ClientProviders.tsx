@@ -43,7 +43,10 @@ function RecsWarmer() {
   useEffect(() => {
     if (warmed.current) return
     if (pathname === '/for-you') { warmed.current = true; return }
-    const t = setTimeout(() => {
+    const t = setTimeout(async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
       warmed.current = true
       fetch('/api/recommendations?type=all', { method: 'GET', credentials: 'include' }).catch(() => {})
     }, 5000)
