@@ -12,7 +12,6 @@ import { createClient } from '@/lib/supabase/client'
 import { androidBack } from '@/hooks/androidBack'
 import { PushNotificationsBanner } from '@/components/notifications/PushNotificationsBanner'
 
-
 const ONBOARDING_EXEMPT_PATHS = ['/onboarding', '/login', '/register', '/forgot-password', '/privacy', '/terms', '/cookies', '/auth']
 
 function OnboardingGuard() {
@@ -70,20 +69,14 @@ function ThemeColorEnforcer() {
 // ------------------------------------------------------------------
 // AndroidBackHandler
 //
-// STRATEGIA FINALE: cuscinetto sullo STESSO URL della pagina corrente.
+// Comportamento voluto:
+//   - Back da tab principale (/discover, /for-you, /swipe, /profile)
+//     → sempre /home
+//   - Back da /home → chiude l'app
+//   - Back con drawer/modal aperto → chiude drawer/modal
 //
-// Android mostra l'animazione Predictive Back solo se la entry
-// precedente ha un URL/contenuto diverso dalla pagina corrente.
-// Se il cuscinetto ha lo stesso URL → Android non ha nulla di diverso
-// da mostrare → nessuna animazione.
-//
-// Flusso:
-//   mount → pushState(stesso URL) → stack: [/discover, /discover*]
-//   back gesture → popstate → intercettiamo → router.replace('/home')
-//                           → pushState(stesso URL /home) → stack: [/home, /home*]
-//   back gesture → popstate → siamo su /home → history.back() → esce
-//
-// Il * indica il cuscinetto. Stesso URL = nessuna anteprima visiva.
+// Strategia: cuscinetto pushState al mount e dopo ogni azione gestita.
+// Il popstate viene sempre intercettato e decidiamo noi cosa fare.
 // ------------------------------------------------------------------
 
 const MAIN_TABS = new Set(['/home', '/discover', '/for-you', '/swipe'])
@@ -94,46 +87,44 @@ function AndroidBackHandler() {
   const pathname    = usePathname()
   pathnameRef.current = pathname
 
-  // Inserisce/aggiorna il cuscinetto ogni volta che cambia pathname.
-  // pushState con lo stesso URL della pagina corrente → nessuna anteprima.
   useEffect(() => {
     if (!/android/i.test(navigator.userAgent)) return
-    // Usiamo lo stesso href corrente — Android non vede differenze visive
-    history.pushState({ gkCushion: true }, '', location.href)
-  }, [pathname])
 
-  useEffect(() => {
-    if (!/android/i.test(navigator.userAgent)) return
+    // Inserisce il cuscinetto subito
+    history.pushState({ gkCushion: true }, '')
 
     const handler = (e: PopStateEvent) => {
-      // Se lo stato NON è il nostro cuscinetto, ignora
-      // (potrebbe essere una navigazione legittima interna)
-      if (!e.state?.gkCushion) return
       e.stopImmediatePropagation()
 
+      // Rimettiamo subito il cuscinetto per il prossimo back,
+      // tranne nel caso 3 (home → esci)
+      const reinsert = () => history.pushState({ gkCushion: true }, '')
+
       // 1. Drawer/modal aperto → chiudi
-      if (androidBack.handleBack()) {
-        // Rimettiamo il cuscinetto
-        setTimeout(() => history.pushState({ gkCushion: true }, '', location.href), 50)
+      if (androidBack.hasOpenLayer) {
+        androidBack.handleBack()
+        reinsert()
         return
       }
 
-      // 2. Tab non-home → vai a /home
       const current = pathnameRef.current
       const isMainTab = MAIN_TABS.has(current) || current.startsWith('/profile/')
+
+      // 2. Tab non-home → vai a /home
       if (isMainTab && current !== '/home' && current !== '/') {
         router.replace('/home')
-        // Il cuscinetto verrà ricreato dall'useEffect sul pathname
+        reinsert()
         return
       }
 
-      // 3. Home → esci dall'app (non rimettiamo il cuscinetto)
+      // 3. Home (o pagina non gestita) → esci dall'app
+      // Non rimettiamo il cuscinetto: il prossimo back esce davvero
       history.back()
     }
 
     window.addEventListener('popstate', handler, { capture: true })
     return () => window.removeEventListener('popstate', handler, { capture: true })
-  }, [router])
+  }, [router]) // solo al mount — pathname letto dal ref
 
   return null
 }
