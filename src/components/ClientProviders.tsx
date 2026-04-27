@@ -68,21 +68,56 @@ function ThemeColorEnforcer() {
 }
 
 // ------------------------------------------------------------------
-// AndroidBackHandler
-//
-// APPROCCIO: Navigation API (Chrome 102+, disponibile su tutti i
-// dispositivi Android moderni con Chrome aggiornato).
-//
-// window.navigation.addEventListener('navigate') intercetta la
-// navigazione PRIMA che Android mostri l'anteprima Predictive Back.
-// Chiamando navigateEvent.intercept() diciamo al browser "gestisco
-// io questa navigazione" → Android non mostra l'animazione.
-//
-// Per i drawer/modal: androidBack.push/pop (nessun pushState).
-//
-// Fallback per browser senza Navigation API: nessun cuscinetto
-// (accettiamo che back esca dall'app — meglio che l'animazione).
+// DEBUG: overlay visivo per vedere cosa arriva dalla Navigation API
+// RIMUOVERE dopo il debug!
 // ------------------------------------------------------------------
+function NavDebugOverlay() {
+  const logRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!/android/i.test(navigator.userAgent)) return
+    const nav = (window as any).navigation
+    if (!nav) return
+
+    const addLog = (msg: string) => {
+      if (!logRef.current) return
+      const line = document.createElement('div')
+      line.textContent = `${new Date().toISOString().slice(11,19)} ${msg}`
+      logRef.current.prepend(line)
+      // Tieni solo gli ultimi 8 log
+      while (logRef.current.children.length > 8) {
+        logRef.current.removeChild(logRef.current.lastChild!)
+      }
+    }
+
+    // Log TUTTI gli eventi navigate senza filtrare
+    const handler = (e: any) => {
+      addLog(`type=${e.navigationType} dest=${e.destination?.url?.replace(location.origin,'')} canIntercept=${e.canIntercept}`)
+    }
+    nav.addEventListener('navigate', handler)
+
+    // Log anche popstate come confronto
+    const popHandler = () => addLog(`POPSTATE state=${JSON.stringify(history.state)}`)
+    window.addEventListener('popstate', popHandler)
+
+    return () => {
+      nav.removeEventListener('navigate', handler)
+      window.removeEventListener('popstate', popHandler)
+    }
+  }, [])
+
+  return (
+    <div
+      ref={logRef}
+      style={{
+        position: 'fixed', bottom: 80, left: 0, right: 0, zIndex: 99999,
+        background: 'rgba(0,0,0,0.85)', color: '#0f0', fontSize: 10,
+        fontFamily: 'monospace', padding: 4, pointerEvents: 'none',
+        maxHeight: 160, overflow: 'hidden',
+      }}
+    />
+  )
+}
 
 const MAIN_TABS = new Set(['/home', '/discover', '/for-you', '/swipe'])
 
@@ -94,69 +129,28 @@ function AndroidBackHandler() {
 
   useEffect(() => {
     if (!/android/i.test(navigator.userAgent)) return
-
-    // --- Navigation API (Chrome 102+) ---
     const nav = (window as any).navigation
-    if (nav) {
-      const handleNavigate = (e: any) => {
-        // Interessa solo le navigazioni "traverse" (back/forward)
-        if (e.navigationType !== 'traverse') return
+    if (!nav) return
 
-        // Se è una navigazione verso il passato (back gesture)
-        // e la destinazione è diversa dalla pagina corrente
-        const dest = e.destination?.url ?? ''
-        const current = pathnameRef.current
-
-        // Drawer/modal aperto → intercetta e chiudi
-        if (androidBack.hasOpenLayer) {
-          e.intercept({
-            handler: () => {
-              androidBack.handleBack()
-              return Promise.resolve()
-            }
-          })
-          return
-        }
-
-        // Tab principale non-home → intercetta e vai a /home
-        const isMainTab = MAIN_TABS.has(current) || current.startsWith('/profile/')
-        if (isMainTab && current !== '/home' && current !== '/') {
-          e.intercept({
-            handler: () => {
-              router.replace('/home')
-              return Promise.resolve()
-            }
-          })
-          return
-        }
-
-        // Home → lascia passare (chiude l'app)
-      }
-
-      nav.addEventListener('navigate', handleNavigate)
-      return () => nav.removeEventListener('navigate', handleNavigate)
-    }
-
-    // --- Fallback: popstate senza cuscinetto ---
-    // Senza Navigation API non possiamo bloccare l'animazione,
-    // ma almeno gestiamo il redirect a /home quando possibile.
-    // Il cuscinetto NON viene inserito perché causerebbe l'animazione.
-    const handlePopstate = (e: PopStateEvent) => {
-      e.stopImmediatePropagation()
-
-      if (androidBack.handleBack()) return
+    const handleNavigate = (e: any) => {
+      if (e.navigationType !== 'traverse') return
 
       const current = pathnameRef.current
-      const isMainTab = MAIN_TABS.has(current) || current.startsWith('/profile/')
-      if (isMainTab && current !== '/home' && current !== '/') {
-        router.replace('/home')
+
+      if (androidBack.hasOpenLayer) {
+        e.intercept({ handler: async () => { androidBack.handleBack() } })
         return
       }
-      history.back()
+
+      const isMainTab = MAIN_TABS.has(current) || current.startsWith('/profile/')
+      if (isMainTab && current !== '/home' && current !== '/') {
+        e.intercept({ handler: async () => { router.replace('/home') } })
+        return
+      }
     }
 
-    window.addEventListener('popstate', handlePopstate, { capture: true })
-    return () => window.removeEventListener('popstate', handlePopstate, { capture: true })
+    nav.addEventListener('navigate', handleNavigate)
+    return () => nav.removeEventListener('navigate', handleNavigate)
   }, [router])
 
   return null
@@ -168,6 +162,7 @@ export function ClientProviders({ children, initialLocale = 'it' }: { children: 
       <LocaleProvider initialLocale={initialLocale}>
         <ThemeColorEnforcer />
         <AndroidBackHandler />
+        <NavDebugOverlay />
         <ServiceWorkerRegistrar />
         <SyncStatusListener />
         <OnboardingGuard />
