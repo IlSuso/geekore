@@ -15,6 +15,7 @@
 
 import { useState, useEffect, useCallback, memo, useRef } from 'react'
 import { useScrollPanel } from '@/context/ScrollPanelContext'
+import { useTabActive } from '@/context/TabActiveContext'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -1160,6 +1161,7 @@ function PostModal({
 export default function FeedPage() {
   const pathname = usePathname()
   const { scrollToTop } = useScrollPanel()
+  const isActive = useTabActive()
   const [posts, setPosts] = useState<Post[]>([])
   const [pinnedPosts, setPinnedPosts] = useState<Post[]>([])
   const [newPostContent, setNewPostContent] = useState('')
@@ -1252,6 +1254,7 @@ export default function FeedPage() {
   }, [])
 
   useEffect(() => {
+    if (!isActive) return  // non ascoltare Realtime se il panel è nascosto
     const channel = supabase.channel('public:posts')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, (payload) => {
         const newId = payload.new?.id
@@ -1259,7 +1262,7 @@ export default function FeedPage() {
         setNewPostsCount(prev => prev + 1)
       }).subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [supabase])
+  }, [supabase, isActive])
 
   useEffect(() => {
     if (posts.length > 0) latestPostIdRef.current = posts[0].id

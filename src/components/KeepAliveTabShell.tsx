@@ -29,6 +29,7 @@ import SwipePage    from '@/app/swipe/page'
 import ProfilePage  from '@/app/profile/[username]/page'
 import { swipeNavBridge } from '@/hooks/swipeNavBridge'
 import { ScrollPanelContext } from '@/context/ScrollPanelContext'
+import { TabActiveContext } from '@/context/TabActiveContext'
 
 type KATab = 'feed' | 'discover' | 'for-you' | 'swipe' | 'profile'
 
@@ -67,10 +68,12 @@ function panelBaseStyle(panelTab: KATab): CSSProperties {
 function PanelWrapper({
   divRef,
   style,
+  isActive,
   children,
 }: {
   divRef: MutableRefObject<HTMLDivElement | null>
   style: CSSProperties
+  isActive: boolean
   children: ReactNode
 }) {
   const scrollToTop = useCallback((behavior: ScrollBehavior = 'smooth') => {
@@ -78,11 +81,13 @@ function PanelWrapper({
   }, [divRef])
 
   return (
-    <ScrollPanelContext.Provider value={{ panelRef: divRef, scrollToTop }}>
-      <div ref={divRef} style={style}>
-        {children}
-      </div>
-    </ScrollPanelContext.Provider>
+    <TabActiveContext.Provider value={isActive}>
+      <ScrollPanelContext.Provider value={{ panelRef: divRef, scrollToTop }}>
+        <div ref={divRef} style={style}>
+          {children}
+        </div>
+      </ScrollPanelContext.Provider>
+    </TabActiveContext.Provider>
   )
 }
 
@@ -227,8 +232,8 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
       return { ...base, transform: 'translateX(100%)', zIndex: 1, pointerEvents: 'none', visibility: 'visible', willChange: 'transform' }
     }
     if (visited.current.has(panelTab)) {
-      // Fuori schermo: nessun layer GPU, nascosto al compositor.
-      return { ...base, transform: 'translateX(-300%)', zIndex: 0, pointerEvents: 'none', visibility: 'hidden' }
+      // Fuori schermo: nascosto al compositor + skip layout/paint con content-visibility.
+      return { ...base, transform: 'translateX(-300%)', zIndex: 0, pointerEvents: 'none', visibility: 'hidden', contentVisibility: 'hidden' as CSSProperties['contentVisibility'] }
     }
     return { display: 'none' }
   }, [tab, adjLeft, adjRight])
@@ -237,23 +242,23 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <PanelWrapper divRef={panelRefs.current['feed']}     style={getPanelStyle('feed')}>
+      <PanelWrapper divRef={panelRefs.current['feed']} isActive={tab === 'feed'}     style={getPanelStyle('feed')}>
         {visited.current.has('feed') && <FeedPage />}
       </PanelWrapper>
 
-      <PanelWrapper divRef={panelRefs.current['discover']} style={getPanelStyle('discover')}>
+      <PanelWrapper divRef={panelRefs.current['discover']} isActive={tab === 'discover'} style={getPanelStyle('discover')}>
         {visited.current.has('discover') && <DiscoverPage />}
       </PanelWrapper>
 
-      <PanelWrapper divRef={panelRefs.current['for-you']}  style={getPanelStyle('for-you')}>
+      <PanelWrapper divRef={panelRefs.current['for-you']} isActive={tab === 'for-you'}  style={getPanelStyle('for-you')}>
         {visited.current.has('for-you') && <ForYouPage />}
       </PanelWrapper>
 
-      <PanelWrapper divRef={panelRefs.current['swipe']}    style={getPanelStyle('swipe')}>
+      <PanelWrapper divRef={panelRefs.current['swipe']} isActive={tab === 'swipe'}    style={getPanelStyle('swipe')}>
         {visited.current.has('swipe') && <SwipePage />}
       </PanelWrapper>
 
-      <PanelWrapper divRef={panelRefs.current['profile']}  style={getPanelStyle('profile')}>
+      <PanelWrapper divRef={panelRefs.current['profile']} isActive={tab === 'profile'}  style={getPanelStyle('profile')}>
         {visited.current.has('profile') && profileUsername && (
           <ProfilePage usernameOverride={profileUsername} />
         )}

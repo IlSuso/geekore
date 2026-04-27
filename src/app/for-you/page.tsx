@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback, memo, useRef } from 'react'
 import { useScrollPanel } from '@/context/ScrollPanelContext'
+import { useTabActive } from '@/context/TabActiveContext'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -709,6 +710,7 @@ const forYouCache: {
 export default function ForYouPage() {
   const pathname = usePathname()
   const { scrollToTop } = useScrollPanel()
+  const isActive = useTabActive()
   const supabase = createClient(); const router = useRouter()
   const { t } = useLocale(); const fy = t.forYou
   const hasCachedData = forYouCache.recommendations !== null
@@ -803,13 +805,15 @@ export default function ForYouPage() {
       if (!user || cancelled) { if (!user) router.push('/login'); return }
       const userId = user.id
 
-      // Realtime: aggiorna entry_count senza bloccare il rendering
-      profileChannel = supabase
-        .channel(`profile-entry-count-${userId}`)
-        .on('postgres_changes', {
-          event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}`,
-        }, (payload: any) => { setTotalEntries(payload.new?.entry_count ?? 0) })
-        .subscribe()
+      // Realtime: aggiorna entry_count solo se il panel è attivo
+      if (isActive) {
+        profileChannel = supabase
+          .channel(`profile-entry-count-${userId}`)
+          .on('postgres_changes', {
+            event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}`,
+          }, (payload: any) => { setTotalEntries(payload.new?.entry_count ?? 0) })
+          .subscribe()
+      }
 
       // ── Cache hit: mostra tutto immediatamente, poi aggiorna in background ──
       if (forYouCache.recommendations !== null) {

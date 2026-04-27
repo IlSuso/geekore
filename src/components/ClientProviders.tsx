@@ -37,23 +37,6 @@ function OnboardingGuard() {
   return null
 }
 
-function RecsWarmer() {
-  const pathname = usePathname()
-  const warmed = useRef(false)
-  useEffect(() => {
-    if (warmed.current) return
-    if (pathname === '/for-you') { warmed.current = true; return }
-    const t = setTimeout(async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      warmed.current = true
-      fetch('/api/recommendations?type=all', { method: 'GET', credentials: 'include' }).catch(() => {})
-    }, 5000)
-    return () => clearTimeout(t)
-  }, []) // eslint-disable-line
-  return null
-}
 
 function ThemeColorEnforcer() {
   useEffect(() => {
@@ -183,7 +166,6 @@ export function ClientProviders({ children, initialLocale = 'it' }: { children: 
         <ServiceWorkerRegistrar />
         <SyncStatusListener />
         <OnboardingGuard />
-        <RecsWarmer />
         <PWAInstallBanner />
         <PushNotificationsBanner />
         {children}
