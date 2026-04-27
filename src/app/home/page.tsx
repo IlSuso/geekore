@@ -13,7 +13,7 @@
 //   IGF  Algoritmo feed Instagram-like: ogni 5 post dei seguiti → 1 post discovery
 //   FLT  Filtro feed per macro-categoria + ricerca sottocategoria libera
 
-import { useState, useEffect, useCallback, memo, useRef, useContext } from 'react'
+import { useState, useEffect, useCallback, memo, useRef } from 'react'
 import { useScrollPanel } from '@/context/ScrollPanelContext'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
@@ -43,7 +43,6 @@ import { ReportButton } from '@/components/ui/ReportButton'
 import { gestureState } from '@/hooks/gestureState'
 import { androidBack } from '@/hooks/androidBack'
 import { UserBadge } from '@/components/ui/UserBadge'
-import { useTabActive } from '@/context/TabActiveContext'
 
 // ── Macro-categorie ───────────────────────────────────────────────────────────
 
@@ -1161,7 +1160,6 @@ function PostModal({
 export default function FeedPage() {
   const pathname = usePathname()
   const { scrollToTop } = useScrollPanel()
-  const isTabActive = useTabActive()
   const [posts, setPosts] = useState<Post[]>([])
   const [pinnedPosts, setPinnedPosts] = useState<Post[]>([])
   const [newPostContent, setNewPostContent] = useState('')
@@ -1253,10 +1251,9 @@ export default function FeedPage() {
     init()
   }, [])
 
-  // Realtime: aggiorna il banner "N nuovi post" solo quando la tab è attiva.
-  // Quando il panel è nascosto, non creare connessioni WebSocket inutili.
+  // Realtime sempre attivo anche quando il panel è nascosto:
+  // il banner "N nuovi post" deve aggiornarsi anche mentre sei su un'altra tab.
   useEffect(() => {
-    if (!isTabActive) return
     const channel = supabase.channel('public:posts')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, (payload) => {
         const newId = payload.new?.id
@@ -1264,7 +1261,7 @@ export default function FeedPage() {
         setNewPostsCount(prev => prev + 1)
       }).subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [supabase, isTabActive])
+  }, [supabase])
 
   useEffect(() => {
     if (posts.length > 0) latestPostIdRef.current = posts[0].id
@@ -1279,26 +1276,26 @@ export default function FeedPage() {
 
   const loadPinnedPosts = useCallback(async (userId: string) => {
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-
-    // JOIN diretto: una sola query invece di 3 separate
     const { data, error } = await supabase.from('posts')
-      .select(`
-        id, user_id, content, image_url, created_at, category, is_edited,
-        profiles(username, display_name, avatar_url, badge),
-        likes(id, user_id),
-        comments(id, content, created_at, user_id, profiles(username, display_name))
-      `)
-      .gte('created_at', since)
-      .order('created_at', { ascending: false })
-      .limit(50)
-
+      .select('id, user_id, content, image_url, created_at, category, is_edited, likes (id, user_id), comments (id, content, created_at, user_id)')
+      .gte('created_at', since).order('created_at', { ascending: false }).limit(50)
     if (error || !data) return
+    const uids1 = [...new Set(data.map((p: any) => p.user_id))]
+    const { data: profiles1 } = await supabase.from('profiles').select('id, username, display_name, avatar_url, badge').in('id', uids1)
+    const pm1: Record<string, any> = {}; (profiles1 || []).forEach((p: any) => { pm1[p.id] = p })
+    const commentUids1 = [...new Set(data.flatMap((p: any) => (p.comments || []).map((c: any) => c.user_id)))]
+    const { data: cProfiles1 } = commentUids1.length ? await supabase.from('profiles').select('id, username, display_name').in('id', commentUids1) : { data: [] }
+    const cpm1: Record<string, any> = {}; (cProfiles1 || []).forEach((p: any) => { cpm1[p.id] = p })
+    const dataWithProfiles = data.map((p: any) => ({
+      ...p,
+      profiles: pm1[p.user_id] || { username: '', display_name: null, avatar_url: null },
+      comments: (p.comments || []).map((c: any) => ({ ...c, profiles: cpm1[c.user_id] || { username: 'utente', display_name: null } })).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    }))
 
-    const withLikes = data
+    const withLikes = dataWithProfiles
       .map((p: any) => ({ ...p, _likeCount: (p.likes || []).length }))
       .filter((p: any) => p._likeCount >= PINNED_LIKE_THRESHOLD)
-      .sort((a: any, b: any) => b._likeCount - a._likeCount)
-      .slice(0, 2)
+      .sort((a: any, b: any) => b._likeCount - a._likeCount).slice(0, 2)
 
     setPinnedPosts(withLikes.map((post: any) => {
       const likes = post.likes || []
@@ -1331,25 +1328,20 @@ export default function FeedPage() {
     if (!topAffinity) return []
     const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
 
-    // JOIN diretto: una sola query invece di 2 separate
     const { data: discPosts } = await supabase.from('posts')
-      .select(`
-        id, user_id, content, image_url, created_at, category, is_edited,
-        profiles(username, display_name, avatar_url, badge),
-        likes(id, user_id)
-      `)
+      .select('id, user_id, content, image_url, created_at, category, likes (id, user_id)')
       .ilike('category', `${topAffinity.category}:%`)
-      .gte('created_at', since)
-      .limit(50)
-
+      .gte('created_at', since).limit(50)
     if (!discPosts) return []
+    const discUids = [...new Set(discPosts.map((p: any) => p.user_id))]
+    const { data: discProfiles } = await supabase.from('profiles').select('id, username, display_name, avatar_url, badge').in('id', discUids)
+    const discPm: Record<string, any> = {}; (discProfiles || []).forEach((p: any) => { discPm[p.id] = p })
+    const data = discPosts.map((p: any) => ({ ...p, profiles: discPm[p.user_id] || { username: '', display_name: null, avatar_url: null } }))
 
-    const eligible = discPosts
+    const eligible = data
       .filter((p: any) => p.user_id !== userId && !followingIds.includes(p.user_id))
       .map((p: any) => ({ ...p, _likeCount: (p.likes || []).length }))
-      .sort((a: any, b: any) => b._likeCount - a._likeCount)
-      .slice(0, 5)
-
+      .sort((a: any, b: any) => b._likeCount - a._likeCount).slice(0, 5)
     if (eligible.length === 0) return []
 
     return eligible.map((post: any) => {
@@ -1370,41 +1362,34 @@ export default function FeedPage() {
     const from = pageIndex * PAGE_SIZE
     const to = from + PAGE_SIZE - 1
 
-    // Carica i following IDs solo se necessario (filter=following)
     let followingIds: string[] = []
-    if (filter === 'following') {
-      const { data: followsData } = await supabase.from('follows').select('following_id').eq('follower_id', userId)
-      followingIds = (followsData || []).map((f: any) => f.following_id)
-      if (followingIds.length === 0) {
-        setPosts(append ? (prev => prev) : []); setHasMore(false)
-        if (append) setLoadingMore(false); else setLoading(false); return
-      }
-    } else {
-      // Per filter='all' ci servono comunque i following per il discovery (solo pag 0)
-      if (pageIndex === 0) {
-        const { data: followsData } = await supabase.from('follows').select('following_id').eq('follower_id', userId)
-        followingIds = (followsData || []).map((f: any) => f.following_id)
-      }
+    const { data: followsData } = await supabase.from('follows').select('following_id').eq('follower_id', userId)
+    followingIds = (followsData || []).map((f: any) => f.following_id)
+
+    if (filter === 'following' && followingIds.length === 0) {
+      setPosts(append ? (prev => prev) : []); setHasMore(false)
+      if (append) setLoadingMore(false); else setLoading(false); return
     }
 
-    // JOIN diretto: una sola query per post + profili autori + likes + commenti + profili commenti
     let query = supabase.from('posts')
-      .select(`
-        id, user_id, content, image_url, created_at, category, is_edited,
-        profiles(username, display_name, avatar_url, badge),
-        likes(id, user_id),
-        comments(id, content, created_at, user_id, profiles(username, display_name))
-      `)
-      .order('created_at', { ascending: false })
-      .range(from, to)
-
-    if (filter === 'following' && followingIds.length > 0) {
-      query = query.in('user_id', followingIds)
-    }
+      .select('id, user_id, content, image_url, created_at, category, is_edited, likes (id, user_id), comments (id, content, created_at, user_id)')
+      .order('created_at', { ascending: false }).range(from, to)
+    if (filter === 'following' && followingIds.length > 0) query = query.in('user_id', followingIds)
 
     const { data: rawPosts } = await query
+    const postUids = [...new Set((rawPosts || []).map((p: any) => p.user_id))]
+    const { data: postProfiles } = postUids.length ? await supabase.from('profiles').select('id, username, display_name, avatar_url, badge').in('id', postUids) : { data: [] }
+    const postPm: Record<string, any> = {}; (postProfiles || []).forEach((p: any) => { postPm[p.id] = p })
+    const commentUids = [...new Set((rawPosts || []).flatMap((p: any) => (p.comments || []).map((c: any) => c.user_id)))]
+    const { data: commentProfs } = commentUids.length ? await supabase.from('profiles').select('id, username, display_name').in('id', commentUids) : { data: [] }
+    const commentPm: Record<string, any> = {}; (commentProfs || []).forEach((p: any) => { commentPm[p.id] = p })
+    const postsData = (rawPosts || []).map((p: any) => ({
+      ...p,
+      profiles: postPm[p.user_id] || { username: '', display_name: null, avatar_url: null },
+      comments: (p.comments || []).map((c: any) => ({ ...c, profiles: commentPm[c.user_id] || { username: 'utente', display_name: null } })).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    }))
 
-    const formatted: Post[] = (rawPosts || []).map((post: any) => {
+    const formatted: Post[] = (postsData || []).map((post: any) => {
       const likes = post.likes || []
       const profile = post.profiles
       return {
@@ -1421,12 +1406,12 @@ export default function FeedPage() {
       }
     })
 
-    const newHasMore = (rawPosts || []).length === PAGE_SIZE
+    const newHasMore = (postsData || []).length === PAGE_SIZE
     const pinnedIds = new Set(pinnedPosts.map(p => p.id))
     const filteredFormatted = formatted.filter(p => !pinnedIds.has(p.id))
 
     let finalPosts = filteredFormatted
-    if (pageIndex === 0) {
+    if (filter === 'following' && pageIndex === 0) {
       const topAffinity = await getUserTopCategory(userId)
       const discoveryPosts = await loadDiscoveryPosts(userId, followingIds, topAffinity)
       finalPosts = buildSmartFeed(filteredFormatted, discoveryPosts)
