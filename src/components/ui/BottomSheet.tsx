@@ -21,6 +21,11 @@ interface BottomSheetProps {
   persistent?: boolean
 }
 
+// Su iOS il bordo sinistro estremo attiva la back gesture di sistema (swipe interattivo).
+// Il BottomSheet sale dal basso — uno swipe dal bordo sinistro NON deve spostarlo.
+const IS_IOS_BS = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent)
+const IOS_LEFT_DEAD_ZONE = 30  // px — zona della back gesture iOS
+
 export function BottomSheet({
   open,
   onClose,
@@ -97,7 +102,11 @@ export function BottomSheet({
   }, [onClose])
 
   // Touch handlers
-  const handleTouchStart = (e: React.TouchEvent) => onDragStart(e.touches[0].clientY)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    // Su iOS: se il touch parte dal bordo sinistro, ignora — è la back gesture di sistema
+    if (IS_IOS_BS && e.touches[0].clientX <= IOS_LEFT_DEAD_ZONE) return
+    onDragStart(e.touches[0].clientY)
+  }
   const handleTouchMove = (e: React.TouchEvent) => onDragMove(e.touches[0].clientY)
   const handleTouchEnd = () => onDragEnd()
 

@@ -27,6 +27,14 @@ const ANDROID_LEFT_DEAD_ZONE_RATIO = 0.22
 const EASE_OUT  = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
 const EASE_SNAP = 'cubic-bezier(0.22, 1, 0.36, 1)'
 
+// Rilevamento piattaforma — calcolato una sola volta al caricamento del modulo.
+// Su Android: la back gesture è un evento di sistema separato dal touch —
+//   NON intercettiamo MAI il bordo sinistro (dead zone = 20% vp).
+// Su iOS: la back gesture FA parte del touch stream (swipe interattivo) —
+//   il bordo sinistro deve seguire il dito esattamente come fa Instagram.
+const IS_IOS     = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent)
+const IS_ANDROID = typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent)
+
 function isInsideHorizontalScroller(target: EventTarget | null): boolean {
   let node = target as HTMLElement | null
   while (node && node.tagName !== 'BODY') {
@@ -118,14 +126,20 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
 
     const x = e.touches[0].clientX
     const w = vw.current || window.innerWidth
-    // Su Android: blocca TUTTO ciò che parte dal bordo sinistro (primo 20% del vp).
-    // Quella zona appartiene alla back gesture di sistema — non la tocchiamo mai.
-    // Su iOS/desktop: dead zone fissa simmetrica su entrambi i lati.
-    const isAndroid = typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent)
-    const leftDeadZone = isAndroid
-      ? Math.round(w * ANDROID_LEFT_DEAD_ZONE_RATIO)  // ~82px su 412px
-      : EDGE_DEAD_ZONE_RIGHT
-    if (x <= leftDeadZone || x >= w - EDGE_DEAD_ZONE_RIGHT) return
+    // Android: dead zone sinistra = 20% vp → back gesture libera, noi non tocchiamo nulla.
+    // iOS: il bordo sinistro è lo swipe interattivo nativo (segue il dito) → lo gestiamo noi.
+    // Desktop: dead zone simmetrica fissa.
+    if (IS_ANDROID) {
+      const leftDeadZone = Math.round(w * ANDROID_LEFT_DEAD_ZONE_RATIO)
+      if (x <= leftDeadZone || x >= w - EDGE_DEAD_ZONE_RIGHT) return
+    } else if (IS_IOS) {
+      // Su iOS permettiamo swipe anche dal bordo sinistro estremo (come fa Instagram).
+      // Solo bordo destro escluso (nessuna back gesture lì).
+      if (x >= w - EDGE_DEAD_ZONE_RIGHT) return
+    } else {
+      // Desktop: simmetrico
+      if (x <= EDGE_DEAD_ZONE_RIGHT || x >= w - EDGE_DEAD_ZONE_RIGHT) return
+    }
     if (isInsideHorizontalScroller(e.target)) return
 
     captured.current    = true
@@ -192,10 +206,10 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
 
     if (shouldNav && dx > 0 && prevTab) {
       setAnimate(true); setOffset(w)
-      setTimeout(() => { router.push(prevTab) }, 260)
+      setTimeout(() => { router.replace(prevTab) }, 260)
     } else if (shouldNav && dx < 0 && nextTab) {
       setAnimate(true); setOffset(-w)
-      setTimeout(() => { router.push(nextTab) }, 260)
+      setTimeout(() => { router.replace(nextTab) }, 260)
     } else {
       r.removeAttribute('data-to-swipe')
       setSnapping(true)

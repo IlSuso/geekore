@@ -195,13 +195,14 @@ export default function Navbar() {
                 ? pathname === '/home' || pathname === '/'
                 : pathname === item.href
               return (
-                <Link key={item.href} href={item.href} prefetch={true}
+                <button key={item.href}
                   title={item.label}
                   data-testid={`nav-${item.href.replace('/', '')}`}
                   onMouseEnter={item.href === '/for-you' && !isActive
                     ? () => fetch('/api/recommendations?type=all', { credentials: 'include' }).catch(() => {})
                     : undefined}
-                  className={`relative flex flex-col items-center justify-center w-16 lg:w-20 h-full transition-colors group ${
+                  onClick={() => router.replace(item.href)}
+                  className={`relative flex flex-col items-center justify-center w-16 lg:w-20 h-full transition-colors group bg-transparent border-0 cursor-pointer ${
                     isActive ? 'text-violet-400' : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/60'
                   }`}
                 >
@@ -214,7 +215,7 @@ export default function Navbar() {
                   {isActive && (
                     <span className="absolute bottom-0 left-3 right-3 h-[3px] rounded-t-full bg-violet-500" />
                   )}
-                </Link>
+                </button>
               )
             })}
           </div>
@@ -319,11 +320,12 @@ export default function Navbar() {
               : pathname === item.href
 
             return (
-              <Link key={item.href} href={item.href} prefetch={true}
+              <button key={item.href}
                 data-testid={`nav-mobile-${item.href.replace('/', '')}`}
-                className="flex flex-col items-center justify-center flex-1 relative gap-[3px] py-2"
+                className="flex flex-col items-center justify-center flex-1 relative gap-[3px] py-2 bg-transparent border-0 cursor-pointer"
                 onClick={() => {
                   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(8)
+                  router.replace(item.href)
                 }}
               >
                 {isActive && (
@@ -349,7 +351,7 @@ export default function Navbar() {
                 <span className={`text-[10px] leading-none font-medium tracking-tight ${isActive ? 'text-white' : 'text-zinc-600'}`}>
                   {item.label}
                 </span>
-              </Link>
+              </button>
             )
           })}
         </div>

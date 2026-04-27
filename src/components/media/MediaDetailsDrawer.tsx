@@ -71,6 +71,13 @@ interface MediaDetailsDrawerProps {
   onAdd?: (media: MediaDetails) => void
 }
 
+// Piattaforma — calcolata una sola volta
+const IS_IOS     = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent)
+// Su iOS: swipe dal bordo sinistro segue il dito (interattivo, come Instagram).
+// Su Android: la back gesture è un evento di sistema — non intercettiamo il touch.
+const IOS_EDGE_SWIPE_ZONE = 30   // px dal bordo sinistro che attiva lo swipe su iOS
+const IOS_DISMISS_THRESHOLD = 80  // px di dx per confermare chiusura
+
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function buildExternalUrl(media: MediaDetails): string | undefined {
@@ -153,6 +160,12 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     typeof window !== 'undefined' ? window.innerWidth : 450
   )
   const [drawerAnimate, setDrawerAnimate] = useState(false)
+
+  // iOS edge-swipe refs (dichiarati dentro il componente come richiesto da React)
+  const iosSwipeTouchId   = useRef<number | null>(null)
+  const iosSwipeStartX    = useRef(0)
+  const iosSwipeStartY    = useRef(0)
+  const iosSwipeConfirmed = useRef(false)
 
   const handleClose = useCallback(() => {
     if (isClosingRef.current) return
@@ -336,6 +349,72 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     return () => cancelAnimationFrame(frame)
   }, [media?.id])
 
+  // ── iOS edge-swipe per chiudere il drawer (segue il dito, come Instagram) ──
+  // Su Android questo blocco non fa nulla perché IS_IOS è false.
+  useEffect(() => {
+    if (!IS_IOS || !media) return
+
+    const onTouchStart = (e: TouchEvent) => {
+      const t = e.touches[0]
+      if (t.clientX > IOS_EDGE_SWIPE_ZONE) return  // non parte dal bordo sinistro
+      iosSwipeTouchId.current   = t.identifier
+      iosSwipeStartX.current    = t.clientX
+      iosSwipeStartY.current    = t.clientY
+      iosSwipeConfirmed.current = false
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (iosSwipeTouchId.current === null) return
+      const t = Array.from(e.touches).find(tt => tt.identifier === iosSwipeTouchId.current)
+      if (!t) return
+      const dx = t.clientX - iosSwipeStartX.current
+      const dy = t.clientY - iosSwipeStartY.current
+
+      if (!iosSwipeConfirmed.current) {
+        // Aspetta abbastanza movimento per distinguere H da V
+        if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return
+        if (Math.abs(dy) > Math.abs(dx)) {
+          // Movimento verticale → abbandona, non è uno swipe di chiusura
+          iosSwipeTouchId.current = null
+          return
+        }
+        iosSwipeConfirmed.current = true
+      }
+
+      if (dx < 0) return  // non permettiamo swipe verso sinistra (drawer già a destra)
+      e.stopPropagation()  // evita che SwipeablePageContainer catturi questo touch
+      setDrawerAnimate(false)
+      setDrawerOffset(dx)
+    }
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (iosSwipeTouchId.current === null) return
+      const ended = Array.from(e.changedTouches).find(tt => tt.identifier === iosSwipeTouchId.current)
+      if (!ended) return
+      iosSwipeTouchId.current = null
+
+      const dx = ended.clientX - iosSwipeStartX.current
+      if (iosSwipeConfirmed.current && dx >= IOS_DISMISS_THRESHOLD) {
+        handleClose()
+      } else {
+        // Snap back
+        setDrawerAnimate(true)
+        setDrawerOffset(0)
+      }
+      iosSwipeConfirmed.current = false
+    }
+
+    window.addEventListener('touchstart',  onTouchStart,  { passive: true })
+    window.addEventListener('touchmove',   onTouchMove,   { passive: false })
+    window.addEventListener('touchend',    onTouchEnd,    { passive: true })
+    window.addEventListener('touchcancel', onTouchEnd,    { passive: true })
+    return () => {
+      window.removeEventListener('touchstart',  onTouchStart)
+      window.removeEventListener('touchmove',   onTouchMove)
+      window.removeEventListener('touchend',    onTouchEnd)
+      window.removeEventListener('touchcancel', onTouchEnd)
+    }
+  }, [media?.id, handleClose])
 
   if (!media || typeof document === 'undefined') return null
 
