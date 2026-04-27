@@ -9,6 +9,7 @@ import { useEffect, useRef } from 'react'
 import { PWAInstallBanner } from '@/components/PWAInstallBanner'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { gestureState } from '@/hooks/gestureState'
 import { PushNotificationsBanner } from '@/components/notifications/PushNotificationsBanner'
 
 
@@ -100,11 +101,52 @@ function ThemeColorEnforcer() {
 }
 
 
+
+// AndroidBackHandler — intercetta la back gesture sulle tab principali.
+// Con il manifest aggiornato (launch_handler + start_url=/home) lo scorrimento
+// visivo è già bloccato. Questo handler gestisce la navigazione:
+//   • Tab principale ≠ home → router.replace('/home')
+//   • Home → lascia uscire dall'app (nessun intervento)
+//   • Drawer/modal aperto (gestureState.drawerActive) → non interviene,
+//     ci pensa il drawer stesso col suo listener capture-phase
+const MAIN_TABS = new Set(['/home', '/discover', '/for-you', '/swipe'])
+
+function AndroidBackHandler() {
+  const pathname = usePathname()
+  const router   = useRouter()
+
+  useEffect(() => {
+    const isAndroid = /android/i.test(navigator.userAgent)
+    if (!isAndroid) return
+
+    const handler = (e: PopStateEvent) => {
+      // Se un drawer/modal ha già pushato la sua entry, lascia che gestisca lui
+      if (gestureState.drawerActive) return
+
+      const isMainTab = MAIN_TABS.has(pathname) || pathname.startsWith('/profile/')
+      if (!isMainTab) return  // pagine secondarie: comportamento normale
+
+      // Siamo su home → lascia uscire dall'app
+      if (pathname === '/home' || pathname === '/') return
+
+      // Qualsiasi altra tab → torna a home
+      e.stopImmediatePropagation()
+      router.replace('/home')
+    }
+
+    window.addEventListener('popstate', handler, { capture: true })
+    return () => window.removeEventListener('popstate', handler, { capture: true })
+  }, [pathname, router])
+
+  return null
+}
+
 export function ClientProviders({ children, initialLocale = 'it' }: { children: React.ReactNode; initialLocale?: 'it' | 'en' }) {
   return (
     <ThemeProvider>
       <LocaleProvider initialLocale={initialLocale}>
         <ThemeColorEnforcer />
+        <AndroidBackHandler />
         <ServiceWorkerRegistrar />
         <SyncStatusListener />
         <OnboardingGuard />

@@ -5,6 +5,7 @@
 // Supporta: snap points, drag handle, backdrop click per chiudere, animazione fluida.
 
 import { useEffect, useRef, useCallback, useState } from 'react'
+import { gestureState } from '@/hooks/gestureState'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
@@ -42,6 +43,9 @@ export function BottomSheet({
   const [isDragging, setIsDragging] = useState(false)
   const [mounted, setMounted] = useState(false)
 
+  const historyPushedRef = useRef(false)
+  const closingRef       = useRef(false)
+
   // Evita SSR mismatch col portal
   useEffect(() => {
     setMounted(true)
@@ -66,6 +70,36 @@ export function BottomSheet({
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
+  }, [open, persistent, onClose])
+
+  // History entry + back gesture (Android/iOS) per chiudere il bottom sheet
+  useEffect(() => {
+    if (!open) {
+      gestureState.drawerActive = false
+      historyPushedRef.current = false
+      return
+    }
+    gestureState.drawerActive = true
+    history.pushState({ gkSheet: true }, '', location.href)
+    historyPushedRef.current = true
+
+    const onPop = (e: PopStateEvent) => {
+      if (closingRef.current) {
+        closingRef.current = false
+        e.stopImmediatePropagation()
+        return
+      }
+      if (!historyPushedRef.current) return
+      e.stopImmediatePropagation()
+      historyPushedRef.current = false
+      if (!persistent) onClose()
+    }
+    window.addEventListener('popstate', onPop, { capture: true })
+    return () => {
+      gestureState.drawerActive = false
+      window.removeEventListener('popstate', onPop, { capture: true })
+      historyPushedRef.current = false
+    }
   }, [open, persistent, onClose])
 
   // ── Drag gesture ────────────────────────────────────────────────────────────
