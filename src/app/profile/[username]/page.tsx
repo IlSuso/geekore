@@ -876,7 +876,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     setIsOwner(ownerCheck)
 
     const [steamResult, mediaResult, fwersResult, fwingResult, followResult] = await Promise.all([
-      ownerCheck ? supabase.from('steam_accounts').select('steam_id64, display_name, avatar_url, connected_at').eq('user_id', user!.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+      ownerCheck ? supabase.from('steam_accounts').select('steam_id64, steam_username, avatar_url, created_at, games, last_synced').eq('user_id', user!.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
       supabase.from('user_media_entries').select('id, title, title_en, type, cover_image, current_episode, current_season, season_episodes, episodes, display_order, updated_at, is_steam, import_source, appid, rating, status, genres, external_id').eq('user_id', profileData.id).order('display_order', { ascending: false, nullsFirst: false }),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profileData.id),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profileData.id),

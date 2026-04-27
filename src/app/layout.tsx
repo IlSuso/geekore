@@ -22,7 +22,9 @@ import { ClientProviders } from '@/components/ClientProviders'
 import { Footer } from '@/components/Footer'
 import { MobileHeader } from '@/components/MobileHeader'
 import { SwipeablePageContainer } from '@/components/SwipeablePageContainer'
-import { KeepAliveTabShell } from '@/components/KeepAliveTabShell'import { MainShell } from '@/components/MainShell'
+import { KeepAliveTabShell } from '@/components/KeepAliveTabShell'
+import { MainShell } from '@/components/MainShell'
+import { ActiveTabProvider } from '@/context/ActiveTabContext'
 import { cookies } from 'next/headers'
 
 export const metadata: Metadata = {
@@ -73,6 +75,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="theme-color" content="#000000" media="(prefers-color-scheme: light)" />
       </head>
       <body suppressHydrationWarning className={`${jakarta.variable} bg-black text-white min-h-screen antialiased`}>
+        <ActiveTabProvider>
         <ClientProviders initialLocale={initialLocale}>
           <SwipeablePageContainer>
             <MainShell>
@@ -87,6 +90,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <MobileHeader />
           <Navbar />
         </ClientProviders>
+        </ActiveTabProvider>
       </body>
     </html>
   )

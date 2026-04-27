@@ -1,24 +1,17 @@
 'use client'
 // src/components/ui/ErrorState.tsx
-// Componente riutilizzabile per stati di errore e stati vuoti.
-// Roadmap #4 — elimina pagine bianche su errori API/DB.
 
 import { AlertTriangle, WifiOff, RefreshCw, ShieldAlert, Inbox } from 'lucide-react'
 
 interface ErrorStateProps {
-  /** Messaggio di errore da mostrare */
   error: string
-  /** Callback per riprovare (mostra bottone "Riprova") */
   onRetry?: () => void
-  /** Classe CSS aggiuntiva per il wrapper */
   className?: string
 }
 
 export function ErrorState({ error, onRetry, className = '' }: ErrorStateProps) {
-  // Sceglie l'icona in base al tipo di errore
   const isOffline = error.toLowerCase().includes('offline') || error.toLowerCase().includes('connessione')
   const isAuth = error.toLowerCase().includes('permessi') || error.toLowerCase().includes('sessione')
-
   const Icon = isOffline ? WifiOff : isAuth ? ShieldAlert : AlertTriangle
 
   return (
@@ -41,7 +34,6 @@ export function ErrorState({ error, onRetry, className = '' }: ErrorStateProps) 
   )
 }
 
-// ── Variante inline (per errori dentro card) ─────────────────────────────────
 export function InlineError({ error, onRetry }: { error: string; onRetry?: () => void }) {
   return (
     <div className="flex items-center gap-3 px-4 py-3 bg-red-950/40 border border-red-800/50 rounded-2xl text-sm">
@@ -56,7 +48,6 @@ export function InlineError({ error, onRetry }: { error: string; onRetry?: () =>
   )
 }
 
-// ── Stato vuoto generico ─────────────────────────────────────────────────────
 interface EmptyStateProps {
   title?: string
   description?: string
@@ -89,15 +80,13 @@ export function EmptyState({
   )
 }
 
-// ── PullToRefresh indicator ───────────────────────────────────────────────────
-// Componente visivo per il pull-to-refresh (roadmap #10)
+// ── PullToRefresh indicator — stile Instagram ─────────────────────────────────
 interface PullIndicatorProps {
   distance: number
   refreshing: boolean
   threshold?: number
 }
 
-// Spinner fluido — nessun box bianco, solo spinner viola che appare gradualmente
 export function PullToRefreshIndicator({
   distance,
   refreshing,
@@ -107,36 +96,110 @@ export function PullToRefreshIndicator({
   if (!visible) return null
 
   const progress = Math.min(distance / threshold, 1)
-  const strokeDash = 2 * Math.PI * 10
-  const strokeOffset = strokeDash * (1 - (refreshing ? 1 : progress * 0.9))
-  // Appare in modo graduale — invisibile fino al 20% del pull, poi sale smooth
-  const opacity = Math.min(Math.max((progress - 0.2) / 0.8, 0), 1)
+
+  // Dimensioni pill — come Instagram: più grande, più leggibile
+  const SIZE = 32
+  const R = 11
+  const STROKE = 2
+  const circumference = 2 * Math.PI * R
+
+  // Arco che cresce con il pull, cerchio completo durante il refresh
+  const dashOffset = refreshing ? 0 : circumference * (1 - progress * 0.85)
+
+  // Opacità: sale smooth dopo il 10% del pull
+  const opacity = refreshing ? 1 : Math.min(Math.max((progress - 0.1) / 0.6, 0), 1)
+
+  // Posizione Y: esce da SOTTO la navbar (53px) seguendo il dito.
+  // Resistenza progressiva: a fine corsa si ferma a ~20px sotto la navbar.
+  // Durante il refresh rimane fermo nella posizione di rilascio.
+  const NAVBAR_H = 53
+  const INDICATOR_H = SIZE
+  const maxTravel = threshold * 0.55  // quanto scende al massimo
+  const travel = refreshing
+    ? Math.min(distance * 0.55, maxTravel)
+    : distance * 0.55
+  // top finale = bordo inferiore navbar + travel + metà indicatore (centrato)
+  const topPx = NAVBAR_H + travel
 
   return (
-    <div
-      className="fixed left-0 right-0 z-[98] flex justify-center pointer-events-none md:hidden"
-      style={{
-        top: 52,
-        transform: `translateY(${refreshing ? Math.min(distance, threshold * 0.85) : distance * 0.85}px)`,
-        opacity,
-      }}
-    >
-      <svg width="24" height="24" viewBox="0 0 24 24" style={{ marginTop: -12 }}>
-        <circle cx="12" cy="12" r="10" fill="none" stroke="rgba(124,58,237,0.15)" strokeWidth="2" />
-        <circle
-          cx="12" cy="12" r="10" fill="none"
-          stroke="#7c3aed"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeDasharray={strokeDash}
-          strokeDashoffset={strokeOffset}
-          transform="rotate(-90 12 12)"
+    <>
+      <style>{`
+        @keyframes ptr-spin {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+      `}</style>
+
+      <div
+        className="fixed left-0 right-0 z-[99] flex justify-center pointer-events-none md:hidden"
+        style={{
+          top: topPx,
+          opacity,
+          // Transizione opacity fluida, nessun salto di posizione
+          transition: refreshing ? 'opacity 0.15s ease' : 'opacity 0.08s linear',
+          // Uscita: fade + leggero scale down per scomparire elegante
+          ...(distance === 0 && !refreshing ? {
+            opacity: 0,
+            transition: 'opacity 0.25s ease, transform 0.25s ease',
+            transform: 'translateY(-4px) scale(0.85)',
+          } : {}),
+        }}
+      >
+        {/* Pill con sfondo coerente con tema Geekore */}
+        <div
           style={{
-            animation: refreshing ? 'ptr-spin 0.8s linear infinite' : 'none',
-            transformOrigin: '12px 12px',
+            width: SIZE,
+            height: SIZE,
+            borderRadius: '50%',
+            background: 'var(--bg-secondary, #18181b)',
+            border: '1px solid rgba(167, 139, 250, 0.15)',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.5), 0 0 0 1px rgba(124,58,237,0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            // Scale: parte piccolo e cresce — dà senso di "emergere"
+            transform: `scale(${refreshing ? 1 : 0.7 + progress * 0.3})`,
+            transition: refreshing ? 'transform 0.2s ease' : 'transform 0.05s linear',
           }}
-        />
-      </svg>
-    </div>
+        >
+          <svg
+            width={SIZE - 8}
+            height={SIZE - 8}
+            viewBox={`0 0 ${SIZE - 8} ${SIZE - 8}`}
+            style={{
+              animation: refreshing ? 'ptr-spin 0.75s linear infinite' : 'none',
+              display: 'block',
+            }}
+          >
+            {/* Traccia di sfondo grigia */}
+            <circle
+              cx={(SIZE - 8) / 2}
+              cy={(SIZE - 8) / 2}
+              r={R}
+              fill="none"
+              stroke="rgba(167,139,250,0.12)"
+              strokeWidth={STROKE}
+            />
+            {/* Arco viola Geekore */}
+            <circle
+              cx={(SIZE - 8) / 2}
+              cy={(SIZE - 8) / 2}
+              r={R}
+              fill="none"
+              stroke="#a78bfa"
+              strokeWidth={STROKE}
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={dashOffset}
+              // Rotazione statica durante il pull per dare senso di avanzamento
+              transform={refreshing ? undefined : `rotate(${-90 + progress * 140} ${(SIZE-8)/2} ${(SIZE-8)/2})`}
+              style={{
+                transition: refreshing ? 'none' : 'stroke-dashoffset 0.04s linear',
+              }}
+            />
+          </svg>
+        </div>
+      </div>
+    </>
   )
 }

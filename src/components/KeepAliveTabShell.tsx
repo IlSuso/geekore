@@ -1,6 +1,6 @@
 'use client'
 
-// src/components/KeepAliveTabShell.tsx  (v5 — dynamic imports)
+// src/components/KeepAliveTabShell.tsx  (v4 — panel-scroll architecture)
 //
 // ARCHITETTURA:
 //   Tutti i panel sono SEMPRE position:fixed + overflow-y:auto.
@@ -15,26 +15,24 @@
 //
 // NESSUN window.scrollTo, NESSUN opacity:0, NESSUN flash.
 //
-// DYNAMIC IMPORTS: ogni pagina viene caricata solo al primo accesso,
-// riducendo significativamente il bundle iniziale.
+// SCROLL NELLE PAGINE:
+//   Le pagine che chiamano window.scrollTo({ top: 0 }) devono essere
+//   migrate a useScrollPanel().scrollToTop(). Vedi ScrollPanelContext.tsx.
 
-import dynamic from 'next/dynamic'
 import { usePathname } from 'next/navigation'
+import { useActiveTab, pathnameToTab } from '@/context/ActiveTabContext'
 import { useEffect, useRef, useCallback, useState } from 'react'
 import type { ReactNode, CSSProperties, MutableRefObject } from 'react'
+import FeedPage     from '@/app/home/page'
+import DiscoverPage from '@/app/discover/page'
+import ForYouPage   from '@/app/for-you/page'
+import SwipePage    from '@/app/swipe/page'
+import ProfilePage  from '@/app/profile/[username]/page'
 import { swipeNavBridge } from '@/hooks/swipeNavBridge'
 import { ScrollPanelContext } from '@/context/ScrollPanelContext'
 import { TabActiveContext } from '@/context/TabActiveContext'
 
-// Caricamento lazy: il codice di ogni pagina viene incluso nel bundle
-// solo quando viene richiesto per la prima volta, non all'avvio.
-const FeedPage     = dynamic(() => import('@/app/home/page'),                    { ssr: false })
-const DiscoverPage = dynamic(() => import('@/app/discover/page'),                { ssr: false })
-const ForYouPage   = dynamic(() => import('@/app/for-you/page'),                 { ssr: false })
-const SwipePage    = dynamic(() => import('@/app/swipe/page'),                   { ssr: false })
-const ProfilePage  = dynamic(() => import('@/app/profile/[username]/page'),      { ssr: false })
-
-type KATab = 'feed' | 'discover' | 'for-you' | 'swipe' | 'profile'
+type KATab = 'feed' | 'discover' | 'for-you' | 'swipe' | 'profile' // import anche da ActiveTabContext
 
 const ALL_TABS: KATab[] = ['feed', 'discover', 'for-you', 'swipe', 'profile']
 const TAB_IDX_TO_KA: Array<KATab | null> = ['feed', 'discover', 'for-you', 'swipe', 'profile']
@@ -96,10 +94,21 @@ function PanelWrapper({
 
 export function KeepAliveTabShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const tab      = getKATab(pathname)
+  const { activeTab, setActiveTab } = useActiveTab()
+  // activeTab viene dal context (aggiornato IMMEDIATAMENTE al click).
+  // Se null (primo render), fallback a pathname.
+  const pathnameTab = getKATab(pathname)
+  const tab = activeTab ?? pathnameTab
+
+
 
   const visited = useRef<Set<KATab>>(new Set())
   if (tab) visited.current.add(tab)
+
+  // Sync context con pathname (gestisce back/forward del browser)
+  useEffect(() => {
+    if (pathnameTab !== null) setActiveTab(pathnameTab)
+  }, [pathname]) // eslint-disable-line
 
   const latestProfileUsername = useRef<string | null>(null)
   if (tab === 'profile') {

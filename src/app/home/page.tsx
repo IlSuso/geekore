@@ -1357,8 +1357,8 @@ export default function FeedPage() {
     })
   }, [supabase])
 
-  const loadPosts = useCallback(async (userId: string, pageIndex = 0, append = false, filter: 'all' | 'following' = 'all') => {
-    if (append) setLoadingMore(true); else setLoading(true)
+  const loadPosts = useCallback(async (userId: string, pageIndex = 0, append = false, filter: 'all' | 'following' = 'all', silent = false) => {
+    if (append) setLoadingMore(true); else if (!silent) setLoading(true)
     const from = pageIndex * PAGE_SIZE
     const to = from + PAGE_SIZE - 1
 
@@ -1427,7 +1427,7 @@ export default function FeedPage() {
     } else {
       setPosts(finalPosts)
       cache.posts = finalPosts; cache.page = pageIndex; cache.hasMore = newHasMore; cache.filter = filter; cache.ts = Date.now()
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
     setHasMore(newHasMore)
   }, [supabase, pinnedPosts, getUserTopCategory, loadDiscoveryPosts])
@@ -1469,7 +1469,11 @@ export default function FeedPage() {
   const handlePullRefresh = async () => {
     if (!currentUser) return
     invalidateCache(feedFilter)
-    await loadPosts(currentUser.id, 0, false, feedFilter)
+    // Silent: non mostra skeleton, aggiorna i post in background.
+    // Dopo che i dati arrivano, scrolla silenziosamente in cima — come Instagram.
+    await loadPosts(currentUser.id, 0, false, feedFilter, true)
+    // Scroll to top senza flash: i dati sono già aggiornati, scroll smooth invisibile
+    scrollToTop('smooth')
   }
   const { distance: pullDistance, refreshing: isPullRefreshing } = usePullToRefresh({
     onRefresh: handlePullRefresh,

@@ -6,6 +6,7 @@ import {
   Home, Search, Zap, Sparkles, Shuffle, User, X, Settings, LogOut, ChevronDown, Bell,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useActiveTab, pathnameToTab, type KATab } from '@/context/ActiveTabContext'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar, getLocalAvatarSvg } from '@/components/ui/Avatar'
 import { useLocale } from '@/lib/locale'
@@ -15,6 +16,7 @@ const AUTH_PATHS = ['/login', '/register', '/auth/confirm', '/forgot-password', 
 export default function Navbar() {
   const pathname = usePathname()
   const router   = useRouter()
+  const { setActiveTab, activeTab } = useActiveTab()
   const supabase = createClient()
   const { t }    = useLocale()
 
@@ -208,9 +210,10 @@ export default function Navbar() {
           {/* CENTER: Nav icon tabs ───────────────────────────────────────── */}
           <div className="flex items-end h-full flex-shrink-0" style={{ transform: 'translateX(-30px)' }}>
             {NAV_ITEMS.map((item) => {
-              const isActive = item.href === '/home'
+              const itemTab = pathnameToTab(item.href)
+              const isActive = activeTab ? activeTab === itemTab : (item.href === '/home'
                 ? pathname === '/home' || pathname === '/'
-                : pathname === item.href
+                : pathname === item.href)
               return (
                 <button key={item.href}
                   title={item.label}
@@ -218,7 +221,11 @@ export default function Navbar() {
                   onMouseEnter={item.href === '/for-you' && !isActive
                     ? () => fetch('/api/recommendations?type=all', { credentials: 'include' }).catch(() => {})
                     : undefined}
-                  onClick={() => router.replace(item.href)}
+                  onClick={() => {
+                    const tab = pathnameToTab(item.href)
+                    if (tab) setActiveTab(tab)   // switch visivo IMMEDIATO
+                    router.replace(item.href)     // URL in parallelo
+                  }}
                   className={`relative flex flex-col items-center justify-center w-16 lg:w-20 h-full transition-colors group bg-transparent border-0 cursor-pointer ${
                     isActive ? 'text-violet-400' : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/60'
                   }`}
@@ -330,11 +337,14 @@ export default function Navbar() {
       >
         <div className="flex items-stretch h-[56px]">
           {MOBILE_NAV_ITEMS.map((item) => {
-            const isActive = item.href.startsWith('/profile/')
-              ? isProfileActive
-              : item.href === '/home'
-              ? pathname === '/home' || pathname === '/'
-              : pathname === item.href
+            const itemTab = pathnameToTab(item.href)
+            const isActive = activeTab
+              ? activeTab === itemTab
+              : (item.href.startsWith('/profile/')
+                ? isProfileActive
+                : item.href === '/home'
+                ? pathname === '/home' || pathname === '/'
+                : pathname === item.href)
 
             return (
               <button key={item.href}
@@ -342,7 +352,9 @@ export default function Navbar() {
                 className="flex flex-col items-center justify-center flex-1 relative gap-[3px] py-2 bg-transparent border-0 cursor-pointer"
                 onClick={() => {
                   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(8)
-                  router.replace(item.href)
+                  const tab = pathnameToTab(item.href)
+                  if (tab) setActiveTab(tab)   // switch visivo IMMEDIATO
+                  router.replace(item.href)     // URL in parallelo
                 }}
               >
                 {isActive && (
