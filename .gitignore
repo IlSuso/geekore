@@ -11,6 +11,7 @@ build/
 # Variabili d'ambiente - MAI committare questi file
 .env
 .env.local
+.env.local.example
 .env.development.local
 .env.test.local
 .env.production.local
