@@ -79,7 +79,15 @@ function ThemeColorEnforcer() {
 //   - /home                → non fa nulla, Android minimizza l'app
 // ------------------------------------------------------------------
 
+// Tab principali: back gesture → /home
 const MAIN_TABS = new Set(['/home', '/discover', '/for-you', '/swipe'])
+
+// Mappa route secondarie → dove torna il back gesture
+const BACK_ROUTES: Record<string, string> = {
+  '/settings':      '/profile/me',
+  '/profile/edit':  '/profile/me',
+  '/notifications': '/home',
+}
 
 // Chiude tutti i layer (modal/drawer) quando l'utente naviga via navbar
 function NavbarLayerCloser() {
@@ -111,15 +119,24 @@ function AndroidBackHandler() {
       }
 
       const current = pathnameRef.current
+
+      // 2. Route secondarie con destinazione esplicita
+      for (const [prefix, dest] of Object.entries(BACK_ROUTES)) {
+        if (current === prefix || current.startsWith(prefix + '/')) {
+          router.replace(dest)
+          return
+        }
+      }
+
       const isMainTab = MAIN_TABS.has(current) || current.startsWith('/profile/')
 
-      // 2. Tab non-home → vai a /home
+      // 3. Tab non-home → vai a /home
       if (isMainTab && current !== '/home' && current !== '/') {
         router.replace('/home')
         return
       }
 
-      // 3. Su /home → non facciamo nulla.
+      // 4. Su /home → non facciamo nulla.
       // Android riceve il controllo e minimizza l'app.
     }
 

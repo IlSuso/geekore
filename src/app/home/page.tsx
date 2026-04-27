@@ -785,6 +785,13 @@ function BottomSheet({
 }) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
+
+  useEffect(() => {
+    if (!open) return
+    androidBack.push(onClose)
+    return () => androidBack.pop(onClose)
+  }, [open, onClose])
+
   if (!open || !mounted) return null
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
@@ -1171,6 +1178,13 @@ export default function FeedPage() {
     if (modalPostId) {
       document.body.style.overflow = 'hidden'
       gestureState.drawerActive = true
+      const closeModal = () => setModalPostId(null)
+      androidBack.push(closeModal)
+      return () => {
+        document.body.style.overflow = ''
+        gestureState.drawerActive = false
+        androidBack.pop(closeModal)
+      }
     } else {
       document.body.style.overflow = ''
       gestureState.drawerActive = false
