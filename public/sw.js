@@ -1,18 +1,16 @@
 // public/sw.js
 // Service Worker Geekore — PWA offline support + navigation speed
-// v7: network-first per nav pages — permette al middleware di intercettare redirect onboarding
+// v8: fix /feed → /home (route corretta), bump cache name
 
-const CACHE_NAME = 'geekore-v7'
-const STATIC_CACHE = 'geekore-static-v7'
+const CACHE_NAME = 'geekore-v8'
+const STATIC_CACHE = 'geekore-static-v8'
 
 // Pagine navigate precachate all'installazione
 const NAV_PAGES = [
-  '/feed',
+  '/home',
   '/discover',
   '/for-you',
   '/notifications',
-  '/wishlist',
-  '/trending',
 ]
 
 // Asset statici
@@ -157,7 +155,7 @@ async function networkFirst(request) {
     const cached = await caches.match(request)
     if (cached) return cached
     if (request.mode === 'navigate') {
-      const root = await caches.match('/feed')
+      const root = await caches.match('/home')
       if (root) return root
     }
     return new Response('Offline — riprova quando sei connesso', {

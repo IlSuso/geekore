@@ -1,6 +1,6 @@
 'use client'
 
-// src/components/KeepAliveTabShell.tsx  (v4 — panel-scroll architecture)
+// src/components/KeepAliveTabShell.tsx  (v5 — dynamic imports)
 //
 // ARCHITETTURA:
 //   Tutti i panel sono SEMPRE position:fixed + overflow-y:auto.
@@ -15,21 +15,24 @@
 //
 // NESSUN window.scrollTo, NESSUN opacity:0, NESSUN flash.
 //
-// SCROLL NELLE PAGINE:
-//   Le pagine che chiamano window.scrollTo({ top: 0 }) devono essere
-//   migrate a useScrollPanel().scrollToTop(). Vedi ScrollPanelContext.tsx.
+// DYNAMIC IMPORTS: ogni pagina viene caricata solo al primo accesso,
+// riducendo significativamente il bundle iniziale.
 
+import dynamic from 'next/dynamic'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useCallback, useState } from 'react'
 import type { ReactNode, CSSProperties, MutableRefObject } from 'react'
-import FeedPage     from '@/app/home/page'
-import DiscoverPage from '@/app/discover/page'
-import ForYouPage   from '@/app/for-you/page'
-import SwipePage    from '@/app/swipe/page'
-import ProfilePage  from '@/app/profile/[username]/page'
 import { swipeNavBridge } from '@/hooks/swipeNavBridge'
 import { ScrollPanelContext } from '@/context/ScrollPanelContext'
 import { TabActiveContext } from '@/context/TabActiveContext'
+
+// Caricamento lazy: il codice di ogni pagina viene incluso nel bundle
+// solo quando viene richiesto per la prima volta, non all'avvio.
+const FeedPage     = dynamic(() => import('@/app/home/page'),                    { ssr: false })
+const DiscoverPage = dynamic(() => import('@/app/discover/page'),                { ssr: false })
+const ForYouPage   = dynamic(() => import('@/app/for-you/page'),                 { ssr: false })
+const SwipePage    = dynamic(() => import('@/app/swipe/page'),                   { ssr: false })
+const ProfilePage  = dynamic(() => import('@/app/profile/[username]/page'),      { ssr: false })
 
 type KATab = 'feed' | 'discover' | 'for-you' | 'swipe' | 'profile'
 

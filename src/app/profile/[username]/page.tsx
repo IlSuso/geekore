@@ -55,6 +55,7 @@ type ProfileCacheEntry = {
   ts: number
 }
 const profileCache: Record<string, ProfileCacheEntry> = {}
+const PROFILE_CACHE_TTL = 5 * 60 * 1000 // 5 minuti
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -819,7 +820,16 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
   const sensors = useDndSensors()
   const { csrfFetch } = useCsrf()
 
-  const cp = profileCache[username]
+  const cp = (() => {
+    const entry = profileCache[username]
+    if (!entry) return null
+    // Invalida la cache se più vecchia di 5 minuti
+    if (Date.now() - entry.ts > PROFILE_CACHE_TTL) {
+      delete profileCache[username]
+      return null
+    }
+    return entry
+  })()
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [isOwner, setIsOwner] = useState(false)
@@ -866,8 +876,8 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     setIsOwner(ownerCheck)
 
     const [steamResult, mediaResult, fwersResult, fwingResult, followResult] = await Promise.all([
-      ownerCheck ? supabase.from('steam_accounts').select('*').eq('user_id', user!.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
-      supabase.from('user_media_entries').select('*').eq('user_id', profileData.id).order('display_order', { ascending: false, nullsFirst: false }),
+      ownerCheck ? supabase.from('steam_accounts').select('steam_id64, display_name, avatar_url, connected_at').eq('user_id', user!.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+      supabase.from('user_media_entries').select('id, title, title_en, type, cover_image, current_episode, current_season, season_episodes, episodes, display_order, updated_at, is_steam, import_source, appid, rating, status, genres, external_id').eq('user_id', profileData.id).order('display_order', { ascending: false, nullsFirst: false }),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profileData.id),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profileData.id),
       (user && !ownerCheck) ? supabase.from('follows').select('follower_id').eq('follower_id', user.id).eq('following_id', profileData.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -938,7 +948,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     })
 
   const refreshMedia = async (userId: string) => {
-    const { data, error } = await supabase.from('user_media_entries').select('*').eq('user_id', userId).order('display_order', { ascending: false, nullsFirst: false })
+    const { data, error } = await supabase.from('user_media_entries').select('id, title, title_en, type, cover_image, current_episode, current_season, season_episodes, episodes, display_order, updated_at, is_steam, import_source, appid, rating, status, genres, external_id').eq('user_id', userId).order('display_order', { ascending: false, nullsFirst: false })
     if (error) { console.error('[Profile] Errore refresh media:', error); return }
     if (data) setMediaList(sortMediaList(data))
   }
@@ -1005,7 +1015,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     if (!currentUserId || reorderingGames) return
     setReorderingGames(true)
     try {
-      const { data, error } = await supabase.from('user_media_entries').select('*').eq('user_id', currentUserId).eq('type', 'game')
+      const { data, error } = await supabase.from('user_media_entries').select('id, type, current_episode, display_order').eq('user_id', currentUserId).eq('type', 'game')
       if (error) { if (process.env.NODE_ENV === 'development') console.error('[Profile] Errore reorder games:', error); return }
       if (!data?.length) return
       const sorted = [...data].sort((a, b) => (b.current_episode || 0) - (a.current_episode || 0))

@@ -47,6 +47,20 @@ const nextConfig = {
           { key: 'Cache-Control', value: 's-maxage=120, stale-while-revalidate=300' },
         ],
       },
+      // BGG — dati cambiano raramente, cache 10 min
+      {
+        source: '/api/bgg/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 's-maxage=600, stale-while-revalidate=1200' },
+        ],
+      },
+      // Steam giochi — cache 5 min
+      {
+        source: '/api/steam/games/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 's-maxage=300, stale-while-revalidate=600' },
+        ],
+      },
       // Font e immagini pubbliche in /public
       {
         source: '/fonts/:path*',

@@ -48,6 +48,8 @@
 .mobile-nav, nav.fixed {
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
+  will-change: transform;
+  transform: translateZ(0); /* forza promozione layer GPU */
 }
 
 /* ── Base ─────────────────────────────────────────────────────────────────── */
