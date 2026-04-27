@@ -15,6 +15,7 @@ import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { createClient } from '@/lib/supabase/client'
 import { profileInvalidateBridge } from '@/hooks/profileInvalidateBridge'
+import { gestureState } from '@/hooks/gestureState'
 
 type SwipeMediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame'
 
@@ -361,6 +362,85 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
         </div>
       </div>
     </div>
+  )
+}
+
+
+// ─── PageNavZone ───────────────────────────────────────────────────────────────
+// Fascia trasparente in basso che intercetta SOLO i gesti orizzontali
+// per forzare lo swipe-pagina invece dello swipe-card.
+// I tap (|dx| < 8px) non vengono toccati → i bottoni sotto ricevono il click.
+// Usa gestureState.pageSwipeZone per segnalare al SPC di bypassare data-no-swipe.
+function PageNavZone({ bottomOffset }: { bottomOffset: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+
+    let startX = 0
+    let startY = 0
+    let decided = false
+    let isHoriz = false
+
+    const reset = () => {
+      decided = false
+      isHoriz = false
+      gestureState.pageSwipeZone = false
+    }
+
+    const onStart = (e: TouchEvent) => {
+      startX = e.touches[0].clientX
+      startY = e.touches[0].clientY
+      reset()
+    }
+
+    const onMove = (e: TouchEvent) => {
+      const dx = e.touches[0].clientX - startX
+      const dy = e.touches[0].clientY - startY
+
+      if (!decided) {
+        if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return
+        decided = true
+        isHoriz = Math.abs(dx) > Math.abs(dy) * 1.2
+      }
+
+      if (isHoriz) {
+        // Segnala al SPC che deve ignorare data-no-swipe
+        gestureState.pageSwipeZone = true
+      }
+    }
+
+    const onEnd = () => { gestureState.pageSwipeZone = false }
+
+    el.addEventListener('touchstart',  onStart, { passive: true })
+    el.addEventListener('touchmove',   onMove,  { passive: true })
+    el.addEventListener('touchend',    onEnd,   { passive: true })
+    el.addEventListener('touchcancel', onEnd,   { passive: true })
+    return () => {
+      el.removeEventListener('touchstart',  onStart)
+      el.removeEventListener('touchmove',   onMove)
+      el.removeEventListener('touchend',    onEnd)
+      el.removeEventListener('touchcancel', onEnd)
+    }
+  }, [])
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position:      'fixed',
+        left:          0,
+        right:         0,
+        bottom:        bottomOffset,
+        height:        '180px',   // copre stelle + bottoni + padding card
+        zIndex:        50,        // sopra le card (z-10) ma sotto i modal
+        pointerEvents: 'auto',    // deve ricevere i touch events
+        touchAction:   'pan-y',
+        background:    'transparent',
+        // debug: background: 'rgba(255,0,0,0.15)',
+      }}
+    />
   )
 }
 
@@ -734,6 +814,11 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
           <div className="md:hidden flex-shrink-0" style={{ height: 'calc(49px + env(safe-area-inset-bottom, 0px))' }} />
         )}
       </div>
+
+      {/* Fascia invisibile per swipe-pagina dal basso — solo standalone/mobile */}
+      {standalone && (
+        <PageNavZone bottomOffset="calc(49px + env(safe-area-inset-bottom, 0px))" />
+      )}
 
       {detailItem && (
         <div style={{ zIndex: 10000, position: 'fixed', inset: 0 }}>

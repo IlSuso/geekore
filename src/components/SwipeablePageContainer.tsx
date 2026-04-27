@@ -196,9 +196,9 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     // ── Scroll chaining ────────────────────────────────────────────────────────
     // Se il gesto è orizzontale (isH===true) ma l'elemento ha ancora spazio per
     // scorrere nella direzione del drag → lascia fare scroll nativo (isH=false).
-    // Quando l'elemento raggiunge la fine corsa, isH torna null e al frame
-    // successivo riparte la detection: se ora non è bloccato → avvia page-swipe.
-    if (isH.current === true && isInsideHorizontalScroller(touchTarget.current, dx)) {
+    // Eccezione: se pageSwipeZone=true il touch è partito dalla fascia nav-zone
+    // della SwipePage → bypassiamo data-no-swipe e forziamo il page-swipe.
+    if (isH.current === true && !gestureState.pageSwipeZone && isInsideHorizontalScroller(touchTarget.current, dx)) {
       isH.current = null // non ancora deciso: ricontrolla al prossimo frame
       return
     }
