@@ -69,14 +69,14 @@ function ThemeColorEnforcer() {
 // ------------------------------------------------------------------
 // AndroidBackHandler
 //
-// Comportamento voluto:
-//   - Back da tab principale (/discover, /for-you, /swipe, /profile)
-//     → sempre /home
-//   - Back da /home → chiude l'app
-//   - Back con drawer/modal aperto → chiude drawer/modal
+// Riceve l'evento 'androidBackButton' sparato da MainActivity.java
+// tramite getBridge().triggerJSEvent().
+// Niente cuscinetti, niente popstate, niente lotta con Chrome.
 //
-// Strategia: cuscinetto pushState al mount e dopo ogni azione gestita.
-// Il popstate viene sempre intercettato e decidiamo noi cosa fare.
+// Comportamento:
+//   - Drawer/modal aperto  → chiude drawer/modal
+//   - Tab non-home         → router.replace('/home')
+//   - /home                → non fa nulla, Android minimizza l'app
 // ------------------------------------------------------------------
 
 const MAIN_TABS = new Set(['/home', '/discover', '/for-you', '/swipe'])
@@ -88,22 +88,10 @@ function AndroidBackHandler() {
   pathnameRef.current = pathname
 
   useEffect(() => {
-    if (!/android/i.test(navigator.userAgent)) return
-
-    // Inserisce il cuscinetto subito
-    history.pushState({ gkCushion: true }, '')
-
-    const handler = (e: PopStateEvent) => {
-      e.stopImmediatePropagation()
-
-      // Rimettiamo subito il cuscinetto per il prossimo back,
-      // tranne nel caso 3 (home → esci)
-      const reinsert = () => history.pushState({ gkCushion: true }, '')
-
+    const handler = () => {
       // 1. Drawer/modal aperto → chiudi
       if (androidBack.hasOpenLayer) {
         androidBack.handleBack()
-        reinsert()
         return
       }
 
@@ -113,18 +101,16 @@ function AndroidBackHandler() {
       // 2. Tab non-home → vai a /home
       if (isMainTab && current !== '/home' && current !== '/') {
         router.replace('/home')
-        reinsert()
         return
       }
 
-      // 3. Home (o pagina non gestita) → esci dall'app
-      // Non rimettiamo il cuscinetto: il prossimo back esce davvero
-      history.back()
+      // 3. Su /home → non facciamo nulla.
+      // Android riceve il controllo e minimizza l'app.
     }
 
-    window.addEventListener('popstate', handler, { capture: true })
-    return () => window.removeEventListener('popstate', handler, { capture: true })
-  }, [router]) // solo al mount — pathname letto dal ref
+    window.addEventListener('androidBackButton', handler)
+    return () => window.removeEventListener('androidBackButton', handler)
+  }, [router])
 
   return null
 }

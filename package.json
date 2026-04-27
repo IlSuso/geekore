@@ -9,6 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/core": "^8.3.1",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
@@ -32,6 +34,7 @@
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.3.1",
     "@playwright/test": "^1.59.1",
     "@types/node": "^20",
     "@types/react": "^18",
