@@ -91,7 +91,7 @@ export function MobileHeader() {
     })
   }, [pathname])
 
-  if (AUTH_PATHS.some(p => pathname.startsWith(p))) return null
+  if (pathname === '/' || AUTH_PATHS.some(p => pathname.startsWith(p))) return null
 
   const isFeed        = pathname === '/home'
   // isOwnProfile dipende da username (auth) — usare solo dopo il mount

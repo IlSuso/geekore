@@ -155,23 +155,30 @@ export function BottomSheet({
   const handleTouchMove = (e: React.TouchEvent) => onDragMove(e.touches[0].clientY)
   const handleTouchEnd = () => onDragEnd()
 
+  // True se il touch è iniziato con il contenuto già a fine corsa
+  const startedAtBottom = useRef(false)
+
   // Touch handlers per il contenuto scrollabile.
-  // Il dismiss si attiva solo quando il contenuto è a fine corsa verso il basso
-  // e l'utente continua a trascinare verso il basso (scroll chaining verticale).
+  // Il dismiss si attiva in due casi:
+  //   1. Il touch inizia con il contenuto già a fine corsa (startedAtBottom)
+  //   2. Il contenuto raggiunge la fine corsa DURANTE il drag verso il basso
   const handleContentTouchStart = (e: React.TouchEvent) => {
     if (IS_IOS_BS && e.touches[0].clientX <= IOS_LEFT_DEAD_ZONE) return
     draggingFromScroll.current = false
     dragStartY.current = e.touches[0].clientY
     dragCurrentY.current = 0
+    const el = scrollContentRef.current
+    startedAtBottom.current = !!el && (el.scrollTop + el.clientHeight >= el.scrollHeight - 1)
   }
   const handleContentTouchMove = (e: React.TouchEvent) => {
     const el = scrollContentRef.current
     if (!el || dragStartY.current === null) return
     const dy = e.touches[0].clientY - dragStartY.current
     const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1
-    // Attiva dismiss solo se: si sta trascinando verso il basso E il contenuto è a fine corsa
+
     if (!draggingFromScroll.current) {
-      if (dy > 8 && atBottom) {
+      // Attiva dismiss se: stava già a fine corsa al touch start, oppure ci arriva ora
+      if (dy > 8 && (startedAtBottom.current || atBottom)) {
         draggingFromScroll.current = true
         setIsDragging(true)
       } else {
@@ -185,6 +192,7 @@ export function BottomSheet({
     }
   }
   const handleContentTouchEnd = () => {
+    startedAtBottom.current = false
     if (!draggingFromScroll.current) return
     draggingFromScroll.current = false
     onDragEnd()

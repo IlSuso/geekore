@@ -121,6 +121,23 @@ export default function Navbar() {
     searchInputRef.current?.focus()
   }
 
+  // Aggiunge/rimuove classe al body per gestire la safe-area su mobile
+  // nelle pagine senza navbar (auth, landing non loggato)
+  const navbarVisible = !(
+    isAuthPage ||
+    (isPublicLanding && isLoggedIn === false) ||
+    (isPublicLanding && isLoggedIn === null) ||
+    isLoggedIn === null
+  )
+  useEffect(() => {
+    if (navbarVisible) {
+      document.body.classList.remove('no-mobile-nav')
+    } else {
+      document.body.classList.add('no-mobile-nav')
+    }
+    return () => { document.body.classList.remove('no-mobile-nav') }
+  }, [navbarVisible])
+
   if (isAuthPage) return null
   if (isPublicLanding && isLoggedIn === false) return null
   if (isPublicLanding && isLoggedIn === null)  return null

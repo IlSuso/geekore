@@ -315,7 +315,7 @@ html, body { background-color: #000000 !important; }
     transform: translateZ(0);
   }
   /* Sfondo solido sotto il bottom nav (colma il gap safe-area su iPhone) */
-  body::before {
+  body:not(.no-mobile-nav)::before {
     content: '';
     position: fixed;
     bottom: 0;
