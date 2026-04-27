@@ -1308,7 +1308,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
           <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
             {isOwner ? (
               <>
-                <Link href="/profile/edit">
+                <Link href="/settings/profile">
                   <button
                     data-testid="btn-edit-profile"
                     className="px-6 py-2 rounded-2xl text-sm font-semibold bg-zinc-800 text-white hover:bg-zinc-700 border border-zinc-700 transition-all"

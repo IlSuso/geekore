@@ -114,7 +114,7 @@ export function MobileHeader() {
     '/swipe':        { title: 'Swipe',                icon: <Shuffle size={14} className="text-white" />,     iconBg: 'bg-gradient-to-br from-emerald-500 to-teal-600' },
     '/notifications':{ title: 'Notifiche',            icon: <Bell size={14} className="text-white" />,        iconBg: 'bg-gradient-to-br from-amber-500 to-orange-500' },
     '/settings':     { title: t.nav.settings,         icon: <Settings size={14} className="text-white" />,    iconBg: 'bg-zinc-700' },
-    '/profile/edit': { title: 'Modifica Profilo',      icon: <Edit3 size={14} className="text-white" />,       iconBg: 'bg-gradient-to-br from-violet-500 to-purple-600' },
+    '/settings/profile': { title: 'Modifica Profilo',   icon: <Edit3 size={14} className="text-white" />,       iconBg: 'bg-gradient-to-br from-violet-500 to-purple-600' },
     '/profile/setup':{ title: 'Crea Profilo',          icon: <Edit3 size={14} className="text-white" />,       iconBg: 'bg-gradient-to-br from-violet-500 to-purple-600' },
     '/wishlist':     { title: 'Wishlist',             icon: <Bookmark size={14} className="text-white" />,    iconBg: 'bg-gradient-to-br from-pink-500 to-rose-600' },
     '/stats':        { title: 'Statistiche',          icon: <BarChart2 size={14} className="text-white" />,   iconBg: 'bg-gradient-to-br from-indigo-500 to-violet-600' },
@@ -149,7 +149,7 @@ export function MobileHeader() {
     )
     if (pageConfig) return (
       <div className="flex items-center gap-2">
-        {(isSubPage || pathname === '/profile/edit' || pathname === '/profile/setup') && <BackButton />}
+        {(isSubPage || pathname === '/settings/profile' || pathname === '/profile/setup') && <BackButton />}
         <PageTitle {...pageConfig} />
       </div>
     )
@@ -174,7 +174,7 @@ export function MobileHeader() {
     )
     if (isOwnProfile) return (
       <>
-        <Link href="/profile/edit" className={iconCls} aria-label="Modifica profilo">
+        <Link href="/settings/profile" className={iconCls} aria-label="Modifica profilo">
           <Edit3 size={21} strokeWidth={1.6} />
         </Link>
         <Link href="/settings" className={iconCls} aria-label="Impostazioni">

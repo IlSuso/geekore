@@ -88,7 +88,7 @@ function EmailChangeContent() {
             <p className="text-zinc-400 mb-8">{errorMessage}</p>
             <div className="flex flex-col gap-3">
               <a
-                href="/profile/edit"
+                href="/settings/profile"
                 className="w-full py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl font-semibold transition"
               >
                 Torna alle impostazioni
