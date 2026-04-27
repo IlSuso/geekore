@@ -68,7 +68,12 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   // intentRef: tab "intenzionale" corrente — aggiornato IMMEDIATAMENTE al rilascio
   // del dito, senza aspettare il ciclo router/pathname (~260ms).
   // Permette swipe rapidi consecutivi: 1→2→3→4 invece di sempre 1→2.
-  const intentTabRef = useRef<string>(''  )
+  const intentTabRef   = useRef<string>('')
+  // pendingNavRef: timer dell'ultima navigazione in attesa.
+  // Se l'utente swipa di nuovo prima dei 260ms, cancelliamo il timer vecchio
+  // e navighiamo direttamente alla destinazione finale — zero animazioni intermedie.
+  const pendingNavRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingDestRef = useRef<string | null>(null)
 
   const touchStartX = useRef(0)
   const touchStartY = useRef(0)
@@ -127,7 +132,9 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    // pathname aggiornato — resetta intentRef e stato swipe
+    // pathname aggiornato — resetta intentRef, cancella nav pendente e stato swipe
+    if (pendingNavRef.current) { clearTimeout(pendingNavRef.current); pendingNavRef.current = null }
+    pendingDestRef.current   = null
     intentTabRef.current     = ''
     captured.current         = false
     isDragging.current       = false
@@ -259,17 +266,29 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     r.removeAttribute('data-swiping')
 
     if (shouldNav && dx > 0 && prevTab) {
-      // Aggiorna intent SUBITO — il prossimo swipe rapido usa già prevTab come base
       intentTabRef.current = prevTab
       setActiveTab(pathnameToTab(prevTab))
       applyTransform(w, true, EASE_OUT)
-      setTimeout(() => { router.replace(prevTab) }, 260)
+      // Cancella nav precedente — naviga SOLO alla destinazione finale
+      if (pendingNavRef.current) clearTimeout(pendingNavRef.current)
+      pendingDestRef.current = prevTab
+      pendingNavRef.current  = setTimeout(() => {
+        router.replace(pendingDestRef.current ?? prevTab)
+        pendingNavRef.current  = null
+        pendingDestRef.current = null
+      }, 260)
     } else if (shouldNav && dx < 0 && nextTab) {
-      // Aggiorna intent SUBITO — il prossimo swipe rapido usa già nextTab come base
       intentTabRef.current = nextTab
       setActiveTab(pathnameToTab(nextTab))
       applyTransform(-w, true, EASE_OUT)
-      setTimeout(() => { router.replace(nextTab) }, 260)
+      // Cancella nav precedente — naviga SOLO alla destinazione finale
+      if (pendingNavRef.current) clearTimeout(pendingNavRef.current)
+      pendingDestRef.current = nextTab
+      pendingNavRef.current  = setTimeout(() => {
+        router.replace(pendingDestRef.current ?? nextTab)
+        pendingNavRef.current  = null
+        pendingDestRef.current = null
+      }, 260)
     } else {
       r.removeAttribute('data-to-swipe')
       setSnapping(true)
