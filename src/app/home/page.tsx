@@ -14,6 +14,7 @@
 //   FLT  Filtro feed per macro-categoria + ricerca sottocategoria libera
 
 import { useState, useEffect, useCallback, memo, useRef } from 'react'
+import { useScrollPanel } from '@/context/ScrollPanelContext'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -1158,6 +1159,7 @@ function PostModal({
 
 export default function FeedPage() {
   const pathname = usePathname()
+  const { scrollToTop } = useScrollPanel()
   const [posts, setPosts] = useState<Post[]>([])
   const [pinnedPosts, setPinnedPosts] = useState<Post[]>([])
   const [newPostContent, setNewPostContent] = useState('')
@@ -1210,7 +1212,6 @@ export default function FeedPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('')
   const [composerOpen, setComposerOpen] = useState(false)
   const [modalPos, setModalPos] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null)
-  const scrollPositionRef = useRef(0)
 
   const latestPostIdRef = useRef<string | null>(null)
   const pageRef = useRef(0)
@@ -1268,7 +1269,7 @@ export default function FeedPage() {
     if (!currentUser) return
     setNewPostsCount(0); pageRef.current = 0; setPage(0); setHasMore(true)
     await loadPosts(currentUser.id, 0, false, feedFilter)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    scrollToTop('smooth')
   }
 
   const loadPinnedPosts = useCallback(async (userId: string) => {
@@ -1442,7 +1443,6 @@ export default function FeedPage() {
   closeComposerRef.current = closeComposer
 
   const openComposer = () => {
-    scrollPositionRef.current = window.scrollY
     document.body.style.overflow = 'hidden'
     const vw = window.innerWidth
     const vh = window.innerHeight
@@ -1668,7 +1668,7 @@ export default function FeedPage() {
   // Click su un badge categoria in un post → attiva il filtro per quella categoria
   const handleCategoryClick = useCallback((category: string) => {
     setCategoryFilter(prev => prev === category ? '' : category)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    scrollToTop('smooth')
   }, [])
 
   if (loading) {
@@ -2113,22 +2113,38 @@ export default function FeedPage() {
       </div>
       </PullWrapper>
 
-      {/* FAB mobile — Nuovo post, solo su mobile, sopra la bottom nav */}
+      {/* FAB mobile — position:sticky segue il panel durante lo swipe
+          a differenza di fixed che è relativo al viewport */}
       {currentUser && (
-        <button
-          onClick={() => {
-            window.scrollTo({ top: 0, behavior: 'smooth' })
-            setTimeout(() => {
-              const textarea = document.querySelector<HTMLTextAreaElement>('textarea[placeholder]')
-              textarea?.focus()
-            }, 400)
+        <div
+          className="md:hidden"
+          style={{
+            position: 'sticky',
+            bottom: `calc(56px + env(safe-area-inset-bottom, 0px) + 16px)`,
+            height: '56px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            paddingRight: '1rem',
+            pointerEvents: 'none',
+            zIndex: 90,
           }}
-          aria-label="Crea nuovo post"
-          className="md:hidden fixed right-4 z-[90] w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-xl shadow-violet-500/40 flex items-center justify-center active:scale-95 transition-transform border border-violet-400/30"
-          style={{ bottom: `calc(56px + env(safe-area-inset-bottom, 0px) + 16px)` }}
         >
-          <Plus size={26} className="text-white" strokeWidth={2.5} aria-hidden="true" />
-        </button>
+          <button
+            onClick={() => {
+              scrollToTop('smooth')
+              setTimeout(() => {
+                const textarea = document.querySelector<HTMLTextAreaElement>('textarea[placeholder]')
+                textarea?.focus()
+              }, 400)
+            }}
+            aria-label="Crea nuovo post"
+            style={{ pointerEvents: 'auto' }}
+            className="w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-xl shadow-violet-500/40 flex items-center justify-center active:scale-95 transition-transform border border-violet-400/30"
+          >
+            <Plus size={26} className="text-white" strokeWidth={2.5} aria-hidden="true" />
+          </button>
+        </div>
       )}
     </div>
   )

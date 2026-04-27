@@ -1,40 +1,43 @@
 'use client'
 
-// KeepAliveTabShell — lazy-mount + scroll-restore + Instagram-style carousel.
+// src/components/KeepAliveTabShell.tsx  (v4 — panel-scroll architecture)
 //
-// Problemi risolti in questa versione:
+// ARCHITETTURA:
+//   Tutti i panel sono SEMPRE position:fixed + overflow-y:auto.
+//   Il window non scrolla mai. Ogni panel porta con sé la propria
+//   posizione di scroll nel suo div — esattamente come "lasciare un
+//   oggetto sul tavolo": quando ci torni è esattamente dove l'avevi lasciato.
 //
-// 1. FLASH SCROLL: al cambio tab il panel attivo è opacity:0 finché il
-//    window.scrollTo non ha portato la pagina alla posizione salvata.
-//    Solo dopo (doppio rAF) torna opacity:1. L'utente non vede mai il
-//    frame a scrollY=0.
+//   Panel attivo  → translateX(0), pointer-events:auto, z-index:2
+//   Panel adj     → translateX(±100%), visibility:visible (durante swipe)
+//   Panel nascosto → translateX(-300%), visibility:hidden
+//   Non visitato  → display:none (non nel DOM)
 //
-// 2. PADDING HEADER: i panel adiacenti (off-screen durante lo swipe) usano
-//    position:fixed con top=HEADER_H così il contenuto è allineato
-//    all'header fin dal primo frame. Il panel attivo è in flow normale.
+// NESSUN window.scrollTo, NESSUN opacity:0, NESSUN flash.
 //
-// 3. LAG: i panel off-screen usano position:fixed + translateX(-300%) +
-//    visibility:hidden. Il passaggio da "hidden" ad "adjacent" è solo un
-//    cambio di transform+visibility — zero reflow, tutto GPU.
-//    contain:layout paint sugli elementi off-screen limita il lavoro del compositor.
+// SCROLL NELLE PAGINE:
+//   Le pagine che chiamano window.scrollTo({ top: 0 }) devono essere
+//   migrate a useScrollPanel().scrollToTop(). Vedi ScrollPanelContext.tsx.
 
 import { usePathname } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
-import type { ReactNode, CSSProperties } from 'react'
-import FeedPage from '@/app/home/page'
+import { useEffect, useRef, useCallback, useState } from 'react'
+import type { ReactNode, CSSProperties, MutableRefObject } from 'react'
+import FeedPage     from '@/app/home/page'
 import DiscoverPage from '@/app/discover/page'
-import ForYouPage from '@/app/for-you/page'
-import SwipePage from '@/app/swipe/page'
-import ProfilePage from '@/app/profile/[username]/page'
+import ForYouPage   from '@/app/for-you/page'
+import SwipePage    from '@/app/swipe/page'
+import ProfilePage  from '@/app/profile/[username]/page'
 import { swipeNavBridge } from '@/hooks/swipeNavBridge'
+import { ScrollPanelContext } from '@/context/ScrollPanelContext'
 
 type KATab = 'feed' | 'discover' | 'for-you' | 'swipe' | 'profile'
 
+const ALL_TABS: KATab[] = ['feed', 'discover', 'for-you', 'swipe', 'profile']
 const TAB_IDX_TO_KA: Array<KATab | null> = ['feed', 'discover', 'for-you', 'swipe', 'profile']
 
-// Altezza header mobile: h-[52px] + 1px border = 53px.
-// I panel off-screen partono da qui per allinearsi al panel attivo durante lo swipe.
-const HEADER_H = '53px'
+const HEADER_H_PX  = 53
+const HEADER_TOP   = `calc(env(safe-area-inset-top, 0px) + ${HEADER_H_PX}px)`
+const PANEL_HEIGHT = `calc(100dvh - env(safe-area-inset-top, 0px) - ${HEADER_H_PX}px)`
 
 const FULL_SCREEN_TABS = new Set<KATab>(['swipe'])
 
@@ -47,22 +50,40 @@ function getKATab(pathname: string): KATab | null {
   return null
 }
 
-// Stile base per panel fuori dal flow (off-screen o adjacent durante swipe).
-// position:fixed evita reflow sul documento. contain:layout paint limita
-// il lavoro del compositor ai soli pixel di quel panel.
-function offScreenBase(panelTab: KATab): CSSProperties {
+function panelBaseStyle(panelTab: KATab): CSSProperties {
   const full = FULL_SCREEN_TABS.has(panelTab)
   return {
-    position:      'fixed',
-    top:           full ? 0 : HEADER_H,
-    left:          0,
-    width:         '100%',
-    height:        full ? '100dvh' : `calc(100dvh - ${HEADER_H})`,
-    overflow:      'hidden',
-    pointerEvents: 'none',
-    zIndex:        1,
-    contain:       'layout paint',
+    position:  'fixed',
+    top:       full ? 0 : HEADER_TOP,
+    left:      0,
+    width:     '100%',
+    height:    full ? '100dvh' : PANEL_HEIGHT,
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    WebkitOverflowScrolling: 'touch' as CSSProperties['WebkitOverflowScrolling'],
   }
+}
+
+function PanelWrapper({
+  divRef,
+  style,
+  children,
+}: {
+  divRef: MutableRefObject<HTMLDivElement | null>
+  style: CSSProperties
+  children: ReactNode
+}) {
+  const scrollToTop = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    divRef.current?.scrollTo({ top: 0, behavior })
+  }, [divRef])
+
+  return (
+    <ScrollPanelContext.Provider value={{ panelRef: divRef, scrollToTop }}>
+      <div ref={divRef} style={style}>
+        {children}
+      </div>
+    </ScrollPanelContext.Provider>
+  )
 }
 
 export function KeepAliveTabShell({ children }: { children: ReactNode }) {
@@ -78,120 +99,149 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
     if (u) latestProfileUsername.current = u
   }
 
-  // ── Scroll save / restore ──────────────────────────────────────────────────
-  const savedY  = useRef<Partial<Record<KATab, number>>>({})
-  const prevTab = useRef<KATab | null>(null)
-  const tabRef  = useRef(tab)
-  tabRef.current = tab
+  const panelRefs = useRef<Record<KATab, MutableRefObject<HTMLDivElement | null>>>(
+    Object.fromEntries(
+      ALL_TABS.map(t => [t, { current: null }])
+    ) as Record<KATab, MutableRefObject<HTMLDivElement | null>>
+  )
 
-  useEffect(() => {
-    const onScroll = () => {
-      if (tabRef.current && tabRef.current !== 'swipe') {
-        savedY.current[tabRef.current] = window.scrollY
-      }
-    }
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
-
-  // opacity:0 durante il ripristino scroll nasconde il frame intermedio a scrollY=0.
-  const [activeVisible, setActiveVisible] = useState(true)
-
-  useEffect(() => {
-    if (prevTab.current === tab) return
-    prevTab.current = tab
-    if (tab === 'swipe') return
-
-    const targetY = tab ? (savedY.current[tab] ?? 0) : 0
-
-    // Se la posizione salvata è 0 (o prima visita) non serve nascondere nulla.
-    if (targetY === 0) {
-      window.scrollTo({ top: 0, behavior: 'instant' })
-      return
-    }
-
-    // Nascondi il panel, applica lo scroll nel prossimo frame,
-    // poi rendi visibile nel frame successivo ancora.
-    setActiveVisible(false)
-    requestAnimationFrame(() => {
-      window.scrollTo({ top: targetY, behavior: 'instant' })
-      requestAnimationFrame(() => {
-        setActiveVisible(true)
-      })
-    })
-  }, [tab])
-
-  // ── Carousel state ─────────────────────────────────────────────────────────
   const [adjLeft,  setAdjLeft]  = useState<KATab | null>(null)
   const [adjRight, setAdjRight] = useState<KATab | null>(null)
+  // Ref per accesso diretto ai tab adiacenti durante il drag (senza closure stale)
+  const adjLeftRef  = useRef<KATab | null>(null)
+  const adjRightRef = useRef<KATab | null>(null)
+  const tabRef      = useRef(tab)
+  tabRef.current    = tab
 
   useEffect(() => {
     swipeNavBridge.register(
+      // onStart: rende visibili i panel adiacenti
       (prevIdx, nextIdx) => {
         const pk = prevIdx != null ? TAB_IDX_TO_KA[prevIdx] : null
         const nk = nextIdx != null ? TAB_IDX_TO_KA[nextIdx] : null
-        setAdjLeft(pk  && visited.current.has(pk)  ? pk  : null)
-        setAdjRight(nk && visited.current.has(nk) ? nk : null)
+        const newLeft  = pk && visited.current.has(pk) ? pk : null
+        const newRight = nk && visited.current.has(nk) ? nk : null
+        adjLeftRef.current  = newLeft
+        adjRightRef.current = newRight
+        setAdjLeft(newLeft)
+        setAdjRight(newRight)
       },
-      () => { setTimeout(() => { setAdjLeft(null); setAdjRight(null) }, 300) },
+      // onEnd: riporta i panel alla posizione di riposo dopo snap-back
+      () => {
+        const activeEl = adjLeftRef.current
+          ? panelRefs.current[adjLeftRef.current]?.current
+          : adjRightRef.current
+            ? panelRefs.current[adjRightRef.current]?.current
+            : null
+        const currentEl = tabRef.current ? panelRefs.current[tabRef.current]?.current : null
+        // Applica transizione di ritorno
+        const ease = 'cubic-bezier(0.22, 1, 0.36, 1)'
+        const tr = `transform 0.28s ${ease}`
+        if (currentEl) {
+          currentEl.style.transition = tr
+          currentEl.style.transform  = ''
+          currentEl.addEventListener('transitionend', () => {
+            currentEl.style.transition = ''
+          }, { once: true })
+        }
+        if (activeEl) {
+          activeEl.style.transition = tr
+          const isLeft = !!adjLeftRef.current
+          activeEl.style.transform  = isLeft ? 'translateX(-100%)' : 'translateX(100%)'
+          activeEl.addEventListener('transitionend', () => {
+            activeEl.style.transition = ''
+            adjLeftRef.current  = null
+            adjRightRef.current = null
+            setAdjLeft(null)
+            setAdjRight(null)
+          }, { once: true })
+        } else {
+          adjLeftRef.current  = null
+          adjRightRef.current = null
+          setTimeout(() => { setAdjLeft(null); setAdjRight(null) }, 300)
+        }
+      },
+      // onDrag: muove i panel direttamente sul DOM, zero re-render
+      (dx: number) => {
+        const vw = window.innerWidth
+        const currentEl = tabRef.current ? panelRefs.current[tabRef.current]?.current : null
+        const leftEl    = adjLeftRef.current  ? panelRefs.current[adjLeftRef.current]?.current  : null
+        const rightEl   = adjRightRef.current ? panelRefs.current[adjRightRef.current]?.current : null
+
+        if (currentEl) {
+          currentEl.style.transition = 'none'
+          currentEl.style.transform  = dx !== 0 ? `translateX(${dx}px)` : ''
+        }
+        if (leftEl) {
+          leftEl.style.transition = 'none'
+          leftEl.style.transform  = `translateX(calc(-100% + ${dx}px))`
+        }
+        if (rightEl) {
+          rightEl.style.transition = 'none'
+          rightEl.style.transform  = `translateX(calc(100% + ${dx}px))`
+        }
+      },
     )
     return () => swipeNavBridge.unregister()
   }, []) // eslint-disable-line
 
   useEffect(() => {
+    adjLeftRef.current  = null
+    adjRightRef.current = null
     setAdjLeft(null)
     setAdjRight(null)
-  }, [pathname])
-
-  // ── Panel style helper ──────────────────────────────────────────────────────
-  const panelStyle = (panelTab: KATab): CSSProperties => {
-    if (tab === panelTab) {
-      // Panel attivo: in flow normale del documento.
-      // opacity:0 solo durante il breve ripristino scroll (max 2 frame).
-      return activeVisible ? {} : { opacity: 0, pointerEvents: 'none' }
+    // Reset transform sul panel attivo (potrebbe averne uno residuo)
+    if (tab) {
+      const el = panelRefs.current[tab]?.current
+      if (el) { el.style.transition = ''; el.style.transform = '' }
     }
+  }, [pathname]) // eslint-disable-line
 
-    if (adjLeft  === panelTab) {
-      return { ...offScreenBase(panelTab), transform: 'translateX(-100%)', visibility: 'visible' }
+  const getPanelStyle = useCallback((panelTab: KATab): CSSProperties => {
+    const base = panelBaseStyle(panelTab)
+    if (tab === panelTab) {
+      // Panel attivo: nessun transform, nessun layer GPU extra.
+      return { ...base, zIndex: 2, pointerEvents: 'auto', visibility: 'visible' }
+    }
+    if (adjLeft === panelTab) {
+      // Adiacente visibile durante swipe: willChange solo ora che serve.
+      return { ...base, transform: 'translateX(-100%)', zIndex: 1, pointerEvents: 'none', visibility: 'visible', willChange: 'transform' }
     }
     if (adjRight === panelTab) {
-      return { ...offScreenBase(panelTab), transform: 'translateX(100%)', visibility: 'visible' }
+      return { ...base, transform: 'translateX(100%)', zIndex: 1, pointerEvents: 'none', visibility: 'visible', willChange: 'transform' }
     }
-
     if (visited.current.has(panelTab)) {
-      // Visitato ma non adiacente: nascosto, fuori schermo.
-      return { ...offScreenBase(panelTab), transform: 'translateX(-300%)', visibility: 'hidden' }
+      // Fuori schermo: nessun layer GPU, nascosto al compositor.
+      return { ...base, transform: 'translateX(-300%)', zIndex: 0, pointerEvents: 'none', visibility: 'hidden' }
     }
-
-    // Non ancora visitato: non nel DOM.
     return { display: 'none' }
-  }
+  }, [tab, adjLeft, adjRight])
 
   const profileUsername = latestProfileUsername.current
 
   return (
     <>
-      <div style={panelStyle('feed')}>
+      <PanelWrapper divRef={panelRefs.current['feed']}     style={getPanelStyle('feed')}>
         {visited.current.has('feed') && <FeedPage />}
-      </div>
+      </PanelWrapper>
 
-      <div style={panelStyle('discover')}>
+      <PanelWrapper divRef={panelRefs.current['discover']} style={getPanelStyle('discover')}>
         {visited.current.has('discover') && <DiscoverPage />}
-      </div>
+      </PanelWrapper>
 
-      <div style={panelStyle('for-you')}>
+      <PanelWrapper divRef={panelRefs.current['for-you']}  style={getPanelStyle('for-you')}>
         {visited.current.has('for-you') && <ForYouPage />}
-      </div>
+      </PanelWrapper>
 
-      <div style={panelStyle('swipe')}>
+      <PanelWrapper divRef={panelRefs.current['swipe']}    style={getPanelStyle('swipe')}>
         {visited.current.has('swipe') && <SwipePage />}
-      </div>
+      </PanelWrapper>
 
-      <div style={panelStyle('profile')}>
+      <PanelWrapper divRef={panelRefs.current['profile']}  style={getPanelStyle('profile')}>
         {visited.current.has('profile') && profileUsername && (
           <ProfilePage usernameOverride={profileUsername} />
         )}
-      </div>
+      </PanelWrapper>
 
       {tab === null && children}
     </>

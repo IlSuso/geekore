@@ -4,6 +4,7 @@
 //     lowConfidence banner + Feedback granulare micro-menu + Anti-ripetizione (recommendations_shown)
 
 import { useState, useEffect, useCallback, memo, useRef } from 'react'
+import { useScrollPanel } from '@/context/ScrollPanelContext'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -707,6 +708,7 @@ const forYouCache: {
 
 export default function ForYouPage() {
   const pathname = usePathname()
+  const { scrollToTop } = useScrollPanel()
   const supabase = createClient(); const router = useRouter()
   const { t } = useLocale(); const fy = t.forYou
   const hasCachedData = forYouCache.recommendations !== null
@@ -1016,7 +1018,7 @@ export default function ForYouPage() {
       const json = await res.json()
       const items: Recommendation[] = (json.items || []).filter((r: Recommendation) => r.id !== excludeId)
       setSimilarSection({ sourceTitle: title, sourceType: (type as MediaType) || 'movie', items })
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      scrollToTop('smooth')
     } else {
     }
   }, [])

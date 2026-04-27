@@ -80,19 +80,12 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   const animateRef     = useRef(false)
   const [snapping,     setSnapping]     = useState(false)
 
-  const applyTransform = useCallback((px: number, withAnim: boolean, easing?: string) => {
-    const el = wrapRef.current
-    if (!el) return
+  const applyTransform = useCallback((px: number, withAnim: boolean, _easing?: string) => {
+    // I panel sono position:fixed — non seguono il transform del wrapper.
+    // Passiamo il delta direttamente al bridge che muove i panel.
     offsetRef.current  = px
     animateRef.current = withAnim
-    el.style.transform  = (px !== 0 || withAnim) ? `translateX(${px}px)` : 'none'
-    el.style.transition = withAnim ? `transform 0.28s ${easing ?? EASE_OUT}` : 'none'
-    el.style.willChange = (px !== 0 || withAnim) ? 'transform' : 'auto'
-    if (withAnim) {
-      el.style.backfaceVisibility = 'hidden'
-    } else if (px === 0) {
-      el.style.backfaceVisibility = ''
-    }
+    swipeNavBridge.notifyDrag(px)
   }, [])
 
   const currentIdx = TAB_ORDER.findIndex(t => {
@@ -138,14 +131,13 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     return () => { document.body.style.overflow = '' }
   }, [snapping])
 
-  // Clear snapping flag as soon as the CSS snap-back transition ends.
+  // Clear snapping flag dopo la durata dell'animazione panel (0.28s).
   useEffect(() => {
-    const el = wrapRef.current
-    if (!el) return
-    const onEnd = () => setSnapping(false)
-    el.addEventListener('transitionend', onEnd)
-    return () => el.removeEventListener('transitionend', onEnd)
-  }, [])
+    if (snapping) {
+      const t = setTimeout(() => setSnapping(false), 300)
+      return () => clearTimeout(t)
+    }
+  }, [snapping])
 
   const onTouchStart = useCallback((e: TouchEvent) => {
     captured.current = false
@@ -319,21 +311,11 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('popstate', handler, { capture: true })
   }, [])
 
-  // Il transform è applicato direttamente sul DOM da applyTransform() durante il drag.
-  // React gestisce solo il wrapper esterno (clip) e l'elemento ref.
-  // snapping=true mantiene il layer GPU attivo fino al termine della transizione CSS.
+  // I panel sono position:fixed e si muovono tramite il bridge.
+  // Il wrapper serve solo per catturare i touch events.
   return (
-    <div style={{ overflow: 'clip', overscrollBehaviorX: 'none' }}>
-      <div
-        ref={wrapRef}
-        style={{
-          position:  'relative',
-          zIndex:    0,
-          minHeight: '100%',
-        }}
-      >
-        {children}
-      </div>
+    <div ref={wrapRef} style={{ minHeight: '100dvh' }}>
+      {children}
     </div>
   )
 }
