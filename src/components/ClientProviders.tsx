@@ -66,6 +66,28 @@ function ThemeColorEnforcer() {
   return null
 }
 
+// Nasconde lo splash screen Capacitor non appena la pagina è interattiva
+function SplashHider() {
+  useEffect(() => {
+    const hide = async () => {
+      try {
+        // Capacitor SplashScreen — disponibile solo nell'app nativa
+        const { SplashScreen } = await import('@capacitor/splash-screen')
+        await SplashScreen.hide({ fadeOutDuration: 300 })
+      } catch {
+        // Browser/PWA normale — non fa nulla
+      }
+    }
+    // Aspetta che il DOM sia pronto e la pagina visibile
+    if (document.readyState === 'complete') {
+      hide()
+    } else {
+      window.addEventListener('load', hide, { once: true })
+    }
+  }, [])
+  return null
+}
+
 // ------------------------------------------------------------------
 // AndroidBackHandler
 //
@@ -152,6 +174,7 @@ export function ClientProviders({ children, initialLocale = 'it' }: { children: 
     <ThemeProvider>
       <LocaleProvider initialLocale={initialLocale}>
         <ThemeColorEnforcer />
+        <SplashHider />
         <AndroidBackHandler />
         <NavbarLayerCloser />
         <ServiceWorkerRegistrar />
