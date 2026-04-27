@@ -44,8 +44,11 @@ export function BottomSheet({
   const [isDragging, setIsDragging] = useState(false)
   const [mounted, setMounted] = useState(false)
 
-  const historyPushedRef = useRef(false)
-  const closingRef       = useRef(false)
+  const historyPushedRef  = useRef(false)
+  const closingRef        = useRef(false)
+  const scrollContentRef  = useRef<HTMLDivElement>(null)
+  // True quando il drag è partito dall'area scrollabile a fine corsa
+  const draggingFromScroll = useRef(false)
 
   // Evita SSR mismatch col portal
   useEffect(() => {
@@ -143,14 +146,49 @@ export function BottomSheet({
     dragCurrentY.current = 0
   }, [onClose])
 
-  // Touch handlers
+  // Touch handlers per il drag handle
   const handleTouchStart = (e: React.TouchEvent) => {
-    // Su iOS: se il touch parte dal bordo sinistro, ignora — è la back gesture di sistema
     if (IS_IOS_BS && e.touches[0].clientX <= IOS_LEFT_DEAD_ZONE) return
+    draggingFromScroll.current = false
     onDragStart(e.touches[0].clientY)
   }
   const handleTouchMove = (e: React.TouchEvent) => onDragMove(e.touches[0].clientY)
   const handleTouchEnd = () => onDragEnd()
+
+  // Touch handlers per il contenuto scrollabile.
+  // Il dismiss si attiva solo quando il contenuto è a fine corsa verso il basso
+  // e l'utente continua a trascinare verso il basso (scroll chaining verticale).
+  const handleContentTouchStart = (e: React.TouchEvent) => {
+    if (IS_IOS_BS && e.touches[0].clientX <= IOS_LEFT_DEAD_ZONE) return
+    draggingFromScroll.current = false
+    dragStartY.current = e.touches[0].clientY
+    dragCurrentY.current = 0
+  }
+  const handleContentTouchMove = (e: React.TouchEvent) => {
+    const el = scrollContentRef.current
+    if (!el || dragStartY.current === null) return
+    const dy = e.touches[0].clientY - dragStartY.current
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1
+    // Attiva dismiss solo se: si sta trascinando verso il basso E il contenuto è a fine corsa
+    if (!draggingFromScroll.current) {
+      if (dy > 8 && atBottom) {
+        draggingFromScroll.current = true
+        setIsDragging(true)
+      } else {
+        return // lascia scorrere normalmente il contenuto
+      }
+    }
+    if (draggingFromScroll.current && dy > 0) {
+      e.preventDefault() // blocca scroll nativo mentre dismissiamo
+      dragCurrentY.current = dy
+      setTranslateY(dy)
+    }
+  }
+  const handleContentTouchEnd = () => {
+    if (!draggingFromScroll.current) return
+    draggingFromScroll.current = false
+    onDragEnd()
+  }
 
   // Mouse handlers (per test su desktop)
   const handleMouseDown = (e: React.MouseEvent) => onDragStart(e.clientY)
@@ -253,8 +291,12 @@ export function BottomSheet({
 
           {/* Scrollable content */}
           <div
+            ref={scrollContentRef}
             className="overflow-y-auto overscroll-contain"
             style={{ maxHeight: `calc(${maxHeightVh}vh - 80px)` }}
+            onTouchStart={handleContentTouchStart}
+            onTouchMove={handleContentTouchMove}
+            onTouchEnd={handleContentTouchEnd}
           >
             {children}
           </div>

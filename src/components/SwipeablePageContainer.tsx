@@ -60,11 +60,26 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   const isDragging  = useRef(false)
   const captured    = useRef(false)
 
-  const [offset,       setOffset]       = useState(0)
-  const [animate,      setAnimate]      = useState(false)
-  // True while the snap-back CSS transition is playing — keeps the GPU layer
-  // alive and the stacking context stable until the animation is fully done.
+  // offset e animate sono gestiti direttamente sul DOM durante il drag
+  // per evitare re-render React ad ogni pixel — zero lag durante lo swipe.
+  const offsetRef      = useRef(0)
+  const animateRef     = useRef(false)
   const [snapping,     setSnapping]     = useState(false)
+
+  const applyTransform = useCallback((px: number, withAnim: boolean, easing?: string) => {
+    const el = wrapRef.current
+    if (!el) return
+    offsetRef.current  = px
+    animateRef.current = withAnim
+    el.style.transform  = (px !== 0 || withAnim) ? `translateX(${px}px)` : 'none'
+    el.style.transition = withAnim ? `transform 0.28s ${easing ?? EASE_OUT}` : 'none'
+    el.style.willChange = (px !== 0 || withAnim) ? 'transform' : 'auto'
+    if (withAnim) {
+      el.style.backfaceVisibility = 'hidden'
+    } else if (px === 0) {
+      el.style.backfaceVisibility = ''
+    }
+  }, [])
 
   const currentIdx = TAB_ORDER.findIndex(t => {
     if (t === '/profile/me') return pathname.startsWith('/profile/')
@@ -77,7 +92,9 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   const nextTab  = currentIdx < TAB_ORDER.length - 1 ? TAB_ORDER[currentIdx + 1] : null
 
   // Declared early so useEffect below can reference it before the bottom-of-function aliases.
-  const isActive = offset !== 0 || snapping
+  // isActive è true durante la transizione CSS di snap-back (gestita da snapping).
+  // Durante il drag il body scroll è bloccato da gestureState.swipeActive in onTouchMove.
+  const isActive = snapping
 
   useEffect(() => {
     vw.current = window.innerWidth
@@ -90,24 +107,22 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     captured.current         = false
     isDragging.current       = false
     gestureState.swipeActive = false
-    setAnimate(false)
-    setOffset(0)
+    applyTransform(0, false)
     setSnapping(false)
     document.documentElement.removeAttribute('data-swiping')
     document.documentElement.removeAttribute('data-to-swipe')
   }, [pathname])
 
-  // Lock body scroll while a swipe is in progress. Without this, vertical
-  // drift during a swipe could scroll the (potentially very tall) document,
-  // which makes the fixed navbar appear to shift and reveals off-screen content.
+  // Lock body scroll durante lo snap-back (transizione CSS finale).
+  // Durante il drag il body scroll è già bloccato da e.preventDefault() in onTouchMove.
   useEffect(() => {
-    if (isActive) {
+    if (snapping) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = ''
     }
     return () => { document.body.style.overflow = '' }
-  }, [isActive])
+  }, [snapping])
 
   // Clear snapping flag as soon as the CSS snap-back transition ends.
   useEffect(() => {
@@ -149,8 +164,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     lastDeltaX.current  = 0
     isH.current         = null
     isDragging.current  = false
-    setAnimate(false)
-  }, [isMain])
+  }, [isMain, applyTransform])
 
   const onTouchMove = useCallback((e: TouchEvent) => {
     if (!captured.current || !isMain || gestureState.pullActive) return
@@ -178,9 +192,9 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     gestureState.swipeActive = true
     lastDeltaX.current       = dx
 
-    if (dx > 0 && !prevTab) { setOffset(Math.pow(dx, 0.6) * 0.5); return }
-    if (dx < 0 && !nextTab) { setOffset(-Math.pow(-dx, 0.6) * 0.5); return }
-    setOffset(dx)
+    if (dx > 0 && !prevTab) { applyTransform(Math.pow(dx, 0.6) * 0.5, false); return }
+    if (dx < 0 && !nextTab) { applyTransform(-Math.pow(-dx, 0.6) * 0.5, false); return }
+    applyTransform(dx, false)
   }, [isMain, prevTab, nextTab])
 
   const onTouchEnd = useCallback(() => {
@@ -205,15 +219,15 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     r.removeAttribute('data-swiping')
 
     if (shouldNav && dx > 0 && prevTab) {
-      setAnimate(true); setOffset(w)
+      applyTransform(w, true, EASE_OUT)
       setTimeout(() => { router.replace(prevTab) }, 260)
     } else if (shouldNav && dx < 0 && nextTab) {
-      setAnimate(true); setOffset(-w)
+      applyTransform(-w, true, EASE_OUT)
       setTimeout(() => { router.replace(nextTab) }, 260)
     } else {
       r.removeAttribute('data-to-swipe')
       setSnapping(true)
-      setAnimate(true); setOffset(0)
+      applyTransform(0, true, EASE_SNAP)
       swipeNavBridge.notifyEnd()
     }
 
@@ -232,7 +246,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     r.removeAttribute('data-to-swipe')
     if (wasDragging) {
       setSnapping(true)
-      setAnimate(true); setOffset(0)
+      applyTransform(0, true, EASE_SNAP)
       swipeNavBridge.notifyEnd()
     }
   }, [])
@@ -266,8 +280,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     document.documentElement.removeAttribute('data-swiping')
     document.documentElement.removeAttribute('data-to-swipe')
     setSnapping(true)
-    setAnimate(true)
-    setOffset(0)
+    applyTransform(0, true, EASE_SNAP)
     swipeNavBridge.notifyEnd()
   }
   useEffect(() => {
@@ -276,36 +289,17 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('popstate', handler, { capture: true })
   }, [])
 
-  // Use translateX(Npx) while dragging OR while the snap-back transition is
-  // playing (snapping=true). Switch to 'none' only after transitionend fires.
-  // This keeps the GPU layer stable for the whole animation without permanently
-  // trapping position:fixed descendants (which would break SwipeMode's inset-0).
-  const translateX = isActive ? `translateX(${offset}px)` : 'none'
-  const transition = animate
-    ? `transform 0.28s ${offset === 0 ? EASE_SNAP : EASE_OUT}`
-    : 'none'
-
-  // Outer wrapper clips the off-screen keep-alive panels (position:absolute at
-  // ±100vw) without becoming a scroll container. overflow:clip (unlike hidden)
-  // does not force overflow-y to auto, so window.scrollTo / window.scrollY
-  // keep working normally. Per CSS spec, content clipped by overflow:clip is
-  // excluded from the ancestor's scrollable overflow, so the mobile browser
-  // does not expand the layout viewport beyond device-width.
+  // Il transform è applicato direttamente sul DOM da applyTransform() durante il drag.
+  // React gestisce solo il wrapper esterno (clip) e l'elemento ref.
+  // snapping=true mantiene il layer GPU attivo fino al termine della transizione CSS.
   return (
     <div style={{ overflow: 'clip', overscrollBehaviorX: 'none' }}>
       <div
         ref={wrapRef}
         style={{
-          position:                 'relative',
-          zIndex:                   0,
-          transform:                translateX,
-          transition,
-          willChange:               isActive ? 'transform' : 'auto',
-          ...(isActive ? {
-            backfaceVisibility:       'hidden',
-            WebkitBackfaceVisibility: 'hidden',
-          } : {}),
-          minHeight:                '100%',
+          position:  'relative',
+          zIndex:    0,
+          minHeight: '100%',
         }}
       >
         {children}
