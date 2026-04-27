@@ -3,16 +3,25 @@
 import { useState, useEffect, useRef, type ChangeEvent, type FormEvent } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { Upload, Loader2, Sparkles, Download, User, AtSign, FileText, Heart, ChevronRight } from 'lucide-react'
+import Link from 'next/link'
+import { Loader2, Upload } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { Avatar } from '@/components/ui/Avatar'
-import { AniListImport } from '@/components/import/AniListImport'
-import Link from 'next/link'
+import { SteamIcon } from '@/components/icons/SteamIcon'
 
-const ALL_GENRES = [
-  'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery',
-  'Romance', 'Sci-Fi', 'Thriller', 'RPG', 'Strategy', 'Simulation', 'Psychological',
-]
+interface Profile {
+  id: string
+  username?: string | null
+  display_name?: string | null
+  bio?: string | null
+  avatar_url?: string | null
+}
+
+interface SteamAccount {
+  steam_id64: string
+  personaname?: string | null
+  avatar?: string | null
+}
 
 const USERNAME_MAX = 30
 const USERNAME_MIN = 3
@@ -23,11 +32,7 @@ function hasUnicodeLookalike(value: string): boolean {
   const normalized = value.normalize('NFKD')
   for (let i = 0; i < normalized.length; i++) {
     const code = normalized.codePointAt(i) ?? 0
-    if (
-      !(code >= 97 && code <= 122) &&
-      !(code >= 48 && code <= 57) &&
-      code !== 95
-    ) return true
+    if (!(code >= 97 && code <= 122) && !(code >= 48 && code <= 57) && code !== 95) return true
   }
   return false
 }
@@ -37,141 +42,109 @@ export default function EditProfilePage() {
   const router = useRouter()
   const { t } = useLocale()
   const pe = t.profileEdit
-
-  const validateUsername = (value: string): string | null => {
-    if (value.length < USERNAME_MIN) return pe.usernameTooShort(USERNAME_MIN)
-    if (value.length > USERNAME_MAX) return pe.usernameTooLong(USERNAME_MAX)
-    if (!USERNAME_REGEX.test(value)) return pe.usernameInvalid
-    if (hasUnicodeLookalike(value)) return 'Username contiene caratteri non consentiti'
-    return null
-  }
-
-  const validateBio = (value: string): string | null => {
-    if (value.length > BIO_MAX) return pe.bioTooLong(BIO_MAX)
-    return null
-  }
-
-  const [loading, setLoading]             = useState(true)
-  const [saving, setSaving]               = useState(false)
-  const [uploadingAvatar, setUploadingAvatar] = useState(false)
-  const [message, setMessage]             = useState('')
-  const [messageType, setMessageType]     = useState<'success' | 'error'>('success')
-  const [profile, setProfile]             = useState<any>(null)
-  const [formData, setFormData]           = useState<{ display_name: string; username: string; bio: string }>({ display_name: '', username: '', bio: '' })
-  const [fieldErrors, setFieldErrors]     = useState<{ username?: string; bio?: string }>({})
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
-  const [avatarFile, setAvatarFile]       = useState<File | null>(null)
-  const [likedGenres, setLikedGenres]     = useState<string[]>([])
-  const [dislikedGenres, setDislikedGenres] = useState<string[]>([])
-  // explicit type used by filter callbacks below
-  const [exporting, setExporting]         = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const handleExportData = async () => {
-    setExporting(true)
-    try {
-      const res = await fetch('/api/user/export')
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        alert(err.error || 'Errore durante l\'esportazione')
-        return
-      }
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `geekore-export-${new Date().toISOString().split('T')[0]}.json`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } finally {
-      setExporting(false)
-    }
-  }
+  const [loading, setLoading]         = useState(true)
+  const [saving, setSaving]           = useState(false)
+  const [uploading, setUploading]     = useState(false)
+  const [message, setMessage]         = useState('')
+  const [messageType, setMessageType] = useState<'success' | 'error'>('success')
+
+  const [profile, setProfile]         = useState<Profile | null>(null)
+  const [steamAccount, setSteamAccount] = useState<SteamAccount | null>(null)
+  const [disconnecting, setDisconnecting] = useState(false)
+
+  const [displayName, setDisplayName] = useState('')
+  const [username, setUsername]       = useState('')
+  const [bio, setBio]                 = useState('')
+  const [usernameError, setUsernameError] = useState<string | null>(null)
+  const [bioError, setBioError]       = useState<string | null>(null)
+
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const [avatarFile, setAvatarFile]   = useState<File | null>(null)
 
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
+      const [profileRes, steamRes] = await Promise.all([
+        supabase.from('profiles').select('id, username, display_name, bio, avatar_url').eq('id', user.id).single(),
+        supabase.from('steam_accounts').select('steam_id64, personaname, avatar').eq('user_id', user.id).maybeSingle(),
+      ])
 
-      if (profileData) {
-        setProfile(profileData)
-        setFormData({
-          display_name: profileData.display_name || '',
-          username: profileData.username || '',
-          bio: profileData.bio || '',
-        })
-        setAvatarPreview(profileData.avatar_url || null)
+      if (profileRes.data) {
+        setProfile(profileRes.data)
+        setDisplayName(profileRes.data.display_name || '')
+        setUsername(profileRes.data.username || '')
+        setBio(profileRes.data.bio || '')
+        setAvatarPreview(profileRes.data.avatar_url || null)
       }
 
-      const { data: prefsData } = await supabase
-        .from('user_preferences')
-        .select('fav_game_genres, fav_anime_genres, fav_movie_genres, disliked_genres')
-        .eq('user_id', user.id)
-        .single()
-
-      if (prefsData) {
-        const liked = [...new Set([
-          ...(prefsData.fav_game_genres || []),
-          ...(prefsData.fav_anime_genres || []),
-          ...(prefsData.fav_movie_genres || []),
-        ])]
-        setLikedGenres(liked)
-        setDislikedGenres(prefsData.disliked_genres || [])
-      }
+      if (steamRes.data) setSteamAccount(steamRes.data)
 
       setLoading(false)
     }
     load()
   }, [])
 
-  const handleUsernameChange = (value: string) => {
-    const clean = value.toLowerCase().replace(/[^a-z0-9_]/g, '')
-    setFormData(prev => ({ ...prev, username: clean }))
-    const err = validateUsername(clean)
-    setFieldErrors(prev => ({ ...prev, username: err || undefined }))
+  const validateUsername = (v: string): string | null => {
+    if (v.length < USERNAME_MIN) return pe.usernameTooShort(USERNAME_MIN)
+    if (v.length > USERNAME_MAX) return pe.usernameTooLong(USERNAME_MAX)
+    if (!USERNAME_REGEX.test(v)) return pe.usernameInvalid
+    if (hasUnicodeLookalike(v)) return 'Username contiene caratteri non consentiti'
+    return null
   }
 
-  const handleBioChange = (value: string) => {
-    setFormData(prev => ({ ...prev, bio: value }))
-    const err = validateBio(value)
-    setFieldErrors(prev => ({ ...prev, bio: err || undefined }))
+  const handleUsernameChange = (v: string) => {
+    const clean = v.toLowerCase().replace(/[^a-z0-9_]/g, '')
+    setUsername(clean)
+    setUsernameError(validateUsername(clean))
   }
 
-  const handleAvatarChange = async (e: ChangeEvent<HTMLInputElement>) => {
+  const handleBioChange = (v: string) => {
+    setBio(v)
+    setBioError(v.length > BIO_MAX ? pe.bioTooLong(BIO_MAX) : null)
+  }
+
+  // ── Foto profilo ──────────────────────────────────────────────────────────────
+
+  const handleUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 5 * 1024 * 1024) {
-      setMessage(pe.imageTooLarge)
-      setMessageType('error')
-      return
+      setMessage(pe.imageTooLarge); setMessageType('error'); return
     }
     setAvatarFile(file)
     setAvatarPreview(URL.createObjectURL(file))
   }
 
-  const removeAvatar = async () => {
+  const handleRemove = async () => {
     if (!profile) return
-    await supabase.from('profiles').update({ avatar_url: null }).eq('id', profile.id)
-    setAvatarPreview(null)
     setAvatarFile(null)
+    setAvatarPreview(null)
+    await supabase.from('profiles').update({ avatar_url: null }).eq('id', profile.id)
   }
+
+  // ── Steam ─────────────────────────────────────────────────────────────────────
+
+  const handleDisconnect = async () => {
+    if (!profile || !steamAccount) return
+    setDisconnecting(true)
+    await supabase.from('steam_accounts').delete().eq('user_id', profile.id)
+    setSteamAccount(null)
+    setDisconnecting(false)
+  }
+
+  // ── Salva ─────────────────────────────────────────────────────────────────────
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault()
     if (!profile) return
 
-    const usernameErr = validateUsername(formData.username)
-    const bioErr = validateBio(formData.bio)
-    if (usernameErr || bioErr) {
-      setFieldErrors({ username: usernameErr || undefined, bio: bioErr || undefined })
+    const uErr = validateUsername(username)
+    if (uErr || usernameError || bioError) {
+      if (uErr) setUsernameError(uErr)
       return
     }
 
@@ -179,59 +152,45 @@ export default function EditProfilePage() {
     setMessage('')
 
     try {
-      let avatarUrl = profile.avatar_url
+      let avatarUrl = profile.avatar_url ?? null
 
       if (avatarFile) {
-        setUploadingAvatar(true)
-        const formDataUpload = new FormData()
-        formDataUpload.append('avatar', avatarFile)
-        const uploadRes = await fetch('/api/avatar/upload', { method: 'POST', body: formDataUpload })
-        setUploadingAvatar(false)
-        if (!uploadRes.ok) {
-          const err = await uploadRes.json().catch(() => ({}))
+        setUploading(true)
+        const fd = new FormData()
+        fd.append('avatar', avatarFile)
+        const res = await fetch('/api/avatar/upload', { method: 'POST', body: fd })
+        setUploading(false)
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
           throw new Error(err.error || 'Errore upload avatar')
         }
-        const { url } = await uploadRes.json()
-        avatarUrl = url
+        avatarUrl = (await res.json()).url
       }
 
       const { error } = await supabase.from('profiles').update({
-        display_name: formData.display_name.trim().slice(0, 50),
-        username: formData.username,
-        bio: formData.bio.trim(),
+        display_name: displayName.trim().slice(0, 50),
+        username,
+        bio: bio.trim(),
         avatar_url: avatarUrl,
         updated_at: new Date().toISOString(),
       }).eq('id', profile.id)
 
       if (error) throw error
 
-      const inSet = (set: string[]) => (g: string) => set.includes(g)
-      await supabase.from('user_preferences').upsert({
-        user_id: profile.id,
-        fav_game_genres:  likedGenres.filter(inSet(['Action', 'Adventure', 'RPG', 'Strategy', 'Simulation', 'Horror', 'Thriller', 'Mystery', 'Psychological'])),
-        fav_anime_genres: likedGenres.filter(inSet(['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller', 'Psychological'])),
-        fav_movie_genres: likedGenres.filter(inSet(['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller'])),
-        fav_tv_genres:    likedGenres.filter(inSet(['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller'])),
-        fav_manga_genres: likedGenres.filter(inSet(['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller', 'Psychological'])),
-        disliked_genres: dislikedGenres,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' })
-
       setMessage(pe.saved)
       setMessageType('success')
-      setTimeout(() => router.push(`/profile/${formData.username}`), 1000)
+      setTimeout(() => router.push(`/profile/${username}`), 1000)
 
     } catch (err: any) {
       setMessage(
         err.message?.includes('profiles_username') ? pe.usernameTaken :
-        err.message?.includes('Formato non supportato') ? err.message :
         err.message?.includes('magic') ? 'Formato file non valido.' :
         pe.saveError
       )
       setMessageType('error')
     } finally {
       setSaving(false)
-      setUploadingAvatar(false)
+      setUploading(false)
     }
   }
 
@@ -243,198 +202,172 @@ export default function EditProfilePage() {
     )
   }
 
-  const isBusy = saving || uploadingAvatar
+  const isBusy = saving || uploading
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
+    <div className="max-w-2xl mx-auto p-6 min-h-screen bg-zinc-950 text-white">
       <form onSubmit={handleSave}>
-        <div className="max-w-3xl mx-auto px-4 md:px-6 pt-3 md:pt-10 pb-28 space-y-6">
+        <div className="bg-zinc-900/70 border border-zinc-800 rounded-2xl p-6 md:p-8 space-y-8">
 
-          {/* ── Avatar ── */}
-          <section>
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col items-center gap-4">
-              <div
-                className="relative w-24 h-24 rounded-full overflow-hidden ring-4 ring-zinc-700 cursor-pointer group"
-                onClick={() => fileRef.current?.click()}
-              >
-                {avatarPreview ? (
-                  <img src={avatarPreview} alt="avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <Avatar
-                    src={null}
-                    username={formData.username || profile?.username || 'u'}
-                    displayName={formData.display_name}
-                    size={96}
-                    className="w-full h-full"
-                  />
-                )}
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-full">
-                  {uploadingAvatar
-                    ? <Loader2 size={22} className="text-white animate-spin" />
-                    : <Upload size={22} className="text-white" />
-                  }
-                </div>
-              </div>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp"
-                onChange={handleAvatarChange}
-                className="hidden"
-              />
-              <div className="flex items-center gap-4">
-                <button
-                  type="button"
-                  onClick={() => fileRef.current?.click()}
-                  className="text-sm text-violet-400 hover:text-violet-300 font-medium transition"
-                >
-                  {pe.changePhoto}
-                </button>
-                {avatarPreview && (
-                  <>
-                    <span className="w-px h-4 bg-zinc-700" />
-                    <button
-                      type="button"
-                      onClick={removeAvatar}
-                      className="text-sm text-red-400 hover:text-red-300 transition"
-                    >
-                      {pe.removePhoto}
-                    </button>
-                  </>
-                )}
-              </div>
-              <p className="text-[11px] text-zinc-600">JPEG, PNG, GIF o WebP · max 5MB</p>
-            </div>
-          </section>
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">{pe.title}</h1>
+            <Link href={profile?.username ? `/profile/${profile.username}` : '/profile/me'}
+              className="text-sm text-zinc-400 hover:text-white transition">
+              ← {pe.backToProfile}
+            </Link>
+          </div>
 
-          {/* ── Informazioni profilo ── */}
-          <section>
-            <div className="flex items-center gap-2 mb-3">
-              <User size={15} className="text-zinc-500" />
-              <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Informazioni</h2>
-            </div>
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden divide-y divide-zinc-800">
-
-              {/* Display name */}
-              <div className="px-5 py-4">
-                <label className="block text-xs font-medium text-zinc-500 uppercase tracking-widest mb-2">
-                  {pe.displayName}
-                </label>
-                <input
-                  type="text"
-                  value={formData.display_name}
-                  onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
-                  maxLength={50}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500 transition"
+          {/* ── Foto profilo ── */}
+          <div className="flex flex-col items-center gap-4">
+            <div
+              className="relative w-28 h-28 rounded-full overflow-hidden ring-4 ring-zinc-700 cursor-pointer group"
+              onClick={() => fileRef.current?.click()}
+            >
+              {avatarPreview ? (
+                <img src={avatarPreview} alt="avatar" className="w-full h-full object-cover" />
+              ) : (
+                <Avatar
+                  src={null}
+                  username={username || profile?.username || 'u'}
+                  displayName={displayName}
+                  size={112}
+                  className="w-full h-full"
                 />
-              </div>
-
-              {/* Username */}
-              <div className="px-5 py-4">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-medium text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
-                    <AtSign size={13} /> {pe.username}
-                  </label>
-                  <span className={`text-xs ${formData.username.length > USERNAME_MAX - 5 ? 'text-amber-400' : 'text-zinc-600'}`}>
-                    {formData.username.length}/{USERNAME_MAX}
-                  </span>
-                </div>
-                <input
-                  type="text"
-                  value={formData.username}
-                  onChange={(e) => handleUsernameChange(e.target.value)}
-                  maxLength={USERNAME_MAX}
-                  required
-                  className={`w-full bg-zinc-800 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none transition ${
-                    fieldErrors.username ? 'border-red-500 focus:border-red-500' : 'border-zinc-700 focus:border-violet-500'
-                  }`}
-                />
-                {fieldErrors.username
-                  ? <p className="text-xs text-red-400 mt-1.5">{fieldErrors.username}</p>
-                  : <p className="text-xs text-zinc-600 mt-1.5">{pe.usernameHint}</p>
+              )}
+              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-full">
+                {uploading
+                  ? <Loader2 size={22} className="text-white animate-spin" />
+                  : <Upload size={22} className="text-white" />
                 }
               </div>
-
-              {/* Bio */}
-              <div className="px-5 py-4">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-medium text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
-                    <FileText size={13} /> {pe.bio}
-                  </label>
-                  <span className={`text-xs ${formData.bio.length > BIO_MAX - 50 ? 'text-amber-400' : 'text-zinc-600'}`}>
-                    {formData.bio.length}/{BIO_MAX}
-                  </span>
-                </div>
-                <textarea
-                  value={formData.bio}
-                  onChange={(e) => handleBioChange(e.target.value)}
-                  rows={3}
-                  maxLength={BIO_MAX}
-                  placeholder={pe.bioPlaceholder}
-                  className={`w-full bg-zinc-800 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none transition resize-none ${
-                    fieldErrors.bio ? 'border-red-500 focus:border-red-500' : 'border-zinc-700 focus:border-violet-500'
-                  }`}
-                />
-                {fieldErrors.bio && (
-                  <p className="text-xs text-red-400 mt-1.5">{fieldErrors.bio}</p>
-                )}
-              </div>
             </div>
-          </section>
-
-          {/* ── Gusti & Preferenze ── */}
-          <section>
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles size={15} className="text-zinc-500" />
-              <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Gusti & Preferenze</h2>
-              <Link href="/for-you" className="ml-auto text-xs text-violet-400 hover:text-violet-300 transition flex items-center gap-0.5">
-                Personalizza tutto <ChevronRight size={13} />
-              </Link>
+            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/gif,image/webp" onChange={handleUpload} className="hidden" />
+            <div className="flex items-center gap-4 text-sm">
+              <button type="button" onClick={() => fileRef.current?.click()} className="text-violet-400 hover:text-violet-300 font-medium transition">
+                {pe.changePhoto}
+              </button>
+              {avatarPreview && (
+                <>
+                  <span className="w-px h-4 bg-zinc-700" />
+                  <button type="button" onClick={handleRemove} className="text-zinc-400 hover:text-red-400 transition">
+                    {pe.removePhoto}
+                  </button>
+                </>
+              )}
             </div>
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden divide-y divide-zinc-800">
-              <div className="p-4">
-                <p className="text-xs font-medium text-zinc-400 mb-3">Generi che ami</p>
-                <div className="flex flex-wrap gap-2">
-                  {ALL_GENRES.map(genre => (
-                    <button key={genre} type="button"
-                      onClick={() => setLikedGenres(prev =>
-                        prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
-                      )}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
-                        likedGenres.includes(genre)
-                          ? 'bg-violet-500/20 border-violet-500/50 text-violet-300'
-                          : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-500'
-                      }`}
-                    >{genre}</button>
-                  ))}
-                </div>
-              </div>
-              <div className="p-4">
-                <p className="text-xs font-medium text-zinc-400 mb-3">Generi che non ti piacciono</p>
-                <div className="flex flex-wrap gap-2">
-                  {ALL_GENRES.map(genre => (
-                    <button key={genre} type="button"
-                      onClick={() => setDislikedGenres(prev =>
-                        prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
-                      )}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
-                        dislikedGenres.includes(genre)
-                          ? 'bg-red-500/20 border-red-500/50 text-red-300'
-                          : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-500'
-                      }`}
-                    >{genre}</button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
+            <p className="text-[11px] text-zinc-600">JPEG, PNG, GIF o WebP · max 5MB</p>
+          </div>
 
-          {/* ── Feedback salvataggio ── */}
+          {/* ── Campi profilo ── */}
+          <div className="space-y-4">
+
+            {/* Display name */}
+            <div>
+              <label className="block text-sm text-zinc-400 mb-2">{pe.displayName}</label>
+              <input
+                type="text"
+                value={displayName}
+                onChange={e => setDisplayName(e.target.value)}
+                maxLength={50}
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:border-violet-500 transition"
+              />
+            </div>
+
+            {/* Username */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm text-zinc-400">{pe.username}</label>
+                <span className={`text-xs ${username.length > USERNAME_MAX - 5 ? 'text-amber-400' : 'text-zinc-600'}`}>
+                  {username.length}/{USERNAME_MAX}
+                </span>
+              </div>
+              <input
+                type="text"
+                value={username}
+                onChange={e => handleUsernameChange(e.target.value)}
+                maxLength={USERNAME_MAX}
+                required
+                className={`w-full bg-zinc-800 border rounded-2xl px-5 py-3 text-sm focus:outline-none transition ${
+                  usernameError ? 'border-red-500' : 'border-zinc-700 focus:border-violet-500'
+                }`}
+              />
+              {usernameError
+                ? <p className="text-xs text-red-400 mt-1.5">{usernameError}</p>
+                : <p className="text-xs text-zinc-600 mt-1.5">{pe.usernameHint}</p>
+              }
+            </div>
+
+            {/* Bio */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm text-zinc-400">{pe.bio}</label>
+                <span className={`text-xs ${bio.length > BIO_MAX - 50 ? 'text-amber-400' : 'text-zinc-600'}`}>
+                  {bio.length}/{BIO_MAX}
+                </span>
+              </div>
+              <textarea
+                value={bio}
+                onChange={e => handleBioChange(e.target.value)}
+                rows={3}
+                maxLength={BIO_MAX}
+                placeholder={pe.bioPlaceholder}
+                className={`w-full bg-zinc-800 border rounded-2xl px-5 py-3 text-sm focus:outline-none transition resize-none ${
+                  bioError ? 'border-red-500' : 'border-zinc-700 focus:border-violet-500'
+                }`}
+              />
+              {bioError && <p className="text-xs text-red-400 mt-1.5">{bioError}</p>}
+            </div>
+          </div>
+
+          {/* ── Account Steam ── */}
+          <div className="pt-2 border-t border-zinc-800">
+            <p className="text-sm text-zinc-400 mb-3">Account Steam</p>
+            {steamAccount ? (
+              <div className="flex items-center justify-between p-4 bg-zinc-800 rounded-2xl">
+                <div className="flex items-center gap-3">
+                  {steamAccount.avatar ? (
+                    <img src={steamAccount.avatar} alt="" className="w-8 h-8 rounded-full" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-[#1b2838] flex items-center justify-center">
+                      <SteamIcon className="w-4 h-4 text-[#66C0F4]" />
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm font-medium text-white">{steamAccount.personaname || 'Account Steam'}</p>
+                    <p className="text-xs text-zinc-500">Connesso</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDisconnect}
+                  disabled={disconnecting}
+                  className="text-xs text-red-400 hover:text-red-300 transition disabled:opacity-50"
+                >
+                  {disconnecting ? 'Scollegamento...' : 'Disconnetti'}
+                </button>
+              </div>
+            ) : (
+              <a
+                href="/api/steam/connect"
+                className="flex items-center gap-3 p-4 bg-[#1b2838] hover:bg-[#2a475e] border border-[#66C0F4]/20 rounded-2xl transition-colors group"
+              >
+                <SteamIcon className="w-5 h-5 text-[#66C0F4]" />
+                <div>
+                  <p className="text-sm font-medium text-white">Connetti Steam</p>
+                  <p className="text-xs text-zinc-400">Importa i tuoi giochi automaticamente</p>
+                </div>
+                <span className="ml-auto text-zinc-500 group-hover:text-zinc-300 transition">→</span>
+              </a>
+            )}
+          </div>
+
+          {/* ── Feedback ── */}
           {message && (
-            <div className={`p-4 rounded-2xl text-sm text-center ${
+            <div className={`p-4 rounded-2xl text-sm text-center border ${
               messageType === 'success'
-                ? 'bg-emerald-950 border border-emerald-800 text-emerald-400'
-                : 'bg-red-950 border border-red-800 text-red-400'
+                ? 'bg-emerald-950 border-emerald-800 text-emerald-400'
+                : 'bg-red-950 border-red-800 text-red-400'
             }`}>
               {message}
             </div>
@@ -443,48 +376,14 @@ export default function EditProfilePage() {
           {/* ── Salva ── */}
           <button
             type="submit"
-            disabled={isBusy || !!fieldErrors.username || !!fieldErrors.bio}
+            disabled={isBusy || !!usernameError || !!bioError}
             className="w-full py-4 bg-violet-600 hover:bg-violet-500 rounded-2xl font-semibold text-sm transition disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {isBusy
-              ? <><Loader2 size={16} className="animate-spin" /> {uploadingAvatar ? 'Caricamento avatar...' : pe.saving}</>
+              ? <><Loader2 size={16} className="animate-spin" /> {uploading ? 'Caricamento avatar...' : pe.saving}</>
               : pe.save
             }
           </button>
-
-          {/* ── Importa lista AniList ── */}
-          <section>
-            <div className="flex items-center gap-2 mb-3">
-              <Download size={15} className="text-zinc-500" />
-              <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Importa da AniList</h2>
-            </div>
-            <AniListImport />
-          </section>
-
-          {/* ── Esporta dati (GDPR) ── */}
-          <section>
-            <div className="flex items-center gap-2 mb-3">
-              <Heart size={15} className="text-zinc-500" />
-              <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">I tuoi dati</h2>
-            </div>
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-              <div className="px-5 py-4">
-                <p className="text-sm text-zinc-400 mb-4 leading-relaxed">
-                  Puoi scaricare una copia di tutti i tuoi dati in formato JSON.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleExportData}
-                  disabled={exporting}
-                  className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-xl text-sm font-medium text-zinc-300 transition disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {exporting
-                    ? <><Loader2 size={15} className="animate-spin" /> Esportazione in corso...</>
-                    : <><Download size={15} /> Esporta i tuoi dati</>}
-                </button>
-              </div>
-            </div>
-          </section>
 
         </div>
       </form>
