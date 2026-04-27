@@ -10,6 +10,7 @@ import { PWAInstallBanner } from '@/components/PWAInstallBanner'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { gestureState } from '@/hooks/gestureState'
+import { androidBack } from '@/hooks/androidBack'
 import { PushNotificationsBanner } from '@/components/notifications/PushNotificationsBanner'
 
 
@@ -102,41 +103,65 @@ function ThemeColorEnforcer() {
 
 
 
-// AndroidBackHandler — intercetta la back gesture sulle tab principali.
-// Con il manifest aggiornato (launch_handler + start_url=/home) lo scorrimento
-// visivo è già bloccato. Questo handler gestisce la navigazione:
-//   • Tab principale ≠ home → router.replace('/home')
-//   • Home → lascia uscire dall'app (nessun intervento)
-//   • Drawer/modal aperto (gestureState.drawerActive) → non interviene,
-//     ci pensa il drawer stesso col suo listener capture-phase
+// AndroidBackHandler — gestione centralizzata back gesture Android.
+//
+// STRATEGIA CUSCINETTO:
+//   Manteniamo sempre una entry extra nella history sopra quella corrente.
+//   La back gesture di Android consuma il cuscinetto → popstate → noi
+//   intercettiamo e decidiamo cosa fare, poi rifacciamo pushState per
+//   ricaricare il cuscinetto (eccetto quando vogliamo uscire dall'app).
+//
+//   I drawer/modal NON fanno più pushState — registrano solo una callback
+//   tramite androidBack.push(). Così Android non vede entries extra e
+//   non mostra l'anteprima di scorrimento.
 const MAIN_TABS = new Set(['/home', '/discover', '/for-you', '/swipe'])
 
 function AndroidBackHandler() {
   const pathname = usePathname()
   const router   = useRouter()
+  const isAndroid = typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent)
+
+  // Installa il cuscinetto al mount e ad ogni cambio di pathname
+  useEffect(() => {
+    if (!isAndroid) return
+    // Piccolo delay per lasciare che Next.js completi la navigazione
+    const t = setTimeout(() => {
+      history.pushState({ gkCushion: true }, '', location.href)
+    }, 50)
+    return () => clearTimeout(t)
+  }, [pathname, isAndroid])
 
   useEffect(() => {
-    const isAndroid = /android/i.test(navigator.userAgent)
     if (!isAndroid) return
 
     const handler = (e: PopStateEvent) => {
-      // Se un drawer/modal ha già pushato la sua entry, lascia che gestisca lui
-      if (gestureState.drawerActive) return
-
-      const isMainTab = MAIN_TABS.has(pathname) || pathname.startsWith('/profile/')
-      if (!isMainTab) return  // pagine secondarie: comportamento normale
-
-      // Siamo su home → lascia uscire dall'app
-      if (pathname === '/home' || pathname === '/') return
-
-      // Qualsiasi altra tab → torna a home
+      // Il cuscinetto è stato consumato — intercettiamo sempre
       e.stopImmediatePropagation()
-      router.replace('/home')
+
+      // 1. Drawer/modal aperto → chiudi quello (callback registrata)
+      if (androidBack.handleBack()) {
+        // Ricarichiamo il cuscinetto dopo la chiusura
+        setTimeout(() => history.pushState({ gkCushion: true }, '', location.href), 50)
+        return
+      }
+
+      // 2. Tab principale ≠ home → vai a home
+      const isMainTab = MAIN_TABS.has(pathname) || pathname.startsWith('/profile/')
+      if (isMainTab && pathname !== '/home' && pathname !== '/') {
+        router.replace('/home')
+        // Il cuscinetto verrà ricreato dal useEffect sul pathname
+        return
+      }
+
+      // 3. Siamo su home (o pagina non-tab) → esci dall'app
+      // NON rifacciamo pushState — lasciamo che il prossimo back esca
+      // Chiamiamo history.back() di nuovo per consumare la entry reale
+      history.back()
     }
 
     window.addEventListener('popstate', handler, { capture: true })
     return () => window.removeEventListener('popstate', handler, { capture: true })
-  }, [pathname, router])
+  }, [pathname, router, isAndroid])
 
   return null
 }

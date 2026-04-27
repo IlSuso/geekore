@@ -9,6 +9,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { formatDistanceToNow } from 'date-fns'
 import { it } from 'date-fns/locale/it'
 import { gestureState } from '@/hooks/gestureState'
+import { androidBack } from '@/hooks/androidBack'
 
 interface Notification {
   id: string
@@ -82,32 +83,33 @@ export function MobileNotificationsDrawer({
     })
   }, [open])
 
-  // History push + capture-phase popstate for Android/iOS back gesture
+  // Back gesture — Android usa androidBack (niente pushState), iOS usa pushState
   useEffect(() => {
-    if (!open) return
+    if (!open) { gestureState.drawerActive = false; return }
     gestureState.drawerActive = true
+    const isAndroid = /android/i.test(navigator.userAgent)
+
+    if (isAndroid) {
+      const closeDrawer = () => {
+        setShow(false)
+        setClosing(true)
+        setTimeout(() => onCloseRef.current(), 300)
+      }
+      androidBack.push(closeDrawer)
+      return () => {
+        gestureState.drawerActive = false
+        androidBack.pop(closeDrawer)
+      }
+    }
+
+    // iOS
     history.pushState({ notifDrawer: true }, '', location.href)
     historyPushed.current = true
-
     const onPop = (e: PopStateEvent) => {
-      if (backInitiatedByCode.current) {
-        backInitiatedByCode.current = false
-        e.stopImmediatePropagation()
-        return
-      }
+      if (backInitiatedByCode.current) { backInitiatedByCode.current = false; e.stopImmediatePropagation(); return }
       if (!historyPushed.current) return
       e.stopImmediatePropagation()
-      const isIOS =
-        /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-      if (isIOS) {
-        history.pushState({ notifDrawer: true }, '', location.href)
-        return
-      }
-      historyPushed.current = false
-      setShow(false)
-      setClosing(true)
-      setTimeout(() => onCloseRef.current(), 300)
+      history.pushState({ notifDrawer: true }, '', location.href)
     }
     window.addEventListener('popstate', onPop, { capture: true })
     return () => {
@@ -119,7 +121,8 @@ export function MobileNotificationsDrawer({
   const doClose = useCallback(() => {
     setShow(false)
     setClosing(true)
-    if (historyPushed.current) {
+    const isAndroid = /android/i.test(navigator.userAgent)
+    if (!isAndroid && historyPushed.current) {
       historyPushed.current = false
       backInitiatedByCode.current = true
       history.back()

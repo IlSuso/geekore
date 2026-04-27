@@ -5,6 +5,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { gestureState } from '@/hooks/gestureState'
+import { androidBack } from '@/hooks/androidBack'
 import Image from 'next/image'
 import {
   X, ExternalLink, Star, Clock, Users, Layers,
@@ -170,15 +171,17 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   const handleClose = useCallback(() => {
     if (isClosingRef.current) return
     isClosingRef.current = true
-    if (historyPushedRef.current) {
+    const isAndroid = /android/i.test(navigator.userAgent)
+    if (!isAndroid && historyPushedRef.current) {
+      // iOS: avevamo fatto pushState, dobbiamo tornare indietro
       historyPushedRef.current = false
       closingRef.current = true
-      history.back() // capture handler will stop Next.js from re-navigating
+      history.back()
     }
     setDrawerAnimate(true)
     setDrawerOffset(typeof window !== 'undefined' ? window.innerWidth : 450)
     setTimeout(() => { isClosingRef.current = false; onCloseRef.current() }, 260)
-  }, []) // onClose via ref — no dep needed
+  }, [])
 
   useEffect(() => {
     if (media) { document.body.style.overflow = 'hidden' }
@@ -306,16 +309,39 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     }
   }, [media, inWishlist])
 
-  // gestureState + history entry + back-gesture handler (capture phase prevents Next.js re-navigation)
+  // gestureState + androidBack registration
+  // Su Android: niente pushState — usiamo androidBack.push/pop per registrare
+  // la callback di chiusura. Il cuscinetto globale in AndroidBackHandler intercetta
+  // la back gesture e chiama la nostra callback senza mostrare l'anteprima.
+  // Su iOS: manteniamo il popstate listener per lo swipe interattivo.
   useEffect(() => {
     if (!media) { gestureState.drawerActive = false; return }
     gestureState.drawerActive = true
+
+    const isAndroid = /android/i.test(navigator.userAgent)
+
+    if (isAndroid) {
+      // Android: registra callback, niente pushState
+      const closeDrawer = () => {
+        if (isClosingRef.current) return
+        isClosingRef.current = true
+        setDrawerAnimate(true)
+        setDrawerOffset(typeof window !== 'undefined' ? window.innerWidth : 450)
+        setTimeout(() => { isClosingRef.current = false; onCloseRef.current() }, 260)
+      }
+      androidBack.push(closeDrawer)
+      return () => {
+        gestureState.drawerActive = false
+        androidBack.pop(closeDrawer)
+      }
+    }
+
+    // iOS: pushState + popstate listener per swipe interattivo
     history.pushState({ gkDrawer: true }, '', location.href)
     historyPushedRef.current = true
 
     const onPop = (e: PopStateEvent) => {
       if (closingRef.current) {
-        // history.back() called from handleClose: block Next.js from re-rendering the page
         closingRef.current = false
         e.stopImmediatePropagation()
         return
@@ -323,7 +349,6 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
       if (!historyPushedRef.current) return
       e.stopImmediatePropagation()
       historyPushedRef.current = false
-      // Both Android and iOS: system back gesture slides the drawer out
       isClosingRef.current = true
       setDrawerAnimate(true)
       setDrawerOffset(typeof window !== 'undefined' ? window.innerWidth : 450)
@@ -334,11 +359,9 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     return () => {
       gestureState.drawerActive = false
       window.removeEventListener('popstate', onPop, { capture: true })
-      // If still pushed (e.g. parent unmounted without closing), skip history.back()
-      // to avoid triggering Next.js navigation after listener is removed.
       historyPushedRef.current = false
     }
-  }, [media?.id]) // onClose via ref — stable, no re-registration on every parent render
+  }, [media?.id])
 
   // Slide-in animation whenever a new item opens
   useEffect(() => {

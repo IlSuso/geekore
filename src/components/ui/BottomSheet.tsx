@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { gestureState } from '@/hooks/gestureState'
+import { androidBack } from '@/hooks/androidBack'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
@@ -72,23 +73,30 @@ export function BottomSheet({
     return () => window.removeEventListener('keydown', handler)
   }, [open, persistent, onClose])
 
-  // History entry + back gesture (Android/iOS) per chiudere il bottom sheet
+  // Back gesture handler — Android usa androidBack (niente pushState),
+  // iOS usa pushState + popstate listener
   useEffect(() => {
     if (!open) {
       gestureState.drawerActive = false
-      historyPushedRef.current = false
       return
     }
     gestureState.drawerActive = true
+    const isAndroid = /android/i.test(navigator.userAgent)
+
+    if (isAndroid) {
+      const closeSheet = () => { if (!persistent) onClose() }
+      androidBack.push(closeSheet)
+      return () => {
+        gestureState.drawerActive = false
+        androidBack.pop(closeSheet)
+      }
+    }
+
+    // iOS
     history.pushState({ gkSheet: true }, '', location.href)
     historyPushedRef.current = true
-
     const onPop = (e: PopStateEvent) => {
-      if (closingRef.current) {
-        closingRef.current = false
-        e.stopImmediatePropagation()
-        return
-      }
+      if (closingRef.current) { closingRef.current = false; e.stopImmediatePropagation(); return }
       if (!historyPushedRef.current) return
       e.stopImmediatePropagation()
       historyPushedRef.current = false
