@@ -93,7 +93,14 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   const animateRef     = useRef(false)
   const [snapping,     setSnapping]     = useState(false)
 
+  // isFixedPage: true quando il tab corrente usa position:fixed inset-0 (es. SwipeMode).
+  // In quel caso NON applichiamo transform al wrapper — romperebbe il contesto
+  // di position:fixed dei figli. Il movimento degli adjacent panel è già gestito
+  // da KeepAliveTabShell tramite swipeNavBridge (translateX sui panel stessi).
+  const isFixedPageRef = useRef(false)
+
   const applyTransform = useCallback((px: number, withAnim: boolean, easing?: string) => {
+    if (isFixedPageRef.current) return // no transform su pagine fixed inset-0
     const el = wrapRef.current
     if (!el) return
     offsetRef.current  = px
@@ -117,6 +124,10 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   const isMain   = currentIdx !== -1
   const prevTab  = currentIdx > 0                     ? TAB_ORDER[currentIdx - 1] : null
   const nextTab  = currentIdx < TAB_ORDER.length - 1 ? TAB_ORDER[currentIdx + 1] : null
+
+  // Aggiorna isFixedPageRef: /swipe usa SwipeMode con fixed inset-0.
+  // Il transform sul wrapper romperebbe position:fixed dei figli.
+  isFixedPageRef.current = pathname === '/swipe'
 
   // Declared early so useEffect below can reference it before the bottom-of-function aliases.
   // isActive è true durante la transizione CSS di snap-back (gestita da snapping).
@@ -267,10 +278,11 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
 
     if (shouldNav && dx > 0 && prevTab) {
       applyTransform(w, true, EASE_OUT)
-      setTimeout(() => { router.replace(prevTab) }, 260)
+      // isFixedPage: nessuna animazione slide → naviga subito, altrimenti aspetta la transizione
+      setTimeout(() => { router.replace(prevTab) }, isFixedPageRef.current ? 0 : 260)
     } else if (shouldNav && dx < 0 && nextTab) {
       applyTransform(-w, true, EASE_OUT)
-      setTimeout(() => { router.replace(nextTab) }, 260)
+      setTimeout(() => { router.replace(nextTab) }, isFixedPageRef.current ? 0 : 260)
     } else {
       r.removeAttribute('data-to-swipe')
       setSnapping(true)
