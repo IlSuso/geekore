@@ -126,44 +126,10 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
         setAdjLeft(newLeft)
         setAdjRight(newRight)
       },
-      // onEnd: riporta i panel alla posizione di riposo dopo snap-back
-      () => {
-        const activeEl = adjLeftRef.current
-          ? panelRefs.current[adjLeftRef.current]?.current
-          : adjRightRef.current
-            ? panelRefs.current[adjRightRef.current]?.current
-            : null
-        const currentEl = tabRef.current ? panelRefs.current[tabRef.current]?.current : null
-        // Applica transizione di ritorno
-        const ease = 'cubic-bezier(0.22, 1, 0.36, 1)'
-        const tr = `transform 0.28s ${ease}`
-        if (currentEl) {
-          currentEl.style.transition = tr
-          currentEl.style.transform  = ''
-          currentEl.addEventListener('transitionend', () => {
-            currentEl.style.transition = ''
-          }, { once: true })
-        }
-        if (activeEl) {
-          activeEl.style.transition = tr
-          const isLeft = !!adjLeftRef.current
-          activeEl.style.transform  = isLeft ? 'translateX(-100%)' : 'translateX(100%)'
-          activeEl.addEventListener('transitionend', () => {
-            activeEl.style.transition = ''
-            adjLeftRef.current  = null
-            adjRightRef.current = null
-            setAdjLeft(null)
-            setAdjRight(null)
-          }, { once: true })
-        } else {
-          adjLeftRef.current  = null
-          adjRightRef.current = null
-          setTimeout(() => { setAdjLeft(null); setAdjRight(null) }, 300)
-        }
-      },
-      // onDrag: muove i panel direttamente sul DOM, zero re-render
+      // onEnd: snap-back cancellato (non più usato direttamente, gestito da onSnap)
+      () => { /* handled by onSnap */ },
+      // onDrag: movimento diretto durante il drag, zero re-render
       (dx: number) => {
-        const vw = window.innerWidth
         const currentEl = tabRef.current ? panelRefs.current[tabRef.current]?.current : null
         const leftEl    = adjLeftRef.current  ? panelRefs.current[adjLeftRef.current]?.current  : null
         const rightEl   = adjRightRef.current ? panelRefs.current[adjRightRef.current]?.current : null
@@ -179,6 +145,56 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
         if (rightEl) {
           rightEl.style.transition = 'none'
           rightEl.style.transform  = `translateX(calc(100% + ${dx}px))`
+        }
+      },
+      // onSnap: animazione fluida al rilascio (snap-back o navigate-out)
+      (targetX: number, easing: string, duration: number) => {
+        const currentEl = tabRef.current ? panelRefs.current[tabRef.current]?.current : null
+        const leftEl    = adjLeftRef.current  ? panelRefs.current[adjLeftRef.current]?.current  : null
+        const rightEl   = adjRightRef.current ? panelRefs.current[adjRightRef.current]?.current : null
+        const isLeft    = !!adjLeftRef.current
+        const adjEl     = leftEl ?? rightEl
+
+        const tr = `transform ${duration}ms ${easing}`
+
+        if (targetX === 0) {
+          // SNAP-BACK: tutto torna alla posizione di riposo
+          if (currentEl) {
+            currentEl.style.transition = tr
+            currentEl.style.transform  = ''
+            currentEl.addEventListener('transitionend', () => {
+              currentEl.style.transition = ''
+            }, { once: true })
+          }
+          if (adjEl) {
+            adjEl.style.transition = tr
+            adjEl.style.transform  = isLeft ? 'translateX(-100%)' : 'translateX(100%)'
+            adjEl.addEventListener('transitionend', () => {
+              adjEl.style.transition  = ''
+              adjLeftRef.current  = null
+              adjRightRef.current = null
+              setAdjLeft(null)
+              setAdjRight(null)
+            }, { once: true })
+          } else {
+            adjLeftRef.current  = null
+            adjRightRef.current = null
+            setTimeout(() => { setAdjLeft(null); setAdjRight(null) }, duration + 50)
+          }
+        } else {
+          // NAVIGATE-OUT: panel corrente esce, il panel nella direzione
+          // corretta entra. targetX > 0 = dito verso destra = entra panel sinistro.
+          // targetX < 0 = dito verso sinistra = entra panel destro.
+          const incomingEl = targetX > 0 ? leftEl : rightEl
+          if (currentEl) {
+            currentEl.style.transition = tr
+            currentEl.style.transform  = `translateX(${targetX}px)`
+          }
+          if (incomingEl) {
+            incomingEl.style.transition = tr
+            incomingEl.style.transform  = 'translateX(0)'
+          }
+          // Cleanup dopo navigazione (il pathname change resetterà tutto)
         }
       },
     )

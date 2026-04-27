@@ -80,12 +80,20 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   const animateRef     = useRef(false)
   const [snapping,     setSnapping]     = useState(false)
 
-  const applyTransform = useCallback((px: number, withAnim: boolean, _easing?: string) => {
-    // I panel sono position:fixed — non seguono il transform del wrapper.
-    // Passiamo il delta direttamente al bridge che muove i panel.
+  const EASE_OUT_BRIDGE  = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+  const EASE_SNAP_BRIDGE = 'cubic-bezier(0.22, 1, 0.36, 1)'
+
+  const applyTransform = useCallback((px: number, withAnim: boolean, easing?: string) => {
     offsetRef.current  = px
     animateRef.current = withAnim
-    swipeNavBridge.notifyDrag(px)
+    if (withAnim) {
+      // Animazione fluida: snap-back o navigate-out
+      const ease = easing ?? EASE_OUT_BRIDGE
+      swipeNavBridge.notifySnap(px, ease, 280)
+    } else {
+      // Drag in corso: movimento diretto senza transizione
+      swipeNavBridge.notifyDrag(px)
+    }
   }, [])
 
   const currentIdx = TAB_ORDER.findIndex(t => {

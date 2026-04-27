@@ -494,3 +494,11 @@ main:not([data-auth]) {
     padding-bottom: 2rem;
   }
 }
+/* ── Nascondi scrollbar ovunque nell'app ─────────────────────────────────── */
+* {
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* IE / Edge legacy */
+}
+*::-webkit-scrollbar {
+  display: none;                /* Chrome / Safari / WebKit */
+}
