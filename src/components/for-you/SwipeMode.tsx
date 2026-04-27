@@ -646,25 +646,109 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
 
   const topCoverImage = filteredQueue[0]?.coverImage
 
-  const containerClass = standalone
-    ? 'fixed inset-0 md:pt-12 bg-black flex flex-col overflow-hidden'
-    : 'fixed inset-0 bg-black flex flex-col'
-  const containerStyle = standalone ? {} : { zIndex: 9999 }
+  // ── Layout standalone: in-flow come le altre pagine ─────────────────────────
+  // NON usa fixed inset-0 per evitare conflitti con il transform di
+  // SwipeablePageContainer durante la gesture di navigazione tra pagine.
+  // Il backdrop decorativo resta fixed ma è solo un layer visivo (pointer-events:none).
 
-  const filterPaddingTop = standalone
-    ? undefined
-    : { paddingTop: 'max(1rem, env(safe-area-inset-top))' }
+  if (standalone) {
+    // Altezza disponibile per le card: viewport - header mobile (53px) - navbar (49px+safe-area) - filtri (~48px) - hint (~32px)
+    const NAVBAR_H = 'calc(49px + env(safe-area-inset-bottom, 0px))'
+    return (
+      <>
+        {/* Backdrop decorativo: fixed ma pointer-events:none, non crea conflitti */}
+        {topCoverImage && (
+          <div className="fixed inset-0 z-0 pointer-events-none" aria-hidden>
+            <img
+              key={topCoverImage}
+              src={topCoverImage}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ filter: 'blur(32px)', transform: 'scale(1.12)', opacity: 0.55 }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/35" />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-transparent to-black/50" />
+          </div>
+        )}
 
-  const hintPaddingBottom = standalone
-    ? { paddingBottom: '0.75rem' }
-    : { paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }
+        {/* Contenuto in-flow: si comporta come le altre pagine */}
+        <div
+          className="relative z-10 min-h-screen bg-black md:bg-transparent flex flex-col"
+          style={{ paddingBottom: NAVBAR_H }}
+        >
+          {/* Filtri categoria */}
+          <div className="flex-shrink-0 flex swipe-filter-padding md:justify-center md:px-4">
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide w-full px-3 md:w-auto md:px-0">
+              {CATEGORIES.map(cat => (
+                <button key={cat.key} onClick={() => handleFilterChange(cat.key)}
+                  className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
+                    activeFilter === cat.key ? 'bg-white text-black' : 'bg-white/10 text-white/60 hover:bg-white/15 hover:text-white'
+                  }`}>
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Stack card: occupa lo spazio rimanente, centrato */}
+          <div className="flex-1 flex items-center justify-center px-4 py-1 min-h-0">
+            {filteredQueue.length === 0 ? (
+              <LoadingScreen message={isLoadingMore ? 'Caricamento nuovi titoli' : 'Preparazione in corso'} />
+            ) : (
+              <div
+                data-no-swipe=""
+                className="relative w-full"
+                style={{ maxWidth: 'min(420px, 90vw)', height: 'min(640px, calc(100dvh - 220px))' }}
+              >
+                {filteredQueue.slice(0, 3).map((item, idx) => (
+                  <SwipeCard key={item.id} item={item} isTop={idx === 0} stackIndex={idx}
+                    onSwipe={handleSwipe}
+                    rating={idx === 0 ? currentRating : null}
+                    onRatingChange={setRating}
+                    onDetailOpen={handleDetailOpen}
+                    onUndo={handleUndo} canUndo={history.length > 0}
+                    onWishlist={handleWishlist}
+                    onClose={onClose}
+                    hideClose={true}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Hint desktop */}
+          {filteredQueue.length > 0 && (
+            <div className="flex-shrink-0 text-center select-none hidden md:block pb-3">
+              <p className="text-zinc-600 text-xs pointer-events-none">← Skip &nbsp;·&nbsp; Visto →</p>
+            </div>
+          )}
+
+          {/* Zona franca page-swipe ── striscia in basso, sopra la navbar.
+               data-page-swipe-zone: SwipeablePageContainer ignora data-no-swipe
+               qui dentro e tratta qualsiasi swipe orizzontale come cambio pagina.
+               I 5 pulsanti dentro la card (X, Bookmark, ✓, Undo, Detail) usano
+               onClick con stopPropagation, quindi i click normali funzionano. ── */}
+          <div
+            data-page-swipe-zone=""
+            className="md:hidden flex-shrink-0"
+            style={{ height: 72 }}
+          />
+        </div>
+      </>
+    )
+  }
+
+  // ── Layout non-standalone (overlay fullscreen: onboarding, for-you embed) ──
+  const containerStyle = { zIndex: 9999 }
+  const filterPaddingTop = { paddingTop: 'max(1rem, env(safe-area-inset-top))' }
+  const hintPaddingBottom = { paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }
 
   return (
     <>
-      <div className={containerClass} style={containerStyle}>
+      <div className="fixed inset-0 bg-black flex flex-col" style={containerStyle}>
 
-        {/* Backdrop sfumato: visibile in standalone e onboarding */}
-        {(standalone || isOnboarding) && topCoverImage && (
+        {/* Backdrop sfumato onboarding */}
+        {isOnboarding && topCoverImage && (
           <div className="absolute inset-0 z-0 pointer-events-none" aria-hidden>
             <img
               key={topCoverImage}
@@ -673,14 +757,13 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
               className="absolute inset-0 w-full h-full object-cover"
               style={{ filter: 'blur(32px)', transform: 'scale(1.12)', opacity: 0.55 }}
             />
-            {/* Vignette: leggero per far trasparire i colori della card */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/35" />
             <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-transparent to-black/50" />
           </div>
         )}
 
-        <div className={`relative z-10 flex-shrink-0 flex${standalone ? ' swipe-filter-padding md:justify-center md:px-4' : ' justify-center px-4'}`} style={filterPaddingTop}>
-          <div className={`flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide${standalone ? ' w-full px-3 md:w-auto md:px-0' : ''}`}>
+        <div className="relative z-10 flex-shrink-0 flex justify-center px-4" style={filterPaddingTop}>
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
             {CATEGORIES.map(cat => (
               <button key={cat.key} onClick={() => handleFilterChange(cat.key)}
                 className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
@@ -699,10 +782,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
             <div
               data-no-swipe=""
               className="relative w-full"
-              style={{
-                maxWidth: standalone ? 'min(420px, 90vw)' : '384px',
-                height: standalone ? 'min(680px, 100%)' : 'min(680px, 82svh)',
-              }}
+              style={{ maxWidth: '384px', height: 'min(680px, 82svh)' }}
             >
               {filteredQueue.slice(0, 3).map((item, idx) => (
                 <SwipeCard key={item.id} item={item} isTop={idx === 0} stackIndex={idx}
@@ -713,7 +793,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
                   onUndo={handleUndo} canUndo={history.length > 0}
                   onWishlist={handleWishlist}
                   onClose={isOnboarding && onOnboardingComplete ? onOnboardingComplete : onClose}
-                  hideClose={standalone}
+                  hideClose={false}
                 />
               ))}
             </div>
@@ -727,32 +807,6 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
             </div>
             <div className="relative z-10 flex-shrink-0 md:hidden" style={hintPaddingBottom} />
           </>
-        )}
-
-        {/* Mobile bottom-nav spacer — only in standalone since SwipeMode is fixed/fullscreen */}
-        {standalone && (
-          <div className="md:hidden flex-shrink-0" style={{ height: 'calc(49px + env(safe-area-inset-bottom, 0px))' }} />
-        )}
-
-        {/* ── Zona franca page-swipe (mobile standalone) ─────────────────────────
-             Striscia fissa in basso, sopra la navbar, sotto le stelline.
-             data-page-swipe-zone segnala a SwipeablePageContainer di trattare
-             qualsiasi swipe orizzontale qui come navigazione tra pagine,
-             ignorando data-no-swipe dei parent. ── */}
-        {standalone && (
-          <div
-            data-page-swipe-zone=""
-            className="md:hidden"
-            style={{
-              position: 'fixed',
-              bottom: 'calc(49px + env(safe-area-inset-bottom, 0px))',
-              left: 0,
-              right: 0,
-              height: 72,
-              zIndex: 10001, // sopra le card (9999) e il detail drawer (10000)
-              // debug: background: 'rgba(255,0,0,0.15)',
-            }}
-          />
         )}
       </div>
 
