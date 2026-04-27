@@ -595,7 +595,7 @@ export async function GET(request: NextRequest) {
               const id = `anilist-manga-${m.id}`
               const recGenres: string[] = m.genres || []
               add({ id, title: m.title?.romaji || m.title?.english || '', type: 'manga',
-                coverImage: m.coverImage?.extraLarge || coverImage?.large, year: m.startDate?.year, genres: recGenres,
+                coverImage: m.coverImage?.extraLarge || m.coverImage?.large, year: m.startDate?.year, genres: recGenres,
                 tags: (m.tags || []).map((t: any) => t.name),
                 episodes: m.chapters ?? undefined,
                 description: m.description ? truncateAtSentence(m.description.replace(/<[^>]*>/g, ''), 500) : undefined,
@@ -626,7 +626,7 @@ export async function GET(request: NextRequest) {
               const recGenres: string[] = m.genres || []
               const mangaTags2 = (m.tags || []).map((t: any) => t.name)
               add({ id, title: m.title?.romaji || m.title?.english || '', type: 'manga',
-                coverImage: m.coverImage?.extraLarge || coverImage?.large, year: m.startDate?.year, genres: recGenres,
+                coverImage: m.coverImage?.extraLarge || m.coverImage?.large, year: m.startDate?.year, genres: recGenres,
                 tags: mangaTags2,
                 episodes: m.chapters ?? undefined,
                 description: m.description ? truncateAtSentence(m.description.replace(/<[^>]*>/g, ''), 500) : undefined,
