@@ -99,11 +99,61 @@ function ThemeColorEnforcer() {
   return null
 }
 
+
+// AndroidBackHandler — gestisce la back gesture di Android sulle tab principali.
+//
+// Comportamento identico a Instagram su Android:
+//   • Da qualsiasi tab principale (non home) → torna a /home
+//   • Da /home → lascia uscire dall'app (comportamento di default del sistema)
+//   • Da drawer/modal → non interviene (gestito dai drawer stessi)
+//
+// Come funziona:
+//   Quando Android fa scattare la back gesture, il browser emette un evento
+//   'popstate'. Noi lo intercettiamo in capture phase (prima di Next.js) e,
+//   se siamo su una tab principale ≠ home, facciamo router.replace('/home')
+//   e blocchiamo la propagazione. Next.js non vede il popstate e non naviga
+//   nella history — l'utente rimane nell'app.
+//
+//   Per far sì che la back gesture dalla HOME chiuda effettivamente l'app,
+//   non facciamo nulla: il popstate arriva al browser che termina la PWA.
+const MAIN_TABS = new Set(['/discover', '/for-you', '/swipe'])
+// /profile/* è gestita sotto separatamente
+
+function AndroidBackHandler() {
+  const pathname = usePathname()
+  const router   = useRouter()
+
+  useEffect(() => {
+    // Solo su Android (back gesture nativa)
+    const isAndroid = /android/i.test(navigator.userAgent)
+    if (!isAndroid) return
+
+    const handler = (e: PopStateEvent) => {
+      // Siamo su una tab principale (non home)?
+      const isMainTab = MAIN_TABS.has(pathname) || pathname.startsWith('/profile/')
+      if (!isMainTab) return // drawer/modal/pagine secondarie: lascia fare al sistema
+
+      // Siamo su /home: lascia uscire dall'app
+      if (pathname === '/home' || pathname === '/') return
+
+      // Qualsiasi altra tab principale → torna a home
+      e.stopImmediatePropagation()
+      router.replace('/home')
+    }
+
+    window.addEventListener('popstate', handler, { capture: true })
+    return () => window.removeEventListener('popstate', handler, { capture: true })
+  }, [pathname, router])
+
+  return null
+}
+
 export function ClientProviders({ children, initialLocale = 'it' }: { children: React.ReactNode; initialLocale?: 'it' | 'en' }) {
   return (
     <ThemeProvider>
       <LocaleProvider initialLocale={initialLocale}>
         <ThemeColorEnforcer />
+        <AndroidBackHandler />
         <ServiceWorkerRegistrar />
         <SyncStatusListener />
         <OnboardingGuard />

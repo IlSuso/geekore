@@ -20,7 +20,9 @@ export const TAB_ORDER = ['/home', '/discover', '/for-you', '/swipe', '/profile/
 
 const CONFIRM_THRESHOLD  = 120   // px
 const VELOCITY_THRESHOLD = 0.35  // px/ms
-const EDGE_DEAD_ZONE     = 72
+const EDGE_DEAD_ZONE_RIGHT = 72  // bordo destro (nessuna back gesture Android)
+// Dead zone sinistra = 22% viewport su Android — stessa strategia di Instagram.
+const ANDROID_LEFT_DEAD_ZONE_RATIO = 0.22
 
 const EASE_OUT  = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
 const EASE_SNAP = 'cubic-bezier(0.22, 1, 0.36, 1)'
@@ -116,7 +118,14 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
 
     const x = e.touches[0].clientX
     const w = vw.current || window.innerWidth
-    if (x <= EDGE_DEAD_ZONE || x >= w - EDGE_DEAD_ZONE) return
+    // Su Android: blocca TUTTO ciò che parte dal bordo sinistro (primo 20% del vp).
+    // Quella zona appartiene alla back gesture di sistema — non la tocchiamo mai.
+    // Su iOS/desktop: dead zone fissa simmetrica su entrambi i lati.
+    const isAndroid = typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent)
+    const leftDeadZone = isAndroid
+      ? Math.round(w * ANDROID_LEFT_DEAD_ZONE_RATIO)  // ~82px su 412px
+      : EDGE_DEAD_ZONE_RIGHT
+    if (x <= leftDeadZone || x >= w - EDGE_DEAD_ZONE_RIGHT) return
     if (isInsideHorizontalScroller(e.target)) return
 
     captured.current    = true
@@ -269,7 +278,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   // excluded from the ancestor's scrollable overflow, so the mobile browser
   // does not expand the layout viewport beyond device-width.
   return (
-    <div style={{ overflow: 'clip' }}>
+    <div style={{ overflow: 'clip', overscrollBehaviorX: 'none' }}>
       <div
         ref={wrapRef}
         style={{
