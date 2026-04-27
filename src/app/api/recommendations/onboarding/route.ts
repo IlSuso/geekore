@@ -115,7 +115,7 @@ async function fetchMangaQuick(): Promise<any[]> {
         const id = `anilist-manga-${m.id}`
         results.push({
           id, title, type: 'manga',
-          coverImage: m.coverImage?.extraLarge || coverImage?.large,
+          coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
           year: m.startDate?.year,
           genres: m.genres || [],
           score: m.averageScore ? m.averageScore / 20 : undefined,
