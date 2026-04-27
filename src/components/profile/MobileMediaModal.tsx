@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { X, Edit3, CheckCircle, RotateCcw, RefreshCw, Loader2, Clock, Trash2 } from 'lucide-react'
 import { StarRating } from '@/components/ui/StarRating'
 import { gestureState } from '@/hooks/gestureState'
+import { androidBack } from '@/hooks/androidBack'
 
 // ─── InlineChapterInput ───────────────────────────────────────────────────────
 
@@ -108,8 +109,6 @@ export function MobileMediaModal({
   const handleCurrentY     = useRef<number>(0)
   const handleStartX       = useRef(0)
   const handleIsVertical   = useRef<boolean | null>(null)
-  const historyPushed         = useRef(false)
-  const backInitiatedByCode   = useRef(false)
   const onCloseRef            = useRef(onClose)
   onCloseRef.current          = onClose
 
@@ -118,44 +117,14 @@ export function MobileMediaModal({
     return () => { gestureState.drawerActive = false }
   }, [])
 
-  // Intercept Android/iOS system back gesture: push a fake history entry so the
-  // back gesture pops it (firing popstate) instead of navigating away from Profile.
-  // Capture phase + stopImmediatePropagation prevents Next.js App Router from
-  // seeing the popstate event and re-rendering the page.
+  // Registra la callback di chiusura nel sistema androidBack (Capacitor).
   useEffect(() => {
-    history.pushState({ modal: 'media' }, '', location.href)
-    historyPushed.current = true
-    const onPop = (e: PopStateEvent) => {
-      if (backInitiatedByCode.current) {
-        // Our own doClose() called history.back() — block Next.js from re-navigating.
-        backInitiatedByCode.current = false
-        e.stopImmediatePropagation()
-        return
-      }
-      if (!historyPushed.current) return
-      e.stopImmediatePropagation()
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-      if (isIOS) {
-        // iOS: re-push the fake entry so the edge swipe is a complete no-op.
-        // The modal can only close via X or drag-down on iOS.
-        history.pushState({ modal: 'media' }, '', location.href)
-        return
-      }
-      // Android: system back gesture closes the modal without reloading the page.
-      historyPushed.current = false
+    const closeModal = () => {
       setClosing(true)
       setTimeout(() => onCloseRef.current(), 240)
     }
-    window.addEventListener('popstate', onPop, { capture: true })
-    return () => {
-      window.removeEventListener('popstate', onPop, { capture: true })
-      // If the modal is closing normally (not via back gesture), pop the fake entry.
-      if (historyPushed.current && history.state?.modal === 'media') {
-        historyPushed.current = false
-        history.back()
-      }
-    }
+    androidBack.push(closeModal)
+    return () => androidBack.pop(closeModal)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Slide-up entry
@@ -173,11 +142,6 @@ export function MobileMediaModal({
   const doClose = () => {
     if (closing) return
     setClosing(true)
-    if (historyPushed.current) {
-      historyPushed.current = false
-      backInitiatedByCode.current = true
-      history.back() // capture handler blocks Next.js from re-navigating
-    }
     setTimeout(onClose, 240)
   }
 

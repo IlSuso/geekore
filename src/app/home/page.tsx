@@ -40,6 +40,7 @@ import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 import { PullWrapper } from '@/components/ui/PullWrapper'
 import { ReportButton } from '@/components/ui/ReportButton'
 import { gestureState } from '@/hooks/gestureState'
+import { androidBack } from '@/hooks/androidBack'
 import { UserBadge } from '@/components/ui/UserBadge'
 
 // ── Macro-categorie ───────────────────────────────────────────────────────────
@@ -1414,6 +1415,18 @@ export default function FeedPage() {
     setHasMore(newHasMore)
   }, [supabase, pinnedPosts, getUserTopCategory, loadDiscoveryPosts])
 
+  const closeComposerRef = useRef<() => void>(null as any)
+  const closeComposer = useCallback(() => {
+    if (closeComposerRef.current) androidBack.pop(closeComposerRef.current)
+    document.body.style.overflow = ''
+    setComposerOpen(false)
+    setNewPostContent('')
+    setNewPostCategory('')
+    setSelectedImage(null)
+    setImagePreview(null)
+  }, [])
+  closeComposerRef.current = closeComposer
+
   const openComposer = () => {
     scrollPositionRef.current = window.scrollY
     document.body.style.overflow = 'hidden'
@@ -1432,16 +1445,8 @@ export default function FeedPage() {
     } else {
       setModalPos(null)
     }
+    androidBack.push(closeComposer)
     setComposerOpen(true)
-  }
-
-  const closeComposer = () => {
-    document.body.style.overflow = ''
-    setComposerOpen(false)
-    setNewPostContent('')
-    setNewPostCategory('')
-    setSelectedImage(null)
-    setImagePreview(null)
   }
 
   // Pull-to-refresh su mobile
