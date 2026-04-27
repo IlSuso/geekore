@@ -2,7 +2,8 @@
 // src/components/profile/DeleteAccountModal.tsx
 // 7.4 — estratto da profile/[username]/page.tsx
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { androidBack } from '@/hooks/androidBack'
 import { Trash2, Loader2 } from 'lucide-react'
 
 interface DeleteAccountModalProps {
@@ -13,6 +14,11 @@ interface DeleteAccountModalProps {
 export function DeleteAccountModal({ onConfirm, onClose }: DeleteAccountModalProps) {
   const [confirmText, setConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
+
+  useEffect(() => {
+    androidBack.push(onClose)
+    return () => androidBack.pop(onClose)
+  }, [onClose])
 
   const handleDelete = async () => {
     if (confirmText !== 'elimina') return

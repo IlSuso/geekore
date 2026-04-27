@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { androidBack } from '@/hooks/androidBack'
 import {
   List, Plus, Trash2, Edit3, Globe, Lock, X, Check,
   ChevronRight, Loader2, GripVertical,
@@ -37,6 +38,11 @@ function ListModal({
   const [description, setDescription] = useState(list?.description || '')
   const [isPublic, setIsPublic] = useState(list?.is_public ?? true)
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    androidBack.push(onClose)
+    return () => androidBack.pop(onClose)
+  }, [onClose])
   const supabase = createClient()
 
   const handleSave = async () => {

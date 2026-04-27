@@ -23,6 +23,7 @@ import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 import { PreferencesModal } from '@/components/for-you/PreferencesModal'
+import { androidBack } from '@/hooks/androidBack'
 import { DNAWidget } from '@/components/for-you/DNAWidget'
 import type { TasteProfile } from '@/components/for-you/DNAWidget'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -575,6 +576,11 @@ function QuickReasonSheet({ item, onConfirm, onDismiss }: {
   onConfirm: (reason: FeedbackReason) => void
   onDismiss: () => void
 }) {
+  useEffect(() => {
+    androidBack.push(onDismiss)
+    return () => androidBack.pop(onDismiss)
+  }, [onDismiss])
+
   const options: { reason: FeedbackReason; label: string; sub: string; icon: React.ReactNode }[] = [
     {
       reason: 'not_my_genre',

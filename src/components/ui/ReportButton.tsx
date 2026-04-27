@@ -1,10 +1,11 @@
 'use client'
 // src/components/ui/ReportButton.tsx
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Flag, X, Check, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { androidBack } from '@/hooks/androidBack'
 
 type TargetType = 'post' | 'comment' | 'profile' | 'profile_comment'
 type Reason = 'spam' | 'harassment' | 'inappropriate' | 'misinformation' | 'other'
@@ -35,7 +36,12 @@ export function ReportButton({ targetType, targetId, iconOnly = false, className
 
   useEffect(() => { setMounted(true) }, [])
 
-  const handleClose = () => { setOpen(false); setReason(null); setNotes('') }
+  const handleCloseRef = useRef<() => void>(null as any)
+  const handleClose = () => {
+    if (handleCloseRef.current) androidBack.pop(handleCloseRef.current)
+    setOpen(false); setReason(null); setNotes('')
+  }
+  handleCloseRef.current = handleClose
 
   const handleSubmit = async () => {
     if (!reason) return
@@ -128,7 +134,7 @@ export function ReportButton({ targetType, targetId, iconOnly = false, className
   return (
     <>
       <button
-        onClick={() => setOpen(true)}
+        onClick={() => { androidBack.push(handleClose); setOpen(true) }}
         title="Segnala contenuto"
         className={`flex items-center gap-1.5 text-zinc-600 hover:text-red-400 transition-colors text-xs ${className}`}
       >

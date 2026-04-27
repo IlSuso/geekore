@@ -5,6 +5,7 @@
 import { useEffect } from 'react'
 import { X } from 'lucide-react'
 import { gestureState } from '@/hooks/gestureState'
+import { androidBack } from '@/hooks/androidBack'
 
 const MAX_NOTES_LENGTH = 1000
 
@@ -33,8 +34,9 @@ export function NotesModal({
 }: NotesModalProps) {
   useEffect(() => {
     gestureState.drawerActive = true
-    return () => { gestureState.drawerActive = false }
-  }, [])
+    androidBack.push(onClose)
+    return () => { gestureState.drawerActive = false; androidBack.pop(onClose) }
+  }, [onClose])
 
   const charCount = value.length
 

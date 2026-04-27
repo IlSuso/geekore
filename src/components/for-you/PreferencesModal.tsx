@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react'
 import { gestureState } from '@/hooks/gestureState'
+import { androidBack } from '@/hooks/androidBack'
 import { X, ArrowRight, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useLocale } from '@/lib/locale'
@@ -39,8 +40,9 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
 
   useEffect(() => {
     gestureState.drawerActive = true
-    return () => { gestureState.drawerActive = false }
-  }, [])
+    androidBack.push(onClose)
+    return () => { gestureState.drawerActive = false; androidBack.pop(onClose) }
+  }, [onClose])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
