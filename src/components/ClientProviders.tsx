@@ -68,89 +68,71 @@ function ThemeColorEnforcer() {
 }
 
 // ------------------------------------------------------------------
-// DEBUG: overlay visivo per vedere cosa arriva dalla Navigation API
-// RIMUOVERE dopo il debug!
+// AndroidBackHandler
+//
+// STRATEGIA FINALE: cuscinetto sullo STESSO URL della pagina corrente.
+//
+// Android mostra l'animazione Predictive Back solo se la entry
+// precedente ha un URL/contenuto diverso dalla pagina corrente.
+// Se il cuscinetto ha lo stesso URL → Android non ha nulla di diverso
+// da mostrare → nessuna animazione.
+//
+// Flusso:
+//   mount → pushState(stesso URL) → stack: [/discover, /discover*]
+//   back gesture → popstate → intercettiamo → router.replace('/home')
+//                           → pushState(stesso URL /home) → stack: [/home, /home*]
+//   back gesture → popstate → siamo su /home → history.back() → esce
+//
+// Il * indica il cuscinetto. Stesso URL = nessuna anteprima visiva.
 // ------------------------------------------------------------------
-function NavDebugOverlay() {
-  const logRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!/android/i.test(navigator.userAgent)) return
-    const nav = (window as any).navigation
-    if (!nav) return
-
-    const addLog = (msg: string) => {
-      if (!logRef.current) return
-      const line = document.createElement('div')
-      line.textContent = `${new Date().toISOString().slice(11,19)} ${msg}`
-      logRef.current.prepend(line)
-      // Tieni solo gli ultimi 8 log
-      while (logRef.current.children.length > 8) {
-        logRef.current.removeChild(logRef.current.lastChild!)
-      }
-    }
-
-    // Log TUTTI gli eventi navigate senza filtrare
-    const handler = (e: any) => {
-      addLog(`type=${e.navigationType} dest=${e.destination?.url?.replace(location.origin,'')} canIntercept=${e.canIntercept}`)
-    }
-    nav.addEventListener('navigate', handler)
-
-    // Log anche popstate come confronto
-    const popHandler = () => addLog(`POPSTATE state=${JSON.stringify(history.state)}`)
-    window.addEventListener('popstate', popHandler)
-
-    return () => {
-      nav.removeEventListener('navigate', handler)
-      window.removeEventListener('popstate', popHandler)
-    }
-  }, [])
-
-  return (
-    <div
-      ref={logRef}
-      style={{
-        position: 'fixed', bottom: 80, left: 0, right: 0, zIndex: 99999,
-        background: 'rgba(0,0,0,0.85)', color: '#0f0', fontSize: 10,
-        fontFamily: 'monospace', padding: 4, pointerEvents: 'none',
-        maxHeight: 160, overflow: 'hidden',
-      }}
-    />
-  )
-}
 
 const MAIN_TABS = new Set(['/home', '/discover', '/for-you', '/swipe'])
 
 function AndroidBackHandler() {
-  const router = useRouter()
+  const router      = useRouter()
   const pathnameRef = useRef<string>('')
-  const pathname = usePathname()
+  const pathname    = usePathname()
   pathnameRef.current = pathname
+
+  // Inserisce/aggiorna il cuscinetto ogni volta che cambia pathname.
+  // pushState con lo stesso URL della pagina corrente → nessuna anteprima.
+  useEffect(() => {
+    if (!/android/i.test(navigator.userAgent)) return
+    // Usiamo lo stesso href corrente — Android non vede differenze visive
+    history.pushState({ gkCushion: true }, '', location.href)
+  }, [pathname])
 
   useEffect(() => {
     if (!/android/i.test(navigator.userAgent)) return
-    const nav = (window as any).navigation
-    if (!nav) return
 
-    const handleNavigate = (e: any) => {
-      if (e.navigationType !== 'traverse') return
+    const handler = (e: PopStateEvent) => {
+      // Se lo stato NON è il nostro cuscinetto, ignora
+      // (potrebbe essere una navigazione legittima interna)
+      if (!e.state?.gkCushion) return
+      e.stopImmediatePropagation()
 
-      const current = pathnameRef.current
-
-      if (androidBack.hasOpenLayer) {
-        e.intercept({ handler: async () => { androidBack.handleBack() } })
+      // 1. Drawer/modal aperto → chiudi
+      if (androidBack.handleBack()) {
+        // Rimettiamo il cuscinetto
+        setTimeout(() => history.pushState({ gkCushion: true }, '', location.href), 50)
         return
       }
 
+      // 2. Tab non-home → vai a /home
+      const current = pathnameRef.current
       const isMainTab = MAIN_TABS.has(current) || current.startsWith('/profile/')
       if (isMainTab && current !== '/home' && current !== '/') {
-        e.intercept({ handler: async () => { router.replace('/home') } })
+        router.replace('/home')
+        // Il cuscinetto verrà ricreato dall'useEffect sul pathname
         return
       }
+
+      // 3. Home → esci dall'app (non rimettiamo il cuscinetto)
+      history.back()
     }
 
-    nav.addEventListener('navigate', handleNavigate)
-    return () => nav.removeEventListener('navigate', handleNavigate)
+    window.addEventListener('popstate', handler, { capture: true })
+    return () => window.removeEventListener('popstate', handler, { capture: true })
   }, [router])
 
   return null
@@ -162,7 +144,6 @@ export function ClientProviders({ children, initialLocale = 'it' }: { children: 
       <LocaleProvider initialLocale={initialLocale}>
         <ThemeColorEnforcer />
         <AndroidBackHandler />
-        <NavDebugOverlay />
         <ServiceWorkerRegistrar />
         <SyncStatusListener />
         <OnboardingGuard />
