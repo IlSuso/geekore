@@ -106,15 +106,36 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
   const tab = activeTab ?? pathnameTab
 
   const visited = useRef<Set<KATab>>(new Set())
+  // Sempre aggiungi subito il tab corrente — deve renderizzare immediatamente.
   if (tab) visited.current.add(tab)
-  // Pre-monta proattivamente i panel adiacenti al tab corrente.
-  // Così quando l'utente inizia a swipare verso un panel mai visitato,
-  // il suo DOM esiste già e onSnap può animarlo invece di farlo apparire di scatto.
-  if (tab) {
-    const idx = TAB_IDX_TO_KA.indexOf(tab)
-    if (idx > 0) visited.current.add(TAB_IDX_TO_KA[idx - 1] as KATab)
-    if (idx < TAB_IDX_TO_KA.length - 1) visited.current.add(TAB_IDX_TO_KA[idx + 1] as KATab)
-  }
+  // neighborReady: counter che forza un re-render dopo il delay del pre-mount.
+  // I vicini vengono montati 350ms dopo l'arrivo sul tab corrente, così non
+  // competono con l'animazione di entrata per il main thread.
+  const [neighborReady, setNeighborReady] = useState(0)
+  const preloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (!tab) return
+    // Cancella il timer precedente (cambio tab rapido)
+    if (preloadTimerRef.current) clearTimeout(preloadTimerRef.current)
+    preloadTimerRef.current = setTimeout(() => {
+      const idx = TAB_IDX_TO_KA.indexOf(tab)
+      let changed = false
+      if (idx > 0) {
+        const prev = TAB_IDX_TO_KA[idx - 1] as KATab
+        if (!visited.current.has(prev)) { visited.current.add(prev); changed = true }
+      }
+      if (idx < TAB_IDX_TO_KA.length - 1) {
+        const next = TAB_IDX_TO_KA[idx + 1] as KATab
+        if (!visited.current.has(next)) { visited.current.add(next); changed = true }
+      }
+      if (changed) setNeighborReady(n => n + 1) // trigger re-render solo se ci sono nuovi panel
+    }, 350)
+    return () => { if (preloadTimerRef.current) clearTimeout(preloadTimerRef.current) }
+  }, [tab]) // eslint-disable-line
+
+  // neighborReady è usato implicitamente: il re-render legge visited.current aggiornato.
+  void neighborReady
 
   useEffect(() => {
     if (pathnameTab !== null) setActiveTab(pathnameTab)

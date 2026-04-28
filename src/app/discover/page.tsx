@@ -3,7 +3,7 @@
 // V4: + Boardgame (BGG) + Libri (Google Books) — News rimossa
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import React from 'react';
+import React, { memo } from 'react';
 import { usePathname } from 'next/navigation';
 import {
   Search, Plus, X, Film, Tv, Gamepad2, Bookmark, BookmarkCheck,
@@ -537,6 +537,7 @@ export default function DiscoverPage() {
                           alt={`Copertina di ${item.title} (${TYPE_LABELS[item.type] || item.type})`}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           loading="lazy"
+                          decoding="async"
                           onError={e => {
                             const el = e.currentTarget;
                             if (el.src.includes('zoom=3')) {

@@ -915,7 +915,8 @@ const PostCard = memo(function PostCard({
         <div className="mx-5 mb-4 rounded-2xl overflow-hidden border border-zinc-800">
           <img src={post.image_url} alt={`Post di ${post.profiles.username}`}
             className="w-full max-h-[420px] object-cover hover:scale-[1.02] transition-transform duration-500"
-            loading="lazy" />
+            loading="lazy"
+                          decoding="async" />
         </div>
       )}
 
@@ -1063,7 +1064,8 @@ function PostModal({
           {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
             <div className="mx-5 mb-4 rounded-2xl overflow-hidden border border-zinc-800">
               <img src={post.image_url} alt={`Post di ${post.profiles.username}`}
-                className="w-full max-h-[320px] object-cover" loading="lazy" />
+                className="w-full max-h-[320px] object-cover" loading="lazy"
+                          decoding="async" />
             </div>
           )}
 
@@ -1664,7 +1666,7 @@ export default function FeedPage() {
   }, [currentUser, editingPostId, editContent, supabase])
 
   // Filtro client-side: supporta sia "Film" (solo macro) che "Film:Forrest Gump" (match esatto sottocategoria)
-  const displayedPosts = categoryFilter
+  const filteredPosts = categoryFilter
     ? posts.filter(p => {
         if (!p.category) return false
         const filterParsed = parseCategoryString(categoryFilter)
@@ -1678,6 +1680,25 @@ export default function FeedPage() {
         return true // solo macro, mostra tutto
       })
     : posts
+
+  // DOM cap: manteniamo al massimo DOM_CAP post renderizzati contemporaneamente.
+  // Cresce di DOM_CAP_STEP ogni volta che posts si estende (nuova pagina Supabase).
+  // Tiene il DOM leggero senza rompere l'infinite scroll esistente.
+  const DOM_CAP_INITIAL = 25
+  const DOM_CAP_STEP = 15
+  const [domCap, setDomCap] = useState(DOM_CAP_INITIAL)
+  const prevPostsLen = useRef(0)
+  useEffect(() => {
+    if (posts.length > prevPostsLen.current) {
+      // Nuovi post arrivati: estendi il cap per mostrare quelli nuovi
+      setDomCap(cap => Math.max(cap, posts.length))
+    }
+    prevPostsLen.current = posts.length
+  }, [posts.length])
+  // Reset cap quando cambia il filtro (lista completamente diversa)
+  useEffect(() => { setDomCap(DOM_CAP_INITIAL) }, [categoryFilter])
+
+  const displayedPosts = filteredPosts.slice(0, domCap)
 
   // Click su un badge categoria in un post → attiva il filtro per quella categoria
   const handleCategoryClick = useCallback((category: string) => {
