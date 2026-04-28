@@ -46,6 +46,13 @@ function noCacheResponse(res: NextResponse): NextResponse {
   return res
 }
 
+// Inietta x-pathname negli header della response così layout.tsx
+// può leggere il pathname server-side e passarlo ad ActiveTabProvider.
+function withPathname(res: NextResponse, pathname: string): NextResponse {
+  res.headers.set('x-pathname', pathname)
+  return res
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -88,15 +95,15 @@ export async function middleware(request: NextRequest) {
       if (pathname === '/onboarding') {
         return NextResponse.redirect(new URL('/home', request.url))
       }
-      return NextResponse.next()
+      return withPathname(NextResponse.next(), pathname)
     }
 
     if (isPublicProfile(pathname)) {
-      return NextResponse.next()
+      return withPathname(NextResponse.next(), pathname)
     }
 
     if (matchesAny(pathname, ONBOARDING_EXEMPT)) {
-      return NextResponse.next()
+      return withPathname(NextResponse.next(), pathname)
     }
 
     try {
@@ -117,7 +124,7 @@ export async function middleware(request: NextRequest) {
           })
           return res
         }
-        const res = noCacheResponse(NextResponse.next())
+        const res = withPathname(noCacheResponse(NextResponse.next()), pathname)
         res.cookies.set('geekore_onboarding_done', '1', {
           path: '/', maxAge: 60 * 60 * 24 * 365,
           sameSite: 'lax', secure: process.env.NODE_ENV === 'production', httpOnly: false,
@@ -131,7 +138,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  return noCacheResponse(NextResponse.next())
+  return withPathname(noCacheResponse(NextResponse.next()), pathname)
 }
 
 export const config = {

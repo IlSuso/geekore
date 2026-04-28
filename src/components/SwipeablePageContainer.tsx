@@ -1,46 +1,37 @@
 'use client'
-// SwipeablePageContainer — swipe orizzontale tra i tab principali.
+// SwipeablePageContainer — swipe orizzontale tra tab.
 //
-// Uguale all'originale eccetto:
-//   - TAB_ORDER aggiornato: /swipe al posto di /trending (allineato al mobile nav)
-//   - Rimosso lo sfondo scuro (il body è già nero)
+// SOLUZIONE DEFINITIVA:
+//   - @use-gesture/react gestisce tutto il touch (velocity, axis-lock, swipe detection)
+//   - I panel si muovono via DOM diretto (zero React re-render durante il drag)
+//   - window.history.replaceState() aggiorna l'URL SENZA passare per Next.js router
+//     → zero cicli di navigazione, zero conflitti con usePathname(), zero glitch
+//   - setActiveTab() è la SOLA fonte di verità per il panel visibile
 //
-// Gestione conflitti:
-//   1. EDGE_DEAD_ZONE = 44px (gesture zone Samsung/iOS)
-//   2. isInsideHorizontalScroller: non ruba gesti da carousel
-//   3. gestureState.drawerActive: page-switch disabilitato se drawer aperto
-//   4. captured ref: solo touch accettati da onTouchStart
+// PERCHÉ window.history.replaceState invece di router.replace():
+//   router.replace() triggera l'intero ciclo Next.js App Router:
+//   prefetch → render → reconciliation → usePathname aggiorna → re-render.
+//   Con i panel sempre nel DOM (KeepAliveTabShell) questo causa flash e conflitti.
+//   window.history.replaceState è una chiamata browser pura: aggiorna solo l'URL bar,
+//   Next.js NON viene notificato, zero overhead.
 
-import { usePathname, useRouter } from 'next/navigation'
-import { useRef, useState, useCallback, useEffect, type ReactNode } from 'react'
+import { usePathname } from 'next/navigation'
+import { useRef, useEffect, type ReactNode } from 'react'
+import { useDrag } from '@use-gesture/react'
 import { gestureState } from '@/hooks/gestureState'
 import { swipeNavBridge } from '@/hooks/swipeNavBridge'
 import { useActiveTab, pathnameToTab } from '@/context/ActiveTabContext'
 
 export const TAB_ORDER = ['/home', '/discover', '/for-you', '/swipe', '/profile/me']
 
-const CONFIRM_THRESHOLD  = 120   // px
-const VELOCITY_THRESHOLD = 0.35  // px/ms
-const EDGE_DEAD_ZONE_RIGHT = 20  // bordo destro — zona sistema iOS/Android (~20px)
-// Dead zone sinistra Android = ~20px fissi (gesture di sistema)
-const ANDROID_LEFT_DEAD_ZONE = 20
-
-const EASE_OUT  = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+// Soglia distanza: 30% viewport per confermare navigazione
+const THRESHOLD = 0.30
+const DURATION  = 280
+const EASE      = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
 const EASE_SNAP = 'cubic-bezier(0.22, 1, 0.36, 1)'
+const EDGE      = 20  // dead zone bordi per gesture di sistema
 
-// Rilevamento piattaforma — calcolato una sola volta al caricamento del modulo.
-// Su Android: la back gesture è un evento di sistema separato dal touch —
-//   NON intercettiamo MAI il bordo sinistro (dead zone = 20% vp).
-// Su iOS: la back gesture FA parte del touch stream (swipe interattivo) —
-//   il bordo sinistro deve seguire il dito esattamente come fa Instagram.
-const IS_IOS     = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent)
-const IS_ANDROID = typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent)
-
-// Restituisce true solo se il touch è dentro un elemento scrollabile orizzontalmente
-// CHE ha ancora spazio per scorrere nella direzione del gesto (dx>0 = verso destra = scroll a sx).
-// Se l'elemento è a fine corsa nella direzione del gesto, restituisce false:
-// il gesto viene "passato" al page-swipe (scroll chaining, come iOS/Android nativi).
-function isInsideHorizontalScroller(target: EventTarget | null, dx: number): boolean {
+function isHorizontalScroller(target: EventTarget | null, dx: number): boolean {
   let node = target as HTMLElement | null
   while (node && node.tagName !== 'BODY') {
     if (node.dataset && 'noSwipe' in node.dataset) return true
@@ -49,11 +40,7 @@ function isInsideHorizontalScroller(target: EventTarget | null, dx: number): boo
       const { scrollLeft, scrollWidth, clientWidth } = node
       const atStart = scrollLeft <= 0
       const atEnd   = scrollLeft + clientWidth >= scrollWidth - 1
-      // dx > 0 = dito verso destra = si sta scrollando verso sinistra (scrollLeft decresce)
-      // dx < 0 = dito verso sinistra = si sta scrollando verso destra (scrollLeft aumenta)
-      const blocksSwipe = dx > 0 ? !atStart : !atEnd
-      if (blocksSwipe) return true
-      // A fine corsa nella direzione del gesto: lascia passare al page-swipe
+      if (dx > 0 ? !atStart : !atEnd) return true
     }
     node = node.parentElement
   }
@@ -62,302 +49,132 @@ function isInsideHorizontalScroller(target: EventTarget | null, dx: number): boo
 
 export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const router   = useRouter()
-  const wrapRef  = useRef<HTMLDivElement>(null)
-  const { activeTab, setActiveTab } = useActiveTab()
-  // intentRef: tab "intenzionale" corrente — aggiornato IMMEDIATAMENTE al rilascio
-  // del dito, senza aspettare il ciclo router/pathname (~260ms).
-  // Permette swipe rapidi consecutivi: 1→2→3→4 invece di sempre 1→2.
-  const intentTabRef   = useRef<string>('')
-  // pendingNavRef: timer dell'ultima navigazione in attesa.
-  // Se l'utente swipa di nuovo prima dei 260ms, cancelliamo il timer vecchio
-  // e navighiamo direttamente alla destinazione finale — zero animazioni intermedie.
-  const pendingNavRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const pendingDestRef = useRef<string | null>(null)
+  const { setActiveTab } = useActiveTab()
+  const wrapRef = useRef<HTMLDivElement>(null)
 
-  const touchStartX = useRef(0)
-  const touchStartY = useRef(0)
-  const touchStartT = useRef(0)
-  const lastDeltaX  = useRef(0)
-  const isH         = useRef<boolean | null>(null)
-  const vw          = useRef(0)
-  const isDragging  = useRef(false)
-  const captured    = useRef(false)
-  const touchTarget  = useRef<EventTarget | null>(null)
-
-  // offset e animate sono gestiti direttamente sul DOM durante il drag
-  // per evitare re-render React ad ogni pixel — zero lag durante lo swipe.
-  const offsetRef      = useRef(0)
-  const animateRef     = useRef(false)
-  const [snapping,     setSnapping]     = useState(false)
-
-  const EASE_OUT_BRIDGE  = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
-  const EASE_SNAP_BRIDGE = 'cubic-bezier(0.22, 1, 0.36, 1)'
-
-  const applyTransform = useCallback((px: number, withAnim: boolean, easing?: string) => {
-    offsetRef.current  = px
-    animateRef.current = withAnim
-    if (withAnim) {
-      // Animazione fluida: snap-back o navigate-out
-      const ease = easing ?? EASE_OUT_BRIDGE
-      swipeNavBridge.notifySnap(px, ease, 280)
-    } else {
-      // Drag in corso: movimento diretto senza transizione
-      swipeNavBridge.notifyDrag(px)
-    }
-  }, [])
-
-  // Usa intentTabRef per swipe rapidi consecutivi — altrimenti fallback a pathname
-  const effectivePath = intentTabRef.current || pathname
   const currentIdx = TAB_ORDER.findIndex(t => {
-    if (t === '/profile/me') return effectivePath.startsWith('/profile/')
-    if (t === '/home')       return effectivePath === '/home' || effectivePath === '/'
-    return effectivePath === t
+    if (t === '/profile/me') return pathname.startsWith('/profile/')
+    if (t === '/home')       return pathname === '/home' || pathname === '/'
+    return pathname === t
   })
+  const isMain  = currentIdx !== -1
+  const prevTab = currentIdx > 0                     ? TAB_ORDER[currentIdx - 1] : null
+  const nextTab = currentIdx < TAB_ORDER.length - 1 ? TAB_ORDER[currentIdx + 1] : null
 
-  const isMain   = currentIdx !== -1
-  const prevTab  = currentIdx > 0                     ? TAB_ORDER[currentIdx - 1] : null
-  const nextTab  = currentIdx < TAB_ORDER.length - 1 ? TAB_ORDER[currentIdx + 1] : null
+  // Ref stabili — letti dai callback senza stale closure
+  const prevTabRef    = useRef(prevTab)
+  const nextTabRef    = useRef(nextTab)
+  const currentIdxRef = useRef(currentIdx)
+  prevTabRef.current    = prevTab
+  nextTabRef.current    = nextTab
+  currentIdxRef.current = currentIdx
 
-  // Declared early so useEffect below can reference it before the bottom-of-function aliases.
-  // isActive è true durante la transizione CSS di snap-back (gestita da snapping).
-  // Durante il drag il body scroll è bloccato da gestureState.swipeActive in onTouchMove.
-  const isActive = snapping
+  // Tracking stato touch interno (non come state React — zero re-render)
+  const startXRef    = useRef(0)
+  const axisLockedRef = useRef<'h' | 'v' | null>(null)
+  const bridgeStarted = useRef(false)
 
-  useEffect(() => {
-    vw.current = window.innerWidth
-    const fn = () => { vw.current = window.innerWidth }
-    window.addEventListener('resize', fn)
-    return () => window.removeEventListener('resize', fn)
-  }, [])
+  const bind = useDrag(
+    ({ first, last, active, movement: [mx], direction: [dx], velocity: [vx], xy: [x], event, cancel, memo }) => {
+      if (!isMain) return memo
 
-  useEffect(() => {
-    // pathname aggiornato — resetta intentRef, cancella nav pendente e stato swipe
-    if (pendingNavRef.current) { clearTimeout(pendingNavRef.current); pendingNavRef.current = null }
-    pendingDestRef.current   = null
-    intentTabRef.current     = ''
-    captured.current         = false
-    isDragging.current       = false
-    gestureState.swipeActive = false
-    applyTransform(0, false)
-    setSnapping(false)
-    document.documentElement.removeAttribute('data-swiping')
-    document.documentElement.removeAttribute('data-to-swipe')
-  }, [pathname])
+      // Blocca se altri gesti sono attivi
+      if (gestureState.pullActive || gestureState.drawerActive) {
+        cancel()
+        return memo
+      }
 
-  // Lock body scroll durante lo snap-back (transizione CSS finale).
-  // Durante il drag il body scroll è già bloccato da e.preventDefault() in onTouchMove.
-  useEffect(() => {
-    if (snapping) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
+      // Dead zone bordi schermo
+      if (first) {
+        const w = window.innerWidth
+        if (x <= EDGE || x >= w - EDGE) { cancel(); return memo }
+        startXRef.current    = x
+        axisLockedRef.current = null
+        bridgeStarted.current = false
+        return memo
+      }
+
+      // Cedi a scroller orizzontali interni
+      if (!gestureState.pageSwipeZone && isHorizontalScroller(event?.target ?? null, mx)) {
+        cancel()
+        return memo
+      }
+
+      const w  = window.innerWidth
+      const absX = Math.abs(mx)
+
+      if (active) {
+        // Durante il drag: muovi panel via DOM
+        gestureState.swipeActive = true
+
+        if (!bridgeStarted.current) {
+          bridgeStarted.current = true
+          swipeNavBridge.notifyStart(
+            prevTabRef.current ? TAB_ORDER.indexOf(prevTabRef.current) : null,
+            nextTabRef.current ? TAB_ORDER.indexOf(nextTabRef.current) : null,
+          )
+        }
+
+        // Resistenza ai bordi (primo/ultimo tab)
+        if (mx > 0 && !prevTabRef.current) {
+          swipeNavBridge.notifyDrag(Math.pow(mx, 0.6) * 0.4)
+          return memo
+        }
+        if (mx < 0 && !nextTabRef.current) {
+          swipeNavBridge.notifyDrag(-Math.pow(-mx, 0.6) * 0.4)
+          return memo
+        }
+
+        swipeNavBridge.notifyDrag(mx)
+        return memo
+      }
+
+      // Al rilascio (last === true):
+      gestureState.swipeActive = false
+
+      if (!bridgeStarted.current) return memo
+
+      // Naviga se: spostamento > 30% viewport OPPURE velocity alta (swipe veloce)
+      const shouldNav = absX > w * THRESHOLD || Math.abs(vx) > 0.5
+
+      if (shouldNav && mx > 0 && prevTabRef.current) {
+        const dest = prevTabRef.current
+        const tab  = pathnameToTab(dest)
+        if (tab) setActiveTab(tab)
+        swipeNavBridge.notifySnap(w, EASE, DURATION)
+        // ↓ window.history: aggiorna URL senza toccare Next.js router
+        window.history.replaceState(null, '', dest)
+      } else if (shouldNav && mx < 0 && nextTabRef.current) {
+        const dest = nextTabRef.current
+        const tab  = pathnameToTab(dest)
+        if (tab) setActiveTab(tab)
+        swipeNavBridge.notifySnap(-w, EASE, DURATION)
+        window.history.replaceState(null, '', dest)
+      } else {
+        // Snap-back
+        swipeNavBridge.notifySnap(0, EASE_SNAP, DURATION)
+        swipeNavBridge.notifyEnd()
+      }
+
+      bridgeStarted.current = false
+      return memo
+    },
+    {
+      axis: 'x',              // use-gesture gestisce il lock asse automaticamente
+      filterTaps: true,       // ignora tap
+      pointer: { touch: true },
+      threshold: 4,           // pixel di deadzone prima di registrare il drag
+      from: () => [0, 0],
+      eventOptions: { passive: false },
     }
-    return () => { document.body.style.overflow = '' }
-  }, [snapping])
+  )
 
-  // Clear snapping flag dopo la durata dell'animazione panel (0.28s).
-  useEffect(() => {
-    if (snapping) {
-      const t = setTimeout(() => setSnapping(false), 300)
-      return () => clearTimeout(t)
-    }
-  }, [snapping])
-
-  const onTouchStart = useCallback((e: TouchEvent) => {
-    captured.current = false
-    if (!isMain) return
-    if (gestureState.pullActive)   return
-    if (gestureState.drawerActive) return
-
-    const x = e.touches[0].clientX
-    const w = vw.current || window.innerWidth
-    // Android: dead zone sinistra = 20% vp → back gesture libera, noi non tocchiamo nulla.
-    // iOS: il bordo sinistro è lo swipe interattivo nativo (segue il dito) → lo gestiamo noi.
-    // Desktop: dead zone simmetrica fissa.
-    if (IS_ANDROID) {
-      if (x <= ANDROID_LEFT_DEAD_ZONE || x >= w - EDGE_DEAD_ZONE_RIGHT) return
-    } else if (IS_IOS) {
-      // Su iOS permettiamo swipe anche dal bordo sinistro estremo (come fa Instagram).
-      // Solo bordo destro escluso (nessuna back gesture lì).
-      if (x >= w - EDGE_DEAD_ZONE_RIGHT) return
-    } else {
-      // Desktop: simmetrico
-      if (x <= EDGE_DEAD_ZONE_RIGHT || x >= w - EDGE_DEAD_ZONE_RIGHT) return
-    }
-    // Il check scroll-chaining viene fatto in onTouchMove quando
-    // la direzione (dx) è nota. Qui salviamo solo il target.
-    captured.current    = true
-    touchTarget.current  = e.target
-    touchStartX.current = x
-    touchStartY.current = e.touches[0].clientY
-    touchStartT.current = performance.now()
-    lastDeltaX.current  = 0
-    isH.current         = null
-    isDragging.current  = false
-  }, [isMain, applyTransform])
-
-  const onTouchMove = useCallback((e: TouchEvent) => {
-    if (!captured.current || !isMain || gestureState.pullActive) return
-
-    const dx = e.touches[0].clientX - touchStartX.current
-    const dy = e.touches[0].clientY - touchStartY.current
-
-    // ── Determina direzione al primo frame con movimento sufficiente ──────────
-    if (isH.current === null) {
-      if (Math.abs(dx) < 3 && Math.abs(dy) < 3) return
-      isH.current = Math.abs(dx) > Math.abs(dy) * 1.2
-      if (!isH.current) return // gesto verticale → non intercettare
-    }
-
-    // ── Scroll chaining ────────────────────────────────────────────────────────
-    // Se il gesto è orizzontale (isH===true) ma l'elemento ha ancora spazio per
-    // scorrere nella direzione del drag → lascia fare scroll nativo (isH=false).
-    // Eccezione: se pageSwipeZone=true il touch è partito dalla fascia nav-zone
-    // della SwipePage → bypassiamo data-no-swipe e forziamo il page-swipe.
-    if (isH.current === true && !gestureState.pageSwipeZone && isInsideHorizontalScroller(touchTarget.current, dx)) {
-      isH.current = null // non ancora deciso: ricontrolla al prossimo frame
-      return
-    }
-
-    // ── Avvia page-swipe (prima volta che isH===true e scroller non blocca) ──
-    if (isH.current === true && !isDragging.current) {
-      swipeNavBridge.notifyStart(
-        prevTab ? TAB_ORDER.indexOf(prevTab) : null,
-        nextTab ? TAB_ORDER.indexOf(nextTab) : null,
-      )
-      const r = document.documentElement
-      r.setAttribute('data-swiping', '')
-      const toSwipe = (nextTab === '/swipe' && dx < 0) || (prevTab === '/swipe' && dx > 0)
-      if (toSwipe) r.setAttribute('data-to-swipe', '')
-    }
-
-    if (!isH.current) return
-
-    e.preventDefault()
-    isDragging.current       = true
-    gestureState.swipeActive = true
-    lastDeltaX.current       = dx
-
-    if (dx > 0 && !prevTab) { applyTransform(Math.pow(dx, 0.6) * 0.5, false); return }
-    if (dx < 0 && !nextTab) { applyTransform(-Math.pow(-dx, 0.6) * 0.5, false); return }
-    applyTransform(dx, false)
-  }, [isMain, prevTab, nextTab])
-
-  const onTouchEnd = useCallback(() => {
-    gestureState.swipeActive = false
-
-    if (!captured.current || !isMain || !isDragging.current) {
-      captured.current   = false
-      isH.current        = null
-      isDragging.current = false
-      return
-    }
-
-    captured.current = false
-
-    const dx       = lastDeltaX.current
-    const elapsed  = Math.max(performance.now() - touchStartT.current, 1)
-    const velocity = Math.abs(dx) / elapsed
-    const w        = vw.current || window.innerWidth
-    const shouldNav = Math.abs(dx) > CONFIRM_THRESHOLD || velocity > VELOCITY_THRESHOLD
-
-    const r = document.documentElement
-    r.removeAttribute('data-swiping')
-
-    if (shouldNav && dx > 0 && prevTab) {
-      intentTabRef.current = prevTab
-      setActiveTab(pathnameToTab(prevTab))
-      applyTransform(w, true, EASE_OUT)
-      // Cancella nav precedente — naviga SOLO alla destinazione finale
-      if (pendingNavRef.current) clearTimeout(pendingNavRef.current)
-      pendingDestRef.current = prevTab
-      pendingNavRef.current  = setTimeout(() => {
-        router.replace(pendingDestRef.current ?? prevTab)
-        pendingNavRef.current  = null
-        pendingDestRef.current = null
-      }, 260)
-    } else if (shouldNav && dx < 0 && nextTab) {
-      intentTabRef.current = nextTab
-      setActiveTab(pathnameToTab(nextTab))
-      applyTransform(-w, true, EASE_OUT)
-      // Cancella nav precedente — naviga SOLO alla destinazione finale
-      if (pendingNavRef.current) clearTimeout(pendingNavRef.current)
-      pendingDestRef.current = nextTab
-      pendingNavRef.current  = setTimeout(() => {
-        router.replace(pendingDestRef.current ?? nextTab)
-        pendingNavRef.current  = null
-        pendingDestRef.current = null
-      }, 260)
-    } else {
-      r.removeAttribute('data-to-swipe')
-      setSnapping(true)
-      applyTransform(0, true, EASE_SNAP)
-      swipeNavBridge.notifyEnd()
-    }
-
-    isH.current        = null
-    isDragging.current = false
-  }, [isMain, prevTab, nextTab, router])
-
-  const onTouchCancel = useCallback(() => {
-    const wasDragging        = isDragging.current
-    captured.current         = false
-    gestureState.swipeActive = false
-    isDragging.current       = false
-    isH.current              = null
-    const r = document.documentElement
-    r.removeAttribute('data-swiping')
-    r.removeAttribute('data-to-swipe')
-    if (wasDragging) {
-      setSnapping(true)
-      applyTransform(0, true, EASE_SNAP)
-      swipeNavBridge.notifyEnd()
-    }
-  }, [])
-
-  useEffect(() => {
-    const el = wrapRef.current; if (!el) return
-    el.addEventListener('touchstart',  onTouchStart,  { passive: true  })
-    el.addEventListener('touchmove',   onTouchMove,   { passive: false })
-    el.addEventListener('touchend',    onTouchEnd,    { passive: true  })
-    el.addEventListener('touchcancel', onTouchCancel, { passive: true  })
-    return () => {
-      el.removeEventListener('touchstart',  onTouchStart)
-      el.removeEventListener('touchmove',   onTouchMove)
-      el.removeEventListener('touchend',    onTouchEnd)
-      el.removeEventListener('touchcancel', onTouchCancel)
-    }
-  }, [onTouchStart, onTouchMove, onTouchEnd, onTouchCancel])
-
-  // If a system back gesture fires (Android predictive back / iOS edge swipe)
-  // while SPC has already captured a touch, abort the swipe immediately so the
-  // page doesn't slide AND navigate at the same time.
-  // We do NOT call stopImmediatePropagation — the popstate must still reach
-  // Next.js so the system navigation completes normally.
-  const abortSwipeRef = useRef<() => void>(() => {})
-  abortSwipeRef.current = () => {
-    if (!captured.current && !isDragging.current) return
-    captured.current         = false
-    isDragging.current       = false
-    gestureState.swipeActive = false
-    isH.current              = null
-    document.documentElement.removeAttribute('data-swiping')
-    document.documentElement.removeAttribute('data-to-swipe')
-    setSnapping(true)
-    applyTransform(0, true, EASE_SNAP)
-    swipeNavBridge.notifyEnd()
-  }
-  useEffect(() => {
-    const handler = () => abortSwipeRef.current()
-    window.addEventListener('popstate', handler, { capture: true })
-    return () => window.removeEventListener('popstate', handler, { capture: true })
-  }, [])
-
-  // I panel sono position:fixed e si muovono tramite il bridge.
-  // Il wrapper serve solo per catturare i touch events.
   return (
-    <div ref={wrapRef} style={{ minHeight: '100dvh' }}>
+    <div
+      ref={wrapRef}
+      {...bind()}
+      style={{ minHeight: '100dvh', touchAction: 'pan-y' }}
+    >
       {children}
     </div>
   )

@@ -805,14 +805,19 @@ export default function ForYouPage() {
       if (!user || cancelled) { if (!user) router.push('/login'); return }
       const userId = user.id
 
-      // Realtime: aggiorna entry_count solo se il panel è attivo
+      // Realtime: aggiorna entry_count solo se il panel è attivo.
+      // Controlla getChannels() per evitare doppia subscribe (StrictMode).
       if (isActive) {
-        profileChannel = supabase
-          .channel(`profile-entry-count-${userId}`)
-          .on('postgres_changes', {
-            event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}`,
-          }, (payload: any) => { setTotalEntries(payload.new?.entry_count ?? 0) })
-          .subscribe()
+        const chName = `profile-entry-count-${userId}`
+        const existing = supabase.getChannels().find(c => c.topic === `realtime:${chName}`)
+        if (!existing) {
+          profileChannel = supabase
+            .channel(chName)
+            .on('postgres_changes', {
+              event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}`,
+            }, (payload: any) => { setTotalEntries(payload.new?.entry_count ?? 0) })
+            .subscribe()
+        }
       }
 
       // ── Cache hit: mostra tutto immediatamente, poi aggiorna in background ──

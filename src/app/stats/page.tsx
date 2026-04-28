@@ -138,8 +138,10 @@ export default function StatsPage() {
 
     // Realtime: ascolta INSERT/UPDATE/DELETE su user_media_entries
     // e invalida la cache + ricarica immediatamente
-    const channel = supabase
-      .channel('stats-media-changes')
+    const CH = 'stats-media-changes'
+    const existingCh = supabase.getChannels().find(c => c.topic === `realtime:${CH}`)
+    const channel = existingCh ?? supabase
+      .channel(CH)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'user_media_entries' },
@@ -151,7 +153,7 @@ export default function StatsPage() {
       )
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    return () => { if (!existingCh) supabase.removeChannel(channel) }
   }, [])
 
   // A2: useMemo per stats — non ricalcola ad ogni render

@@ -10,17 +10,27 @@
 // Con flowType: 'implicit', Supabase usa token_hash invece di PKCE —
 // funziona da qualsiasi contesto senza dipendenze da localStorage.
 import { createBrowserClient } from '@supabase/ssr'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
-export function createClient() {
+// Singleton: una sola istanza per tutta l'app browser.
+// Evita che ogni createClient() crei un nuovo oggetto, causando
+// re-esecuzione degli useEffect con [supabase] nelle dipendenze
+// e il conseguente errore "cannot add postgres_changes after subscribe()".
+let _client: SupabaseClient | null = null
+
+export function createClient(): SupabaseClient {
+  if (_client) return _client
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url || !key) {
     // Durante il build statico le env var possono essere assenti.
-    return createBrowserClient('https://placeholder.supabase.co', 'placeholder-key')
+    _client = createBrowserClient('https://placeholder.supabase.co', 'placeholder-key')
+    return _client
   }
-  return createBrowserClient(url, key, {
+  _client = createBrowserClient(url, key, {
     auth: {
       flowType: 'implicit',  // token_hash invece di PKCE — compatibile con WebView Gmail/Outlook
     },
   })
+  return _client
 }

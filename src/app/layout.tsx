@@ -1,11 +1,3 @@
-// DESTINAZIONE: src/app/layout.tsx
-// FIX stacking context navbar:
-//   Il precedente <div style={{ viewTransitionName: 'navbar' }}> attorno a <Navbar>
-//   creava un nuovo stacking context che intrappolava il z-index della navbar,
-//   permettendo agli elementi delle pagine di coprirla durante lo scroll.
-//   Soluzione: wrapper rimosso. La viewTransitionName è ora sui tag <nav> interni.
-//   Rimosso anche viewTransitionName sull'<html> per lo stesso motivo.
-
 import type { Metadata, Viewport } from 'next'
 import { Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
@@ -25,7 +17,7 @@ import { SwipeablePageContainer } from '@/components/SwipeablePageContainer'
 import { KeepAliveTabShell } from '@/components/KeepAliveTabShell'
 import { MainShell } from '@/components/MainShell'
 import { ActiveTabProvider } from '@/context/ActiveTabContext'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 
 export const metadata: Metadata = {
   title: { default: 'Geekore', template: '%s — Geekore' },
@@ -62,6 +54,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const localeCookie = cookieStore.get('geekore_locale')?.value
   const initialLocale = localeCookie === 'en' ? 'en' : 'it'
 
+  // Legge il pathname dalla request server-side per inizializzare
+  // ActiveTabProvider con il tab corretto fin dal primo render,
+  // eliminando il flash da null → tab.
+  const headersList = await headers()
+  const initialPathname = headersList.get('x-pathname') ?? headersList.get('x-invoke-path') ?? '/home'
+
   return (
     <html lang="it">
       <head>
@@ -75,7 +73,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="theme-color" content="#000000" media="(prefers-color-scheme: light)" />
       </head>
       <body suppressHydrationWarning className={`${jakarta.variable} bg-black text-white min-h-screen antialiased`}>
-        <ActiveTabProvider>
+        <ActiveTabProvider initialPathname={initialPathname}>
         <ClientProviders initialLocale={initialLocale}>
           <SwipeablePageContainer>
             <MainShell>
@@ -85,8 +83,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </MainShell>
           </SwipeablePageContainer>
           <Footer />
-          {/* Fixed UI — rendered AFTER page content so the GPU compositor
-              always layers them on top regardless of z-index confusion */}
           <MobileHeader />
           <Navbar />
         </ClientProviders>

@@ -223,8 +223,10 @@ export default function Navbar() {
                     : undefined}
                   onClick={() => {
                     const tab = pathnameToTab(item.href)
-                    if (tab) setActiveTab(tab)   // switch visivo IMMEDIATO
-                    router.replace(item.href)     // URL in parallelo
+                    if (tab) setActiveTab(tab)
+                    // history.replaceState: aggiorna URL SENZA passare per Next.js router
+                    // → zero re-render, zero conflitti con i panel fissi
+                    window.history.replaceState(null, '', item.href)
                   }}
                   className={`relative flex flex-col items-center justify-center w-16 lg:w-20 h-full transition-colors group bg-transparent border-0 cursor-pointer ${
                     isActive ? 'text-violet-400' : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/60'
@@ -353,8 +355,8 @@ export default function Navbar() {
                 onClick={() => {
                   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(8)
                   const tab = pathnameToTab(item.href)
-                  if (tab) setActiveTab(tab)   // switch visivo IMMEDIATO
-                  router.replace(item.href)     // URL in parallelo
+                  if (tab) setActiveTab(tab)
+                  window.history.replaceState(null, '', item.href)
                 }}
               >
                 {isActive && (

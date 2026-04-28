@@ -15,6 +15,7 @@
 
 import { useState, useEffect, useCallback, memo, useRef } from 'react'
 import { useScrollPanel } from '@/context/ScrollPanelContext'
+import { useTabActive } from '@/context/TabActiveContext'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -1251,17 +1252,24 @@ export default function FeedPage() {
     init()
   }, [])
 
-  // Realtime sempre attivo anche quando il panel è nascosto:
-  // il banner "N nuovi post" deve aggiornarsi anche mentre sei su un'altra tab.
+  const isActive = useTabActive()
+
+  // Realtime: si iscrive solo quando il tab è visibile.
+  // Quando l'utente swippa su un altro tab, il canale viene rimosso.
+  // Così il feed non consuma risorse durante lo swipe e non causa lag.
   useEffect(() => {
-    const channel = supabase.channel('public:posts')
+    if (!isActive) return // non attivo → non aprire il canale
+    const CHANNEL_NAME = 'feed:posts:live'
+    const existing = supabase.getChannels().find(c => c.topic === `realtime:${CHANNEL_NAME}`)
+    if (existing) return
+    const channel = supabase.channel(CHANNEL_NAME)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, (payload) => {
         const newId = payload.new?.id
         if (!newId || newId === latestPostIdRef.current) return
         setNewPostsCount(prev => prev + 1)
       }).subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [supabase])
+  }, [isActive]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (posts.length > 0) latestPostIdRef.current = posts[0].id
