@@ -1,5 +1,5 @@
 'use client'
-// src/app/feed/page.tsx
+// src/app/home/page.tsx
 // ── Implementazioni ──────────────────────────────────────────────────────────
 //   #13  Cache client-side in-memory (2 min TTL)
 //   #25  Post in evidenza: i 2 con più like negli ultimi 7 giorni
@@ -763,6 +763,48 @@ async function trackAffinity(supabase: any, userId: string, category: string | n
     }
   } catch {}
 }
+
+
+// ── VirtualPostCard ────────────────────────────────────────────────────────────
+// Wrapper leggero che smonta il contenuto della card quando è lontana dal viewport.
+// Misura l'altezza reale prima di smontare → placeholder esatta stessa dimensione.
+// Le prime ALWAYS_MOUNTED card non vengono mai smontate (above-the-fold).
+const VIRTUAL_MARGIN = '600px'  // margine fuori viewport prima di smontare
+
+const VirtualPostCard = memo(function VirtualPostCard({
+  index, alwaysMounted, children,
+}: { index: number; alwaysMounted: boolean; children: React.ReactNode }) {
+  const wrapRef   = useRef<HTMLDivElement>(null)
+  const heightRef = useRef<number>(0)
+  const [visible, setVisible] = useState(true)
+
+  useEffect(() => {
+    if (alwaysMounted) return
+    const el = wrapRef.current
+    if (!el) return
+
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true)
+        } else {
+          // Misura altezza reale prima di smontare
+          heightRef.current = el.getBoundingClientRect().height || heightRef.current
+          setVisible(false)
+        }
+      },
+      { rootMargin: VIRTUAL_MARGIN, threshold: 0 }
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [alwaysMounted])
+
+  return (
+    <div ref={wrapRef} style={!visible && heightRef.current ? { height: heightRef.current } : undefined}>
+      {(visible || alwaysMounted) ? children : null}
+    </div>
+  )
+})
 
 // ── PostCard ──────────────────────────────────────────────────────────────────
 
@@ -2108,12 +2150,14 @@ export default function FeedPage() {
                   )}
                 </div>
               ) : (
-                displayedPosts.map(post => (
-                  <PostCard key={post.id} post={post} currentUser={currentUser}
-                    isLiking={likingIds.has(post.id)} locale={locale}
-                    onLike={toggleLike} onOpenModal={setModalPostId}
-                    onCategoryClick={handleCategoryClick}
-                    onPostOptions={handlePostOptions} />
+                displayedPosts.map((post, idx) => (
+                  <VirtualPostCard key={post.id} index={idx} alwaysMounted={idx < 5}>
+                    <PostCard post={post} currentUser={currentUser}
+                      isLiking={likingIds.has(post.id)} locale={locale}
+                      onLike={toggleLike} onOpenModal={setModalPostId}
+                      onCategoryClick={handleCategoryClick}
+                      onPostOptions={handlePostOptions} />
+                  </VirtualPostCard>
                 ))
               )}
 

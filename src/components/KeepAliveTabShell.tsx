@@ -423,7 +423,11 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
       const isNeighbor  = currentIdx !== -1 && Math.abs(panelIdx - currentIdx) === 1
       if (isNeighbor) {
         const tx = panelIdx < currentIdx ? '-100%' : '100%'
-        return { ...base, ...frozen, transform: `translateX(${tx})`, zIndex: 0, pointerEvents: 'none', visibility: 'hidden' }
+        // content-visibility:auto: browser skippa layout/paint del subtree quando fuori viewport.
+        // contain-intrinsic-size fissa le dimensioni per evitare layout shift al ripristino.
+        return { ...base, ...frozen, transform: `translateX(${tx})`, zIndex: 0, pointerEvents: 'none', visibility: 'hidden',
+          contentVisibility: 'auto' as CSSProperties['contentVisibility'],
+          containIntrinsicSize: '100vw 100dvh' as CSSProperties['containIntrinsicSize'] }
       }
       return { ...base, ...frozen, transform: 'translateX(-300%)', zIndex: 0, pointerEvents: 'none', visibility: 'hidden',
         contentVisibility: 'hidden' as CSSProperties['contentVisibility'] }
@@ -440,35 +444,50 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
 
   const profileUsername = latestProfileUsername.current
 
+  // Fix 7: shouldMount — smonta panel a distanza ≥3 dal tab corrente per liberare memoria.
+  // I panel a distanza 1-2 restano nel DOM: servono per l'animazione swipe e il pre-load.
+  // I panel in adjLeft/adjRight (stanno animando) non vengono mai smontati mid-flight.
+  // Quando un panel smontato rientra nel range, viene re-montato (dati già in cache Supabase).
+  function shouldMount(panelTab: KATab): boolean {
+    if (!visited.current.has(panelTab)) return false           // mai visitato → non montare
+    if (tab === panelTab) return true                           // attivo → sempre montato
+    if (adjLeft === panelTab || adjRight === panelTab) return true // sta animando → non smontare
+    if (exitingTab === panelTab) return true                    // sta uscendo → non smontare
+    const currentIdx = tab ? TAB_IDX_TO_KA.indexOf(tab) : -1
+    const panelIdx   = TAB_IDX_TO_KA.indexOf(panelTab)
+    if (currentIdx === -1) return true
+    return Math.abs(panelIdx - currentIdx) <= 2                 // distanza ≤2 → mantieni
+  }
+
   return (
     <>
       <Activity mode={activityMode('feed')}>
         <PanelWrapper divRef={panelRefs.current['feed']} isActive={tab === 'feed'} style={getPanelStyle('feed')}>
-          {visited.current.has('feed') && <FeedPage />}
+          {shouldMount('feed') && <FeedPage />}
         </PanelWrapper>
       </Activity>
 
       <Activity mode={activityMode('discover')}>
         <PanelWrapper divRef={panelRefs.current['discover']} isActive={tab === 'discover'} style={getPanelStyle('discover')}>
-          {visited.current.has('discover') && <DiscoverPage />}
+          {shouldMount('discover') && <DiscoverPage />}
         </PanelWrapper>
       </Activity>
 
       <Activity mode={activityMode('for-you')}>
         <PanelWrapper divRef={panelRefs.current['for-you']} isActive={tab === 'for-you'} style={getPanelStyle('for-you')}>
-          {visited.current.has('for-you') && <ForYouPage />}
+          {shouldMount('for-you') && <ForYouPage />}
         </PanelWrapper>
       </Activity>
 
       <Activity mode={activityMode('swipe')}>
         <PanelWrapper divRef={panelRefs.current['swipe']} isActive={tab === 'swipe'} style={getPanelStyle('swipe')}>
-          {visited.current.has('swipe') && <SwipePage />}
+          {shouldMount('swipe') && <SwipePage />}
         </PanelWrapper>
       </Activity>
 
       <Activity mode={activityMode('profile')}>
         <PanelWrapper divRef={panelRefs.current['profile']} isActive={tab === 'profile'} style={getPanelStyle('profile')}>
-          {visited.current.has('profile') && profileUsername && (
+          {shouldMount('profile') && profileUsername && (
             <ProfilePage usernameOverride={profileUsername} />
           )}
         </PanelWrapper>
