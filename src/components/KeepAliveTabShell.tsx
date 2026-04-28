@@ -134,6 +134,14 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
   // Ref per le animazioni Motion in corso — permettono interruzione/cancellazione
   const animCurrentRef = useRef<ReturnType<typeof animate> | null>(null)
   const animAdjRef     = useRef<ReturnType<typeof animate> | null>(null)
+  // Flag: true quando il cambio tab è stato triggerato dallo swipe gesture.
+  // Serve per evitare che useEffect([tab]) stoppi le animazioni spring mid-flight.
+  const swipeAnimatingRef = useRef(false)
+  // Tab uscente durante lo swipe: tiene traccia del panel che sta animando verso fuori.
+  // Necessario perché dopo setActiveTab() il vecchio current non è più né adj né active,
+  // e getPanelStyle gli applicherebbe translateX(-300%) sovrascrivendo l'animazione.
+  const [exitingTab, setExitingTab] = useState<KATab | null>(null)
+  const exitingTabRef = useRef<KATab | null>(null)
 
   useEffect(() => {
     swipeNavBridge.register(
@@ -180,10 +188,8 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
       // onSnap: usa Motion animate() con spring fisica
       // targetX: destinazione in px (±viewport width o 0 per snap-back)
       // velocityParam: velocity del dito al rilascio (passata alla spring)
-      // onComplete: callback da chiamare dopo che ENTRAMBE le animazioni finiscono
-      //   (current esce + incoming entra). Usato per aggiornare il tab React state
-      //   senza interferire con l'animazione in corso.
-      (targetX: number, velocityParam: number, onComplete?: () => void) => {
+      // _unused: era la durata fissa — ora ignorata, usa spring
+      (targetX: number, velocityParam: number | string, _unused: number) => {
         const currentEl = tabRef.current ? panelRefs.current[tabRef.current]?.current : null
         const leftEl    = adjLeftRef.current  ? panelRefs.current[adjLeftRef.current]?.current  : null
         const rightEl   = adjRightRef.current ? panelRefs.current[adjRightRef.current]?.current : null
@@ -265,27 +271,22 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
           }
         } else {
           // NAVIGAZIONE CONFERMATA: current esce, incoming entra.
+          // Segnala che il cambio tab è avvenuto via swipe: useEffect([tab])
+          // salterà il reset dei transform lasciando le spring completarsi.
+          swipeAnimatingRef.current = true
+          // Traccia il panel uscente: getPanelStyle lo mantiene visibile con zIndex 1
+          // senza sovrascrivere il transform (gestito da Motion).
+          const outgoingTab = tabRef.current
+          if (outgoingTab) {
+            exitingTabRef.current = outgoingTab
+            setExitingTab(outgoingTab)
+          }
           // Passiamo la velocity del dito alla spring in modo che la pagina
           // "continui" il momentum del dito → feel nativo iOS/Android.
           // La velocity da use-gesture è in px/ms → Motion animate() vuole px/s → *1000
           // Clamppiamo a un massimo ragionevole per evitare snap istantaneo su swipe molto veloci
           const clampedVelocity = Math.sign(velocityPxPerSec) * Math.min(Math.abs(velocityPxPerSec), 3000)
           const incomingEl = targetX > 0 ? leftEl : rightEl
-
-          // Coordina onComplete: chiamarlo solo quando ENTRAMBE le animazioni finiscono.
-          // Se chiamato prima (es. solo currentEl finisce), React aggiorna il tab
-          // e sovrascrive i transform dell'incomingEl ancora in animazione.
-          let completedCount = 0
-          const totalAnimations = (currentEl ? 1 : 0) + (incomingEl ? 1 : 0)
-          // Ritorna true quando entrambe le animazioni sono finite
-          function checkBothComplete(): boolean {
-            completedCount++
-            if (completedCount >= totalAnimations) {
-              onComplete?.()
-              return true
-            }
-            return false
-          }
 
           if (currentEl) {
             const fromX = getCurrentX(currentEl)
@@ -301,13 +302,8 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
                   currentEl.style.transform  = `translateX(${targetX > 0 ? '100%' : '-100%'})`
                   currentEl.style.willChange = ''
                   animCurrentRef.current = null
-                  const bothDone = checkBothComplete()
-                  if (bothDone) {
-                    adjLeftRef.current  = null
-                    adjRightRef.current = null
-                    setAdjLeft(null)
-                    setAdjRight(null)
-                  }
+                  exitingTabRef.current = null
+                  setExitingTab(null)
                 },
               }
             )
@@ -326,27 +322,17 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
                 onComplete: () => {
                   incomingEl.style.transform  = ''
                   incomingEl.style.willChange = ''
+                  adjLeftRef.current  = null
+                  adjRightRef.current = null
+                  setAdjLeft(null)
+                  setAdjRight(null)
                   animAdjRef.current = null
-                  // checkBothComplete → onComplete (→ setActiveTab) viene chiamato
-                  // quando ENTRAMBE le animazioni finiscono.
-                  // setAdjLeft/Right vengono resettate solo dopo, nello stesso batch,
-                  // così getPanelStyle vede tab già aggiornato → stile corretto.
-                  const bothDone = checkBothComplete()
-                  if (bothDone) {
-                    adjLeftRef.current  = null
-                    adjRightRef.current = null
-                    setAdjLeft(null)
-                    setAdjRight(null)
-                  }
                 },
               }
             )
           } else {
             adjLeftRef.current = null; adjRightRef.current = null
             setAdjLeft(null); setAdjRight(null)
-            // Se non c'è incomingEl, conta comunque come completato
-            if (totalAnimations > 0) checkBothComplete()
-            else onComplete?.()
           }
         }
       },
@@ -355,7 +341,15 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
   }, []) // eslint-disable-line
 
   useEffect(() => {
-    // Cancella animazioni in corso al cambio tab da navbar/back
+    // Se il cambio tab è avvenuto via swipe, le animazioni spring stanno già
+    // portando i panel nella posizione corretta: non le interrompiamo.
+    // (Si puliscono da sole nel loro onComplete.)
+    if (swipeAnimatingRef.current) {
+      swipeAnimatingRef.current = false
+      return
+    }
+
+    // Cambio tab da navbar / back button: cancella animazioni residue e resetta.
     animCurrentRef.current?.stop()
     animAdjRef.current?.stop()
     animCurrentRef.current = null
@@ -380,16 +374,23 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
     if (adjRight === panelTab) {
       return { ...base, transform: 'translateX(100%)', zIndex: 1, pointerEvents: 'none', visibility: 'visible' }
     }
+    // Panel uscente durante swipe: lo manteniamo visibile con zIndex 1 e senza
+    // sovrascrivere il transform (che Motion sta animando verso ±100%).
+    // Il transform viene gestito interamente da Motion via el.style.transform diretto.
+    if (exitingTab === panelTab) {
+      return { ...base, zIndex: 1, pointerEvents: 'none', visibility: 'visible' }
+    }
     if (visited.current.has(panelTab)) {
       return { ...base, transform: 'translateX(-300%)', zIndex: 0, pointerEvents: 'none', visibility: 'hidden',
         contentVisibility: 'hidden' as CSSProperties['contentVisibility'] }
     }
     return { display: 'none' }
-  }, [tab, adjLeft, adjRight])
+  }, [tab, adjLeft, adjRight, exitingTab])
 
   function activityMode(panelTab: KATab): 'visible' | 'hidden' {
     if (tab === panelTab) return 'visible'
     if (adjLeft === panelTab || adjRight === panelTab) return 'visible'
+    if (exitingTab === panelTab) return 'visible'
     return 'hidden'
   }
 

@@ -5,11 +5,8 @@ type StartFn = (prevIdx: number | null, nextIdx: number | null) => void
 type EndFn   = () => void
 type DragFn  = (dx: number) => void
 // velocity: velocity del dito al rilascio (px/ms da use-gesture)
-// onComplete: callback chiamato DOPO che l'animazione spring finisce.
-//   CRITICO: setActiveTab() e history.replaceState() vanno chiamati qui dentro,
-//   NON prima di notifySnap. Chiamarli prima triggera un React re-render che
-//   sovrascrive i DOM transform mid-animation → snap istantaneo visibile.
-type SnapFn  = (targetX: number, velocity: number, onComplete?: () => void) => void
+// _unused: era la durata fissa — ora ignorata, usa spring Motion
+type SnapFn  = (targetX: number, velocity: number, _unused: number) => void
 
 export const swipeNavBridge = {
   _start: null as StartFn | null,
@@ -30,7 +27,5 @@ export const swipeNavBridge = {
   notifyStart(prevIdx: number | null, nextIdx: number | null) { this._start?.(prevIdx, nextIdx) },
   notifyEnd()                                                  { this._end?.() },
   notifyDrag(dx: number)                                       { this._drag?.(dx) },
-  notifySnap(targetX: number, velocity: number, onComplete?: () => void) {
-    this._snap?.(targetX, velocity, onComplete)
-  },
+  notifySnap(targetX: number, velocity: number, _unused: number) { this._snap?.(targetX, velocity, _unused) },
 }

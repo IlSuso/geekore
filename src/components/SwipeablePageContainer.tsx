@@ -176,23 +176,19 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
       if (shouldNav && mx > 0 && prevTabRef.current) {
         const dest = prevTabRef.current
         const tab  = pathnameToTab(dest)
-        // CRITICO: setActiveTab e history DEVONO essere chiamati nell'onComplete,
-        // NON prima di notifySnap. Chiamarli prima triggera un React re-render
-        // che sovrascrive i DOM transform mid-animation → snap istantaneo.
-        swipeNavBridge.notifySnap(w, vx, () => {
-          if (tab) setActiveTab(tab)
-          window.history.replaceState(null, '', dest)
-        })
+        if (tab) setActiveTab(tab)
+        // Passa velocity al bridge — KeepAliveTabShell la usa per la spring
+        swipeNavBridge.notifySnap(w, vx, 0) // terzo param: 0 = usa spring (non durata fissa)
+        window.history.replaceState(null, '', dest)
       } else if (shouldNav && mx < 0 && nextTabRef.current) {
         const dest = nextTabRef.current
         const tab  = pathnameToTab(dest)
-        swipeNavBridge.notifySnap(-w, vx, () => {
-          if (tab) setActiveTab(tab)
-          window.history.replaceState(null, '', dest)
-        })
+        if (tab) setActiveTab(tab)
+        swipeNavBridge.notifySnap(-w, vx, 0)
+        window.history.replaceState(null, '', dest)
       } else {
         // Snap-back con spring
-        swipeNavBridge.notifySnap(0, vx)
+        swipeNavBridge.notifySnap(0, vx, 0)
         swipeNavBridge.notifyEnd()
       }
 
