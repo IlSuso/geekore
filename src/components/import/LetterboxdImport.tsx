@@ -34,7 +34,7 @@ function FileDropZone({
 }: {
   label: string; sublabel?: string; hint: string
   state: FileState; setter: (s: FileState) => void
-  inputRef: React.RefObject<HTMLInputElement>; disabled: boolean
+  inputRef: React.RefObject<HTMLInputElement | null>; disabled: boolean
 }) {
   const validate = (file: File): string | null => {
     if (!file.name.endsWith('.csv') && !file.type.includes('csv') && file.type !== 'text/plain')
