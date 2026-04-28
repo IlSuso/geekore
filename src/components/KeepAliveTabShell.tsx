@@ -160,17 +160,21 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
         animCurrentRef.current?.stop()
         animAdjRef.current?.stop()
 
+        const w = window.innerWidth
+
         if (currentEl) {
           currentEl.style.willChange = 'transform'
           currentEl.style.transform  = dx !== 0 ? `translateX(${dx}px)` : ''
         }
         if (leftEl) {
           leftEl.style.willChange = 'transform'
-          leftEl.style.transform  = `translateX(calc(-100% + ${dx}px))`
+          // Usiamo px puro invece di calc() per evitare problemi di parsing con dx negativo
+          leftEl.style.transform  = `translateX(${-w + dx}px)`
         }
         if (rightEl) {
           rightEl.style.willChange = 'transform'
-          rightEl.style.transform  = `translateX(calc(100% + ${dx}px))`
+          // Usiamo px puro invece di calc() per evitare problemi di parsing con dx negativo
+          rightEl.style.transform  = `translateX(${w + dx}px)`
         }
       },
       // onSnap: usa Motion animate() con spring fisica
@@ -184,20 +188,23 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
         const isLeft    = !!adjLeftRef.current
         const adjEl     = leftEl ?? rightEl
 
-        // Calcola posizione corrente del panel dal suo style.transform
-        // Gestisce sia px (durante drag) che % (posizione iniziale da React style)
+        // Calcola posizione corrente del panel dal suo style.transform.
+        // Durante il drag usiamo sempre px puri → i primi due casi coprono tutto.
+        // Il caso calc() rimane come fallback di sicurezza per stati residui.
         function getCurrentX(el: HTMLElement): number {
           const t = el.style.transform
           if (!t) return 0
-          // Caso px: translateX(123px)
+          // Caso px: translateX(123px) o translateX(-45px)
           const mPx = t.match(/translateX\((-?[\d.]+)px\)/)
           if (mPx) return parseFloat(mPx[1])
           // Caso %: translateX(-100%) o translateX(100%)
           const mPct = t.match(/translateX\((-?[\d.]+)%\)/)
           if (mPct) return (parseFloat(mPct[1]) / 100) * window.innerWidth
-          // Caso calc: translateX(calc(-100% + 23px)) — durante drag adiacente
+          // Caso calc (fallback): translateX(calc(-100% + 23px)) o translateX(calc(100% + -45px))
           const mCalc = t.match(/translateX\(calc\((-?[\d.]+)%\s*\+\s*(-?[\d.]+)px\)\)/)
           if (mCalc) return (parseFloat(mCalc[1]) / 100) * window.innerWidth + parseFloat(mCalc[2])
+          const mCalcSub = t.match(/translateX\(calc\((-?[\d.]+)%\s*-\s*([\d.]+)px\)\)/)
+          if (mCalcSub) return (parseFloat(mCalcSub[1]) / 100) * window.innerWidth - parseFloat(mCalcSub[2])
           return 0
         }
 
@@ -256,9 +263,11 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
           }
         } else {
           // NAVIGAZIONE CONFERMATA: current esce, incoming entra.
-          // NON passiamo velocity alla spring — la velocity alta causa snap istantaneo
-          // perché Motion interpreta "stai già andando veloce verso la dest" e finisce subito.
-          // La spring con stiffness/damping dà già un feel naturale senza velocity iniziale.
+          // Passiamo la velocity del dito alla spring in modo che la pagina
+          // "continui" il momentum del dito → feel nativo iOS/Android.
+          // La velocity da use-gesture è in px/ms → Motion animate() vuole px/s → *1000
+          // Clamppiamo a un massimo ragionevole per evitare snap istantaneo su swipe molto veloci
+          const clampedVelocity = Math.sign(velocityPxPerSec) * Math.min(Math.abs(velocityPxPerSec), 3000)
           const incomingEl = targetX > 0 ? leftEl : rightEl
 
           if (currentEl) {
@@ -267,7 +276,7 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
               fromX, targetX,
               {
                 ...SPRING_NAV,
-                // velocity: omessa intenzionalmente — vedi commento sopra
+                velocity: clampedVelocity,
                 onUpdate: (v: number) => {
                   currentEl.style.transform = `translateX(${v}px)`
                 },
@@ -286,7 +295,7 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
               fromX, 0,
               {
                 ...SPRING_NAV,
-                // velocity: omessa intenzionalmente
+                velocity: clampedVelocity,
                 onUpdate: (v: number) => {
                   incomingEl.style.transform = v !== 0 ? `translateX(${v}px)` : ''
                 },
