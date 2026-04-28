@@ -218,7 +218,8 @@ interface SwipeCardProps {
 
 function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, onDetailOpen, onUndo, canUndo, onClose, onWishlist, hideClose }: SwipeCardProps) {
   const cardRef = useRef<HTMLDivElement>(null)
-  const startX = useRef(0); const currentX = useRef(0); const isDragging = useRef(false)
+  const startX = useRef(0); const startY = useRef(0); const currentX = useRef(0); const isDragging = useRef(false)
+  const dirLocked = useRef<'card' | 'page' | null>(null)
   const [dragX, setDragX] = useState(0)
   const [isFlying, setIsFlying] = useState(false)
   const [flyDir, setFlyDir] = useState<'left'|'right'|'down'|null>(null)
@@ -236,13 +237,37 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (!isTop || (e.target as HTMLElement).closest('button,[data-stars]')) return
-    isDragging.current = true; startX.current = e.clientX; currentX.current = 0
-    cardRef.current?.setPointerCapture(e.pointerId)
+    isDragging.current = true
+    dirLocked.current = null
+    startX.current = e.clientX
+    startY.current = e.clientY
+    currentX.current = 0
+    // NON acquisire subito il capture — aspettiamo di capire la direzione
   }, [isTop])
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!isDragging.current || !isTop) return
-    const dx = e.clientX - startX.current; currentX.current = dx; setDragX(dx)
+    const dx = e.clientX - startX.current
+    const dy = e.clientY - startY.current
+
+    // Lock direzionale: decide se il gesto e'' per la card o per la navigazione pagina
+    if (dirLocked.current === null) {
+      const absX = Math.abs(dx), absY = Math.abs(dy)
+      if (absX < 5 && absY < 5) return
+      if (absX > absY) {
+        // Orizzontale -> navigazione pagina: NON catturare il pointer
+        dirLocked.current = 'page'
+        isDragging.current = false
+        return
+      } else {
+        // Verticale/diagonale -> drag della card: acquisiamo il capture ora
+        dirLocked.current = 'card'
+        cardRef.current?.setPointerCapture(e.pointerId)
+      }
+    }
+
+    if (dirLocked.current !== 'card') return
+    currentX.current = dx; setDragX(dx)
   }, [isTop])
 
   const handlePointerUp = useCallback(() => {
