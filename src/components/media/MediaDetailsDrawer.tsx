@@ -2,7 +2,7 @@
 // DESTINAZIONE: src/components/media/MediaDetailsDrawer.tsx
 // V5: + boardgame (meccaniche, designer, link BGG) + book (autori, pagine, ISBN, link Google Books)
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { gestureState } from '@/hooks/gestureState'
 import { androidBack } from '@/hooks/androidBack'
@@ -603,7 +603,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
             {/* Stats grid */}
             {(() => {
-              const cells: JSX.Element[] = []
+              const cells: React.ReactElement[] = []
               if (media.matchScore != null) cells.push(
                 <div key="match" className="bg-violet-500/10 border border-violet-500/25 rounded-xl p-3 text-center">
                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Match</p>

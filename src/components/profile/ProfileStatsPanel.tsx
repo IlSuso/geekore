@@ -2,7 +2,7 @@
 // src/components/profile/ProfileStatsPanel.tsx
 // Layout pulito e simmetrico: griglia tipi media + metriche + generi
 
-import { useMemo } from 'react'
+import React, { useMemo } from 'react'
 import { Star, Clock, Tv, Layers } from 'lucide-react'
 
 type UserMedia = {
@@ -62,7 +62,7 @@ export function ProfileStatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
     stats.animeHours > 0  && { icon: <Clock size={13} />,    label: 'Ore di anime',  value: `~${stats.animeHours}h` },
     stats.mangaChapters > 0 && { icon: <Layers size={13} />, label: 'Cap. manga',  value: `${stats.mangaChapters}` },
     stats.avgRating       && { icon: <Star size={13} />,      label: 'Voto medio',   value: stats.avgRating },
-  ].filter(Boolean) as { icon: JSX.Element; label: string; value: string }[]
+  ].filter(Boolean) as { icon: React.ReactElement; label: string; value: string }[]
 
   if (stats.total === 0) return null
 

@@ -4,7 +4,7 @@
 // M6: locale dinamica via useLocale() invece di { it } hardcoded
 // A6: fix locale lazy import
 
-import { useState, useEffect, memo } from 'react'
+import React, { useState, useEffect, memo } from 'react'
 import { Flame, MessageSquare, Send, Loader2, Pin, Trash2 } from 'lucide-react'
 import { UserBadge } from '@/components/ui/UserBadge'
 import { createClient } from '@/lib/supabase/client'
@@ -68,7 +68,7 @@ export interface FeedCardProps {
   onLikeChange?: (postId: string, delta: number) => void
 }
 
-export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardProps): JSX.Element {
+export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardProps): React.ReactElement {
   const supabase = createClient()
   const { locale } = useLocale()
 
