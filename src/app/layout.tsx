@@ -13,9 +13,7 @@ const jakarta = Plus_Jakarta_Sans({
 import { ClientProviders } from '@/components/ClientProviders'
 import { Footer } from '@/components/Footer'
 import { MobileHeader } from '@/components/MobileHeader'
-import { SwipeablePageContainer } from '@/components/SwipeablePageContainer'
-import { KeepAliveTabShell } from '@/components/KeepAliveTabShell'
-import { MainShell } from '@/components/MainShell'
+import { AppShell } from '@/components/AppShell'
 import { ActiveTabProvider } from '@/context/ActiveTabContext'
 import { cookies, headers } from 'next/headers'
 
@@ -54,9 +52,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const localeCookie = cookieStore.get('geekore_locale')?.value
   const initialLocale = localeCookie === 'en' ? 'en' : 'it'
 
-  // Legge il pathname dalla request server-side per inizializzare
-  // ActiveTabProvider con il tab corretto fin dal primo render,
-  // eliminando il flash da null → tab.
   const headersList = await headers()
   const initialPathname = headersList.get('x-pathname') ?? headersList.get('x-invoke-path') ?? '/home'
 
@@ -74,18 +69,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body suppressHydrationWarning className={`${jakarta.variable} bg-black text-white min-h-screen antialiased`}>
         <ActiveTabProvider initialPathname={initialPathname}>
-        <ClientProviders initialLocale={initialLocale}>
-          <SwipeablePageContainer>
-            <MainShell>
-              <KeepAliveTabShell>
-                {children}
-              </KeepAliveTabShell>
-            </MainShell>
-          </SwipeablePageContainer>
-          <Footer />
-          <MobileHeader />
-          <Navbar />
-        </ClientProviders>
+          <ClientProviders initialLocale={initialLocale}>
+            <AppShell>
+              {children}
+            </AppShell>
+            <Footer />
+            <MobileHeader />
+            <Navbar />
+          </ClientProviders>
         </ActiveTabProvider>
       </body>
     </html>
