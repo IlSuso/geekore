@@ -4,7 +4,9 @@
 type StartFn = (prevIdx: number | null, nextIdx: number | null) => void
 type EndFn   = () => void
 type DragFn  = (dx: number) => void
-type SnapFn  = (targetX: number, easing: string, duration: number) => void
+// velocity: velocity del dito al rilascio (px/ms da use-gesture)
+// _unused: era la durata fissa — ora ignorata, usa spring Motion
+type SnapFn  = (targetX: number, velocity: number, _unused: number) => void
 
 export const swipeNavBridge = {
   _start: null as StartFn | null,
@@ -25,5 +27,5 @@ export const swipeNavBridge = {
   notifyStart(prevIdx: number | null, nextIdx: number | null) { this._start?.(prevIdx, nextIdx) },
   notifyEnd()                                                  { this._end?.() },
   notifyDrag(dx: number)                                       { this._drag?.(dx) },
-  notifySnap(targetX: number, easing: string, duration: number) { this._snap?.(targetX, easing, duration) },
+  notifySnap(targetX: number, velocity: number, _unused: number) { this._snap?.(targetX, velocity, _unused) },
 }
