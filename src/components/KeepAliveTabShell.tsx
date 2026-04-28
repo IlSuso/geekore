@@ -185,13 +185,23 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
         const adjEl     = leftEl ?? rightEl
 
         // Calcola posizione corrente del panel dal suo style.transform
+        // Gestisce sia px (durante drag) che % (posizione iniziale da React style)
         function getCurrentX(el: HTMLElement): number {
           const t = el.style.transform
-          const m = t.match(/translateX\(([^)]+)px\)/)
-          return m ? parseFloat(m[1]) : 0
+          if (!t) return 0
+          // Caso px: translateX(123px)
+          const mPx = t.match(/translateX\((-?[\d.]+)px\)/)
+          if (mPx) return parseFloat(mPx[1])
+          // Caso %: translateX(-100%) o translateX(100%)
+          const mPct = t.match(/translateX\((-?[\d.]+)%\)/)
+          if (mPct) return (parseFloat(mPct[1]) / 100) * window.innerWidth
+          // Caso calc: translateX(calc(-100% + 23px)) — durante drag adiacente
+          const mCalc = t.match(/translateX\(calc\((-?[\d.]+)%\s*\+\s*(-?[\d.]+)px\)\)/)
+          if (mCalc) return (parseFloat(mCalc[1]) / 100) * window.innerWidth + parseFloat(mCalc[2])
+          return 0
         }
 
-        // Velocity del dito in px/s per Motion (use-gesture dà px/ms, *1000 per px/s)
+        // Velocity del dito: use-gesture dà vx in px/ms → Motion animate() vuole px/s → *1000
         const velocityPxPerSec = typeof velocityParam === 'number'
           ? velocityParam * 1000
           : 0

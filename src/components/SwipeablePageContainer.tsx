@@ -23,9 +23,12 @@ import { useActiveTab, pathnameToTab } from '@/context/ActiveTabContext'
 
 export const TAB_ORDER = ['/home', '/discover', '/for-you', '/swipe', '/profile/me']
 
-// Soglia distanza: 28% viewport per confermare navigazione
-const THRESHOLD = 0.28
-const EDGE      = 20  // dead zone bordi schermo per gesture di sistema
+// Soglia distanza: 40% viewport per confermare navigazione (allineato a iOS)
+// Oppure swipe veloce: vx > 0.5 px/ms con spostamento minimo 30px
+const THRESHOLD     = 0.40
+const VEL_THRESHOLD = 0.5   // px/ms — use-gesture vx è già in px/ms
+const MIN_DIST_VEL  = 30    // px minimi anche con velocity alta (evita trigger accidentali)
+const EDGE          = 20    // dead zone bordi schermo per gesture di sistema
 
 // Spring parameters — calibrati per feel nativo iOS/Android:
 //   stiffness alta = risposta immediata, damping alto = nessun rimbalzo
@@ -92,7 +95,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   // La struttura rimane identica: swipeNavBridge.notifyDrag(dx) → KeepAliveTabShell muove i DOM.
 
   const bind = useDrag(
-    ({ first, last, active, movement: [mx], velocity: [vx], xy: [x], event, cancel, memo }) => {
+    ({ first, last, active, movement: [mx, my], velocity: [vx], xy: [x], event, cancel, memo }) => {
       if (!isMain) return memo
 
       // Blocca se altri gesti sono attivi
@@ -106,13 +109,32 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
         const w = window.innerWidth
         if (x <= EDGE || x >= w - EDGE) { cancel(); return memo }
         bridgeStarted.current = false
-        return memo
+        // memo = { locked: null } — lock direzionale non ancora determinato
+        return { locked: null }
       }
+
+      // Lock direzionale: decidi la direzione dominante al primo movimento significativo
+      // Evita swipe accidentali durante scroll verticale
+      const memoState = (memo ?? { locked: null }) as { locked: 'x' | 'y' | null }
+      if (memoState.locked === null) {
+        const absX2 = Math.abs(mx)
+        const absY2 = Math.abs(my)
+        if (absX2 < 6 && absY2 < 6) return memoState // troppo poco per decidere
+        if (absY2 > absX2 * 0.8) {
+          // Prevalentemente verticale → cancella swipe
+          cancel()
+          return { locked: 'y' }
+        }
+        memoState.locked = 'x'
+      }
+
+      // Se abbiamo già lockato sul verticale, non fare nulla
+      if (memoState.locked === 'y') return memoState
 
       // Cedi a scroller orizzontali interni
       if (!gestureState.pageSwipeZone && isHorizontalScroller(event?.target ?? null, mx)) {
         cancel()
-        return memo
+        return memoState
       }
 
       const w    = window.innerWidth
@@ -132,24 +154,24 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
         // Resistenza elastica ai bordi (primo/ultimo tab)
         if (mx > 0 && !prevTabRef.current) {
           swipeNavBridge.notifyDrag(Math.pow(mx, 0.55) * 0.35)
-          return memo
+          return memoState
         }
         if (mx < 0 && !nextTabRef.current) {
           swipeNavBridge.notifyDrag(-Math.pow(-mx, 0.55) * 0.35)
-          return memo
+          return memoState
         }
 
         swipeNavBridge.notifyDrag(mx)
-        return memo
+        return memoState
       }
 
       // Rilascio (last === true)
       gestureState.swipeActive = false
-      if (!bridgeStarted.current) return memo
+      if (!bridgeStarted.current) return memoState
 
-      // Naviga se: spostamento > soglia OPPURE swipe veloce (vx > 0.4)
-      // La velocity viene passata alla spring per un feel proporzionale alla velocità del dito
-      const shouldNav = absX > w * THRESHOLD || Math.abs(vx) > 0.4
+      // Naviga se: spostamento > soglia OPPURE swipe veloce abbastanza con distanza minima
+      // vx da use-gesture è in px/ms
+      const shouldNav = absX > w * THRESHOLD || (Math.abs(vx) > VEL_THRESHOLD && absX > MIN_DIST_VEL)
 
       if (shouldNav && mx > 0 && prevTabRef.current) {
         const dest = prevTabRef.current
@@ -171,10 +193,11 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
       }
 
       bridgeStarted.current = false
-      return memo
+      return memoState
     },
     {
-      axis: 'x',
+      // Rimuoviamo axis:'x' — gestiamo il lock direzionale manualmente
+      // per avere pieno controllo: blocca lo swipe se prevalentemente verticale
       filterTaps: true,
       pointer: { touch: true },
       threshold: 4,
