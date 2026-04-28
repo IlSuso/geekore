@@ -5,6 +5,7 @@ import { X, Edit3, CheckCircle, RotateCcw, RefreshCw, Loader2, Clock, Trash2 } f
 import { StarRating } from '@/components/ui/StarRating'
 import { gestureState } from '@/hooks/gestureState'
 import { androidBack } from '@/hooks/androidBack'
+import { optimizeCover } from '@/lib/imageOptimizer'
 
 // ─── InlineChapterInput ───────────────────────────────────────────────────────
 
@@ -323,9 +324,11 @@ export function MobileMediaModal({
             <div className="flex justify-center">
               <div className="w-32 rounded-2xl overflow-hidden bg-zinc-800 flex-shrink-0" style={{ aspectRatio: '2/3' }}>
                 <img
-                  src={media.cover_image}
+                  src={optimizeCover(media.cover_image, 'profile-cover')}
                   alt={media.title}
                   className="w-full h-full object-cover"
+                  loading="eager"
+                  decoding="async"
                   onError={() => setImgFailed(true)}
                 />
               </div>

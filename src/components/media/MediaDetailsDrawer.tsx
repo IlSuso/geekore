@@ -6,7 +6,6 @@ import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { gestureState } from '@/hooks/gestureState'
 import { androidBack } from '@/hooks/androidBack'
-import Image from 'next/image'
 import {
   X, ExternalLink, Star, Clock, Users, Layers,
   Gamepad2, Film, Tv, Clapperboard, Check, Bookmark,
@@ -15,6 +14,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { StarRating } from '@/components/ui/StarRating'
 import { translateGenre } from '@/lib/genres'
+import { optimizeCover } from '@/lib/imageOptimizer'
 
 // ─── Tipi ─────────────────────────────────────────────────────────────────────
 
@@ -501,7 +501,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
         <div className="flex gap-4 p-5 pr-12 border-b border-zinc-800/60 flex-shrink-0">
           <div className="flex-shrink-0 w-20 h-28 rounded-xl overflow-hidden bg-zinc-800 shadow-lg ring-1 ring-white/10">
             {media.coverImage
-              ? <img src={media.coverImage} alt={media.title} className="w-full h-full object-cover" />
+              ? <img src={optimizeCover(media.coverImage, 'drawer-cover')} alt={media.title} className="w-full h-full object-cover" loading="eager" decoding="async" />
               : <div className="w-full h-full flex items-center justify-center"><Icon size={28} className="text-zinc-600" /></div>}
           </div>
 
@@ -813,7 +813,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                     <div key={rel.id} className="flex-shrink-0 w-16">
                       <div className="relative h-24 rounded-xl overflow-hidden bg-zinc-800 mb-1">
                         {rel.coverImage
-                          ? <Image src={rel.coverImage} alt={rel.title} fill className="object-cover" sizes="64px" loading="lazy" />
+                          ? <img src={optimizeCover(rel.coverImage, 'drawer-related')} alt={rel.title} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                           : <div className="w-full h-full flex items-center justify-center text-zinc-700"><Tv size={28} /></div>}
                         <div className="absolute top-1 left-1 bg-amber-500/90 text-[7px] font-bold px-1 py-0.5 rounded text-white">
                           {RELATION_LABEL[rel.relationType] || rel.relationType}

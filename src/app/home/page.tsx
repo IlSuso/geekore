@@ -508,14 +508,9 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
                     className={`w-full flex items-center gap-3 px-3 py-2 text-left border-b border-zinc-800/60 last:border-0 transition-colors ${
                       idx === activeSuggestion ? 'bg-violet-600/20' : 'hover:bg-zinc-800/80'
                     }`}>
-                    {result.image ? (
-                      <img src={result.image} alt="" className="w-7 h-10 object-cover rounded-lg flex-shrink-0 bg-zinc-800"
-                        onError={e => { e.currentTarget.style.display = 'none' }} />
-                    ) : (
-                      <div className="w-7 h-10 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                        <CategoryIcon category={selectedCat} size={12} className="text-zinc-600" />
-                      </div>
-                    )}
+                    <div className="w-7 h-10 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                      <CategoryIcon category={selectedCat} size={12} className="text-zinc-600" />
+                    </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-semibold text-white truncate">{result.title}</p>
                       {result.subtitle && <p className="text-[11px] text-zinc-500">{result.subtitle}</p>}
@@ -697,14 +692,9 @@ function CategoryFilter({
                   {suggestions.map(result => (
                     <button key={result.id} onClick={() => applyFilter(`${activeMacro}:${result.title}`)}
                       className="w-full flex items-center gap-3 px-3 py-2 text-left border-b border-zinc-800/60 last:border-0 hover:bg-zinc-800/80 transition-colors">
-                      {result.image ? (
-                        <img src={result.image} alt="" className="w-7 h-10 object-cover rounded-lg flex-shrink-0 bg-zinc-800"
-                          onError={e => { e.currentTarget.style.display = 'none' }} />
-                      ) : (
-                        <div className="w-7 h-10 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                          <CategoryIcon category={activeMacro} size={12} className="text-zinc-600" />
-                        </div>
-                      )}
+                      <div className="w-7 h-10 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                        <CategoryIcon category={activeMacro} size={12} className="text-zinc-600" />
+                      </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-semibold text-white truncate">{result.title}</p>
                         {result.subtitle && <p className="text-[11px] text-zinc-500">{result.subtitle}</p>}
@@ -1575,9 +1565,51 @@ export default function FeedPage() {
     setIsPublishing(false)
   }
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Compressione client-side via canvas.
+  // Max 1200px wide (sufficiente per qualsiasi feed mobile/desktop), quality 0.82 JPEG.
+  // L'output è già quello che verrà uploadato: preview = risultato finale, zero sorprese.
+  const compressImage = (file: File): Promise<{ blob: Blob; previewUrl: string }> =>
+    new Promise((resolve, reject) => {
+      const img = new window.Image()
+      const objectUrl = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl)
+        const MAX_W = 1200
+        let { width, height } = img
+        if (width > MAX_W) { height = Math.round((height * MAX_W) / width); width = MAX_W }
+        const canvas = document.createElement('canvas')
+        canvas.width = width; canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { reject(new Error('canvas not available')); return }
+        ctx.drawImage(img, 0, 0, width, height)
+        canvas.toBlob(
+          blob => {
+            if (!blob) { reject(new Error('compression failed')); return }
+            const previewUrl = URL.createObjectURL(blob)
+            resolve({ blob, previewUrl })
+          },
+          'image/jpeg',
+          0.82
+        )
+      }
+      img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('load failed')) }
+      img.src = objectUrl
+    })
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) { setSelectedImage(file); setImagePreview(URL.createObjectURL(file)) }
+    if (!file) return
+    try {
+      const { blob, previewUrl } = await compressImage(file)
+      // Converti il blob compresso in File per mantenerlo compatibile con il resto del codice
+      const compressed = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })
+      setSelectedImage(compressed)
+      setImagePreview(previewUrl)
+    } catch {
+      // Fallback: usa il file originale senza compressione
+      setSelectedImage(file)
+      setImagePreview(URL.createObjectURL(file))
+    }
   }
 
   const toggleLike = useCallback(async (postId: string) => {

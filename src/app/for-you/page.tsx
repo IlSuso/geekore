@@ -131,7 +131,7 @@ const ContinuitySection = memo(function ContinuitySection({ items, onFeedback, o
             <div key={item.id} className="flex-shrink-0 w-44 group relative cursor-pointer" onClick={() => onDetail?.(item)}>
               <div className="relative h-64 rounded-2xl overflow-hidden bg-zinc-900 mb-2">
                 {item.coverImage
-                  ? <img src={optimizeCover(item.coverImage, 'foryou-card')} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" />
+                  ? <img src={optimizeCover(item.coverImage, 'foryou-card-small')} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" />
                   : <div className="w-full h-full flex items-center justify-center"><Icon size={36} className="text-zinc-700" /></div>
                 }
                 <div className="absolute inset-0 ring-2 ring-amber-500/40 rounded-2xl pointer-events-none" />
@@ -180,7 +180,7 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
         onClick={() => onDetail?.(item)}
       >
         {item.coverImage
-          ? <img src={optimizeCover(item.coverImage, 'foryou-card')} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+          ? <img src={optimizeCover(item.coverImage, 'foryou-card-large')} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
           : <div className="w-full h-full flex items-center justify-center"><Icon size={32} className="text-zinc-700" /></div>
         }
         {/* Bordo inset sottile — invisibile su cover colorate, separa quelle nere dallo sfondo */}
@@ -360,7 +360,7 @@ function SimilarSearchBar({ onSearch, loading }: {
               {/* Copertina */}
               <div className="w-8 h-11 rounded-xl overflow-hidden bg-zinc-800 flex-shrink-0">
                 {s.coverImage
-                  ? <img src={optimizeCover(s.coverImage, 'foryou-card')} alt="" className="w-full h-full object-cover" loading="lazy" />
+                  ? <img src={optimizeCover(s.coverImage, 'drawer-cover')} alt="" className="w-full h-full object-cover" loading="lazy" />
                   : <div className="w-full h-full" />
                 }
               </div>
@@ -675,7 +675,7 @@ const FriendsWatchingSection = memo(function FriendsWatchingSection({ items }: {
           <Link key={`${a.userId}-${a.mediaId}`} href={`/profile/${a.username}`} className="flex-shrink-0 w-28 group">
             <div className="relative h-40 rounded-2xl overflow-hidden bg-zinc-800 mb-2">
               {a.mediaCover
-                ? <img src={optimizeCover(a.mediaCover, 'foryou-card')} alt={a.mediaTitle} className="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" />
+                ? <img src={optimizeCover(a.mediaCover, 'foryou-friend')} alt={a.mediaTitle} className="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" />
                 : <div className="w-full h-full flex items-center justify-center text-zinc-600"><Tv size={28} /></div>
               }
               <div className="absolute bottom-2 left-2 ring-2 ring-black rounded-full">

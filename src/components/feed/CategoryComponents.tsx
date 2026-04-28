@@ -340,14 +340,9 @@ export function CategorySelector({ value, onChange }: {
                 {suggestions.map((result, idx) => (
                   <button key={result.id} type="button" onClick={() => selectSuggestion(result)}
                     className={`w-full flex items-center gap-3 px-3 py-2 text-left border-b border-zinc-800/60 last:border-0 transition-colors ${idx === activeSuggestion ? 'bg-violet-600/20' : 'hover:bg-zinc-800/80'}`}>
-                    {result.image ? (
-                      <img src={result.image} alt="" className="w-7 h-10 object-cover rounded-lg flex-shrink-0 bg-zinc-800"
-                        onError={e => { e.currentTarget.style.display = 'none' }} />
-                    ) : (
-                      <div className="w-7 h-10 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                        <CategoryIcon category={selectedCat} size={12} className="text-zinc-600" />
-                      </div>
-                    )}
+                    <div className="w-7 h-10 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                      <CategoryIcon category={selectedCat} size={12} className="text-zinc-600" />
+                    </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-semibold text-white truncate">{result.title}</p>
                       {result.subtitle && <p className="text-[11px] text-zinc-500">{result.subtitle}</p>}
@@ -505,14 +500,9 @@ export function CategoryFilter({
                   {suggestions.map(result => (
                     <button key={result.id} onClick={() => applyFilter(`${activeMacro}:${result.title}`)}
                       className="w-full flex items-center gap-3 px-3 py-2 text-left border-b border-zinc-800/60 last:border-0 hover:bg-zinc-800/80 transition-colors">
-                      {result.image ? (
-                        <img src={result.image} alt="" className="w-7 h-10 object-cover rounded-lg flex-shrink-0 bg-zinc-800"
-                          onError={e => { e.currentTarget.style.display = 'none' }} />
-                      ) : (
-                        <div className="w-7 h-10 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                          <CategoryIcon category={activeMacro} size={12} className="text-zinc-600" />
-                        </div>
-                      )}
+                      <div className="w-7 h-10 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                        <CategoryIcon category={activeMacro} size={12} className="text-zinc-600" />
+                      </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-semibold text-white truncate">{result.title}</p>
                         {result.subtitle && <p className="text-[11px] text-zinc-500">{result.subtitle}</p>}
