@@ -444,19 +444,11 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
 
   const profileUsername = latestProfileUsername.current
 
-  // Fix 7: shouldMount — smonta panel a distanza ≥3 dal tab corrente per liberare memoria.
-  // I panel a distanza 1-2 restano nel DOM: servono per l'animazione swipe e il pre-load.
-  // I panel in adjLeft/adjRight (stanno animando) non vengono mai smontati mid-flight.
-  // Quando un panel smontato rientra nel range, viene re-montato (dati già in cache Supabase).
+  // shouldMount — una volta che un panel è stato visitato, rimane SEMPRE montato nel DOM.
+  // Non c'è smontaggio per distanza: lo stato della pagina viene preservato indefinitamente.
   function shouldMount(panelTab: KATab): boolean {
-    if (!visited.current.has(panelTab)) return false           // mai visitato → non montare
-    if (tab === panelTab) return true                           // attivo → sempre montato
-    if (adjLeft === panelTab || adjRight === panelTab) return true // sta animando → non smontare
-    if (exitingTab === panelTab) return true                    // sta uscendo → non smontare
-    const currentIdx = tab ? TAB_IDX_TO_KA.indexOf(tab) : -1
-    const panelIdx   = TAB_IDX_TO_KA.indexOf(panelTab)
-    if (currentIdx === -1) return true
-    return Math.abs(panelIdx - currentIdx) <= 2                 // distanza ≤2 → mantieni
+    if (!visited.current.has(panelTab)) return false  // mai visitato → non montare
+    return true                                        // visitato → sempre montato
   }
 
   return (
