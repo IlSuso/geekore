@@ -206,16 +206,15 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
           ? velocityParam * 1000
           : 0
 
-        const snapConfig = targetX === 0 ? SPRING_BACK : SPRING_NAV
-
         if (targetX === 0) {
-          // SNAP-BACK: tutto torna alla posizione di riposo
+          // SNAP-BACK: tutto torna alla posizione di riposo.
+          // Passiamo velocity solo qui — serve per il "respingimento" naturale del dito.
           if (currentEl) {
             const fromX = getCurrentX(currentEl)
             animCurrentRef.current = animate(
               fromX, 0,
               {
-                ...snapConfig,
+                ...SPRING_BACK,
                 velocity: velocityPxPerSec,
                 onUpdate: (v: number) => {
                   currentEl.style.transform = v !== 0 ? `translateX(${v}px)` : ''
@@ -230,11 +229,12 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
           }
           if (adjEl) {
             const fromX   = getCurrentX(adjEl)
-            const restPos = isLeft ? -window.innerWidth : window.innerWidth
+            // restPos: panel sinistro torna a sinistra (-w), panel destro torna a destra (+w)
+            const restPos = adjLeftRef.current ? -window.innerWidth : window.innerWidth
             animAdjRef.current = animate(
               fromX, restPos,
               {
-                ...snapConfig,
+                ...SPRING_BACK,
                 velocity: velocityPxPerSec,
                 onUpdate: (v: number) => {
                   adjEl.style.transform = `translateX(${v}px)`
@@ -255,7 +255,10 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
             setAdjLeft(null); setAdjRight(null)
           }
         } else {
-          // NAVIGAZIONE CONFERMATA: current esce, incoming entra
+          // NAVIGAZIONE CONFERMATA: current esce, incoming entra.
+          // NON passiamo velocity alla spring — la velocity alta causa snap istantaneo
+          // perché Motion interpreta "stai già andando veloce verso la dest" e finisce subito.
+          // La spring con stiffness/damping dà già un feel naturale senza velocity iniziale.
           const incomingEl = targetX > 0 ? leftEl : rightEl
 
           if (currentEl) {
@@ -263,13 +266,12 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
             animCurrentRef.current = animate(
               fromX, targetX,
               {
-                ...snapConfig,
-                velocity: velocityPxPerSec,
+                ...SPRING_NAV,
+                // velocity: omessa intenzionalmente — vedi commento sopra
                 onUpdate: (v: number) => {
                   currentEl.style.transform = `translateX(${v}px)`
                 },
                 onComplete: () => {
-                  // Dopo la transizione: resetta il panel uscente fuori schermo
                   currentEl.style.transform  = `translateX(${targetX > 0 ? '100%' : '-100%'})`
                   currentEl.style.willChange = ''
                   animCurrentRef.current = null
@@ -283,8 +285,8 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
             animAdjRef.current = animate(
               fromX, 0,
               {
-                ...snapConfig,
-                velocity: velocityPxPerSec,
+                ...SPRING_NAV,
+                // velocity: omessa intenzionalmente
                 onUpdate: (v: number) => {
                   incomingEl.style.transform = v !== 0 ? `translateX(${v}px)` : ''
                 },
