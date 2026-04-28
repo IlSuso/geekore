@@ -16,6 +16,7 @@ import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { createClient } from '@/lib/supabase/client'
 import { profileInvalidateBridge } from '@/hooks/profileInvalidateBridge'
 import { gestureState } from '@/hooks/gestureState'
+import { useTabActive } from '@/context/TabActiveContext'
 
 type SwipeMediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame'
 
@@ -214,9 +215,11 @@ interface SwipeCardProps {
   onUndo: () => void; canUndo: boolean; onClose: () => void
   onWishlist: (item: SwipeItem) => void
   hideClose?: boolean
+  /** Quando false (panel nascosto), disabilita touchAction:none per non sprecare risorse */
+  panelActive?: boolean
 }
 
-function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, onDetailOpen, onUndo, canUndo, onClose, onWishlist, hideClose }: SwipeCardProps) {
+function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, onDetailOpen, onUndo, canUndo, onClose, onWishlist, hideClose, panelActive = true }: SwipeCardProps) {
   const cardRef = useRef<HTMLDivElement>(null)
   const startX = useRef(0); const startY = useRef(0); const currentX = useRef(0); const isDragging = useRef(false)
   const dirLocked = useRef<'card' | 'page' | null>(null)
@@ -293,13 +296,13 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
   return (
     <div ref={cardRef}
       className={`absolute inset-0 select-none ${isTop ? 'cursor-grab active:cursor-grabbing' : 'pointer-events-none'}`}
-      style={{ touchAction: isTop ? 'none' : 'auto',
+      style={{ touchAction: isTop && panelActive ? 'none' : 'auto',
         transform: isTop
           ? `translateX(${translateX}) translateY(${translateY}) rotate(${rotation}deg)`
           : `scale(${stackScale}) translateY(${stackY}px)`,
         transition: isDragging.current ? 'none' : 'transform .34s cubic-bezier(.25,.46,.45,.94), opacity .34s ease',
         opacity: isFlying ? 0 : 1 - stackIndex * 0.12,
-        zIndex: 10 - stackIndex, willChange: 'transform',
+        zIndex: 10 - stackIndex, willChange: isTop && dragX !== 0 ? 'transform' : 'auto',
       }}
       onPointerDown={handlePointerDown} onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp}
@@ -473,6 +476,10 @@ function PageNavZone({ bottomOffset }: { bottomOffset: string }) {
 
 export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequestMore, standalone = false, isOnboarding = false, onOnboardingComplete, onUndo: onUndoCallback, onUndoWishlist }: SwipeModeProps) {
   const supabase = createClient()
+  // Quando standalone=true, SwipeMode vive nel panel KeepAlive del tab for-you.
+  // isTabActive=false significa che il panel e' nascosto: disabilitiamo touchAction:none
+  // sulle card per evitare che catturino pointer events inutilmente fuori schermo.
+  const isTabActive = useTabActive()
   const [activeFilter, setActiveFilter] = useState<CategoryFilter>('all')
 
   // RATING: ref aggiornato in sincronia con lo stato — la closure del setTimeout
@@ -819,6 +826,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
                   onWishlist={handleWishlist}
                   onClose={isOnboarding && onOnboardingComplete ? onOnboardingComplete : onClose}
                   hideClose={standalone}
+                  panelActive={isTabActive}
                 />
               ))}
             </div>

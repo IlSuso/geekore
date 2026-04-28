@@ -244,6 +244,15 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
 .cv-auto-sm { content-visibility: auto; contain-intrinsic-size: 0 200px; }
 .gpu-layer  { will-change: transform; transform: translateZ(0); }
 
+/* Perf: ferma tutte le animazioni CSS dentro panel nascosti (KeepAliveTabShell).
+   visibility:hidden viene impostato da getPanelStyle su tutti i panel non attivi
+   e non adiacenti. Questo elimina il costo GPU di animate-pulse/spin/bounce
+   che girano inutilmente fuori schermo. */
+[style*="visibility: hidden"] *,
+[style*="visibility:hidden"] * {
+  animation-play-state: paused !important;
+}
+
 /* ── Scroll snap ─────────────────────────────────────────────────────────── */
 .snap-x { scroll-snap-type: x mandatory; }
 .snap-mandatory { scroll-snap-type: x mandatory; }

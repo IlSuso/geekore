@@ -376,16 +376,22 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
     if (tab === panelTab) {
       return { ...base, zIndex: 2, pointerEvents: 'auto', visibility: 'visible' }
     }
+    // FIX PERF: panel non attivi hanno overflowY:hidden — fermano lo scroll engine
+    // del browser su quei panel, riducendo il compositing overhead durante lo swipe.
+    // I panel adj durante lo swipe (adjLeft/adjRight) restano 'hidden' perché
+    // non devono essere scrollabili mentre entrano/escono — ma rimangono visibili.
+    const frozen = { overflowY: 'hidden' as const }
+
     if (adjLeft === panelTab) {
-      return { ...base, transform: 'translateX(-100%)', zIndex: 1, pointerEvents: 'none', visibility: 'visible' }
+      return { ...base, ...frozen, transform: 'translateX(-100%)', zIndex: 1, pointerEvents: 'none', visibility: 'visible' }
     }
     if (adjRight === panelTab) {
-      return { ...base, transform: 'translateX(100%)', zIndex: 1, pointerEvents: 'none', visibility: 'visible' }
+      return { ...base, ...frozen, transform: 'translateX(100%)', zIndex: 1, pointerEvents: 'none', visibility: 'visible' }
     }
     // Panel uscente durante swipe: lo manteniamo visibile con zIndex 1 e senza
     // sovrascrivere il transform (che Motion sta animando verso ±100%).
     if (exitingTab === panelTab) {
-      return { ...base, zIndex: 1, pointerEvents: 'none', visibility: 'visible' }
+      return { ...base, ...frozen, zIndex: 1, pointerEvents: 'none', visibility: 'visible' }
     }
     if (visited.current.has(panelTab)) {
       // Panel visitato (o pre-montato): posizionalo fuori schermo nella direzione corretta.
@@ -396,9 +402,9 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
       const isNeighbor  = currentIdx !== -1 && Math.abs(panelIdx - currentIdx) === 1
       if (isNeighbor) {
         const tx = panelIdx < currentIdx ? '-100%' : '100%'
-        return { ...base, transform: `translateX(${tx})`, zIndex: 0, pointerEvents: 'none', visibility: 'hidden' }
+        return { ...base, ...frozen, transform: `translateX(${tx})`, zIndex: 0, pointerEvents: 'none', visibility: 'hidden' }
       }
-      return { ...base, transform: 'translateX(-300%)', zIndex: 0, pointerEvents: 'none', visibility: 'hidden',
+      return { ...base, ...frozen, transform: 'translateX(-300%)', zIndex: 0, pointerEvents: 'none', visibility: 'hidden',
         contentVisibility: 'hidden' as CSSProperties['contentVisibility'] }
     }
     return { display: 'none' }
