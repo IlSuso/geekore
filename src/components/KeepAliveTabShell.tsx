@@ -107,6 +107,14 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
 
   const visited = useRef<Set<KATab>>(new Set())
   if (tab) visited.current.add(tab)
+  // Pre-monta proattivamente i panel adiacenti al tab corrente.
+  // Così quando l'utente inizia a swipare verso un panel mai visitato,
+  // il suo DOM esiste già e onSnap può animarlo invece di farlo apparire di scatto.
+  if (tab) {
+    const idx = TAB_IDX_TO_KA.indexOf(tab)
+    if (idx > 0) visited.current.add(TAB_IDX_TO_KA[idx - 1] as KATab)
+    if (idx < TAB_IDX_TO_KA.length - 1) visited.current.add(TAB_IDX_TO_KA[idx + 1] as KATab)
+  }
 
   useEffect(() => {
     if (pathnameTab !== null) setActiveTab(pathnameTab)
@@ -376,11 +384,20 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
     }
     // Panel uscente durante swipe: lo manteniamo visibile con zIndex 1 e senza
     // sovrascrivere il transform (che Motion sta animando verso ±100%).
-    // Il transform viene gestito interamente da Motion via el.style.transform diretto.
     if (exitingTab === panelTab) {
       return { ...base, zIndex: 1, pointerEvents: 'none', visibility: 'visible' }
     }
     if (visited.current.has(panelTab)) {
+      // Panel visitato (o pre-montato): posizionalo fuori schermo nella direzione corretta.
+      // I vicini immediati del tab attivo ottengono ±100% (pronti per lo swipe),
+      // tutti gli altri vanno a -300% (nascosti lontano).
+      const currentIdx  = tab ? TAB_IDX_TO_KA.indexOf(tab) : -1
+      const panelIdx    = TAB_IDX_TO_KA.indexOf(panelTab)
+      const isNeighbor  = currentIdx !== -1 && Math.abs(panelIdx - currentIdx) === 1
+      if (isNeighbor) {
+        const tx = panelIdx < currentIdx ? '-100%' : '100%'
+        return { ...base, transform: `translateX(${tx})`, zIndex: 0, pointerEvents: 'none', visibility: 'hidden' }
+      }
       return { ...base, transform: 'translateX(-300%)', zIndex: 0, pointerEvents: 'none', visibility: 'hidden',
         contentVisibility: 'hidden' as CSSProperties['contentVisibility'] }
     }
