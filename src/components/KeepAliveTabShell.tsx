@@ -33,16 +33,17 @@ const HEADER_TOP   = `calc(env(safe-area-inset-top, 0px) + ${HEADER_H_PX}px)`
 const PANEL_HEIGHT = `calc(100dvh - env(safe-area-inset-top, 0px) - ${HEADER_H_PX}px)`
 const FULL_SCREEN_TABS = new Set<KATab>(['swipe'])
 
-// Spring per navigazione confermata — stiff + alto damping = nessun rimbalzo, feel nativo
-const SPRING_NAV = {
-  type: 'spring' as const,
-  stiffness: 400,
-  damping: 40,
-  mass: 1,
-  restDelta: 0.5,
-  restSpeed: 0.5,
+// Navigazione confermata: tween easeOut con durata fissa.
+// Le app native (Instagram, iOS) usano easing curve + durata fissa per lo swipe confermato,
+// NON una spring physics — la spring è ottima per snap-back (dipende dalla posizione),
+// ma per la navigazione confermata la durata fissa garantisce sempre un'animazione percepibile.
+// Con una spring + velocity alta, il completamento avviene in <80ms → sembra istantaneo.
+const TWEEN_NAV = {
+  ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number], // easeOutQuart — identico a iOS
+  duration: 0.28, // 280ms — percettibile ma veloce, allineato a iOS page transitions
 }
-// Spring per snap-back (torna indietro) — leggermente più morbido
+// Spring per snap-back (torna indietro) — spring physics qui ha senso: la posizione di destinazione
+// è sempre 0, la distanza dipende da quanto ha spostato il dito → la spring calibra da sola.
 const SPRING_BACK = {
   type: 'spring' as const,
   stiffness: 300,
@@ -263,11 +264,9 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
           }
         } else {
           // NAVIGAZIONE CONFERMATA: current esce, incoming entra.
-          // Passiamo la velocity del dito alla spring in modo che la pagina
-          // "continui" il momentum del dito → feel nativo iOS/Android.
-          // La velocity da use-gesture è in px/ms → Motion animate() vuole px/s → *1000
-          // Clamppiamo a un massimo ragionevole per evitare snap istantaneo su swipe molto veloci
-          const clampedVelocity = Math.sign(velocityPxPerSec) * Math.min(Math.abs(velocityPxPerSec), 3000)
+          // Usiamo tween easeOut con durata fissa (come iOS/Instagram) invece di spring physics.
+          // La spring + velocity alta produce completamento in <80ms → invisibile.
+          // La tween 280ms easeOutQuart è sempre percepibile e dà il feel "accompagnato" nativo.
           const incomingEl = targetX > 0 ? leftEl : rightEl
 
           if (currentEl) {
@@ -275,8 +274,7 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
             animCurrentRef.current = animate(
               fromX, targetX,
               {
-                ...SPRING_NAV,
-                velocity: clampedVelocity,
+                ...TWEEN_NAV,
                 onUpdate: (v: number) => {
                   currentEl.style.transform = `translateX(${v}px)`
                 },
@@ -294,8 +292,7 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
             animAdjRef.current = animate(
               fromX, 0,
               {
-                ...SPRING_NAV,
-                velocity: clampedVelocity,
+                ...TWEEN_NAV,
                 onUpdate: (v: number) => {
                   incomingEl.style.transform = v !== 0 ? `translateX(${v}px)` : ''
                 },
