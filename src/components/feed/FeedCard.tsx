@@ -13,6 +13,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { ReportButton } from '@/components/ui/ReportButton'
 import { Avatar } from '@/components/ui/Avatar'
 import { useLocale } from '@/lib/locale'
+import { optimizeImage } from '@/lib/imageOptimizer'
 
 async function getDateLocale(locale: string) {
   if (locale === 'en') {
@@ -266,9 +267,11 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
       {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
         <div className="mx-3 md:mx-4 mb-3.5 md:mb-4 rounded-xl md:rounded-2xl overflow-hidden border border-zinc-800">
           <img
-            src={post.image_url}
+            src={optimizeImage(post.image_url, 'feed-post')}
             alt={`Immagine del post di ${profile?.username || 'utente'}`}
             className="w-full max-h-[340px] md:max-h-[420px] object-cover"
+            loading="lazy"
+            decoding="async"
           />
         </div>
       )}

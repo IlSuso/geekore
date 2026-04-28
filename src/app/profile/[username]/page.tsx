@@ -43,6 +43,7 @@ import { ProfileActivityFeed } from '@/components/profile/ProfileActivityFeed'
 import { NotesModal } from '@/components/profile/NotesModal'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
+import { optimizeCover } from '@/lib/imageOptimizer'
 
 // ─── Cache ───────────────────────────────────────────────────────────────────
 
@@ -291,7 +292,7 @@ function MediaCard({
     if (media.cover_image && !imgFailed) {
       return (
         <img
-          src={media.cover_image}
+          src={optimizeCover(media.cover_image, 'profile-cover')}
           alt={displayTitle}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           onError={(e) => {
@@ -302,7 +303,7 @@ function MediaCard({
                 : media.cover_image!.includes('anilist.co')
                 ? '&referer=https://anilist.co'
                 : ''
-              img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=jpg${referer}`
+              img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=webp${referer}`
             } else {
               setImgFailed(true)
             }
@@ -727,9 +728,11 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
           <SteamCoverImg appid={media.appid} title={displayTitle} />
         ) : media.cover_image && !rowImgFailed ? (
           <img
-            src={media.cover_image}
+            src={optimizeCover(media.cover_image, 'profile-grid')}
             alt={displayTitle}
             className="w-full h-full object-cover"
+            loading="lazy"
+            decoding="async"
             onError={(e) => {
               const img = e.target as HTMLImageElement
               if (!img.src.includes('wsrv.nl')) {
@@ -738,7 +741,7 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
                   : media.cover_image!.includes('anilist.co')
                   ? '&referer=https://anilist.co'
                   : ''
-                img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=jpg${referer}`
+                img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=220&output=webp${referer}`
               } else {
                 setRowImgFailed(true)
               }

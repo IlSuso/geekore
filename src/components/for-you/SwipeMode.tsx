@@ -17,6 +17,7 @@ import { createClient } from '@/lib/supabase/client'
 import { profileInvalidateBridge } from '@/hooks/profileInvalidateBridge'
 import { gestureState } from '@/hooks/gestureState'
 import { useTabActive } from '@/context/TabActiveContext'
+import { optimizeCover } from '@/lib/imageOptimizer'
 
 type SwipeMediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame'
 
@@ -309,7 +310,7 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
     >
       <div className="relative w-full h-full rounded-3xl overflow-hidden bg-zinc-900 shadow-2xl shadow-black/80">
         {item.coverImage
-          ? <img src={item.coverImage} alt={item.title} className="absolute inset-0 w-full h-full object-cover" draggable={false} />
+          ? <img src={optimizeCover(item.coverImage, 'swipe-card')} alt={item.title} className="absolute inset-0 w-full h-full object-cover" draggable={false} loading="eager" decoding="async" />
           : <div className="absolute inset-0 flex items-center justify-center bg-zinc-900"><Icon size={64} className="text-zinc-700" /></div>
         }
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, #000 0%, rgba(0,0,0,0.93) 18%, rgba(0,0,0,0.65) 36%, rgba(0,0,0,0.2) 58%, rgba(0,0,0,0.42) 100%)' }} />
@@ -780,7 +781,7 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
           <div className="absolute inset-0 z-0 pointer-events-none" aria-hidden>
             <img
               key={topCoverImage}
-              src={topCoverImage}
+              src={optimizeCover(topCoverImage, 'background-blur')}
               alt=""
               className="absolute inset-0 w-full h-full object-cover"
               style={{ filter: 'blur(32px)', transform: 'scale(1.12)', opacity: 0.55 }}

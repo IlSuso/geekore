@@ -18,6 +18,7 @@ import { PullToRefreshIndicator } from '@/components/ui/ErrorState';
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer';
 import { EmptyState } from '@/components/ui/EmptyState'
 import { profileInvalidateBridge } from '@/hooks/profileInvalidateBridge';
+import { optimizeCover } from '@/lib/imageOptimizer';
 
 type MediaItem = {
   id: string; title: string; title_en?: string; type: string; coverImage?: string; year?: number;
@@ -533,7 +534,7 @@ export default function DiscoverPage() {
                   <div className="aspect-[2/3] overflow-hidden bg-[var(--bg-card)] rounded-xl">
                     {hasValidCover(item)
                       ? <img
-                          src={item.coverImage}
+                          src={optimizeCover(item.coverImage, 'discover-card')}
                           alt={`Copertina di ${item.title} (${TYPE_LABELS[item.type] || item.type})`}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           loading="lazy"
