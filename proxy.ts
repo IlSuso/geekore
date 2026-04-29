@@ -12,9 +12,11 @@ const CSP = isDev
       "img-src * data: blob:",
       "font-src 'self' data:",
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.steampowered.com https://graphql.anilist.co https://api.themoviedb.org https://api.igdb.com https://cdn.cloudflare.steamstatic.com https://s4.anilist.co https://image.tmdb.org https://images.igdb.com https://cf.geekdo-images.com",
+      "object-src 'none'",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
+      "upgrade-insecure-requests",
     ].join('; ')
 
 export async function proxy(request: NextRequest) {
