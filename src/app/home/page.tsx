@@ -20,7 +20,7 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { useUser } from '@/context/AuthContext'
+import { useAuth } from '@/context/AuthContext'
 import { User } from '@supabase/supabase-js'
 import {
   Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X,
@@ -1253,7 +1253,7 @@ export default function FeedPage() {
   const pageRef = useRef(0)
   const supabase = createClient()
   // PERF FIX: user da AuthContext — nessun getUser() extra
-  const authUser = useUser()
+  const { user: authUser, loading: authLoading } = useAuth()
   const { locale, t } = useLocale()
   const f = t.feed
 
@@ -1285,8 +1285,9 @@ export default function FeedPage() {
         setLoading(false)
       }
     }
+    if (authLoading) return // aspetta che l'auth sia risolto — evita il doppio render
     init(authUser)
-  }, [authUser]) // eslint-disable-line
+  }, [authUser, authLoading]) // eslint-disable-line
 
   const isActive = useTabActive()
 

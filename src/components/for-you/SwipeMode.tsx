@@ -389,28 +389,25 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
 }
 
 
-// ─── PageNavZone ───────────────────────────────────────────────────────────────
-// Fascia trasparente in basso che intercetta SOLO i gesti orizzontali
-// per forzare lo swipe-pagina invece dello swipe-card.
-// I tap (|dx| < 8px) non vengono toccati → i bottoni sotto ricevono il click.
-// Usa gestureState.pageSwipeZone per segnalare al SPC di bypassare data-no-swipe.
-function PageNavZone({ bottomOffset }: { bottomOffset: string }) {
+// ─── MobileSwipeStrip ──────────────────────────────────────────────────────────
+// Striscia SOLO mobile in basso nella swipe page.
+// pointerEvents: 'none' → i tap sui bottoni passano attraverso normalmente.
+// I gesti touch vengono ascoltati passivamente: se orizzontali, segnala
+// gestureState.pageSwipeZone = true così il SwipeablePageContainer
+// processa il gesto come swipe-pagina ignorando data-no-swipe.
+// Non esiste su desktop (isMobile check).
+function MobileSwipeStrip({ bottomOffset }: { bottomOffset: string }) {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    // Solo mobile: se non ci sono touch events non registriamo nulla
+    if (!('ontouchstart' in window)) return
     const el = ref.current
     if (!el) return
 
-    let startX = 0
-    let startY = 0
-    let decided = false
-    let isHoriz = false
+    let startX = 0, startY = 0, decided = false, isHoriz = false
 
-    const reset = () => {
-      decided = false
-      isHoriz = false
-      gestureState.pageSwipeZone = false
-    }
+    const reset = () => { decided = false; isHoriz = false; gestureState.pageSwipeZone = false }
 
     const onStart = (e: TouchEvent) => {
       startX = e.touches[0].clientX
@@ -421,17 +418,12 @@ function PageNavZone({ bottomOffset }: { bottomOffset: string }) {
     const onMove = (e: TouchEvent) => {
       const dx = e.touches[0].clientX - startX
       const dy = e.touches[0].clientY - startY
-
       if (!decided) {
-        if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return
+        if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return
         decided = true
-        isHoriz = Math.abs(dx) > Math.abs(dy) * 1.2
+        isHoriz = Math.abs(dx) > Math.abs(dy) * 1.3
       }
-
-      if (isHoriz) {
-        // Segnala al SPC che deve ignorare data-no-swipe
-        gestureState.pageSwipeZone = true
-      }
+      if (isHoriz) gestureState.pageSwipeZone = true
     }
 
     const onEnd = () => { gestureState.pageSwipeZone = false }
@@ -456,12 +448,11 @@ function PageNavZone({ bottomOffset }: { bottomOffset: string }) {
         left:          0,
         right:         0,
         bottom:        bottomOffset,
-        height:        '180px',   // copre stelle + bottoni + padding card
-        zIndex:        50,        // sopra le card (z-10) ma sotto i modal
-        pointerEvents: 'auto',    // deve ricevere i touch events
+        height:        '160px',
+        zIndex:        50,
+        pointerEvents: 'none', // ← tap passano attraverso ai bottoni
         touchAction:   'pan-y',
         background:    'transparent',
-        // debug: background: 'rgba(255,0,0,0.15)',
       }}
     />
   )
@@ -725,32 +716,25 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
 
   const topCoverImage = filteredQueue[0]?.coverImage
 
+  const navbarH = 'calc(49px + env(safe-area-inset-bottom, 0px))'
   const containerClass = standalone
-    ? 'fixed inset-0 md:pt-12 bg-black flex flex-col overflow-hidden'
+    ? 'fixed inset-0 bg-black flex flex-col overflow-hidden'
     : 'fixed inset-0 bg-black flex flex-col'
   const containerStyle = standalone ? {} : { zIndex: 9999 }
-
-  const filterPaddingTop = standalone
-    ? undefined
-    : { paddingTop: 'max(1rem, env(safe-area-inset-top))' }
-
-  const hintPaddingBottom = standalone
-    ? { paddingBottom: '0.75rem' }
-    : { paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }
+  const filterPaddingTop = { paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }
 
   return (
     <>
       <div className={containerClass} style={containerStyle}>
 
-        {/* Backdrop sfumato: visibile in standalone e onboarding */}
         {(standalone || isOnboarding) && (
           <div className="absolute inset-0 z-0 pointer-events-none" aria-hidden>
             <div className="absolute inset-0 bg-gradient-to-br from-violet-950/60 via-black to-zinc-900" />
           </div>
         )}
 
-        <div className={`relative z-10 flex-shrink-0 flex${standalone ? ' swipe-filter-padding md:justify-center md:px-4' : ' justify-center px-4'}`} style={filterPaddingTop}>
-          <div className={`flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide${standalone ? ' w-full px-3 md:w-auto md:px-0' : ''}`}>
+        <div className="relative z-10 flex-shrink-0 flex justify-center px-3" style={filterPaddingTop}>
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide w-full">
             {CATEGORIES.map(cat => (
               <button key={cat.key} onClick={() => handleFilterChange(cat.key)}
                 className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
@@ -762,7 +746,10 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
           </div>
         </div>
 
-        <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-1 min-h-0">
+        <div
+          className="relative z-10 flex-1 flex items-center justify-center px-4 min-h-0"
+          style={{ paddingBottom: standalone ? navbarH : '0.5rem' }}
+        >
           {filteredQueue.length === 0 ? (
             <LoadingScreen message={isLoadingMore ? 'Caricamento nuovi titoli' : 'Preparazione in corso'} />
           ) : (
@@ -770,8 +757,8 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
               data-no-swipe=""
               className="relative w-full"
               style={{
-                maxWidth: standalone ? 'min(420px, 90vw)' : '384px',
-                height: standalone ? 'min(680px, 100%)' : 'min(680px, 82svh)',
+                maxWidth: 'min(420px, 92vw)',
+                height: 'min(640px, 100%)',
               }}
             >
               {filteredQueue.slice(0, 3).map((item, idx) => (
@@ -792,23 +779,15 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
         </div>
 
         {filteredQueue.length > 0 && (
-          <>
-            <div className="relative z-10 text-center flex-shrink-0 select-none hidden md:block" style={hintPaddingBottom}>
-              <p className="text-zinc-600 text-xs pointer-events-none">← Skip &nbsp;·&nbsp; Visto →</p>
-            </div>
-            <div className="relative z-10 flex-shrink-0 md:hidden" style={hintPaddingBottom} />
-          </>
-        )}
-
-        {/* Mobile bottom-nav spacer — only in standalone since SwipeMode is fixed/fullscreen */}
-        {standalone && (
-          <div className="md:hidden flex-shrink-0" style={{ height: 'calc(49px + env(safe-area-inset-bottom, 0px))' }} />
+          <div className="relative z-10 text-center flex-shrink-0 select-none hidden md:block pb-3">
+            <p className="text-zinc-600 text-xs pointer-events-none">← Skip  ·  Visto →</p>
+          </div>
         )}
       </div>
 
-      {/* Fascia invisibile per swipe-pagina dal basso — solo standalone/mobile */}
+      {/* Striscia mobile per swipe-pagina — pointerEvents:none, tap passano ai bottoni */}
       {standalone && (
-        <PageNavZone bottomOffset="calc(49px + env(safe-area-inset-bottom, 0px))" />
+        <MobileSwipeStrip bottomOffset="calc(49px + env(safe-area-inset-bottom, 0px))" />
       )}
 
       {detailItem && (
