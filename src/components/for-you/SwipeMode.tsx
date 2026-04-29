@@ -240,7 +240,6 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
     startX.current = e.clientX
     startY.current = e.clientY
     currentX.current = 0
-    // NON acquisire subito il capture — aspettiamo di capire la direzione
   }, [isTop])
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
@@ -248,28 +247,29 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
     const dx = e.clientX - startX.current
     const dy = e.clientY - startY.current
 
-    // Lock direzionale: decide se il gesto e'' per la card o per la navigazione pagina
     if (dirLocked.current === null) {
       const absX = Math.abs(dx), absY = Math.abs(dy)
       if (absX < 5 && absY < 5) return
       if (absX > absY) {
-        // Orizzontale -> navigazione pagina: NON catturare il pointer
+        // Orizzontale → swipe card: cattura il pointer subito
+        dirLocked.current = 'card'
+        cardRef.current?.setPointerCapture(e.pointerId)
+      } else {
+        // Verticale → scroll pagina: rilascia
         dirLocked.current = 'page'
         isDragging.current = false
         return
-      } else {
-        // Verticale/diagonale -> drag della card: acquisiamo il capture ora
-        dirLocked.current = 'card'
-        cardRef.current?.setPointerCapture(e.pointerId)
       }
     }
 
     if (dirLocked.current !== 'card') return
-    currentX.current = dx; setDragX(dx)
+    currentX.current = dx
+    setDragX(dx)
   }, [isTop])
 
   const handlePointerUp = useCallback(() => {
-    if (!isDragging.current) return; isDragging.current = false
+    if (!isDragging.current) return
+    isDragging.current = false
     const dx = currentX.current
     if (Math.abs(dx) > SWIPE_THRESHOLD) triggerSwipe(dx > 0 ? 'right' : 'left')
     else setDragX(0)
@@ -291,7 +291,7 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
   return (
     <div ref={cardRef}
       className={`absolute inset-0 select-none ${isTop ? 'cursor-grab active:cursor-grabbing' : 'pointer-events-none'}`}
-      style={{ touchAction: isTop && panelActive ? 'none' : 'auto',
+      style={{ touchAction: isTop && panelActive ? 'pan-y' : 'auto',
         transform: isTop
           ? `translateX(${translateX}) translateY(${translateY}) rotate(${rotation}deg)`
           : `scale(${stackScale}) translateY(${stackY}px)`,
@@ -755,10 +755,10 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
           ) : (
             <div
               data-no-swipe=""
-              className="relative w-full"
+              className="relative w-full self-stretch"
               style={{
                 maxWidth: 'min(420px, 92vw)',
-                height: 'min(640px, 100%)',
+                margin: '0 auto',
               }}
             >
               {filteredQueue.slice(0, 3).map((item, idx) => (
