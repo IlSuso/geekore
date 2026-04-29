@@ -12,10 +12,8 @@ const config: CapacitorConfig = {
     allowMixedContent: false,
     captureInput: true,
     webContentsDebuggingEnabled: false,
-    // EdgeToEdge: la WebView si estende sotto status bar e gesture bar.
-    // env(safe-area-inset-bottom) riceve il valore reale → bottoni visibili.
-    edgeToEdge: true,
-  },
+    // EdgeToEdge gestito via MainActivity.java + styles.xml
+  } as any,
   plugins: {
     SplashScreen: {
       launchShowDuration: 1800,
