@@ -16,6 +16,7 @@ import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { createClient } from '@/lib/supabase/client'
 import { profileInvalidateBridge } from '@/hooks/profileInvalidateBridge'
 import { gestureState } from '@/hooks/gestureState'
+
 import { useTabActive } from '@/context/TabActiveContext'
 import { optimizeCover } from '@/lib/imageOptimizer'
 
@@ -210,70 +211,24 @@ interface SwipeCardProps {
   onUndo: () => void; canUndo: boolean; onClose: () => void
   onWishlist: (item: SwipeItem) => void
   hideClose?: boolean
-  /** Quando false (panel nascosto), disabilita touchAction:none per non sprecare risorse */
   panelActive?: boolean
+  starsRef?: React.RefObject<HTMLDivElement | null>
+  // Gesture controllate dall'esterno dal container unico
+  dragX?: number
+  isFlying?: boolean
+  flyDir?: 'left' | 'right' | 'down' | null
 }
 
-function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, onDetailOpen, onUndo, canUndo, onClose, onWishlist, hideClose, panelActive = true }: SwipeCardProps) {
-  const cardRef = useRef<HTMLDivElement>(null)
-  const startX = useRef(0); const startY = useRef(0); const currentX = useRef(0); const isDragging = useRef(false)
-  const dirLocked = useRef<'card' | 'page' | null>(null)
-  const [dragX, setDragX] = useState(0)
-  const [isFlying, setIsFlying] = useState(false)
-  const [flyDir, setFlyDir] = useState<'left'|'right'|'down'|null>(null)
+function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, onDetailOpen, onUndo, canUndo, onClose, onWishlist, hideClose, panelActive = true, starsRef, dragX = 0, isFlying = false, flyDir = null }: SwipeCardProps) {
   const Icon = TYPE_ICONS[item.type]
 
   const triggerSwipe = useCallback((dir: 'left'|'right') => {
-    setFlyDir(dir); setIsFlying(true)
-    setTimeout(() => onSwipe(dir, item), 340)
+    onSwipe(dir, item)
   }, [item, onSwipe])
 
   const triggerWishlist = useCallback(() => {
-    setFlyDir('down'); setIsFlying(true)
-    setTimeout(() => onWishlist(item), 340)
+    onWishlist(item)
   }, [item, onWishlist])
-
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (!isTop || (e.target as HTMLElement).closest('button,[data-stars]')) return
-    isDragging.current = true
-    dirLocked.current = null
-    startX.current = e.clientX
-    startY.current = e.clientY
-    currentX.current = 0
-  }, [isTop])
-
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!isDragging.current || !isTop) return
-    const dx = e.clientX - startX.current
-    const dy = e.clientY - startY.current
-
-    if (dirLocked.current === null) {
-      const absX = Math.abs(dx), absY = Math.abs(dy)
-      if (absX < 2 && absY < 2) return
-      if (absX > absY) {
-        // Orizzontale → swipe card: cattura il pointer subito
-        dirLocked.current = 'card'
-        cardRef.current?.setPointerCapture(e.pointerId)
-      } else {
-        // Verticale → scroll pagina: rilascia
-        dirLocked.current = 'page'
-        isDragging.current = false
-        return
-      }
-    }
-
-    if (dirLocked.current !== 'card') return
-    currentX.current = dx
-    setDragX(dx)
-  }, [isTop])
-
-  const handlePointerUp = useCallback(() => {
-    if (!isDragging.current) return
-    isDragging.current = false
-    const dx = currentX.current
-    if (Math.abs(dx) > SWIPE_THRESHOLD) triggerSwipe(dx > 0 ? 'right' : 'left')
-    else setDragX(0)
-  }, [triggerSwipe])
 
   if (stackIndex > 2) return null
 
@@ -289,18 +244,17 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
   const swipeProgress = Math.min(Math.abs(dragX) / SWIPE_THRESHOLD, 1)
 
   return (
-    <div ref={cardRef}
-      className={`absolute inset-0 select-none ${isTop ? 'cursor-grab active:cursor-grabbing' : 'pointer-events-none'}`}
-      style={{ touchAction: isTop && panelActive ? 'pan-y' : 'auto',
+    <div
+      className={`absolute inset-0 select-none ${isTop ? 'cursor-grab' : 'pointer-events-none'}`}
+      style={{
         transform: isTop
           ? `translateX(${translateX}) translateY(${translateY}) rotate(${rotation}deg)`
           : `scale(${stackScale}) translateY(${stackY}px)`,
-        transition: isDragging.current ? 'none' : 'transform .34s cubic-bezier(.25,.46,.45,.94), opacity .34s ease',
+        transition: isFlying || dragX !== 0 ? 'none' : 'transform .34s cubic-bezier(.25,.46,.45,.94), opacity .34s ease',
         opacity: isFlying ? 0 : 1 - stackIndex * 0.12,
-        zIndex: 10 - stackIndex, willChange: isTop && dragX !== 0 ? 'transform' : 'auto',
+        zIndex: 10 - stackIndex,
+        willChange: isTop && dragX !== 0 ? 'transform' : 'auto',
       }}
-      onPointerDown={handlePointerDown} onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp}
     >
       <div className="relative w-full h-full rounded-3xl overflow-hidden bg-zinc-900 shadow-2xl shadow-black/80">
         {item.coverImage
@@ -353,7 +307,7 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
             {item.episodes && item.type !== 'movie' && <span>{item.type === 'manga' ? `${item.episodes} cap.` : `${item.episodes} ep.`}</span>}
             {item.genres.length > 0 && <span className="text-white/50">· {item.genres.slice(0,2).join(', ')}</span>}
           </p>
-          <div data-stars="true" className={`flex items-center justify-center mb-4 ${!isTop ? 'opacity-0 pointer-events-none' : ''}`}>
+          <div ref={isTop ? starsRef : undefined} data-stars="true" className={`flex items-center justify-center mb-4 ${!isTop ? 'opacity-0 pointer-events-none' : ''}`}>
             <div className="bg-black/80 rounded-2xl px-2 py-1 ring-1 ring-white/10">
               <HalfStarRating rating={rating} onChange={onRatingChange} />
             </div>
@@ -389,74 +343,144 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
 }
 
 
-// ─── MobileSwipeStrip ──────────────────────────────────────────────────────────
-// Striscia SOLO mobile in basso nella swipe page.
-// pointerEvents: 'none' → i tap sui bottoni passano attraverso normalmente.
-// I gesti touch vengono ascoltati passivamente: se orizzontali, segnala
-// gestureState.pageSwipeZone = true così il SwipeablePageContainer
-// processa il gesto come swipe-pagina ignorando data-no-swipe.
-// Non esiste su desktop (isMobile check).
-function MobileSwipeStrip({ bottomOffset }: { bottomOffset: string }) {
-  const ref = useRef<HTMLDivElement>(null)
+// ─── Gesture system ────────────────────────────────────────────────────────────
+// Un unico container gestisce TUTTI i touch della swipe page.
+// La card non ha listener propri — è puramente visiva.
+// Il container decide in onTouchStart se il touch è nella "fascia page-swipe"
+// (sotto il bordo inferiore del box stelline) o nella "zona card" (sopra).
+// Le due zone sono mutualmente esclusive: mai in conflitto.
+
+type GestureZone = 'card' | 'page' | 'button' | null
+
+interface GestureState {
+  zone: GestureZone
+  startX: number
+  startY: number
+  currentX: number
+  decided: boolean
+  isDragging: boolean
+}
+
+function useSwipeGestures(
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  starsRef: React.RefObject<HTMLDivElement | null>,
+  isActive: boolean,
+  standalone: boolean,
+  onCardSwipe: (dx: number) => void,
+  onCardRelease: (dx: number) => void,
+) {
+  const gs = useRef<GestureState>({
+    zone: null, startX: 0, startY: 0, currentX: 0, decided: false, isDragging: false
+  })
 
   useEffect(() => {
-    // Solo mobile: se non ci sono touch events non registriamo nulla
-    if (!('ontouchstart' in window)) return
-    const el = ref.current
-    if (!el) return
+    const el = containerRef.current
+    if (!el || !isActive) return
 
-    let startX = 0, startY = 0, decided = false, isHoriz = false
-
-    const reset = () => { decided = false; isHoriz = false; gestureState.pageSwipeZone = false }
+    const getStarsBottom = (): number => {
+      if (!starsRef.current) return window.innerHeight
+      return starsRef.current.getBoundingClientRect().bottom
+    }
 
     const onStart = (e: TouchEvent) => {
-      startX = e.touches[0].clientX
-      startY = e.touches[0].clientY
-      reset()
+      const t = e.touches[0]
+      const target = e.target as HTMLElement
+      const clientY = t.clientY
+      const starsBottom = getStarsBottom()
+
+      if (target.closest('[data-stars]')) {
+        // Stelline: non intercettare mai
+        gs.current = { zone: null, startX: 0, startY: 0, currentX: 0, decided: false, isDragging: false }
+        return
+      }
+
+      if (target.closest('button')) {
+        // Bottone nella fascia (sotto le stelline): salva posizione.
+        // In onMove decideremo se è un tap (lascia il click) o uno swipe di pagina.
+        gs.current = { zone: 'button', startX: t.clientX, startY: clientY, currentX: 0, decided: false, isDragging: false }
+        return
+      }
+
+      if (standalone && clientY > starsBottom) {
+        gs.current = { zone: 'page', startX: t.clientX, startY: clientY, currentX: 0, decided: false, isDragging: false }
+      } else {
+        gs.current = { zone: 'card', startX: t.clientX, startY: clientY, currentX: 0, decided: false, isDragging: false }
+      }
     }
 
     const onMove = (e: TouchEvent) => {
-      const dx = e.touches[0].clientX - startX
-      const dy = e.touches[0].clientY - startY
-      if (!decided) {
-        if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return
-        decided = true
-        isHoriz = Math.abs(dx) > Math.abs(dy) * 1.3
+      const g = gs.current
+      if (g.zone === null) return
+
+      // Touch partito su un bottone: aspetta di capire se è swipe o tap
+      if (g.zone === 'button') {
+        if (g.decided) return  // già deciso: lascia fare
+        const dx = e.touches[0].clientX - g.startX
+        const dy = e.touches[0].clientY - g.startY
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return  // soglia più alta per i bottoni
+        g.decided = true
+        if (Math.abs(dx) > Math.abs(dy) * 1.2 && standalone) {
+          // Swipe orizzontale partito da un bottone → page swipe
+          g.zone = 'page'
+          gestureState.pageSwipeZone = true
+        }
+        // Se verticale o non abbastanza orizzontale → lascia il click, zone resta 'button'
+        return
       }
-      if (isHoriz) gestureState.pageSwipeZone = true
+
+      const t = e.touches[0]
+      const dx = t.clientX - g.startX
+      const dy = t.clientY - g.startY
+
+      if (!g.decided) {
+        if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return
+        g.decided = true
+        const isHoriz = Math.abs(dx) > Math.abs(dy) * 1.2
+        if (g.zone === 'page') {
+          if (isHoriz) {
+            gestureState.pageSwipeZone = true
+          } else {
+            g.zone = null  // gesto verticale nella fascia: ignora
+          }
+          return
+        }
+        // zona card
+        if (isHoriz) {
+          g.isDragging = true
+        } else {
+          g.zone = null  // gesto verticale sulla card: lascia scroll nativo
+        }
+      }
+
+      if (g.zone === 'card' && g.isDragging) {
+        g.currentX = dx
+        onCardSwipe(dx)
+        if (e.cancelable) e.preventDefault()
+      }
     }
 
-    const onEnd = () => { gestureState.pageSwipeZone = false }
+    const onEnd = () => {
+      const g = gs.current
+      if (g.zone === 'card' && g.isDragging) {
+        onCardRelease(g.currentX)
+      }
+      gestureState.pageSwipeZone = false
+      gs.current = { zone: null, startX: 0, startY: 0, currentX: 0, decided: false, isDragging: false }
+    }
 
-    el.addEventListener('touchstart',  onStart, { passive: true })
-    el.addEventListener('touchmove',   onMove,  { passive: true })
-    el.addEventListener('touchend',    onEnd,   { passive: true })
-    el.addEventListener('touchcancel', onEnd,   { passive: true })
+    el.addEventListener('touchstart',  onStart,  { passive: true })
+    el.addEventListener('touchmove',   onMove,   { passive: false })
+    el.addEventListener('touchend',    onEnd,    { passive: true })
+    el.addEventListener('touchcancel', onEnd,    { passive: true })
     return () => {
       el.removeEventListener('touchstart',  onStart)
       el.removeEventListener('touchmove',   onMove)
       el.removeEventListener('touchend',    onEnd)
       el.removeEventListener('touchcancel', onEnd)
     }
-  }, [])
-
-  return (
-    <div
-      ref={ref}
-      style={{
-        position:      'fixed',
-        left:          0,
-        right:         0,
-        bottom:        bottomOffset,
-        height:        '160px',
-        zIndex:        50,
-        pointerEvents: 'none', // ← tap passano attraverso ai bottoni
-        touchAction:   'pan-y',
-        background:    'transparent',
-      }}
-    />
-  )
+  }, [isActive, standalone, onCardSwipe, onCardRelease, containerRef, starsRef])
 }
+
 
 // ─── SwipeMode ─────────────────────────────────────────────────────────────────
 
@@ -714,15 +738,43 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
     })
   }, [])
 
+  // Swipe-pagina mobile: listener su document, nessun overlay sui bottoni
+  // ── Gesture state per la card top ───────────────────────────────────────────
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const starsRef = useRef<HTMLDivElement | null>(null)
+  const [cardDragX, setCardDragX] = useState(0)
+  const [cardFlying, setCardFlying] = useState(false)
+  const [cardFlyDir, setCardFlyDir] = useState<'left'|'right'|'down'|null>(null)
+  const topItem = filteredQueue[0]
+
+  const handleCardSwipe = useCallback((dx: number) => {
+    setCardDragX(dx)
+  }, [])
+
+  const handleCardRelease = useCallback((dx: number) => {
+    if (Math.abs(dx) > SWIPE_THRESHOLD) {
+      const dir = dx > 0 ? 'right' : 'left'
+      setCardFlyDir(dir)
+      setCardFlying(true)
+      setTimeout(() => {
+        if (topItem) handleSwipe(dir, topItem)
+        setCardDragX(0)
+        setCardFlying(false)
+        setCardFlyDir(null)
+      }, 340)
+    } else {
+      setCardDragX(0)
+    }
+  }, [topItem, handleSwipe])
+
+  useSwipeGestures(containerRef, starsRef, isTabActive, standalone, handleCardSwipe, handleCardRelease)
+
   const topCoverImage = filteredQueue[0]?.coverImage
 
-  const navbarH = 'calc(49px + env(safe-area-inset-bottom, 0px))'
   const containerClass = standalone
     ? 'fixed inset-0 bg-black flex flex-col overflow-hidden'
     : 'fixed inset-0 bg-black flex flex-col'
   const containerStyle = standalone ? {} : { zIndex: 9999 }
-  const filterPaddingTop = { paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }
-
   return (
     <>
       <div className={containerClass} style={containerStyle}>
@@ -733,7 +785,11 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
           </div>
         )}
 
-        <div className="relative z-10 flex-shrink-0 flex justify-center px-3" style={filterPaddingTop}>
+        {/* Filtri categoria */}
+        <div
+          className="relative z-10 flex-shrink-0 flex justify-center px-3"
+          style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top, 0px))' }}
+        >
           <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide w-full">
             {CATEGORIES.map(cat => (
               <button key={cat.key} onClick={() => handleFilterChange(cat.key)}
@@ -746,23 +802,18 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
           </div>
         </div>
 
+        {/* Area card — flex-1 min-h-0 si adatta automaticamente tra filtri e spacer */}
         <div
-          className="relative z-10 flex-1 flex items-center justify-center px-4 min-h-0"
-          style={{ paddingBottom: standalone ? '0' : '0.5rem' }}
+          ref={containerRef}
+          className="relative z-10 flex-1 flex items-center justify-center px-4 min-h-0 py-2"
         >
           {filteredQueue.length === 0 ? (
             <LoadingScreen message={isLoadingMore ? 'Caricamento nuovi titoli' : 'Preparazione in corso'} />
           ) : (
             <div
               data-no-swipe=""
-              className="relative w-full"
-              style={{
-                maxWidth: 'min(420px, 92vw)',
-                margin: '0 auto',
-                height: standalone
-                  ? 'calc(100svh - 49px - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px) - 52px)'
-                  : 'min(680px, 82svh)',
-              }}
+              className="relative self-stretch"
+              style={{ maxWidth: 'min(420px, 92vw)', width: '100%', margin: '0 auto' }}
             >
               {filteredQueue.slice(0, 3).map((item, idx) => (
                 <SwipeCard key={item.id} item={item} isTop={idx === 0} stackIndex={idx}
@@ -775,23 +826,32 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
                   onClose={isOnboarding && onOnboardingComplete ? onOnboardingComplete : onClose}
                   hideClose={standalone}
                   panelActive={isTabActive}
+                  starsRef={idx === 0 ? starsRef : undefined}
+                  dragX={idx === 0 ? cardDragX : 0}
+                  isFlying={idx === 0 ? cardFlying : false}
+                  flyDir={idx === 0 ? cardFlyDir : null}
                 />
               ))}
             </div>
           )}
         </div>
 
+        {/* Hint desktop */}
         {filteredQueue.length > 0 && (
           <div className="relative z-10 text-center flex-shrink-0 select-none hidden md:block pb-3">
             <p className="text-zinc-600 text-xs pointer-events-none">← Skip  ·  Visto →</p>
           </div>
         )}
+
+        {/* Spacer navbar mobile — esatto spazio sotto la card per non andare sotto la navbar */}
+        {standalone && (
+          <div
+            className="flex-shrink-0 md:hidden"
+            style={{ height: 'calc(49px + env(safe-area-inset-bottom, 0px))' }}
+          />
+        )}
       </div>
 
-      {/* Striscia mobile per swipe-pagina — pointerEvents:none, tap passano ai bottoni */}
-      {standalone && (
-        <MobileSwipeStrip bottomOffset="calc(49px + env(safe-area-inset-bottom, 0px))" />
-      )}
 
       {detailItem && (
         <div style={{ zIndex: 10000, position: 'fixed', inset: 0 }}>
