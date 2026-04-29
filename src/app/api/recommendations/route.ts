@@ -3636,11 +3636,12 @@ export async function GET(request: NextRequest) {
   try {
     // ── Background regen bypass ───────────────────────────────────────────────
     const { searchParams } = new URL(request.url)
-    const serviceUserId = request.headers.get('X-Service-User-Id') || searchParams.get('_suid')
-    const serviceSecret = request.headers.get('X-Service-Secret') || searchParams.get('_ssec')
-    const isServiceCall = !!(serviceUserId && serviceSecret === (process.env.CRON_SECRET || ''))
+    const serviceUserId = request.headers.get('X-Service-User-Id')
+    const serviceSecret = request.headers.get('X-Service-Secret')
+    const cronSecret = process.env.CRON_SECRET
+    const isServiceCall = !!(serviceUserId && cronSecret && serviceSecret === cronSecret)
 
-    console.log('[RECO] GET called, isServiceCall:', isServiceCall)
+    logger.info('recommendations', `GET called, isServiceCall=${isServiceCall}`)
 
     // Rate limit solo per chiamate esterne — le interne sono già serializzate dal cron
     if (!isServiceCall) {

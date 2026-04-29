@@ -38,8 +38,8 @@ export async function POST(request: NextRequest) {
 
         // Pulizia automatica vecchi record (max 500 per utente)
       Promise.resolve(
-        supabase.rpc('cleanup_old_search_history', { 
-          user_id: user.id, 
+        supabase.rpc('cleanup_old_search_history', {
+          p_user_id: user.id,
           p_keep: 500 
         })
       ).then(() => {}).catch(() => {})

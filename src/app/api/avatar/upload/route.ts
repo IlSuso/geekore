@@ -112,8 +112,8 @@ export async function POST(request: NextRequest) {
   }
   const ext = extMap[detectedMime] || 'jpg'
 
-  // Upload su Supabase Storage
-  const fileName = `public/${user.id}-${Date.now()}.${ext}`
+  // La policy Storage richiede lo user id come prima cartella del path.
+  const fileName = `${user.id}/avatar-${Date.now()}.${ext}`
 
   const arrayBuffer = await file.arrayBuffer()
   const { error: uploadError } = await supabase.storage

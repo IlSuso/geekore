@@ -584,8 +584,14 @@ function shuffle<T>(arr: T[]): T[] {
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   const secret = process.env.CRON_SECRET
-  if (secret && authHeader !== `Bearer ${secret}`) {
+  if (!secret) {
+    return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 503 })
+  }
+  if (authHeader !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  if (process.env.FAKE_ACTIVITY_ENABLED !== 'true') {
+    return NextResponse.json({ skipped: true, reason: 'fake activity disabled' })
   }
 
   const supabase = createClient(

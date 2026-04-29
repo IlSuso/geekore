@@ -33,13 +33,9 @@ async function getResend() {
 
 // ── Sicurezza endpoint ────────────────────────────────────────────────────────
 function isAuthorized(request: NextRequest): boolean {
-  // Vercel invia automaticamente questo header per i cron jobs
-  if (request.headers.get('x-vercel-cron-signature') || request.headers.get('authorization') === `Bearer ${process.env.CRON_SECRET}`) {
-    return true
-  }
-  // Fallback: accetta anche in localhost senza chiave
-  const host = request.headers.get('host') || ''
-  return host.includes('localhost') || host.includes('127.0.0.1')
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret) return false
+  return request.headers.get('authorization') === `Bearer ${cronSecret}`
 }
 
 // ── Template HTML ─────────────────────────────────────────────────────────────
