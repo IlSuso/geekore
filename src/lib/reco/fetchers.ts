@@ -1,0 +1,5 @@
+export { fetchAnimeRecs } from './fetchers-anime'
+export { fetchMangaRecs } from './fetchers-manga'
+export { fetchMovieRecs, fetchTvRecs } from './fetchers-tmdb'
+export { fetchGameRecs } from './fetchers-igdb'
+export { fetchBoardgameRecs } from './fetchers-bgg'
