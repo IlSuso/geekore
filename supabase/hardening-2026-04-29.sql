@@ -46,7 +46,9 @@ begin
 end;
 $function$;
 
-create or replace function public.cleanup_old_search_history(
+drop function if exists public.cleanup_old_search_history(uuid, integer);
+
+create function public.cleanup_old_search_history(
   p_user_id uuid,
   p_keep integer default 500
 )
