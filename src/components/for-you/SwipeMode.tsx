@@ -249,7 +249,7 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
 
     if (dirLocked.current === null) {
       const absX = Math.abs(dx), absY = Math.abs(dy)
-      if (absX < 5 && absY < 5) return
+      if (absX < 2 && absY < 2) return
       if (absX > absY) {
         // Orizzontale → swipe card: cattura il pointer subito
         dirLocked.current = 'card'
@@ -748,17 +748,20 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
 
         <div
           className="relative z-10 flex-1 flex items-center justify-center px-4 min-h-0"
-          style={{ paddingBottom: standalone ? navbarH : '0.5rem' }}
+          style={{ paddingBottom: standalone ? '0' : '0.5rem' }}
         >
           {filteredQueue.length === 0 ? (
             <LoadingScreen message={isLoadingMore ? 'Caricamento nuovi titoli' : 'Preparazione in corso'} />
           ) : (
             <div
               data-no-swipe=""
-              className="relative w-full self-stretch"
+              className="relative w-full"
               style={{
                 maxWidth: 'min(420px, 92vw)',
                 margin: '0 auto',
+                height: standalone
+                  ? 'calc(100svh - 49px - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px) - 52px)'
+                  : 'min(680px, 82svh)',
               }}
             >
               {filteredQueue.slice(0, 3).map((item, idx) => (
