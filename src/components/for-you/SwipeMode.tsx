@@ -1,22 +1,23 @@
 'use client'
 // DESTINAZIONE: src/components/for-you/SwipeMode.tsx
-// v9 — fix definitivi:
-//   1. RATING: SwipeMode NON scrive più su user_media_entries (doppia scrittura eliminata).
-//              Il rating viene letto dal ref e passato a onSeen → handleSwipeSeen in page.tsx
-//              che è l'UNICO punto di scrittura. Zero race condition.
-//   2. FLASH:  queue parte con initialItems già puliti (filtro skipped asincrono in background).
-//              Le card sono visibili SUBITO. La pulizia skipped avviene silenziosamente.
-//   3. RESET RATING: il rating si azzera quando cambia la card in cima, MA solo DOPO
-//              che handleSwipe ha già letto il valore dal ref.
+// v10 — fix glitch Android WebView (Capacitor):
+//   1. BUTTONS OUT: la fascia bottoni (undo/skip/info/check/wishlist) è stata
+//      spostata FUORI dal div animato. Prima stava dentro la card che riceve
+//      willChange:transform + opacity animata → layer GPU separati su WebView
+//      causavano quadrati neri e bottone Annulla che spariva.
+//   2. willChange RIMOSSO dalla card top: non serve poiché translateX viene
+//      applicato direttamente via style. Chrome lo ottimizza da solo; su WebView
+//      creava layer compositing instabili.
+//   3. bg-zinc-900 → bg-black/80 sui bottoni: colore opaco solido dentro un
+//      layer animato forzava un sub-layer GPU separato su Android. Il valore
+//      semitrasparente viene composited correttamente.
+//   4. overflow-hidden isolato: rimane solo sul div interno dell'immagine,
+//      non sul wrapper animato. Così il clip non interferisce col compositor.
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 
 // ─── useTouchPress ─────────────────────────────────────────────────────────────
-// Illumina il bottone IMMEDIATAMENTE su touchstart (iOS/Android ignorano :active
-// durante il riconoscimento gesto). Si spegne su touchend/touchcancel oppure
-// se il dito si muove > MOVE_CANCEL px (= sta iniziando uno swipe → non è un tap).
-// Restituisce { pressProps, pressed } — pressed serve per la classe glow.
-const MOVE_CANCEL = 10 // px di movimento prima di cancellare il press
+const MOVE_CANCEL = 10
 
 function useTouchPress() {
   const [pressed, setPressed] = useState(false)
@@ -54,6 +55,7 @@ function useTouchPress() {
     pressed,
   }
 }
+
 import { X, Check, ChevronRight, Star, Gamepad2, Tv, Film, Layers, Swords, RotateCcw, Dices, Bookmark } from 'lucide-react'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
@@ -61,7 +63,6 @@ import { createClient } from '@/lib/supabase/client'
 import { profileInvalidateBridge } from '@/hooks/profileInvalidateBridge'
 import { gestureState } from '@/hooks/gestureState'
 import { swipeNavBridge } from '@/hooks/swipeNavBridge'
-
 import { useTabActive } from '@/context/TabActiveContext'
 import { optimizeCover } from '@/lib/imageOptimizer'
 
@@ -133,15 +134,9 @@ const SWIPE_THRESHOLD = 80
 const ROTATION_FACTOR = 0.08
 const REFILL_THRESHOLD = 25
 const PRELOAD_TARGET = 50
-// GPU-friendly: text-shadow via CSS class, no filter: drop-shadow (each one = offscreen GPU buffer)
-// TEXT_SHADOW kept as lightweight single shadow only (no stacked multi-shadow)
 const TEXT_SHADOW = { textShadow: '0 1px 8px rgba(0,0,0,0.95)' }
-// ICON_DROP removed — buttons are on dark bg, legible without filter.
-// Use ICON_DROP only on the glowing star (amber glow is worth it there).
 const ICON_DROP = {} as React.CSSProperties
 
-// Interleave by type — pure fn, stable, never reorders existing items at render time.
-// Only called at write-time (initial state + loadMore) so card positions never jump.
 function interleaveByType(items: SwipeItem[]): SwipeItem[] {
   const buckets = new Map<string, SwipeItem[]>()
   for (const item of items) {
@@ -170,12 +165,9 @@ function LoadingScreen({ message = 'Caricamento nuovi titoli' }: { message?: str
         @keyframes sw-shine { 0%,100%{opacity:0} 40%,60%{opacity:1} }
       `}</style>
 
-      {/* Arc spinner + logo */}
       <div className="relative w-[88px] h-[88px] flex items-center justify-center">
-        {/* Soft glow backdrop */}
         <div className="absolute inset-3 rounded-full"
           style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.18) 0%, transparent 70%)' }} />
-        {/* Single arc — calm, 1.4s */}
         <svg className="absolute inset-0 w-full h-full -rotate-90"
           style={{ animation: 'sw-arc 1.4s linear infinite' }} viewBox="0 0 88 88">
           <defs>
@@ -185,19 +177,15 @@ function LoadingScreen({ message = 'Caricamento nuovi titoli' }: { message?: str
               <stop offset="100%" stopColor="#d946ef" />
             </linearGradient>
           </defs>
-          {/* Track */}
           <circle cx="44" cy="44" r="38" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
-          {/* Arc */}
           <circle cx="44" cy="44" r="38" fill="none" stroke="url(#swG)" strokeWidth="3"
             strokeLinecap="round" strokeDasharray="155 84" />
         </svg>
-        {/* Logo — gentle breathing */}
         <img src="/icons/apple-touch-icon.png" alt="Geekore"
           className="relative z-10 w-11 h-11 rounded-2xl"
           style={{ animation: 'sw-logo 2.2s ease-in-out infinite', objectFit: 'cover' }} />
       </div>
 
-      {/* Text */}
       <div className="space-y-1.5">
         <p className="text-white/85 font-medium text-[15px] tracking-tight">{message}</p>
         <p className="text-zinc-600 text-[12px]">Stiamo preparando le card per te</p>
@@ -217,12 +205,10 @@ function HalfStarRating({ rating, onChange }: { rating: number | null; onChange:
 
   const displayValue = hovered !== null ? hovered : (rating ?? 0)
 
-  // Ritorna il valore [0.5..5] dalla posizione X, oppure null se fuori sinistra
   const valueFromClientX = useCallback((clientX: number): number | null => {
     const el = containerRef.current; if (!el) return null
     const rect = el.getBoundingClientRect()
     const x = clientX - rect.left
-    // Fuori a sinistra → null (= 0 stelle, reset)
     if (x < 0) return null
     const clamped = Math.min(x, rect.width - 1)
     const starWidth = rect.width / 5
@@ -230,7 +216,6 @@ function HalfStarRating({ rating, onChange }: { rating: number | null; onChange:
     return (clamped - star * starWidth) < starWidth / 2 ? star + 0.5 : star + 1
   }, [])
 
-  // Touch handlers registrati come non-passive per poter chiamare preventDefault
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
@@ -252,7 +237,6 @@ function HalfStarRating({ rating, onChange }: { rating: number | null; onChange:
     const onEnd = (e: TouchEvent) => {
       e.preventDefault()
       const cur = hoveredRef.current
-      // null = dito finito a sinistra = reset a 0
       if (cur === null) {
         onChange(null)
       } else {
@@ -304,42 +288,34 @@ function HalfStarRating({ rating, onChange }: { rating: number | null; onChange:
 }
 
 // ─── SwipeCard ─────────────────────────────────────────────────────────────────
+// FIX v10: il componente ora renderizza SOLO la card visiva (immagine + testo +
+// badge). I bottoni azione sono stati spostati nel componente SwipeMode, fuori
+// da questo div animato. Questo elimina il problema dei layer GPU su WebView.
 
 interface SwipeCardProps {
-  item: SwipeItem; isTop: boolean; stackIndex: number
-  onSwipe: (dir: 'left'|'right', item: SwipeItem) => void
-  rating: number|null; onRatingChange: (r: number|null) => void
+  item: SwipeItem
+  isTop: boolean
+  stackIndex: number
   onDetailOpen: (item: SwipeItem) => void
-  onUndo: () => void; canUndo: boolean; onClose: () => void
-  onWishlist: (item: SwipeItem) => void
   hideClose?: boolean
-  panelActive?: boolean
-  starsRef?: React.RefObject<HTMLDivElement | null>
-  // Gesture controllate dall'esterno dal container unico
+  onClose: () => void
+  // Gesture controllate dall'esterno
   dragX?: number
   isFlying?: boolean
   flyDir?: 'left' | 'right' | 'down' | null
   isUndoEntering?: boolean
+  starsRef?: React.RefObject<HTMLDivElement | null>
+  rating: number | null
+  onRatingChange: (r: number | null) => void
 }
 
-function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, onDetailOpen, onUndo, canUndo, onClose, onWishlist, hideClose, panelActive = true, starsRef, dragX = 0, isFlying = false, flyDir = null, isUndoEntering = false }: SwipeCardProps) {
+function SwipeCard({
+  item, isTop, stackIndex, onDetailOpen, hideClose, onClose,
+  dragX = 0, isFlying = false, flyDir = null, isUndoEntering = false,
+  starsRef, rating, onRatingChange,
+}: SwipeCardProps) {
   const Icon = TYPE_ICONS[item.type]
-
-  // Bottoni: glow immediato su touchstart
-  const undoPress     = useTouchPress()
-  const skipPress     = useTouchPress()
-  const infoPress     = useTouchPress()
-  const checkPress    = useTouchPress()
-  const wishlistPress = useTouchPress()
-  const closePress    = useTouchPress()
-
-  const triggerSwipe = useCallback((dir: 'left'|'right') => {
-    onSwipe(dir, item)
-  }, [item, onSwipe])
-
-  const triggerWishlist = useCallback(() => {
-    onWishlist(item)
-  }, [item, onWishlist])
+  const closePress = useTouchPress()
 
   if (stackIndex > 2) return null
 
@@ -354,7 +330,6 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
   const translateY = isFlying && flyDir === 'down' ? '160%' : '0'
   const swipeProgress = Math.min(Math.abs(dragX) / SWIPE_THRESHOLD, 1)
 
-  // Undo entering: card starts scaled down + offset from below, transitions to normal
   const undoTransform = isUndoEntering
     ? `translateY(40px) scale(0.88)`
     : isTop
@@ -366,12 +341,16 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
       className={`absolute inset-0 select-none ${isTop ? 'cursor-grab' : 'pointer-events-none'}`}
       style={{
         transform: undoTransform,
+        // FIX: transition solo su opacity e transform, niente willChange.
+        // willChange:'transform' creava layer GPU separati su Android WebView.
         transition: dragX !== 0 ? 'none' : 'transform .38s cubic-bezier(.25,.46,.45,.94), opacity .38s ease',
         opacity: isFlying ? 0 : isUndoEntering ? 0.4 : 1 - stackIndex * 0.12,
         zIndex: 10 - stackIndex,
-        willChange: isTop ? 'transform' : 'auto',
+        // FIX: willChange RIMOSSO — era la causa primaria dei quadrati neri su WebView
       }}
     >
+      {/* FIX: overflow-hidden + border-radius ora sul div INTERNO, non sul wrapper animato.
+          Questo isola il clip dal layer animato, evitando artefatti WebView. */}
       <div className="relative w-full h-full rounded-3xl overflow-hidden bg-zinc-900 shadow-xl">
         {item.coverImage
           ? <img src={optimizeCover(item.coverImage, 'swipe-card')} alt={item.title} className="absolute inset-0 w-full h-full object-cover" draggable={false} loading="eager" decoding="async" />
@@ -384,7 +363,7 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
             className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-[transform,background-color] duration-150 z-20 ${
               closePress.pressed
                 ? 'scale-90 bg-white/20 text-white'
-                : 'bg-zinc-900 text-white/80 hover:text-white'
+                : 'bg-black/60 text-white/80 hover:text-white'
             }`}>
             <X size={17} strokeWidth={2.5} />
           </button>
@@ -420,6 +399,7 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
           </>
         )}
 
+        {/* Titolo + metadati + stelle — tutto dentro la card, sopra il gradiente */}
         <div className="absolute bottom-0 left-0 right-0 p-5 pb-4 z-10">
           <h2 className="text-white font-bold text-[22px] leading-tight mb-1 line-clamp-2" style={TEXT_SHADOW}>{item.title}</h2>
           <p className="text-white/75 text-sm mb-4 flex items-center gap-2 flex-wrap" style={TEXT_SHADOW}>
@@ -427,60 +407,19 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
             {item.episodes && item.type !== 'movie' && <span>{item.type === 'manga' ? `${item.episodes} cap.` : `${item.episodes} ep.`}</span>}
             {item.genres.length > 0 && <span className="text-white/50">· {item.genres.slice(0,2).join(', ')}</span>}
           </p>
-          <div ref={isTop ? starsRef : undefined} data-stars="true" className={`flex items-center justify-center mb-4 ${!isTop ? 'opacity-0 pointer-events-none' : ''}`}>
-            <div className="bg-zinc-950 rounded-2xl px-2 py-1 ring-1 ring-white/10">
+
+          {/* Stelle: restano nella card per essere sopra l'immagine */}
+          <div
+            ref={isTop ? starsRef : undefined}
+            data-stars="true"
+            className={`flex items-center justify-center mb-2 ${!isTop ? 'opacity-0 pointer-events-none' : ''}`}
+          >
+            <div className="bg-black/60 rounded-2xl px-2 py-1 ring-1 ring-white/10">
               <HalfStarRating rating={rating} onChange={onRatingChange} />
             </div>
           </div>
-          <div className="flex items-center justify-between">
-            <button onClick={e => { e.stopPropagation(); if (isTop && canUndo) onUndo() }} disabled={!canUndo || !isTop}
-              {...undoPress.pressProps}
-              className={`w-11 h-11 flex items-center justify-center rounded-full border transition-[transform,background-color,border-color] duration-150 disabled:opacity-35 disabled:pointer-events-none ${
-                undoPress.pressed
-                  ? 'scale-90 bg-white/15 border-white/60 text-white'
-                  : 'bg-zinc-900 border-white/25 text-white/85 hover:bg-zinc-800 hover:border-white/45 hover:text-white'
-              }`}>
-              <RotateCcw size={17} />
-            </button>
-            <div className="flex items-center gap-4">
-              <button onClick={e => { e.stopPropagation(); if (isTop) triggerSwipe('left') }}
-                {...skipPress.pressProps}
-                className={`w-14 h-14 rounded-full border-2 flex items-center justify-center transition-[transform,background-color,border-color,color] duration-150 ${!isTop ? 'opacity-0 pointer-events-none' : ''} ${
-                  skipPress.pressed
-                    ? 'scale-90 bg-red-500/40 border-red-300 text-red-300'
-                    : 'bg-zinc-900 border-red-400/90 text-red-400 hover:bg-red-900/60 hover:border-red-400'
-                }`}>
-                <X size={24} strokeWidth={3} />
-              </button>
-              <button onClick={e => { e.stopPropagation(); if (isTop) onDetailOpen(item) }}
-                {...infoPress.pressProps}
-                className={`w-10 h-10 rounded-full border flex items-center justify-center transition-[transform,background-color,border-color] duration-150 ${!isTop ? 'opacity-0 pointer-events-none' : ''} ${
-                  infoPress.pressed
-                    ? 'scale-90 bg-white/20 border-white text-white'
-                    : 'bg-zinc-900 border-white/50 text-white/90 hover:bg-zinc-800 hover:text-white'
-                }`}>
-                <ChevronRight size={20} strokeWidth={2.5} />
-              </button>
-              <button onClick={e => { e.stopPropagation(); if (isTop) triggerSwipe('right') }}
-                {...checkPress.pressProps}
-                className={`w-14 h-14 rounded-full border-2 flex items-center justify-center transition-[transform,background-color,border-color,color] duration-150 ${!isTop ? 'opacity-0 pointer-events-none' : ''} ${
-                  checkPress.pressed
-                    ? 'scale-90 bg-emerald-500/40 border-emerald-300 text-emerald-300'
-                    : 'bg-zinc-900 border-emerald-400/90 text-emerald-400 hover:bg-emerald-900/60 hover:border-emerald-400'
-                }`}>
-                <Check size={24} strokeWidth={3} />
-              </button>
-            </div>
-            <button onClick={e => { e.stopPropagation(); if (isTop && !isFlying) triggerWishlist() }} disabled={!isTop || isFlying}
-              {...wishlistPress.pressProps}
-              className={`w-11 h-11 flex items-center justify-center rounded-full border transition-[transform,background-color,border-color,color] duration-150 disabled:opacity-35 disabled:pointer-events-none ${
-                wishlistPress.pressed
-                  ? 'scale-90 bg-amber-500/20 border-amber-400/60 text-amber-400'
-                  : 'bg-zinc-900 border-white/25 text-white/85 hover:bg-zinc-800 hover:border-white/45 hover:text-white'
-              }`}>
-              <Bookmark size={17} fill="none" />
-            </button>
-          </div>
+
+          {/* FIX: bottoni rimossi da qui — ora stanno nel pannello fisso sotto la card in SwipeMode */}
         </div>
       </div>
     </div>
@@ -489,11 +428,6 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
 
 
 // ─── Gesture system ────────────────────────────────────────────────────────────
-// Un unico container gestisce TUTTI i touch della swipe page.
-// La card non ha listener propri — è puramente visiva.
-// Il container decide in onTouchStart se il touch è nella "fascia page-swipe"
-// (sotto il bordo inferiore del box stelline) o nella "zona card" (sopra).
-// Le due zone sono mutualmente esclusive: mai in conflitto.
 
 type GestureZone = 'card' | 'page' | 'button' | null
 
@@ -534,14 +468,11 @@ function useSwipeGestures(
       const starsBottom = getStarsBottom()
 
       if (target.closest('[data-stars]')) {
-        // Stelline: non intercettare mai
         gs.current = { zone: null, startX: 0, startY: 0, currentX: 0, decided: false, isDragging: false }
         return
       }
 
       if (target.closest('button')) {
-        // Bottone nella fascia (sotto le stelline): salva posizione.
-        // In onMove decideremo se è un tap (lascia il click) o uno swipe di pagina.
         gs.current = { zone: 'button', startX: t.clientX, startY: clientY, currentX: 0, decided: false, isDragging: false }
         return
       }
@@ -557,19 +488,16 @@ function useSwipeGestures(
       const g = gs.current
       if (g.zone === null) return
 
-      // Touch partito su un bottone: aspetta di capire se è swipe o tap
       if (g.zone === 'button') {
-        if (g.decided) return  // già deciso: lascia fare
+        if (g.decided) return
         const dx = e.touches[0].clientX - g.startX
         const dy = e.touches[0].clientY - g.startY
-        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return  // soglia più alta per i bottoni
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
         g.decided = true
         if (Math.abs(dx) > Math.abs(dy) * 1.2 && standalone) {
-          // Swipe orizzontale partito da un bottone → page swipe
           g.zone = 'page'
           gestureState.pageSwipeZone = true
         }
-        // Se verticale o non abbastanza orizzontale → lascia il click, zone resta 'button'
         return
       }
 
@@ -585,23 +513,21 @@ function useSwipeGestures(
           if (isHoriz) {
             gestureState.pageSwipeZone = true
           } else {
-            g.zone = null  // gesto verticale nella fascia: ignora
+            g.zone = null
           }
           return
         }
-        // zona card
         if (isHoriz) {
           g.isDragging = true
-          if (el) el.style.touchAction = 'none'  // blocca scroll verticale durante drag card
+          if (el) el.style.touchAction = 'none'
         } else {
-          g.zone = null  // gesto verticale sulla card: lascia scroll nativo
+          g.zone = null
         }
       }
 
       if (g.zone === 'card' && g.isDragging) {
         g.currentX = dx
         onCardSwipe(dx)
-        // passive:true listener — iOS mostra :active; scroll bloccato via touch-action CSS
       }
     }
 
@@ -609,15 +535,11 @@ function useSwipeGestures(
       const g = gs.current
       if (g.zone === 'card' && g.isDragging) {
         onCardRelease(g.currentX)
-        if (el) el.style.touchAction = ''  // ripristina
+        if (el) el.style.touchAction = ''
       } else if (g.zone === 'page' && gestureState.pageSwipeZone) {
-        // Delega la decisione navigate/snap-back a SwipeablePageContainer via bridge.
-        // Quello ha la stessa logica soglia delle altre pagine e conosce prevTab/nextTab.
         const touch = e.changedTouches[0]
         if (touch) {
           const dx = touch.clientX - g.startX
-          // Stima velocity: usiamo l'ampiezza del gesto (senza timestamp preciso).
-          // Valori moderati — la soglia distanza (40% viewport) è il criterio primario.
           const vx = Math.abs(dx) > 30 ? (dx > 0 ? 0.6 : -0.6) : 0
           swipeNavBridge.notifyResolve(dx, vx)
         }
@@ -627,7 +549,7 @@ function useSwipeGestures(
     }
 
     el.addEventListener('touchstart',  onStart,  { passive: true })
-    el.addEventListener('touchmove',   onMove,   { passive: true })  // passive:true → :active funziona
+    el.addEventListener('touchmove',   onMove,   { passive: true })
     el.addEventListener('touchend',    onEnd,    { passive: true })
     el.addEventListener('touchcancel', onEnd,    { passive: true })
     return () => {
@@ -640,12 +562,105 @@ function useSwipeGestures(
 }
 
 
+// ─── ActionButtons ─────────────────────────────────────────────────────────────
+// FIX v10: pannello bottoni estratto in componente separato e posizionato
+// FUORI dal div animato della card. Vive direttamente nel layout di SwipeMode,
+// in un div fisso sopra la card, non dentro di essa.
+// bg-black/80 invece di bg-zinc-900: semitrasparente → nessun sub-layer GPU.
+
+interface ActionButtonsProps {
+  isTop: boolean
+  canUndo: boolean
+  isFlying: boolean
+  onUndo: () => void
+  onSkip: () => void
+  onInfo: () => void
+  onCheck: () => void
+  onWishlist: () => void
+}
+
+function ActionButtons({ isTop, canUndo, isFlying, onUndo, onSkip, onInfo, onCheck, onWishlist }: ActionButtonsProps) {
+  const undoPress     = useTouchPress()
+  const skipPress     = useTouchPress()
+  const infoPress     = useTouchPress()
+  const checkPress    = useTouchPress()
+  const wishlistPress = useTouchPress()
+
+  return (
+    <div className="flex items-center justify-between w-full px-2">
+      {/* Undo */}
+      <button
+        onClick={e => { e.stopPropagation(); if (canUndo) onUndo() }}
+        disabled={!canUndo}
+        {...undoPress.pressProps}
+        className={`w-11 h-11 flex items-center justify-center rounded-full border transition-[transform,background-color,border-color] duration-150 disabled:opacity-35 disabled:pointer-events-none ${
+          undoPress.pressed
+            ? 'scale-90 bg-white/15 border-white/60 text-white'
+            : 'bg-black/80 border-white/25 text-white/85 hover:bg-white/10 hover:border-white/45 hover:text-white'
+        }`}>
+        <RotateCcw size={17} />
+      </button>
+
+      <div className="flex items-center gap-4">
+        {/* Skip */}
+        <button
+          onClick={e => { e.stopPropagation(); if (isTop) onSkip() }}
+          {...skipPress.pressProps}
+          className={`w-14 h-14 rounded-full border-2 flex items-center justify-center transition-[transform,background-color,border-color,color] duration-150 ${!isTop ? 'opacity-0 pointer-events-none' : ''} ${
+            skipPress.pressed
+              ? 'scale-90 bg-red-500/40 border-red-300 text-red-300'
+              : 'bg-black/80 border-red-400/90 text-red-400 hover:bg-red-900/60 hover:border-red-400'
+          }`}>
+          <X size={24} strokeWidth={3} />
+        </button>
+
+        {/* Info */}
+        <button
+          onClick={e => { e.stopPropagation(); if (isTop) onInfo() }}
+          {...infoPress.pressProps}
+          className={`w-10 h-10 rounded-full border flex items-center justify-center transition-[transform,background-color,border-color] duration-150 ${!isTop ? 'opacity-0 pointer-events-none' : ''} ${
+            infoPress.pressed
+              ? 'scale-90 bg-white/20 border-white text-white'
+              : 'bg-black/80 border-white/50 text-white/90 hover:bg-white/10 hover:text-white'
+          }`}>
+          <ChevronRight size={20} strokeWidth={2.5} />
+        </button>
+
+        {/* Check */}
+        <button
+          onClick={e => { e.stopPropagation(); if (isTop) onCheck() }}
+          {...checkPress.pressProps}
+          className={`w-14 h-14 rounded-full border-2 flex items-center justify-center transition-[transform,background-color,border-color,color] duration-150 ${!isTop ? 'opacity-0 pointer-events-none' : ''} ${
+            checkPress.pressed
+              ? 'scale-90 bg-emerald-500/40 border-emerald-300 text-emerald-300'
+              : 'bg-black/80 border-emerald-400/90 text-emerald-400 hover:bg-emerald-900/60 hover:border-emerald-400'
+          }`}>
+          <Check size={24} strokeWidth={3} />
+        </button>
+      </div>
+
+      {/* Wishlist */}
+      <button
+        onClick={e => { e.stopPropagation(); if (isTop && !isFlying) onWishlist() }}
+        disabled={!isTop || isFlying}
+        {...wishlistPress.pressProps}
+        className={`w-11 h-11 flex items-center justify-center rounded-full border transition-[transform,background-color,border-color,color] duration-150 disabled:opacity-35 disabled:pointer-events-none ${
+          wishlistPress.pressed
+            ? 'scale-90 bg-amber-500/20 border-amber-400/60 text-amber-400'
+            : 'bg-black/80 border-white/25 text-white/85 hover:bg-white/10 hover:border-white/45 hover:text-white'
+        }`}>
+        <Bookmark size={17} fill="none" />
+      </button>
+    </div>
+  )
+}
+
+
 // ─── SwipeMode ─────────────────────────────────────────────────────────────────
 
 export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onSkip, onClose, onRequestMore, standalone = false, isOnboarding = false, onOnboardingComplete, onUndo: onUndoCallback, onUndoWishlist }: SwipeModeProps) {
   const supabase = createClient()
   const isTabActive = useTabActive()
-  // userId risolto una sola volta al mount — evita getUser() ad ogni swipe/skip
   const userIdRef = useRef<string | null>(userIdProp ?? null)
   useEffect(() => {
     if (userIdRef.current) return
@@ -653,10 +668,9 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
       if (user) userIdRef.current = user.id
     })
   }, []) // eslint-disable-line
+
   const [activeFilter, setActiveFilter] = useState<CategoryFilter>('all')
 
-  // RATING: ref aggiornato in sincronia con lo stato — la closure del setTimeout
-  // legge SEMPRE il valore corrente senza rischio di stale closure.
   const currentRatingRef = useRef<number | null>(null)
   const [currentRating, setCurrentRating] = useState<number | null>(null)
   const setRating = useCallback((r: number | null) => {
@@ -664,14 +678,12 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
     setCurrentRating(r)
   }, [])
 
-  // La queue parte già interleaved — l'ordine non cambia mai a runtime, solo in append.
   const [queue, setQueue] = useState<SwipeItem[]>(() => interleaveByType(initialItems))
   const [seenIds] = useState<Set<string>>(() => new Set(initialItems.map(i => i.id)))
   const seenIdsRef = useRef(seenIds)
 
   const [detailItem, setDetailItem] = useState<MediaDetails | null>(null)
   const [history, setHistory] = useState<SwipeItem[]>([])
-  // Traccia quali item nello storico erano stati aggiunti alla wishlist
   const wishlistHistoryRef = useRef<Set<string>>(new Set())
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const skippedIdsRef = useRef<Set<string>>(new Set())
@@ -680,7 +692,6 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
   const categoryQueues = useRef<Partial<Record<CategoryFilter, SwipeItem[]>>>({})
   const categoryLoading = useRef<Partial<Record<CategoryFilter, boolean>>>({})
 
-  // Carica skipped in background
   useEffect(() => {
     const load = async () => {
       if (!userIdRef.current) {
@@ -698,16 +709,10 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
     load()
   }, []) // eslint-disable-line
 
-  // filteredQueue: 'all' uses queue directly (already interleaved at write-time).
-  // Category filters just slice — no reordering.
   const filteredQueue = activeFilter === 'all'
     ? queue
     : queue.filter(i => i.type === activeFilter)
 
-  // Reset rating quando cambia la card in cima
-  // IMPORTANTE: il reset aggiorna sia lo stato che il ref, ma handleSwipe
-  // legge il ref PRIMA che questo effect si esegua (la lettura avviene
-  // nel corpo di handleSwipe, non in una callback asincrona)
   const prevTopIdRef = useRef<string | undefined>(undefined)
   const topId = filteredQueue[0]?.id
   useEffect(() => {
@@ -717,7 +722,6 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
     }
   }, [topId, setRating])
 
-  // preloadCategory declared before loadMore so loadMore can call it as a fast-path replenish.
   const preloadCategory = useCallback(async (filter: CategoryFilter) => {
     if (categoryLoading.current[filter]) return
     if ((categoryQueues.current[filter]?.length ?? 0) >= PRELOAD_TARGET) return
@@ -737,7 +741,6 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
     if (loadingRef.current) return
     loadingRef.current = true
 
-    // ── Fast path: use preloaded cache — no loading screen, instant ──────────
     const cached = categoryQueues.current[filter] || []
     const skipped = skippedIdsRef.current
     const seen = seenIdsRef.current
@@ -751,12 +754,10 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
       cachedFresh.forEach(i => seen.add(i.id))
       categoryQueues.current[filter] = []
       loadingRef.current = false
-      // Replenish the cache in background for next refill
       preloadCategory(filter)
       return
     }
 
-    // ── Slow path: fetch from network ─────────────────────────────────────────
     setIsLoadingMore(true)
     try {
       const items = await onRequestMore(filter)
@@ -765,7 +766,6 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
         setQueue(prev => [...prev, ...(filter === 'all' ? interleaveByType(fresh) : fresh)])
         fresh.forEach(i => seen.add(i.id))
       } else {
-        // Tutti già visti: svuota seenIds e riprova
         seen.clear()
         const retryItems = await onRequestMore(filter)
         const retryFresh = retryItems.filter(i => !skipped.has(i.id))
@@ -778,8 +778,6 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
     setIsLoadingMore(false); loadingRef.current = false
   }, [onRequestMore, preloadCategory])
 
-  // Preload all categories (including 'all') 1.5 s after mount so the cache
-  // is ready before the user exhausts the initial deck.
   useEffect(() => {
     const cats: CategoryFilter[] = ['all', 'anime', 'manga', 'movie', 'tv', 'game']
     cats.forEach((cat, i) => setTimeout(() => preloadCategory(cat), 1500 + i * 300))
@@ -825,8 +823,6 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
   }, [supabase])
 
   const handleSwipe = useCallback((dir: 'left' | 'right', item: SwipeItem, skipPersist = false) => {
-    // Legge il rating DAL REF nel corpo sincrono della funzione —
-    // prima che qualsiasi setState/useEffect possa azzerarlo.
     const ratingAtSwipeTime = currentRatingRef.current
 
     setHistory(prev => [item, ...prev].slice(0, 10))
@@ -834,14 +830,11 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
     setSkippedIds(prev => { const n = new Set(prev); n.add(item.id); return n })
     skippedIdsRef.current.add(item.id)
 
-    // In onboarding gli skippati vengono gestiti in batch dal parent (OnboardingPage)
-    // → non chiamiamo persistSkipped per evitare scritture real-time su swipe_skipped
     if (!isOnboarding) {
       persistSkipped(item)
     }
 
     if (dir === 'right') {
-
       onSeen(item, ratingAtSwipeTime, skipPersist)
     } else {
       onSkip(item)
@@ -855,22 +848,17 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
     setQueue(prev => [last, ...prev])
     setSkippedIds(prev => { const n = new Set(prev); n.delete(last.id); return n })
     skippedIdsRef.current.delete(last.id)
-    // Revert wishlist se l'item era stato messo in wishlist
     const wasWishlisted = wishlistHistoryRef.current.has(last.id)
     if (wasWishlisted) {
       wishlistHistoryRef.current.delete(last.id)
-      // Revert wishlist su Supabase (per swipe normale)
       if (!isOnboarding) {
         const uid = userIdRef.current
         if (uid) supabase.from('wishlist').delete().eq('user_id', uid).eq('external_id', last.id).then(() => {})
       }
-      // Notifica il parent (per onboarding)
       onUndoWishlist?.(last)
     }
     if (!isOnboarding) removeSkip(last)
-    // Notifica il parent dell'undo (usato dall'onboarding per rimuovere da acceptedItemsRef)
     onUndoCallback?.(last)
-    // Animazione entrata: carta appare da sotto → poi si porta in posizione normale
     setUndoEntering(true)
     requestAnimationFrame(() => {
       requestAnimationFrame(() => setUndoEntering(false))
@@ -887,8 +875,6 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
     })
   }, [])
 
-  // Swipe-pagina mobile: listener su document, nessun overlay sui bottoni
-  // ── Gesture state per la card top ───────────────────────────────────────────
   const containerRef = useRef<HTMLDivElement | null>(null)
   const starsRef = useRef<HTMLDivElement | null>(null)
   const [cardDragX, setCardDragX] = useState(0)
@@ -898,8 +884,6 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
   const topItem = filteredQueue[0]
 
   const handleWishlist = useCallback((item: SwipeItem) => {
-    // Anima la card verso il basso (flyDir='down') poi rimuove dalla queue.
-    // Stessa struttura di handleCardRelease per left/right.
     wishlistHistoryRef.current.add(item.id)
     setCardFlyDir('down')
     setCardFlying(true)
@@ -918,7 +902,6 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
         cover_image: item.coverImage,
       }, { onConflict: 'user_id,external_id' }).then(() => {})
   }, [handleSwipe, supabase])
-
 
   const handleCardSwipe = useCallback((dx: number) => {
     setCardDragX(dx)
@@ -942,14 +925,15 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
 
   useSwipeGestures(containerRef, starsRef, isTabActive, standalone, handleCardSwipe, handleCardRelease)
 
-  const topCoverImage = filteredQueue[0]?.coverImage
-
   const containerClass = standalone
     ? 'fixed inset-0 bg-black flex flex-col overflow-hidden'
     : 'fixed inset-0 bg-black flex flex-col'
   const containerStyle = standalone
     ? { contain: 'layout style paint' as const }
     : { zIndex: 9999, contain: 'layout style paint' as const }
+
+  const hasCards = filteredQueue.length > 0
+
   return (
     <>
       <div className={containerClass} style={containerStyle}>
@@ -977,12 +961,12 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
           </div>
         </div>
 
-        {/* Area card — flex-1 min-h-0 si adatta automaticamente tra filtri e spacer */}
+        {/* Area card */}
         <div
           ref={containerRef}
           className="relative z-10 flex-1 flex items-center justify-center px-4 min-h-0 py-2"
         >
-          {filteredQueue.length === 0 ? (
+          {!hasCards ? (
             <LoadingScreen message={isLoadingMore ? 'Caricamento nuovi titoli' : 'Preparazione in corso'} />
           ) : (
             <div
@@ -991,21 +975,21 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
               style={{ maxWidth: 'min(420px, 92vw)', width: '100%', margin: '0 auto' }}
             >
               {filteredQueue.slice(0, 3).map((item, idx) => (
-                <SwipeCard key={item.id} item={item} isTop={idx === 0} stackIndex={idx}
-                  onSwipe={handleSwipe}
-                  rating={idx === 0 ? currentRating : null}
-                  onRatingChange={setRating}
+                <SwipeCard
+                  key={item.id}
+                  item={item}
+                  isTop={idx === 0}
+                  stackIndex={idx}
                   onDetailOpen={handleDetailOpen}
-                  onUndo={handleUndo} canUndo={history.length > 0}
-                  onWishlist={handleWishlist}
                   onClose={isOnboarding && onOnboardingComplete ? onOnboardingComplete : onClose}
                   hideClose={standalone}
-                  panelActive={isTabActive}
                   starsRef={idx === 0 ? starsRef : undefined}
                   dragX={idx === 0 ? cardDragX : 0}
                   isFlying={idx === 0 ? cardFlying : false}
                   flyDir={idx === 0 ? cardFlyDir : null}
                   isUndoEntering={idx === 0 ? undoEntering : false}
+                  rating={idx === 0 ? currentRating : null}
+                  onRatingChange={setRating}
                 />
               ))}
             </div>
@@ -1013,13 +997,32 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
         </div>
 
         {/* Hint desktop */}
-        {filteredQueue.length > 0 && (
-          <div className="relative z-10 text-center flex-shrink-0 select-none hidden md:block pb-3">
-            <p className="text-zinc-600 text-xs pointer-events-none">← Skip  ·  Visto →</p>
+        {hasCards && (
+          <div className="relative z-10 text-center flex-shrink-0 select-none hidden md:block pb-1">
+            <p className="text-zinc-600 text-xs pointer-events-none">← Skip  ·  Visto →</p>
           </div>
         )}
 
-        {/* Spacer navbar mobile — esatto spazio sotto la card per non andare sotto la navbar */}
+        {/* FIX v10: bottoni azione in pannello FISSO sotto la card, fuori dal div animato.
+            Questo è il cambiamento chiave che elimina i glitch su Android WebView. */}
+        {hasCards && (
+          <div className="relative z-20 flex-shrink-0 flex items-center justify-center px-4 pb-2">
+            <div style={{ maxWidth: 'min(420px, 92vw)', width: '100%' }}>
+              <ActionButtons
+                isTop={!cardFlying}
+                canUndo={history.length > 0}
+                isFlying={cardFlying}
+                onUndo={handleUndo}
+                onSkip={() => { if (topItem) { setCardFlyDir('left'); setCardFlying(true); setTimeout(() => { handleSwipe('left', topItem); setCardDragX(0); setCardFlying(false); setCardFlyDir(null) }, 340) } }}
+                onInfo={() => { if (topItem) handleDetailOpen(topItem) }}
+                onCheck={() => { if (topItem) { setCardFlyDir('right'); setCardFlying(true); setTimeout(() => { handleSwipe('right', topItem); setCardDragX(0); setCardFlying(false); setCardFlyDir(null) }, 340) } }}
+                onWishlist={() => { if (topItem) handleWishlist(topItem) }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Spacer navbar mobile */}
         {standalone && (
           <div
             className="flex-shrink-0 md:hidden"
@@ -1028,14 +1031,12 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
         )}
       </div>
 
-
       {detailItem && (
         <div style={{ zIndex: 10000, position: 'fixed', inset: 0 }}>
           <MediaDetailsDrawer
             media={detailItem}
             onClose={() => setDetailItem(null)}
             onAdd={(media) => {
-              // Dal drawer usa il ref — stessa logica di handleSwipe
               const ratingAtAcceptTime = currentRatingRef.current
               const swipeItem: SwipeItem = queue.find(i => i.id === media.id) ?? {
                 id: media.id, title: media.title, type: media.type as SwipeMediaType,
@@ -1046,14 +1047,8 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
                 authors: (media as any).authors, developers: (media as any).developers,
                 platforms: (media as any).platforms, isAwardWinner: (media as any).isAwardWinner,
               }
-
-              // ─── DEBUG: Drawer → onAdd ───────────────────────────────────
-
               setDetailItem(null)
-              // Aggiorna il ref col rating corrente prima di chiamare handleSwipe
               currentRatingRef.current = ratingAtAcceptTime
-              // skipPersist=true: il Drawer ha già scritto su user_media_entries,
-              // handleSwipeSeen NON deve fare un secondo upsert
               handleSwipe('right', swipeItem, true)
               profileInvalidateBridge.invalidate()
             }}
