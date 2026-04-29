@@ -49,6 +49,8 @@ import { translateWithCache } from '@/lib/deepl'
 import { truncateAtSentence } from '@/lib/utils'
 import { memCacheGet, memCacheSet, memCacheInvalidate } from '@/lib/reco/cache'
 import type { RecoMediaType, CreatorScores, BingeProfile, TasteProfile, Recommendation, MemCacheEntry } from '@/lib/reco/types'
+import { sampleMasterPool } from '@/lib/reco/sampler'
+import { loadRecommendationExposures, recordRecommendationExposures } from '@/lib/reco/exposure'
 import {
   getCurrentAnimeSeasonDates, getQualityThresholds, releaseFreshnessMult,
   isAwardWorthy, inferRuntimePreference, runtimePenalty, inferLanguagePreference,
@@ -3764,32 +3766,6 @@ function computePoolTTL(entries: any[]): number {
   return Math.max(4, Math.min(48, 24 - recentAdds * 2))
 }
 const POOL_TTL_HOURS = 24  // default, sarà sovrascitto dinamicamente sotto
-const SESSION_TTL_HOURS = 4     // titoli mostrati in questa sessione (no ripetizioni a breve)
-
-// Fisher-Yates shuffle deterministico (seed = userId + timestamp truncato all'ora)
-function shuffleSeeded<T>(arr: T[], seed: number): T[] {
-  const a = [...arr]
-  let s = seed
-  for (let i = a.length - 1; i > 0; i--) {
-    s = (s * 1664525 + 1013904223) & 0xffffffff
-    const j = Math.abs(s) % (i + 1);
-    [a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
-}
-
-// Campionamento a tier dal master pool: 10 da 80-100%, 5 da 60-79%, 5 da 40-59%.
-// Se un tier non ha abbastanza titoli, il deficit confluisce nel tier successivo.
-function sampleMasterPool(items: Recommendation[]): Recommendation[] {
-  const shuffle = <T>(arr: T[]) => [...arr].sort(() => Math.random() - 0.5)
-  const t1 = shuffle(items.filter(r => r.matchScore >= 80))
-  const t2 = shuffle(items.filter(r => r.matchScore >= 60 && r.matchScore < 80))
-  const t3 = shuffle(items.filter(r => r.matchScore >= 40 && r.matchScore < 60))
-  const taken1 = t1.slice(0, 10)
-  const taken2 = t2.slice(0, 5 + (10 - taken1.length))
-  const taken3 = t3.slice(0, 5 + Math.max(0, (5 + (10 - taken1.length)) - taken2.length))
-  return [...taken1, ...taken2, ...taken3]
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -3860,6 +3836,7 @@ export async function GET(request: NextRequest) {
         }
         const hasData = Object.values(recommendations).some(arr => arr.length > 0)
         if (hasData) {
+          await recordRecommendationExposures(supabase, userId, recommendations as Record<string, Recommendation[]>)
           return NextResponse.json({
             recommendations,
             tasteProfile: tasteProfile ? { ...tasteProfile, totalEntries } : null,
@@ -3883,13 +3860,14 @@ export async function GET(request: NextRequest) {
       if (!masterRows || masterRows.length === 0) {
         return NextResponse.json({ recommendations: {}, tasteProfile: null, source: 'pool_empty' })
       }
+      const exposures = await loadRecommendationExposures(supabase, userId)
       const savedTasteProfile = currentPool?.[0]?.taste_profile || null
       const savedTotalEntries = currentPool?.[0]?.total_entries || 0
-      const recommendations: Record<string, any[]> = {}
+      const recommendations: Record<string, Recommendation[]> = {}
       const poolUpserts: any[] = []
       for (const row of masterRows) {
         if (!Array.isArray(row.data) || row.data.length === 0) continue
-        const sampled = sampleMasterPool(row.data as Recommendation[])
+        const sampled = sampleMasterPool(row.data as Recommendation[], { exposures, size: SERVE_SIZE_PER_TYPE })
         if (sampled.length === 0) continue
         recommendations[row.media_type] = sampled
         poolUpserts.push({
@@ -3902,6 +3880,7 @@ export async function GET(request: NextRequest) {
       if (poolUpserts.length > 0) {
         await supabase.from('recommendations_pool').upsert(poolUpserts, { onConflict: 'user_id,media_type' })
       }
+      await recordRecommendationExposures(supabase, userId, recommendations)
       return NextResponse.json({
         recommendations,
         tasteProfile: savedTasteProfile ? { ...savedTasteProfile, totalEntries: savedTotalEntries } : null,
@@ -4081,14 +4060,7 @@ export async function GET(request: NextRequest) {
     // ── V6: Carica titoli mostrati nella sessione corrente (TTL: 4h) ──────────
     // NON escludiamo titoli per settimane — solo quelli mostrati nelle ultime 4 ore
     // così ogni sessione di navigazione vede facce nuove, ma il pool rimane intatto
-    const sessionCutoff = new Date(Date.now() - SESSION_TTL_HOURS * 60 * 60 * 1000).toISOString()
-    const { data: sessionShownRows } = await supabase
-      .from('recommendations_shown')
-      .select('rec_id')
-      .eq('user_id', userId)
-      .gte('shown_at', sessionCutoff)
-
-    const sessionShownIds = new Set<string>((sessionShownRows || []).map((r: any) => r.rec_id))
+    const recommendationExposures = await loadRecommendationExposures(supabase, userId)
 
     // ── V6: Carica socialFavorites ────────────────────────────────────────────
     const { data: similarFriends } = await supabase
@@ -4334,8 +4306,11 @@ export async function GET(request: NextRequest) {
       }
       // Filtra già posseduti (potrebbero essere stati aggiunti dopo la generazione del master)
       const available = masterItems.filter(r => !isAlreadyOwned(r.type, r.id, r.title))
-      // Campiona con logica a tier (10/5/5 con cascata)
-      const poolItems = sampleMasterPool(available)
+      // Campiona con logica V7: tier 10/5/5, cooldown, novelty, weighted sampling e diversity.
+      const poolItems = sampleMasterPool(available, {
+        exposures: recommendationExposures,
+        size: SERVE_SIZE_PER_TYPE,
+      })
 
       poolByType.set(type, poolItems)
       poolUpserts.push({
@@ -4377,21 +4352,7 @@ export async function GET(request: NextRequest) {
     }
 
     // ── V6: Registra i titoli mostrati (sessione corrente) ────────────────────
-    const shownInserts = Object.entries(recommendations).flatMap(([type, recs]) =>
-      recs.map(r => ({
-        user_id: userId,
-        rec_id: r.id,
-        rec_type: type,
-        shown_at: new Date().toISOString(),
-        action: null,
-      }))
-    )
-    if (shownInserts.length > 0) {
-      await supabase.from('recommendations_shown').upsert(shownInserts, {
-        onConflict: 'user_id,rec_id',
-        ignoreDuplicates: true,
-      })
-    }
+    await recordRecommendationExposures(supabase, userId, recommendations)
 
     // ── Popola in-memory cache ────────────────────────────────────────────────
     const topStudiosForResponse = Object.entries(tasteProfile.creatorScores.studios).sort(([,a],[,b]) => b - a).slice(0, 5)
