@@ -1324,11 +1324,11 @@ export default function FeedPage() {
     const { data, error } = await supabase.from('posts')
       .select(`
         id, user_id, content, image_url, created_at, category, is_edited,
-        profiles!posts_user_id_fkey (id, username, display_name, avatar_url, badge),
+        profiles (id, username, display_name, avatar_url, badge),
         likes (id, user_id),
         comments (
           id, content, created_at, user_id,
-          profiles!comments_user_id_fkey (id, username, display_name)
+          profiles (id, username, display_name)
         )
       `)
       .gte('created_at', since)
@@ -1377,7 +1377,7 @@ export default function FeedPage() {
     const { data } = await supabase.from('posts')
       .select(`
         id, user_id, content, image_url, created_at, category, is_edited,
-        profiles!posts_user_id_fkey (id, username, display_name, avatar_url, badge),
+        profiles (id, username, display_name, avatar_url, badge),
         likes (id, user_id)
       `)
       .ilike('category', `${topAffinity.category}:%`)
@@ -1421,11 +1421,11 @@ export default function FeedPage() {
     let query = supabase.from('posts')
       .select(`
         id, user_id, content, image_url, created_at, category, is_edited,
-        profiles!posts_user_id_fkey (id, username, display_name, avatar_url, badge),
+        profiles (id, username, display_name, avatar_url, badge),
         likes (id, user_id),
         comments (
           id, content, created_at, user_id,
-          profiles!comments_user_id_fkey (id, username, display_name)
+          profiles (id, username, display_name)
         )
       `)
       .order('created_at', { ascending: false }).range(from, to)
