@@ -75,6 +75,7 @@ export default function SwipePage() {
   const supabase = createClient()
   const router = useRouter()
   const addedTitlesRef = useRef<Set<string>>(new Set())
+  const userIdRef = useRef<string | null>(null)
   const [initialItems, setInitialItems] = useState<SwipeItem[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -82,6 +83,7 @@ export default function SwipePage() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
+      userIdRef.current = user.id
 
       // Load library titles for dedup
       const { data: entries } = await supabase
@@ -188,11 +190,12 @@ export default function SwipePage() {
     }
 
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    const uid = userIdRef.current
+    if (!uid) return
+    const user = { id: uid }
 
     if (skipPersist) {
-      removeFromPool(user.id, item.id)
+      removeFromPool(uid, item.id)
       fetch('/api/recommendations/feedback', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres, action: 'added' })
@@ -241,19 +244,20 @@ export default function SwipePage() {
   // ma agisce su Supabase SOLO se il titolo era effettivamente stato aggiunto.
   const handleSwipeUndo = useCallback(async (item: SwipeItem) => {
     if (!addedTitlesRef.current.has(item.title.toLowerCase())) return
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    const uid = userIdRef.current
+    if (!uid) return
     await supabase.from('user_media_entries')
       .delete()
-      .eq('user_id', user.id)
+      .eq('user_id', uid)
       .eq('external_id', item.id)
     addedTitlesRef.current.delete(item.title.toLowerCase())
     profileInvalidateBridge.invalidate()
   }, [supabase])
 
   const handleSwipeRequestMore = useCallback(async (filter: string = 'all'): Promise<SwipeItem[]> => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return []
+    const uid = userIdRef.current
+    if (!uid) return []
+    const user = { id: uid }
 
     const table = QUEUE_TABLE_MAP[filter] ?? 'swipe_queue_all'
     const TARGET = 50
@@ -346,6 +350,7 @@ export default function SwipePage() {
     <SwipeMode
       standalone
       items={initialItems}
+      userId={userIdRef.current ?? undefined}
       onSeen={handleSwipeSeen}
       onSkip={handleSwipeSkip}
       onUndo={handleSwipeUndo}

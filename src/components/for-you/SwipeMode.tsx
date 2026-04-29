@@ -45,21 +45,15 @@ type CategoryFilter = 'all' | SwipeMediaType
 
 interface SwipeModeProps {
   items: SwipeItem[]
+  userId?: string
   onSeen: (item: SwipeItem, rating: number | null, skipPersist?: boolean) => void
   onSkip: (item: SwipeItem) => void
   onClose: () => void
   onRequestMore: (filter?: CategoryFilter) => Promise<SwipeItem[]>
-  // Standalone: rende SwipeMode come elemento di pagina (senza fixed inset-0)
-  // e nasconde il pulsante X sulla card — la navigazione avviene via navbar
   standalone?: boolean
-  // Onboarding mode: disabilita persistSkipped real-time (gestito dal parent in batch)
   isOnboarding?: boolean
-  // Chiamato quando l'utente preme "Ho finito" o X nell'onboarding
   onOnboardingComplete?: () => void
-  // Callback opzionale chiamato DOPO che l'undo è già stato applicato alla queue/history.
-  // Il parent riceve l'item rimosso e può fare il revert su Supabase.
   onUndo?: (item: SwipeItem) => void
-  // Callback opzionale per revert wishlist (chiamato da handleUndo se l'item era in wishlist)
   onUndoWishlist?: (item: SwipeItem) => void
 }
 
@@ -475,12 +469,17 @@ function PageNavZone({ bottomOffset }: { bottomOffset: string }) {
 
 // ─── SwipeMode ─────────────────────────────────────────────────────────────────
 
-export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequestMore, standalone = false, isOnboarding = false, onOnboardingComplete, onUndo: onUndoCallback, onUndoWishlist }: SwipeModeProps) {
+export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onSkip, onClose, onRequestMore, standalone = false, isOnboarding = false, onOnboardingComplete, onUndo: onUndoCallback, onUndoWishlist }: SwipeModeProps) {
   const supabase = createClient()
-  // Quando standalone=true, SwipeMode vive nel panel KeepAlive del tab for-you.
-  // isTabActive=false significa che il panel e' nascosto: disabilitiamo touchAction:none
-  // sulle card per evitare che catturino pointer events inutilmente fuori schermo.
   const isTabActive = useTabActive()
+  // userId risolto una sola volta al mount — evita getUser() ad ogni swipe/skip
+  const userIdRef = useRef<string | null>(userIdProp ?? null)
+  useEffect(() => {
+    if (userIdRef.current) return
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) userIdRef.current = user.id
+    })
+  }, []) // eslint-disable-line
   const [activeFilter, setActiveFilter] = useState<CategoryFilter>('all')
 
   // RATING: ref aggiornato in sincronia con lo stato — la closure del setTimeout
@@ -508,18 +507,22 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
   const categoryQueues = useRef<Partial<Record<CategoryFilter, SwipeItem[]>>>({})
   const categoryLoading = useRef<Partial<Record<CategoryFilter, boolean>>>({})
 
-  // Carica skipped in background — usati SOLO durante il refill, non per filtrare la queue attiva
+  // Carica skipped in background
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      supabase.from('swipe_skipped').select('external_id').eq('user_id', user.id).then(({ data }) => {
-        if (data?.length) {
-          const ids = new Set(data.map((r: any) => r.external_id as string))
-          skippedIdsRef.current = ids
-          setSkippedIds(ids)
-        }
-      })
-    })
+    const load = async () => {
+      if (!userIdRef.current) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+        userIdRef.current = user.id
+      }
+      const { data } = await supabase.from('swipe_skipped').select('external_id').eq('user_id', userIdRef.current)
+      if (data?.length) {
+        const ids = new Set(data.map((r: any) => r.external_id as string))
+        skippedIdsRef.current = ids
+        setSkippedIds(ids)
+      }
+    }
+    load()
   }, []) // eslint-disable-line
 
   // filteredQueue: 'all' uses queue directly (already interleaved at write-time).
@@ -533,13 +536,13 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
   // legge il ref PRIMA che questo effect si esegua (la lettura avviene
   // nel corpo di handleSwipe, non in una callback asincrona)
   const prevTopIdRef = useRef<string | undefined>(undefined)
+  const topId = filteredQueue[0]?.id
   useEffect(() => {
-    const topId = filteredQueue[0]?.id
     if (topId !== prevTopIdRef.current) {
       prevTopIdRef.current = topId
       setRating(null)
     }
-  })
+  }, [topId, setRating])
 
   // preloadCategory declared before loadMore so loadMore can call it as a fast-path replenish.
   const preloadCategory = useCallback(async (filter: CategoryFilter) => {
@@ -632,41 +635,20 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
   }, [queue, loadMore, preloadCategory])
 
   const persistSkipped = useCallback((item: SwipeItem) => {
-    // SwipeMode scrive SOLO su swipe_skipped — MAI su user_media_entries
-    // (quello lo fa handleSwipeSeen in page.tsx che è l'unico punto di scrittura
-    //  per il profilo utente, e riceve il rating corretto come parametro)
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      // 1. Inserisce in swipe_skipped
-      supabase.from('swipe_skipped').upsert(
-        { user_id: user.id, external_id: item.id, title: item.title, type: item.type },
-        { onConflict: 'user_id,external_id' }
-      ).then(() => {})
-
-      // 2. FIX: Rimuove la card dalle tabelle swipe_queue_* in Supabase
-      //    così al prossimo refill non viene ricaricata tra quelle da proporre
-      const tables = [
-        'swipe_queue_all',
-        `swipe_queue_${item.type}`,
-      ]
-      for (const table of tables) {
-        supabase.from(table)
-          .delete()
-          .eq('user_id', user.id)
-          .eq('external_id', item.id)
-          .then(({ error }) => {
-            if (error) console.debug(`[SwipeMode] persistSkipped: rimozione da ${table} fallita`, error)
-            else console.debug(`[SwipeMode] persistSkipped: rimosso ${item.id} da ${table}`)
-          })
-      }
-    })
+    const uid = userIdRef.current
+    if (!uid) return
+    supabase.from('swipe_skipped').upsert(
+      { user_id: uid, external_id: item.id, title: item.title, type: item.type },
+      { onConflict: 'user_id,external_id' }
+    ).then(() => {})
+    supabase.from('swipe_queue_all').delete().eq('user_id', uid).eq('external_id', item.id).then(() => {})
+    supabase.from(`swipe_queue_${item.type}`).delete().eq('user_id', uid).eq('external_id', item.id).then(() => {})
   }, [supabase])
 
   const removeSkip = useCallback((item: SwipeItem) => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      supabase.from('swipe_skipped').delete().eq('user_id', user.id).eq('external_id', item.id).then(() => {})
-    })
+    const uid = userIdRef.current
+    if (!uid) return
+    supabase.from('swipe_skipped').delete().eq('user_id', uid).eq('external_id', item.id).then(() => {})
   }, [supabase])
 
   const handleSwipe = useCallback((dir: 'left' | 'right', item: SwipeItem, skipPersist = false) => {
@@ -686,17 +668,6 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
     }
 
     if (dir === 'right') {
-      console.group(`[SwipeMode] 👉 SWIPE DESTRA — "${item.title}"`)
-      console.log('📦 Item completo:', JSON.stringify(item, null, 2))
-      console.log('⭐ Rating al momento dello swipe (dal ref):', ratingAtSwipeTime)
-      console.log('🆔 external_id da passare a Supabase:', item.id)
-      console.log('🎭 type:', item.type)
-      console.log('🖼️ coverImage:', item.coverImage)
-      console.log('🎬 genres:', item.genres)
-      console.log('📤 Chiamo onSeen(item, rating) → handleSwipeSeen in page.tsx')
-      console.log('⚠️  skipPersist (viene dal Drawer, già scritto):', skipPersist)
-      console.log('🎓 isOnboarding:', isOnboarding)
-      console.groupEnd()
 
       onSeen(item, ratingAtSwipeTime, skipPersist)
     } else {
@@ -717,10 +688,8 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
       wishlistHistoryRef.current.delete(last.id)
       // Revert wishlist su Supabase (per swipe normale)
       if (!isOnboarding) {
-        supabase.auth.getUser().then(({ data: { user } }) => {
-          if (!user) return
-          supabase.from('wishlist').delete().eq('user_id', user.id).eq('external_id', last.id).then(() => {})
-        })
+        const uid = userIdRef.current
+        if (uid) supabase.from('wishlist').delete().eq('user_id', uid).eq('external_id', last.id).then(() => {})
       }
       // Notifica il parent (per onboarding)
       onUndoWishlist?.(last)
@@ -734,17 +703,14 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
     // Behaves like a skip: removes from queue, adds to history, persists skip
     wishlistHistoryRef.current.add(item.id)
     handleSwipe('left', item)
-    // Write to the `wishlist` table (same table the Discover page and wishlist page use)
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      supabase.from('wishlist').upsert({
-        user_id: user.id,
+    const uid = userIdRef.current
+    if (uid) supabase.from('wishlist').upsert({
+        user_id: uid,
         external_id: item.id,
         title: item.title,
         type: item.type,
         cover_image: item.coverImage,
       }, { onConflict: 'user_id,external_id' }).then(() => {})
-    })
   }, [handleSwipe, supabase])
 
   const handleDetailOpen = useCallback((item: SwipeItem) => {
@@ -777,18 +743,9 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
       <div className={containerClass} style={containerStyle}>
 
         {/* Backdrop sfumato: visibile in standalone e onboarding */}
-        {(standalone || isOnboarding) && topCoverImage && (
+        {(standalone || isOnboarding) && (
           <div className="absolute inset-0 z-0 pointer-events-none" aria-hidden>
-            <img
-              key={topCoverImage}
-              src={optimizeCover(topCoverImage, 'background-blur')}
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover"
-              style={{ filter: 'blur(32px)', transform: 'scale(1.12)', opacity: 0.55 }}
-            />
-            {/* Vignette: leggero per far trasparire i colori della card */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/35" />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-transparent to-black/50" />
+            <div className="absolute inset-0 bg-gradient-to-br from-violet-950/60 via-black to-zinc-900" />
           </div>
         )}
 
@@ -873,13 +830,6 @@ export function SwipeMode({ items: initialItems, onSeen, onSkip, onClose, onRequ
               }
 
               // ─── DEBUG: Drawer → onAdd ───────────────────────────────────
-              console.group(`[SwipeMode] 🎬 DRAWER onAdd — "${media.title}"`)
-              console.log('📦 media dal drawer:', JSON.stringify(media, null, 2))
-              console.log('📦 swipeItem costruito:', JSON.stringify(swipeItem, null, 2))
-              console.log('⭐ Rating dal ref al momento del click Aggiungi:', ratingAtAcceptTime)
-              console.log('⚠️  Il drawer ha già scritto su user_media_entries con formRating interno.')
-              console.log('✅ Chiamo handleSwipe("right", swipeItem, skipPersist=true)')
-              console.groupEnd()
 
               setDetailItem(null)
               // Aggiorna il ref col rating corrente prima di chiamare handleSwipe
