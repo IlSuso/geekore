@@ -509,9 +509,6 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
                     className={`w-full flex items-center gap-3 px-3 py-2 text-left border-b border-zinc-800/60 last:border-0 transition-colors ${
                       idx === activeSuggestion ? 'bg-violet-600/20' : 'hover:bg-zinc-800/80'
                     }`}>
-                    <div className="w-7 h-10 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                      <CategoryIcon category={selectedCat} size={12} className="text-zinc-600" />
-                    </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-semibold text-white truncate">{result.title}</p>
                       {result.subtitle && <p className="text-[11px] text-zinc-500">{result.subtitle}</p>}
@@ -693,9 +690,6 @@ function CategoryFilter({
                   {suggestions.map(result => (
                     <button key={result.id} onClick={() => applyFilter(`${activeMacro}:${result.title}`)}
                       className="w-full flex items-center gap-3 px-3 py-2 text-left border-b border-zinc-800/60 last:border-0 hover:bg-zinc-800/80 transition-colors">
-                      <div className="w-7 h-10 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                        <CategoryIcon category={activeMacro} size={12} className="text-zinc-600" />
-                      </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-semibold text-white truncate">{result.title}</p>
                         {result.subtitle && <p className="text-[11px] text-zinc-500">{result.subtitle}</p>}
@@ -1608,17 +1602,20 @@ export default function FeedPage() {
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    try {
-      const { blob, previewUrl } = await compressImage(file)
-      // Converti il blob compresso in File per mantenerlo compatibile con il resto del codice
+    // Mostra subito la preview con l'originale — zero attesa per l'utente
+    const immediateUrl = URL.createObjectURL(file)
+    setSelectedImage(file)
+    setImagePreview(immediateUrl)
+    // Comprimi in background: quando finisce, sostituisce il file da uploadare
+    // (la preview rimane quella immediata, non cambia visivamente)
+    compressImage(file).then(({ blob, previewUrl }) => {
+      URL.revokeObjectURL(immediateUrl)
       const compressed = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })
       setSelectedImage(compressed)
       setImagePreview(previewUrl)
-    } catch {
-      // Fallback: usa il file originale senza compressione
-      setSelectedImage(file)
-      setImagePreview(URL.createObjectURL(file))
-    }
+    }).catch(() => {
+      // fallback: tieni il file originale già impostato sopra
+    })
   }
 
   const toggleLike = useCallback(async (postId: string) => {
