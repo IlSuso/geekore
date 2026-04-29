@@ -88,11 +88,52 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   currentIdxRef.current = currentIdx
 
   const bridgeStarted = useRef(false)
+  // Flag: true se SwipeMode ha già gestito il release via notifyResolve.
+  // Evita che useDrag processi di nuovo lo stesso touchend con dati sbagliati (mx≈0).
+  const resolvedRef = useRef(false)
 
   // Motion values per i 3 panel (current, left, right) — DOM diretto, zero re-render
   // Il bridge di KeepAliveTabShell muove i panel via ref DOM diretto,
   // quindi qui gestiamo solo la notifica al bridge, non i panel direttamente.
   // La struttura rimane identica: swipeNavBridge.notifyDrag(dx) → KeepAliveTabShell muove i DOM.
+
+  // onResolve: chiamato da SwipeMode al touchend della zona page.
+  // Contiene la stessa logica navigate/snap-back di useDrag.last,
+  // ma con dx/vx passati da SwipeMode (che ha tracciato il touch direttamente).
+  useEffect(() => {
+    const handleResolve = (dx: number, vx: number) => {
+      if (!bridgeStarted.current) return
+      resolvedRef.current = true  // segnala a useDrag di non processare questo touchend
+      const w    = window.innerWidth
+      const absX = Math.abs(dx)
+      const shouldNav = absX > w * THRESHOLD || (Math.abs(vx) > VEL_THRESHOLD && absX > MIN_DIST_VEL)
+
+      if (shouldNav && dx > 0 && prevTabRef.current) {
+        const dest = prevTabRef.current
+        const tab  = pathnameToTab(dest)
+        if (tab) setActiveTab(tab)
+        swipeNavBridge.notifySnap(w, vx, 0)
+        window.history.replaceState(null, '', dest)
+      } else if (shouldNav && dx < 0 && nextTabRef.current) {
+        const dest = nextTabRef.current
+        const tab  = pathnameToTab(dest)
+        if (tab) setActiveTab(tab)
+        swipeNavBridge.notifySnap(-w, vx, 0)
+        window.history.replaceState(null, '', dest)
+      } else {
+        swipeNavBridge.notifySnap(0, vx, 0)
+        swipeNavBridge.notifyEnd()
+      }
+      bridgeStarted.current = false
+      gestureState.swipeActive = false
+    }
+
+    // Registra onResolve — non sovrascrive start/end/drag/snap già registrati da KeepAliveTabShell.
+    // Usiamo un riferimento separato per non interferire con la registrazione del shell.
+    swipeNavBridge._resolve = handleResolve
+
+    return () => { swipeNavBridge._resolve = null }
+  }, [setActiveTab]) // eslint-disable-line
 
   const bind = useDrag(
     ({ first, last, active, movement: [mx, my], velocity: [vx], xy: [x], event, cancel, memo }) => {
@@ -109,6 +150,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
         const w = window.innerWidth
         if (x <= EDGE || x >= w - EDGE) { cancel(); return memo }
         bridgeStarted.current = false
+        resolvedRef.current   = false
         // memo = { locked: null } — lock direzionale non ancora determinato
         return { locked: null }
       }
@@ -167,6 +209,8 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
 
       // Rilascio (last === true)
       gestureState.swipeActive = false
+      // Se SwipeMode ha già gestito questo release via notifyResolve, saltiamo.
+      if (resolvedRef.current) { resolvedRef.current = false; return memoState }
       if (!bridgeStarted.current) return memoState
 
       // Naviga se: spostamento > soglia OPPURE swipe veloce abbastanza con distanza minima
@@ -206,30 +250,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     }
   )
 
-  // SAFETY NET: se use-gesture non riceve il touchend (es. intercettato da SwipeMode),
-  // ascoltiamo noi stessi il touchend sul document e facciamo snap-back se bridgeStarted.
-  useEffect(() => {
-    const onTouchEnd = () => {
-      if (!bridgeStarted.current) return
-      // use-gesture chiamerà il suo handler nello stesso evento o subito dopo.
-      // Diamo priorità a use-gesture con setTimeout 0; se non ha chiamato snap, lo facciamo noi.
-      setTimeout(() => {
-        if (bridgeStarted.current) {
-          // use-gesture non ha gestito il release → snap-back di sicurezza
-          gestureState.swipeActive = false
-          swipeNavBridge.notifySnap(0, 0, 0)
-          swipeNavBridge.notifyEnd()
-          bridgeStarted.current = false
-        }
-      }, 16)
-    }
-    document.addEventListener('touchend', onTouchEnd, { passive: true })
-    document.addEventListener('touchcancel', onTouchEnd, { passive: true })
-    return () => {
-      document.removeEventListener('touchend', onTouchEnd)
-      document.removeEventListener('touchcancel', onTouchEnd)
-    }
-  }, [])
+
 
   return (
     <div

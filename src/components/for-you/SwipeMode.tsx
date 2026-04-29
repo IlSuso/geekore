@@ -465,23 +465,16 @@ function useSwipeGestures(
       if (g.zone === 'card' && g.isDragging) {
         onCardRelease(g.currentX)
       } else if (g.zone === 'page' && gestureState.pageSwipeZone) {
-        // Il page-swipe viene gestito da SwipeablePageContainer via use-gesture,
-        // ma su iOS/Android il touchend può non arrivare a use-gesture se intercettato qui.
-        // Forziamo lo snap-back via bridge con la velocity del dito.
-        // use-gesture probabilmente chiamerà anche lui notifySnap(0,...) — è idempotente.
+        // Delega la decisione navigate/snap-back a SwipeablePageContainer via bridge.
+        // Quello ha la stessa logica soglia delle altre pagine e conosce prevTab/nextTab.
         const touch = e.changedTouches[0]
-        const dx = touch ? touch.clientX - g.startX : 0
-        const dt = 16 // approx ms dell'ultimo frame
-        const vx = dx !== 0 ? (dx / dt) * 0.001 : 0 // px/ms, piccolo per sicurezza
-        // Solo snap-back: se use-gesture ha già navigato, questo è no-op perché il bridge
-        // non ha bridgeStarted se notifySnap è già stato chiamato.
-        // Usiamo setTimeout 0 per lasciare a use-gesture la priorità se lo riceve.
-        setTimeout(() => {
-          if (gestureState.swipeActive === false) {
-            swipeNavBridge.notifySnap(0, vx, 0)
-            swipeNavBridge.notifyEnd()
-          }
-        }, 0)
+        if (touch) {
+          const dx = touch.clientX - g.startX
+          // Stima velocity: usiamo l'ampiezza del gesto (senza timestamp preciso).
+          // Valori moderati — la soglia distanza (40% viewport) è il criterio primario.
+          const vx = Math.abs(dx) > 30 ? (dx > 0 ? 0.6 : -0.6) : 0
+          swipeNavBridge.notifyResolve(dx, vx)
+        }
       }
       gestureState.pageSwipeZone = false
       gs.current = { zone: null, startX: 0, startY: 0, currentX: 0, decided: false, isDragging: false }
