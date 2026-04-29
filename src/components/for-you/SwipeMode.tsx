@@ -928,9 +928,9 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
   const containerClass = standalone
     ? 'fixed inset-0 bg-black flex flex-col overflow-hidden'
     : 'fixed inset-0 bg-black flex flex-col'
-  const containerStyle = standalone
-    ? { contain: 'layout style paint' as const }
-    : { zIndex: 9999, contain: 'layout style paint' as const }
+  const containerStyle: React.CSSProperties = standalone
+    ? {}
+    : { zIndex: 9999 }
 
   const hasCards = filteredQueue.length > 0
 
@@ -1003,10 +1003,18 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
           </div>
         )}
 
-        {/* FIX v10: bottoni azione in pannello FISSO sotto la card, fuori dal div animato.
-            Questo è il cambiamento chiave che elimina i glitch su Android WebView. */}
+        {/* Bottoni azione — pannello fisso fuori dal div animato (fix glitch WebView).
+            Il padding-bottom include safe-area-inset-bottom per non essere tagliati
+            dalla gesture bar Android/iOS, sia in Capacitor che in PWA. */}
         {hasCards && (
-          <div className="relative z-20 flex-shrink-0 flex items-center justify-center px-4 pb-2">
+          <div
+            className="relative z-20 flex-shrink-0 flex items-center justify-center px-4"
+            style={{
+              paddingBottom: standalone
+                ? 'calc(49px + env(safe-area-inset-bottom, 0px) + 8px)'
+                : 'max(8px, env(safe-area-inset-bottom, 8px))',
+            }}
+          >
             <div style={{ maxWidth: 'min(420px, 92vw)', width: '100%' }}>
               <ActionButtons
                 isTop={!cardFlying}
@@ -1020,14 +1028,6 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
               />
             </div>
           </div>
-        )}
-
-        {/* Spacer navbar mobile */}
-        {standalone && (
-          <div
-            className="flex-shrink-0 md:hidden"
-            style={{ height: 'calc(49px + env(safe-area-inset-bottom, 0px))' }}
-          />
         )}
       </div>
 
