@@ -2038,52 +2038,140 @@ async function fetchMovieRecs(
     } catch { /* continua */ }
   }
 
-  // ── TOP-UP Movie: continua a fetchare finché pool raggiunge 200 ───────────
+  // ── TOP-UP Movie: ricerca progressiva a onde finché non si raggiungono 200 titoli ──
+  // Logica: con qualunque profilo esistono SEMPRE 200 film mai visti con matchScore ≥ 40.
+  // Si espande in wave: generi primari → generi secondari → sort by popularity → voteAvg ridotto.
+  // La soglia qualità ≥ 40 rimane fissa — si cerca di più, non si abbassa lo standard.
   const MOVIE_POOL_TARGET = 200
-  if (results.length < MOVIE_POOL_TARGET && slots.length > 0) {
-    const voteAvgMin = tasteProfile.qualityThresholds.tmdbVoteAvg
-    const availableGenreIds = slots.map(s => TMDB_GENRE_MAP[s.genre]).filter(Boolean)
-    let topUpPage = 4
-    const MAX_TOPUP_PAGES = 15
-    while (results.length < MOVIE_POOL_TARGET && topUpPage <= MAX_TOPUP_PAGES) {
-      try {
-        const genreId = availableGenreIds[topUpPage % availableGenreIds.length] || availableGenreIds[0]
-        const r = await fetch(
-          `https://api.themoviedb.org/3/discover/movie?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=80&vote_average.gte=${voteAvgMin}&language=it-IT&page=${topUpPage}`,
-          { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
-        ).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
-        const candidates = r.results || []
-        if (candidates.length === 0) break
-        for (const m of candidates) {
-          const title = m.title || m.original_title || ''
-          if (isAlreadyOwned('movie', m.id.toString(), title) || seen.has(m.id.toString())) continue
-          if (!m.poster_path) continue
-          seen.add(m.id.toString())
-          const recGenres = m.genre_ids
-            ? m.genre_ids.map((id: number) => TMDB_MOVIE_GENRE_NAMES[id]).filter(Boolean)
-            : []
-          let matchScore = computeMatchScore(recGenres.length > 0 ? recGenres : [], [], tasteProfile)
-          if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
-          const year = m.release_date ? parseInt(m.release_date.substring(0, 4)) : undefined
-          matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year)))
-          if (matchScore < 40) continue
-          results.push({
-            id: m.id.toString(),
-            title: m.title || m.original_title || 'Senza titolo',
-            type: 'movie',
-            coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`,
-            year,
-            genres: recGenres,
-            score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
-            description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
-            why: buildWhyV3(recGenres, m.id.toString(), m.title || '', tasteProfile, matchScore, false, {}),
-            matchScore,
-            isAwardWinner: isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb'),
-          })
-          if (results.length >= MOVIE_POOL_TARGET) break
+  if (results.length < MOVIE_POOL_TARGET) {
+    const baseVoteAvg = tasteProfile.qualityThresholds.tmdbVoteAvg
+
+    // Tutti i generi del profilo in ordine di preferenza (senza duplicati)
+    const allProfileGenreIds = [...new Set([
+      ...(tasteProfile.topGenres['movie'] || []).map(g => TMDB_GENRE_MAP[g.genre]).filter(Boolean),
+      ...tasteProfile.globalGenres.map(g => TMDB_GENRE_MAP[g.genre]).filter(Boolean),
+      ...slots.map(s => TMDB_GENRE_MAP[s.genre]).filter(Boolean),
+    ])]
+
+    // Wave 1: generi top del profilo, pagine 4→10, sort vote_average
+    if (results.length < MOVIE_POOL_TARGET) {
+      outer1:
+      for (const genreId of allProfileGenreIds) {
+        if (results.length >= MOVIE_POOL_TARGET) break
+        for (let page = 4; page <= 10; page++) {
+          if (results.length >= MOVIE_POOL_TARGET) break outer1
+          try {
+            const r = await fetch(
+              `https://api.themoviedb.org/3/discover/movie?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=80&vote_average.gte=${baseVoteAvg}&language=it-IT&page=${page}`,
+              { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
+            ).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
+            const candidates = r.results || []
+            if (candidates.length === 0) break
+            for (const m of candidates) {
+              if (results.length >= MOVIE_POOL_TARGET) break
+              const title = m.title || m.original_title || ''
+              if (isAlreadyOwned('movie', m.id.toString(), title) || seen.has(m.id.toString())) continue
+              if (!m.poster_path) continue
+              seen.add(m.id.toString())
+              const recGenres = m.genre_ids?.map((id: number) => TMDB_MOVIE_GENRE_NAMES[id]).filter(Boolean) || []
+              let matchScore = computeMatchScore(recGenres.length > 0 ? recGenres : [], [], tasteProfile)
+              if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
+              const year = m.release_date ? parseInt(m.release_date.substring(0, 4)) : undefined
+              matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year)))
+              if (matchScore < 40) continue
+              results.push({
+                id: m.id.toString(), title: m.title || m.original_title || 'Senza titolo', type: 'movie',
+                coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`, year, genres: recGenres,
+                score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
+                description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
+                why: buildWhyV3(recGenres, m.id.toString(), m.title || '', tasteProfile, matchScore, false, {}),
+                matchScore, isAwardWinner: isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb'),
+              })
+            }
+          } catch { /* continua */ }
         }
-      } catch { /* continua */ }
-      topUpPage++
+      }
+    }
+
+    // Wave 2: sort by popularity (cattura titoli popolari non top-rated), pagine 1→6
+    if (results.length < MOVIE_POOL_TARGET) {
+      outer2:
+      for (const genreId of allProfileGenreIds) {
+        if (results.length >= MOVIE_POOL_TARGET) break
+        for (let page = 1; page <= 6; page++) {
+          if (results.length >= MOVIE_POOL_TARGET) break outer2
+          try {
+            const r = await fetch(
+              `https://api.themoviedb.org/3/discover/movie?with_genres=${genreId}&sort_by=popularity.desc&vote_count.gte=100&vote_average.gte=${baseVoteAvg}&language=it-IT&page=${page}`,
+              { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
+            ).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
+            const candidates = r.results || []
+            if (candidates.length === 0) break
+            for (const m of candidates) {
+              if (results.length >= MOVIE_POOL_TARGET) break
+              const title = m.title || m.original_title || ''
+              if (isAlreadyOwned('movie', m.id.toString(), title) || seen.has(m.id.toString())) continue
+              if (!m.poster_path) continue
+              seen.add(m.id.toString())
+              const recGenres = m.genre_ids?.map((id: number) => TMDB_MOVIE_GENRE_NAMES[id]).filter(Boolean) || []
+              let matchScore = computeMatchScore(recGenres.length > 0 ? recGenres : [], [], tasteProfile)
+              if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
+              const year = m.release_date ? parseInt(m.release_date.substring(0, 4)) : undefined
+              matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year)))
+              if (matchScore < 40) continue
+              results.push({
+                id: m.id.toString(), title: m.title || m.original_title || 'Senza titolo', type: 'movie',
+                coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`, year, genres: recGenres,
+                score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
+                description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
+                why: buildWhyV3(recGenres, m.id.toString(), m.title || '', tasteProfile, matchScore, false, {}),
+                matchScore, isAwardWinner: isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb'),
+              })
+            }
+          } catch { /* continua */ }
+        }
+      }
+    }
+
+    // Wave 3: voteAvg abbassato a 5.5 (film decenti ma meno noti), pagine 1→5
+    if (results.length < MOVIE_POOL_TARGET) {
+      const relaxedVoteAvg = Math.min(baseVoteAvg, 5.5)
+      outer3:
+      for (const genreId of allProfileGenreIds) {
+        if (results.length >= MOVIE_POOL_TARGET) break
+        for (let page = 1; page <= 5; page++) {
+          if (results.length >= MOVIE_POOL_TARGET) break outer3
+          try {
+            const r = await fetch(
+              `https://api.themoviedb.org/3/discover/movie?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=200&vote_average.gte=${relaxedVoteAvg}&language=it-IT&page=${page}`,
+              { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
+            ).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
+            const candidates = r.results || []
+            if (candidates.length === 0) break
+            for (const m of candidates) {
+              if (results.length >= MOVIE_POOL_TARGET) break
+              const title = m.title || m.original_title || ''
+              if (isAlreadyOwned('movie', m.id.toString(), title) || seen.has(m.id.toString())) continue
+              if (!m.poster_path) continue
+              seen.add(m.id.toString())
+              const recGenres = m.genre_ids?.map((id: number) => TMDB_MOVIE_GENRE_NAMES[id]).filter(Boolean) || []
+              let matchScore = computeMatchScore(recGenres.length > 0 ? recGenres : [], [], tasteProfile)
+              if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
+              const year = m.release_date ? parseInt(m.release_date.substring(0, 4)) : undefined
+              matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year)))
+              if (matchScore < 40) continue
+              results.push({
+                id: m.id.toString(), title: m.title || m.original_title || 'Senza titolo', type: 'movie',
+                coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`, year, genres: recGenres,
+                score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
+                description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
+                why: buildWhyV3(recGenres, m.id.toString(), m.title || '', tasteProfile, matchScore, false, {}),
+                matchScore, isAwardWinner: isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb'),
+              })
+            }
+          } catch { /* continua */ }
+        }
+      }
     }
   }
   // ─────────────────────────────────────────────────────────────────────────
@@ -2241,64 +2329,135 @@ async function fetchTvRecs(
     } catch { /* continua */ }
   }
 
-  // ── TOP-UP TV: continua a fetchare finché pool raggiunge 200 ─────────────
-  // Strategia corretta: per ogni genere degli slot, fetcha pagine 4→8 sistematicamente.
-  // Non usare modulo su page globale (ricicla generi a caso su pagine vuote).
-  // vote_count.gte abbassato a 100 nel top-up (qualità ancora accettabile, più risultati).
-  // Soglia matchScore >= 40: titoli sotto soglia non verranno mai campionati dal pool.
+  // ── TOP-UP TV: ricerca progressiva a onde finché non si raggiungono 200 titoli ──
+  // Stessa logica del movie top-up: Wave 1 → Wave 2 (popularity) → Wave 3 (voteAvg ridotto)
   const TV_POOL_TARGET = 200
-  if (results.length < TV_POOL_TARGET && slots.length > 0) {
-    const voteAvgMin = tasteProfile.qualityThresholds.tmdbVoteAvg
-    // Generi unici degli slot, in ordine di quota decrescente (i più amati prima)
-    const uniqueGenreIds = [...new Set(
-      slots
-        .sort((a, b) => b.quota - a.quota)
-        .map(s => TMDB_TV_GENRE_MAP[s.genre])
-        .filter(Boolean)
-    )]
-    const MAX_TOPUP_PAGE_PER_GENRE = 8  // pagine 4→8 per genere = 5 pagine × N generi
-    outer:
-    for (const genreId of uniqueGenreIds) {
-      if (results.length >= TV_POOL_TARGET) break
-      for (let page = 4; page <= MAX_TOPUP_PAGE_PER_GENRE; page++) {
-        if (results.length >= TV_POOL_TARGET) break outer
-        try {
-          const r = await fetch(
-            `https://api.themoviedb.org/3/discover/tv?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=100&vote_average.gte=${voteAvgMin}&language=it-IT&page=${page}`,
-            { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
-          ).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
-          const candidates = r.results || []
-          if (candidates.length === 0) break  // questo genere è esaurito, passa al prossimo
-          for (const m of candidates) {
-            if (results.length >= TV_POOL_TARGET) break
-            const title = m.name || m.original_name || ''
-            if (isAlreadyOwned('tv', m.id.toString(), title) || seen.has(m.id.toString())) continue
-            if (!m.poster_path) continue
-            seen.add(m.id.toString())
-            const recGenres = m.genre_ids
-              ? m.genre_ids.map((id: number) => TMDB_TV_GENRE_NAMES[id]).filter(Boolean)
-              : []
-            // computeMatchScore usa globalGenres (tutti i media) → profilo crossmediale ricco
-            let matchScore = computeMatchScore(recGenres.length > 0 ? recGenres : [], [], tasteProfile)
-            if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
-            const year = m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined
-            matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year)))
-            if (matchScore < 40) continue
-            results.push({
-              id: m.id.toString(),
-              title: m.name || m.original_name || 'Senza titolo',
-              type: 'tv',
-              coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`,
-              year,
-              genres: recGenres,
-              score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
-              description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
-              why: buildWhyV3(recGenres, m.id.toString(), m.name || '', tasteProfile, matchScore, false, {}),
-              matchScore,
-              isAwardWinner: isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb'),
-            })
-          }
-        } catch { /* continua con pagina successiva */ }
+  if (results.length < TV_POOL_TARGET) {
+    const baseVoteAvg = tasteProfile.qualityThresholds.tmdbVoteAvg
+    const allProfileTvGenreIds = [...new Set([
+      ...(tasteProfile.topGenres['tv'] || []).map(g => TMDB_TV_GENRE_MAP[g.genre]).filter(Boolean),
+      ...tasteProfile.globalGenres.map(g => TMDB_TV_GENRE_MAP[g.genre]).filter(Boolean),
+      ...slots.map(s => TMDB_TV_GENRE_MAP[s.genre]).filter(Boolean),
+    ])]
+
+    // Wave 1: vote_average, pagine 4→10
+    if (results.length < TV_POOL_TARGET) {
+      outerTv1:
+      for (const genreId of allProfileTvGenreIds) {
+        if (results.length >= TV_POOL_TARGET) break
+        for (let page = 4; page <= 10; page++) {
+          if (results.length >= TV_POOL_TARGET) break outerTv1
+          try {
+            const r = await fetch(
+              `https://api.themoviedb.org/3/discover/tv?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=100&vote_average.gte=${baseVoteAvg}&language=it-IT&page=${page}`,
+              { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
+            ).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
+            const candidates = r.results || []
+            if (candidates.length === 0) break
+            for (const m of candidates) {
+              if (results.length >= TV_POOL_TARGET) break
+              const title = m.name || m.original_name || ''
+              if (isAlreadyOwned('tv', m.id.toString(), title) || seen.has(m.id.toString())) continue
+              if (!m.poster_path) continue
+              seen.add(m.id.toString())
+              const recGenres = m.genre_ids?.map((id: number) => TMDB_TV_GENRE_NAMES[id]).filter(Boolean) || []
+              let matchScore = computeMatchScore(recGenres.length > 0 ? recGenres : [], [], tasteProfile)
+              if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
+              const year = m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined
+              matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year)))
+              if (matchScore < 40) continue
+              results.push({
+                id: m.id.toString(), title: m.name || m.original_name || 'Senza titolo', type: 'tv',
+                coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`, year, genres: recGenres,
+                score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
+                description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
+                why: buildWhyV3(recGenres, m.id.toString(), m.name || '', tasteProfile, matchScore, false, {}),
+                matchScore, isAwardWinner: isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb'),
+              })
+            }
+          } catch { /* continua */ }
+        }
+      }
+    }
+
+    // Wave 2: sort by popularity, pagine 1→6
+    if (results.length < TV_POOL_TARGET) {
+      outerTv2:
+      for (const genreId of allProfileTvGenreIds) {
+        if (results.length >= TV_POOL_TARGET) break
+        for (let page = 1; page <= 6; page++) {
+          if (results.length >= TV_POOL_TARGET) break outerTv2
+          try {
+            const r = await fetch(
+              `https://api.themoviedb.org/3/discover/tv?with_genres=${genreId}&sort_by=popularity.desc&vote_count.gte=100&vote_average.gte=${baseVoteAvg}&language=it-IT&page=${page}`,
+              { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
+            ).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
+            const candidates = r.results || []
+            if (candidates.length === 0) break
+            for (const m of candidates) {
+              if (results.length >= TV_POOL_TARGET) break
+              const title = m.name || m.original_name || ''
+              if (isAlreadyOwned('tv', m.id.toString(), title) || seen.has(m.id.toString())) continue
+              if (!m.poster_path) continue
+              seen.add(m.id.toString())
+              const recGenres = m.genre_ids?.map((id: number) => TMDB_TV_GENRE_NAMES[id]).filter(Boolean) || []
+              let matchScore = computeMatchScore(recGenres.length > 0 ? recGenres : [], [], tasteProfile)
+              if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
+              const year = m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined
+              matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year)))
+              if (matchScore < 40) continue
+              results.push({
+                id: m.id.toString(), title: m.name || m.original_name || 'Senza titolo', type: 'tv',
+                coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`, year, genres: recGenres,
+                score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
+                description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
+                why: buildWhyV3(recGenres, m.id.toString(), m.name || '', tasteProfile, matchScore, false, {}),
+                matchScore, isAwardWinner: isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb'),
+              })
+            }
+          } catch { /* continua */ }
+        }
+      }
+    }
+
+    // Wave 3: voteAvg ridotto a 5.5, pagine 1→5
+    if (results.length < TV_POOL_TARGET) {
+      const relaxedVoteAvg = Math.min(baseVoteAvg, 5.5)
+      outerTv3:
+      for (const genreId of allProfileTvGenreIds) {
+        if (results.length >= TV_POOL_TARGET) break
+        for (let page = 1; page <= 5; page++) {
+          if (results.length >= TV_POOL_TARGET) break outerTv3
+          try {
+            const r = await fetch(
+              `https://api.themoviedb.org/3/discover/tv?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=200&vote_average.gte=${relaxedVoteAvg}&language=it-IT&page=${page}`,
+              { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
+            ).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
+            const candidates = r.results || []
+            if (candidates.length === 0) break
+            for (const m of candidates) {
+              if (results.length >= TV_POOL_TARGET) break
+              const title = m.name || m.original_name || ''
+              if (isAlreadyOwned('tv', m.id.toString(), title) || seen.has(m.id.toString())) continue
+              if (!m.poster_path) continue
+              seen.add(m.id.toString())
+              const recGenres = m.genre_ids?.map((id: number) => TMDB_TV_GENRE_NAMES[id]).filter(Boolean) || []
+              let matchScore = computeMatchScore(recGenres.length > 0 ? recGenres : [], [], tasteProfile)
+              if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
+              const year = m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined
+              matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year)))
+              if (matchScore < 40) continue
+              results.push({
+                id: m.id.toString(), title: m.name || m.original_name || 'Senza titolo', type: 'tv',
+                coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`, year, genres: recGenres,
+                score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
+                description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
+                why: buildWhyV3(recGenres, m.id.toString(), m.name || '', tasteProfile, matchScore, false, {}),
+                matchScore, isAwardWinner: isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb'),
+              })
+            }
+          } catch { /* continua */ }
+        }
       }
     }
   }
@@ -3404,7 +3563,7 @@ async function fetchBoardgameRecs(
             else if (bggRank2 <= 800) finalScore2 = Math.min(100, finalScore2 + 2)
           }
           finalScore2 = Math.min(100, Math.round(finalScore2 * releaseFreshnessMult(year2)))
-          if (finalScore2 < 40) continue
+          if (finalScore2 < 40) continue  // stessa soglia del loop principale
 
           const minpM2 = chunk.match(/<minplayers[^>]*value="(\d+)"/)
           const maxpM2 = chunk.match(/<maxplayers[^>]*value="(\d+)"/)
@@ -3528,7 +3687,7 @@ async function fetchBoardgameRecs(
             else if (bggRank2 <= 800) finalScore2 = Math.min(100, finalScore2 + 2)
           }
           finalScore2 = Math.min(100, Math.round(finalScore2 * releaseFreshnessMult(year2)))
-          if (finalScore2 < 40) continue
+          if (finalScore2 < 40) continue  // stessa soglia del loop principale
 
           const minpM2 = chunk.match(/<minplayers[^>]*value="(\d+)"/)
           const maxpM2 = chunk.match(/<maxplayers[^>]*value="(\d+)"/)
