@@ -56,6 +56,7 @@ import { computeTasteProfile } from '@/lib/reco/profile'
 import { fetchContinuityRecs } from '@/lib/reco/continuity'
 import { fetchAnimeRecs, fetchBoardgameRecs, fetchGameRecs, fetchMangaRecs, fetchMovieRecs, fetchTvRecs } from '@/lib/reco/fetchers'
 import { applyFormatDiversity } from '@/lib/reco/scoring'
+import { composeRecommendationRails } from '@/lib/reco/rails'
 
 
 // Tipo Supabase client (evita any)
@@ -131,10 +132,12 @@ export async function GET(request: NextRequest) {
         }
         const hasData = Object.values(recommendations).some(arr => arr.length > 0)
         if (hasData) {
+          const tasteProfileResponse = tasteProfile ? { ...tasteProfile, totalEntries } : null
           await recordRecommendationExposures(supabase, userId, recommendations as Record<string, Recommendation[]>)
           return NextResponse.json({
             recommendations,
-            tasteProfile: tasteProfile ? { ...tasteProfile, totalEntries } : null,
+            rails: composeRecommendationRails(recommendations as Record<string, Recommendation[]>, tasteProfileResponse),
+            tasteProfile: tasteProfileResponse,
             cached: true,
             source: 'pool',
           }, { headers: { 'X-Cache': 'POOL_HIT' } })
@@ -176,9 +179,11 @@ export async function GET(request: NextRequest) {
         await supabase.from('recommendations_pool').upsert(poolUpserts, { onConflict: 'user_id,media_type' })
       }
       await recordRecommendationExposures(supabase, userId, recommendations)
+      const tasteProfileResponse = savedTasteProfile ? { ...savedTasteProfile, totalEntries: savedTotalEntries } : null
       return NextResponse.json({
         recommendations,
-        tasteProfile: savedTasteProfile ? { ...savedTasteProfile, totalEntries: savedTotalEntries } : null,
+        rails: composeRecommendationRails(recommendations, tasteProfileResponse),
+        tasteProfile: tasteProfileResponse,
         source: 'refresh_pool',
       })
     }
@@ -198,12 +203,12 @@ export async function GET(request: NextRequest) {
           if (types.length < 1) {
             // Cache vuota o corrotta — cade attraverso al ricalcolo
           } else {
-            return NextResponse.json({ recommendations: recs, tasteProfile: memHit.tasteProfile, cached: true }, {
+            return NextResponse.json({ recommendations: recs, rails: composeRecommendationRails(recs, memHit.tasteProfile), tasteProfile: memHit.tasteProfile, cached: true }, {
               headers: { 'X-Cache': 'MEM_HIT' }
             })
           }
         } else {
-          return NextResponse.json({ recommendations: recs, tasteProfile: memHit.tasteProfile, cached: true }, {
+          return NextResponse.json({ recommendations: recs, rails: composeRecommendationRails(recs, memHit.tasteProfile), tasteProfile: memHit.tasteProfile, cached: true }, {
             headers: { 'X-Cache': 'MEM_HIT' }
           })
         }
@@ -699,6 +704,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       recommendations,
+      rails: composeRecommendationRails(recommendations, tasteProfileResponse),
       tasteProfile: {
         ...tasteProfileResponse,
         lowConfidence: tasteProfile.lowConfidence,

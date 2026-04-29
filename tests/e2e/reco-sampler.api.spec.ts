@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { sampleMasterPool } from '../../src/lib/reco/sampler'
+import { composeRecommendationRails } from '../../src/lib/reco/rails'
 import type { Recommendation } from '../../src/lib/reco/types'
 
 function rec(id: string, matchScore: number, genre = 'Drama'): Recommendation {
@@ -58,5 +59,49 @@ test.describe('recommendation sampler', () => {
     })
 
     expect(sampled.map(item => item.id)).toEqual(expect.arrayContaining(['fresh', 'old-a', 'old-b']))
+  })
+})
+
+test.describe('recommendation rails', () => {
+  test('builds netflix-style mixed rows from the served pool', () => {
+    const recommendations = {
+      movie: [
+        { ...rec('movie-a', 96, 'Drama'), isAwardWinner: true, year: 2026 },
+        { ...rec('movie-b', 91, 'Drama'), isDiscovery: true },
+        { ...rec('movie-c', 88, 'Thriller'), isSerendipity: true },
+        { ...rec('movie-d', 84, 'Drama'), isAwardWinner: true },
+      ],
+      game: [
+        { ...rec('game-a', 94, 'Fantasy'), type: 'game' as const, isSeasonal: true },
+        { ...rec('game-b', 82, 'Fantasy'), type: 'game' as const, isDiscovery: true },
+        { ...rec('game-c', 79, 'Adventure'), type: 'game' as const, isAwardWinner: true },
+        { ...rec('game-d', 76, 'Fantasy'), type: 'game' as const, isDiscovery: true },
+        { ...rec('game-e', 74, 'Drama'), type: 'game' as const, isSeasonal: true, isDiscovery: true },
+      ],
+    }
+
+    const rails = composeRecommendationRails(recommendations, { globalGenres: [{ genre: 'Drama', score: 10 }] })
+
+    expect(rails.map(rail => rail.id)).toEqual(expect.arrayContaining(['top-match', 'fresh', 'discovery', 'genre-drama']))
+    expect(rails[0].items.some(item => item.type === 'movie')).toBeTruthy()
+    expect(rails[0].items.some(item => item.type === 'game')).toBeTruthy()
+  })
+
+  test('deduplicates items inside each editorial row', () => {
+    const recommendations = {
+      movie: [
+        { ...rec('same', 96, 'Drama'), isDiscovery: true },
+        { ...rec('same', 95, 'Drama'), isDiscovery: true },
+        { ...rec('other-a', 94, 'Drama'), isDiscovery: true },
+        { ...rec('other-b', 93, 'Drama'), isDiscovery: true },
+        { ...rec('other-c', 92, 'Drama'), isDiscovery: true },
+      ],
+    }
+
+    const rails = composeRecommendationRails(recommendations, { globalGenres: [{ genre: 'Drama', score: 10 }] })
+    const discovery = rails.find(rail => rail.id === 'discovery')
+
+    expect(discovery).toBeTruthy()
+    expect(discovery?.items.map(item => item.id)).toEqual(['same', 'other-a', 'other-b', 'other-c'])
   })
 })

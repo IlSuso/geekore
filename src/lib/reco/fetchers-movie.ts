@@ -4,7 +4,7 @@ import type { GenreSlot } from './slots'
 import { buildWhyV3, computeMatchScore } from './profile'
 import { isAwardWorthy, releaseFreshnessMult, runtimePenalty } from './scoring'
 import { TMDB_GENRE_MAP, TMDB_TV_GENRE_MAP } from './genre-maps'
-import { PLATFORM_NAMES_MAP, TMDB_MOVIE_GENRE_NAMES, TMDB_TV_GENRE_NAMES } from './tmdb-shared'
+import { PLATFORM_NAMES_MAP, TMDB_MOVIE_GENRE_NAMES } from './tmdb-shared'
 export async function fetchMovieRecs(
   slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, token: string, isAlreadyOwned: (type: string, id: string, title: string) => boolean,
   shownIds?: Set<string>, socialFavorites?: Map<string, string>, userPlatformIds: number[] = []

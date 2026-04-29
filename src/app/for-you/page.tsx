@@ -14,7 +14,7 @@ import {
   ThumbsDown, Eye, Flame, Brain, Star, ArrowRight, Clapperboard, Swords,
   TrendingUp, Search, BookmarkCheck, Trophy, Calendar,
   MessageCircleQuestion, Tag, MonitorPlay, AlertCircle, Layers,
-  Dices,
+  Dices, Compass,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
@@ -101,6 +101,14 @@ interface Recommendation {
   max_players?: number
   playing_time?: number
   complexity?: number
+}
+
+interface RecommendationRail {
+  id: string
+  title: string
+  subtitle: string
+  kind: 'top-match' | 'continue' | 'social' | 'fresh' | 'discovery' | 'genre'
+  items: Recommendation[]
 }
 
 // V3: Continuity Section
@@ -508,6 +516,80 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
 const INITIAL_VISIBLE = 20
 const LOAD_MORE_STEP = 10
 
+const RAIL_ICONS: Record<RecommendationRail['kind'], React.ElementType> = {
+  'top-match': Sparkles,
+  continue: ArrowRight,
+  social: Users,
+  fresh: Flame,
+  discovery: Compass,
+  genre: Tag,
+}
+
+const RAIL_COLORS: Record<RecommendationRail['kind'], string> = {
+  'top-match': 'from-fuchsia-500 to-violet-600',
+  continue: 'from-amber-500 to-orange-600',
+  social: 'from-sky-500 to-cyan-600',
+  fresh: 'from-red-500 to-pink-600',
+  discovery: 'from-emerald-500 to-teal-600',
+  genre: 'from-indigo-500 to-blue-600',
+}
+
+const NetflixRailSection = memo(function NetflixRailSection({ rail, onFeedback, dismissedIds, onSimilar, onDetail, similarLoadingId }: {
+  rail: RecommendationRail
+  onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
+  dismissedIds: Set<string>
+  onSimilar?: (i: Recommendation) => void
+  onDetail?: (i: Recommendation) => void
+  similarLoadingId?: string | null
+}) {
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
+  const visible = rail.items.filter(i => !dismissedIds.has(i.id))
+  if (!visible.length) return null
+
+  const Icon = RAIL_ICONS[rail.kind] || Sparkles
+  const shown = visible.slice(0, visibleCount)
+  const hasMore = visible.length > visibleCount
+
+  return (
+    <div className="mb-10">
+      <div className="flex items-center gap-3 mb-4">
+        <div className={`w-8 h-8 bg-gradient-to-br ${RAIL_COLORS[rail.kind]} rounded-xl flex items-center justify-center shadow-lg`}>
+          <Icon size={16} className="text-white" />
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-base font-bold text-white">{rail.title}</h2>
+          <p className="text-[10px] text-zinc-500 line-clamp-1">{rail.subtitle}</p>
+        </div>
+      </div>
+      <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
+        {shown.map(item => (
+          <RecommendationCard
+            key={`${rail.id}-${item.type}-${item.id}`}
+            item={item}
+            onFeedback={onFeedback}
+            onSimilar={onSimilar}
+            onDetail={onDetail}
+            isSimilarLoading={similarLoadingId === item.id}
+            dismissed={dismissedIds.has(item.id)}
+            showDetails={rail.kind === 'top-match'}
+          />
+        ))}
+        {hasMore && (
+          <div className="flex-shrink-0 w-40 flex items-center justify-center">
+            <button onClick={() => setVisibleCount(v => v + LOAD_MORE_STEP)}
+              className="flex flex-col items-center gap-2 text-zinc-500 hover:text-zinc-300 transition-colors">
+              <div className="w-10 h-10 rounded-full border border-zinc-700 hover:border-zinc-500 flex items-center justify-center">
+                <ChevronDown size={18} />
+              </div>
+              <span className="text-[10px]">+{visible.length - visibleCount} altri</span>
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+})
+
 const RecommendationSection = memo(function RecommendationSection({ type, items, label, onFeedback, dismissedIds, onSimilar, onDetail, similarLoadingId, isPrimary }: {
   type: MediaType; items: Recommendation[]; label: string
   onAdd: (i: Recommendation) => void; onWishlist: (i: Recommendation) => void
@@ -695,6 +777,7 @@ const FriendsWatchingSection = memo(function FriendsWatchingSection({ items }: {
 // Module-level cache — sopravvive alle navigazioni nella stessa sessione
 const forYouCache: {
   recommendations: Record<string, Recommendation[]> | null
+  rails: RecommendationRail[] | null
   tasteProfile: TasteProfile | null
   friendsActivity: FriendActivity[]
   addedIds: Set<string>
@@ -703,7 +786,7 @@ const forYouCache: {
   totalEntries: number
   ts: number
 } = {
-  recommendations: null, tasteProfile: null, friendsActivity: [],
+  recommendations: null, rails: null, tasteProfile: null, friendsActivity: [],
   addedIds: new Set(), wishlistIds: new Set(), addedTitles: new Set(),
   totalEntries: 0, ts: 0,
 }
@@ -717,6 +800,7 @@ export default function ForYouPage() {
   const hasCachedData = forYouCache.recommendations !== null
   const [loading, setLoading] = useState(!hasCachedData); const [refreshing, setRefreshing] = useState(false)
   const [recommendations, setRecommendations] = useState<Record<string, Recommendation[]>>(forYouCache.recommendations ?? {})
+  const [rails, setRails] = useState<RecommendationRail[]>(forYouCache.rails ?? [])
   const [tasteProfile, setTasteProfile] = useState<TasteProfile | null>(forYouCache.tasteProfile)
   const [totalEntries, setTotalEntries] = useState(forYouCache.totalEntries)
   const [addedIds, setAddedIds] = useState<Set<string>>(forYouCache.addedIds)
@@ -741,6 +825,10 @@ export default function ForYouPage() {
     if (!res.ok) return
     const json = await res.json()
     const incoming = json.recommendations || {}
+    if (Array.isArray(json.rails)) {
+      setRails(json.rails)
+      forYouCache.rails = json.rails
+    }
     // Merge invece di replace: non sovrascrivere con dati parziali.
     // Se la risposta contiene meno tipi di quelli in memoria, manteniamo i vecchi.
     setRecommendations(prev => {
@@ -862,8 +950,10 @@ export default function ForYouPage() {
         const poolJson = await poolRes.json()
         if (poolJson.source === 'pool' && poolJson.recommendations) {
           const recs = poolJson.recommendations || {}
+          const nextRails = Array.isArray(poolJson.rails) ? poolJson.rails : []
           setRecommendations(recs); setTasteProfile(poolJson.tasteProfile || null); setIsCached(true)
-          forYouCache.recommendations = recs; forYouCache.tasteProfile = poolJson.tasteProfile || null
+          setRails(nextRails)
+          forYouCache.recommendations = recs; forYouCache.rails = nextRails; forYouCache.tasteProfile = poolJson.tasteProfile || null
           forYouCache.ts = Date.now()
           setLoading(false)
           const lastVisit = localStorage.getItem('for_you_last_visit')
@@ -884,7 +974,9 @@ export default function ForYouPage() {
           if (Array.isArray(items) && (items as any[]).length > 0) merged[type] = items as Recommendation[]
         }
         setRecommendations(merged); setTasteProfile(json.tasteProfile || null); setIsCached(!!json.cached)
-        forYouCache.recommendations = merged; forYouCache.tasteProfile = json.tasteProfile || null
+        const nextRails = Array.isArray(json.rails) ? json.rails : []
+        setRails(nextRails)
+        forYouCache.recommendations = merged; forYouCache.rails = nextRails; forYouCache.tasteProfile = json.tasteProfile || null
         forYouCache.ts = Date.now()
       }
 
@@ -913,6 +1005,10 @@ export default function ForYouPage() {
     ])
     if (json && json.recommendations) {
       const incoming = json.recommendations as Record<string, Recommendation[]>
+      if (Array.isArray(json.rails)) {
+        setRails(json.rails)
+        forYouCache.rails = json.rails
+      }
       setRecommendations(prev => {
         const merged = { ...prev }
         for (const [type, items] of Object.entries(incoming)) {
@@ -1062,7 +1158,6 @@ export default function ForYouPage() {
   }, [sendFeedback])
 
   const displayRecs = recommendations
-  const allRecs = Object.values(displayRecs).flat()
 
   // Fix 2.9: eleva nelle sezioni i titoli guardati da amici con sim ≥80%
   const friendWatchingMap = new Map<string, string>()  // mediaId → username
@@ -1081,7 +1176,18 @@ export default function ForYouPage() {
     }
   }
 
-  const allContinuityRecs = allRecs.filter(i => i.isContinuity && !dismissedIds.has(i.id))
+  for (const rail of rails) {
+    for (const rec of rail.items) {
+      if (friendWatchingMap.has(rec.id)) {
+        rec.friendWatching = friendWatchingMap.get(rec.id)
+        rec.matchScore = Math.min(100, rec.matchScore + 12)
+      }
+    }
+  }
+
+  const visibleRails = rails
+    .map(rail => ({ ...rail, items: rail.items.filter(i => !dismissedIds.has(i.id)) }))
+    .filter(rail => rail.items.length > 0)
 
   const hasEnoughData = totalEntries >= 1
 
@@ -1180,7 +1286,17 @@ export default function ForYouPage() {
                 similarLoadingId={similarLoading}
               />
             )}
-            {SECTIONS.map(({ key, label }) => {
+            {visibleRails.length > 0 ? visibleRails.map(rail => (
+              <NetflixRailSection
+                key={rail.id}
+                rail={rail}
+                onFeedback={handleFeedback}
+                dismissedIds={dismissedIds}
+                onSimilar={handleSimilar}
+                onDetail={handleDetail}
+                similarLoadingId={similarLoading}
+              />
+            )) : SECTIONS.map(({ key, label }) => {
               const items = displayRecs[key] || []
               const allItems = items
                 .filter(i => !dismissedIds.has(i.id))
@@ -1204,7 +1320,7 @@ export default function ForYouPage() {
               )
             })}
 
-            {SECTIONS.every(({ key }) => {
+            {visibleRails.length === 0 && SECTIONS.every(({ key }) => {
               const items = (displayRecs[key] || []).filter(i => !dismissedIds.has(i.id))
               return !items.length
             }) && (

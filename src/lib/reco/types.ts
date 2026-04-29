@@ -80,6 +80,7 @@ export interface Recommendation {
   isAwardWinner?: boolean
   isSeasonal?: boolean
   socialBoost?: string
+  friendWatching?: string
   // Extra metadata per il drawer
   episodes?: number
   authors?: string[]
