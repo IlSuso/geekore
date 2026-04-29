@@ -76,6 +76,10 @@ function panelBaseStyle(panelTab: KATab): CSSProperties {
     // PERF FIX #3b: evita scroll chaining con il browser di sistema (rimbalzo pagina)
     overscrollBehavior: 'contain',
     WebkitOverflowScrolling: 'touch' as CSSProperties['WebkitOverflowScrolling'],
+    // FIX GLITCH: isolation crea un nuovo stacking context che evita
+    // compositing artifacts nella zona inferiore (velo/bottoni) durante/dopo lo swipe.
+    // Questo è critico per il panel swipe che ha elementi fixed al suo interno.
+    isolation: 'isolate' as CSSProperties['isolation'],
   }
 }
 
@@ -259,21 +263,27 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
           // Passiamo velocity solo qui — serve per il "respingimento" naturale del dito.
           if (currentEl) {
             const fromX = getCurrentX(currentEl)
-            animCurrentRef.current = animate(
-              fromX, 0,
-              {
-                ...SPRING_BACK,
-                velocity: velocityPxPerSec,
-                onUpdate: (v: number) => {
-                  currentEl.style.transform = v !== 0 ? `translateX(${v}px)` : ''
-                },
-                onComplete: () => {
-                  currentEl.style.transform = ''
-                  currentEl.style.willChange = ''
-                  animCurrentRef.current = null
-                },
-              }
-            )
+            // Se già a 0 (nessun drag avvenuto), pulizia immediata senza animazione
+            if (Math.abs(fromX) < 1) {
+              currentEl.style.transform = ''
+              currentEl.style.willChange = ''
+            } else {
+              animCurrentRef.current = animate(
+                fromX, 0,
+                {
+                  ...SPRING_BACK,
+                  velocity: velocityPxPerSec,
+                  onUpdate: (v: number) => {
+                    currentEl.style.transform = v !== 0 ? `translateX(${v}px)` : ''
+                  },
+                  onComplete: () => {
+                    currentEl.style.transform = ''
+                    currentEl.style.willChange = ''
+                    animCurrentRef.current = null
+                  },
+                }
+              )
+            }
           }
           if (adjEl) {
             const fromX   = getCurrentX(adjEl)
@@ -288,7 +298,8 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
                   adjEl.style.transform = `translateX(${v}px)`
                 },
                 onComplete: () => {
-                  adjEl.style.transform  = `translateX(${restPos}px)`
+                  // Ripristina transform % per coerenza con getPanelStyle
+                  adjEl.style.transform  = adjLeftRef.current ? 'translateX(-100%)' : 'translateX(100%)'
                   adjEl.style.willChange = ''
                   adjLeftRef.current  = null
                   adjRightRef.current = null

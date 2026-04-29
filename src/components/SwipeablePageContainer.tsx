@@ -206,6 +206,31 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
     }
   )
 
+  // SAFETY NET: se use-gesture non riceve il touchend (es. intercettato da SwipeMode),
+  // ascoltiamo noi stessi il touchend sul document e facciamo snap-back se bridgeStarted.
+  useEffect(() => {
+    const onTouchEnd = () => {
+      if (!bridgeStarted.current) return
+      // use-gesture chiamerà il suo handler nello stesso evento o subito dopo.
+      // Diamo priorità a use-gesture con setTimeout 0; se non ha chiamato snap, lo facciamo noi.
+      setTimeout(() => {
+        if (bridgeStarted.current) {
+          // use-gesture non ha gestito il release → snap-back di sicurezza
+          gestureState.swipeActive = false
+          swipeNavBridge.notifySnap(0, 0, 0)
+          swipeNavBridge.notifyEnd()
+          bridgeStarted.current = false
+        }
+      }, 16)
+    }
+    document.addEventListener('touchend', onTouchEnd, { passive: true })
+    document.addEventListener('touchcancel', onTouchEnd, { passive: true })
+    return () => {
+      document.removeEventListener('touchend', onTouchEnd)
+      document.removeEventListener('touchcancel', onTouchEnd)
+    }
+  }, [])
+
   return (
     <div
       {...bind()}
