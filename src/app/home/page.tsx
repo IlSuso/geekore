@@ -20,6 +20,7 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useUser } from '@/context/AuthContext'
 import { User } from '@supabase/supabase-js'
 import {
   Heart, MessageCircle, Send, Sparkles, Image as ImageIcon, X,
@@ -1251,6 +1252,8 @@ export default function FeedPage() {
   const latestPostIdRef = useRef<string | null>(null)
   const pageRef = useRef(0)
   const supabase = createClient()
+  // PERF FIX: user da AuthContext — nessun getUser() extra
+  const authUser = useUser()
   const { locale, t } = useLocale()
   const f = t.feed
 
@@ -1267,8 +1270,7 @@ export default function FeedPage() {
   })
 
   useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+    const init = async (user: import('@supabase/supabase-js').User | null) => {
       setCurrentUser(user)
       if (user) {
         const { data: profile } = await supabase.from('profiles').select('username, display_name, avatar_url').eq('id', user.id).single()
@@ -1283,8 +1285,8 @@ export default function FeedPage() {
         setLoading(false)
       }
     }
-    init()
-  }, [])
+    init(authUser)
+  }, [authUser]) // eslint-disable-line
 
   const isActive = useTabActive()
 

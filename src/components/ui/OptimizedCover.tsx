@@ -43,6 +43,13 @@ interface OptimizedCoverProps {
   /** Fallback JSX se src è vuoto */
   fallback?: React.ReactNode
   onError?: () => void
+  /**
+   * PERF FIX: sizes hint per next/image — usa il valore che corrisponde
+   * alla dimensione reale del contenitore per evitare download sovrastimati.
+   * Default: auto-calcolato da width prop.
+   * Esempi: "33vw" per griglia 3col, "128px" per cover fissa, "100vw" per full-width
+   */
+  sizes?: string
 }
 
 export function OptimizedCover({
@@ -55,6 +62,7 @@ export function OptimizedCover({
   priority = false,
   fallback,
   onError,
+  sizes,
 }: OptimizedCoverProps) {
   const [imgError, setImgError] = useState(false)
 
@@ -67,6 +75,12 @@ export function OptimizedCover({
     return fallback ? <>{fallback}</> : null
   }
 
+  // PERF FIX: sizes auto-calcolato da width se non passato esplicitamente.
+  // Evita il default "50vw" di next/image che scarica immagini 2x più grandi del necessario.
+  const computedSizes = sizes ?? (width <= 80 ? `${width}px`
+    : width <= 150 ? `(max-width: 640px) ${width}px, ${width}px`
+    : `(max-width: 640px) ${Math.round(width * 0.8)}px, ${width}px`)
+
   // Usa next/image per i domini configurati
   if (isOptimizable(src)) {
     if (fill) {
@@ -77,7 +91,7 @@ export function OptimizedCover({
           fill
           className={`object-cover ${className}`}
           priority={priority}
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+          sizes={sizes ?? '(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw'}
           onError={handleError}
         />
       )
@@ -91,7 +105,7 @@ export function OptimizedCover({
         height={height}
         className={`object-cover ${className}`}
         priority={priority}
-        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+        sizes={computedSizes}
         onError={handleError}
       />
     )

@@ -10,6 +10,7 @@ import {
   Mic, MicOff, Loader2, Swords, Check, Layers, Dices,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { useUser } from '@/context/AuthContext';
 import { useLocale } from '@/lib/locale';
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer';
 import { SkeletonDiscoverCard } from '@/components/ui/SkeletonCard';
@@ -230,15 +231,15 @@ export default function DiscoverPage() {
     if (window.innerWidth >= 768) searchInputRef.current?.focus();
   }, []);
 
+  // PERF FIX: usa AuthContext invece di getUser() per-mount
+  const authUser = useUser();
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
-      supabase.from('wishlist').select('external_id').eq('user_id', user.id)
-        .then(({ data }) => { if (data) setWishlistIds(data.map((w: any) => w.external_id)); });
-      supabase.from('user_media_entries').select('external_id').eq('user_id', user.id)
-        .then(({ data }) => { if (data) setAlreadyAdded(data.map((e: any) => e.external_id)); });
-    });
-  }, []);
+    if (!authUser) return;
+    supabase.from('wishlist').select('external_id').eq('user_id', authUser.id)
+      .then(({ data }) => { if (data) setWishlistIds(data.map((w: any) => w.external_id)); });
+    supabase.from('user_media_entries').select('external_id').eq('user_id', authUser.id)
+      .then(({ data }) => { if (data) setAlreadyAdded(data.map((e: any) => e.external_id)); });
+  }, [authUser]); // eslint-disable-line
 
   const search = useCallback(async (term: string, type: string, lang: string) => {
     if (!term.trim() || term.trim().length < 2) {
@@ -330,7 +331,7 @@ export default function DiscoverPage() {
   // V3: Wishlist con generi salvati + delta profilo gusti
   const toggleWishlist = async (media: MediaItem) => {
     haptic(30);
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = authUser;
     if (!user) { return; }
     if (wishlistIds.includes(media.id)) {
       await supabase.from('wishlist').delete().match({ user_id: user.id, external_id: media.id });

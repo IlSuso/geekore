@@ -11,6 +11,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { androidBack } from '@/hooks/androidBack'
 import { PushNotificationsBanner } from '@/components/notifications/PushNotificationsBanner'
+import { AuthProvider } from '@/context/AuthContext'
 
 const ONBOARDING_EXEMPT_PATHS = ['/onboarding', '/login', '/register', '/forgot-password', '/privacy', '/terms', '/cookies', '/auth']
 
@@ -159,16 +160,18 @@ export function ClientProviders({ children, initialLocale = 'it' }: { children: 
   return (
     <ThemeProvider>
       <LocaleProvider initialLocale={initialLocale}>
-        <ThemeColorEnforcer />
-        <SplashHider />
-        <AndroidBackHandler />
-        <NavbarLayerCloser />
-        <ServiceWorkerRegistrar />
-        <SyncStatusListener />
-        <OnboardingGuard />
-        <PWAInstallBanner />
-        <PushNotificationsBanner />
-        {children}
+        <AuthProvider>
+          <ThemeColorEnforcer />
+          <SplashHider />
+          <AndroidBackHandler />
+          <NavbarLayerCloser />
+          <ServiceWorkerRegistrar />
+          <SyncStatusListener />
+          <OnboardingGuard />
+          <PWAInstallBanner />
+          <PushNotificationsBanner />
+          {children}
+        </AuthProvider>
       </LocaleProvider>
     </ThemeProvider>
   )

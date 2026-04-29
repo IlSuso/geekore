@@ -45,19 +45,28 @@ export function Card3DTilt({
     })
   }, [intensity, perspective])
 
+  const handleMouseEnter = useCallback(() => {
+    // PERF FIX: will-change attivato solo durante l'hover — non in ogni GPU layer permanente
+    const card = cardRef.current
+    if (card) card.style.willChange = 'transform'
+  }, [])
+
   const handleMouseLeave = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
     const card = cardRef.current
     if (!card) return
     card.style.transform = 'perspective(800px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)'
     card.style.transition = 'transform 0.4s ease'
+    // Libera il GPU layer non appena il mouse esce
+    card.style.willChange = 'auto'
   }, [])
 
   return (
     <div
       ref={cardRef}
-      className={`will-change-transform ${className}`}
+      className={className}
       style={{ transformStyle: 'preserve-3d' }}
+      onMouseEnter={handleMouseEnter}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >

@@ -8,6 +8,7 @@ import {
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useActiveTab, pathnameToTab, type KATab } from '@/context/ActiveTabContext'
 import { createClient } from '@/lib/supabase/client'
+import { useUser } from '@/context/AuthContext'
 import { Avatar, getLocalAvatarSvg } from '@/components/ui/Avatar'
 import { useLocale } from '@/lib/locale'
 
@@ -83,23 +84,24 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  // PERF FIX: usa AuthContext invece di getUser() per-componente
+  const authUser = useUser()
   useEffect(() => {
-    if (isAuthPage) return
+    if (isAuthPage || !authUser) {
+      setIsLoggedIn(authUser !== null ? true : false)
+      return
+    }
+    setIsLoggedIn(true)
     let cancelled = false
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (cancelled) return
-      setIsLoggedIn(!!user)
-      if (!user) return
-      supabase.from('profiles').select('avatar_url, display_name, username').eq('id', user.id).single()
-        .then(({ data }) => {
-          if (cancelled || !data) return
-          setAvatarUrl(data.avatar_url || null)
-          setDisplayName(data.display_name || null)
-          setUsername(data.username || null)
-        })
-    })
+    supabase.from('profiles').select('avatar_url, display_name, username').eq('id', authUser.id).single()
+      .then(({ data }) => {
+        if (cancelled || !data) return
+        setAvatarUrl(data.avatar_url || null)
+        setDisplayName(data.display_name || null)
+        setUsername(data.username || null)
+      })
     return () => { cancelled = true }
-  }, [isAuthPage])
+  }, [authUser, isAuthPage]) // eslint-disable-line
 
   const searchUsers = useCallback(async (val: string) => {
     if (val.length < 2) { setSearchResults([]); setSearchOpen(false); return }

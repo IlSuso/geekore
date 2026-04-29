@@ -15,6 +15,7 @@ import {
 import { useLocale } from '@/lib/locale'
 import { useState, useEffect, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useUser } from '@/context/AuthContext'
 import { MobileNotificationsDrawer } from '@/components/feed/MobileNotificationsDrawer'
 
 const AUTH_PATHS = ['/login', '/register', '/auth/', '/forgot-password', '/onboarding', '/profile/setup']
@@ -75,21 +76,21 @@ export function MobileHeader() {
   const [mounted, setMounted] = useState(false)
   const isProfilePage = pathname.startsWith('/profile/')
 
+  // PERF FIX: usa AuthContext invece di getUser() per-componente
+  const authUser = useUser()
   useEffect(() => {
     setMounted(true)
+    if (!authUser) return
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      supabase.from('notifications')
-        .select('id', { count: 'exact', head: true })
-        .eq('receiver_id', user.id).eq('is_read', false)
-        .then(({ count }) => { if (count && count > 0) setUnread(true) })
-      if (isProfilePage) {
-        supabase.from('profiles').select('username').eq('id', user.id).single()
-          .then(({ data }) => { if (data) setUsername(data.username) })
-      }
-    })
-  }, [pathname])
+    supabase.from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('receiver_id', authUser.id).eq('is_read', false)
+      .then(({ count }) => { if (count && count > 0) setUnread(true) })
+    if (isProfilePage) {
+      supabase.from('profiles').select('username').eq('id', authUser.id).single()
+        .then(({ data }) => { if (data) setUsername(data.username) })
+    }
+  }, [authUser, pathname]) // eslint-disable-line
 
   if (pathname === '/' || AUTH_PATHS.some(p => pathname.startsWith(p))) return null
 
