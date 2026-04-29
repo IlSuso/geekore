@@ -10,6 +10,50 @@
 //              che handleSwipe ha già letto il valore dal ref.
 
 import { useState, useRef, useCallback, useEffect } from 'react'
+
+// ─── useTouchPress ─────────────────────────────────────────────────────────────
+// Illumina il bottone IMMEDIATAMENTE su touchstart (iOS/Android ignorano :active
+// durante il riconoscimento gesto). Si spegne su touchend/touchcancel oppure
+// se il dito si muove > MOVE_CANCEL px (= sta iniziando uno swipe → non è un tap).
+// Restituisce { pressProps, pressed } — pressed serve per la classe glow.
+const MOVE_CANCEL = 10 // px di movimento prima di cancellare il press
+
+function useTouchPress() {
+  const [pressed, setPressed] = useState(false)
+  const startRef = useRef<{ x: number; y: number } | null>(null)
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    const t = e.touches[0]
+    startRef.current = { x: t.clientX, y: t.clientY }
+    setPressed(true)
+  }, [])
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!startRef.current) return
+    const t = e.touches[0]
+    const dx = Math.abs(t.clientX - startRef.current.x)
+    const dy = Math.abs(t.clientY - startRef.current.y)
+    if (dx > MOVE_CANCEL || dy > MOVE_CANCEL) {
+      setPressed(false)
+      startRef.current = null
+    }
+  }, [])
+
+  const onTouchEnd = useCallback(() => {
+    setPressed(false)
+    startRef.current = null
+  }, [])
+
+  const onTouchCancel = useCallback(() => {
+    setPressed(false)
+    startRef.current = null
+  }, [])
+
+  return {
+    pressProps: { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel },
+    pressed,
+  }
+}
 import { X, Check, ChevronRight, Star, Gamepad2, Tv, Film, Layers, Swords, RotateCcw, Dices, Bookmark } from 'lucide-react'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
@@ -222,10 +266,19 @@ interface SwipeCardProps {
   dragX?: number
   isFlying?: boolean
   flyDir?: 'left' | 'right' | 'down' | null
+  isUndoEntering?: boolean
 }
 
-function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, onDetailOpen, onUndo, canUndo, onClose, onWishlist, hideClose, panelActive = true, starsRef, dragX = 0, isFlying = false, flyDir = null }: SwipeCardProps) {
+function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, onDetailOpen, onUndo, canUndo, onClose, onWishlist, hideClose, panelActive = true, starsRef, dragX = 0, isFlying = false, flyDir = null, isUndoEntering = false }: SwipeCardProps) {
   const Icon = TYPE_ICONS[item.type]
+
+  // Bottoni: glow immediato su touchstart
+  const undoPress     = useTouchPress()
+  const skipPress     = useTouchPress()
+  const infoPress     = useTouchPress()
+  const checkPress    = useTouchPress()
+  const wishlistPress = useTouchPress()
+  const closePress    = useTouchPress()
 
   const triggerSwipe = useCallback((dir: 'left'|'right') => {
     onSwipe(dir, item)
@@ -248,15 +301,20 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
   const translateY = isFlying && flyDir === 'down' ? '160%' : '0'
   const swipeProgress = Math.min(Math.abs(dragX) / SWIPE_THRESHOLD, 1)
 
+  // Undo entering: card starts scaled down + offset from below, transitions to normal
+  const undoTransform = isUndoEntering
+    ? `translateY(40px) scale(0.88)`
+    : isTop
+      ? `translateX(${translateX}) translateY(${translateY}) rotate(${rotation}deg)`
+      : `scale(${stackScale}) translateY(${stackY}px)`
+
   return (
     <div
       className={`absolute inset-0 select-none ${isTop ? 'cursor-grab' : 'pointer-events-none'}`}
       style={{
-        transform: isTop
-          ? `translateX(${translateX}) translateY(${translateY}) rotate(${rotation}deg)`
-          : `scale(${stackScale}) translateY(${stackY}px)`,
-        transition: isFlying || dragX !== 0 ? 'none' : 'transform .34s cubic-bezier(.25,.46,.45,.94), opacity .34s ease',
-        opacity: isFlying ? 0 : 1 - stackIndex * 0.12,
+        transform: undoTransform,
+        transition: dragX !== 0 ? 'none' : 'transform .38s cubic-bezier(.25,.46,.45,.94), opacity .38s ease',
+        opacity: isFlying ? 0 : isUndoEntering ? 0.4 : 1 - stackIndex * 0.12,
         zIndex: 10 - stackIndex,
         willChange: isTop ? 'transform' : 'auto',
       }}
@@ -269,8 +327,12 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, #000 0%, rgba(0,0,0,0.93) 18%, rgba(0,0,0,0.65) 36%, rgba(0,0,0,0.2) 58%, rgba(0,0,0,0.42) 100%)' }} />
 
         {!hideClose && (
-          <button onClick={e => { e.stopPropagation(); onClose() }}
-            className="absolute top-3 right-3 w-9 h-9 rounded-full bg-zinc-900 flex items-center justify-center text-white/80 hover:text-white active:scale-90 transition-colors z-20" style={ICON_DROP}>
+          <button {...closePress.pressProps} onClick={e => { e.stopPropagation(); onClose() }}
+            className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-[transform,background-color] duration-150 z-20 ${
+              closePress.pressed
+                ? 'scale-90 bg-white/20 text-white'
+                : 'bg-zinc-900 text-white/80 hover:text-white'
+            }`}>
             <X size={17} strokeWidth={2.5} />
           </button>
         )}
@@ -319,26 +381,51 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
           </div>
           <div className="flex items-center justify-between">
             <button onClick={e => { e.stopPropagation(); if (isTop && canUndo) onUndo() }} disabled={!canUndo || !isTop}
-              className="w-11 h-11 flex items-center justify-center rounded-full bg-zinc-900 border border-white/25 text-white/85 hover:bg-zinc-800 hover:border-white/45 hover:text-white disabled:opacity-35 disabled:pointer-events-none transition-colors">
-              <RotateCcw size={17} style={ICON_DROP} />
+              {...undoPress.pressProps}
+              className={`w-11 h-11 flex items-center justify-center rounded-full border transition-[transform,background-color,border-color] duration-150 disabled:opacity-35 disabled:pointer-events-none ${
+                undoPress.pressed
+                  ? 'scale-90 bg-white/15 border-white/60 text-white'
+                  : 'bg-zinc-900 border-white/25 text-white/85 hover:bg-zinc-800 hover:border-white/45 hover:text-white'
+              }`}>
+              <RotateCcw size={17} />
             </button>
             <div className="flex items-center gap-4">
               <button onClick={e => { e.stopPropagation(); if (isTop) triggerSwipe('left') }}
-                className={`w-14 h-14 rounded-full bg-zinc-900 border-2 border-red-400/90 flex items-center justify-center text-red-400 hover:bg-red-900/60 hover:border-red-400 active:scale-90 transition-colors ${!isTop ? 'opacity-0 pointer-events-none' : ''}`} style={ICON_DROP}>
+                {...skipPress.pressProps}
+                className={`w-14 h-14 rounded-full border-2 flex items-center justify-center transition-[transform,background-color,border-color,color] duration-150 ${!isTop ? 'opacity-0 pointer-events-none' : ''} ${
+                  skipPress.pressed
+                    ? 'scale-90 bg-red-500/40 border-red-300 text-red-300'
+                    : 'bg-zinc-900 border-red-400/90 text-red-400 hover:bg-red-900/60 hover:border-red-400'
+                }`}>
                 <X size={24} strokeWidth={3} />
               </button>
               <button onClick={e => { e.stopPropagation(); if (isTop) onDetailOpen(item) }}
-                className={`w-10 h-10 rounded-full bg-zinc-900 border border-white/50 flex items-center justify-center text-white/90 hover:bg-zinc-800 hover:text-white active:scale-90 transition-colors ${!isTop ? 'opacity-0 pointer-events-none' : ''}`} style={ICON_DROP}>
+                {...infoPress.pressProps}
+                className={`w-10 h-10 rounded-full border flex items-center justify-center transition-[transform,background-color,border-color] duration-150 ${!isTop ? 'opacity-0 pointer-events-none' : ''} ${
+                  infoPress.pressed
+                    ? 'scale-90 bg-white/20 border-white text-white'
+                    : 'bg-zinc-900 border-white/50 text-white/90 hover:bg-zinc-800 hover:text-white'
+                }`}>
                 <ChevronRight size={20} strokeWidth={2.5} />
               </button>
               <button onClick={e => { e.stopPropagation(); if (isTop) triggerSwipe('right') }}
-                className={`w-14 h-14 rounded-full bg-zinc-900 border-2 border-emerald-400/90 flex items-center justify-center text-emerald-400 hover:bg-emerald-900/60 hover:border-emerald-400 active:scale-90 transition-colors ${!isTop ? 'opacity-0 pointer-events-none' : ''}`} style={ICON_DROP}>
+                {...checkPress.pressProps}
+                className={`w-14 h-14 rounded-full border-2 flex items-center justify-center transition-[transform,background-color,border-color,color] duration-150 ${!isTop ? 'opacity-0 pointer-events-none' : ''} ${
+                  checkPress.pressed
+                    ? 'scale-90 bg-emerald-500/40 border-emerald-300 text-emerald-300'
+                    : 'bg-zinc-900 border-emerald-400/90 text-emerald-400 hover:bg-emerald-900/60 hover:border-emerald-400'
+                }`}>
                 <Check size={24} strokeWidth={3} />
               </button>
             </div>
             <button onClick={e => { e.stopPropagation(); if (isTop && !isFlying) triggerWishlist() }} disabled={!isTop || isFlying}
-              className="w-11 h-11 flex items-center justify-center rounded-full bg-zinc-900 border border-white/25 text-white/85 hover:bg-zinc-800 hover:border-white/45 hover:text-white disabled:opacity-35 disabled:pointer-events-none active:scale-90 transition-colors">
-              <Bookmark size={17} fill="none" style={ICON_DROP} />
+              {...wishlistPress.pressProps}
+              className={`w-11 h-11 flex items-center justify-center rounded-full border transition-[transform,background-color,border-color,color] duration-150 disabled:opacity-35 disabled:pointer-events-none ${
+                wishlistPress.pressed
+                  ? 'scale-90 bg-amber-500/20 border-amber-400/60 text-amber-400'
+                  : 'bg-zinc-900 border-white/25 text-white/85 hover:bg-zinc-800 hover:border-white/45 hover:text-white'
+              }`}>
+              <Bookmark size={17} fill="none" />
             </button>
           </div>
         </div>
@@ -730,6 +817,11 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
     if (!isOnboarding) removeSkip(last)
     // Notifica il parent dell'undo (usato dall'onboarding per rimuovere da acceptedItemsRef)
     onUndoCallback?.(last)
+    // Animazione entrata: carta appare da sotto → poi si porta in posizione normale
+    setUndoEntering(true)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setUndoEntering(false))
+    })
   }, [history, removeSkip, isOnboarding, supabase, onUndoCallback, onUndoWishlist])
 
   const handleDetailOpen = useCallback((item: SwipeItem) => {
@@ -749,6 +841,7 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
   const [cardDragX, setCardDragX] = useState(0)
   const [cardFlying, setCardFlying] = useState(false)
   const [cardFlyDir, setCardFlyDir] = useState<'left'|'right'|'down'|null>(null)
+  const [undoEntering, setUndoEntering] = useState(false)
   const topItem = filteredQueue[0]
 
   const handleWishlist = useCallback((item: SwipeItem) => {
@@ -859,6 +952,7 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
                   dragX={idx === 0 ? cardDragX : 0}
                   isFlying={idx === 0 ? cardFlying : false}
                   flyDir={idx === 0 ? cardFlyDir : null}
+                  isUndoEntering={idx === 0 ? undoEntering : false}
                 />
               ))}
             </div>
