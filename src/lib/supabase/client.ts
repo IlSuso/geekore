@@ -9,11 +9,6 @@
 // nella propria WebView interna invece del browser di sistema.
 // Con flowType: 'implicit', Supabase usa token_hash invece di PKCE —
 // funziona da qualsiasi contesto senza dipendenze da localStorage.
-//
-// CAPACITOR: createBrowserClient salva la sessione nei cookie di default,
-// ma la WebView Android non li persiste correttamente tra sessioni dell'app.
-// Forziamo localStorage come storage esplicito — Capacitor lo mantiene
-// correttamente tra aperture dell'app.
 import { createBrowserClient } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -35,11 +30,6 @@ export function createClient(): SupabaseClient {
   _client = createBrowserClient(url, key, {
     auth: {
       flowType: 'implicit',  // token_hash invece di PKCE — compatibile con WebView Gmail/Outlook
-      persistSession: true,
-      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-      storageKey: 'geekore-auth-token',
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
     },
   })
   return _client
