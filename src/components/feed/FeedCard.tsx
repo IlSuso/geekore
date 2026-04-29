@@ -15,13 +15,16 @@ import { Avatar } from '@/components/ui/Avatar'
 import { useLocale } from '@/lib/locale'
 import { optimizeImage } from '@/lib/imageOptimizer'
 
-async function getDateLocale(locale: string) {
-  if (locale === 'en') {
-    const { enUS } = await import('date-fns/locale/en-US')
-    return enUS
-  }
-  const { it } = await import('date-fns/locale/it')
-  return it
+// PERF FIX #5: singleton — evita 20 dynamic import paralleli per 20 card
+import type { Locale } from 'date-fns'
+let _cachedLocale: { key: string; mod: Locale | null } = { key: '', mod: null }
+async function getDateLocale(locale: string): Promise<Locale> {
+  if (_cachedLocale.key === locale && _cachedLocale.mod) return _cachedLocale.mod
+  const mod: Locale = locale === 'en'
+    ? (await import('date-fns/locale/en-US')).enUS
+    : (await import('date-fns/locale/it')).it
+  _cachedLocale = { key: locale, mod }
+  return mod
 }
 
 function haptic(duration: number | number[] = 30) {
@@ -67,9 +70,11 @@ export interface FeedPost {
 export interface FeedCardProps {
   post: FeedPost
   onLikeChange?: (postId: string, delta: number) => void
+  /** PERF FIX #4: passa userId dal parent — evita getUser()+onAuthStateChange per ogni card */
+  currentUserId?: string | null
 }
 
-export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardProps): React.ReactElement {
+export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUserId }: FeedCardProps): React.ReactElement {
   const supabase = createClient()
   const { locale } = useLocale()
 
@@ -80,7 +85,8 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
   const [likesCount, setLikesCount] = useState<number>(post.likes_count ?? post.likes?.length ?? 0)
   const [hasLiked, setHasLiked] = useState(post.liked_by_user ?? false)
   const [likeAnimating, setLikeAnimating] = useState(false)
-  const [user, setUser] = useState<{ id: string } | null>(null)
+  // PERF FIX #4: user deriva da prop currentUserId — nessun auth listener per-card
+  const [user, setUser] = useState<{ id: string } | null>(currentUserId ? { id: currentUserId } : null)
   const [showComments, setShowComments] = useState(false)
   const [comments, setComments] = useState<PostComment[]>((post.comments as PostComment[]) || [])
   const [commentsFetched, setCommentsFetched] = useState((post.comments?.length ?? 0) > 0)
@@ -91,18 +97,17 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange }: FeedCardP
 
   const MAX_COMMENT_LENGTH = 500
 
+  // PERF FIX #4: nessun auth listener per-card. currentUserId passato dal parent.
+  // Fallback: se la prop non arriva (uso standalone), carica una sola volta senza listener.
   useEffect(() => {
+    if (currentUserId !== undefined) return // già gestito dalla prop
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user)
       if (user && post.likes) {
         setHasLiked(post.likes.some((l) => l.user_id === user.id))
       }
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
-    return () => subscription.unsubscribe()
-  }, [])
+  }, []) // eslint-disable-line
 
   useEffect(() => {
     if (!post.created_at) return

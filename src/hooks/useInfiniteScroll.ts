@@ -35,7 +35,7 @@ export function useInfiniteScroll({
   onLoadMore,
   hasMore,
   isLoading,
-  rootMargin = '200px',
+  rootMargin = '100px', // PERF FIX: 200px era troppo aggressivo su mobile
 }: UseInfiniteScrollOptions) {
   const sentinelRef = useRef<HTMLDivElement>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)

@@ -71,6 +71,10 @@ function panelBaseStyle(panelTab: KATab): CSSProperties {
     height:    full ? '100dvh' : PANEL_HEIGHT,
     overflowY: 'auto',
     overflowX: 'hidden',
+    // PERF FIX #3a: elimina il 300ms delay touch del browser — scroll immediato
+    touchAction: 'pan-y',
+    // PERF FIX #3b: evita scroll chaining con il browser di sistema (rimbalzo pagina)
+    overscrollBehavior: 'contain',
     WebkitOverflowScrolling: 'touch' as CSSProperties['WebkitOverflowScrolling'],
   }
 }

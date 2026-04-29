@@ -48,8 +48,9 @@
 .mobile-nav, nav.fixed {
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  will-change: transform;
-  transform: translateZ(0); /* forza promozione layer GPU */
+  /* PERF FIX #6: will-change rimosso — non serve un GPU layer permanente sulla navbar.
+     Il browser la compone già correttamente. transform: translateZ(0) solo se serve scroll-jank. */
+  transform: translateZ(0);
 }
 
 /* ── Base ─────────────────────────────────────────────────────────────────── */
