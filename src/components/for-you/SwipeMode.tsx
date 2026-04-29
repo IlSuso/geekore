@@ -211,25 +211,78 @@ function LoadingScreen({ message = 'Caricamento nuovi titoli' }: { message?: str
 function HalfStarRating({ rating, onChange }: { rating: number | null; onChange: (r: number | null) => void }) {
   const [hovered, setHovered] = useState<number | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const hoveredRef = useRef<number | null>(null)
+  const ratingRef = useRef<number | null>(rating)
+  useEffect(() => { ratingRef.current = rating }, [rating])
+
   const displayValue = hovered !== null ? hovered : (rating ?? 0)
 
-  const valueFromClientX = useCallback((clientX: number): number => {
-    const el = containerRef.current; if (!el) return 0
+  // Ritorna il valore [0.5..5] dalla posizione X, oppure null se fuori sinistra
+  const valueFromClientX = useCallback((clientX: number): number | null => {
+    const el = containerRef.current; if (!el) return null
     const rect = el.getBoundingClientRect()
-    const x = Math.max(0, Math.min(clientX - rect.left, rect.width - 1))
+    const x = clientX - rect.left
+    // Fuori a sinistra → null (= 0 stelle, reset)
+    if (x < 0) return null
+    const clamped = Math.min(x, rect.width - 1)
     const starWidth = rect.width / 5
-    const star = Math.min(4, Math.floor(x / starWidth))
-    return (x - star * starWidth) < starWidth / 2 ? star + 0.5 : star + 1
+    const star = Math.min(4, Math.floor(clamped / starWidth))
+    return (clamped - star * starWidth) < starWidth / 2 ? star + 0.5 : star + 1
   }, [])
+
+  // Touch handlers registrati come non-passive per poter chiamare preventDefault
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    const onStart = (e: TouchEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const v = valueFromClientX(e.touches[0].clientX)
+      hoveredRef.current = v
+      setHovered(v)
+    }
+    const onMove = (e: TouchEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const v = valueFromClientX(e.touches[0].clientX)
+      hoveredRef.current = v
+      setHovered(v)
+    }
+    const onEnd = (e: TouchEvent) => {
+      e.preventDefault()
+      const cur = hoveredRef.current
+      // null = dito finito a sinistra = reset a 0
+      if (cur === null) {
+        onChange(null)
+      } else {
+        onChange(ratingRef.current === cur ? null : cur)
+      }
+      hoveredRef.current = null
+      setHovered(null)
+    }
+    const onCancel = () => {
+      hoveredRef.current = null
+      setHovered(null)
+    }
+
+    el.addEventListener('touchstart',  onStart,  { passive: false })
+    el.addEventListener('touchmove',   onMove,   { passive: false })
+    el.addEventListener('touchend',    onEnd,    { passive: false })
+    el.addEventListener('touchcancel', onCancel, { passive: true  })
+    return () => {
+      el.removeEventListener('touchstart',  onStart)
+      el.removeEventListener('touchmove',   onMove)
+      el.removeEventListener('touchend',    onEnd)
+      el.removeEventListener('touchcancel', onCancel)
+    }
+  }, [valueFromClientX, onChange])
 
   return (
     <div ref={containerRef} className="flex items-center cursor-pointer touch-none select-none"
       onMouseMove={e => setHovered(valueFromClientX(e.clientX))}
       onMouseLeave={() => setHovered(null)}
-      onClick={e => { e.stopPropagation(); const v = valueFromClientX(e.clientX); onChange(rating === v ? null : v) }}
-      onTouchStart={e => { e.preventDefault(); setHovered(valueFromClientX(e.touches[0].clientX)) }}
-      onTouchMove={e => { e.preventDefault(); setHovered(valueFromClientX(e.touches[0].clientX)) }}
-      onTouchEnd={e => { e.preventDefault(); if (hovered !== null) onChange(rating === hovered ? null : hovered); setHovered(null) }}
+      onClick={e => { e.stopPropagation(); const v = valueFromClientX(e.clientX); onChange(rating === v ? null : v ?? null) }}
     >
       {[1,2,3,4,5].map(star => {
         const full = displayValue >= star
@@ -237,7 +290,7 @@ function HalfStarRating({ rating, onChange }: { rating: number | null; onChange:
         return (
           <div key={star} className="flex items-center justify-center" style={{ width: 36, height: 36 }}>
             <div className="relative" style={{ width: 28, height: 28 }}>
-              <Star size={28} className="absolute inset-0 text-white/50" fill="none" strokeWidth={1.5} style={ICON_DROP} />
+              <Star size={28} className="absolute inset-0 text-white/50" fill="none" strokeWidth={1.5} />
               {full && <Star size={28} className="absolute inset-0 text-amber-400" fill="currentColor" strokeWidth={0}
                 style={{ filter: 'drop-shadow(0 0 7px rgba(251,191,36,.85))' }} />}
               {half && <Star size={28} className="absolute inset-0 text-amber-400" fill="currentColor" strokeWidth={0}
