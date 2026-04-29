@@ -49,8 +49,11 @@ import { translateWithCache } from '@/lib/deepl'
 import { truncateAtSentence } from '@/lib/utils'
 import { memCacheGet, memCacheSet, memCacheInvalidate } from '@/lib/reco/cache'
 import type { RecoMediaType, CreatorScores, BingeProfile, TasteProfile, Recommendation, MemCacheEntry } from '@/lib/reco/types'
+import type { MediaType, RuntimeRange, UserEntry, UserSearch } from '@/lib/reco/engine-types'
 import { sampleMasterPool } from '@/lib/reco/sampler'
 import { loadRecommendationExposures, recordRecommendationExposures } from '@/lib/reco/exposure'
+import { computeClusterVelocity, computeCreatorScores, computeVelocity, detectBingeProfile, determineActiveWindowForType } from '@/lib/reco/taste-signals'
+import { MASTER_POOL_MAX_AGE_DAYS, MASTER_POOL_SIZE_PER_TYPE, SERVE_SIZE_PER_TYPE, computePoolTTL, computeRegenDelta } from '@/lib/reco/pool'
 import {
   getCurrentAnimeSeasonDates, getQualityThresholds, releaseFreshnessMult,
   isAwardWorthy, inferRuntimePreference, runtimePenalty, inferLanguagePreference,
@@ -68,159 +71,10 @@ import {
 } from '@/lib/reco/genre-maps'
 
 
-// Alias locale per compatibilità con il codice esistente
-type MediaType = RecoMediaType
-type RuntimeRange = ReturnType<typeof inferRuntimePreference>
-
-// ── Tipi raw dati utente (sostituiscono any[] nei parametri) ─────────────────
-interface UserEntry {
-  id?: string
-  user_id?: string
-  title: string
-  type: MediaType
-  status?: string
-  rating?: number
-  genres?: string[]
-  tags?: string[]
-  cover_image?: string
-  year?: number
-  episodes?: number
-  current_episode?: number
-  rewatch_count?: number
-  updated_at?: string | null
-  created_at?: string
-  studio?: string
-  director?: string
-  author?: string
-  authors?: string[]   // array autori — usato da libri (e manga via DB)
-  developer?: string
-  platform?: string[]
-  runtime?: number
-  original_language?: string
-  external_id?: string
-  source?: string
-  score?: number
-  popularity?: number
-  vote_count?: number
-  is_steam?: boolean
-  notes?: string
-  started_at?: string | null
-  community_score?: number
-  keywords?: string[]
-  themes?: string[]
-  appid?: number
-  title_en?: string
-}
-
-interface UserSearch {
-  query: string
-  created_at?: string
-  type?: string
-  result_clicked_genres?: string[]
-  result_clicked_id?: string
-}
-
 // Tipo Supabase client (evita any)
 type SupabaseClient = Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>
 
 
-function determineActiveWindowForType(entries: UserEntry[], type: MediaType): number {
-  const typeEntries = entries.filter(e => e.type === type)
-  const now = Date.now()
-  const countInDays = (days: number) => typeEntries.filter(e => {
-    if (!e.updated_at) return false
-    return (now - new Date(e.updated_at).getTime()) / 86400000 <= days
-  }).length
-
-  // Window adattiva per tipo: i gamer hanno sessioni più lunghe e sparse
-  const minCount = (type === 'game') ? 2 : 3
-  const windows = (type === 'game')
-    ? [90, 180, 365, 24 * 30]
-    : [60, 120, 180, 365]
-
-  for (const w of windows) {
-    if (countInDays(w) >= minCount) return Math.round(w / 30)
-  }
-  return 12
-}
-
-// ── V3: Binge Pattern Detection ───────────────────────────────────────────────
-function detectBingeProfile(entries: UserEntry[]): BingeProfile {
-  const completed = entries.filter(e => e.status === 'completed' && e.started_at && e.updated_at)
-  if (completed.length === 0) return { isBinger: false, avgCompletionDays: 30, bingeGenres: [], slowGenres: [] }
-
-  const completionTimes = completed.map(e => {
-    const days = Math.max(1, (new Date(e.updated_at!).getTime() - new Date(e.started_at!).getTime()) / 86400000)
-    const genres: string[] = e.genres || []
-    return { days, genres }
-  })
-
-  const avgDays = completionTimes.reduce((s, c) => s + c.days, 0) / completionTimes.length
-  const isBinger = completionTimes.some(c => c.days <= 7) || avgDays < 15
-
-  // Identifica generi binge-watched (< 7 giorni) vs slow (> 30 giorni)
-  const bingeGenreCounts: Record<string, number> = {}
-  const slowGenreCounts: Record<string, number> = {}
-
-  for (const { days, genres } of completionTimes) {
-    for (const g of genres) {
-      if (days <= 7) bingeGenreCounts[g] = (bingeGenreCounts[g] || 0) + 1
-      else if (days >= 30) slowGenreCounts[g] = (slowGenreCounts[g] || 0) + 1
-    }
-  }
-
-  const bingeGenres = Object.entries(bingeGenreCounts).sort(([,a],[,b]) => b - a).slice(0, 5).map(([g]) => g)
-  const slowGenres = Object.entries(slowGenreCounts).sort(([,a],[,b]) => b - a).slice(0, 5).map(([g]) => g)
-
-  return { isBinger, avgCompletionDays: avgDays, bingeGenres, slowGenres }
-}
-
-// ── V3: Creator profile da entries ────────────────────────────────────────────
-// Fix 3.5: normalizza nomi studio per unificare cross-source (AniList vs TMDb)
-// Es. "Production I.G" e "Production I.G." diventano la stessa chiave
-function normalizeStudioKey(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]/g, '')
-}
-
-function computeCreatorScores(entries: UserEntry[], preferences?: Record<string, string[]>): CreatorScores {
-  const studios: Record<string, number> = {}
-  const directors: Record<string, number> = {}
-  const authors: Record<string, number> = {}
-  const developers: Record<string, number> = {}
-
-  for (const entry of entries) {
-    if (isNegativeSignal(entry)) continue
-
-    const rating = entry.rating || 0
-    const temporal = temporalMultV2(entry.updated_at)
-    const sentiment = sentimentMult(rating)
-    const rewatch = rewatchMult(entry)
-    const weight = temporal * sentiment * rewatch
-
-    if (entry.studio) {
-      studios[entry.studio] = (studios[entry.studio] || 0) + weight
-    }
-    if (entry.director) {
-      directors[entry.director] = (directors[entry.director] || 0) + weight
-    }
-    if (entry.author) {
-      authors[entry.author] = (authors[entry.author] || 0) + weight
-    }
-    // I libri salvano gli autori come array — li accumuliamo tutti
-    if (entry.authors && Array.isArray(entry.authors)) {
-      for (const a of entry.authors) {
-        if (a) authors[a] = (authors[a] || 0) + weight
-      }
-    }
-    if (entry.developer) {
-      developers[entry.developer] = (developers[entry.developer] || 0) + weight
-    }
-  }
-
-  return { studios, directors, authors, developers }
-}
-
-// ── V3: Wishlist come AMPLIFICATORE del profilo ────────────────────────────
 function amplifyFromWishlist(
   wishlistItems: UserEntry[],
   globalScores: Record<string, number>,
@@ -404,45 +258,6 @@ function inferGenresFromName(name: string): string[] {
   return []
 }
 
-function computeClusterVelocity(entries: UserEntry[], targetGenres: string[], currentUpdatedAt: string | null | undefined): number {
-  if (!currentUpdatedAt) return 1.0
-  const windowMs = 7 * 86400000
-  const targetTime = new Date(currentUpdatedAt).getTime()
-  const windowStart = targetTime - windowMs
-
-  let sameGenreInWindow = 0
-  for (const e of entries) {
-    if (!e.updated_at || e.updated_at === currentUpdatedAt) continue
-    const t = new Date(e.updated_at).getTime()
-    if (t < windowStart || t > targetTime + windowMs) continue
-    const eg: string[] = e.genres || []
-    if (targetGenres.some(g => eg.includes(g))) sameGenreInWindow++
-  }
-  return sameGenreInWindow >= 3 ? 1.8 : sameGenreInWindow >= 2 ? 1.3 : 1.0
-}
-
-function computeVelocity(entry: UserEntry): number {
-  const type = entry.type || ''
-
-  if (type === 'movie') return 1.0
-
-  const startedAt = entry.started_at
-  const updatedAt = entry.updated_at
-  const episodes = entry.current_episode || 0
-
-  if (!startedAt || episodes === 0) return 1.0
-
-  const days = Math.max(1, (new Date(updatedAt || Date.now()).getTime() - new Date(startedAt).getTime()) / 86400000)
-  const velocity = episodes / days
-
-  if (velocity >= 3.0) return 3.5
-  if (velocity >= 1.5) return 2.5
-  if (velocity >= 0.5) return 1.5
-  if (velocity >= 0.1) return 1.0
-  return 0.4
-}
-
-// ── V3: Compute taste profile COMPLETO ───────────────────────────────────────
 function computeTasteProfile(
   entries: UserEntry[],
   preferences: Record<string, string[]>,
@@ -3739,33 +3554,6 @@ async function fetchBoardgameRecs(
 //   • Il bacino non si riduce mai: ogni refresh mostra un sottoinsieme diverso
 //     dello stesso pool ampio, ruotando i contenuti senza escluderli definitivamente
 // ─────────────────────────────────────────────────────────────────────────────
-
-const MASTER_POOL_SIZE_PER_TYPE = 200  // titoli nel master pool per tipo (grande serbatoio)
-const MASTER_POOL_MIN_VALID = 40       // minimo realistico — BGG ha meno titoli di altri sorgenti
-const MASTER_POOL_MAX_AGE_DAYS = 7     // rigenera master se più vecchio di N giorni
-const SERVE_SIZE_PER_TYPE = 20         // titoli campionati dal master e serviti ad ogni GET
-
-// Delta dinamico basato sul totale titoli nel profilo (tutti i media combined)
-// 0-50 titoli   → regen ogni +5 totali
-// 51-100        → regen ogni +10 totali
-// 101-150       → regen ogni +15 totali
-// 151+          → regen ogni +20 totali
-function computeRegenDelta(totalEntries: number): number {
-  if (totalEntries <= 50) return 5
-  if (totalEntries <= 100) return 10
-  if (totalEntries <= 150) return 15
-  return 20
-}
-// POOL_SIZE_PER_TYPE rimosso — il recommendations_pool ora contiene sempre esattamente SERVE_SIZE_PER_TYPE titoli
-// Fix 1.13: TTL dinamico — più l'utente è attivo, più il pool si rigenera spesso
-// Formula: max(4h, min(48h, 24h - (titoli_aggiunti_ultime_12h × 2h)))
-// const POOL_TTL_HOURS = 24  // rimpiazzato con computePoolTTL()
-function computePoolTTL(entries: any[]): number {
-  const twelveHoursAgo = Date.now() - 12 * 3600000
-  const recentAdds = entries.filter(e => e.created_at && new Date(e.created_at).getTime() > twelveHoursAgo).length
-  return Math.max(4, Math.min(48, 24 - recentAdds * 2))
-}
-const POOL_TTL_HOURS = 24  // default, sarà sovrascitto dinamicamente sotto
 
 export async function GET(request: NextRequest) {
   try {
