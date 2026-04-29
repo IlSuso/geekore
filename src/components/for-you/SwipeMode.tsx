@@ -89,8 +89,12 @@ const SWIPE_THRESHOLD = 80
 const ROTATION_FACTOR = 0.08
 const REFILL_THRESHOLD = 25
 const PRELOAD_TARGET = 50
-const TEXT_SHADOW = { textShadow: '0 1px 10px rgba(0,0,0,1), 0 2px 24px rgba(0,0,0,1), 0 4px 48px rgba(0,0,0,0.9)' }
-const ICON_DROP = { filter: 'drop-shadow(0 1px 6px rgba(0,0,0,1)) drop-shadow(0 0 3px rgba(0,0,0,1))' }
+// GPU-friendly: text-shadow via CSS class, no filter: drop-shadow (each one = offscreen GPU buffer)
+// TEXT_SHADOW kept as lightweight single shadow only (no stacked multi-shadow)
+const TEXT_SHADOW = { textShadow: '0 1px 8px rgba(0,0,0,0.95)' }
+// ICON_DROP removed — buttons are on dark bg, legible without filter.
+// Use ICON_DROP only on the glowing star (amber glow is worth it there).
+const ICON_DROP = {} as React.CSSProperties
 
 // Interleave by type — pure fn, stable, never reorders existing items at render time.
 // Only called at write-time (initial state + loadMore) so card positions never jump.
@@ -254,10 +258,10 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
         transition: isFlying || dragX !== 0 ? 'none' : 'transform .34s cubic-bezier(.25,.46,.45,.94), opacity .34s ease',
         opacity: isFlying ? 0 : 1 - stackIndex * 0.12,
         zIndex: 10 - stackIndex,
-        willChange: isTop && dragX !== 0 ? 'transform' : 'auto',
+        willChange: isTop ? 'transform' : 'auto',
       }}
     >
-      <div className="relative w-full h-full rounded-3xl overflow-hidden bg-zinc-900 shadow-2xl shadow-black/80">
+      <div className="relative w-full h-full rounded-3xl overflow-hidden bg-zinc-900 shadow-xl">
         {item.coverImage
           ? <img src={optimizeCover(item.coverImage, 'swipe-card')} alt={item.title} className="absolute inset-0 w-full h-full object-cover" draggable={false} loading="eager" decoding="async" />
           : <div className="absolute inset-0 flex items-center justify-center bg-zinc-900"><Icon size={64} className="text-zinc-700" /></div>
@@ -266,7 +270,7 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
 
         {!hideClose && (
           <button onClick={e => { e.stopPropagation(); onClose() }}
-            className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/70 flex items-center justify-center text-white/80 hover:text-white active:scale-90 transition-all z-20" style={ICON_DROP}>
+            className="absolute top-3 right-3 w-9 h-9 rounded-full bg-zinc-900 flex items-center justify-center text-white/80 hover:text-white active:scale-90 transition-colors z-20" style={ICON_DROP}>
             <X size={17} strokeWidth={2.5} />
           </button>
         )}
@@ -309,31 +313,31 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
             {item.genres.length > 0 && <span className="text-white/50">· {item.genres.slice(0,2).join(', ')}</span>}
           </p>
           <div ref={isTop ? starsRef : undefined} data-stars="true" className={`flex items-center justify-center mb-4 ${!isTop ? 'opacity-0 pointer-events-none' : ''}`}>
-            <div className="bg-black/80 rounded-2xl px-2 py-1 ring-1 ring-white/10">
+            <div className="bg-zinc-950 rounded-2xl px-2 py-1 ring-1 ring-white/10">
               <HalfStarRating rating={rating} onChange={onRatingChange} />
             </div>
           </div>
           <div className="flex items-center justify-between">
             <button onClick={e => { e.stopPropagation(); if (isTop && canUndo) onUndo() }} disabled={!canUndo || !isTop}
-              className="w-11 h-11 flex items-center justify-center rounded-full bg-black/75 border border-white/25 text-white/85 hover:bg-black/90 hover:border-white/45 hover:text-white disabled:opacity-35 disabled:pointer-events-none transition-all">
+              className="w-11 h-11 flex items-center justify-center rounded-full bg-zinc-900 border border-white/25 text-white/85 hover:bg-zinc-800 hover:border-white/45 hover:text-white disabled:opacity-35 disabled:pointer-events-none transition-colors">
               <RotateCcw size={17} style={ICON_DROP} />
             </button>
             <div className="flex items-center gap-4">
               <button onClick={e => { e.stopPropagation(); if (isTop) triggerSwipe('left') }}
-                className={`w-14 h-14 rounded-full bg-black/75 border-2 border-red-400/90 flex items-center justify-center text-red-400 hover:bg-red-500/30 hover:border-red-400 active:scale-90 transition-all ${!isTop ? 'opacity-0 pointer-events-none' : ''}`} style={ICON_DROP}>
+                className={`w-14 h-14 rounded-full bg-zinc-900 border-2 border-red-400/90 flex items-center justify-center text-red-400 hover:bg-red-900/60 hover:border-red-400 active:scale-90 transition-colors ${!isTop ? 'opacity-0 pointer-events-none' : ''}`} style={ICON_DROP}>
                 <X size={24} strokeWidth={3} />
               </button>
               <button onClick={e => { e.stopPropagation(); if (isTop) onDetailOpen(item) }}
-                className={`w-10 h-10 rounded-full bg-black/75 border border-white/50 flex items-center justify-center text-white/90 hover:bg-black/90 hover:text-white active:scale-90 transition-all ${!isTop ? 'opacity-0 pointer-events-none' : ''}`} style={ICON_DROP}>
+                className={`w-10 h-10 rounded-full bg-zinc-900 border border-white/50 flex items-center justify-center text-white/90 hover:bg-zinc-800 hover:text-white active:scale-90 transition-colors ${!isTop ? 'opacity-0 pointer-events-none' : ''}`} style={ICON_DROP}>
                 <ChevronRight size={20} strokeWidth={2.5} />
               </button>
               <button onClick={e => { e.stopPropagation(); if (isTop) triggerSwipe('right') }}
-                className={`w-14 h-14 rounded-full bg-black/75 border-2 border-emerald-400/90 flex items-center justify-center text-emerald-400 hover:bg-emerald-500/30 hover:border-emerald-400 active:scale-90 transition-all ${!isTop ? 'opacity-0 pointer-events-none' : ''}`} style={ICON_DROP}>
+                className={`w-14 h-14 rounded-full bg-zinc-900 border-2 border-emerald-400/90 flex items-center justify-center text-emerald-400 hover:bg-emerald-900/60 hover:border-emerald-400 active:scale-90 transition-colors ${!isTop ? 'opacity-0 pointer-events-none' : ''}`} style={ICON_DROP}>
                 <Check size={24} strokeWidth={3} />
               </button>
             </div>
             <button onClick={e => { e.stopPropagation(); if (isTop && !isFlying) triggerWishlist() }} disabled={!isTop || isFlying}
-              className="w-11 h-11 flex items-center justify-center rounded-full bg-black/75 border border-white/25 text-white/85 hover:bg-black/90 hover:border-white/45 hover:text-white disabled:opacity-35 disabled:pointer-events-none active:scale-90 transition-all">
+              className="w-11 h-11 flex items-center justify-center rounded-full bg-zinc-900 border border-white/25 text-white/85 hover:bg-zinc-800 hover:border-white/45 hover:text-white disabled:opacity-35 disabled:pointer-events-none active:scale-90 transition-colors">
               <Bookmark size={17} fill="none" style={ICON_DROP} />
             </button>
           </div>
@@ -797,14 +801,16 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
   const containerClass = standalone
     ? 'fixed inset-0 bg-black flex flex-col overflow-hidden'
     : 'fixed inset-0 bg-black flex flex-col'
-  const containerStyle = standalone ? {} : { zIndex: 9999 }
+  const containerStyle = standalone
+    ? { contain: 'layout style paint' as const }
+    : { zIndex: 9999, contain: 'layout style paint' as const }
   return (
     <>
       <div className={containerClass} style={containerStyle}>
 
         {(standalone || isOnboarding) && (
           <div className="absolute inset-0 z-0 pointer-events-none" aria-hidden>
-            <div className="absolute inset-0 bg-gradient-to-br from-violet-950/60 via-black to-zinc-900" />
+            <div className="absolute inset-0 bg-gradient-to-br from-violet-950 via-black to-zinc-900 opacity-60" />
           </div>
         )}
 
@@ -816,7 +822,7 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
           <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide w-full">
             {CATEGORIES.map(cat => (
               <button key={cat.key} onClick={() => handleFilterChange(cat.key)}
-                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
+                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
                   activeFilter === cat.key ? 'bg-white text-black' : 'bg-white/10 text-white/60 hover:bg-white/15 hover:text-white'
                 }`}>
                 {cat.label}
