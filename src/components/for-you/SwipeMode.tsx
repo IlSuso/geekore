@@ -448,6 +448,7 @@ function useSwipeGestures(
         // zona card
         if (isHoriz) {
           g.isDragging = true
+          if (el) el.style.touchAction = 'none'  // blocca scroll verticale durante drag card
         } else {
           g.zone = null  // gesto verticale sulla card: lascia scroll nativo
         }
@@ -456,7 +457,7 @@ function useSwipeGestures(
       if (g.zone === 'card' && g.isDragging) {
         g.currentX = dx
         onCardSwipe(dx)
-        if (e.cancelable) e.preventDefault()
+        // passive:true listener — iOS mostra :active; scroll bloccato via touch-action CSS
       }
     }
 
@@ -464,6 +465,7 @@ function useSwipeGestures(
       const g = gs.current
       if (g.zone === 'card' && g.isDragging) {
         onCardRelease(g.currentX)
+        if (el) el.style.touchAction = ''  // ripristina
       } else if (g.zone === 'page' && gestureState.pageSwipeZone) {
         // Delega la decisione navigate/snap-back a SwipeablePageContainer via bridge.
         // Quello ha la stessa logica soglia delle altre pagine e conosce prevTab/nextTab.
@@ -481,7 +483,7 @@ function useSwipeGestures(
     }
 
     el.addEventListener('touchstart',  onStart,  { passive: true })
-    el.addEventListener('touchmove',   onMove,   { passive: false })
+    el.addEventListener('touchmove',   onMove,   { passive: true })  // passive:true → :active funziona
     el.addEventListener('touchend',    onEnd,    { passive: true })
     el.addEventListener('touchcancel', onEnd,    { passive: true })
     return () => {
@@ -726,20 +728,6 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
     onUndoCallback?.(last)
   }, [history, removeSkip, isOnboarding, supabase, onUndoCallback, onUndoWishlist])
 
-  const handleWishlist = useCallback((item: SwipeItem) => {
-    // Behaves like a skip: removes from queue, adds to history, persists skip
-    wishlistHistoryRef.current.add(item.id)
-    handleSwipe('left', item)
-    const uid = userIdRef.current
-    if (uid) supabase.from('wishlist').upsert({
-        user_id: uid,
-        external_id: item.id,
-        title: item.title,
-        type: item.type,
-        cover_image: item.coverImage,
-      }, { onConflict: 'user_id,external_id' }).then(() => {})
-  }, [handleSwipe, supabase])
-
   const handleDetailOpen = useCallback((item: SwipeItem) => {
     setDetailItem({
       id: item.id, title: item.title, type: item.type, coverImage: item.coverImage,
@@ -758,6 +746,29 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
   const [cardFlying, setCardFlying] = useState(false)
   const [cardFlyDir, setCardFlyDir] = useState<'left'|'right'|'down'|null>(null)
   const topItem = filteredQueue[0]
+
+  const handleWishlist = useCallback((item: SwipeItem) => {
+    // Anima la card verso il basso (flyDir='down') poi rimuove dalla queue.
+    // Stessa struttura di handleCardRelease per left/right.
+    wishlistHistoryRef.current.add(item.id)
+    setCardFlyDir('down')
+    setCardFlying(true)
+    setTimeout(() => {
+      handleSwipe('left', item)
+      setCardDragX(0)
+      setCardFlying(false)
+      setCardFlyDir(null)
+    }, 340)
+    const uid = userIdRef.current
+    if (uid) supabase.from('wishlist').upsert({
+        user_id: uid,
+        external_id: item.id,
+        title: item.title,
+        type: item.type,
+        cover_image: item.coverImage,
+      }, { onConflict: 'user_id,external_id' }).then(() => {})
+  }, [handleSwipe, supabase])
+
 
   const handleCardSwipe = useCallback((dx: number) => {
     setCardDragX(dx)
