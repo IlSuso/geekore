@@ -12,15 +12,18 @@ const config: CapacitorConfig = {
     allowMixedContent: false,
     captureInput: true,
     webContentsDebuggingEnabled: false,
+    // EdgeToEdge: la WebView si estende sotto status bar e gesture bar.
+    // env(safe-area-inset-bottom) riceve il valore reale → bottoni visibili.
+    edgeToEdge: true,
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 1800,     // splash visibile ~1.8s
-      launchAutoHide: true,         // sparisce automaticamente
-      launchFadeOutDuration: 400,   // fade out 400ms — fluido come IG
+      launchShowDuration: 1800,
+      launchAutoHide: true,
+      launchFadeOutDuration: 400,
       backgroundColor: '#000000',
       androidSplashResourceName: 'splash',
-      androidScaleType: 'CENTER',   // logo centrato, non stretchato
+      androidScaleType: 'CENTER',
       showSpinner: false,
     },
   },
