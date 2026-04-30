@@ -34,6 +34,9 @@ export interface GeneratedMasterPool {
     slotPlan: RecruitmentSlotPlan['diagnostics']
     exposure?: ExposurePolicy['diagnostics']
     rawCandidates: number
+    rawUnseenCandidates?: number
+    tierUnseenCandidates?: number
+    finalUnseenCandidates?: number
     tier?: ReturnType<typeof buildTieredPool>['diagnostics']
     merge?: StableMergeDiagnostics
     continuityCount: number
@@ -114,6 +117,8 @@ export async function generateMasterPoolForType(options: {
   }
 
   const rawCandidates = await fetchCandidatesForType(type, slotPlan.slots, exposurePolicy, context)
+  const historicalShownIds = exposurePolicy?.historicalShownIds || new Set<string>()
+  const isHistoricallyUnseen = (rec: Recommendation) => !historicalShownIds.has(rec.id)
   const continuityIds = new Set(continuityRecs.map(rec => rec.id))
   const candidates = rawCandidates.filter(rec => !continuityIds.has(rec.id))
   const { items: tieredItems, diagnostics: tier } = buildTieredPool(
@@ -146,6 +151,9 @@ export async function generateMasterPoolForType(options: {
       slotPlan: slotPlan.diagnostics,
       exposure: exposurePolicy?.diagnostics,
       rawCandidates: rawCandidates.length,
+      rawUnseenCandidates: rawCandidates.filter(isHistoricallyUnseen).length,
+      tierUnseenCandidates: tieredItems.filter(isHistoricallyUnseen).length,
+      finalUnseenCandidates: items.filter(isHistoricallyUnseen).length,
       tier,
       merge,
       continuityCount: continuityRecs.length,

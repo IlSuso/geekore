@@ -7,10 +7,11 @@ import { applyFormatDiversity, getCurrentAnimeSeasonDates, isAwardWorthy, releas
 import { BGG_TO_CROSS_GENRE, CROSS_TO_BGG_CATEGORY, CROSS_TO_IGDB_GENRE, CROSS_TO_IGDB_THEME, IGDB_VALID_GENRES, TMDB_GENRE_MAP, TMDB_TV_GENRE_MAP } from './genre-maps'
 import { BGG_CATEGORY_SEED_IDS } from './bgg-seeds'
 
-const BGG_INITIAL_ID_BUDGET = 420
-const BGG_GLOBAL_SEED_BUDGET = 220
+const BGG_INITIAL_ID_BUDGET = 680
+const BGG_GLOBAL_SEED_BUDGET = 520
 const BGG_DETAIL_BATCH_SIZE = 20
-const BGG_DETAIL_CONCURRENCY = 4
+const BGG_DETAIL_CONCURRENCY = 2
+const BGG_MIN_MATCH_SCORE = 35
 
 function stableHash(value: string): number {
   let hash = 2166136261
@@ -229,7 +230,7 @@ export async function fetchBoardgameRecs(
         else if (bggRank <= 800) finalScore = Math.min(100, finalScore + 2)
       }
       finalScore = Math.min(100, Math.round(finalScore * releaseFreshnessMult(year)))
-      if (finalScore < 40) continue
+      if (finalScore < BGG_MIN_MATCH_SCORE) continue
 
       seen.add(recId)
       results.push({
@@ -380,7 +381,7 @@ export async function fetchBoardgameRecs(
             else if (bggRank2 <= 800) finalScore2 = Math.min(100, finalScore2 + 2)
           }
           finalScore2 = Math.min(100, Math.round(finalScore2 * releaseFreshnessMult(year2)))
-          if (finalScore2 < 40) continue  // stessa soglia del loop principale
+          if (finalScore2 < BGG_MIN_MATCH_SCORE) continue  // stessa soglia del loop principale
 
           const minpM2 = chunk.match(/<minplayers[^>]*value="(\d+)"/)
           const maxpM2 = chunk.match(/<maxplayers[^>]*value="(\d+)"/)
@@ -504,7 +505,7 @@ export async function fetchBoardgameRecs(
             else if (bggRank2 <= 800) finalScore2 = Math.min(100, finalScore2 + 2)
           }
           finalScore2 = Math.min(100, Math.round(finalScore2 * releaseFreshnessMult(year2)))
-          if (finalScore2 < 40) continue  // stessa soglia del loop principale
+          if (finalScore2 < BGG_MIN_MATCH_SCORE) continue  // stessa soglia del loop principale
 
           const minpM2 = chunk.match(/<minplayers[^>]*value="(\d+)"/)
           const maxpM2 = chunk.match(/<maxplayers[^>]*value="(\d+)"/)

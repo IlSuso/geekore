@@ -20,6 +20,9 @@ function summarizeRegenPayload(payload: any) {
   for (const [type, diag] of Object.entries(recruitment) as Array<[string, any]>) {
     byType[type] = {
       rawCandidates: diag?.rawCandidates ?? null,
+      rawUnseenCandidates: diag?.rawUnseenCandidates ?? null,
+      tierUnseenCandidates: diag?.tierUnseenCandidates ?? null,
+      finalUnseenCandidates: diag?.finalUnseenCandidates ?? null,
       finalCount: diag?.finalCount ?? null,
       continuityCount: diag?.continuityCount ?? 0,
       hardBlocked: diag?.exposure?.hardBlocked ?? 0,
