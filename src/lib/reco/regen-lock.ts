@@ -8,6 +8,10 @@ export function tryStartRegen(key: string, ttlMs = 10 * 60 * 1000): boolean {
   return true
 }
 
-export function finishRegen(key: string) {
+export function finishRegen(key: string, cooldownMs = 0) {
+  if (cooldownMs > 0) {
+    activeRegens.set(key, Date.now() + cooldownMs)
+    return
+  }
   activeRegens.delete(key)
 }

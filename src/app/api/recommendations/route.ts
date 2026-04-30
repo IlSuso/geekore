@@ -48,8 +48,8 @@ import { rateLimit } from '@/lib/rateLimit'
 import { memCacheGet, memCacheSet, memCacheInvalidate } from '@/lib/reco/cache'
 import type { RecoMediaType, TasteProfile, Recommendation, MemCacheEntry } from '@/lib/reco/types'
 import type { MediaType, UserEntry } from '@/lib/reco/engine-types'
-import { loadRecommendationExposures } from '@/lib/reco/exposure'
-import { FORCE_REGEN_COOLDOWN_MINUTES, MASTER_POOL_MAX_AGE_DAYS, MASTER_POOL_MIN_HEALTHY_SIZE, MASTER_POOL_SIZE_PER_TYPE, computePoolTTL, computeRegenDelta } from '@/lib/reco/pool'
+import { loadAllRecommendationExposureKeys, loadRecommendationExposures } from '@/lib/reco/exposure'
+import { FORCE_REGEN_COOLDOWN_MINUTES, MASTER_POOL_DEPLETED_SHOWN_RATIO, MASTER_POOL_MAX_AGE_DAYS, MASTER_POOL_MIN_HEALTHY_SIZE, MASTER_POOL_MIN_UNSEEN_ITEMS, MASTER_POOL_SIZE_PER_TYPE, computePoolTTL, computeRegenDelta } from '@/lib/reco/pool'
 import { buildDiversitySlots } from '@/lib/reco/slots'
 import { computeTasteProfile } from '@/lib/reco/profile'
 import { fetchContinuityRecs } from '@/lib/reco/continuity'
@@ -303,7 +303,10 @@ export async function GET(request: NextRequest) {
     // ── V6: Carica titoli mostrati nella sessione corrente (TTL: 4h) ──────────
     // NON escludiamo titoli per settimane — solo quelli mostrati nelle ultime 4 ore
     // così ogni sessione di navigazione vede facce nuove, ma il pool rimane intatto
-    const recommendationExposures = await loadRecommendationExposures(supabase, userId)
+    const [recommendationExposures, allShownKeys] = await Promise.all([
+      loadRecommendationExposures(supabase, userId),
+      loadAllRecommendationExposureKeys(supabase, userId),
+    ])
 
     // ── V6: Carica socialFavorites ────────────────────────────────────────────
     const { data: similarFriends } = await supabase
@@ -385,18 +388,26 @@ export async function GET(request: NextRequest) {
 
     const totalHasGrown = totalCollectionSize - savedTotalSize >= regenDelta
     const rowByType = new Map((masterPoolRows || []).map((row: any) => [row.media_type, row]))
-    const masterHealthByType = new Map<string, { missing: boolean; tooSmall: boolean; expired: boolean; invalidated: boolean; usable: boolean }>()
+    const masterHealthByType = new Map<string, { missing: boolean; tooSmall: boolean; expired: boolean; invalidated: boolean; depleted: boolean; usable: boolean; unseenCount: number; shownRatio: number }>()
     for (const type of typesToFetch) {
       const items = masterByType.get(type) || []
       const row = rowByType.get(type)
       const generatedAt = row?.generated_at ? new Date(row.generated_at).getTime() : 0
       const ageHours = generatedAt ? (Date.now() - generatedAt) / 3600000 : Infinity
+      const shownCount = items.filter(item =>
+        allShownKeys.has(`${type}:${item.id}`) || allShownKeys.has(`${item.type || type}:${item.id}`) || allShownKeys.has(`:${item.id}`)
+      ).length
+      const unseenCount = Math.max(0, items.length - shownCount)
+      const shownRatio = items.length > 0 ? shownCount / items.length : 0
       masterHealthByType.set(type, {
         missing: !row || items.length === 0,
         tooSmall: !!row && items.length > 0 && items.length < MASTER_POOL_MIN_HEALTHY_SIZE && ageHours >= 24,
         expired: !!row && (!row.generated_at || new Date(row.generated_at).getTime() < new Date(masterPoolCutoff).getTime()),
         invalidated: row?.collection_size === -1,
+        depleted: !!row && items.length > 0 && unseenCount < MASTER_POOL_MIN_UNSEEN_ITEMS && shownRatio >= MASTER_POOL_DEPLETED_SHOWN_RATIO,
         usable: !!row && items.length > 0 && row?.collection_size !== -1,
+        unseenCount,
+        shownRatio,
       })
     }
 
@@ -420,7 +431,7 @@ export async function GET(request: NextRequest) {
         const health = masterHealthByType.get(type)
         if (!health) continue
         if (health.missing || health.invalidated) typesNeedingMasterRegen.push(type as MediaType)
-        else if (health.usable && (health.tooSmall || health.expired || totalHasGrown)) typesToRegenBackground.push(type as MediaType)
+        else if (health.usable && (health.tooSmall || health.expired || health.depleted || totalHasGrown)) typesToRegenBackground.push(type as MediaType)
       }
     }
 
@@ -557,7 +568,7 @@ export async function GET(request: NextRequest) {
             }, { onConflict: 'user_id,media_type' })
           } catch { /* ignora errori singoli tipi: non blocca gli altri */ }
           finally {
-            finishRegen(regenKey)
+            finishRegen(regenKey, FORCE_REGEN_COOLDOWN_MINUTES * 60000)
           }
         }
       })()
@@ -668,6 +679,8 @@ export async function GET(request: NextRequest) {
           return [type, {
             ...health,
             size: (masterByType.get(type) || []).length,
+            unseenCount: health.unseenCount,
+            shownRatio: Math.round(health.shownRatio * 1000) / 1000,
             ageHours: generatedAt ? Math.round(((Date.now() - generatedAt) / 3600000) * 10) / 10 : null,
           }]
         })),

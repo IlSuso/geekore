@@ -20,6 +20,22 @@ export async function loadRecommendationExposures(
   return (data || []) as RecommendationExposure[]
 }
 
+export async function loadAllRecommendationExposureKeys(
+  supabase: SupabaseLike,
+  userId: string
+): Promise<Set<string>> {
+  const { data } = await supabase
+    .from('recommendations_shown')
+    .select('rec_id, rec_type')
+    .eq('user_id', userId)
+
+  return new Set(
+    (data || [])
+      .filter((row: any) => row.rec_id)
+      .map((row: any) => `${row.rec_type || ''}:${row.rec_id}`)
+  )
+}
+
 export async function recordRecommendationExposures(
   supabase: SupabaseLike,
   userId: string,
