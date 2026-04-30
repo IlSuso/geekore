@@ -95,14 +95,17 @@ const QUALITY_GATES: Record<MediaType, QualityGates> = {
 function profileStrength(tasteProfile: TasteProfile, type: MediaType): number {
   const typeCount = tasteProfile.collectionSize[type] || 0
   const typeGenres = tasteProfile.topGenres[type] || []
-  const ratedCount = typeGenres.reduce((sum, g) => sum + g.score, 0)
 
   if (typeCount === 0) return 0
   if (typeCount < 5) return 0.2
   if (typeCount < 15) return 0.4
+
+  // Controlla quanti titoli hanno segnali di rating forti (score > 1 nel profilo)
+  // Un profilo con 186 anime non votati è più debole di uno con 30 anime votati
+  const strongSignals = typeGenres.filter(g => g.score > 5).length
+  if (typeCount >= 30 && strongSignals < 3) return 0.5  // molti titoli, pochi segnali forti
   if (typeCount < 30) return 0.6
-  if (ratedCount < 10 && typeCount > 20) return 0.5  // molti titoli, pochi votati
-  return Math.min(1, typeCount / 50)
+  return Math.min(1, 0.6 + (strongSignals / 20) * 0.4)
 }
 
 // Calcola proporzioni tier in base alla solidità del profilo
@@ -110,19 +113,17 @@ function profileStrength(tasteProfile: TasteProfile, type: MediaType): number {
 // Profilo solido → più core
 export function computeTierRatios(strength: number): PoolTierConfig {
   if (strength <= 0.2) {
-    // Cold start: quasi nessun dato → dominano i wildcard di qualità
     return { coreRatio: 0.25, stretchRatio: 0.20, transferRatio: 0.15, wildcardRatio: 0.40 }
   }
   if (strength <= 0.4) {
     return { coreRatio: 0.35, stretchRatio: 0.22, transferRatio: 0.13, wildcardRatio: 0.30 }
   }
   if (strength <= 0.6) {
-    return { coreRatio: 0.50, stretchRatio: 0.22, transferRatio: 0.13, wildcardRatio: 0.15 }
+    return { coreRatio: 0.45, stretchRatio: 0.22, transferRatio: 0.13, wildcardRatio: 0.20 }
   }
   if (strength <= 0.8) {
-    return { coreRatio: 0.58, stretchRatio: 0.20, transferRatio: 0.12, wildcardRatio: 0.10 }
+    return { coreRatio: 0.55, stretchRatio: 0.20, transferRatio: 0.12, wildcardRatio: 0.13 }
   }
-  // Profilo solido: Netflix/Spotify standard
   return { coreRatio: 0.60, stretchRatio: 0.20, transferRatio: 0.10, wildcardRatio: 0.10 }
 }
 
@@ -209,70 +210,67 @@ export function buildTieredPool(
   const seen = new Set<string>()
 
   // ── Tier 4: Quality Wildcards ─────────────────────────────────────────────
-  // Prima i wildcard così non vengono "rubati" dagli altri tier
+  // Capolavori oggettivi indipendentemente dall'affinità calcolata.
+  // Questi esistono per il cold-start e per la serendipità di qualità.
   const wildcards = candidates
-    .filter(r => {
-      const q = getQualityScore(r)
-      return q >= gates.wildcardMinQuality && !seen.has(r.id)
-    })
+    .filter(r => getQualityScore(r) >= gates.wildcardMinQuality && !seen.has(r.id))
     .sort((a, b) => getQualityScore(b) - getQualityScore(a))
-    .slice(0, wildcardTarget * 3)  // pool più grande per poi samplere
   const wildcardPicked = weightedSample(wildcards, wildcardTarget, 'quality', seen)
   wildcardPicked.forEach(r => seen.add(r.id))
 
   // ── Tier 3: Cross-Media Transfer ──────────────────────────────────────────
+  // Generi forti in altri tipi trasferiti a questo tipo.
+  // Richiede qualità alta perché è una "scommessa" cross-media.
   const transfers = candidates
-    .filter(r => {
-      const q = getQualityScore(r)
-      return q >= gates.transferMinQuality &&
-             isCrossMediaTransfer(r, type, tasteProfile) &&
-             !seen.has(r.id)
-    })
+    .filter(r =>
+      getQualityScore(r) >= gates.transferMinQuality &&
+      isCrossMediaTransfer(r, type, tasteProfile) &&
+      !seen.has(r.id)
+    )
     .sort((a, b) => (getQualityScore(b) + b.matchScore) - (getQualityScore(a) + a.matchScore))
   const transferPicked = weightedSample(transfers, transferTarget, 'balanced', seen)
   transferPicked.forEach(r => seen.add(r.id))
 
   // ── Tier 2: Adjacent Stretch ──────────────────────────────────────────────
+  // Affinità media ma qualità oggettiva alta — generi adiacenti al profilo.
+  // Titoli ottimi che l'algoritmo non conosce ancora bene per quel profilo.
   const stretches = candidates
-    .filter(r => {
-      const q = getQualityScore(r)
-      return r.matchScore >= gates.stretchMinScore &&
-             r.matchScore < gates.coreMinScore &&
-             q >= gates.stretchMinQuality &&
-             !seen.has(r.id)
-    })
+    .filter(r =>
+      r.matchScore >= gates.stretchMinScore &&
+      r.matchScore < gates.coreMinScore &&
+      getQualityScore(r) >= gates.stretchMinQuality &&
+      !seen.has(r.id)
+    )
     .sort((a, b) => (getQualityScore(b) * 0.6 + b.matchScore * 0.4) - (getQualityScore(a) * 0.6 + a.matchScore * 0.4))
   const stretchPicked = weightedSample(stretches, stretchTarget, 'balanced', seen)
   stretchPicked.forEach(r => seen.add(r.id))
 
   // ── Tier 1: Core Match ────────────────────────────────────────────────────
+  // Alta affinità con il profilo. Il quality gate NON è applicato qui —
+  // matchScore già incorpora qualità via isAwardWinner, releaseFreshnessMult ecc.
+  // Applicare un quality gate separato escluderebbe titoli ottimi con score mancante.
   const cores = candidates
-    .filter(r => {
-      const q = getQualityScore(r)
-      return r.matchScore >= gates.coreMinScore &&
-             q >= gates.coreMinQuality &&
-             !seen.has(r.id)
-    })
-    .sort((a, b) => (b.matchScore * 0.7 + getQualityScore(b) * 0.3) - (a.matchScore * 0.7 + getQualityScore(a) * 0.3))
+    .filter(r => r.matchScore >= gates.coreMinScore && !seen.has(r.id))
+    .sort((a, b) => (b.matchScore * 0.75 + getQualityScore(b) * 0.25) - (a.matchScore * 0.75 + getQualityScore(a) * 0.25))
   const corePicked = weightedSample(cores, coreTarget, 'affinity', seen)
   corePicked.forEach(r => seen.add(r.id))
 
-  // ── Backfill: se un tier è sotto target, prendi dal pool generale ─────────
-  // Garantisce sempre 200 titoli senza abbassare la qualità — riusa candidati
-  // già classificati partendo dalla soglia più bassa (stretch) e scendendo gradualmente
+  // ── Backfill: se i tier non coprono il target, riempie con candidati rimanenti ──
+  // Mantiene sempre una soglia qualità minima — non entra mai spazzatura.
   const allPicked = [...corePicked, ...stretchPicked, ...transferPicked, ...wildcardPicked]
 
   if (allPicked.length < targetSize) {
+    // Soglia minima assoluta: score >= 50 (AniList 50/100, TMDB 5.0/10)
+    // equivalente a "almeno decente" — non capolavori ma nemmeno titoli brutti
+    const absoluteMinQuality = 50
     const remaining = candidates
-      .filter(r => !seen.has(r.id) && getQualityScore(r) >= gates.stretchMinQuality)
-      .sort((a, b) => (b.matchScore + getQualityScore(b)) - (a.matchScore + getQualityScore(a)))
+      .filter(r => !seen.has(r.id) && getQualityScore(r) >= absoluteMinQuality)
+      .sort((a, b) => (b.matchScore * 0.5 + getQualityScore(b) * 0.5) - (a.matchScore * 0.5 + getQualityScore(a) * 0.5))
 
     for (const r of remaining) {
       if (allPicked.length >= targetSize) break
-      if (!seen.has(r.id)) {
-        allPicked.push(r)
-        seen.add(r.id)
-      }
+      allPicked.push(r)
+      seen.add(r.id)
     }
   }
 
