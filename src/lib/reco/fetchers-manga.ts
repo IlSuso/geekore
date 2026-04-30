@@ -157,7 +157,9 @@ export async function fetchMangaRecs(
       [
         { genre, page: 1, minScore: qt.anilistScore, minPop: qt.anilistPopularity },
         { genre, page: 2, minScore: qt.anilistScore, minPop: qt.anilistPopularity },
+        { genre, page: 3, minScore: 55, minPop: 500 },
         { genre, page: 1, minScore: 50, minPop: 300 },
+        { genre, page: 2, minScore: 50, minPop: 300 },
         { genre, page: 1, minScore: 45, minPop: 100 },
       ]
     )
@@ -196,7 +198,7 @@ export async function fetchMangaRecs(
         if (results.length >= MANGA_POOL_TARGET) break
         const id = `anilist-manga-${m.id}`
         const title = m.title?.romaji || m.title?.english || ''
-        if (isAlreadyOwned('manga', id, title) || seen.has(id)) continue
+        if (isAlreadyOwned('manga', id, title) || seen.has(id) || shownIds?.has(id)) continue
         if (!(m.coverImage?.extraLarge || m.coverImage?.large)) continue
         seen.add(id)
         const mTags: string[] = (m.tags || []).map((t: any) => t.name.toLowerCase())
