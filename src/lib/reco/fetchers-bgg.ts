@@ -6,6 +6,58 @@ import { buildWhyV3, computeMatchScore } from './profile'
 import { applyFormatDiversity, getCurrentAnimeSeasonDates, isAwardWorthy, releaseFreshnessMult, runtimePenalty } from './scoring'
 import { BGG_TO_CROSS_GENRE, CROSS_TO_BGG_CATEGORY, CROSS_TO_IGDB_GENRE, CROSS_TO_IGDB_THEME, IGDB_VALID_GENRES, TMDB_GENRE_MAP, TMDB_TV_GENRE_MAP } from './genre-maps'
 import { BGG_CATEGORY_SEED_IDS } from './bgg-seeds'
+
+const BGG_INITIAL_ID_BUDGET = 420
+const BGG_GLOBAL_SEED_BUDGET = 220
+const BGG_DETAIL_BATCH_SIZE = 20
+const BGG_DETAIL_CONCURRENCY = 4
+
+function stableHash(value: string): number {
+  let hash = 2166136261
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
+}
+
+async function mapLimit<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let cursor = 0
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++
+      results[index] = await worker(items[index], index)
+    }
+  })
+  await Promise.all(workers)
+  return results
+}
+
+function buildGlobalSeedIds(activeGenreSet: Set<string>, activeSeedIds: Set<string>) {
+  const bestById = new Map<string, { id: string; score: number; hash: number }>()
+
+  for (const [genre, ids] of Object.entries(BGG_CATEGORY_SEED_IDS)) {
+    const genreBoost = activeGenreSet.has(genre) ? 3 : 1
+    for (const id of ids) {
+      if (activeSeedIds.has(id)) continue
+      const current = bestById.get(id)
+      if (!current || genreBoost > current.score) {
+        bestById.set(id, { id, score: genreBoost, hash: stableHash(`${genre}:${id}`) })
+      }
+    }
+  }
+
+  return [...bestById.values()]
+    .sort((a, b) => b.score - a.score || a.hash - b.hash)
+    .slice(0, BGG_GLOBAL_SEED_BUDGET)
+    .map(item => item.id)
+}
+
 async function fetchBGGHotList(headers: HeadersInit): Promise<string[]> {
   try {
     const res = await fetch('https://boardgamegeek.com/xmlapi2/hot?type=boardgame', {
@@ -37,10 +89,12 @@ export async function fetchBoardgameRecs(
   // ── Step 1: raccogli ID pool in parallelo ────────────────────────────────
   const activeSlots = slots.slice(0, 12)  // più slot per pool più vario
   const seedIds = new Set<string>()
+  const activeGenreSet = new Set(activeSlots.map(slot => slot.genre))
   for (const slot of activeSlots) {
     const seeds = BGG_CATEGORY_SEED_IDS[slot.genre] || BGG_CATEGORY_SEED_IDS['Strategy'] || []
     for (const id of seeds) seedIds.add(id)
   }
+  const globalSeedIds = buildGlobalSeedIds(activeGenreSet, seedIds)
   const hotIds = await fetchBGGHotList(bggHeaders)
 
   // Fetch top BGG per rank (pagine 1 e 2 = top ~200 titoli oggettivamente buoni)
@@ -61,21 +115,24 @@ export async function fetchBoardgameRecs(
     } catch { return [] as string[] }
   })()
 
-  const allIds = [...new Set([...hotIds, ...topRankedIds, ...seedIds])]
+  const allIds = [...new Set([...hotIds, ...topRankedIds, ...seedIds, ...globalSeedIds])]
+    .slice(0, BGG_INITIAL_ID_BUDGET)
   if (allIds.length === 0) return []
 
   // ── Step 2: fetch dettagli in batch paralleli da 20 ──────────────────────
   const batches: string[][] = []
-  for (let i = 0; i < allIds.length; i += 20) batches.push(allIds.slice(i, i + 20))
+  for (let i = 0; i < allIds.length; i += BGG_DETAIL_BATCH_SIZE) {
+    batches.push(allIds.slice(i, i + BGG_DETAIL_BATCH_SIZE))
+  }
 
-  const batchXmls = await Promise.all(batches.map(async (batch) => {
+  const batchXmls = await mapLimit(batches, BGG_DETAIL_CONCURRENCY, async (batch) => {
     try {
       const res = await fetch(`${BGG_BASE}/thing?id=${batch.join(',')}&stats=1`, {
         headers: bggHeaders, signal: AbortSignal.timeout(12000), next: { revalidate: 3600 },
       })
       return res.ok ? res.text() : ''
     } catch { return '' }
-  }))
+  })
 
   // ── Step 3: parse, filtra, scoringa ──────────────────────────────────────
   const results: Recommendation[] = []
