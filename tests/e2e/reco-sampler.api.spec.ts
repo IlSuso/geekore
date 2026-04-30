@@ -2,6 +2,8 @@ import { test, expect } from '@playwright/test'
 import { sampleMasterPool } from '../../src/lib/reco/sampler'
 import { composeRecommendationRails } from '../../src/lib/reco/rails'
 import { computeTasteProfile } from '../../src/lib/reco/profile'
+import { buildExposurePolicyForType } from '../../src/lib/reco/recruitment/exposure-policy'
+import { buildRecruitmentSlots } from '../../src/lib/reco/recruitment/planner'
 import type { Recommendation } from '../../src/lib/reco/types'
 import type { UserEntry } from '../../src/lib/reco/engine-types'
 
@@ -276,5 +278,40 @@ test.describe('taste profile', () => {
 
     expect(scores.Action).toBeGreaterThan(scores.Drama)
     expect(scores.Action / scores.Drama).toBeLessThan(8)
+  })
+})
+
+test.describe('master pool recruitment', () => {
+  test('blocks only recent or negative exposures during master generation', () => {
+    const policy = buildExposurePolicyForType(
+      'movie',
+      [
+        { rec_id: 'recent', rec_type: 'movie', shown_at: '2026-04-25T10:00:00.000Z' },
+        { rec_id: 'old-liked', rec_type: 'movie', shown_at: '2026-03-01T10:00:00.000Z' },
+        { rec_id: 'negative', rec_type: 'movie', shown_at: '2026-03-01T10:00:00.000Z', action: 'not_interested' },
+        { rec_id: 'other-type', rec_type: 'tv', shown_at: '2026-04-25T10:00:00.000Z' },
+      ],
+      new Set(['movie:recent', 'movie:old-liked', 'movie:negative', 'tv:other-type']),
+      { recentWindowDays: 21 }
+    )
+
+    expect(policy.hardBlockedIds.has('recent')).toBe(true)
+    expect(policy.hardBlockedIds.has('negative')).toBe(true)
+    expect(policy.hardBlockedIds.has('old-liked')).toBe(false)
+    expect(policy.historicalShownIds.has('old-liked')).toBe(true)
+  })
+
+  test('adds global and adjacent taste slots for cross-media recruitment', () => {
+    const entries: UserEntry[] = [
+      { title: 'A', type: 'movie', rating: 5, status: 'completed', genres: ['Fantasy', 'Adventure'] },
+      { title: 'B', type: 'game', rating: 5, status: 'completed', genres: ['Role-playing (RPG)'], themes: ['survival'] },
+      { title: 'C', type: 'tv', rating: 4, status: 'completed', genres: ['Mystery'] },
+    ]
+    const profile = computeTasteProfile(entries, null, [], [])
+    const plan = buildRecruitmentSlots('anime', profile, 40)
+
+    expect(plan.slots.length).toBeGreaterThan(0)
+    expect(plan.diagnostics.crossMediaSlots + plan.diagnostics.adjacencySlots).toBeGreaterThan(0)
+    expect(plan.diagnostics.plannedQuota).toBeGreaterThan(0)
   })
 })
