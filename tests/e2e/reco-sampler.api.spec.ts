@@ -126,6 +126,30 @@ test.describe('recommendation sampler', () => {
 
     expect(uniqueServed.size).toBeGreaterThanOrEqual(75)
   })
+
+  test('recycles least-recently-shown items only after the fresh pool is exhausted', () => {
+    const now = new Date('2026-04-30T10:00:00.000Z')
+    const items = [
+      rec('newest', 99, 'Drama'),
+      rec('middle', 90, 'Action'),
+      rec('oldest', 80, 'Mystery'),
+      rec('blocked', 100, 'Fantasy'),
+    ]
+
+    const sampled = sampleMasterPool(items, {
+      now,
+      size: 3,
+      exposures: [
+        { rec_id: 'newest', rec_type: 'movie', shown_at: '2026-04-30T09:50:00.000Z' },
+        { rec_id: 'middle', rec_type: 'movie', shown_at: '2026-04-30T09:00:00.000Z' },
+        { rec_id: 'oldest', rec_type: 'movie', shown_at: '2026-04-30T08:00:00.000Z' },
+        { rec_id: 'blocked', rec_type: 'movie', shown_at: '2026-04-30T08:00:00.000Z', action: 'not_interested' },
+      ],
+    })
+
+    expect(sampled.map(item => item.id)).toEqual(['oldest', 'middle', 'newest'])
+    expect(sampled.map(item => item.id)).not.toContain('blocked')
+  })
 })
 
 test.describe('recommendation rails', () => {

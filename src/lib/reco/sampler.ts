@@ -122,11 +122,13 @@ function weightedPick(candidates: ScoredCandidate[], selected: Recommendation[],
   const exploratory = Math.random() < explorationRate
   const weighted = candidates.map(candidate => ({
     candidate,
-    weight: (
-      exploratory
-        ? Math.sqrt(Math.max(candidate._weight, 0.0001))
-        : candidate._weight
-    ) * diversityWeight(candidate, selected) * recentGenrePenalty(candidate, recentGenreCounts) * (0.85 + Math.random() * 0.3),
+    weight: candidate._weight <= 0
+      ? 0
+      : (
+          exploratory
+            ? Math.sqrt(candidate._weight)
+            : candidate._weight
+        ) * diversityWeight(candidate, selected) * recentGenrePenalty(candidate, recentGenreCounts) * (0.85 + Math.random() * 0.3),
   })).filter(item => item.weight > 0)
 
   if (weighted.length === 0) return null
@@ -164,6 +166,13 @@ function byFreshestFallback(a: ScoredCandidate, b: ScoredCandidate) {
   if (a._lastShownMs === null && b._lastShownMs !== null) return -1
   if (a._lastShownMs !== null && b._lastShownMs === null) return 1
   return (a._lastShownMs || 0) - (b._lastShownMs || 0)
+}
+
+function byLeastRecentlyShown(a: ScoredCandidate, b: ScoredCandidate) {
+  if (a._lastShownMs === null && b._lastShownMs !== null) return -1
+  if (a._lastShownMs !== null && b._lastShownMs === null) return 1
+  if ((a._lastShownMs || 0) !== (b._lastShownMs || 0)) return (a._lastShownMs || 0) - (b._lastShownMs || 0)
+  return b.matchScore - a.matchScore
 }
 
 function buildTierQuotas(targetSize: number): TierQuota {
@@ -215,6 +224,16 @@ export function sampleMasterPool(items: Recommendation[], options: SampleOptions
       .sort(byFreshestFallback)
 
     selected.push(...fallback.slice(0, targetSize - selected.length).map(stripInternalFields))
+  }
+
+  if (selected.length < targetSize) {
+    const selectedKeys = new Set(selected.map(item => `${item.type}:${item.id}`))
+    const recycle = scored
+      .filter(item => !selectedKeys.has(`${item.type}:${item.id}`))
+      .filter(item => item._action !== 'already_seen' && item._action !== 'not_interested')
+      .sort(byLeastRecentlyShown)
+
+    selected.push(...recycle.slice(0, targetSize - selected.length).map(stripInternalFields))
   }
 
   return selected.slice(0, targetSize)
