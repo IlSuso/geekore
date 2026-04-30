@@ -301,7 +301,7 @@ test.describe('master pool recruitment', () => {
     expect(policy.historicalShownIds.has('old-liked')).toBe(true)
   })
 
-  test('uses a short default recent window for master recruitment', () => {
+  test('uses negative-only hard blocks by default for master recruitment', () => {
     const now = Date.now()
     const daysAgo = (days: number) => new Date(now - days * 86400000).toISOString()
     const policy = buildExposurePolicyForType(
@@ -314,9 +314,10 @@ test.describe('master pool recruitment', () => {
       new Set(['movie:two-days', 'movie:ten-days', 'movie:negative-old'])
     )
 
-    expect(policy.hardBlockedIds.has('two-days')).toBe(true)
+    expect(policy.hardBlockedIds.has('two-days')).toBe(false)
     expect(policy.hardBlockedIds.has('ten-days')).toBe(false)
     expect(policy.hardBlockedIds.has('negative-old')).toBe(true)
+    expect(policy.recentShownIds.size).toBe(0)
   })
 
   test('adds global and adjacent taste slots for cross-media recruitment', () => {

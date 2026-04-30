@@ -30,9 +30,9 @@ export function buildExposurePolicyForType(
   allShownKeys: Set<string>,
   options: { recentWindowDays?: number } = {}
 ): ExposurePolicy {
-  // Master generation needs depth. Keep only very recent impressions out of
-  // candidate recruitment; longer-term freshness is handled by the sampler.
-  const recentWindowDays = options.recentWindowDays ?? 3
+  // Master generation needs depth. By default only explicit negative feedback
+  // is hard-blocked; recent-impression cooldown is handled by the sampler.
+  const recentWindowDays = options.recentWindowDays ?? 0
   const recentCutoff = Date.now() - recentWindowDays * 86400000
   const historicalShownIds = new Set<string>()
   const negativeIds = new Set<string>()
@@ -50,7 +50,7 @@ export function buildExposurePolicyForType(
     if (exposure.action && NEGATIVE_ACTIONS.has(exposure.action)) {
       negativeIds.add(exposure.rec_id)
     }
-    if (shownAt >= recentCutoff) {
+    if (recentWindowDays > 0 && shownAt >= recentCutoff) {
       recentShownIds.add(exposure.rec_id)
     }
   }

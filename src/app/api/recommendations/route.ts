@@ -339,7 +339,7 @@ export async function GET(request: NextRequest) {
     const exposurePolicyByType = new Map(
       typesToFetch.map(type => [
         type,
-        buildExposurePolicyForType(type, recommendationExposures, allShownKeys, { recentWindowDays: 3 }),
+        buildExposurePolicyForType(type, recommendationExposures, allShownKeys),
       ])
     )
     const recruitmentDiagnostics: Record<string, any> = {}
