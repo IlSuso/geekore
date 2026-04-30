@@ -301,6 +301,24 @@ test.describe('master pool recruitment', () => {
     expect(policy.historicalShownIds.has('old-liked')).toBe(true)
   })
 
+  test('uses a short default recent window for master recruitment', () => {
+    const now = Date.now()
+    const daysAgo = (days: number) => new Date(now - days * 86400000).toISOString()
+    const policy = buildExposurePolicyForType(
+      'movie',
+      [
+        { rec_id: 'two-days', rec_type: 'movie', shown_at: daysAgo(2) },
+        { rec_id: 'ten-days', rec_type: 'movie', shown_at: daysAgo(10) },
+        { rec_id: 'negative-old', rec_type: 'movie', shown_at: daysAgo(10), action: 'already_seen' },
+      ],
+      new Set(['movie:two-days', 'movie:ten-days', 'movie:negative-old'])
+    )
+
+    expect(policy.hardBlockedIds.has('two-days')).toBe(true)
+    expect(policy.hardBlockedIds.has('ten-days')).toBe(false)
+    expect(policy.hardBlockedIds.has('negative-old')).toBe(true)
+  })
+
   test('adds global and adjacent taste slots for cross-media recruitment', () => {
     const entries: UserEntry[] = [
       { title: 'A', type: 'movie', rating: 5, status: 'completed', genres: ['Fantasy', 'Adventure'] },

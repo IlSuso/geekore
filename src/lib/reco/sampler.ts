@@ -210,6 +210,7 @@ export function sampleMasterPool(items: Recommendation[], options: SampleOptions
     const selectedKeys = new Set(selected.map(item => `${item.type}:${item.id}`))
     const fallback = scored
       .filter(item => !selectedKeys.has(`${item.type}:${item.id}`))
+      .filter(item => item._weight > 0)
       .filter(item => item._action !== 'already_seen' && item._action !== 'not_interested')
       .sort(byFreshestFallback)
 

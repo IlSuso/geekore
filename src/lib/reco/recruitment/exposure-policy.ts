@@ -30,7 +30,9 @@ export function buildExposurePolicyForType(
   allShownKeys: Set<string>,
   options: { recentWindowDays?: number } = {}
 ): ExposurePolicy {
-  const recentWindowDays = options.recentWindowDays ?? 21
+  // Master generation needs depth. Keep only very recent impressions out of
+  // candidate recruitment; longer-term freshness is handled by the sampler.
+  const recentWindowDays = options.recentWindowDays ?? 3
   const recentCutoff = Date.now() - recentWindowDays * 86400000
   const historicalShownIds = new Set<string>()
   const negativeIds = new Set<string>()
