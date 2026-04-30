@@ -1,6 +1,6 @@
 import type { MediaType } from './engine-types'
-import { recordRecommendationExposures, loadRecommendationExposures } from './exposure'
-import { SERVE_SIZE_PER_TYPE } from './pool'
+import { recordRecommendationExposures, loadAllRecommendationExposureKeys, loadRecommendationExposures } from './exposure'
+import { MASTER_POOL_DEPLETED_SHOWN_RATIO, MASTER_POOL_MIN_UNSEEN_ITEMS, SERVE_SIZE_PER_TYPE } from './pool'
 import { composeRecommendationRails } from './rails'
 import { sampleMasterPool } from './sampler'
 import type { Recommendation } from './types'
@@ -22,6 +22,7 @@ export type RecommendationDiagnostics = {
   masterPoolSizes?: Record<string, number>
   servedCounts?: Record<string, number>
   emptyTypes?: string[]
+  depletedTypes?: string[]
   backgroundRegenQueued?: string[]
   syncRegenTypes?: string[]
   collectionHash?: string
@@ -166,6 +167,7 @@ export async function refreshFromMasterPool(
   }
 
   const exposures = await loadRecommendationExposures(supabase, userId)
+  const allShownKeys = await loadAllRecommendationExposureKeys(supabase, userId)
   const firstPoolRow = currentPool?.[0]
   const savedTasteProfile = firstPoolRow?.taste_profile || null
   const savedTotalEntries = firstPoolRow?.total_entries || 0
@@ -175,11 +177,22 @@ export async function refreshFromMasterPool(
   const recommendations: Record<string, Recommendation[]> = {}
   const poolUpserts: any[] = []
   const masterByType = new Map<string, Recommendation[]>()
+  const depletedTypes: string[] = []
 
   for (const row of masterRows) {
     if (!Array.isArray(row.data) || row.data.length === 0) continue
     const sourceItems = row.data as Recommendation[]
     masterByType.set(row.media_type, sourceItems)
+    const shownCount = sourceItems.filter(item =>
+      allShownKeys.has(`${row.media_type}:${item.id}`) ||
+      allShownKeys.has(`${item.type || row.media_type}:${item.id}`) ||
+      allShownKeys.has(`:${item.id}`)
+    ).length
+    const unseenCount = Math.max(0, sourceItems.length - shownCount)
+    const shownRatio = sourceItems.length > 0 ? shownCount / sourceItems.length : 0
+    if (unseenCount < MASTER_POOL_MIN_UNSEEN_ITEMS && shownRatio >= MASTER_POOL_DEPLETED_SHOWN_RATIO) {
+      depletedTypes.push(row.media_type)
+    }
     const sampled = sampleMasterPool(sourceItems, { exposures, size: SERVE_SIZE_PER_TYPE })
     if (sampled.length === 0) continue
     recommendations[row.media_type] = sampled
@@ -211,6 +224,7 @@ export async function refreshFromMasterPool(
       masterPoolTypes: [...masterByType.keys()],
       masterPoolSizes: buildMasterPoolSizes(masterByType),
       servedCounts: countRecommendations(recommendations),
+      depletedTypes,
     },
   }
 }

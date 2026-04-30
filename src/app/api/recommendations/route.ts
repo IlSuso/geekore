@@ -42,7 +42,7 @@
 export const maxDuration = 60
 
 import { logger } from '@/lib/logger'
-import { NextRequest, NextResponse } from 'next/server'
+import { after, NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
 import { memCacheGet, memCacheSet, memCacheInvalidate } from '@/lib/reco/cache'
@@ -128,11 +128,35 @@ export async function GET(request: NextRequest) {
     // Chiamato dal tasto Aggiorna: veloce perche legge solo da Supabase, zero API esterne.
     const refreshPoolOnly = searchParams.get('source') === 'refresh_pool'
     if (refreshPoolOnly) {
-      return NextResponse.json(await refreshFromMasterPool(supabase, userId))
+      const payload = await refreshFromMasterPool(supabase, userId)
+      const depletedTypes = payload.recommendationDiagnostics?.depletedTypes || []
+      const regenKey = `${userId}:depleted-refresh:${depletedTypes.sort().join(',')}`
+      if (depletedTypes.length > 0 && tryStartRegen(regenKey, FORCE_REGEN_COOLDOWN_MINUTES * 60000)) {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL
+          || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : request.nextUrl.origin)
+        after(async () => {
+          try {
+            await fetch(`${appUrl}/api/recommendations?type=all&onboarding=1`, {
+              headers: {
+                'X-Service-User-Id': userId,
+                'X-Service-Secret': process.env.CRON_SECRET || '',
+              },
+            })
+          } finally {
+            finishRegen(regenKey, FORCE_REGEN_COOLDOWN_MINUTES * 60000)
+          }
+        })
+        payload.recommendationDiagnostics = {
+          ...payload.recommendationDiagnostics,
+          source: payload.recommendationDiagnostics?.source || 'refresh_pool',
+          backgroundRegenQueued: depletedTypes,
+        }
+      }
+      return NextResponse.json(payload)
     }
 
     // ── In-memory cache check — bypassa se similar_to query (sempre fresh) ───
-    if (!forceRefresh && !similarToId) {
+    if (!forceRefresh && !similarToId && !isServiceCall) {
       const memHit = memCacheGet(userId)
       console.log('[RECO] memHit:', !!memHit)
       if (memHit) {
