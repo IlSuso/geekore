@@ -372,5 +372,72 @@ export async function fetchAnimeRecs(
     }
   }
 
+  if (token && results.length < MIN_POOL_ITEMS) {
+    const tmdbQueries = [
+      ...[1, 2, 3, 4, 5, 6, 7, 8].map(page => ({ page, sort: 'popularity.desc', voteCount: 40, voteAvg: 6.2 })),
+      ...[1, 2, 3, 4, 5].map(page => ({ page, sort: 'vote_average.desc', voteCount: 80, voteAvg: 7.0 })),
+      ...[1, 2, 3, 4].map(page => ({ page, sort: 'first_air_date.desc', voteCount: 20, voteAvg: 6.0 })),
+    ]
+
+    const tmdbResults = await batchedParallel(
+      tmdbQueries.map(({ page, sort, voteCount, voteAvg }) => () => {
+        const params = new URLSearchParams({
+          with_original_language: 'ja',
+          with_genres: '16',
+          sort_by: sort,
+          'vote_count.gte': String(voteCount),
+          'vote_average.gte': String(voteAvg),
+          include_adult: 'false',
+          language: 'it-IT',
+          page: String(page),
+        })
+        return fetch(`https://api.themoviedb.org/3/discover/tv?${params}`, {
+          headers: { Authorization: `Bearer ${token}`, accept: 'application/json' },
+          signal: AbortSignal.timeout(8000),
+        }).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
+      }),
+      6
+    )
+
+    for (const result of tmdbResults) {
+      if (results.length >= MIN_POOL_ITEMS) break
+      if (result.status !== 'fulfilled') continue
+      for (const m of (result.value.results || [])) {
+        if (results.length >= MIN_POOL_ITEMS) break
+        if (!m.poster_path) continue
+        const recId = `tmdb-anime-${m.id}`
+        const title = m.name || m.original_name || ''
+        if (!title || isAlreadyOwned('anime', recId, title) || seen.has(recId)) continue
+        if (shownIds?.has(recId)) continue
+        seen.add(recId)
+
+        const recGenres: string[] = (m.genre_ids || [])
+          .map((gid: number) => TMDB_TV_GENRE_NAMES[gid])
+          .filter(Boolean)
+        const year = m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined
+        let matchScore = computeMatchScore(recGenres, [], tasteProfile, [], [])
+        if ((m.popularity || 0) > 120) matchScore = Math.min(100, matchScore + 5)
+        if (isAwardWorthy(m.vote_average, m.popularity, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
+        matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year, (m.vote_average || 0) * 10, m.popularity || 0)))
+
+        results.push({
+          id: recId,
+          title,
+          type: 'anime',
+          coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`,
+          year,
+          genres: recGenres.length ? recGenres : ['Animation'],
+          score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
+          description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
+          why: buildWhyV3(recGenres, recId, title, tasteProfile, matchScore, true, {}),
+          matchScore: Math.max(matchScore, 35),
+          isDiscovery: true,
+          isSerendipity: true,
+          isAwardWinner: isAwardWorthy(m.vote_average, m.popularity, m.vote_count, 'tmdb'),
+        })
+      }
+    }
+  }
+
   return results.sort((a, b) => b.matchScore - a.matchScore)
 }

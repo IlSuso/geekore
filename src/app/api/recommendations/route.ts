@@ -553,7 +553,7 @@ export async function GET(request: NextRequest) {
         // MA bypassa se il pool era stato invalidato manualmente (collection_size=-1)
         // o se il pool precedente era vuoto — in quei casi accetta qualsiasi yield.
         const wasInvalidated = rowByType.get(type)?.collection_size === -1
-        if (!wasInvalidated && allItems.length < MASTER_POOL_MIN_HEALTHY_SIZE && previousItems.length >= allItems.length) {
+        if (!wasInvalidated && previousItems.length > allItems.length) {
           const mergedItems = mergeLowYieldMasterPool(allItems, previousItems)
           if (mergedItems.length <= previousItems.length && allItems.every(item => previousItems.some(prev => prev.id === item.id))) {
             console.log(`[RECO] low-yield master regen skipped type=${type} new=${allItems.length} previous=${previousItems.length}`)
@@ -663,7 +663,7 @@ export async function GET(request: NextRequest) {
             ].filter(r => r.isContinuity || r.matchScore >= bgMinScore)
             const previousItems = masterByType.get(type) || []
             const bgWasInvalidated = rowByType.get(type)?.collection_size === -1
-            if (!bgWasInvalidated && allItems.length < MASTER_POOL_MIN_HEALTHY_SIZE && previousItems.length >= allItems.length) {
+            if (!bgWasInvalidated && previousItems.length > allItems.length) {
               const mergedItems = mergeLowYieldMasterPool(allItems, previousItems)
               if (mergedItems.length <= previousItems.length && allItems.every(item => previousItems.some(prev => prev.id === item.id))) {
                 console.log(`[RECO] low-yield background regen skipped type=${type} new=${allItems.length} previous=${previousItems.length}`)
