@@ -359,7 +359,11 @@ export function computeTasteProfile(
       baseWeight = ratingW + statusBonus
     } else {
       // anime, manga, tv, altri
-      const ratingW = rating >= 1 ? rating * 3 : 2
+      // FIX: floor alzato per titoli non votati — avere 186 anime senza rating
+      // è comunque un segnale di interesse forte. Rating=0 → peso 3 (era 2).
+      // Questo evita che il profilo anime risulti piatto e computeMatchScore
+      // restituisca tutto sotto 40, svuotando il master pool.
+      const ratingW = rating >= 1 ? rating * 3 : 3
       const engW = Math.min(hoursOrEp / 5, 5)
       baseWeight = ratingW + engW
     }
