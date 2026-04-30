@@ -470,12 +470,13 @@ export async function GET(request: NextRequest) {
     // Rigenera in modo sincrono solo quando non abbiamo nulla di servibile.
     // Se un master esiste ma e vecchio/piccolo, serviamo subito quello e rifacciamo il master in background.
     if (forceRefresh) {
+      const canBypassForceCooldown = isServiceCall || searchParams.get('bypass_cooldown') === '1'
       for (const type of typesToFetch) {
         const health = masterHealthByType.get(type)
         const row = rowByType.get(type)
         const generatedAt = row?.generated_at ? new Date(row.generated_at).getTime() : 0
         const ageMinutes = generatedAt ? (Date.now() - generatedAt) / 60000 : Infinity
-        if (!health || health.missing || health.invalidated || ageMinutes >= FORCE_REGEN_COOLDOWN_MINUTES) {
+        if (!health || health.missing || health.invalidated || canBypassForceCooldown || ageMinutes >= FORCE_REGEN_COOLDOWN_MINUTES) {
           typesNeedingMasterRegen.push(type as MediaType)
         }
       }
