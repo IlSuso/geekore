@@ -11,7 +11,33 @@ const BGG_INITIAL_ID_BUDGET = 680
 const BGG_GLOBAL_SEED_BUDGET = 520
 const BGG_DETAIL_BATCH_SIZE = 20
 const BGG_DETAIL_CONCURRENCY = 2
+const BGG_SEARCH_TERM_BUDGET = 16
+const BGG_SEARCH_CONCURRENCY = 3
 const BGG_MIN_MATCH_SCORE = 35
+
+const BGG_CATEGORY_SEARCH_TERMS: Record<string, string[]> = {
+  Adventure: ['quest', 'expedition', 'adventure'],
+  Bluffing: ['bluff', 'deception'],
+  'Card Game': ['cards', 'deck'],
+  'City Building': ['city', 'kingdom'],
+  'Cooperative Play': ['cooperative', 'team'],
+  Deduction: ['detective', 'mystery'],
+  Economic: ['market', 'trading'],
+  Fantasy: ['dungeon', 'dragon', 'magic'],
+  Horror: ['horror', 'haunted'],
+  Medieval: ['castle', 'kingdom'],
+  'Murder/Mystery': ['murder', 'mystery'],
+  Mythology: ['myth', 'gods'],
+  Negotiation: ['diplomacy', 'negotiation'],
+  'Party Game': ['party', 'words'],
+  Puzzle: ['puzzle', 'logic'],
+  'Role Playing': ['dungeon', 'quest'],
+  'Science Fiction': ['space', 'galaxy'],
+  'Social Deduction': ['secret', 'traitor'],
+  'Space Exploration': ['space', 'planet'],
+  Strategy: ['empire', 'civilization'],
+  Wargame: ['war', 'battle'],
+}
 
 function stableHash(value: string): number {
   let hash = 2166136261
@@ -59,6 +85,56 @@ function buildGlobalSeedIds(activeGenreSet: Set<string>, activeSeedIds: Set<stri
     .map(item => item.id)
 }
 
+function buildBGGSearchTerms(activeSlots: GenreSlot[], tasteProfile: TasteProfile) {
+  const terms = new Map<string, number>()
+  const add = (term: string, score: number) => {
+    const normalized = term.trim().toLowerCase()
+    if (normalized.length < 3) return
+    terms.set(normalized, Math.max(terms.get(normalized) || 0, score))
+  }
+
+  activeSlots.forEach((slot, index) => {
+    add(slot.genre, 20 - index)
+    for (const term of BGG_CATEGORY_SEARCH_TERMS[slot.genre] || []) add(term, 18 - index)
+  })
+
+  for (const theme of Object.keys(tasteProfile.deepSignals?.themes || {}).slice(0, 8)) {
+    add(theme, 8)
+  }
+
+  ;['legacy', 'campaign', 'duel', 'solo', 'family', 'abstract'].forEach(term => add(term, 2))
+
+  return [...terms.entries()]
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, BGG_SEARCH_TERM_BUDGET)
+    .map(([term]) => term)
+}
+
+async function fetchBGGSearchIds(baseUrl: string, headers: HeadersInit, terms: string[]) {
+  if (terms.length === 0) return []
+
+  const xmls = await mapLimit(terms, BGG_SEARCH_CONCURRENCY, async term => {
+    try {
+      const res = await fetch(`${baseUrl}/search?query=${encodeURIComponent(term)}&type=boardgame`, {
+        headers,
+        signal: AbortSignal.timeout(8000),
+        next: { revalidate: 86400 },
+      })
+      return res.ok ? res.text() : ''
+    } catch {
+      return ''
+    }
+  })
+
+  const ids: string[] = []
+  for (const xml of xmls) {
+    const re = /<item[^>]*id="(\d+)"/g
+    let match
+    while ((match = re.exec(xml)) !== null) ids.push(match[1])
+  }
+  return ids
+}
+
 async function fetchBGGHotList(headers: HeadersInit): Promise<string[]> {
   try {
     const res = await fetch('https://boardgamegeek.com/xmlapi2/hot?type=boardgame', {
@@ -96,7 +172,11 @@ export async function fetchBoardgameRecs(
     for (const id of seeds) seedIds.add(id)
   }
   const globalSeedIds = buildGlobalSeedIds(activeGenreSet, seedIds)
-  const hotIds = await fetchBGGHotList(bggHeaders)
+  const searchTerms = buildBGGSearchTerms(activeSlots, tasteProfile)
+  const [hotIds, searchIds] = await Promise.all([
+    fetchBGGHotList(bggHeaders),
+    fetchBGGSearchIds(BGG_BASE, bggHeaders, searchTerms),
+  ])
 
   // Fetch top BGG per rank (pagine 1 e 2 = top ~200 titoli oggettivamente buoni)
   // Integra seed ID fissi con titoli che il ranking BGG promuove organicamente
@@ -116,7 +196,7 @@ export async function fetchBoardgameRecs(
     } catch { return [] as string[] }
   })()
 
-  const allIds = [...new Set([...hotIds, ...topRankedIds, ...seedIds, ...globalSeedIds])]
+  const allIds = [...new Set([...hotIds, ...topRankedIds, ...seedIds, ...searchIds, ...globalSeedIds])]
     .slice(0, BGG_INITIAL_ID_BUDGET)
   if (allIds.length === 0) return []
 

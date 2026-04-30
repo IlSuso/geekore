@@ -747,11 +747,19 @@ export async function GET(request: NextRequest) {
         poolHealth: Object.fromEntries([...masterHealthByType.entries()].map(([type, health]) => {
           const row = rowByType.get(type)
           const generatedAt = row?.generated_at ? new Date(row.generated_at).getTime() : 0
+          const currentItems = masterByType.get(type) || []
+          const currentShownCount = currentItems.filter(item =>
+            allShownKeys.has(`${type}:${item.id}`) ||
+            allShownKeys.has(`${item.type || type}:${item.id}`) ||
+            allShownKeys.has(`:${item.id}`)
+          ).length
+          const currentUnseenCount = Math.max(0, currentItems.length - currentShownCount)
+          const currentShownRatio = currentItems.length > 0 ? currentShownCount / currentItems.length : 0
           return [type, {
             ...health,
-            size: (masterByType.get(type) || []).length,
-            unseenCount: health.unseenCount,
-            shownRatio: Math.round(health.shownRatio * 1000) / 1000,
+            size: currentItems.length,
+            unseenCount: currentUnseenCount,
+            shownRatio: Math.round(currentShownRatio * 1000) / 1000,
             ageHours: generatedAt ? Math.round(((Date.now() - generatedAt) / 3600000) * 10) / 10 : null,
           }]
         })),
