@@ -490,28 +490,27 @@ export async function GET(request: NextRequest) {
 
     // ── Rigenera master pool in background per i tipi che lo necessitano ─────
     if (typesNeedingMasterRegen.length > 0) {
-      const continuityRecsPromise = (typesNeedingMasterRegen.includes('anime') || typesNeedingMasterRegen.includes('manga'))
-        ? fetchContinuityRecs(allEntries, ownedIds, tasteProfile, supabase)
-        : Promise.resolve([])
+      const continuityRecs = (typesNeedingMasterRegen.includes('anime') || typesNeedingMasterRegen.includes('manga'))
+        ? await fetchContinuityRecs(allEntries, ownedIds, tasteProfile, supabase)
+        : []
 
-      const [continuityRecs, ...masterResults] = await Promise.all([
-        continuityRecsPromise,
-        ...typesNeedingMasterRegen.map(type => generateMasterPoolForType({
-          type,
-          context: masterGeneratorContext,
-          exposurePolicy: exposurePolicyByType.get(type),
-          previousItems: masterByType.get(type) || [],
-          wasInvalidated: rowByType.get(type)?.collection_size === -1,
-        }))
-      ])
-
-      // Prepend continuity recs per tipo
       const continuityByType = new Map<string, Recommendation[]>()
       for (const contRec of continuityRecs) {
         const arr = continuityByType.get(contRec.type) || []
         arr.push(contRec)
         continuityByType.set(contRec.type, arr)
       }
+
+      const masterResults = await Promise.all(
+        typesNeedingMasterRegen.map(type => generateMasterPoolForType({
+          type,
+          context: masterGeneratorContext,
+          exposurePolicy: exposurePolicyByType.get(type),
+          continuityRecs: continuityByType.get(type) || [],
+          previousItems: masterByType.get(type) || [],
+          wasInvalidated: rowByType.get(type)?.collection_size === -1,
+        }))
+      )
 
       // Aggiorna masterByType + salva su Supabase (upsert — una riga per tipo)
       const masterUpserts: any[] = []
@@ -520,8 +519,6 @@ export async function GET(request: NextRequest) {
         const type = result.type as MediaType
         recruitmentDiagnostics[type] = result.diagnostics || {}
 
-        const contRecs = continuityByType.get(type) || []
-        const contIds = new Set(contRecs.map(r => r.id))
         const tierDiag = result.diagnostics.tier
 
         // ── Pool builder a 4 tier (Netflix/Spotify style) ──────────────────
@@ -529,10 +526,7 @@ export async function GET(request: NextRequest) {
           console.log(`[RECO] tier type=${type} strength=${tierDiag.profileStrength.toFixed(2)} core=${tierDiag.tierCounts.core} stretch=${tierDiag.tierCounts.stretch} transfer=${tierDiag.tierCounts.transfer} wildcard=${tierDiag.tierCounts.wildcard} thresholds=${tierDiag.adaptiveThresholds.core}/${tierDiag.adaptiveThresholds.stretch}`)
         }
 
-        let allItems: Recommendation[] = [
-          ...contRecs,
-          ...result.items.filter(r => !contIds.has(r.id)),
-        ]
+        let allItems = result.items
         const previousItems = masterByType.get(type) || []
         // Low-yield guard: non sovrascrivere un pool grande con uno piccolo,
         // MA bypassa se il pool era stato invalidato manualmente (collection_size=-1)
