@@ -208,4 +208,30 @@ test.describe('taste profile', () => {
 
     expect(scores.Drama).toBeGreaterThan(scores.Fantasy)
   })
+
+  test('dampens very large media-type buckets so one collection slice does not dominate everything', () => {
+    const gameEntries: UserEntry[] = Array.from({ length: 36 }, (_, idx) => ({
+      title: `Action Game ${idx}`,
+      type: 'game',
+      status: 'completed',
+      rating: 5,
+      current_episode: 20,
+      genres: ['Action'],
+      updated_at: '2026-04-29T10:00:00.000Z',
+    }))
+    const movieEntries: UserEntry[] = Array.from({ length: 4 }, (_, idx) => ({
+      title: `Drama Movie ${idx}`,
+      type: 'movie',
+      status: 'completed',
+      rating: 5,
+      genres: ['Drama'],
+      updated_at: '2026-04-29T10:00:00.000Z',
+    }))
+
+    const profile = computeTasteProfile([...gameEntries, ...movieEntries], {}, [], [])
+    const scores = Object.fromEntries(profile.globalGenres.map(item => [item.genre, item.score]))
+
+    expect(scores.Action).toBeGreaterThan(scores.Drama)
+    expect(scores.Action / scores.Drama).toBeLessThan(8)
+  })
 })

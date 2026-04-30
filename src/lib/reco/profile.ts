@@ -270,6 +270,10 @@ export function computeTasteProfile(
 
   // V3: Creator scores (dichiarato prima del loop per consentire aggiornamenti inline)
   const creatorScores = computeCreatorScores(entries, preferences)
+  const entryCountByType: Record<string, number> = {}
+  for (const entry of entries) {
+    entryCountByType[entry.type || 'unknown'] = (entryCountByType[entry.type || 'unknown'] || 0) + 1
+  }
 
   for (const entry of entries) {
     const title: string = entry.title || ''
@@ -365,7 +369,8 @@ export function computeTasteProfile(
     const rawMultiplier = temporal * completion * sentiment * velocity * rewatch
     const cappedMultiplier = Math.min(rawMultiplier, 8)
     const statusMultiplier = entryStatusMultiplier(entry)
-    const weight = baseWeight * cappedMultiplier * statusMultiplier
+    const typeVolumeMultiplier = 1 / Math.sqrt(Math.max(1, (entryCountByType[type] || 1) / 12))
+    const weight = baseWeight * cappedMultiplier * statusMultiplier * typeVolumeMultiplier
     const genreWeight = spreadAcrossGenres(weight, genres)
     const negativeGenreWeight = spreadAcrossGenres(baseWeight * temporal * 0.8, genres)
 

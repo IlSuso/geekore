@@ -57,6 +57,7 @@ import { fetchContinuityRecs } from '@/lib/reco/continuity'
 import { fetchAnimeRecs, fetchBoardgameRecs, fetchGameRecs, fetchMangaRecs, fetchMovieRecs, fetchTvRecs } from '@/lib/reco/fetchers'
 import { applyFormatDiversity } from '@/lib/reco/scoring'
 import { composeRecommendationRails } from '@/lib/reco/rails'
+import { finishRegen, tryStartRegen } from '@/lib/reco/regen-lock'
 
 
 // Tipo Supabase client (evita any)
@@ -600,10 +601,13 @@ export async function GET(request: NextRequest) {
     // Li rigeneriamo in fire-and-forget: la risposta corrente non li aspetta
     // (saranno disponibili alla prossima chiamata), ma vengono comunque generati
     // e salvati su Supabase dietro le quinte, uno per uno, per evitare timeout.
-    if (typesToRegenBackground.length > 0) {
+    const backgroundRegenTypes = typesToRegenBackground.filter(type =>
+      tryStartRegen(`${userId}:${type}:${collectionHash}`)
+    )
+    if (backgroundRegenTypes.length > 0) {
       ;(async () => {
         const emptyShownIds = new Set<string>()
-        const continuityRecsForBg = (typesToRegenBackground.includes('anime') || typesToRegenBackground.includes('manga'))
+        const continuityRecsForBg = (backgroundRegenTypes.includes('anime') || backgroundRegenTypes.includes('manga'))
           ? await fetchContinuityRecs(allEntries, ownedIds, tasteProfile, supabase).catch(() => [])
           : []
         const continuityByTypeBg = new Map<string, Recommendation[]>()
@@ -612,7 +616,8 @@ export async function GET(request: NextRequest) {
           arr.push(contRec)
           continuityByTypeBg.set(contRec.type, arr)
         }
-        for (const type of typesToRegenBackground) {
+        for (const type of backgroundRegenTypes) {
+          const regenKey = `${userId}:${type}:${collectionHash}`
           try {
             const slots = buildDiversitySlots(type, tasteProfile, MASTER_POOL_SIZE_PER_TYPE)
             if (slots.length === 0) continue
@@ -640,7 +645,10 @@ export async function GET(request: NextRequest) {
               collection_size: totalCollectionSize,
               generated_at: new Date().toISOString(),
             }, { onConflict: 'user_id,media_type' })
-          } catch { /* ignora errori singoli tipi — non blocca gli altri */ }
+          } catch { /* ignora errori singoli tipi: non blocca gli altri */ }
+          finally {
+            finishRegen(regenKey)
+          }
         }
       })()
     }
