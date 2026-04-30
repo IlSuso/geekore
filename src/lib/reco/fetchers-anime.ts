@@ -214,59 +214,75 @@ export async function fetchAnimeRecs(
     } catch { /* continua */ }
   }
 
-  // ── Fallback: top AniList senza filtro genere ────────────────────────────────
+  // ── Fallback: loop puro finché non si arriva a 200 ───────────────────────
+  // Nessun limite di pagine — continua finché il target è raggiunto o AniList
+  // non ha più risultati. Abbassa le soglie progressivamente in 3 wave.
   if (results.length < MIN_POOL_ITEMS) {
-    const fallbackQuery = (page: number) => `
-      query {
-        Page(page: ${page}, perPage: 50) {
-          media(type: ANIME, format_in: [TV, TV_SHORT, ONA], sort: [POPULARITY_DESC],
-                averageScore_greater: 55, popularity_greater: 500, isAdult: false) {
-            id title { romaji english } coverImage { extraLarge large }
-            seasonYear episodes description(asHtml: false)
-            genres averageScore popularity
-            tags { name rank }
-            studios(isMain: true) { nodes { name } }
-          }
-        }
-      }
-    `
-    let page = 1
-    while (results.length < MIN_POOL_ITEMS && page <= 8) {
-      try {
-        const json = await fetch(ANILIST_API, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: fallbackQuery(page) }),
-          signal: AbortSignal.timeout(10000),
-        }).then(r => r.ok ? r.json() : { data: null }).catch(() => ({ data: null }))
+    const waves = [
+      { minScore: 60, minPop: 1000, sort: 'POPULARITY_DESC' },
+      { minScore: 50, minPop: 300,  sort: 'POPULARITY_DESC' },
+      { minScore: 45, minPop: 100,  sort: 'SCORE_DESC' },
+    ]
 
-        const media: any[] = json.data?.Page?.media || []
-        for (const m of media) {
-          if (results.length >= MIN_POOL_ITEMS) break
-          const recId = `anilist-anime-${m.id}`
-          const title = m.title?.english || m.title?.romaji || ''
-          if (isAlreadyOwned('anime', recId, title) || seen.has(recId)) continue
-          if (shownIds?.has(recId)) continue
-          if (!(m.coverImage?.extraLarge || m.coverImage?.large)) continue
-          seen.add(recId)
-          const mGenres: string[] = m.genres || []
-          const mTags: string[] = (m.tags || []).filter((t: any) => t.rank >= 55).map((t: any) => t.name.toLowerCase())
-          const mStudios: string[] = (m.studios?.nodes || []).map((s: any) => s.name).filter(Boolean)
-          let matchScore = computeMatchScore(mGenres, mTags, tasteProfile, mStudios, [])
-          if (isAwardWorthy(m.averageScore, m.popularity, m.popularity, 'anilist')) matchScore = Math.min(100, matchScore + 8)
-          if (matchScore < 35) continue
-          results.push({
-            id: recId, title: title || 'Senza titolo', type: 'anime',
-            coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
-            year: m.seasonYear, episodes: m.episodes, genres: mGenres, tags: mTags,
-            score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
-            description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 300) : undefined,
-            why: buildWhyV3(mGenres, recId, title, tasteProfile, matchScore, false, { recStudios: mStudios }),
-            matchScore,
-            isAwardWinner: isAwardWorthy(m.averageScore, m.popularity, m.popularity, 'anilist'),
-          })
-        }
-      } catch { /* continua */ }
-      page++
+    for (const wave of waves) {
+      if (results.length >= MIN_POOL_ITEMS) break
+      let page = 1
+      while (results.length < MIN_POOL_ITEMS) {
+        try {
+          const q = `
+            query {
+              Page(page: ${page}, perPage: 50) {
+                media(type: ANIME, format_in: [TV, TV_SHORT, ONA, SPECIAL],
+                      sort: [${wave.sort}],
+                      averageScore_greater: ${wave.minScore},
+                      popularity_greater: ${wave.minPop},
+                      isAdult: false) {
+                  id title { romaji english } coverImage { extraLarge large }
+                  seasonYear episodes description(asHtml: false)
+                  genres averageScore popularity
+                  tags { name rank }
+                  studios(isMain: true) { nodes { name } }
+                }
+              }
+            }
+          `
+          const json = await fetch(ANILIST_API, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: q }),
+            signal: AbortSignal.timeout(10000),
+          }).then(r => r.ok ? r.json() : { data: null }).catch(() => ({ data: null }))
+
+          const media: any[] = json.data?.Page?.media || []
+          if (media.length === 0) break  // AniList non ha più risultati per questa wave
+
+          for (const m of media) {
+            if (results.length >= MIN_POOL_ITEMS) break
+            const recId = `anilist-anime-${m.id}`
+            const title = m.title?.english || m.title?.romaji || ''
+            if (isAlreadyOwned('anime', recId, title) || seen.has(recId)) continue
+            if (shownIds?.has(recId)) continue
+            if (!(m.coverImage?.extraLarge || m.coverImage?.large)) continue
+            seen.add(recId)
+            const mGenres: string[] = m.genres || []
+            const mTags: string[] = (m.tags || []).filter((t: any) => t.rank >= 55).map((t: any) => t.name.toLowerCase())
+            const mStudios: string[] = (m.studios?.nodes || []).map((s: any) => s.name).filter(Boolean)
+            let matchScore = computeMatchScore(mGenres, mTags, tasteProfile, mStudios, [])
+            if (isAwardWorthy(m.averageScore, m.popularity, m.popularity, 'anilist')) matchScore = Math.min(100, matchScore + 8)
+            if (matchScore < 30) continue
+            results.push({
+              id: recId, title: title || 'Senza titolo', type: 'anime',
+              coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
+              year: m.seasonYear, episodes: m.episodes, genres: mGenres, tags: mTags,
+              score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
+              description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 300) : undefined,
+              why: buildWhyV3(mGenres, recId, title, tasteProfile, matchScore, false, { recStudios: mStudios }),
+              matchScore,
+              isAwardWinner: isAwardWorthy(m.averageScore, m.popularity, m.popularity, 'anilist'),
+            })
+          }
+        } catch { break }
+        page++
+      }
     }
   }
 

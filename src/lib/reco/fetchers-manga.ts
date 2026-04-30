@@ -143,143 +143,81 @@ export async function fetchMangaRecs(
     } catch { /* continua */ }
   }
 
-  // ── TOP-UP: continua a fetchare finché il pool raggiunge 200 ─────────────
+  // ── TOP-UP a wave: loop puro finché non si arriva a 200 ──────────────────
   const MANGA_POOL_TARGET = 200
   if (results.length < MANGA_POOL_TARGET) {
-    // Prendi i generi disponibili dai slot con remap applicato
     const availableGenres = slots
-      .map(s => { const r = MANGA_GENRE_REMAP[s.genre] || s.genre; return ANILIST_MANGA_GENRES.has(r) ? r : null })
+      .map(s => { const r = MANGA_GENRE_REMAP[s.genre]; if (r === '') return null; const mapped = r || s.genre; return ANILIST_MANGA_GENRES.has(mapped) ? mapped : null })
       .filter(Boolean) as string[]
+    const fallbackGenres = ['Action', 'Drama', 'Fantasy', 'Comedy', 'Sci-Fi', 'Romance', 'Supernatural', 'Thriller', 'Mystery']
+    const genresToUse = availableGenres.length > 0 ? [...new Set([...availableGenres, ...fallbackGenres])] : fallbackGenres
 
-    // Se nessun genere dell'utente matcha AniList, usa i generi manga più popolari come fallback
-    const genresToUse = availableGenres.length > 0
-      ? availableGenres
-      : ['Action', 'Drama', 'Fantasy', 'Comedy', 'Sci-Fi']
-    let topUpPage = 3
-    const MAX_TOPUP_PAGES = 10
-    while (results.length < MANGA_POOL_TARGET && topUpPage <= MAX_TOPUP_PAGES) {
-      try {
-        const genreToUse = genresToUse[topUpPage % genresToUse.length] || genresToUse[0]
-        const topUpQuery = `
-          query($genres: [String], $minScore: Int, $minPop: Int) {
-            Page(page: ${topUpPage}, perPage: 50) {
-              media(genre_in: $genres, type: MANGA, format_in: [MANGA, ONE_SHOT],
-                    sort: [SCORE_DESC, POPULARITY_DESC],
-                    averageScore_greater: $minScore, popularity_greater: $minPop) {
-                id title { romaji english } coverImage { extraLarge large }
-                seasonYear chapters genres description(asHtml: false) averageScore popularity trending
-                tags { name rank }
-                staff(sort: RELEVANCE) { edges { role node { name { full } } } }
-              }
-            }
-          }
-        `
-        const topUpRes = await fetch('https://graphql.anilist.co', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: topUpQuery, variables: { genres: [genreToUse], minScore: qt.anilistScore, minPop: qt.anilistPopularity } }),
-          signal: AbortSignal.timeout(8000),
-        }).then(r => r.ok ? r.json() : { data: null }).catch(() => ({ data: null }))
-        const media = topUpRes.data?.Page?.media || []
-        if (media.length === 0) break
-        for (const m of media) {
-          const id = `anilist-manga-${m.id}`
-          const title = m.title?.romaji || m.title?.english || ''
-          if (isAlreadyOwned('manga', id, title) || seen.has(id)) continue
-          if (!m.coverImage?.large) continue
-          seen.add(id)
-          const mTags: string[] = (m.tags || []).map((t: any) => t.name.toLowerCase())
-          const mAuthors: string[] = (m.staff?.edges || [])
-            .filter((e: any) => ['Story', 'Story & Art', 'Original Creator'].includes(e.role))
-            .map((e: any) => e.node?.name?.full).filter(Boolean)
-          const recGenres: string[] = m.genres || []
-          let matchScore = computeMatchScore(recGenres, mTags, tasteProfile, [], mAuthors)
-          matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(m.seasonYear, m.averageScore, m.popularity)))
-          if (matchScore < 40) continue
-          if (isAwardWorthy(m.averageScore, m.popularity, undefined, 'anilist')) matchScore = Math.min(100, matchScore + 8)
-          results.push({
-            id,
-            title: m.title.romaji || m.title.english || 'Senza titolo',
-            type: 'manga',
-            coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
-            year: m.seasonYear,
-            genres: recGenres,
-            tags: mTags,
-            score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
-            description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 300) : undefined,
-            why: buildWhyV3(recGenres, id, m.title.romaji || '', tasteProfile, matchScore, false, { recStudios: [], recDirectors: mAuthors }),
-            matchScore,
-            authors: mAuthors.length > 0 ? mAuthors : undefined,
-            episodes: m.chapters || undefined,
-          })
-          if (results.length >= MANGA_POOL_TARGET) break
-        }
-      } catch { /* continua */ }
-      topUpPage++
-    }
-  }
-  // ─────────────────────────────────────────────────────────────────────────
+    const waves = [
+      { minScore: qt.anilistScore, minPop: qt.anilistPopularity },
+      { minScore: 50, minPop: 300 },
+      { minScore: 45, minPop: 100 },
+    ]
 
-  if (results.length < MANGA_POOL_TARGET) {
-    let page = 1
-    while (results.length < MANGA_POOL_TARGET && page <= 12) {
-      try {
-        const broadQuery = `
-          query($page: Int, $minScore: Int, $minPop: Int) {
-            Page(page: $page, perPage: 50) {
-              media(type: MANGA, format_in: [MANGA, ONE_SHOT],
-                    sort: [POPULARITY_DESC, SCORE_DESC],
-                    averageScore_greater: $minScore, popularity_greater: $minPop) {
-                id title { romaji english } coverImage { extraLarge large }
-                seasonYear chapters genres description(asHtml: false) averageScore popularity trending
-                tags { name rank }
-                staff(sort: RELEVANCE) { edges { role node { name { full } } } }
+    for (const wave of waves) {
+      if (results.length >= MANGA_POOL_TARGET) break
+      for (const genre of genresToUse) {
+        if (results.length >= MANGA_POOL_TARGET) break
+        let page = 1
+        while (results.length < MANGA_POOL_TARGET) {
+          try {
+            const q = `
+              query($genres: [String], $minScore: Int, $minPop: Int) {
+                Page(page: ${page}, perPage: 50) {
+                  media(genre_in: $genres, type: MANGA, format_in: [MANGA, ONE_SHOT],
+                        sort: [SCORE_DESC, POPULARITY_DESC],
+                        averageScore_greater: $minScore, popularity_greater: $minPop) {
+                    id title { romaji english } coverImage { extraLarge large }
+                    seasonYear chapters genres description(asHtml: false) averageScore popularity
+                    tags { name rank }
+                    staff(sort: RELEVANCE) { edges { role node { name { full } } } }
+                  }
+                }
               }
+            `
+            const res = await fetch('https://graphql.anilist.co', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ query: q, variables: { genres: [genre], minScore: wave.minScore, minPop: wave.minPop } }),
+              signal: AbortSignal.timeout(8000),
+            }).then(r => r.ok ? r.json() : { data: null }).catch(() => ({ data: null }))
+            const media = res.data?.Page?.media || []
+            if (media.length === 0) break
+            for (const m of media) {
+              if (results.length >= MANGA_POOL_TARGET) break
+              const id = `anilist-manga-${m.id}`
+              const title = m.title?.romaji || m.title?.english || ''
+              if (isAlreadyOwned('manga', id, title) || seen.has(id)) continue
+              if (!(m.coverImage?.extraLarge || m.coverImage?.large)) continue
+              seen.add(id)
+              const mTags: string[] = (m.tags || []).map((t: any) => t.name.toLowerCase())
+              const mAuthors: string[] = (m.staff?.edges || [])
+                .filter((e: any) => ['Story', 'Story & Art', 'Original Creator'].includes(e.role))
+                .map((e: any) => e.node?.name?.full).filter(Boolean)
+              const recGenres: string[] = m.genres || []
+              let matchScore = computeMatchScore(recGenres, mTags, tasteProfile, [], mAuthors)
+              matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(m.seasonYear, m.averageScore, m.popularity)))
+              if (matchScore < 30) continue
+              if (isAwardWorthy(m.averageScore, m.popularity, undefined, 'anilist')) matchScore = Math.min(100, matchScore + 8)
+              results.push({
+                id, title: title || 'Senza titolo', type: 'manga',
+                coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
+                year: m.seasonYear, genres: recGenres, tags: mTags,
+                score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
+                description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 300) : undefined,
+                why: buildWhyV3(recGenres, id, title, tasteProfile, matchScore, false, { recStudios: [], recDirectors: mAuthors }),
+                matchScore,
+                authors: mAuthors.length > 0 ? mAuthors : undefined,
+                episodes: m.chapters || undefined,
+              })
             }
-          }
-        `
-        const minScore = Math.max(55, Math.min(qt.anilistScore, 65))
-        const minPop = Math.max(1000, Math.min(qt.anilistPopularity, 5000))
-        const topUpRes = await fetch('https://graphql.anilist.co', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: broadQuery, variables: { page, minScore, minPop } }),
-          signal: AbortSignal.timeout(8000),
-        }).then(r => r.ok ? r.json() : { data: null }).catch(() => ({ data: null }))
-        const media = topUpRes.data?.Page?.media || []
-        if (media.length === 0) break
-        for (const m of media) {
-          if (results.length >= MANGA_POOL_TARGET) break
-          const id = `anilist-manga-${m.id}`
-          const title = m.title?.romaji || m.title?.english || ''
-          if (isAlreadyOwned('manga', id, title) || seen.has(id)) continue
-          if (!m.coverImage?.large) continue
-          seen.add(id)
-          const mTags: string[] = (m.tags || []).map((t: any) => t.name.toLowerCase())
-          const mAuthors: string[] = (m.staff?.edges || [])
-            .filter((e: any) => ['Story', 'Story & Art', 'Original Creator'].includes(e.role))
-            .map((e: any) => e.node?.name?.full).filter(Boolean)
-          const recGenres: string[] = m.genres || []
-          let matchScore = computeMatchScore(recGenres, mTags, tasteProfile, [], mAuthors)
-          matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(m.seasonYear, m.averageScore, m.popularity)))
-          if (matchScore < 40) continue
-          if (isAwardWorthy(m.averageScore, m.popularity, undefined, 'anilist')) matchScore = Math.min(100, matchScore + 8)
-          results.push({
-            id,
-            title: title || 'Senza titolo',
-            type: 'manga',
-            coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
-            year: m.seasonYear,
-            genres: recGenres,
-            tags: mTags,
-            score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
-            description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 300) : undefined,
-            why: buildWhyV3(recGenres, id, title, tasteProfile, matchScore, false, { recStudios: [], recDirectors: mAuthors }),
-            matchScore,
-            authors: mAuthors.length > 0 ? mAuthors : undefined,
-            episodes: m.chapters || undefined,
-          })
+          } catch { break }
+          page++
         }
-      } catch { /* continua */ }
-      page++
+      }
     }
   }
 
