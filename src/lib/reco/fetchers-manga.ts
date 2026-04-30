@@ -202,6 +202,70 @@ export async function fetchMangaRecs(
   }
   // ─────────────────────────────────────────────────────────────────────────
 
+  if (results.length < MANGA_POOL_TARGET) {
+    let page = 1
+    while (results.length < MANGA_POOL_TARGET && page <= 12) {
+      try {
+        const broadQuery = `
+          query($page: Int, $minScore: Int, $minPop: Int) {
+            Page(page: $page, perPage: 50) {
+              media(type: MANGA, format_in: [MANGA, ONE_SHOT],
+                    sort: [POPULARITY_DESC, SCORE_DESC],
+                    averageScore_greater: $minScore, popularity_greater: $minPop) {
+                id title { romaji english } coverImage { extraLarge large }
+                seasonYear chapters genres description(asHtml: false) averageScore popularity trending
+                tags { name rank }
+                staff(sort: RELEVANCE) { edges { role node { name { full } } } }
+              }
+            }
+          }
+        `
+        const minScore = Math.max(55, Math.min(qt.anilistScore, 65))
+        const minPop = Math.max(1000, Math.min(qt.anilistPopularity, 5000))
+        const topUpRes = await fetch('https://graphql.anilist.co', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: broadQuery, variables: { page, minScore, minPop } }),
+          signal: AbortSignal.timeout(8000),
+        }).then(r => r.ok ? r.json() : { data: null }).catch(() => ({ data: null }))
+        const media = topUpRes.data?.Page?.media || []
+        if (media.length === 0) break
+        for (const m of media) {
+          if (results.length >= MANGA_POOL_TARGET) break
+          const id = `anilist-manga-${m.id}`
+          const title = m.title?.romaji || m.title?.english || ''
+          if (isAlreadyOwned('manga', id, title) || seen.has(id)) continue
+          if (!m.coverImage?.large) continue
+          seen.add(id)
+          const mTags: string[] = (m.tags || []).map((t: any) => t.name.toLowerCase())
+          const mAuthors: string[] = (m.staff?.edges || [])
+            .filter((e: any) => ['Story', 'Story & Art', 'Original Creator'].includes(e.role))
+            .map((e: any) => e.node?.name?.full).filter(Boolean)
+          const recGenres: string[] = m.genres || []
+          let matchScore = computeMatchScore(recGenres, mTags, tasteProfile, [], mAuthors)
+          matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(m.seasonYear, m.averageScore, m.popularity)))
+          if (matchScore < 40) continue
+          if (isAwardWorthy(m.averageScore, m.popularity, undefined, 'anilist')) matchScore = Math.min(100, matchScore + 8)
+          results.push({
+            id,
+            title: title || 'Senza titolo',
+            type: 'manga',
+            coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
+            year: m.seasonYear,
+            genres: recGenres,
+            tags: mTags,
+            score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
+            description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 300) : undefined,
+            why: buildWhyV3(recGenres, id, title, tasteProfile, matchScore, false, { recStudios: [], recDirectors: mAuthors }),
+            matchScore,
+            authors: mAuthors.length > 0 ? mAuthors : undefined,
+            episodes: m.chapters || undefined,
+          })
+        }
+      } catch { /* continua */ }
+      page++
+    }
+  }
+
   const mangaDescItems = results
     .filter(r => r.description)
     .map(r => ({ id: r.id, text: r.description! }))

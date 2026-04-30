@@ -169,6 +169,55 @@ export async function fetchAnimeRecs(
     } catch { /* continua */ }
   }
 
+  if (results.length < MIN_POOL_ITEMS) {
+    let page = 1
+    while (results.length < MIN_POOL_ITEMS && page <= 12) {
+      try {
+        const p = new URLSearchParams({
+          with_original_language: 'ja',
+          with_genres: '16',
+          sort_by: page <= 6 ? 'popularity.desc' : 'vote_average.desc',
+          'vote_count.gte': page <= 6 ? '30' : '50',
+          'vote_average.gte': String(Math.min(qt.tmdbVoteAvg, 6)),
+          language: 'it-IT',
+          page: String(page),
+        })
+        const json = await fetch(`${TMDB_BASE_ANIME}/discover/tv?${p}`, {
+          headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000),
+        }).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
+
+        for (const m of (json.results || [])) {
+          if (results.length >= MIN_POOL_ITEMS) break
+          if (!m.poster_path) continue
+          const recId = `tmdb-anime-${m.id}`
+          const title = m.name || ''
+          if (isAlreadyOwned('anime', recId, title) || seen.has(recId)) continue
+          seen.add(recId)
+          const recGenres: string[] = (m.genre_ids || []).map((gid: number) => TMDB_TV_GENRE_NAMES[gid]).filter(Boolean)
+          const year = m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined
+          let matchScore = computeMatchScore(recGenres, [], tasteProfile, [], [])
+          if (isAwardWorthy(m.vote_average, m.popularity, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
+          matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year, m.vote_average * 10, m.popularity)))
+          if (matchScore < 40) continue
+          results.push({
+            id: recId,
+            title: title || 'Senza titolo',
+            type: 'anime',
+            coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`,
+            year,
+            genres: recGenres,
+            score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
+            description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
+            why: buildWhyV3(recGenres, recId, title, tasteProfile, matchScore, false, {}),
+            matchScore,
+            isAwardWinner: isAwardWorthy(m.vote_average, m.popularity, m.vote_count, 'tmdb'),
+          })
+        }
+      } catch { /* continua */ }
+      page++
+    }
+  }
+
   return results.sort((a, b) => b.matchScore - a.matchScore)
 }
 

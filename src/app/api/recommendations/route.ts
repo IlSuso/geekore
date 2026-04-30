@@ -54,7 +54,6 @@ import { buildDiversitySlots } from '@/lib/reco/slots'
 import { computeTasteProfile } from '@/lib/reco/profile'
 import { fetchContinuityRecs } from '@/lib/reco/continuity'
 import { fetchAnimeRecs, fetchBoardgameRecs, fetchGameRecs, fetchMangaRecs, fetchMovieRecs, fetchTvRecs } from '@/lib/reco/fetchers'
-import { applyFormatDiversity } from '@/lib/reco/scoring'
 import { composeRecommendationRails } from '@/lib/reco/rails'
 import { finishRegen, tryStartRegen } from '@/lib/reco/regen-lock'
 import { sampleAndPersistFromMasterPool, serveFromSavedPool, refreshFromMasterPool } from '@/lib/reco/serving'
@@ -512,6 +511,11 @@ export async function GET(request: NextRequest) {
           ...contRecs,
           ...result.items.filter(r => !contIds.has(r.id) && r.matchScore >= 40),
         ]
+        const previousItems = masterByType.get(type) || []
+        if (allItems.length < MASTER_POOL_MIN_HEALTHY_SIZE && previousItems.length >= allItems.length) {
+          console.log(`[RECO] low-yield master regen skipped type=${type} new=${allItems.length} previous=${previousItems.length}`)
+          continue
+        }
 
         masterByType.set(type, allItems)
         console.log(`[RECO] result type=${type} items=${result.items.length} allItems=${allItems.length}`)
@@ -578,10 +582,15 @@ export async function GET(request: NextRequest) {
             if (!items.length) continue
             const contRecs = continuityByTypeBg.get(type) || []
             const contIds = new Set(contRecs.map(r => r.id))
-            const allItems = applyFormatDiversity([
+            const allItems = [
               ...contRecs,
               ...items.filter(r => !contIds.has(r.id)),
-            ], type)
+            ].filter(r => r.isContinuity || r.matchScore >= 40)
+            const previousItems = masterByType.get(type) || []
+            if (allItems.length < MASTER_POOL_MIN_HEALTHY_SIZE && previousItems.length >= allItems.length) {
+              console.log(`[RECO] low-yield background regen skipped type=${type} new=${allItems.length} previous=${previousItems.length}`)
+              continue
+            }
             await supabase.from('master_recommendations_pool').upsert({
               user_id: userId,
               media_type: type,
