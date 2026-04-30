@@ -52,14 +52,12 @@ import { loadAllRecommendationExposureKeys, loadRecommendationExposures } from '
 import { FORCE_REGEN_COOLDOWN_MINUTES, MASTER_POOL_DEPLETED_SHOWN_RATIO, MASTER_POOL_MAX_AGE_DAYS, MASTER_POOL_MIN_HEALTHY_SIZE, MASTER_POOL_MIN_UNSEEN_ITEMS, MASTER_POOL_SIZE_PER_TYPE, computePoolTTL, computeRegenDelta } from '@/lib/reco/pool'
 import { computeTasteProfile } from '@/lib/reco/profile'
 import { fetchContinuityRecs } from '@/lib/reco/continuity'
-import { fetchAnimeRecs, fetchBoardgameRecs, fetchGameRecs, fetchMangaRecs, fetchMovieRecs, fetchTvRecs } from '@/lib/reco/fetchers'
 import { composeRecommendationRails } from '@/lib/reco/rails'
 import { finishRegen, tryStartRegen } from '@/lib/reco/regen-lock'
 import { sampleAndPersistFromMasterPool, serveFromSavedPool, refreshFromMasterPool } from '@/lib/reco/serving'
-import { buildTieredPool } from '@/lib/reco/pool-builder'
 import { buildExposurePolicyForType } from '@/lib/reco/recruitment/exposure-policy'
 import { mergeStableMasterPool } from '@/lib/reco/recruitment/merge'
-import { buildRecruitmentSlots } from '@/lib/reco/recruitment/planner'
+import { generateMasterPoolForType, type MasterGeneratorContext } from '@/lib/reco/recruitment/master-generator'
 
 
 // Tipo Supabase client (evita any)
@@ -474,6 +472,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const masterGeneratorContext: MasterGeneratorContext = {
+      ownedIds,
+      tasteProfile,
+      tmdbToken,
+      igdbClientId,
+      igdbClientSecret,
+      isAlreadyOwned,
+      socialFavorites,
+      userPlatformIds,
+    }
+
     console.log('[RECO] typesNeedingMasterRegen:', typesNeedingMasterRegen)
     console.log('[RECO] typesToRegenBackground:', typesToRegenBackground)
     console.log('[RECO] entriesByType:', Object.fromEntries(entriesByType))
@@ -487,32 +496,13 @@ export async function GET(request: NextRequest) {
 
       const [continuityRecs, ...masterResults] = await Promise.all([
         continuityRecsPromise,
-        ...typesNeedingMasterRegen.map(async type => {
-          // Usa MASTER_POOL_SIZE_PER_TYPE slot → raccoglie molti più candidati
-          const slotPlan = buildRecruitmentSlots(type, tasteProfile, MASTER_POOL_SIZE_PER_TYPE)
-          const slots = slotPlan.slots
-          const exposurePolicy = exposurePolicyByType.get(type)
-          const blockedShownIds = exposurePolicy?.hardBlockedIds || new Set<string>()
-          if (slots.length === 0) return { type, items: [] as Recommendation[], recruitment: { slotPlan: slotPlan.diagnostics, exposure: exposurePolicy?.diagnostics } }
-          let items: Recommendation[] = []
-          switch (type) {
-            case 'anime': items = await fetchAnimeRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, blockedShownIds, socialFavorites); break
-            case 'manga': items = await fetchMangaRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, blockedShownIds, socialFavorites); break
-            case 'movie': items = await fetchMovieRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, blockedShownIds, socialFavorites, userPlatformIds); break
-            case 'tv':    items = await fetchTvRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, blockedShownIds, socialFavorites, userPlatformIds); break
-            case 'game':  items = await fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret, isAlreadyOwned, blockedShownIds); break
-            case 'boardgame': items = await fetchBoardgameRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, blockedShownIds); break
-          }
-          return {
-            type,
-            items,
-            recruitment: {
-              slotPlan: slotPlan.diagnostics,
-              exposure: exposurePolicy?.diagnostics,
-              rawCandidates: items.length,
-            },
-          }
-        })
+        ...typesNeedingMasterRegen.map(type => generateMasterPoolForType({
+          type,
+          context: masterGeneratorContext,
+          exposurePolicy: exposurePolicyByType.get(type),
+          previousItems: masterByType.get(type) || [],
+          wasInvalidated: rowByType.get(type)?.collection_size === -1,
+        }))
       ])
 
       // Prepend continuity recs per tipo
@@ -528,21 +518,20 @@ export async function GET(request: NextRequest) {
       for (const result of masterResults) {
         if (!result?.type || !result.items.length) continue
         const type = result.type as MediaType
-        recruitmentDiagnostics[type] = result.recruitment || {}
+        recruitmentDiagnostics[type] = result.diagnostics || {}
 
         const contRecs = continuityByType.get(type) || []
         const contIds = new Set(contRecs.map(r => r.id))
-        const candidates = result.items.filter(r => !contIds.has(r.id))
+        const tierDiag = result.diagnostics.tier
 
         // ── Pool builder a 4 tier (Netflix/Spotify style) ──────────────────
-        const { items: tieredItems, diagnostics: tierDiag } = buildTieredPool(
-          candidates, type as MediaType, tasteProfile, MASTER_POOL_SIZE_PER_TYPE
-        )
-        console.log(`[RECO] tier type=${type} strength=${tierDiag.profileStrength.toFixed(2)} core=${tierDiag.tierCounts.core} stretch=${tierDiag.tierCounts.stretch} transfer=${tierDiag.tierCounts.transfer} wildcard=${tierDiag.tierCounts.wildcard} thresholds=${tierDiag.adaptiveThresholds.core}/${tierDiag.adaptiveThresholds.stretch}`)
+        if (tierDiag) {
+          console.log(`[RECO] tier type=${type} strength=${tierDiag.profileStrength.toFixed(2)} core=${tierDiag.tierCounts.core} stretch=${tierDiag.tierCounts.stretch} transfer=${tierDiag.tierCounts.transfer} wildcard=${tierDiag.tierCounts.wildcard} thresholds=${tierDiag.adaptiveThresholds.core}/${tierDiag.adaptiveThresholds.stretch}`)
+        }
 
         let allItems: Recommendation[] = [
           ...contRecs,
-          ...tieredItems.filter(r => !contIds.has(r.id)),
+          ...result.items.filter(r => !contIds.has(r.id)),
         ]
         const previousItems = masterByType.get(type) || []
         // Low-yield guard: non sovrascrivere un pool grande con uno piccolo,
@@ -634,47 +623,21 @@ export async function GET(request: NextRequest) {
         for (const type of backgroundRegenTypes) {
           const regenKey = `${userId}:${type}:${collectionHash}`
           try {
-            const slotPlan = buildRecruitmentSlots(type, tasteProfile, MASTER_POOL_SIZE_PER_TYPE)
-            const slots = slotPlan.slots
-            const exposurePolicy = exposurePolicyByType.get(type)
-            const blockedShownIds = exposurePolicy?.hardBlockedIds || new Set<string>()
-            if (slots.length === 0) continue
-            let items: Recommendation[] = []
-            switch (type) {
-              case 'anime': items = await fetchAnimeRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, blockedShownIds, socialFavorites); break
-              case 'manga': items = await fetchMangaRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, blockedShownIds, socialFavorites); break
-              case 'movie': items = await fetchMovieRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, blockedShownIds, socialFavorites, userPlatformIds); break
-              case 'tv':    items = await fetchTvRecs(slots, ownedIds, tasteProfile, tmdbToken, isAlreadyOwned, blockedShownIds, socialFavorites, userPlatformIds); break
-              case 'game':  items = await fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret, isAlreadyOwned, blockedShownIds); break
-              case 'boardgame': items = await fetchBoardgameRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, blockedShownIds); break
-            }
-            if (!items.length) continue
-            const contRecs = continuityByTypeBg.get(type) || []
-            const contIds = new Set(contRecs.map(r => r.id))
-            const bgCandidates = items.filter(r => !contIds.has(r.id))
-            const { items: tieredBg } = buildTieredPool(
-              bgCandidates, type as MediaType, tasteProfile, MASTER_POOL_SIZE_PER_TYPE
-            )
             const bgMinScore = (type === 'manga' || type === 'boardgame') ? 30 : 40
-            let allItems = [
-              ...contRecs,
-              ...tieredBg.filter(r => !contIds.has(r.id)),
-            ].filter(r => r.isContinuity || r.matchScore >= bgMinScore)
-            const previousItems = masterByType.get(type) || []
-            const bgWasInvalidated = rowByType.get(type)?.collection_size === -1
-            if (!bgWasInvalidated && previousItems.length > allItems.length) {
-              const { items: mergedItems } = mergeStableMasterPool(allItems, previousItems, MASTER_POOL_SIZE_PER_TYPE)
-              if (mergedItems.length <= previousItems.length && allItems.every(item => previousItems.some(prev => prev.id === item.id))) {
-                console.log(`[RECO] low-yield background regen skipped type=${type} new=${allItems.length} previous=${previousItems.length}`)
-                continue
-              }
-              console.log(`[RECO] low-yield background regen merged type=${type} new=${allItems.length} previous=${previousItems.length} merged=${mergedItems.length}`)
-              allItems = mergedItems
-            }
+            const generated = await generateMasterPoolForType({
+              type,
+              context: masterGeneratorContext,
+              exposurePolicy: exposurePolicyByType.get(type),
+              continuityRecs: continuityByTypeBg.get(type) || [],
+              previousItems: masterByType.get(type) || [],
+              wasInvalidated: rowByType.get(type)?.collection_size === -1,
+              minScore: bgMinScore,
+            })
+            if (!generated.items.length) continue
             await supabase.from('master_recommendations_pool').upsert({
               user_id: userId,
               media_type: type,
-              data: allItems,
+              data: generated.items,
               collection_hash: collectionHash,
               collection_size: totalCollectionSize,
               generated_at: new Date().toISOString(),
