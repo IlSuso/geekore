@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test'
 import { sampleMasterPool } from '../../src/lib/reco/sampler'
 import { composeRecommendationRails } from '../../src/lib/reco/rails'
+import { computeTasteProfile } from '../../src/lib/reco/profile'
 import type { Recommendation } from '../../src/lib/reco/types'
+import type { UserEntry } from '../../src/lib/reco/engine-types'
 
 function rec(id: string, matchScore: number, genre = 'Drama'): Recommendation {
   return {
@@ -59,6 +61,25 @@ test.describe('recommendation sampler', () => {
     })
 
     expect(sampled.map(item => item.id)).toEqual(expect.arrayContaining(['fresh', 'old-a', 'old-b']))
+  })
+
+  test('rotates away from recently served pool items when the master has depth', () => {
+    const now = new Date('2026-04-30T10:00:00.000Z')
+    const items = Array.from({ length: 40 }, (_, idx) =>
+      rec(`item-${idx + 1}`, idx < 20 ? 95 - (idx % 5) : 82 - (idx % 5), idx % 2 === 0 ? 'Drama' : 'Action')
+    )
+    const exposures = items.slice(0, 20).map(item => ({
+      rec_id: item.id,
+      rec_type: item.type,
+      shown_at: '2026-04-30T09:00:00.000Z',
+    }))
+
+    const sampled = sampleMasterPool(items, { now, size: 20, exposures })
+    const sampledIds = new Set(sampled.map(item => item.id))
+
+    expect(sampled).toHaveLength(20)
+    expect(items.slice(0, 20).filter(item => sampledIds.has(item.id))).toHaveLength(0)
+    expect(items.slice(20).filter(item => sampledIds.has(item.id)).length).toBeGreaterThanOrEqual(15)
   })
 })
 
@@ -131,5 +152,60 @@ test.describe('recommendation rails', () => {
 
     expect(rails.map(rail => rail.kind)).toEqual(expect.arrayContaining(['because-title', 'quick-picks']))
     expect(rails.find(rail => rail.kind === 'because-title')?.title).toContain('Loved Thing')
+  })
+})
+
+test.describe('taste profile', () => {
+  test('spreads one title weight across expanded genres instead of overcounting it', () => {
+    const entries: UserEntry[] = [
+      {
+        title: 'Focused Drama',
+        type: 'movie',
+        status: 'completed',
+        rating: 5,
+        genres: ['Drama'],
+        updated_at: '2026-04-29T10:00:00.000Z',
+      },
+      {
+        title: 'Genre Soup',
+        type: 'movie',
+        status: 'completed',
+        rating: 5,
+        genres: ['Fantasy', 'Adventure', 'Action', 'Mystery', 'Horror', 'Comedy', 'Romance', 'Thriller', 'Science Fiction'],
+        updated_at: '2026-04-29T10:00:00.000Z',
+      },
+    ]
+
+    const profile = computeTasteProfile(entries, {}, [], [])
+    const scores = Object.fromEntries(profile.globalGenres.map(item => [item.genre, item.score]))
+
+    expect(scores.Drama).toBeGreaterThan(scores.Fantasy)
+    expect(scores.Fantasy).toBeGreaterThan(0)
+  })
+
+  test('downweights planned entries compared with completed entries', () => {
+    const entries: UserEntry[] = [
+      {
+        title: 'Completed Drama',
+        type: 'movie',
+        status: 'completed',
+        rating: 5,
+        genres: ['Drama'],
+        updated_at: '2026-04-29T10:00:00.000Z',
+      },
+      {
+        title: 'Planned Fantasy',
+        type: 'movie',
+        status: 'planned',
+        rating: 5,
+        genres: ['Fantasy'],
+        updated_at: '2026-04-29T10:00:00.000Z',
+      },
+    ]
+
+    const profile = computeTasteProfile(entries, {}, [], [])
+    const scores = Object.fromEntries(profile.globalGenres.map(item => [item.genre, item.score]))
+
+    expect(scores.Drama).toBeGreaterThan(scores.Fantasy)
   })
 })

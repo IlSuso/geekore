@@ -204,6 +204,18 @@ export function computeTasteProfile(
   const deepSettings: Record<string, number> = {}
   const droppedTitles = new Set<string>()
 
+  const entryStatusMultiplier = (entry: UserEntry) => {
+    if (entry.status === 'completed') return 1.15
+    if (entry.status === 'watching' || entry.status === 'reading' || entry.status === 'playing') return 0.85
+    if (entry.status === 'wishlist' || entry.status === 'planned' || entry.status === 'plan_to_watch') return 0.35
+    return 0.7
+  }
+
+  const spreadAcrossGenres = (weight: number, genres: string[]) => {
+    // I generi cross-media espansi sono utili, ma un titolo con 10 generi non deve valere 10 titoli.
+    return weight / Math.sqrt(Math.max(1, genres.length))
+  }
+
   const addScore = (genre: string, weight: number, type: string, title: string, recency: number, rating: number, velocity?: number) => {
     globalScores[genre] = (globalScores[genre] || 0) + weight
     if (perTypeScores[type]) {
@@ -352,18 +364,21 @@ export function computeTasteProfile(
     // Cap ridotto a ×8 (era ×15) per evitare monocultura del profilo (fix 1.1)
     const rawMultiplier = temporal * completion * sentiment * velocity * rewatch
     const cappedMultiplier = Math.min(rawMultiplier, 8)
-    const weight = baseWeight * cappedMultiplier
+    const statusMultiplier = entryStatusMultiplier(entry)
+    const weight = baseWeight * cappedMultiplier * statusMultiplier
+    const genreWeight = spreadAcrossGenres(weight, genres)
+    const negativeGenreWeight = spreadAcrossGenres(baseWeight * temporal * 0.8, genres)
 
     const isNegative = isNegativeSignal(entry)
 
     for (const genre of genres) {
       if (isNegative) {
-        addNegative(genre, baseWeight * temporal * 0.8, type)
+        addNegative(genre, negativeGenreWeight, type)
         if (entry.status === 'dropped') {
           droppedGenreCounts[genre] = (droppedGenreCounts[genre] || 0) + 1
         }
       } else {
-        addScore(genre, weight, type, title, recency, rating, velocity)
+        addScore(genre, genreWeight, type, title, recency, rating, velocity)
       }
     }
 

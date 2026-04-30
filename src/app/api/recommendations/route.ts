@@ -50,7 +50,7 @@ import type { RecoMediaType, TasteProfile, Recommendation, MemCacheEntry } from 
 import type { MediaType, UserEntry } from '@/lib/reco/engine-types'
 import { sampleMasterPool } from '@/lib/reco/sampler'
 import { loadRecommendationExposures, recordRecommendationExposures } from '@/lib/reco/exposure'
-import { MASTER_POOL_MAX_AGE_DAYS, MASTER_POOL_SIZE_PER_TYPE, SERVE_SIZE_PER_TYPE, computePoolTTL, computeRegenDelta } from '@/lib/reco/pool'
+import { MASTER_POOL_MAX_AGE_DAYS, MASTER_POOL_MIN_HEALTHY_SIZE, MASTER_POOL_SIZE_PER_TYPE, SERVE_SIZE_PER_TYPE, computePoolTTL, computeRegenDelta } from '@/lib/reco/pool'
 import { buildDiversitySlots } from '@/lib/reco/slots'
 import { computeTasteProfile } from '@/lib/reco/profile'
 import { fetchContinuityRecs } from '@/lib/reco/continuity'
@@ -113,42 +113,80 @@ export async function GET(request: NextRequest) {
     const poolOnly = searchParams.get('source') === 'pool'
     console.log('[RECO] poolOnly:', poolOnly, 'forceRefresh:', forceRefresh, 'requestedType:', requestedType)
     if (poolOnly && !forceRefresh) {
-      const { data: poolRows } = await supabase
-        .from('recommendations_pool')
-        .select('media_type, data, taste_profile, total_entries, generated_at')
-        .eq('user_id', userId)
+      const [{ data: poolRows }, { data: masterRows }] = await Promise.all([
+        supabase
+          .from('recommendations_pool')
+          .select('media_type, data, taste_profile, total_entries, collection_hash, generated_at')
+          .eq('user_id', userId),
+        supabase
+          .from('master_recommendations_pool')
+          .select('media_type, data')
+          .eq('user_id', userId),
+      ])
 
       if (poolRows && poolRows.length > 0) {
-        const recommendations: Record<string, any[]> = {}
+        const recommendations: Record<string, Recommendation[]> = {}
         let tasteProfile: any = null
         let totalEntries = 0
-        for (const row of poolRows) {
+        const exposures = await loadRecommendationExposures(supabase, userId)
+        const masterByType = new Map<string, Recommendation[]>()
+        const poolMetaByType = new Map<string, { taste_profile: any; total_entries: number; collection_hash?: string }>()
+
+        for (const row of (masterRows || [])) {
           if (Array.isArray(row.data) && row.data.length > 0) {
-            // Applica il limite SERVE_SIZE_PER_TYPE — il pool può contenerne di più
-            recommendations[row.media_type] = (row.data as any[]).slice(0, SERVE_SIZE_PER_TYPE)
+            masterByType.set(row.media_type, row.data as Recommendation[])
+          }
+        }
+
+        for (const row of poolRows) {
+          const fallbackPool = Array.isArray(row.data) ? row.data as Recommendation[] : []
+          const sourceItems = masterByType.get(row.media_type) || fallbackPool
+          if (sourceItems.length > 0) {
+            recommendations[row.media_type] = sampleMasterPool(sourceItems, {
+              exposures,
+              size: SERVE_SIZE_PER_TYPE,
+            })
           }
           if (!tasteProfile && row.taste_profile) tasteProfile = row.taste_profile
           if (row.total_entries) totalEntries = Math.max(totalEntries, row.total_entries)
+          poolMetaByType.set(row.media_type, {
+            taste_profile: row.taste_profile,
+            total_entries: row.total_entries || 0,
+            collection_hash: row.collection_hash,
+          })
         }
+
         const hasData = Object.values(recommendations).some(arr => arr.length > 0)
         if (hasData) {
           const tasteProfileResponse = tasteProfile ? { ...tasteProfile, totalEntries } : null
-          await recordRecommendationExposures(supabase, userId, recommendations as Record<string, Recommendation[]>)
+          const poolUpserts = Object.entries(recommendations).map(([mediaType, items]) => ({
+            user_id: userId,
+            media_type: mediaType,
+            data: items,
+            taste_profile: poolMetaByType.get(mediaType)?.taste_profile || tasteProfile || null,
+            total_entries: poolMetaByType.get(mediaType)?.total_entries || totalEntries,
+            collection_hash: poolMetaByType.get(mediaType)?.collection_hash,
+            generated_at: new Date().toISOString(),
+          }))
+          if (poolUpserts.length > 0) {
+            await supabase.from('recommendations_pool').upsert(poolUpserts, { onConflict: 'user_id,media_type' })
+          }
+          await recordRecommendationExposures(supabase, userId, recommendations)
           return NextResponse.json({
             recommendations,
-            rails: composeRecommendationRails(recommendations as Record<string, Recommendation[]>, tasteProfileResponse),
+            rails: composeRecommendationRails(recommendations, tasteProfileResponse),
             tasteProfile: tasteProfileResponse,
             cached: true,
-            source: 'pool',
-          }, { headers: { 'X-Cache': 'POOL_HIT' } })
+            source: masterByType.size > 0 ? 'pool_master_sample' : 'pool',
+          }, { headers: { 'X-Cache': masterByType.size > 0 ? 'MASTER_POOL_SAMPLE' : 'POOL_HIT' } })
         }
       }
-      // Pool vuota → segnala al client di fare il calcolo completo
+      // Pool vuota: segnala al client di fare il calcolo completo
       return NextResponse.json({ recommendations: {}, tasteProfile: null, cached: false, source: 'pool_empty' })
     }
 
-    // ── REFRESH POOL: campiona dal master pool con logica a tier (senza ricalcolo profilo) ──
-    // Chiamato dal tasto Aggiorna — veloce perché legge solo da Supabase, zero API esterne.
+    // REFRESH POOL: campiona dal master pool con logica a tier (senza ricalcolo profilo)
+    // Chiamato dal tasto Aggiorna: veloce perche legge solo da Supabase, zero API esterne.
     const refreshPoolOnly = searchParams.get('source') === 'refresh_pool'
     if (refreshPoolOnly) {
       const [{ data: masterRows }, { data: currentPool }] = await Promise.all([
@@ -441,20 +479,37 @@ export async function GET(request: NextRequest) {
     const savedTotalSize = (masterPoolRows || [])[0]?.collection_size || 0
 
     const totalHasGrown = totalCollectionSize - savedTotalSize >= regenDelta
-    const anyTooSmall = typesToFetch.some(type => {
+    const rowByType = new Map((masterPoolRows || []).map((row: any) => [row.media_type, row]))
+    const masterHealthByType = new Map<string, { missing: boolean; tooSmall: boolean; expired: boolean; invalidated: boolean; usable: boolean }>()
+    for (const type of typesToFetch) {
       const items = masterByType.get(type) || []
-      const row = (masterPoolRows || []).find((r: any) => r.media_type === type)
-      return !row || items.length === 0
-    })
-    const anyInvalidated = (masterPoolRows || []).some((r: any) => r.collection_size === -1)
+      const row = rowByType.get(type)
+      const generatedAt = row?.generated_at ? new Date(row.generated_at).getTime() : 0
+      const ageHours = generatedAt ? (Date.now() - generatedAt) / 3600000 : Infinity
+      masterHealthByType.set(type, {
+        missing: !row || items.length === 0,
+        tooSmall: !!row && items.length > 0 && items.length < MASTER_POOL_MIN_HEALTHY_SIZE && ageHours >= 24,
+        expired: !!row && (!row.generated_at || new Date(row.generated_at).getTime() < new Date(masterPoolCutoff).getTime()),
+        invalidated: row?.collection_size === -1,
+        usable: !!row && items.length > 0 && row?.collection_size !== -1,
+      })
+    }
 
     const typesNeedingMasterRegen: MediaType[] = []
     const typesToRegenBackground: MediaType[] = []
 
-    // Se scatta la regen, rigenera SEMPRE tutti i tipi insieme
-    if (forceRefresh || anyTooSmall || totalHasGrown || anyInvalidated) {
+    // Rigenera in modo sincrono solo quando non abbiamo nulla di servibile.
+    // Se un master esiste ma e vecchio/piccolo, serviamo subito quello e rifacciamo il master in background.
+    if (forceRefresh) {
       for (const type of typesToFetch) {
         typesNeedingMasterRegen.push(type as MediaType)
+      }
+    } else {
+      for (const type of typesToFetch) {
+        const health = masterHealthByType.get(type)
+        if (!health) continue
+        if (health.missing || health.invalidated) typesNeedingMasterRegen.push(type as MediaType)
+        else if (health.usable && (health.tooSmall || health.expired || totalHasGrown)) typesToRegenBackground.push(type as MediaType)
       }
     }
 
