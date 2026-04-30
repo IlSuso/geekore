@@ -48,9 +48,8 @@ import { rateLimit } from '@/lib/rateLimit'
 import { memCacheGet, memCacheSet, memCacheInvalidate } from '@/lib/reco/cache'
 import type { RecoMediaType, TasteProfile, Recommendation, MemCacheEntry } from '@/lib/reco/types'
 import type { MediaType, UserEntry } from '@/lib/reco/engine-types'
-import { sampleMasterPool } from '@/lib/reco/sampler'
-import { loadRecommendationExposures, recordRecommendationExposures } from '@/lib/reco/exposure'
-import { MASTER_POOL_MAX_AGE_DAYS, MASTER_POOL_MIN_HEALTHY_SIZE, MASTER_POOL_SIZE_PER_TYPE, SERVE_SIZE_PER_TYPE, computePoolTTL, computeRegenDelta } from '@/lib/reco/pool'
+import { loadRecommendationExposures } from '@/lib/reco/exposure'
+import { MASTER_POOL_MAX_AGE_DAYS, MASTER_POOL_MIN_HEALTHY_SIZE, MASTER_POOL_SIZE_PER_TYPE, computePoolTTL, computeRegenDelta } from '@/lib/reco/pool'
 import { buildDiversitySlots } from '@/lib/reco/slots'
 import { computeTasteProfile } from '@/lib/reco/profile'
 import { fetchContinuityRecs } from '@/lib/reco/continuity'
@@ -58,6 +57,7 @@ import { fetchAnimeRecs, fetchBoardgameRecs, fetchGameRecs, fetchMangaRecs, fetc
 import { applyFormatDiversity } from '@/lib/reco/scoring'
 import { composeRecommendationRails } from '@/lib/reco/rails'
 import { finishRegen, tryStartRegen } from '@/lib/reco/regen-lock'
+import { sampleAndPersistFromMasterPool, serveFromSavedPool, refreshFromMasterPool } from '@/lib/reco/serving'
 
 
 // Tipo Supabase client (evita any)
@@ -114,73 +114,11 @@ export async function GET(request: NextRequest) {
     const poolOnly = searchParams.get('source') === 'pool'
     console.log('[RECO] poolOnly:', poolOnly, 'forceRefresh:', forceRefresh, 'requestedType:', requestedType)
     if (poolOnly && !forceRefresh) {
-      const [{ data: poolRows }, { data: masterRows }] = await Promise.all([
-        supabase
-          .from('recommendations_pool')
-          .select('media_type, data, taste_profile, total_entries, collection_hash, generated_at')
-          .eq('user_id', userId),
-        supabase
-          .from('master_recommendations_pool')
-          .select('media_type, data')
-          .eq('user_id', userId),
-      ])
-
-      if (poolRows && poolRows.length > 0) {
-        const recommendations: Record<string, Recommendation[]> = {}
-        let tasteProfile: any = null
-        let totalEntries = 0
-        const exposures = await loadRecommendationExposures(supabase, userId)
-        const masterByType = new Map<string, Recommendation[]>()
-        const poolMetaByType = new Map<string, { taste_profile: any; total_entries: number; collection_hash?: string }>()
-
-        for (const row of (masterRows || [])) {
-          if (Array.isArray(row.data) && row.data.length > 0) {
-            masterByType.set(row.media_type, row.data as Recommendation[])
-          }
-        }
-
-        for (const row of poolRows) {
-          const fallbackPool = Array.isArray(row.data) ? row.data as Recommendation[] : []
-          const sourceItems = masterByType.get(row.media_type) || fallbackPool
-          if (sourceItems.length > 0) {
-            recommendations[row.media_type] = sampleMasterPool(sourceItems, {
-              exposures,
-              size: SERVE_SIZE_PER_TYPE,
-            })
-          }
-          if (!tasteProfile && row.taste_profile) tasteProfile = row.taste_profile
-          if (row.total_entries) totalEntries = Math.max(totalEntries, row.total_entries)
-          poolMetaByType.set(row.media_type, {
-            taste_profile: row.taste_profile,
-            total_entries: row.total_entries || 0,
-            collection_hash: row.collection_hash,
-          })
-        }
-
-        const hasData = Object.values(recommendations).some(arr => arr.length > 0)
-        if (hasData) {
-          const tasteProfileResponse = tasteProfile ? { ...tasteProfile, totalEntries } : null
-          const poolUpserts = Object.entries(recommendations).map(([mediaType, items]) => ({
-            user_id: userId,
-            media_type: mediaType,
-            data: items,
-            taste_profile: poolMetaByType.get(mediaType)?.taste_profile || tasteProfile || null,
-            total_entries: poolMetaByType.get(mediaType)?.total_entries || totalEntries,
-            collection_hash: poolMetaByType.get(mediaType)?.collection_hash,
-            generated_at: new Date().toISOString(),
-          }))
-          if (poolUpserts.length > 0) {
-            await supabase.from('recommendations_pool').upsert(poolUpserts, { onConflict: 'user_id,media_type' })
-          }
-          await recordRecommendationExposures(supabase, userId, recommendations)
-          return NextResponse.json({
-            recommendations,
-            rails: composeRecommendationRails(recommendations, tasteProfileResponse),
-            tasteProfile: tasteProfileResponse,
-            cached: true,
-            source: masterByType.size > 0 ? 'pool_master_sample' : 'pool',
-          }, { headers: { 'X-Cache': masterByType.size > 0 ? 'MASTER_POOL_SAMPLE' : 'POOL_HIT' } })
-        }
+      const served = await serveFromSavedPool(supabase, userId)
+      if (served) {
+        return NextResponse.json(served.payload, {
+          headers: { 'X-Cache': served.cacheHeader || 'POOL_HIT' },
+        })
       }
       // Pool vuota: segnala al client di fare il calcolo completo
       return NextResponse.json({ recommendations: {}, tasteProfile: null, cached: false, source: 'pool_empty' })
@@ -190,41 +128,7 @@ export async function GET(request: NextRequest) {
     // Chiamato dal tasto Aggiorna: veloce perche legge solo da Supabase, zero API esterne.
     const refreshPoolOnly = searchParams.get('source') === 'refresh_pool'
     if (refreshPoolOnly) {
-      const [{ data: masterRows }, { data: currentPool }] = await Promise.all([
-        supabase.from('master_recommendations_pool').select('media_type, data').eq('user_id', userId),
-        supabase.from('recommendations_pool').select('taste_profile, total_entries').eq('user_id', userId).limit(1),
-      ])
-      if (!masterRows || masterRows.length === 0) {
-        return NextResponse.json({ recommendations: {}, tasteProfile: null, source: 'pool_empty' })
-      }
-      const exposures = await loadRecommendationExposures(supabase, userId)
-      const savedTasteProfile = currentPool?.[0]?.taste_profile || null
-      const savedTotalEntries = currentPool?.[0]?.total_entries || 0
-      const recommendations: Record<string, Recommendation[]> = {}
-      const poolUpserts: any[] = []
-      for (const row of masterRows) {
-        if (!Array.isArray(row.data) || row.data.length === 0) continue
-        const sampled = sampleMasterPool(row.data as Recommendation[], { exposures, size: SERVE_SIZE_PER_TYPE })
-        if (sampled.length === 0) continue
-        recommendations[row.media_type] = sampled
-        poolUpserts.push({
-          user_id: userId,
-          media_type: row.media_type,
-          data: sampled,
-          generated_at: new Date().toISOString(),
-        })
-      }
-      if (poolUpserts.length > 0) {
-        await supabase.from('recommendations_pool').upsert(poolUpserts, { onConflict: 'user_id,media_type' })
-      }
-      await recordRecommendationExposures(supabase, userId, recommendations)
-      const tasteProfileResponse = savedTasteProfile ? { ...savedTasteProfile, totalEntries: savedTotalEntries } : null
-      return NextResponse.json({
-        recommendations,
-        rails: composeRecommendationRails(recommendations, tasteProfileResponse),
-        tasteProfile: tasteProfileResponse,
-        source: 'refresh_pool',
-      })
+      return NextResponse.json(await refreshFromMasterPool(supabase, userId))
     }
 
     // ── In-memory cache check — bypassa se similar_to query (sempre fresh) ───
@@ -657,41 +561,20 @@ export async function GET(request: NextRequest) {
     // Usa logica a tier: 10 da 80-100%, 5 da 60-79%, 5 da 40-59% (con cascata).
     // Se il master non esiste per un tipo → vuoto.
 
-    const poolByType = new Map<string, Recommendation[]>()
-    const poolUpserts: any[] = []
-
-    for (const type of typesToFetch) {
-      const masterItems = masterByType.get(type) || []
-      if (masterItems.length === 0) {
-        // Master non ancora generato per questo tipo — non inventiamo nulla
-        poolByType.set(type, [])
-        continue
-      }
-      // Filtra già posseduti (potrebbero essere stati aggiunti dopo la generazione del master)
-      const available = masterItems.filter(r => !isAlreadyOwned(r.type, r.id, r.title))
-      // Campiona con logica V7: tier 10/5/5, cooldown, novelty, weighted sampling e diversity.
-      const poolItems = sampleMasterPool(available, {
-        exposures: recommendationExposures,
-        size: SERVE_SIZE_PER_TYPE,
-      })
-
-      poolByType.set(type, poolItems)
-      poolUpserts.push({
-        user_id: userId,
-        media_type: type,
-        data: poolItems,
-        generated_at: new Date().toISOString(),
-        collection_hash: collectionHash,
-        total_entries: allEntries.length,
-      })
-    }
-
-    if (poolUpserts.length > 0) {
-      console.log('[RECO] upserting recommendations_pool:', poolUpserts.map(u => `${u.media_type}:${u.data.length}items`))
-      const { error: poolUpsertError } = await supabase.from('recommendations_pool').upsert(poolUpserts, { onConflict: 'user_id,media_type' })
-      if (poolUpsertError) console.log('[RECO] recommendations_pool upsert ERROR:', JSON.stringify(poolUpsertError))
-      else console.log('[RECO] recommendations_pool upsert SUCCESS')
-    }
+    const {
+      recommendations,
+      poolByType,
+      diagnostics: servingDiagnostics,
+    } = await sampleAndPersistFromMasterPool({
+      supabase,
+      userId,
+      typesToFetch,
+      masterByType,
+      exposures: recommendationExposures,
+      collectionHash,
+      totalEntries: allEntries.length,
+      isAlreadyOwned,
+    })
 
     // Salva creator profile aggiornato (fire-and-forget)
     ;(async () => {
@@ -709,13 +592,8 @@ export async function GET(request: NextRequest) {
 
     // ── Serve dal pool — i titoli (max 20) sono già stati campionati con logica a tier
     // Li serviamo direttamente senza ulteriori manipolazioni.
-    const recommendations: Record<string, Recommendation[]> = {}
-    for (const type of typesToFetch) {
-      recommendations[type] = poolByType.get(type) || []
-    }
 
     // ── V6: Registra i titoli mostrati (sessione corrente) ────────────────────
-    await recordRecommendationExposures(supabase, userId, recommendations)
 
     // ── Popola in-memory cache ────────────────────────────────────────────────
     const topStudiosForResponse = Object.entries(tasteProfile.creatorScores.studios).sort(([,a],[,b]) => b - a).slice(0, 5)
@@ -774,6 +652,20 @@ export async function GET(request: NextRequest) {
         totalEntries: allEntries.length,
       },
       cached: false,
+      recommendationDiagnostics: {
+        ...servingDiagnostics,
+        backgroundRegenQueued: backgroundRegenTypes,
+        syncRegenTypes: typesNeedingMasterRegen,
+        poolHealth: Object.fromEntries([...masterHealthByType.entries()].map(([type, health]) => {
+          const row = rowByType.get(type)
+          const generatedAt = row?.generated_at ? new Date(row.generated_at).getTime() : 0
+          return [type, {
+            ...health,
+            size: (masterByType.get(type) || []).length,
+            ageHours: generatedAt ? Math.round(((Date.now() - generatedAt) / 3600000) * 10) / 10 : null,
+          }]
+        })),
+      },
     })
 
   } catch (error) {
