@@ -10,6 +10,13 @@ const ANILIST_MANGA_GENRES = new Set([
   'Mystery', 'Psychological', 'Romance', 'Sci-Fi', 'Slice of Life',
   'Sports', 'Supernatural', 'Thriller',
 ])
+
+// Remap generi cross-media → generi AniList validi
+const MANGA_GENRE_REMAP: Record<string, string> = {
+  'Science Fiction': 'Sci-Fi',
+  'Science-Fiction': 'Sci-Fi',
+  'Animation': 'Action',  // fallback ragionevole per utenti anime-heavy
+}
 export async function fetchMangaRecs(
   slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, isAlreadyOwned: (type: string, id: string, title: string) => boolean,
   shownIds?: Set<string>, socialFavorites?: Map<string, string>
@@ -27,7 +34,8 @@ export async function fetchMangaRecs(
   )
 
   for (const slot of slots) {
-    const genre = ANILIST_MANGA_GENRES.has(slot.genre) ? slot.genre : null
+    const remapped = MANGA_GENRE_REMAP[slot.genre] || slot.genre
+    const genre = ANILIST_MANGA_GENRES.has(remapped) ? remapped : null
     if (!genre) continue
 
     const pagesToFetchManga = slot.quota > 20 ? [1, 2] : [1]
@@ -132,17 +140,21 @@ export async function fetchMangaRecs(
 
   // ── TOP-UP: continua a fetchare finché il pool raggiunge 200 ─────────────
   const MANGA_POOL_TARGET = 200
-  if (results.length < MANGA_POOL_TARGET && slots.length > 0) {
-    const qt = tasteProfile.qualityThresholds
-    // Prendi i generi disponibili dai slot
+  if (results.length < MANGA_POOL_TARGET) {
+    // Prendi i generi disponibili dai slot con remap applicato
     const availableGenres = slots
-      .map(s => ANILIST_MANGA_GENRES.has(s.genre) ? s.genre : null)
+      .map(s => { const r = MANGA_GENRE_REMAP[s.genre] || s.genre; return ANILIST_MANGA_GENRES.has(r) ? r : null })
       .filter(Boolean) as string[]
+
+    // Se nessun genere dell'utente matcha AniList, usa i generi manga più popolari come fallback
+    const genresToUse = availableGenres.length > 0
+      ? availableGenres
+      : ['Action', 'Drama', 'Fantasy', 'Comedy', 'Sci-Fi']
     let topUpPage = 3
     const MAX_TOPUP_PAGES = 10
     while (results.length < MANGA_POOL_TARGET && topUpPage <= MAX_TOPUP_PAGES) {
       try {
-        const genreToUse = availableGenres[topUpPage % availableGenres.length] || availableGenres[0]
+        const genreToUse = genresToUse[topUpPage % genresToUse.length] || genresToUse[0]
         const topUpQuery = `
           query($genres: [String], $minScore: Int, $minPop: Int) {
             Page(page: ${topUpPage}, perPage: 50) {

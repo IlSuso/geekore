@@ -516,7 +516,11 @@ export async function GET(request: NextRequest) {
           ...result.items.filter(r => !contIds.has(r.id) && r.matchScore >= 40),
         ]
         const previousItems = masterByType.get(type) || []
-        if (allItems.length < MASTER_POOL_MIN_HEALTHY_SIZE && previousItems.length >= allItems.length) {
+        // Low-yield guard: non sovrascrivere un pool grande con uno piccolo,
+        // MA bypassa se il pool era stato invalidato manualmente (collection_size=-1)
+        // o se il pool precedente era vuoto — in quei casi accetta qualsiasi yield.
+        const wasInvalidated = rowByType.get(type)?.collection_size === -1
+        if (!wasInvalidated && allItems.length < MASTER_POOL_MIN_HEALTHY_SIZE && previousItems.length >= allItems.length) {
           console.log(`[RECO] low-yield master regen skipped type=${type} new=${allItems.length} previous=${previousItems.length}`)
           continue
         }
@@ -591,7 +595,8 @@ export async function GET(request: NextRequest) {
               ...items.filter(r => !contIds.has(r.id)),
             ].filter(r => r.isContinuity || r.matchScore >= 40)
             const previousItems = masterByType.get(type) || []
-            if (allItems.length < MASTER_POOL_MIN_HEALTHY_SIZE && previousItems.length >= allItems.length) {
+            const bgWasInvalidated = rowByType.get(type)?.collection_size === -1
+            if (!bgWasInvalidated && allItems.length < MASTER_POOL_MIN_HEALTHY_SIZE && previousItems.length >= allItems.length) {
               console.log(`[RECO] low-yield background regen skipped type=${type} new=${allItems.length} previous=${previousItems.length}`)
               continue
             }
