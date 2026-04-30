@@ -15,7 +15,11 @@ const ANILIST_MANGA_GENRES = new Set([
 const MANGA_GENRE_REMAP: Record<string, string> = {
   'Science Fiction': 'Sci-Fi',
   'Science-Fiction': 'Sci-Fi',
-  'Animation': 'Action',  // fallback ragionevole per utenti anime-heavy
+  'Animation': '',   // non esiste su AniList — salta
+  'Kids': 'Comedy',
+  'War': 'Action',
+  'Crime': 'Mystery',
+  'Family': 'Comedy',
 }
 export async function fetchMangaRecs(
   slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile, isAlreadyOwned: (type: string, id: string, title: string) => boolean,
@@ -34,8 +38,9 @@ export async function fetchMangaRecs(
   )
 
   for (const slot of slots) {
-    const remapped = MANGA_GENRE_REMAP[slot.genre] || slot.genre
-    const genre = ANILIST_MANGA_GENRES.has(remapped) ? remapped : null
+    const remapped = MANGA_GENRE_REMAP[slot.genre]
+    if (remapped === '') continue  // genere non valido su AniList
+    const genre = (() => { const r = remapped || slot.genre; return ANILIST_MANGA_GENRES.has(r) ? r : null })()
     if (!genre) continue
 
     const pagesToFetchManga = slot.quota > 20 ? [1, 2] : [1]

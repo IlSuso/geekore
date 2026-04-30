@@ -15,6 +15,11 @@ const ANILIST_ANIME_GENRES = new Set([
 const GENRE_REMAP: Record<string, string> = {
   'Science Fiction': 'Sci-Fi',
   'Science-Fiction': 'Sci-Fi',
+  'Animation': '',        // non è un genere AniList — viene ignorato, si usa il genere successivo
+  'Kids': 'Comedy',
+  'War': 'Action',
+  'Crime': 'Mystery',
+  'Family': 'Comedy',
 }
 
 const DIRECTOR_ROLES = new Set(['Director', 'Series Director', 'Chief Animation Director'])
@@ -120,7 +125,9 @@ export async function fetchAnimeRecs(
   for (const slot of slots) {
     if (results.length >= MIN_POOL_ITEMS) break
 
-    const anilistGenre = GENRE_REMAP[slot.genre] || slot.genre
+    const remapped = GENRE_REMAP[slot.genre]
+    if (remapped === '') continue  // genere non valido su AniList (es. Animation)
+    const anilistGenre = remapped || slot.genre
     if (!ANILIST_ANIME_GENRES.has(anilistGenre)) continue
 
     const pages = slot.quota > 20 ? [1, 2] : [1]
