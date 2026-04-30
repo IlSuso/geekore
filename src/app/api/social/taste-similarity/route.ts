@@ -109,6 +109,7 @@ export async function GET(request: NextRequest) {
     .from('user_media_entries')
     .select('genres, rating, status, rewatch_count, type')
     .eq('user_id', user.id)
+    .limit(10000)
 
   if (!myEntries || myEntries.length === 0) {
     return NextResponse.json({ score: 0, label: 'Nessun dato', profiles: [] })
@@ -122,6 +123,7 @@ export async function GET(request: NextRequest) {
       .from('user_media_entries')
       .select('genres, rating, status, rewatch_count, type')
       .eq('user_id', targetUserId)
+      .limit(10000)
 
     if (!theirEntries || theirEntries.length === 0) {
       return NextResponse.json({ score: 0, label: 'Nessun dato', userId: targetUserId })
@@ -165,6 +167,7 @@ export async function GET(request: NextRequest) {
       .from('user_media_entries')
       .select('user_id, genres, rating, status, rewatch_count, type')
       .in('user_id', limitedIds)
+      .limit(10000)
 
     // Raggruppa per utente
     const entriesByUser: Record<string, any[]> = {}

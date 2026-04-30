@@ -880,7 +880,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
 
     const [steamResult, mediaResult, fwersResult, fwingResult, followResult] = await Promise.all([
       ownerCheck ? supabase.from('steam_accounts').select('steam_id64, steam_username, avatar_url, created_at, games, last_synced').eq('user_id', user!.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
-      supabase.from('user_media_entries').select('id, title, title_en, type, cover_image, current_episode, current_season, season_episodes, episodes, display_order, updated_at, is_steam, import_source, appid, rating, status, genres, external_id').eq('user_id', profileData.id).order('display_order', { ascending: false, nullsFirst: false }),
+      supabase.from('user_media_entries').select('id, title, title_en, type, cover_image, current_episode, current_season, season_episodes, episodes, display_order, updated_at, is_steam, import_source, appid, rating, status, genres, external_id').eq('user_id', profileData.id).order('display_order', { ascending: false, nullsFirst: false }).limit(10000),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profileData.id),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profileData.id),
       (user && !ownerCheck) ? supabase.from('follows').select('follower_id').eq('follower_id', user.id).eq('following_id', profileData.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -951,7 +951,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     })
 
   const refreshMedia = async (userId: string) => {
-    const { data, error } = await supabase.from('user_media_entries').select('id, title, title_en, type, cover_image, current_episode, current_season, season_episodes, episodes, display_order, updated_at, is_steam, import_source, appid, rating, status, genres, external_id').eq('user_id', userId).order('display_order', { ascending: false, nullsFirst: false })
+    const { data, error } = await supabase.from('user_media_entries').select('id, title, title_en, type, cover_image, current_episode, current_season, season_episodes, episodes, display_order, updated_at, is_steam, import_source, appid, rating, status, genres, external_id').eq('user_id', userId).order('display_order', { ascending: false, nullsFirst: false }).limit(10000)
     if (error) { console.error('[Profile] Errore refresh media:', error); return }
     if (data) setMediaList(sortMediaList(data))
   }

@@ -48,12 +48,18 @@ export async function recordRecommendationExposures(
       rec_id: rec.id,
       rec_type: type,
       shown_at: now,
+      // action intentionally omitted: preserve existing feedback action on conflict
     }))
   )
 
   if (rows.length === 0) return
 
+  // CRITICAL FIX: aggiorna shown_at ad ogni esposizione così il cooldown funziona.
+  // ignoreDuplicates:false + update su shown_at sovrascrive la data ogni volta che
+  // il titolo viene servito, garantendo che HARD_COOLDOWN_HOURS (4h) funzioni davvero.
+  // Se la riga ha già un'action (not_interested/already_seen), la preserviamo via SQL merge.
   await supabase.from('recommendations_shown').upsert(rows, {
     onConflict: 'user_id,rec_id',
+    ignoreDuplicates: false,
   })
 }

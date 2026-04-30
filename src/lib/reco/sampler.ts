@@ -27,8 +27,8 @@ type TierQuota = {
 }
 
 const DEFAULT_SIZE = 20
-const HARD_COOLDOWN_HOURS = 4
-const SOFT_MEMORY_DAYS = 14
+const HARD_COOLDOWN_HOURS = 48   // titoli visti nelle ultime 48h non riappaiono
+const SOFT_MEMORY_DAYS = 7       // dopo 7gg il peso torna pieno (era 14 — troppo lento)
 const MAX_PRIMARY_GENRE_PER_BATCH = 4
 const RECENT_GENRE_MEMORY_DAYS = 2
 
@@ -177,7 +177,7 @@ function buildTierQuotas(targetSize: number): TierQuota {
 export function sampleMasterPool(items: Recommendation[], options: SampleOptions = {}): Recommendation[] {
   const now = options.now || new Date()
   const targetSize = options.size || DEFAULT_SIZE
-  const explorationRate = options.explorationRate ?? 0.12
+  const explorationRate = options.explorationRate ?? 0.25  // era 0.12 — troppo basso, poca varietà
   const exposureMap = buildExposureMap(options.exposures)
   const ids = new Set<string>()
 

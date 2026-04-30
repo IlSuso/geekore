@@ -182,10 +182,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Leggi collezione completa
+    // CRITICAL: .limit(10000) bypassa il cap di default di Supabase (1000 righe).
+    // Senza questo, utenti con >1000 titoli vedono collectionHash bloccato a "1000_..."
+    // e il master pool non si rigenera mai perché totalHasGrown è sempre false.
     const { data: entries } = await supabase
       .from('user_media_entries')
       .select('type, rating, genres, current_episode, episodes, status, is_steam, title, title_en, external_id, appid, updated_at, tags, keywords, themes, player_perspectives, studios, directors, authors, developer, rewatch_count, started_at')
       .eq('user_id', userId)
+      .limit(10000)
 
     const allEntries: UserEntry[] = (entries || []) as UserEntry[]
 
@@ -323,9 +327,9 @@ export async function GET(request: NextRequest) {
       typesToFetch.push(requestedType as MediaType)
     }
 
-    // ── V6: Carica titoli mostrati nella sessione corrente (TTL: 4h) ──────────
-    // NON escludiamo titoli per settimane — solo quelli mostrati nelle ultime 4 ore
-    // così ogni sessione di navigazione vede facce nuove, ma il pool rimane intatto
+    // ── Carica exposure history (14gg) + all shown keys per health check ──────
+    // Il HARD_COOLDOWN_HOURS=48h nel sampler esclude automaticamente i titoli recenti.
+    // allShownKeys è usato solo per il health check del master pool (depletion ratio).
     const [recommendationExposures, allShownKeys] = await Promise.all([
       loadRecommendationExposures(supabase, userId),
       loadAllRecommendationExposureKeys(supabase, userId),

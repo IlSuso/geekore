@@ -60,7 +60,8 @@ export function buildMasterPoolSizes(masterByType: Map<string, Recommendation[]>
 
 export async function serveFromSavedPool(
   supabase: SupabaseLike,
-  userId: string
+  userId: string,
+  exposuresParam?: Awaited<ReturnType<typeof loadRecommendationExposures>>
 ): Promise<{ payload: RecommendationPayload; cacheHeader?: string } | null> {
   const [{ data: poolRows }, { data: masterRows }] = await Promise.all([
     supabase
@@ -78,7 +79,8 @@ export async function serveFromSavedPool(
   const recommendations: Record<string, Recommendation[]> = {}
   let tasteProfile: any = null
   let totalEntries = 0
-  const exposures = await loadRecommendationExposures(supabase, userId)
+  // Usa le exposures passate dal caller (già caricate in route.ts) per evitare doppia query
+  const exposures = exposuresParam ?? await loadRecommendationExposures(supabase, userId)
   const masterByType = new Map<string, Recommendation[]>()
   const poolMetaByType = new Map<string, PoolMeta>()
 

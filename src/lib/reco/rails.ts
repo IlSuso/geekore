@@ -93,12 +93,16 @@ export function composeRecommendationRails(
       .map(([genre]) => genre)
     : []
 
+  // Soglia dinamica: usa 78 se ci sono abbastanza titoli ad alto score, altrimenti scende a 68
+  const highScoreCount = byScore.filter(item => (item.matchScore || 0) >= 78).length
+  const topMatchThreshold = highScoreCount >= MIN_RAIL_ITEMS ? 78 : 68
+
   pushRail(rails, {
     id: 'top-match',
     title: 'Scelte fortissime per te',
     subtitle: 'I match piu alti del tuo profilo, mescolati tra tutti i media',
     kind: 'top-match',
-    items: takeRail(byScore.filter(item => (item.matchScore || 0) >= 78)),
+    items: takeRail(byScore.filter(item => (item.matchScore || 0) >= topMatchThreshold)),
     badge: 'Top match',
     priority: 100,
   })

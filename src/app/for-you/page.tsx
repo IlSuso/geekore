@@ -101,6 +101,7 @@ interface Recommendation {
   max_players?: number
   playing_time?: number
   complexity?: number
+  [key: string]: any  // permette campi extra senza errori TS
 }
 
 interface RecommendationRail {
@@ -287,19 +288,19 @@ function SimilarSearchBar({ onSearch, loading }: {
 
       if (anilistRes.status === 'fulfilled' && anilistRes.value.ok) {
         const j = await anilistRes.value.json()
-        for (const r of parse(j).slice(0, 1)) {
+        for (const r of parse(j).slice(0, 2)) {
           all.push({ id: r.id || r.external_id, title: r.title, type: r.type || 'anime', genres: r.genres, year: r.year, coverImage: r.coverImage || r.cover_image, keywords: r.tags })
         }
       }
       if (tmdbRes.status === 'fulfilled' && tmdbRes.value.ok) {
         const j = await tmdbRes.value.json()
-        for (const r of parse(j).slice(0, 1)) {
+        for (const r of parse(j).slice(0, 2)) {
           all.push({ id: r.id || r.external_id, title: r.title, type: r.type || 'movie', genres: r.genres, year: r.year, coverImage: r.coverImage || r.cover_image, description: r.description, keywords: r.keywords })
         }
       }
       if (igdbRes.status === 'fulfilled' && igdbRes.value.ok) {
         const j = await igdbRes.value.json()
-        for (const r of parse(j).slice(0, 1)) {
+        for (const r of parse(j).slice(0, 2)) {
           all.push({ id: r.id || r.external_id, title: r.title, type: 'game', genres: r.genres, year: r.year, coverImage: r.coverImage || r.cover_image, keywords: r.keywords })
         }
       }
@@ -1228,7 +1229,11 @@ export default function ForYouPage() {
     }
   }, [sendFeedback])
 
-  const displayRecs = recommendations
+  // Fix mutazione cache: clona i dati prima di modificarli
+  // Senza clone, il boost si accumula ad ogni render perché modifica oggetti nel forYouCache
+  const displayRecs = Object.fromEntries(
+    Object.entries(recommendations).map(([type, items]) => [type, items.map(r => ({ ...r }))])
+  )
 
   // Fix 2.9: eleva nelle sezioni i titoli guardati da amici con sim ≥80%
   const friendWatchingMap = new Map<string, string>()  // mediaId → username
@@ -1237,18 +1242,9 @@ export default function ForYouPage() {
       friendWatchingMap.set(a.mediaId, a.displayName || a.username)
     }
   }
-  // Inietta friendWatching nelle recs esistenti
+  // Inietta friendWatching nelle recs clonate (non nel cache originale)
   for (const recs of Object.values(displayRecs)) {
     for (const rec of recs) {
-      if (friendWatchingMap.has(rec.id)) {
-        rec.friendWatching = friendWatchingMap.get(rec.id)
-        rec.matchScore = Math.min(100, rec.matchScore + 12)  // piccolo boost visibilità
-      }
-    }
-  }
-
-  for (const rail of rails) {
-    for (const rec of rail.items) {
       if (friendWatchingMap.has(rec.id)) {
         rec.friendWatching = friendWatchingMap.get(rec.id)
         rec.matchScore = Math.min(100, rec.matchScore + 12)
@@ -1256,7 +1252,15 @@ export default function ForYouPage() {
     }
   }
 
-  const visibleRails = rails
+  const displayRailsWithFriends = rails.map(rail => ({
+    ...rail,
+    items: rail.items.map(rec => {
+      if (!friendWatchingMap.has(rec.id)) return rec
+      return { ...rec, friendWatching: friendWatchingMap.get(rec.id), matchScore: Math.min(100, rec.matchScore + 12) }
+    }),
+  }))
+
+  const visibleRails = displayRailsWithFriends
     .map(rail => ({ ...rail, items: rail.items.filter(i => !dismissedIds.has(i.id)) }))
     .filter(rail => rail.items.length > 0)
   const spotlightItem = visibleRails.find(rail => rail.kind === 'top-match')?.items[0] || visibleRails[0]?.items[0]
