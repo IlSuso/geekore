@@ -473,6 +473,7 @@ export async function GET(request: NextRequest) {
     }
 
     const masterGeneratorContext: MasterGeneratorContext = {
+      supabase,
       ownedIds,
       tasteProfile,
       tmdbToken,

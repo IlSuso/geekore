@@ -17,6 +17,7 @@ import { buildRecruitmentSlots, type RecruitmentSlotPlan } from './planner'
 export type IsAlreadyOwned = (type: string, id: string, title: string) => boolean
 
 export interface MasterGeneratorContext {
+  supabase?: { from: (table: string) => any }
   ownedIds: Set<string>
   tasteProfile: TasteProfile
   tmdbToken: string
@@ -75,7 +76,7 @@ async function fetchCandidatesForType(
     case 'game':
       return fetchGameRecs(slots, ownedIds, tasteProfile, igdbClientId, igdbClientSecret, isAlreadyOwned, blockedShownIds)
     case 'boardgame':
-      return fetchBoardgameRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, blockedShownIds)
+      return fetchBoardgameRecs(slots, ownedIds, tasteProfile, isAlreadyOwned, blockedShownIds, context.supabase)
   }
 }
 

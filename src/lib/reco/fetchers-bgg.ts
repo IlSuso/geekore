@@ -6,6 +6,7 @@ import { buildWhyV3, computeMatchScore } from './profile'
 import { applyFormatDiversity, getCurrentAnimeSeasonDates, isAwardWorthy, releaseFreshnessMult, runtimePenalty } from './scoring'
 import { BGG_TO_CROSS_GENRE, CROSS_TO_BGG_CATEGORY, CROSS_TO_IGDB_GENRE, CROSS_TO_IGDB_THEME, IGDB_VALID_GENRES, TMDB_GENRE_MAP, TMDB_TV_GENRE_MAP } from './genre-maps'
 import { BGG_CATEGORY_SEED_IDS } from './bgg-seeds'
+import { loadBGGCatalogCandidates } from './bgg-catalog'
 
 const BGG_INITIAL_ID_BUDGET = 680
 const BGG_GLOBAL_SEED_BUDGET = 520
@@ -14,6 +15,7 @@ const BGG_DETAIL_CONCURRENCY = 2
 const BGG_SEARCH_TERM_BUDGET = 16
 const BGG_SEARCH_CONCURRENCY = 3
 const BGG_MIN_MATCH_SCORE = 35
+const BGG_POOL_TARGET = 200
 
 const BGG_CATEGORY_SEARCH_TERMS: Record<string, string[]> = {
   Adventure: ['quest', 'expedition', 'adventure'],
@@ -153,7 +155,8 @@ async function fetchBGGHotList(headers: HeadersInit): Promise<string[]> {
 export async function fetchBoardgameRecs(
   slots: GenreSlot[], ownedIds: Set<string>, tasteProfile: TasteProfile,
   isAlreadyOwned: (type: string, id: string, title: string) => boolean,
-  shownIds?: Set<string>
+  shownIds?: Set<string>,
+  catalogClient?: { from: (table: string) => any }
 ): Promise<Recommendation[]> {
   const BGG_BASE = 'https://boardgamegeek.com/xmlapi2'
   const bggHeaders: HeadersInit = {
@@ -162,6 +165,16 @@ export async function fetchBoardgameRecs(
   }
   const BGG_MIN_YEAR = 1990  // includi classici moderni dal '90
   const BGG_MAX_RANK = 2500  // amplia pool a top 2500 per titoli di nicchia
+  const catalogCandidates = await loadBGGCatalogCandidates(
+    catalogClient,
+    slots,
+    tasteProfile,
+    isAlreadyOwned,
+    shownIds
+  )
+  if (catalogCandidates.length >= BGG_POOL_TARGET) {
+    return catalogCandidates.slice(0, BGG_POOL_TARGET)
+  }
 
   // ── Step 1: raccogli ID pool in parallelo ────────────────────────────────
   const activeSlots = slots.slice(0, 12)  // più slot per pool più vario
@@ -216,8 +229,8 @@ export async function fetchBoardgameRecs(
   })
 
   // ── Step 3: parse, filtra, scoringa ──────────────────────────────────────
-  const results: Recommendation[] = []
-  const seen = new Set<string>()
+  const results: Recommendation[] = [...catalogCandidates]
+  const seen = new Set<string>(catalogCandidates.map(item => item.id))
 
   for (const thingXml of batchXmls) {
     if (!thingXml) continue
@@ -347,7 +360,6 @@ export async function fetchBoardgameRecs(
   // e li fetchiamo in batch filtrando per affinità crossmediale.
   // NOTA: search?query=boardgame è errata (cerca titolo "boardgame", non browse).
   // search?query=&type=boardgame è già usata nel loop principale (pag 1-3).
-  const BGG_POOL_TARGET = 200
   if (results.length < BGG_POOL_TARGET) {
     // ID supplementari: giochi BGG top 300-2500 non già presenti nei seed per categoria.
     // Selezionati da BGG top list per rappresentare generi vari con alta qualità.

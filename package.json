@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "import:bgg-catalog": "node scripts/import-bgg-catalog.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.1",
