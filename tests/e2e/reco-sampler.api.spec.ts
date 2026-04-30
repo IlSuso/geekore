@@ -81,6 +81,25 @@ test.describe('recommendation sampler', () => {
     expect(items.slice(0, 20).filter(item => sampledIds.has(item.id))).toHaveLength(0)
     expect(items.slice(20).filter(item => sampledIds.has(item.id)).length).toBeGreaterThanOrEqual(15)
   })
+
+  test('uses dynamic tier quotas for smaller requested batches', () => {
+    const now = new Date('2026-04-30T10:00:00.000Z')
+    const items = [
+      ...Array.from({ length: 10 }, (_, idx) => rec(`high-${idx}`, 90, 'Drama')),
+      ...Array.from({ length: 10 }, (_, idx) => rec(`mid-${idx}`, 70, 'Comedy')),
+      ...Array.from({ length: 10 }, (_, idx) => rec(`low-${idx}`, 45, 'Mystery')),
+    ]
+
+    const sampled = sampleMasterPool(items, { now, size: 10, explorationRate: 0 })
+    const high = sampled.filter(item => item.id.startsWith('high')).length
+    const mid = sampled.filter(item => item.id.startsWith('mid')).length
+    const low = sampled.filter(item => item.id.startsWith('low')).length
+
+    expect(sampled).toHaveLength(10)
+    expect(high).toBeGreaterThanOrEqual(4)
+    expect(mid).toBeGreaterThanOrEqual(3)
+    expect(low).toBeGreaterThanOrEqual(2)
+  })
 })
 
 test.describe('recommendation rails', () => {

@@ -11,6 +11,7 @@ interface SampleOptions {
   exposures?: RecommendationExposure[]
   size?: number
   now?: Date
+  explorationRate?: number
 }
 
 type ScoredCandidate = Recommendation & {
@@ -19,10 +20,17 @@ type ScoredCandidate = Recommendation & {
   _action: string | null
 }
 
+type TierQuota = {
+  high: number
+  mid: number
+  low: number
+}
+
 const DEFAULT_SIZE = 20
 const HARD_COOLDOWN_HOURS = 4
 const SOFT_MEMORY_DAYS = 14
 const MAX_PRIMARY_GENRE_PER_BATCH = 4
+const RECENT_GENRE_MEMORY_DAYS = 2
 
 function exposureKey(type: string | undefined, id: string) {
   return `${type || ''}:${id}`
@@ -53,11 +61,12 @@ function scoreCandidate(item: Recommendation, exposure: RecommendationExposure |
   const qualityWeight = item.score ? 0.9 + Math.min(0.25, item.score / 25) : 1
   const discoveryWeight = item.isDiscovery || item.isSerendipity ? 1.1 : 1
   const continuityWeight = item.isContinuity ? 1.25 : 1
+  const freshnessWeight = item.isSeasonal || item.isAwardWinner ? 1.08 : 1
 
   let exposureWeight = 1
   if (ageDays !== null) {
     if (ageDays < HARD_COOLDOWN_HOURS / 24) exposureWeight = 0
-    else exposureWeight = 0.35 + Math.min(0.65, ageDays / SOFT_MEMORY_DAYS)
+    else exposureWeight = 0.22 + Math.min(0.78, ageDays / SOFT_MEMORY_DAYS)
   }
 
   if (action === 'already_seen' || action === 'not_interested') exposureWeight = 0
@@ -65,7 +74,7 @@ function scoreCandidate(item: Recommendation, exposure: RecommendationExposure |
 
   return {
     ...item,
-    _weight: Math.max(0, matchWeight * qualityWeight * discoveryWeight * continuityWeight * exposureWeight),
+    _weight: Math.max(0, matchWeight * qualityWeight * discoveryWeight * continuityWeight * freshnessWeight * exposureWeight),
     _lastShownMs: lastShownMs,
     _action: action,
   }
@@ -86,10 +95,38 @@ function diversityWeight(candidate: ScoredCandidate, selected: Recommendation[])
   return 1
 }
 
-function weightedPick(candidates: ScoredCandidate[], selected: Recommendation[]) {
+function buildRecentGenreCounts(scored: ScoredCandidate[], nowMs: number) {
+  const counts = new Map<string, number>()
+  for (const item of scored) {
+    if (!item._lastShownMs || nowMs - item._lastShownMs >= RECENT_GENRE_MEMORY_DAYS * 86400000) continue
+    for (const genre of (item.genres || []).slice(0, 3)) {
+      counts.set(genre, (counts.get(genre) || 0) + 1)
+    }
+  }
+  return counts
+}
+
+function recentGenrePenalty(candidate: ScoredCandidate, recentGenreCounts: Map<string, number>) {
+  const genres = candidate.genres || []
+  if (genres.length === 0) return 1
+  let penalty = 1
+  for (const genre of genres.slice(0, 3)) {
+    const recentCount = recentGenreCounts.get(genre) || 0
+    if (recentCount >= 8) penalty *= 0.72
+    else if (recentCount >= 4) penalty *= 0.84
+  }
+  return penalty
+}
+
+function weightedPick(candidates: ScoredCandidate[], selected: Recommendation[], recentGenreCounts: Map<string, number>, explorationRate: number) {
+  const exploratory = Math.random() < explorationRate
   const weighted = candidates.map(candidate => ({
     candidate,
-    weight: candidate._weight * diversityWeight(candidate, selected) * (0.85 + Math.random() * 0.3),
+    weight: (
+      exploratory
+        ? Math.sqrt(Math.max(candidate._weight, 0.0001))
+        : candidate._weight
+    ) * diversityWeight(candidate, selected) * recentGenrePenalty(candidate, recentGenreCounts) * (0.85 + Math.random() * 0.3),
   })).filter(item => item.weight > 0)
 
   if (weighted.length === 0) return null
@@ -102,12 +139,12 @@ function weightedPick(candidates: ScoredCandidate[], selected: Recommendation[])
   return weighted[weighted.length - 1]?.candidate || null
 }
 
-function pickMany(candidates: ScoredCandidate[], quota: number, selected: Recommendation[]) {
+function pickMany(candidates: ScoredCandidate[], quota: number, selected: Recommendation[], recentGenreCounts: Map<string, number>, explorationRate: number) {
   const picked: Recommendation[] = []
   const remaining = [...candidates]
 
   while (picked.length < quota && remaining.length > 0) {
-    const choice = weightedPick(remaining, [...selected, ...picked])
+    const choice = weightedPick(remaining, [...selected, ...picked], recentGenreCounts, explorationRate)
     if (!choice) break
     picked.push(stripInternalFields(choice))
     const idx = remaining.findIndex(item => item.id === choice.id && item.type === choice.type)
@@ -129,9 +166,18 @@ function byFreshestFallback(a: ScoredCandidate, b: ScoredCandidate) {
   return (a._lastShownMs || 0) - (b._lastShownMs || 0)
 }
 
+function buildTierQuotas(targetSize: number): TierQuota {
+  if (targetSize <= 0) return { high: 0, mid: 0, low: 0 }
+  const high = Math.max(1, Math.round(targetSize * 0.5))
+  const mid = targetSize >= 3 ? Math.max(1, Math.round(targetSize * 0.3)) : 0
+  const low = Math.max(0, targetSize - high - mid)
+  return { high, mid, low }
+}
+
 export function sampleMasterPool(items: Recommendation[], options: SampleOptions = {}): Recommendation[] {
   const now = options.now || new Date()
   const targetSize = options.size || DEFAULT_SIZE
+  const explorationRate = options.explorationRate ?? 0.12
   const exposureMap = buildExposureMap(options.exposures)
   const ids = new Set<string>()
 
@@ -145,15 +191,18 @@ export function sampleMasterPool(items: Recommendation[], options: SampleOptions
     })
     .map(item => scoreCandidate(item, exposureMap.get(exposureKey(item.type, item.id)) || exposureMap.get(exposureKey(undefined, item.id)), now.getTime()))
 
+  const nowMs = now.getTime()
+  const recentGenreCounts = buildRecentGenreCounts(scored, nowMs)
+  const tierQuotas = buildTierQuotas(targetSize)
   const tiers = [
-    { quota: 10, items: scored.filter(item => item.matchScore >= 80) },
-    { quota: 5, items: scored.filter(item => item.matchScore >= 60 && item.matchScore < 80) },
-    { quota: 5, items: scored.filter(item => item.matchScore >= 40 && item.matchScore < 60) },
+    { quota: tierQuotas.high, items: scored.filter(item => item.matchScore >= 80) },
+    { quota: tierQuotas.mid, items: scored.filter(item => item.matchScore >= 60 && item.matchScore < 80) },
+    { quota: tierQuotas.low, items: scored.filter(item => item.matchScore >= 40 && item.matchScore < 60) },
   ]
 
   const selected: Recommendation[] = []
   for (const tier of tiers) {
-    const picked = pickMany(tier.items, tier.quota, selected)
+    const picked = pickMany(tier.items, tier.quota, selected, recentGenreCounts, explorationRate)
     selected.push(...picked)
   }
 
