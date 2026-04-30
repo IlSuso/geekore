@@ -11,6 +11,36 @@ type RegenJob = {
   force_refresh: boolean | null
 }
 
+function summarizeRegenPayload(payload: any) {
+  const diagnostics = payload?.recommendationDiagnostics || {}
+  const recruitment = diagnostics.recruitment || {}
+  const poolHealth = diagnostics.poolHealth || {}
+  const byType: Record<string, any> = {}
+
+  for (const [type, diag] of Object.entries(recruitment) as Array<[string, any]>) {
+    byType[type] = {
+      rawCandidates: diag?.rawCandidates ?? null,
+      finalCount: diag?.finalCount ?? null,
+      continuityCount: diag?.continuityCount ?? 0,
+      hardBlocked: diag?.exposure?.hardBlocked ?? 0,
+      historicalShown: diag?.exposure?.historicalShown ?? 0,
+      tierCounts: diag?.tier?.tierCounts || null,
+      protectedFromShrink: !!diag?.merge?.protectedFromShrink,
+      reusedPreviousCount: diag?.merge?.reusedPreviousCount ?? 0,
+      poolSize: poolHealth?.[type]?.size ?? null,
+      unseenCount: poolHealth?.[type]?.unseenCount ?? null,
+      shownRatio: poolHealth?.[type]?.shownRatio ?? null,
+    }
+  }
+
+  return {
+    syncRegenTypes: diagnostics.syncRegenTypes || [],
+    backgroundRegenQueued: diagnostics.backgroundRegenQueued || [],
+    depletedTypes: diagnostics.depletedTypes || [],
+    byType,
+  }
+}
+
 function isAuthorized(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET
   if (!cronSecret) return false
@@ -71,6 +101,9 @@ async function processJob(request: NextRequest, job: RegenJob) {
       throw new Error(`recommendations returned ${res.status}: ${body.slice(0, 1200)}`)
     }
 
+    const payload = await res.json().catch(() => null)
+    const summary = summarizeRegenPayload(payload)
+
     await supabase
       .from('regen_jobs')
       .update({ status: 'done', completed_at: new Date().toISOString(), error_msg: null })
@@ -81,7 +114,7 @@ async function processJob(request: NextRequest, job: RegenJob) {
       .update({ master_pool_ready: true })
       .eq('id', job.user_id)
 
-    return { job_id: job.id, user_id: job.user_id, status: 'done' as const }
+    return { job_id: job.id, user_id: job.user_id, status: 'done' as const, summary }
   } catch (err: any) {
     const message = err?.message || 'Unknown regen error'
     await markJobFailed(supabase, job.id, message)
