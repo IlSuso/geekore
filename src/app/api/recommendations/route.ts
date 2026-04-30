@@ -516,7 +516,7 @@ export async function GET(request: NextRequest) {
         const { items: tieredItems, diagnostics: tierDiag } = buildTieredPool(
           candidates, type as MediaType, tasteProfile, MASTER_POOL_SIZE_PER_TYPE
         )
-        console.log(`[RECO] tier type=${type} strength=${tierDiag.profileStrength.toFixed(2)} core=${tierDiag.tierCounts.core} stretch=${tierDiag.tierCounts.stretch} transfer=${tierDiag.tierCounts.transfer} wildcard=${tierDiag.tierCounts.wildcard}`)
+        console.log(`[RECO] tier type=${type} strength=${tierDiag.profileStrength.toFixed(2)} core=${tierDiag.tierCounts.core} stretch=${tierDiag.tierCounts.stretch} transfer=${tierDiag.tierCounts.transfer} wildcard=${tierDiag.tierCounts.wildcard} thresholds=${tierDiag.adaptiveThresholds.core}/${tierDiag.adaptiveThresholds.stretch}`)
 
         const allItems: Recommendation[] = [
           ...contRecs,
@@ -555,6 +555,30 @@ export async function GET(request: NextRequest) {
           .select('media_type, collection_size, generated_at')
         if (upsertError) console.log('[RECO] upsert ERROR:', JSON.stringify(upsertError))
         else console.log('[RECO] upsert SUCCESS, rows written:', JSON.stringify(upsertData?.map(r => `${r.media_type}:${r.collection_size}`)))
+
+        // Traduci descrizioni in background dopo il salvataggio — non blocca la risposta
+        after(async () => {
+          try {
+            const { translateWithCache } = await import('@/lib/deepl')
+            for (const upsert of masterUpserts) {
+              const items = (upsert.data as Recommendation[])
+                .filter((r: Recommendation) => r.description)
+                .map((r: Recommendation) => ({ id: r.id, text: r.description! }))
+              if (items.length === 0) continue
+              const translated = await translateWithCache(items, 'IT')
+              let changed = false
+              for (const r of upsert.data as Recommendation[]) {
+                if (r.description && translated[r.id]) { r.description = translated[r.id]; changed = true }
+              }
+              if (changed) {
+                await supabase.from('master_recommendations_pool').update({
+                  data: upsert.data,
+                  generated_at: upsert.generated_at,
+                }).eq('user_id', userId).eq('media_type', upsert.media_type)
+              }
+            }
+          } catch { /* traduzione fallita — descrizioni restano in inglese */ }
+        })
       } else {
         console.log('[RECO] masterUpserts is EMPTY — nothing written to pool')
       }

@@ -188,6 +188,38 @@ export interface BuildPoolResult {
     tierCounts: { core: number; stretch: number; transfer: number; wildcard: number }
     profileStrength: number
     ratios: PoolTierConfig
+    adaptiveThresholds: { core: number; stretch: number }
+  }
+}
+
+// Calcola soglie adattive basate sulla distribuzione reale dei matchScore dei candidati.
+// Se il profilo è debole e i candidati hanno punteggi bassi, le soglie si adattano
+// invece di restare fisse e lasciare il Core vuoto.
+function computeAdaptiveThresholds(
+  candidates: Recommendation[],
+  gates: QualityGates,
+  strength: number
+): { coreMin: number; stretchMin: number } {
+  if (candidates.length === 0) return { coreMin: gates.coreMinScore, stretchMin: gates.stretchMinScore }
+
+  const scores = candidates.map(r => r.matchScore).sort((a, b) => b - a)
+  const p70 = scores[Math.floor(scores.length * 0.30)] || 0  // 70° percentile
+  const p45 = scores[Math.floor(scores.length * 0.55)] || 0  // 45° percentile
+
+  // La soglia core è il massimo tra:
+  // - la soglia fissa gates (qualità minima assoluta)
+  // - il 70° percentile adattato alla strength (profilo debole → percentile più basso)
+  const adaptiveCoreMin = strength >= 0.8
+    ? Math.max(gates.coreMinScore, p70)
+    : strength >= 0.6
+    ? Math.max(gates.coreMinScore * 0.85, p70 * 0.9)
+    : Math.max(gates.coreMinScore * 0.70, p70 * 0.80)
+
+  const adaptiveStretchMin = Math.max(gates.stretchMinScore * 0.75, p45 * 0.75)
+
+  return {
+    coreMin: Math.round(Math.min(adaptiveCoreMin, 75)),   // cap a 75 per non essere impossibili
+    stretchMin: Math.round(Math.min(adaptiveStretchMin, 50)),
   }
 }
 
@@ -201,6 +233,7 @@ export function buildTieredPool(
   const gates = QUALITY_GATES[type]
   const strength = profileStrength(tasteProfile, type)
   const ratios = computeTierRatios(strength)
+  const { coreMin, stretchMin } = computeAdaptiveThresholds(candidates, gates, strength)
 
   const coreTarget    = Math.round(targetSize * ratios.coreRatio)
   const stretchTarget = Math.round(targetSize * ratios.stretchRatio)
@@ -219,8 +252,6 @@ export function buildTieredPool(
   wildcardPicked.forEach(r => seen.add(r.id))
 
   // ── Tier 3: Cross-Media Transfer ──────────────────────────────────────────
-  // Generi forti in altri tipi trasferiti a questo tipo.
-  // Richiede qualità alta perché è una "scommessa" cross-media.
   const transfers = candidates
     .filter(r =>
       getQualityScore(r) >= gates.transferMinQuality &&
@@ -232,12 +263,10 @@ export function buildTieredPool(
   transferPicked.forEach(r => seen.add(r.id))
 
   // ── Tier 2: Adjacent Stretch ──────────────────────────────────────────────
-  // Affinità media ma qualità oggettiva alta — generi adiacenti al profilo.
-  // Titoli ottimi che l'algoritmo non conosce ancora bene per quel profilo.
   const stretches = candidates
     .filter(r =>
-      r.matchScore >= gates.stretchMinScore &&
-      r.matchScore < gates.coreMinScore &&
+      r.matchScore >= stretchMin &&
+      r.matchScore < coreMin &&
       getQualityScore(r) >= gates.stretchMinQuality &&
       !seen.has(r.id)
     )
@@ -246,11 +275,8 @@ export function buildTieredPool(
   stretchPicked.forEach(r => seen.add(r.id))
 
   // ── Tier 1: Core Match ────────────────────────────────────────────────────
-  // Alta affinità con il profilo. Il quality gate NON è applicato qui —
-  // matchScore già incorpora qualità via isAwardWinner, releaseFreshnessMult ecc.
-  // Applicare un quality gate separato escluderebbe titoli ottimi con score mancante.
   const cores = candidates
-    .filter(r => r.matchScore >= gates.coreMinScore && !seen.has(r.id))
+    .filter(r => r.matchScore >= coreMin && !seen.has(r.id))
     .sort((a, b) => (b.matchScore * 0.75 + getQualityScore(b) * 0.25) - (a.matchScore * 0.75 + getQualityScore(a) * 0.25))
   const corePicked = weightedSample(cores, coreTarget, 'affinity', seen)
   corePicked.forEach(r => seen.add(r.id))
@@ -291,6 +317,7 @@ export function buildTieredPool(
       },
       profileStrength: strength,
       ratios,
+      adaptiveThresholds: { core: coreMin, stretch: stretchMin },
     },
   }
 }

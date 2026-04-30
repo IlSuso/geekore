@@ -1,10 +1,10 @@
-import { translateWithCache } from '@/lib/deepl'
 import { truncateAtSentence } from '@/lib/utils'
 import type { Recommendation, TasteProfile } from './types'
 import type { GenreSlot } from './slots'
 import { buildWhyV3, computeMatchScore } from './profile'
 import { getCurrentAnimeSeasonDates, isAwardWorthy, releaseFreshnessMult } from './scoring'
 import { TMDB_TV_GENRE_NAMES } from './tmdb-shared'
+import { batchedParallel } from './concurrent'
 
 const ANILIST_ANIME_GENRES = new Set([
   'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror',
@@ -214,88 +214,75 @@ export async function fetchAnimeRecs(
     } catch { /* continua */ }
   }
 
-  // ── Fallback: loop puro finché non si arriva a 200 ───────────────────────
-  // Nessun limite di pagine — continua finché il target è raggiunto o AniList
-  // non ha più risultati. Abbassa le soglie progressivamente in 3 wave.
+  // ── Fallback: fetch parallelo di tutte le wave insieme ──────────────────
+  // Invece di loop seriali (30+ chiamate sequenziali = 15s), fetch tutte le
+  // pagine in parallelo e poi filtra. Max ~12 chiamate parallele = ~1-2s.
   if (results.length < MIN_POOL_ITEMS) {
-    const waves = [
-      { minScore: 60, minPop: 1000, sort: 'POPULARITY_DESC' },
-      { minScore: 50, minPop: 300,  sort: 'POPULARITY_DESC' },
-      { minScore: 45, minPop: 100,  sort: 'SCORE_DESC' },
+    const fallbackQueries = [
+      // Wave 1: alta qualità, molto popolari — pagine 1-4
+      ...[1, 2, 3, 4].map(page => ({ page, minScore: 65, minPop: 2000, sort: 'POPULARITY_DESC' })),
+      // Wave 2: qualità media, abbastanza popolari — pagine 1-4
+      ...[1, 2, 3, 4].map(page => ({ page, minScore: 55, minPop: 500, sort: 'SCORE_DESC' })),
+      // Wave 3: qualità decente, meno noti — pagine 1-2
+      ...[1, 2].map(page => ({ page, minScore: 50, minPop: 200, sort: 'POPULARITY_DESC' })),
     ]
 
-    for (const wave of waves) {
-      if (results.length >= MIN_POOL_ITEMS) break
-      let page = 1
-      while (results.length < MIN_POOL_ITEMS) {
-        try {
-          const q = `
-            query {
-              Page(page: ${page}, perPage: 50) {
-                media(type: ANIME, format_in: [TV, TV_SHORT, ONA, SPECIAL],
-                      sort: [${wave.sort}],
-                      averageScore_greater: ${wave.minScore},
-                      popularity_greater: ${wave.minPop},
-                      isAdult: false) {
-                  id title { romaji english } coverImage { extraLarge large }
-                  seasonYear episodes description(asHtml: false)
-                  genres averageScore popularity
-                  tags { name rank }
-                  studios(isMain: true) { nodes { name } }
-                }
+    const fallbackResults = await batchedParallel(
+      fallbackQueries.map(({ page, minScore, minPop, sort }) => () =>
+        fetch(ANILIST_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: `query { Page(page: ${page}, perPage: 50) {
+              media(type: ANIME, format_in: [TV, TV_SHORT, ONA, SPECIAL],
+                    sort: [${sort}],
+                    averageScore_greater: ${minScore},
+                    popularity_greater: ${minPop},
+                    isAdult: false) {
+                id title { romaji english } coverImage { extraLarge large }
+                seasonYear episodes description(asHtml: false)
+                genres averageScore popularity
+                tags { name rank }
+                studios(isMain: true) { nodes { name } }
               }
-            }
-          `
-          const json = await fetch(ANILIST_API, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: q }),
-            signal: AbortSignal.timeout(10000),
-          }).then(r => r.ok ? r.json() : { data: null }).catch(() => ({ data: null }))
+            }}`,
+          }),
+          signal: AbortSignal.timeout(10000),
+        }).then(r => r.ok ? r.json() : { data: null }).catch(() => ({ data: null }))
+      ),
+      8  // max 8 parallele — AniList rate limit 90/min
+    )
 
-          const media: any[] = json.data?.Page?.media || []
-          if (media.length === 0) break  // AniList non ha più risultati per questa wave
-
-          for (const m of media) {
-            if (results.length >= MIN_POOL_ITEMS) break
-            const recId = `anilist-anime-${m.id}`
-            const title = m.title?.english || m.title?.romaji || ''
-            if (isAlreadyOwned('anime', recId, title) || seen.has(recId)) continue
-            if (shownIds?.has(recId)) continue
-            if (!(m.coverImage?.extraLarge || m.coverImage?.large)) continue
-            seen.add(recId)
-            const mGenres: string[] = m.genres || []
-            const mTags: string[] = (m.tags || []).filter((t: any) => t.rank >= 55).map((t: any) => t.name.toLowerCase())
-            const mStudios: string[] = (m.studios?.nodes || []).map((s: any) => s.name).filter(Boolean)
-            let matchScore = computeMatchScore(mGenres, mTags, tasteProfile, mStudios, [])
-            if (isAwardWorthy(m.averageScore, m.popularity, m.popularity, 'anilist')) matchScore = Math.min(100, matchScore + 8)
-            if (matchScore < 30) continue
-            results.push({
-              id: recId, title: title || 'Senza titolo', type: 'anime',
-              coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
-              year: m.seasonYear, episodes: m.episodes, genres: mGenres, tags: mTags,
-              score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
-              description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 300) : undefined,
-              why: buildWhyV3(mGenres, recId, title, tasteProfile, matchScore, false, { recStudios: mStudios }),
-              matchScore,
-              isAwardWinner: isAwardWorthy(m.averageScore, m.popularity, m.popularity, 'anilist'),
-            })
-          }
-        } catch { break }
-        page++
+    for (const result of fallbackResults) {
+      if (results.length >= MIN_POOL_ITEMS) break
+      if (result.status !== 'fulfilled') continue
+      const media: any[] = result.value.data?.Page?.media || []
+      for (const m of media) {
+        if (results.length >= MIN_POOL_ITEMS) break
+        const recId = `anilist-anime-${m.id}`
+        const title = m.title?.english || m.title?.romaji || ''
+        if (isAlreadyOwned('anime', recId, title) || seen.has(recId)) continue
+        if (shownIds?.has(recId)) continue
+        if (!(m.coverImage?.extraLarge || m.coverImage?.large)) continue
+        seen.add(recId)
+        const mGenres: string[] = m.genres || []
+        const mTags: string[] = (m.tags || []).filter((t: any) => t.rank >= 55).map((t: any) => t.name.toLowerCase())
+        const mStudios: string[] = (m.studios?.nodes || []).map((s: any) => s.name).filter(Boolean)
+        let matchScore = computeMatchScore(mGenres, mTags, tasteProfile, mStudios, [])
+        if (isAwardWorthy(m.averageScore, m.popularity, m.popularity, 'anilist')) matchScore = Math.min(100, matchScore + 8)
+        if (matchScore < 30) continue
+        results.push({
+          id: recId, title: title || 'Senza titolo', type: 'anime',
+          coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
+          year: m.seasonYear, episodes: m.episodes, genres: mGenres, tags: mTags,
+          score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
+          description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 300) : undefined,
+          why: buildWhyV3(mGenres, recId, title, tasteProfile, matchScore, false, { recStudios: mStudios }),
+          matchScore,
+          isAwardWinner: isAwardWorthy(m.averageScore, m.popularity, m.popularity, 'anilist'),
+        })
       }
     }
-  }
-
-  // Traduci descriptions in italiano
-  const toTranslate = results.filter(r => r.description)
-  if (toTranslate.length > 0) {
-    try {
-      const items = toTranslate.map(r => ({ id: r.id, text: r.description! }))
-      const translated = await translateWithCache(items, 'IT')
-      for (const r of toTranslate) {
-        if (translated[r.id]) r.description = translated[r.id]
-      }
-    } catch { /* descrizioni restano in inglese */ }
   }
 
   return results.sort((a, b) => b.matchScore - a.matchScore)

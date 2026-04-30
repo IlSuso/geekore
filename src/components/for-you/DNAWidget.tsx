@@ -41,7 +41,13 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
 
   const maxScore = tasteProfile.globalGenres[0]?.score || 1
   const binge = tasteProfile.bingeProfile
-  const top5 = tasteProfile.globalGenres.slice(0, 5)
+  // Deduplica per genere — evita chiavi React duplicate se globalGenres ha lo stesso genere più volte
+  const seenGenres = new Set<string>()
+  const top5 = tasteProfile.globalGenres.filter(g => {
+    if (seenGenres.has(g.genre)) return false
+    seenGenres.add(g.genre)
+    return true
+  }).slice(0, 5)
   const top5Total = top5.reduce((s, g) => s + g.score, 0) || 1
   const hasCreators = tasteProfile.creatorScores &&
     ((tasteProfile.creatorScores.topStudios?.length ?? 0) > 0 ||
@@ -88,7 +94,7 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
           <div className="flex h-2 rounded-full overflow-hidden gap-px mb-3">
             {top5.map(({ genre, score }, i) => (
               <div
-                key={genre}
+                key={`bar-${genre}-${i}`}
                 className="h-full flex-shrink-0"
                 style={{
                   width: `${Math.round((score / top5Total) * 100)}%`,
@@ -101,7 +107,7 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
           {/* Legenda generi */}
           <div className="flex flex-wrap gap-x-4 gap-y-1.5">
             {top5.map(({ genre, score }, i) => (
-              <div key={genre} className="flex items-center gap-1.5 min-w-0">
+              <div key={`legend-${genre}-${i}`} className="flex items-center gap-1.5 min-w-0">
                 <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: BAR_COLORS[i] }} />
                 <span className="text-xs text-zinc-300 truncate max-w-[90px]">{genre}</span>
                 <span className="text-[10px] text-zinc-600 font-semibold flex-shrink-0">
@@ -125,7 +131,7 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
                   const pct = Math.round((score / maxScore) * 100)
                   const barColor = BAR_COLORS[i % BAR_COLORS.length]
                   return (
-                    <div key={genre} className="flex items-center gap-3">
+                    <div key={`global-${genre}-${i}`} className="flex items-center gap-3">
                       <span className="text-xs text-zinc-300 w-28 truncate font-medium">{genre}</span>
                       <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                         <div

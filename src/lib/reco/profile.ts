@@ -501,10 +501,16 @@ export function computeTasteProfile(
     }
   }
 
+  const globalGenresSeen = new Set<string>()
   const globalGenres = Object.entries(globalScores)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 12)
     .map(([genre, score]) => ({ genre, score }))
+    .filter(({ genre }) => {
+      if (globalGenresSeen.has(genre)) return false
+      globalGenresSeen.add(genre)
+      return true
+    })
 
   const topGenres = {} as TasteProfile['topGenres']
   for (const [type, scores] of Object.entries(perTypeScores)) {

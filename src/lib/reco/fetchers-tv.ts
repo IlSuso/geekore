@@ -49,61 +49,47 @@ export async function fetchTvRecs(
         .slice(0, slot.quota + 10)
 
       const kwMap = new Map<number, string[]>()
-      const providerMap = new Map<number, Set<number>>()  // #8: provider IDs disponibili in IT
+      const providerMap = new Map<number, Set<number>>()
 
-      await Promise.allSettled(candidates.slice(0, 10).map(async (m: any) => {
-        try {
-          const [kr, pr] = await Promise.all([
-            fetch(`https://api.themoviedb.org/3/tv/${m.id}/keywords`,
-              { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(3000) }),
-            userPlatformIds.length > 0
-              ? fetch(`https://api.themoviedb.org/3/tv/${m.id}/watch/providers`,
-                  { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(3000) })
-              : Promise.resolve(null),
-          ])
-          if (kr.ok) {
-            const kj = await kr.json()
-            kwMap.set(m.id, (kj.results || []).map((k: any) => k.name.toLowerCase()))
-          }
-          if (pr?.ok) {
-            const pj = await pr.json()
-            const itProviders = pj.results?.IT
-            const allProviders: any[] = [
-              ...(itProviders?.flatrate || []),
-              ...(itProviders?.free || []),
-              ...(itProviders?.ads || []),
-            ]
-            providerMap.set(m.id, new Set(allProviders.map((p: any) => p.provider_id)))
-          }
-        } catch {}
-      }))
+      // Keyword calls rimosse: costavano 10 HTTP calls per slot.
+      // Solo provider map se l'utente ha piattaforme configurate.
+      if (userPlatformIds.length > 0) {
+        await Promise.allSettled(candidates.slice(0, 8).map(async (m: any) => {
+          try {
+            const pr = await fetch(`https://api.themoviedb.org/3/tv/${m.id}/watch/providers`,
+              { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(3000) })
+            if (pr?.ok) {
+              const pj = await pr.json()
+              const itProviders = pj.results?.IT
+              const allProviders: any[] = [
+                ...(itProviders?.flatrate || []),
+                ...(itProviders?.free || []),
+                ...(itProviders?.ads || []),
+              ]
+              providerMap.set(m.id, new Set(allProviders.map((p: any) => p.provider_id)))
+            }
+          } catch {}
+        }))
+      }
 
       const scored = candidates
         .map((m: any) => {
           const kws = kwMap.get(m.id) || []
           const showProviders = providerMap.get(m.id) || new Set<number>()
           let boost = 0
-          for (const kw of topKeywords) { if (kws.some(k => k.includes(kw))) boost += 2 }
           const isTrending = trendingIds.has(m.id.toString())
           if (isTrending) boost += 5
-          // #8: platform boost
           const platformMatch = userPlatformIds.length > 0 && userPlatformIds.some(pid => showProviders.has(pid))
           if (platformMatch) boost += 12
-          // #6: language boost/penalità
           const NON_ENGLISH_LANGS = new Set(['ja','ko','fr','de','it','es','zh','pt','pl','tr'])
-          // Lingue di nicchia: produzioni quasi mai distribuite a livello internazionale
           const NICHE_LANGS = new Set(['th','vi','id','ar','hi','tl','ms','ro','hu','cs'])
           if (preferNonEn && m.original_language && NON_ENGLISH_LANGS.has(m.original_language)) boost += 8
-          // Penalizza lingue di nicchia se l'utente non ha preferenza non-english
           if (!preferNonEn && m.original_language && NICHE_LANGS.has(m.original_language)) boost -= 20
-          // Usa i generi reali del film (non solo lo slot) — serve per "Simili a questo"
           const recGenres = m.genre_ids
             ? m.genre_ids.map((id: number) => TMDB_TV_GENRE_NAMES[id]).filter(Boolean)
             : [slot.genre]
           let matchScore = computeMatchScore(recGenres.length > 0 ? recGenres : [slot.genre], kws, tasteProfile)
-          // V4: award boost
           if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
-          // V4: freshness
           const year = m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined
           matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year)))
           return { m, boost, matchScore, recGenres, kws, trendingBoost: isTrending ? 0.8 : 0, platformMatch }
@@ -154,139 +140,53 @@ export async function fetchTvRecs(
     } catch { /* continua */ }
   }
 
-  // ── TOP-UP TV: ricerca progressiva a onde finché non si raggiungono 200 titoli ──
-  // Stessa logica del movie top-up: Wave 1 → Wave 2 (popularity) → Wave 3 (voteAvg ridotto)
-  const TV_POOL_TARGET = 200
-  if (results.length < TV_POOL_TARGET) {
+  // ── TOP-UP TV: fetch parallelo per genere ────────────────────────────────
+  const TV_FETCH_TARGET = 400
+  if (results.length < TV_FETCH_TARGET) {
     const baseVoteAvg = tasteProfile.qualityThresholds.tmdbVoteAvg
     const allProfileTvGenreIds = [...new Set([
       ...(tasteProfile.topGenres['tv'] || []).map(g => TMDB_TV_GENRE_MAP[g.genre]).filter(Boolean),
       ...tasteProfile.globalGenres.map(g => TMDB_TV_GENRE_MAP[g.genre]).filter(Boolean),
       ...slots.map(s => TMDB_TV_GENRE_MAP[s.genre]).filter(Boolean),
-    ])]
+    ])].slice(0, 8)
 
-    // Wave 1: vote_average, pagine 4→10
-    if (results.length < TV_POOL_TARGET) {
-      outerTv1:
-      for (const genreId of allProfileTvGenreIds) {
-        if (results.length >= TV_POOL_TARGET) break
-        for (let page = 4; page <= 10; page++) {
-          if (results.length >= TV_POOL_TARGET) break outerTv1
-          try {
-            const r = await fetch(
-              `https://api.themoviedb.org/3/discover/tv?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=100&vote_average.gte=${baseVoteAvg}&language=it-IT&page=${page}`,
-              { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
-            ).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
-            const candidates = r.results || []
-            if (candidates.length === 0) break
-            for (const m of candidates) {
-              if (results.length >= TV_POOL_TARGET) break
-              const title = m.name || m.original_name || ''
-              if (isAlreadyOwned('tv', m.id.toString(), title) || seen.has(m.id.toString())) continue
-              if (!m.poster_path) continue
-              seen.add(m.id.toString())
-              const recGenres = m.genre_ids?.map((id: number) => TMDB_TV_GENRE_NAMES[id]).filter(Boolean) || []
-              let matchScore = computeMatchScore(recGenres.length > 0 ? recGenres : [], [], tasteProfile)
-              if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
-              const year = m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined
-              matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year)))
-              if (matchScore < 40) continue
-              results.push({
-                id: m.id.toString(), title: m.name || m.original_name || 'Senza titolo', type: 'tv',
-                coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`, year, genres: recGenres,
-                score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
-                description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
-                why: buildWhyV3(recGenres, m.id.toString(), m.name || '', tasteProfile, matchScore, false, {}),
-                matchScore, isAwardWinner: isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb'),
-              })
-            }
-          } catch { /* continua */ }
-        }
-      }
-    }
+    const topupResults = await Promise.allSettled(
+      allProfileTvGenreIds.flatMap(genreId =>
+        [4, 5, 6].map(page =>
+          fetch(
+            `https://api.themoviedb.org/3/discover/tv?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=100&vote_average.gte=${baseVoteAvg}&language=it-IT&page=${page}`,
+            { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
+          ).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
+        )
+      )
+    )
 
-    // Wave 2: sort by popularity, pagine 1→6
-    if (results.length < TV_POOL_TARGET) {
-      outerTv2:
-      for (const genreId of allProfileTvGenreIds) {
-        if (results.length >= TV_POOL_TARGET) break
-        for (let page = 1; page <= 6; page++) {
-          if (results.length >= TV_POOL_TARGET) break outerTv2
-          try {
-            const r = await fetch(
-              `https://api.themoviedb.org/3/discover/tv?with_genres=${genreId}&sort_by=popularity.desc&vote_count.gte=100&vote_average.gte=${baseVoteAvg}&language=it-IT&page=${page}`,
-              { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
-            ).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
-            const candidates = r.results || []
-            if (candidates.length === 0) break
-            for (const m of candidates) {
-              if (results.length >= TV_POOL_TARGET) break
-              const title = m.name || m.original_name || ''
-              if (isAlreadyOwned('tv', m.id.toString(), title) || seen.has(m.id.toString())) continue
-              if (!m.poster_path) continue
-              seen.add(m.id.toString())
-              const recGenres = m.genre_ids?.map((id: number) => TMDB_TV_GENRE_NAMES[id]).filter(Boolean) || []
-              let matchScore = computeMatchScore(recGenres.length > 0 ? recGenres : [], [], tasteProfile)
-              if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
-              const year = m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined
-              matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year)))
-              if (matchScore < 40) continue
-              results.push({
-                id: m.id.toString(), title: m.name || m.original_name || 'Senza titolo', type: 'tv',
-                coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`, year, genres: recGenres,
-                score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
-                description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
-                why: buildWhyV3(recGenres, m.id.toString(), m.name || '', tasteProfile, matchScore, false, {}),
-                matchScore, isAwardWinner: isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb'),
-              })
-            }
-          } catch { /* continua */ }
-        }
-      }
-    }
-
-    // Wave 3: voteAvg ridotto a 5.5, pagine 1→5
-    if (results.length < TV_POOL_TARGET) {
-      const relaxedVoteAvg = Math.min(baseVoteAvg, 5.5)
-      outerTv3:
-      for (const genreId of allProfileTvGenreIds) {
-        if (results.length >= TV_POOL_TARGET) break
-        for (let page = 1; page <= 5; page++) {
-          if (results.length >= TV_POOL_TARGET) break outerTv3
-          try {
-            const r = await fetch(
-              `https://api.themoviedb.org/3/discover/tv?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=200&vote_average.gte=${relaxedVoteAvg}&language=it-IT&page=${page}`,
-              { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
-            ).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
-            const candidates = r.results || []
-            if (candidates.length === 0) break
-            for (const m of candidates) {
-              if (results.length >= TV_POOL_TARGET) break
-              const title = m.name || m.original_name || ''
-              if (isAlreadyOwned('tv', m.id.toString(), title) || seen.has(m.id.toString())) continue
-              if (!m.poster_path) continue
-              seen.add(m.id.toString())
-              const recGenres = m.genre_ids?.map((id: number) => TMDB_TV_GENRE_NAMES[id]).filter(Boolean) || []
-              let matchScore = computeMatchScore(recGenres.length > 0 ? recGenres : [], [], tasteProfile)
-              if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
-              const year = m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined
-              matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year)))
-              if (matchScore < 40) continue
-              results.push({
-                id: m.id.toString(), title: m.name || m.original_name || 'Senza titolo', type: 'tv',
-                coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`, year, genres: recGenres,
-                score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
-                description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
-                why: buildWhyV3(recGenres, m.id.toString(), m.name || '', tasteProfile, matchScore, false, {}),
-                matchScore, isAwardWinner: isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb'),
-              })
-            }
-          } catch { /* continua */ }
-        }
+    for (const result of topupResults) {
+      if (results.length >= TV_FETCH_TARGET) break
+      if (result.status !== 'fulfilled') continue
+      for (const m of (result.value.results || [])) {
+        if (results.length >= TV_FETCH_TARGET) break
+        const title = m.name || m.original_name || ''
+        if (isAlreadyOwned('tv', m.id.toString(), title) || seen.has(m.id.toString())) continue
+        if (!m.poster_path) continue
+        seen.add(m.id.toString())
+        const recGenres = m.genre_ids?.map((id: number) => TMDB_TV_GENRE_NAMES[id]).filter(Boolean) || []
+        let matchScore = computeMatchScore(recGenres.length > 0 ? recGenres : [], [], tasteProfile)
+        if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
+        const year = m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined
+        matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year)))
+        if (matchScore < 35) continue
+        results.push({
+          id: m.id.toString(), title, type: 'tv',
+          coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`, year, genres: recGenres,
+          score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
+          description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
+          why: buildWhyV3(recGenres, m.id.toString(), title, tasteProfile, matchScore, false, {}),
+          matchScore, isAwardWinner: isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb'),
+        })
       }
     }
   }
-  // ─────────────────────────────────────────────────────────────────────────
 
   return results.sort((a, b) => b.matchScore - a.matchScore)
 }
