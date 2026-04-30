@@ -704,7 +704,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       recommendations,
-      rails: composeRecommendationRails(recommendations, tasteProfileResponse),
+      rails: composeRecommendationRails(recommendations, tasteProfile),
       tasteProfile: {
         ...tasteProfileResponse,
         lowConfidence: tasteProfile.lowConfidence,

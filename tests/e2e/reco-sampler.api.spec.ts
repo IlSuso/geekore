@@ -104,4 +104,32 @@ test.describe('recommendation rails', () => {
     expect(discovery).toBeTruthy()
     expect(discovery?.items.map(item => item.id)).toEqual(['same', 'other-a', 'other-b', 'other-c'])
   })
+
+  test('adds because-title and quick-pick rails when profile context supports them', () => {
+    const recommendations = {
+      movie: [
+        { ...rec('drama-a', 96, 'Drama') },
+        { ...rec('drama-b', 92, 'Drama') },
+        { ...rec('drama-c', 88, 'Drama') },
+        { ...rec('drama-d', 84, 'Drama') },
+      ],
+      tv: [
+        { ...rec('short-a', 90, 'Comedy'), type: 'tv' as const, episodes: 8 },
+        { ...rec('short-b', 87, 'Comedy'), type: 'tv' as const, episodes: 10 },
+        { ...rec('short-c', 83, 'Comedy'), type: 'tv' as const, episodes: 6 },
+        { ...rec('short-d', 80, 'Comedy'), type: 'tv' as const, episodes: 12 },
+      ],
+    }
+
+    const rails = composeRecommendationRails(recommendations, {
+      globalGenres: [{ genre: 'Drama', score: 10 }],
+      genreToTitles: {
+        Drama: [{ title: 'Loved Thing', type: 'movie', recency: 1, rating: 5 }],
+      },
+      topTitlesForContext: [{ title: 'Loved Thing', type: 'movie', rating: 5, rewatchCount: 1 }],
+    })
+
+    expect(rails.map(rail => rail.kind)).toEqual(expect.arrayContaining(['because-title', 'quick-picks']))
+    expect(rails.find(rail => rail.kind === 'because-title')?.title).toContain('Loved Thing')
+  })
 })

@@ -107,8 +107,10 @@ interface RecommendationRail {
   id: string
   title: string
   subtitle: string
-  kind: 'top-match' | 'continue' | 'social' | 'fresh' | 'discovery' | 'genre'
+  kind: 'top-match' | 'continue' | 'social' | 'fresh' | 'discovery' | 'genre' | 'because-title' | 'quick-picks' | 'hidden-gems'
   items: Recommendation[]
+  badge?: string
+  priority?: number
 }
 
 // V3: Continuity Section
@@ -523,6 +525,9 @@ const RAIL_ICONS: Record<RecommendationRail['kind'], React.ElementType> = {
   fresh: Flame,
   discovery: Compass,
   genre: Tag,
+  'because-title': Brain,
+  'quick-picks': Zap,
+  'hidden-gems': Trophy,
 }
 
 const RAIL_COLORS: Record<RecommendationRail['kind'], string> = {
@@ -532,6 +537,9 @@ const RAIL_COLORS: Record<RecommendationRail['kind'], string> = {
   fresh: 'from-red-500 to-pink-600',
   discovery: 'from-emerald-500 to-teal-600',
   genre: 'from-indigo-500 to-blue-600',
+  'because-title': 'from-purple-500 to-fuchsia-600',
+  'quick-picks': 'from-lime-500 to-emerald-600',
+  'hidden-gems': 'from-yellow-500 to-amber-600',
 }
 
 const NetflixRailSection = memo(function NetflixRailSection({ rail, onFeedback, dismissedIds, onSimilar, onDetail, similarLoadingId }: {
@@ -560,6 +568,11 @@ const NetflixRailSection = memo(function NetflixRailSection({ rail, onFeedback, 
           <h2 className="text-base font-bold text-white">{rail.title}</h2>
           <p className="text-[10px] text-zinc-500 line-clamp-1">{rail.subtitle}</p>
         </div>
+        {rail.badge && (
+          <span className="ml-auto hidden sm:inline-flex text-[10px] font-semibold text-zinc-300 bg-zinc-900/80 border border-zinc-800 px-2 py-0.5 rounded-full">
+            {rail.badge}
+          </span>
+        )}
       </div>
       <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
         {shown.map(item => (
@@ -571,7 +584,7 @@ const NetflixRailSection = memo(function NetflixRailSection({ rail, onFeedback, 
             onDetail={onDetail}
             isSimilarLoading={similarLoadingId === item.id}
             dismissed={dismissedIds.has(item.id)}
-            showDetails={rail.kind === 'top-match'}
+            showDetails={rail.kind === 'top-match' || rail.kind === 'because-title'}
           />
         ))}
         {hasMore && (
@@ -587,6 +600,61 @@ const NetflixRailSection = memo(function NetflixRailSection({ rail, onFeedback, 
         )}
       </div>
     </div>
+  )
+})
+
+const SpotlightRecommendation = memo(function SpotlightRecommendation({ item, onFeedback, onSimilar, onDetail, isSimilarLoading }: {
+  item: Recommendation
+  onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
+  onSimilar?: (i: Recommendation) => void
+  onDetail?: (i: Recommendation) => void
+  isSimilarLoading: boolean
+}) {
+  const Icon = TYPE_ICONS[item.type]
+  const colorClass = TYPE_COLORS[item.type]
+
+  return (
+    <section className="relative min-h-[190px] md:min-h-[230px] overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 mb-8">
+      {item.coverImage && (
+        <img
+          src={optimizeCover(item.coverImage, 'foryou-card-large')}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover opacity-35 blur-[1px] scale-105"
+          loading="lazy"
+        />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-black/25" />
+      <div className="relative z-10 flex min-h-[190px] md:min-h-[230px] items-end p-4 md:p-6">
+        <div className="max-w-2xl">
+          <div className="flex items-center gap-2 mb-3">
+            <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold text-white bg-gradient-to-r ${colorClass} px-2 py-1 rounded-full`}>
+              <Icon size={11} /> {TYPE_LABEL[item.type]}
+            </span>
+            <MatchBadge score={item.isContinuity ? 100 : item.matchScore} />
+          </div>
+          <h1 className="text-2xl md:text-4xl font-black text-white leading-tight mb-2 line-clamp-2">{item.title}</h1>
+          <p className="text-sm text-zinc-300 line-clamp-2 mb-4">{item.why}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={() => onDetail?.(item)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-black text-xs font-bold hover:bg-zinc-200 transition-colors">
+              <Plus size={14} /> Dettagli
+            </button>
+            {onSimilar && (
+              <button onClick={() => onSimilar(item)} disabled={isSimilarLoading}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900/80 border border-zinc-700 text-zinc-100 text-xs font-semibold hover:bg-zinc-800 transition-colors disabled:opacity-60">
+                {isSimilarLoading ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
+                Simili
+              </button>
+            )}
+            <button onClick={() => onFeedback(item, 'not_interested')}
+              className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-zinc-900/80 border border-zinc-700 text-zinc-300 hover:text-red-300 hover:border-red-900/70 transition-colors"
+              title="Non mi interessa">
+              <ThumbsDown size={14} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
   )
 })
 
@@ -1188,6 +1256,7 @@ export default function ForYouPage() {
   const visibleRails = rails
     .map(rail => ({ ...rail, items: rail.items.filter(i => !dismissedIds.has(i.id)) }))
     .filter(rail => rail.items.length > 0)
+  const spotlightItem = visibleRails.find(rail => rail.kind === 'top-match')?.items[0] || visibleRails[0]?.items[0]
 
   const hasEnoughData = totalEntries >= 1
 
@@ -1271,6 +1340,16 @@ export default function ForYouPage() {
               onSearch={(title, genres, keywords, type) => searchSimilar(title, genres, undefined, undefined, keywords, type)}
               loading={!!similarLoading}
             />
+
+            {spotlightItem && (
+              <SpotlightRecommendation
+                item={spotlightItem}
+                onFeedback={handleFeedback}
+                onSimilar={handleSimilar}
+                onDetail={handleDetail}
+                isSimilarLoading={similarLoading === spotlightItem.id}
+              />
+            )}
 
             {similarSection && (
               <SimilarSection
