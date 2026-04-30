@@ -100,6 +100,30 @@ test.describe('recommendation sampler', () => {
     expect(mid).toBeGreaterThanOrEqual(3)
     expect(low).toBeGreaterThanOrEqual(2)
   })
+
+  test('keeps repeated refreshes fresh from a deep master pool without regeneration', () => {
+    const items = Array.from({ length: 120 }, (_, idx) =>
+      rec(`deep-${idx + 1}`, idx < 70 ? 88 - (idx % 8) : 68 - (idx % 8), idx % 3 === 0 ? 'Drama' : idx % 3 === 1 ? 'Action' : 'Mystery')
+    )
+    const exposures: Array<{ rec_id: string; rec_type: string; shown_at: string }> = []
+    const uniqueServed = new Set<string>()
+
+    for (let round = 0; round < 4; round++) {
+      const now = new Date(`2026-04-30T1${round}:00:00.000Z`)
+      const sampled = sampleMasterPool(items, { now, size: 20, exposures, explorationRate: 0 })
+      expect(sampled).toHaveLength(20)
+      for (const item of sampled) {
+        uniqueServed.add(item.id)
+        exposures.push({
+          rec_id: item.id,
+          rec_type: item.type,
+          shown_at: now.toISOString(),
+        })
+      }
+    }
+
+    expect(uniqueServed.size).toBeGreaterThanOrEqual(75)
+  })
 })
 
 test.describe('recommendation rails', () => {

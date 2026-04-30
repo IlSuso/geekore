@@ -2,6 +2,7 @@ export const MASTER_POOL_SIZE_PER_TYPE = 200
 export const MASTER_POOL_MIN_HEALTHY_SIZE = 80
 export const MASTER_POOL_MAX_AGE_DAYS = 7
 export const SERVE_SIZE_PER_TYPE = 20
+export const FORCE_REGEN_COOLDOWN_MINUTES = 30
 
 export function computeRegenDelta(totalEntries: number): number {
   if (totalEntries <= 50) return 5

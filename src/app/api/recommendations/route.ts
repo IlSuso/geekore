@@ -49,7 +49,7 @@ import { memCacheGet, memCacheSet, memCacheInvalidate } from '@/lib/reco/cache'
 import type { RecoMediaType, TasteProfile, Recommendation, MemCacheEntry } from '@/lib/reco/types'
 import type { MediaType, UserEntry } from '@/lib/reco/engine-types'
 import { loadRecommendationExposures } from '@/lib/reco/exposure'
-import { MASTER_POOL_MAX_AGE_DAYS, MASTER_POOL_MIN_HEALTHY_SIZE, MASTER_POOL_SIZE_PER_TYPE, computePoolTTL, computeRegenDelta } from '@/lib/reco/pool'
+import { FORCE_REGEN_COOLDOWN_MINUTES, MASTER_POOL_MAX_AGE_DAYS, MASTER_POOL_MIN_HEALTHY_SIZE, MASTER_POOL_SIZE_PER_TYPE, computePoolTTL, computeRegenDelta } from '@/lib/reco/pool'
 import { buildDiversitySlots } from '@/lib/reco/slots'
 import { computeTasteProfile } from '@/lib/reco/profile'
 import { fetchContinuityRecs } from '@/lib/reco/continuity'
@@ -407,7 +407,13 @@ export async function GET(request: NextRequest) {
     // Se un master esiste ma e vecchio/piccolo, serviamo subito quello e rifacciamo il master in background.
     if (forceRefresh) {
       for (const type of typesToFetch) {
-        typesNeedingMasterRegen.push(type as MediaType)
+        const health = masterHealthByType.get(type)
+        const row = rowByType.get(type)
+        const generatedAt = row?.generated_at ? new Date(row.generated_at).getTime() : 0
+        const ageMinutes = generatedAt ? (Date.now() - generatedAt) / 60000 : Infinity
+        if (!health || health.missing || health.invalidated || ageMinutes >= FORCE_REGEN_COOLDOWN_MINUTES) {
+          typesNeedingMasterRegen.push(type as MediaType)
+        }
       }
     } else {
       for (const type of typesToFetch) {

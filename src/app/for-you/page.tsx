@@ -1013,10 +1013,10 @@ export default function ForYouPage() {
       fetchFriends(userId)
 
       // 1. Pool persistente (fast path ~50ms)
-      const poolRes = await fetch('/api/recommendations?source=pool')
+      const poolRes = await fetch('/api/recommendations?source=pool', { cache: 'no-store' })
       if (poolRes.ok) {
         const poolJson = await poolRes.json()
-        if (poolJson.source === 'pool' && poolJson.recommendations) {
+        if ((poolJson.source === 'pool' || poolJson.source === 'pool_master_sample') && poolJson.recommendations) {
           const recs = poolJson.recommendations || {}
           const nextRails = Array.isArray(poolJson.rails) ? poolJson.rails : []
           setRecommendations(recs); setTasteProfile(poolJson.tasteProfile || null); setIsCached(true)
@@ -1065,12 +1065,15 @@ export default function ForYouPage() {
     setRefreshing(true)
     setShowNewRecsBadge(false)
     const { data: { user } } = await supabase.auth.getUser()
-    const [json] = await Promise.all([
-      fetch('/api/recommendations?source=refresh_pool')
+    const [lightJson] = await Promise.all([
+      fetch('/api/recommendations?source=refresh_pool', { cache: 'no-store' })
         .then(r => r.ok ? r.json() : null)
         .catch(() => null),
       user ? fetchFriends(user.id) : Promise.resolve(),
     ])
+
+    let json = lightJson
+
     if (json && json.recommendations) {
       const incoming = json.recommendations as Record<string, Recommendation[]>
       if (Array.isArray(json.rails)) {
