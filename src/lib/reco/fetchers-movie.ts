@@ -193,6 +193,56 @@ export async function fetchMovieRecs(
     }
   }
 
+  // Final safety net: se il profilo/genre mapping produce pochi candidati,
+  // completa con film popolari e ben valutati. E' il cold-start/backfill
+  // controllato: niente chiamate per keyword, solo discover pages ampie.
+  if (results.length < 200) {
+    const broadPages = [1, 2, 3, 4, 5, 6]
+    const broadResults = await Promise.allSettled(
+      broadPages.map(page =>
+        fetch(
+          `https://api.themoviedb.org/3/discover/movie?sort_by=popularity.desc&vote_count.gte=250&vote_average.gte=6.5&include_adult=false&language=it-IT&page=${page}`,
+          { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
+        ).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
+      )
+    )
+
+    for (const result of broadResults) {
+      if (results.length >= 200) break
+      if (result.status !== 'fulfilled') continue
+      for (const m of (result.value.results || [])) {
+        if (results.length >= 200) break
+        const title = m.title || m.original_title || ''
+        const recId = m.id.toString()
+        if (isAlreadyOwned('movie', recId, title) || seen.has(recId)) continue
+        if (!m.poster_path) continue
+        seen.add(recId)
+
+        const recGenres = m.genre_ids?.map((id: number) => TMDB_MOVIE_GENRE_NAMES[id]).filter(Boolean) || []
+        let matchScore = computeMatchScore(recGenres, [], tasteProfile)
+        if (trendingIds.has(recId)) matchScore = Math.min(100, matchScore + 5)
+        if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
+        const year = m.release_date ? parseInt(m.release_date.substring(0, 4)) : undefined
+        matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year)))
+
+        results.push({
+          id: recId,
+          title: title || 'Senza titolo',
+          type: 'movie',
+          coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`,
+          year,
+          genres: recGenres,
+          score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
+          description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
+          why: buildWhyV3(recGenres, recId, title, tasteProfile, matchScore, true, {}),
+          matchScore: Math.max(matchScore, 35),
+          isDiscovery: true,
+          isAwardWinner: isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb'),
+        })
+      }
+    }
+  }
+
   return results.sort((a, b) => b.matchScore - a.matchScore)
 }
 

@@ -63,6 +63,31 @@ import { buildTieredPool } from '@/lib/reco/pool-builder'
 // Tipo Supabase client (evita any)
 type SupabaseClient = Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>
 
+function mergeLowYieldMasterPool(
+  nextItems: Recommendation[],
+  previousItems: Recommendation[],
+  targetSize = MASTER_POOL_SIZE_PER_TYPE
+): Recommendation[] {
+  const seen = new Set<string>()
+  const merged: Recommendation[] = []
+
+  for (const item of nextItems) {
+    if (!item?.id || seen.has(item.id)) continue
+    seen.add(item.id)
+    merged.push(item)
+    if (merged.length >= targetSize) return merged
+  }
+
+  for (const item of previousItems) {
+    if (!item?.id || seen.has(item.id)) continue
+    seen.add(item.id)
+    merged.push(item)
+    if (merged.length >= targetSize) return merged
+  }
+
+  return merged
+}
+
 
 export async function GET(request: NextRequest) {
   try {
@@ -518,7 +543,7 @@ export async function GET(request: NextRequest) {
         )
         console.log(`[RECO] tier type=${type} strength=${tierDiag.profileStrength.toFixed(2)} core=${tierDiag.tierCounts.core} stretch=${tierDiag.tierCounts.stretch} transfer=${tierDiag.tierCounts.transfer} wildcard=${tierDiag.tierCounts.wildcard} thresholds=${tierDiag.adaptiveThresholds.core}/${tierDiag.adaptiveThresholds.stretch}`)
 
-        const allItems: Recommendation[] = [
+        let allItems: Recommendation[] = [
           ...contRecs,
           ...tieredItems.filter(r => !contIds.has(r.id)),
         ]
@@ -528,8 +553,13 @@ export async function GET(request: NextRequest) {
         // o se il pool precedente era vuoto — in quei casi accetta qualsiasi yield.
         const wasInvalidated = rowByType.get(type)?.collection_size === -1
         if (!wasInvalidated && allItems.length < MASTER_POOL_MIN_HEALTHY_SIZE && previousItems.length >= allItems.length) {
-          console.log(`[RECO] low-yield master regen skipped type=${type} new=${allItems.length} previous=${previousItems.length}`)
-          continue
+          const mergedItems = mergeLowYieldMasterPool(allItems, previousItems)
+          if (mergedItems.length <= previousItems.length && allItems.every(item => previousItems.some(prev => prev.id === item.id))) {
+            console.log(`[RECO] low-yield master regen skipped type=${type} new=${allItems.length} previous=${previousItems.length}`)
+            continue
+          }
+          console.log(`[RECO] low-yield master regen merged type=${type} new=${allItems.length} previous=${previousItems.length} merged=${mergedItems.length}`)
+          allItems = mergedItems
         }
 
         masterByType.set(type, allItems)
@@ -626,15 +656,20 @@ export async function GET(request: NextRequest) {
               bgCandidates, type as MediaType, tasteProfile, MASTER_POOL_SIZE_PER_TYPE
             )
             const bgMinScore = (type === 'manga' || type === 'boardgame') ? 30 : 40
-            const allItems = [
+            let allItems = [
               ...contRecs,
               ...tieredBg.filter(r => !contIds.has(r.id)),
             ].filter(r => r.isContinuity || r.matchScore >= bgMinScore)
             const previousItems = masterByType.get(type) || []
             const bgWasInvalidated = rowByType.get(type)?.collection_size === -1
             if (!bgWasInvalidated && allItems.length < MASTER_POOL_MIN_HEALTHY_SIZE && previousItems.length >= allItems.length) {
-              console.log(`[RECO] low-yield background regen skipped type=${type} new=${allItems.length} previous=${previousItems.length}`)
-              continue
+              const mergedItems = mergeLowYieldMasterPool(allItems, previousItems)
+              if (mergedItems.length <= previousItems.length && allItems.every(item => previousItems.some(prev => prev.id === item.id))) {
+                console.log(`[RECO] low-yield background regen skipped type=${type} new=${allItems.length} previous=${previousItems.length}`)
+                continue
+              }
+              console.log(`[RECO] low-yield background regen merged type=${type} new=${allItems.length} previous=${previousItems.length} merged=${mergedItems.length}`)
+              allItems = mergedItems
             }
             await supabase.from('master_recommendations_pool').upsert({
               user_id: userId,
