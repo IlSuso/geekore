@@ -24,6 +24,7 @@ const GENRE_REMAP: Record<string, string> = {
 
 const DIRECTOR_ROLES = new Set(['Director', 'Series Director', 'Chief Animation Director'])
 const ANILIST_API = 'https://graphql.anilist.co'
+const ANIME_FORMATS = '[TV, TV_SHORT, ONA, OVA, MOVIE, SPECIAL]'
 
 function buildAnimeQuery(page: number) {
   return `
@@ -31,7 +32,7 @@ function buildAnimeQuery(page: number) {
       Page(page: ${page}, perPage: 50) {
         media(
           genre_in: $genres, type: ANIME,
-          format_in: [TV, TV_SHORT, ONA, SPECIAL],
+          format_in: ${ANIME_FORMATS},
           sort: [SCORE_DESC, POPULARITY_DESC],
           averageScore_greater: $minScore,
           popularity_greater: $minPop,
@@ -50,6 +51,88 @@ function buildAnimeQuery(page: number) {
       }
     }
   `
+}
+
+function normalizeAnimeMedia(
+  m: any,
+  tasteProfile: TasteProfile,
+  socialFavorites?: Map<string, string>,
+  context: {
+    isDiscovery?: boolean
+    isSerendipity?: boolean
+    slotGenre?: string
+    minScore?: number
+    topThemes?: string[]
+    topKeywords?: string[]
+    topStudiosSet?: Set<string>
+    topDirectorsSet?: Set<string>
+  } = {}
+): Recommendation | null {
+  const recId = `anilist-anime-${m.id}`
+  const title = m.title?.english || m.title?.romaji || ''
+  if (!title || !(m.coverImage?.extraLarge || m.coverImage?.large)) return null
+
+  const mGenres: string[] = m.genres || []
+  const mTags: string[] = (m.tags || [])
+    .filter((t: any) => t.rank >= 50)
+    .sort((a: any, b: any) => b.rank - a.rank)
+    .slice(0, 18)
+    .map((t: any) => t.name.toLowerCase())
+  const mStudios: string[] = (m.studios?.nodes || []).map((s: any) => s.name).filter(Boolean)
+  const mDirectors: string[] = (m.staff?.edges || [])
+    .filter((e: any) => DIRECTOR_ROLES.has(e.role))
+    .map((e: any) => e.node?.name?.full).filter(Boolean)
+
+  let boost = 0
+  for (const theme of context.topThemes || []) { if (mTags.some(t => t.includes(theme))) boost += 3 }
+  for (const kw of context.topKeywords || []) { if (mTags.some(t => t.includes(kw))) boost += 2 }
+  let creatorBoost: string | undefined
+  for (const studio of mStudios) {
+    if (context.topStudiosSet?.has(studio)) { boost += 10; creatorBoost = studio; break }
+  }
+  for (const director of mDirectors) {
+    if (context.topDirectorsSet?.has(director)) { boost += 8; if (!creatorBoost) creatorBoost = director; break }
+  }
+
+  const socialFriend = socialFavorites?.get(recId)
+  if (socialFriend) {
+    const sim = parseInt(socialFriend) || 75
+    boost += Math.round((sim - 70) / 30 * 20)
+  }
+  if (isAwardWorthy(m.averageScore, m.popularity, m.popularity, 'anilist')) boost += 8
+  if ((m.trending || 0) > 0) boost += Math.min(8, Math.round((m.trending || 0) / 20))
+
+  const year = m.seasonYear
+  const freshMult = releaseFreshnessMult(year, m.averageScore || 0, m.popularity || 0)
+  let matchScore = computeMatchScore(mGenres, mTags, tasteProfile, mStudios, mDirectors)
+  matchScore = Math.min(100, Math.round(matchScore * freshMult) + Math.min(boost, 28))
+  if (matchScore < (context.minScore ?? 30)) return null
+
+  return {
+    id: recId,
+    title,
+    type: 'anime',
+    coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
+    year,
+    episodes: m.episodes,
+    genres: mGenres,
+    tags: mTags,
+    score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
+    description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 300) : undefined,
+    why: socialFriend
+      ? `Il tuo amico con gusti simili ha adorato questo`
+      : buildWhyV3(mGenres, recId, title, tasteProfile, matchScore, !!context.isDiscovery, {
+          recStudios: mStudios,
+          recDirectors: mDirectors,
+          creatorBoost,
+        }),
+    matchScore,
+    isDiscovery: context.isDiscovery,
+    isSerendipity: context.isSerendipity,
+    isAwardWinner: isAwardWorthy(m.averageScore, m.popularity, m.popularity, 'anilist'),
+    socialBoost: socialFriend,
+    creatorBoost,
+  }
 }
 
 export async function fetchAnimeRecs(
@@ -145,71 +228,26 @@ export async function fetchAnimeRecs(
         }).then(r => r.ok ? r.json() : { data: null }).catch(() => ({ data: null }))
       ))
 
-      const media: any[] = pageResults.flatMap((json: any) => json.data?.Page?.media || [])
+      const candidates = pageResults
+        .flatMap((json: any) => json.data?.Page?.media || [])
+        .map((m: any) => normalizeAnimeMedia(m, tasteProfile, socialFavorites, {
+          isDiscovery: slot.isDiscovery,
+          isSerendipity: slot.isSerendipity,
+          minScore: 38,
+          topThemes,
+          topKeywords,
+          topStudiosSet,
+          topDirectorsSet,
+        }))
+        .filter(Boolean)
+        .sort((a: any, b: any) => b.matchScore - a.matchScore) as Recommendation[]
 
-      const candidates = media
-        .filter((m: any) => {
-          const id = `anilist-anime-${m.id}`
-          const title = m.title?.english || m.title?.romaji || ''
-          if (isAlreadyOwned('anime', id, title) || seen.has(id)) return false
-          if (shownIds?.has(id)) return false
-          return !!(m.coverImage?.extraLarge || m.coverImage?.large)
-        })
-        .map((m: any) => {
-          const mGenres: string[] = m.genres || []
-          const mTags: string[] = (m.tags || [])
-            .filter((t: any) => t.rank >= 55)
-            .sort((a: any, b: any) => b.rank - a.rank)
-            .slice(0, 15)
-            .map((t: any) => t.name.toLowerCase())
-          const mStudios: string[] = (m.studios?.nodes || []).map((s: any) => s.name).filter(Boolean)
-          const mDirectors: string[] = (m.staff?.edges || [])
-            .filter((e: any) => DIRECTOR_ROLES.has(e.role))
-            .map((e: any) => e.node?.name?.full).filter(Boolean)
-
-          let boost = 0
-          for (const theme of topThemes) { if (mTags.some(t => t.includes(theme))) boost += 3 }
-          for (const kw of topKeywords) { if (mTags.some(t => t.includes(kw))) boost += 2 }
-          let creatorBoost: string | undefined
-          for (const studio of mStudios) { if (topStudiosSet.has(studio)) { boost += 10; creatorBoost = studio; break } }
-          for (const director of mDirectors) { if (topDirectorsSet.has(director)) { boost += 8; if (!creatorBoost) creatorBoost = director; break } }
-          const socialFriend = socialFavorites?.get(`anilist-anime-${m.id}`)
-          if (socialFriend) { const sim = parseInt(socialFriend) || 75; boost += Math.round((sim - 70) / 30 * 20) }
-          if (isAwardWorthy(m.averageScore, m.popularity, m.popularity, 'anilist')) boost += 8
-
-          const year = m.seasonYear
-          const freshMult = releaseFreshnessMult(year, m.averageScore || 0, m.popularity || 0)
-          let matchScore = computeMatchScore(mGenres, mTags, tasteProfile, mStudios, mDirectors)
-          matchScore = Math.min(100, Math.round(matchScore * freshMult) + Math.min(boost, 25))
-
-          return { m, matchScore, mGenres, mTags, mStudios, mDirectors, socialFriend, year, creatorBoost }
-        })
-        .filter(({ matchScore }) => matchScore >= 40)
-        .sort((a, b) => b.matchScore - a.matchScore)
-
-      for (const { m, matchScore, mGenres, mTags, mStudios, mDirectors, socialFriend, year, creatorBoost } of candidates) {
+      for (const rec of candidates) {
         if (results.length >= MIN_POOL_ITEMS) break
-        const recId = `anilist-anime-${m.id}`
-        if (seen.has(recId)) continue
-        seen.add(recId)
-        results.push({
-          id: recId,
-          title: m.title?.english || m.title?.romaji || 'Senza titolo',
-          type: 'anime',
-          coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
-          year, episodes: m.episodes, genres: mGenres, tags: mTags,
-          score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
-          description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 300) : undefined,
-          why: socialFriend
-            ? `Il tuo amico con gusti simili ha adorato questo`
-            : buildWhyV3(mGenres, recId, m.title?.english || m.title?.romaji || '', tasteProfile, matchScore, slot.isDiscovery, {
-                recStudios: mStudios, recDirectors: mDirectors, creatorBoost,
-              }),
-          matchScore, isDiscovery: slot.isDiscovery, isSerendipity: slot.isSerendipity,
-          isSeasonal: false,
-          isAwardWinner: isAwardWorthy(m.averageScore, m.popularity, m.popularity, 'anilist'),
-          socialBoost: socialFriend, creatorBoost,
-        })
+        if (isAlreadyOwned('anime', rec.id, rec.title) || seen.has(rec.id)) continue
+        if (shownIds?.has(rec.id)) continue
+        seen.add(rec.id)
+        results.push(rec)
       }
     } catch { /* continua */ }
   }
@@ -234,7 +272,7 @@ export async function fetchAnimeRecs(
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             query: `query { Page(page: ${page}, perPage: 50) {
-              media(type: ANIME, format_in: [TV, TV_SHORT, ONA, SPECIAL],
+              media(type: ANIME, format_in: ${ANIME_FORMATS},
                     sort: [${sort}],
                     averageScore_greater: ${minScore},
                     popularity_greater: ${minPop},
@@ -259,28 +297,77 @@ export async function fetchAnimeRecs(
       const media: any[] = result.value.data?.Page?.media || []
       for (const m of media) {
         if (results.length >= MIN_POOL_ITEMS) break
-        const recId = `anilist-anime-${m.id}`
-        const title = m.title?.english || m.title?.romaji || ''
-        if (isAlreadyOwned('anime', recId, title) || seen.has(recId)) continue
-        if (shownIds?.has(recId)) continue
-        if (!(m.coverImage?.extraLarge || m.coverImage?.large)) continue
-        seen.add(recId)
-        const mGenres: string[] = m.genres || []
-        const mTags: string[] = (m.tags || []).filter((t: any) => t.rank >= 55).map((t: any) => t.name.toLowerCase())
-        const mStudios: string[] = (m.studios?.nodes || []).map((s: any) => s.name).filter(Boolean)
-        let matchScore = computeMatchScore(mGenres, mTags, tasteProfile, mStudios, [])
-        if (isAwardWorthy(m.averageScore, m.popularity, m.popularity, 'anilist')) matchScore = Math.min(100, matchScore + 8)
-        if (matchScore < 30) continue
-        results.push({
-          id: recId, title: title || 'Senza titolo', type: 'anime',
-          coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
-          year: m.seasonYear, episodes: m.episodes, genres: mGenres, tags: mTags,
-          score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
-          description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 300) : undefined,
-          why: buildWhyV3(mGenres, recId, title, tasteProfile, matchScore, false, { recStudios: mStudios }),
-          matchScore,
-          isAwardWinner: isAwardWorthy(m.averageScore, m.popularity, m.popularity, 'anilist'),
+        const rec = normalizeAnimeMedia(m, tasteProfile, socialFavorites, {
+          minScore: 28,
+          isDiscovery: true,
+          topThemes,
+          topKeywords,
+          topStudiosSet,
+          topDirectorsSet,
         })
+        if (!rec) continue
+        if (isAlreadyOwned('anime', rec.id, rec.title) || seen.has(rec.id)) continue
+        if (shownIds?.has(rec.id)) continue
+        seen.add(rec.id)
+        results.push(rec)
+      }
+    }
+  }
+
+  if (results.length < MIN_POOL_ITEMS) {
+    const broadQueries = [
+      ...[1, 2, 3, 4, 5, 6].map(page => ({ page, minScore: 60, minPop: 1200, sort: 'TRENDING_DESC' })),
+      ...[1, 2, 3, 4, 5, 6].map(page => ({ page, minScore: 58, minPop: 800, sort: 'POPULARITY_DESC' })),
+      ...[1, 2, 3, 4].map(page => ({ page, minScore: 62, minPop: 300, sort: 'SCORE_DESC' })),
+      ...[1, 2, 3].map(page => ({ page, minScore: 50, minPop: 100, sort: 'FAVOURITES_DESC' })),
+    ]
+
+    const broadResults = await batchedParallel(
+      broadQueries.map(({ page, minScore, minPop, sort }) => () =>
+        fetch(ANILIST_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: `query { Page(page: ${page}, perPage: 50) {
+              media(type: ANIME, format_in: ${ANIME_FORMATS},
+                    sort: [${sort}],
+                    averageScore_greater: ${minScore},
+                    popularity_greater: ${minPop},
+                    isAdult: false) {
+                id title { romaji english } coverImage { extraLarge large }
+                seasonYear episodes description(asHtml: false)
+                genres averageScore popularity trending
+                tags { name rank }
+                studios(isMain: true) { nodes { name } }
+                staff(sort: RELEVANCE) { edges { role node { name { full } } } }
+              }
+            }}`,
+          }),
+          signal: AbortSignal.timeout(10000),
+        }).then(r => r.ok ? r.json() : { data: null }).catch(() => ({ data: null }))
+      ),
+      8
+    )
+
+    for (const result of broadResults) {
+      if (results.length >= MIN_POOL_ITEMS) break
+      if (result.status !== 'fulfilled') continue
+      for (const m of (result.value.data?.Page?.media || [])) {
+        if (results.length >= MIN_POOL_ITEMS) break
+        const rec = normalizeAnimeMedia(m, tasteProfile, socialFavorites, {
+          minScore: 24,
+          isDiscovery: true,
+          isSerendipity: true,
+          topThemes,
+          topKeywords,
+          topStudiosSet,
+          topDirectorsSet,
+        })
+        if (!rec) continue
+        if (isAlreadyOwned('anime', rec.id, rec.title) || seen.has(rec.id)) continue
+        if (shownIds?.has(rec.id)) continue
+        seen.add(rec.id)
+        results.push({ ...rec, matchScore: Math.max(rec.matchScore, 35) })
       }
     }
   }

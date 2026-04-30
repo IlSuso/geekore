@@ -288,7 +288,7 @@ export function buildTieredPool(
   if (allPicked.length < targetSize) {
     // Soglia minima assoluta: score >= 50 (AniList 50/100, TMDB 5.0/10)
     // equivalente a "almeno decente" — non capolavori ma nemmeno titoli brutti
-    const absoluteMinQuality = 50
+    const absoluteMinQuality = type === 'anime' || type === 'movie' ? 45 : 50
     const remaining = candidates
       .filter(r => !seen.has(r.id) && getQualityScore(r) >= absoluteMinQuality)
       .sort((a, b) => (b.matchScore * 0.5 + getQualityScore(b) * 0.5) - (a.matchScore * 0.5 + getQualityScore(a) * 0.5))

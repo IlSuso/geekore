@@ -23,6 +23,7 @@ export type RecommendationDiagnostics = {
   servedCounts?: Record<string, number>
   emptyTypes?: string[]
   depletedTypes?: string[]
+  depletionStats?: Record<string, { unseenCount: number; shownRatio: number }>
   backgroundRegenQueued?: string[]
   syncRegenTypes?: string[]
   collectionHash?: string
@@ -180,6 +181,7 @@ export async function refreshFromMasterPool(
   const poolUpserts: any[] = []
   const masterByType = new Map<string, Recommendation[]>()
   const depletedTypes: string[] = []
+  const depletionStats: Record<string, { unseenCount: number; shownRatio: number }> = {}
 
   for (const row of masterRows) {
     if (!Array.isArray(row.data) || row.data.length === 0) continue
@@ -192,7 +194,11 @@ export async function refreshFromMasterPool(
     ).length
     const unseenCount = Math.max(0, sourceItems.length - shownCount)
     const shownRatio = sourceItems.length > 0 ? shownCount / sourceItems.length : 0
-    if (unseenCount < MASTER_POOL_MIN_UNSEEN_ITEMS && shownRatio >= MASTER_POOL_DEPLETED_SHOWN_RATIO) {
+    depletionStats[row.media_type] = {
+      unseenCount,
+      shownRatio: Math.round(shownRatio * 1000) / 1000,
+    }
+    if (unseenCount < MASTER_POOL_MIN_UNSEEN_ITEMS || shownRatio >= MASTER_POOL_DEPLETED_SHOWN_RATIO) {
       depletedTypes.push(row.media_type)
     }
     const sampled = sampleMasterPool(sourceItems, { exposures, size: SERVE_SIZE_PER_TYPE })
@@ -227,6 +233,7 @@ export async function refreshFromMasterPool(
       masterPoolSizes: buildMasterPoolSizes(masterByType),
       servedCounts: countRecommendations(recommendations),
       depletedTypes,
+      depletionStats,
     },
   }
 }

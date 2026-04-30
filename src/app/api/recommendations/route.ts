@@ -161,7 +161,7 @@ export async function GET(request: NextRequest) {
           || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : request.nextUrl.origin)
         after(async () => {
           try {
-            await fetch(`${appUrl}/api/recommendations?type=all&onboarding=1`, {
+            await fetch(`${appUrl}/api/recommendations?type=all&types=${encodeURIComponent(depletedTypes.join(','))}&onboarding=1`, {
               headers: {
                 'X-Service-User-Id': userId,
                 'X-Service-Secret': process.env.CRON_SECRET || '',
@@ -457,7 +457,7 @@ export async function GET(request: NextRequest) {
         tooSmall: !!row && items.length > 0 && items.length < MASTER_POOL_MIN_HEALTHY_SIZE && ageHours >= 24,
         expired: !!row && (!row.generated_at || new Date(row.generated_at).getTime() < new Date(masterPoolCutoff).getTime()),
         invalidated: row?.collection_size === -1,
-        depleted: !!row && items.length > 0 && unseenCount < MASTER_POOL_MIN_UNSEEN_ITEMS && shownRatio >= MASTER_POOL_DEPLETED_SHOWN_RATIO,
+        depleted: !!row && items.length > 0 && (unseenCount < MASTER_POOL_MIN_UNSEEN_ITEMS || shownRatio >= MASTER_POOL_DEPLETED_SHOWN_RATIO),
         usable: !!row && items.length > 0 && row?.collection_size !== -1,
         unseenCount,
         shownRatio,
