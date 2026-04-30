@@ -154,10 +154,12 @@ export async function fetchMovieRecs(
       ...slots.map(s => TMDB_GENRE_MAP[s.genre]).filter(Boolean),
     ])].slice(0, 8)  // max 8 generi per non esplodere le chiamate
 
-    // Fetch parallelo: tutti i generi in parallelo, 3 pagine per genere
+    // Fetch parallelo: pagine subito successive al primary pass.
+    // Prima saltavamo 2-3 e partivamo da 4, perdendo candidati forti ma non gia in page 1.
+    const topupPages = results.length < MOVIE_FETCH_TARGET / 2 ? [2, 3, 4, 5] : [2, 3]
     const topupResults = await Promise.allSettled(
       allProfileGenreIds.flatMap(genreId =>
-        [4, 5, 6].map(page =>
+        topupPages.map(page =>
           fetch(
             `https://api.themoviedb.org/3/discover/movie?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=80&vote_average.gte=${baseVoteAvg}&language=it-IT&page=${page}`,
             { headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
@@ -172,9 +174,10 @@ export async function fetchMovieRecs(
       for (const m of (result.value.results || [])) {
         if (results.length >= MOVIE_FETCH_TARGET) break
         const title = m.title || m.original_title || ''
-        if (isAlreadyOwned('movie', m.id.toString(), title) || seen.has(m.id.toString())) continue
+        const recId = m.id.toString()
+        if (isAlreadyOwned('movie', recId, title) || seen.has(recId) || shownIds?.has(recId)) continue
         if (!m.poster_path) continue
-        seen.add(m.id.toString())
+        seen.add(recId)
         const recGenres = m.genre_ids?.map((id: number) => TMDB_MOVIE_GENRE_NAMES[id]).filter(Boolean) || []
         let matchScore = computeMatchScore(recGenres.length > 0 ? recGenres : [], [], tasteProfile)
         if (isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb')) matchScore = Math.min(100, matchScore + 8)
@@ -182,11 +185,11 @@ export async function fetchMovieRecs(
         matchScore = Math.min(100, Math.round(matchScore * releaseFreshnessMult(year)))
         if (matchScore < 35) continue
         results.push({
-          id: m.id.toString(), title, type: 'movie',
+          id: recId, title, type: 'movie',
           coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`, year, genres: recGenres,
           score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
           description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
-          why: buildWhyV3(recGenres, m.id.toString(), title, tasteProfile, matchScore, false, {}),
+          why: buildWhyV3(recGenres, recId, title, tasteProfile, matchScore, false, {}),
           matchScore, isAwardWinner: isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb'),
         })
       }
@@ -214,7 +217,7 @@ export async function fetchMovieRecs(
         if (results.length >= 200) break
         const title = m.title || m.original_title || ''
         const recId = m.id.toString()
-        if (isAlreadyOwned('movie', recId, title) || seen.has(recId)) continue
+        if (isAlreadyOwned('movie', recId, title) || seen.has(recId) || shownIds?.has(recId)) continue
         if (!m.poster_path) continue
         seen.add(recId)
 
