@@ -57,6 +57,7 @@ import { fetchAnimeRecs, fetchBoardgameRecs, fetchGameRecs, fetchMangaRecs, fetc
 import { composeRecommendationRails } from '@/lib/reco/rails'
 import { finishRegen, tryStartRegen } from '@/lib/reco/regen-lock'
 import { sampleAndPersistFromMasterPool, serveFromSavedPool, refreshFromMasterPool } from '@/lib/reco/serving'
+import { buildTieredPool } from '@/lib/reco/pool-builder'
 
 
 // Tipo Supabase client (evita any)
@@ -509,11 +510,17 @@ export async function GET(request: NextRequest) {
 
         const contRecs = continuityByType.get(type) || []
         const contIds = new Set(contRecs.map(r => r.id))
-        // Nel master pool mantieni solo titoli con affinità >= 40%: sotto soglia non vengono mai campionati.
-        // I continuity recs (sequel/prequel) sono esenti dal filtro: hanno priorità speciale.
+        const candidates = result.items.filter(r => !contIds.has(r.id))
+
+        // ── Pool builder a 4 tier (Netflix/Spotify style) ──────────────────
+        const { items: tieredItems, diagnostics: tierDiag } = buildTieredPool(
+          candidates, type as MediaType, tasteProfile, MASTER_POOL_SIZE_PER_TYPE
+        )
+        console.log(`[RECO] tier type=${type} strength=${tierDiag.profileStrength.toFixed(2)} core=${tierDiag.tierCounts.core} stretch=${tierDiag.tierCounts.stretch} transfer=${tierDiag.tierCounts.transfer} wildcard=${tierDiag.tierCounts.wildcard}`)
+
         const allItems: Recommendation[] = [
           ...contRecs,
-          ...result.items.filter(r => !contIds.has(r.id) && r.matchScore >= 40),
+          ...tieredItems.filter(r => !contIds.has(r.id)),
         ]
         const previousItems = masterByType.get(type) || []
         // Low-yield guard: non sovrascrivere un pool grande con uno piccolo,
@@ -590,10 +597,15 @@ export async function GET(request: NextRequest) {
             if (!items.length) continue
             const contRecs = continuityByTypeBg.get(type) || []
             const contIds = new Set(contRecs.map(r => r.id))
+            const bgCandidates = items.filter(r => !contIds.has(r.id))
+            const { items: tieredBg } = buildTieredPool(
+              bgCandidates, type as MediaType, tasteProfile, MASTER_POOL_SIZE_PER_TYPE
+            )
+            const bgMinScore = (type === 'manga' || type === 'boardgame') ? 30 : 40
             const allItems = [
               ...contRecs,
-              ...items.filter(r => !contIds.has(r.id)),
-            ].filter(r => r.isContinuity || r.matchScore >= 40)
+              ...tieredBg.filter(r => !contIds.has(r.id)),
+            ].filter(r => r.isContinuity || r.matchScore >= bgMinScore)
             const previousItems = masterByType.get(type) || []
             const bgWasInvalidated = rowByType.get(type)?.collection_size === -1
             if (!bgWasInvalidated && allItems.length < MASTER_POOL_MIN_HEALTHY_SIZE && previousItems.length >= allItems.length) {

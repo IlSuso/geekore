@@ -236,7 +236,15 @@ export function buildDiversitySlots(type: MediaType, tasteProfile: TasteProfile,
     'Tactical', 'Visual Novel', 'Card & Board Game', 'Arcade', 'Platform', 'Shooter',
     'Fighting', 'Sport', 'Racing',
   ])
-  const valid = sourceGenres.filter(g => !IGDB_ONLY.has(g))
+
+  // Cross-media: se il profilo per questo tipo è debole (< 10 titoli),
+  // usa i generi globali (da tutti i tipi) invece di quelli specifici.
+  // Questo implementa il principio "il gusto è unico per tutte le categorie".
+  const typeCount = tasteProfile.collectionSize[type] || 0
+  const useGlobalFallback = typeCount < 10 || sourceGenres.length < 2
+  const effectiveSource = useGlobalFallback ? fallbackGenres : sourceGenres
+
+  const valid = effectiveSource.filter(g => !IGDB_ONLY.has(g))
 
   if (valid.length === 0) return []
 
@@ -262,6 +270,21 @@ export function buildDiversitySlots(type: MediaType, tasteProfile: TasteProfile,
 
   for (const dg of discoveryGenres) {
     slots.push({ genre: dg, quota: 2, isDiscovery: true })
+  }
+
+  // Se il profilo per questo tipo è debole, aggiungi generi adiacenti
+  // per dare al pool-builder candidati per il Tier 3 (cross-media transfer)
+  if (useGlobalFallback && valid.length > 0) {
+    const adjacentGenres = new Set<string>()
+    for (const g of valid.slice(0, 3)) {
+      const adj = ADJACENCY_GRAPH[g] || []
+      for (const a of adj) {
+        if (!valid.includes(a) && !IGDB_ONLY.has(a)) adjacentGenres.add(a)
+      }
+    }
+    for (const ag of [...adjacentGenres].slice(0, 3)) {
+      slots.push({ genre: ag, quota: 2, isDiscovery: true })
+    }
   }
 
   // Serendipity
