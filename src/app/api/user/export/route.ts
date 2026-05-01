@@ -4,12 +4,11 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 import { logger } from '@/lib/logger'
 
 export async function GET(request: NextRequest) {
-  // Rate limiting: massimo 3 export al giorno per utente
-  const rl = rateLimit(request, { limit: 3, windowMs: 24 * 60 * 60 * 1000, prefix: 'user-export' })
+  const rl = await rateLimitAsync(request, { limit: 3, windowMs: 24 * 60 * 60 * 1000, prefix: 'user-export' })
   if (!rl.ok) {
     return NextResponse.json(
       { error: 'Puoi esportare i dati al massimo 3 volte al giorno.' },
@@ -22,10 +21,9 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+      return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
     }
 
-    // Carica tutti i dati in parallelo
     const [
       profileRes,
       mediaRes,
@@ -46,7 +44,6 @@ export async function GET(request: NextRequest) {
       supabase.from('notifications').select('type, created_at, is_read').eq('receiver_id', user.id).order('created_at', { ascending: false }).limit(100),
     ])
 
-    // Rimuovi campi sensibili dal profilo
     const profile = profileRes.data ? {
       username: profileRes.data.username,
       display_name: profileRes.data.display_name,
@@ -85,6 +82,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (err) {
     logger.error('[User Export]', err)
-    return NextResponse.json({ error: 'Errore interno' }, { status: 500 })
+    return NextResponse.json({ error: 'Errore interno' }, { status: 500, headers: rl.headers })
   }
 }
