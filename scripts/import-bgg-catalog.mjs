@@ -15,6 +15,7 @@ const args = new Map(
 
 const csvPath = process.argv.slice(2).find(arg => !arg.startsWith('--'))
 const limit = Number(args.get('limit') || 1000)
+const offset = Number(args.get('offset') || 0)
 const delayMs = Number(args.get('delay') || 5500)
 const batchSize = 20
 
@@ -23,7 +24,7 @@ const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 const bggBearerToken = process.env.BGG_BEARER_TOKEN
 
 if (!csvPath || !supabaseUrl || !serviceKey) {
-  console.error('Usage: node scripts/import-bgg-catalog.mjs ./bg_ranks.csv --limit=1000 --delay=5500')
+  console.error('Usage: node scripts/import-bgg-catalog.mjs ./bg_ranks.csv --limit=1000 --offset=0 --delay=5500')
   console.error('Requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local')
   process.exit(1)
 }
@@ -111,7 +112,7 @@ function parseRankRows(csv) {
     }))
     .filter(row => row.bgg_id && row.title)
     .sort((a, b) => (a.rank || 999999) - (b.rank || 999999))
-    .slice(0, limit)
+    .slice(offset, offset + limit)
 }
 
 function valuesFor(chunk, type) {
@@ -194,7 +195,7 @@ async function upsertRows(rows) {
 
 const csv = await fs.readFile(path.resolve(csvPath), 'utf8')
 const rankRows = parseRankRows(csv)
-console.log(`[bgg-catalog] Parsed ${rankRows.length} rank rows`)
+console.log(`[bgg-catalog] Parsed ${rankRows.length} rank rows (offset=${offset}, limit=${limit})`)
 
 let enrichedCount = 0
 for (let i = 0; i < rankRows.length; i += batchSize) {
