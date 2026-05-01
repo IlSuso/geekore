@@ -189,8 +189,8 @@ export default function RegisterPage() {
 
           <div className="flex items-center justify-between mb-10">
             <div className="lg:hidden flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center">
-                <Zap size={20} className="text-white" />
+              <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+                <Zap size={20} className="text-black" />
               </div>
               <span className="text-2xl font-bold tracking-tighter">geekore</span>
             </div>

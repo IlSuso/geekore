@@ -125,8 +125,8 @@ export default async function CommunityPage() {
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center flex-shrink-0">
-              <Users size={20} className="text-white" />
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: '#E6FF3D' }}>
+              <Users size={20} className="text-black" />
             </div>
             <h1 className="text-2xl font-bold text-white tracking-tight">Community</h1>
           </div>

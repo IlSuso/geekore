@@ -443,8 +443,8 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
 
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
-          <Search size={15} className="text-white" />
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0" style={{ background: '#E6FF3D' }}>
+          <Search size={15} className="text-black" />
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="text-sm font-bold text-white">

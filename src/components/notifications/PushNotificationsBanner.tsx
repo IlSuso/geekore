@@ -91,8 +91,8 @@ export function PushNotificationsBanner() {
     <div className="fixed bottom-24 md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-80 z-50 animate-in slide-in-from-bottom-4 duration-300">
       <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-4 shadow-2xl shadow-black/50">
         <div className="flex items-start gap-3">
-          <div className="w-9 h-9 bg-violet-500/20 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
-            <Bell size={16} className="text-violet-400" />
+          <div className="w-9 h-9 bg-zinc-800 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+            <Bell size={16} className="text-zinc-300" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-white">Abilita le notifiche</p>

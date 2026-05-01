@@ -50,8 +50,8 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-6">
       <div className="w-full max-w-md">
         <div className="flex items-center gap-3 mb-10">
-          <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center">
-            <Zap size={20} className="text-white" />
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+            <Zap size={20} className="text-black" />
           </div>
           <span className="text-2xl font-bold tracking-tighter text-white">geekore</span>
         </div>

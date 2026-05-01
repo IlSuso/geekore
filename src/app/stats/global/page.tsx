@@ -138,8 +138,8 @@ export default async function GlobalStatsPage() {
         {/* Header */}
         <div className="mb-10">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center">
-              <Globe size={20} className="text-white" />
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+              <Globe size={20} className="text-black" />
             </div>
             <div>
               <h1 className="text-3xl font-black tracking-tighter">Statistiche globali</h1>
@@ -153,7 +153,7 @@ export default async function GlobalStatsPage() {
 
         {/* Big stats grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-10">
-          <StatCard label="Utenti registrati" value={formatNumber(stats.totalUsers)} icon={Users} color="bg-violet-600" />
+          <StatCard label="Utenti registrati" value={formatNumber(stats.totalUsers)} icon={Users} color="bg-emerald-600" />
           <StatCard label="Titoli in collezione" value={formatNumber(stats.totalEntries)} icon={TrendingUp} color="bg-fuchsia-600" />
           <StatCard label="Ore di contenuto" value={formatNumber(stats.totalHours)} sub="stima aggregata" icon={Clock} color="bg-emerald-600" />
           <StatCard label="Ep. anime guardati" value={formatNumber(stats.animeEps)} sub={`≈ ${formatNumber(stats.animeHours)} ore`} icon={Tv} color="bg-sky-600" />

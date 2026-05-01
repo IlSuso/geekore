@@ -278,8 +278,8 @@ export default async function ExplorePage() {
                   <span className="text-xs text-zinc-400 w-28 truncate flex-shrink-0">{genre}</span>
                   <div className="flex-1 h-2 bg-zinc-800 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-full transition-all duration-700"
-                      style={{ width: `${Math.max(4, (count / maxGenreCount) * 100)}%` }}
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{ width: `${Math.max(4, (count / maxGenreCount) * 100)}%`, background: '#E6FF3D' }}
                     />
                   </div>
                   <span className="text-[10px] text-zinc-600 w-8 text-right flex-shrink-0">{count}</span>

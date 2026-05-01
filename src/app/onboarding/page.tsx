@@ -119,8 +119,8 @@ function StepDots({ current, total }: { current: number; total: number }) {
       </div>
       <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden w-full">
         <div
-          className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-full transition-all duration-500"
-          style={{ width: `${pct}%` }}
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${pct}%`, background: '#E6FF3D' }}
         />
       </div>
     </div>
@@ -148,8 +148,8 @@ function BrandPanel({ step }: { step: number }) {
       <div className="absolute top-1/2 -translate-y-1/2 left-1/3 w-60 h-60 bg-sky-500/8 rounded-full blur-[90px] pointer-events-none" />
 
       <div className="relative z-10 flex items-center gap-3">
-        <div className="w-11 h-11 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center shadow-lg shadow-violet-500/30">
-          <Zap size={22} className="text-white" />
+        <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+          <Zap size={22} className="text-black" />
         </div>
         <span className="text-2xl font-bold tracking-tighter text-white">geekore</span>
       </div>
@@ -452,8 +452,8 @@ export default function OnboardingPage() {
 
         {/* Logo mobile */}
         <div className="lg:hidden flex items-center gap-3 mb-10 self-start">
-          <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center">
-            <Zap size={20} className="text-white" />
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+            <Zap size={20} className="text-black" />
           </div>
           <span className="text-2xl font-bold tracking-tighter text-white">geekore</span>
         </div>

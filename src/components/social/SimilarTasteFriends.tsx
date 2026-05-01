@@ -84,8 +84,8 @@ export function SimilarTasteFriends() {
   return (
     <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-5 mb-10">
       <div className="flex items-center gap-3 mb-5">
-        <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl flex items-center justify-center">
-          <Zap size={16} className="text-white" />
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+          <Zap size={16} className="text-black" />
         </div>
         <div>
           <h2 className="text-sm font-bold text-white">Gusti simili ai tuoi</h2>

@@ -73,8 +73,8 @@ export function PWAInstallBanner() {
   return (
     <div className="fixed bottom-20 left-3 right-3 md:left-auto md:right-6 md:bottom-6 md:w-80 z-[200] animate-in slide-in-from-bottom-4 duration-300">
       <div className="bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl shadow-black/60 p-4 flex items-center gap-3">
-        <div className="w-11 h-11 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-500/30">
-          <Zap size={20} className="text-white" />
+        <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: '#E6FF3D' }}>
+          <Zap size={20} className="text-black" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-white leading-tight">Installa Geekore</p>

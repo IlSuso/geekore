@@ -192,8 +192,8 @@ export default async function HomePage() {
       {/* Nav */}
       <nav className="flex items-center justify-between px-6 py-5 max-w-6xl mx-auto w-full">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+          <div className="w-9 h-9 rounded-2xl flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#0B0B0F">
               <path d="M13 2L4.09 12.97 12 12l-1 9 8.91-10.97L12 11z"/>
             </svg>
           </div>
