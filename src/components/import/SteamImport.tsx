@@ -44,7 +44,11 @@ export function SteamImport({ onImportDone }: Props) {
     setProgress(null)
 
     try {
-      const res = await fetch(`/api/steam/games?steamid=${steamAccount.steam_id64}`)
+      const res = await fetch('/api/steam/games', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ steamid: steamAccount.steam_id64 }),
+      })
 
       if (!res.ok) {
         try {
