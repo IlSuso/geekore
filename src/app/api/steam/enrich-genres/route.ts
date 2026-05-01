@@ -259,10 +259,13 @@ export async function POST(request: NextRequest) {
   if (!clientId || !token) {
     return NextResponse.json({ error: 'IGDB non configurato' }, { status: 500 })
   }
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return NextResponse.json({ error: 'Configurazione Supabase server mancante' }, { status: 503 })
+  }
 
   const supabaseService = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
   )
 
   const { data: steamGames, error } = await supabaseService

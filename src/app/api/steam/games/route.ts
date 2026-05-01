@@ -120,6 +120,9 @@ export async function GET(request: NextRequest) {
   if (!STEAM_API_KEY) {
     return NextResponse.json({ success: false, error: 'STEAM_API_KEY not configured' }, { status: 500 })
   }
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return NextResponse.json({ success: false, error: 'Configurazione Supabase server mancante' }, { status: 503 })
+  }
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -128,8 +131,8 @@ export async function GET(request: NextRequest) {
   }
 
   const supabaseService = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
   )
 
   // Cache 24h

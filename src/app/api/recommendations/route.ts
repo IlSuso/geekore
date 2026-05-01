@@ -86,11 +86,14 @@ export async function GET(request: NextRequest) {
     let userId: string
 
     if (isServiceCall) {
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        return NextResponse.json({ error: 'Configurazione Supabase server mancante' }, { status: 503 })
+      }
       // Crea client con service role per leggere dati dell'utente
       const { createClient: createServiceClient } = await import('@supabase/supabase-js')
       supabase = createServiceClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
         { auth: { autoRefreshToken: false, persistSession: false } }
       ) as any
       userId = serviceUserId!

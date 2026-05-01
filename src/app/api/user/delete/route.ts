@@ -13,7 +13,7 @@ export async function DELETE(request: NextRequest) {
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
 
   // SEC2: Guard esplicita — se la chiave non è configurata, abortiamo subito
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     logger.error('user/delete', 'SUPABASE_SERVICE_ROLE_KEY non configurata')
     return NextResponse.json(
       { error: 'Configurazione server non valida' },
@@ -35,7 +35,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const serviceClient = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     )
 

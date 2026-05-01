@@ -18,7 +18,7 @@
 // Per account delete / profilo: origin check + token header.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createHash, randomBytes } from 'crypto'
+import { createHash } from 'crypto'
 
 const ALLOWED_ORIGINS = [
   process.env.NEXT_PUBLIC_SITE_URL,

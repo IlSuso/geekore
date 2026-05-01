@@ -593,10 +593,13 @@ export async function GET(request: NextRequest) {
   if (process.env.FAKE_ACTIVITY_ENABLED !== 'true') {
     return NextResponse.json({ skipped: true, reason: 'fake activity disabled' })
   }
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return NextResponse.json({ error: 'Supabase service configuration missing' }, { status: 503 })
+  }
 
   const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
   )
 
   const results: string[] = []
