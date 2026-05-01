@@ -1,22 +1,9 @@
 // src/app/api/xbox/games/route.ts
-// ═══════════════════════════════════════════════════════════════════════════
 // Feature #22: Integrazione Xbox via OpenXBL API
-//
-// OpenXBL è un proxy ufficioso ma stabile delle Xbox Live API.
-// Registra un account su https://xbl.io e ottieni una API key gratuita (fino a 500 req/mese).
-//
-// Variabili .env.local:
-// OPENXBL_API_KEY=la-tua-chiave
-//
-// Tabella DB necessaria (aggiungere via SQL Editor Supabase):
-// ALTER TABLE profiles ADD COLUMN IF NOT EXISTS xbox_gamertag text;
-// ALTER TABLE profiles ADD COLUMN IF NOT EXISTS xbox_xuid text;
-// ALTER TABLE user_media_entries ADD COLUMN IF NOT EXISTS achievement_data jsonb;
-// ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 import { logger } from '@/lib/logger'
 
 const OPENXBL_BASE = 'https://xbl.io/api/v2'
@@ -47,15 +34,8 @@ async function resolveGamertag(gamertag: string): Promise<string | null> {
     })
     if (res.ok) {
       const data = await res.json()
-      const profile =
-        data?.profileUsers?.[0] ||
-        data?.people?.[0] ||
-        data?.profile ||
-        data
-      const xuid =
-        profile?.id ||
-        profile?.xuid ||
-        profile?.settings?.find?.((s: any) => s.id === 'Xuid')?.value
+      const profile = data?.profileUsers?.[0] || data?.people?.[0] || data?.profile || data
+      const xuid = profile?.id || profile?.xuid || profile?.settings?.find?.((s: any) => s.id === 'Xuid')?.value
       if (xuid) return String(xuid)
     }
   } catch { /* prova strategia 2 */ }
@@ -86,8 +66,7 @@ async function fetchXboxGames(xuid: string): Promise<any[]> {
       const titles = extractTitles(data)
       if (titles.length > 0) return titles
     } else {
-      const text = await res.text()
-      logger.warn('Xbox', 'titleHistory failed', { status: res.status, body: text.slice(0, 120) })
+      logger.warn('Xbox', 'titleHistory failed', { status: res.status })
     }
   } catch (e) { logger.warn('Xbox', 'titleHistory exception', e) }
 
@@ -98,8 +77,7 @@ async function fetchXboxGames(xuid: string): Promise<any[]> {
     })
     logger.info('Xbox', 'achievements response', { status: res.status })
     if (!res.ok) {
-      const text = await res.text()
-      logger.warn('Xbox', 'achievements failed', { status: res.status, body: text.slice(0, 120) })
+      logger.warn('Xbox', 'achievements failed', { status: res.status })
       return []
     }
     const data = await res.json()
@@ -127,32 +105,28 @@ function extractCoverImage(title: any): string | null {
 }
 
 export async function GET(request: NextRequest) {
-  logger.info('Xbox', 'GET handler called')
-
-  const rl = rateLimit(request, { limit: 5, windowMs: 60_000, prefix: 'xbox-games' })
-  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste, aspetta un minuto.' }, { status: 429 })
+  const rl = await rateLimitAsync(request, { limit: 5, windowMs: 60_000, prefix: 'xbox-games' })
+  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste, aspetta un minuto.' }, { status: 429, headers: rl.headers })
 
   if (!process.env.OPENXBL_API_KEY) {
     logger.warn('Xbox', 'OPENXBL_API_KEY mancante')
-    return NextResponse.json({ error: 'Xbox integration non configurata (OPENXBL_API_KEY mancante)' }, { status: 503 })
+    return NextResponse.json({ error: 'Xbox integration non configurata (OPENXBL_API_KEY mancante)' }, { status: 503, headers: rl.headers })
   }
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
 
   const { searchParams } = new URL(request.url)
-
   let xuid: string | null = searchParams.get('xuid')?.trim() ?? null
-  logger.info('Xbox', 'xuid received', { hasXuid: !!xuid })
   const gamertag = searchParams.get('gamertag')?.trim()
 
   if (!xuid && !gamertag) {
-    return NextResponse.json({ error: 'Parametro xuid o gamertag mancante' }, { status: 400 })
+    return NextResponse.json({ error: 'Parametro xuid o gamertag mancante' }, { status: 400, headers: rl.headers })
   }
 
   if (xuid && !/^\d{16}$/.test(xuid)) {
-    return NextResponse.json({ error: 'XUID non valido: deve essere 16 cifre' }, { status: 400 })
+    return NextResponse.json({ error: 'XUID non valido: deve essere 16 cifre' }, { status: 400, headers: rl.headers })
   }
 
   if (!xuid && gamertag) {
@@ -160,12 +134,11 @@ export async function GET(request: NextRequest) {
     if (!xuid) {
       return NextResponse.json({
         error: `Gamertag "${gamertag}" non trovato. Inserisci il tuo XUID (16 cifre) da xboxgamertag.com`,
-      }, { status: 404 })
+      }, { status: 404, headers: rl.headers })
     }
   }
 
   const encoder = new TextEncoder()
-
   const stream = new ReadableStream({
     async start(controller) {
       const send = (data: object) => {
@@ -179,16 +152,13 @@ export async function GET(request: NextRequest) {
         }).eq('id', user.id)
 
         send({ type: 'progress', step: 'fetch', current: 0, total: 0, message: 'Recupero giochi Xbox...' })
-
         const titles = await fetchXboxGames(xuid!)
 
         if (!titles.length) {
-          send({ type: 'done', success: true, imported: 0, skipped: 0, total: 0,
-            message: 'Nessun gioco trovato (il profilo potrebbe essere privato).' }); return
+          send({ type: 'done', success: true, imported: 0, skipped: 0, total: 0, message: 'Nessun gioco trovato (il profilo potrebbe essere privato).' }); return
         }
 
         send({ type: 'progress', step: 'save', current: 0, total: 0, message: 'Salvataggio...' })
-
         const toInsert: any[] = []
         const skipped: string[] = []
 
@@ -210,17 +180,13 @@ export async function GET(request: NextRequest) {
             continue
           }
 
-          // Dati achievement annidati in title.achievement
           const ach = title.achievement || {}
           const currentAch: number = ach.currentAchievements || 0
           const totalAch: number = ach.totalAchievements || 0
           const currentGamerscore: number = ach.currentGamerscore || 0
           const totalGamerscore: number = ach.totalGamerscore || 0
-
           const hasProgress = currentGamerscore > 0
           const isCompleted = totalGamerscore > 0 && currentGamerscore >= totalGamerscore
-
-          // achievement_data è un campo jsonb dedicato, separato dalle note utente
           const achievement_data = totalAch > 0
             ? { curr: currentAch, tot: totalAch, gs_curr: currentGamerscore, gs_tot: totalGamerscore }
             : null
@@ -255,16 +221,7 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        send({
-          type: 'done',
-          success: true,
-          imported: toInsert.length,
-          skipped: skipped.length,
-          total: titles.length,
-          gamertag,
-          xuid,
-          message: `${toInsert.length} giochi Xbox importati`,
-        })
+        send({ type: 'done', success: true, imported: toInsert.length, skipped: skipped.length, total: titles.length, gamertag, xuid, message: `${toInsert.length} giochi Xbox importati` })
       } catch (e: any) {
         send({ type: 'error', message: e.message || 'Errore durante il recupero dei giochi Xbox' })
       }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 
 function getSiteOrigin(requestUrl: string): string {
   const fallback = new URL(requestUrl).origin
@@ -19,7 +19,6 @@ export async function GET(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    // Redirect al login con messaggio esplicito
     return NextResponse.redirect(new URL('/login?reason=steam_auth_required', request.url))
   }
 
@@ -39,7 +38,7 @@ export async function GET(request: Request) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 10, windowMs: 60_000, prefix: 'steam:disconnect' })
+  const rl = await rateLimitAsync(request, { limit: 10, windowMs: 60_000, prefix: 'steam:disconnect' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
   if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 

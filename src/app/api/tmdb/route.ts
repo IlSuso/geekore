@@ -3,12 +3,11 @@
 // Chiamata dal Discover: /api/tmdb?q=<termine>&type=movie|tv
 
 import { NextRequest, NextResponse } from 'next/server'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 import { truncateAtSentence } from '@/lib/utils'
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
 
-// Mapping genre_ids → nomi EN (usato dalla funzione simili per passare generi alla route /similar)
 const TMDB_MOVIE_GENRES: Record<number, string> = {
   28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy', 80: 'Crime',
   99: 'Documentary', 18: 'Drama', 10751: 'Family', 14: 'Fantasy', 36: 'History',
@@ -40,13 +39,13 @@ function tmdbImage(path: string | null | undefined) {
 }
 
 export async function GET(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 30, windowMs: 60_000, prefix: 'tmdb-search' })
+  const rl = await rateLimitAsync(request, { limit: 30, windowMs: 60_000, prefix: 'tmdb-search' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
 
   const { searchParams } = new URL(request.url)
   const q = searchParams.get('q') || searchParams.get('search') || ''
-  const typeParam = searchParams.get('type') // 'movie' | 'tv' | null
-  const langParam = searchParams.get('lang') // 'it' | 'en'
+  const typeParam = searchParams.get('type')
+  const langParam = searchParams.get('lang')
   const tmdbLang = langParam === 'en' ? 'en-US' : 'it-IT'
 
   if (!q || q.trim().length < 2) return NextResponse.json([], { headers: rl.headers })
@@ -63,7 +62,6 @@ export async function GET(request: NextRequest) {
 
   for (const mediaType of types) {
     try {
-      // Fetch nella lingua richiesta
       const res = await fetch(
         `${TMDB_BASE}/search/${mediaType}?query=${encodeURIComponent(term)}&language=${tmdbLang}&page=1`,
         { headers: tmdbHeaders(), signal: AbortSignal.timeout(8000) }
@@ -72,7 +70,6 @@ export async function GET(request: NextRequest) {
       const json = await res.json()
       const results: any[] = (json.results || []).slice(0, 15)
 
-      // Se la lingua richiesta non è inglese, fetch parallelo in EN per avere title_en
       let enMap: Map<number, string> = new Map()
       if (tmdbLang !== 'en-US') {
         try {
@@ -89,7 +86,6 @@ export async function GET(request: NextRequest) {
         } catch { /* skip */ }
       }
 
-      // Fetch dettagli stagioni per le serie (in batch limitato)
       const mapped = await Promise.all(results
         .filter((m: any) => m.poster_path)
         .slice(0, 10)
@@ -128,7 +124,6 @@ export async function GET(request: NextRequest) {
           }
 
           const localTitle = m.title || m.name || ''
-          // title_en: se la lingua è già EN usiamo lo stesso; altrimenti prendiamo dalla mappa EN
           const titleEn = tmdbLang === 'en-US'
             ? localTitle
             : (enMap.get(m.id) || m.original_title || m.original_name || localTitle)

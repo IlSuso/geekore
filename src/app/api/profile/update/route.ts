@@ -7,7 +7,7 @@ import { logger } from '@/lib/logger'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 import { verifyCsrf } from '@/lib/csrf'
 
 const USERNAME_MIN = 3
@@ -16,21 +16,12 @@ const BIO_MAX = 500
 const DISPLAY_NAME_MAX = 50
 const USERNAME_REGEX = /^[a-z0-9_]+$/
 
-// ── S6: blocca caratteri non-ASCII che passerebbero comunque la regex ─────────
-// Dopo NFKD normalization i caratteri compositi si espandono;
-// controlliamo che ogni code point sia nell'intervallo ASCII stampabile.
 function hasUnicodeLookalike(value: string): boolean {
-  // Normalizza in forma NFKD (decomposizione compatibilità)
   const normalized = value.normalize('NFKD')
   for (let i = 0; i < normalized.length; i++) {
     const code = normalized.codePointAt(i) ?? 0
-    // Accetta solo: a-z (97-122), 0-9 (48-57), _ (95)
-    if (
-      !(code >= 97 && code <= 122) &&  // a-z
-      !(code >= 48 && code <= 57) &&   // 0-9
-      code !== 95                       // _
-    ) {
-      return true // contiene caratteri non-ASCII
+    if (!(code >= 97 && code <= 122) && !(code >= 48 && code <= 57) && code !== 95) {
+      return true
     }
   }
   return false
@@ -42,9 +33,7 @@ function validateUsername(value: unknown): string | null {
   if (v.length < USERNAME_MIN) return `Username troppo corto (minimo ${USERNAME_MIN} caratteri)`
   if (v.length > USERNAME_MAX) return `Username troppo lungo (massimo ${USERNAME_MAX} caratteri)`
   if (!USERNAME_REGEX.test(v)) return 'Solo lettere minuscole, numeri e underscore'
-  // S6: blocca look-alike unicode
   if (hasUnicodeLookalike(v)) return 'Username contiene caratteri non consentiti'
-  // Blocca username riservati
   const reserved = ['admin', 'geekore', 'support', 'api', 'me', 'root', 'null', 'undefined']
   if (reserved.includes(v)) return 'Username non disponibile'
   return null
@@ -65,8 +54,7 @@ function validateDisplayName(value: unknown): string | null {
 }
 
 export async function PATCH(request: NextRequest) {
-  // Rate limiting: 5 aggiornamenti/min per IP
-  const rl = rateLimit(request, { limit: 5, windowMs: 60_000, prefix: 'profile-update' })
+  const rl = await rateLimitAsync(request, { limit: 5, windowMs: 60_000, prefix: 'profile-update' })
   if (!rl.ok) {
     return NextResponse.json(
       { error: 'Troppe modifiche. Attendi un momento.' },
@@ -79,25 +67,22 @@ export async function PATCH(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+      return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
     }
 
-    // S1: CSRF check
     const csrf = verifyCsrf(request, user.id)
     if (!csrf.ok) {
-      return NextResponse.json({ error: csrf.reason || 'Richiesta non autorizzata' }, { status: 403 })
+      return NextResponse.json({ error: csrf.reason || 'Richiesta non autorizzata' }, { status: 403, headers: rl.headers })
     }
 
     let body: any
     try {
       body = await request.json()
     } catch {
-      return NextResponse.json({ error: 'Body non valido' }, { status: 400 })
+      return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers })
     }
 
     const { username, display_name, bio, avatar_url } = body
-
-    // Validazione
     const errors: Record<string, string> = {}
 
     if (username !== undefined) {
@@ -116,10 +101,9 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (Object.keys(errors).length > 0) {
-      return NextResponse.json({ error: 'Dati non validi', errors }, { status: 422 })
+      return NextResponse.json({ error: 'Dati non validi', errors }, { status: 422, headers: rl.headers })
     }
 
-    // Sanitizzazione
     const updateData: Record<string, string | null> = {
       updated_at: new Date().toISOString(),
     }
@@ -128,7 +112,6 @@ export async function PATCH(request: NextRequest) {
       updateData.username = (username as string).trim().toLowerCase()
     }
     if (display_name !== undefined) {
-      // Rimuove tag HTML e tronca
       updateData.display_name = (display_name as string)
         .trim()
         .replace(/<[^>]*>/g, '')
@@ -150,18 +133,16 @@ export async function PATCH(request: NextRequest) {
       .eq('id', user.id)
 
     if (error) {
-      // Constraint violation username duplicato
       if (error.code === '23505' || error.message?.includes('profiles_username')) {
         return NextResponse.json(
           { error: 'Username già in uso', errors: { username: 'Username già in uso' } },
-          { status: 409 }
+          { status: 409, headers: rl.headers }
         )
       }
-      // Constraint check (lunghezza, regex)
       if (error.code === '23514') {
         return NextResponse.json(
           { error: 'Dati non validi per il database', errors: {} },
-          { status: 422 }
+          { status: 422, headers: rl.headers }
         )
       }
       throw error
@@ -173,6 +154,6 @@ export async function PATCH(request: NextRequest) {
     )
   } catch (err) {
     logger.error('[Profile Update]', err)
-    return NextResponse.json({ error: 'Errore interno' }, { status: 500 })
+    return NextResponse.json({ error: 'Errore interno' }, { status: 500, headers: rl.headers })
   }
 }

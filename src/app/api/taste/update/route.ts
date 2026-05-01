@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 import { checkOrigin } from '@/lib/csrf'
 
 type DeltaAction = 'rating' | 'status_change' | 'wishlist_add' | 'rewatch' | 'progress'
@@ -69,7 +69,7 @@ function sentimentDelta(newRating: number, prevRating?: number): number {
 }
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 120, windowMs: 60_000, prefix: 'taste-delta' })
+  const rl = await rateLimitAsync(request, { limit: 120, windowMs: 60_000, prefix: 'taste-delta' })
   if (!rl.ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429, headers: rl.headers })
   if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 
@@ -103,7 +103,6 @@ export async function POST(request: NextRequest) {
   if (status && !STATUSES.has(status)) return NextResponse.json({ ok: false, error: 'Status non valido' }, { status: 400, headers: rl.headers })
   if (prevStatus && !STATUSES.has(prevStatus)) return NextResponse.json({ ok: false, error: 'Status precedente non valido' }, { status: 400, headers: rl.headers })
 
-  // Leggi profilo corrente
   const { data: existing } = await supabase
     .from('user_taste_profile')
     .select('genre_scores, creator_scores, deep_signals, negative_genres, entry_count')
@@ -114,7 +113,6 @@ export async function POST(request: NextRequest) {
   const negativeGenres: Record<string, number> = (existing?.negative_genres as any) || {}
   const entryCount = (existing?.entry_count || 0)
 
-  // Calcola delta in base all'azione
   let delta = 0
   let isNegativeDelta = false
 
@@ -122,7 +120,7 @@ export async function POST(request: NextRequest) {
     case 'rating': {
       if (rating !== undefined) {
         const diff = sentimentDelta(rating, prevRating)
-        delta = diff * 5 // peso fisso per aggiornamento incrementale
+        delta = diff * 5
         if (rating <= 2) isNegativeDelta = true
       }
       break
@@ -135,18 +133,15 @@ export async function POST(request: NextRequest) {
       break
     }
     case 'wishlist_add': {
-      // Wishlist: peso fisso 12, no decay
       delta = 12
       break
     }
     case 'rewatch': {
-      // Rewatch è un segnale fortissimo
       const rc = rewatchCount || 1
       delta = rc >= 2 ? 25 : 15
       break
     }
     case 'progress': {
-      // Piccolo boost per aggiornamento progresso
       delta = 1
       break
     }
@@ -154,7 +149,6 @@ export async function POST(request: NextRequest) {
 
   if (Math.abs(delta) < 0.5) return NextResponse.json({ ok: true, noChange: true }, { headers: rl.headers })
 
-  // Applica il delta ai generi
   for (const genre of genres) {
     if (isNegativeDelta) {
       negativeGenres[genre] = (negativeGenres[genre] || 0) + Math.abs(delta)
@@ -164,7 +158,6 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Scrivi profilo aggiornato
   await supabase.from('user_taste_profile').upsert({
     user_id: user.id,
     genre_scores: genreScores,
@@ -173,8 +166,6 @@ export async function POST(request: NextRequest) {
     entry_count: action === 'status_change' && status === 'completed' ? entryCount + 1 : entryCount,
   }, { onConflict: 'user_id' })
 
-  // Invalida recommendations_cache per il tipo coinvolto (sempre)
-  // recommendations_pool viene invalidato solo per azioni di consumo forte (non wishlist)
   if (mediaType) {
     const poolInvalidatingActions: DeltaAction[] = ['status_change', 'rewatch']
     const invalidations: any[] = [
@@ -196,18 +187,13 @@ export async function POST(request: NextRequest) {
     await Promise.all(invalidations)
   }
 
-  // Invalida anche per azioni che toccano il profilo in modo cross-type
-  // (rating alto o dropped → possono cambiare i generi dominanti globali)
   if (action === 'rating' && delta && Math.abs(delta) >= 8) {
-    // Rating molto impattante → svuota tutto il pool per forzare rigenerazione completa
     await supabase
       .from('recommendations_pool')
       .delete()
       .eq('user_id', user.id)
   }
 
-  // Fix 3.1: snapshot settimanale del profilo in user_taste_history
-  // Solo se il delta è significativo (non per ogni piccola modifica)
   if (Math.abs(delta) >= 5) {
     const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
     const { data: lastSnapshot } = await supabase
@@ -220,7 +206,6 @@ export async function POST(request: NextRequest) {
 
     const shouldSnapshot = !lastSnapshot || lastSnapshot.created_at < weekAgo
     if (shouldSnapshot) {
-      // Leggi il profilo completo appena aggiornato
       const { data: fullProfile } = await supabase
         .from('user_taste_profile')
         .select('genre_scores, negative_genres, entry_count')

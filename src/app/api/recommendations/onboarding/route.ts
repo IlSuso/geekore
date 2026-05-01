@@ -1,28 +1,17 @@
 // DESTINAZIONE: src/app/api/recommendations/onboarding/route.ts
-//
-// Fast path DEDICATO all'onboarding.
-// Bypassa completamente il taste engine (profilo vuoto = nessun segnale).
-// Fa fetch parallele alle API esterne usando endpoint "top by popularity/score"
-// e restituisce fino a 50 titoli per tipo nel minor tempo possibile.
-// Poi triggers il build del master pool in background via /api/recommendations?refresh=1
-//
-// Categorie: anime | manga | movie | tv | game
-// Query param ?types=anime,manga,... → filtra le categorie richieste
-// Nessun ?types → tutte e 5 le categorie
+// Fast path dedicato all'onboarding.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 import { logger } from '@/lib/logger'
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
 const ANILIST_GQL = 'https://graphql.anilist.co'
 const IGDB_GAMES = 'https://api.igdb.com/v4/games'
 const IGDB_TOKEN_URL = 'https://id.twitch.tv/oauth2/token'
-
 const TARGET_PER_TYPE = 50
 
-// ── IGDB token cache (module-level) ──────────────────────────────────────────
 let _igdbToken: { token: string; expiresAt: number } | null = null
 
 async function getIgdbToken(clientId: string, secret: string): Promise<string | null> {
@@ -32,6 +21,7 @@ async function getIgdbToken(clientId: string, secret: string): Promise<string | 
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ client_id: clientId, client_secret: secret, grant_type: 'client_credentials' }),
+      signal: AbortSignal.timeout(6000),
     })
     const data = await res.json()
     if (!data.access_token) return null
@@ -40,8 +30,8 @@ async function getIgdbToken(clientId: string, secret: string): Promise<string | 
   } catch { return null }
 }
 
-// ── Fetcher: Anime (TMDB — serie animate giapponesi, top popularity) ──────────
 async function fetchAnimeQuick(token: string): Promise<any[]> {
+  if (!token) return []
   const results: any[] = []
   const seen = new Set<string>()
   const pages = [1, 2, 3]
@@ -78,16 +68,14 @@ async function fetchAnimeQuick(token: string): Promise<any[]> {
           matchScore: Math.round((m.popularity || 0) / 10),
         })
       }
-    } catch { /* continua */ }
+    } catch {}
   }))
 
   return results.slice(0, TARGET_PER_TYPE)
 }
 
-// ── Fetcher: Manga (AniList — top manga per popolarità) ───────────────────────
 async function fetchMangaQuick(): Promise<any[]> {
   const results: any[] = []
-
   const query = `
     query ($page: Int) {
       Page(page: $page, perPage: 25) {
@@ -113,9 +101,10 @@ async function fetchMangaQuick(): Promise<any[]> {
       const media = json.data?.Page?.media || []
       for (const m of media) {
         const title = m.title?.italian || m.title?.english || m.title?.romaji || 'Senza titolo'
-        const id = `anilist-manga-${m.id}`
         results.push({
-          id, title, type: 'manga',
+          id: `anilist-manga-${m.id}`,
+          title,
+          type: 'manga',
           coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
           year: m.startDate?.year,
           genres: m.genres || [],
@@ -125,14 +114,14 @@ async function fetchMangaQuick(): Promise<any[]> {
           matchScore: Math.round((m.popularity || 0) / 100),
         })
       }
-    } catch { /* continua */ }
+    } catch {}
   }))
 
   return results.slice(0, TARGET_PER_TYPE)
 }
 
-// ── Fetcher: Film (TMDB — top rated + popular) ────────────────────────────────
 async function fetchMovieQuick(token: string): Promise<any[]> {
+  if (!token) return []
   const results: any[] = []
   const seen = new Set<string>()
 
@@ -142,17 +131,8 @@ async function fetchMovieQuick(token: string): Promise<any[]> {
     { sort: 'vote_average.desc', page: 1 },
   ].map(async ({ sort, page }) => {
     try {
-      const params = new URLSearchParams({
-        sort_by: sort,
-        'vote_count.gte': '200',
-        'vote_average.gte': '6.5',
-        language: 'it-IT',
-        page: String(page),
-      })
-      const res = await fetch(`${TMDB_BASE}/discover/movie?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        signal: AbortSignal.timeout(6000),
-      })
+      const params = new URLSearchParams({ sort_by: sort, 'vote_count.gte': '200', 'vote_average.gte': '6.5', language: 'it-IT', page: String(page) })
+      const res = await fetch(`${TMDB_BASE}/discover/movie?${params}`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(6000) })
       if (!res.ok) return
       const json = await res.json()
       for (const m of (json.results || [])) {
@@ -161,24 +141,16 @@ async function fetchMovieQuick(token: string): Promise<any[]> {
         if (seen.has(id)) continue
         seen.add(id)
         const year = m.release_date ? parseInt(m.release_date.slice(0, 4)) : undefined
-        results.push({
-          id, title: m.title || 'Senza titolo', type: 'movie',
-          coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`,
-          year, genres: [],
-          score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
-          description: m.overview || undefined,
-          why: 'Film apprezzato dalla critica e dal pubblico',
-          matchScore: Math.round((m.popularity || 0) / 10),
-        })
+        results.push({ id, title: m.title || 'Senza titolo', type: 'movie', coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`, year, genres: [], score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined, description: m.overview || undefined, why: 'Film apprezzato dalla critica e dal pubblico', matchScore: Math.round((m.popularity || 0) / 10) })
       }
-    } catch { /* continua */ }
+    } catch {}
   }))
 
   return results.slice(0, TARGET_PER_TYPE)
 }
 
-// ── Fetcher: Serie TV (TMDB — top popular non-anime) ─────────────────────────
 async function fetchTvQuick(token: string): Promise<any[]> {
+  if (!token) return []
   const results: any[] = []
   const seen = new Set<string>()
 
@@ -188,19 +160,8 @@ async function fetchTvQuick(token: string): Promise<any[]> {
     { sort: 'vote_average.desc', page: 1 },
   ].map(async ({ sort, page }) => {
     try {
-      const params = new URLSearchParams({
-        sort_by: sort,
-        without_genres: '16',           // escludi animazione (anime)
-        without_keywords: '210024',     // escludi anime keyword TMDB
-        'vote_count.gte': '100',
-        'vote_average.gte': '6.5',
-        language: 'it-IT',
-        page: String(page),
-      })
-      const res = await fetch(`${TMDB_BASE}/discover/tv?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        signal: AbortSignal.timeout(6000),
-      })
+      const params = new URLSearchParams({ sort_by: sort, without_genres: '16', without_keywords: '210024', 'vote_count.gte': '100', 'vote_average.gte': '6.5', language: 'it-IT', page: String(page) })
+      const res = await fetch(`${TMDB_BASE}/discover/tv?${params}`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(6000) })
       if (!res.ok) return
       const json = await res.json()
       for (const m of (json.results || [])) {
@@ -209,45 +170,28 @@ async function fetchTvQuick(token: string): Promise<any[]> {
         if (seen.has(id)) continue
         seen.add(id)
         const year = m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined
-        results.push({
-          id, title: m.name || 'Senza titolo', type: 'tv',
-          coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`,
-          year, genres: [],
-          score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
-          description: m.overview || undefined,
-          why: 'Serie TV molto seguita',
-          matchScore: Math.round((m.popularity || 0) / 10),
-        })
+        results.push({ id, title: m.name || 'Senza titolo', type: 'tv', coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`, year, genres: [], score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined, description: m.overview || undefined, why: 'Serie TV molto seguita', matchScore: Math.round((m.popularity || 0) / 10) })
       }
-    } catch { /* continua */ }
+    } catch {}
   }))
 
   return results.slice(0, TARGET_PER_TYPE)
 }
 
-// ── Fetcher: Giochi (IGDB — top rated) ───────────────────────────────────────
 async function fetchGameQuick(clientId: string, secret: string): Promise<any[]> {
+  if (!clientId || !secret) return []
   const token = await getIgdbToken(clientId, secret)
   if (!token) return []
-
   const results: any[] = []
 
   await Promise.all([
-    `fields id,name,cover.url,genres.name,rating,rating_count,summary,first_release_date,involved_companies.company.name,involved_companies.developer;
-     where rating >= 75 & rating_count >= 200 & cover != null & themes != (42);
-     sort rating_count desc; limit 25;`,
-    `fields id,name,cover.url,genres.name,rating,rating_count,summary,first_release_date,involved_companies.company.name,involved_companies.developer;
-     where rating >= 70 & rating_count >= 100 & cover != null & themes != (42);
-     sort rating desc; limit 25;`,
+    `fields id,name,cover.url,genres.name,rating,rating_count,summary,first_release_date,involved_companies.company.name,involved_companies.developer; where rating >= 75 & rating_count >= 200 & cover != null & themes != (42); sort rating_count desc; limit 25;`,
+    `fields id,name,cover.url,genres.name,rating,rating_count,summary,first_release_date,involved_companies.company.name,involved_companies.developer; where rating >= 70 & rating_count >= 100 & cover != null & themes != (42); sort rating desc; limit 25;`,
   ].map(async (body) => {
     try {
       const res = await fetch(IGDB_GAMES, {
         method: 'POST',
-        headers: {
-          'Client-ID': clientId,
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'text/plain',
-        },
+        headers: { 'Client-ID': clientId, Authorization: `Bearer ${token}`, 'Content-Type': 'text/plain' },
         body,
         signal: AbortSignal.timeout(6000),
       })
@@ -256,37 +200,24 @@ async function fetchGameQuick(clientId: string, secret: string): Promise<any[]> 
       for (const g of games) {
         if (!g.cover?.url) continue
         const coverUrl = g.cover.url.replace('t_thumb', 't_cover_big_2x')
-        const id = `igdb-${g.id}`
-        const year = g.first_release_date
-          ? new Date(g.first_release_date * 1000).getFullYear()
-          : undefined
-        results.push({
-          id, title: g.name || 'Senza titolo', type: 'game',
-          coverImage: coverUrl.startsWith('//') ? `https:${coverUrl}` : coverUrl,
-          year, genres: (g.genres || []).map((gn: any) => gn.name).filter(Boolean),
-          score: g.rating ? Math.min(g.rating / 20, 5) : undefined,
-          description: g.summary ? g.summary.slice(0, 300) : undefined,
-          why: 'Titolo acclamato dai giocatori',
-          matchScore: Math.round((g.rating || 0)),
-        })
+        const year = g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : undefined
+        results.push({ id: `igdb-${g.id}`, title: g.name || 'Senza titolo', type: 'game', coverImage: coverUrl.startsWith('//') ? `https:${coverUrl}` : coverUrl, year, genres: (g.genres || []).map((gn: any) => gn.name).filter(Boolean), score: g.rating ? Math.min(g.rating / 20, 5) : undefined, description: g.summary ? g.summary.slice(0, 300) : undefined, why: 'Titolo acclamato dai giocatori', matchScore: Math.round((g.rating || 0)) })
       }
-    } catch { /* continua */ }
+    } catch {}
   }))
 
-  // Dedup per id
   const seen = new Set<string>()
   return results.filter(g => { if (seen.has(g.id)) return false; seen.add(g.id); return true }).slice(0, TARGET_PER_TYPE)
 }
 
-// ── Handler principale ────────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
-  try {
-    const rl = rateLimit(request, { limit: 20, windowMs: 60_000 })
-    if (!rl.ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  const rl = await rateLimitAsync(request, { limit: 20, windowMs: 60_000, prefix: 'recommendations:onboarding' })
+  if (!rl.ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429, headers: rl.headers })
 
+  try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
 
     const { searchParams } = new URL(request.url)
     const typesParam = searchParams.get('types')
@@ -298,7 +229,6 @@ export async function GET(request: NextRequest) {
     const igdbClientId = process.env.IGDB_CLIENT_ID || ''
     const igdbClientSecret = process.env.IGDB_CLIENT_SECRET || ''
 
-    // Lancia tutte le fetch in parallelo per i tipi richiesti
     const fetchMap: Record<string, () => Promise<any[]>> = {
       anime: () => fetchAnimeQuick(tmdbToken),
       manga: () => fetchMangaQuick(),
@@ -318,19 +248,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      recommendations,
-      source: 'onboarding_quick',
-      cached: false,
-    }, {
-      headers: {
-        'Cache-Control': 'no-store',
-        'X-Source': 'onboarding-quick',
-      }
+    return NextResponse.json({ recommendations, source: 'onboarding_quick', cached: false }, {
+      headers: { ...rl.headers, 'Cache-Control': 'no-store', 'X-Source': 'onboarding-quick' }
     })
-
   } catch (err) {
     logger.error('OnboardingQuick', 'error', err)
-    return NextResponse.json({ error: 'Errore interno' }, { status: 500 })
+    return NextResponse.json({ error: 'Errore interno' }, { status: 500, headers: rl.headers })
   }
 }

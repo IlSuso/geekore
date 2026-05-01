@@ -1,15 +1,9 @@
 // DESTINAZIONE: src/app/api/search/track/route.ts
-// ═══════════════════════════════════════════════════════════════════════════
 // V3: Search Intent Tracking
-// Registra le ricerche dell'utente per amplificare il profilo gusti.
-//
-// POST /api/search/track
-// Body: { query, media_type?, result_clicked_id?, result_clicked_type?, result_clicked_genres? }
-// ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 import { checkOrigin } from '@/lib/csrf'
 
 const MEDIA_TYPES = new Set(['anime', 'manga', 'game', 'movie', 'tv', 'book', 'boardgame'])
@@ -34,7 +28,7 @@ function cleanGenres(value: unknown): string[] {
 }
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 60, windowMs: 60_000, prefix: 'search-track' })
+  const rl = await rateLimitAsync(request, { limit: 60, windowMs: 60_000, prefix: 'search-track' })
   if (!rl.ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429, headers: rl.headers })
   if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 
@@ -59,7 +53,6 @@ export async function POST(request: NextRequest) {
     result_clicked_genres: cleanGenres(body?.result_clicked_genres),
   })
 
-  // Pulizia automatica vecchi record (max 500 per utente)
   Promise.resolve(
     supabase.rpc('cleanup_old_search_history', {
       p_user_id: user.id,
