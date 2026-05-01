@@ -1638,20 +1638,19 @@ export default function FeedPage() {
     } else { haptic(20) }
     // UI ottimistica immediata
     setPosts(prev => prev.map((p, i) => i === postIndex ? { ...p, likes_count: willLike ? p.likes_count + 1 : p.likes_count - 1, liked_by_user: willLike } : p))
-    // Insert/delete diretto (stesso pattern follow)
+    // La scrittura reale passa dall'API server-side; la UI resta ottimistica.
     if (willLike) {
-      const { data: likeData } = await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id }).select('id').single()
-      if (current.user_id !== currentUser.id && likeData?.id) {
-        await supabase.from('notifications').insert({ receiver_id: current.user_id, sender_id: currentUser.id, type: 'like', post_id: postId, like_id: likeData.id })
-        fetch('/api/social/like', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ post_id: postId }),
-        }).catch(() => {})
-      }
+      await fetch('/api/social/like', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: postId, action: 'like' }),
+      }).catch(() => {})
     } else {
-      // Il CASCADE su like_id cancella automaticamente la notifica
-      await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
+      await fetch('/api/social/like', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: postId, action: 'unlike' }),
+      }).catch(() => {})
     }
   }, [currentUser, posts, supabase])
 
@@ -1669,20 +1668,19 @@ export default function FeedPage() {
     } else { haptic(20) }
     // UI ottimistica immediata
     setPinnedPosts(prev => prev.map((p, i) => i === postIndex ? { ...p, likes_count: willLike ? p.likes_count + 1 : p.likes_count - 1, liked_by_user: willLike } : p))
-    // Insert/delete diretto (stesso pattern follow)
+    // La scrittura reale passa dall'API server-side; la UI resta ottimistica.
     if (willLike) {
-      const { data: likeData } = await supabase.from('likes').insert({ post_id: postId, user_id: currentUser.id }).select('id').single()
-      if (current.user_id !== currentUser.id && likeData?.id) {
-        await supabase.from('notifications').insert({ receiver_id: current.user_id, sender_id: currentUser.id, type: 'like', post_id: postId, like_id: likeData.id })
-        fetch('/api/social/like', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ post_id: postId }),
-        }).catch(() => {})
-      }
+      await fetch('/api/social/like', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: postId, action: 'like' }),
+      }).catch(() => {})
     } else {
-      // Il CASCADE su like_id cancella automaticamente la notifica
-      await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
+      await fetch('/api/social/like', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: postId, action: 'unlike' }),
+      }).catch(() => {})
     }
   }, [currentUser, pinnedPosts, supabase])
 
@@ -1699,14 +1697,25 @@ export default function FeedPage() {
     }
     setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments_count: p.comments_count + 1, comments: [newCommentTemp, ...p.comments] } : p))
     setPinnedPosts(prev => prev.map(p => p.id === postId ? { ...p, comments_count: p.comments_count + 1, comments: [newCommentTemp, ...p.comments] } : p))
-    const { data: commentData } = await supabase.from('comments').insert({ post_id: postId, user_id: currentUser.id, content: trimmedContent }).select('id').single()
-    if (post && post.user_id !== currentUser.id && commentData?.id) {
-      await supabase.from('notifications').insert({ receiver_id: post.user_id, sender_id: currentUser.id, type: 'comment', post_id: postId, comment_id: commentData.id })
-      fetch('/api/social/comment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ post_id: postId }),
-      }).catch(() => {})
+    const res = await fetch('/api/social/comment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post_id: postId, content: trimmedContent }),
+    }).catch(() => null)
+
+    if (!res?.ok) {
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments_count: Math.max(0, p.comments_count - 1), comments: p.comments.filter(c => c.id !== newCommentTemp.id) } : p))
+      setPinnedPosts(prev => prev.map(p => p.id === postId ? { ...p, comments_count: Math.max(0, p.comments_count - 1), comments: p.comments.filter(c => c.id !== newCommentTemp.id) } : p))
+      return
+    }
+
+    const data = await res.json()
+    if (data?.comment?.id) {
+      const replaceTemp = (p: Post) => p.id === postId
+        ? { ...p, comments: p.comments.map(c => c.id === newCommentTemp.id ? { ...c, id: data.comment.id, created_at: data.comment.created_at } : c) }
+        : p
+      setPosts(prev => prev.map(replaceTemp))
+      setPinnedPosts(prev => prev.map(replaceTemp))
     }
   }, [currentUser, currentProfile, posts, pinnedPosts, supabase])
 

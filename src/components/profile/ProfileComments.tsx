@@ -94,15 +94,16 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
     const draft = newComment.trim()
     setNewComment('')
 
-    const { data: inserted, error } = await supabase
-      .from('profile_comments')
-      .insert({ profile_id: profileId, author_id: currentUserId, content: draft })
-      .select('id, content, created_at, author_id')
-      .single()
+    const res = await fetch('/api/social/profile-comment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile_id: profileId, content: draft }),
+    }).catch(() => null)
 
-    if (error || !inserted) {
+    if (!res?.ok) {
       setComments(prev => prev.filter(c => c.id !== optimistic.id))
     } else {
+      const { comment: inserted } = await res.json()
       const { data: authorProfile } = await supabase
         .from('profiles').select('username, display_name, avatar_url').eq('id', currentUserId).single()
       setComments(prev => prev.map(c =>
@@ -110,16 +111,6 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
           ? { ...inserted, author: authorProfile || { username: currentUsername || 'tu', display_name: undefined, avatar_url: undefined } }
           : c
       ))
-      if (profileId !== currentUserId) {
-        await supabase.from('notifications').insert({
-          receiver_id: profileId, sender_id: currentUserId, type: 'comment',
-        }).then(() => {})
-        fetch('/api/social/profile-comment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ profile_id: profileId }),
-        }).catch(() => {})
-      }
     }
     setPosting(false)
   }

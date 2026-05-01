@@ -130,24 +130,20 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
       setHasLiked(false)
       setLikesCount(prev => prev - 1)
       onLikeChange?.(post.id, -1)
-      await supabase.from('likes').delete().match({ user_id: user.id, post_id: post.id })
+      await fetch('/api/social/like', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: post.id, action: 'unlike' }),
+      }).catch(() => {})
     } else {
       setHasLiked(true)
       setLikesCount(prev => prev + 1)
       onLikeChange?.(post.id, 1)
-      // Inserisce like e notifica in-app direttamente (come ProfileComments)
-      await supabase.from('likes').insert([{ user_id: user.id, post_id: post.id }])
-      if (user.id !== post.user_id) {
-        await supabase.from('notifications').insert([{
-          type: 'like', sender_id: user.id, receiver_id: post.user_id, post_id: post.id,
-        }])
-        // Trigger push server-side (fire and forget)
-        fetch('/api/social/like', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ post_id: post.id, action: 'push_only' }),
-        }).catch(() => {})
-      }
+      await fetch('/api/social/like', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: post.id, action: 'like' }),
+      }).catch(() => {})
     }
   }
 
@@ -184,24 +180,16 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
     setIsSubmitting(true)
     haptic(30)
 
-    const { data, error } = await supabase
-      .from('comments')
-      .insert([{ content: newComment.trim(), post_id: post.id, user_id: user.id }])
-      .select('*, profiles(username, display_name, avatar_url, badge)')
-      .single()
+    const res = await fetch('/api/social/comment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post_id: post.id, content: newComment.trim() }),
+    }).catch(() => null)
 
-    if (!error && data) {
-      setComments(prev => [...prev, data])
-      if (user.id !== post.user_id) {
-        await supabase.from('notifications').insert([{
-          type: 'comment', sender_id: user.id, receiver_id: post.user_id, post_id: post.id,
-        }])
-        // Trigger push server-side (fire and forget)
-        fetch('/api/social/comment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ post_id: post.id, action: 'push_only' }),
-        }).catch(() => {})
+    if (res?.ok) {
+      const data = await res.json()
+      if (data?.comment) {
+        setComments(prev => [...prev, data.comment])
       }
       setNewComment('')
       setCommentCharCount(0)

@@ -39,11 +39,18 @@ export function FollowBackButton({
     if (!currentUserId || loading) return
     setLoading(true)
     if (isFollowing) {
-      await supabase.from('follows').delete()
-        .eq('follower_id', currentUserId).eq('following_id', targetId)
+      await fetch('/api/social/follow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_id: targetId, action: 'unfollow' }),
+      }).catch(() => {})
       setIsFollowing(false)
     } else {
-      await supabase.from('follows').insert({ follower_id: currentUserId, following_id: targetId })
+      await fetch('/api/social/follow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_id: targetId, action: 'follow' }),
+      }).catch(() => {})
       setIsFollowing(true)
     }
     setLoading(false)

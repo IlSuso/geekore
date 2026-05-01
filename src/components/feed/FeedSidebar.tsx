@@ -149,8 +149,11 @@ function SuggestedUsersCompact({ currentUserId }: { currentUserId: string }) {
   }, [currentUserId])
 
   const handleFollow = async (userId: string) => {
-    const supabase = createClient()
-    await supabase.from('follows').insert({ follower_id: currentUserId, following_id: userId })
+    await fetch('/api/social/follow', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target_id: userId, action: 'follow' }),
+    }).catch(() => {})
     setFollowed(prev => new Set([...prev, userId]))
   }
 

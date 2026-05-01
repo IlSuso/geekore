@@ -1,4 +1,3 @@
-// src/app/api/social/follow/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
@@ -21,14 +20,23 @@ export async function POST(request: NextRequest) {
   if (target_id === user.id) return NextResponse.json({ success: true })
   if (action !== 'follow' && action !== 'unfollow') return NextResponse.json({ error: 'action non valida' }, { status: 400 })
 
-  const service = createServiceClient()
+  const service = createServiceClient('social:follow')
 
   if (action === 'follow') {
-    await service.from('follows').insert({ follower_id: user.id, following_id: target_id })
-    await service.from('notifications').insert({ type: 'follow', sender_id: user.id, receiver_id: target_id })
+    const { data: existing } = await service
+      .from('follows')
+      .select('follower_id')
+      .eq('follower_id', user.id)
+      .eq('following_id', target_id)
+      .maybeSingle()
+
+    if (!existing) {
+      await service.from('follows').insert({ follower_id: user.id, following_id: target_id })
+      await service.from('notifications').insert({ type: 'follow', sender_id: user.id, receiver_id: target_id })
+    }
+
     const { data: sender } = await service.from('profiles').select('username').eq('id', user.id).single()
     if (sender?.username) {
-      // type='follow', contextId=sender_id → max 1 push ogni 5 minuti per mittente
       await sendPushToUser(target_id, followPayload(sender.username), 'follow', user.id)
     }
   } else {
@@ -36,5 +44,5 @@ export async function POST(request: NextRequest) {
     await service.from('notifications').delete().eq('type', 'follow').eq('sender_id', user.id).eq('receiver_id', target_id)
   }
 
-  return NextResponse.json({ success: true }, { headers: rl.headers })
+  return NextResponse.json({ success: true, following: action === 'follow' }, { headers: rl.headers })
 }
