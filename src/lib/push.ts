@@ -39,7 +39,7 @@ async function checkAndUpdateRateLimit(
   type: string,
   contextId: string | null
 ): Promise<boolean> {
-  const supabase = createServiceClient()
+  const supabase = createServiceClient('push:rate-limit')
   const windowMinutes = RATE_LIMIT_MINUTES[type] ?? 10
   const windowMs = windowMinutes * 60 * 1000
 
@@ -96,7 +96,7 @@ export async function sendPushToUser(
     }
   }
 
-  const supabase = createServiceClient()
+  const supabase = createServiceClient('push:send-to-user')
 
   const { data: subscriptions, error: dbError } = await supabase
     .from('push_subscriptions')
@@ -118,7 +118,7 @@ export async function sendPushToUser(
   const expiredEndpoints: string[] = []
 
   await Promise.allSettled(
-    subscriptions.map(async (sub, i) => {
+    subscriptions.map(async (sub) => {
       try {
         await webpush.sendNotification(
           {
@@ -131,13 +131,12 @@ export async function sendPushToUser(
           JSON.stringify(payload),
           { TTL: 60 * 60 * 24 }
         )
-        logger.info(tag, 'Push inviata', { index: i + 1 })
       } catch (err: any) {
         if (err.statusCode === 410 || err.statusCode === 404) {
           logger.warn(tag, 'Subscription scaduta, verrà rimossa', { statusCode: err.statusCode })
           expiredEndpoints.push(sub.endpoint)
         } else {
-          logger.error(tag, 'Errore invio push', { index: i + 1, statusCode: err.statusCode, message: err.message })
+          logger.error(tag, 'Errore invio push', { statusCode: err.statusCode, message: err.message })
         }
       }
     })
