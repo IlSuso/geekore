@@ -495,7 +495,8 @@ export default function OnboardingPage() {
 
               <button
                 onClick={() => setStep(1)}
-                className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-semibold text-lg transition-all flex items-center justify-center gap-2 shadow-lg shadow-violet-500/20"
+                className="w-full py-4 rounded-2xl font-semibold text-lg transition-all flex items-center justify-center gap-2"
+                style={{ background: '#E6FF3D', color: '#0B0B0F' }}
               >
                 Inizia <ArrowRight size={20} />
               </button>
@@ -521,8 +522,8 @@ export default function OnboardingPage() {
                       <Icon size={19} style={sel ? { color } : {}} />
                       <span className="font-medium text-sm">{label}</span>
                       {sel && (
-                        <div className="absolute top-2 right-2 w-5 h-5 bg-violet-500 rounded-full flex items-center justify-center shadow-sm shadow-violet-500/50">
-                          <Check size={11} className="text-white" strokeWidth={3} />
+                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+                          <Check size={11} className="text-black" strokeWidth={3} />
                         </div>
                       )}
                     </button>
@@ -541,8 +542,8 @@ export default function OnboardingPage() {
                       <Icon size={19} style={sel ? { color } : {}} />
                       <span className="font-medium text-sm">{label}</span>
                       {sel && (
-                        <div className="absolute top-2 right-2 w-5 h-5 bg-violet-500 rounded-full flex items-center justify-center shadow-sm shadow-violet-500/50">
-                          <Check size={11} className="text-white" strokeWidth={3} />
+                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+                          <Check size={11} className="text-black" strokeWidth={3} />
                         </div>
                       )}
                     </button>
@@ -557,7 +558,8 @@ export default function OnboardingPage() {
                   Indietro
                 </button>
                 <button onClick={goToSwipe} disabled={!poolReady}
-                  className="flex-1 py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 disabled:opacity-50 disabled:cursor-wait rounded-2xl font-semibold transition-all flex items-center justify-center gap-2">
+                  className="flex-1 py-4 disabled:opacity-50 disabled:cursor-wait rounded-2xl font-semibold transition-all flex items-center justify-center gap-2"
+                  style={{ background: '#E6FF3D', color: '#0B0B0F' }}>
                   {!poolReady ? (
                     <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Caricamento titoli…</>
                   ) : (

@@ -122,9 +122,10 @@ export default function WishlistPage() {
                     onClick={() => setActiveFilter(type)}
                     className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
                       activeFilter === type
-                        ? 'bg-violet-600 text-white'
+                        ? ''
                         : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
                     }`}
+                    style={activeFilter === type ? { background: '#E6FF3D', color: '#0B0B0F' } : {}}
                   >
                     {cfg && <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />}
                     {type === 'all' ? 'Tutti' : cfg?.label || type}

@@ -129,7 +129,8 @@ function ConfirmContent() {
                   <button
                     onClick={handleResend}
                     disabled={resendStatus === 'sending'}
-                    className="w-full py-3 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-2xl font-semibold transition flex items-center justify-center gap-2"
+                    className="w-full py-3 disabled:opacity-50 rounded-2xl font-semibold transition flex items-center justify-center gap-2"
+                    style={{ background: '#E6FF3D', color: '#0B0B0F' }}
                   >
                     {resendStatus === 'sending' ? (
                       <><Loader2 size={16} className="animate-spin" /> Invio in corso...</>
@@ -141,7 +142,8 @@ function ConfirmContent() {
               ) : (
                 <a
                   href="/register"
-                  className="w-full py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl font-semibold transition"
+                  className="w-full py-3 rounded-2xl font-semibold transition"
+                  style={{ background: '#E6FF3D', color: '#0B0B0F' }}
                 >
                   Registrati di nuovo
                 </a>

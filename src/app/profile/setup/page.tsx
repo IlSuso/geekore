@@ -222,7 +222,8 @@ export default function ProfileSetupPage() {
           <button
             type="submit"
             disabled={!canSubmit}
-            className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-semibold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+            className="w-full py-4 rounded-2xl font-semibold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+            style={{ background: '#E6FF3D', color: '#0B0B0F' }}
           >
             {saving ? (
               <><Loader2 size={20} className="animate-spin" /> Salvataggio...</>

@@ -157,7 +157,8 @@ export default async function TrendingPage() {
           <p className="text-zinc-400 text-sm mb-4">Curiosi di quanto tempo hai sprecato tu?</p>
           <Link
             href="/stats"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl font-semibold text-sm transition"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl font-semibold text-sm transition"
+            style={{ background: '#E6FF3D', color: '#0B0B0F' }}
           >
             <TrendingUp size={16} />
             Calcola il tuo tempo sprecato

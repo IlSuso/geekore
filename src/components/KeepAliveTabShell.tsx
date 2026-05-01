@@ -18,15 +18,16 @@ import FeedPage     from '@/app/home/page'
 import DiscoverPage from '@/app/discover/page'
 import ForYouPage   from '@/app/for-you/page'
 import SwipePage    from '@/app/swipe/page'
+import LibraryPage  from '@/app/library/page'
 import ProfilePage  from '@/app/profile/[username]/page'
 import { swipeNavBridge } from '@/hooks/swipeNavBridge'
 import { ScrollPanelContext } from '@/context/ScrollPanelContext'
 import { TabActiveContext } from '@/context/TabActiveContext'
 
-type KATab = 'feed' | 'discover' | 'for-you' | 'swipe' | 'profile'
+type KATab = 'feed' | 'discover' | 'for-you' | 'swipe' | 'library' | 'profile'
 
-const ALL_TABS: KATab[] = ['feed', 'discover', 'for-you', 'swipe', 'profile']
-const TAB_IDX_TO_KA: Array<KATab | null> = ['feed', 'discover', 'for-you', 'swipe', 'profile']
+const ALL_TABS: KATab[] = ['feed', 'for-you', 'library', 'discover', 'profile']
+const TAB_IDX_TO_KA: Array<KATab | null> = ['feed', 'for-you', 'library', 'discover', 'profile']
 
 const HEADER_H_PX  = 53
 const HEADER_TOP   = `calc(env(safe-area-inset-top, 0px) + ${HEADER_H_PX}px)`
@@ -57,6 +58,7 @@ function getKATab(pathname: string): KATab | null {
   if (pathname === '/discover') return 'discover'
   if (pathname === '/for-you') return 'for-you'
   if (pathname === '/swipe') return 'swipe'
+  if (pathname === '/library') return 'library'
   if (pathname.startsWith('/profile/') && pathname.split('/').length === 3) return 'profile'
   return null
 }
@@ -489,6 +491,12 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
       <Activity mode={activityMode('swipe')}>
         <PanelWrapper divRef={panelRefs.current['swipe']} isActive={tab === 'swipe'} style={getPanelStyle('swipe')}>
           {shouldMount('swipe') && <SwipePage />}
+        </PanelWrapper>
+      </Activity>
+
+      <Activity mode={activityMode('library')}>
+        <PanelWrapper divRef={panelRefs.current['library']} isActive={tab === 'library'} style={getPanelStyle('library')}>
+          {shouldMount('library') && <LibraryPage />}
         </PanelWrapper>
       </Activity>
 

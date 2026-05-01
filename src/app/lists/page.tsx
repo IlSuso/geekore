@@ -131,7 +131,8 @@ function ListModal({
           <button
             onClick={handleSave}
             disabled={!title.trim() || saving}
-            className="flex-1 py-3 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-2xl font-medium transition flex items-center justify-center gap-2"
+            className="flex-1 py-3 disabled:opacity-50 rounded-2xl font-semibold transition flex items-center justify-center gap-2"
+            style={{ background: '#E6FF3D', color: '#0B0B0F' }}
           >
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
             {list ? 'Salva' : 'Crea'}
@@ -261,7 +262,7 @@ export default function ListsPage() {
           <List size={48} className="mx-auto mb-4 text-zinc-600" />
           <h1 className="text-2xl font-bold mb-3">Le tue liste</h1>
           <p className="text-zinc-400 mb-6">Accedi per creare liste personalizzate</p>
-          <Link href="/login" className="px-3 sm:px-4 md:px-6 py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl font-semibold transition">
+          <Link href="/login" className="px-3 sm:px-4 md:px-6 py-3 rounded-2xl font-semibold transition" style={{ background: '#E6FF3D', color: '#0B0B0F' }}>
             Accedi
           </Link>
         </div>
@@ -280,7 +281,8 @@ export default function ListsPage() {
           </div>
           <button
             onClick={() => { setEditingList(undefined); setShowModal(true) }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-2xl font-medium text-sm transition"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl font-medium text-sm transition"
+            style={{ background: '#E6FF3D', color: '#0B0B0F' }}
           >
             <Plus size={16} />
             Nuova lista
@@ -302,7 +304,8 @@ export default function ListsPage() {
             </p>
             <button
               onClick={() => setShowModal(true)}
-              className="px-3 sm:px-4 md:px-6 py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl font-semibold transition"
+              className="px-3 sm:px-4 md:px-6 py-3 rounded-2xl font-semibold transition"
+            style={{ background: '#E6FF3D', color: '#0B0B0F' }}
             >
               Crea la prima lista
             </button>

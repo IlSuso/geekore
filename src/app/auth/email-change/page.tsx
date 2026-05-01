@@ -89,7 +89,8 @@ function EmailChangeContent() {
             <div className="flex flex-col gap-3">
               <a
                 href="/settings/profile"
-                className="w-full py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl font-semibold transition"
+                className="w-full py-3 rounded-2xl font-semibold transition"
+                style={{ background: '#E6FF3D', color: '#0B0B0F' }}
               >
                 Torna alle impostazioni
               </a>

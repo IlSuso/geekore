@@ -187,7 +187,8 @@ function Slide5({ data, onShare }: { data: WrappedData; onShare: () => void }) {
         </div>
         <button
           onClick={onShare}
-          className="flex items-center gap-2 mx-auto px-8 py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-2xl font-bold text-white text-sm hover:brightness-110 transition-all"
+          className="flex items-center gap-2 mx-auto px-8 py-4 rounded-2xl font-bold text-sm transition-all"
+          style={{ background: '#E6FF3D', color: '#0B0B0F' }}
         >
           <Share2 size={16} />
           Condividi il tuo Wrapped

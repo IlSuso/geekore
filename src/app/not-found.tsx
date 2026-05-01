@@ -73,7 +73,8 @@ export default function NotFound() {
       <div className="flex flex-wrap gap-3 justify-center">
         <Link
           href="/home"
-          className="flex items-center gap-2 px-6 py-3 bg-violet-600 hover:bg-violet-500 rounded-full font-semibold transition-all hover:scale-105 text-sm"
+          className="flex items-center gap-2 px-6 py-3 rounded-full font-semibold transition-all hover:scale-105 text-sm"
+          style={{ background: '#E6FF3D', color: '#0B0B0F' }}
         >
           <Home size={16} /> Home
         </Link>

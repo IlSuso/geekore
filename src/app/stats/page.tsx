@@ -207,7 +207,7 @@ export default function StatsPage() {
           <Clock size={48} className="mx-auto mb-4 text-violet-400 opacity-50" />
           <p className="text-xl font-semibold mb-2">Accedi per vedere le tue statistiche</p>
           <p className="text-zinc-500 mb-6">Traccia la tua collezione e scopri quanto tempo hai "sprecato"</p>
-          <Link href="/login" className="px-6 py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl font-semibold transition-all">Accedi</Link>
+          <Link href="/login" className="px-6 py-3 rounded-2xl font-semibold transition-all" style={{ background: '#E6FF3D', color: '#0B0B0F' }}>Accedi</Link>
         </div>
       </div>
     )

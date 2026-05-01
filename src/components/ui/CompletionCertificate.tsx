@@ -271,7 +271,8 @@ export function CompletionCertificate(props: CertificateProps) {
           </button>
           <button
             onClick={handleGenerate}
-            className="flex-1 flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl text-sm font-semibold text-white transition-all"
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold transition-all"
+            style={{ background: '#E6FF3D', color: '#0B0B0F' }}
           >
             <Share2 size={14} />
             Condividi

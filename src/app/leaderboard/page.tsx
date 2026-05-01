@@ -77,7 +77,8 @@ export default function LeaderboardPage() {
             <button
               key={id}
               onClick={() => setTab(id as 'score' | 'game_hours' | 'anime_count')}
-              className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${tab === id ? 'bg-violet-600 text-white' : 'text-zinc-400 hover:text-white'}`}
+              className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${tab === id ? '' : 'text-zinc-400 hover:text-white'}`}
+              style={tab === id ? { background: '#E6FF3D', color: '#0B0B0F' } : {}}
             >
               {label}
             </button>

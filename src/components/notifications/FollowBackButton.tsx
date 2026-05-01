@@ -60,10 +60,9 @@ export function FollowBackButton({
     <button
       onClick={toggle} disabled={loading}
       className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all ${
-        isFollowing
-          ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 border border-zinc-700'
-          : 'bg-violet-600 text-white hover:bg-violet-500'
+        isFollowing ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 border border-zinc-700' : ''
       }`}
+      style={!isFollowing ? { background: '#E6FF3D', color: '#0B0B0F' } : {}}
     >
       {loading ? '…' : isFollowing ? t.follow.following : t.follow.follow}
     </button>

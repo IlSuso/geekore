@@ -196,12 +196,14 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
             </button>
             {step < totalSteps ? (
               <button onClick={() => setStep(s => s + 1)}
-                className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-2xl text-sm font-semibold text-white transition-all">
+                className="flex-1 py-2.5 rounded-2xl text-sm font-semibold transition-all"
+                style={{ background: '#E6FF3D', color: '#0B0B0F' }}>
                 Avanti →
               </button>
             ) : (
               <button onClick={save} disabled={saving}
-                className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-2xl text-sm font-semibold text-white transition-all">
+                className="flex-1 py-2.5 disabled:opacity-50 rounded-2xl text-sm font-semibold transition-all"
+                style={{ background: '#E6FF3D', color: '#0B0B0F' }}>
                 {saving ? 'Salvo...' : fy.prefsSave}
               </button>
             )}

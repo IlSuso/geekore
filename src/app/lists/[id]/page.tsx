@@ -231,7 +231,8 @@ export default function ListDetailPage() {
               {isOwner && (
                 <button
                   onClick={() => setShowAddPanel(v => !v)}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-xl text-sm font-medium transition"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition"
+                  style={{ background: '#E6FF3D', color: '#0B0B0F' }}
                 >
                   <Plus size={14} />
                   Aggiungi
