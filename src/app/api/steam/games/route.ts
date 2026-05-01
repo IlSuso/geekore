@@ -2,6 +2,7 @@ import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { checkOrigin } from '@/lib/csrf'
 
 const STEAM_API_KEY = process.env.STEAM_API_KEY
 const RATE_LIMIT_MAX = 3        // max utilizzi
@@ -56,7 +57,6 @@ async function fetchIgdbMetaBatch(
 
   for (let i = 0; i < gameNames.length; i += CHUNK) {
     const chunk = gameNames.slice(i, i + CHUNK)
-    // Normalizza i nomi: prova versione originale e lowercase per match più ampio
     const searchNames = chunk.map(n => `"${n.replace(/"/g, '').replace(/'/g, '')}"`).join(',')
 
     try {
@@ -105,8 +105,11 @@ async function fetchIgdbMetaBatch(
   return result
 }
 
-export async function GET(request: NextRequest) {
-  const steamid = request.nextUrl.searchParams.get('steamid')
+export async function POST(request: NextRequest) {
+  if (!checkOrigin(request)) return NextResponse.json({ success: false, error: 'Origin non consentito' }, { status: 403 })
+
+  const body = await request.json().catch(() => null)
+  const steamid = typeof body?.steamid === 'string' ? body.steamid.trim() : ''
 
   if (!steamid) {
     return NextResponse.json({ success: false, error: 'Missing steamid' }, { status: 400 })
@@ -328,4 +331,8 @@ export async function GET(request: NextRequest) {
       'Cache-Control': 'no-cache',
     },
   })
+}
+
+export async function GET() {
+  return NextResponse.json({ success: false, error: 'Method not allowed' }, { status: 405 })
 }
