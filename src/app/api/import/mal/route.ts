@@ -352,7 +352,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
 
   // ── Lettura file (prima dello stream) ────────────────────────────────────
   let xmlContent: string
@@ -361,28 +361,28 @@ export async function POST(request: NextRequest) {
   if (contentType.includes('multipart/form-data')) {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
-    if (!file) return NextResponse.json({ error: 'File non trovato' }, { status: 400 })
-    if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: 'File troppo grande (max 5MB)' }, { status: 400 })
+    if (!file) return NextResponse.json({ error: 'File non trovato' }, { status: 400, headers: rl.headers })
+    if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: 'File troppo grande (max 5MB)' }, { status: 400, headers: rl.headers })
     xmlContent = await file.text()
   } else {
     let body: any
     try { body = await request.json() } catch {
-      return NextResponse.json({ error: 'Body non valido' }, { status: 400 })
+      return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers })
     }
     xmlContent = body?.xml || ''
   }
 
   if (!xmlContent || !xmlContent.includes('<myanimelist>')) {
-    return NextResponse.json({ error: "File non valido. Carica l'export XML di MyAnimeList." }, { status: 400 })
+    return NextResponse.json({ error: "File non valido. Carica l'export XML di MyAnimeList." }, { status: 400, headers: rl.headers })
   }
 
   let parsed: ReturnType<typeof parseMALXML>
   try { parsed = parseMALXML(xmlContent) } catch (e: any) {
-    return NextResponse.json({ error: `Errore nel parsing XML: ${e.message}` }, { status: 422 })
+    return NextResponse.json({ error: `Errore nel parsing XML: ${e.message}` }, { status: 422, headers: rl.headers })
   }
 
   if (parsed.animeList.length === 0 && parsed.mangaList.length === 0) {
-    return NextResponse.json({ error: 'Nessun titolo trovato nel file.' }, { status: 422 })
+    return NextResponse.json({ error: 'Nessun titolo trovato nel file.' }, { status: 422, headers: rl.headers })
   }
 
   // ── Streaming response ────────────────────────────────────────────────────
@@ -456,6 +456,7 @@ export async function POST(request: NextRequest) {
       'Content-Type': 'text/plain; charset=utf-8',
       'X-Content-Type-Options': 'nosniff',
       'Cache-Control': 'no-cache',
+      ...Object.fromEntries(rl.headers.entries()),
     },
   })
 }
