@@ -4,7 +4,11 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/context/AuthContext'
-import { Film, Tv, Gamepad2, Swords, Layers, Dices, Star, Clock, CheckCircle, BookOpen, PauseCircle, XCircle } from 'lucide-react'
+import {
+  Film, Tv, Gamepad2, Swords, Layers, Dices,
+  Star, Clock, CheckCircle, BookOpen, PauseCircle, XCircle,
+  LayoutGrid, List,
+} from 'lucide-react'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 
@@ -35,13 +39,17 @@ const TYPE_COLOR: Record<string, string> = {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-  watching:  { label: 'In corso',     icon: Clock,         color: 'text-sky-400' },
-  completed: { label: 'Completato',   icon: CheckCircle,   color: 'text-emerald-400' },
-  paused:    { label: 'In pausa',     icon: PauseCircle,   color: 'text-amber-400' },
-  dropped:   { label: 'Abbandonato', icon: XCircle,       color: 'text-red-400' },
-  reading:   { label: 'In lettura',  icon: BookOpen,      color: 'text-sky-400' },
-  planning:  { label: 'Pianificato', icon: Star,          color: 'text-zinc-400' },
+  watching:  { label: 'In corso',     icon: Clock,        color: 'text-sky-400' },
+  completed: { label: 'Completato',   icon: CheckCircle,  color: 'text-emerald-400' },
+  paused:    { label: 'In pausa',     icon: PauseCircle,  color: 'text-amber-400' },
+  dropped:   { label: 'Abbandonato', icon: XCircle,      color: 'text-red-400' },
+  reading:   { label: 'In lettura',  icon: BookOpen,     color: 'text-sky-400' },
+  planning:  { label: 'Pianificato', icon: Star,         color: 'text-zinc-400' },
 }
+
+const STATUS_ICON_MAP: Record<string, React.ElementType> = Object.fromEntries(
+  Object.entries(STATUS_CONFIG).map(([k, v]) => [k, v.icon])
+)
 
 const TYPES = [
   { id: 'all', label: 'Tutto' },
@@ -53,6 +61,16 @@ const TYPES = [
   { id: 'boardgame', label: 'Board' },
 ]
 
+const STATUS_FILTERS = [
+  { id: 'all', label: 'Tutti' },
+  { id: 'watching', label: 'In corso' },
+  { id: 'reading', label: 'Lettura' },
+  { id: 'completed', label: 'Completati' },
+  { id: 'planning', label: 'Pianificati' },
+  { id: 'paused', label: 'In pausa' },
+  { id: 'dropped', label: 'Abbandonati' },
+]
+
 export default function LibraryPage() {
   const router = useRouter()
   const authUser = useUser()
@@ -60,6 +78,8 @@ export default function LibraryPage() {
   const [entries, setEntries] = useState<MediaEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [activeType, setActiveType] = useState('all')
+  const [activeStatus, setActiveStatus] = useState('all')
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
   const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null)
 
   useEffect(() => {
@@ -76,20 +96,20 @@ export default function LibraryPage() {
       })
   }, [authUser]) // eslint-disable-line
 
-  const filtered = useMemo(() =>
-    activeType === 'all' ? entries : entries.filter(e => e.type === activeType),
-    [entries, activeType]
-  )
+  const filtered = useMemo(() => {
+    let result = activeType === 'all' ? entries : entries.filter(e => e.type === activeType)
+    if (activeStatus !== 'all') result = result.filter(e => e.status === activeStatus)
+    return result
+  }, [entries, activeType, activeStatus])
 
-  // Stats
   const stats = useMemo(() => ({
     total: entries.length,
     completed: entries.filter(e => e.status === 'completed').length,
     inProgress: entries.filter(e => e.status === 'watching' || e.status === 'reading').length,
   }), [entries])
 
-  // Group by status
   const grouped = useMemo((): { status: string; items: MediaEntry[] }[] => {
+    if (activeStatus !== 'all') return [{ status: activeStatus, items: filtered }]
     const order = ['watching', 'reading', 'completed', 'paused', 'dropped', 'planning']
     const groups: Record<string, MediaEntry[]> = {}
     for (const e of filtered) {
@@ -98,7 +118,7 @@ export default function LibraryPage() {
       groups[key].push(e)
     }
     return order.filter(k => groups[k]?.length).map(k => ({ status: k, items: groups[k] }))
-  }, [filtered])
+  }, [filtered, activeStatus])
 
   function openDrawer(entry: MediaEntry) {
     setDrawerMedia({
@@ -132,7 +152,7 @@ export default function LibraryPage() {
         </div>
 
         {/* Type filter chips */}
-        <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-none mb-6">
+        <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-none mb-3">
           {TYPES.map(t => {
             const isActive = activeType === t.id
             const color = t.id !== 'all' ? TYPE_COLOR[t.id] : undefined
@@ -153,23 +173,124 @@ export default function LibraryPage() {
           })}
         </div>
 
+        {/* Status filter + view toggle row */}
+        <div className="flex items-center gap-2 mb-6">
+          <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none flex-1">
+            {STATUS_FILTERS.map(s => {
+              const isActive = activeStatus === s.id
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setActiveStatus(s.id)}
+                  className="flex-shrink-0 px-3 py-1 rounded-xl text-[11px] font-semibold transition-all"
+                  style={{
+                    background: isActive ? 'rgba(230,255,61,0.12)' : 'transparent',
+                    color: isActive ? '#E6FF3D' : 'var(--text-muted)',
+                    border: `1px solid ${isActive ? 'rgba(230,255,61,0.4)' : 'transparent'}`,
+                  }}
+                >
+                  {s.label}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* View toggle */}
+          <div className="flex-shrink-0 flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <button
+              onClick={() => setViewMode('list')}
+              className="p-1.5 rounded-lg transition-all"
+              style={{ background: viewMode === 'list' ? '#E6FF3D' : 'transparent' }}
+            >
+              <List size={14} style={{ color: viewMode === 'list' ? '#0B0B0F' : 'var(--text-muted)' }} />
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              className="p-1.5 rounded-lg transition-all"
+              style={{ background: viewMode === 'grid' ? '#E6FF3D' : 'transparent' }}
+            >
+              <LayoutGrid size={14} style={{ color: viewMode === 'grid' ? '#0B0B0F' : 'var(--text-muted)' }} />
+            </button>
+          </div>
+        </div>
+
         {/* Content */}
         {loading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="h-16 rounded-2xl animate-pulse" style={{ background: 'var(--bg-card)' }} />
-            ))}
-          </div>
+          viewMode === 'grid' ? (
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+              {Array.from({ length: 15 }).map((_, i) => (
+                <div key={i} className="aspect-[2/3] rounded-xl animate-pulse" style={{ background: 'var(--bg-card)' }} />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="h-16 rounded-2xl animate-pulse" style={{ background: 'var(--bg-card)' }} />
+              ))}
+            </div>
+          )
         ) : filtered.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-[16px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
-              {entries.length === 0 ? 'Libreria vuota' : 'Nessun elemento in questa categoria'}
+              {entries.length === 0 ? 'Libreria vuota' : 'Nessun elemento trovato'}
             </p>
             <p className="text-[14px]" style={{ color: 'var(--text-muted)' }}>
-              Aggiungi media dalla sezione Scopri
+              {entries.length === 0 ? 'Aggiungi media dalla sezione Scopri' : 'Prova a cambiare i filtri'}
             </p>
           </div>
+        ) : viewMode === 'grid' ? (
+          /* ── GRID VIEW ─────────────────────────────── */
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+            {filtered.map(entry => {
+              const TypeIcon = TYPE_ICON[entry.type] || Film
+              const typeColor = TYPE_COLOR[entry.type]
+              const StatusIcon = entry.status ? STATUS_ICON_MAP[entry.status] : null
+              return (
+                <button
+                  key={entry.id}
+                  onClick={() => openDrawer(entry)}
+                  className="relative group aspect-[2/3] rounded-xl overflow-hidden text-left"
+                  style={{ background: 'var(--bg-card)' }}
+                >
+                  {entry.cover_image ? (
+                    <img src={entry.cover_image} alt={entry.title} className="w-full h-full object-cover" loading="lazy" />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-2 p-2">
+                      <TypeIcon size={24} style={{ color: typeColor }} />
+                      <p className="text-[10px] font-mono text-center leading-tight line-clamp-3" style={{ color: 'var(--text-muted)' }}>
+                        {entry.title}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Type color strip */}
+                  <div className="absolute bottom-0 left-0 right-0 h-[3px]" style={{ background: typeColor }} />
+
+                  {/* Rating badge */}
+                  {entry.rating && (
+                    <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(0,0,0,0.75)' }}>
+                      <Star size={9} fill="#E6FF3D" color="#E6FF3D" />
+                      <span className="text-[10px] font-bold font-mono text-white">{entry.rating}</span>
+                    </div>
+                  )}
+
+                  {/* Status icon */}
+                  {StatusIcon && (
+                    <div className="absolute top-1.5 left-1.5 p-1 rounded-md" style={{ background: 'rgba(0,0,0,0.65)' }}>
+                      <StatusIcon size={10} className={STATUS_CONFIG[entry.status!]?.color || 'text-zinc-400'} />
+                    </div>
+                  )}
+
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
+                    <p className="text-[10px] font-semibold text-white leading-tight line-clamp-3">{entry.title}</p>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
         ) : (
+          /* ── LIST VIEW ─────────────────────────────── */
           <div className="space-y-8">
             {grouped.map(({ status, items }) => {
               const cfg = STATUS_CONFIG[status] || { label: status, icon: Star, color: 'text-zinc-400' }
