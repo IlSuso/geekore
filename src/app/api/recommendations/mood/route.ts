@@ -3,11 +3,14 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkOrigin } from '@/lib/csrf'
 
 const VALID_MOODS = ['light', 'intense', 'deep', null] as const
 type Mood = typeof VALID_MOODS[number]
 
 export async function POST(request: NextRequest) {
+  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403 })
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })

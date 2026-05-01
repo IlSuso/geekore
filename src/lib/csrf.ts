@@ -16,7 +16,7 @@
 // Per le API route standard (like, comment, follow) è sufficiente il
 // rate limit + auth check — il CSRF è critico solo per operazioni distruttive.
 
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createHash, randomBytes } from 'crypto'
 
 const ALLOWED_ORIGINS = [
@@ -76,6 +76,10 @@ export function checkOrigin(request: NextRequest): boolean {
   }
 
   return false
+}
+
+export function rejectBadOrigin() {
+  return NextResponse.json({ error: 'Origin non consentito' }, { status: 403 })
 }
 
 /**
