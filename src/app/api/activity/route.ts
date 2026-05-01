@@ -2,6 +2,7 @@ import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
+import { rateLimit } from '@/lib/rateLimit'
 
 export async function GET(request: NextRequest) {
   try {
@@ -38,6 +39,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const rl = rateLimit(request, { limit: 120, windowMs: 60_000, prefix: 'activity:post' })
+    if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
     if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403 })
 
     const supabase = await createClient()

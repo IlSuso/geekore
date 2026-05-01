@@ -4,12 +4,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
+import { rateLimit } from '@/lib/rateLimit'
 
 const VALID_MOODS = ['light', 'intense', 'deep', null] as const
 type Mood = typeof VALID_MOODS[number]
 
 export async function POST(request: NextRequest) {
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403 })
+  const rl = rateLimit(request, { limit: 30, windowMs: 60_000, prefix: 'recommendations:mood' })
+  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
