@@ -5,6 +5,7 @@ import { rateLimit } from '@/lib/rateLimit'
 
 const MEDIA_TYPES = new Set(['anime', 'manga', 'game', 'movie', 'tv', 'book', 'boardgame', 'board_game'])
 const STATUSES = new Set(['watching', 'playing', 'reading', 'completed', 'planned', 'dropped', 'paused'])
+const NUMERIC_UPDATE_FIELDS = new Set(['current_episode', 'current_season', 'episodes', 'rating', 'display_order'])
 
 function stringValue(value: unknown, max = 500): string | null {
   if (typeof value !== 'string') return null
@@ -24,6 +25,26 @@ function stringArray(value: unknown, maxItems = 80): string[] {
 function numberOrNull(value: unknown): number | null {
   const n = Number(value)
   return Number.isFinite(n) ? n : null
+}
+
+function updatePayload(body: any): Record<string, unknown> {
+  const update: Record<string, unknown> = {}
+
+  if ('status' in body) {
+    const status = stringValue(body.status, 40)
+    if (status && STATUSES.has(status)) update.status = status
+  }
+  if ('notes' in body) {
+    update.notes = typeof body.notes === 'string' ? body.notes.trim().slice(0, 5000) : null
+  }
+  if ('completed_at' in body) {
+    update.completed_at = typeof body.completed_at === 'string' || body.completed_at === null ? body.completed_at : null
+  }
+  for (const field of NUMERIC_UPDATE_FIELDS) {
+    if (field in body) update[field] = numberOrNull(body[field])
+  }
+
+  return update
 }
 
 export async function POST(request: NextRequest) {
@@ -101,16 +122,51 @@ export async function DELETE(request: NextRequest) {
   let body: any
   try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
 
+  const id = stringValue(body?.id, 100)
   const externalId = stringValue(body?.external_id, 200)
-  if (!externalId) return NextResponse.json({ error: 'external_id mancante' }, { status: 400, headers: rl.headers })
+  if (!id && !externalId) return NextResponse.json({ error: 'id o external_id mancante' }, { status: 400, headers: rl.headers })
 
-  const { error } = await supabase
+  let query = supabase
     .from('user_media_entries')
     .delete()
     .eq('user_id', user.id)
-    .eq('external_id', externalId)
+
+  query = id ? query.eq('id', id) : query.eq('external_id', externalId)
+
+  const { error } = await query
 
   if (error) return NextResponse.json({ error: 'Titolo non rimosso' }, { status: 500, headers: rl.headers })
+
+  return NextResponse.json({ success: true }, { headers: rl.headers })
+}
+
+export async function PATCH(request: NextRequest) {
+  const rl = rateLimit(request, { limit: 120, windowMs: 60_000, prefix: 'collection:update' })
+  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+
+  let body: any
+  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
+
+  const id = stringValue(body?.id, 100)
+  if (!id) return NextResponse.json({ error: 'id mancante' }, { status: 400, headers: rl.headers })
+
+  const update = updatePayload(body)
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json({ error: 'Nessun campo valido da aggiornare' }, { status: 400, headers: rl.headers })
+  }
+
+  const { error } = await supabase
+    .from('user_media_entries')
+    .update(update)
+    .eq('user_id', user.id)
+    .eq('id', id)
+
+  if (error) return NextResponse.json({ error: 'Titolo non aggiornato' }, { status: 500, headers: rl.headers })
 
   return NextResponse.json({ success: true }, { headers: rl.headers })
 }
