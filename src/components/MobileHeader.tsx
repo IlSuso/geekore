@@ -9,7 +9,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   Bell, Settings, Edit3, ChevronLeft,
-  Search, Sparkles, TrendingUp, Users,
+  Search, Sparkles, TrendingUp, Users, Shuffle,
   Bookmark, BarChart2, Trophy, List, Library,
 } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
