@@ -1028,8 +1028,10 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
       if (!data?.length) return
       const sorted = [...data].sort((a, b) => (b.current_episode || 0) - (a.current_episode || 0))
       const updates = sorted.map((g, i) => ({ id: g.id, display_order: Date.now() - i * 10000 }))
-      await supabase.rpc('update_display_orders', {
-        updates: updates.map(u => ({ id: u.id, display_order: u.display_order }))
+      await fetch('/api/collection/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates: updates.map(u => ({ id: u.id, display_order: u.display_order })) }),
       })
       await refreshMedia(currentUserId)
     } finally { setReorderingGames(false) }
@@ -1037,7 +1039,12 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
 
   const handleDelete = async (id: string) => {
     if (!isOwner) return
-    await supabase.from('user_media_entries').delete().eq('id', id)
+    const res = await fetch('/api/collection', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    }).catch(() => null)
+    if (!res?.ok) return
     setMediaList(prev => prev.filter(item => item.id !== id))
     setDeletingId(null)
   }
@@ -1057,7 +1064,12 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
       update = { ...update, current_episode: media.episodes }
     }
     // Film, game: solo status+completed_at, niente current_episode sentinella
-    await supabase.from('user_media_entries').update(update).eq('id', id)
+    const res = await fetch('/api/collection', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...update }),
+    }).catch(() => null)
+    if (!res?.ok) return
     setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
     await logActivity({ type: 'media_completed', media_id: media.id, media_title: media.title, media_type: media.type, media_cover: media.cover_image })
   }
@@ -1065,7 +1077,12 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
   const resetProgress = async (id: string) => {
     if (!isOwner) return
     const update = { current_season: 1, current_episode: 1, status: 'watching' }
-    await supabase.from('user_media_entries').update(update).eq('id', id)
+    const res = await fetch('/api/collection', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...update }),
+    }).catch(() => null)
+    if (!res?.ok) return
     setMediaList(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
   }
 
@@ -1093,7 +1110,12 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
         }
       }
     }
-    await supabase.from('user_media_entries').update(update).eq('id', id)
+    const res = await fetch('/api/collection', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...update }),
+    }).catch(() => null)
+    if (!res?.ok) return
     setMediaList(prev => prev.map(m => m.id === id ? { ...m, ...update } : m))
   }
 
@@ -1123,7 +1145,12 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
   const setRating = async (mediaId: string, rating: number) => {
     if (!isOwner) return
     const item = mediaList.find(m => m.id === mediaId)
-    await supabase.from('user_media_entries').update({ rating }).eq('id', mediaId)
+    const res = await fetch('/api/collection', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: mediaId, rating }),
+    }).catch(() => null)
+    if (!res?.ok) return
     setMediaList(prev => sortMediaList(prev.map(item => item.id === mediaId ? { ...item, rating } : item)))
     if (item) await logActivity({ type: 'rating_given', media_id: item.id, media_title: item.title, media_type: item.type, media_cover: item.cover_image, rating_value: rating })
   }
@@ -1137,15 +1164,26 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
 
   const saveNotes = async () => {
     if (!selectedMedia || !isOwner) return
-    await supabase.from('user_media_entries').update({ notes: notesInput.trim() }).eq('id', selectedMedia.id)
-    setMediaList(prev => prev.map(item => item.id === selectedMedia.id ? { ...item, notes: notesInput.trim() } : item))
+    const notes = notesInput.trim()
+    const res = await fetch('/api/collection', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: selectedMedia.id, notes }),
+    }).catch(() => null)
+    if (!res?.ok) return
+    setMediaList(prev => prev.map(item => item.id === selectedMedia.id ? { ...item, notes } : item))
     setIsNotesModalOpen(false)
     setSelectedMedia(null)
   }
 
   const changeStatus = async (id: string, status: string) => {
     if (!isOwner) return
-    await supabase.from('user_media_entries').update({ status }).eq('id', id)
+    const res = await fetch('/api/collection', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status }),
+    }).catch(() => null)
+    if (!res?.ok) return
     setMediaList(prev => prev.map(item => item.id === id ? { ...item, status } : item))
     if (status === 'completed') {
       const item = mediaList.find(m => m.id === id)
@@ -1241,13 +1279,11 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     const updatedMap = new Map(updatedSorted.map(item => [item.id, item]))
     setMediaList(prev => prev.map(item => updatedMap.get(item.id) ?? item))
     // Fire and forget — non blocca il render
-    supabase.rpc('update_display_orders', {
-      updates: updatedSorted.map(item => ({ id: item.id, display_order: item.display_order }))
-    }).then(({ error }) => {
-      if (error && process.env.NODE_ENV === 'development') {
-        console.error('[DragEnd] rpc error:', error)
-      }
-    })
+    fetch('/api/collection/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updates: updatedSorted.map(item => ({ id: item.id, display_order: item.display_order })) }),
+    }).catch(() => {})
   }
 
   const grouped = sortedList.reduce((acc: Record<string, UserMedia[]>, item) => {

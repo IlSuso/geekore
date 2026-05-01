@@ -241,11 +241,11 @@ function DigestToggle() {
       // Gestisce digest=off da URL (link unsubscribe nelle email)
       const params = new URLSearchParams(window.location.search)
       if (params.get('digest') === 'off') {
-        await supabase.from('user_preferences').upsert({
-          user_id: user.id,
-          digest_enabled: false,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id' })
+        await fetch('/api/preferences', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ digest_enabled: false }),
+        })
         setEnabled(false)
         setLoading(false)
         // Rimuovi il param dall'URL senza ricaricare la pagina
@@ -273,11 +273,11 @@ function DigestToggle() {
     const next = !enabled
     setEnabled(next)
 
-    await supabase.from('user_preferences').upsert({
-      user_id: user.id,
-      digest_enabled: next,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' })
+    await fetch('/api/preferences', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ digest_enabled: next }),
+    })
 
   }
 
@@ -364,13 +364,11 @@ function StreamingPlatformsSelector() {
 
   const save = async () => {
     setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setSaving(false); return }
-    await supabase.from('user_preferences').upsert({
-      user_id: user.id,
-      streaming_platforms: selected,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' })
+    await fetch('/api/preferences', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ streaming_platforms: selected }),
+    })
     setSaving(false)
   }
 

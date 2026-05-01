@@ -6,8 +6,12 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyCsrf } from '@/lib/csrf'
 import { logger } from '@/lib/logger'
+import { rateLimit } from '@/lib/rateLimit'
 
 export async function DELETE(request: NextRequest) {
+  const rl = rateLimit(request, { limit: 3, windowMs: 60 * 60_000, prefix: 'user:delete' })
+  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
+
   // SEC2: Guard esplicita — se la chiave non è configurata, abortiamo subito
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     logger.error('user/delete', 'SUPABASE_SERVICE_ROLE_KEY non configurata')

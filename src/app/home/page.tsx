@@ -748,21 +748,17 @@ function buildSmartFeed(followingPosts: Post[], discoveryPosts: Post[]): Post[] 
 
 // ── Tracking affinità ────────────────────────────────────────────────────────
 
-async function trackAffinity(supabase: any, userId: string, category: string | null | undefined) {
+async function trackAffinity(_supabase: any, _userId: string, category: string | null | undefined) {
   if (!category) return
   const parsed = parseCategoryString(category)
   if (!parsed) return
   const { category: cat, subcategory: sub } = parsed
   try {
-    const { error } = await supabase.from('user_category_affinity')
-      .upsert(
-        { user_id: userId, category: cat, subcategory: sub || 'Generico', score: 1, last_interacted_at: new Date().toISOString() },
-        { onConflict: 'user_id,category,subcategory' }
-      )
-    if (!error) {
-      await supabase.rpc('increment_category_score', { p_user_id: userId, p_category: cat, p_subcategory: sub || 'Generico' })
-        .catch(() => {})
-    }
+    await fetch('/api/taste/affinity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ category: cat, subcategory: sub || 'Generico' }),
+    }).catch(() => {})
   } catch {}
 }
 

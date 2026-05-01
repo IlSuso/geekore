@@ -43,48 +43,25 @@ function ListModal({
     androidBack.push(onClose)
     return () => androidBack.pop(onClose)
   }, [onClose])
-  const supabase = createClient()
 
   const handleSave = async () => {
     if (!title.trim()) return
     setSaving(true)
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setSaving(false); return }
+    const res = await fetch('/api/lists', {
+      method: list ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: list?.id,
+        title,
+        description,
+        is_public: isPublic,
+      }),
+    }).catch(() => null)
 
-    if (list) {
-      // Update
-      const { data, error } = await supabase
-        .from('user_lists')
-        .update({
-          title: title.trim().slice(0, 100),
-          description: description.trim().slice(0, 500) || null,
-          is_public: isPublic,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', list.id)
-        .select()
-        .single()
-
-      if (!error && data) {
-        onSaved(data)
-      }
-    } else {
-      // Insert
-      const { data, error } = await supabase
-        .from('user_lists')
-        .insert({
-          user_id: user.id,
-          title: title.trim().slice(0, 100),
-          description: description.trim().slice(0, 500) || null,
-          is_public: isPublic,
-        })
-        .select()
-        .single()
-
-      if (!error && data) {
-        onSaved(data)
-      }
+    if (res?.ok) {
+      const data = await res.json()
+      if (data.list) onSaved(data.list)
     }
 
     setSaving(false)
@@ -257,8 +234,12 @@ export default function ListsPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Eliminare questa lista?')) return
-    await supabase.from('user_lists').delete().eq('id', id)
-    setLists(prev => prev.filter(l => l.id !== id))
+    const res = await fetch('/api/lists', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    }).catch(() => null)
+    if (res?.ok) setLists(prev => prev.filter(l => l.id !== id))
   }
 
   const handleSaved = (saved: UserList) => {

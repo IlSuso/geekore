@@ -808,21 +808,20 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
   }, [queue, loadMore, preloadCategory])
 
   const persistSkipped = useCallback((item: SwipeItem) => {
-    const uid = userIdRef.current
-    if (!uid) return
-    supabase.from('swipe_skipped').upsert(
-      { user_id: uid, external_id: item.id, title: item.title, type: item.type },
-      { onConflict: 'user_id,external_id' }
-    ).then(() => {})
-    supabase.from('swipe_queue_all').delete().eq('user_id', uid).eq('external_id', item.id).then(() => {})
-    supabase.from(`swipe_queue_${item.type}`).delete().eq('user_id', uid).eq('external_id', item.id).then(() => {})
-  }, [supabase])
+    fetch('/api/swipe/skip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ external_id: item.id, title: item.title, type: item.type }),
+    }).catch(() => {})
+  }, [])
 
   const removeSkip = useCallback((item: SwipeItem) => {
-    const uid = userIdRef.current
-    if (!uid) return
-    supabase.from('swipe_skipped').delete().eq('user_id', uid).eq('external_id', item.id).then(() => {})
-  }, [supabase])
+    fetch('/api/swipe/skip', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ external_id: item.id }),
+    }).catch(() => {})
+  }, [])
 
   const handleSwipe = useCallback((dir: 'left' | 'right', item: SwipeItem, skipPersist = false) => {
     // Legge il rating DAL REF nel corpo sincrono della funzione —

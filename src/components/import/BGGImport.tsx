@@ -85,30 +85,34 @@ export function BGGImport({ onImportDone }: Props) {
           const bggAchievementData = (enrich.bggScore != null || enrich.complexity != null)
             ? { bgg: { score: enrich.bggScore ?? null, complexity: enrich.complexity ?? null, min_players: enrich.min_players ?? item.minplayers ?? null, max_players: enrich.max_players ?? item.maxplayers ?? null, playing_time: enrich.playing_time ?? item.playingtime ?? null } }
             : null
-          const { error } = await supabase.from('user_media_entries').upsert({
-            user_id: user.id,
-            external_id: `bgg-${item.objectid}`,
-            title: item.name,
-            title_en: item.name,
-            type: 'boardgame',
-            cover_image: item.thumbnail || null,
-            genres: item.categories || [],
-            tags: enrich.mechanics || [],
-            authors: enrich.designers || [],
-            status: 'completed',
-            rating: item.rating ? Math.round(item.rating * 2) : null,
-            current_episode: item.numplays || null,
-            current_season: null,
-            episodes: null,
-            season_episodes: null,
-            studios: [],
-            directors: [],
-            developer: null,
-            achievement_data: bggAchievementData,
-            display_order: Date.now(),
-          }, { onConflict: 'user_id,external_id' })
+          const res = await fetch('/api/collection', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              external_id: `bgg-${item.objectid}`,
+              title: item.name,
+              title_en: item.name,
+              type: 'boardgame',
+              cover_image: item.thumbnail || null,
+              genres: item.categories || [],
+              tags: enrich.mechanics || [],
+              authors: enrich.designers || [],
+              status: 'completed',
+              rating: item.rating ? Math.round(item.rating * 2) : null,
+              current_episode: item.numplays || null,
+              current_season: null,
+              episodes: null,
+              season_episodes: null,
+              studios: [],
+              directors: [],
+              developer: null,
+              achievement_data: bggAchievementData,
+              display_order: Date.now(),
+              upsert: true,
+            }),
+          }).catch(() => null)
 
-          if (error) stats.errors++
+          if (!res?.ok) stats.errors++
           else stats.imported++
         }
 

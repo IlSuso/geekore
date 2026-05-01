@@ -11,6 +11,7 @@ import Link from 'next/link'
 import { Camera, Upload, Loader2, Sparkles, Download } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { Avatar } from '@/components/ui/Avatar'
+import { useCsrf } from '@/hooks/useCsrf'
 
 const ALL_GENRES = [
   'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery',
@@ -39,6 +40,7 @@ function hasUnicodeLookalike(value: string): boolean {
 export default function EditProfilePage() {
   const supabase = createClient()
   const router = useRouter()
+  const { csrfFetch } = useCsrf()
   const { t } = useLocale()
   const pe = t.profileEdit
 
@@ -166,9 +168,15 @@ export default function EditProfilePage() {
 
   const removeAvatar = async () => {
     if (!profile) return
-    await supabase.from('profiles').update({ avatar_url: null }).eq('id', profile.id)
-    setAvatarPreview(null)
-    setAvatarFile(null)
+    const res = await csrfFetch('/api/profile/update', {
+      method: 'PATCH',
+      body: JSON.stringify({ avatar_url: null }),
+    }).catch(() => null)
+    if (res?.ok) {
+      setAvatarPreview(null)
+      setAvatarFile(null)
+      setProfile((prev: any) => prev ? { ...prev, avatar_url: null } : prev)
+    }
   }
 
   const handleSave = async (e: React.FormEvent) => {
@@ -210,26 +218,33 @@ export default function EditProfilePage() {
         avatarUrl = url
       }
 
-      const { error } = await supabase.from('profiles').update({
-        display_name: formData.display_name.trim().slice(0, 50),
-        username: formData.username,
-        bio: formData.bio.trim(),
-        avatar_url: avatarUrl,
-        updated_at: new Date().toISOString(),
-      }).eq('id', profile.id)
+      const profileRes = await csrfFetch('/api/profile/update', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          display_name: formData.display_name.trim().slice(0, 50),
+          username: formData.username,
+          bio: formData.bio.trim(),
+          avatar_url: avatarUrl,
+        }),
+      })
 
-      if (error) throw error
+      if (!profileRes.ok) {
+        const err = await profileRes.json().catch(() => ({}))
+        throw new Error(err.error || 'Errore salvataggio profilo')
+      }
 
-      await supabase.from('user_preferences').upsert({
-        user_id: profile.id,
-        fav_game_genres: likedGenres.filter(g => ['Action', 'Adventure', 'RPG', 'Strategy', 'Simulation', 'Horror', 'Thriller', 'Mystery', 'Psychological'].includes(g)),
-        fav_anime_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller', 'Psychological'].includes(g)),
-        fav_movie_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller'].includes(g)),
-        fav_tv_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller'].includes(g)),
-        fav_manga_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller', 'Psychological'].includes(g)),
-        disliked_genres: dislikedGenres,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' })
+      await fetch('/api/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fav_game_genres: likedGenres.filter(g => ['Action', 'Adventure', 'RPG', 'Strategy', 'Simulation', 'Horror', 'Thriller', 'Mystery', 'Psychological'].includes(g)),
+          fav_anime_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller', 'Psychological'].includes(g)),
+          fav_movie_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller'].includes(g)),
+          fav_tv_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller'].includes(g)),
+          fav_manga_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller', 'Psychological'].includes(g)),
+          disliked_genres: dislikedGenres,
+        }),
+      })
 
       setMessage(pe.saved)
       setMessageType('success')

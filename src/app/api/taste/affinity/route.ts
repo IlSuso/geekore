@@ -1,0 +1,41 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { checkOrigin } from '@/lib/csrf'
+import { rateLimit } from '@/lib/rateLimit'
+
+function cleanString(value: unknown, max: number): string | null {
+  if (typeof value !== 'string') return null
+  const clean = value.trim().slice(0, max)
+  return clean || null
+}
+
+export async function POST(request: NextRequest) {
+  const rl = rateLimit(request, { limit: 180, windowMs: 60_000, prefix: 'taste:affinity' })
+  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+
+  let body: any
+  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
+
+  const category = cleanString(body?.category, 120)
+  const subcategory = cleanString(body?.subcategory, 120) || 'Generico'
+  if (!category) return NextResponse.json({ error: 'category mancante' }, { status: 400, headers: rl.headers })
+
+  const { error } = await supabase
+    .from('user_category_affinity')
+    .upsert(
+      { user_id: user.id, category, subcategory, score: 1, last_interacted_at: new Date().toISOString() },
+      { onConflict: 'user_id,category,subcategory' }
+    )
+  if (error) return NextResponse.json({ error: 'Affinita non salvata' }, { status: 500, headers: rl.headers })
+
+  try {
+    await supabase.rpc('increment_category_score', { p_user_id: user.id, p_category: category, p_subcategory: subcategory })
+  } catch {}
+
+  return NextResponse.json({ success: true }, { headers: rl.headers })
+}

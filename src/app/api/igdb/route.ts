@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rateLimit'
+import { checkOrigin } from '@/lib/csrf'
 import { logger } from '@/lib/logger'
 import { translateWithCache } from '@/lib/deepl'
 import { truncateAtSentence } from '@/lib/utils'
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
       { status: 429, headers: rl.headers }
     )
   }
+  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 
   try {
     const body = await request.json()

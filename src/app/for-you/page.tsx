@@ -1178,17 +1178,21 @@ export default function ForYouPage() {
     const bggAchievementData = isBoardgame && ((item as any).complexity != null || (item as any).min_players != null || (item as any).playing_time != null)
       ? { bgg: { score: (item as any).score ?? null, complexity: (item as any).complexity ?? null, min_players: (item as any).min_players ?? null, max_players: (item as any).max_players ?? null, playing_time: (item as any).playing_time ?? null } }
       : null
-    const { error } = await supabase.from('user_media_entries').insert({
-      user_id: user.id, external_id: item.id, title: item.title, type: item.type,
-      cover_image: item.coverImage, genres: item.genres,
-      tags: isBoardgame ? ((item as any).mechanics || []) : [],
-      authors: isBoardgame ? ((item as any).designers || []) : [],
-      achievement_data: bggAchievementData,
-      status: (item.type === 'movie' || isBoardgame) ? 'completed' : 'watching',
-      current_episode: isBoardgame ? null : 1,
-      display_order: Date.now(),
-    })
-    if (!error) {
+    const res = await fetch('/api/collection', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        external_id: item.id, title: item.title, type: item.type,
+        cover_image: item.coverImage, genres: item.genres,
+        tags: isBoardgame ? ((item as any).mechanics || []) : [],
+        authors: isBoardgame ? ((item as any).designers || []) : [],
+        achievement_data: bggAchievementData,
+        status: (item.type === 'movie' || isBoardgame) ? 'completed' : 'watching',
+        current_episode: isBoardgame ? null : 1,
+        display_order: Date.now(),
+      }),
+    }).catch(() => null)
+    if (res?.ok) {
       setAddedIds(prev => new Set([...prev, item.id]))
       addedTitlesRef.current.add(item.title.toLowerCase())
       await fetch('/api/recommendations/feedback', {

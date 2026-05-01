@@ -95,7 +95,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Body non valido' }, { status: 400 })
     }
 
-    const { username, display_name, bio } = body
+    const { username, display_name, bio, avatar_url } = body
 
     // Validazione
     const errors: Record<string, string> = {}
@@ -120,7 +120,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Sanitizzazione
-    const updateData: Record<string, string> = {
+    const updateData: Record<string, string | null> = {
       updated_at: new Date().toISOString(),
     }
 
@@ -139,6 +139,9 @@ export async function PATCH(request: NextRequest) {
         .trim()
         .replace(/<[^>]*>/g, '')
         .slice(0, BIO_MAX)
+    }
+    if (avatar_url !== undefined) {
+      updateData.avatar_url = typeof avatar_url === 'string' ? avatar_url.slice(0, 1000) : null
     }
 
     const { error } = await supabase

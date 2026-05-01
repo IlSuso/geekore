@@ -45,6 +45,7 @@ import { logger } from '@/lib/logger'
 import { after, NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
+import { checkOrigin } from '@/lib/csrf'
 import { memCacheGet, memCacheSet, memCacheInvalidate } from '@/lib/reco/cache'
 import type { RecoMediaType, TasteProfile, Recommendation, MemCacheEntry } from '@/lib/reco/types'
 import type { MediaType, UserEntry } from '@/lib/reco/engine-types'
@@ -807,6 +808,8 @@ export async function GET(request: NextRequest) {
 // così la prossima apertura di Per Te triggera una regen fresca
 export async function POST(request: NextRequest) {
   try {
+    if (!checkOrigin(request)) return NextResponse.json({ ok: false }, { status: 403 })
+
     const invalidateCache = request.nextUrl.searchParams.get('invalidateCache')
     if (invalidateCache !== 'true') return NextResponse.json({ ok: false }, { status: 400 })
 

@@ -133,13 +133,11 @@ export default function SwipePage() {
 
           if (newRecs.length > 0) {
             const rows = newRecs.map((r: any) => toQueueRow(r, user.id))
-            await supabase.from('swipe_queue_all').upsert(rows, { onConflict: 'user_id,external_id' })
-            for (const type of validTypes) {
-              const typed = rows.filter((r: any) => r.type === type)
-              if (typed.length > 0) {
-                await supabase.from(`swipe_queue_${type}`).upsert(typed, { onConflict: 'user_id,external_id' })
-              }
-            }
+            await fetch('/api/swipe/queue', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ queue: 'all', rows, mirrorByType: true }),
+            }).catch(() => null)
           }
 
           setInitialItems([
@@ -192,7 +190,6 @@ export default function SwipePage() {
 
     const uid = userIdRef.current
     if (!uid) return
-    const user = { id: uid }
 
     if (skipPersist) {
       removeFromPool(uid, item.id)
@@ -208,32 +205,37 @@ export default function SwipePage() {
       ? { bgg: { score: (item as any).score ?? null, complexity: (item as any).complexity ?? null, min_players: (item as any).min_players ?? null, max_players: (item as any).max_players ?? null, playing_time: (item as any).playing_time ?? null } }
       : null
     const insertData: any = {
-      user_id: user.id, external_id: item.id, title: item.title,
+      external_id: item.id, title: item.title,
       type: item.type, cover_image: item.coverImage, genres: item.genres,
       tags: isBoardgame ? ((item as any).mechanics || []) : [],
       authors: isBoardgame ? ((item as any).designers || []) : [],
       ...(bggAchievementData ? { achievement_data: bggAchievementData } : {}),
       status: 'completed',
       display_order: Date.now(),
+      upsert: true,
     }
     if (rating !== null) insertData.rating = rating
 
-    supabase.from('user_media_entries').upsert(insertData, { onConflict: 'user_id,external_id' }).then(({ error }) => {
-      if (!error) addedTitlesRef.current.add(item.title.toLowerCase())
+    fetch('/api/collection', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(insertData),
+    }).then(async (res) => {
+      if (res.ok) addedTitlesRef.current.add(item.title.toLowerCase())
       fetch('/api/recommendations/feedback', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres, action: 'added' })
       }).catch(() => {})
       fetch('/api/recommendations?invalidateCache=true', { method: 'POST', keepalive: true }).catch(() => {})
-      if (!error) profileInvalidateBridge.invalidate()
-    })
+      if (res.ok) profileInvalidateBridge.invalidate()
+    }).catch(() => {})
 
-    removeFromPool(user.id, item.id)
+    removeFromPool(uid, item.id)
     if (item.genres.length > 0) {
       triggerTasteDelta({ action: 'status_change', mediaId: item.id, mediaType: item.type, genres: item.genres, status: 'completed' })
       if (rating) triggerTasteDelta({ action: 'rating', mediaId: item.id, mediaType: item.type, genres: item.genres, rating })
     }
-  }, [supabase, removeFromPool])
+  }, [removeFromPool])
 
   const handleSwipeSkip = useCallback((_item: SwipeItem) => {
     // SwipeMode handles persistence itself via persistSkipped
@@ -246,13 +248,15 @@ export default function SwipePage() {
     if (!addedTitlesRef.current.has(item.title.toLowerCase())) return
     const uid = userIdRef.current
     if (!uid) return
-    await supabase.from('user_media_entries')
-      .delete()
-      .eq('user_id', uid)
-      .eq('external_id', item.id)
+    const res = await fetch('/api/collection', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ external_id: item.id }),
+    }).catch(() => null)
+    if (!res?.ok) return
     addedTitlesRef.current.delete(item.title.toLowerCase())
     profileInvalidateBridge.invalidate()
-  }, [supabase])
+  }, [])
 
   const handleSwipeRequestMore = useCallback(async (filter: string = 'all'): Promise<SwipeItem[]> => {
     const uid = userIdRef.current
@@ -307,7 +311,11 @@ export default function SwipePage() {
 
       if (newRecs.length > 0) {
         const rows = newRecs.map((r: any) => toQueueRow(r, user.id))
-        await supabase.from(table).upsert(rows, { onConflict: 'user_id,external_id' })
+        await fetch('/api/swipe/queue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ queue: filter === 'all' ? 'all' : filter, rows }),
+        }).catch(() => null)
       }
 
       return [

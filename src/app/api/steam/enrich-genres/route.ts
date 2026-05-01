@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { logger } from '@/lib/logger'
 import { rateLimit } from '@/lib/rateLimit'
+import { checkOrigin } from '@/lib/csrf'
 
 // ── IGDB token cache ──────────────────────────────────────────────────────────
 let igdbTokenCache: { token: string; expiresAt: number } | null = null
@@ -243,6 +244,7 @@ export async function POST(request: NextRequest) {
       { status: 429, headers: rl.headers }
     )
   }
+  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

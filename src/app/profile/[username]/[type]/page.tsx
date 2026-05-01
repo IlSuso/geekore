@@ -671,7 +671,12 @@ export default function ProfileTypePage() {
   }, [username, type])
 
   const handleRating = async (mediaId: string, rating: number) => {
-    await supabase.from('user_media_entries').update({ rating }).eq('id', mediaId)
+    const res = await fetch('/api/collection', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: mediaId, rating }),
+    }).catch(() => null)
+    if (!res?.ok) return
     setMediaList(prev => prev.map(m => m.id === mediaId ? { ...m, rating } : m))
   }
 
@@ -688,16 +693,31 @@ export default function ProfileTypePage() {
       } else if (item?.status === 'completed') {
         update.status = 'watching'
       }
-      await supabase.from('user_media_entries').update(update).eq('id', mediaId)
+      const res = await fetch('/api/collection', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: mediaId, ...update }),
+      }).catch(() => null)
+      if (!res?.ok) return
       setMediaList(prev => prev.map(m => m.id === mediaId ? { ...m, ...update } : m))
       return
     }
-    await supabase.from('user_media_entries').update({ status }).eq('id', mediaId)
+    const res = await fetch('/api/collection', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: mediaId, status }),
+    }).catch(() => null)
+    if (!res?.ok) return
     setMediaList(prev => prev.map(m => m.id === mediaId ? { ...m, status } : m))
   }
 
   const handleDelete = async (mediaId: string) => {
-    await supabase.from('user_media_entries').delete().eq('id', mediaId)
+    const res = await fetch('/api/collection', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: mediaId }),
+    }).catch(() => null)
+    if (!res?.ok) return
     setMediaList(prev => prev.filter(m => m.id !== mediaId))
   }
 
@@ -709,8 +729,14 @@ export default function ProfileTypePage() {
 
   const saveNotes = async () => {
     if (!selectedMedia) return
-    await supabase.from('user_media_entries').update({ notes: notesInput.trim() }).eq('id', selectedMedia.id)
-    setMediaList(prev => prev.map(m => m.id === selectedMedia.id ? { ...m, notes: notesInput.trim() } : m))
+    const notes = notesInput.trim()
+    const res = await fetch('/api/collection', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: selectedMedia.id, notes }),
+    }).catch(() => null)
+    if (!res?.ok) return
+    setMediaList(prev => prev.map(m => m.id === selectedMedia.id ? { ...m, notes } : m))
     setNotesOpen(false)
   }
 
@@ -726,19 +752,34 @@ export default function ProfileTypePage() {
         update.status = 'watching'
       }
     }
-    await supabase.from('user_media_entries').update(update).eq('id', mediaId)
+    const res = await fetch('/api/collection', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: mediaId, ...update }),
+    }).catch(() => null)
+    if (!res?.ok) return
     setMediaList(prev => prev.map(m => m.id === mediaId ? { ...m, ...update } as UserMedia : m))
   }
 
   const handleMarkComplete = async (mediaId: string) => {
     const update = { status: 'completed', completed_at: new Date().toISOString() }
-    await supabase.from('user_media_entries').update(update).eq('id', mediaId)
+    const res = await fetch('/api/collection', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: mediaId, ...update }),
+    }).catch(() => null)
+    if (!res?.ok) return
     setMediaList(prev => prev.map(m => m.id === mediaId ? { ...m, ...update } : m))
   }
 
   const handleReset = async (mediaId: string) => {
     const update = { status: 'watching', current_episode: 1, current_season: 1, completed_at: null }
-    await supabase.from('user_media_entries').update(update).eq('id', mediaId)
+    const res = await fetch('/api/collection', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: mediaId, ...update }),
+    }).catch(() => null)
+    if (!res?.ok) return
     setMediaList(prev => prev.map(m => m.id === mediaId ? { ...m, ...update } as UserMedia : m))
   }
 
@@ -811,13 +852,11 @@ export default function ProfileTypePage() {
     const updatedMap = new Map(updatedFiltered.map(item => [item.id, item]))
     setMediaList(prev => prev.map(item => updatedMap.get(item.id) ?? item))
     // Fire and forget — non blocca il render
-    supabase.rpc('update_display_orders', {
-      updates: updatedFiltered.map(item => ({ id: item.id, display_order: item.display_order }))
-    }).then(({ error }) => {
-      if (error && process.env.NODE_ENV === 'development') {
-        console.error('[DragEnd] rpc error:', error)
-      }
-    })
+    fetch('/api/collection/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updates: updatedFiltered.map(item => ({ id: item.id, display_order: item.display_order })) }),
+    }).catch(() => {})
   }
 
   // Reset visibleCount quando cambiano i filtri

@@ -121,31 +121,34 @@ export default function ListDetailPage() {
   }, [id])
 
   const handleRemoveItem = async (itemId: string) => {
-    await supabase.from('user_list_items').delete().eq('id', itemId)
-    setItems(prev => prev.filter(i => i.id !== itemId))
+    const res = await fetch('/api/lists/items', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: itemId }),
+    }).catch(() => null)
+    if (res?.ok) setItems(prev => prev.filter(i => i.id !== itemId))
   }
 
   const handleAddFromCollection = async (entry: any) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const { data, error } = await supabase
-      .from('user_list_items')
-      .insert({
+    const res = await fetch('/api/lists/items', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         list_id: id,
-        user_id: user.id,
         media_id: entry.external_id,
         media_title: entry.title,
         media_type: entry.type,
         media_cover: entry.cover_image,
         position: items.length,
-      })
-      .select()
-      .single()
+      }),
+    }).catch(() => null)
 
-    if (!error && data) {
-      setItems(prev => [...prev, data])
-    } else if (error?.code === '23505') {
+    if (res?.ok) {
+      const data = await res.json()
+      if (data.item) setItems(prev => [...prev, data.item])
     }
   }
 
