@@ -52,13 +52,14 @@ const TYPE_LABEL: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Videogioco',
   boardgame: 'Gioco da Tavolo', }
 
+// Colori solidi coerenti con --type-* CSS vars (niente gradienti casuali)
 const TYPE_COLORS: Record<string, string> = {
-  anime: 'from-sky-500 to-blue-600',
-  manga: 'from-orange-500 to-red-500',
-  movie: 'from-red-500 to-rose-600',
-  tv: 'from-purple-500 to-violet-600',
-  game: 'from-emerald-500 to-green-600',
-  boardgame: 'from-amber-500 to-yellow-600',
+  anime:     'from-sky-400 to-sky-500',
+  manga:     'from-orange-400 to-orange-500',
+  movie:     'from-red-400 to-red-500',
+  tv:        'from-purple-400 to-purple-500',
+  game:      'from-emerald-400 to-emerald-500',
+  boardgame: 'from-amber-400 to-amber-500',
   }
 
 function triggerTasteDelta(options: {
@@ -127,7 +128,7 @@ const ContinuitySection = memo(function ContinuitySection({ items, onFeedback, o
   return (
     <div className="mb-12">
       <div className="flex items-center gap-3 mb-5">
-        <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+        <div className="w-8 h-8 bg-amber-500 rounded-xl flex items-center justify-center">
           <ArrowRight size={16} className="text-white" />
         </div>
         <div>

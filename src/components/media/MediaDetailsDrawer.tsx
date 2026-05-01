@@ -489,14 +489,16 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
       {/* Drawer — sits behind MobileHeader/Navbar; top/bottom account for their heights */}
       <div
-        className="fixed right-0 z-[80] w-full max-w-md bg-zinc-950 border-l border-zinc-800 flex flex-col"
+        className="fixed right-0 z-[80] w-full max-w-md flex flex-col"
         role="dialog" aria-modal aria-label={media.title}
         style={{
-          top:        'calc(env(safe-area-inset-top, 0px) + 52px)',
-          bottom:     'calc(env(safe-area-inset-bottom, 0px) + 56px)',
-          transform:  `translateX(${drawerOffset}px)`,
-          transition: drawerAnimate ? 'transform 0.26s cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
-          willChange: drawerOffset > 0 ? 'transform' : 'auto',
+          background:  'var(--bg-secondary)',
+          borderLeft:  '1px solid var(--border)',
+          top:         'calc(env(safe-area-inset-top, 0px) + 52px)',
+          bottom:      'calc(env(safe-area-inset-bottom, 0px) + 56px)',
+          transform:   `translateX(${drawerOffset}px)`,
+          transition:  drawerAnimate ? 'transform 0.26s cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
+          willChange:  drawerOffset > 0 ? 'transform' : 'auto',
         }}
       >
         <button
@@ -508,8 +510,8 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
         </button>
 
         {/* ── HEADER ──────────────────────────────────────────────────── */}
-        <div className="flex gap-4 p-5 pr-12 border-b border-zinc-800/60 flex-shrink-0">
-          <div className="flex-shrink-0 w-20 h-28 rounded-xl overflow-hidden bg-zinc-800 shadow-lg ring-1 ring-white/10">
+        <div className="flex gap-4 p-5 pr-12 border-b border-[var(--border)] flex-shrink-0">
+          <div className="flex-shrink-0 w-20 h-28 rounded-xl overflow-hidden bg-[var(--bg-card)] shadow-lg ring-1 ring-white/10">
             {media.coverImage
               ? <img src={optimizeCover(media.coverImage, 'drawer-cover')} alt={media.title} className="w-full h-full object-cover" loading="eager" decoding="async" />
               : <div className="w-full h-full flex items-center justify-center"><Icon size={28} className="text-zinc-600" /></div>}
@@ -538,14 +540,14 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             <div className="flex items-center gap-1 flex-wrap">
               {media.year && <span className="text-[10px] text-zinc-400">{media.year}</span>}
               {media.score != null && (
-                <div className="flex items-center gap-0.5 bg-zinc-800 border border-zinc-700 rounded-full px-1.5 py-0.5">
+                <div className="flex items-center gap-0.5 bg-[var(--bg-card)] border border-[var(--border)] rounded-full px-1.5 py-0.5">
                   <Star size={9} className="text-yellow-400 fill-yellow-400" />
                   <span className="text-[10px] font-bold text-white">{media.score!.toFixed(1)}</span>
                   <span className="text-[10px] text-zinc-500">/5</span>
                 </div>
               )}
               {media.episodes != null && media.episodes > 1 && (
-                <div className="flex items-center gap-0.5 bg-zinc-800 border border-zinc-700 rounded-full px-1.5 py-0.5">
+                <div className="flex items-center gap-0.5 bg-[var(--bg-card)] border border-[var(--border)] rounded-full px-1.5 py-0.5">
                   <Layers size={9} className="text-zinc-400" />
                   <span className="text-[10px] font-bold text-white">{media.episodes}</span>
                   <span className="text-[10px] text-zinc-500">ep.</span>
@@ -553,7 +555,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               )}
               {/* Boardgame: giocatori */}
               {(media.min_players != null || media.max_players != null) && (
-                <div className="flex items-center gap-0.5 bg-zinc-800 border border-zinc-700 rounded-full px-1.5 py-0.5">
+                <div className="flex items-center gap-0.5 bg-[var(--bg-card)] border border-[var(--border)] rounded-full px-1.5 py-0.5">
                   <Users size={9} className="text-zinc-400" />
                   <span className="text-[10px] font-bold text-white">
                     {media.min_players === media.max_players
@@ -564,7 +566,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               )}
               {/* Durata (boardgame o film) */}
               {media.playing_time != null && (
-                <div className="flex items-center gap-0.5 bg-zinc-800 border border-zinc-700 rounded-full px-1.5 py-0.5">
+                <div className="flex items-center gap-0.5 bg-[var(--bg-card)] border border-[var(--border)] rounded-full px-1.5 py-0.5">
                   <Clock size={9} className="text-zinc-400" />
                   <span className="text-[10px] font-bold text-white">{media.playing_time}</span>
                   <span className="text-[10px] text-zinc-500">{timeLabel}</span>
@@ -572,7 +574,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               )}
               {/* Boardgame: complessità */}
               {media.complexity != null && (
-                <div className="flex items-center gap-0.5 bg-zinc-800 border border-zinc-700 rounded-full px-1.5 py-0.5">
+                <div className="flex items-center gap-0.5 bg-[var(--bg-card)] border border-[var(--border)] rounded-full px-1.5 py-0.5">
                   <span className="text-[10px] font-bold text-white">{media.complexity.toFixed(1)}</span>
                   <span className="text-[10px] text-zinc-500">/5</span>
                 </div>
@@ -621,7 +623,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                 </div>
               )
               if (media.score != null) cells.push(
-                <div key="score" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                <div key="score" className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 text-center">
                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Voto</p>
                   <div className="flex items-center justify-center gap-1">
                     <Star size={11} className="text-yellow-400 fill-yellow-400" />
@@ -631,13 +633,13 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                 </div>
               )
               if (media.year) cells.push(
-                <div key="year" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                <div key="year" className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 text-center">
                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Anno</p>
                   <p className="text-lg font-bold text-white">{media.year}</p>
                 </div>
               )
               if (media.episodes != null && media.episodes > 1) cells.push(
-                <div key="eps" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                <div key="eps" className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 text-center">
                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">
                     {media.type === 'manga' ? 'Cap.' : 'Ep.'}
                   </p>
@@ -645,25 +647,25 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                 </div>
               )
               if (media.totalSeasons != null && media.totalSeasons > 1) cells.push(
-                <div key="seasons" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                <div key="seasons" className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 text-center">
                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Stagioni</p>
                   <p className="text-lg font-bold text-white">{media.totalSeasons}</p>
                 </div>
               )
               if (media.playing_time) cells.push(
-                <div key="time" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                <div key="time" className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 text-center">
                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Durata</p>
                   <p className="text-lg font-bold text-white">{media.playing_time}<span className="text-[10px] text-zinc-600 ml-0.5">m</span></p>
                 </div>
               )
               if (media.complexity) cells.push(
-                <div key="cmplx" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                <div key="cmplx" className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 text-center">
                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Difficoltà</p>
                   <p className="text-lg font-bold text-white">{media.complexity.toFixed(1)}<span className="text-[10px] text-zinc-600">/5</span></p>
                 </div>
               )
               if (media.min_players != null || media.max_players != null) cells.push(
-                <div key="players" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                <div key="players" className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 text-center">
                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Giocatori</p>
                   <p className="text-lg font-bold text-white">
                     {media.min_players === media.max_players
@@ -673,7 +675,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                 </div>
               )
               if (media.pages) cells.push(
-                <div key="pages" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                <div key="pages" className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 text-center">
                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Pagine</p>
                   <p className="text-lg font-bold text-white">{media.pages}</p>
                 </div>
@@ -741,7 +743,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                 <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Designer</h3>
                 <div className="flex flex-wrap gap-1.5">
                   {media.designers.map(d => (
-                    <span key={d} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">
+                    <span key={d} className="text-xs bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-secondary)] px-2.5 py-1 rounded-full">
                       {d}
                     </span>
                   ))}
@@ -767,7 +769,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                 <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5">Cast</h3>
                 <div className="flex flex-wrap gap-1.5">
                   {media.cast.map(name => (
-                    <span key={name} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{name}</span>
+                    <span key={name} className="text-xs bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-secondary)] px-2.5 py-1 rounded-full">{name}</span>
                   ))}
                 </div>
               </div>
@@ -781,7 +783,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                 </h3>
                 <div className="flex flex-wrap gap-1.5">
                   {media.platforms.slice(0, 8).map(p => (
-                    <span key={p} className="text-xs bg-zinc-900 border border-zinc-700 text-zinc-300 px-2.5 py-1 rounded-full">{p}</span>
+                    <span key={p} className="text-xs bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-secondary)] px-2.5 py-1 rounded-full">{p}</span>
                   ))}
                 </div>
               </div>
@@ -821,7 +823,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                 <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide">
                   {continuityRelations.map(rel => (
                     <div key={rel.id} className="flex-shrink-0 w-16">
-                      <div className="relative h-24 rounded-xl overflow-hidden bg-zinc-800 mb-1">
+                      <div className="relative h-24 rounded-xl overflow-hidden bg-[var(--bg-card)] mb-1">
                         {rel.coverImage
                           ? <img src={optimizeCover(rel.coverImage, 'drawer-related')} alt={rel.title} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                           : <div className="w-full h-full flex items-center justify-center text-zinc-700"><Tv size={28} /></div>}
@@ -839,7 +841,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
             {/* Form aggiunta */}
             {showAddForm && (
-              <div ref={formRef} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-4">
+              <div ref={formRef} className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4 space-y-4">
                 <div>
                   <p className="text-xs text-zinc-500 mb-2">Il tuo voto (opzionale)</p>
                   <div data-no-swipe="">
@@ -862,7 +864,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                           else setFormSeasonError(null)
                           setFormEpisode('0'); setFormEpisodeError(null)
                         }}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                        className="w-full bg-[var(--bg-card)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-violet-500"
                       />
                       {formSeasonError && <p className="text-xs text-red-400 mt-1">{formSeasonError}</p>}
                     </div>
@@ -885,7 +887,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                           else if (maxEp && n > maxEp) setFormEpisodeError(`Massimo ${maxEp}`)
                           else setFormEpisodeError(null)
                         }}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                        className="w-full bg-[var(--bg-card)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-violet-500"
                       />
                       {formEpisodeError && <p className="text-xs text-red-400 mt-1">{formEpisodeError}</p>}
                     </div>
@@ -898,11 +900,11 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
         </div>
 
         {/* ── FOOTER STICKY ────────────────────────────────────────── */}
-        <div className="flex-shrink-0 p-3 border-t border-zinc-800/80 bg-zinc-950 space-y-2">
+        <div className="flex-shrink-0 p-3 border-t border-[var(--border)] space-y-2" style={{ background: 'var(--bg-primary)' }}>
           {!checkDone ? (
             <div className="animate-pulse space-y-2">
-              <div className="h-10 bg-zinc-800 rounded-2xl" />
-              <div className="h-9 bg-zinc-800 rounded-2xl" />
+              <div className="h-10 bg-[var(--bg-card)] rounded-2xl" />
+              <div className="h-9 bg-[var(--bg-card)] rounded-2xl" />
             </div>
           ) : (
             <>
@@ -910,7 +912,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                 <div className="flex gap-2">
                   <button
                     onClick={() => setShowAddForm(false)}
-                    className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-zinc-400 text-sm hover:border-zinc-500 transition-all"
+                    className="flex-1 py-2.5 rounded-xl border border-[var(--border)] text-[var(--text-secondary)] text-sm hover:border-[var(--brand)] transition-all"
                   >
                     Annulla
                   </button>
@@ -921,7 +923,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                       episode: parseInt(formEpisode) || 0,
                       season: parseInt(formSeason) || 1,
                     })}
-                    className="flex-1 py-2.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-xl font-semibold text-white text-sm transition-all disabled:opacity-40"
+                    className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-xl font-semibold text-white text-sm transition-all disabled:opacity-40"
                   >
                     Conferma
                   </button>
@@ -929,7 +931,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               ) : !inCollection ? (
                 <button
                   onClick={() => setShowAddForm(true)}
-                  className="w-full py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 rounded-2xl font-semibold text-white transition-all"
+                  className="w-full py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl font-semibold text-white transition-all"
                 >
                   Aggiungi alla collezione
                 </button>
@@ -945,7 +947,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                   className={`flex-1 py-2 rounded-xl font-medium text-xs border transition-all flex items-center justify-center gap-1.5 ${
                     inWishlist
                       ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
-                      : 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:border-zinc-500'
+                      : 'bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--brand)]/50'
                   }`}
                 >
                   <Bookmark size={12} fill={inWishlist ? 'currentColor' : 'none'} />
@@ -957,7 +959,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                     href={externalUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 py-2 rounded-xl font-medium text-xs bg-zinc-900 border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-all flex items-center justify-center gap-1.5"
+                    className="flex-1 py-2 rounded-xl font-medium text-xs bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--brand)]/50 transition-all flex items-center justify-center gap-1.5"
                   >
                     <ExternalLink size={12} />{sourceLabel}
                   </a>

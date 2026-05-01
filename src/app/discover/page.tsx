@@ -459,7 +459,7 @@ export default function DiscoverPage() {
             <button
               key={tf.id}
               data-testid={`filter-${tf.id}`}
-              onClick={() => { haptic(30); setActiveType(tf.id); }}
+              onClick={() => setActiveType(tf.id)}
               className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all flex-shrink-0 border ${
                 activeType === tf.id
                   ? 'bg-violet-600 border-violet-500 text-white'
@@ -568,43 +568,54 @@ export default function DiscoverPage() {
                       {TYPE_PLACEHOLDER_ICON[type] ?? <Film size={28} />}
                     </div>
 
-                    {/* Hover overlay */}
+                    {/* Stato sempre visibile: icona top-right se in collezione o wishlist */}
+                    <div className="absolute top-1.5 right-1.5 z-10">
+                      {alreadyAdded.includes(item.id) ? (
+                        <div className="w-5 h-5 bg-[var(--brand)] rounded-md flex items-center justify-center shadow-sm">
+                          <Check size={9} className="text-white" strokeWidth={2.5} />
+                        </div>
+                      ) : wishlistIds.includes(item.id) ? (
+                        <div className="w-5 h-5 bg-black/70 backdrop-blur-sm border border-[var(--brand)]/60 rounded-md flex items-center justify-center shadow-sm">
+                          <BookmarkCheck size={9} className="text-violet-400" />
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {/* Hover overlay — desktop */}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
 
-                    {/* Action buttons on hover */}
+                    {/* Azioni su hover (desktop) — su mobile il tap apre il drawer */}
                     <div className="absolute inset-0 flex flex-col justify-between p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <div className="flex justify-end">
-                        <button
-                          onClick={e => { e.stopPropagation(); toggleWishlist(item); }}
-                          className="w-6 h-6 bg-black/70 backdrop-blur-sm rounded-md flex items-center justify-center"
-                        >
-                          {wishlistIds.includes(item.id)
-                            ? <BookmarkCheck size={11} className="text-violet-400" />
-                            : <Bookmark size={11} className="text-white" />}
-                        </button>
+                        {!alreadyAdded.includes(item.id) && (
+                          <button
+                            onClick={e => { e.stopPropagation(); toggleWishlist(item); }}
+                            className="w-6 h-6 bg-black/70 backdrop-blur-sm rounded-md flex items-center justify-center"
+                          >
+                            {wishlistIds.includes(item.id)
+                              ? <BookmarkCheck size={11} className="text-violet-400" />
+                              : <Bookmark size={11} className="text-white" />}
+                          </button>
+                        )}
                       </div>
                       <div className="flex justify-end">
-                        {!alreadyAdded.includes(item.id) ? (
+                        {!alreadyAdded.includes(item.id) && (
                           <button
                             onClick={e => { e.stopPropagation(); setDrawerMedia(toMediaDetails(item)); }}
                             className="w-6 h-6 bg-violet-600 rounded-md flex items-center justify-center"
                           >
                             <Plus size={11} className="text-white" />
                           </button>
-                        ) : (
-                          <div className="w-6 h-6 bg-emerald-500/30 border border-emerald-500/50 rounded-md flex items-center justify-center">
-                            <Check size={11} className="text-emerald-400" />
-                          </div>
                         )}
                       </div>
                     </div>
                   </div>
 
                   {/* Titolo sotto */}
-                  <p className="text-[11px] font-medium text-[var(--text-primary)] line-clamp-2 leading-snug mt-1 px-0.5">
+                  <p className="text-[12px] font-medium text-[var(--text-primary)] line-clamp-2 leading-snug mt-1 px-0.5">
                     {locale === 'en' && item.title_en ? item.title_en : item.title}
                   </p>
-                  {item.year && <p className="text-[10px] text-[var(--text-muted)] px-0.5">{item.year}</p>}
+                  {item.year && <p className="text-[11px] text-[var(--text-muted)] px-0.5">{item.year}</p>}
                 </div>
               ))}
             </div>

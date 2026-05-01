@@ -278,10 +278,10 @@ function MediaCard({
   const hasNotes = !!media.notes?.trim()
 
   const statusBadge: Record<string, { label: string; cls: string }> = {
-    completed: { label: 'Completato', cls: 'bg-emerald-500/20 text-emerald-400' },
-    paused:    { label: 'In pausa',   cls: 'bg-yellow-500/20 text-yellow-400' },
-    dropped:   { label: 'Abbandonato',cls: 'bg-red-500/20 text-red-400' },
-    watching:  { label: 'In corso',   cls: 'bg-zinc-700/40 text-zinc-400' },
+    completed: { label: 'Completato', cls: 'bg-violet-600/25 text-violet-300 border border-violet-500/40' },
+    paused:    { label: 'In pausa',   cls: 'bg-amber-500/20 text-amber-300 border border-amber-500/40' },
+    dropped:   { label: 'Abbandonato',cls: 'bg-red-500/20 text-red-300 border border-red-500/40' },
+    watching:  { label: 'In corso',   cls: 'bg-sky-500/20 text-sky-300 border border-sky-500/40' },
   }
 
   // Cover rendering
