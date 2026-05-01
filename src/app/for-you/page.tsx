@@ -1134,13 +1134,24 @@ export default function ForYouPage() {
   const handleWishlist = useCallback(async (item: Recommendation) => {
     const { data: { user } } = await supabase.auth.getUser(); if (!user) return
     if (wishlistIds.has(item.id)) {
-      await supabase.from('wishlist').delete().eq('user_id', user.id).eq('external_id', item.id)
-      setWishlistIds(prev => { const s = new Set(prev); s.delete(item.id); return s })
+      const res = await fetch('/api/wishlist', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ external_id: item.id }),
+      }).catch(() => null)
+      if (res?.ok) setWishlistIds(prev => { const s = new Set(prev); s.delete(item.id); return s })
     } else {
-      await supabase.from('wishlist').upsert({
-        user_id: user.id, external_id: item.id, title: item.title,
-        type: item.type, cover_image: item.coverImage,
-      }, { onConflict: 'user_id,external_id' })
+      const res = await fetch('/api/wishlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          external_id: item.id,
+          title: item.title,
+          type: item.type,
+          cover_image: item.coverImage,
+        }),
+      }).catch(() => null)
+      if (!res?.ok) return
       setWishlistIds(prev => new Set([...prev, item.id]))
       if (item.genres.length > 0) {
         triggerTasteDelta({ action: 'wishlist_add', mediaId: item.id, mediaType: item.type, genres: item.genres })

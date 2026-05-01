@@ -861,8 +861,11 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
       wishlistHistoryRef.current.delete(last.id)
       // Revert wishlist su Supabase (per swipe normale)
       if (!isOnboarding) {
-        const uid = userIdRef.current
-        if (uid) supabase.from('wishlist').delete().eq('user_id', uid).eq('external_id', last.id).then(() => {})
+        fetch('/api/wishlist', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ external_id: last.id }),
+        }).catch(() => {})
       }
       // Notifica il parent (per onboarding)
       onUndoWishlist?.(last)
@@ -909,14 +912,16 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
       setCardFlying(false)
       setCardFlyDir(null)
     }, 340)
-    const uid = userIdRef.current
-    if (uid) supabase.from('wishlist').upsert({
-        user_id: uid,
+    fetch('/api/wishlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         external_id: item.id,
         title: item.title,
         type: item.type,
         cover_image: item.coverImage,
-      }, { onConflict: 'user_id,external_id' }).then(() => {})
+      }),
+    }).catch(() => {})
   }, [handleSwipe, supabase])
 
 

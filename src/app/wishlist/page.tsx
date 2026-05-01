@@ -56,8 +56,12 @@ export default function WishlistPage() {
 
   const handleRemove = async (itemId: string, title: string) => {
     setRemoving(itemId)
-    const { error } = await supabase.from('wishlist').delete().eq('id', itemId)
-    if (!error) {
+    const res = await fetch('/api/wishlist', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: itemId }),
+    }).catch(() => null)
+    if (res?.ok) {
       setWishlist(prev => prev.filter(i => i.id !== itemId))
     } else {
     }

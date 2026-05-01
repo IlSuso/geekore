@@ -101,9 +101,11 @@ export function SteamImport({ onImportDone }: Props) {
     if (disconnecting) return
     setDisconnecting(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      await supabase.from('steam_accounts').delete().eq('user_id', user.id)
+      const res = await fetch('/api/steam/connect', { method: 'DELETE' }).catch(() => null)
+      if (!res?.ok) {
+        setResult({ text: 'Impossibile scollegare Steam. Riprova.', type: 'error' })
+        return
+      }
       setSteamAccount(null)
       setResult({ text: 'Account Steam scollegato', type: 'success' })
     } finally {

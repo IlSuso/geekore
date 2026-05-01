@@ -334,16 +334,24 @@ export default function DiscoverPage() {
     const user = authUser;
     if (!user) { return; }
     if (wishlistIds.includes(media.id)) {
-      await supabase.from('wishlist').delete().match({ user_id: user.id, external_id: media.id });
-      setWishlistIds(prev => prev.filter(id => id !== media.id));
+      const res = await fetch('/api/wishlist', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ external_id: media.id }),
+      }).catch(() => null);
+      if (res?.ok) setWishlistIds(prev => prev.filter(id => id !== media.id));
     } else {
-      await supabase.from('wishlist').insert({
-        user_id: user.id,
-        external_id: media.id,
-        title: media.title,
-        type: media.type,
-        cover_image: media.coverImage,
-      });
+      const res = await fetch('/api/wishlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          external_id: media.id,
+          title: media.title,
+          type: media.type,
+          cover_image: media.coverImage,
+        }),
+      }).catch(() => null);
+      if (!res?.ok) return;
       setWishlistIds(prev => [...prev, media.id]);
       if ((media.genres || []).length > 0) {
         triggerTasteDelta({

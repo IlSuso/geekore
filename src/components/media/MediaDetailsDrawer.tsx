@@ -294,14 +294,24 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     if (inWishlist) {
-      await supabase.from('wishlist').delete().eq('user_id', user.id).eq('external_id', media.id)
-      setInWishlist(false);
+      const res = await fetch('/api/wishlist', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ external_id: media.id }),
+      }).catch(() => null)
+      if (res?.ok) setInWishlist(false);
     } else {
-      await supabase.from('wishlist').upsert({
-        user_id: user.id, external_id: media.id,
-        title: media.title, type: media.type,
-        cover_image: media.coverImage,
-      }, { onConflict: 'user_id,external_id' })
+      const res = await fetch('/api/wishlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          external_id: media.id,
+          title: media.title,
+          type: media.type,
+          cover_image: media.coverImage,
+        }),
+      }).catch(() => null)
+      if (!res?.ok) return
       setInWishlist(true);
       if ((media.genres || []).length > 0) {
         triggerTasteDelta({ action: 'wishlist_add', mediaId: media.id, mediaType: media.type, genres: media.genres || [] })
