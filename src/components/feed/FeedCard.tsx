@@ -198,8 +198,12 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
   }
 
   const handleDeleteComment = async (commentId: string) => {
-    await supabase.from('comments').delete().eq('id', commentId)
-    setComments(prev => prev.filter(c => c.id !== commentId))
+    const res = await fetch('/api/social/comment', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comment_id: commentId }),
+    }).catch(() => null)
+    if (res?.ok) setComments(prev => prev.filter(c => c.id !== commentId))
   }
 
   const showReport = user && user.id !== post.user_id

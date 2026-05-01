@@ -1556,11 +1556,18 @@ export default function FeedPage() {
       imageUrl = uploadData.url || null
     }
 
-    const { data: newPostData, error } = await supabase.from('posts')
-      .insert({ user_id: currentUser.id, content: newPostContent.trim().replace(/\n{3,}/g, '\n\n'), image_url: imageUrl, category: newPostCategory || null })
-      .select('id, content, image_url, created_at, category').single()
+    const createRes = await fetch('/api/social/post', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: newPostContent,
+        image_url: imageUrl,
+        category: newPostCategory || null,
+      }),
+    }).catch(() => null)
 
-    if (!error && newPostData) {
+    if (createRes?.ok) {
+      const { post: newPostData } = await createRes.json()
       const optimisticPost: Post = {
         id: newPostData.id, user_id: currentUser.id, content: newPostData.content,
         image_url: newPostData.image_url, created_at: newPostData.created_at, category: newPostData.category,
@@ -1721,21 +1728,26 @@ export default function FeedPage() {
 
   const handleDeleteComment = useCallback(async (commentId: string, postId: string) => {
     if (!currentUser) return
-    const { error } = await supabase.from('comments').delete().eq('id', commentId)
-    if (error) return
-    // Il CASCADE su comment_id cancella automaticamente la notifica
+    const res = await fetch('/api/social/comment', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comment_id: commentId }),
+    }).catch(() => null)
+    if (!res?.ok) return
     const remove = (p: Post) => p.id === postId ? { ...p, comments_count: p.comments_count - 1, comments: p.comments.filter(c => c.id !== commentId) } : p
     setPosts(prev => prev.map(remove)); setPinnedPosts(prev => prev.map(remove))
-  }, [currentUser, supabase])
+  }, [currentUser])
 
   const handleDeletePost = useCallback(async (postId: string) => {
     if (!currentUser) return
     setPosts(prev => { const updated = prev.filter(p => p.id !== postId); cache.posts = updated; cache.ts = Date.now(); return updated })
     setPinnedPosts(prev => prev.filter(p => p.id !== postId))
-    await supabase.from('comments').delete().eq('post_id', postId)
-    await supabase.from('likes').delete().eq('post_id', postId)
-    await supabase.from('posts').delete().eq('id', postId).eq('user_id', currentUser.id)
-  }, [currentUser, supabase])
+    await fetch('/api/social/post', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post_id: postId }),
+    }).catch(() => {})
+  }, [currentUser])
 
   // ── Edit post ─────────────────────────────────────────────────────────────
   const [editingPostId, setEditingPostId] = useState<string | null>(null)
@@ -1752,13 +1764,18 @@ export default function FeedPage() {
   const handleEditPost = useCallback(async () => {
     if (!currentUser || !editingPostId || !editContent.trim()) return
     const newContent = editContent.trim()
-    await supabase.from('posts').update({ content: newContent, is_edited: true }).eq('id', editingPostId).eq('user_id', currentUser.id)
+    const res = await fetch('/api/social/post', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post_id: editingPostId, content: newContent }),
+    }).catch(() => null)
+    if (!res?.ok) return
     const update = (p: Post) => p.id === editingPostId ? { ...p, content: newContent, is_edited: true } : p
     setPosts(prev => { const updated = prev.map(update); cache.posts = updated; cache.ts = Date.now(); return updated })
     setPinnedPosts(prev => prev.map(update))
     setEditingPostId(null)
     setEditContent('')
-  }, [currentUser, editingPostId, editContent, supabase])
+  }, [currentUser, editingPostId, editContent])
 
   // Filtro client-side: supporta sia "Film" (solo macro) che "Film:Forrest Gump" (match esatto sottocategoria)
   const filteredPosts = categoryFilter
