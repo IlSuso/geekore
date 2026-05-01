@@ -3,6 +3,17 @@ import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
 import { rateLimit } from '@/lib/rateLimit'
 
+function getSiteOrigin(requestUrl: string): string {
+  const fallback = new URL(requestUrl).origin
+  const configured = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || fallback
+  try {
+    const url = new URL(configured)
+    return url.origin
+  } catch {
+    return fallback
+  }
+}
+
 export async function GET(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -12,7 +23,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL('/login?reason=steam_auth_required', request.url))
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+  const siteUrl = getSiteOrigin(request.url)
   const callbackUrl = `${siteUrl}/api/steam/callback`
 
   const steamAuthUrl =
