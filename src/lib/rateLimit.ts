@@ -95,45 +95,56 @@ export function rateLimit(
   }
 }
 
-async function rateLimitWithUpstash(key: string, limit: number, windowMs: number): Promise<RateLimitResult | null> {
-  const url = process.env.UPSTASH_REDIS_REST_URL
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN
-  if (!url || !token) return null
-
-  const now = Date.now()
-  const resetAtFallback = now + windowMs
-
+async function upstashCommand<T = any>(baseUrl: string, token: string, command: unknown[]): Promise<T | null> {
   try {
-    const res = await fetch(`${url.replace(/\/$/, '')}/pipeline`, {
+    const res = await fetch(baseUrl, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify([
-        ['INCR', key],
-        ['PEXPIRE', key, windowMs, 'NX'],
-        ['PTTL', key],
-      ]),
+      body: JSON.stringify(command),
       cache: 'no-store',
     })
-
     if (!res.ok) return null
     const data = await res.json()
-    const count = Number(data?.[0]?.result || 0)
-    const ttl = Number(data?.[2]?.result || windowMs)
-    const resetAt = now + (ttl > 0 ? ttl : windowMs)
-    const remaining = Math.max(0, limit - count)
-    const ok = count <= limit
-
-    return {
-      ok,
-      remaining,
-      resetAt,
-      headers: buildHeaders(limit, remaining, resetAt || resetAtFallback, now, ok),
-    }
+    if (data?.error) return null
+    return data?.result as T
   } catch {
     return null
+  }
+}
+
+async function rateLimitWithUpstash(key: string, limit: number, windowMs: number): Promise<RateLimitResult | null> {
+  const url = process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN
+  if (!url || !token) return null
+
+  const baseUrl = url.replace(/\/$/, '')
+  const now = Date.now()
+
+  const count = Number(await upstashCommand<number>(baseUrl, token, ['INCR', key]))
+  if (!Number.isFinite(count) || count <= 0) return null
+
+  if (count === 1) {
+    await upstashCommand(baseUrl, token, ['PEXPIRE', key, windowMs])
+  }
+
+  let ttl = Number(await upstashCommand<number>(baseUrl, token, ['PTTL', key]))
+  if (!Number.isFinite(ttl) || ttl <= 0) {
+    ttl = windowMs
+    await upstashCommand(baseUrl, token, ['PEXPIRE', key, windowMs])
+  }
+
+  const resetAt = now + ttl
+  const remaining = Math.max(0, limit - count)
+  const ok = count <= limit
+
+  return {
+    ok,
+    remaining,
+    resetAt,
+    headers: buildHeaders(limit, remaining, resetAt, now, ok),
   }
 }
 
