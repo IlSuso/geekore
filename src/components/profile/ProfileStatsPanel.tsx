@@ -81,7 +81,7 @@ export function ProfileStatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
             const borderRightDesktop = (i < 5) ? 'md:border-r md:border-zinc-800' : ''
             return (
               <div key={key} className={`flex flex-col items-center justify-center py-4 px-2 gap-1 ${borderRight} ${borderBottom} ${borderRightDesktop}`}>
-                <span className={`text-xl font-bold ${isEmpty ? 'text-zinc-700' : cfg.color}`}>
+                <span className={`text-xl font-bold font-mono ${isEmpty ? 'text-zinc-700' : cfg.color}`}>
                   {value}
                 </span>
                 <span className={`text-[10px] font-medium uppercase tracking-wide ${isEmpty ? 'text-zinc-700' : 'text-zinc-500'}`}>
@@ -99,7 +99,7 @@ export function ProfileStatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
           <div className={`grid grid-cols-${metrics.length} divide-x divide-zinc-800`}>
             {metrics.map((m, i) => (
               <div key={i} className="flex flex-col items-center justify-center py-4 px-3 gap-1.5">
-                <span className="text-lg font-bold text-white">{m.value}</span>
+                <span className="text-lg font-bold font-mono text-white">{m.value}</span>
                 <div className="flex items-center gap-1 text-zinc-500">
                   {m.icon}
                   <span className="text-[10px] font-medium uppercase tracking-wide">{m.label}</span>

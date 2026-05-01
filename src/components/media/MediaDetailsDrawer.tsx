@@ -541,18 +541,18 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
             {/* Stats inline */}
             <div className="flex items-center gap-1 flex-wrap">
-              {media.year && <span className="text-[10px] text-zinc-400">{media.year}</span>}
+              {media.year && <span className="text-[10px] text-zinc-400 font-mono">{media.year}</span>}
               {media.score != null && (
                 <div className="flex items-center gap-0.5 bg-[var(--bg-card)] border border-[var(--border)] rounded-full px-1.5 py-0.5">
                   <Star size={9} className="text-yellow-400 fill-yellow-400" />
-                  <span className="text-[10px] font-bold text-white">{media.score!.toFixed(1)}</span>
+                  <span className="text-[10px] font-bold text-white font-mono">{media.score!.toFixed(1)}</span>
                   <span className="text-[10px] text-zinc-500">/5</span>
                 </div>
               )}
               {media.episodes != null && media.episodes > 1 && (
                 <div className="flex items-center gap-0.5 bg-[var(--bg-card)] border border-[var(--border)] rounded-full px-1.5 py-0.5">
                   <Layers size={9} className="text-zinc-400" />
-                  <span className="text-[10px] font-bold text-white">{media.episodes}</span>
+                  <span className="text-[10px] font-bold text-white font-mono">{media.episodes}</span>
                   <span className="text-[10px] text-zinc-500">ep.</span>
                 </div>
               )}
@@ -601,7 +601,14 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             {media.genres && media.genres.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {media.genres.map(g => (
-                  <span key={g} className="text-xs bg-violet-500/15 text-violet-300 border border-violet-500/20 px-2.5 py-1 rounded-full">
+                  <span key={g}
+                    className="text-[11px] font-medium px-2.5 py-1 rounded-full"
+                    style={{
+                      background: `color-mix(in srgb, var(--type-${media.type === 'boardgame' ? 'board' : media.type}, #6d28d9) 12%, transparent)`,
+                      color: `var(--type-${media.type === 'boardgame' ? 'board' : media.type}, #a78bfa)`,
+                      border: `1px solid color-mix(in srgb, var(--type-${media.type === 'boardgame' ? 'board' : media.type}, #6d28d9) 30%, transparent)`,
+                    }}
+                  >
                     {translateGenre(g)}
                   </span>
                 ))}
@@ -622,7 +629,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               if (media.matchScore != null) cells.push(
                 <div key="match" className="bg-violet-500/10 border border-violet-500/25 rounded-xl p-3 text-center">
                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Match</p>
-                  <p className="text-lg font-bold text-violet-300">{media.matchScore}%</p>
+                  <p className="text-lg font-bold text-violet-300 font-mono">{media.matchScore}%</p>
                 </div>
               )
               if (media.score != null) cells.push(
@@ -630,7 +637,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Voto</p>
                   <div className="flex items-center justify-center gap-1">
                     <Star size={11} className="text-yellow-400 fill-yellow-400" />
-                    <p className="text-lg font-bold text-white">{(media.score!).toFixed(1)}</p>
+                    <p className="text-lg font-bold text-white font-mono">{(media.score!).toFixed(1)}</p>
                     <span className="text-[10px] text-zinc-600">/5</span>
                   </div>
                 </div>
@@ -638,7 +645,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               if (media.year) cells.push(
                 <div key="year" className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 text-center">
                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Anno</p>
-                  <p className="text-lg font-bold text-white">{media.year}</p>
+                  <p className="text-lg font-bold text-white font-mono">{media.year}</p>
                 </div>
               )
               if (media.episodes != null && media.episodes > 1) cells.push(
@@ -646,31 +653,31 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">
                     {media.type === 'manga' ? 'Cap.' : 'Ep.'}
                   </p>
-                  <p className="text-lg font-bold text-white">{media.episodes}</p>
+                  <p className="text-lg font-bold text-white font-mono">{media.episodes}</p>
                 </div>
               )
               if (media.totalSeasons != null && media.totalSeasons > 1) cells.push(
                 <div key="seasons" className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 text-center">
                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Stagioni</p>
-                  <p className="text-lg font-bold text-white">{media.totalSeasons}</p>
+                  <p className="text-lg font-bold text-white font-mono">{media.totalSeasons}</p>
                 </div>
               )
               if (media.playing_time) cells.push(
                 <div key="time" className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 text-center">
                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Durata</p>
-                  <p className="text-lg font-bold text-white">{media.playing_time}<span className="text-[10px] text-zinc-600 ml-0.5">m</span></p>
+                  <p className="text-lg font-bold text-white font-mono">{media.playing_time}<span className="text-[10px] text-zinc-600 ml-0.5">m</span></p>
                 </div>
               )
               if (media.complexity) cells.push(
                 <div key="cmplx" className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 text-center">
                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Difficoltà</p>
-                  <p className="text-lg font-bold text-white">{media.complexity.toFixed(1)}<span className="text-[10px] text-zinc-600">/5</span></p>
+                  <p className="text-lg font-bold text-white font-mono">{media.complexity.toFixed(1)}<span className="text-[10px] text-zinc-600">/5</span></p>
                 </div>
               )
               if (media.min_players != null || media.max_players != null) cells.push(
                 <div key="players" className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 text-center">
                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Giocatori</p>
-                  <p className="text-lg font-bold text-white">
+                  <p className="text-lg font-bold text-white font-mono">
                     {media.min_players === media.max_players
                       ? media.min_players
                       : `${media.min_players ?? '?'}–${media.max_players ?? '?'}`}

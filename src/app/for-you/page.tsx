@@ -54,14 +54,14 @@ const TYPE_LABEL: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Videogioco',
   boardgame: 'Gioco da Tavolo', }
 
-// Colori solidi coerenti con --type-* CSS vars (niente gradienti casuali)
+// Colori CSS vars per ogni tipo — coerenti col design system
 const TYPE_COLORS: Record<string, string> = {
-  anime:     'from-sky-400 to-sky-500',
-  manga:     'from-orange-400 to-orange-500',
-  movie:     'from-red-400 to-red-500',
-  tv:        'from-purple-400 to-purple-500',
-  game:      'from-emerald-400 to-emerald-500',
-  boardgame: 'from-amber-400 to-amber-500',
+  anime:     'var(--type-anime)',
+  manga:     'var(--type-manga)',
+  movie:     'var(--type-movie)',
+  tv:        'var(--type-tv)',
+  game:      'var(--type-game)',
+  boardgame: 'var(--type-board)',
   }
 
 function triggerTasteDelta(options: {
@@ -74,7 +74,7 @@ function triggerTasteDelta(options: {
 
 function MatchBadge({ score }: { score: number }) {
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-violet-300 bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 rounded-full">
+    <span className="inline-flex items-center gap-1 text-[10px] font-bold font-mono text-violet-300 bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 rounded-full">
       <Star size={8} fill="currentColor" />{score}%
     </span>
   )
@@ -200,7 +200,7 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
         {/* Bordo inset sottile — invisibile su cover colorate, separa quelle nere dallo sfondo */}
         <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/10 pointer-events-none" />
         {/* Solo badge tipo media in alto a sinistra */}
-        <div className={`absolute top-2 left-2 bg-gradient-to-r ${colorClass} text-white text-[10px] font-bold px-2 py-0.5 rounded-full`}>
+        <div className="absolute top-2 left-2 text-white text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: colorClass }}>
           {TYPE_LABEL[item.type] || item.type.toUpperCase()}
         </div>
         {/* Pulsanti azione in basso */}
@@ -476,7 +476,7 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
                     ? 'bg-violet-600 border-violet-500 text-white'
                     : 'bg-zinc-800/60 border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300'
                 }`}>
-                {key !== 'all' && <span className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${TYPE_COLORS[key as MediaType]}`} />}
+                {key !== 'all' && <span className="w-1.5 h-1.5 rounded-full" style={{ background: TYPE_COLORS[key as MediaType] }} />}
                 {label}
                 <span className={`text-[10px] ${isActive ? 'text-violet-200' : 'text-zinc-600'}`}>{count}</span>
               </button>
@@ -535,15 +535,15 @@ const RAIL_ICONS: Record<RecommendationRail['kind'], React.ElementType> = {
 }
 
 const RAIL_COLORS: Record<RecommendationRail['kind'], string> = {
-  'top-match': 'from-fuchsia-500 to-violet-600',
-  continue: 'from-amber-500 to-orange-600',
-  social: 'from-sky-500 to-cyan-600',
-  fresh: 'from-red-500 to-pink-600',
-  discovery: 'from-emerald-500 to-teal-600',
-  genre: 'from-indigo-500 to-blue-600',
-  'because-title': 'from-purple-500 to-fuchsia-600',
-  'quick-picks': 'from-lime-500 to-emerald-600',
-  'hidden-gems': 'from-yellow-500 to-amber-600',
+  'top-match':    '#a855f7',
+  continue:       '#f59e0b',
+  social:         'var(--type-anime)',
+  fresh:          'var(--type-movie)',
+  discovery:      'var(--type-game)',
+  genre:          '#6366f1',
+  'because-title':'#8b5cf6',
+  'quick-picks':  '#E6FF3D',
+  'hidden-gems':  'var(--type-board)',
 }
 
 const NetflixRailSection = memo(function NetflixRailSection({ rail, onFeedback, dismissedIds, onSimilar, onDetail, similarLoadingId }: {
@@ -565,8 +565,8 @@ const NetflixRailSection = memo(function NetflixRailSection({ rail, onFeedback, 
   return (
     <div className="mb-10">
       <div className="flex items-center gap-3 mb-4">
-        <div className={`w-8 h-8 bg-gradient-to-br ${RAIL_COLORS[rail.kind]} rounded-xl flex items-center justify-center shadow-lg`}>
-          <Icon size={16} className="text-white" />
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg" style={{ background: RAIL_COLORS[rail.kind] }}>
+          <Icon size={16} className={rail.kind === 'quick-picks' ? 'text-black' : 'text-white'} />
         </div>
         <div className="min-w-0">
           <h2 className="text-base font-bold text-white">{rail.title}</h2>
@@ -631,7 +631,7 @@ const SpotlightRecommendation = memo(function SpotlightRecommendation({ item, on
       <div className="relative z-10 flex min-h-[190px] md:min-h-[230px] items-end p-4 md:p-6">
         <div className="max-w-2xl">
           <div className="flex items-center gap-2 mb-3">
-            <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold text-white bg-gradient-to-r ${colorClass} px-2 py-1 rounded-full`}>
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-white px-2 py-1 rounded-full" style={{ background: colorClass }}>
               <Icon size={11} /> {TYPE_LABEL[item.type]}
             </span>
             <MatchBadge score={item.isContinuity ? 100 : item.matchScore} />
@@ -684,7 +684,7 @@ const RecommendationSection = memo(function RecommendationSection({ type, items,
   return (
     <div className="mb-10">
       <div className="flex items-center gap-3 mb-4">
-        <div className={`w-8 h-8 bg-gradient-to-br ${colorClass} rounded-xl flex items-center justify-center shadow-lg`}>
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg" style={{ background: colorClass }}>
           <Icon size={16} className="text-white" />
         </div>
         <div>

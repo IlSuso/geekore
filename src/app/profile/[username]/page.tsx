@@ -401,7 +401,7 @@ function MediaCard({
             return isCompleted || (maxCh && current >= maxCh) ? null : (
               <div className="space-y-1.5">
                 <span className="text-zinc-500">
-                  Cap. <span className="text-emerald-400 font-semibold">{current}</span>
+                  Cap. <span className="text-emerald-400 font-semibold font-mono">{current}</span>
                   {maxCh ? <span className="text-zinc-600"> / {maxCh}</span> : null}
                 </span>
                 {maxCh && (
@@ -417,7 +417,7 @@ function MediaCard({
               <div className="space-y-1.5">
                 <span className="text-zinc-500">
                   {hasSeasonData && <span className="text-zinc-500">{m.season(currentSeasonNum)} · </span>}
-                  Ep. <span className="text-emerald-400 font-semibold">{media.current_episode}</span>
+                  Ep. <span className="text-emerald-400 font-semibold font-mono">{media.current_episode}</span>
                   <span className="text-zinc-600"> / {maxEpisodesThisSeason}</span>
                 </span>
                 {maxEpisodesThisSeason > 0 && (
@@ -1352,12 +1352,12 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
           {/* Follower / Following — compatti */}
           <div className="flex items-center gap-6 mb-5">
             <div className="text-center">
-              <p className="text-lg font-bold text-[var(--text-primary)]">{followersCount}</p>
+              <p className="text-lg font-bold font-mono text-[var(--text-primary)]">{followersCount}</p>
               <p className="text-xs text-zinc-500 uppercase tracking-widest">{t.profile.follower}</p>
             </div>
             <div className="w-px h-8 bg-zinc-800" />
             <div className="text-center">
-              <p className="text-lg font-bold text-[var(--text-primary)]">{followingCount}</p>
+              <p className="text-lg font-bold font-mono text-[var(--text-primary)]">{followingCount}</p>
               <p className="text-xs text-zinc-500 uppercase tracking-widest">{t.profile.following}</p>
             </div>
           </div>
