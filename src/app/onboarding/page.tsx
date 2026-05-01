@@ -241,12 +241,6 @@ export default function OnboardingPage() {
     source: r.source ?? null,
   })
 
-  // Pulisce tutte le swipe_queue_* per questo utente (chiamata alla fine onboarding)
-  const clearOnboardingQueues = useCallback(async (uid: string) => {
-    const tables = ['swipe_queue_all', 'swipe_queue_anime', 'swipe_queue_manga', 'swipe_queue_movie', 'swipe_queue_tv', 'swipe_queue_game']
-    await Promise.all(tables.map(t => supabase.from(t).delete().eq('user_id', uid)))
-  }, [supabase])
-
   // Auth check
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -380,7 +374,11 @@ export default function OnboardingPage() {
         .slice(0, TARGET - existingRows.length)
       if (newItems.length > 0) {
         const rows = newItems.map(i => toQueueRow(i, uid))
-        await supabase.from(table).upsert(rows, { onConflict: 'user_id,external_id' })
+        await fetch('/api/swipe/queue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ queue: filter === 'all' ? 'all' : filter, rows }),
+        }).catch(() => null)
       }
       return [...existingRows.map(rowToSwipeItem), ...newItems]
     } catch {
@@ -393,69 +391,29 @@ export default function OnboardingPage() {
     if (!uid) return
 
     // Scrivi tutti gli accepted in batch (esclusi quelli poi skippati via undo)
-    const accepted = Array.from(acceptedItemsRef.current.values())
-    if (accepted.length > 0) {
-      const ts = Date.now()
-      const rows = accepted.map(({ item, rating }, i) => ({
-        user_id: uid,
-        external_id: item.id,
-        title: item.title,
-        type: item.type,
-        cover_image: item.coverImage ?? null,
-        genres: item.genres ?? [],
-        status: 'completed',
-        episodes: item.episodes ?? null,
-        rating: rating ?? null,
-        updated_at: new Date().toISOString(),
-        display_order: ts - i * 1000,
-      }))
-      const { error } = await supabase.from('user_media_entries').upsert(rows, { onConflict: 'user_id,external_id' })
-      if (error && process.env.NODE_ENV === 'development') {
-        console.error('[Onboarding] ERRORE upsert batch:', error.message)
-      }
-    }
+    const accepted = Array.from(acceptedItemsRef.current.values()).map(({ item, rating }) => ({ item, rating }))
 
-    // Scrivi wishlist in batch (item messi in wishlist via bottone bookmark)
-    const wishlistIds = Array.from(wishlistItemsRef.current)
-    if (wishlistIds.length > 0) {
-      const wishlistRows = wishlistIds.map(id => {
-        const entry = acceptedItemsRef.current.get(id) // fallback se ancora presente
-        // cerca nelle accepted o nelle skipped per i dati dell'item
-        const item = entry?.item ?? skippedItemsRef.current.find(i => i.id === id)
-        if (!item) return null
-        return {
-          user_id: uid,
-          external_id: item.id,
-          title: item.title,
-          type: item.type,
-          cover_image: item.coverImage ?? null,
-        }
-      }).filter(Boolean)
-      if (wishlistRows.length > 0) {
-        await supabase.from('wishlist').upsert(wishlistRows as any[], { onConflict: 'user_id,external_id' })
-      }
-    }
+    const wishlist = Array.from(wishlistItemsRef.current)
+      .map(id => acceptedItemsRef.current.get(id)?.item ?? skippedItemsRef.current.find(i => i.id === id))
+      .filter(Boolean)
 
-    if (skippedItemsRef.current.length > 0) {
-      await supabase.from('swipe_skipped').upsert(
-        skippedItemsRef.current.map(item => ({ user_id: uid, external_id: item.id, title: item.title, type: item.type })),
-        { onConflict: 'user_id,external_id' }
-      )
-    }
+    const res = await fetch('/api/onboarding/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accepted,
+        wishlist,
+        skipped: skippedItemsRef.current,
+        selected_types: selectedTypes,
+      }),
+    }).catch(() => null)
+    if (!res?.ok) return
 
     // Update critico — onboarding_done separato da preferred_types per sicurezza
-    await supabase.from('profiles').update({ onboarding_done: true, onboarding_step: 3 }).eq('id', uid)
-    if (selectedTypes.length > 0) {
-      await supabase.from('profiles').update({ preferred_types: selectedTypes }).eq('id', uid).then(() => {})
-    }
-
-    // Pulizia swipe_queue_* usate solo durante l'onboarding
-    await clearOnboardingQueues(uid)
-
     setOnboardingCookie()
     fetch('/api/recommendations?refresh=1&onboarding=1').catch(() => {})
     router.push('/home')
-  }, [userId, selectedTypes, supabase, router, clearOnboardingQueues])
+  }, [userId, selectedTypes, router])
 
   const goToSwipe = useCallback(() => {
     setStep(2)
