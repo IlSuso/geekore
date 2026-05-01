@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 
 function cleanString(value: unknown, max: number): string | null {
   if (typeof value !== 'string') return null
@@ -10,7 +10,7 @@ function cleanString(value: unknown, max: number): string | null {
 }
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 180, windowMs: 60_000, prefix: 'taste:affinity' })
+  const rl = await rateLimitAsync(request, { limit: 180, windowMs: 60_000, prefix: 'taste:affinity' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
   if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 
