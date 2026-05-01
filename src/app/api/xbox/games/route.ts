@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
+import { logger } from '@/lib/logger'
 
 const OPENXBL_BASE = 'https://xbl.io/api/v2'
 
@@ -79,32 +80,32 @@ async function fetchXboxGames(xuid: string): Promise<any[]> {
       headers: openxblHeaders(),
       signal: AbortSignal.timeout(10000),
     })
-    console.log('[Xbox] titleHistory status:', res.status)
+    logger.info('Xbox', 'titleHistory response', { status: res.status })
     if (res.ok) {
       const data = await res.json()
       const titles = extractTitles(data)
       if (titles.length > 0) return titles
     } else {
       const text = await res.text()
-      console.log('[Xbox] titleHistory error body:', text.slice(0, 300))
+      logger.warn('Xbox', 'titleHistory failed', { status: res.status, body: text.slice(0, 120) })
     }
-  } catch (e) { console.log('[Xbox] titleHistory exception:', e) }
+  } catch (e) { logger.warn('Xbox', 'titleHistory exception', e) }
 
   try {
     const res = await fetch(`${OPENXBL_BASE}/achievements/player/${xuid}`, {
       headers: openxblHeaders(),
       signal: AbortSignal.timeout(10000),
     })
-    console.log('[Xbox] achievements status:', res.status)
+    logger.info('Xbox', 'achievements response', { status: res.status })
     if (!res.ok) {
       const text = await res.text()
-      console.log('[Xbox] achievements error body:', text.slice(0, 300))
+      logger.warn('Xbox', 'achievements failed', { status: res.status, body: text.slice(0, 120) })
       return []
     }
     const data = await res.json()
     return extractTitles(data)
   } catch (e) {
-    console.log('[Xbox] achievements exception:', e)
+    logger.warn('Xbox', 'achievements exception', e)
     return []
   }
 }
@@ -126,14 +127,13 @@ function extractCoverImage(title: any): string | null {
 }
 
 export async function GET(request: NextRequest) {
-  process.stdout.write('[Xbox] GET handler reached\n')
-  console.log('[Xbox] GET handler called', request.url)
+  logger.info('Xbox', 'GET handler called')
 
   const rl = rateLimit(request, { limit: 5, windowMs: 60_000, prefix: 'xbox-games' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste, aspetta un minuto.' }, { status: 429 })
 
   if (!process.env.OPENXBL_API_KEY) {
-    console.log('[Xbox] OPENXBL_API_KEY mancante')
+    logger.warn('Xbox', 'OPENXBL_API_KEY mancante')
     return NextResponse.json({ error: 'Xbox integration non configurata (OPENXBL_API_KEY mancante)' }, { status: 503 })
   }
 
@@ -144,7 +144,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
 
   let xuid: string | null = searchParams.get('xuid')?.trim() ?? null
-  console.log('[Xbox] xuid ricevuto:', xuid)
+  logger.info('Xbox', 'xuid received', { hasXuid: !!xuid })
   const gamertag = searchParams.get('gamertag')?.trim()
 
   if (!xuid && !gamertag) {

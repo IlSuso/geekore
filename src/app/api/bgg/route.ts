@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { truncateAtSentence } from '@/lib/utils'
 import { translateWithCache } from '@/lib/deepl'
+import { logger } from '@/lib/logger'
 
 const BGG_BASE = 'https://boardgamegeek.com/xmlapi2'
 
@@ -71,7 +72,7 @@ async function searchBGG(query: string): Promise<string[]> {
     next: { revalidate: 300 },
   })
   if (!res.ok) {
-    console.error(`[BGG] search status ${res.status}`)
+    logger.warn('BGG', 'search failed', { status: res.status })
     return []
   }
   const xml = await res.text()
@@ -94,7 +95,7 @@ async function fetchBGGBatch(ids: string[]): Promise<BGGItem[]> {
     next: { revalidate: 3600 },
   })
   if (!res.ok) {
-    console.error(`[BGG] thing status ${res.status}`)
+    logger.warn('BGG', 'thing failed', { status: res.status })
     return []
   }
   const xml = await res.text()
@@ -249,7 +250,7 @@ export async function GET(req: NextRequest) {
       headers: { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=3600' },
     })
   } catch (err) {
-    console.error('[BGG API]', err)
+    logger.error('BGG', 'API failed', err)
     return NextResponse.json([])
   }
 }

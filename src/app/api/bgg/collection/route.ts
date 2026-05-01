@@ -3,6 +3,7 @@
 // BGG restituisce 202 se la richiesta è in coda (va riprovata dal client).
 
 import { NextRequest, NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 
 const BGG_BASE = 'https://boardgamegeek.com/xmlapi2'
 
@@ -196,7 +197,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ items: enrichedItems, total, enriched: Object.values(enriched) })
   } catch (err) {
-    console.error('[BGG Collection]', err)
+    logger.error('BGG Collection', 'Import failed', err)
     return NextResponse.json({ error: 'Errore di rete' }, { status: 500 })
   }
 }

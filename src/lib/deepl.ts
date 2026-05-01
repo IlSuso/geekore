@@ -4,6 +4,7 @@
 // Cache: Supabase translations_cache (persistente) + in-memory (per processo)
 
 import { createClient } from '@supabase/supabase-js'
+import { logger } from '@/lib/logger'
 
 const MEM_MAX = 500
 const memCache = new Map<string, string>()
@@ -70,7 +71,7 @@ export async function freeTranslateBatch(texts: string[], targetLang = 'IT'): Pr
   await Promise.all(workers)
 
   const successCount = results.filter((r, i) => r !== texts[i]).length
-  console.log('[Translate] Google fallback:', successCount, '/', texts.length, 'tradotti')
+  logger.info('Translate', 'Google fallback completed', { successCount, total: texts.length })
   return results
 }
 
@@ -85,15 +86,14 @@ export async function translateTexts(
 
   const apiKey = process.env.DEEPL_API_KEY
 
-  console.log('[Translate] translateTexts', {
+  logger.info('Translate', 'translateTexts', {
     engine: apiKey ? 'DeepL' : 'Google (no key)',
     textsCount: texts.length,
-    keyPreview: apiKey ? `${apiKey.slice(0, 6)}...${apiKey.slice(-4)}` : 'MANCANTE',
     isFree: apiKey?.endsWith(':fx'),
   })
 
   if (!apiKey) {
-    console.warn('[Translate] DEEPL_API_KEY mancante — uso Google Translate')
+    logger.warn('Translate', 'DEEPL_API_KEY mancante, uso Google Translate')
     return freeTranslateBatch(texts, targetLang)
   }
 
@@ -140,11 +140,11 @@ export async function translateTexts(
         signal: AbortSignal.timeout(10_000),
       })
 
-      console.log('[Translate] DeepL chunk:', { status: res.status, size: chunk.length })
+      logger.info('Translate', 'DeepL chunk response', { status: res.status, size: chunk.length })
 
       if (res.status === 456) {
         const body = await res.text().catch(() => '')
-        console.warn('[Translate] DeepL quota esaurita (456):', body, '→ switch a Google')
+        logger.warn('Translate', 'DeepL quota esaurita, switch a Google', { status: res.status, body: body.slice(0, 120) })
         useGoogleFromNow = true
         const fallback = await freeTranslateBatch(chunk.map(c => c.text), targetLang)
         chunk.forEach((c, j) => { results[c.i] = fallback[j] || c.text })
@@ -153,7 +153,7 @@ export async function translateTexts(
 
       if (!res.ok) {
         const body = await res.text().catch(() => '')
-        console.error('[Translate] DeepL errore:', res.status, body, '→ switch a Google')
+        logger.error('Translate', 'DeepL errore, switch a Google', { status: res.status, body: body.slice(0, 120) })
         useGoogleFromNow = true
         const fallback = await freeTranslateBatch(chunk.map(c => c.text), targetLang)
         chunk.forEach((c, j) => { results[c.i] = fallback[j] || c.text })
@@ -171,9 +171,9 @@ export async function translateTexts(
         memCache.set(chunk[j].text, t)
         ok++
       }
-      console.log('[Translate] DeepL chunk OK:', ok, '/', chunk.length)
+      logger.info('Translate', 'DeepL chunk OK', { ok, total: chunk.length })
     } catch (err) {
-      console.error('[Translate] DeepL eccezione:', err, '→ switch a Google')
+      logger.error('Translate', 'DeepL eccezione, switch a Google', err)
       useGoogleFromNow = true
       const fallback = await freeTranslateBatch(chunk.map(c => c.text), targetLang)
       chunk.forEach((c, j) => { results[c.i] = fallback[j] || c.text })
@@ -190,7 +190,7 @@ export async function translateWithCache(
   targetLang = 'IT',
   sourceLang = 'EN',
 ): Promise<Record<string, string>> {
-  console.log('[Translate] translateWithCache', { items: items.length })
+  logger.info('Translate', 'translateWithCache', { items: items.length })
 
   const result: Record<string, string> = {}
   for (const item of items) result[item.id] = item.text
@@ -209,24 +209,23 @@ export async function translateWithCache(
         .in('id', withText.map(i => i.id))
 
       if (error) {
-        console.error('[Translate] translations_cache errore:', error.message,
-          '— crea la tabella: CREATE TABLE translations_cache (id TEXT PRIMARY KEY, text_it TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW())')
+        logger.error('Translate', 'translations_cache errore', { message: error.message })
       } else {
-        console.log('[Translate] DB cache hit:', data?.length ?? 0, '/', withText.length)
+        logger.info('Translate', 'DB cache hit', { hit: data?.length ?? 0, total: withText.length })
         for (const row of data ?? []) {
           dbCached.set(row.id, row.text_it)
           result[row.id] = row.text_it
         }
       }
     } catch (err) {
-      console.error('[Translate] Supabase eccezione:', err)
+      logger.error('Translate', 'Supabase eccezione', err)
     }
   } else {
-    console.warn('[Translate] Supabase non disponibile — SUPABASE_SERVICE_ROLE_KEY mancante?')
+    logger.warn('Translate', 'Supabase non disponibile')
   }
 
   const misses = withText.filter(i => !dbCached.has(i.id))
-  console.log('[Translate] miss:', misses.length, '/ cached:', dbCached.size)
+  logger.info('Translate', 'translation cache miss', { misses: misses.length, cached: dbCached.size })
   if (misses.length === 0) return result
 
   const translated = await freeTranslateBatch(misses.map(i => i.text), targetLang)
@@ -243,8 +242,8 @@ export async function translateWithCache(
     const { error } = await supabase
       .from('translations_cache')
       .upsert(rows, { onConflict: 'id' })
-    if (error) console.error('[Translate] upsert fallito:', error.message)
-    else console.log('[Translate] persistite', rows.length, 'traduzioni in cache')
+    if (error) logger.error('Translate', 'upsert fallito', { message: error.message })
+    else logger.info('Translate', 'traduzioni persistite in cache', { rows: rows.length })
   }
 
   return result
