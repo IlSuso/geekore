@@ -25,7 +25,13 @@ const ALLOWED_ORIGINS = [
   process.env.NEXT_PUBLIC_APP_URL,
   'http://localhost:3000',
   'http://localhost:3001',
-].filter(Boolean) as string[]
+].filter(Boolean).map(value => {
+  try {
+    return new URL(value as string).origin
+  } catch {
+    return value
+  }
+}) as string[]
 
 function getCsrfSecret(): string | null {
   const secret = process.env.CSRF_SECRET
@@ -60,7 +66,8 @@ export function checkOrigin(request: NextRequest): boolean {
 
   // Controlla che l'origin sia nella whitelist
   if (origin) {
-    if (ALLOWED_ORIGINS.some(o => origin === o || origin.startsWith(o))) {
+    const originValue = safeOrigin(origin)
+    if (originValue && ALLOWED_ORIGINS.includes(originValue)) {
       return true
     }
     // Controlla same-origin tramite host
@@ -72,11 +79,24 @@ export function checkOrigin(request: NextRequest): boolean {
 
   // Fallback: controlla il referer
   if (referer) {
-    return ALLOWED_ORIGINS.some(o => referer.startsWith(o)) ||
-      (host ? referer.includes(host) : false)
+    const refererOrigin = safeOrigin(referer)
+    return Boolean(
+      refererOrigin && (
+        ALLOWED_ORIGINS.includes(refererOrigin) ||
+        (host && (refererOrigin === `https://${host}` || refererOrigin === `http://${host}`))
+      )
+    )
   }
 
   return false
+}
+
+function safeOrigin(value: string): string | null {
+  try {
+    return new URL(value).origin
+  } catch {
+    return null
+  }
 }
 
 export function rejectBadOrigin() {
