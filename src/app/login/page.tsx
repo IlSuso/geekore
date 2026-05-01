@@ -35,7 +35,9 @@ export default function LoginPage() {
   }, [])
 
   const redirectAfterLogin = async (userId: string) => {
-    console.log('[LOGIN DEBUG] redirectAfterLogin chiamato con userId:', userId)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[LOGIN DEBUG] redirectAfterLogin')
+    }
 
     const { data: profile, error } = await supabase
       .from('profiles')
@@ -43,21 +45,25 @@ export default function LoginPage() {
       .eq('id', userId)
       .single()
 
-    console.log('[LOGIN DEBUG] risultato query profile:', {
-      profile,
-      error,
-      onboarding_done: profile?.onboarding_done,
-      type: typeof profile?.onboarding_done,
-    })
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[LOGIN DEBUG] profile loaded:', {
+        hasError: !!error,
+        onboarding_done: profile?.onboarding_done,
+      })
+    }
 
     if (profile?.onboarding_done === true) {
-      console.log('[LOGIN DEBUG] → onboarding_done TRUE, vado a /home')
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[LOGIN DEBUG] onboarding_done true, redirect /home')
+      }
       const maxAge = 60 * 60 * 24 * 365
       const secure = location.protocol === 'https:' ? '; Secure' : ''
       document.cookie = `geekore_onboarding_done=1; path=/; max-age=${maxAge}; SameSite=Lax${secure}`
       router.push('/home')
     } else {
-      console.log('[LOGIN DEBUG] → onboarding_done NON TRUE, vado a /onboarding. Valore:', profile?.onboarding_done, 'Error:', error)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[LOGIN DEBUG] onboarding not done, redirect /onboarding:', { hasError: !!error })
+      }
       router.push('/onboarding')
     }
   }

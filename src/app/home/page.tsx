@@ -207,7 +207,10 @@ async function searchByCategory(category: string, query: string): Promise<Search
   try {
     if (category === 'Film') {
       const res = await fetch(`/api/tmdb?q=${q}&type=movie`, { signal: AbortSignal.timeout(5000) })
-      if (!res.ok) { console.warn('[CategorySearch] TMDB film error:', res.status); return [] }
+      if (!res.ok) {
+        if (process.env.NODE_ENV === 'development') console.warn('[CategorySearch] TMDB film error:', res.status)
+        return []
+      }
       const data = await res.json()
       const items = Array.isArray(data) ? data : []
       return items.slice(0, 8).map((item: any) => ({
@@ -220,7 +223,10 @@ async function searchByCategory(category: string, query: string): Promise<Search
 
     if (category === 'Serie TV') {
       const res = await fetch(`/api/tmdb?q=${q}&type=tv`, { signal: AbortSignal.timeout(5000) })
-      if (!res.ok) { console.warn('[CategorySearch] TMDB tv error:', res.status); return [] }
+      if (!res.ok) {
+        if (process.env.NODE_ENV === 'development') console.warn('[CategorySearch] TMDB tv error:', res.status)
+        return []
+      }
       const data = await res.json()
       const items = Array.isArray(data) ? data : []
       return items.slice(0, 8).map((item: any) => ({
@@ -238,7 +244,10 @@ async function searchByCategory(category: string, query: string): Promise<Search
         body: JSON.stringify({ search: query.trim(), limit: 8 }),
         signal: AbortSignal.timeout(6000),
       })
-      if (!res.ok) { console.warn('[CategorySearch] IGDB error:', res.status); return [] }
+      if (!res.ok) {
+        if (process.env.NODE_ENV === 'development') console.warn('[CategorySearch] IGDB error:', res.status)
+        return []
+      }
       const data = await res.json()
       const items = Array.isArray(data) ? data : (data.results || data.games || [])
       return items.slice(0, 8).map((item: any) => ({
@@ -253,7 +262,10 @@ async function searchByCategory(category: string, query: string): Promise<Search
     if (category === 'Anime' || category === 'Manga') {
       const type = category === 'Anime' ? 'anime' : 'manga'
       const res = await fetch(`/api/anilist?search=${q}&type=${type}&lang=it`, { signal: AbortSignal.timeout(5000) })
-      if (!res.ok) { console.warn('[CategorySearch] AniList error:', res.status); return [] }
+      if (!res.ok) {
+        if (process.env.NODE_ENV === 'development') console.warn('[CategorySearch] AniList error:', res.status)
+        return []
+      }
       const data = await res.json()
       const items = Array.isArray(data) ? data : (data.results || data.media || [])
       return items.slice(0, 8).map((item: any) => ({
@@ -266,7 +278,10 @@ async function searchByCategory(category: string, query: string): Promise<Search
 
     if (category === 'Giochi da tavolo') {
       const res = await fetch(`/api/bgg?q=${q}`, { signal: AbortSignal.timeout(6000) })
-      if (!res.ok) { console.warn('[CategorySearch] BGG error:', res.status); return [] }
+      if (!res.ok) {
+        if (process.env.NODE_ENV === 'development') console.warn('[CategorySearch] BGG error:', res.status)
+        return []
+      }
       const data = await res.json()
       const items = Array.isArray(data) ? data : []
       return items.slice(0, 8).map((item: any) => ({
@@ -278,7 +293,9 @@ async function searchByCategory(category: string, query: string): Promise<Search
     }
 
   } catch (err) {
-    console.warn('[CategorySearch] fetch error:', err)
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[CategorySearch] fetch error:', err)
+    }
   }
   return []
 }

@@ -813,7 +813,11 @@ export default function ProfileTypePage() {
     // Fire and forget — non blocca il render
     supabase.rpc('update_display_orders', {
       updates: updatedFiltered.map(item => ({ id: item.id, display_order: item.display_order }))
-    }).then(({ error }) => { if (error) console.error('[DragEnd] rpc error:', error) })
+    }).then(({ error }) => {
+      if (error && process.env.NODE_ENV === 'development') {
+        console.error('[DragEnd] rpc error:', error)
+      }
+    })
   }
 
   // Reset visibleCount quando cambiano i filtri

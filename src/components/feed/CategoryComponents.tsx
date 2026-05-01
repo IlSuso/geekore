@@ -151,7 +151,9 @@ async function searchByCategory(category: string, query: string): Promise<Search
       return rankByPrefix(mapped, query.trim()).slice(0, 8)
     }
   } catch (err) {
-    console.warn('[CategorySearch] fetch error:', err)
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[CategorySearch] fetch error:', err)
+    }
   }
   return []
 }

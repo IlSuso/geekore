@@ -952,7 +952,12 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
 
   const refreshMedia = async (userId: string) => {
     const { data, error } = await supabase.from('user_media_entries').select('id, title, title_en, type, cover_image, current_episode, current_season, season_episodes, episodes, display_order, updated_at, is_steam, import_source, appid, rating, status, genres, external_id').eq('user_id', userId).order('display_order', { ascending: false, nullsFirst: false }).limit(10000)
-    if (error) { console.error('[Profile] Errore refresh media:', error); return }
+    if (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[Profile] Errore refresh media:', error)
+      }
+      return
+    }
     if (data) setMediaList(sortMediaList(data))
   }
 
@@ -1238,7 +1243,11 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     // Fire and forget — non blocca il render
     supabase.rpc('update_display_orders', {
       updates: updatedSorted.map(item => ({ id: item.id, display_order: item.display_order }))
-    }).then(({ error }) => { if (error) console.error('[DragEnd] rpc error:', error) })
+    }).then(({ error }) => {
+      if (error && process.env.NODE_ENV === 'development') {
+        console.error('[DragEnd] rpc error:', error)
+      }
+    })
   }
 
   const grouped = sortedList.reduce((acc: Record<string, UserMedia[]>, item) => {

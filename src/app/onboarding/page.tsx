@@ -394,7 +394,9 @@ export default function OnboardingPage() {
         display_order: ts - i * 1000,
       }))
       const { error } = await supabase.from('user_media_entries').upsert(rows, { onConflict: 'user_id,external_id' })
-      if (error) console.error('[Onboarding] ERRORE upsert batch:', error.message)
+      if (error && process.env.NODE_ENV === 'development') {
+        console.error('[Onboarding] ERRORE upsert batch:', error.message)
+      }
     }
 
     // Scrivi wishlist in batch (item messi in wishlist via bottone bookmark)
