@@ -4,6 +4,20 @@ import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
 import { rateLimit } from '@/lib/rateLimit'
 
+const ACTIVITY_TYPES = new Set(['media_completed', 'rating_given', 'progress_update'])
+const MEDIA_TYPES = new Set(['anime', 'manga', 'game', 'movie', 'tv', 'book', 'boardgame'])
+
+function cleanString(value: unknown, max: number): string | null {
+  if (typeof value !== 'string') return null
+  const clean = value.trim().slice(0, max)
+  return clean || null
+}
+
+function numberOrNull(value: unknown): number | null {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -47,19 +61,30 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
 
-    const body = await request.json()
+    const body = await request.json().catch(() => null)
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers })
+    }
     const { type, media_id, media_title, media_type, media_cover, progress_value, rating_value, metadata } = body
+    const cleanType = cleanString(type, 80)
+    const cleanMediaType = cleanString(media_type, 40)
+    if (!cleanType || !ACTIVITY_TYPES.has(cleanType)) {
+      return NextResponse.json({ error: 'Tipo attivita non valido' }, { status: 400, headers: rl.headers })
+    }
+    if (cleanMediaType && !MEDIA_TYPES.has(cleanMediaType)) {
+      return NextResponse.json({ error: 'Tipo media non valido' }, { status: 400, headers: rl.headers })
+    }
 
     const { error } = await supabase.from('activity_log').insert({
       user_id: user.id,
-      type,
-      media_id,
-      media_title,
-      media_type,
-      media_cover,
-      progress_value,
-      rating_value,
-      metadata: metadata || {},
+      type: cleanType,
+      media_id: cleanString(media_id, 200),
+      media_title: cleanString(media_title, 300),
+      media_type: cleanMediaType,
+      media_cover: cleanString(media_cover, 1000),
+      progress_value: numberOrNull(progress_value),
+      rating_value: numberOrNull(rating_value),
+      metadata: metadata && typeof metadata === 'object' ? metadata : {},
     })
 
     if (error) throw error
