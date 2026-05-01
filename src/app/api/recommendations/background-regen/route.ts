@@ -1,15 +1,15 @@
 // src/app/api/recommendations/background-regen/route.ts
-// Chiamata dal trigger pg_net per rigenerare il master pool di un utente.
-// Risponde 202 immediatamente (entro il timeout pg_net di 5s), poi esegue
-// il regen asincrono via after() dopo che la risposta è stata inviata.
+// Chiamata interna per rigenerare il master pool di un utente.
+// Risponde 202 immediatamente, poi esegue il regen asincrono via after().
 
 export const maxDuration = 60
 
 import { NextRequest, NextResponse, after } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { logger } from '@/lib/logger'
+import { createServiceClient } from '@/lib/supabase/service'
 
 const CRON_SECRET = process.env.CRON_SECRET || ''
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export async function POST(request: NextRequest) {
   const secret = request.headers.get('X-Cron-Secret')
@@ -17,26 +17,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  if (!serviceKey || !supabaseUrl) {
-    return NextResponse.json({ error: 'Missing service key' }, { status: 500 })
+  const body = await request.json().catch(() => null)
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'Invalid body' }, { status: 400 })
   }
 
-  const body = await request.json().catch(() => ({}))
-  const { user_id, force_refresh } = body
+  const userId = typeof body.user_id === 'string' ? body.user_id.trim() : ''
+  const forceRefresh = body.force_refresh !== false
 
-  if (!user_id) {
-    return NextResponse.json({ error: 'Missing user_id' }, { status: 400 })
+  if (!UUID_RE.test(userId)) {
+    return NextResponse.json({ error: 'Invalid user_id' }, { status: 400 })
   }
 
-  const supabase = createClient(supabaseUrl, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false }
-  })
+  const supabase = createServiceClient('recommendations:background-regen:verify-user')
   const { data: profile } = await supabase
     .from('profiles')
     .select('id, entry_count')
-    .eq('id', user_id)
+    .eq('id', userId)
     .maybeSingle()
 
   if (!profile) {
@@ -46,27 +43,27 @@ export async function POST(request: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
     || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
 
-  const refreshParam = force_refresh !== false ? '&refresh=1' : ''
+  const refreshParam = forceRefresh ? '&refresh=1' : ''
   const url = `${appUrl}/api/recommendations?type=all${refreshParam}&onboarding=1`
 
   after(async () => {
     try {
       const res = await fetch(url, {
         headers: {
-          'X-Service-User-Id': user_id,
+          'X-Service-User-Id': userId,
           'X-Service-Secret': CRON_SECRET,
         },
       })
       if (!res.ok) {
         const text = await res.text()
-        logger.error('background-regen', `Regen failed for ${user_id}: ${res.status} ${text}`)
+        logger.error('background-regen', `Regen failed for ${userId}: ${res.status} ${text}`)
       } else {
-        logger.info('background-regen', `Master pool regenerated for user ${user_id}`)
+        logger.info('background-regen', `Master pool regenerated for user ${userId}`)
       }
     } catch (err: any) {
-      logger.error('background-regen', `Fetch error for ${user_id}: ${err?.message}`)
+      logger.error('background-regen', `Fetch error for ${userId}: ${err?.message}`)
     }
   })
 
-  return NextResponse.json({ status: 'accepted', user_id }, { status: 202 })
+  return NextResponse.json({ status: 'accepted', user_id: userId }, { status: 202 })
 }

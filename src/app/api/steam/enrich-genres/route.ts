@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { createServiceClient } from '@/lib/supabase/service'
 import { logger } from '@/lib/logger'
 import { rateLimit } from '@/lib/rateLimit'
 import { checkOrigin } from '@/lib/csrf'
@@ -250,23 +250,20 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+    return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
   }
 
   const clientId = process.env.IGDB_CLIENT_ID
   const token = await getIgdbToken()
 
   if (!clientId || !token) {
-    return NextResponse.json({ error: 'IGDB non configurato' }, { status: 500 })
+    return NextResponse.json({ error: 'IGDB non configurato' }, { status: 500, headers: rl.headers })
   }
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return NextResponse.json({ error: 'Configurazione Supabase server mancante' }, { status: 503 })
+    return NextResponse.json({ error: 'Configurazione Supabase server mancante' }, { status: 503, headers: rl.headers })
   }
 
-  const supabaseService = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  )
+  const supabaseService = createServiceClient('steam-enrich-genres:update-owned-games')
 
   const { data: steamGames, error } = await supabaseService
     .from('user_media_entries')
@@ -276,13 +273,13 @@ export async function POST(request: NextRequest) {
     .eq('is_steam', true)
 
   if (error || !steamGames?.length) {
-    return NextResponse.json({ enriched: 0, message: 'Nessun gioco Steam trovato' })
+    return NextResponse.json({ enriched: 0, message: 'Nessun gioco Steam trovato' }, { headers: rl.headers })
   }
 
   const withoutGenres = steamGames.filter(g => !g.genres || g.genres.length === 0)
 
   if (withoutGenres.length === 0) {
-    return NextResponse.json({ enriched: 0, message: 'Tutti i giochi hanno già i generi' })
+    return NextResponse.json({ enriched: 0, message: 'Tutti i giochi hanno già i generi' }, { headers: rl.headers })
   }
 
   logger.log('Enrich', `Processing ${withoutGenres.length} games without genres`)

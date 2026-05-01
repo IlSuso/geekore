@@ -8,13 +8,22 @@ export const runtime = 'edge'
 // M9: cache Edge di Vercel per 1 ora
 export const revalidate = 3600
 
+function normalizeUsername(value: string): string {
+  return decodeURIComponent(value).trim().toLowerCase().slice(0, 40)
+}
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ username: string }> }) {
   const { username } = await params
+  const normalizedUsername = normalizeUsername(username)
   const supabase = await createClient()
 
-  const { data: profile } = await supabase.from('profiles').select('id, username, display_name, avatar_url, bio').ilike('username', username).single()
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id, username, display_name, avatar_url, bio')
+    .eq('username', normalizedUsername)
+    .single()
 
-  const displayName = profile?.display_name || profile?.username || username
+  const displayName = profile?.display_name || profile?.username || normalizedUsername || 'Geekore'
   const initial = displayName[0]?.toUpperCase() || '?'
 
   let animeCount = 0, gameCount = 0, mangaCount = 0, movieCount = 0, tvCount = 0, steamHours = 0
@@ -51,7 +60,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         </div>
         <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
           <span style={{ color:'white', fontSize:'52px', fontWeight:900, letterSpacing:'-0.04em', lineHeight:1 }}>{displayName}</span>
-          <span style={{ color:'#7c6af7', fontSize:'24px', fontWeight:600 }}>@{profile?.username || username}</span>
+          <span style={{ color:'#7c6af7', fontSize:'24px', fontWeight:600 }}>@{profile?.username || normalizedUsername}</span>
           {profile?.bio && <span style={{ color:'#71717a', fontSize:'18px', marginTop:'4px' }}>{profile.bio.slice(0,80)}</span>}
         </div>
         <div style={{ display:'flex', gap:'12px', flexWrap:'wrap' }}>

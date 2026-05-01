@@ -1,7 +1,9 @@
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { createServiceClient } from '@/lib/supabase/service'
+import { checkOrigin } from '@/lib/csrf'
+import { rateLimitAsync } from '@/lib/rateLimit'
 
 const STEAM_API_KEY = process.env.STEAM_API_KEY
 const RATE_LIMIT_MAX = 3        // max utilizzi
@@ -56,7 +58,6 @@ async function fetchIgdbMetaBatch(
 
   for (let i = 0; i < gameNames.length; i += CHUNK) {
     const chunk = gameNames.slice(i, i + CHUNK)
-    // Normalizza i nomi: prova versione originale e lowercase per match più ampio
     const searchNames = chunk.map(n => `"${n.replace(/"/g, '').replace(/'/g, '')}"`).join(',')
 
     try {
@@ -105,24 +106,8 @@ async function fetchIgdbMetaBatch(
   return result
 }
 
-export async function GET(request: NextRequest) {
-  const steamid = request.nextUrl.searchParams.get('steamid')
-
-  if (!steamid) {
-    return NextResponse.json({ success: false, error: 'Missing steamid' }, { status: 400 })
-  }
-
-  // ── Validazione Steam ID64 ──────────────────────────────────────────────────
-  if (!STEAM_ID64_REGEX.test(steamid)) {
-    return NextResponse.json({ success: false, error: 'Steam ID non valido' }, { status: 400 })
-  }
-
-  if (!STEAM_API_KEY) {
-    return NextResponse.json({ success: false, error: 'STEAM_API_KEY not configured' }, { status: 500 })
-  }
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return NextResponse.json({ success: false, error: 'Configurazione Supabase server mancante' }, { status: 503 })
-  }
+export async function POST(request: NextRequest) {
+  if (!checkOrigin(request)) return NextResponse.json({ success: false, error: 'Origin non consentito' }, { status: 403 })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -130,10 +115,31 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Non autenticato' }, { status: 401 })
   }
 
-  const supabaseService = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  )
+  const rl = await rateLimitAsync(request, { limit: 3, windowMs: RATE_LIMIT_WINDOW_MS, prefix: 'steam-import', userId: user.id })
+  if (!rl.ok) {
+    return NextResponse.json({ success: false, error: 'Troppe importazioni Steam. Riprova più tardi.' }, { status: 429, headers: rl.headers })
+  }
+
+  const body = await request.json().catch(() => null)
+  const steamid = typeof body?.steamid === 'string' ? body.steamid.trim() : ''
+
+  if (!steamid) {
+    return NextResponse.json({ success: false, error: 'Missing steamid' }, { status: 400, headers: rl.headers })
+  }
+
+  // ── Validazione Steam ID64 ──────────────────────────────────────────────────
+  if (!STEAM_ID64_REGEX.test(steamid)) {
+    return NextResponse.json({ success: false, error: 'Steam ID non valido' }, { status: 400, headers: rl.headers })
+  }
+
+  if (!STEAM_API_KEY) {
+    return NextResponse.json({ success: false, error: 'STEAM_API_KEY not configured' }, { status: 500, headers: rl.headers })
+  }
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return NextResponse.json({ success: false, error: 'Configurazione Supabase server mancante' }, { status: 503, headers: rl.headers })
+  }
+
+  const supabaseService = createServiceClient('steam-games:import-library')
 
   // Cache 24h
   const { data: importLog } = await supabaseService
@@ -142,7 +148,7 @@ export async function GET(request: NextRequest) {
     .eq('user_id', user.id)
     .maybeSingle()
 
-  // Sliding window: tieni solo i timestamp nell'ultima ora
+  // Sliding window DB-side extra guard
   const now = Date.now()
   const rawTimestamps: number[] = importLog?.import_timestamps || []
   const recentTimestamps = rawTimestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS)
@@ -156,7 +162,7 @@ export async function GET(request: NextRequest) {
       error: `Hai già importato ${RATE_LIMIT_MAX} volte nell'ultima ora. Riprova tra ${minutesLeft} minut${minutesLeft === 1 ? 'o' : 'i'}.`,
       last_import: importLog?.imported_at,
       games_count: importLog?.games_count,
-    }, { status: 429 })
+    }, { status: 429, headers: rl.headers })
   }
 
   // ── Streaming response ──────────────────────────────────────────────────────
@@ -329,6 +335,11 @@ export async function GET(request: NextRequest) {
       'Content-Type': 'text/plain; charset=utf-8',
       'X-Content-Type-Options': 'nosniff',
       'Cache-Control': 'no-cache',
+      ...Object.fromEntries(rl.headers.entries()),
     },
   })
+}
+
+export async function GET() {
+  return NextResponse.json({ success: false, error: 'Method not allowed' }, { status: 405 })
 }

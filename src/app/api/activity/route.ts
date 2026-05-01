@@ -20,31 +20,29 @@ function numberOrNull(value: unknown): number | null {
 
 export async function GET(request: NextRequest) {
   try {
+    const rl = rateLimit(request, { limit: 120, windowMs: 60_000, prefix: 'activity:get' })
+    if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
+
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
 
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId')
     const requestedLimit = parseInt(searchParams.get('limit') || '20', 10)
     const limit = Number.isFinite(requestedLimit)
       ? Math.min(Math.max(requestedLimit, 1), 50)
       : 20
 
-    if (!userId) {
-      return NextResponse.json({ error: 'userId mancante' }, { status: 400 })
-    }
-
     const { data, error } = await supabase
       .from('activity_log')
       .select('id, user_id, type, media_id, media_title, media_type, media_cover, progress_value, rating_value, created_at')
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(limit)
 
     if (error) throw error
 
-    return NextResponse.json(data || [])
+    return NextResponse.json(data || [], { headers: rl.headers })
   } catch (err) {
     logger.error('[Activity GET]', err)
     return NextResponse.json([], { status: 500 })
@@ -55,11 +53,11 @@ export async function POST(request: NextRequest) {
   try {
     const rl = rateLimit(request, { limit: 120, windowMs: 60_000, prefix: 'activity:post' })
     if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
-    if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403 })
+    if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
 
     const body = await request.json().catch(() => null)
     if (!body || typeof body !== 'object') {
@@ -88,7 +86,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (error) throw error
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true }, { headers: rl.headers })
   } catch (err) {
     logger.error('[Activity POST]', err)
     return NextResponse.json({ error: 'Errore' }, { status: 500 })

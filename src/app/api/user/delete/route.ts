@@ -2,7 +2,7 @@
 // SEC2: Guard su SUPABASE_SERVICE_ROLE_KEY
 // C2:   Sostituisce console.error con logger
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyCsrf } from '@/lib/csrf'
 import { logger } from '@/lib/logger'
@@ -17,7 +17,7 @@ export async function DELETE(request: NextRequest) {
     logger.error('user/delete', 'SUPABASE_SERVICE_ROLE_KEY non configurata')
     return NextResponse.json(
       { error: 'Configurazione server non valida' },
-      { status: 503 }
+      { status: 503, headers: rl.headers }
     )
   }
 
@@ -26,18 +26,15 @@ export async function DELETE(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+      return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
     }
 
     const csrf = verifyCsrf(request, user.id)
     if (!csrf.ok) {
-      return NextResponse.json({ error: csrf.reason || 'Richiesta non autorizzata' }, { status: 403 })
+      return NextResponse.json({ error: csrf.reason || 'Richiesta non autorizzata' }, { status: 403, headers: rl.headers })
     }
 
-    const serviceClient = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    )
+    const serviceClient = createServiceClient('user-delete:delete-own-account')
 
     await Promise.allSettled([
       serviceClient.from('user_media_entries').delete().eq('user_id', user.id),
@@ -58,10 +55,10 @@ export async function DELETE(request: NextRequest) {
     const { error } = await serviceClient.auth.admin.deleteUser(user.id)
     if (error) throw error
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true }, { headers: rl.headers })
   } catch (err) {
     // C2: usa logger invece di console.error
     logger.error('user/delete', err)
-    return NextResponse.json({ error: 'Errore nella cancellazione' }, { status: 500 })
+    return NextResponse.json({ error: 'Errore nella cancellazione' }, { status: 500, headers: rl.headers })
   }
 }

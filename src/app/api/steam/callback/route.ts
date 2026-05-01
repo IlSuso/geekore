@@ -9,6 +9,34 @@ function isValidSteamId64(id: string): boolean {
   return STEAM_ID64_REGEX.test(id)
 }
 
+function getExpectedOrigin(requestUrl: string): string {
+  const fallback = new URL(requestUrl).origin
+  const configured = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || fallback
+  try {
+    return new URL(configured).origin
+  } catch {
+    return fallback
+  }
+}
+
+function validateOpenIdReturnParams(url: URL, expectedOrigin: string): boolean {
+  const returnTo = url.searchParams.get('openid.return_to')
+  const realm = url.searchParams.get('openid.realm')
+  if (!returnTo || !realm) return false
+
+  try {
+    const returnToUrl = new URL(returnTo)
+    const realmUrl = new URL(realm)
+    return (
+      returnToUrl.origin === expectedOrigin &&
+      returnToUrl.pathname === '/api/steam/callback' &&
+      realmUrl.origin === expectedOrigin
+    )
+  } catch {
+    return false
+  }
+}
+
 async function verifySteamOpenId(url: URL): Promise<boolean> {
   const params = new URLSearchParams(url.searchParams)
   params.set('openid.mode', 'check_authentication')
@@ -28,7 +56,13 @@ async function verifySteamOpenId(url: URL): Promise<boolean> {
 export async function GET(request: Request) {
   const supabase = await createClient()
   const url = new URL(request.url)
+  const expectedOrigin = getExpectedOrigin(request.url)
   const claimedId = url.searchParams.get('openid.claimed_id')
+
+  if (!validateOpenIdReturnParams(url, expectedOrigin)) {
+    logger.warn('[Steam Callback]', 'Invalid OpenID return_to or realm')
+    return NextResponse.redirect(new URL('/profile/me?error=steam_invalid_realm', request.url))
+  }
 
   if (!claimedId) {
     return NextResponse.redirect(new URL('/profile/me?error=steam_invalid', request.url))

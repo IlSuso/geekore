@@ -16,8 +16,8 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { logger } from '@/lib/logger'
+import { createServiceClient } from '@/lib/supabase/service'
 
 export async function GET(request: NextRequest) {
   // Verifica il secret del cron
@@ -30,14 +30,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Usa service role per operazioni admin
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!supabaseUrl || !serviceKey) {
-    return NextResponse.json({ error: 'Missing Supabase config' }, { status: 500 })
-  }
-
-  const supabase = createClient(supabaseUrl, serviceKey)
+  const supabase = createServiceClient('cron:taste-maintenance')
   const results: Record<string, any> = {}
   const startTime = Date.now()
 
