@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
       const payload = await refreshFromMasterPool(supabase, userId)
       const depletedTypes = payload.recommendationDiagnostics?.depletedTypes || []
       const regenKey = `${userId}:depleted-refresh:${depletedTypes.sort().join(',')}`
-      if (depletedTypes.length > 0 && tryStartRegen(regenKey, FORCE_REGEN_COOLDOWN_MINUTES * 60000)) {
+      if (depletedTypes.length > 0 && await tryStartRegen(regenKey, FORCE_REGEN_COOLDOWN_MINUTES * 60000)) {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL
           || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : request.nextUrl.origin)
         after(async () => {
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
               },
             })
           } finally {
-            finishRegen(regenKey, FORCE_REGEN_COOLDOWN_MINUTES * 60000)
+            await finishRegen(regenKey, FORCE_REGEN_COOLDOWN_MINUTES * 60000)
           }
         })
         payload.recommendationDiagnostics = {
@@ -601,9 +601,12 @@ export async function GET(request: NextRequest) {
     // Li rigeneriamo in fire-and-forget: la risposta corrente non li aspetta
     // (saranno disponibili alla prossima chiamata), ma vengono comunque generati
     // e salvati su Supabase dietro le quinte, uno per uno, per evitare timeout.
-    const backgroundRegenTypes = typesToRegenBackground.filter(type =>
-      tryStartRegen(`${userId}:${type}:${collectionHash}`)
-    )
+    const backgroundRegenTypes: MediaType[] = []
+    for (const type of typesToRegenBackground) {
+      if (await tryStartRegen(`${userId}:${type}:${collectionHash}`)) {
+        backgroundRegenTypes.push(type)
+      }
+    }
     if (backgroundRegenTypes.length > 0) {
       ;(async () => {
         const continuityRecsForBg = (backgroundRegenTypes.includes('anime') || backgroundRegenTypes.includes('manga'))
@@ -639,7 +642,7 @@ export async function GET(request: NextRequest) {
             }, { onConflict: 'user_id,media_type' })
           } catch { /* ignora errori singoli tipi: non blocca gli altri */ }
           finally {
-            finishRegen(regenKey, FORCE_REGEN_COOLDOWN_MINUTES * 60000)
+            await finishRegen(regenKey, FORCE_REGEN_COOLDOWN_MINUTES * 60000)
           }
         }
       })()
