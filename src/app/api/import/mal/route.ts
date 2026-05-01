@@ -11,7 +11,7 @@
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 import { checkOrigin } from '@/lib/csrf'
 import { upsertWithMerge } from '@/lib/importMerge'
 
@@ -341,7 +341,7 @@ function transformManga(
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 3, windowMs: 60 * 60 * 1000, prefix: 'mal-import' })
+  const rl = await rateLimitAsync(request, { limit: 3, windowMs: 60 * 60 * 1000, prefix: 'mal-import' })
   if (!rl.ok) {
     return NextResponse.json(
       { error: "Troppe importazioni. Attendi un'ora prima di riprovare." },
