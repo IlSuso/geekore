@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
   const title = stringValue(body?.title, 300)
   const type = stringValue(body?.type, 40)
   const status = stringValue(body?.status, 40) || 'watching'
+  const shouldUpsert = body?.upsert === true
 
   if (!externalId) return NextResponse.json({ error: 'external_id mancante' }, { status: 400, headers: rl.headers })
   if (!title) return NextResponse.json({ error: 'title mancante' }, { status: 400, headers: rl.headers })
@@ -72,11 +73,11 @@ export async function POST(request: NextRequest) {
     display_order: numberOrNull(body?.display_order) ?? Date.now(),
   }
 
-  const { data, error } = await supabase
-    .from('user_media_entries')
-    .insert(row)
-    .select('id')
-    .single()
+  const query = shouldUpsert
+    ? supabase.from('user_media_entries').upsert(row, { onConflict: 'user_id,external_id' })
+    : supabase.from('user_media_entries').insert(row)
+
+  const { data, error } = await query.select('id').single()
 
   if (error) {
     if (error.code === '23505') {
@@ -86,4 +87,30 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ success: true, id: data?.id }, { headers: rl.headers })
+}
+
+export async function DELETE(request: NextRequest) {
+  const rl = rateLimit(request, { limit: 80, windowMs: 60_000, prefix: 'collection:delete' })
+  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+
+  let body: any
+  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
+
+  const externalId = stringValue(body?.external_id, 200)
+  if (!externalId) return NextResponse.json({ error: 'external_id mancante' }, { status: 400, headers: rl.headers })
+
+  const { error } = await supabase
+    .from('user_media_entries')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('external_id', externalId)
+
+  if (error) return NextResponse.json({ error: 'Titolo non rimosso' }, { status: 500, headers: rl.headers })
+
+  return NextResponse.json({ success: true }, { headers: rl.headers })
 }
