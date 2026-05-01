@@ -143,27 +143,28 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
 
   let body: any
   try { body = await request.json() } catch {
-    return NextResponse.json({ error: 'Body non valido' }, { status: 400 })
+    return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers })
   }
 
   const { anilist_username, types = ['ANIME', 'MANGA'] } = body
 
   if (!anilist_username || typeof anilist_username !== 'string') {
-    return NextResponse.json({ error: 'Username AniList mancante' }, { status: 400 })
+    return NextResponse.json({ error: 'Username AniList mancante' }, { status: 400, headers: rl.headers })
   }
 
   const username = anilist_username.trim()
   if (username.length < 2 || username.length > 50 || !/^[a-zA-Z0-9_-]+$/.test(username)) {
-    return NextResponse.json({ error: 'Username AniList non valido' }, { status: 400 })
+    return NextResponse.json({ error: 'Username AniList non valido' }, { status: 400, headers: rl.headers })
   }
 
-  const validTypes = (['ANIME', 'MANGA'] as const).filter(t => types.includes(t))
+  const requestedTypes = Array.isArray(types) ? types : []
+  const validTypes = (['ANIME', 'MANGA'] as const).filter(t => requestedTypes.includes(t))
   if (!validTypes.length) {
-    return NextResponse.json({ error: 'Tipo non valido' }, { status: 400 })
+    return NextResponse.json({ error: 'Tipo non valido' }, { status: 400, headers: rl.headers })
   }
 
   // ── Streaming response ────────────────────────────────────────────────────
@@ -293,6 +294,7 @@ export async function POST(request: NextRequest) {
       'Content-Type': 'text/plain; charset=utf-8',
       'X-Content-Type-Options': 'nosniff',
       'Cache-Control': 'no-cache',
+      ...Object.fromEntries(rl.headers.entries()),
     },
   })
 }
