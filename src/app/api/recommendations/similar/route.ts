@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
 import { translateWithCache } from '@/lib/deepl'
 import { truncateAtSentence } from '@/lib/utils'
+import { logger } from '@/lib/logger'
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
 const ANILIST_URL = 'https://graphql.anilist.co'
@@ -155,7 +156,7 @@ async function resolveTmdbKeywordIds(keywords: string[], token: string): Promise
   if (!keywords.length) return []
   const toResolve = keywords.slice(0, 8)
   const slots: (number | null)[] = new Array(toResolve.length).fill(null)
-  console.log('[SIMILAR] resolveTmdbKeywordIds: querying', toResolve)
+  logger.info('SIMILAR', 'Resolving TMDB keywords', { count: toResolve.length })
   await Promise.allSettled(toResolve.map(async (kw, i) => {
     try {
       const res = await fetch(
@@ -165,12 +166,12 @@ async function resolveTmdbKeywordIds(keywords: string[], token: string): Promise
       if (!res.ok) return
       const json = await res.json()
       const first = json.results?.[0]
-      console.log('[SIMILAR]  kw:', JSON.stringify(kw), '→', first ? `id=${first.id} name="${first.name}"` : 'no match')
+      logger.info('SIMILAR', 'TMDB keyword resolved', { matched: !!first })
       if (first?.id) slots[i] = first.id
-    } catch (e) { console.log('[SIMILAR]  kw:', JSON.stringify(kw), '→ error:', e) }
+    } catch (e) { logger.warn('SIMILAR', 'TMDB keyword resolve failed', e) }
   }))
   const ordered = slots.filter((id): id is number => id !== null)
-  console.log('[SIMILAR] resolveTmdbKeywordIds result:', ordered)
+  logger.info('SIMILAR', 'TMDB keywords resolved', { count: ordered.length })
   return ordered
 }
 
@@ -199,7 +200,7 @@ async function resolveProxyKeywords(
             .map((k: any) => k.name as string)
             .filter((k: string) => !TMDB_META_KW_BLOCKLIST.has(k.toLowerCase()))
           if (kws.length >= 2) {
-            console.log(`[SIMILAR] proxy kw from "${candidate.title || candidate.name}":`, kws.slice(0, 5))
+            logger.info('SIMILAR', 'Proxy keywords found', { count: kws.length })
             return kws.slice(0, 8)
           }
         } catch {}
@@ -220,7 +221,7 @@ async function resolveProxyKeywords(
             .map((k: any) => k.name as string)
             .filter((t: string) => !TMDB_META_KW_BLOCKLIST.has(t.toLowerCase()))
           if (tags.length >= 2) {
-            console.log(`[SIMILAR] proxy tags from tmdb-anime-${tmdbAnimeId}:`, tags.slice(0, 5))
+            logger.info('SIMILAR', 'Proxy anime tags found', { count: tags.length })
             return tags.slice(0, 10)
           }
         }
@@ -269,7 +270,7 @@ export async function GET(request: NextRequest) {
   if (effectiveKeywords.length === 0 && tmdbToken) {
     effectiveKeywords = await resolveProxyKeywords(sourceType, excludeIdNum, excludeId, tmdbToken)
     if (effectiveKeywords.length > 0) {
-      console.log('[SIMILAR] proxy keywords attive:', effectiveKeywords)
+      logger.info('SIMILAR', 'Proxy keywords active', { count: effectiveKeywords.length })
     }
   }
 
@@ -480,8 +481,10 @@ export async function GET(request: NextRequest) {
         ])
         const genreItems: any[] = genreRes.ok ? filterLang((await genreRes.json()).results || []).slice(0, 20) : []
         const kwItems: any[] = kwRes?.ok ? filterLang((await kwRes.json()).results || []).slice(0, 20) : []
-        console.log('[SIMILAR] tmdbKwIds (movie):', tmdbKwIds)
-        console.log('[SIMILAR] TMDb movie kw discover returned:', kwItems.length, 'results (OR:', orKwIds.join('|'), ')')
+        logger.info('SIMILAR', 'TMDB movie keyword discovery', {
+          keywordIds: tmdbKwIds.length,
+          keywordResults: kwItems.length,
+        })
 
         const genreIdSet = new Set(genreItems.map((m: any) => m.id))
         const kwIdSet = new Set(kwItems.map((m: any) => m.id))
@@ -495,7 +498,7 @@ export async function GET(request: NextRequest) {
             if (!kr.ok) return
             const kj = await kr.json()
             const kws = (kj.keywords || []).map((k: any) => k.name.toLowerCase())
-            console.log('[SIMILAR] movie', m.id, m.title, '→ kws:', kws.slice(0,5))
+            logger.info('SIMILAR', 'Movie keywords fetched', { count: kws.length })
             movieActualKws.set(m.id.toString(), kws)
           } catch {}
         }))

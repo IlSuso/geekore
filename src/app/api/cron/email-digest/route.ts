@@ -22,6 +22,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { logger } from '@/lib/logger'
 
 // ── Resend client (lazy-init per evitare crash senza API key) ─────────────────
 async function getResend() {
@@ -293,7 +294,7 @@ export async function GET(request: NextRequest) {
 
       sent++
     } catch (err) {
-      console.error(`[Digest] Errore per user ${pref.user_id}:`, err)
+      logger.error('Digest', 'Errore invio digest utente', err)
       errors++
     }
   }

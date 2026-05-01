@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
+import { logger } from '@/lib/logger'
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
 const ANILIST_GQL = 'https://graphql.anilist.co'
@@ -329,7 +330,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (err) {
-    console.error('[OnboardingQuick] error:', err)
+    logger.error('OnboardingQuick', 'error', err)
     return NextResponse.json({ error: 'Errore interno' }, { status: 500 })
   }
 }
