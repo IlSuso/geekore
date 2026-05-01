@@ -37,6 +37,84 @@ async function getIgdbToken(clientId: string, clientSecret: string): Promise<str
 
 const SAFE_SEARCH_RE = /^[\p{L}\p{N}\s\-_:.,'!?&()]+$/u
 
+function validateSearch(search: unknown): { ok: true; value: string } | { ok: false; error: string } {
+  if (!search || typeof search !== 'string') return { ok: false, error: 'Parametro search mancante' }
+
+  const trimmed = search.trim()
+  if (trimmed.length < 2) return { ok: false, error: 'Ricerca troppo corta (minimo 2 caratteri)' }
+  if (trimmed.length > 100) return { ok: false, error: 'Ricerca troppo lunga (massimo 100 caratteri)' }
+  if (!SAFE_SEARCH_RE.test(trimmed)) return { ok: false, error: 'Caratteri non consentiti nella ricerca' }
+
+  return { ok: true, value: trimmed }
+}
+
+async function searchIgdb(cleanSearch: string, headers: Record<string, string>) {
+  const clientId = process.env.IGDB_CLIENT_ID
+  const clientSecret = process.env.IGDB_CLIENT_SECRET
+
+  if (!clientId || !clientSecret) {
+    return NextResponse.json({ error: 'Configurazione IGDB mancante' }, { status: 500, headers })
+  }
+
+  const accessToken = await getIgdbToken(clientId, clientSecret)
+  if (!accessToken) {
+    return NextResponse.json({ error: 'Impossibile ottenere token IGDB' }, { status: 500, headers })
+  }
+
+  const safeSearch = cleanSearch.replace(/"/g, '\\"')
+
+  const igdbRes = await fetch('https://api.igdb.com/v4/games', {
+    method: 'POST',
+    headers: {
+      'Client-ID': clientId,
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'text/plain',
+    },
+    body: `
+      search "${safeSearch}";
+      fields name, cover.url, first_release_date, summary,
+             genres.name, themes.name, keywords.name,
+             player_perspectives.name,
+             game_modes.name,
+             involved_companies.company.name, involved_companies.developer,
+             rating, rating_count;
+      limit 20;
+    `,
+    signal: AbortSignal.timeout(8000),
+  })
+
+  if (!igdbRes.ok) {
+    return NextResponse.json({ error: 'Errore risposta IGDB' }, { status: 502, headers })
+  }
+
+  const games = await igdbRes.json()
+  if (!Array.isArray(games)) {
+    return NextResponse.json({ error: 'Risposta IGDB non valida' }, { status: 502, headers })
+  }
+
+  const formattedGames = games.map((g: any) => ({
+    id: g.id.toString(),
+    title: g.name,
+    type: 'game',
+    coverImage: g.cover?.url ? `https:${g.cover.url.replace('t_thumb', 't_1080p')}` : undefined,
+    year: g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : undefined,
+    episodes: 1,
+    description: g.summary ? truncateAtSentence(g.summary, 400) : undefined,
+    genres: g.genres?.map((gen: any) => gen.name) as string[] | undefined,
+    themes: g.themes?.map((t: any) => t.name) as string[] | undefined,
+    keywords: g.keywords?.map((k: any) => k.name) as string[] | undefined,
+    player_perspectives: g.player_perspectives?.map((p: any) => p.name) as string[] | undefined,
+    game_modes: g.game_modes?.map((m: any) => m.name) as string[] | undefined,
+    developers: g.involved_companies
+      ?.filter((c: any) => c.developer)
+      .map((c: any) => c.company?.name)
+      .filter(Boolean) as string[] | undefined,
+    source: 'igdb',
+  }))
+
+  return NextResponse.json(formattedGames, { headers })
+}
+
 export async function POST(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 30, windowMs: 60_000, prefix: 'igdb' })
   if (!rl.ok) {
@@ -49,89 +127,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { search } = body
-
-    if (!search || typeof search !== 'string') {
-      return NextResponse.json({ error: 'Parametro search mancante' }, { status: 400, headers: rl.headers })
-    }
-
-    const trimmed = search.trim()
-
-    if (trimmed.length < 2) {
-      return NextResponse.json({ error: 'Ricerca troppo corta (minimo 2 caratteri)' }, { status: 400, headers: rl.headers })
-    }
-    if (trimmed.length > 100) {
-      return NextResponse.json({ error: 'Ricerca troppo lunga (massimo 100 caratteri)' }, { status: 400, headers: rl.headers })
-    }
-    if (!SAFE_SEARCH_RE.test(trimmed)) {
-      return NextResponse.json({ error: 'Caratteri non consentiti nella ricerca' }, { status: 400, headers: rl.headers })
-    }
-
-    const cleanSearch = trimmed
-    const clientId = process.env.IGDB_CLIENT_ID
-    const clientSecret = process.env.IGDB_CLIENT_SECRET
-
-    if (!clientId || !clientSecret) {
-      return NextResponse.json({ error: 'Configurazione IGDB mancante' }, { status: 500, headers: rl.headers })
-    }
-
-    const accessToken = await getIgdbToken(clientId, clientSecret)
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Impossibile ottenere token IGDB' }, { status: 500, headers: rl.headers })
-    }
-
-    const safeSearch = cleanSearch.replace(/"/g, '\\"')
-
-    const igdbRes = await fetch('https://api.igdb.com/v4/games', {
-      method: 'POST',
-      headers: {
-        'Client-ID': clientId,
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'text/plain',
-      },
-      body: `
-        search "${safeSearch}";
-        fields name, cover.url, first_release_date, summary,
-               genres.name, themes.name, keywords.name,
-               player_perspectives.name,
-               game_modes.name,
-               involved_companies.company.name, involved_companies.developer,
-               rating, rating_count;
-        limit 20;
-      `,
-      signal: AbortSignal.timeout(8000),
-    })
-
-    if (!igdbRes.ok) {
-      return NextResponse.json({ error: 'Errore risposta IGDB' }, { status: 502, headers: rl.headers })
-    }
-
-    const games = await igdbRes.json()
-    if (!Array.isArray(games)) {
-      return NextResponse.json({ error: 'Risposta IGDB non valida' }, { status: 502, headers: rl.headers })
-    }
-
-    const formattedGames = games.map((g: any) => ({
-      id: g.id.toString(),
-      title: g.name,
-      type: 'game',
-      coverImage: g.cover?.url ? `https:${g.cover.url.replace('t_thumb', 't_1080p')}` : undefined,
-      year: g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : undefined,
-      episodes: 1,
-      description: g.summary ? truncateAtSentence(g.summary, 400) : undefined,
-      genres: g.genres?.map((gen: any) => gen.name) as string[] | undefined,
-      themes: g.themes?.map((t: any) => t.name) as string[] | undefined,
-      keywords: g.keywords?.map((k: any) => k.name) as string[] | undefined,
-      player_perspectives: g.player_perspectives?.map((p: any) => p.name) as string[] | undefined,
-      game_modes: g.game_modes?.map((m: any) => m.name) as string[] | undefined,
-      developers: g.involved_companies
-        ?.filter((c: any) => c.developer)
-        .map((c: any) => c.company?.name)
-        .filter(Boolean) as string[] | undefined,
-      source: 'igdb',
-    }))
-
-    return NextResponse.json(formattedGames, { headers: rl.headers })
+    const validated = validateSearch(body?.search)
+    if (!validated.ok) return NextResponse.json({ error: validated.error }, { status: 400, headers: rl.headers })
+    return await searchIgdb(validated.value, rl.headers)
   } catch (error: any) {
     if (error?.name === 'TimeoutError') {
       logger.error('igdb', 'Timeout richiesta IGDB')
@@ -143,29 +141,42 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const q = searchParams.get('q') || searchParams.get('search') || ''
-  const lang = searchParams.get('lang') || 'it'
-  if (!q || q.trim().length < 2) return NextResponse.json([])
-
-  const syntheticRequest = new Request(request.url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...Object.fromEntries(request.headers) },
-    body: JSON.stringify({ search: q.trim() }),
-  })
-  const postResponse = await POST(syntheticRequest as NextRequest)
-  if (!postResponse.ok || lang !== 'it') return postResponse
-
-  const games: any[] = await postResponse.json()
-  if (!Array.isArray(games) || games.length === 0) return NextResponse.json(games)
-
-  const toTranslate = games.filter((g: any) => g.description)
-  if (toTranslate.length > 0) {
-    const items = toTranslate.map((g: any) => ({ id: `igdb:${g.id}`, text: g.description }))
-    const translated = await translateWithCache(items, 'IT', 'EN')
-    toTranslate.forEach((g: any) => {
-      if (translated[`igdb:${g.id}`]) g.description = translated[`igdb:${g.id}`]
-    })
+  const rl = await rateLimitAsync(request, { limit: 30, windowMs: 60_000, prefix: 'igdb' })
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: 'Troppe richieste. Riprova tra qualche secondo.' },
+      { status: 429, headers: rl.headers }
+    )
   }
-  return NextResponse.json(games)
+
+  try {
+    const { searchParams } = new URL(request.url)
+    const q = searchParams.get('q') || searchParams.get('search') || ''
+    const lang = searchParams.get('lang') || 'it'
+    const validated = validateSearch(q)
+    if (!validated.ok) return NextResponse.json([], { headers: rl.headers })
+
+    const response = await searchIgdb(validated.value, rl.headers)
+    if (!response.ok || lang !== 'it') return response
+
+    const games: any[] = await response.json()
+    if (!Array.isArray(games) || games.length === 0) return NextResponse.json(games, { headers: rl.headers })
+
+    const toTranslate = games.filter((g: any) => g.description)
+    if (toTranslate.length > 0) {
+      const items = toTranslate.map((g: any) => ({ id: `igdb:${g.id}`, text: g.description }))
+      const translated = await translateWithCache(items, 'IT', 'EN')
+      toTranslate.forEach((g: any) => {
+        if (translated[`igdb:${g.id}`]) g.description = translated[`igdb:${g.id}`]
+      })
+    }
+    return NextResponse.json(games, { headers: rl.headers })
+  } catch (error: any) {
+    if (error?.name === 'TimeoutError') {
+      logger.error('igdb', 'Timeout richiesta IGDB')
+      return NextResponse.json({ error: 'Timeout API IGDB' }, { status: 504, headers: rl.headers })
+    }
+    logger.error('igdb', error)
+    return NextResponse.json({ error: 'Errore interno del server' }, { status: 500, headers: rl.headers })
+  }
 }
