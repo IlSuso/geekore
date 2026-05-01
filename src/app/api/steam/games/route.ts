@@ -1,7 +1,7 @@
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { createServiceClient } from '@/lib/supabase/service'
 
 const STEAM_API_KEY = process.env.STEAM_API_KEY
 const RATE_LIMIT_MAX = 3        // max utilizzi
@@ -130,10 +130,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Non autenticato' }, { status: 401 })
   }
 
-  const supabaseService = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  )
+  const supabaseService = createServiceClient('steam-games:import-library')
 
   // Cache 24h
   const { data: importLog } = await supabaseService
