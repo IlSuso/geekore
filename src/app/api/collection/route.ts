@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 
 const MEDIA_TYPES = new Set(['anime', 'manga', 'game', 'movie', 'tv', 'book', 'boardgame', 'board_game'])
 const STATUSES = new Set(['watching', 'playing', 'reading', 'completed', 'planned', 'dropped', 'paused'])
@@ -48,7 +48,7 @@ function updatePayload(body: any): Record<string, unknown> {
 }
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 80, windowMs: 60_000, prefix: 'collection:add' })
+  const rl = await rateLimitAsync(request, { limit: 80, windowMs: 60_000, prefix: 'collection:add' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
   if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 80, windowMs: 60_000, prefix: 'collection:delete' })
+  const rl = await rateLimitAsync(request, { limit: 80, windowMs: 60_000, prefix: 'collection:delete' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
   if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 
@@ -141,7 +141,7 @@ export async function DELETE(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 120, windowMs: 60_000, prefix: 'collection:update' })
+  const rl = await rateLimitAsync(request, { limit: 120, windowMs: 60_000, prefix: 'collection:update' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
   if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 
