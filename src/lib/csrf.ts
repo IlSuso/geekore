@@ -1,7 +1,8 @@
 // src/lib/csrf.ts
 // S1: CSRF protection per le API route che modificano dati sensibili.
 //
-// Strategia: "Double Submit Cookie" semplificata + Origin/Referer check.
+// Strategia: Origin/Referer check per le mutation standard e token CSRF
+// deterministico per le operazioni piu distruttive.
 // Next.js con Supabase Auth usa già httpOnly cookies per la sessione,
 // quindi il vettore principale da coprire sono le mutation critiche:
 //   - DELETE account
@@ -9,12 +10,12 @@
 //   - POST avatar upload
 //
 // Come funziona:
-//   1. Il client legge il CSRF token dal meta tag (generato lato server).
-//   2. Lo invia nell'header `X-CSRF-Token` su ogni mutation critica.
-//   3. Il server verifica che il token corrisponda E che l'Origin sia valido.
+//   1. Le API mutative standard usano `checkOrigin`.
+//   2. Le mutation critiche usano `verifyCsrf`.
+//   3. Il client recupera il token da /api/auth/csrf tramite `useCsrf`.
 //
-// Per le API route standard (like, comment, follow) è sufficiente il
-// rate limit + auth check — il CSRF è critico solo per operazioni distruttive.
+// Per le API route standard: auth + rate limit + origin check.
+// Per account delete / profilo: origin check + token header.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createHash, randomBytes } from 'crypto'
