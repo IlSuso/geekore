@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 
 const ARRAY_FIELDS = new Set([
   'fav_game_genres',
@@ -46,7 +46,7 @@ function cleanJsonValue(key: string, value: unknown): unknown {
 }
 
 export async function PATCH(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 60, windowMs: 60_000, prefix: 'preferences' })
+  const rl = await rateLimitAsync(request, { limit: 60, windowMs: 60_000, prefix: 'preferences' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
   if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 
