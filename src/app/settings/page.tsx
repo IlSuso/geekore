@@ -299,9 +299,8 @@ function DigestToggle() {
       ) : (
         <button
           onClick={toggle}
-          className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
-            enabled ? 'bg-violet-600' : 'bg-zinc-700'
-          }`}
+          className="relative w-11 h-6 rounded-full transition-colors duration-200"
+          style={{ background: enabled ? '#E6FF3D' : undefined }}
           aria-label={enabled ? 'Disattiva digest' : 'Attiva digest'}
         >
           <span

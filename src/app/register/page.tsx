@@ -14,11 +14,13 @@ function LocaleToggle() {
     <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-xl p-1">
       <button
         onClick={() => setLocale('it')}
-        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${locale === 'it' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-white'}`}
+        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${locale === 'it' ? '' : 'text-zinc-500 hover:text-white'}`}
+        style={locale === 'it' ? { background: '#E6FF3D', color: '#0B0B0F' } : {}}
       >IT</button>
       <button
         onClick={() => setLocale('en')}
-        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${locale === 'en' ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-white'}`}
+        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${locale === 'en' ? '' : 'text-zinc-500 hover:text-white'}`}
+        style={locale === 'en' ? { background: '#E6FF3D', color: '#0B0B0F' } : {}}
       >EN</button>
     </div>
   )

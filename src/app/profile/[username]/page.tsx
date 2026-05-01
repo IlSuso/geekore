@@ -350,9 +350,10 @@ function MediaCard({
             aria-label="Note"
             className={`absolute bottom-3 right-3 z-20 p-1.5 rounded-lg border text-white transition-all duration-200 hidden md:flex
               ${hasNotes
-                ? 'bg-violet-600 border-violet-500 opacity-100'
-                : 'opacity-0 group-hover:opacity-100 bg-black/70 hover:bg-violet-600/90 border-white/20 hover:border-violet-400'
+                ? 'border-transparent opacity-100'
+                : 'opacity-0 group-hover:opacity-100 bg-black/70 hover:bg-black/90 border-white/20'
               }`}
+            style={hasNotes ? { background: '#E6FF3D', color: '#0B0B0F' } : {}}
           >
             <Edit3 size={11} />
           </button>

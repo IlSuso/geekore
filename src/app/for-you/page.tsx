@@ -473,9 +473,10 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
               <button key={key} onClick={() => handleFilterChange(key)}
                 className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
                   isActive
-                    ? 'bg-violet-600 border-violet-500 text-white'
+                    ? 'border-transparent'
                     : 'bg-zinc-800/60 border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300'
-                }`}>
+                }`}
+                style={isActive ? { background: '#E6FF3D', color: '#0B0B0F', borderColor: '#E6FF3D' } : {}}>
                 {key !== 'all' && <span className="w-1.5 h-1.5 rounded-full" style={{ background: TYPE_COLORS[key as MediaType] }} />}
                 {label}
                 <span className={`text-[10px] ${isActive ? 'text-violet-200' : 'text-zinc-600'}`}>{count}</span>

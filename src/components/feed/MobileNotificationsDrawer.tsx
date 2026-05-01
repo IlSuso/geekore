@@ -227,7 +227,7 @@ export function MobileNotificationsDrawer({
               </div>
 
               {!notif.is_read && (
-                <span className="w-2 h-2 rounded-full bg-violet-500 flex-shrink-0" />
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#E6FF3D' }} />
               )}
             </div>
           )

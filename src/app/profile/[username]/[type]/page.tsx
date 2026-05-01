@@ -244,7 +244,8 @@ const MediaCard = memo(function MediaCard({
           <button
             onClick={e => { e.stopPropagation(); isOwner ? onNotes?.(media) : onViewNotes?.(media) }}
             aria-label="Note"
-            className={`absolute bottom-3 right-3 z-20 p-1.5 rounded-lg border bg-violet-600 border-violet-500 text-white transition-all ${isOwner ? 'hidden md:flex' : 'flex'}`}
+            className={`absolute bottom-3 right-3 z-20 p-1.5 rounded-lg border transition-all ${isOwner ? 'hidden md:flex' : 'flex'}`}
+            style={{ background: '#E6FF3D', color: '#0B0B0F', borderColor: '#E6FF3D' }}
           >
             <Edit3 size={11} />
           </button>

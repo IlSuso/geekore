@@ -161,8 +161,8 @@ export default function Navbar() {
           {/* LEFT: Logo + Search ─────────────────────────────────────────── */}
           <div className="flex items-center gap-3 flex-1 min-w-0 px-4">
             <Link href="/" className="flex-shrink-0 group flex items-center gap-2">
-              <div className="w-9 h-9 bg-violet-600 rounded-xl flex items-center justify-center group-hover:bg-violet-500 transition-colors">
-                <Zap size={17} className="text-white" />
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors" style={{ background: '#E6FF3D' }}>
+                <Zap size={17} className="text-black" />
               </div>
               {/* Wordmark — visibile da lg in su */}
               <span className="hidden lg:flex items-center gap-[3px] font-display" style={{ letterSpacing: '-0.03em' }}>

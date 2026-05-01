@@ -133,7 +133,7 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
             {step > 0 && (
               <div className="flex gap-1">
                 {sections.map((_, i) => (
-                  <div key={i} className={`h-1 rounded-full flex-1 transition-all ${i < step ? 'bg-violet-500' : 'bg-zinc-800'}`} />
+                  <div key={i} className={`h-1 rounded-full flex-1 transition-all ${i < step ? '' : 'bg-zinc-800'}`} style={i < step ? { background: '#E6FF3D' } : {}} />
                 ))}
               </div>
             )}

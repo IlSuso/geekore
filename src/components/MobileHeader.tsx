@@ -60,12 +60,13 @@ function GeekoreWordmark() {
 interface PageTitleProps {
   title: string
   icon: ReactNode
-  iconBg: string  // classe tailwind gradient o colore solido
+  iconBg: string
+  iconStyle?: React.CSSProperties
 }
-function PageTitle({ title, icon, iconBg }: PageTitleProps) {
+function PageTitle({ title, icon, iconBg, iconStyle }: PageTitleProps) {
   return (
     <div className="flex items-center gap-2.5">
-      <div className={`w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}>
+      <div className={`w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`} style={iconStyle}>
         {icon}
       </div>
       <h1 className="text-[17px] font-semibold text-white tracking-tight">{title}</h1>
@@ -121,20 +122,20 @@ export function MobileHeader() {
   // Nessun gradiente casuale — coerenza prima di tutto.
   const PAGE_CONFIG: Record<string, PageTitleProps> = {
     '/discover':      { title: t.nav.discover,      icon: <Search size={14} className="text-white" />,     iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
-    '/for-you':       { title: t.nav.forYou,         icon: <Sparkles size={14} className="text-white" />,   iconBg: 'bg-violet-600' },
+    '/for-you':       { title: t.nav.forYou,         icon: <Sparkles size={14} className="text-black" />,   iconBg: '', iconStyle: { background: '#E6FF3D' } },
     '/trending':      { title: 'Trending',            icon: <TrendingUp size={14} className="text-white" />, iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
-    '/swipe':         { title: 'Swipe',               icon: <Shuffle size={14} className="text-white" />,    iconBg: 'bg-violet-600' },
+    '/swipe':         { title: 'Swipe',               icon: <Shuffle size={14} className="text-black" />,    iconBg: '', iconStyle: { background: '#E6FF3D' } },
     '/notifications': { title: 'Notifiche',           icon: <Bell size={14} className="text-zinc-400" />,    iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
     '/settings':      { title: t.nav.settings,        icon: <Settings size={14} className="text-zinc-400" />,iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
-    '/settings/profile': { title: 'Modifica Profilo', icon: <Edit3 size={14} className="text-white" />,      iconBg: 'bg-violet-600' },
-    '/profile/setup': { title: 'Crea Profilo',        icon: <Edit3 size={14} className="text-white" />,      iconBg: 'bg-violet-600' },
+    '/settings/profile': { title: 'Modifica Profilo', icon: <Edit3 size={14} className="text-black" />,      iconBg: '', iconStyle: { background: '#E6FF3D' } },
+    '/profile/setup': { title: 'Crea Profilo',        icon: <Edit3 size={14} className="text-black" />,      iconBg: '', iconStyle: { background: '#E6FF3D' } },
     '/wishlist':      { title: 'Wishlist',            icon: <Bookmark size={14} className="text-zinc-400" />,iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
     '/stats':         { title: 'Statistiche',         icon: <BarChart2 size={14} className="text-zinc-400" />,iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
     '/leaderboard':   { title: 'Classifica',          icon: <Trophy size={14} className="text-zinc-400" />,  iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
     '/lists':         { title: 'Liste',               icon: <List size={14} className="text-zinc-400" />,    iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
     '/search':        { title: 'Cerca',               icon: <Search size={14} className="text-zinc-400" />,  iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
     '/explore':       { title: 'Esplora',             icon: <Search size={14} className="text-zinc-400" />,   iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
-    '/community':     { title: 'Community',           icon: <Users size={14} className="text-white" />,       iconBg: 'bg-violet-600' },
+    '/community':     { title: 'Community',           icon: <Users size={14} className="text-black" />,       iconBg: '', iconStyle: { background: '#E6FF3D' } },
     '/library':       { title: 'Libreria',            icon: <Library size={14} className="text-white" />,     iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
   }
 
