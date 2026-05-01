@@ -56,17 +56,6 @@ function withPathname(res: NextResponse, pathname: string): NextResponse {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  if (pathname === '/api/cron/fake-activity' || pathname.startsWith('/api/cron/fake-activity/')) {
-    return NextResponse.json(
-      {
-        success: false,
-        disabled: true,
-        message: 'Fake activity generation is disabled.',
-      },
-      { status: 410 }
-    )
-  }
-
   if (matchesAny(pathname, ALWAYS_ALLOW)) {
     return NextResponse.next()
   }
