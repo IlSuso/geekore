@@ -2,6 +2,7 @@
 
 import webpush from 'web-push'
 import { createServiceClient } from '@/lib/supabase/service'
+import { logger } from '@/lib/logger'
 
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
@@ -82,7 +83,7 @@ export async function sendPushToUser(
   const tag = `[Push:${payload.tag || 'notif'}]`
 
   if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
-    console.error(`${tag} ❌ VAPID keys mancanti sul server`)
+    logger.error(tag, 'VAPID keys mancanti sul server')
     return
   }
 
@@ -90,7 +91,7 @@ export async function sendPushToUser(
   if (type) {
     const canSend = await checkAndUpdateRateLimit(userId, type, contextId ?? null)
     if (!canSend) {
-      console.log(`${tag} ⏳ Rate limit attivo per user ${userId} type=${type} context=${contextId} — push soppressa`)
+      logger.info(tag, 'Rate limit attivo, push soppressa', { type })
       return
     }
   }
@@ -103,22 +104,21 @@ export async function sendPushToUser(
     .eq('user_id', userId)
 
   if (dbError) {
-    console.error(`${tag} ❌ Errore DB per user ${userId}:`, dbError.message)
+    logger.error(tag, 'Errore DB push subscription', { message: dbError.message })
     return
   }
 
   if (!subscriptions || subscriptions.length === 0) {
-    console.warn(`${tag} ⚠️ Nessuna subscription trovata nel DB per user ${userId}`)
+    logger.warn(tag, 'Nessuna subscription trovata')
     return
   }
 
-  console.log(`${tag} 📤 Invio a ${subscriptions.length} dispositivo/i per user ${userId} — payload: "${payload.body}"`)
+  logger.info(tag, 'Invio push', { devices: subscriptions.length, type })
 
   const expiredEndpoints: string[] = []
 
   await Promise.allSettled(
     subscriptions.map(async (sub, i) => {
-      const endpointShort = sub.endpoint.slice(0, 60) + '...'
       try {
         await webpush.sendNotification(
           {
@@ -131,20 +131,20 @@ export async function sendPushToUser(
           JSON.stringify(payload),
           { TTL: 60 * 60 * 24 }
         )
-        console.log(`${tag} ✅ Inviato dispositivo #${i + 1}: ${endpointShort}`)
+        logger.info(tag, 'Push inviata', { index: i + 1 })
       } catch (err: any) {
         if (err.statusCode === 410 || err.statusCode === 404) {
-          console.warn(`${tag} ♻️ Subscription scaduta (${err.statusCode}), verrà rimossa: ${endpointShort}`)
+          logger.warn(tag, 'Subscription scaduta, verrà rimossa', { statusCode: err.statusCode })
           expiredEndpoints.push(sub.endpoint)
         } else {
-          console.error(`${tag} ❌ Errore invio #${i + 1} (status ${err.statusCode}): ${err.message}`)
+          logger.error(tag, 'Errore invio push', { index: i + 1, statusCode: err.statusCode, message: err.message })
         }
       }
     })
   )
 
   if (expiredEndpoints.length > 0) {
-    console.log(`${tag} 🗑️ Rimozione ${expiredEndpoints.length} subscription scadute`)
+    logger.info(tag, 'Rimozione subscription scadute', { count: expiredEndpoints.length })
     await supabase
       .from('push_subscriptions')
       .delete()

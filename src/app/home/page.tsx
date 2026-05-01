@@ -1542,12 +1542,18 @@ export default function FeedPage() {
     if (selectedImage) {
       const ALLOWED = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
       if (!ALLOWED.includes(selectedImage.type)) { setIsPublishing(false); return }
-      const fileName = `${Date.now()}-${selectedImage.name}`
-      const { error: uploadErr } = await supabase.storage.from('post-images').upload(fileName, selectedImage, { contentType: selectedImage.type })
-      if (!uploadErr) {
-        const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(fileName)
-        imageUrl = urlData.publicUrl
+      const formData = new FormData()
+      formData.append('image', selectedImage)
+      const uploadRes = await fetch('/api/posts/upload-image', {
+        method: 'POST',
+        body: formData,
+      })
+      if (!uploadRes.ok) {
+        setIsPublishing(false)
+        return
       }
+      const uploadData = await uploadRes.json()
+      imageUrl = uploadData.url || null
     }
 
     const { data: newPostData, error } = await supabase.from('posts')

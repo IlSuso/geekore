@@ -9,6 +9,22 @@ function isValidSteamId64(id: string): boolean {
   return STEAM_ID64_REGEX.test(id)
 }
 
+async function verifySteamOpenId(url: URL): Promise<boolean> {
+  const params = new URLSearchParams(url.searchParams)
+  params.set('openid.mode', 'check_authentication')
+
+  const res = await fetch('https://steamcommunity.com/openid/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString(),
+    cache: 'no-store',
+  })
+
+  if (!res.ok) return false
+  const text = await res.text()
+  return text.split('\n').some(line => line.trim() === 'is_valid:true')
+}
+
 export async function GET(request: Request) {
   const supabase = await createClient()
   const url = new URL(request.url)
@@ -24,6 +40,12 @@ export async function GET(request: Request) {
   if (!isValidSteamId64(steamId64)) {
     logger.error('[Steam Callback] Invalid Steam ID64:', steamId64)
     return NextResponse.redirect(new URL('/profile/me?error=steam_invalid_id', request.url))
+  }
+
+  const verified = await verifySteamOpenId(url)
+  if (!verified) {
+    logger.warn('[Steam Callback]', 'OpenID verification failed')
+    return NextResponse.redirect(new URL('/profile/me?error=steam_unverified', request.url))
   }
 
   const { data: { user } } = await supabase.auth.getUser()

@@ -5,9 +5,15 @@ import { createClient } from '@/lib/supabase/server'
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const requestedLimit = parseInt(searchParams.get('limit') || '20', 10)
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), 50)
+      : 20
 
     if (!userId) {
       return NextResponse.json({ error: 'userId mancante' }, { status: 400 })
@@ -15,7 +21,7 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase
       .from('activity_log')
-      .select('*')
+      .select('id, user_id, type, media_id, media_title, media_type, media_cover, progress_value, rating_value, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit)
