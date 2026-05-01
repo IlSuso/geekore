@@ -3,10 +3,12 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { rateLimit } from '@/lib/rateLimit'
 import { sendPushToUser } from '@/lib/push'
+import { checkOrigin } from '@/lib/csrf'
 
 export async function POST(request: NextRequest) {
   const rl = rateLimit(request, { limit: 20, windowMs: 60_000, prefix: 'profile-comment' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppi commenti. Rallenta.' }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403 })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

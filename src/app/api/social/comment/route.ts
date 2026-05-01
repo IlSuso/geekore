@@ -3,10 +3,12 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { rateLimit } from '@/lib/rateLimit'
 import { sendPushToUser, commentPayload } from '@/lib/push'
+import { checkOrigin } from '@/lib/csrf'
 
 export async function POST(request: NextRequest) {
   const rl = rateLimit(request, { limit: 20, windowMs: 60_000, prefix: 'comment' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppi commenti. Rallenta.' }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403 })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -59,6 +61,7 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const rl = rateLimit(request, { limit: 40, windowMs: 60_000, prefix: 'comment-delete' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe cancellazioni. Rallenta.' }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403 })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

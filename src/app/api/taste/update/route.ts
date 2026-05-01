@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
+import { checkOrigin } from '@/lib/csrf'
 
 type DeltaAction = 'rating' | 'status_change' | 'wishlist_add' | 'rewatch' | 'progress'
 
@@ -44,6 +45,7 @@ function sentimentDelta(newRating: number, prevRating?: number): number {
 export async function POST(request: NextRequest) {
   const rl = rateLimit(request, { limit: 120, windowMs: 60_000, prefix: 'taste-delta' })
   if (!rl.ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403 })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

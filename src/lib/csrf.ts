@@ -21,16 +21,24 @@ import { createHash, randomBytes } from 'crypto'
 
 const ALLOWED_ORIGINS = [
   process.env.NEXT_PUBLIC_SITE_URL,
+  process.env.NEXT_PUBLIC_APP_URL,
   'http://localhost:3000',
   'http://localhost:3001',
 ].filter(Boolean) as string[]
+
+function getCsrfSecret(): string | null {
+  const secret = process.env.CSRF_SECRET
+  if (!secret && process.env.NODE_ENV === 'production') return null
+  return secret || 'geekore-csrf-secret-change-in-dev'
+}
 
 /**
  * Genera un CSRF token deterministico per la sessione utente.
  * Usa user ID + secret per rendere il token non falsificabile.
  */
 export function generateCsrfToken(userId: string): string {
-  const secret = process.env.CSRF_SECRET || 'geekore-csrf-secret-change-in-prod'
+  const secret = getCsrfSecret()
+  if (!secret) throw new Error('CSRF_SECRET non configurato')
   const data = `${userId}:${secret}:${new Date().toDateString()}`
   return createHash('sha256').update(data).digest('hex').slice(0, 32)
 }
@@ -87,6 +95,9 @@ export function verifyCsrf(
 
   // Step 2: Token check (opzionale in dev per non bloccare il workflow)
   if (process.env.NODE_ENV === 'production') {
+    if (!getCsrfSecret()) {
+      return { ok: false, reason: 'CSRF non configurato' }
+    }
     const token = request.headers.get('x-csrf-token')
     if (!token) {
       return { ok: false, reason: 'CSRF token mancante' }

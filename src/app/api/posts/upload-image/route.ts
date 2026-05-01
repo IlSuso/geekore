@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
 import { logger } from '@/lib/logger'
+import { checkOrigin } from '@/lib/csrf'
 
 const MAX_SIZE_BYTES = 6 * 1024 * 1024
 
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
       { status: 429, headers: rl.headers }
     )
   }
+  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403 })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
