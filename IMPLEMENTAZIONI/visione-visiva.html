@@ -1,0 +1,1594 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Geekore — Visione Visiva (Mobile + Desktop)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@500;700;800;900&family=Switzer:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<style>
+  :root {
+    /* Direzione "Cabinet Maximalism" — accent yellow acido + viola brand */
+    --bg:        #0B0B0F;        /* nero leggermente bluastro */
+    --bg-2:      #14141B;        /* surface 1 */
+    --bg-3:      #1C1C26;        /* surface 2 */
+    --bg-4:      #25252F;        /* hover/border */
+    --ink:       #F4F4F5;        /* testo primario */
+    --ink-2:     #A1A1AA;        /* testo secondario */
+    --ink-3:     #52525B;        /* muted */
+    --line:      #2A2A36;        /* divider */
+    --brand:     #8B5CF6;
+    --brand-2:   #A78BFA;
+    --accent:    #E6FF3D;        /* signature yellow-lime acido */
+    --accent-2:  #F87171;        /* secondary corallo */
+    --t-anime:   #38BDF8;
+    --t-manga:   #F97066;
+    --t-game:    #4ADE80;
+    --t-board:   #FB923C;
+    --t-movie:   #EF4444;
+    --t-tv:      #C084FC;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Switzer', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  .display { font-family: 'Cabinet Grotesk', system-ui, sans-serif; font-weight: 900; letter-spacing: -0.025em; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* layout shell */
+  .doc {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 64px 32px 160px;
+  }
+  .hero {
+    margin-bottom: 72px;
+    padding: 56px 56px 64px;
+    border-radius: 28px;
+    background:
+      radial-gradient(120% 80% at 100% 0%, rgba(139,92,246,0.18), transparent 55%),
+      radial-gradient(80% 100% at 0% 100%, rgba(230,255,61,0.08), transparent 60%),
+      linear-gradient(180deg, var(--bg-2), var(--bg));
+    border: 1px solid var(--line);
+    position: relative;
+    overflow: hidden;
+  }
+  .hero .meta { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 24px; }
+  .hero h1 { font-family: 'Cabinet Grotesk', sans-serif; font-weight: 900; font-size: 88px; line-height: 0.92; letter-spacing: -0.04em; margin: 0 0 24px; max-width: 880px; }
+  .hero h1 em { font-style: normal; color: var(--accent); }
+  .hero .lede { font-size: 19px; color: var(--ink-2); max-width: 720px; line-height: 1.55; }
+  .hero .stamp { position: absolute; right: 56px; top: 56px; border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-2); }
+
+  .toc {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 48px;
+  }
+  .toc a {
+    border: 1px solid var(--line);
+    padding: 16px 18px;
+    border-radius: 14px;
+    color: var(--ink);
+    text-decoration: none;
+    display: flex; align-items: center; gap: 12px;
+    transition: all .2s;
+    background: rgba(255,255,255,0.01);
+  }
+  .toc a:hover { border-color: var(--accent); background: rgba(230,255,61,0.04); }
+  .toc a .num { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 11px; }
+  .toc a .lbl { font-weight: 600; font-size: 14px; }
+
+  /* sections */
+  section.chap { margin-top: 120px; }
+  .chap-head { display: flex; align-items: flex-end; gap: 24px; margin-bottom: 40px; }
+  .chap-num { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--accent); border: 1px solid var(--accent); padding: 4px 10px; border-radius: 999px; flex-shrink: 0; }
+  .chap-title { font-family: 'Cabinet Grotesk', sans-serif; font-weight: 900; font-size: 56px; line-height: 0.95; letter-spacing: -0.03em; margin: 0; flex: 1; }
+  .chap-sub { color: var(--ink-2); font-size: 16px; max-width: 640px; }
+
+  .bigtext { font-size: 28px; line-height: 1.4; max-width: 880px; color: var(--ink); margin: 0 0 32px; font-weight: 500; }
+  .bigtext em { font-style: normal; color: var(--accent); }
+  .bigtext strong { color: var(--ink); font-weight: 700; }
+  p { color: var(--ink-2); max-width: 760px; }
+  p strong { color: var(--ink); font-weight: 600; }
+
+  /* prose grids */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 24px;
+    background: var(--bg-2);
+  }
+  .card h4 { margin: 0 0 8px; font-family: 'Cabinet Grotesk', sans-serif; font-weight: 800; font-size: 20px; letter-spacing: -0.01em; }
+  .card .role { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; }
+  .card p { margin: 0; font-size: 14px; }
+
+  /* swatch */
+  .palette { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 24px; }
+  .swatch { border-radius: 14px; overflow: hidden; border: 1px solid var(--line); }
+  .swatch .top { aspect-ratio: 1.4; }
+  .swatch .info { padding: 10px 12px; background: var(--bg-2); font-size: 12px; }
+  .swatch .info .name { font-weight: 600; color: var(--ink); display: block; }
+  .swatch .info .hex { font-family: 'JetBrains Mono', monospace; color: var(--ink-3); font-size: 11px; }
+
+  /* type specimen */
+  .type-row { display: grid; grid-template-columns: 180px 1fr; gap: 32px; padding: 20px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
+  .type-row:last-child { border-bottom: none; }
+  .type-meta { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); }
+  .type-meta b { color: var(--accent); font-weight: 500; display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.1em; }
+
+  /* mockups area */
+  .stage {
+    background:
+      radial-gradient(80% 60% at 50% 0%, rgba(139,92,246,0.06), transparent 60%),
+      var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    padding: 48px;
+    margin: 24px 0 56px;
+    position: relative;
+  }
+  .stage-label {
+    position: absolute; top: -12px; left: 32px;
+    background: var(--bg);
+    padding: 4px 14px;
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .phones { display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+  .phone-cap { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .phone-cap .label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-2); letter-spacing: 0.1em; text-transform: uppercase; }
+
+  /* phone screen base */
+  .scr { width: 100%; height: 100%; background: var(--bg); color: var(--ink); display: flex; flex-direction: column; font-size: 13px; overflow: hidden; }
+  .scr * { box-sizing: border-box; }
+
+  /* desktop frame */
+  .desktop-frame {
+    width: 100%; aspect-ratio: 16/10;
+    background: #000;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+  }
+  .desktop-bar {
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--line);
+    height: 32px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 8px;
+  }
+  .desktop-bar .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--bg-4); }
+
+  .principle {
+    border-left: 3px solid var(--accent);
+    padding: 4px 0 4px 20px;
+    margin-bottom: 24px;
+  }
+  .principle h5 { margin: 0 0 6px; font-size: 16px; font-weight: 700; font-family: 'Cabinet Grotesk', sans-serif; }
+  .principle p { margin: 0; font-size: 14px; }
+
+  /* badges/chips for system */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border: 1px solid var(--line);
+    color: var(--ink-2);
+  }
+  .chip.warn { color: var(--accent-2); border-color: var(--accent-2); }
+  .chip.good { color: var(--accent); border-color: var(--accent); }
+
+  /* annotation rules */
+  .annot {
+    background: rgba(230,255,61,0.04);
+    border: 1px dashed rgba(230,255,61,0.3);
+    border-radius: 14px;
+    padding: 18px 22px;
+    margin: 24px 0;
+    color: var(--ink);
+  }
+  .annot .tag { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px; }
+
+  hr.div { border: none; border-top: 1px solid var(--line); margin: 80px 0; }
+
+  /* phone screen typography conventions */
+  .scr .h-display { font-family: 'Cabinet Grotesk', sans-serif; font-weight: 900; letter-spacing: -0.025em; }
+  .scr .mono { font-family: 'JetBrains Mono', monospace; }
+
+  @media (max-width: 900px) {
+    .grid-2, .toc { grid-template-columns: 1fr; }
+    .grid-3 { grid-template-columns: repeat(2, 1fr); }
+    .palette { grid-template-columns: repeat(3, 1fr); }
+    .hero h1 { font-size: 56px; }
+    .chap-title { font-size: 36px; }
+    .chap-head { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<div class="doc">
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="stamp">v1.0 · Visione visiva</div>
+    <div class="meta">Geekore — Direzione di sistema · Mobile + Web</div>
+    <h1 class="display">Smetti di assomigliare a Instagram. <em>Diventa il posto</em> dove i geek vivono.</h1>
+    <p class="lede">Questo documento traduce l'audit precedente in una direzione visiva concreta — palette, tipografia, gerarchia, layout, mockup. Una sola rotta, mobile e desktop, costruita per chi consuma anime, manga, videogiochi, film, serie e giochi da tavolo come parte della propria identità.</p>
+
+    <nav class="toc">
+      <a href="#vision"><span class="num">01</span><span class="lbl">La vision in una pagina</span></a>
+      <a href="#brand"><span class="num">02</span><span class="lbl">Brand &amp; identità</span></a>
+      <a href="#palette"><span class="num">03</span><span class="lbl">Sistema di colore</span></a>
+      <a href="#type"><span class="num">04</span><span class="lbl">Tipografia</span></a>
+      <a href="#mobile"><span class="num">05</span><span class="lbl">Mobile — schermate</span></a>
+      <a href="#desktop"><span class="num">06</span><span class="lbl">Desktop — layout</span></a>
+      <a href="#components"><span class="num">07</span><span class="lbl">Componenti chiave</span></a>
+      <a href="#principles"><span class="num">08</span><span class="lbl">Principi di sistema</span></a>
+      <a href="#roadmap"><span class="num">09</span><span class="lbl">Roadmap visiva</span></a>
+    </nav>
+  </header>
+
+  <!-- 01 VISION -->
+  <section id="vision" class="chap">
+    <div class="chap-head">
+      <span class="chap-num">01</span>
+      <h2 class="chap-title display">La vision in una pagina</h2>
+    </div>
+
+    <p class="bigtext">Geekore non è un social. È <em>il diario condiviso della tua collezione</em>: anime in corso, boss appena sconfitti, manga arrivati ieri, partite a Gloomhaven domenica. È un <strong>backlog vivo</strong> che diventa <strong>identità</strong>.</p>
+
+    <div class="grid-3">
+      <div class="card">
+        <div class="role">Tono</div>
+        <h4>Editoriale, non corporate</h4>
+        <p>Tipografia espressiva, layout che respira, copy che ha personalità. Niente "Welcome back" anonimo: <em>"Bentornato, hai 3 episodi di Frieren in coda."</em></p>
+      </div>
+      <div class="card">
+        <div class="role">Densità</div>
+        <h4>Poster-first</h4>
+        <p>Le copertine sono il prodotto. Più grandi, più nitide, più presenti. Meno chrome, meno gradient generici, meno icone Lucide ovunque.</p>
+      </div>
+      <div class="card">
+        <div class="role">Identità</div>
+        <h4>Un colore signature</h4>
+        <p>Un giallo acido <span class="mono" style="color:var(--accent)">#E6FF3D</span> al posto del solito viola/rosa. Quando lo vedi, è Geekore. Niente altro lo userà così.</p>
+      </div>
+    </div>
+
+    <hr class="div" />
+
+    <p class="bigtext">Tre cambi strutturali, prima di qualsiasi pixel.</p>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="role">Cambio 01</div>
+        <h4>"Library" entra nel bottom-nav</h4>
+        <p>Oggi la collezione è seppellita dentro Profile. La promessa del prodotto — <em>"il tuo universo geek in un posto"</em> — deve essere a un tap. Library diventa una delle 5 tab principali; Profile sale in alto-destra come avatar.</p>
+      </div>
+      <div class="card">
+        <div class="role">Cambio 02</div>
+        <h4>Swipe diventa modalità di For You</h4>
+        <p>Sono la stessa coda. Un toggle in cima a For You: <span class="mono" style="color:var(--accent)">[ Lista ▾ ] [ Swipe ]</span>. Liberiamo uno slot del bottom-nav per <strong>Library</strong>.</p>
+      </div>
+      <div class="card">
+        <div class="role">Cambio 03</div>
+        <h4>Ogni medium ha il suo colore vero</h4>
+        <p>Stop ai colori desaturati al 35%. Anime <span class="mono" style="color:var(--t-anime)">#38BDF8</span>, Manga <span class="mono" style="color:var(--t-manga)">#F97066</span>, Game <span class="mono" style="color:var(--t-game)">#4ADE80</span>, Board <span class="mono" style="color:var(--t-board)">#FB923C</span>, Movie <span class="mono" style="color:var(--t-movie)">#EF4444</span>, TV <span class="mono" style="color:var(--t-tv)">#C084FC</span>. Saturati. Riconoscibili. Vivi.</p>
+      </div>
+      <div class="card">
+        <div class="role">Cambio 04</div>
+        <h4>Activity post auto-generati nel feed</h4>
+        <p>Quando segno "finito", il feed lo mostra come card <strong>con copertina, voto, durata totale</strong> — non come testo. Il feed diventa così un riassunto visivo dei consumi del network. Letterboxd-coded, ma multi-medium.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 BRAND -->
+  <section id="brand" class="chap">
+    <div class="chap-head">
+      <span class="chap-num">02</span>
+      <h2 class="chap-title display">Brand &amp; identità</h2>
+    </div>
+
+    <p class="bigtext">Il wordmark deve fare due lavori in 1.5 secondi: dire "geek" e dire "non sono Instagram".</p>
+
+    <div class="stage">
+      <div class="stage-label">Wordmark — proposta</div>
+      <div style="display:flex; flex-direction:column; gap:48px; align-items:flex-start; padding: 24px 0;">
+
+        <!-- Wordmark grande -->
+        <div style="display:flex; align-items:baseline; gap:0;">
+          <span class="display" style="font-size:120px; line-height:1; color:var(--ink); letter-spacing:-0.05em;">geekore</span>
+          <span style="display:inline-block; width:24px; height:24px; background:var(--accent); border-radius:6px; transform:translateY(-8px); margin-left:8px; box-shadow: 0 0 32px rgba(230,255,61,0.5);"></span>
+        </div>
+
+        <!-- Wordmark piccolo per nav -->
+        <div style="display:flex; gap:48px; align-items:center;">
+          <div style="display:flex; align-items:baseline; gap:0;">
+            <span class="display" style="font-size:28px; line-height:1; color:var(--ink); letter-spacing:-0.04em;">geekore</span>
+            <span style="display:inline-block; width:7px; height:7px; background:var(--accent); border-radius:2px; margin-left:3px; transform:translateY(-2px);"></span>
+          </div>
+          <div style="display:flex; align-items:baseline; gap:0;">
+            <span class="display" style="font-size:18px; line-height:1; color:var(--ink); letter-spacing:-0.04em;">geekore</span>
+            <span style="display:inline-block; width:5px; height:5px; background:var(--accent); border-radius:1px; margin-left:2px; transform:translateY(-1px);"></span>
+          </div>
+        </div>
+
+        <!-- Monogramma -->
+        <div style="display:flex; gap:24px; align-items:center;">
+          <div style="width:64px; height:64px; background:var(--accent); border-radius:14px; display:flex; align-items:center; justify-content:center;" class="display">
+            <span style="font-size:36px; color:#0B0B0F; letter-spacing:-0.05em;">g.</span>
+          </div>
+          <div style="width:48px; height:48px; background:var(--bg-3); border-radius:12px; display:flex; align-items:center; justify-content:center; border:1px solid var(--line);" class="display">
+            <span style="font-size:24px; color:var(--accent); letter-spacing:-0.05em;">g.</span>
+          </div>
+          <div style="width:36px; height:36px; background:var(--ink); border-radius:10px; display:flex; align-items:center; justify-content:center;" class="display">
+            <span style="font-size:18px; color:#0B0B0F; letter-spacing:-0.05em;">g.</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <h4 class="display" style="font-size:24px; margin-bottom:8px;">Cosa cambia</h4>
+        <p>Il puntino diventa <strong>un quadrato giallo acido</strong>. Geometrico, riconoscibile a 16×16px nel favicon, scalabile fino a un poster. Diventa il <em>logo standalone</em> quando lo spazio è ridotto: il quadrato giallo da solo è già "Geekore".</p>
+        <p>Il font display è <strong>Cabinet Grotesk</strong> a peso 900 — un grotesque contemporaneo con personalità nei tagli, non l'ennesimo Inter/Plus Jakarta.</p>
+      </div>
+      <div>
+        <h4 class="display" style="font-size:24px; margin-bottom:8px;">Come si comporta</h4>
+        <ul style="color:var(--ink-2); padding-left:18px;">
+          <li>Il quadrato accende un <strong>glow</strong> sottile in stati attivi (notifica, recording vocale, "live now").</li>
+          <li>Si pixela in un <strong>pattern di 4 pixel</strong> per transizioni di caricamento — ammiccamento gaming senza essere chiassoso.</li>
+          <li>Mai dentro gradient. Mai contornato. Sempre solido.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 PALETTE -->
+  <section id="palette" class="chap">
+    <div class="chap-head">
+      <span class="chap-num">03</span>
+      <h2 class="chap-title display">Sistema di colore</h2>
+    </div>
+
+    <p class="bigtext">Una palette stretta, deliberata. <em>Niente arcobaleno</em>. Tre famiglie: <strong>superfici</strong>, <strong>brand</strong>, <strong>medium</strong>.</p>
+
+    <h4 style="font-family:'Cabinet Grotesk'; font-size:20px; margin: 32px 0 12px;">Superfici (neutri caldi-freddi)</h4>
+    <div class="palette">
+      <div class="swatch"><div class="top" style="background:#0B0B0F"></div><div class="info"><span class="name">bg / base</span><span class="hex">#0B0B0F</span></div></div>
+      <div class="swatch"><div class="top" style="background:#14141B"></div><div class="info"><span class="name">surface 1</span><span class="hex">#14141B</span></div></div>
+      <div class="swatch"><div class="top" style="background:#1C1C26"></div><div class="info"><span class="name">surface 2</span><span class="hex">#1C1C26</span></div></div>
+      <div class="swatch"><div class="top" style="background:#25252F"></div><div class="info"><span class="name">hover</span><span class="hex">#25252F</span></div></div>
+      <div class="swatch"><div class="top" style="background:#2A2A36"></div><div class="info"><span class="name">line</span><span class="hex">#2A2A36</span></div></div>
+      <div class="swatch"><div class="top" style="background:#F4F4F5"></div><div class="info"><span class="name">ink</span><span class="hex">#F4F4F5</span></div></div>
+    </div>
+    <p>Il nero è <strong>#0B0B0F</strong>, non puro: una micro-tinta blu-violetta che dialoga col viola brand e fa risaltare le copertine sature. Le superfici hanno 4 livelli ben distinti — chi vede la libreria di 200 titoli sente <em>profondità</em>, non un piattume di card che si confondono.</p>
+
+    <h4 style="font-family:'Cabinet Grotesk'; font-size:20px; margin: 48px 0 12px;">Brand &amp; signature</h4>
+    <div class="palette">
+      <div class="swatch"><div class="top" style="background:#E6FF3D"></div><div class="info"><span class="name" style="color:#E6FF3D">accent / signature</span><span class="hex">#E6FF3D</span></div></div>
+      <div class="swatch"><div class="top" style="background:#8B5CF6"></div><div class="info"><span class="name">brand</span><span class="hex">#8B5CF6</span></div></div>
+      <div class="swatch"><div class="top" style="background:#A78BFA"></div><div class="info"><span class="name">brand-light</span><span class="hex">#A78BFA</span></div></div>
+      <div class="swatch"><div class="top" style="background:#F87171"></div><div class="info"><span class="name">accent-2 / warn</span><span class="hex">#F87171</span></div></div>
+      <div class="swatch"><div class="top" style="background:#10B981"></div><div class="info"><span class="name">success</span><span class="hex">#10B981</span></div></div>
+      <div class="swatch"><div class="top" style="background:#FBBF24"></div><div class="info"><span class="name">rating star</span><span class="hex">#FBBF24</span></div></div>
+    </div>
+
+    <div class="annot">
+      <div class="tag">regola d'uso</div>
+      <p style="margin:0; color:var(--ink);">Il <strong style="color:var(--accent)">giallo acido</strong> è <strong>un colore di stato attivo, non di sfondo</strong>. Si usa per: tab attiva, link cliccabile, badge "match perfetto", indicatore di nuovo contenuto, focus ring. <em>Mai come fill di un bottone primario grande</em> — è troppo aggressivo. Per CTA grandi: viola brand. Per piccoli highlight: giallo.</p>
+    </div>
+
+    <h4 style="font-family:'Cabinet Grotesk'; font-size:20px; margin: 48px 0 12px;">Colori per medium — saturati</h4>
+    <div class="palette">
+      <div class="swatch"><div class="top" style="background:#38BDF8"></div><div class="info"><span class="name" style="color:#38BDF8">Anime</span><span class="hex">#38BDF8</span></div></div>
+      <div class="swatch"><div class="top" style="background:#F97066"></div><div class="info"><span class="name" style="color:#F97066">Manga</span><span class="hex">#F97066</span></div></div>
+      <div class="swatch"><div class="top" style="background:#4ADE80"></div><div class="info"><span class="name" style="color:#4ADE80">Game</span><span class="hex">#4ADE80</span></div></div>
+      <div class="swatch"><div class="top" style="background:#FB923C"></div><div class="info"><span class="name" style="color:#FB923C">Board</span><span class="hex">#FB923C</span></div></div>
+      <div class="swatch"><div class="top" style="background:#EF4444"></div><div class="info"><span class="name" style="color:#EF4444">Movie</span><span class="hex">#EF4444</span></div></div>
+      <div class="swatch"><div class="top" style="background:#C084FC"></div><div class="info"><span class="name" style="color:#C084FC">TV</span><span class="hex">#C084FC</span></div></div>
+    </div>
+    <p>Saturati al 100%. Sempre stessa tonalità, mai mescolati in gradient. Si usano in <strong>pill di tipologia</strong>, <strong>righello sotto card</strong>, <strong>ring intorno alla cover</strong>, <strong>icona del medium nelle stats</strong>. Mai come fill background di una sezione intera (rimangono accent).</p>
+  </section>
+
+  <!-- 04 TYPE -->
+  <section id="type" class="chap">
+    <div class="chap-head">
+      <span class="chap-num">04</span>
+      <h2 class="chap-title display">Tipografia</h2>
+    </div>
+
+    <p class="bigtext">Tre famiglie. <em>Una scala dogmatica</em>. Stop alle 14 dimensioni font diverse del codice attuale.</p>
+
+    <div class="grid-3" style="margin: 32px 0 48px;">
+      <div class="card">
+        <div class="role">Display</div>
+        <h4 style="font-family:'Cabinet Grotesk'; font-size:36px; line-height:1; letter-spacing:-0.03em;">Cabinet Grotesk</h4>
+        <p>Pesi 700/800/900. Per H1, hero, numeri statistici grandi, titoli sezione. Mai sotto i 22px.</p>
+      </div>
+      <div class="card">
+        <div class="role">UI / Body</div>
+        <h4 style="font-family:'Switzer'; font-weight:700; font-size:32px;">Switzer</h4>
+        <p>Pesi 400/500/600/700. Per UI, body, label, tutto il resto. Caratteri leggeri ma con personalità.</p>
+      </div>
+      <div class="card">
+        <div class="role">Mono</div>
+        <h4 style="font-family:'JetBrains Mono'; font-weight:500; font-size:24px;">JetBrains Mono</h4>
+        <p>Per numeri tecnici (codici episodio S2 E14), timestamp, ID, tag, contatori. Dà <em>credibilità geek</em>.</p>
+      </div>
+    </div>
+
+    <h4 style="font-family:'Cabinet Grotesk'; font-size:20px; margin: 48px 0 16px;">Scala — gk-* dogmatica</h4>
+
+    <div style="border:1px solid var(--line); border-radius:18px; padding:8px 32px; background:var(--bg-2);">
+
+      <div class="type-row">
+        <div class="type-meta"><b>gk-display</b>56 / 64 / 900<br/>Cabinet Grotesk<br/>letter-spacing -0.04em</div>
+        <div class="display" style="font-size:56px; line-height:1; letter-spacing:-0.04em;">La tua collezione</div>
+      </div>
+
+      <div class="type-row">
+        <div class="type-meta"><b>gk-h1</b>32 / 38 / 800<br/>Cabinet Grotesk</div>
+        <div class="display" style="font-size:32px; line-height:1.05; font-weight:800; letter-spacing:-0.03em;">Continua a guardare</div>
+      </div>
+
+      <div class="type-row">
+        <div class="type-meta"><b>gk-title</b>22 / 28 / 800<br/>Cabinet Grotesk</div>
+        <div class="display" style="font-size:22px; line-height:1.1; font-weight:800; letter-spacing:-0.02em;">Frieren — Beyond Journey's End</div>
+      </div>
+
+      <div class="type-row">
+        <div class="type-meta"><b>gk-headline</b>17 / 24 / 700<br/>Switzer</div>
+        <div style="font-size:17px; line-height:1.35; font-weight:700;">Ho appena finito Vinland Saga S2 — review in arrivo</div>
+      </div>
+
+      <div class="type-row">
+        <div class="type-meta"><b>gk-body</b>15 / 24 / 400<br/>Switzer</div>
+        <div style="font-size:15px; line-height:1.6; color:var(--ink-2);">Una serie che spinge i confini del genere shonen verso un dramma più maturo. Da non perdere se hai amato Berserk o Kingdom.</div>
+      </div>
+
+      <div class="type-row">
+        <div class="type-meta"><b>gk-caption</b>12 / 16 / 500<br/>Switzer</div>
+        <div style="font-size:12px; line-height:1.4; font-weight:500; color:var(--ink-2);">2 ore fa · 24 like · 3 commenti</div>
+      </div>
+
+      <div class="type-row">
+        <div class="type-meta"><b>gk-mono</b>11 / 16 / 500<br/>JetBrains Mono<br/>letter-spacing 0.05em</div>
+        <div class="mono" style="font-size:11px; letter-spacing:0.05em; text-transform:uppercase; color:var(--accent);">S02 · EP 14/24 · 73%</div>
+      </div>
+
+      <div class="type-row">
+        <div class="type-meta"><b>gk-label</b>11 / 14 / 700<br/>Switzer<br/>uppercase 0.1em</div>
+        <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--ink-3);">Top match per te</div>
+      </div>
+
+    </div>
+
+    <div class="annot" style="margin-top:32px;">
+      <div class="tag">regola d'uso</div>
+      <p style="margin:0; color:var(--ink);">Ogni testo nell'app appartiene a <strong>una</strong> di queste 8 classi. Nessun <span class="mono" style="color:var(--accent)">text-[13px]</span> arbitrario nel codice. Se senti il bisogno di un nono livello, è probabile che la gerarchia sia sbagliata.</p>
+    </div>
+  </section>
+
+  <!-- 05 MOBILE -->
+  <section id="mobile" class="chap">
+    <div class="chap-head">
+      <span class="chap-num">05</span>
+      <h2 class="chap-title display">Mobile — schermate</h2>
+    </div>
+
+    <p class="bigtext">Cinque tab. <em>Library al centro</em>. Profile come avatar in alto-destra. Ogni schermata ha un'identità visiva distinta — niente più header copia-incollati.</p>
+
+    <!-- Stage 1: Home + Discover -->
+    <div class="stage">
+      <div class="stage-label">01 — Home (feed) e Discover</div>
+      <div class="phones" id="phones-1"></div>
+    </div>
+
+    <!-- Stage 2: For You + Library -->
+    <div class="stage">
+      <div class="stage-label">02 — For You e Library</div>
+      <div class="phones" id="phones-2"></div>
+    </div>
+
+    <!-- Stage 3: Drawer + Swipe -->
+    <div class="stage">
+      <div class="stage-label">03 — Media drawer e Swipe</div>
+      <div class="phones" id="phones-3"></div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <h4 class="display" style="font-size:22px; margin-bottom:8px;">Bottom-nav</h4>
+        <p>Cinque tab equidistanti, label sempre visibile (12px, peso 600, tracking 0). Active state: <strong>label gialla acido + barra superiore 2px gialla</strong>. Nessun gradient, nessuna icona colorata "filled vs outline".</p>
+      </div>
+      <div>
+        <h4 class="display" style="font-size:22px; margin-bottom:8px;">Top-bar</h4>
+        <p>52px. A sinistra: il wordmark sul Feed, il <strong>nome della pagina</strong> altrove (gk-h1, 22px). A destra: avatar utente (sempre cliccabile → Profile) + icona search/notifiche contestuale.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 DESKTOP -->
+  <section id="desktop" class="chap">
+    <div class="chap-head">
+      <span class="chap-num">06</span>
+      <h2 class="chap-title display">Desktop — layout</h2>
+    </div>
+
+    <p class="bigtext">Tre colonne. <em>Sidebar fissa</em> a sinistra, <strong>contenuto centrale</strong>, pannello contestuale a destra (DNA, friend activity, raccomandazioni). Niente header sopra: la nav vive nella sidebar.</p>
+
+    <div class="stage">
+      <div class="stage-label">Desktop — For You con drawer aperto</div>
+      <div class="desktop-frame">
+        <div class="desktop-bar">
+          <div class="dot" style="background:#FF5F56"></div>
+          <div class="dot" style="background:#FFBD2E"></div>
+          <div class="dot" style="background:#27C93F"></div>
+          <div style="margin-left:16px; font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--ink-3);">geekore.app/for-you</div>
+        </div>
+        <div id="desktop-mock" style="width:100%; height:calc(100% - 32px);"></div>
+      </div>
+    </div>
+
+    <div class="grid-3">
+      <div class="card">
+        <div class="role">Sidebar — 240px</div>
+        <h4>Sempre presente</h4>
+        <p>Wordmark in alto. Nav verticale: Home, For You, Library, Discover, Friends. In basso: avatar + nome utente + impostazioni.</p>
+      </div>
+      <div class="card">
+        <div class="role">Centro — fluido</div>
+        <h4>Il contenuto</h4>
+        <p>Max 920px di larghezza per leggibilità (no full-bleed feed). Su For You/Discover, le rail si estendono a tutta la larghezza con scroll orizzontale.</p>
+      </div>
+      <div class="card">
+        <div class="role">Contesto — 320px</div>
+        <h4>Compagno laterale</h4>
+        <p>DNA Widget, friend now-watching, picks rapide. Si nasconde sotto i 1280px di viewport. Sticky.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 07 COMPONENTI -->
+  <section id="components" class="chap">
+    <div class="chap-head">
+      <span class="chap-num">07</span>
+      <h2 class="chap-title display">Componenti chiave</h2>
+    </div>
+
+    <p class="bigtext">Pochi componenti, <em>fortissima coerenza</em>. Ogni elemento sotto è il modello canonico del suo tipo.</p>
+
+    <div id="components-stage" style="margin-top:32px;"></div>
+  </section>
+
+  <!-- 08 PRINCIPI -->
+  <section id="principles" class="chap">
+    <div class="chap-head">
+      <span class="chap-num">08</span>
+      <h2 class="chap-title display">Principi di sistema</h2>
+    </div>
+
+    <div class="principle">
+      <h5>01 — Le copertine sono il prodotto</h5>
+      <p>Ogni componente che mostra un media deve dare priorità all'imagery. Mai una card senza cover che faccia "2/3 testo, 1/3 immagine". Sempre l'opposto. Quando manca la copertina, mostra un placeholder colorato per medium con il titolo in <span class="mono" style="color:var(--accent)">gk-mono</span>, non un'icona generica.</p>
+    </div>
+
+    <div class="principle">
+      <h5>02 — Un solo accent, mai gradient</h5>
+      <p>Il giallo acido è l'unico accent che si usa <strong>vivo</strong>. Niente <span class="mono">from-violet-500 to-fuchsia-500</span>. I medium hanno il loro colore pieno. Il viola brand è <strong>solo</strong> per CTA primarie, focus ring, link e brand surface (logo).</p>
+    </div>
+
+    <div class="principle">
+      <h5>03 — Densità prima dell'aria</h5>
+      <p>Geekore non è uno spa retreat. Chi ha 200 titoli vuole vederne 30 in una schermata. Le card di Library partono di default in <strong>vista compact</strong> (lista riga); la vista grid è opzionale.</p>
+    </div>
+
+    <div class="principle">
+      <h5>04 — Stato sempre visibile</h5>
+      <p>"In collezione", "in wishlist", "completato" devono essere <strong>visibili senza hover</strong>. Su mobile l'hover non esiste. Pillola in alto-destra della cover, oppure tick nell'angolo. Sempre.</p>
+    </div>
+
+    <div class="principle">
+      <h5>05 — Optimistic UI ovunque</h5>
+      <p>Like, wishlist, follow, status change: <strong>la UI risponde subito</strong>, la rete segue. Se la chiamata fallisce, rollback con un toast non-bloccante.</p>
+    </div>
+
+    <div class="principle">
+      <h5>06 — Niente filler content</h5>
+      <p>Empty state vuoti, sezioni "lorem ipsum-y", contatori inutili. Se non ho ancora amici, l'app mi dice <strong>chi seguire</strong>, non "Nessun amico ancora 😢".</p>
+    </div>
+
+    <div class="principle">
+      <h5>07 — Mono per i numeri</h5>
+      <p>Episodi, percentuali, codici stagione, ore di gioco, anno: tutto in JetBrains Mono. È il segnale di "dato tecnico" che chi gioca / segue anime riconosce immediatamente.</p>
+    </div>
+
+    <div class="principle">
+      <h5>08 — Il quadrato giallo è sacro</h5>
+      <p>Non si modifica, non si stira, non si gradient-a. Solo solido. Solo <span class="mono" style="color:var(--accent)">#E6FF3D</span>. Se serve uno stato disabilitato: opacità 30%, mai un altro giallo.</p>
+    </div>
+  </section>
+
+  <!-- 09 ROADMAP -->
+  <section id="roadmap" class="chap">
+    <div class="chap-head">
+      <span class="chap-num">09</span>
+      <h2 class="chap-title display">Roadmap visiva</h2>
+    </div>
+
+    <p class="bigtext">Ordine di implementazione. <em>Fasi</em>, non sprint.</p>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="role">Fase 1 — fondamenta (1-2 settimane)</div>
+        <h4>Token &amp; tipografia</h4>
+        <p style="margin:8px 0 0;">Sostituire le CSS variables con la nuova palette. Importare Cabinet Grotesk + Switzer. Riportare colori medium a saturazione piena. Adottare le 8 classi <span class="mono" style="color:var(--accent)">gk-*</span> in tutta la codebase con un grep+replace assistito.</p>
+      </div>
+      <div class="card">
+        <div class="role">Fase 2 — IA (1 settimana)</div>
+        <h4>Bottom-nav riarchitettata</h4>
+        <p style="margin:8px 0 0;">Aggiungere tab Library. Spostare Swipe come modalità di For You. Avatar utente come accesso a Profile in alto-destra. Riprogettare l'header context-aware con le sole 5 destinazioni.</p>
+      </div>
+      <div class="card">
+        <div class="role">Fase 3 — feed &amp; activity (2 settimane)</div>
+        <h4>Activity post + composer ridisegnato</h4>
+        <p style="margin:8px 0 0;">Auto-generare post quando l'utente cambia status (con copertina del media). Ridurre il composer a 1 step. Aggiungere chip-row dei medium sopra il feed.</p>
+      </div>
+      <div class="card">
+        <div class="role">Fase 4 — Library (2 settimane)</div>
+        <h4>Vista compact, filtri, bulk actions</h4>
+        <p style="margin:8px 0 0;">Tre viste: Grid, List, Stats. Filtri per genere, anno, rating, status. Bulk select. Heatmap-anno come hero della pagina (signature feature).</p>
+      </div>
+      <div class="card">
+        <div class="role">Fase 5 — Discover &amp; Drawer (1-2 settimane)</div>
+        <h4>Discover popolata + trailer</h4>
+        <p style="margin:8px 0 0;">Sezioni Trending/Stagione/In uscita anche senza query. Trailer YouTube embed nel drawer. Provider "dove guardarlo".</p>
+      </div>
+      <div class="card">
+        <div class="role">Fase 6 — onboarding (1 settimana)</div>
+        <h4>Cold-start guided</h4>
+        <p style="margin:8px 0 0;">Selezione medium, import library da AniList/MAL/Steam/Letterboxd/BGG come step principale (non sepolto in Settings), 5 titoli che ami, friend-finder.</p>
+      </div>
+    </div>
+
+    <hr class="div" />
+
+    <div class="annot">
+      <div class="tag">una raccomandazione</div>
+      <p style="margin:0; color:var(--ink); font-size:17px;">Non rilasciare il rebrand in <strong>una sola release</strong>. Spezza in 6 fasi. Tieni il vecchio palette dietro un feature flag per la prima settimana — vuoi sapere se il giallo acido fa sussultare le persone (in senso buono) o le scoraggia. <em>Misura prima di committare</em>.</p>
+    </div>
+
+    <div style="margin-top:96px; padding-top:48px; border-top:1px solid var(--line); display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:24px;">
+      <div>
+        <div class="display" style="font-size:32px; line-height:1; margin-bottom:8px;">Geekore</div>
+        <p style="margin:0; color:var(--ink-3); font-size:13px;" class="mono">Visione visiva v1.0 · Mobile + Web</p>
+      </div>
+      <div style="display:inline-block; width:24px; height:24px; background:var(--accent); border-radius:6px; box-shadow: 0 0 32px rgba(230,255,61,0.4);"></div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ============ MOBILE MOCKUPS (React) ============ -->
+<script type="text/babel">
+const { useState } = React;
+
+// ─── helpers ─────────────────────────────────────────────────────────────────
+const Cover = ({ bg, label, color, h = 200, gradient }) => (
+  <div style={{
+    width: '100%', height: h, borderRadius: 12, position: 'relative', overflow: 'hidden',
+    background: bg || (gradient ? `linear-gradient(135deg, ${color}cc, ${color}33)` : `${color}33`),
+    display: 'flex', alignItems: 'flex-end', padding: 8,
+  }}>
+    {label && <div style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 12, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.1 }}>{label}</div>}
+  </div>
+);
+
+const Pill = ({ color, children, solid }) => (
+  <span style={{
+    display: 'inline-flex', alignItems: 'center', gap: 4,
+    padding: '2px 8px',
+    borderRadius: 999,
+    fontFamily: 'JetBrains Mono', fontSize: 9, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase',
+    background: solid ? color : `${color}22`,
+    color: solid ? '#0B0B0F' : color,
+    border: solid ? 'none' : `1px solid ${color}66`,
+  }}>{children}</span>
+);
+
+// Status bar per iOS frame
+const Status = () => (
+  <div style={{ height: 32, padding: '0 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: 'JetBrains Mono', fontSize: 12, fontWeight: 600, color: '#F4F4F5' }}>
+    <span>9:41</span>
+    <span style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+      <span style={{ width: 14, height: 8, border: '1px solid #F4F4F5', borderRadius: 2, position: 'relative' }}>
+        <span style={{ position: 'absolute', inset: 1, background: '#F4F4F5', borderRadius: 1 }} />
+      </span>
+    </span>
+  </div>
+);
+
+// Bottom nav (5 tab: Home, For You, Library, Discover, Friends)
+const BottomNav = ({ active }) => {
+  const tabs = [
+    { id: 'home', label: 'Home', icon: '◉' },
+    { id: 'foryou', label: 'For You', icon: '✦' },
+    { id: 'lib', label: 'Library', icon: '▦' },
+    { id: 'disc', label: 'Discover', icon: '⌕' },
+    { id: 'friends', label: 'Friends', icon: '◐' },
+  ];
+  return (
+    <div style={{
+      borderTop: '1px solid #2A2A36',
+      background: 'rgba(11,11,15,0.92)',
+      backdropFilter: 'blur(20px)',
+      paddingTop: 6, paddingBottom: 18,
+      display: 'flex', justifyContent: 'space-around',
+    }}>
+      {tabs.map(t => {
+        const isActive = t.id === active;
+        return (
+          <div key={t.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '4px 8px', minWidth: 56 }}>
+            {isActive && <span style={{ position: 'absolute', top: -6, left: '50%', transform: 'translateX(-50%)', width: 24, height: 2, background: '#E6FF3D', borderRadius: 999 }} />}
+            <span style={{ fontSize: 18, color: isActive ? '#E6FF3D' : '#52525B' }}>{t.icon}</span>
+            <span style={{ fontFamily: 'Switzer', fontSize: 10, fontWeight: 600, letterSpacing: 0, color: isActive ? '#E6FF3D' : '#A1A1AA' }}>{t.label}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// Top bar
+const TopBar = ({ title, wordmark, right = '◉ ●' }) => (
+  <div style={{
+    height: 52, padding: '0 16px',
+    borderBottom: '1px solid #2A2A36',
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    background: 'rgba(11,11,15,0.95)',
+    backdropFilter: 'blur(20px)',
+  }}>
+    {wordmark
+      ? <div style={{ display: 'flex', alignItems: 'baseline' }}>
+          <span style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 900, fontSize: 22, letterSpacing: '-0.04em', color: '#F4F4F5' }}>geekore</span>
+          <span style={{ display: 'inline-block', width: 7, height: 7, background: '#E6FF3D', borderRadius: 2, marginLeft: 3, transform: 'translateY(-2px)' }} />
+        </div>
+      : <h1 style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 22, letterSpacing: '-0.025em', color: '#F4F4F5', margin: 0, lineHeight: 1 }}>{title}</h1>
+    }
+    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+      <span style={{ fontSize: 16, color: '#A1A1AA' }}>⌕</span>
+      <div style={{ width: 28, height: 28, borderRadius: 999, background: 'linear-gradient(135deg, #8B5CF6, #F87171)', border: '1px solid #2A2A36' }} />
+    </div>
+  </div>
+);
+
+// ─── SCREEN 1: HOME / FEED ─────────────────────────────────────────────────
+function ScreenHome() {
+  return (
+    <div className="scr">
+      <Status />
+      <TopBar wordmark />
+      {/* chip row medium */}
+      <div style={{ display: 'flex', gap: 6, padding: '12px 16px', overflowX: 'auto' }}>
+        {[
+          { l: 'Tutto', c: '#E6FF3D', active: true },
+          { l: 'Anime', c: '#38BDF8' },
+          { l: 'Manga', c: '#F97066' },
+          { l: 'Game', c: '#4ADE80' },
+          { l: 'TV', c: '#C084FC' },
+          { l: 'Film', c: '#EF4444' },
+        ].map(c => (
+          <span key={c.l} style={{
+            flexShrink: 0,
+            padding: '6px 12px', borderRadius: 999,
+            fontFamily: 'Switzer', fontSize: 12, fontWeight: 600,
+            background: c.active ? c.c : 'transparent',
+            color: c.active ? '#0B0B0F' : c.c,
+            border: c.active ? 'none' : `1px solid ${c.c}55`,
+          }}>{c.l}</span>
+        ))}
+      </div>
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        {/* ACTIVITY CARD — auto-generated, with cover */}
+        <div style={{ borderRadius: 16, border: '1px solid #2A2A36', background: '#14141B', overflow: 'hidden' }}>
+          <div style={{ padding: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 999, background: 'linear-gradient(135deg, #38BDF8, #8B5CF6)' }} />
+            <div style={{ flex: 1, lineHeight: 1.2 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#F4F4F5' }}>marco_otaku</div>
+              <div style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: '#A1A1AA', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ha completato · 2h fa</div>
+            </div>
+            <Pill color="#38BDF8">Anime</Pill>
+          </div>
+          <div style={{ display: 'flex', gap: 12, padding: '0 12px 12px' }}>
+            <div style={{ width: 64, height: 92, borderRadius: 8, background: 'linear-gradient(135deg, #1E40AF, #BE185D)', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', bottom: 4, left: 4, fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 9, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1 }}>FRIEREN</div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 16, letterSpacing: '-0.02em', color: '#F4F4F5', lineHeight: 1.15, marginBottom: 4 }}>Frieren — Beyond Journey's End</div>
+              <div style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: '#A1A1AA', letterSpacing: '0.05em', marginBottom: 8 }}>S01 · 28/28 EP · 9.4/10</div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {[1,2,3,4,5].map(i => <span key={i} style={{ color: i <= 5 ? '#FBBF24' : '#52525B', fontSize: 11 }}>★</span>)}
+              </div>
+            </div>
+          </div>
+          <div style={{ padding: '0 12px 10px', fontSize: 13, color: '#A1A1AA', lineHeight: 1.4, fontStyle: 'italic' }}>
+            "Una serie che ridefinisce cosa significa concludere un viaggio."
+          </div>
+          <div style={{ display: 'flex', gap: 16, padding: '8px 12px 12px', borderTop: '1px solid #2A2A36' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#E6FF3D' }}>🔥 <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11 }}>34</span></span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#A1A1AA' }}>◐ <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11 }}>7</span></span>
+            <span style={{ marginLeft: 'auto', fontSize: 12, color: '#A1A1AA' }}>↗</span>
+          </div>
+        </div>
+
+        {/* Discussion post */}
+        <div style={{ borderRadius: 16, border: '1px solid #2A2A36', background: '#14141B', padding: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 999, background: 'linear-gradient(135deg, #F97066, #FBBF24)' }} />
+            <div style={{ flex: 1, lineHeight: 1.2 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#F4F4F5' }}>chiara.reads</div>
+              <div style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: '#A1A1AA', textTransform: 'uppercase', letterSpacing: '0.05em' }}>5h fa</div>
+            </div>
+            <Pill color="#F97066">Manga</Pill>
+          </div>
+          <div style={{ fontSize: 14, color: '#F4F4F5', lineHeight: 1.5, marginBottom: 10 }}>
+            Qualcuno ha letto <span style={{ color: '#E6FF3D', fontWeight: 600 }}>Vagabond</span>? Sono al volume 22, è devastante. Consigli su cosa leggere dopo, stessa intensità?
+          </div>
+          <div style={{ display: 'flex', gap: 16, paddingTop: 8, borderTop: '1px solid #2A2A36' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#A1A1AA' }}>🔥 <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11 }}>12</span></span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#A1A1AA' }}>◐ <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11 }}>23</span></span>
+          </div>
+        </div>
+
+      </div>
+
+      <BottomNav active="home" />
+    </div>
+  );
+}
+
+// ─── SCREEN 2: DISCOVER ─────────────────────────────────────────────────
+function ScreenDiscover() {
+  return (
+    <div className="scr">
+      <Status />
+      <TopBar title="Discover" />
+      <div style={{ padding: '12px 16px 0' }}>
+        <div style={{ background: '#14141B', border: '1px solid #2A2A36', borderRadius: 999, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ color: '#52525B' }}>⌕</span>
+          <span style={{ flex: 1, fontSize: 13, color: '#52525B' }}>Cerca anime, manga, giochi…</span>
+          <span style={{ color: '#A1A1AA' }}>🎙</span>
+        </div>
+      </div>
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 0 16px', display: 'flex', flexDirection: 'column', gap: 28 }}>
+
+        {/* TRENDING NOW — hero */}
+        <div style={{ padding: '0 16px' }}>
+          <div style={{ fontFamily: 'Switzer', fontSize: 11, fontWeight: 700, color: '#E6FF3D', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>↑ TRENDING ORA</div>
+          <div style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 22, letterSpacing: '-0.025em', color: '#F4F4F5', marginBottom: 12 }}>Più aggiunti questa settimana</div>
+
+          <div style={{ borderRadius: 18, overflow: 'hidden', position: 'relative', height: 200, background: 'linear-gradient(135deg, #7C2D12, #DC2626 50%, #FCD34D)' }}>
+            <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', gap: 6 }}>
+              <Pill color="#EF4444" solid>Movie</Pill>
+              <Pill color="#E6FF3D" solid>#1</Pill>
+            </div>
+            <div style={{ position: 'absolute', bottom: 16, left: 16, right: 16 }}>
+              <div style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 900, fontSize: 26, letterSpacing: '-0.03em', color: '#fff', lineHeight: 1, marginBottom: 6 }}>Dune: Part Two</div>
+              <div style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.05em' }}>2024 · 166 MIN · 8.7 ★ · 12.4K UTENTI</div>
+            </div>
+          </div>
+        </div>
+
+        {/* RAIL: in stagione */}
+        <div>
+          <div style={{ padding: '0 16px', marginBottom: 10 }}>
+            <div style={{ fontFamily: 'Switzer', fontSize: 11, fontWeight: 700, color: '#38BDF8', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>STAGIONE INVERNALE 2026</div>
+            <div style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 18, letterSpacing: '-0.02em', color: '#F4F4F5' }}>Anime in onda ora</div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, padding: '0 16px', overflowX: 'auto' }}>
+            {[
+              { t: 'Solo Leveling', g: 'linear-gradient(135deg, #6D28D9, #1E1B4B)', n: '12/24' },
+              { t: 'Frieren S2', g: 'linear-gradient(135deg, #1E40AF, #BE185D)', n: '03/24' },
+              { t: 'Dan Da Dan', g: 'linear-gradient(135deg, #DC2626, #F59E0B)', n: '08/12' },
+              { t: 'Re:Zero S3', g: 'linear-gradient(135deg, #1E293B, #7F1D1D)', n: '15/16' },
+            ].map(a => (
+              <div key={a.t} style={{ flexShrink: 0, width: 110 }}>
+                <div style={{ width: '100%', height: 160, borderRadius: 10, background: a.g, position: 'relative', marginBottom: 6, overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', top: 6, right: 6, width: 18, height: 18, borderRadius: 999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E6FF3D', fontSize: 10 }}>+</div>
+                  <div style={{ position: 'absolute', bottom: 6, left: 6, right: 6, fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 11, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.1 }}>{a.t}</div>
+                </div>
+                <div style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: '#A1A1AA', letterSpacing: '0.05em' }}>EP {a.n}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* RAIL: in uscita */}
+        <div>
+          <div style={{ padding: '0 16px', marginBottom: 10 }}>
+            <div style={{ fontFamily: 'Switzer', fontSize: 11, fontWeight: 700, color: '#4ADE80', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>QUESTA SETTIMANA</div>
+            <div style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 18, letterSpacing: '-0.02em', color: '#F4F4F5' }}>Giochi in uscita</div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, padding: '0 16px', overflowX: 'auto' }}>
+            {[
+              { t: 'Hollow Knight: Silksong', g: 'linear-gradient(135deg, #064E3B, #022C22)', d: '2 MAG' },
+              { t: 'Avowed', g: 'linear-gradient(135deg, #78350F, #451A03)', d: '4 MAG' },
+              { t: 'GTA VI', g: 'linear-gradient(135deg, #1E3A8A, #BE123C)', d: '6 MAG' },
+            ].map(g => (
+              <div key={g.t} style={{ flexShrink: 0, width: 110 }}>
+                <div style={{ width: '100%', height: 160, borderRadius: 10, background: g.g, position: 'relative', marginBottom: 6, overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', top: 6, left: 6 }}><Pill color="#4ADE80" solid>{g.d}</Pill></div>
+                  <div style={{ position: 'absolute', bottom: 6, left: 6, right: 6, fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 11, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.1 }}>{g.t}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </div>
+
+      <BottomNav active="disc" />
+    </div>
+  );
+}
+
+// ─── SCREEN 3: FOR YOU ─────────────────────────────────────────────────
+function ScreenForYou() {
+  return (
+    <div className="scr">
+      <Status />
+      <TopBar title="For You" />
+
+      {/* Toggle Lista / Swipe */}
+      <div style={{ padding: '12px 16px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 4, padding: 3, background: '#14141B', borderRadius: 999, border: '1px solid #2A2A36' }}>
+          <button style={{ background: '#E6FF3D', color: '#0B0B0F', border: 'none', padding: '6px 14px', borderRadius: 999, fontFamily: 'Switzer', fontSize: 12, fontWeight: 700 }}>Lista</button>
+          <button style={{ background: 'transparent', color: '#A1A1AA', border: 'none', padding: '6px 14px', borderRadius: 999, fontFamily: 'Switzer', fontSize: 12, fontWeight: 600 }}>Swipe</button>
+        </div>
+        <span style={{ fontSize: 18, color: '#A1A1AA' }}>⚙</span>
+      </div>
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 0 16px', display: 'flex', flexDirection: 'column', gap: 28 }}>
+
+        {/* DNA preview */}
+        <div style={{ margin: '0 16px', padding: 14, borderRadius: 16, background: 'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(230,255,61,0.04))', border: '1px solid rgba(139,92,246,0.3)' }}>
+          <div style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: '#E6FF3D', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>IL TUO DNA</div>
+          <div style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 18, letterSpacing: '-0.02em', color: '#F4F4F5', marginBottom: 8 }}>Slow-burn drama, world-building denso</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {['psychological','seinen','eurogame','cRPG','noir'].map(t => (
+              <span key={t} style={{ padding: '3px 8px', borderRadius: 999, fontFamily: 'JetBrains Mono', fontSize: 9, background: 'rgba(255,255,255,0.06)', color: '#F4F4F5', letterSpacing: '0.04em' }}>{t}</span>
+            ))}
+          </div>
+        </div>
+
+        {/* TOP MATCH RAIL */}
+        <div>
+          <div style={{ padding: '0 16px', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontFamily: 'Switzer', fontSize: 11, fontWeight: 700, color: '#E6FF3D', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>96% MATCH</div>
+              <div style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 20, letterSpacing: '-0.025em', color: '#F4F4F5' }}>Top per te</div>
+            </div>
+            <span style={{ fontSize: 12, color: '#A1A1AA' }}>vedi tutti →</span>
+          </div>
+          <div style={{ display: 'flex', gap: 10, padding: '0 16px', overflowX: 'auto' }}>
+            {[
+              { t: 'Vinland Saga', g: 'linear-gradient(135deg, #1E3A8A, #312E81)', m: 96, c: '#38BDF8', l: 'Anime' },
+              { t: 'Disco Elysium', g: 'linear-gradient(135deg, #7C2D12, #B45309)', m: 94, c: '#4ADE80', l: 'Game' },
+              { t: 'Berserk', g: 'linear-gradient(135deg, #18181B, #7F1D1D)', m: 92, c: '#F97066', l: 'Manga' },
+            ].map(r => (
+              <div key={r.t} style={{ flexShrink: 0, width: 130 }}>
+                <div style={{ width: '100%', height: 190, borderRadius: 12, background: r.g, position: 'relative', marginBottom: 8, overflow: 'hidden', border: '1px solid rgba(230,255,61,0.2)' }}>
+                  <div style={{ position: 'absolute', top: 8, left: 8 }}><Pill color={r.c}>{r.l}</Pill></div>
+                  <div style={{ position: 'absolute', top: 8, right: 8, padding: '2px 7px', background: '#E6FF3D', borderRadius: 999, fontFamily: 'JetBrains Mono', fontSize: 9, fontWeight: 700, color: '#0B0B0F' }}>{r.m}%</div>
+                  <div style={{ position: 'absolute', bottom: 8, left: 8, right: 8, fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 14, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.1 }}>{r.t}</div>
+                </div>
+                <div style={{ fontSize: 11, color: '#A1A1AA', lineHeight: 1.3 }}>"<em style={{ fontStyle: 'normal', color: '#F4F4F5' }}>Slow-burn intenso</em>, come Frieren"</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* CONTINUE WATCHING */}
+        <div>
+          <div style={{ padding: '0 16px', marginBottom: 10 }}>
+            <div style={{ fontFamily: 'Switzer', fontSize: 11, fontWeight: 700, color: '#FB923C', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>→ CONTINUA</div>
+            <div style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 20, letterSpacing: '-0.025em', color: '#F4F4F5' }}>Sequel dei tuoi titoli</div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, padding: '0 16px', overflowX: 'auto' }}>
+            {[
+              { t: 'Made in Abyss S2', from: 'Made in Abyss S1' },
+              { t: 'Vinland Saga S2', from: 'Vinland Saga S1' },
+            ].map(r => (
+              <div key={r.t} style={{ flexShrink: 0, width: 130 }}>
+                <div style={{ width: '100%', height: 190, borderRadius: 12, background: 'linear-gradient(135deg, #14532D, #052E16)', position: 'relative', marginBottom: 8 }}>
+                  <div style={{ position: 'absolute', bottom: 8, left: 8, right: 8, fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 14, color: '#fff', letterSpacing: '-0.02em' }}>{r.t}</div>
+                </div>
+                <div style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: '#FB923C', textTransform: 'uppercase', letterSpacing: '0.05em' }}>← DA {r.from}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </div>
+
+      <BottomNav active="foryou" />
+    </div>
+  );
+}
+
+// ─── SCREEN 4: LIBRARY (vista compact) ─────────────────────────────────────────────────
+function ScreenLibrary() {
+  const items = [
+    { t: 'Frieren — Beyond Journey\'s End', s: 'EP 28/28', st: 'completed', r: 5, c: '#38BDF8', l: 'Anime' },
+    { t: 'Berserk', s: 'CAP 364/—', st: 'reading', r: 5, c: '#F97066', l: 'Manga' },
+    { t: 'Baldur\'s Gate 3', s: '127 H', st: 'playing', r: 5, c: '#4ADE80', l: 'Game' },
+    { t: 'Gloomhaven', s: '12 PARTITE', st: 'playing', r: null, c: '#FB923C', l: 'Board' },
+    { t: 'Severance', s: 'S2 EP 4/10', st: 'watching', r: 4, c: '#C084FC', l: 'TV' },
+    { t: 'Vinland Saga S2', s: 'EP 24/24', st: 'completed', r: 5, c: '#38BDF8', l: 'Anime' },
+    { t: 'Disco Elysium', s: '52 H', st: 'completed', r: 5, c: '#4ADE80', l: 'Game' },
+  ];
+  const STATUS = {
+    completed: { c: '#10B981', l: '✓' },
+    reading: { c: '#F97066', l: '◐' },
+    playing: { c: '#4ADE80', l: '▸' },
+    watching: { c: '#C084FC', l: '◐' },
+  };
+  return (
+    <div className="scr">
+      <Status />
+      <TopBar title="Library" />
+
+      {/* hero stats */}
+      <div style={{ padding: '14px 16px 12px', display: 'flex', gap: 12, borderBottom: '1px solid #2A2A36' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: '#A1A1AA', letterSpacing: '0.1em', textTransform: 'uppercase' }}>TOTALI</div>
+          <div className="display" style={{ fontSize: 28, lineHeight: 1, color: '#F4F4F5' }}>247</div>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: '#A1A1AA', letterSpacing: '0.1em', textTransform: 'uppercase' }}>QUEST'ANNO</div>
+          <div className="display" style={{ fontSize: 28, lineHeight: 1, color: '#E6FF3D' }}>42</div>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: '#A1A1AA', letterSpacing: '0.1em', textTransform: 'uppercase' }}>IN CORSO</div>
+          <div className="display" style={{ fontSize: 28, lineHeight: 1, color: '#F4F4F5' }}>8</div>
+        </div>
+      </div>
+
+      {/* filters row */}
+      <div style={{ padding: '10px 16px', display: 'flex', gap: 6, overflowX: 'auto', borderBottom: '1px solid #2A2A36' }}>
+        {['Tutti','In corso','Completati','Wishlist','Anime','Manga','Game'].map((c,i) => (
+          <span key={c} style={{
+            flexShrink: 0,
+            padding: '5px 11px', borderRadius: 999,
+            fontFamily: 'Switzer', fontSize: 12, fontWeight: 600,
+            background: i === 0 ? '#F4F4F5' : 'transparent',
+            color: i === 0 ? '#0B0B0F' : '#A1A1AA',
+            border: i === 0 ? 'none' : '1px solid #2A2A36',
+          }}>{c}</span>
+        ))}
+      </div>
+
+      {/* compact list */}
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {items.map((it, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: '1px solid #1C1C26' }}>
+            <div style={{ width: 40, height: 56, borderRadius: 6, background: `linear-gradient(135deg, ${it.c}66, ${it.c}22)`, flexShrink: 0, position: 'relative' }}>
+              <div style={{ position: 'absolute', bottom: 2, left: 2, right: 2, fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 6, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1 }}>{it.t.split(' ')[0].toUpperCase()}</div>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 700, fontSize: 14, color: '#F4F4F5', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.t}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                <Pill color={it.c}>{it.l}</Pill>
+                <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: '#A1A1AA', letterSpacing: '0.05em' }}>{it.s}</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+              {it.r && <div style={{ display: 'flex', gap: 1 }}>{[1,2,3,4,5].map(s => <span key={s} style={{ color: s <= it.r ? '#FBBF24' : '#2A2A36', fontSize: 9 }}>★</span>)}</div>}
+              <span style={{ fontSize: 12, color: STATUS[it.st]?.c }}>{STATUS[it.st]?.l}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <BottomNav active="lib" />
+    </div>
+  );
+}
+
+// ─── SCREEN 5: MEDIA DRAWER ─────────────────────────────────────────────────
+function ScreenDrawer() {
+  return (
+    <div className="scr">
+      <Status />
+      {/* drawer header */}
+      <div style={{ padding: '8px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 18, color: '#A1A1AA' }}>←</span>
+        <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: '#A1A1AA', letterSpacing: '0.1em', textTransform: 'uppercase' }}>ANILIST</span>
+        <span style={{ fontSize: 18, color: '#A1A1AA' }}>↗</span>
+      </div>
+
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {/* hero */}
+        <div style={{ height: 180, background: 'linear-gradient(180deg, #1E40AF 0%, #BE185D 100%)', position: 'relative' }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 30%, #0B0B0F 100%)' }} />
+          {/* play trailer */}
+          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 56, height: 56, borderRadius: 999, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.2)' }}>
+            <span style={{ color: '#E6FF3D', fontSize: 20, marginLeft: 4 }}>▶</span>
+          </div>
+        </div>
+
+        {/* poster + meta */}
+        <div style={{ display: 'flex', gap: 12, padding: '0 16px', marginTop: -50, position: 'relative' }}>
+          <div style={{ width: 96, height: 144, borderRadius: 8, background: 'linear-gradient(135deg, #1E40AF, #BE185D)', flexShrink: 0, border: '2px solid #0B0B0F' }}>
+            <div style={{ padding: 8, fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 14, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1 }}>FRIEREN</div>
+          </div>
+          <div style={{ flex: 1, paddingTop: 56 }}>
+            <Pill color="#38BDF8" solid>Anime</Pill>
+          </div>
+        </div>
+
+        {/* title */}
+        <div style={{ padding: '14px 16px 12px' }}>
+          <h2 style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 900, fontSize: 26, letterSpacing: '-0.03em', color: '#F4F4F5', margin: 0, lineHeight: 1, marginBottom: 6 }}>Frieren — Beyond Journey's End</h2>
+          <div style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#A1A1AA', letterSpacing: '0.05em', textTransform: 'uppercase' }}>2023 · MADHOUSE · 28 EP · ★ 9.4</div>
+        </div>
+
+        {/* CTA bar */}
+        <div style={{ padding: '0 16px 16px', display: 'flex', gap: 8 }}>
+          <button style={{ flex: 1, background: '#E6FF3D', color: '#0B0B0F', border: 'none', padding: '12px', borderRadius: 12, fontFamily: 'Switzer', fontSize: 14, fontWeight: 700 }}>+ Aggiungi</button>
+          <button style={{ width: 48, height: 44, background: '#14141B', border: '1px solid #2A2A36', borderRadius: 12, color: '#F4F4F5', fontSize: 16 }}>♡</button>
+          <button style={{ width: 48, height: 44, background: '#14141B', border: '1px solid #2A2A36', borderRadius: 12, color: '#F4F4F5', fontSize: 16 }}>↗</button>
+        </div>
+
+        {/* description */}
+        <div style={{ padding: '0 16px 16px' }}>
+          <p style={{ fontSize: 14, color: '#F4F4F5', lineHeight: 1.55, margin: 0 }}>
+            Dopo aver sconfitto il Re Demone, l'elfa maga Frieren torna a casa. Ma per lei, secoli equivalgono a un battito di ciglia. Una meditazione sulla mortalità e il tempo, tra fantasy e dramma.
+          </p>
+        </div>
+
+        {/* genres */}
+        <div style={{ padding: '0 16px 16px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {['Fantasy','Slice of Life','Drama','Adventure'].map(g => (
+            <span key={g} style={{ padding: '4px 10px', borderRadius: 999, fontFamily: 'Switzer', fontSize: 11, fontWeight: 500, background: '#14141B', border: '1px solid #2A2A36', color: '#A1A1AA' }}>{g}</span>
+          ))}
+        </div>
+
+        {/* providers */}
+        <div style={{ padding: '0 16px 16px' }}>
+          <div style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: '#E6FF3D', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>DOVE GUARDARLO</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {['Crunchyroll','Netflix','Prime'].map(p => (
+              <div key={p} style={{ padding: '8px 12px', borderRadius: 10, background: '#14141B', border: '1px solid #2A2A36', fontFamily: 'Switzer', fontSize: 12, fontWeight: 600, color: '#F4F4F5' }}>{p}</div>
+            ))}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+// ─── SCREEN 6: SWIPE ─────────────────────────────────────────────────
+function ScreenSwipe() {
+  return (
+    <div className="scr">
+      <Status />
+      <div style={{ padding: '8px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 18, color: '#A1A1AA' }}>←</span>
+        <div style={{ display: 'flex', gap: 4, padding: 3, background: '#14141B', borderRadius: 999, border: '1px solid #2A2A36' }}>
+          <button style={{ background: 'transparent', color: '#A1A1AA', border: 'none', padding: '5px 12px', borderRadius: 999, fontFamily: 'Switzer', fontSize: 11, fontWeight: 600 }}>Lista</button>
+          <button style={{ background: '#E6FF3D', color: '#0B0B0F', border: 'none', padding: '5px 12px', borderRadius: 999, fontFamily: 'Switzer', fontSize: 11, fontWeight: 700 }}>Swipe</button>
+        </div>
+        <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#A1A1AA' }}>23/50</span>
+      </div>
+
+      {/* swipe card */}
+      <div style={{ flex: 1, padding: 16, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, borderRadius: 20, background: 'linear-gradient(135deg, #7C2D12, #B45309 50%, #78350F)', position: 'relative', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}>
+          {/* badge top */}
+          <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', gap: 6 }}>
+            <Pill color="#4ADE80" solid>Game</Pill>
+            <Pill color="#E6FF3D" solid>94% match</Pill>
+          </div>
+          <div style={{ position: 'absolute', top: 12, right: 12, padding: '4px 10px', borderRadius: 999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', fontFamily: 'JetBrains Mono', fontSize: 9, color: '#fff', letterSpacing: '0.05em' }}>2019 · RPG</div>
+
+          {/* big title */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, background: 'linear-gradient(180deg, transparent, rgba(0,0,0,0.85))' }}>
+            <div style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 900, fontSize: 32, letterSpacing: '-0.04em', color: '#fff', lineHeight: 0.95, marginBottom: 8 }}>Disco Elysium</div>
+            <div style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 12 }}>★ 9.6 · 60H · ZA/UM</div>
+            <div style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.08)', borderRadius: 10, border: '1px solid rgba(230,255,61,0.3)', backdropFilter: 'blur(6px)' }}>
+              <div style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: '#E6FF3D', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>PERCHÉ TU</div>
+              <div style={{ fontSize: 13, color: '#F4F4F5', lineHeight: 1.4 }}>"Slow-burn psicologico, scrittura densa come Vinland Saga. RPG senza combattimenti."</div>
+            </div>
+          </div>
+        </div>
+
+        {/* action buttons */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 8px 8px' }}>
+          <button style={{ width: 52, height: 52, borderRadius: 999, background: '#14141B', border: '1px solid #2A2A36', color: '#F87171', fontSize: 22 }}>✕</button>
+          <button style={{ width: 44, height: 44, borderRadius: 999, background: '#14141B', border: '1px solid #2A2A36', color: '#FBBF24', fontSize: 18 }}>♡</button>
+          <button style={{ width: 60, height: 60, borderRadius: 999, background: '#E6FF3D', border: 'none', color: '#0B0B0F', fontSize: 24, fontWeight: 700, boxShadow: '0 8px 24px rgba(230,255,61,0.4)' }}>+</button>
+          <button style={{ width: 44, height: 44, borderRadius: 999, background: '#14141B', border: '1px solid #2A2A36', color: '#A1A1AA', fontSize: 16 }}>⏭</button>
+          <button style={{ width: 52, height: 52, borderRadius: 999, background: '#14141B', border: '1px solid #2A2A36', color: '#A1A1AA', fontSize: 18 }}>↶</button>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-around', fontFamily: 'JetBrains Mono', fontSize: 8, color: '#52525B', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+          <span>SKIP</span>
+          <span>WISH</span>
+          <span>ADD</span>
+          <span>SEEN</span>
+          <span>UNDO</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Phone wrapper — inline shell (the screens carry their own status bar)
+function Phone({ caption, children }) {
+  return (
+    <div className="phone-cap">
+      <div style={{
+        width: 300, height: 650, borderRadius: 42, overflow: 'hidden',
+        position: 'relative', background: '#08080B',
+        boxShadow: '0 30px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08), 0 0 0 8px #1A1A1F',
+      }}>
+        {/* dynamic island */}
+        <div style={{
+          position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)',
+          width: 94, height: 28, borderRadius: 18, background: '#000', zIndex: 50,
+        }} />
+        {children}
+        {/* home indicator */}
+        <div style={{
+          position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)',
+          width: 104, height: 4, borderRadius: 100, background: 'rgba(255,255,255,0.55)', zIndex: 60, pointerEvents: 'none',
+        }} />
+      </div>
+      <div className="label">{caption}</div>
+    </div>
+  );
+}
+
+// Render mockups
+ReactDOM.createRoot(document.getElementById('phones-1')).render(
+  <>
+    <Phone caption="01 — Home / Feed">
+      <ScreenHome />
+    </Phone>
+    <Phone caption="02 — Discover">
+      <ScreenDiscover />
+    </Phone>
+  </>
+);
+ReactDOM.createRoot(document.getElementById('phones-2')).render(
+  <>
+    <Phone caption="03 — For You (Lista)">
+      <ScreenForYou />
+    </Phone>
+    <Phone caption="04 — Library (Compact)">
+      <ScreenLibrary />
+    </Phone>
+  </>
+);
+ReactDOM.createRoot(document.getElementById('phones-3')).render(
+  <>
+    <Phone caption="05 — Media Drawer">
+      <ScreenDrawer />
+    </Phone>
+    <Phone caption="06 — Swipe (modalità di FY)">
+      <ScreenSwipe />
+    </Phone>
+  </>
+);
+
+// ─── DESKTOP MOCKUP ─────────────────────────────────────────────────
+function DesktopForYou() {
+  return (
+    <div style={{ width: '100%', height: '100%', background: '#0B0B0F', color: '#F4F4F5', display: 'flex', fontFamily: 'Switzer' }}>
+
+      {/* SIDEBAR */}
+      <div style={{ width: 200, borderRight: '1px solid #2A2A36', padding: '20px 14px', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: 28, padding: '0 6px' }}>
+          <span style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 900, fontSize: 22, letterSpacing: '-0.04em' }}>geekore</span>
+          <span style={{ display: 'inline-block', width: 6, height: 6, background: '#E6FF3D', borderRadius: 2, marginLeft: 3, transform: 'translateY(-1px)' }} />
+        </div>
+
+        {[
+          { l: 'Home', i: '◉' },
+          { l: 'For You', i: '✦', active: true },
+          { l: 'Library', i: '▦' },
+          { l: 'Discover', i: '⌕' },
+          { l: 'Friends', i: '◐' },
+        ].map(t => (
+          <div key={t.l} style={{
+            padding: '8px 10px', borderRadius: 10, marginBottom: 2,
+            display: 'flex', alignItems: 'center', gap: 10,
+            background: t.active ? 'rgba(230,255,61,0.08)' : 'transparent',
+            color: t.active ? '#E6FF3D' : '#A1A1AA',
+            fontWeight: t.active ? 600 : 500, fontSize: 13,
+          }}>
+            <span style={{ fontSize: 14 }}>{t.i}</span>
+            <span>{t.l}</span>
+          </div>
+        ))}
+
+        <div style={{ flex: 1 }} />
+
+        <div style={{ padding: '12px 8px', borderTop: '1px solid #1C1C26', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 999, background: 'linear-gradient(135deg, #8B5CF6, #F87171)' }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#F4F4F5' }}>marco_otaku</div>
+            <div style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: '#52525B' }}>L42 · 247</div>
+          </div>
+        </div>
+      </div>
+
+      {/* MAIN */}
+      <div style={{ flex: 1, padding: '24px 32px', overflowY: 'auto' }}>
+        <div style={{ maxWidth: 720 }}>
+          <div style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: '#E6FF3D', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 4 }}>FOR YOU</div>
+          <h1 style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 900, fontSize: 40, letterSpacing: '-0.035em', margin: 0, lineHeight: 0.95 }}>Costruito per te.</h1>
+          <p style={{ fontSize: 13, color: '#A1A1AA', maxWidth: 480, marginTop: 10 }}>247 titoli analizzati · ultima sincronizzazione 2 min fa</p>
+
+          <div style={{ display: 'flex', gap: 4, padding: 3, background: '#14141B', borderRadius: 999, border: '1px solid #2A2A36', width: 'fit-content', marginTop: 16 }}>
+            <button style={{ background: '#E6FF3D', color: '#0B0B0F', border: 'none', padding: '4px 12px', borderRadius: 999, fontSize: 11, fontWeight: 700 }}>Lista</button>
+            <button style={{ background: 'transparent', color: '#A1A1AA', border: 'none', padding: '4px 12px', borderRadius: 999, fontSize: 11, fontWeight: 600 }}>Swipe</button>
+          </div>
+        </div>
+
+        {/* Top match rail */}
+        <div style={{ marginTop: 32 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div>
+              <div style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: '#E6FF3D', letterSpacing: '0.1em', textTransform: 'uppercase' }}>96% MATCH</div>
+              <div style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 22, letterSpacing: '-0.025em' }}>Top per te</div>
+            </div>
+            <span style={{ fontSize: 11, color: '#A1A1AA' }}>vedi tutti →</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+            {[
+              { t: 'Vinland Saga', g: 'linear-gradient(135deg,#1E3A8A,#312E81)', m: 96, c: '#38BDF8', l: 'Anime' },
+              { t: 'Disco Elysium', g: 'linear-gradient(135deg,#7C2D12,#B45309)', m: 94, c: '#4ADE80', l: 'Game' },
+              { t: 'Berserk', g: 'linear-gradient(135deg,#18181B,#7F1D1D)', m: 92, c: '#F97066', l: 'Manga' },
+              { t: 'Severance', g: 'linear-gradient(135deg,#1E293B,#475569)', m: 90, c: '#C084FC', l: 'TV' },
+              { t: 'Gloomhaven', g: 'linear-gradient(135deg,#7F1D1D,#451A03)', m: 88, c: '#FB923C', l: 'Board' },
+            ].map(r => (
+              <div key={r.t}>
+                <div style={{ width: '100%', aspectRatio: '2/3', borderRadius: 8, background: r.g, position: 'relative', marginBottom: 6, border: '1px solid rgba(230,255,61,0.15)' }}>
+                  <div style={{ position: 'absolute', top: 5, left: 5 }}><Pill color={r.c}>{r.l}</Pill></div>
+                  <div style={{ position: 'absolute', top: 5, right: 5, padding: '1px 6px', background: '#E6FF3D', borderRadius: 999, fontFamily: 'JetBrains Mono', fontSize: 8, fontWeight: 700, color: '#0B0B0F' }}>{r.m}%</div>
+                  <div style={{ position: 'absolute', bottom: 5, left: 5, right: 5, fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 11, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.05 }}>{r.t}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Continue */}
+        <div style={{ marginTop: 32 }}>
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: '#FB923C', letterSpacing: '0.1em', textTransform: 'uppercase' }}>→ CONTINUA</div>
+            <div style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 22, letterSpacing: '-0.025em' }}>Sequel dei tuoi titoli</div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+            {[
+              { t: 'Made in Abyss S2', c: '#38BDF8' },
+              { t: 'Vinland Saga S2', c: '#38BDF8' },
+              { t: 'Berserk: Lost Children', c: '#F97066' },
+              { t: 'Outer Wilds DLC', c: '#4ADE80' },
+              { t: 'Severance S3', c: '#C084FC' },
+            ].map(r => (
+              <div key={r.t}>
+                <div style={{ width: '100%', aspectRatio: '2/3', borderRadius: 8, background: `linear-gradient(135deg, ${r.c}55, ${r.c}11)`, position: 'relative', marginBottom: 6 }}>
+                  <div style={{ position: 'absolute', bottom: 5, left: 5, right: 5, fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 11, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.05 }}>{r.t}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </div>
+
+      {/* RIGHT PANEL */}
+      <div style={{ width: 280, borderLeft: '1px solid #2A2A36', padding: '24px 18px', overflowY: 'auto' }}>
+
+        {/* DNA */}
+        <div style={{ padding: 14, borderRadius: 14, background: 'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(230,255,61,0.04))', border: '1px solid rgba(139,92,246,0.3)', marginBottom: 20 }}>
+          <div style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: '#E6FF3D', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>IL TUO DNA</div>
+          <div style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 16, letterSpacing: '-0.02em', lineHeight: 1.15, marginBottom: 8 }}>Slow-burn drama, world-building denso</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {['psychological','seinen','eurogame','cRPG','noir'].map(t => (
+              <span key={t} style={{ padding: '2px 7px', borderRadius: 999, fontFamily: 'JetBrains Mono', fontSize: 9, background: 'rgba(255,255,255,0.05)', color: '#F4F4F5', letterSpacing: '0.04em' }}>{t}</span>
+            ))}
+          </div>
+        </div>
+
+        {/* friends */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: '#A1A1AA', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>AMICI ATTIVI ORA</div>
+          {[
+            { n: 'chiara.reads', a: 'sta leggendo Vagabond', g: 'linear-gradient(135deg, #F97066, #FBBF24)' },
+            { n: 'gio_play', a: 'sta giocando BG3', g: 'linear-gradient(135deg, #4ADE80, #10B981)' },
+            { n: 'ele_movies', a: 'ha visto Dune 2', g: 'linear-gradient(135deg, #EF4444, #DC2626)' },
+          ].map(f => (
+            <div key={f.n} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0' }}>
+              <div style={{ width: 28, height: 28, borderRadius: 999, background: f.g, position: 'relative' }}>
+                <span style={{ position: 'absolute', bottom: -1, right: -1, width: 8, height: 8, borderRadius: 999, background: '#E6FF3D', border: '1.5px solid #0B0B0F' }} />
+              </div>
+              <div style={{ flex: 1, lineHeight: 1.2, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#F4F4F5' }}>{f.n}</div>
+                <div style={{ fontSize: 10, color: '#A1A1AA', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.a}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* quick picks */}
+        <div>
+          <div style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: '#A1A1AA', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>QUICK PICKS</div>
+          {[
+            { t: 'Bocchi the Rock', s: 'anime · 12 ep · 2h 24m', c: '#38BDF8' },
+            { t: 'Outer Wilds', s: 'game · 22h totali', c: '#4ADE80' },
+          ].map(q => (
+            <div key={q.t} style={{ padding: '10px 0', borderTop: '1px solid #1C1C26', display: 'flex', gap: 10, alignItems: 'center' }}>
+              <div style={{ width: 36, height: 50, borderRadius: 5, background: `linear-gradient(135deg, ${q.c}66, ${q.c}22)` }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 700, fontSize: 12, color: '#F4F4F5', letterSpacing: '-0.01em' }}>{q.t}</div>
+                <div style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: '#A1A1AA', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>{q.s}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('desktop-mock')).render(<DesktopForYou />);
+
+
+// ─── COMPONENTS STAGE ─────────────────────────────────────────────────
+function ComponentsStage() {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+
+      {/* Card poster */}
+      <div className="card" style={{ background: '#14141B', padding: 24 }}>
+        <div className="role" style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#E6FF3D', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12 }}>POSTER CARD</div>
+        <div style={{ width: 140, marginBottom: 12 }}>
+          <div style={{ width: '100%', aspectRatio: '2/3', borderRadius: 12, background: 'linear-gradient(135deg, #1E3A8A, #312E81)', position: 'relative', overflow: 'hidden', border: '1px solid rgba(230,255,61,0.15)', marginBottom: 8 }}>
+            <div style={{ position: 'absolute', top: 8, left: 8 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 999, fontFamily: 'JetBrains Mono', fontSize: 9, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', background: '#38BDF822', color: '#38BDF8', border: '1px solid #38BDF866' }}>Anime</span>
+            </div>
+            <div style={{ position: 'absolute', top: 8, right: 8, padding: '2px 7px', background: '#E6FF3D', borderRadius: 999, fontFamily: 'JetBrains Mono', fontSize: 9, fontWeight: 700, color: '#0B0B0F' }}>96%</div>
+            <div style={{ position: 'absolute', bottom: 8, left: 8, right: 8, fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 14, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.05 }}>Vinland Saga</div>
+          </div>
+          <div style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: '#A1A1AA', textTransform: 'uppercase', letterSpacing: '0.05em' }}>2019 · 24 EP · ★ 9.0</div>
+        </div>
+        <p style={{ fontSize: 13, color: '#A1A1AA', margin: 0 }}>Aspect ratio 2/3, due badge max (medium + match%/stato), titolo Cabinet 14px 800, meta in mono 10px.</p>
+      </div>
+
+      {/* Activity post */}
+      <div className="card" style={{ background: '#14141B', padding: 24 }}>
+        <div className="role" style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#E6FF3D', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12 }}>ACTIVITY POST</div>
+        <div style={{ borderRadius: 14, border: '1px solid #2A2A36', background: '#0B0B0F', overflow: 'hidden', marginBottom: 12 }}>
+          <div style={{ padding: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 999, background: 'linear-gradient(135deg, #38BDF8, #8B5CF6)' }} />
+            <div style={{ flex: 1, lineHeight: 1.2 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#F4F4F5' }}>marco_otaku</div>
+              <div style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: '#A1A1AA', textTransform: 'uppercase', letterSpacing: '0.05em' }}>HA COMPLETATO · 2H FA</div>
+            </div>
+            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 7px', borderRadius: 999, fontFamily: 'JetBrains Mono', fontSize: 9, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', background: '#38BDF822', color: '#38BDF8', border: '1px solid #38BDF866' }}>Anime</span>
+          </div>
+          <div style={{ display: 'flex', gap: 10, padding: '0 12px 12px' }}>
+            <div style={{ width: 48, height: 70, borderRadius: 6, background: 'linear-gradient(135deg, #1E40AF, #BE185D)', flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 800, fontSize: 14, letterSpacing: '-0.02em', color: '#F4F4F5', lineHeight: 1.15 }}>Frieren</div>
+              <div style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: '#A1A1AA', letterSpacing: '0.05em', marginTop: 2 }}>S01 · 28/28 · 9.4/10</div>
+              <div style={{ display: 'flex', gap: 1, marginTop: 4 }}>{[1,2,3,4,5].map(s => <span key={s} style={{ color: '#FBBF24', fontSize: 9 }}>★</span>)}</div>
+            </div>
+          </div>
+        </div>
+        <p style={{ fontSize: 13, color: '#A1A1AA', margin: 0 }}>Auto-generato quando l'utente cambia status. Cover sempre presente. Voto + ★ visibili senza tap.</p>
+      </div>
+
+      {/* Library row */}
+      <div className="card" style={{ background: '#14141B', padding: 24 }}>
+        <div className="role" style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#E6FF3D', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12 }}>LIBRARY ROW (COMPACT)</div>
+        <div style={{ borderRadius: 10, background: '#0B0B0F', border: '1px solid #2A2A36' }}>
+          {[
+            { t: 'Berserk', s: 'CAP 364/—', c: '#F97066', l: 'Manga' },
+            { t: 'Baldur\'s Gate 3', s: '127 H', c: '#4ADE80', l: 'Game' },
+          ].map((it, i, a) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderBottom: i < a.length - 1 ? '1px solid #1C1C26' : 'none' }}>
+              <div style={{ width: 36, height: 50, borderRadius: 5, background: `linear-gradient(135deg, ${it.c}66, ${it.c}22)` }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: 'Cabinet Grotesk', fontWeight: 700, fontSize: 13, color: '#F4F4F5', letterSpacing: '-0.01em' }}>{it.t}</div>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 2 }}>
+                  <span style={{ display: 'inline-flex', padding: '2px 6px', borderRadius: 999, fontFamily: 'JetBrains Mono', fontSize: 8, background: `${it.c}22`, color: it.c, border: `1px solid ${it.c}66`, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{it.l}</span>
+                  <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: '#A1A1AA', letterSpacing: '0.05em' }}>{it.s}</span>
+                </div>
+              </div>
+              <span style={{ color: '#10B981', fontSize: 14 }}>▸</span>
+            </div>
+          ))}
+        </div>
+        <p style={{ fontSize: 13, color: '#A1A1AA', margin: '12px 0 0' }}>Vista default per chi ha &gt;30 titoli. Cover 36×50, titolo+pill medium+meta mono, stato a destra.</p>
+      </div>
+
+      {/* Pill stack */}
+      <div className="card" style={{ background: '#14141B', padding: 24 }}>
+        <div className="role" style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#E6FF3D', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12 }}>PILL DI MEDIUM</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+          {[
+            { l: 'Anime', c: '#38BDF8' },
+            { l: 'Manga', c: '#F97066' },
+            { l: 'Game', c: '#4ADE80' },
+            { l: 'Board', c: '#FB923C' },
+            { l: 'Movie', c: '#EF4444' },
+            { l: 'TV', c: '#C084FC' },
+          ].map(p => (
+            <span key={p.l} style={{ display: 'inline-flex', padding: '3px 9px', borderRadius: 999, fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', background: `${p.c}22`, color: p.c, border: `1px solid ${p.c}66` }}>{p.l}</span>
+          ))}
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+          {[
+            { l: 'Anime', c: '#38BDF8' },
+            { l: 'Manga', c: '#F97066' },
+            { l: 'Game', c: '#4ADE80' },
+          ].map(p => (
+            <span key={p.l} style={{ display: 'inline-flex', padding: '3px 9px', borderRadius: 999, fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', background: p.c, color: '#0B0B0F' }}>{p.l}</span>
+          ))}
+        </div>
+        <p style={{ fontSize: 13, color: '#A1A1AA', margin: 0 }}>Outline soft per uso secondario, solid per stato attivo o badge primario. JetBrains Mono 10px uppercase.</p>
+      </div>
+
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('components-stage')).render(<ComponentsStage />);
+</script>
+
+</body>
+</html>
