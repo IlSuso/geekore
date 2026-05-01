@@ -149,7 +149,8 @@ function ChangePasswordSheet() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 bg-violet-600 hover:bg-violet-500 rounded-xl text-sm font-semibold text-white transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            style={{ background: '#E6FF3D', color: '#0B0B0F' }}
           >
             {loading && <Loader2 size={14} className="animate-spin" />}
             {loading ? 'Aggiornamento...' : 'Aggiorna password'}
@@ -417,7 +418,8 @@ function StreamingPlatformsSelector() {
         <button
           onClick={save}
           disabled={saving || loading}
-          className="w-full py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2"
+          className="w-full py-2.5 rounded-xl disabled:opacity-50 text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+          style={{ background: '#E6FF3D', color: '#0B0B0F' }}
         >
           {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
           {saving ? 'Salvataggio…' : 'Salva piattaforme'}
@@ -495,12 +497,13 @@ export default function SettingsPage() {
                   onClick={() => setLocale(lang)}
                   className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold transition-all ${
                     locale === lang
-                      ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/20'
+                      ? ''
                       : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
                   }`}
+                  style={locale === lang ? { background: '#E6FF3D', color: '#0B0B0F' } : {}}
                 >
                   {lang === 'it' ? t.settings.italian : t.settings.english}
-                  {locale === lang && <Check size={12} className="text-violet-300" />}
+                  {locale === lang && <Check size={12} className="text-black" />}
                 </button>
               ))}
             </div>

@@ -1187,7 +1187,7 @@ function PostModal({
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment() } }}
             />
             {commentText.trim() && (
-              <button onClick={submitComment} className="text-violet-400 font-semibold text-sm hover:text-violet-300 transition-colors shrink-0">
+              <button onClick={submitComment} className="font-bold text-sm shrink-0" style={{ color: '#E6FF3D' }}>
                 Pubblica
               </button>
             )}
@@ -1959,7 +1959,7 @@ export default function FeedPage() {
               <button onClick={() => setEditingPostId(null)} className="px-5 py-2.5 rounded-xl border border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-sm font-semibold transition">
                 Annulla
               </button>
-              <button onClick={handleEditPost} disabled={!editContent.trim()} className="px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white text-sm font-semibold transition">
+              <button onClick={handleEditPost} disabled={!editContent.trim()} className="px-5 py-2.5 rounded-xl disabled:opacity-40 text-sm font-semibold transition" style={{ background: '#E6FF3D', color: '#0B0B0F' }}>
                 Salva
               </button>
             </div>
@@ -2036,7 +2036,7 @@ export default function FeedPage() {
                           <button onClick={async (e) => { await handleCreatePost(e as any); closeComposer() }}
                             disabled={isPublishing || (!newPostContent.trim() && !selectedImage)}
                             className="px-5 py-2 rounded-full text-[13px] font-bold disabled:opacity-30 transition-all"
-                            style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #db2777 100%)', color: 'white' }}>
+                            style={{ background: '#E6FF3D', color: '#0B0B0F' }}>
                             {isPublishing ? <Loader2 size={14} className="animate-spin" /> : 'Pubblica'}
                           </button>
                         </div>
@@ -2085,7 +2085,7 @@ export default function FeedPage() {
                           <button
                             onClick={async (e) => { await handleCreatePost(e as any); closeComposer() }}
                             disabled={isPublishing || (!newPostContent.trim() && !selectedImage)}
-                            style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)', color: 'white', border: 'none', borderRadius: 999, padding: '8px 20px', fontSize: 13, fontWeight: 700, opacity: (isPublishing || (!newPostContent.trim() && !selectedImage)) ? 0.3 : 1, cursor: 'pointer' }}
+                            style={{ background: '#E6FF3D', color: '#0B0B0F', border: 'none', borderRadius: 999, padding: '8px 20px', fontSize: 13, fontWeight: 700, opacity: (isPublishing || (!newPostContent.trim() && !selectedImage)) ? 0.3 : 1, cursor: 'pointer' }}
                           >
                             {isPublishing ? '...' : 'Pubblica'}
                           </button>
