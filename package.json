@@ -7,6 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test",
+    "ci": "npm run typecheck && npm run lint && npm run build",
     "import:bgg-catalog": "node scripts/import-bgg-catalog.mjs"
   },
   "dependencies": {
