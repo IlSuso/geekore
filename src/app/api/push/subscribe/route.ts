@@ -6,26 +6,47 @@ import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
+
+function cleanEndpoint(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  const cleaned = value.trim()
+  if (!cleaned || cleaned.length > 2000) return ''
+  try {
+    const url = new URL(cleaned)
+    if (url.protocol !== 'https:') return ''
+    return cleaned
+  } catch {
+    return ''
+  }
+}
+
+function cleanKey(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const cleaned = value.trim()
+  if (!cleaned || cleaned.length > 512) return null
+  return cleaned
+}
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 20, windowMs: 60_000, prefix: 'push:subscribe' })
+  const rl = await rateLimitAsync(request, { limit: 20, windowMs: 60_000, prefix: 'push:subscribe' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
   if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
 
   let body: any
   try { 
     body = await request.json() 
   } catch {
-    return NextResponse.json({ error: 'Body non valido' }, { status: 400 })
+    return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers })
   }
 
-  const { subscription } = body
-  if (!subscription?.endpoint) {
-    return NextResponse.json({ error: 'Subscription non valida' }, { status: 400 })
+  const subscription = body?.subscription
+  const endpoint = cleanEndpoint(subscription?.endpoint)
+  if (!endpoint) {
+    return NextResponse.json({ error: 'Subscription non valida' }, { status: 400, headers: rl.headers })
   }
 
   // Upsert — un dispositivo può aggiornare la propria subscription
@@ -33,38 +54,38 @@ export async function POST(request: NextRequest) {
     .from('push_subscriptions')
     .upsert({
       user_id: user.id,
-      endpoint: subscription.endpoint,
-      p256dh: subscription.keys?.p256dh || null,
-      auth: subscription.keys?.auth || null,
+      endpoint,
+      p256dh: cleanKey(subscription?.keys?.p256dh),
+      auth: cleanKey(subscription?.keys?.auth),
       updated_at: new Date().toISOString(),
     }, { 
       onConflict: 'user_id,endpoint' 
     })
 
   if (error) {
-    logger.error('[Push Subscribe]', error)
-    return NextResponse.json({ error: 'Errore nel salvataggio' }, { status: 500 })
+    logger.error('[Push Subscribe]', 'Errore salvataggio subscription', { message: error.message })
+    return NextResponse.json({ error: 'Errore nel salvataggio' }, { status: 500, headers: rl.headers })
   }
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true }, { headers: rl.headers })
 }
 
 export async function DELETE(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 20, windowMs: 60_000, prefix: 'push:unsubscribe' })
+  const rl = await rateLimitAsync(request, { limit: 20, windowMs: 60_000, prefix: 'push:unsubscribe' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
   if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
 
   let body: any
   try { 
     body = await request.json() 
   } catch {
-    return NextResponse.json({ error: 'Body non valido' }, { status: 400 })
+    body = {}
   }
 
-  const { endpoint } = body
+  const endpoint = cleanEndpoint(body?.endpoint)
 
   if (endpoint) {
     // Elimina solo questo dispositivo
@@ -81,5 +102,5 @@ export async function DELETE(request: NextRequest) {
       .eq('user_id', user.id)
   }
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true }, { headers: rl.headers })
 }
