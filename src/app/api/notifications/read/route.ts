@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 80, windowMs: 60_000, prefix: 'notifications:read' })
+  const rl = await rateLimitAsync(request, { limit: 80, windowMs: 60_000, prefix: 'notifications:read' })
   if (!rl.ok) {
     return NextResponse.json({ error: 'Troppe richieste. Rallenta.' }, { status: 429, headers: rl.headers })
   }
