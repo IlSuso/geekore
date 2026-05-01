@@ -150,7 +150,8 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
             <button
               onClick={handlePost}
               disabled={!newComment.trim() || posting}
-              className="self-end px-4 py-3 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 rounded-2xl transition"
+              className="self-end px-4 py-3 disabled:opacity-40 rounded-2xl transition"
+              style={{ background: '#E6FF3D', color: '#0B0B0F' }}
             >
               {posting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
             </button>

@@ -55,7 +55,8 @@ export function EmptyState({
           {action.href ? (
             <Link
               href={action.href}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-semibold bg-violet-600 hover:bg-violet-500 text-white transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-semibold transition-colors"
+              style={{ background: '#E6FF3D', color: '#0B0B0F' }}
             >
               {action.label}
             </Link>

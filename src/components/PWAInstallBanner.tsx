@@ -82,7 +82,8 @@ export function PWAInstallBanner() {
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button onClick={handleInstall} disabled={installing}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-60 rounded-xl text-xs font-semibold text-white transition-all">
+            className="flex items-center gap-1.5 px-3 py-1.5 disabled:opacity-60 rounded-xl text-xs font-semibold transition-all"
+            style={{ background: '#E6FF3D', color: '#0B0B0F' }}>
             <Download size={13} />
             Installa
           </button>

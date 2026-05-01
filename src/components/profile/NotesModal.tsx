@@ -87,7 +87,8 @@ export function NotesModal({
             </button>
             <button
               onClick={onSave}
-              className="flex-1 py-3 bg-violet-600 hover:bg-violet-500 rounded-2xl transition-colors font-medium"
+              className="flex-1 py-3 rounded-2xl transition-colors font-semibold"
+              style={{ background: '#E6FF3D', color: '#0B0B0F' }}
             >
               {saveLabel}
             </button>

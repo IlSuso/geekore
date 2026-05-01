@@ -461,7 +461,8 @@ export default function EditProfilePage() {
           <button
             type="submit"
             disabled={isBusy || !!fieldErrors.username || !!fieldErrors.bio}
-            className="w-full py-4 bg-violet-600 hover:bg-violet-500 rounded-2xl font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full py-4 rounded-2xl font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2"
+            style={{ background: '#E6FF3D', color: '#0B0B0F' }}
           >
             {isBusy
               ? <><Loader2 size={18} className="animate-spin" /> {uploadingAvatar ? 'Caricamento avatar...' : pe.saving}</>
