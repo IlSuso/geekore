@@ -347,7 +347,6 @@ html, body { background-color: var(--bg-primary); }
 
 /* ── Instagram-style type utilities ──────────────────────────────────────── */
 .gk-username { font-weight: 600; font-size: 13px; color: var(--text-primary); letter-spacing: -0.01em; }
-.gk-body { font-size: 14px; line-height: 1.55; color: var(--text-primary); }
 .gk-meta { font-size: 11px; color: var(--text-muted); letter-spacing: 0.03em; }
 .gk-separator { height: 0.5px; background: var(--border); }
 /* composer modal positioning handled via inline style in feed/page.tsx */
@@ -492,7 +491,7 @@ h1, h2 { font-family: var(--font-display), 'Inter', sans-serif; }
   font-weight: 700;
   letter-spacing: -0.01em;
 }
-.gk-body    { font-size: 14px; line-height: 1.7; color: var(--text-secondary); }
+.gk-body    { font-size: 15px; line-height: 1.7; color: var(--text-secondary); }
 .gk-caption { font-size: 11px; color: var(--text-muted); }
 .gk-label   {
   font-size: 11px;

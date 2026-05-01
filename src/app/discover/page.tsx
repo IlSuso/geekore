@@ -653,12 +653,12 @@ export default function DiscoverPage() {
                     {/* Stato sempre visibile: icona top-right se in collezione o wishlist */}
                     <div className="absolute top-1.5 right-1.5 z-10">
                       {alreadyAdded.includes(item.id) ? (
-                        <div className="w-5 h-5 bg-[var(--brand)] rounded-md flex items-center justify-center shadow-sm">
-                          <Check size={9} className="text-white" strokeWidth={2.5} />
+                        <div className="w-5 h-5 rounded-md flex items-center justify-center shadow-sm" style={{ background: '#E6FF3D' }}>
+                          <Check size={9} className="text-black" strokeWidth={2.5} />
                         </div>
                       ) : wishlistIds.includes(item.id) ? (
-                        <div className="w-5 h-5 bg-black/70 backdrop-blur-sm border border-[var(--brand)]/60 rounded-md flex items-center justify-center shadow-sm">
-                          <BookmarkCheck size={9} className="text-violet-400" />
+                        <div className="w-5 h-5 bg-black/70 backdrop-blur-sm rounded-md flex items-center justify-center shadow-sm" style={{ border: '1px solid rgba(230,255,61,0.5)' }}>
+                          <BookmarkCheck size={9} style={{ color: '#E6FF3D' }} />
                         </div>
                       ) : null}
                     </div>
@@ -675,7 +675,7 @@ export default function DiscoverPage() {
                             className="w-6 h-6 bg-black/70 backdrop-blur-sm rounded-md flex items-center justify-center"
                           >
                             {wishlistIds.includes(item.id)
-                              ? <BookmarkCheck size={11} className="text-violet-400" />
+                              ? <BookmarkCheck size={11} style={{ color: '#E6FF3D' }} />
                               : <Bookmark size={11} className="text-white" />}
                           </button>
                         )}
@@ -684,9 +684,10 @@ export default function DiscoverPage() {
                         {!alreadyAdded.includes(item.id) && (
                           <button
                             onClick={e => { e.stopPropagation(); setDrawerMedia(toMediaDetails(item)); }}
-                            className="w-6 h-6 bg-violet-600 rounded-md flex items-center justify-center"
+                            className="w-6 h-6 rounded-md flex items-center justify-center"
+                            style={{ background: '#E6FF3D' }}
                           >
-                            <Plus size={11} className="text-white" />
+                            <Plus size={11} className="text-black" />
                           </button>
                         )}
                       </div>
