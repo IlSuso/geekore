@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
+import { checkOrigin } from '@/lib/csrf'
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
 const JIKAN_BASE = 'https://api.jikan.moe/v4'
@@ -84,6 +85,7 @@ async function fetchAniList(id: number, mediaType: 'ANIME' | 'MANGA'): Promise<{
 export async function POST(request: NextRequest) {
   const rl = rateLimit(request, { limit: 20, windowMs: 60_000, prefix: 'media-enrich' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429 })
+  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
