@@ -20,6 +20,7 @@ const batchSize = 20
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const bggBearerToken = process.env.BGG_BEARER_TOKEN
 
 if (!csvPath || !supabaseUrl || !serviceKey) {
   console.error('Usage: node scripts/import-bgg-catalog.mjs ./bg_ranks.csv --limit=1000 --delay=5500')
@@ -30,6 +31,15 @@ if (!csvPath || !supabaseUrl || !serviceKey) {
 const supabase = createClient(supabaseUrl, serviceKey, {
   auth: { persistSession: false },
 })
+
+const bggHeaders = {
+  'User-Agent': 'Geekore/1.0 (geekore.it)',
+  ...(bggBearerToken ? { Authorization: `Bearer ${bggBearerToken}` } : {}),
+}
+
+if (!bggBearerToken) {
+  console.warn('[bgg-catalog] BGG_BEARER_TOKEN missing: CSV rows will import, but XML enrichment may return 401.')
+}
 
 function parseCsv(text) {
   const rows = []
@@ -191,7 +201,7 @@ for (let i = 0; i < rankRows.length; i += batchSize) {
   const batch = rankRows.slice(i, i + batchSize)
   const ids = batch.map(row => row.bgg_id).join(',')
   const res = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${ids}&stats=1`, {
-    headers: { 'User-Agent': 'Geekore/1.0 (geekore.it)' },
+    headers: bggHeaders,
   })
   if (!res.ok) {
     console.warn(`[bgg-catalog] BGG batch failed ${res.status}, ids=${ids}`)
