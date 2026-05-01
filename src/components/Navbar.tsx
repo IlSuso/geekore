@@ -167,14 +167,12 @@ export default function Navbar() {
               {/* Wordmark — visibile da lg in su */}
               <span className="hidden lg:flex items-center gap-[3px] font-display" style={{ letterSpacing: '-0.03em' }}>
                 <span className="text-[15px] font-bold text-white">geekore</span>
-                {/* Dot accent: stesso diamante del mobile */}
                 <span
                   style={{
                     width: 6,
                     height: 6,
                     borderRadius: 1.5,
                     background: '#E6FF3D',
-                    transform: 'rotate(45deg)',
                     display: 'inline-block',
                     marginBottom: 1,
                     flexShrink: 0,
@@ -244,8 +242,9 @@ export default function Navbar() {
                     window.history.replaceState(null, '', item.href)
                   }}
                   className={`relative flex flex-col items-center justify-center w-16 lg:w-20 h-full transition-colors group bg-transparent border-0 cursor-pointer ${
-                    isActive ? 'text-violet-400' : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/60'
+                    isActive ? 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/60' : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/60'
                   }`}
+                  style={{ color: isActive ? '#E6FF3D' : undefined }}
                 >
                   <item.icon size={22} strokeWidth={isActive ? 2.2 : 1.6} />
                   {/* Tooltip on hover */}
@@ -254,7 +253,7 @@ export default function Navbar() {
                   </span>
                   {/* Active bottom indicator */}
                   {isActive && (
-                    <span className="absolute bottom-0 left-3 right-3 h-[3px] rounded-t-full bg-violet-500" />
+                    <span className="absolute bottom-0 left-3 right-3 h-[3px] rounded-t-full" style={{ background: '#E6FF3D' }} />
                   )}
                 </button>
               )
@@ -374,11 +373,11 @@ export default function Navbar() {
                 }}
               >
                 {isActive && (
-                  <span className="absolute top-0 left-1/2 -translate-x-1/2 rounded-full bg-violet-500" style={{ width: 28, height: 2 }} />
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 rounded-full" style={{ width: 24, height: 2, background: '#E6FF3D' }} />
                 )}
                 {item.href.startsWith('/profile/') && (avatarUrl || currentUsername) ? (
                   <div className="rounded-full p-[2px]" style={{
-                    background: isActive ? 'linear-gradient(45deg, #7c3aed 0%, #a855f7 50%, #db2777 100%)' : 'transparent',
+                    background: isActive ? '#E6FF3D' : 'transparent',
                     border: isActive ? 'none' : '1.5px solid #3f3f3f',
                   }}>
                     <div className="rounded-full overflow-hidden bg-black p-[1.5px]">
@@ -389,11 +388,13 @@ export default function Navbar() {
                   </div>
                 ) : (
                   <item.icon size={22} strokeWidth={isActive ? 2.1 : 1.6}
-                    className={isActive ? 'text-white' : 'text-zinc-500'}
-                    fill={isActive && item.href === '/home' ? 'white' : 'none'}
+                    style={{ color: isActive ? '#E6FF3D' : undefined }}
+                    className={isActive ? '' : 'text-zinc-500'}
+                    fill={isActive && item.href === '/home' ? '#E6FF3D' : 'none'}
                   />
                 )}
-                <span className={`text-[11px] leading-none font-medium tracking-tight ${isActive ? 'text-white' : 'text-zinc-600'}`}>
+                <span className={`text-[11px] leading-none font-semibold tracking-tight ${isActive ? '' : 'text-zinc-600'}`}
+                  style={{ color: isActive ? '#E6FF3D' : undefined }}>
                   {item.label}
                 </span>
               </button>

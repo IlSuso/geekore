@@ -202,6 +202,11 @@ function triggerTasteDelta(options: {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+type TrendingItem = {
+  id: string; title: string; type: string; coverImage?: string; year?: number;
+  genres?: string[]; score?: number; source: string;
+};
+
 export default function DiscoverPage() {
   const pathname = usePathname()
   const [searchTerm, setSearchTerm] = useState('');
@@ -213,6 +218,9 @@ export default function DiscoverPage() {
   const [alreadyAdded, setAlreadyAdded] = useState<string[]>([]);
   const [wishlistIds, setWishlistIds] = useState<string[]>([]);
   const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null);
+  const [trendingAnime, setTrendingAnime] = useState<TrendingItem[]>([]);
+  const [trendingMovies, setTrendingMovies] = useState<TrendingItem[]>([]);
+  const [trendingTV, setTrendingTV] = useState<TrendingItem[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -229,6 +237,18 @@ export default function DiscoverPage() {
 
   useEffect(() => {
     if (window.innerWidth >= 768) searchInputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/trending?section=anime').then(r => r.ok ? r.json() : []).catch(() => []),
+      fetch('/api/trending?section=movie').then(r => r.ok ? r.json() : []).catch(() => []),
+      fetch('/api/trending?section=tv').then(r => r.ok ? r.json() : []).catch(() => []),
+    ]).then(([anime, movies, tv]) => {
+      setTrendingAnime(anime);
+      setTrendingMovies(movies);
+      setTrendingTV(tv);
+    });
   }, []);
 
   // PERF FIX: usa AuthContext invece di getUser() per-mount
@@ -462,9 +482,10 @@ export default function DiscoverPage() {
               onClick={() => setActiveType(tf.id)}
               className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all flex-shrink-0 border ${
                 activeType === tf.id
-                  ? 'bg-violet-600 border-violet-500 text-white'
-                  : 'bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-violet-500/40 hover:text-[var(--text-primary)]'
+                  ? 'border-transparent'
+                  : 'bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border)] hover:text-[var(--text-primary)]'
               }`}
+              style={activeType === tf.id ? { background: '#E6FF3D', color: '#0B0B0F', border: '1px solid #E6FF3D' } : {}}
             >
               {tf.icon}{tf.label}
             </button>
@@ -490,14 +511,75 @@ export default function DiscoverPage() {
           <p className="text-center py-12 text-[var(--text-muted)] text-[14px]">{searchError}</p>
         )}
 
-        {/* Empty state — nessuna query ancora */}
+        {/* Browse sections — visibili quando nessuna query attiva */}
         {!loading && !searchTerm.trim() && (
-          <EmptyState
-            icon={Search}
-            title="Cerca qualcosa"
-            description="Anime, manga, film, serie TV, videogiochi, giochi da tavolo e libri."
-            accent="zinc"
-          />
+          <div className="space-y-8">
+            {[
+              { label: 'Trending Anime', items: trendingAnime, typeKey: 'anime' },
+              { label: 'Film della settimana', items: trendingMovies, typeKey: 'movie' },
+              { label: 'Serie TV popolari', items: trendingTV, typeKey: 'tv' },
+            ].map(({ label, items, typeKey }) => (
+              <div key={typeKey}>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-[15px] font-bold text-[var(--text-primary)]">{label}</h2>
+                  <button
+                    onClick={() => setActiveType(typeKey)}
+                    className="text-[12px] font-semibold"
+                    style={{ color: '#E6FF3D' }}
+                  >
+                    Vedi tutti
+                  </button>
+                </div>
+                {items.length === 0 ? (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="aspect-[2/3] rounded-xl bg-[var(--bg-card)] animate-pulse" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+                    {items.slice(0, 6).map((item) => (
+                      <div
+                        key={item.id}
+                        className="group cursor-pointer relative"
+                        onClick={() => {
+                          setDrawerMedia({
+                            id: item.id, title: item.title, type: item.type,
+                            coverImage: item.coverImage, year: item.year,
+                            genres: item.genres,
+                            source: item.source as any,
+                          })
+                        }}
+                      >
+                        <div className="aspect-[2/3] overflow-hidden bg-[var(--bg-card)] rounded-xl">
+                          {item.coverImage ? (
+                            <img
+                              src={item.coverImage}
+                              alt={item.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)]">
+                              {TYPE_PLACEHOLDER_ICON[item.type]}
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-1.5 px-0.5">
+                          <p className="text-[12px] font-semibold text-[var(--text-primary)] leading-tight line-clamp-2">
+                            {item.title}
+                          </p>
+                          {item.year && (
+                            <p className="text-[11px] text-[var(--text-muted)] font-mono mt-0.5">{item.year}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         )}
 
         {/* Hint — query troppo corta (1 carattere) */}

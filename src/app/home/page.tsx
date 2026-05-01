@@ -2168,22 +2168,20 @@ export default function FeedPage() {
               </div>
             )}
 
-            {/* Filter tabs — Instagram: "Per te" / "Seguiti" stile tab */}
+            {/* Filter tabs — Per te / Seguiti */}
             {currentUser && (
-              <div
-                className="flex items-stretch mb-0 mt-1"
-
-              >
+              <div className="flex items-stretch mb-0 mt-1">
                 {(['all', 'following'] as const).map(filter => (
                   <button
                     key={filter}
                     data-testid={`filter-${filter}`}
                     onClick={() => handleFilterChange(filter)}
-                    className={`flex-1 py-3 text-[14px] font-semibold transition-all relative ${feedFilter === filter ? 'text-violet-400' : 'text-[var(--text-muted)]'}`}
+                    className={`flex-1 py-3 text-[14px] font-semibold transition-all relative ${feedFilter === filter ? '' : 'text-[var(--text-muted)]'}`}
+                    style={{ color: feedFilter === filter ? '#E6FF3D' : undefined }}
                   >
                     {filter === 'all' ? f.filterAll : f.filterFollowing}
                     {feedFilter === filter && (
-                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-violet-500" />
+                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full" style={{ background: '#E6FF3D' }} />
                     )}
                   </button>
                 ))}
@@ -2192,6 +2190,46 @@ export default function FeedPage() {
                 <div className="flex items-center pr-2">
                   <CategorySelector value={categoryFilter} onChange={setCategoryFilter} />
                 </div>
+              </div>
+            )}
+
+            {/* Medium type chip row */}
+            {currentUser && (
+              <div className="flex gap-2 overflow-x-auto pb-2 pt-1 px-3 -mx-3 scrollbar-none">
+                {[
+                  { label: 'Tutto', value: '' },
+                  { label: 'Anime',    value: 'Anime',             color: 'var(--type-anime)' },
+                  { label: 'Manga',    value: 'Manga',             color: 'var(--type-manga)' },
+                  { label: 'Giochi',   value: 'Videogiochi',       color: 'var(--type-game)'  },
+                  { label: 'Serie TV', value: 'Serie TV',          color: 'var(--type-tv)'    },
+                  { label: 'Film',     value: 'Film',              color: 'var(--type-movie)'  },
+                  { label: 'Board',    value: 'Giochi da tavolo',  color: 'var(--type-board)'  },
+                ].map(chip => {
+                  const parsedActive = parseCategoryString(categoryFilter)
+                  const isActive = chip.value === ''
+                    ? categoryFilter === ''
+                    : parsedActive?.category === chip.value
+                  return (
+                    <button
+                      key={chip.value}
+                      onClick={() => setCategoryFilter(isActive && chip.value !== '' ? '' : chip.value)}
+                      className="flex-shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-semibold transition-all"
+                      style={{
+                        background: isActive
+                          ? (chip.color || '#E6FF3D')
+                          : 'var(--bg-card)',
+                        color: isActive
+                          ? (chip.color ? '#fff' : '#0B0B0F')
+                          : 'var(--text-secondary)',
+                        border: isActive
+                          ? `1px solid ${chip.color || '#E6FF3D'}`
+                          : '1px solid var(--border)',
+                      }}
+                    >
+                      {chip.label}
+                    </button>
+                  )
+                })}
               </div>
             )}
 

@@ -42,15 +42,13 @@ function GeekoreWordmark() {
       >
         geekore
       </span>
-      {/* Dot accent: quadrato-diamante ruotato — più carattere di un cerchio */}
       <span
         className="flex-shrink-0 mb-[2px]"
         style={{
-          width: 8,
-          height: 8,
+          width: 7,
+          height: 7,
           borderRadius: 2,
           background: '#E6FF3D',
-          transform: 'rotate(45deg)',
           display: 'inline-block',
         }}
       />
