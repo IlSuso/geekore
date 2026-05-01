@@ -64,7 +64,9 @@ create policy post_images_user_delete
     and (storage.foldername(name))[1] = auth.uid()::text
   );
 
-create or replace function public.cleanup_search_history_bulk(p_keep integer default 500)
+drop function if exists public.cleanup_search_history_bulk(integer);
+
+create function public.cleanup_search_history_bulk(p_keep integer default 500)
 returns integer
 language plpgsql
 security definer
