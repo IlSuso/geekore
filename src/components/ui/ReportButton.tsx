@@ -4,7 +4,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Flag, X, Check, Loader2 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { androidBack } from '@/hooks/androidBack'
 
 type TargetType = 'post' | 'comment' | 'profile' | 'profile_comment'
@@ -32,7 +31,6 @@ export function ReportButton({ targetType, targetId, iconOnly = false, className
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
   const [mounted, setMounted] = useState(false)
-  const supabase = createClient()
 
   useEffect(() => { setMounted(true) }, [])
 
@@ -46,19 +44,17 @@ export function ReportButton({ targetType, targetId, iconOnly = false, className
   const handleSubmit = async () => {
     if (!reason) return
     setSubmitting(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setSubmitting(false)
-      return
-    }
-    const { error } = await supabase.from('reports').insert({
-      reporter_id: user.id,
-      target_type: targetType,
-      target_id: targetId,
-      reason,
-      notes: notes.trim() || null,
-    })
-    if (!error) {
+    const res = await fetch('/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        target_type: targetType,
+        target_id: targetId,
+        reason,
+        notes: notes.trim() || null,
+      }),
+    }).catch(() => null)
+    if (res?.ok) {
       setDone(true)
       setTimeout(() => { handleClose(); setDone(false) }, 1500)
     }
