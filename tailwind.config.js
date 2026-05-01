@@ -29,6 +29,7 @@ module.exports = {
       fontFamily: {
         display: ['var(--font-display)', 'sans-serif'],
         body: ['var(--font-body)', 'sans-serif'],
+        mono: ['var(--font-mono)', 'JetBrains Mono', 'monospace'],
       },
       boxShadow: {
         glow: '0 0 30px rgba(124,106,247,0.25)',

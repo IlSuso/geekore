@@ -1,12 +1,26 @@
 import type { Metadata, Viewport } from 'next'
-import { Plus_Jakarta_Sans } from 'next/font/google'
+import { Plus_Jakarta_Sans, Space_Grotesk, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import Navbar from '@/components/Navbar'
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
-  weight: ['600', '700', '800'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-body',
+  display: 'swap',
+})
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  weight: ['500', '600', '700'],
   variable: '--font-display',
+  display: 'swap',
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500', '700'],
+  variable: '--font-mono',
   display: 'swap',
 })
 
@@ -67,7 +81,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
         <meta name="theme-color" content="#000000" media="(prefers-color-scheme: light)" />
       </head>
-      <body suppressHydrationWarning className={`${jakarta.variable} bg-black text-white min-h-screen antialiased`}>
+      <body suppressHydrationWarning className={`${jakarta.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} bg-black text-white min-h-screen antialiased`}>
         <ActiveTabProvider initialPathname={initialPathname}>
           <ClientProviders initialLocale={initialLocale}>
             <AppShell>

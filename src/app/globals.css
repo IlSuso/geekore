@@ -5,32 +5,35 @@
 /* ── CSS Variables ───────────────────────────────────────────────────────── */
 
 :root {
-  --bg-primary:     #000000;
-  --bg-secondary:   #0a0a0a;
-  --bg-card:        #111111;
-  --bg-card-hover:  #1c1c1c;   /* era #181818 — allineato a bg-hover */
-  --bg-hover:       #1c1c1c;
-  --bg-input:       #111111;
-  --text-primary:   #ffffff;
-  --text-secondary: #a0a0a0;   /* era #a8a8a8 — più coerente col design system */
-  --text-muted:     #505050;   /* era #555555 */
-  --border:         #222222;   /* era #262626 — più sottile */
-  --border-subtle:  #1a1a1a;
-  /* Brand — UNICO valore viola (Tailwind accent.DEFAULT) */
-  --brand:          #8b5cf6;   /* rinominato da --violet per chiarezza semantica */
-  --brand-light:    #a78bfa;   /* rinominato da --violet-light */
-  /* Alias retrocompatibilità — da rimuovere in futuro */
-  --violet:         #8b5cf6;
-  --violet-light:   #a78bfa;
-  /* Media type — desaturati 35% per non competere col brand */
-  --type-anime:     #5fa8c8;   /* era #38bdf8 */
-  --type-manga:     #c47a6e;   /* era #f97066 */
-  --type-game:      #5a9e6e;   /* era #4ade80 */
-  --type-board:     #c49542;   /* era #fb923c */
-  --type-movie:     #b86262;
-  --type-tv:        #8b70c4;
-  --skeleton-from:  #1a1a1a;
-  --skeleton-to:    #252525;
+  /* Backgrounds — nero bluastro caldo, non piatto */
+  --bg-primary:     #0B0B0F;
+  --bg-secondary:   #14141B;
+  --bg-card:        #16161E;
+  --bg-card-hover:  #1C1C26;
+  --bg-hover:       #1C1C26;
+  --bg-input:       #14141B;
+  --text-primary:   #F4F4F5;
+  --text-secondary: #A1A1AA;
+  --text-muted:     #52525B;
+  --border:         #2A2A36;
+  --border-subtle:  #1C1C26;
+  /* Brand */
+  --brand:          #8B5CF6;
+  --brand-light:    #A78BFA;
+  /* Accent signature — giallo-lime acido, usato per highlight/CTA secondarie */
+  --accent:         #E6FF3D;
+  /* Alias retrocompatibilità */
+  --violet:         #8B5CF6;
+  --violet-light:   #A78BFA;
+  /* Media type — saturazione piena: il contenuto è il protagonista */
+  --type-anime:     #38BDF8;
+  --type-manga:     #F97066;
+  --type-game:      #4ADE80;
+  --type-board:     #FB923C;
+  --type-movie:     #EF4444;
+  --type-tv:        #C084FC;
+  --skeleton-from:  #1C1C26;
+  --skeleton-to:    #252530;
   color-scheme: dark;
 }
 
@@ -56,9 +59,9 @@
 /* ── Base ─────────────────────────────────────────────────────────────────── */
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
-  background: #000;
-  color: #fff;
+  font-family: var(--font-body), -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -198,7 +201,7 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
 :focus-visible {
   outline: 2px solid #8b5cf6;
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: inherit;
 }
 
 ::selection {
@@ -297,7 +300,7 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
 
 @media (max-width: 767px) {
   body { -webkit-user-select: none; user-select: none; }
-  input, textarea, [contenteditable], p, h1, h2, h3, h4, h5, h6, span, a {
+  input, textarea, [contenteditable], p, h1, h2, h3, h4, h5, h6, span, a, div, li, blockquote {
     -webkit-user-select: text; user-select: text;
   }
 }
@@ -317,13 +320,15 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
 
 
 
-html, body { background-color: #000000 !important; }
+html, body { background-color: var(--bg-primary); }
 
 @media (max-width: 767px) {
   nav.mobile-nav {
-    background-color: #000000 !important;
+    background-color: rgba(11, 11, 15, 0.97) !important;
     padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-    box-shadow: 0 20px 0 20px #000000;
+    /* Estende il colore nella safe-area senza hack box-shadow */
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px) !important;
+    border-top: 1px solid var(--border);
     transform: translateZ(0);
   }
   /* Sfondo solido sotto il bottom nav (colma il gap safe-area su iPhone) */
@@ -334,7 +339,7 @@ html, body { background-color: #000000 !important; }
     left: 0;
     right: 0;
     height: calc(env(safe-area-inset-bottom, 0px) + 68px);
-    background: #000000;
+    background: var(--bg-primary);
     z-index: 98;
     pointer-events: none;
   }
@@ -463,8 +468,9 @@ body[style*="overflow: hidden"] {
 }
 
 /* ── Font Display ────────────────────────────────────────────────────────── */
-/* Plus Jakarta Sans — usare su h1, h2, wordmark, score numbers */
+/* Space Grotesk per display/headings, Plus Jakarta per UI, JetBrains Mono per numeri */
 .font-display { font-family: var(--font-display), 'Inter', sans-serif; }
+.font-mono-data { font-family: var(--font-mono), 'JetBrains Mono', monospace; }
 h1, h2 { font-family: var(--font-display), 'Inter', sans-serif; }
 
 /* ── Type scale semantica ─────────────────────────────────────────────────── */

@@ -32,17 +32,28 @@ function BackButton() {
   )
 }
 
-// Wordmark con dot gradient — identità visiva Geekore
+// Wordmark — identità visiva Geekore
 function GeekoreWordmark() {
   return (
-    <Link href="/home" className="flex items-center gap-1 py-1">
+    <Link href="/home" className="flex items-center gap-[3px] py-1">
       <span
-        className="text-[24px] font-bold text-white tracking-tight"
-        style={{ letterSpacing: '-0.5px' }}
+        className="text-[24px] font-bold text-white font-display"
+        style={{ letterSpacing: '-0.03em' }}
       >
         geekore
       </span>
-      <span className="w-[7px] h-[7px] rounded-full mb-[1px] flex-shrink-0 bg-violet-500" />
+      {/* Dot accent: quadrato-diamante ruotato — più carattere di un cerchio */}
+      <span
+        className="flex-shrink-0 mb-[2px]"
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: 2,
+          background: '#E6FF3D',
+          transform: 'rotate(45deg)',
+          display: 'inline-block',
+        }}
+      />
     </Link>
   )
 }
@@ -107,23 +118,25 @@ export function MobileHeader() {
 
   const iconCls = 'w-10 h-10 flex items-center justify-center text-[var(--text-primary)] hover:opacity-70 transition-opacity'
 
-  // Mappa pathname → config titolo con icona e colore
+  // Mappa pathname → config titolo con icona e colore.
+  // Sistema: grigio per pagine di sistema, viola brand per funzioni core.
+  // Nessun gradiente casuale — coerenza prima di tutto.
   const PAGE_CONFIG: Record<string, PageTitleProps> = {
-    '/discover':     { title: t.nav.discover,       icon: <Search size={14} className="text-white" />,      iconBg: 'bg-gradient-to-br from-sky-500 to-blue-600' },
-    '/for-you':      { title: t.nav.forYou,          icon: <Sparkles size={14} className="text-white" />,    iconBg: 'bg-gradient-to-br from-violet-500 to-fuchsia-500' },
-    '/trending':     { title: 'Trending',             icon: <TrendingUp size={14} className="text-white" />,  iconBg: 'bg-gradient-to-br from-orange-500 to-red-500' },
-    '/swipe':        { title: 'Swipe',                icon: <Shuffle size={14} className="text-white" />,     iconBg: 'bg-gradient-to-br from-emerald-500 to-teal-600' },
-    '/notifications':{ title: 'Notifiche',            icon: <Bell size={14} className="text-white" />,        iconBg: 'bg-gradient-to-br from-amber-500 to-orange-500' },
-    '/settings':     { title: t.nav.settings,         icon: <Settings size={14} className="text-white" />,    iconBg: 'bg-zinc-700' },
-    '/settings/profile': { title: 'Modifica Profilo',   icon: <Edit3 size={14} className="text-white" />,       iconBg: 'bg-gradient-to-br from-violet-500 to-purple-600' },
-    '/profile/setup':{ title: 'Crea Profilo',          icon: <Edit3 size={14} className="text-white" />,       iconBg: 'bg-gradient-to-br from-violet-500 to-purple-600' },
-    '/wishlist':     { title: 'Wishlist',             icon: <Bookmark size={14} className="text-white" />,    iconBg: 'bg-gradient-to-br from-pink-500 to-rose-600' },
-    '/stats':        { title: 'Statistiche',          icon: <BarChart2 size={14} className="text-white" />,   iconBg: 'bg-gradient-to-br from-indigo-500 to-violet-600' },
-    '/leaderboard':  { title: 'Classifica',           icon: <Trophy size={14} className="text-white" />,      iconBg: 'bg-gradient-to-br from-yellow-500 to-amber-600' },
-    '/lists':        { title: 'Liste',                icon: <List size={14} className="text-white" />,        iconBg: 'bg-gradient-to-br from-cyan-500 to-sky-600' },
-    '/search':       { title: 'Cerca',                icon: <Search size={14} className="text-white" />,      iconBg: 'bg-gradient-to-br from-sky-500 to-blue-600' },
-    '/explore':      { title: 'Esplora',              icon: <Search size={14} className="text-white" />,      iconBg: 'bg-gradient-to-br from-sky-500 to-blue-600' },
-    '/community':    { title: 'Community',            icon: <Users size={14} className="text-white" />,       iconBg: 'bg-gradient-to-br from-violet-500 to-fuchsia-500' },
+    '/discover':      { title: t.nav.discover,      icon: <Search size={14} className="text-white" />,     iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
+    '/for-you':       { title: t.nav.forYou,         icon: <Sparkles size={14} className="text-white" />,   iconBg: 'bg-violet-600' },
+    '/trending':      { title: 'Trending',            icon: <TrendingUp size={14} className="text-white" />, iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
+    '/swipe':         { title: 'Swipe',               icon: <Shuffle size={14} className="text-white" />,    iconBg: 'bg-violet-600' },
+    '/notifications': { title: 'Notifiche',           icon: <Bell size={14} className="text-zinc-400" />,    iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
+    '/settings':      { title: t.nav.settings,        icon: <Settings size={14} className="text-zinc-400" />,iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
+    '/settings/profile': { title: 'Modifica Profilo', icon: <Edit3 size={14} className="text-white" />,      iconBg: 'bg-violet-600' },
+    '/profile/setup': { title: 'Crea Profilo',        icon: <Edit3 size={14} className="text-white" />,      iconBg: 'bg-violet-600' },
+    '/wishlist':      { title: 'Wishlist',            icon: <Bookmark size={14} className="text-zinc-400" />,iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
+    '/stats':         { title: 'Statistiche',         icon: <BarChart2 size={14} className="text-zinc-400" />,iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
+    '/leaderboard':   { title: 'Classifica',          icon: <Trophy size={14} className="text-zinc-400" />,  iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
+    '/lists':         { title: 'Liste',               icon: <List size={14} className="text-zinc-400" />,    iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
+    '/search':        { title: 'Cerca',               icon: <Search size={14} className="text-zinc-400" />,  iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
+    '/explore':       { title: 'Esplora',             icon: <Search size={14} className="text-zinc-400" />,  iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
+    '/community':     { title: 'Community',           icon: <Users size={14} className="text-white" />,      iconBg: 'bg-violet-600' },
   }
 
   const pageConfig = Object.entries(PAGE_CONFIG).find(

@@ -161,12 +161,25 @@ export default function Navbar() {
           {/* LEFT: Logo + Search ─────────────────────────────────────────── */}
           <div className="flex items-center gap-3 flex-1 min-w-0 px-4">
             <Link href="/" className="flex-shrink-0 group flex items-center gap-2">
-              <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl flex items-center justify-center shadow-md shadow-violet-500/25 group-hover:scale-105 transition-transform">
+              <div className="w-9 h-9 bg-violet-600 rounded-xl flex items-center justify-center group-hover:bg-violet-500 transition-colors">
                 <Zap size={17} className="text-white" />
               </div>
               {/* Wordmark — visibile da lg in su */}
-              <span className="hidden lg:block text-[15px] font-bold tracking-tight text-white font-display">
-                geekore<span className="text-violet-400">.</span>
+              <span className="hidden lg:flex items-center gap-[3px] font-display" style={{ letterSpacing: '-0.03em' }}>
+                <span className="text-[15px] font-bold text-white">geekore</span>
+                {/* Dot accent: stesso diamante del mobile */}
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 1.5,
+                    background: '#E6FF3D',
+                    transform: 'rotate(45deg)',
+                    display: 'inline-block',
+                    marginBottom: 1,
+                    flexShrink: 0,
+                  }}
+                />
               </span>
             </Link>
 
@@ -355,7 +368,6 @@ export default function Navbar() {
                 data-testid={`nav-mobile-${item.href.replace('/', '')}`}
                 className="flex flex-col items-center justify-center flex-1 relative gap-[3px] py-2 bg-transparent border-0 cursor-pointer"
                 onClick={() => {
-                  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(8)
                   const tab = pathnameToTab(item.href)
                   if (tab) setActiveTab(tab)
                   window.history.replaceState(null, '', item.href)
@@ -381,7 +393,7 @@ export default function Navbar() {
                     fill={isActive && item.href === '/home' ? 'white' : 'none'}
                   />
                 )}
-                <span className={`text-[10px] leading-none font-medium tracking-tight ${isActive ? 'text-white' : 'text-zinc-600'}`}>
+                <span className={`text-[11px] leading-none font-medium tracking-tight ${isActive ? 'text-white' : 'text-zinc-600'}`}>
                   {item.label}
                 </span>
               </button>
