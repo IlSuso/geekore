@@ -15,7 +15,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 import { checkOrigin } from '@/lib/csrf'
 import { logger } from '@/lib/logger'
 import { upsertWithMerge } from '@/lib/importMerge'
@@ -313,7 +313,7 @@ function buildListEntry(
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 3, windowMs: 60 * 60 * 1000, prefix: 'letterboxd-import' })
+  const rl = await rateLimitAsync(request, { limit: 3, windowMs: 60 * 60 * 1000, prefix: 'letterboxd-import' })
   if (!rl.ok) {
     return NextResponse.json(
       { error: "Troppe importazioni. Attendi un'ora prima di riprovare." },
@@ -324,11 +324,11 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
 
   const contentType = request.headers.get('content-type') || ''
   if (!contentType.includes('multipart/form-data')) {
-    return NextResponse.json({ error: 'Invia i file CSV via form-data.' }, { status: 400 })
+    return NextResponse.json({ error: 'Invia i file CSV via form-data.' }, { status: 400, headers: rl.headers })
   }
 
   const formData = await request.formData()
@@ -339,7 +339,7 @@ export async function POST(request: NextRequest) {
   const listName      = (formData.get('list_name') as string | null)?.trim() || ''
 
   if (!watchedFile && !ratingsFile && !watchlistFile && !listFile) {
-    return NextResponse.json({ error: 'Carica almeno un file CSV.' }, { status: 400 })
+    return NextResponse.json({ error: 'Carica almeno un file CSV.' }, { status: 400, headers: rl.headers })
   }
 
   const MAX = 10 * 1024 * 1024
@@ -360,7 +360,7 @@ export async function POST(request: NextRequest) {
     if (watchlistFile) watchlistRows = parseCSV(await readFile(watchlistFile))
     if (listFile)      listRows      = parseCSV(await readFile(listFile))
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || 'Errore lettura file.' }, { status: 400 })
+    return NextResponse.json({ error: e.message || 'Errore lettura file.' }, { status: 400, headers: rl.headers })
   }
 
   // Auto-detect list name from the CSV metadata row (first row where the URI is a /list/ URL,
@@ -370,7 +370,7 @@ export async function POST(request: NextRequest) {
   if (listMetaRow) listRows = listRows.filter(r => !(r['letterboxd uri'] || '').includes('/list/'))
 
   if (!watchedRows.length && !ratingsRows.length && !watchlistRows.length && !listRows.length) {
-    return NextResponse.json({ error: 'Nessun film trovato nei file caricati.' }, { status: 422 })
+    return NextResponse.json({ error: 'Nessun film trovato nei file caricati.' }, { status: 422, headers: rl.headers })
   }
 
   // ── Streaming response ────────────────────────────────────────────────────
@@ -529,6 +529,7 @@ export async function POST(request: NextRequest) {
       'Content-Type': 'text/plain; charset=utf-8',
       'X-Content-Type-Options': 'nosniff',
       'Cache-Control': 'no-cache',
+      ...Object.fromEntries(rl.headers.entries()),
     },
   })
 }
