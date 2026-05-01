@@ -160,27 +160,11 @@ export default function SwipePage() {
     init()
   }, []) // eslint-disable-line
 
-  const removeFromPool = useCallback(async (userId: string, externalId: string) => {
-    const { data: poolRows } = await supabase
-      .from('recommendations_pool')
-      .select('media_type, data')
-      .eq('user_id', userId)
-    if (!poolRows) return
-    const updates = poolRows
-      .map(row => {
-        const filtered = (row.data as any[]).filter((r: any) => r.id !== externalId)
-        if (filtered.length === (row.data as any[]).length) return null
-        return { media_type: row.media_type, data: filtered }
-      })
-      .filter(Boolean)
-    for (const upd of updates) {
-      supabase.from('recommendations_pool')
-        .update({ data: upd!.data })
-        .eq('user_id', userId)
-        .eq('media_type', upd!.media_type)
-        .then(() => {})
-    }
-  }, [supabase])
+  const removeFromPool = useCallback(async (_userId: string, _externalId: string) => {
+    // Pool cleanup must stay server-side. Feedback/cache invalidation below prevents repeats
+    // without letting the browser mutate recommendations_pool directly.
+    fetch('/api/recommendations?invalidateCache=true', { method: 'POST', keepalive: true }).catch(() => {})
+  }, [])
 
   const handleSwipeSeen = useCallback(async (item: SwipeItem, rating: number | null, skipPersist = false) => {
     if (!skipPersist && addedTitlesRef.current.has(item.title.toLowerCase())) {
