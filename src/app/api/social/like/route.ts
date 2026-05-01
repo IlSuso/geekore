@@ -1,31 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 import { sendPushToUser, likePayload } from '@/lib/push'
 import { checkOrigin } from '@/lib/csrf'
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 60, windowMs: 60_000, prefix: 'like' })
+  const rl = await rateLimitAsync(request, { limit: 60, windowMs: 60_000, prefix: 'like' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppi like. Rallenta.' }, { status: 429, headers: rl.headers })
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403 })
+  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
 
   let body: any
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400 }) }
+  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
 
   const { post_id, action = 'like' } = body
-  if (!post_id || typeof post_id !== 'string') return NextResponse.json({ error: 'post_id mancante' }, { status: 400 })
-  if (action !== 'like' && action !== 'unlike' && action !== 'push_only') {
-    return NextResponse.json({ error: 'action non valida' }, { status: 400 })
+  if (!post_id || typeof post_id !== 'string') return NextResponse.json({ error: 'post_id mancante' }, { status: 400, headers: rl.headers })
+  if (action !== 'like' && action !== 'unlike') {
+    return NextResponse.json({ error: 'action non valida' }, { status: 400, headers: rl.headers })
   }
 
   const service = createServiceClient('social:like')
   const { data: post } = await service.from('posts').select('user_id').eq('id', post_id).single()
-  if (!post) return NextResponse.json({ error: 'post non trovato' }, { status: 404 })
+  if (!post) return NextResponse.json({ error: 'post non trovato' }, { status: 404, headers: rl.headers })
 
   if (action === 'unlike') {
     await service.from('likes').delete().eq('post_id', post_id).eq('user_id', user.id)
@@ -33,25 +33,23 @@ export async function POST(request: NextRequest) {
   }
 
   let likeId: string | null = null
-  if (action !== 'push_only') {
-    const { data: existing } = await service
-      .from('likes')
-      .select('id')
-      .eq('post_id', post_id)
-      .eq('user_id', user.id)
-      .maybeSingle()
+  const { data: existing } = await service
+    .from('likes')
+    .select('id')
+    .eq('post_id', post_id)
+    .eq('user_id', user.id)
+    .maybeSingle()
 
-    if (existing?.id) {
-      likeId = existing.id
-    } else {
-      const { data: inserted, error: insertError } = await service
-        .from('likes')
-        .insert({ post_id, user_id: user.id })
-        .select('id')
-        .single()
-      if (insertError) return NextResponse.json({ error: 'like non salvato' }, { status: 500 })
-      likeId = inserted?.id || null
-    }
+  if (existing?.id) {
+    likeId = existing.id
+  } else {
+    const { data: inserted, error: insertError } = await service
+      .from('likes')
+      .insert({ post_id, user_id: user.id })
+      .select('id')
+      .single()
+    if (insertError) return NextResponse.json({ error: 'like non salvato' }, { status: 500, headers: rl.headers })
+    likeId = inserted?.id || null
   }
 
   if (post.user_id !== user.id) {
