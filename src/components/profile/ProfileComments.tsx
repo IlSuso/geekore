@@ -118,8 +118,12 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
   const handleDelete = async (commentId: string, authorId: string) => {
     if (!currentUserId) return
     if (currentUserId !== authorId && !isOwner) return
-    const { error } = await supabase.from('profile_comments').delete().eq('id', commentId)
-    if (error) { return }
+    const res = await fetch('/api/social/profile-comment', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comment_id: commentId }),
+    }).catch(() => null)
+    if (!res?.ok) { return }
     setComments(prev => prev.filter(c => c.id !== commentId))
   }
 

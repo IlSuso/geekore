@@ -59,3 +59,38 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ success: true, comment }, { headers: rl.headers })
 }
+
+export async function DELETE(request: NextRequest) {
+  const rl = rateLimit(request, { limit: 30, windowMs: 60_000, prefix: 'profile-comment:delete' })
+  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste. Rallenta.' }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+
+  let body: any
+  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
+
+  const { comment_id } = body
+  if (!comment_id || typeof comment_id !== 'string') {
+    return NextResponse.json({ error: 'comment_id mancante' }, { status: 400, headers: rl.headers })
+  }
+
+  const service = createServiceClient('social:profile-comment:delete')
+  const { data: comment } = await service
+    .from('profile_comments')
+    .select('id, author_id, profile_id')
+    .eq('id', comment_id)
+    .single()
+
+  if (!comment) return NextResponse.json({ error: 'commento non trovato' }, { status: 404, headers: rl.headers })
+  if (comment.author_id !== user.id && comment.profile_id !== user.id) {
+    return NextResponse.json({ error: 'Non autorizzato' }, { status: 403, headers: rl.headers })
+  }
+
+  const { error } = await service.from('profile_comments').delete().eq('id', comment_id)
+  if (error) return NextResponse.json({ error: 'commento non eliminato' }, { status: 500, headers: rl.headers })
+
+  return NextResponse.json({ success: true }, { headers: rl.headers })
+}
