@@ -267,7 +267,11 @@ export default function OnboardingPage() {
       const quickAll = await fetchCategoryTitles('all', [], new Set(), POOL_QUICK)
       if (quickAll.length > 0) {
         const rows = quickAll.map(i => toQueueRow(i, uid))
-        await supabase.from('swipe_queue_all').upsert(rows, { onConflict: 'user_id,external_id' })
+        await fetch('/api/swipe/queue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ queue: 'all', rows }),
+        }).catch(() => null)
         setSwipePool(quickAll)
         setPoolReady(true)
       }
@@ -278,7 +282,11 @@ export default function OnboardingPage() {
         const items = await fetchCategoryTitles(cat, [], new Set(), POOL_QUICK)
         if (items.length > 0) {
           const rows = items.map(i => toQueueRow(i, uid))
-          await supabase.from(`swipe_queue_${cat}`).upsert(rows, { onConflict: 'user_id,external_id' })
+          await fetch('/api/swipe/queue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ queue: cat, rows }),
+          }).catch(() => null)
         }
       }
 
@@ -287,14 +295,22 @@ export default function OnboardingPage() {
         fetchCategoryTitles(cat, [], new Set(), POOL_TARGET).then(async items => {
           if (items.length === 0) return
           const rows = items.map(i => toQueueRow(i, uid))
-          await supabase.from(`swipe_queue_${cat}`).upsert(rows, { onConflict: 'user_id,external_id' })
+          await fetch('/api/swipe/queue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ queue: cat, rows }),
+          }).catch(() => null)
         }).catch(() => {})
       }
       // Top-up "all" in background
       fetchCategoryTitles('all', [], new Set(), POOL_TARGET).then(async items => {
         if (items.length === 0) return
         const rows = items.map(i => toQueueRow(i, uid))
-        await supabase.from('swipe_queue_all').upsert(rows, { onConflict: 'user_id,external_id' })
+        await fetch('/api/swipe/queue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ queue: 'all', rows }),
+        }).catch(() => null)
       }).catch(() => {})
     }
     run()

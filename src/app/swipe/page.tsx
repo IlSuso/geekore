@@ -133,13 +133,11 @@ export default function SwipePage() {
 
           if (newRecs.length > 0) {
             const rows = newRecs.map((r: any) => toQueueRow(r, user.id))
-            await supabase.from('swipe_queue_all').upsert(rows, { onConflict: 'user_id,external_id' })
-            for (const type of validTypes) {
-              const typed = rows.filter((r: any) => r.type === type)
-              if (typed.length > 0) {
-                await supabase.from(`swipe_queue_${type}`).upsert(typed, { onConflict: 'user_id,external_id' })
-              }
-            }
+            await fetch('/api/swipe/queue', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ queue: 'all', rows, mirrorByType: true }),
+            }).catch(() => null)
           }
 
           setInitialItems([
@@ -313,7 +311,11 @@ export default function SwipePage() {
 
       if (newRecs.length > 0) {
         const rows = newRecs.map((r: any) => toQueueRow(r, user.id))
-        await supabase.from(table).upsert(rows, { onConflict: 'user_id,external_id' })
+        await fetch('/api/swipe/queue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ queue: filter === 'all' ? 'all' : filter, rows }),
+        }).catch(() => null)
       }
 
       return [
