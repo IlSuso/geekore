@@ -3,7 +3,7 @@
 // per alimentare il creator tracking e il continuity engine
 
 import { NextRequest, NextResponse } from 'next/server'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 import { translateWithCache } from '@/lib/deepl'
 import { truncateAtSentence } from '@/lib/utils'
 
@@ -51,7 +51,7 @@ const AUTHOR_ROLES = new Set(['Story', 'Story & Art', 'Original Creator', 'Art']
 const CONTINUITY_RELATIONS = new Set(['SEQUEL', 'PREQUEL', 'SIDE_STORY', 'SPIN_OFF', 'ALTERNATIVE'])
 
 export async function GET(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 30, windowMs: 60_000, prefix: 'anilist-search' })
+  const rl = await rateLimitAsync(request, { limit: 30, windowMs: 60_000, prefix: 'anilist-search' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
 
   const { searchParams } = new URL(request.url)
@@ -66,8 +66,6 @@ export async function GET(request: NextRequest) {
   if (typeParam === 'anime') types = ['ANIME']
   else if (typeParam === 'manga') types = ['MANGA']
 
-  // Se la lingua è IT, traduci il termine in EN per migliorare il match su AniList
-  // AniList non indicizza titoli italiani, ma indicizza titoli inglesi e romaji
   let termEn: string | null = null
   if (lang === 'it') {
     try {
@@ -92,12 +90,10 @@ export async function GET(request: NextRequest) {
   }
 
   const allResults: any[] = []
-
   const seenIds = new Set<string>()
 
   for (const mediaType of types) {
     try {
-      // Cerca in parallelo col termine originale e con la traduzione EN (se disponibile)
       const searchTerms = [term, ...(termEn ? [termEn] : [])]
       const responses = await Promise.all(searchTerms.map(t =>
         fetch(ANILIST_API, {
@@ -112,7 +108,7 @@ export async function GET(request: NextRequest) {
       allResults.push(...media
         .filter((m: any) => {
           if (!m.coverImage?.large) return false
-          if (m.format === 'MOVIE') return false  // film anime → esclusi, vanno su TMDB
+          if (m.format === 'MOVIE') return false
           const uid = `${m.type}-${m.id}`
           if (seenIds.has(uid)) return false
           seenIds.add(uid)
@@ -121,9 +117,7 @@ export async function GET(request: NextRequest) {
         .map((m: any) => {
           const isAnime = m.type === 'ANIME'
           const type = isAnime ? 'anime' : 'manga'
-
           const studios: string[] = (m.studios?.nodes || []).map((s: any) => s.name).filter(Boolean)
-
           const directors: string[] = []
           const authors: string[] = []
           for (const edge of (m.staff?.edges || [])) {
