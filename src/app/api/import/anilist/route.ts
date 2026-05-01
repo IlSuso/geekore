@@ -13,7 +13,7 @@ import { logger } from '@/lib/logger'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 import { checkOrigin } from '@/lib/csrf'
 import { upsertWithMerge } from '@/lib/importMerge'
 
@@ -132,7 +132,7 @@ async function loadMalTitlesIt(
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 3, windowMs: 60 * 60 * 1000, prefix: 'anilist-import' })
+  const rl = await rateLimitAsync(request, { limit: 3, windowMs: 60 * 60 * 1000, prefix: 'anilist-import' })
   if (!rl.ok) {
     return NextResponse.json(
       { error: "Troppe importazioni. Attendi un'ora prima di riprovare." },
@@ -249,7 +249,6 @@ export async function POST(request: NextRequest) {
               external_id:     `anilist-${type}-${media.id}`,
               title,
               type,
-              // Proxy attraverso wsrv.nl per uniformità con MAL e maggiore stabilità
               cover_image:     media.coverImage?.extraLarge || media.coverImage?.large || null,
               current_episode: item.progress || 0,
               episodes:        isAnime ? (media.episodes || null) : (media.chapters || null),
