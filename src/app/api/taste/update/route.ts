@@ -27,6 +27,32 @@ interface ProfileDelta {
   rewatchCount?: number
 }
 
+const DELTA_ACTIONS = new Set<DeltaAction>(['rating', 'status_change', 'wishlist_add', 'rewatch', 'progress'])
+const MEDIA_TYPES = new Set(['anime', 'manga', 'game', 'movie', 'tv', 'book', 'boardgame'])
+const STATUSES = new Set(['completed', 'dropped', 'watching', 'paused', 'planned'])
+
+function cleanString(value: unknown, max: number): string | null {
+  if (typeof value !== 'string') return null
+  const clean = value.trim().slice(0, max)
+  return clean || null
+}
+
+function cleanNumber(value: unknown, min: number, max: number): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined
+  const n = Number(value)
+  if (!Number.isFinite(n) || n < min || n > max) return undefined
+  return n
+}
+
+function cleanGenres(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null
+  const genres = value
+    .map(item => cleanString(item, 80))
+    .filter((item): item is string => Boolean(item))
+    .slice(0, 25)
+  return genres.length > 0 ? genres : null
+}
+
 function sentimentDelta(newRating: number, prevRating?: number): number {
   const sentimentOf = (r: number) => {
     if (r >= 4.5) return 2.8
@@ -44,20 +70,38 @@ function sentimentDelta(newRating: number, prevRating?: number): number {
 
 export async function POST(request: NextRequest) {
   const rl = rateLimit(request, { limit: 120, windowMs: 60_000, prefix: 'taste-delta' })
-  if (!rl.ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403 })
+  if (!rl.ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ ok: false }, { status: 401 })
+  if (!user) return NextResponse.json({ ok: false }, { status: 401, headers: rl.headers })
 
-  let body: ProfileDelta
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400 }) }
+  let rawBody: any
+  try { rawBody = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
 
-  const { action, genres, mediaType, rating, prevRating, status, prevStatus, rewatchCount } = body
-  if (!action || !genres || !Array.isArray(genres)) {
-    return NextResponse.json({ ok: false })
+  const cleanAction = cleanString(rawBody?.action, 40) as DeltaAction | null
+  const genres = cleanGenres(rawBody?.genres)
+  const mediaType = cleanString(rawBody?.mediaType, 40)
+  if (!cleanAction || !DELTA_ACTIONS.has(cleanAction) || !genres || !mediaType || !MEDIA_TYPES.has(mediaType)) {
+    return NextResponse.json({ ok: false, error: 'Payload non valido' }, { status: 400, headers: rl.headers })
   }
+
+  const body: ProfileDelta = {
+    action: cleanAction,
+    mediaId: cleanString(rawBody?.mediaId, 200) || '',
+    mediaType,
+    genres,
+    rating: cleanNumber(rawBody?.rating, 0, 5),
+    prevRating: cleanNumber(rawBody?.prevRating, 0, 5),
+    status: cleanString(rawBody?.status, 40) || undefined,
+    prevStatus: cleanString(rawBody?.prevStatus, 40) || undefined,
+    rewatchCount: cleanNumber(rawBody?.rewatchCount, 1, 100),
+  }
+
+  const { action, rating, prevRating, status, prevStatus, rewatchCount } = body
+  if (status && !STATUSES.has(status)) return NextResponse.json({ ok: false, error: 'Status non valido' }, { status: 400, headers: rl.headers })
+  if (prevStatus && !STATUSES.has(prevStatus)) return NextResponse.json({ ok: false, error: 'Status precedente non valido' }, { status: 400, headers: rl.headers })
 
   // Leggi profilo corrente
   const { data: existing } = await supabase
@@ -108,7 +152,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  if (Math.abs(delta) < 0.5) return NextResponse.json({ ok: true, noChange: true })
+  if (Math.abs(delta) < 0.5) return NextResponse.json({ ok: true, noChange: true }, { headers: rl.headers })
 
   // Applica il delta ai generi
   for (const genre of genres) {
