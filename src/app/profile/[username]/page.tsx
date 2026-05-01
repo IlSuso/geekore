@@ -1028,8 +1028,10 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
       if (!data?.length) return
       const sorted = [...data].sort((a, b) => (b.current_episode || 0) - (a.current_episode || 0))
       const updates = sorted.map((g, i) => ({ id: g.id, display_order: Date.now() - i * 10000 }))
-      await supabase.rpc('update_display_orders', {
-        updates: updates.map(u => ({ id: u.id, display_order: u.display_order }))
+      await fetch('/api/collection/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates: updates.map(u => ({ id: u.id, display_order: u.display_order })) }),
       })
       await refreshMedia(currentUserId)
     } finally { setReorderingGames(false) }
@@ -1277,13 +1279,11 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     const updatedMap = new Map(updatedSorted.map(item => [item.id, item]))
     setMediaList(prev => prev.map(item => updatedMap.get(item.id) ?? item))
     // Fire and forget — non blocca il render
-    supabase.rpc('update_display_orders', {
-      updates: updatedSorted.map(item => ({ id: item.id, display_order: item.display_order }))
-    }).then(({ error }) => {
-      if (error && process.env.NODE_ENV === 'development') {
-        console.error('[DragEnd] rpc error:', error)
-      }
-    })
+    fetch('/api/collection/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updates: updatedSorted.map(item => ({ id: item.id, display_order: item.display_order })) }),
+    }).catch(() => {})
   }
 
   const grouped = sortedList.reduce((acc: Record<string, UserMedia[]>, item) => {

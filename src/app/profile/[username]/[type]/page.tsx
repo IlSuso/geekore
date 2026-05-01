@@ -852,13 +852,11 @@ export default function ProfileTypePage() {
     const updatedMap = new Map(updatedFiltered.map(item => [item.id, item]))
     setMediaList(prev => prev.map(item => updatedMap.get(item.id) ?? item))
     // Fire and forget — non blocca il render
-    supabase.rpc('update_display_orders', {
-      updates: updatedFiltered.map(item => ({ id: item.id, display_order: item.display_order }))
-    }).then(({ error }) => {
-      if (error && process.env.NODE_ENV === 'development') {
-        console.error('[DragEnd] rpc error:', error)
-      }
-    })
+    fetch('/api/collection/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updates: updatedFiltered.map(item => ({ id: item.id, display_order: item.display_order })) }),
+    }).catch(() => {})
   }
 
   // Reset visibleCount quando cambiano i filtri
