@@ -3,7 +3,7 @@
 // Used by the Discover page empty state.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 
 const ANILIST_API = 'https://graphql.anilist.co'
 
@@ -35,11 +35,11 @@ function tmdbImage(path: string | null | undefined) {
 }
 
 export async function GET(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 20, windowMs: 60_000, prefix: 'trending' })
+  const rl = await rateLimitAsync(request, { limit: 20, windowMs: 60_000, prefix: 'trending' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
 
   const { searchParams } = new URL(request.url)
-  const section = searchParams.get('section') || 'anime' // 'anime' | 'movie' | 'tv'
+  const section = searchParams.get('section') || 'anime'
 
   try {
     if (section === 'anime') {
