@@ -6,13 +6,14 @@
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 
-export type KATab = 'feed' | 'discover' | 'for-you' | 'swipe' | 'profile'
+export type KATab = 'feed' | 'discover' | 'for-you' | 'swipe' | 'library' | 'profile'
 
 function pathnameToTab(pathname: string): KATab | null {
   if (pathname === '/home' || pathname === '/') return 'feed'
   if (pathname === '/discover') return 'discover'
   if (pathname === '/for-you') return 'for-you'
   if (pathname === '/swipe') return 'swipe'
+  if (pathname === '/library') return 'library'
   if (pathname.startsWith('/profile/') && pathname.split('/').length === 3) return 'profile'
   return null
 }

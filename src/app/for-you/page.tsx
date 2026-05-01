@@ -14,8 +14,10 @@ import {
   ThumbsDown, Eye, Flame, Brain, Star, ArrowRight, Clapperboard, Swords,
   TrendingUp, Search, BookmarkCheck, Trophy, Calendar,
   MessageCircleQuestion, Tag, MonitorPlay, AlertCircle, Layers,
-  Dices, Compass,
+  Dices, Compass, List, Shuffle,
 } from 'lucide-react'
+import { SwipeMode } from '@/components/for-you/SwipeMode'
+import type { SwipeItem } from '@/components/for-you/SwipeMode'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
 import { useLocale } from '@/lib/locale'
@@ -861,6 +863,72 @@ const forYouCache: {
   totalEntries: 0, ts: 0,
 }
 
+// Inline swipe mode wrapper — carica le raccomandazioni dalla cache e le passa a SwipeMode
+function SwipeModeWrapper() {
+  const supabase = createClient()
+  const router = useRouter()
+  const [items, setItems] = useState<SwipeItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const userIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/login'); return }
+      userIdRef.current = user.id
+      // Try queue first
+      const { data: queueRows } = await supabase
+        .from('swipe_queue_all').select('*').eq('user_id', user.id)
+        .order('inserted_at', { ascending: true })
+      if (queueRows && queueRows.length >= 5) {
+        setItems(queueRows.map((r: any) => ({
+          id: r.external_id, title: r.title, type: r.type,
+          coverImage: r.cover_image, year: r.year, genres: r.genres || [],
+          score: r.score, description: r.description, why: r.why,
+          matchScore: r.match_score || 0, episodes: r.episodes,
+          source: r.source,
+        })))
+        setLoading(false)
+        return
+      }
+      // Fall back to recommendations API
+      try {
+        const res = await fetch('/api/recommendations?type=all')
+        if (res.ok) {
+          const json = await res.json()
+          const all = (Object.values(json.recommendations || {}) as any[][]).flat()
+          setItems(all.map((r: any) => ({
+            id: r.id, title: r.title, type: r.type,
+            coverImage: r.coverImage, year: r.year, genres: r.genres || [],
+            score: r.score, description: r.description, why: r.why,
+            matchScore: r.matchScore || 0, episodes: r.episodes,
+            source: r.source,
+          })))
+        }
+      } catch {}
+      setLoading(false)
+    }
+    init()
+  }, []) // eslint-disable-line
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#E6FF3D', borderTopColor: 'transparent' }} />
+    </div>
+  )
+
+  return (
+    <SwipeMode
+      items={items}
+      userId={userIdRef.current || undefined}
+      onSeen={() => {}}
+      onSkip={() => {}}
+      onClose={() => {}}
+      onRequestMore={async () => []}
+    />
+  )
+}
+
 export default function ForYouPage() {
   const pathname = usePathname()
   const { scrollToTop } = useScrollPanel()
@@ -886,6 +954,7 @@ export default function ForYouPage() {
   const [detailItem, setDetailItem] = useState<Recommendation | null>(null)
   const [similarSection, setSimilarSection] = useState<{ sourceTitle: string; sourceType: MediaType; items: Recommendation[] } | null>(null)
   const [showNewRecsBadge, setShowNewRecsBadge] = useState(false)
+  const [viewMode, setViewMode] = useState<'lista' | 'swipe'>('lista')
   const addedTitlesRef = useRef<Set<string>>(forYouCache.addedTitles)
 
   const fetchRecommendations = useCallback(async (force = false) => {
@@ -1324,8 +1393,36 @@ export default function ForYouPage() {
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPulling} />
       <div className="pt-2 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
 
-        {/* Utility bar — solo controlli, senza titolo ridondante */}
-        <div className="flex justify-end items-center gap-2 mb-4">
+        {/* Utility bar — Lista/Swipe toggle + controlli */}
+        <div className="flex items-center gap-2 mb-4">
+          {/* Lista / Swipe toggle */}
+          <div className="flex items-center rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900/80 flex-shrink-0">
+            <button
+              onClick={() => setViewMode('lista')}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-all"
+              style={{
+                background: viewMode === 'lista' ? '#E6FF3D' : 'transparent',
+                color: viewMode === 'lista' ? '#0B0B0F' : '#71717a',
+              }}
+            >
+              <List size={13} />
+              <span>Lista</span>
+            </button>
+            <button
+              onClick={() => setViewMode('swipe')}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-all"
+              style={{
+                background: viewMode === 'swipe' ? '#E6FF3D' : 'transparent',
+                color: viewMode === 'swipe' ? '#0B0B0F' : '#71717a',
+              }}
+            >
+              <Shuffle size={13} />
+              <span>Swipe</span>
+            </button>
+          </div>
+
+          <div className="flex-1" />
+
           <button onClick={() => setShowPrefs(true)}
             className="flex items-center gap-2 px-3.5 py-2 bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all">
             <SlidersHorizontal size={13} />
@@ -1350,6 +1447,8 @@ export default function ForYouPage() {
             action={{ label: fy.emptyStateCta, href: '/discover' }}
             accent="fuchsia"
           />
+        ) : viewMode === 'swipe' ? (
+          <SwipeModeWrapper />
         ) : (
           <>
             {totalEntries < 15 && <LowConfidenceBanner totalEntries={totalEntries} />}

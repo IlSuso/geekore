@@ -9,8 +9,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   Bell, Settings, Edit3, ChevronLeft,
-  Search, Sparkles, TrendingUp, Shuffle, Users,
-  Bookmark, BarChart2, Trophy, List,
+  Search, Sparkles, TrendingUp, Users,
+  Bookmark, BarChart2, Trophy, List, Library,
 } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { useState, useEffect, type ReactNode } from 'react'
@@ -133,8 +133,9 @@ export function MobileHeader() {
     '/leaderboard':   { title: 'Classifica',          icon: <Trophy size={14} className="text-zinc-400" />,  iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
     '/lists':         { title: 'Liste',               icon: <List size={14} className="text-zinc-400" />,    iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
     '/search':        { title: 'Cerca',               icon: <Search size={14} className="text-zinc-400" />,  iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
-    '/explore':       { title: 'Esplora',             icon: <Search size={14} className="text-zinc-400" />,  iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
-    '/community':     { title: 'Community',           icon: <Users size={14} className="text-white" />,      iconBg: 'bg-violet-600' },
+    '/explore':       { title: 'Esplora',             icon: <Search size={14} className="text-zinc-400" />,   iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
+    '/community':     { title: 'Community',           icon: <Users size={14} className="text-white" />,       iconBg: 'bg-violet-600' },
+    '/library':       { title: 'Libreria',            icon: <Library size={14} className="text-white" />,     iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
   }
 
   const pageConfig = Object.entries(PAGE_CONFIG).find(

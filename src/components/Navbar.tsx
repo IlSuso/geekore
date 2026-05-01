@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  Home, Search, Zap, Sparkles, Shuffle, User, X, Settings, LogOut, ChevronDown, Bell,
+  Home, Search, Zap, Sparkles, Library, User, X, Settings, LogOut, ChevronDown, Bell,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useActiveTab, pathnameToTab, type KATab } from '@/context/ActiveTabContext'
@@ -49,16 +49,16 @@ export default function Navbar() {
 
   const NAV_ITEMS = [
     { href: '/home',     label: t.nav.home,    icon: Home     },
-    { href: '/discover', label: t.nav.discover, icon: Search  },
     { href: '/for-you',  label: t.nav.forYou,  icon: Sparkles },
-    { href: '/swipe',    label: 'Swipe',        icon: Shuffle  },
+    { href: '/library',  label: 'Libreria',    icon: Library  },
+    { href: '/discover', label: t.nav.discover, icon: Search  },
   ]
 
   const MOBILE_NAV_ITEMS = [
     { href: '/home',     label: t.nav.home,    icon: Home,     hasDot: false },
-    { href: '/discover', label: t.nav.discover, icon: Search,  hasDot: false },
     { href: '/for-you',  label: t.nav.forYou,  icon: Sparkles, hasDot: false },
-    { href: '/swipe',    label: 'Swipe',        icon: Shuffle,  hasDot: false },
+    { href: '/library',  label: 'Libreria',    icon: Library,  hasDot: false },
+    { href: '/discover', label: t.nav.discover, icon: Search,  hasDot: false },
     { href: username ? `/profile/${username}` : '/profile/me', label: t.nav.profile, icon: User, hasDot: false },
   ]
 
