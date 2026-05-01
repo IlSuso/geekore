@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
     // ── FAST PATH: legge solo da recommendations_pool, zero API esterne ──────
     // Usato da page.tsx al mount → risposta in ~50ms
     const poolOnly = searchParams.get('source') === 'pool'
-    console.log('[RECO] poolOnly:', poolOnly, 'forceRefresh:', forceRefresh, 'requestedType:', requestedType)
+    logger.info('RECO', 'request flags', { poolOnly, forceRefresh, requestedType })
     if (poolOnly && !forceRefresh) {
       const served = await serveFromSavedPool(supabase, userId)
       if (served) {
@@ -158,7 +158,7 @@ export async function GET(request: NextRequest) {
     // ── In-memory cache check — bypassa se similar_to query (sempre fresh) ───
     if (!forceRefresh && !similarToId && !isServiceCall) {
       const memHit = memCacheGet(userId)
-      console.log('[RECO] memHit:', !!memHit)
+      logger.info('RECO', 'memory cache lookup', { hit: !!memHit })
       if (memHit) {
         // Per type=all ritorna SEMPRE tutti i dati — mai un sottoinsieme
         const recs = requestedType === 'all'
@@ -484,10 +484,12 @@ export async function GET(request: NextRequest) {
       userPlatformIds,
     }
 
-    console.log('[RECO] typesNeedingMasterRegen:', typesNeedingMasterRegen)
-    console.log('[RECO] typesToRegenBackground:', typesToRegenBackground)
-    console.log('[RECO] entriesByType:', Object.fromEntries(entriesByType))
-    console.log('[RECO] masterPoolRows types:', (masterPoolRows || []).map((r: any) => `${r.media_type}:${r.collection_size}`))
+    logger.info('RECO', 'master regen plan', {
+      typesNeedingMasterRegen,
+      typesToRegenBackground,
+      entriesByType: Object.fromEntries(entriesByType),
+      masterPoolRows: (masterPoolRows || []).map((r: any) => `${r.media_type}:${r.collection_size}`),
+    })
 
     // ── Rigenera master pool in background per i tipi che lo necessitano ─────
     if (typesNeedingMasterRegen.length > 0) {
@@ -524,7 +526,12 @@ export async function GET(request: NextRequest) {
 
         // ── Pool builder a 4 tier (Netflix/Spotify style) ──────────────────
         if (tierDiag) {
-          console.log(`[RECO] tier type=${type} strength=${tierDiag.profileStrength.toFixed(2)} core=${tierDiag.tierCounts.core} stretch=${tierDiag.tierCounts.stretch} transfer=${tierDiag.tierCounts.transfer} wildcard=${tierDiag.tierCounts.wildcard} thresholds=${tierDiag.adaptiveThresholds.core}/${tierDiag.adaptiveThresholds.stretch}`)
+          logger.info('RECO', 'tier diagnostics', {
+            type,
+            strength: tierDiag.profileStrength.toFixed(2),
+            tierCounts: tierDiag.tierCounts,
+            thresholds: tierDiag.adaptiveThresholds,
+          })
         }
 
         let allItems = result.items
@@ -537,15 +544,28 @@ export async function GET(request: NextRequest) {
           const { items: mergedItems, diagnostics: mergeDiag } = mergeStableMasterPool(allItems, previousItems, MASTER_POOL_SIZE_PER_TYPE)
           recruitmentDiagnostics[type] = { ...recruitmentDiagnostics[type], merge: mergeDiag }
           if (mergedItems.length <= previousItems.length && allItems.every(item => previousItems.some(prev => prev.id === item.id))) {
-            console.log(`[RECO] low-yield master regen skipped type=${type} new=${allItems.length} previous=${previousItems.length}`)
+            logger.warn('RECO', 'low-yield master regen skipped', {
+              type,
+              newItems: allItems.length,
+              previousItems: previousItems.length,
+            })
             continue
           }
-          console.log(`[RECO] low-yield master regen merged type=${type} new=${allItems.length} previous=${previousItems.length} merged=${mergedItems.length}`)
+          logger.info('RECO', 'low-yield master regen merged', {
+            type,
+            newItems: allItems.length,
+            previousItems: previousItems.length,
+            mergedItems: mergedItems.length,
+          })
           allItems = mergedItems
         }
 
         masterByType.set(type, allItems)
-        console.log(`[RECO] result type=${type} items=${result.items.length} allItems=${allItems.length}`)
+        logger.info('RECO', 'master result', {
+          type,
+          items: result.items.length,
+          allItems: allItems.length,
+        })
         masterUpserts.push({
           user_id: userId,
           media_type: type,
@@ -556,17 +576,23 @@ export async function GET(request: NextRequest) {
         })
       }
 
-      console.log('[RECO] masterResults length:', masterResults.length)
-      console.log('[RECO] masterResults types:', masterResults.map(r => `${r?.type}:${r?.items?.length ?? 'null'}`))
+      logger.info('RECO', 'master results', {
+        length: masterResults.length,
+        types: masterResults.map(r => `${r?.type}:${r?.items?.length ?? 'null'}`),
+      })
 
       // Await — garantisce che il master sia scritto prima che il pool venga campionato
       if (masterUpserts.length > 0) {
-        console.log('[RECO] upserting master pool:', masterUpserts.map(u => `${u.media_type}:${u.data.length}items:size${u.collection_size}`))
+        logger.info('RECO', 'upserting master pool', {
+          rows: masterUpserts.map(u => `${u.media_type}:${u.data.length}items:size${u.collection_size}`),
+        })
         const { error: upsertError, data: upsertData } = await supabase.from('master_recommendations_pool')
           .upsert(masterUpserts, { onConflict: 'user_id,media_type' })
           .select('media_type, collection_size, generated_at')
-        if (upsertError) console.log('[RECO] upsert ERROR:', JSON.stringify(upsertError))
-        else console.log('[RECO] upsert SUCCESS, rows written:', JSON.stringify(upsertData?.map(r => `${r.media_type}:${r.collection_size}`)))
+        if (upsertError) logger.error('RECO', 'master pool upsert failed', upsertError)
+        else logger.info('RECO', 'master pool upsert succeeded', {
+          rows: upsertData?.map(r => `${r.media_type}:${r.collection_size}`),
+        })
 
         // Traduci descrizioni in background dopo il salvataggio — non blocca la risposta
         after(async () => {
@@ -592,7 +618,7 @@ export async function GET(request: NextRequest) {
           } catch { /* traduzione fallita — descrizioni restano in inglese */ }
         })
       } else {
-        console.log('[RECO] masterUpserts is EMPTY — nothing written to pool')
+        logger.warn('RECO', 'masterUpserts empty')
       }
     }
 

@@ -4,6 +4,7 @@ import { MASTER_POOL_DEPLETED_SHOWN_RATIO, MASTER_POOL_MIN_UNSEEN_ITEMS, SERVE_S
 import { composeRecommendationRails } from './rails'
 import { sampleMasterPool } from './sampler'
 import type { Recommendation } from './types'
+import { logger } from '@/lib/logger'
 
 type SupabaseLike = {
   from: (table: string) => any
@@ -294,7 +295,7 @@ export async function sampleAndPersistFromMasterPool(params: {
     const { error } = await supabase
       .from('recommendations_pool')
       .upsert(poolUpserts, { onConflict: 'user_id,media_type' })
-    if (error) console.log('[RECO] recommendations_pool upsert ERROR:', JSON.stringify(error))
+    if (error) logger.error('RECO', 'recommendations_pool upsert failed', error)
   }
 
   const recommendations: Record<string, Recommendation[]> = {}
