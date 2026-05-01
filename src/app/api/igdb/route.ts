@@ -3,7 +3,7 @@
 // C2:  logger invece di console.error
 
 import { NextRequest, NextResponse } from 'next/server'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 import { checkOrigin } from '@/lib/csrf'
 import { logger } from '@/lib/logger'
 import { translateWithCache } from '@/lib/deepl'
@@ -15,7 +15,6 @@ async function getIgdbToken(clientId: string, clientSecret: string): Promise<str
   const now = Date.now()
   if (cachedToken && cachedToken.expiresAt > now + 60_000) return cachedToken.token
 
-  // SEC1: timeout sul fetch del token OAuth Twitch
   const tokenRes = await fetch('https://id.twitch.tv/oauth2/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -36,11 +35,10 @@ async function getIgdbToken(clientId: string, clientSecret: string): Promise<str
   return accessToken
 }
 
-// Caratteri consentiti nella ricerca (previene injection IGDB)
 const SAFE_SEARCH_RE = /^[\p{L}\p{N}\s\-_:.,'!?&()]+$/u
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 30, windowMs: 60_000, prefix: 'igdb' })
+  const rl = await rateLimitAsync(request, { limit: 30, windowMs: 60_000, prefix: 'igdb' })
   if (!rl.ok) {
     return NextResponse.json(
       { error: 'Troppe richieste. Riprova tra qualche secondo.' },
@@ -84,7 +82,6 @@ export async function POST(request: NextRequest) {
 
     const safeSearch = cleanSearch.replace(/"/g, '\\"')
 
-    // SEC1: timeout sulla ricerca IGDB
     const igdbRes = await fetch('https://api.igdb.com/v4/games', {
       method: 'POST',
       headers: {
@@ -138,10 +135,10 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     if (error?.name === 'TimeoutError') {
       logger.error('igdb', 'Timeout richiesta IGDB')
-      return NextResponse.json({ error: 'Timeout API IGDB' }, { status: 504 })
+      return NextResponse.json({ error: 'Timeout API IGDB' }, { status: 504, headers: rl.headers })
     }
     logger.error('igdb', error)
-    return NextResponse.json({ error: 'Errore interno del server' }, { status: 500 })
+    return NextResponse.json({ error: 'Errore interno del server' }, { status: 500, headers: rl.headers })
   }
 }
 
