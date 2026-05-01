@@ -251,31 +251,34 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
         }
       : null
 
-    const { error } = await supabase.from('user_media_entries').insert({
-      user_id: user.id,
-      external_id: media.id,
-      title: media.title,
-      title_en: media.title_en || media.title,
-      type: media.type,
-      cover_image: media.coverImage,
-      genres: media.genres || [],
-      // boardgame: meccaniche in tags, designer in authors
-      tags: isBoardgame ? (media.mechanics || []) : [],
-      authors: isBoardgame ? (media.designers || media.authors || []) : (media.authors || []),
-      keywords: isBoardgame ? [] : [],
-      status,
-      current_episode: opts?.episode ?? (isMovie || isBoardgame ? null : 0),
-      current_season: opts?.season ?? null,
-      episodes: media.episodes ?? null,
-      season_episodes: media.seasons ?? null,
-      rating: opts?.rating ?? null,
-      studios: isBoardgame ? [] : (media.studios || []),
-      directors: isBoardgame ? [] : (media.directors || []),
-      developer: isBoardgame ? null : (media.developers?.[0] || null),
-      achievement_data: bggAchievementData,
-      display_order: Date.now() + Math.round((opts?.rating ?? 0) * 1_000_000),
-    })
-    if (!error) {
+    const res = await fetch('/api/collection', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        external_id: media.id,
+        title: media.title,
+        title_en: media.title_en || media.title,
+        type: media.type,
+        cover_image: media.coverImage,
+        genres: media.genres || [],
+        // boardgame: meccaniche in tags, designer in authors
+        tags: isBoardgame ? (media.mechanics || []) : [],
+        authors: isBoardgame ? (media.designers || media.authors || []) : (media.authors || []),
+        keywords: isBoardgame ? [] : [],
+        status,
+        current_episode: opts?.episode ?? (isMovie || isBoardgame ? null : 0),
+        current_season: opts?.season ?? null,
+        episodes: media.episodes ?? null,
+        season_episodes: media.seasons ?? null,
+        rating: opts?.rating ?? null,
+        studios: isBoardgame ? [] : (media.studios || []),
+        directors: isBoardgame ? [] : (media.directors || []),
+        developer: isBoardgame ? null : (media.developers?.[0] || null),
+        achievement_data: bggAchievementData,
+        display_order: Date.now() + Math.round((opts?.rating ?? 0) * 1_000_000),
+      }),
+    }).catch(() => null)
+    if (res?.ok) {
       setInCollection(true); setShowAddForm(false)
       onAdd?.(media)
       // Invalida la memCache così la prossima apertura di Per Te rigenera il pool
