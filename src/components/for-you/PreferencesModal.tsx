@@ -84,15 +84,16 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
 
   const save = async () => {
     setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setSaving(false); return }
-    await supabase.from('user_preferences').upsert(
-      { user_id: user.id, ...prefs, updated_at: new Date().toISOString() },
-      { onConflict: 'user_id' }
-    )
+    const res = await fetch('/api/preferences', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(prefs),
+    }).catch(() => null)
     setSaving(false)
-    onSaved()
-    onClose()
+    if (res?.ok) {
+      onSaved()
+      onClose()
+    }
   }
 
   const sections = [

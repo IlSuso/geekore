@@ -220,16 +220,18 @@ export default function EditProfilePage() {
 
       if (error) throw error
 
-      await supabase.from('user_preferences').upsert({
-        user_id: profile.id,
-        fav_game_genres: likedGenres.filter(g => ['Action', 'Adventure', 'RPG', 'Strategy', 'Simulation', 'Horror', 'Thriller', 'Mystery', 'Psychological'].includes(g)),
-        fav_anime_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller', 'Psychological'].includes(g)),
-        fav_movie_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller'].includes(g)),
-        fav_tv_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller'].includes(g)),
-        fav_manga_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller', 'Psychological'].includes(g)),
-        disliked_genres: dislikedGenres,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' })
+      await fetch('/api/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fav_game_genres: likedGenres.filter(g => ['Action', 'Adventure', 'RPG', 'Strategy', 'Simulation', 'Horror', 'Thriller', 'Mystery', 'Psychological'].includes(g)),
+          fav_anime_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller', 'Psychological'].includes(g)),
+          fav_movie_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller'].includes(g)),
+          fav_tv_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller'].includes(g)),
+          fav_manga_genres: likedGenres.filter(g => ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller', 'Psychological'].includes(g)),
+          disliked_genres: dislikedGenres,
+        }),
+      })
 
       setMessage(pe.saved)
       setMessageType('success')
