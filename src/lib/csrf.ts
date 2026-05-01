@@ -2,23 +2,15 @@
 // S1: CSRF protection per le API route che modificano dati sensibili.
 //
 // Strategia: Origin/Referer check per le mutation standard e token CSRF
-// deterministico per le operazioni piu distruttive.
-// Next.js con Supabase Auth usa già httpOnly cookies per la sessione,
-// quindi il vettore principale da coprire sono le mutation critiche:
-//   - DELETE account
-//   - PUT profilo
-//   - POST avatar upload
+// HMAC per le operazioni piu distruttive.
 //
-// Come funziona:
-//   1. Le API mutative standard usano `checkOrigin`.
-//   2. Le mutation critiche usano `verifyCsrf`.
-//   3. Il client recupera il token da /api/auth/csrf tramite `useCsrf`.
-//
-// Per le API route standard: auth + rate limit + origin check.
-// Per account delete / profilo: origin check + token header.
+// Per produzione configurare obbligatoriamente CSRF_SECRET con un valore lungo
+// e casuale. In sviluppo resta un fallback locale per non bloccare il workflow.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createHash } from 'crypto'
+import { createHmac } from 'crypto'
+
+const MIN_PROD_SECRET_LENGTH = 32
 
 const ALLOWED_ORIGINS = [
   process.env.NEXT_PUBLIC_SITE_URL,
@@ -35,19 +27,28 @@ const ALLOWED_ORIGINS = [
 
 function getCsrfSecret(): string | null {
   const secret = process.env.CSRF_SECRET
-  if (!secret && process.env.NODE_ENV === 'production') return null
+
+  if (process.env.NODE_ENV === 'production') {
+    if (!secret || secret.length < MIN_PROD_SECRET_LENGTH) return null
+    return secret
+  }
+
   return secret || 'geekore-csrf-secret-change-in-dev'
 }
 
 /**
- * Genera un CSRF token deterministico per la sessione utente.
- * Usa user ID + secret per rendere il token non falsificabile.
+ * Genera un CSRF token deterministico giornaliero per la sessione utente.
+ * Usa HMAC(userId + giorno, CSRF_SECRET) per evitare token falsificabili.
  */
 export function generateCsrfToken(userId: string): string {
   const secret = getCsrfSecret()
-  if (!secret) throw new Error('CSRF_SECRET non configurato')
-  const data = `${userId}:${secret}:${new Date().toDateString()}`
-  return createHash('sha256').update(data).digest('hex').slice(0, 32)
+  if (!secret) throw new Error('CSRF_SECRET non configurato o troppo debole')
+
+  const day = new Date().toISOString().slice(0, 10)
+  return createHmac('sha256', secret)
+    .update(`${userId}:${day}`)
+    .digest('hex')
+    .slice(0, 32)
 }
 
 /**
@@ -121,7 +122,7 @@ export function verifyCsrf(
   // Step 2: Token check (opzionale in dev per non bloccare il workflow)
   if (process.env.NODE_ENV === 'production') {
     if (!getCsrfSecret()) {
-      return { ok: false, reason: 'CSRF non configurato' }
+      return { ok: false, reason: 'CSRF non configurato o troppo debole' }
     }
     const token = request.headers.get('x-csrf-token')
     if (!token) {

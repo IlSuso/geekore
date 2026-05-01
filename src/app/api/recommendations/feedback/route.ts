@@ -5,39 +5,55 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 import { checkOrigin } from '@/lib/csrf'
 
 const VALID_ACTIONS = ['added', 'dismissed', 'not_interested', 'already_seen'] as const
 const VALID_REASONS = ['not_genre', 'not_format', 'bad_quality', 'already_seen', 'not_my_genre', 'too_similar', 'already_know', 'bad_rec', null] as const
-type FeedbackAction = typeof VALID_ACTIONS[number]
 type FeedbackReason = typeof VALID_REASONS[number]
 
+function cleanString(value: unknown, max = 200): string {
+  return typeof value === 'string' ? value.trim().slice(0, max) : ''
+}
+
+function cleanGenres(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map(item => item.trim().slice(0, 80))
+    .filter(Boolean)
+    .slice(0, 30)
+}
+
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 60, windowMs: 60_000, prefix: 'rec-feedback' })
-  if (!rl.ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403 })
+  const rl = await rateLimitAsync(request, { limit: 60, windowMs: 60_000, prefix: 'rec-feedback' })
+  if (!rl.ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
 
   let body: any
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400 }) }
+  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
 
-  const { rec_id, rec_type, rec_genres, action, reason } = body
-  if (!rec_id || !action || !VALID_ACTIONS.includes(action)) {
-    return NextResponse.json({ error: 'Parametri non validi' }, { status: 400 })
+  const rec_id = cleanString(body?.rec_id, 200)
+  const rec_type = cleanString(body?.rec_type || 'unknown', 50) || 'unknown'
+  const action = body?.action
+  const reason = body?.reason
+
+  if (!rec_id || !VALID_ACTIONS.includes(action)) {
+    return NextResponse.json({ error: 'Parametri non validi' }, { status: 400, headers: rl.headers })
   }
 
-  const genres: string[] = Array.isArray(rec_genres) ? rec_genres : []
+  const genres = cleanGenres(body?.rec_genres)
   const feedbackReason: FeedbackReason = VALID_REASONS.includes(reason) ? reason : null
 
   // Salva feedback con reason granulare
   await supabase.from('recommendation_feedback').insert({
     user_id: user.id,
     rec_id,
-    rec_type: rec_type || 'unknown',
+    rec_type,
     rec_genres: genres,
     action,
     reason: feedbackReason,
@@ -47,7 +63,7 @@ export async function POST(request: NextRequest) {
   await supabase.from('recommendations_shown').upsert({
     user_id: user.id,
     rec_id,
-    rec_type: rec_type || 'unknown',
+    rec_type,
     shown_at: new Date().toISOString(),
     action,
   }, { onConflict: 'user_id,rec_id' })
@@ -98,12 +114,6 @@ export async function POST(request: NextRequest) {
       format_feedback_counts: formatCounts,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' })
-  }
-
-  // "L'ho già visto" → aggiunge solo a seen senza penalizzare il genere
-  if (action === 'already_seen' || feedbackReason === 'already_seen') {
-    // Non tocca genre_feedback_counts — solo marca come visto
-    // Il rec_id è già in recommendations_shown con action=already_seen
   }
 
   // Invalida cache raccomandazioni

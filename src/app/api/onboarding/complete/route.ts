@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 
 const MEDIA_TYPES = new Set(['anime', 'manga', 'movie', 'tv', 'game', 'boardgame'])
 const QUEUE_TABLES = ['swipe_queue_all', 'swipe_queue_anime', 'swipe_queue_manga', 'swipe_queue_movie', 'swipe_queue_tv', 'swipe_queue_game', 'swipe_queue_boardgame']
@@ -42,7 +42,7 @@ function normalizeItem(raw: any) {
 }
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 20, windowMs: 60_000, prefix: 'onboarding:complete' })
+  const rl = await rateLimitAsync(request, { limit: 20, windowMs: 60_000, prefix: 'onboarding:complete' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
   if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 

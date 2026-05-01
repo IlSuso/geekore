@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 import { checkOrigin } from '@/lib/csrf'
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
@@ -83,18 +83,18 @@ async function fetchAniList(id: number, mediaType: 'ANIME' | 'MANGA'): Promise<{
 }
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 20, windowMs: 60_000, prefix: 'media-enrich' })
-  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429 })
+  const rl = await rateLimitAsync(request, { limit: 20, windowMs: 60_000, prefix: 'media-enrich' })
+  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
   if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Non autorizzato' }, { status: 401, headers: rl.headers })
 
   const body = await request.json().catch(() => ({}))
   const { user_media_id } = body
 
-  if (!user_media_id) return NextResponse.json({ error: 'user_media_id mancante' }, { status: 400 })
+  if (!user_media_id) return NextResponse.json({ error: 'user_media_id mancante' }, { status: 400, headers: rl.headers })
 
   const { data: entry } = await supabase
     .from('user_media_entries')
@@ -103,17 +103,15 @@ export async function POST(request: NextRequest) {
     .eq('user_id', user.id)
     .maybeSingle()
 
-  if (!entry) return NextResponse.json({ error: 'Non trovato' }, { status: 404 })
+  if (!entry) return NextResponse.json({ error: 'Non trovato' }, { status: 404, headers: rl.headers })
 
   const { type, external_id, title } = entry
   let result: { episodes?: number; season_episodes?: Record<number, { episode_count: number }> } | null = null
 
   if (type === 'tv') {
-    // TMDB numeric ID (from discovery/manual search)
     if (external_id && /^\d+$/.test(external_id)) {
       result = await fetchTvByTmdbId(parseInt(external_id))
     } else {
-      // letterboxd-slug or other: search by title
       result = await searchTmdbTv(title)
     }
   } else if (type === 'anime') {
@@ -138,7 +136,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  if (!result) return NextResponse.json({ error: 'Nessun dato trovato' }, { status: 404 })
+  if (!result) return NextResponse.json({ error: 'Nessun dato trovato' }, { status: 404, headers: rl.headers })
 
   const dbUpdate: Record<string, unknown> = {}
   if (result.episodes) dbUpdate.episodes = result.episodes
@@ -146,7 +144,7 @@ export async function POST(request: NextRequest) {
     dbUpdate.season_episodes = result.season_episodes
   }
 
-  if (Object.keys(dbUpdate).length === 0) return NextResponse.json({ error: 'Nessun dato utile trovato' }, { status: 404 })
+  if (Object.keys(dbUpdate).length === 0) return NextResponse.json({ error: 'Nessun dato utile trovato' }, { status: 404, headers: rl.headers })
 
   const { error: dbErr } = await supabase
     .from('user_media_entries')
@@ -154,7 +152,7 @@ export async function POST(request: NextRequest) {
     .eq('id', user_media_id)
     .eq('user_id', user.id)
 
-  if (dbErr) return NextResponse.json({ error: 'Errore DB' }, { status: 500 })
+  if (dbErr) return NextResponse.json({ error: 'Errore DB' }, { status: 500, headers: rl.headers })
 
   return NextResponse.json(dbUpdate, { headers: rl.headers })
 }

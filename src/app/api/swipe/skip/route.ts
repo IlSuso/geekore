@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 
 const QUEUE_TYPES = new Set(['anime', 'manga', 'movie', 'tv', 'game', 'boardgame'])
 
@@ -12,7 +12,7 @@ function cleanString(value: unknown, max: number): string | null {
 }
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 120, windowMs: 60_000, prefix: 'swipe:skip' })
+  const rl = await rateLimitAsync(request, { limit: 120, windowMs: 60_000, prefix: 'swipe:skip' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
   if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 120, windowMs: 60_000, prefix: 'swipe:skip:delete' })
+  const rl = await rateLimitAsync(request, { limit: 120, windowMs: 60_000, prefix: 'swipe:skip:delete' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
   if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 

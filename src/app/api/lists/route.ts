@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
-import { rateLimit } from '@/lib/rateLimit'
+import { rateLimitAsync } from '@/lib/rateLimit'
 
 function cleanListPayload(body: any) {
   return {
@@ -12,7 +12,7 @@ function cleanListPayload(body: any) {
 }
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 30, windowMs: 60_000, prefix: 'lists' })
+  const rl = await rateLimitAsync(request, { limit: 30, windowMs: 60_000, prefix: 'lists' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
   if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 30, windowMs: 60_000, prefix: 'lists:update' })
+  const rl = await rateLimitAsync(request, { limit: 30, windowMs: 60_000, prefix: 'lists:update' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
   if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 
@@ -66,7 +66,7 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const rl = rateLimit(request, { limit: 20, windowMs: 60_000, prefix: 'lists:delete' })
+  const rl = await rateLimitAsync(request, { limit: 20, windowMs: 60_000, prefix: 'lists:delete' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
   if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
 
