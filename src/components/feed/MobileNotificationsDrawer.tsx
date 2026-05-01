@@ -77,8 +77,11 @@ export function MobileNotificationsDrawer({
         .then(({ data }) => {
           setNotifications((data as unknown as Notification[]) || [])
           setLoading(false)
-          supabase.from('notifications').update({ is_read: true })
-            .eq('receiver_id', user.id).eq('is_read', false).then(() => {})
+          fetch('/api/notifications/read', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ all: true }),
+          }).catch(() => {})
         })
     })
   }, [open])

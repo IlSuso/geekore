@@ -107,8 +107,11 @@ export default function NotificationsPage() {
       if (seenIds.size === 0) return
       const toMark = [...seenIds]
       seenIds.clear()
-      const supabase = (await import('@/lib/supabase/client')).createClient()
-      await supabase.from('notifications').update({ is_read: true }).in('id', toMark)
+      await fetch('/api/notifications/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: toMark }),
+      })
       setNotifications(prev => prev.map(n => toMark.includes(n.id) ? { ...n, is_read: true } : n))
       setAppBadge(0)
     }

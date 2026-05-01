@@ -57,7 +57,11 @@ export function NotificationsDrawer({ open, onClose }: { open: boolean; onClose:
           setNotifications((data as any[]) || [])
           setLoading(false)
           // Mark all as read
-          supabase.from('notifications').update({ is_read: true }).eq('receiver_id', user.id).eq('is_read', false).then(() => {})
+          fetch('/api/notifications/read', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ all: true }),
+          }).catch(() => {})
         })
     })
   }, [open])
