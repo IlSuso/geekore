@@ -1,18 +1,21 @@
 -- Geekore Supabase audit checks - 2026-05-02
 -- ESEGUIRE MANUALMENTE nel Supabase SQL Editor.
+-- Consiglio pratico: eseguire UNA SEZIONE ALLA VOLTA, non tutto insieme.
 -- Obiettivo: produrre output read-only per review RLS/RPC/grant/storage.
 -- Questo file NON modifica dati/schema/policy.
 
 -- 1) Tabelle public con RLS disabilitata.
 select
-  schemaname,
-  tablename,
-  rowsecurity as rls_enabled,
-  forcerowsecurity as rls_forced
-from pg_tables
-where schemaname = 'public'
-  and rowsecurity = false
-order by tablename;
+  n.nspname as schemaname,
+  c.relname as tablename,
+  c.relrowsecurity as rls_enabled,
+  c.relforcerowsecurity as rls_forced
+from pg_class c
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public'
+  and c.relkind in ('r', 'p')
+  and c.relrowsecurity = false
+order by c.relname;
 
 -- 2) Tabelle public senza policy visibili.
 select
