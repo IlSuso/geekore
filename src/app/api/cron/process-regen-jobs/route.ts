@@ -4,6 +4,8 @@ import { createServiceClient } from '@/lib/supabase/service'
 
 export const maxDuration = 60
 
+const INTERNAL_REGEN_FETCH_TIMEOUT_MS = 55_000
+
 type RegenJob = {
   id: string
   user_id: string
@@ -97,6 +99,7 @@ async function processJob(request: NextRequest, job: RegenJob) {
         'X-Service-Secret': process.env.CRON_SECRET || '',
       },
       cache: 'no-store',
+      signal: AbortSignal.timeout(INTERNAL_REGEN_FETCH_TIMEOUT_MS),
     })
 
     if (!res.ok) {
