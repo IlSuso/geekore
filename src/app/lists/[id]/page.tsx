@@ -1,19 +1,18 @@
 'use client'
 // src/app/lists/[id]/page.tsx
 // Vista dettaglio di una lista personalizzata.
-// Permette all'owner di aggiungere/rimuovere/riordinare i titoli.
+// Permette all'owner di aggiungere/rimuovere i titoli.
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   Globe, Lock, Trash2, ArrowLeft, Plus, Loader2,
-  Film, Gamepad2, Tv, Share2, Layers,
+  Film, Gamepad2, Tv, Share2, Layers, Sparkles, Search, List,
 } from 'lucide-react'
 import Link from 'next/link'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
-
-// ─── Tipi ────────────────────────────────────────────────────────────────────
+import { PageScaffold } from '@/components/ui/PageScaffold'
 
 interface ListItem {
   id: string
@@ -39,15 +38,27 @@ interface ListData {
   }
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 const TYPE_ICON: Record<string, React.ElementType> = {
-  anime: Film, manga: Layers, game: Gamepad2,
-  tv: Tv, movie: Film,
+  anime: Film,
+  manga: Layers,
+  game: Gamepad2,
+  tv: Tv,
+  movie: Film,
+  boardgame: List,
 }
 
+function CollectionStat({ label, value, accent = false }: { label: string; value: string | number; accent?: boolean }) {
+  return (
+    <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
+      <p className={`font-mono-data text-[20px] font-black leading-none ${accent ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>{value}</p>
+      <p className="gk-label mt-1">{label}</p>
+    </div>
+  )
+}
 
-// ─── Componente ───────────────────────────────────────────────────────────────
+function normalize(value: string) {
+  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+}
 
 export default function ListDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -61,12 +72,13 @@ export default function ListDetailPage() {
   const [collectionItems, setCollectionItems] = useState<any[]>([])
   const [showAddPanel, setShowAddPanel] = useState(false)
   const [searchFilter, setSearchFilter] = useState('')
+  const [removingId, setRemovingId] = useState<string | null>(null)
+  const [addingId, setAddingId] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
 
-      // Carica lista
       const { data: listData, error: listError } = await supabase
         .from('user_lists')
         .select('id, title, description, is_public, user_id, created_at')
@@ -75,7 +87,6 @@ export default function ListDetailPage() {
 
       if (listError || !listData) { router.push('/lists'); return }
 
-      // Carica profilo owner separatamente
       const { data: ownerData } = await supabase
         .from('profiles')
         .select('username, display_name, avatar_url')
@@ -88,7 +99,6 @@ export default function ListDetailPage() {
       })
       setIsOwner(user?.id === listData.user_id)
 
-      // Carica items
       const { data: itemsData, error: itemsError } = await supabase
         .from('user_list_items')
         .select('id, media_id, media_title, media_type, media_cover, notes, position')
@@ -97,7 +107,6 @@ export default function ListDetailPage() {
 
       if (!itemsError) setItems(itemsData || [])
 
-      // Se owner: carica collezione per poter aggiungere titoli
       if (user && user.id === listData.user_id) {
         const { data: col, error: colError } = await supabase
           .from('user_media_entries')
@@ -110,20 +119,23 @@ export default function ListDetailPage() {
       setLoading(false)
     }
     load()
-  }, [id])
+  }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRemoveItem = async (itemId: string) => {
+    setRemovingId(itemId)
     const res = await fetch('/api/lists/items', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: itemId }),
     }).catch(() => null)
     if (res?.ok) setItems(prev => prev.filter(i => i.id !== itemId))
+    setRemovingId(null)
   }
 
   const handleAddFromCollection = async (entry: any) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    setAddingId(entry.external_id)
 
     const res = await fetch('/api/lists/items', {
       method: 'POST',
@@ -142,209 +154,232 @@ export default function ListDetailPage() {
       const data = await res.json()
       if (data.item) setItems(prev => [...prev, data.item])
     }
+    setAddingId(null)
   }
 
   const handleShare = async () => {
     const url = `${window.location.origin}/lists/${id}`
-    if (navigator.share) {
-      await navigator.share({ title: list?.title, url })
-    } else {
-      await navigator.clipboard.writeText(url)
-    }
+    if (navigator.share) await navigator.share({ title: list?.title, url }).catch(() => {})
+    else await navigator.clipboard.writeText(url).catch(() => {})
   }
+
+  const filteredCollection = useMemo(() => {
+    const q = normalize(searchFilter)
+    return collectionItems.filter(c =>
+      !items.some(i => i.media_id === c.external_id) &&
+      (!q || normalize(c.title || '').includes(q))
+    )
+  }, [collectionItems, items, searchFilter])
+
+  const typeCount = useMemo(() => new Set(items.map(item => item.media_type)).size, [items])
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
+      <main className="flex min-h-screen items-center justify-center bg-[var(--bg-primary)]">
         <Loader2 size={32} className="animate-spin" style={{ color: 'var(--accent)' }} />
-      </div>
+      </main>
     )
   }
 
   if (!list) return null
 
-  const filteredCollection = collectionItems.filter(
-    c =>
-      !items.some(i => i.media_id === c.external_id) &&
-      (!searchFilter || c.title.toLowerCase().includes(searchFilter.toLowerCase()))
-  )
-
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-white pb-24">
-      <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 pt-8">
+    <PageScaffold
+      title={list.title}
+      description={list.description || 'Lista curata della community Geekore.'}
+      icon={<List size={16} />}
+      contentClassName="max-w-3xl pt-2 md:pt-8 pb-28"
+    >
+      <Link
+        href="/lists"
+        data-no-swipe="true"
+        className="mb-4 inline-flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm font-bold text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+      >
+        <ArrowLeft size={14} />
+        Le mie liste
+      </Link>
 
-        {/* Back */}
-        <Link
-          href="/lists"
-          className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-white mb-6 transition"
-        >
-          <ArrowLeft size={14} />
-          Le mie liste
-        </Link>
-
-        {/* Header lista */}
-        <div className="mb-8">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                {list.is_public
-                  ? <Globe size={14} className="text-emerald-400" />
-                  : <Lock size={14} className="text-zinc-500" />}
-                <span className="text-xs text-zinc-500">
-                  {list.is_public ? 'Lista pubblica' : 'Lista privata'}
-                </span>
-              </div>
-              <h1 className="text-3xl font-bold tracking-tight">{list.title}</h1>
-              {list.description && (
-                <p className="text-zinc-400 mt-2 text-sm">{list.description}</p>
-              )}
-              <div className="flex items-center gap-2 mt-3">
-                <span className="text-xs text-zinc-600">di</span>
-                <Link
-                  href={`/profile/${list.owner?.username}`}
-                  className="text-xs hover:opacity-80 transition"
-                  style={{ color: 'var(--accent)' }}
-                >
-                  @{list.owner?.username}
-                </Link>
-                <span className="text-xs text-zinc-600">•</span>
-                <span className="text-xs text-zinc-600">{items.length} titoli</span>
-              </div>
-            </div>
-
-            <div className="flex gap-2 flex-shrink-0">
-              {list.is_public && (
-                <button
-                  onClick={handleShare}
-                  className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 hover:text-white transition"
-                >
-                  <Share2 size={16} />
-                </button>
-              )}
-              {isOwner && (
-                <button
-                  onClick={() => setShowAddPanel(v => !v)}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition"
-                  style={{ background: 'var(--accent)', color: '#0B0B0F' }}
-                >
-                  <Plus size={14} />
-                  Aggiungi
-                </button>
-              )}
-            </div>
+      <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(230,255,61,0.09),rgba(139,92,246,0.07),rgba(20,20,27,0.92))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+            <Sparkles size={12} />
+            Curated list
+          </div>
+          <div className="flex items-center gap-2">
+            {list.is_public && (
+              <button
+                type="button"
+                data-no-swipe="true"
+                onClick={handleShare}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--border)] bg-black/20 text-[var(--text-secondary)] transition-colors hover:text-white"
+                aria-label="Condividi lista"
+              >
+                <Share2 size={16} />
+              </button>
+            )}
+            {isOwner && (
+              <button
+                type="button"
+                data-no-swipe="true"
+                onClick={() => setShowAddPanel(v => !v)}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black transition-transform hover:scale-[1.02]"
+                style={{ background: 'var(--accent)', color: '#0B0B0F' }}
+              >
+                <Plus size={15} />
+                Aggiungi
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Pannello aggiunta dalla collezione */}
-        {showAddPanel && isOwner && (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 mb-6">
-            <p className="text-sm font-medium mb-3">Aggiungi dalla tua collezione</p>
-            <input
-              type="text"
-              value={searchFilter}
-              onChange={e => setSearchFilter(e.target.value)}
-              placeholder="Cerca nella collezione..."
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition mb-3"
-            />
-            <div className="max-h-48 overflow-y-auto space-y-1">
-              {filteredCollection.slice(0, 20).map(entry => {
+        <div className="mb-2 flex items-center gap-2">
+          {list.is_public ? <Globe size={14} className="text-emerald-400" /> : <Lock size={14} className="text-[var(--text-muted)]" />}
+          <span className="gk-label">{list.is_public ? 'Lista pubblica' : 'Lista privata'}</span>
+        </div>
+        <h1 className="gk-h1 mb-2 text-[var(--text-primary)]">{list.title}</h1>
+        {list.description && <p className="gk-body max-w-2xl">{list.description}</p>}
+
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/5 pt-4">
+          <span className="gk-caption">di</span>
+          {list.owner?.username ? (
+            <Link href={`/profile/${list.owner.username}`} data-no-swipe="true" className="gk-mono text-[var(--accent)] transition-opacity hover:opacity-80">
+              @{list.owner.username}
+            </Link>
+          ) : (
+            <span className="gk-mono text-[var(--text-muted)]">utente</span>
+          )}
+        </div>
+
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <CollectionStat label="titoli" value={items.length} accent />
+          <CollectionStat label="medium" value={typeCount} />
+          <CollectionStat label="visibilità" value={list.is_public ? 'pubblica' : 'privata'} />
+        </div>
+      </div>
+
+      {showAddPanel && isOwner && (
+        <div className="mb-6 overflow-hidden rounded-[26px] border border-[var(--border)] bg-[var(--bg-card)]" data-no-swipe="true">
+          <div className="border-b border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.055),rgba(139,92,246,0.04),transparent)] px-4 py-3">
+            <p className="gk-label text-[var(--accent)]">Aggiungi dalla tua collezione</p>
+          </div>
+          <div className="p-4">
+            <div className="relative mb-3">
+              <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+              <input
+                data-no-swipe="true"
+                type="text"
+                value={searchFilter}
+                onChange={e => setSearchFilter(e.target.value)}
+                placeholder="Cerca nella collezione..."
+                className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] py-2.5 pl-10 pr-4 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition focus:border-[rgba(230,255,61,0.45)]"
+              />
+            </div>
+
+            <div className="max-h-72 space-y-1 overflow-y-auto overscroll-contain pr-1">
+              {filteredCollection.slice(0, 30).map(entry => {
                 const Icon = TYPE_ICON[entry.type] || Film
+                const isAdding = addingId === entry.external_id
                 return (
                   <button
                     key={entry.external_id}
+                    type="button"
+                    data-no-swipe="true"
                     onClick={() => handleAddFromCollection(entry)}
-                    className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-zinc-800 transition text-left"
+                    disabled={isAdding}
+                    className="flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-colors hover:bg-[var(--bg-card-hover)] disabled:opacity-60"
                   >
-                    <div className="w-8 h-10 bg-zinc-700 rounded-lg overflow-hidden flex-shrink-0">
+                    <div className="h-12 w-9 flex-shrink-0 overflow-hidden rounded-xl bg-[var(--bg-secondary)] ring-1 ring-white/5">
                       {entry.cover_image ? (
-                        <img src={entry.cover_image} alt="" className="w-full h-full object-cover" />
+                        <img src={entry.cover_image} alt="" className="h-full w-full object-cover" loading="lazy" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Icon size={14} className="text-zinc-500" />
+                        <div className="flex h-full w-full items-center justify-center">
+                          <Icon size={14} className="text-[var(--text-muted)]" />
                         </div>
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">{entry.title}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-[var(--text-primary)]">{entry.title}</p>
                       <MediaTypeBadge type={entry.type} size="xs" />
                     </div>
-                    <Plus size={14} className="text-zinc-500 flex-shrink-0" />
+                    {isAdding ? <Loader2 size={14} className="animate-spin text-[var(--accent)]" /> : <Plus size={14} className="flex-shrink-0 text-[var(--text-muted)]" />}
                   </button>
                 )
               })}
               {filteredCollection.length === 0 && (
-                <p className="text-xs text-zinc-600 text-center py-4">
+                <p className="gk-caption py-6 text-center">
                   {searchFilter ? 'Nessun risultato' : 'Tutti i titoli della collezione sono già nella lista'}
                 </p>
               )}
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Lista items */}
-        {items.length === 0 ? (
-          <div className="text-center py-16 text-zinc-600">
-            <Film size={40} className="mx-auto mb-3 opacity-30" />
-            <p className="text-sm">Questa lista è vuota.</p>
-            {isOwner && (
-              <button
-                onClick={() => setShowAddPanel(true)}
-                className="mt-4 text-sm hover:opacity-80 transition"
-                style={{ color: 'var(--accent)' }}
-              >
-                Aggiungi titoli dalla tua collezione →
-              </button>
-            )}
+      {items.length === 0 ? (
+        <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-16 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-secondary)]">
+            <Film size={28} className="text-[var(--text-muted)]" />
           </div>
-        ) : (
-          <div className="space-y-3">
-            {items.map((item, idx) => {
-              const Icon = TYPE_ICON[item.media_type] || Film
-              return (
-                <div
-                  key={item.id}
-                  className="flex items-center gap-4 p-4 bg-zinc-900 border border-zinc-800 rounded-2xl group hover:border-zinc-700 transition"
-                >
-                  {/* Numero */}
-                  <div className="w-7 text-center flex-shrink-0">
-                    <span className="text-sm font-bold text-zinc-600">#{idx + 1}</span>
-                  </div>
+          <p className="gk-headline mb-1 text-[var(--text-primary)]">Questa lista è vuota</p>
+          <p className="gk-body mx-auto mb-5 max-w-sm">Aggiungi titoli dalla tua collezione per trasformarla in una raccolta curata.</p>
+          {isOwner && (
+            <button
+              type="button"
+              data-no-swipe="true"
+              onClick={() => setShowAddPanel(true)}
+              className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]"
+            >
+              Aggiungi titoli
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {items.map((item, idx) => {
+            const Icon = TYPE_ICON[item.media_type] || Film
+            const isRemoving = removingId === item.id
+            return (
+              <div
+                key={item.id}
+                className="group flex items-center gap-3 rounded-[20px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 transition-all hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)]"
+              >
+                <div className="w-8 flex-shrink-0 text-center">
+                  <span className="font-mono-data text-xs font-black text-[var(--text-muted)]">#{idx + 1}</span>
+                </div>
 
-                  {/* Cover */}
-                  <div className="w-10 h-14 bg-zinc-800 rounded-lg overflow-hidden flex-shrink-0">
-                    {item.media_cover ? (
-                      <img src={item.media_cover} alt="" className="w-full h-full object-cover" loading="lazy" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Icon size={16} className="text-zinc-600" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-white text-sm truncate">{item.media_title}</p>
-                    <MediaTypeBadge type={item.media_type} size="xs" />
-                    {item.notes && (
-                      <p className="text-xs text-zinc-500 mt-1 truncate">{item.notes}</p>
-                    )}
-                  </div>
-
-                  {/* Delete (owner only) */}
-                  {isOwner && (
-                    <button
-                      onClick={() => handleRemoveItem(item.id)}
-                      className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 transition-all flex-shrink-0"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                <div className="h-[64px] w-11 flex-shrink-0 overflow-hidden rounded-2xl bg-[var(--bg-secondary)] ring-1 ring-white/5">
+                  {item.media_cover ? (
+                    <img src={item.media_cover} alt="" className="h-full w-full object-cover" loading="lazy" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <Icon size={16} className="text-[var(--text-muted)]" />
+                    </div>
                   )}
                 </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
-    </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-[var(--text-primary)]">{item.media_title}</p>
+                  <MediaTypeBadge type={item.media_type} size="xs" />
+                  {item.notes && <p className="mt-1 truncate text-xs text-[var(--text-muted)]">{item.notes}</p>}
+                </div>
+
+                {isOwner && (
+                  <button
+                    type="button"
+                    data-no-swipe="true"
+                    onClick={() => handleRemoveItem(item.id)}
+                    disabled={isRemoving}
+                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl text-[var(--text-muted)] opacity-100 transition-all hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50 sm:opacity-0 sm:group-hover:opacity-100"
+                    aria-label="Rimuovi dalla lista"
+                  >
+                    {isRemoving ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={15} />}
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </PageScaffold>
   )
 }
