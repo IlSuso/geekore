@@ -52,8 +52,7 @@ function PosterCardContent({
   return (
     <>
       <div
-        className="gk-poster-first relative aspect-[2/3] overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]"
-        style={{ boxShadow: `0 10px 30px rgba(0,0,0,0.22), inset 0 -3px 0 ${typeColor}` }}
+        className="gk-poster-first relative aspect-[2/3] overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)]"
       >
         {hasCover ? (
           <img
@@ -71,28 +70,26 @@ function PosterCardContent({
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/86 via-black/24 to-transparent opacity-90" />
         <div className="pointer-events-none absolute left-2 top-2">
-          <MediaTypeBadge type={type} size="xs" variant="soft" />
+          <MediaTypeBadge type={type} size="xs" variant="tag" />
         </div>
 
         {score != null && score !== '' && !showMetaRow && (
-          <div className="pointer-events-none absolute bottom-2 left-2 rounded-full border border-white/10 bg-black/70 px-2 py-1 font-mono-data text-[10px] font-bold text-white backdrop-blur-sm">
-            {score}
+          <div className="pointer-events-none absolute bottom-2 left-2 font-mono-data text-[9px] font-bold text-white" style={{ background: 'rgba(0,0,0,0.6)', padding: '2px 5px', borderRadius: 4 }}>
+            ★ {score}
           </div>
         )}
 
-        {collectionStatus && (
+        {collectionStatus === 'collection' && (
+          <div className="pointer-events-none absolute right-1.5 top-1.5" style={{ width: 14, height: 14, borderRadius: '99px', background: 'var(--accent)', color: '#0B0B0F', display: 'grid', placeItems: 'center', fontSize: 9, fontWeight: 800 }}>
+            ✓
+          </div>
+        )}
+        {collectionStatus === 'wishlist' && (
           <div className="pointer-events-none absolute right-2 top-2">
-            {collectionStatus === 'collection' ? (
-              <div className="gk-status-pill !static !bg-[var(--accent)] !text-[#0B0B0F]">
-                <Check size={10} strokeWidth={2.6} />
-                {getMediaStatusLabel(visibleStatus)}
-              </div>
-            ) : (
-              <div className="gk-status-pill !static">
-                <BookmarkCheck size={10} strokeWidth={2.2} />
-                Wishlist
-              </div>
-            )}
+            <div className="gk-status-pill !static">
+              <BookmarkCheck size={10} strokeWidth={2.2} />
+              Wishlist
+            </div>
           </div>
         )}
 
@@ -143,7 +140,7 @@ export function PosterCard({
   imageClassName = '',
   priority = false,
 }: PosterCardProps) {
-  const classes = `group relative min-w-0 rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${onClick ? 'cursor-pointer' : ''} ${className}`
+  const classes = `group relative min-w-0 text-left focus-visible:outline-none ${onClick ? 'cursor-pointer' : ''} ${className}`
   const style = getMediaTypeAccentStyle(type)
   const content = (
     <PosterCardContent

@@ -38,11 +38,12 @@ main[data-auth] form,
 
 main[data-auth] button[type='submit'],
 [data-auth='true'] button[type='submit'] {
-  background: var(--brand) !important;
-  color: var(--text-primary) !important;
-  border-color: color-mix(in srgb, var(--brand-light) 42%, transparent) !important;
-  border-radius: 18px !important;
-  font-weight: 900 !important;
+  background: var(--accent) !important;
+  color: #0B0B0F !important;
+  border-color: var(--accent) !important;
+  border-radius: 16px !important;
+  font-weight: 800 !important;
+  font-family: var(--font-display) !important;
 }
 
 /* Profile and settings: make old zinc cards obey the editorial surface system. */

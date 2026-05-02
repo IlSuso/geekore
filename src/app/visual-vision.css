@@ -5,30 +5,9 @@
    desktop three-column shell, and dogmatic gk-* typography. */
 
 :root {
-  --bg-primary: #0B0B0F;
-  --bg-secondary: #14141B;
-  --bg-card: #14141B;
-  --bg-card-hover: #1C1C26;
-  --bg-hover: #25252F;
-  --bg-input: #14141B;
-  --text-primary: #F4F4F5;
-  --text-secondary: #A1A1AA;
-  --text-muted: #52525B;
-  --border: #2A2A36;
-  --border-subtle: #1C1C26;
-  --brand: #8B5CF6;
-  --brand-light: #A78BFA;
-  --accent: #E6FF3D;
-  --accent-2: #F87171;
+  /* visual-vision layer — non sovrascrivere i token già corretti in globals.css */
   --success: #10B981;
   --rating-star: #FBBF24;
-  --type-anime: #38BDF8;
-  --type-manga: #F97066;
-  --type-game: #4ADE80;
-  --type-board: #FB923C;
-  --type-movie: #EF4444;
-  --type-tv: #C084FC;
-  --desktop-sidebar-w: 240px;
   --desktop-context-w: 320px;
   --shell-max-w: 920px;
 }
@@ -111,34 +90,37 @@ img[loading='lazy'] {
   text-transform: uppercase;
 }
 
-/* CTA discipline: big CTA = violet, small active state = acid yellow. */
+/* CTA discipline: primary = acid yellow accent, text = #0B0B0F */
 .gk-primary-cta {
-  background: var(--brand) !important;
-  color: var(--text-primary) !important;
-  border: 1px solid color-mix(in srgb, var(--brand-light) 42%, transparent) !important;
-  box-shadow: 0 14px 34px rgba(139,92,246,.20);
+  background: var(--accent) !important;
+  color: #0B0B0F !important;
+  border: 1px solid var(--accent) !important;
+  font-family: var(--font-display) !important;
+  font-weight: 800 !important;
 }
 .gk-active-accent,
 [aria-current='page'] {
   color: var(--accent);
 }
 
-/* Bottom nav: five tabs, visible labels, acid top bar, no gradient/fill gimmicks. */
+/* Bottom nav: 58px + safe-area, indicator 2px×28px con glow, label 10px 800 */
 .mobile-nav {
   border-top: 1px solid var(--border) !important;
   background: rgba(11,11,15,.97) !important;
+  height: 58px;
 }
-.mobile-nav button { min-height: 56px; }
+.mobile-nav button { min-height: 58px; }
 .mobile-nav [aria-current='page']::before {
   content: '';
   position: absolute;
   top: 0;
   left: 50%;
-  width: 24px;
+  width: 28px;
   height: 2px;
   transform: translateX(-50%);
   border-radius: 999px;
   background: var(--accent);
+  box-shadow: 0 0 14px rgba(230,255,61,0.5);
 }
 
 /* Desktop shell: fixed 240px sidebar + readable center + optional 320px context rail. */

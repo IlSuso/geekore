@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { getMediaTypeColor, getMediaTypeLabel } from '@/lib/mediaTypes'
 
-type MediaTypeBadgeVariant = 'soft' | 'solid' | 'line'
+type MediaTypeBadgeVariant = 'soft' | 'solid' | 'tag'
 type MediaTypeBadgeSize = 'xs' | 'sm'
 
 interface MediaTypeBadgeProps {
@@ -11,11 +11,6 @@ interface MediaTypeBadgeProps {
   variant?: MediaTypeBadgeVariant
   size?: MediaTypeBadgeSize
   className?: string
-}
-
-const sizeClasses: Record<MediaTypeBadgeSize, string> = {
-  xs: 'px-2 py-0.5 text-[10px] gap-1',
-  sm: 'px-2.5 py-1 text-[11px] gap-1.5',
 }
 
 function getVariantStyle(type: string | null | undefined, variant: MediaTypeBadgeVariant): CSSProperties {
@@ -29,16 +24,21 @@ function getVariantStyle(type: string | null | undefined, variant: MediaTypeBadg
     }
   }
 
-  if (variant === 'line') {
+  if (variant === 'tag') {
+    // Per i type-tag sulle cover: bg rgba(11,11,15,0.85) blur + text type-color
     return {
-      borderColor: color,
+      backgroundColor: 'rgba(11,11,15,0.85)',
+      backdropFilter: 'blur(4px)',
+      WebkitBackdropFilter: 'blur(4px)',
+      borderColor: 'transparent',
       color,
     }
   }
 
+  // soft (default): bg 8%, border 30%, text = type-color
   return {
-    backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
-    borderColor: `color-mix(in srgb, ${color} 34%, transparent)`,
+    backgroundColor: `color-mix(in srgb, ${color} 8%, transparent)`,
+    borderColor: `color-mix(in srgb, ${color} 30%, transparent)`,
     color,
   }
 }
@@ -52,11 +52,20 @@ export function MediaTypeBadge({
   className = '',
 }: MediaTypeBadgeProps) {
   const content = label || getMediaTypeLabel(type)
+  // h-6 = 24px, r99, p0-10, font 11/700
+  const sizeStyle: CSSProperties = size === 'xs'
+    ? { height: 18, padding: '0 6px', fontSize: 9, gap: 4 }
+    : { height: 24, padding: '0 10px', fontSize: 11, gap: 6 }
 
   return (
     <span
-      className={`inline-flex items-center rounded-full border font-bold uppercase tracking-[0.08em] leading-none ${sizeClasses[size]} ${className}`}
-      style={getVariantStyle(type, variant)}
+      className={`inline-flex items-center border font-bold uppercase tracking-[0.05em] leading-none flex-shrink-0 ${className}`}
+      style={{
+        borderRadius: 99,
+        fontFamily: 'var(--font-mono-data)',
+        ...sizeStyle,
+        ...getVariantStyle(type, variant),
+      }}
     >
       {icon && <span className="flex items-center [&_svg]:h-[1em] [&_svg]:w-[1em]">{icon}</span>}
       {content}

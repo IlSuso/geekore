@@ -1,29 +1,29 @@
 'use client'
 // src/components/ui/Avatar.tsx
-// P3: Convertito per usare next/image con sizes ottimizzati
-// Risparmio bandwidth stimato: 80% per gli avatar
+// Design system: quadrati con radius, gradient type-colors da hash, story-ring
 
 import { useState } from 'react'
 import Image from 'next/image'
 
-const GRADIENTS: [string, string][] = [
-  ['#0f766e', '#1d4ed8'],
-  ['#0891b2', '#0f766e'],
-  ['#059669', '#0891b2'],
-  ['#d97706', '#dc2626'],
-  ['#0f766e', '#2563eb'],
-  ['#be185d', '#0f766e'],
-  ['#0e7490', '#059669'],
-  ['#b45309', '#0f766e'],
+// Coppie di type-token colors per i gradient avatar
+const TYPE_GRADIENT_PAIRS: [string, string][] = [
+  ['#38BDF8', '#C084FC'], // anime + tv
+  ['#4ADE80', '#FB923C'], // game + board
+  ['#F97066', '#EF4444'], // manga + movie
+  ['#C084FC', '#38BDF8'], // tv + anime
+  ['#FB923C', '#4ADE80'], // board + game
+  ['#EF4444', '#F97066'], // movie + manga
+  ['#38BDF8', '#4ADE80'], // anime + game
+  ['#F97066', '#C084FC'], // manga + tv
 ]
 
-function getGradient(seed: string): [string, string] {
+function getGradientPair(seed: string): [string, string] {
   let hash = 0
   for (let i = 0; i < seed.length; i++) {
     hash = ((hash << 5) - hash) + seed.charCodeAt(i)
     hash |= 0
   }
-  return GRADIENTS[Math.abs(hash) % GRADIENTS.length]
+  return TYPE_GRADIENT_PAIRS[Math.abs(hash) % TYPE_GRADIENT_PAIRS.length]
 }
 
 function getInitials(name: string): string {
@@ -31,7 +31,15 @@ function getInitials(name: string): string {
   if (parts.length >= 2) {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
   }
-  return (name[0] || '?').toUpperCase()
+  return (name.slice(0, 2) || '?').toUpperCase()
+}
+
+// sm=24/r8, md=32/r12, lg=76/r24
+function getRadius(size: number): number {
+  if (size <= 24) return 8
+  if (size <= 40) return 12
+  if (size >= 72) return 24
+  return Math.round(size * 0.375)
 }
 
 interface AvatarProps {
@@ -40,88 +48,100 @@ interface AvatarProps {
   displayName?: string | null
   size?: number
   className?: string
+  /** Se true, avvolge l'avatar con lo story-ring giallo-lime */
+  hasStory?: boolean
 }
 
-export function Avatar({ src, username, displayName, size = 40, className = '' }: AvatarProps) {
+export function Avatar({ src, username, displayName, size = 32, className = '', hasStory = false }: AvatarProps) {
   const [imgError, setImgError] = useState(false)
   const name = displayName || username
   const initials = getInitials(name)
-  const [from, to] = getGradient(username)
+  const [from, to] = getGradientPair(username)
+  const radius = getRadius(size)
 
-  const style = {
-    width: '100%',
-    height: '100%',
-  }
-
-  // Controlla se src è un URL remoto configurato in next.config.js
   const isRemoteUrl = src && !imgError && (
-    src.startsWith('https://') ||
-    src.startsWith('http://')
+    src.startsWith('https://') || src.startsWith('http://')
   )
 
-  if (isRemoteUrl) {
-    // DiceBear (SVG e PNG generativi) → <img> standard, next/image crea problemi
-    // con SVG (dangerouslyAllowSVG) e con PNG in container senza position:relative
-    const isDicebear = src!.includes('dicebear.com')
-    if (isDicebear) {
-      return (
-        <div className={`overflow-hidden rounded-full flex-shrink-0 ${className}`} style={style}>
-          <img
-            src={src!}
-            alt={`Avatar di ${name}`}
-            width={size}
-            height={size}
-            className="w-full h-full object-cover"
-            onError={() => setImgError(true)}
-            loading="lazy"
-          />
-        </div>
-      )
-    }
-    return (
-      <div className={`overflow-hidden rounded-full flex-shrink-0 ${className}`} style={style}>
+  const avatarNode = isRemoteUrl ? (
+    <div
+      style={{ width: size, height: size, borderRadius: radius, overflow: 'hidden', flexShrink: 0 }}
+      className={hasStory ? '' : className}
+      aria-label={`Avatar di ${name}`}
+    >
+      {src!.includes('dicebear.com') ? (
+        <img
+          src={src!}
+          alt={`Avatar di ${name}`}
+          width={size}
+          height={size}
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          onError={() => setImgError(true)}
+          loading="lazy"
+        />
+      ) : (
         <Image
           src={src!}
           alt={`Avatar di ${name}`}
           width={size}
           height={size}
           sizes={`(max-width: 768px) ${Math.min(size, 48)}px, ${size}px`}
-          className="w-full h-full object-cover"
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           onError={() => setImgError(true)}
           loading="lazy"
         />
-      </div>
-    )
-  }
-
-  // Fallback SVG con iniziali — nessuna chiamata esterna
-  return (
+      )}
+    </div>
+  ) : (
     <div
-      className={`overflow-hidden rounded-full flex items-center justify-center flex-shrink-0 ${className}`}
       style={{
-        ...style,
+        width: size,
+        height: size,
+        borderRadius: radius,
         background: `linear-gradient(135deg, ${from}, ${to})`,
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
+      className={hasStory ? '' : className}
       aria-label={`Avatar di ${name}`}
     >
       <span
-        className="font-bold text-white select-none"
-        style={{ fontSize: Math.max(size * 0.38, 10) }}
+        style={{
+          fontFamily: 'var(--font-display)',
+          fontWeight: 800,
+          color: '#0B0B0F',
+          fontSize: Math.max(Math.round(size * 0.38), 9),
+          lineHeight: 1,
+          userSelect: 'none',
+        }}
       >
         {initials}
       </span>
     </div>
   )
+
+  if (hasStory) {
+    return (
+      <div className={`gk-story-ring inline-flex flex-shrink-0 ${className}`}>
+        <div className="gk-story-ring-inner">
+          {avatarNode}
+        </div>
+      </div>
+    )
+  }
+
+  return avatarNode
 }
 
 /**
  * Versione URL-based per i posti che non possono usare il componente React
- * (es: Navbar che usa <img src=...>). Restituisce una data URI SVG.
  */
 export function getLocalAvatarSvg(username: string, displayName?: string | null): string {
   const name = displayName || username
   const initials = getInitials(name)
-  const [from, to] = getGradient(username)
+  const [from, to] = getGradientPair(username)
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
     <defs>
@@ -130,10 +150,10 @@ export function getLocalAvatarSvg(username: string, displayName?: string | null)
         <stop offset="100%" stop-color="${to}"/>
       </linearGradient>
     </defs>
-    <circle cx="50" cy="50" r="50" fill="url(#g)"/>
+    <rect width="100" height="100" rx="30" fill="url(#g)"/>
     <text x="50" y="50" dominant-baseline="central" text-anchor="middle"
       font-family="-apple-system,BlinkMacSystemFont,sans-serif"
-      font-size="38" font-weight="700" fill="white">${initials}</text>
+      font-size="38" font-weight="800" fill="#0B0B0F">${initials}</text>
   </svg>`
 
   return `data:image/svg+xml;base64,${btoa(svg)}`

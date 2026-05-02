@@ -6,9 +6,57 @@ interface FilterChipProps {
   icon?: ReactNode
   className?: string
   onClick?: () => void
+  /**
+   * pill (default): active = text-accent + border-accent30% + bg-accent8%
+   * solid: active = bg-accent + text #0B0B0F (per toggle segmentati tipo Library)
+   * type: usa il colore del media type passato via typeColor
+   */
+  variant?: 'pill' | 'solid' | 'type'
+  typeColor?: string
 }
 
-export function FilterChip({ children, active = false, icon, className = '', onClick }: FilterChipProps) {
+export function FilterChip({
+  children,
+  active = false,
+  icon,
+  className = '',
+  onClick,
+  variant = 'pill',
+  typeColor,
+}: FilterChipProps) {
+
+  let activeStyle: React.CSSProperties
+  let inactiveStyle: React.CSSProperties = {
+    background: 'var(--bg-card)',
+    borderColor: 'var(--border)',
+    color: 'var(--text-secondary)',
+  }
+
+  if (variant === 'solid') {
+    activeStyle = {
+      background: 'var(--accent)',
+      borderColor: 'var(--accent)',
+      color: '#0B0B0F',
+    }
+  } else if (variant === 'type' && typeColor) {
+    activeStyle = {
+      background: `color-mix(in srgb, ${typeColor} 8%, transparent)`,
+      borderColor: `color-mix(in srgb, ${typeColor} 30%, transparent)`,
+      color: typeColor,
+    }
+    inactiveStyle = {
+      background: `color-mix(in srgb, ${typeColor} 8%, transparent)`,
+      borderColor: `color-mix(in srgb, ${typeColor} 30%, transparent)`,
+      color: typeColor,
+    }
+  } else {
+    activeStyle = {
+      background: 'rgba(230,255,61,0.08)',
+      borderColor: 'rgba(230,255,61,0.3)',
+      color: 'var(--accent)',
+    }
+  }
+
   return (
     <button
       type="button"
@@ -17,10 +65,8 @@ export function FilterChip({ children, active = false, icon, className = '', onC
       data-no-swipe="true"
       onClick={(event) => { event.stopPropagation(); onClick?.() }}
       onPointerDown={event => event.stopPropagation()}
-      className={`inline-flex h-8 flex-shrink-0 items-center justify-center gap-1.5 rounded-full border px-4 font-mono-data text-[11px] font-black uppercase tracking-[0.07em] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${className}`}
-      style={active
-        ? { background: 'var(--accent)', borderColor: 'var(--accent)', color: '#0B0B0F', boxShadow: '0 0 22px rgba(230,255,61,0.12)' }
-        : { background: 'rgba(20,20,27,0.82)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+      className={`gk-pill inline-flex flex-shrink-0 transition-all focus-visible:outline-none ${className}`}
+      style={active ? activeStyle : inactiveStyle}
     >
       {icon && <span className="flex items-center [&_svg]:h-[1em] [&_svg]:w-[1em]">{icon}</span>}
       {children}
