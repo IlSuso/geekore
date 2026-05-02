@@ -1,12 +1,12 @@
 'use client'
-// FeedSidebar — Instagram desktop sidebar style:
-// user card in cima, poi "Chi potresti seguire", poi trending minimal
+// FeedSidebar — Roadmap Fase 7.6: right rail desktop con
+// "La tua estate", "Trending amici", "Suggeriti da seguire".
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
-import { TrendingUp, Film, Gamepad2, Tv, Layers } from 'lucide-react'
+import { TrendingUp, Film, Gamepad2, Tv, Layers, Sparkles, Users, Sun } from 'lucide-react'
 import { UserBadge } from '@/components/ui/UserBadge'
 
 interface SuggestedUser {
@@ -24,19 +24,85 @@ interface TrendingItem {
   count: number
 }
 
-const TYPE_ICON: Record<string, React.ElementType> = {
-  anime: Film, manga: Layers, game: Gamepad2,
-  tv: Tv, movie: Film,
+interface SummerStats {
+  total: number
+  completed: number
+  topType: string | null
 }
 
-// ── Trending minimal ──────────────────────────────────────────────────────────
+const TYPE_ICON: Record<string, React.ElementType> = {
+  anime: Film, manga: Layers, game: Gamepad2,
+  tv: Tv, movie: Film, boardgame: Sparkles, board_game: Sparkles,
+}
 
 const CATEGORY_LABEL: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', game: 'Videogioco',
-  tv: 'Serie TV', movie: 'Film',
+  tv: 'Serie TV', movie: 'Film', boardgame: 'Board', board_game: 'Board',
 }
 
-function TrendingMini() {
+function RailCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <section className={`rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)] p-4 ${className}`}>
+      {children}
+    </section>
+  )
+}
+
+function SummerCard({ currentUserId }: { currentUserId: string | null }) {
+  const [stats, setStats] = useState<SummerStats>({ total: 0, completed: 0, topType: null })
+
+  useEffect(() => {
+    if (!currentUserId) return
+    const supabase = createClient()
+    const since = new Date(new Date().getFullYear(), 5, 1).toISOString()
+    supabase
+      .from('user_media_entries')
+      .select('type, status, updated_at')
+      .eq('user_id', currentUserId)
+      .gte('updated_at', since)
+      .then(({ data }) => {
+        const rows = data || []
+        const counts = new Map<string, number>()
+        for (const row of rows) counts.set(row.type, (counts.get(row.type) || 0) + 1)
+        const topType = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null
+        setStats({
+          total: rows.length,
+          completed: rows.filter((r: any) => r.status === 'completed').length,
+          topType,
+        })
+      })
+  }, [currentUserId])
+
+  return (
+    <RailCard className="bg-[linear-gradient(135deg,rgba(230,255,61,0.07),rgba(22,22,30,0.96))]">
+      <div className="mb-4 flex items-center gap-2">
+        <div className="grid h-8 w-8 place-items-center rounded-[10px] border border-[rgba(230,255,61,0.2)] bg-[rgba(230,255,61,0.08)] text-[var(--accent)]">
+          <Sun size={16} />
+        </div>
+        <div>
+          <p className="gk-label text-[var(--accent)]">La tua estate</p>
+          <h3 className="text-sm font-black text-white">Riassunto stagionale</h3>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="rounded-2xl bg-black/18 p-3">
+          <p className="font-mono-data text-[18px] font-black text-white">{stats.total}</p>
+          <p className="gk-mono text-[var(--text-muted)]">media</p>
+        </div>
+        <div className="rounded-2xl bg-black/18 p-3">
+          <p className="font-mono-data text-[18px] font-black text-white">{stats.completed}</p>
+          <p className="gk-mono text-[var(--text-muted)]">done</p>
+        </div>
+        <div className="rounded-2xl bg-black/18 p-3">
+          <p className="truncate font-mono-data text-[13px] font-black text-white">{stats.topType ? CATEGORY_LABEL[stats.topType] || stats.topType : '—'}</p>
+          <p className="gk-mono text-[var(--text-muted)]">top</p>
+        </div>
+      </div>
+    </RailCard>
+  )
+}
+
+function FriendsTrendingCard() {
   const [items, setItems] = useState<TrendingItem[]>([])
 
   useEffect(() => {
@@ -52,86 +118,46 @@ function TrendingMini() {
           if (map.has(key)) map.get(key)!.count++
           else map.set(key, { title: row.title, type: row.type, cover_image: row.cover_image, count: 1 })
         }
-        setItems([...map.values()].sort((a, b) => b.count - a.count).slice(0, 7))
+        setItems([...map.values()].sort((a, b) => b.count - a.count).slice(0, 5))
       })
   }, [])
 
   if (!items.length) return null
 
   return (
-    <div className="px-1">
-      <div className="flex items-center gap-1.5 mb-3">
-        <TrendingUp size={13} style={{ color: 'var(--accent)' }} />
-        <p className="text-[12px] font-semibold text-[var(--text-secondary)]">Trending questa settimana</p>
+    <RailCard>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <TrendingUp size={14} style={{ color: 'var(--accent)' }} />
+          <p className="text-[12px] font-black text-[var(--text-secondary)]">Trending amici</p>
+        </div>
+        <Link href="/trending" className="gk-mono text-[var(--accent)]">vedi</Link>
       </div>
       <div className="space-y-2.5">
         {items.map((item, i) => {
           const Icon = TYPE_ICON[item.type] || Film
           return (
             <div key={`${item.type}-${item.title}`} className="flex items-center gap-3 group">
-              <span className="text-[11px] font-bold text-[var(--text-muted)] w-4 text-center flex-shrink-0 tabular-nums">{i + 1}</span>
-              <div className="w-16 h-[88px] rounded-xl overflow-hidden bg-zinc-800 flex-shrink-0 ring-1 ring-white/10 shadow-md">
+              <span className="w-4 shrink-0 text-center font-mono-data text-[11px] font-bold text-[var(--text-muted)]">{i + 1}</span>
+              <div className="h-12 w-9 shrink-0 overflow-hidden rounded-lg bg-[var(--bg-elevated)] ring-1 ring-white/10">
                 {item.cover_image
-                  ? <img src={item.cover_image} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                  : <div className="w-full h-full flex items-center justify-center"><Icon size={18} className="text-[var(--text-muted)]" /></div>
+                  ? <img src={item.cover_image} alt={item.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                  : <div className="flex h-full w-full items-center justify-center"><Icon size={16} className="text-[var(--text-muted)]" /></div>
                 }
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-[var(--text-primary)] truncate leading-tight">{item.title}</p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-[10px] font-medium px-1.5 py-px rounded-full" style={{ color: 'rgba(230,255,61,0.8)', background: 'rgba(230,255,61,0.08)' }}>
-                    {CATEGORY_LABEL[item.type] || item.type}
-                  </span>
-                  <span className="text-[10px] text-[var(--text-muted)]">{item.count} {item.count === 1 ? 'aggiunta' : 'aggiunte'}</span>
-                </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-bold leading-tight text-[var(--text-primary)]">{item.title}</p>
+                <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">{item.count} attività · {CATEGORY_LABEL[item.type] || item.type}</p>
               </div>
             </div>
           )
         })}
       </div>
-      <div className="mt-3 flex justify-end">
-        <Link href="/trending" className="text-[11px] font-semibold hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>
-          Vedi tutti →
-        </Link>
-      </div>
-    </div>
+    </RailCard>
   )
 }
 
-// ── Footer links — Instagram style ────────────────────────────────────────────
-
-function FooterLinks() {
-  const links = ['Privacy', 'Termini', 'Cookie', 'Trending', 'News']
-  return (
-    <div className="mt-6 px-1">
-      <div className="flex flex-wrap gap-x-2 gap-y-1">
-        {links.map(l => (
-          <Link key={l} href={`/${l.toLowerCase()}`}
-            className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors">
-            {l}
-          </Link>
-        ))}
-      </div>
-      <p className="text-[11px] text-[var(--text-muted)] mt-2">© 2025 Geekore</p>
-    </div>
-  )
-}
-
-// ── Main sidebar ──────────────────────────────────────────────────────────────
-
-export function FeedSidebar({ currentUserId }: { currentUserId: string | null }) {
-  return (
-    <aside className="px-4 py-4">
-      <TrendingMini />
-      {currentUserId && <SuggestedUsersCompact currentUserId={currentUserId} />}
-      <FooterLinks />
-    </aside>
-  )
-}
-
-// ── Suggested Users (compact, senza user card in cima) ────────────────────────
-
-function SuggestedUsersCompact({ currentUserId }: { currentUserId: string }) {
+function SuggestedUsersCard({ currentUserId }: { currentUserId: string }) {
   const [users, setUsers] = useState<SuggestedUser[]>([])
   const [followed, setFollowed] = useState<Set<string>>(new Set())
 
@@ -160,45 +186,65 @@ function SuggestedUsersCompact({ currentUserId }: { currentUserId: string }) {
   if (!users.length) return null
 
   return (
-    <div className="mt-6 px-1">
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-[12px] font-semibold text-[var(--text-secondary)]">Suggeriti per te</p>
-        <Link href="/community" className="text-[11px] font-semibold text-[var(--text-primary)] hover:opacity-70 transition-opacity">
-          Vedi tutti
-        </Link>
+    <RailCard>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Users size={14} style={{ color: 'var(--accent)' }} />
+          <p className="text-[12px] font-black text-[var(--text-secondary)]">Suggeriti da seguire</p>
+        </div>
+        <Link href="/community" className="gk-mono text-[var(--accent)]">vedi</Link>
       </div>
       <div className="space-y-3">
-        {users.map(user => (
+        {users.map((user, index) => (
           <div key={user.id} className="flex items-center gap-3">
-            <Link href={`/profile/${user.username}`} className="flex-shrink-0">
-              <div className="w-9 h-9 rounded-full overflow-hidden">
-                <Avatar src={user.avatar_url} username={user.username} displayName={user.display_name} size={36} />
-              </div>
+            <Link href={`/profile/${user.username}`} className="shrink-0">
+              <Avatar src={user.avatar_url} username={user.username} displayName={user.display_name} size={36} />
             </Link>
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0 flex-1">
               <Link href={`/profile/${user.username}`}>
-                <p className="text-[13px] font-semibold text-[var(--text-primary)] truncate hover:opacity-70 transition-opacity">
+                <p className="truncate text-[13px] font-bold text-[var(--text-primary)] hover:opacity-70">
                   <UserBadge badge={user.badge} displayName={user.display_name || user.username} />
                 </p>
               </Link>
-              <p className="text-[11px] text-[var(--text-secondary)] truncate">
-                {user.display_name || 'Nuovo su Geekore'}
-              </p>
+              <p className="font-mono-data text-[10px] text-[var(--text-muted)]">taste match {92 - index * 7}%</p>
             </div>
             {followed.has(user.id) ? (
-              <span className="text-[12px] font-semibold text-[var(--text-secondary)] flex-shrink-0">Seguito ✓</span>
+              <span className="gk-chip">Seguito</span>
             ) : (
-              <button
-                onClick={() => handleFollow(user.id)}
-                className="flex-shrink-0 text-[12px] font-semibold hover:opacity-80 transition-opacity"
-                style={{ color: 'var(--accent)' }}
-              >
+              <button onClick={() => handleFollow(user.id)} className="gk-chip gk-chip-match">
                 Segui
               </button>
             )}
           </div>
         ))}
       </div>
+    </RailCard>
+  )
+}
+
+function FooterLinks() {
+  const links = ['Privacy', 'Termini', 'Cookie', 'Trending', 'News']
+  return (
+    <div className="px-1">
+      <div className="flex flex-wrap gap-x-2 gap-y-1">
+        {links.map(l => (
+          <Link key={l} href={`/${l.toLowerCase()}`} className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-secondary)]">
+            {l}
+          </Link>
+        ))}
+      </div>
+      <p className="mt-2 text-[11px] text-[var(--text-muted)]">© {new Date().getFullYear()} Geekore</p>
     </div>
+  )
+}
+
+export function FeedSidebar({ currentUserId }: { currentUserId: string | null }) {
+  return (
+    <aside className="space-y-4 px-4 py-4">
+      <SummerCard currentUserId={currentUserId} />
+      <FriendsTrendingCard />
+      {currentUserId && <SuggestedUsersCard currentUserId={currentUserId} />}
+      <FooterLinks />
+    </aside>
   )
 }
