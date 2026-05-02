@@ -40,6 +40,18 @@ body {
     var(--bg-primary);
 }
 
+.gk-app-main { min-height: 100dvh; }
+.gk-page-shell {
+  width: 100%;
+  margin-inline: auto;
+}
+
+@media (min-width: 768px) {
+  .gk-page-shell {
+    padding-inline: 24px;
+  }
+}
+
 /* Wordmark rule: the yellow square is sacred. */
 .gk-logo-dot,
 [data-geekore-dot='true'] {
@@ -70,7 +82,9 @@ body {
 
 .gk-poster-first img,
 .gk-cover img,
-[class*='DiscoverMediaCard'] img {
+[class*='DiscoverMediaCard'] img,
+img[alt][src*='image'],
+img[loading='lazy'] {
   object-fit: cover;
 }
 
@@ -134,8 +148,8 @@ body {
     padding-left: var(--desktop-sidebar-w) !important;
     padding-right: 0;
   }
-  main:not([data-auth]) > div:first-child {
-    max-width: min(100%, calc(var(--shell-max-w) + var(--desktop-context-w) + 48px));
+  main:not([data-auth]) > .gk-page-shell {
+    max-width: min(100%, calc(var(--shell-max-w) + var(--desktop-context-w) + 72px));
   }
 }
 
