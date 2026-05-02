@@ -36,8 +36,11 @@ export function CompactMediaRow({
   return (
     <Component
       type={onClick ? 'button' : undefined}
-      onClick={onClick}
-      className={`group w-full min-w-0 rounded-[18px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-2.5 text-left transition-colors hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)] ${className}`}
+      data-no-swipe="true"
+      onClick={(event: any) => { event.stopPropagation?.(); onClick?.() }}
+      onPointerDown={(event: any) => event.stopPropagation?.()}
+      className={`group w-full min-w-0 rounded-[18px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-2.5 text-left transition-colors hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${className}`}
+      aria-label={onClick ? `Apri ${title}` : undefined}
     >
       <div className="flex min-w-0 items-center gap-3">
         <div className="h-[58px] w-10 flex-shrink-0 overflow-hidden rounded-xl bg-[var(--bg-secondary)] ring-1 ring-white/5">
@@ -47,6 +50,7 @@ export function CompactMediaRow({
               alt={`Copertina di ${title}`}
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
               loading="lazy"
+              decoding="async"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-[var(--text-muted)]">
@@ -70,7 +74,7 @@ export function CompactMediaRow({
           />
         </div>
 
-        {trailing && <div className="flex-shrink-0 self-stretch py-1">{trailing}</div>}
+        {trailing && <div className="flex-shrink-0 self-stretch py-1" data-no-swipe="true">{trailing}</div>}
       </div>
     </Component>
   )
