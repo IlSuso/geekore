@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, Zap } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
-import { PrimitiveButton, PrimitiveButtonLink } from '@/components/ui/PrimitiveButton'
+import { PrimitiveButton } from '@/components/ui/PrimitiveButton'
 import { PrimitiveInput } from '@/components/ui/PrimitiveInput'
 
 function LocaleToggle() {
