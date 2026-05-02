@@ -276,7 +276,7 @@ export default function ListsPage() {
 
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-4xl font-black tracking-tighter">Le mie liste</h1>
+            <h1 className="hidden md:block text-4xl font-black tracking-tighter">Le mie liste</h1>
             <p className="text-zinc-400 text-sm mt-1">Crea collezioni tematiche da condividere</p>
           </div>
           <button
