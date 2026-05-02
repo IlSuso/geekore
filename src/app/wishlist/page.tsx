@@ -1,20 +1,22 @@
 'use client'
-// src/app/wishlist/page.tsx
-// A4: Wishlist interattiva — rimuovi item, badge "Disponibile ora", filtro per tipo
-// Convertito da Server Component puro a Server+Client ibrido
 
-import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { redirect } from 'next/navigation'
 import {
   Bookmark, Calendar, Swords, Gamepad2, Film, Tv,
-  Trash2, Check, Loader2, SlidersHorizontal, CheckCircle2, Layers,
+  Trash2, Loader2, CheckCircle2, Layers, Sparkles, Search,
 } from 'lucide-react'
 import { getMediaTypeColor, getMediaTypeLabel } from '@/lib/mediaTypes'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
+import { PageScaffold } from '@/components/ui/PageScaffold'
 
 const TYPE_ICON: Record<string, React.ElementType> = {
-  anime: Swords, manga: Layers, game: Gamepad2, movie: Film, tv: Tv,
+  anime: Swords,
+  manga: Layers,
+  game: Gamepad2,
+  movie: Film,
+  tv: Tv,
 }
 
 function daysUntil(dateStr: string | null): { label: string; available: boolean } {
@@ -29,12 +31,32 @@ function daysUntil(dateStr: string | null): { label: string; available: boolean 
   }
 }
 
+function normalize(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+}
+
+function WishlistStat({ label, value, accent = false }: { label: string; value: string | number; accent?: boolean }) {
+  return (
+    <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
+      <p className={`font-mono-data text-[20px] font-black leading-none ${accent ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>
+        {value}
+      </p>
+      <p className="gk-label mt-1">{label}</p>
+    </div>
+  )
+}
+
 export default function WishlistPage() {
   const supabase = createClient()
   const [wishlist, setWishlist] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [removing, setRemoving] = useState<string | null>(null)
   const [activeFilter, setActiveFilter] = useState('all')
+  const [query, setQuery] = useState('')
 
   const loadWishlist = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -48,34 +70,33 @@ export default function WishlistPage() {
 
     setWishlist(data || [])
     setLoading(false)
-  }, [])
+  }, [supabase])
 
   useEffect(() => { loadWishlist() }, [loadWishlist])
 
-  const handleRemove = async (itemId: string, title: string) => {
+  const handleRemove = async (itemId: string) => {
     setRemoving(itemId)
     const res = await fetch('/api/wishlist', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: itemId }),
     }).catch(() => null)
-    if (res?.ok) {
-      setWishlist(prev => prev.filter(i => i.id !== itemId))
-    } else {
-    }
+    if (res?.ok) setWishlist(prev => prev.filter(i => i.id !== itemId))
     setRemoving(null)
   }
 
-  // Filtri per tipo
-  const types = ['all', ...Array.from(new Set(wishlist.map(i => i.type)))]
-  const filtered = activeFilter === 'all'
-    ? wishlist
-    : wishlist.filter(i => i.type === activeFilter)
+  const types = useMemo(() => ['all', ...Array.from(new Set(wishlist.map(i => i.type).filter(Boolean)))], [wishlist])
+  const availableCount = useMemo(() => wishlist.filter(i => i.release_date && new Date(i.release_date).getTime() <= Date.now()).length, [wishlist])
+  const upcomingCount = useMemo(() => wishlist.filter(i => i.release_date && new Date(i.release_date).getTime() > Date.now()).length, [wishlist])
 
-  const availableCount = wishlist.filter(i => {
-    if (!i.release_date) return false
-    return new Date(i.release_date).getTime() <= Date.now()
-  }).length
+  const filtered = useMemo(() => {
+    const q = normalize(query)
+    let result = activeFilter === 'all' ? wishlist : wishlist.filter(i => i.type === activeFilter)
+    if (q) {
+      result = result.filter(item => normalize([item.title || '', item.type || '', item.description || ''].join(' ')).includes(q))
+    }
+    return result
+  }, [wishlist, activeFilter, query])
 
   if (loading) {
     return (
@@ -86,136 +107,157 @@ export default function WishlistPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--bg-primary)] pt-2 md:pt-6 pb-24 px-4 text-white">
-      <div className="max-w-3xl mx-auto">
+    <PageScaffold
+      title="Wishlist"
+      description="La tua coda dei desideri: titoli salvati da Discover e For You, pronti a diventare Library."
+      icon={<Bookmark size={16} />}
+      contentClassName="max-w-screen-md pt-2 md:pt-8 pb-28"
+    >
+      <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(230,255,61,0.09),rgba(139,92,246,0.07),rgba(20,20,27,0.92))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-5">
+        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+          <Sparkles size={12} />
+          Saved queue
+        </div>
+        <h1 className="gk-h1 mb-2 text-[var(--text-primary)]">Tutto ciò che vuoi recuperare dopo.</h1>
+        <p className="gk-body max-w-2xl">
+          Wishlist è il ponte tra scoperta e Library: salva ora, aggiungi quando sei pronto, tieni d’occhio le uscite.
+        </p>
+        <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
+          <WishlistStat label="salvati" value={wishlist.length} accent />
+          <WishlistStat label="disponibili" value={availableCount} />
+          <WishlistStat label="in arrivo" value={upcomingCount} />
+        </div>
+      </div>
 
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="hidden md:block text-3xl font-bold tracking-tight">Wishlist</h1>
-              <p className="text-zinc-500 text-sm mt-1">
-                {wishlist.length > 0
-                  ? `${wishlist.length} ${wishlist.length === 1 ? 'titolo' : 'titoli'} nella lista`
-                  : 'Uscite che stai aspettando'}
-              </p>
-            </div>
-            {availableCount > 0 && (
-              <div className="px-3 py-1.5 bg-emerald-500/15 border border-emerald-500/30 rounded-full">
-                <p className="text-xs font-semibold text-emerald-400">
-                  {availableCount} disponibil{availableCount === 1 ? 'e' : 'i'}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Filtri per tipo */}
-          {types.length > 2 && (
-            <div className="flex gap-2 mt-4 overflow-x-auto pb-1 hide-scrollbar">
-              {types.map(type => {
-                const typeColor = type !== 'all' ? getMediaTypeColor(type) : null
-                return (
-                  <button
-                    key={type}
-                    onClick={() => setActiveFilter(type)}
-                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
-                      activeFilter === type
-                        ? ''
-                        : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
-                    }`}
-                    style={activeFilter === type ? { background: 'var(--accent)', color: '#0B0B0F' } : {}}
-                  >
-                    {typeColor && <span className="w-1.5 h-1.5 rounded-full" style={{ background: typeColor }} />}
-                    {type === 'all' ? 'Tutti' : getMediaTypeLabel(type)}
-                    <span className="opacity-60">
-                      {type === 'all' ? wishlist.length : wishlist.filter(i => i.type === type).length}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          )}
+      <div className="mb-4 space-y-3">
+        <div className="relative">
+          <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+          <input
+            value={query}
+            onChange={event => setQuery(event.target.value)}
+            placeholder="Cerca nella wishlist..."
+            className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] py-2.5 pl-10 pr-4 text-[14px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]"
+          />
         </div>
 
-        {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-16 h-16 bg-zinc-900 border border-zinc-800 rounded-3xl flex items-center justify-center mb-4">
-              <Bookmark size={28} className="text-zinc-600" />
-            </div>
-            <p className="text-zinc-500 font-medium">
-              {activeFilter === 'all' ? 'Wishlist vuota' : 'Nessun titolo in questa categoria'}
-            </p>
-            <p className="text-zinc-700 text-sm mt-1 max-w-xs">
-              Vai su Discover e usa il pulsante segnalibro per aggiungere titoli che vuoi seguire
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filtered.map((item) => {
-              const Icon = TYPE_ICON[item.type] ?? Bookmark
-              const countdown = daysUntil(item.release_date)
-              const isRemoving = removing === item.id
-
+        {types.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            {types.map(type => {
+              const typeColor = type !== 'all' ? getMediaTypeColor(type) : 'var(--accent)'
+              const count = type === 'all' ? wishlist.length : wishlist.filter(i => i.type === type).length
+              const isActive = activeFilter === type
               return (
-                <div
-                  key={item.id}
-                  className={`flex items-center gap-0 bg-zinc-900 border rounded-2xl overflow-hidden transition-all duration-200 ${
-                    countdown.available
-                      ? 'border-emerald-500/40 shadow-lg shadow-emerald-500/5'
-                      : 'border-zinc-800 hover:border-zinc-700'
-                  }`}
+                <button
+                  key={type}
+                  onClick={() => setActiveFilter(type)}
+                  className="flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition-all"
+                  style={isActive
+                    ? { background: type === 'all' ? 'var(--accent)' : `color-mix(in srgb, ${typeColor} 18%, transparent)`, color: type === 'all' ? '#0B0B0F' : typeColor, borderColor: typeColor }
+                    : { background: 'var(--bg-card)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
                 >
-                  {/* Cover */}
-                  <div className="w-16 h-24 shrink-0 bg-zinc-800">
-                    {item.cover_image ? (
-                      <img src={item.cover_image} alt={item.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Icon size={24} className="text-zinc-600" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0 px-4 py-3">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <MediaTypeBadge type={item.type} size="xs" />
-                    </div>
-                    <h3 className="text-sm font-semibold text-white leading-tight truncate">{item.title}</h3>
-                    {countdown.label && (
-                      <div className="flex items-center gap-1.5 mt-1.5">
-                        {countdown.available ? <CheckCircle2 size={11} className="text-emerald-400" /> : <Calendar size={11} className="text-zinc-600" />}
-                        <span className={`text-xs font-medium ${
-                          countdown.available ? 'text-emerald-400' : 'text-zinc-500'
-                        }`}>
-                          {countdown.label}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* A4: Pulsante Rimuovi */}
-                  <div className="pr-4 flex items-center">
-                    <button
-                      onClick={() => handleRemove(item.id, item.title)}
-                      disabled={isRemoving}
-                      className="w-8 h-8 flex items-center justify-center rounded-xl text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-50"
-                      title="Rimuovi dalla wishlist"
-                    >
-                      {isRemoving
-                        ? <Loader2 size={14} className="animate-spin" />
-                        : <Trash2 size={14} />}
-                    </button>
-                  </div>
-
-                  {/* Accent bar */}
-                  <div className="w-1 self-stretch opacity-40" style={{ background: getMediaTypeColor(item.type) }} />
-                </div>
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: isActive && type === 'all' ? '#0B0B0F' : typeColor }} />
+                  {type === 'all' ? 'Tutti' : getMediaTypeLabel(type)}
+                  <span className="opacity-60">{count}</span>
+                </button>
               )
             })}
           </div>
         )}
       </div>
-    </main>
+
+      {filtered.length === 0 ? (
+        <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-16 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-secondary)]">
+            <Bookmark size={28} className="text-[var(--text-muted)]" />
+          </div>
+          <p className="gk-headline mb-1 text-[var(--text-primary)]">
+            {wishlist.length === 0 ? 'Wishlist vuota' : 'Nessun titolo trovato'}
+          </p>
+          <p className="gk-body mx-auto mb-5 max-w-sm">
+            {wishlist.length === 0
+              ? 'Vai su Discover e usa il segnalibro per salvare titoli che vuoi recuperare.'
+              : 'Prova a cambiare ricerca o filtro.'}
+          </p>
+          {wishlist.length === 0 ? (
+            <Link href="/discover" className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]">
+              Apri Discover
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { setQuery(''); setActiveFilter('all') }}
+              className="inline-flex h-10 items-center justify-center rounded-2xl border border-[var(--border)] px-4 text-sm font-bold text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+            >
+              Cancella filtri
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((item) => {
+            const Icon = TYPE_ICON[item.type] ?? Bookmark
+            const countdown = daysUntil(item.release_date)
+            const isRemoving = removing === item.id
+            const color = getMediaTypeColor(item.type)
+
+            return (
+              <div
+                key={item.id}
+                className={`group flex items-center gap-3 overflow-hidden rounded-[20px] border bg-[var(--bg-card)] p-2.5 transition-all duration-200 hover:bg-[var(--bg-card-hover)] ${
+                  countdown.available
+                    ? 'border-emerald-500/35 shadow-[0_10px_32px_rgba(16,185,129,0.06)]'
+                    : 'border-[var(--border-subtle)] hover:border-[var(--border)]'
+                }`}
+              >
+                <div className="h-[72px] w-12 shrink-0 overflow-hidden rounded-2xl bg-[var(--bg-secondary)] ring-1 ring-white/5">
+                  {item.cover_image ? (
+                    <img src={item.cover_image} alt={item.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <Icon size={22} className="text-[var(--text-muted)]" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <MediaTypeBadge type={item.type} size="xs" />
+                    {countdown.available && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                        <CheckCircle2 size={10} /> ora
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="line-clamp-1 text-[14px] font-bold leading-tight text-[var(--text-primary)]">{item.title}</h3>
+                  {countdown.label ? (
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      {countdown.available ? <CheckCircle2 size={11} className="text-emerald-400" /> : <Calendar size={11} className="text-[var(--text-muted)]" />}
+                      <span className={`font-mono-data text-[11px] font-bold ${countdown.available ? 'text-emerald-400' : 'text-[var(--text-muted)]'}`}>
+                        {countdown.label}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="gk-mono mt-1.5 text-[var(--text-muted)]">salvato per dopo</p>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => handleRemove(item.id)}
+                  disabled={isRemoving}
+                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl text-[var(--text-muted)] transition-all hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
+                  title="Rimuovi dalla wishlist"
+                >
+                  {isRemoving
+                    ? <Loader2 size={14} className="animate-spin" />
+                    : <Trash2 size={14} />}
+                </button>
+
+                <div className="w-1 self-stretch rounded-full opacity-70" style={{ background: color }} />
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </PageScaffold>
   )
 }
