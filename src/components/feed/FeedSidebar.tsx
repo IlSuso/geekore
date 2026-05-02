@@ -133,21 +133,21 @@ function FriendsTrendingCard() {
         </div>
         <Link href="/trending" className="gk-mono text-[var(--accent)]">vedi</Link>
       </div>
-      <div className="space-y-2.5">
+      <div className="space-y-3.5">
         {items.map((item, i) => {
           const Icon = TYPE_ICON[item.type] || Film
           return (
-            <div key={`${item.type}-${item.title}`} className="flex items-center gap-3 group">
-              <span className="w-4 shrink-0 text-center font-mono-data text-[11px] font-bold text-[var(--text-muted)]">{i + 1}</span>
-              <div className="h-12 w-9 shrink-0 overflow-hidden rounded-lg bg-[var(--bg-elevated)] ring-1 ring-white/10">
+            <div key={`${item.type}-${item.title}`} className="group grid grid-cols-[18px_54px_minmax(0,1fr)] items-center gap-3 rounded-2xl p-1.5 transition-colors hover:bg-[var(--bg-elevated)]">
+              <span className="text-center font-mono-data text-[11px] font-bold text-[var(--text-muted)]">{i + 1}</span>
+              <div className="h-[72px] w-[54px] shrink-0 overflow-hidden rounded-xl bg-[var(--bg-elevated)] ring-1 ring-white/10">
                 {item.cover_image
                   ? <img src={item.cover_image} alt={item.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                  : <div className="flex h-full w-full items-center justify-center"><Icon size={16} className="text-[var(--text-muted)]" /></div>
+                  : <div className="flex h-full w-full items-center justify-center"><Icon size={18} className="text-[var(--text-muted)]" /></div>
                 }
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-bold leading-tight text-[var(--text-primary)]">{item.title}</p>
-                <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">{item.count} attività · {CATEGORY_LABEL[item.type] || item.type}</p>
+              <div className="min-w-0">
+                <p className="line-clamp-2 text-[13px] font-black leading-tight text-[var(--text-primary)]">{item.title}</p>
+                <p className="mt-1 text-[10px] text-[var(--text-muted)]">{item.count} attività · {CATEGORY_LABEL[item.type] || item.type}</p>
               </div>
             </div>
           )
@@ -198,7 +198,7 @@ function SuggestedUsersCard({ currentUserId }: { currentUserId: string }) {
         {users.map((user, index) => (
           <div key={user.id} className="flex items-center gap-3">
             <Link href={`/profile/${user.username}`} className="shrink-0">
-              <Avatar src={user.avatar_url} username={user.username} displayName={user.display_name} size={36} />
+              <Avatar src={user.avatar_url} username={user.username} displayName={user.display_name} size={40} className="rounded-2xl" />
             </Link>
             <div className="min-w-0 flex-1">
               <Link href={`/profile/${user.username}`}>
