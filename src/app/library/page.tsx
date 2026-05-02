@@ -10,6 +10,7 @@ import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { PageScaffold } from '@/components/ui/PageScaffold'
 import { SearchField } from '@/components/ui/SearchField'
 import { FilterBar } from '@/components/ui/FilterBar'
+import { SortSelect, type SortSelectOption } from '@/components/ui/SortSelect'
 import { ViewToggle, type ViewToggleOption } from '@/components/ui/ViewToggle'
 import { MediaGrid } from '@/components/ui/MediaGrid'
 import type { MediaRailItem } from '@/components/ui/MediaRail'
@@ -35,10 +36,18 @@ type MediaEntry = {
 }
 
 type LibraryViewMode = 'list' | 'grid'
+type LibrarySortMode = 'recent' | 'title' | 'rating' | 'progress'
 
 const VIEW_OPTIONS: ViewToggleOption<LibraryViewMode>[] = [
   { id: 'list', label: 'Vista lista', icon: <List size={14} /> },
   { id: 'grid', label: 'Vista griglia', icon: <LayoutGrid size={14} /> },
+]
+
+const SORT_OPTIONS: SortSelectOption<LibrarySortMode>[] = [
+  { id: 'recent', label: 'Recenti' },
+  { id: 'title', label: 'Titolo' },
+  { id: 'rating', label: 'Voto' },
+  { id: 'progress', label: 'Progresso' },
 ]
 
 const TYPES = [
@@ -65,6 +74,11 @@ function normalizeSearch(value: string) {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
 }
 
+function getProgressRatio(entry: MediaEntry) {
+  if (!entry.episodes || entry.episodes <= 0) return 0
+  return Math.min(1, Math.max(0, (entry.current_episode || 0) / entry.episodes))
+}
+
 function toRailItem(entry: MediaEntry): MediaRailItem {
   return {
     id: entry.id,
@@ -88,6 +102,7 @@ export default function LibraryPage() {
   const [activeType, setActiveType] = useState('all')
   const [activeStatus, setActiveStatus] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
+  const [sortMode, setSortMode] = useState<LibrarySortMode>('recent')
   const [viewMode, setViewMode] = useState<LibraryViewMode>('list')
   const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null)
 
@@ -118,8 +133,13 @@ export default function LibraryPage() {
       })
     }
 
-    return result
-  }, [entries, activeType, activeStatus, searchTerm])
+    return [...result].sort((a, b) => {
+      if (sortMode === 'title') return a.title.localeCompare(b.title, 'it')
+      if (sortMode === 'rating') return (b.rating || 0) - (a.rating || 0)
+      if (sortMode === 'progress') return getProgressRatio(b) - getProgressRatio(a)
+      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    })
+  }, [entries, activeType, activeStatus, searchTerm, sortMode])
 
   const stats = useMemo(() => ({
     total: entries.length,
@@ -196,6 +216,12 @@ export default function LibraryPage() {
               chipClassName="h-7 px-3 text-[11px]"
             />
           </div>
+          <SortSelect
+            value={sortMode}
+            options={SORT_OPTIONS}
+            onChange={setSortMode}
+            className="flex-shrink-0"
+          />
           <ViewToggle
             value={viewMode}
             options={VIEW_OPTIONS}
