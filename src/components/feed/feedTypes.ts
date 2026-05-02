@@ -7,6 +7,17 @@ export type Comment = {
   display_name?: string
 }
 
+export type FeedMediaPreview = {
+  external_id?: string | null
+  title: string
+  type?: string | null
+  cover_image?: string | null
+  rating?: number | null
+  status?: string | null
+  current_episode?: number | null
+  episodes?: number | null
+}
+
 export type Post = {
   id: string
   user_id: string
@@ -15,6 +26,7 @@ export type Post = {
   created_at: string
   is_edited?: boolean
   category?: string | null
+  media_preview?: FeedMediaPreview | null
   profiles: {
     username: string
     display_name?: string
