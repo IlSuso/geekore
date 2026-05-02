@@ -94,7 +94,10 @@
 @media (max-width: 767px) {
   .gk-discover-page,
   .gk-for-you-page,
-  .gk-profile-page {
+  .gk-profile-page,
+  .gk-library-page,
+  .gk-friends-page,
+  .gk-notifications-page {
     padding-bottom: calc(var(--gk-mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 24px);
   }
 
@@ -223,9 +226,73 @@
   }
 }
 
+/* 16.4 Library: griglie larghe, filtri leggibili, stats dashboard. */
+.gk-library-page .gk-page-density {
+  width: 100%;
+}
+
+.gk-library-page [data-interactive='true'] {
+  scroll-margin-top: 84px;
+}
+
+.gk-library-page input[type='text'] {
+  min-height: 48px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.14);
+}
+
+.gk-library-page [aria-label='Filtri tipo media Library'] {
+  overscroll-behavior-inline: contain;
+}
+
+.gk-library-page section {
+  scroll-margin-top: 84px;
+}
+
+@media (min-width: 768px) {
+  .gk-library-page .gk-page-density {
+    padding-top: 28px;
+  }
+
+  .gk-library-page .gk-page-density > div.relative > div:first-child {
+    margin-bottom: 18px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .gk-library-page .gk-page-density {
+    max-width: min(1180px, calc(100vw - var(--gk-sidebar-w) - 64px)) !important;
+  }
+
+  .gk-library-page .gk-page-density > div.relative > div:nth-child(3) {
+    position: sticky;
+    top: 18px;
+    z-index: 20;
+    border-radius: 24px;
+    background: rgba(11, 11, 15, 0.82);
+    padding: 10px;
+    margin-left: -10px;
+    margin-right: -10px;
+    backdrop-filter: blur(20px) saturate(160%);
+  }
+
+  .gk-library-page .gk-page-density > div.relative > div:nth-child(2) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .gk-library-page .gk-page-density {
+    max-width: min(1240px, calc(100vw - var(--gk-sidebar-w) - 80px)) !important;
+  }
+
+  .gk-library-page .gk-media-grid,
+  .gk-library-page [class*='grid-cols'] {
+    gap: 14px;
+  }
+}
+
 /* Desktop grid density suggerita dal full wireframe. */
 @media (min-width: 1280px) {
-  .gk-library-page .xl\:grid-cols-7,
   .gk-profile-page .xl\:grid-cols-8 {
     gap: 14px;
   }
