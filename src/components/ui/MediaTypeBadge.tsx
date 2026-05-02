@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import { getMediaTypeAccentStyle, getMediaTypeLabel } from '@/lib/mediaTypes'
+import type { CSSProperties, ReactNode } from 'react'
+import { getMediaTypeColor, getMediaTypeLabel } from '@/lib/mediaTypes'
 
 type MediaTypeBadgeVariant = 'soft' | 'solid' | 'line'
 type MediaTypeBadgeSize = 'xs' | 'sm'
@@ -18,6 +18,31 @@ const sizeClasses: Record<MediaTypeBadgeSize, string> = {
   sm: 'px-2.5 py-1 text-[11px] gap-1.5',
 }
 
+function getVariantStyle(type: string | null | undefined, variant: MediaTypeBadgeVariant): CSSProperties {
+  const color = getMediaTypeColor(type)
+
+  if (variant === 'solid') {
+    return {
+      backgroundColor: color,
+      borderColor: color,
+      color: '#0B0B0F',
+    }
+  }
+
+  if (variant === 'line') {
+    return {
+      borderColor: color,
+      color,
+    }
+  }
+
+  return {
+    backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
+    borderColor: `color-mix(in srgb, ${color} 34%, transparent)`,
+    color,
+  }
+}
+
 export function MediaTypeBadge({
   type,
   label,
@@ -28,16 +53,10 @@ export function MediaTypeBadge({
 }: MediaTypeBadgeProps) {
   const content = label || getMediaTypeLabel(type)
 
-  const variantClasses: Record<MediaTypeBadgeVariant, string> = {
-    soft: 'border border-[color:color-mix(in_srgb,var(--media-color)_34%,transparent)] bg-[color:color-mix(in_srgb,var(--media-color)_12%,transparent)] text-[var(--media-color)]',
-    solid: 'border border-transparent bg-[var(--media-color)] text-[#0B0B0F]',
-    line: 'border border-[color:color-mix(in_srgb,var(--media-color)_45%,transparent)] bg-transparent text-[var(--media-color)]',
-  }
-
   return (
     <span
-      className={`inline-flex items-center rounded-full font-bold uppercase tracking-[0.08em] leading-none ${sizeClasses[size]} ${variantClasses[variant]} ${className}`}
-      style={getMediaTypeAccentStyle(type)}
+      className={`inline-flex items-center rounded-full border font-bold uppercase tracking-[0.08em] leading-none ${sizeClasses[size]} ${className}`}
+      style={getVariantStyle(type, variant)}
     >
       {icon && <span className="flex items-center [&_svg]:h-[1em] [&_svg]:w-[1em]">{icon}</span>}
       {content}
