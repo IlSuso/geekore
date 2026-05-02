@@ -9,6 +9,7 @@ import './micro-interactions.css'
 import './full-wireframe.css'
 import './media-drawer-final.css'
 import './notifications-final.css'
+import './ui-polish-fixes.css'
 import Navbar from '@/components/Navbar'
 
 // Manteniamo next/font come fallback self-hosted e usiamo i link nel <head>
