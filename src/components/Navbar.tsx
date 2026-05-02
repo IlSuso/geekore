@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   Home, Search, Sparkles, Library, User, X, Settings, LogOut, ChevronDown, Bell, Users,
-  Bookmark, BarChart3, List, Trophy,
+  Bookmark, BarChart3, List, Trophy, Compass, TrendingUp, Heart,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useActiveTab, pathnameToTab } from '@/context/ActiveTabContext'
@@ -55,19 +55,23 @@ export default function Navbar() {
   const isPublicLanding = pathname === '/'
 
   const NAV_ITEMS = [
-    { href: '/home', label: t.nav.home, icon: Home, glyph: '◉' },
-    { href: '/for-you', label: t.nav.forYou, icon: Sparkles, glyph: '✦' },
-    { href: '/library', label: 'Library', icon: Library, glyph: '▦' },
-    { href: '/discover', label: t.nav.discover, icon: Search, glyph: '⌕' },
-    { href: '/friends', label: 'Friends', icon: Users, glyph: '◐' },
+    { href: '/home', label: t.nav.home, icon: Home },
+    { href: '/for-you', label: t.nav.forYou, icon: Sparkles },
+    { href: '/library', label: 'Library', icon: Library },
+    { href: '/discover', label: t.nav.discover, icon: Compass },
+    { href: '/friends', label: 'Friends', icon: Users },
+  ]
+
+  const SECONDARY_NAV = [
+    { href: '/trending', label: 'Trending', icon: TrendingUp },
+    { href: '/wishlist', label: 'Wishlist', icon: Heart },
+    { href: '/leaderboard', label: 'Classifica', icon: Trophy },
+    { href: '/stats', label: 'Stats', icon: BarChart3 },
+    { href: '/lists', label: 'Liste', icon: List },
   ]
 
   const ACCOUNT_LINKS = [
     { href: `/profile/${username || 'me'}`, label: 'Il tuo profilo', icon: User },
-    { href: '/wishlist', label: 'Wishlist', icon: Bookmark },
-    { href: '/stats', label: 'Stats', icon: BarChart3 },
-    { href: '/lists', label: 'Liste', icon: List },
-    { href: '/leaderboard', label: 'Classifica', icon: Trophy },
     { href: '/settings', label: 'Impostazioni', icon: Settings },
   ]
 
@@ -161,7 +165,7 @@ export default function Navbar() {
           <GeekoreWordmark size="md" />
         </div>
 
-        <nav className="space-y-1.5" aria-label="Navigazione principale desktop">
+        <nav className="space-y-1" aria-label="Navigazione principale desktop">
           {NAV_ITEMS.map((item) => {
             const itemTab = pathnameToTab(item.href)
             const isActive = activeTab ? activeTab === itemTab : (item.href === '/home' ? pathname === '/home' || pathname === '/' : pathname === item.href)
@@ -173,21 +177,21 @@ export default function Navbar() {
                 data-testid={`nav-${item.href.replace('/', '')}`}
                 onMouseEnter={item.href === '/for-you' && !isActive ? () => fetch('/api/recommendations?type=all', { credentials: 'include' }).catch(() => {}) : undefined}
                 onClick={() => navigateToTab(item.href)}
-                className="relative flex h-11 w-full items-center gap-3 overflow-hidden rounded-2xl px-3 text-left text-[13px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
+                className="relative flex h-10 w-full items-center gap-3 overflow-hidden rounded-2xl px-3 text-left text-[13px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
                 style={isActive
                   ? { background: 'rgba(230,255,61,0.085)', color: 'var(--accent)', border: '1px solid rgba(230,255,61,0.16)' }
                   : { color: 'var(--text-secondary)', border: '1px solid transparent' }}
                 aria-current={isActive ? 'page' : undefined}
               >
                 {isActive && <span className="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-[var(--accent)]" />}
-                <span className="w-5 text-center font-mono-data text-[15px] leading-none">{item.glyph}</span>
+                <item.icon size={17} className="flex-shrink-0" />
                 <span>{item.label}</span>
               </button>
             )
           })}
         </nav>
 
-        <div ref={searchRef} className="relative mt-6">
+        <div ref={searchRef} className="relative mt-5">
           <Search size={13} className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${searchLoading ? 'animate-pulse' : 'text-[var(--text-muted)]'}`} style={searchLoading ? { color: 'var(--accent)' } : {}} />
           <input
             ref={searchInputRef}
@@ -226,8 +230,30 @@ export default function Navbar() {
           )}
         </div>
 
+        {/* Secondary nav — pagine raggiungibili */}
+        <div className="mt-5">
+          <p className="gk-label mb-2 px-3">Scopri</p>
+          <div className="space-y-0.5">
+            {SECONDARY_NAV.map(({ href, label, icon: Icon }) => {
+              const isActive = pathname === href
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  data-no-swipe="true"
+                  className="flex h-9 w-full items-center gap-2.5 rounded-xl px-3 text-[12px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
+                  style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)', background: isActive ? 'rgba(230,255,61,0.07)' : 'transparent' }}
+                >
+                  <Icon size={15} className="flex-shrink-0" />
+                  {label}
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+
         <div className="mt-auto border-t border-[var(--border-subtle)] pt-3">
-          <Link href="/notifications" data-no-swipe="true" className="mb-2 flex h-10 items-center gap-2.5 rounded-2xl px-3 text-[13px] font-bold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35">
+          <Link href="/notifications" data-no-swipe="true" className="mb-1 flex h-9 items-center gap-2.5 rounded-xl px-3 text-[12px] font-bold text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35">
             <Bell size={15} />
             Notifiche
           </Link>
@@ -237,28 +263,28 @@ export default function Navbar() {
               type="button"
               data-no-swipe="true"
               onClick={() => setMenuOpen(o => !o)}
-              className={`flex w-full items-center gap-2 rounded-2xl border px-2 py-2 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${menuOpen ? 'border-[rgba(230,255,61,0.18)] bg-[rgba(230,255,61,0.06)]' : 'border-transparent hover:bg-[var(--bg-card-hover)]'}`}
+              className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${menuOpen ? 'border-[rgba(230,255,61,0.18)] bg-[rgba(230,255,61,0.06)]' : 'border-transparent hover:bg-[var(--bg-card-hover)]'}`}
               aria-label="Menu account"
             >
-              <Avatar src={avatarSrc} username={currentUsername || 'me'} displayName={currentDisplayName || 'Utente'} size={28} />
+              <Avatar src={avatarSrc} username={currentUsername || 'me'} displayName={currentDisplayName || 'Utente'} size={36} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[12px] font-bold text-[var(--text-primary)]">{currentDisplayName || currentUsername || 'Utente'}</p>
-                <p className="gk-mono truncate text-[var(--text-muted)]">{currentUsername ? `@${currentUsername}` : 'L42 · 247'}</p>
+                <p className="truncate text-[13px] font-bold leading-snug text-[var(--text-primary)]">{currentDisplayName || currentUsername || 'Utente'}</p>
+                {currentUsername && <p className="gk-mono truncate text-[var(--text-muted)]">@{currentUsername}</p>}
               </div>
-              <ChevronDown size={13} className={`text-[var(--text-muted)] transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown size={14} className={`flex-shrink-0 text-[var(--text-muted)] transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {menuOpen && (
-              <div className="absolute bottom-full left-0 z-[130] mb-2 w-[260px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] shadow-2xl shadow-black/70">
-                <div className="grid grid-cols-2 gap-1 p-2">
+              <div className="absolute bottom-full left-0 z-[130] mb-2 w-[220px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] shadow-2xl shadow-black/70">
+                <div className="flex flex-col p-1.5">
                   {ACCOUNT_LINKS.map(({ href, label, icon: Icon }) => (
-                    <Link key={href} href={href} data-no-swipe="true" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]">
+                    <Link key={href} href={href} data-no-swipe="true" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] font-bold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]">
                       <Icon size={15} />
-                      <span className="truncate">{label}</span>
+                      {label}
                     </Link>
                   ))}
                 </div>
-                <button type="button" data-no-swipe="true" onClick={handleLogout} className="flex w-full items-center gap-3 border-t border-[var(--border)] px-4 py-3 text-left text-sm font-bold text-red-400 transition-colors hover:bg-[var(--bg-card-hover)] hover:text-red-300">
+                <button type="button" data-no-swipe="true" onClick={handleLogout} className="flex w-full items-center gap-2.5 border-t border-[var(--border)] px-4 py-3 text-left text-[13px] font-bold text-red-400 transition-colors hover:bg-[var(--bg-card-hover)] hover:text-red-300">
                   <LogOut size={15} />
                   Esci da Geekore
                 </button>

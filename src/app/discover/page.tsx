@@ -481,7 +481,7 @@ export default function DiscoverPage() {
   return (
     <div className="gk-discover-page min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] pb-24">
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
-      <div className="max-w-screen-2xl mx-auto px-4 pt-16 md:pt-20">
+      <div className="max-w-screen-2xl mx-auto px-4 pt-14 md:pt-8">
         <div className="mb-5 overflow-hidden rounded-[30px] border border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.10),rgba(139,92,246,0.08),rgba(255,255,255,0.02))] p-5 md:p-7">
           <h1 className="gk-h1 mb-2 max-w-2xl">Esplora il tuo prossimo universo.</h1>
           <p className="gk-body max-w-2xl">

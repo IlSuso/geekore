@@ -352,32 +352,20 @@ export default function LibraryPage() {
       icon={<BookOpen size={16} />}
       contentClassName="max-w-screen-lg pt-2 md:pt-8 pb-28"
     >
-      <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.16)] bg-[linear-gradient(135deg,rgba(230,255,61,0.08),rgba(20,20,27,0.92))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-5">
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.32)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
-          <Sparkles size={12} />
-          Il tuo archivio geek
-        </div>
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div className="min-w-0">
-            <h1 className="gk-h1 mb-2">Library compatta, non vetrina.</h1>
-            <p className="gk-body max-w-2xl">Tre viste, bulk actions e heatmap: una collezione densa da gestire davvero, non solo da guardare.</p>
-          </div>
-          <div className="flex flex-wrap gap-2" data-no-swipe="true">
-            <button
-              type="button"
-              data-no-swipe="true"
-              onClick={toggleSelectMode}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 text-sm font-black text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
-            >
-              <CheckSquare size={15} />
-              {selectMode ? 'Annulla bulk' : 'Bulk select'}
-            </button>
-            <Link href="/discover" data-no-swipe="true" className="inline-flex h-10 flex-shrink-0 items-center justify-center gap-2 rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35">
-              <Plus size={15} />
-              Aggiungi media
-            </Link>
-          </div>
-        </div>
+      <div className="mb-4 flex items-center justify-end gap-2" data-no-swipe="true">
+        <button
+          type="button"
+          data-no-swipe="true"
+          onClick={toggleSelectMode}
+          className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 text-[12px] font-black text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
+        >
+          <CheckSquare size={13} />
+          {selectMode ? 'Annulla' : 'Seleziona'}
+        </button>
+        <Link href="/discover" data-no-swipe="true" className="inline-flex h-9 flex-shrink-0 items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-3 text-[12px] font-black text-[#0B0B0F] transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35">
+          <Plus size={13} />
+          Aggiungi
+        </Link>
       </div>
 
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -387,7 +375,7 @@ export default function LibraryPage() {
         <LibraryStat label="Media voto" value={stats.averageRating ? stats.averageRating.toFixed(1) : '—'} icon={<Star size={16} />} />
       </div>
 
-      {entries.length > 0 && <div className="mb-5"><LibraryHeatmap entries={entries} /></div>}
+
 
       <div className="mb-5 space-y-3" data-no-swipe="true" data-interactive="true">
         <div className="relative">
