@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
-import { BookmarkCheck, Check, Film, Plus } from 'lucide-react'
+import { BookmarkCheck, Check, Film, Plus, Star } from 'lucide-react'
 import { MediaMetaRow } from '@/components/ui/MediaMetaRow'
+import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 
 interface DiscoverMediaCardProps {
   title: string
@@ -33,7 +34,7 @@ export function DiscoverMediaCard({
 
   return (
     <div className={`group relative min-w-0 cursor-pointer ${className}`} onClick={onClick}>
-      <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)]">
+      <div className="relative aspect-[2/3] overflow-hidden rounded-[18px] border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-[0_10px_34px_rgba(0,0,0,0.22)]">
         {coverImage ? (
           <img
             src={coverImage}
@@ -48,7 +49,21 @@ export function DiscoverMediaCard({
           </div>
         )}
 
-        <div className="absolute inset-0 rounded-xl ring-1 ring-inset ring-white/10 pointer-events-none" />
+        <div className="pointer-events-none absolute inset-0 rounded-[18px] ring-1 ring-inset ring-white/10" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/90 via-black/35 to-transparent" />
+
+        {type && (
+          <div className="absolute left-1.5 top-1.5 z-10 max-w-[calc(100%-3rem)]">
+            <MediaTypeBadge type={type} size="xs" />
+          </div>
+        )}
+
+        {score != null && score !== '' && (
+          <div className="absolute bottom-1.5 left-1.5 z-10 inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/72 px-2 py-1 font-mono-data text-[10px] font-bold text-white backdrop-blur-sm">
+            <Star size={10} className="text-[var(--accent)]" fill="var(--accent)" />
+            {score}
+          </div>
+        )}
 
         {hasState && (
           <div className="absolute right-1.5 top-1.5 z-10">
@@ -71,7 +86,7 @@ export function DiscoverMediaCard({
               event.stopPropagation()
               onWishlist()
             }}
-            className={`absolute bottom-1.5 right-1.5 flex h-8 w-8 items-center justify-center rounded-xl border shadow-sm backdrop-blur-sm transition-all hover:scale-105 ${
+            className={`absolute bottom-1.5 right-1.5 z-10 flex h-8 w-8 items-center justify-center rounded-xl border shadow-sm backdrop-blur-sm transition-all hover:scale-105 ${
               wishlisted
                 ? 'border-[rgba(230,255,61,0.5)] bg-black/75 text-[var(--accent)]'
                 : 'border-white/10 bg-black/70 text-white hover:text-[var(--accent)]'
@@ -83,15 +98,14 @@ export function DiscoverMediaCard({
         )}
       </div>
 
-      <div className="mt-1.5 min-w-0 px-0.5">
-        <p className="line-clamp-2 text-[13px] font-semibold leading-tight text-[var(--text-primary)]">
+      <div className="mt-2 min-w-0 px-0.5">
+        <p className="line-clamp-2 text-[13px] font-bold leading-tight tracking-[-0.01em] text-[var(--text-primary)]">
           {title}
         </p>
         <MediaMetaRow
+          dense
           className="mt-1"
-          type={type}
           year={year}
-          score={score}
         />
       </div>
     </div>
