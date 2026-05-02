@@ -5,6 +5,7 @@ import './visual-vision.css'
 import './visual-vision-completion.css'
 import './visual-vision-pages.css'
 import './roadmap.css'
+import './micro-interactions.css'
 import Navbar from '@/components/Navbar'
 
 // Manteniamo next/font come fallback self-hosted e usiamo i link nel <head>
