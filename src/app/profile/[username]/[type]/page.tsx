@@ -172,13 +172,14 @@ function SortableCard({ media, children, dragEnabled }: { media: UserMedia; chil
         userSelect: 'none',
         WebkitUserSelect: 'none',
         touchAction: dragEnabled ? 'none' : undefined,
+        borderColor: isDragging ? '#E6FF3D' : undefined,
       }}
       {...attributes}
       {...(dragEnabled ? listeners : {})}
       className={`${dragEnabled ? 'cursor-grab active:cursor-grabbing' : ''} rounded-3xl overflow-hidden h-full ${
         isDragging
-          ? 'border-2 border-violet-500 shadow-2xl z-50'
-          : 'border border-zinc-800 hover:border-violet-500/50 hover:shadow-xl'
+          ? 'border-2 shadow-2xl z-50'
+          : 'border border-zinc-800 hover:border-zinc-600 hover:shadow-xl'
       }`}
     >
       {children}
@@ -330,7 +331,7 @@ const MediaCard = memo(function MediaCard({
               value={media.status || 'watching'}
               onChange={e => onStatusChange?.(media.id, e.target.value)}
               onPointerDown={e => e.stopPropagation()}
-              className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-zinc-900 border-zinc-800 text-zinc-400 focus:outline-none focus:border-violet-500 transition cursor-pointer appearance-none w-fit"
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-zinc-900 border-zinc-800 text-zinc-400 focus:outline-none focus:border-zinc-600 transition cursor-pointer appearance-none w-fit"
             >
               <option value="watching">In corso</option>
               <option value="completed">Completato</option>
@@ -934,7 +935,7 @@ export default function ProfileTypePage() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder={`Cerca in ${typeLabel}...`}
-              className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition"
+              className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition"
             />
           </div>
 
@@ -943,7 +944,7 @@ export default function ProfileTypePage() {
             <select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value as StatusFilter)}
-              className="flex-1 md:flex-none md:w-44 bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-4 py-2.5 text-sm text-zinc-300 focus:outline-none transition cursor-pointer"
+              className="flex-1 md:flex-none md:w-44 bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl px-4 py-2.5 text-sm text-zinc-300 focus:outline-none transition cursor-pointer"
             >
               <option value="all">Tutti gli stati</option>
               <option value="completed">Completati</option>
@@ -956,7 +957,7 @@ export default function ProfileTypePage() {
             <select
               value={sortMode}
               onChange={e => setSortMode(e.target.value as SortMode)}
-              className="flex-1 md:flex-none md:w-44 bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-4 py-2.5 text-sm text-zinc-300 focus:outline-none transition cursor-pointer"
+              className="flex-1 md:flex-none md:w-44 bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl px-4 py-2.5 text-sm text-zinc-300 focus:outline-none transition cursor-pointer"
             >
               <option value="default">Ordine personalizzato</option>
               <option value="rating_desc">Voto (↓)</option>
@@ -975,9 +976,10 @@ export default function ProfileTypePage() {
                 onClick={() => setIsDragEnabled(v => !v)}
                 className={`ml-auto shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-medium border transition-all duration-200 ${
                   isDragEnabled
-                    ? 'bg-violet-600 border-violet-500 text-white shadow-lg shadow-violet-500/20'
+                    ? 'border-transparent shadow-lg'
                     : 'bg-zinc-900 border-zinc-800 text-zinc-400 active:bg-zinc-800'
                 }`}
+                style={isDragEnabled ? { background: '#E6FF3D', color: '#0B0B0F' } : {}}
               >
                 <GripVertical size={14} />
                 {isDragEnabled ? 'Fine' : 'Riordina'}

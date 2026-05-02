@@ -468,7 +468,7 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
               <div className="grid grid-cols-3 gap-1.5 mb-1.5">
                 {MACRO_CATEGORIES.slice(0, 3).map(cat => (
                   <button key={cat} type="button" onClick={() => selectMacro(cat)}
-                    className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 hover:bg-zinc-800 hover:border-violet-500/50 transition-all group">
+                    className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 hover:bg-zinc-800 hover:border-zinc-600 transition-all group">
                     <CategoryIcon category={cat} size={18} className="text-zinc-400 group-hover:text-white transition-colors" />
                     <span className="text-[11px] font-medium text-zinc-300 group-hover:text-white leading-tight text-center">{cat}</span>
                   </button>
@@ -477,7 +477,7 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
               <div className="grid grid-cols-3 gap-1.5">
                 {MACRO_CATEGORIES.slice(3).map(cat => (
                   <button key={cat} type="button" onClick={() => selectMacro(cat)}
-                    className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 hover:bg-zinc-800 hover:border-violet-500/50 transition-all group">
+                    className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 hover:bg-zinc-800 hover:border-zinc-600 transition-all group">
                     <CategoryIcon category={cat} size={18} className="text-zinc-400 group-hover:text-white transition-colors" />
                     <span className="text-[11px] font-medium text-zinc-300 group-hover:text-white leading-tight text-center">{cat}</span>
                   </button>
@@ -510,9 +510,9 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
                   onChange={e => setSubInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder={hasApiSupport ? searchPlaceholder : 'Titolo specifico...'}
-                  className="no-nav-hide w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500 focus:outline-none rounded-xl pl-8 pr-8 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
+                  className="no-nav-hide w-full bg-zinc-800 border border-zinc-700 focus:border-zinc-600 focus:outline-none rounded-xl pl-8 pr-8 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
                 />
-                {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin" style={{ color: '#E6FF3D' }}" />}
+                {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin" style={{ color: '#E6FF3D' }} />}
                 {!isSearching && subInput && (
                   <button type="button" onClick={() => setSubInput('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400">
                     <X size={13} />
@@ -525,7 +525,7 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
                 {suggestions.map((result, idx) => (
                   <button key={result.id} type="button" onClick={() => selectSuggestion(result)}
                     className={`w-full flex items-center gap-3 px-3 py-2 text-left border-b border-zinc-800/60 last:border-0 transition-colors ${
-                      idx === activeSuggestion ? 'bg-violet-600/20' : 'hover:bg-zinc-800/80'
+                      idx === activeSuggestion ? 'bg-zinc-700/40' : 'hover:bg-zinc-800/80'
                     }`}>
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-semibold text-white truncate">{result.title}</p>
@@ -895,7 +895,7 @@ const PostCard = memo(function PostCard({
 }) {
   return (
     <div className={`rounded-2xl transition-all duration-300 animate-fade-in ${
-      post.pinned ? 'bg-zinc-900 border border-violet-500/30 ring-1 ring-violet-500/10'
+      post.pinned ? 'bg-zinc-900 border border-zinc-700 ring-1 ring-zinc-700/30'
       : post.isDiscovery ? 'bg-zinc-900 border border-fuchsia-500/25 ring-1 ring-fuchsia-500/10'
       : 'bg-zinc-900 border border-zinc-800/70'
     }`}>
@@ -916,7 +916,7 @@ const PostCard = memo(function PostCard({
       {/* Header */}
       <div className="flex items-center gap-3 px-5 pt-4 pb-2.5">
         <Link href={`/profile/${post.profiles.username}`} className="group shrink-0" onClick={e => e.stopPropagation()}>
-          <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-violet-500/20 group-hover:ring-violet-500/50 transition-all">
+          <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-zinc-600/20 group-hover:ring-zinc-600/50 transition-all">
             <Avatar src={post.profiles.avatar_url} username={post.profiles.username} displayName={post.profiles.display_name} size={40} className="rounded-full" />
           </div>
         </Link>
@@ -980,7 +980,7 @@ const PostCard = memo(function PostCard({
           aria-label="Vedi commenti"
           className="flex items-center gap-2 group transition-all text-zinc-500 hover:text-[#E6FF3D]"
         >
-          <div className="p-1.5 rounded-xl transition-colors group-hover:bg-violet-500/10">
+          <div className="p-1.5 rounded-xl transition-colors group-hover:bg-zinc-800/60">
             <MessageCircle size={19} />
           </div>
           <span className="text-xs font-bold">{post.comments_count}</span>
@@ -1005,7 +1005,7 @@ const PostCard = memo(function PostCard({
           aria-label="Condividi post"
           className={`flex items-center gap-2 group text-zinc-500 hover:text-[#E6FF3D] transition-all ${currentUser && currentUser.id !== post.user_id ? '' : 'ml-auto'}`}
         >
-          <div className="p-1.5 rounded-xl transition-colors group-hover:bg-violet-500/10">
+          <div className="p-1.5 rounded-xl transition-colors group-hover:bg-zinc-800/60">
             <Send size={18} aria-hidden="true" />
           </div>
         </button>
@@ -1073,7 +1073,7 @@ function PostModal({
           {/* Post header */}
           <div className="flex items-center gap-3 px-5 pt-4 pb-2.5">
             <Link href={`/profile/${post.profiles.username}`} onClick={onClose} className="group shrink-0">
-              <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-violet-500/20 group-hover:ring-violet-500/50 transition-all">
+              <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-zinc-600/20 group-hover:ring-zinc-600/50 transition-all">
                 <Avatar src={post.profiles.avatar_url} username={post.profiles.username} displayName={post.profiles.display_name} size={40} className="rounded-full" />
               </div>
             </Link>
@@ -1955,7 +1955,7 @@ export default function FeedPage() {
               onChange={e => setEditContent(e.target.value.slice(0, 2000))}
               rows={5}
               autoFocus
-              className="w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500 focus:outline-none rounded-2xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none resize-none transition mb-4"
+              className="w-full bg-zinc-800 border border-zinc-700 focus:border-zinc-600 focus:outline-none rounded-2xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none resize-none transition mb-4"
             />
             <div className="flex gap-2 justify-end">
               <button onClick={() => setEditingPostId(null)} className="px-5 py-2.5 rounded-xl border border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-sm font-semibold transition">
@@ -1992,7 +1992,7 @@ export default function FeedPage() {
               <>
                 {/* Barra statica — sempre visibile, poco invasiva */}
                 <div
-                  className="mx-4 my-4 rounded-2xl border border-zinc-800 bg-zinc-900/60 cursor-pointer hover:border-violet-500/30 hover:bg-zinc-900 transition-all duration-200"
+                  className="mx-4 my-4 rounded-2xl border border-zinc-800 bg-zinc-900/60 cursor-pointer hover:border-zinc-600 hover:bg-zinc-900 transition-all duration-200"
                   onClick={openComposer}
                 >
                   <div className="flex items-center gap-3 px-4 py-3.5">
@@ -2252,7 +2252,7 @@ export default function FeedPage() {
               {displayedPosts.length === 0 ? (
                 <div className="text-center py-24 px-8">
                   <div className="w-16 h-16 rounded-full border-2 border-[var(--border)] flex items-center justify-center mx-auto mb-4">
-                    <Sparkles size={28} className="" style={{ color: '#E6FF3D' }} />
+                    <Sparkles size={28} style={{ color: '#E6FF3D' }} />
                   </div>
                   <p className="text-[16px] font-semibold text-[var(--text-primary)] mb-1">
                     {categoryFilter
@@ -2295,7 +2295,7 @@ export default function FeedPage() {
               {!hasMore && posts.length > 0 && (
                 <div className="text-center py-10 flex flex-col items-center gap-2">
                   <div className="w-12 h-12 rounded-full border border-[var(--border)] flex items-center justify-center">
-                    <PartyPopper size={20} className="" style={{ color: '#E6FF3D' }} />
+                    <PartyPopper size={20} style={{ color: '#E6FF3D' }} />
                   </div>
                   <p className="text-[13px] text-[var(--text-muted)]">Hai visto tutto!</p>
                 </div>
@@ -2342,9 +2342,10 @@ export default function FeedPage() {
             }}
             aria-label="Crea nuovo post"
             style={{ pointerEvents: 'auto' }}
-            className="w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-xl shadow-violet-500/40 flex items-center justify-center active:scale-95 transition-transform border border-violet-400/30"
+            className="w-14 h-14 rounded-full flex items-center justify-center active:scale-95 transition-transform shadow-xl"
+            style={{ background: '#E6FF3D', boxShadow: '0 0 20px rgba(230,255,61,0.35)' }}
           >
-            <Plus size={26} className="text-white" strokeWidth={2.5} aria-hidden="true" />
+            <Plus size={26} className="text-black" strokeWidth={2.5} aria-hidden="true" />
           </button>
         </div>
       )}

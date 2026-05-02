@@ -197,12 +197,13 @@ function SortableBox({ media, children, disabled }: { media: UserMedia; children
         transition: isDragging ? 'none' : (transition || undefined),
         userSelect: 'none',
         WebkitUserSelect: 'none',
+        borderColor: isDragging ? '#E6FF3D' : undefined,
       }}
       {...attributes}
       {...(disabled ? {} : listeners)}
       className={`${disabled ? '' : 'cursor-grab active:cursor-grabbing'} rounded-3xl overflow-hidden min-h-[340px] sm:min-h-[380px] md:min-h-[420px] h-full flex flex-col ${
         isDragging
-          ? 'border-2 border-violet-500 shadow-2xl scale-[1.02] z-50'
+          ? 'border-2 shadow-2xl scale-[1.02] z-50'
           : 'border border-zinc-800 md:hover:border-zinc-600 md:hover:shadow-xl'
       }`}
     >
@@ -455,7 +456,7 @@ function MediaCard({
                 onChange={e => onStatusChange?.(media.id, e.target.value)}
                 onClick={e => e.stopPropagation()}
                 onPointerDown={e => e.stopPropagation()}
-                className="flex-1 min-w-0 text-[10px] font-semibold px-2 py-1 rounded-full border bg-zinc-900 border-zinc-800 text-zinc-400 focus:outline-none focus:border-violet-500 transition cursor-pointer appearance-none"
+                className="flex-1 min-w-0 text-[10px] font-semibold px-2 py-1 rounded-full border bg-zinc-900 border-zinc-800 text-zinc-400 focus:outline-none focus:border-zinc-600 transition cursor-pointer appearance-none"
               >
                 <option value="watching">In corso</option>
                 <option value="completed">Completato</option>
@@ -666,7 +667,7 @@ function CollectionControls({
           value={search}
           onChange={e => onSearch(e.target.value)}
           placeholder="Cerca nella collezione…"
-          className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl pl-9 pr-8 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
+          className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl pl-9 pr-8 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
         />
         {search && (
           <button onClick={() => onSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
@@ -680,7 +681,7 @@ function CollectionControls({
         <select
           value={statusFilter}
           onChange={e => onStatusFilter(e.target.value)}
-          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-violet-500 transition-colors appearance-none flex-1 md:flex-none md:w-40 min-w-0"
+          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-zinc-600 transition-colors appearance-none flex-1 md:flex-none md:w-40 min-w-0"
         >
           <option value="all">Tutti</option>
           <option value="watching">In corso</option>
@@ -692,7 +693,7 @@ function CollectionControls({
         <select
           value={sort}
           onChange={e => onSort(e.target.value as SortMode)}
-          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-violet-500 transition-colors appearance-none flex-1 md:flex-none md:w-40 min-w-0"
+          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-zinc-600 transition-colors appearance-none flex-1 md:flex-none md:w-40 min-w-0"
         >
           <option value="default">Default</option>
           <option value="rating_desc">Voto ↓</option>
@@ -1327,7 +1328,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
         <div className="flex flex-col items-center text-center mb-8 md:mb-10">
 
           {/* Avatar grande centrato */}
-          <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden ring-4 ring-violet-500/30 hover:ring-violet-500/60 transition-all mb-4 flex-shrink-0">
+          <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden ring-4 ring-zinc-600/30 hover:ring-zinc-600/60 transition-all mb-4 flex-shrink-0">
             <Avatar
               src={profile.avatar_url}
               username={profile.username}

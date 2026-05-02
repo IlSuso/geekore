@@ -273,10 +273,10 @@ export default function Navbar() {
             <div ref={menuRef} className="relative">
               <button
                 onClick={() => setMenuOpen(o => !o)}
-                className={`flex items-center gap-1.5 rounded-full transition-all ${menuOpen ? 'ring-2 ring-violet-500/60' : 'hover:opacity-90'}`}
+                className={`flex items-center gap-1.5 rounded-full transition-all ${menuOpen ? 'ring-2 ring-zinc-600/60' : 'hover:opacity-90'}`}
                 aria-label="Menu account"
               >
-                <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-zinc-700 hover:ring-violet-500/50 transition-all">
+                <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-zinc-700 hover:ring-zinc-600/50 transition-all">
                   {avatarSrc ? (
                     <img src={avatarSrc} alt={`Avatar di ${currentDisplayName}`} width={36} height={36} className="w-full h-full object-cover" />
                   ) : (
@@ -296,7 +296,7 @@ export default function Navbar() {
                     onClick={() => setMenuOpen(false)}
                     className="flex items-center gap-3 px-4 py-4 hover:bg-zinc-900 transition-colors border-b border-zinc-800"
                   >
-                    <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-violet-500/30 flex-shrink-0">
+                    <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-zinc-600/30 flex-shrink-0">
                       {avatarSrc ? (
                         <img src={avatarSrc} alt={`Avatar di ${currentDisplayName}`} width={48} height={48} className="w-full h-full object-cover" />
                       ) : (

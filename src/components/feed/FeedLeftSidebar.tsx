@@ -54,7 +54,7 @@ export function FeedLeftSidebar({ profile }: { profile: Profile | null }) {
             href={`/profile/${profile.username}`}
             className="flex items-center gap-3 px-3 py-3.5 mb-2 rounded-2xl hover:bg-zinc-800/70 transition-colors group flex-shrink-0"
           >
-            <div className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-zinc-700 group-hover:ring-violet-500/40 transition-all">
+            <div className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-zinc-700 group-hover:ring-zinc-600/40 transition-all">
               <Avatar
                 src={profile.avatar_url}
                 username={profile.username}

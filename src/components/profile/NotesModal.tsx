@@ -65,7 +65,7 @@ export function NotesModal({
                 onChange={e => onChange(e.target.value.slice(0, MAX_NOTES_LENGTH))}
                 placeholder={placeholder}
                 maxLength={MAX_NOTES_LENGTH}
-                className="w-full h-40 bg-zinc-800 border border-zinc-700 rounded-2xl p-4 text-white resize-none overflow-y-auto focus:outline-none focus:border-violet-500 transition-colors"
+                className="w-full h-40 bg-zinc-800 border border-zinc-700 rounded-2xl p-4 text-white resize-none overflow-y-auto focus:outline-none focus:border-zinc-600 transition-colors"
               />
               <span className={`absolute bottom-3 right-3 text-[10px] font-medium transition-colors ${
                 charCount > MAX_NOTES_LENGTH * 0.9

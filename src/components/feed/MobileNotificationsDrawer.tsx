@@ -194,7 +194,7 @@ export function MobileNotificationsDrawer({
             <div
               key={notif.id}
               className={`flex items-center gap-3 px-4 py-3.5 border-b border-zinc-800/40 transition-colors active:bg-zinc-900/60 ${
-                !notif.is_read ? 'bg-violet-600/5' : ''
+                !notif.is_read ? 'bg-zinc-800/40' : ''
               }`}
             >
               <div className="relative flex-shrink-0">

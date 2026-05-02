@@ -140,7 +140,7 @@ export function NotificationsDrawer({ open, onClose }: { open: boolean; onClose:
             return (
               <div
                 key={notif.id}
-                className={`flex items-start gap-3 px-4 py-3 hover:bg-zinc-900 transition-colors border-b border-zinc-800/40 ${!notif.is_read ? 'bg-violet-600/5' : ''}`}
+                className={`flex items-start gap-3 px-4 py-3 hover:bg-zinc-900 transition-colors border-b border-zinc-800/40 ${!notif.is_read ? 'bg-zinc-800/40' : ''}`}
               >
                 <div className="relative flex-shrink-0">
                   {actor ? (

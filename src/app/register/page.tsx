@@ -154,7 +154,7 @@ export default function RegisterPage() {
       {/* Left — Branding */}
       <div className="hidden lg:flex lg:w-[45%] relative flex-col justify-between p-16 overflow-hidden border-r border-zinc-800/50">
         <div className="absolute top-1/3 -left-20 w-96 h-96 bg-fuchsia-600/15 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-1/4 right-0 w-72 h-72 bg-violet-600/15 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-1/4 right-0 w-72 h-72 rounded-full blur-[100px] pointer-events-none" style={{ background: "rgba(230,255,61,0.05)" }} />
 
         <div className="relative flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center shadow-lg shadow-violet-500/30">
@@ -208,13 +208,13 @@ export default function RegisterPage() {
               <label className="block text-sm font-medium text-zinc-400 mb-2">{l.displayName}</label>
               <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)}
                 placeholder={l.displayNamePlaceholder} autoComplete="name"
-                className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors" />
+                className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors" />
             </div>
             <div>
               <label className="block text-sm font-medium text-zinc-400 mb-2">{l.email}</label>
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                 placeholder={l.emailPlaceholder} autoComplete="email"
-                className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors"
+                className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors"
                 required />
             </div>
             <div>
@@ -224,7 +224,7 @@ export default function RegisterPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={l.passwordPlaceholder} autoComplete="new-password"
                   className={`w-full bg-zinc-900 border rounded-2xl px-5 py-3.5 pr-12 text-white placeholder-zinc-600 focus:outline-none transition-colors ${
-                    passwordTooWeak ? 'border-red-500/60 focus:border-red-500' : 'border-zinc-800 focus:border-violet-500'
+                    passwordTooWeak ? 'border-red-500/60 focus:border-red-500' : 'border-zinc-800 focus:border-zinc-600'
                   }`}
                   required />
                 <button type="button" onClick={() => setShowPassword(!showPassword)}

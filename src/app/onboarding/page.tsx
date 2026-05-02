@@ -143,7 +143,7 @@ function BrandPanel({ step }: { step: number }) {
 
   return (
     <div className="relative w-full h-full flex flex-col justify-between px-14 xl:px-20 py-14 overflow-hidden">
-      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-violet-600/15 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full blur-[140px] pointer-events-none" style={{ background: "rgba(230,255,61,0.05)" }} />
       <div className="absolute -bottom-32 -right-10 w-96 h-96 bg-fuchsia-600/10 rounded-full blur-[110px] pointer-events-none" />
       <div className="absolute top-1/2 -translate-y-1/2 left-1/3 w-60 h-60 bg-sky-500/8 rounded-full blur-[90px] pointer-events-none" />
 
@@ -168,8 +168,8 @@ function BrandPanel({ step }: { step: number }) {
           <div className="space-y-4 pt-2">
             {FEATURES.map(({ icon: Icon, label }) => (
               <div key={label} className="flex items-start gap-3">
-                <div className="w-9 h-9 bg-violet-500/10 border border-violet-500/25 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
-                  <Icon size={17} className="" style={{ color: '#E6FF3D' }} />
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)' }}>
+                  <Icon size={17} style={{ color: '#E6FF3D' }} />
                 </div>
                 <span className="text-zinc-300 text-sm leading-relaxed pt-1">{label}</span>
               </div>
@@ -479,8 +479,8 @@ export default function OnboardingPage() {
               <div className="lg:hidden space-y-3 mb-8">
                 {FEATURES.map(({ icon: Icon, label }) => (
                   <div key={label} className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-violet-500/15 border border-violet-500/30 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
-                      <Icon size={15} className="" style={{ color: '#E6FF3D' }} />
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)' }}>
+                      <Icon size={15} style={{ color: '#E6FF3D' }} />
                     </div>
                     <span className="text-zinc-300 text-sm leading-relaxed pt-1">{label}</span>
                   </div>
@@ -489,7 +489,7 @@ export default function OnboardingPage() {
 
               {/* Titolo desktop */}
               <div className="hidden lg:block mb-8">
-                <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-2">Cominciamo <Sparkles size={26} className="" style={{ color: '#E6FF3D' }} /></h1>
+                <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-2">Cominciamo <Sparkles size={26} style={{ color: '#E6FF3D' }} /></h1>
                 <p className="text-zinc-400">Ci vorranno meno di 2 minuti.</p>
               </div>
 

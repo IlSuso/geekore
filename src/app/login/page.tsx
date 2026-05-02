@@ -92,7 +92,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-stretch bg-zinc-950">
       <div className="hidden lg:flex lg:w-[45%] relative flex-col justify-between p-16 overflow-hidden border-r border-zinc-800/50">
-        <div className="absolute top-1/4 -left-20 w-96 h-96 bg-violet-600/20 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute top-1/4 -left-20 w-96 h-96 rounded-full blur-[120px] pointer-events-none" style={{ background: "rgba(230,255,61,0.07)" }} />
         <div className="absolute bottom-1/3 right-0 w-72 h-72 bg-fuchsia-600/10 rounded-full blur-[100px] pointer-events-none" />
         <div className="relative flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center shadow-lg shadow-violet-500/30">
@@ -152,7 +152,7 @@ export default function LoginPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-sm font-medium text-zinc-400">{l.password}</label>
-                <Link href="/forgot-password" className="text-xs hover:opacity-80 transition-opacity" style={{ color: '#E6FF3D' }}">
+                <Link href="/forgot-password" className="text-xs hover:opacity-80 transition-opacity" style={{ color: '#E6FF3D' }}>
                   Password dimenticata?
                 </Link>
               </div>

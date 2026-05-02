@@ -108,7 +108,7 @@ export default function LeaderboardPage() {
                 <Link
                   key={leader.user_id}
                   href={`/profile/${leader.username}`}
-                  className="flex items-center gap-4 p-4 bg-zinc-950 border border-zinc-800 rounded-2xl hover:border-violet-500/40 transition-all group animate-in fade-in"
+                  className="flex items-center gap-4 p-4 bg-zinc-950 border border-zinc-800 rounded-2xl hover:border-zinc-600 transition-all group animate-in fade-in"
                   style={{ animationDelay: `${i * 30}ms` }}
                 >
                   {/* Rank */}

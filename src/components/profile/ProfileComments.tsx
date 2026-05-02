@@ -145,7 +145,7 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
               onChange={e => setNewComment(e.target.value.slice(0, 500))}
               placeholder={`Lascia un messaggio su @${profileUsername}...`}
               rows={2}
-              className="flex-1 bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none resize-none transition-colors"
+              className="flex-1 bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none resize-none transition-colors"
             />
             <button
               onClick={handlePost}

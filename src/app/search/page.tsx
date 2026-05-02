@@ -122,7 +122,7 @@ export default function SearchPage() {
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Cerca per username o nome..."
-            className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl pl-11 pr-11 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors"
+            className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl pl-11 pr-11 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors"
             autoComplete="off"
             autoCapitalize="none"
             spellCheck={false}
@@ -174,7 +174,7 @@ export default function SearchPage() {
               >
                 {/* Avatar — link al profilo */}
                 <Link href={`/profile/${user.username}`} className="shrink-0">
-                  <div className="w-12 h-12 rounded-2xl overflow-hidden ring-2 ring-violet-500/20">
+                  <div className="w-12 h-12 rounded-2xl overflow-hidden ring-2 ring-zinc-600/20">
                     <Avatar
                       src={user.avatar_url}
                       username={user.username}

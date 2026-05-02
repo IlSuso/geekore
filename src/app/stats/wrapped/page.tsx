@@ -50,7 +50,7 @@ function Slide1({ data, onNext }: { data: WrappedData; onNext: () => void }) {
       style={{ background: 'linear-gradient(160deg, #1a0a2e 0%, #0d0a1a 50%, #0a1a2e 100%)' }}
     >
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-violet-600/20 rounded-full blur-[80px]" />
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 rounded-full blur-[80px]" style={{ background: "rgba(230,255,61,0.08)" }} />
         <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-fuchsia-600/20 rounded-full blur-[60px]" />
       </div>
       <div className="relative z-10">
@@ -165,7 +165,7 @@ function Slide5({ data, onShare }: { data: WrappedData; onShare: () => void }) {
       style={{ background: 'linear-gradient(160deg, #1a0a2e 0%, #0d0a1a 50%, #1a0a0e 100%)' }}
     >
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/3 left-1/3 w-80 h-80 bg-violet-600/20 rounded-full blur-[100px]" />
+        <div className="absolute top-1/3 left-1/3 w-80 h-80 rounded-full blur-[100px]" style={{ background: "rgba(230,255,61,0.06)" }} />
       </div>
       <div className="relative z-10 w-full">
         <p className="text-4xl mb-4">{rankEmoji}</p>
@@ -286,7 +286,7 @@ export default function WrappedPage() {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <div className="text-center space-y-4">
-          <div className="w-16 h-16 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="w-16 h-16 border-2 border-t-transparent rounded-full animate-spin mx-auto" style={{ borderColor: '#E6FF3D', borderTopColor: 'transparent' }} />
           <p className="text-zinc-400 text-sm">Costruendo il tuo {year} Wrapped…</p>
         </div>
       </div>

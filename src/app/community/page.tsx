@@ -255,7 +255,7 @@ export default async function CommunityPage() {
                 <Link
                   key={m.id}
                   href={`/profile/${m.username}`}
-                  className="flex items-center gap-2 px-3 py-2 bg-zinc-900/60 border border-zinc-800 rounded-full hover:border-violet-500/40 hover:bg-zinc-900 transition-all"
+                  className="flex items-center gap-2 px-3 py-2 bg-zinc-900/60 border border-zinc-800 rounded-full hover:border-zinc-600 hover:bg-zinc-900 transition-all"
                 >
                   <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
                     <Avatar src={m.avatar_url} username={m.username} displayName={m.display_name ?? undefined} size={24} />

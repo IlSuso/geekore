@@ -86,7 +86,7 @@ function ListModal({
               value={title}
               onChange={e => setTitle(e.target.value.slice(0, 100))}
               placeholder="Es. Top 10 anime di sempre"
-              className="w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500 rounded-2xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none transition"
+              className="w-full bg-zinc-800 border border-zinc-700 focus:border-zinc-600 rounded-2xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none transition"
               maxLength={100}
             />
             <p className="text-xs text-zinc-600 mt-1 text-right">{title.length}/100</p>
@@ -99,7 +99,7 @@ function ListModal({
               onChange={e => setDescription(e.target.value.slice(0, 500))}
               placeholder="Breve descrizione della lista..."
               rows={3}
-              className="w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500 rounded-2xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none resize-none transition"
+              className="w-full bg-zinc-800 border border-zinc-700 focus:border-zinc-600 rounded-2xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none resize-none transition"
               maxLength={500}
             />
           </div>

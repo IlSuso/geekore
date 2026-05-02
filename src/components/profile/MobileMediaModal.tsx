@@ -353,7 +353,7 @@ export function MobileMediaModal({
               <select
                 value={media.status || 'watching'}
                 onChange={e => onStatusChange?.(media.id, e.target.value)}
-                className="w-full text-sm font-medium px-4 py-3 rounded-2xl border bg-zinc-800 border-zinc-700 text-white focus:outline-none focus:border-violet-500 transition cursor-pointer appearance-none"
+                className="w-full text-sm font-medium px-4 py-3 rounded-2xl border bg-zinc-800 border-zinc-700 text-white focus:outline-none focus:border-zinc-600 transition cursor-pointer appearance-none"
               >
                 <option value="watching">In corso</option>
                 <option value="completed">Completato</option>

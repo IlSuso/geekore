@@ -252,7 +252,7 @@ export default function ListDetailPage() {
               value={searchFilter}
               onChange={e => setSearchFilter(e.target.value)}
               placeholder="Cerca nella collezione..."
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500 transition mb-3"
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition mb-3"
             />
             <div className="max-h-48 overflow-y-auto space-y-1">
               {filteredCollection.slice(0, 20).map(entry => {

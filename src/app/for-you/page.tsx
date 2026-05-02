@@ -358,7 +358,7 @@ function SimilarSearchBar({ onSearch, loading }: {
             }
           }}
           placeholder="Cerca un titolo per trovare contenuti simili…"
-          className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl pl-9 pr-8 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
+          className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl pl-9 pr-8 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
         />
         {query && (
           <button onClick={handleClear} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors">
@@ -441,7 +441,7 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
   }
 
   return (
-    <div className="mb-10 rounded-3xl border border-violet-500/30 bg-violet-500/5 p-5">
+    <div className="mb-10 rounded-3xl p-5" style={{ border: '1px solid rgba(230,255,61,0.2)', background: 'rgba(230,255,61,0.03)' }}>
 
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">

@@ -175,7 +175,7 @@ function UserCard({ user }: { user: { id: string; count: number; profile: any } 
   const initial = (profile.display_name || profile.username)[0]?.toUpperCase() || '?'
   return (
     <Link href={`/profile/${profile.username}`} className="flex flex-col items-center gap-2 group">
-      <div className="w-14 h-14 rounded-2xl overflow-hidden ring-2 ring-zinc-800 group-hover:ring-violet-500/50 transition-all">
+      <div className="w-14 h-14 rounded-2xl overflow-hidden ring-2 ring-zinc-800 group-hover:ring-zinc-600/50 transition-all">
         <Avatar
           src={profile.avatar_url}
           username={profile.username}
@@ -293,7 +293,7 @@ export default async function ExplorePage() {
         {trendingUsers.length > 0 && (
           <section className="mb-10">
             <div className="flex items-center gap-2 mb-4">
-              <TrendingUp size={14} className="" style={{ color: '#E6FF3D' }} />
+              <TrendingUp size={14} style={{ color: '#E6FF3D' }} />
               <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Più attivi questa settimana</h2>
             </div>
             <div className="grid grid-cols-4 sm:grid-cols-6 gap-4">
@@ -366,7 +366,7 @@ export default async function ExplorePage() {
                         <p className="text-xs text-zinc-500 truncate mt-0.5">{list.description}</p>
                       )}
                       <p className="text-xs text-zinc-600 mt-1">
-                        di <span className="" style={{ color: '#E6FF3D' }}>@{owner?.username || 'utente'}</span>
+                        di <span style={{ color: '#E6FF3D' }}>@{owner?.username || 'utente'}</span>
                       </p>
                     </div>
                     <span className="text-zinc-600 group-hover:text-zinc-400 transition-colors flex-shrink-0">→</span>

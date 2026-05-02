@@ -112,7 +112,7 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
     return (
       <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4">
         <div className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-2xl p-8 flex items-center justify-center" style={{ minHeight: 200 }}>
-          <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#E6FF3D', borderTopColor: 'transparent' }} />
         </div>
       </div>
     )
@@ -147,7 +147,7 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
               <div className="grid grid-cols-1 gap-2 mb-6">
                 {QUICK_PRESETS.map(preset => (
                   <button key={preset.label} onClick={() => applyPreset(preset)}
-                    className="flex items-center gap-3 px-4 py-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-violet-500/50 rounded-2xl text-sm text-left transition-all">
+                    className="flex items-center gap-3 px-4 py-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-zinc-600 rounded-2xl text-sm text-left transition-all">
                     <span className="text-xl">{preset.label.split(' ')[0]}</span>
                     <span className="font-medium text-zinc-200">{preset.label.split(' ').slice(1).join(' ')}</span>
                     <ArrowRight size={14} className="ml-auto text-zinc-600" />

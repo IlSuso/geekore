@@ -16,7 +16,7 @@ export default function PrivacyPage() {
 
         <div className="flex items-center gap-3 mb-2">
           <div className="w-10 h-10 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-center">
-            <Shield size={18} className="" style={{ color: '#E6FF3D' }} />
+            <Shield size={18} style={{ color: '#E6FF3D' }} />
           </div>
           <h1 className="text-3xl font-bold tracking-tight">
             {isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}

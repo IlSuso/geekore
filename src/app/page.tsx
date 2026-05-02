@@ -93,7 +93,7 @@ async function CommunityLive() {
                 href={`/profile/${u.username}`}
                 className="flex flex-col items-center gap-2 group"
               >
-                <div className="w-12 h-12 rounded-2xl overflow-hidden ring-2 ring-zinc-800 group-hover:ring-violet-500/50 transition-all">
+                <div className="w-12 h-12 rounded-2xl overflow-hidden ring-2 ring-zinc-800 group-hover:ring-zinc-600/50 transition-all">
                   <Avatar
                     src={u.avatar_url}
                     username={u.username}

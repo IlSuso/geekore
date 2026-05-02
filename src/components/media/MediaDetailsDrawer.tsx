@@ -874,7 +874,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                           else setFormSeasonError(null)
                           setFormEpisode('0'); setFormEpisodeError(null)
                         }}
-                        className="w-full bg-[var(--bg-card)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-violet-500"
+                        className="w-full bg-[var(--bg-card)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-zinc-600"
                       />
                       {formSeasonError && <p className="text-xs text-red-400 mt-1">{formSeasonError}</p>}
                     </div>
@@ -897,7 +897,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                           else if (maxEp && n > maxEp) setFormEpisodeError(`Massimo ${maxEp}`)
                           else setFormEpisodeError(null)
                         }}
-                        className="w-full bg-[var(--bg-card)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-violet-500"
+                        className="w-full bg-[var(--bg-card)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-zinc-600"
                       />
                       {formEpisodeError && <p className="text-xs text-red-400 mt-1">{formEpisodeError}</p>}
                     </div>
