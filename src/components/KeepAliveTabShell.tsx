@@ -1,8 +1,8 @@
 'use client'
 
 // src/components/KeepAliveTabShell.tsx
-// Keep-alive solo per le tab primarie: Home, For You, Library, Discover, Profile.
-// Swipe è una modalità interna di For You e non vive più come pannello/tab separato.
+// Keep-alive solo per le tab primarie: Home, For You, Library, Discover, Friends.
+// Swipe è una modalità interna di For You. Profile è accessibile dall'avatar.
 
 import { Activity } from 'react'
 import { animate } from 'motion/react'
@@ -14,15 +14,15 @@ import FeedPage     from '@/app/home/page'
 import DiscoverPage from '@/app/discover/page'
 import ForYouPage   from '@/app/for-you/page'
 import LibraryPage  from '@/app/library/page'
-import ProfilePage  from '@/app/profile/[username]/page'
+import FriendsPage  from '@/app/friends/page'
 import { swipeNavBridge } from '@/hooks/swipeNavBridge'
 import { ScrollPanelContext } from '@/context/ScrollPanelContext'
 import { TabActiveContext } from '@/context/TabActiveContext'
 
-type KATab = 'feed' | 'for-you' | 'library' | 'discover' | 'profile'
+type KATab = 'feed' | 'for-you' | 'library' | 'discover' | 'friends'
 
-const ALL_TABS: KATab[] = ['feed', 'for-you', 'library', 'discover', 'profile']
-const TAB_IDX_TO_KA: Array<KATab | null> = ['feed', 'for-you', 'library', 'discover', 'profile']
+const ALL_TABS: KATab[] = ['feed', 'for-you', 'library', 'discover', 'friends']
+const TAB_IDX_TO_KA: Array<KATab | null> = ['feed', 'for-you', 'library', 'discover', 'friends']
 
 const HEADER_H_PX  = 53
 const HEADER_TOP   = `calc(env(safe-area-inset-top, 0px) + ${HEADER_H_PX}px)`
@@ -50,7 +50,7 @@ function getKATab(pathname: string): KATab | null {
   if (pathname === '/for-you' || pathname === '/swipe') return 'for-you'
   if (pathname === '/library') return 'library'
   if (pathname === '/discover') return 'discover'
-  if (pathname.startsWith('/profile/') && pathname.split('/').length === 3) return 'profile'
+  if (pathname === '/friends' || pathname === '/community') return 'friends'
   return null
 }
 
@@ -98,7 +98,10 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
   const { activeTab, setActiveTab } = useActiveTab()
 
   const pathnameTab = getKATab(pathname)
-  const tab = activeTab === 'swipe' ? 'for-you' : (activeTab ?? pathnameTab)
+  const normalizedActiveTab = activeTab === 'swipe' ? 'for-you' : activeTab
+  const tab = (normalizedActiveTab && ALL_TABS.includes(normalizedActiveTab as KATab))
+    ? normalizedActiveTab as KATab
+    : pathnameTab
 
   const visited = useRef<Set<KATab>>(new Set())
   if (tab) visited.current.add(tab)
@@ -130,12 +133,6 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (pathnameTab !== null) setActiveTab(pathnameTab)
   }, [pathname]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const latestProfileUsername = useRef<string | null>(null)
-  if (tab === 'profile') {
-    const u = pathname.split('/')[2]
-    if (u) latestProfileUsername.current = u
-  }
 
   const panelRefs = useRef<Record<KATab, MutableRefObject<HTMLDivElement | null>>>(
     Object.fromEntries(
@@ -367,8 +364,6 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
     return 'hidden'
   }
 
-  const profileUsername = latestProfileUsername.current
-
   function shouldMount(panelTab: KATab): boolean {
     return visited.current.has(panelTab)
   }
@@ -399,11 +394,9 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
         </PanelWrapper>
       </Activity>
 
-      <Activity mode={activityMode('profile')}>
-        <PanelWrapper divRef={panelRefs.current.profile} isActive={tab === 'profile'} style={getPanelStyle('profile')}>
-          {shouldMount('profile') && profileUsername && (
-            <ProfilePage usernameOverride={profileUsername} />
-          )}
+      <Activity mode={activityMode('friends')}>
+        <PanelWrapper divRef={panelRefs.current.friends} isActive={tab === 'friends'} style={getPanelStyle('friends')}>
+          {shouldMount('friends') && <FriendsPage />}
         </PanelWrapper>
       </Activity>
 
