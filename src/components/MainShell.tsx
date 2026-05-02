@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { ForYouModeSwitch } from '@/components/for-you/ForYouModeSwitch'
 import { DiscoverQuickLinks } from '@/components/discover/DiscoverQuickLinks'
+import { DiscoverUrlSearchBridge } from '@/components/discover/DiscoverUrlSearchBridge'
 
 const AUTH_PATHS = ['/login', '/register', '/auth/', '/forgot-password', '/onboarding', '/']
 
@@ -20,9 +21,12 @@ export function MainShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
       {showDiscoverQuickLinks && (
-        <div className="fixed left-2 right-2 top-[calc(3.65rem+env(safe-area-inset-top,0px))] z-[95] md:left-1/2 md:right-auto md:top-16 md:-translate-x-1/2">
-          <DiscoverQuickLinks />
-        </div>
+        <>
+          <DiscoverUrlSearchBridge />
+          <div className="fixed left-2 right-2 top-[calc(3.65rem+env(safe-area-inset-top,0px))] z-[95] md:left-1/2 md:right-auto md:top-16 md:-translate-x-1/2">
+            <DiscoverQuickLinks />
+          </div>
+        </>
       )}
       {children}
     </main>
