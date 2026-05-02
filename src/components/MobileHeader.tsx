@@ -17,6 +17,7 @@ import { useState, useEffect, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/context/AuthContext'
 import { MobileNotificationsDrawer } from '@/components/feed/MobileNotificationsDrawer'
+import { GeekoreWordmark } from '@/components/ui/GeekoreWordmark'
 
 const AUTH_PATHS = ['/login', '/register', '/auth/', '/forgot-password', '/onboarding', '/profile/setup']
 
@@ -29,30 +30,6 @@ function BackButton() {
     >
       <ChevronLeft size={28} strokeWidth={1.6} />
     </button>
-  )
-}
-
-// Wordmark — identità visiva Geekore
-function GeekoreWordmark() {
-  return (
-    <Link href="/home" className="flex items-center gap-[3px] py-1">
-      <span
-        className="text-[24px] font-bold text-white font-display"
-        style={{ letterSpacing: '-0.03em' }}
-      >
-        geekore
-      </span>
-      <span
-        className="flex-shrink-0 mb-[2px]"
-        style={{
-          width: 7,
-          height: 7,
-          borderRadius: 2,
-          background: '#E6FF3D',
-          display: 'inline-block',
-        }}
-      />
-    </Link>
   )
 }
 
@@ -69,7 +46,7 @@ function PageTitle({ title, icon, iconBg, iconStyle }: PageTitleProps) {
       <div className={`w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`} style={iconStyle}>
         {icon}
       </div>
-      <h1 className="text-[17px] font-semibold text-white tracking-tight">{title}</h1>
+      <h1 className="text-[17px] font-semibold text-[var(--text-primary)] tracking-tight">{title}</h1>
     </div>
   )
 }
@@ -122,20 +99,20 @@ export function MobileHeader() {
   // Nessun gradiente casuale — coerenza prima di tutto.
   const PAGE_CONFIG: Record<string, PageTitleProps> = {
     '/discover':      { title: t.nav.discover,      icon: <Search size={14} className="text-white" />,     iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
-    '/for-you':       { title: t.nav.forYou,         icon: <Sparkles size={14} className="text-black" />,   iconBg: '', iconStyle: { background: '#E6FF3D' } },
+    '/for-you':       { title: t.nav.forYou,         icon: <Sparkles size={14} className="text-black" />,   iconBg: '', iconStyle: { background: 'var(--accent)' } },
     '/trending':      { title: 'Trending',            icon: <TrendingUp size={14} className="text-white" />, iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
-    '/swipe':         { title: 'Swipe',               icon: <Shuffle size={14} className="text-black" />,    iconBg: '', iconStyle: { background: '#E6FF3D' } },
+    '/swipe':         { title: 'Swipe',               icon: <Shuffle size={14} className="text-black" />,    iconBg: '', iconStyle: { background: 'var(--accent)' } },
     '/notifications': { title: 'Notifiche',           icon: <Bell size={14} className="text-zinc-400" />,    iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
     '/settings':      { title: t.nav.settings,        icon: <Settings size={14} className="text-zinc-400" />,iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
-    '/settings/profile': { title: 'Modifica Profilo', icon: <Edit3 size={14} className="text-black" />,      iconBg: '', iconStyle: { background: '#E6FF3D' } },
-    '/profile/setup': { title: 'Crea Profilo',        icon: <Edit3 size={14} className="text-black" />,      iconBg: '', iconStyle: { background: '#E6FF3D' } },
+    '/settings/profile': { title: 'Modifica Profilo', icon: <Edit3 size={14} className="text-black" />,      iconBg: '', iconStyle: { background: 'var(--accent)' } },
+    '/profile/setup': { title: 'Crea Profilo',        icon: <Edit3 size={14} className="text-black" />,      iconBg: '', iconStyle: { background: 'var(--accent)' } },
     '/wishlist':      { title: 'Wishlist',            icon: <Bookmark size={14} className="text-zinc-400" />,iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
     '/stats':         { title: 'Statistiche',         icon: <BarChart2 size={14} className="text-zinc-400" />,iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
     '/leaderboard':   { title: 'Classifica',          icon: <Trophy size={14} className="text-zinc-400" />,  iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
     '/lists':         { title: 'Liste',               icon: <List size={14} className="text-zinc-400" />,    iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
     '/search':        { title: 'Cerca',               icon: <Search size={14} className="text-zinc-400" />,  iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
     '/explore':       { title: 'Esplora',             icon: <Search size={14} className="text-zinc-400" />,   iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
-    '/community':     { title: 'Community',           icon: <Users size={14} className="text-black" />,       iconBg: '', iconStyle: { background: '#E6FF3D' } },
+    '/community':     { title: 'Community',           icon: <Users size={14} className="text-black" />,       iconBg: '', iconStyle: { background: 'var(--accent)' } },
     '/library':       { title: 'Libreria',            icon: <Library size={14} className="text-white" />,     iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
   }
 
@@ -147,10 +124,10 @@ export function MobileHeader() {
 
   const renderLeft = () => {
     if (isSubPage) return <BackButton />
-    if (isFeed)    return <GeekoreWordmark />
+    if (isFeed)    return <GeekoreWordmark size="md" />
     if (isOwnProfile) return (
       <div className="flex items-center gap-1.5">
-        <span className="text-[17px] font-semibold text-white tracking-tight">
+        <span className="text-[17px] font-semibold text-[var(--text-primary)] tracking-tight">
           {username || 'Profilo'}
         </span>
       </div>
@@ -158,7 +135,7 @@ export function MobileHeader() {
     if (isOtherProfile && profileUsername && profileUsername !== 'me') return (
       <div className="flex items-center gap-1.5">
         <ChevronLeft size={26} strokeWidth={1.6} className="text-[var(--text-primary)] -ml-1 cursor-pointer" onClick={() => window.history.back()} />
-        <h1 className="text-[16px] font-semibold text-white truncate">{profileUsername}</h1>
+        <h1 className="text-[16px] font-semibold text-[var(--text-primary)] truncate">{profileUsername}</h1>
       </div>
     )
     if (pageConfig) return (
@@ -210,9 +187,10 @@ export function MobileHeader() {
   return (
     <>
     <header
-      className="md:hidden fixed top-0 left-0 right-0 z-[99] bg-black swipe-header"
+      className="md:hidden fixed top-0 left-0 right-0 z-[99] swipe-header"
       style={{
         paddingTop: 'env(safe-area-inset-top)',
+        background: 'var(--bg-primary)',
         visibility: isSwipePage ? 'hidden' : 'visible',
         pointerEvents: isSwipePage ? 'none' : 'auto',
       }}

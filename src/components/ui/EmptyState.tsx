@@ -12,7 +12,7 @@ interface EmptyStateProps {
     href?: string
     onClick?: () => void
   }
-  accent?: 'violet' | 'zinc'
+  accent?: 'signature' | 'violet' | 'zinc'
   className?: string
 }
 
@@ -21,12 +21,13 @@ export function EmptyState({
   title,
   description,
   action,
-  accent = 'violet',
+  accent = 'signature',
   className = '',
 }: EmptyStateProps) {
   const accentMap = {
-    violet: { icon: 'text-[#E6FF3D]', ring: 'border-[rgba(230,255,61,0.2)]', bg: 'bg-[rgba(230,255,61,0.06)]' },
-    zinc:   { icon: 'text-zinc-500',  ring: 'border-[var(--border)]', bg: 'bg-[var(--bg-card)]' },
+    signature: { icon: 'text-[#E6FF3D]', ring: 'border-[rgba(230,255,61,0.2)]', bg: 'bg-[rgba(230,255,61,0.06)]' },
+    violet:    { icon: 'text-[#E6FF3D]', ring: 'border-[rgba(230,255,61,0.2)]', bg: 'bg-[rgba(230,255,61,0.06)]' },
+    zinc:      { icon: 'text-zinc-500',  ring: 'border-[var(--border)]', bg: 'bg-[var(--bg-card)]' },
   }
   const colors = accentMap[accent]
 
@@ -38,11 +39,11 @@ export function EmptyState({
       </div>
 
       {/* Text */}
-      <p className="text-[17px] font-bold text-[var(--text-primary)] tracking-tight mb-1.5">
+      <p className="gk-headline text-[var(--text-primary)] mb-1.5">
         {title}
       </p>
       {description && (
-        <p className="text-[14px] text-[var(--text-secondary)] leading-relaxed max-w-[280px]">
+        <p className="gk-body max-w-[280px]">
           {description}
         </p>
       )}
@@ -54,7 +55,7 @@ export function EmptyState({
             <Link
               href={action.href}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-semibold transition-colors"
-              style={{ background: '#E6FF3D', color: '#0B0B0F' }}
+              style={{ background: 'var(--accent)', color: '#0B0B0F' }}
             >
               {action.label}
             </Link>

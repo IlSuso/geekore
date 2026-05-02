@@ -52,8 +52,10 @@ export const metadata: Metadata = {
   },
 }
 
+const APP_THEME_COLOR = '#0B0B0F'
+
 export const viewport: Viewport = {
-  themeColor: '#000000',
+  themeColor: APP_THEME_COLOR,
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -77,11 +79,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="color-scheme" content="dark" />
-        <meta name="theme-color" content="#000000" />
-        <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
-        <meta name="theme-color" content="#000000" media="(prefers-color-scheme: light)" />
+        <meta name="theme-color" content={APP_THEME_COLOR} />
+        <meta name="theme-color" content={APP_THEME_COLOR} media="(prefers-color-scheme: dark)" />
+        <meta name="theme-color" content={APP_THEME_COLOR} media="(prefers-color-scheme: light)" />
       </head>
-      <body suppressHydrationWarning className={`${jakarta.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} bg-black text-white min-h-screen antialiased`}>
+      <body suppressHydrationWarning className={`${jakarta.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} min-h-screen antialiased`}>
         <ActiveTabProvider initialPathname={initialPathname}>
           <ClientProviders initialLocale={initialLocale}>
             <AppShell>
