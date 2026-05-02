@@ -84,6 +84,55 @@
 .gk-input-helper, .gk-input-error-msg { font-size: 12px; line-height: 1.4; color: var(--text-tertiary); }
 .gk-input-error-msg { color: #EF4444; }
 
+/* Fase 9 + full.html: /for-you deve respirare su desktop e non avere right rail. */
+.gk-for-you-page {
+  --foryou-rail-gap: 14px;
+  --foryou-card-width: 10rem;
+}
+
+.gk-for-you-page > div.mx-auto {
+  width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .gk-for-you-page > div.mx-auto {
+    max-width: none;
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+
+  .gk-for-you-page section:first-of-type {
+    border-radius: 28px;
+  }
+
+  .gk-for-you-page [class*="overflow-x-auto"] {
+    scroll-padding-left: 2px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .gk-for-you-page {
+    --foryou-rail-gap: 16px;
+    --foryou-card-width: minmax(0, 1fr);
+  }
+
+  .gk-for-you-page > div.mx-auto {
+    padding-left: 40px;
+    padding-right: 40px;
+  }
+}
+
+.gk-swipe-immersive {
+  min-height: 100dvh;
+  background: #000;
+}
+
+.gk-swipe-immersive [data-bottom-nav],
+.gk-swipe-immersive .gk-mobile-header,
+.gk-swipe-immersive .gk-sidebar {
+  display: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .gk-active-press, .gk-btn, .gk-hover-elevated { transition-property: opacity, background-color, border-color, color !important; }
   .gk-active-press:active, .gk-btn:active { transform: none !important; }
