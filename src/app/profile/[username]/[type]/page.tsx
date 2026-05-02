@@ -27,6 +27,7 @@ import {
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useDndSensors } from '@/hooks/useDndSensors'
+import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 
 // ─── Tipi ────────────────────────────────────────────────────────────────────
 
@@ -121,14 +122,6 @@ const TYPE_LABELS: Record<string, string> = {
 
 const PAGE_SIZE = 48
 
-const TYPE_COLORS: Record<string, string> = {
-  anime: 'bg-sky-500',
-  manga: 'bg-orange-500',
-  game: 'bg-green-500',
-  tv: 'bg-purple-500',
-  movie: 'bg-red-500',
-  boardgame: 'bg-amber-500',
-}
 
 // ─── Steam cover ──────────────────────────────────────────────────────────────
 
@@ -218,8 +211,8 @@ const MediaCard = memo(function MediaCard({
       {/* Cover */}
       <div className="relative h-64 bg-zinc-900 flex-shrink-0 overflow-hidden">
         {/* Badge tipo */}
-        <div className={`absolute bottom-3 left-3 z-20 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white tracking-wide ${TYPE_COLORS[media.type] || 'bg-zinc-700'}`}>
-          {TYPE_LABELS[media.type] || media.type}
+        <div className="absolute bottom-3 left-3 z-20">
+          <MediaTypeBadge type={media.type} size="xs" />
         </div>
         {/* Delete — hidden on mobile (in modal instead) */}
         {isOwner && (
@@ -913,8 +906,8 @@ export default function ProfileTypePage() {
         {/* Header */}
         <div className="flex items-end justify-between mb-8 gap-4 flex-wrap">
           <div>
-            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold text-white mb-3 ${TYPE_COLORS[type] || 'bg-zinc-700'}`}>
-              {typeLabel}
+            <div className="mb-3">
+              <MediaTypeBadge type={type} size="sm" />
             </div>
             <h1 className="text-4xl font-black tracking-tighter">{typeLabel}</h1>
             <p className="text-zinc-500 mt-1 text-sm">

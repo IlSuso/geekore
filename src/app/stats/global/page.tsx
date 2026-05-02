@@ -5,6 +5,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { Users, Clock, Star, Gamepad2, Tv, Film, Layers, TrendingUp, Globe, Trophy } from 'lucide-react'
 import Link from 'next/link'
+import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 
 async function getGlobalStats() {
   const supabase = await createClient()
@@ -100,13 +101,6 @@ async function getGlobalStats() {
   }
 }
 
-const TYPE_COLOR: Record<string, string> = {
-  anime: 'bg-sky-500', manga: 'bg-orange-500', game: 'bg-green-500',
-  tv: 'bg-purple-500', movie: 'bg-red-500',
-}
-const TYPE_LABEL: Record<string, string> = {
-  anime: 'Anime', manga: 'Manga', game: 'Videogioco', tv: 'Serie TV', movie: 'Film',
-}
 
 function StatCard({ label, value, sub, icon: Icon, color }: {
   label: string; value: string; sub?: string; icon: React.ElementType; color: string
@@ -213,9 +207,7 @@ export default async function GlobalStatsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-white truncate">{t.item.title}</p>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded text-white ${TYPE_COLOR[t.item.type] || 'bg-zinc-600'}`}>
-                      {TYPE_LABEL[t.item.type] || t.item.type}
-                    </span>
+                    <MediaTypeBadge type={t.item.type} size="xs" />
                   </div>
                   <div className="flex items-center gap-1 text-emerald-400 flex-shrink-0">
                     <Users size={11} />

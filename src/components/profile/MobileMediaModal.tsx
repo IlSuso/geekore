@@ -6,6 +6,7 @@ import { StarRating } from '@/components/ui/StarRating'
 import { gestureState } from '@/hooks/gestureState'
 import { androidBack } from '@/hooks/androidBack'
 import { optimizeCover } from '@/lib/imageOptimizer'
+import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 
 // ─── InlineChapterInput ───────────────────────────────────────────────────────
 
@@ -74,14 +75,6 @@ export type ModalMedia = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-const TYPE_COLORS: Record<string, string> = {
-  anime: 'bg-sky-500', manga: 'bg-orange-500', game: 'bg-green-500',
-  tv: 'bg-purple-500', movie: 'bg-red-500', board_game: 'bg-amber-500', boardgame: 'bg-amber-500',
-}
-const TYPE_LABELS: Record<string, string> = {
-  anime: 'Anime', manga: 'Manga', game: 'Gioco', tv: 'Serie TV',
-  movie: 'Film', board_game: 'Board Game', boardgame: 'Board Game',
-}
 
 export function MobileMediaModal({
   media, isOwner, onClose, onRating, onStatusChange, onSaveProgress,
@@ -298,9 +291,7 @@ export function MobileMediaModal({
           onTouchMove={onHandleTouchMove}
           onTouchEnd={onHandleTouchEnd}
         >
-          <span className={`text-[10px] font-bold text-white px-2.5 py-1 rounded-full flex-shrink-0 ${TYPE_COLORS[media.type] || 'bg-zinc-700'}`}>
-            {TYPE_LABELS[media.type] || media.type}
-          </span>
+          <MediaTypeBadge type={media.type} size="xs" className="flex-shrink-0" />
           <h3 className="flex-1 min-w-0 font-bold text-white text-[15px] leading-snug line-clamp-2">{media.title}</h3>
           <button
             onClick={doClose}

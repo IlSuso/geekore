@@ -5,14 +5,7 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { Star } from 'lucide-react'
-
-const TYPE_COLORS: Record<string, string> = {
-  anime: 'bg-sky-500',
-  manga: 'bg-orange-500',
-  game: 'bg-green-500',
-  tv: 'bg-purple-500',
-  movie: 'bg-red-500',
-}
+import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 
 const TYPE_LABELS: Record<string, string> = {
   media_added: 'ha aggiunto',
@@ -87,9 +80,7 @@ export function ProfileActivityFeed({ userId }: { userId: string }) {
             <p className="text-xs text-zinc-600 mt-0.5">{timeAgo(a.created_at)}</p>
           </div>
           {a.media_type && (
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white flex-shrink-0 ${TYPE_COLORS[a.media_type] || 'bg-zinc-700'}`}>
-              {a.media_type.toUpperCase()}
-            </span>
+            <MediaTypeBadge type={a.media_type} size="xs" />
           )}
         </div>
       ))}

@@ -44,6 +44,7 @@ import { NotesModal } from '@/components/profile/NotesModal'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 import { optimizeCover } from '@/lib/imageOptimizer'
+import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 
 // ─── Cache ───────────────────────────────────────────────────────────────────
 
@@ -214,15 +215,6 @@ function SortableBox({ media, children, disabled }: { media: UserMedia; children
 
 // ─── MediaCard ────────────────────────────────────────────────────────────────
 
-const TYPE_COLORS: Record<string, string> = {
-  anime: 'bg-sky-500',
-  manga: 'bg-orange-500',
-  game: 'bg-green-500',
-  tv: 'bg-purple-500',
-  movie: 'bg-red-500',
-  board_game: 'bg-amber-500',
-  boardgame: 'bg-amber-500',
-}
 
 function MediaCard({
   media, isOwner, deletingId,
@@ -360,8 +352,8 @@ function MediaCard({
           </button>
         )}
         <div className="absolute bottom-0 inset-x-0 h-14 bg-gradient-to-t from-black/70 to-transparent z-10 pointer-events-none" />
-        <div className={`absolute bottom-3 left-3 z-20 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white tracking-wide ${TYPE_COLORS[media.type] || 'bg-zinc-700'}`}>
-          {(m.typeLabels as Record<string, string>)[media.type] || media.type}
+        <div className="absolute bottom-3 left-3 z-20">
+          <MediaTypeBadge type={media.type} size="xs" />
         </div>
         {renderCover()}
       </div>
@@ -758,9 +750,7 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-sm text-white truncate">{displayTitle}</p>
         <div className="flex items-center gap-2 mt-0.5">
-          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white ${TYPE_COLORS[media.type] || 'bg-zinc-700'}`}>
-            {media.type.toUpperCase()}
-          </span>
+          <MediaTypeBadge type={media.type} size="xs" />
           {isOwner && (
             <select value={media.status || 'watching'} onChange={e => onStatusChange?.(media.id, e.target.value)} className="text-[10px] bg-transparent text-zinc-500 focus:outline-none cursor-pointer">
               <option value="watching">In corso</option>
