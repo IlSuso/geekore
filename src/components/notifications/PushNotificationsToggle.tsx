@@ -27,6 +27,15 @@ function isPWA(): boolean {
   )
 }
 
+function StatusDot({ active, danger = false }: { active: boolean; danger?: boolean }) {
+  return (
+    <span
+      className="h-2 w-2 rounded-full"
+      style={{ background: danger ? '#f87171' : active ? 'var(--accent)' : 'var(--text-muted)' }}
+    />
+  )
+}
+
 export function PushNotificationsToggle() {
   const [state, setState] = useState<PushState>('loading')
   const [subscription, setSubscription] = useState<PushSubscription | null>(null)
@@ -50,15 +59,11 @@ export function PushNotificationsToggle() {
       if (sub) {
         setSubscription(sub)
         setState('granted')
-        // FIX: ri-sincronizza sempre la subscription con il DB ad ogni mount.
-        // Se l'endpoint è cambiato (reinstall PWA, browser aggiornato, Chrome
-        // ha rigenerato le chiavi) il DB viene aggiornato silenziosamente,
-        // così sendPushToUser non invia mai verso un endpoint morto.
         await fetch('/api/push/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ subscription: sub.toJSON() }),
-        }).catch(() => {}) // ignora errori di rete, non bloccare l'UI
+        }).catch(() => {})
       } else {
         setState(permission === 'denied' ? 'denied' : 'default')
       }
@@ -68,9 +73,7 @@ export function PushNotificationsToggle() {
   }
 
   const handleEnable = async () => {
-    if (!VAPID_PUBLIC_KEY) {
-      return
-    }
+    if (!VAPID_PUBLIC_KEY) return
 
     setState('loading')
     try {
@@ -95,13 +98,11 @@ export function PushNotificationsToggle() {
       if (res.ok) {
         setSubscription(sub)
         setState('granted')
-        if (isAndroid() && !isPWA()) {
-          setShowAndroidTip(true)
-        }
+        if (isAndroid() && !isPWA()) setShowAndroidTip(true)
       } else {
         setState('default')
       }
-    } catch (e: any) {
+    } catch {
       setState('default')
     }
   }
@@ -126,11 +127,15 @@ export function PushNotificationsToggle() {
 
   if (state === 'unsupported') {
     return (
-      <div className="flex items-center gap-3 p-4 bg-zinc-900 border border-zinc-800 rounded-2xl opacity-60">
-        <Smartphone size={18} className="text-zinc-500 flex-shrink-0" />
-        <div>
-          <p className="text-sm font-medium text-zinc-400">Notifiche push</p>
-          <p className="text-xs text-zinc-600">Non supportate su questo browser</p>
+      <div className="rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)] p-4 opacity-70">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-[var(--bg-secondary)] text-[var(--text-muted)] ring-1 ring-white/5">
+            <Smartphone size={18} />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-[var(--text-secondary)]">Notifiche push</p>
+            <p className="gk-caption">Non supportate su questo browser</p>
+          </div>
         </div>
       </div>
     )
@@ -138,68 +143,84 @@ export function PushNotificationsToggle() {
 
   if (state === 'denied') {
     return (
-      <div className="flex items-center gap-3 p-4 bg-zinc-900 border border-zinc-800 rounded-2xl">
-        <BellOff size={18} className="text-red-400 flex-shrink-0" />
-        <div className="flex-1">
-          <p className="text-sm font-medium text-white">Notifiche bloccate</p>
-          <p className="text-xs text-zinc-500">
-            {isAndroid()
-              ? 'Vai in Impostazioni → App → Chrome → Notifiche e abilitale, poi ricarica.'
-              : 'Abilita le notifiche nelle impostazioni del browser, poi ricarica la pagina.'}
-          </p>
+      <div className="rounded-[22px] border border-red-500/20 bg-red-500/8 p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-red-500/10 text-red-400 ring-1 ring-red-500/15">
+            <BellOff size={18} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 flex items-center gap-2">
+              <StatusDot active={false} danger />
+              <p className="text-sm font-bold text-[var(--text-primary)]">Notifiche bloccate</p>
+            </div>
+            <p className="text-xs leading-relaxed text-red-300/80">
+              {isAndroid()
+                ? 'Vai in Impostazioni → App → Chrome → Notifiche e abilitale, poi ricarica.'
+                : 'Abilita le notifiche nelle impostazioni del browser, poi ricarica la pagina.'}
+            </p>
+          </div>
         </div>
       </div>
     )
   }
 
+  const enabled = state === 'granted'
+
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-3 p-4 bg-zinc-900 border border-zinc-800 rounded-2xl">
-        <div className="flex-shrink-0" style={state === 'granted' ? { color: 'var(--accent)' } : { color: '#71717a' }}>
-          {state === 'loading'
-            ? <Loader2 size={18} className="animate-spin" />
-            : state === 'granted'
-            ? <Bell size={18} />
-            : <BellOff size={18} />
-          }
+      <div className="rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)] p-4 transition-colors hover:bg-[var(--bg-card-hover)]">
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl ring-1 ring-white/5"
+            style={enabled
+              ? { background: 'rgba(230,255,61,0.10)', color: 'var(--accent)' }
+              : { background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}
+          >
+            {state === 'loading'
+              ? <Loader2 size={18} className="animate-spin" />
+              : enabled
+                ? <Bell size={18} />
+                : <BellOff size={18} />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 flex items-center gap-2">
+              <StatusDot active={enabled} />
+              <p className="text-sm font-bold text-[var(--text-primary)]">Notifiche push</p>
+            </div>
+            <p className="gk-caption">
+              {enabled
+                ? 'Attive anche quando l’app è chiusa'
+                : 'Like, commenti, follow e segnali importanti'}
+            </p>
+          </div>
+          <button
+            onClick={enabled ? handleDisable : handleEnable}
+            disabled={state === 'loading'}
+            className="h-9 rounded-2xl px-4 text-xs font-black transition-all disabled:opacity-50"
+            style={enabled
+              ? { background: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }
+              : { background: 'var(--accent)', color: '#0B0B0F' }}
+          >
+            {state === 'loading' ? '...' : enabled ? 'Disattiva' : 'Attiva'}
+          </button>
         </div>
-        <div className="flex-1">
-          <p className="text-sm font-medium text-white">Notifiche push</p>
-          <p className="text-xs text-zinc-500">
-            {state === 'granted'
-              ? 'Ricevi notifiche anche con l\'app chiusa'
-              : 'Ricevi notifiche per like, commenti e follow'}
-          </p>
-        </div>
-        <button
-          onClick={state === 'granted' ? handleDisable : handleEnable}
-          disabled={state === 'loading'}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-50 ${
-            state === 'granted' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : ''
-          }`}
-          style={state !== 'granted' ? { background: 'var(--accent)', color: '#0B0B0F' } : {}}
-        >
-          {state === 'loading' ? '...' : state === 'granted' ? 'Disattiva' : 'Attiva'}
-        </button>
       </div>
 
-      {state === 'granted' && isAndroid() && !isPWA() && (
-        <div className="flex items-start gap-3 p-3 bg-amber-950/40 border border-amber-800/40 rounded-xl">
-          <AlertTriangle size={15} className="text-amber-400 flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-300/80 leading-relaxed">
-            Per ricevere notifiche con vibrazione e suono su Android, installa Geekore come app:{' '}
-            <span className="font-semibold text-amber-300">
-              Chrome → menu ⋮ → "Aggiungi a schermata Home"
-            </span>
+      {enabled && isAndroid() && !isPWA() && (
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3">
+          <AlertTriangle size={15} className="mt-0.5 flex-shrink-0 text-amber-400" />
+          <p className="text-xs leading-relaxed text-amber-300/80">
+            Per vibrazione e suono su Android, installa Geekore come app:{' '}
+            <span className="font-semibold text-amber-300">Chrome → menu ⋮ → Aggiungi a schermata Home</span>
           </p>
         </div>
       )}
 
       {showAndroidTip && (
-        <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: 'rgba(230,255,61,0.05)', border: '1px solid rgba(230,255,61,0.15)' }}>
-          <Smartphone size={15} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--accent)' }} />
+        <div className="flex items-start gap-3 rounded-2xl p-3" style={{ background: 'rgba(230,255,61,0.05)', border: '1px solid rgba(230,255,61,0.15)' }}>
+          <Smartphone size={15} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--accent)' }} />
           <p className="text-xs leading-relaxed" style={{ color: 'rgba(230,255,61,0.7)' }}>
-            Notifiche attivate! Assicurati che Chrome abbia i permessi di notifica in{' '}
+            Notifiche attivate. Controlla anche i permessi in{' '}
             <span className="font-semibold" style={{ color: 'var(--accent)' }}>
               Impostazioni Android → App → Chrome → Notifiche
             </span>
