@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  Home, Search, Sparkles, Library, User, X, Settings, LogOut, ChevronDown, Bell,
+  Home, Search, Sparkles, Library, User, X, Settings, LogOut, ChevronDown, Bell, Users,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useActiveTab, pathnameToTab } from '@/context/ActiveTabContext'
@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/context/AuthContext'
 import { Avatar, getLocalAvatarSvg } from '@/components/ui/Avatar'
 import { useLocale } from '@/lib/locale'
-import { GeekoreWordmark } from '@/components/ui/GeekoreWordmark'
+import { GeekoreMonogram, GeekoreWordmark } from '@/components/ui/GeekoreWordmark'
 
 const AUTH_PATHS = ['/login', '/register', '/auth/confirm', '/forgot-password', '/auth/reset-password', '/onboarding']
 
@@ -50,23 +50,15 @@ export default function Navbar() {
     router.push('/login')
   }
 
-  const isProfileActive = pathname === '/profile/me' || pathname.startsWith('/profile/')
   const isAuthPage      = AUTH_PATHS.some(p => pathname.startsWith(p))
   const isPublicLanding = pathname === '/'
 
   const NAV_ITEMS = [
     { href: '/home',     label: t.nav.home,     icon: Home     },
     { href: '/for-you',  label: t.nav.forYou,   icon: Sparkles },
-    { href: '/library',  label: 'Libreria',     icon: Library  },
+    { href: '/library',  label: 'Library',      icon: Library  },
     { href: '/discover', label: t.nav.discover, icon: Search   },
-  ]
-
-  const MOBILE_NAV_ITEMS = [
-    { href: '/home',     label: t.nav.home,     icon: Home    },
-    { href: '/for-you',  label: t.nav.forYou,   icon: Sparkles},
-    { href: '/library',  label: 'Libreria',     icon: Library },
-    { href: '/discover', label: t.nav.discover, icon: Search  },
-    { href: username ? `/profile/${username}` : '/profile/me', label: t.nav.profile, icon: User },
+    { href: '/friends',  label: 'Friends',      icon: Users    },
   ]
 
   useEffect(() => {
@@ -153,17 +145,12 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="hidden md:flex fixed top-0 left-0 right-0 z-[100] bg-[rgba(11,11,15,0.92)] backdrop-blur-2xl border-b border-[var(--border)] h-12">
+      <nav className="hidden md:flex fixed top-0 left-0 right-0 z-[100] h-12 border-b border-[var(--border)] bg-[rgba(11,11,15,0.92)] backdrop-blur-2xl">
         <div className="w-full flex items-center h-full">
           <div className="flex items-center gap-3 flex-1 min-w-0 px-4">
             <div className="flex-shrink-0 group flex items-center gap-2">
-              <Link
-                href="/home"
-                className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
-                style={{ background: 'var(--accent)' }}
-                aria-label="Geekore home"
-              >
-                <span className="font-display text-[18px] font-black leading-none text-[#0B0B0F] tracking-[-0.05em]">g.</span>
+              <Link href="/home" className="inline-flex h-9 w-9 items-center justify-center" aria-label="Geekore home">
+                <GeekoreMonogram className="h-9 w-9 text-[18px] rounded-xl" />
               </Link>
               <GeekoreWordmark href="/home" size="sm" className="hidden lg:inline-flex" />
             </div>
@@ -174,7 +161,7 @@ export default function Navbar() {
                 ref={searchInputRef} value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Cerca utenti..."
-                className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-full pl-9 pr-8 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
+                className="w-full rounded-full border border-[var(--border)] bg-[var(--bg-card)] py-2 pl-9 pr-8 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-colors focus:border-[rgba(230,255,61,0.45)]"
               />
               {searchQuery && (
                 <button onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300" aria-label="Cancella ricerca">
@@ -183,31 +170,31 @@ export default function Navbar() {
               )}
 
               {searchOpen && searchResults.length > 0 && (
-                <div className="absolute top-full left-0 w-full mt-2 bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl shadow-black/50 z-[110]">
+                <div className="absolute top-full left-0 z-[110] mt-2 w-full overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] shadow-2xl shadow-black/50">
                   {searchResults.map((res) => (
                     <Link key={res.username} href={`/profile/${res.username}`}
                       onClick={() => { setSearchOpen(false); setSearchQuery(''); setSearchResults([]) }}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-800 transition-colors border-b border-zinc-800/50 last:border-0">
+                      className="flex items-center gap-3 border-b border-[var(--border-subtle)] px-4 py-3 transition-colors last:border-0 hover:bg-[var(--bg-card-hover)]">
                       <div className="w-8 h-8 rounded-xl overflow-hidden shrink-0">
                         <Avatar src={res.avatar_url} username={res.username} displayName={res.display_name} size={32} />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-white leading-tight">{res.display_name || res.username}</p>
-                        <p className="text-xs text-zinc-500">@{res.username}</p>
+                        <p className="gk-headline text-sm leading-tight">{res.display_name || res.username}</p>
+                        <p className="gk-mono text-[10px] text-[var(--text-muted)]">@{res.username}</p>
                       </div>
                     </Link>
                   ))}
                 </div>
               )}
               {searchOpen && searchQuery.length >= 2 && searchResults.length === 0 && !searchLoading && (
-                <div className="absolute top-full left-0 w-full mt-2 bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-zinc-500 shadow-2xl z-[110]">
+                <div className="absolute top-full left-0 z-[110] mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-3 text-sm text-[var(--text-muted)] shadow-2xl">
                   Nessun utente trovato
                 </div>
               )}
             </div>
           </div>
 
-          <div className="flex items-end h-full flex-shrink-0" style={{ transform: 'translateX(-30px)' }}>
+          <div className="flex items-end h-full flex-shrink-0">
             {NAV_ITEMS.map((item) => {
               const itemTab = pathnameToTab(item.href)
               const isActive = activeTab ? activeTab === itemTab : (item.href === '/home'
@@ -221,12 +208,12 @@ export default function Navbar() {
                     ? () => fetch('/api/recommendations?type=all', { credentials: 'include' }).catch(() => {})
                     : undefined}
                   onClick={() => navigateToTab(item.href)}
-                  className="relative flex flex-col items-center justify-center w-16 lg:w-20 h-full transition-colors group bg-transparent border-0 cursor-pointer text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/60"
+                  className="relative flex h-full w-16 flex-col items-center justify-center bg-transparent text-zinc-500 transition-colors hover:bg-[var(--bg-card-hover)] hover:text-zinc-200 lg:w-20"
                   style={{ color: isActive ? 'var(--accent)' : undefined }}
                   aria-current={isActive ? 'page' : undefined}
                 >
-                  <item.icon size={22} strokeWidth={isActive ? 2.2 : 1.6} />
-                  <span className="absolute -top-9 left-1/2 -translate-x-1/2 bg-zinc-900 border border-zinc-700 text-zinc-200 text-[11px] font-semibold px-2.5 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[130]">
+                  <item.icon size={21} strokeWidth={isActive ? 2.2 : 1.6} />
+                  <span className="pointer-events-none absolute -top-9 left-1/2 z-[130] -translate-x-1/2 whitespace-nowrap rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1 text-[11px] font-semibold text-[var(--text-primary)] opacity-0 transition-opacity group-hover:opacity-100">
                     {item.label}
                   </span>
                   {isActive && (
@@ -238,20 +225,16 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center justify-end flex-1 px-4">
-            <Link
-              href="/notifications"
-              className="relative w-9 h-9 flex items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition-colors mr-3"
-              aria-label="Notifiche"
-            >
+            <Link href="/notifications" className="relative mr-3 flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-card)] transition-colors hover:bg-[var(--bg-card-hover)]" aria-label="Notifiche">
               <Bell size={17} className="text-zinc-400" />
             </Link>
             <div ref={menuRef} className="relative">
               <button
                 onClick={() => setMenuOpen(o => !o)}
-                className={`flex items-center gap-1.5 rounded-full transition-all ${menuOpen ? 'ring-2 ring-zinc-600/60' : 'hover:opacity-90'}`}
+                className={`flex items-center gap-1.5 rounded-full transition-all ${menuOpen ? 'ring-2 ring-[rgba(230,255,61,0.35)]' : 'hover:opacity-90'}`}
                 aria-label="Menu account"
               >
-                <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-zinc-700 hover:ring-zinc-600/50 transition-all">
+                <div className="h-9 w-9 overflow-hidden rounded-full ring-2 ring-[var(--border)] transition-all hover:ring-[rgba(230,255,61,0.45)]">
                   {avatarSrc ? (
                     <img src={avatarSrc} alt={`Avatar di ${currentDisplayName}`} width={36} height={36} className="w-full h-full object-cover" />
                   ) : (
@@ -264,12 +247,8 @@ export default function Navbar() {
               </button>
 
               {menuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-72 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl shadow-black/70 overflow-hidden z-[120]">
-                  <Link
-                    href={`/profile/${currentUsername || 'me'}`}
-                    onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-3 px-4 py-4 hover:bg-zinc-900 transition-colors border-b border-zinc-800"
-                  >
+                <div className="absolute right-0 top-full z-[120] mt-2 w-72 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] shadow-2xl shadow-black/70">
+                  <Link href={`/profile/${currentUsername || 'me'}`} onClick={() => setMenuOpen(false)} className="flex items-center gap-3 border-b border-[var(--border)] px-4 py-4 transition-colors hover:bg-[var(--bg-card-hover)]">
                     <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-zinc-600/30 flex-shrink-0">
                       {avatarSrc ? (
                         <img src={avatarSrc} alt={`Avatar di ${currentDisplayName}`} width={48} height={48} className="w-full h-full object-cover" />
@@ -280,31 +259,28 @@ export default function Navbar() {
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-semibold text-white truncate">{currentDisplayName || '…'}</p>
-                      {currentUsername && <p className="text-xs text-zinc-500 truncate">@{currentUsername}</p>}
+                      <p className="gk-headline truncate text-[var(--text-primary)]">{currentDisplayName || '…'}</p>
+                      {currentUsername && <p className="gk-mono truncate text-[var(--text-muted)]">@{currentUsername}</p>}
                     </div>
                   </Link>
 
                   <div className="py-1">
-                    <Link href={`/profile/${currentUsername || 'me'}`} onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 transition-colors text-sm text-zinc-300 hover:text-white">
-                      <div className="w-8 h-8 bg-zinc-800 rounded-full flex items-center justify-center">
+                    <Link href={`/profile/${currentUsername || 'me'}`} onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm text-zinc-300 transition-colors hover:bg-[var(--bg-card-hover)] hover:text-white">
+                      <div className="w-8 h-8 bg-[var(--bg-card)] rounded-full flex items-center justify-center">
                         <User size={15} />
                       </div>
                       Il tuo profilo
                     </Link>
-                    <Link href="/settings" onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 transition-colors text-sm text-zinc-300 hover:text-white">
-                      <div className="w-8 h-8 bg-zinc-800 rounded-full flex items-center justify-center">
+                    <Link href="/settings" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm text-zinc-300 transition-colors hover:bg-[var(--bg-card-hover)] hover:text-white">
+                      <div className="w-8 h-8 bg-[var(--bg-card)] rounded-full flex items-center justify-center">
                         <Settings size={15} />
                       </div>
                       Impostazioni
                     </Link>
                   </div>
 
-                  <div className="border-t border-zinc-800 py-1">
-                    <button onClick={handleLogout}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 transition-colors text-sm text-red-400 hover:text-red-300 w-full text-left">
+                  <div className="border-t border-[var(--border)] py-1">
+                    <button onClick={handleLogout} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-red-400 transition-colors hover:bg-[var(--bg-card-hover)] hover:text-red-300">
                       <div className="w-8 h-8 bg-red-500/10 rounded-full flex items-center justify-center">
                         <LogOut size={15} className="text-red-400" />
                       </div>
@@ -318,51 +294,32 @@ export default function Navbar() {
         </div>
       </nav>
 
-      <nav
-        className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100]"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)', background: 'rgba(11,11,15,0.97)' }}
-      >
-        <div className="flex items-stretch h-[56px]">
-          {MOBILE_NAV_ITEMS.map((item) => {
+      <nav className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100]" style={{ paddingBottom: 'env(safe-area-inset-bottom)', background: 'rgba(11,11,15,0.97)' }}>
+        <div className="flex h-[56px] items-stretch">
+          {NAV_ITEMS.map((item) => {
             const itemTab = pathnameToTab(item.href)
             const isActive = activeTab
               ? activeTab === itemTab
-              : (item.href.startsWith('/profile/')
-                ? isProfileActive
-                : item.href === '/home'
+              : (item.href === '/home'
                 ? pathname === '/home' || pathname === '/'
                 : pathname === item.href)
 
             return (
               <button key={item.href}
                 data-testid={`nav-mobile-${item.href.replace('/', '')}`}
-                className="flex flex-col items-center justify-center flex-1 relative gap-[3px] py-2 bg-transparent border-0 cursor-pointer"
+                className="relative flex flex-1 flex-col items-center justify-center gap-[3px] border-0 bg-transparent py-2"
                 onClick={() => navigateToTab(item.href)}
                 aria-current={isActive ? 'page' : undefined}
               >
-                {isActive && (
-                  <span className="absolute top-0 left-1/2 -translate-x-1/2 rounded-full" style={{ width: 24, height: 2, background: 'var(--accent)' }} />
-                )}
-                {item.href.startsWith('/profile/') && (avatarUrl || currentUsername) ? (
-                  <div className="rounded-full p-[2px]" style={{
-                    background: isActive ? 'var(--accent)' : 'transparent',
-                    border: isActive ? 'none' : '1.5px solid #3f3f3f',
-                  }}>
-                    <div className="rounded-full overflow-hidden bg-[var(--bg-primary)] p-[1.5px]">
-                      <div className="w-[22px] h-[22px] rounded-full overflow-hidden">
-                        <img src={avatarUrl || localAvatarSrc} alt={`Avatar di ${currentDisplayName}`} width={22} height={22} className="w-full h-full object-cover" />
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <item.icon size={22} strokeWidth={isActive ? 2.1 : 1.6}
-                    style={{ color: isActive ? 'var(--accent)' : undefined }}
-                    className={isActive ? '' : 'text-zinc-500'}
-                    fill={isActive && item.href === '/home' ? 'var(--accent)' : 'none'}
-                  />
-                )}
-                <span className={`text-[11px] leading-none font-semibold tracking-tight ${isActive ? '' : 'text-zinc-600'}`}
-                  style={{ color: isActive ? 'var(--accent)' : undefined }}>
+                {isActive && <span className="absolute top-0 left-1/2 h-[2px] w-6 -translate-x-1/2 rounded-full bg-[var(--accent)]" />}
+                <item.icon
+                  size={21}
+                  strokeWidth={isActive ? 2.1 : 1.6}
+                  style={{ color: isActive ? 'var(--accent)' : undefined }}
+                  className={isActive ? '' : 'text-zinc-500'}
+                  fill={isActive && item.href === '/home' ? 'var(--accent)' : 'none'}
+                />
+                <span className={`text-[11px] leading-none font-semibold ${isActive ? '' : 'text-zinc-500'}`} style={{ color: isActive ? 'var(--accent)' : undefined }}>
                   {item.label}
                 </span>
               </button>
