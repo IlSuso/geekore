@@ -151,6 +151,14 @@ img[loading='lazy'] {
   main:not([data-auth]) > .gk-page-shell {
     max-width: min(100%, calc(var(--shell-max-w) + var(--desktop-context-w) + 72px));
   }
+
+  /* KeepAlive panels are position:fixed — on desktop they must start after the sidebar. */
+  .gk-tab-panel {
+    left: var(--desktop-sidebar-w) !important;
+    width: calc(100% - var(--desktop-sidebar-w)) !important;
+    top: 0 !important;
+    height: 100dvh !important;
+  }
 }
 
 @media (min-width: 1280px) {

@@ -91,7 +91,7 @@ function PanelWrapper({
   return (
     <TabActiveContext.Provider value={isActive}>
       <ScrollPanelContext.Provider value={scrollContextValue}>
-        <div ref={divRef} style={style}>
+        <div ref={divRef} style={style} className="gk-tab-panel">
           {children}
         </div>
       </ScrollPanelContext.Provider>
