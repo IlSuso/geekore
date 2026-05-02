@@ -45,6 +45,7 @@ Obiettivo: rendere riusabili le scelte del rebrand.
   - `PosterCard`;
   - `RailSection`;
   - `SectionHeader`;
+  - `ActionButton`;
   - `EmptyState` coerente con il nuovo tono.
 - Ridurre duplicazioni di colori inline (`#E6FF3D`, `#1C1C26`, `#2A2A36`) quando possibile.
 - Spostare convenzioni visuali ripetute fuori dalle singole pagine.
@@ -103,6 +104,11 @@ Questa PR avvia la Fase 0 e prepara la Fase 1:
 - sostituisce il theme color PWA/meta da `#000000` a `#0B0B0F`;
 - rimuove `bg-black text-white` dal `body` del root layout, lasciando `globals.css` governare background e colore via token;
 - aggiunge `src/lib/mediaTypes.ts` come fonte canonica per label e colori medium;
-- aggiunge `MediaTypeBadge`, `PosterCard`, `SectionHeader` e `RailSection` come componenti base del nuovo sistema poster-first.
+- aggiunge `GeekoreWordmark`, `MediaTypeBadge`, `PosterCard`, `SectionHeader`, `RailSection` e `ActionButton` come componenti base del nuovo sistema poster-first;
+- aggiorna `EmptyState` per usare la scala tipografica semantica e l'accent signature.
 
 Le nuove componenti sono intenzionalmente additive: non riscrivono ancora pagine complesse, ma permettono di migrare Discover, For You, Library e Feed a piccoli passaggi senza duplicare stile e logica visuale.
+
+## Nota operativa
+
+Il tentativo di aggiornare direttamente `MobileHeader.tsx` con il wordmark canonico e stato bloccato dal connector durante l'invio del file completo. Per sicurezza, la migrazione di `MobileHeader`/`Navbar` al nuovo `GeekoreWordmark` va fatta in un pass separato e piccolo, idealmente tramite patch locale o diff mirato.
