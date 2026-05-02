@@ -1,4 +1,3 @@
-import type { MediaType } from '@/lib/reco/engine-types'
 import type { Recommendation, TasteProfile } from '@/lib/reco/types'
 import type { SupabaseClient } from './context'
 import type { MasterHealth } from './masterState'
@@ -64,17 +63,17 @@ export function updateRecommendationPoolProfile({
   supabase: SupabaseClient
   userId: string
   recommendations: Record<string, Recommendation[]>
-  poolByType: Map<MediaType, Recommendation[]>
+  poolByType: Map<string, Recommendation[]>
   collectionHash: string
   tasteProfileResponse: ReturnType<typeof buildTasteProfileResponse>
   totalEntries: number
 }) {
   const profileUpdateUpserts = Object.keys(recommendations)
-    .filter(type => (poolByType.get(type as MediaType) || []).length > 0)
+    .filter(type => (poolByType.get(type) || []).length > 0)
     .map(type => ({
       user_id: userId,
       media_type: type,
-      data: poolByType.get(type as MediaType) || [],
+      data: poolByType.get(type) || [],
       generated_at: new Date().toISOString(),
       collection_hash: collectionHash,
       taste_profile: tasteProfileResponse,
