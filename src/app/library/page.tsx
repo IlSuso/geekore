@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/context/AuthContext'
-import { BookOpen, LayoutGrid, List } from 'lucide-react'
+import { BookOpen, LayoutGrid, List, Search, X } from 'lucide-react'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { PageScaffold } from '@/components/ui/PageScaffold'
@@ -51,6 +51,14 @@ const STATUS_FILTERS = [
   { id: 'dropped', label: 'Abbandonati' },
 ]
 
+function normalize(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+}
+
 function toRailItem(entry: MediaEntry): MediaRailItem {
   return {
     id: entry.id,
@@ -73,6 +81,7 @@ export default function LibraryPage() {
   const [loading, setLoading] = useState(true)
   const [activeType, setActiveType] = useState('all')
   const [activeStatus, setActiveStatus] = useState('all')
+  const [searchTerm, setSearchTerm] = useState('')
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
   const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null)
 
@@ -91,16 +100,37 @@ export default function LibraryPage() {
   }, [authUser]) // eslint-disable-line
 
   const filtered = useMemo(() => {
+    const query = normalize(searchTerm)
     let result = activeType === 'all' ? entries : entries.filter(e => e.type === activeType)
     if (activeStatus !== 'all') result = result.filter(e => (e.status || 'planning') === activeStatus)
+    if (query) {
+      result = result.filter(e => {
+        const haystack = [
+          e.title,
+          e.title_en || '',
+          e.type,
+          ...(e.genres || []),
+          getMediaStatusLabel(e.status || 'planning'),
+        ].map(normalize).join(' ')
+        return haystack.includes(query)
+      })
+    }
     return result
-  }, [entries, activeType, activeStatus])
+  }, [entries, activeType, activeStatus, searchTerm])
 
-  const stats = useMemo(() => ({
-    total: entries.length,
-    completed: entries.filter(e => e.status === 'completed').length,
-    inProgress: entries.filter(e => e.status === 'watching' || e.status === 'reading').length,
-  }), [entries])
+  const stats = useMemo(() => {
+    const rated = entries.filter(e => typeof e.rating === 'number')
+    const averageRating = rated.length
+      ? rated.reduce((sum, e) => sum + Number(e.rating || 0), 0) / rated.length
+      : 0
+
+    return {
+      total: entries.length,
+      completed: entries.filter(e => e.status === 'completed').length,
+      inProgress: entries.filter(e => e.status === 'watching' || e.status === 'reading').length,
+      averageRating,
+    }
+  }, [entries])
 
   const grouped = useMemo((): { status: string; items: MediaEntry[] }[] => {
     if (activeStatus !== 'all') return [{ status: activeStatus, items: filtered }]
@@ -128,6 +158,7 @@ export default function LibraryPage() {
   }
 
   const gridItems = useMemo(() => filtered.map(toRailItem), [filtered])
+  const hasActiveFilters = activeType !== 'all' || activeStatus !== 'all' || searchTerm.trim().length > 0
 
   return (
     <PageScaffold
@@ -136,11 +167,12 @@ export default function LibraryPage() {
       icon={<BookOpen size={16} />}
       contentClassName="max-w-screen-lg pt-2 md:pt-8 pb-28"
     >
-      <div className="grid grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         {[
           { label: 'Totale', value: stats.total },
           { label: 'Completati', value: stats.completed },
           { label: 'In corso', value: stats.inProgress },
+          { label: 'Media voto', value: stats.averageRating ? stats.averageRating.toFixed(1) : '—' },
         ].map(s => (
           <div key={s.label} className="rounded-2xl p-4 text-center bg-[var(--bg-card)] border border-[var(--border)]">
             <p className="text-[26px] font-bold leading-none mb-1 font-mono-data text-[var(--accent)]">{s.value}</p>
@@ -150,6 +182,27 @@ export default function LibraryPage() {
       </div>
 
       <div className="space-y-3 mb-6">
+        <div className="relative">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Cerca nella tua libreria..."
+            className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] py-2.5 pl-10 pr-10 text-[14px] text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none transition-colors focus:border-[rgba(230,255,61,0.45)]"
+          />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]"
+              aria-label="Cancella ricerca libreria"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
         <FilterBar
           items={TYPES}
           activeId={activeType}
@@ -167,6 +220,7 @@ export default function LibraryPage() {
           </div>
           <div className="flex-shrink-0 flex items-center gap-1 p-1 rounded-xl bg-[var(--bg-card)] border border-[var(--border)]">
             <button
+              type="button"
               onClick={() => setViewMode('list')}
               className="p-1.5 rounded-lg transition-all"
               style={{ background: viewMode === 'list' ? 'var(--accent)' : 'transparent' }}
@@ -175,6 +229,7 @@ export default function LibraryPage() {
               <List size={14} style={{ color: viewMode === 'list' ? '#0B0B0F' : 'var(--text-muted)' }} />
             </button>
             <button
+              type="button"
               onClick={() => setViewMode('grid')}
               className="p-1.5 rounded-lg transition-all"
               style={{ background: viewMode === 'grid' ? 'var(--accent)' : 'transparent' }}
@@ -202,11 +257,23 @@ export default function LibraryPage() {
             {entries.length === 0 ? 'Libreria vuota' : 'Nessun elemento trovato'}
           </p>
           <p className="gk-body mb-6">
-            {entries.length === 0 ? 'Aggiungi media dalla sezione Scopri' : 'Prova a cambiare i filtri'}
+            {entries.length === 0
+              ? 'Aggiungi media dalla sezione Scopri'
+              : hasActiveFilters
+                ? 'Prova a cambiare ricerca o filtri'
+                : 'Prova a cambiare i filtri'}
           </p>
-          {entries.length === 0 && (
+          {entries.length === 0 ? (
             <ActionButton href="/discover">Vai a Scopri</ActionButton>
-          )}
+          ) : hasActiveFilters ? (
+            <button
+              type="button"
+              onClick={() => { setSearchTerm(''); setActiveType('all'); setActiveStatus('all') }}
+              className="inline-flex h-10 items-center justify-center rounded-xl bg-[var(--accent)] px-4 text-sm font-bold text-[#0B0B0F] transition-transform hover:scale-[1.02]"
+            >
+              Cancella filtri
+            </button>
+          ) : null}
         </div>
       ) : viewMode === 'grid' ? (
         <MediaGrid
