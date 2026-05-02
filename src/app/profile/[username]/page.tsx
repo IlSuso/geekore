@@ -161,7 +161,7 @@ function InlineChapterInput({ value, max, onSave }: {
         value={draft}
         min={0}
         max={max}
-        onChange={e = data-no-swipe="true" inputMode="numeric"> setDraft(e.target.value)}
+        onChange={e => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={e => {
           if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commit() }
@@ -321,13 +321,13 @@ function MediaCard({
         {/* Delete — hidden on mobile (in modal instead) */}
         {isOwner && isConfirmingDelete && (
           <div className="hidden md:flex absolute top-3 right-3 z-30 gap-1.5">
-            <button onClick={e = type="button" data-no-swipe="true"> { e.stopPropagation(); onDeleteCancel?.() }} className="rounded-full border border-[var(--border)] bg-black/80 px-3 py-1.5 text-xs font-bold text-[var(--text-primary)] transition hover:bg-black">{m.cancel}</button>
-            <button onClick={e = type="button" data-no-swipe="true"> { e.stopPropagation(); onDelete?.(media.id) }} className="px-3 py-1.5 text-xs font-medium bg-red-900/95 border border-red-700 text-red-300 rounded-full hover:bg-red-800 transition">{m.delete}</button>
+            <button onClick={e => { e.stopPropagation(); onDeleteCancel?.() }} className="rounded-full border border-[var(--border)] bg-black/80 px-3 py-1.5 text-xs font-bold text-[var(--text-primary)] transition hover:bg-black">{m.cancel}</button>
+            <button onClick={e => { e.stopPropagation(); onDelete?.(media.id) }} className="px-3 py-1.5 text-xs font-medium bg-red-900/95 border border-red-700 text-red-300 rounded-full hover:bg-red-800 transition">{m.delete}</button>
           </div>
         )}
         {isOwner && !isConfirmingDelete && (
           <button
-            onClick={e = type="button" data-no-swipe="true"> { e.stopPropagation(); onDeleteRequest?.(media.id) }}
+            onClick={e => { e.stopPropagation(); onDeleteRequest?.(media.id) }}
             aria-label={`Elimina ${media.title}`}
             className="hidden md:flex absolute top-3 right-3 z-30 opacity-0 group-hover:opacity-100 bg-black/70 hover:bg-red-950/90 border border-white/20 hover:border-red-500/80 p-1.5 rounded-xl transition-all duration-200"
           >
@@ -338,7 +338,7 @@ function MediaCard({
                        visitor: only when notes exist */}
         {(isOwner || hasNotes) && (
           <button
-            onClick={e = type="button" data-no-swipe="true"> { e.stopPropagation(); isOwner ? onNotes?.(media) : onViewNotes?.(media) }}
+            onClick={e => { e.stopPropagation(); isOwner ? onNotes?.(media) : onViewNotes?.(media) }}
             aria-label="Note"
             className={`absolute bottom-3 right-3 z-20 p-1.5 rounded-lg border text-white transition-all duration-200 hidden md:flex
               ${hasNotes
@@ -444,7 +444,7 @@ function MediaCard({
             isOwner ? (
               <select
                 value={media.status || 'watching'}
-                onChange={e = data-no-swipe="true"> onStatusChange?.(media.id, e.target.value)}
+                onChange={e => onStatusChange?.(media.id, e.target.value)}
                 onClick={e => e.stopPropagation()}
                 onPointerDown={e => e.stopPropagation()}
                 className="min-w-0 flex-1 cursor-pointer appearance-none rounded-full border border-[var(--border)] bg-[var(--bg-secondary)] px-2 py-1 text-[10px] font-bold text-[var(--text-secondary)] outline-none transition focus:border-[rgba(230,255,61,0.45)]"
@@ -507,7 +507,7 @@ function MediaCard({
                         <CheckCircle size={12} />
                         <span className="text-[11px] font-semibold">Completato</span>
                       </div>
-                      <button onClick={() = type="button" data-no-swipe="true"> onReset?.(media.id)} onPointerDown={e => e.stopPropagation()} className="p-1 text-zinc-600 hover:text-zinc-400 transition-colors" title="Ricomincia">
+                      <button onClick={() => onReset?.(media.id)} onPointerDown={e => e.stopPropagation()} className="p-1 text-zinc-600 hover:text-zinc-400 transition-colors" title="Ricomincia">
                         <RotateCcw size={13} />
                       </button>
                     </div>
@@ -521,7 +521,7 @@ function MediaCard({
                   <>
                     <div className="flex items-center justify-between gap-1">
                       {isOwner && (
-                        <button onClick={() = type="button" data-no-swipe="true"> onSaveProgress?.(media.id, Math.max(0, current - 1))} onPointerDown={e => e.stopPropagation()} disabled={current <= 0} className="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--accent)] transition-all hover:border-[rgba(230,255,61,0.45)] text-sm font-bold disabled:opacity-30">−</button>
+                        <button onClick={() => onSaveProgress?.(media.id, Math.max(0, current - 1))} onPointerDown={e => e.stopPropagation()} disabled={current <= 0} className="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--accent)] transition-all hover:border-[rgba(230,255,61,0.45)] text-sm font-bold disabled:opacity-30">−</button>
                       )}
                       <div className="flex-1 text-[11px] font-semibold flex items-center justify-center gap-0.5">
                         <span className="text-zinc-500 text-[10px] mr-0.5">Cap.</span>
@@ -539,7 +539,7 @@ function MediaCard({
                       </div>
                       {isOwner && (
                         <button
-                          onClick={() = type="button" data-no-swipe="true"> { const next = current + 1; (maxCh && next > maxCh) ? onMarkComplete?.(media.id, media) : onSaveProgress?.(media.id, next) }}
+                          onClick={() => { const next = current + 1; (maxCh && next > maxCh) ? onMarkComplete?.(media.id, media) : onSaveProgress?.(media.id, next) }}
                           onPointerDown={e => e.stopPropagation()}
                           className="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--accent)] transition-all hover:border-[rgba(230,255,61,0.45)] text-sm font-bold"
                         >+</button>
@@ -551,7 +551,7 @@ function MediaCard({
                       </div>
                     )}
                     {isOwner && !maxCh && (
-                      <button onClick={() = type="button" data-no-swipe="true"> onEnrichEpisodes?.(media.id)} onPointerDown={e => e.stopPropagation()} disabled={enriching} className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-[var(--accent)] transition-colors disabled:opacity-50">
+                      <button onClick={() => onEnrichEpisodes?.(media.id)} onPointerDown={e => e.stopPropagation()} disabled={enriching} className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-[var(--accent)] transition-colors disabled:opacity-50">
                         {enriching ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
                         {enriching ? 'Recupero…' : 'Recupera totale'}
                       </button>
@@ -564,7 +564,7 @@ function MediaCard({
             isCompleted ? (
               isOwner ? (
                 <div className="flex items-center justify-end">
-                  <button onClick={() = type="button" data-no-swipe="true"> onReset?.(media.id)} onPointerDown={e => e.stopPropagation()} className="p-1.5 text-zinc-600 hover:text-zinc-400 transition-colors" title="Ripristina progresso">
+                  <button onClick={() => onReset?.(media.id)} onPointerDown={e => e.stopPropagation()} className="p-1.5 text-zinc-600 hover:text-zinc-400 transition-colors" title="Ripristina progresso">
                     <RotateCcw size={15} />
                   </button>
                 </div>
@@ -578,18 +578,18 @@ function MediaCard({
               <div className="space-y-1.5">
                 {hasSeasonData && (
                   <div className="flex items-center justify-between gap-1">
-                    {isOwner && <button onClick={() = type="button" data-no-swipe="true"> onSaveProgress?.(media.id, Math.max(1, currentSeasonNum - 1), 'current_season')} onPointerDown={e => e.stopPropagation()} disabled={currentSeasonNum <= 1} className="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--accent)] transition-all hover:border-[rgba(230,255,61,0.45)] text-sm font-bold disabled:opacity-30">−</button>}
+                    {isOwner && <button onClick={() => onSaveProgress?.(media.id, Math.max(1, currentSeasonNum - 1), 'current_season')} onPointerDown={e => e.stopPropagation()} disabled={currentSeasonNum <= 1} className="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--accent)] transition-all hover:border-[rgba(230,255,61,0.45)] text-sm font-bold disabled:opacity-30">−</button>}
                     <div className="flex-1 text-[var(--accent)] text-[11px] font-semibold flex items-center justify-center">{m.season(currentSeasonNum)}</div>
-                    {isOwner && <button onClick={() = type="button" data-no-swipe="true"> { if (currentSeasonNum + 1 <= maxSeasons) onSaveProgress?.(media.id, currentSeasonNum + 1, 'current_season') }} onPointerDown={e => e.stopPropagation()} disabled={currentSeasonNum >= maxSeasons} className="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--accent)] transition-all hover:border-[rgba(230,255,61,0.45)] text-sm font-bold disabled:opacity-30">+</button>}
+                    {isOwner && <button onClick={() => { if (currentSeasonNum + 1 <= maxSeasons) onSaveProgress?.(media.id, currentSeasonNum + 1, 'current_season') }} onPointerDown={e => e.stopPropagation()} disabled={currentSeasonNum >= maxSeasons} className="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--accent)] transition-all hover:border-[rgba(230,255,61,0.45)] text-sm font-bold disabled:opacity-30">+</button>}
                   </div>
                 )}
                 <div className="flex items-center justify-between gap-1">
-                  {isOwner && <button onClick={() = type="button" data-no-swipe="true"> onSaveProgress?.(media.id, Math.max(1, media.current_episode - 1))} onPointerDown={e => e.stopPropagation()} disabled={media.current_episode <= 1} className="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--accent)] transition-all hover:border-[rgba(230,255,61,0.45)] text-sm font-bold disabled:opacity-30">−</button>}
+                  {isOwner && <button onClick={() => onSaveProgress?.(media.id, Math.max(1, media.current_episode - 1))} onPointerDown={e => e.stopPropagation()} disabled={media.current_episode <= 1} className="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--accent)] transition-all hover:border-[rgba(230,255,61,0.45)] text-sm font-bold disabled:opacity-30">−</button>}
                   <div className="flex-1 text-[11px] font-semibold flex items-center justify-center gap-0.5">
                     <span className="text-[var(--accent)]">{m.ep(media.current_episode)}</span>
                     <span className="text-zinc-600">/{maxEpisodesThisSeason}</span>
                   </div>
-                  {isOwner && <button onClick={() = type="button" data-no-swipe="true"> { const next = media.current_episode + 1; next <= maxEpisodesThisSeason ? onSaveProgress?.(media.id, next) : onMarkComplete?.(media.id, media) }} onPointerDown={e => e.stopPropagation()} className="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--accent)] transition-all hover:border-[rgba(230,255,61,0.45)] text-sm font-bold">+</button>}
+                  {isOwner && <button onClick={() => { const next = media.current_episode + 1; next <= maxEpisodesThisSeason ? onSaveProgress?.(media.id, next) : onMarkComplete?.(media.id, media) }} onPointerDown={e => e.stopPropagation()} className="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--accent)] transition-all hover:border-[rgba(230,255,61,0.45)] text-sm font-bold">+</button>}
                 </div>
                 <div className="h-1 overflow-hidden rounded-full bg-black/30">
                   <div className="h-full bg-[var(--accent)] transition-all duration-300 rounded-full" style={{ width: `${totalProgress}%` }} />
@@ -598,7 +598,7 @@ function MediaCard({
             )
           ) : (media.type === 'tv' || media.type === 'anime') && isOwner ? (
             <button
-              onClick={() = type="button" data-no-swipe="true"> onEnrichEpisodes?.(media.id)}
+              onClick={() => onEnrichEpisodes?.(media.id)}
               onPointerDown={e => e.stopPropagation()}
               disabled={enriching}
               className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-[var(--accent)] transition-colors disabled:opacity-50"
@@ -639,7 +639,7 @@ function CopyProfileLink({ username }: { username: string }) {
       style={copied
         ? { background: 'rgba(16,185,129,0.12)', borderColor: 'rgba(16,185,129,0.35)', color: '#6ee7b7' }
         : { background: 'var(--bg-card)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
-     data-no-swipe="true">
+    >
       {copied ? <Check size={13} /> : <Copy size={13} />}
       {copied ? 'Copiato' : 'Copia link'}
     </button>
@@ -668,7 +668,7 @@ function CollectionControls({
         {(search || statusFilter !== 'all' || sort !== 'default') && (
           <button
             type="button"
-            onClick={() = data-no-swipe="true"> { onSearch(''); onStatusFilter('all'); onSort('default') }}
+            onClick={() => { onSearch(''); onStatusFilter('all'); onSort('default') }}
             className="rounded-full border border-[var(--border)] px-2.5 py-1 text-[11px] font-bold text-[var(--text-muted)] transition-colors hover:text-[var(--accent)]"
           >
             reset
@@ -682,12 +682,12 @@ function CollectionControls({
           <input
             type="text"
             value={search}
-            onChange={e = data-no-swipe="true"> onSearch(e.target.value)}
+            onChange={e => onSearch(e.target.value)}
             placeholder="Cerca nella collezione…"
             className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] py-2.5 pl-9 pr-8 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]"
           />
           {search && (
-            <button onClick={() = type="button" data-no-swipe="true"> onSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+            <button onClick={() => onSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]">
               <X size={13} />
             </button>
           )}
@@ -695,7 +695,7 @@ function CollectionControls({
 
         <select
           value={statusFilter}
-          onChange={e = data-no-swipe="true"> onStatusFilter(e.target.value)}
+          onChange={e => onStatusFilter(e.target.value)}
           className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2.5 text-xs font-bold text-[var(--text-secondary)] outline-none transition-colors focus:border-[rgba(230,255,61,0.45)] md:w-40"
         >
           <option value="all">Tutti</option>
@@ -707,7 +707,7 @@ function CollectionControls({
 
         <select
           value={sort}
-          onChange={e = data-no-swipe="true"> onSort(e.target.value as SortMode)}
+          onChange={e => onSort(e.target.value as SortMode)}
           className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2.5 text-xs font-bold text-[var(--text-secondary)] outline-none transition-colors focus:border-[rgba(230,255,61,0.45)] md:w-40"
         >
           <option value="default">Default</option>
@@ -775,7 +775,7 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
         <div className="flex items-center gap-2 mt-0.5">
           <MediaTypeBadge type={media.type} size="xs" />
           {isOwner && (
-            <select value={media.status || 'watching'} onChange={e = data-no-swipe="true"> onStatusChange?.(media.id, e.target.value)} className="bg-transparent text-[10px] text-[var(--text-muted)] outline-none cursor-pointer">
+            <select value={media.status || 'watching'} onChange={e => onStatusChange?.(media.id, e.target.value)} className="bg-transparent text-[10px] text-[var(--text-muted)] outline-none cursor-pointer">
               <option value="watching">In corso</option>
               <option value="completed">Completato</option>
               <option value="paused">Pausa</option>
@@ -805,9 +805,9 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
           )
         })() : hasEpisodes ? (
           <div className="flex items-center gap-1">
-            {isOwner && <button onClick={() = type="button" data-no-swipe="true"> onSaveProgress?.(media.id, Math.max(1, media.current_episode - 1))} className="flex h-5 w-5 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-xs text-[var(--accent)] transition hover:border-[rgba(230,255,61,0.45)]">−</button>}
+            {isOwner && <button onClick={() => onSaveProgress?.(media.id, Math.max(1, media.current_episode - 1))} className="flex h-5 w-5 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-xs text-[var(--accent)] transition hover:border-[rgba(230,255,61,0.45)]">−</button>}
             <span className="text-xs text-[var(--accent)] min-w-[60px] text-center">{media.current_episode}/{maxEp}</span>
-            {isOwner && <button onClick={() = type="button" data-no-swipe="true"> onSaveProgress?.(media.id, Math.min(maxEp, media.current_episode + 1))} className="flex h-5 w-5 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-xs text-[var(--accent)] transition hover:border-[rgba(230,255,61,0.45)]">+</button>}
+            {isOwner && <button onClick={() => onSaveProgress?.(media.id, Math.min(maxEp, media.current_episode + 1))} className="flex h-5 w-5 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-xs text-[var(--accent)] transition hover:border-[rgba(230,255,61,0.45)]">+</button>}
           </div>
         ) : null}
       </div>
@@ -819,7 +819,7 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
 
       {/* Delete */}
       {isOwner && (
-        <button onClick={() = type="button" data-no-swipe="true"> onDelete?.(media.id)} className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 transition-all flex-shrink-0">
+        <button onClick={() => onDelete?.(media.id)} className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 transition-all flex-shrink-0">
           <X size={14} />
         </button>
       )}
@@ -1390,11 +1390,11 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
             <div className="flex flex-wrap items-center justify-center gap-2 md:justify-end">
               {isOwner ? (
                 <>
-                  <Link href="/settings/profile" data-no-swipe="true">
+                  <Link href="/settings/profile">
                     <button
                       data-testid="btn-edit-profile"
                       className="inline-flex h-10 items-center gap-2 rounded-2xl border border-[rgba(230,255,61,0.28)] bg-[rgba(230,255,61,0.10)] px-4 text-sm font-black text-[var(--accent)] transition-all hover:border-[rgba(230,255,61,0.45)] hover:bg-[rgba(230,255,61,0.14)]"
-                     type="button" data-no-swipe="true">
+                    >
                       <Settings size={15} />
                       {t.profile.editProfile}
                     </button>
@@ -1478,7 +1478,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                 <button
                   key={item.key}
                   type="button"
-                  onClick={() = data-no-swipe="true"> setImportPlatform(item.key)}
+                  onClick={() => setImportPlatform(item.key)}
                   className="inline-flex h-9 items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-3 text-xs font-bold text-[var(--text-secondary)] transition-all hover:border-[rgba(230,255,61,0.32)] hover:text-[var(--text-primary)]"
                 >
                   {item.icon}
@@ -1502,7 +1502,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
               { href: '/community', icon: <Users size={14} style={{ color: 'var(--accent)' }} />, label: 'Community' },
             ] as const).map(item => (
               <Link key={item.href} href={item.href}
-                className="flex flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm font-bold text-[var(--text-secondary)] transition-all hover:border-[rgba(230,255,61,0.28)] hover:text-[var(--text-primary)]" data-no-swipe="true">
+                className="flex flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm font-bold text-[var(--text-secondary)] transition-all hover:border-[rgba(230,255,61,0.28)] hover:text-[var(--text-primary)]">
                 {item.icon}{item.label}
               </Link>
             ))}
@@ -1520,7 +1520,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
               <button
                 key={tab.id}
                 data-testid={`tab-${tab.id}`}
-                onClick={() = type="button" data-no-swipe="true"> setActiveTab(tab.id)}
+                onClick={() => setActiveTab(tab.id)}
                 className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-2xl px-4 py-2.5 text-sm font-black transition-all"
                 style={isActive
                   ? { background: 'var(--accent)', color: '#0B0B0F' }
@@ -1551,7 +1551,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                 <p className="gk-headline mb-1 text-[var(--text-primary)]">{isOwner ? 'La tua collezione è vuota' : 'Nessun media pubblico'}</p>
                 <p className="gk-body mx-auto mb-5 max-w-sm">{isOwner ? t.profile.emptyOwner : t.profile.emptyOther}</p>
                 {isOwner && (
-                  <Link href="/discover" className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]" data-no-swipe="true">
+                  <Link href="/discover" className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]">
                     Apri Discover
                   </Link>
                 )}
@@ -1573,7 +1573,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                     <p className="gk-body mx-auto mb-5 max-w-sm">Prova a modificare ricerca, filtro o ordinamento.</p>
                     <button
                       type="button"
-                      onClick={() = data-no-swipe="true"> { setCollectionSearch(''); setStatusFilter('all'); setSortMode('default') }}
+                      onClick={() => { setCollectionSearch(''); setStatusFilter('all'); setSortMode('default') }}
                       className="inline-flex h-10 items-center justify-center rounded-2xl border border-[var(--border)] px-4 text-sm font-bold text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
                     >
                       Cancella filtri
@@ -1599,7 +1599,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                                 <Link
                                   href={`/profile/${profile.username}/${categoryToType[category] || category}`}
                                   className="flex items-center gap-1.5 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-xs font-bold text-[var(--text-secondary)] transition-all hover:border-[rgba(230,255,61,0.28)] hover:text-[var(--accent)]"
-                                 data-no-swipe="true">
+                                >
                                   Vedi tutti <ChevronRight size={13} />
                                 </Link>
                               )}
@@ -1624,7 +1624,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                                   <Link
                                     href={`/profile/${profile.username}/${categoryToType[category] || category}`}
                                     className="group flex min-h-[340px] w-12 flex-shrink-0 flex-col items-center justify-center gap-1.5 rounded-3xl border border-dashed border-[var(--border)] text-[var(--text-muted)] transition-all hover:border-[rgba(230,255,61,0.34)] hover:text-[var(--accent)] sm:min-h-[380px] md:min-h-[420px] md:w-14"
-                                   data-no-swipe="true">
+                                  >
                                     <ChevronRight size={16} />
                                     <span className="text-xs font-semibold">+{items.length - 6}</span>
                                   </Link>
@@ -1642,7 +1642,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                                 <Link
                                   href={`/profile/${profile.username}/${categoryToType[category] || category}`}
                                   className="group flex min-h-[340px] w-12 flex-shrink-0 flex-col items-center justify-center gap-1.5 rounded-3xl border border-dashed border-[var(--border)] text-[var(--text-muted)] transition-all hover:border-[rgba(230,255,61,0.34)] hover:text-[var(--accent)] sm:min-h-[380px] md:min-h-[420px] md:w-14"
-                                 data-no-swipe="true">
+                                >
                                   <ChevronRight size={16} />
                                   <span className="text-xs font-semibold">+{items.length - 6}</span>
                                 </Link>
@@ -1769,11 +1769,11 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                   {importPlatform === 'bgg' && 'Importa da BoardGameGeek'}
                 </h2>
               </div>
-              <button onClick={() = type="button" data-no-swipe="true"> setImportPlatform(null)} className="rounded-2xl border border-[var(--border)] bg-black/20 p-2 text-[var(--text-secondary)] transition hover:text-white">
+              <button onClick={() => setImportPlatform(null)} className="rounded-2xl border border-[var(--border)] bg-black/20 p-2 text-[var(--text-secondary)] transition hover:text-white">
                 <XIcon size={18} />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto overscroll-contain p-6">
+            <div className="flex-1 overflow-y-auto p-6">
               {importPlatform === 'anilist' && <AniListImport />}
               {importPlatform === 'mal' && <MALImport />}
               {importPlatform === 'letterboxd' && <LetterboxdImport />}
