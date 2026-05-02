@@ -161,11 +161,11 @@ export default async function GlobalStatsPage() {
           {(() => {
             const maxH = Math.max(stats.animeHours, stats.gameHours, stats.tvHours, stats.movieHours, stats.mangaHours) || 1
             return [
-              { label: 'Anime', hours: stats.animeHours, color: 'bg-sky-500' },
-              { label: 'Videogiochi (Steam)', hours: stats.gameHours, color: 'bg-green-500' },
-              { label: 'Serie TV', hours: stats.tvHours, color: 'bg-purple-500' },
-              { label: 'Film', hours: stats.movieHours, color: 'bg-red-500' },
-              { label: 'Manga', hours: stats.mangaHours, color: 'bg-orange-500' },
+              { label: 'Anime', hours: stats.animeHours, color: 'var(--type-anime)' },
+              { label: 'Videogiochi (Steam)', hours: stats.gameHours, color: 'var(--type-game)' },
+              { label: 'Serie TV', hours: stats.tvHours, color: 'var(--type-tv)' },
+              { label: 'Film', hours: stats.movieHours, color: 'var(--type-movie)' },
+              { label: 'Manga', hours: stats.mangaHours, color: 'var(--type-manga)' },
             ].map(({ label, hours, color }) => ({ label, hours, color, max: maxH }))
           })().map(({ label, hours, color, max }) => (
             <div key={label} className="mb-4 last:mb-0">
@@ -175,8 +175,8 @@ export default async function GlobalStatsPage() {
               </div>
               <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full ${color} transition-all duration-700`}
-                  style={{ width: max > 0 ? `${(hours / max) * 100}%` : '0%' }}
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{ width: max > 0 ? `${(hours / max) * 100}%` : '0%', background: color }}
                 />
               </div>
             </div>

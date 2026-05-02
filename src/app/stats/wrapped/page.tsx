@@ -106,11 +106,11 @@ function Slide2({ data, onNext }: { data: WrappedData; onNext: () => void }) {
 
 function Slide3({ data, onNext }: { data: WrappedData; onNext: () => void }) {
   const stats = [
-    { Icon: Tv,       label: 'Episodi anime',         value: data.animeEpisodes,  color: 'text-sky-400' },
-    { Icon: Gamepad2, label: 'Ore di gioco',          value: data.gameHours,      color: 'text-green-400' },
-    { Icon: Layers,   label: 'Cap. manga letti',      value: data.mangaChapters,  color: 'text-orange-400' },
-    { Icon: Film,     label: 'Film guardati',         value: data.movieCount,     color: 'text-red-400' },
-    { Icon: Tv,       label: 'Ep. serie TV',          value: data.tvEpisodes,     color: 'text-purple-400' },
+    { Icon: Tv,       label: 'Episodi anime',         value: data.animeEpisodes,  color: 'var(--type-anime)' },
+    { Icon: Gamepad2, label: 'Ore di gioco',          value: data.gameHours,      color: 'var(--type-game)' },
+    { Icon: Layers,   label: 'Cap. manga letti',      value: data.mangaChapters,  color: 'var(--type-manga)' },
+    { Icon: Film,     label: 'Film guardati',         value: data.movieCount,     color: 'var(--type-movie)' },
+    { Icon: Tv,       label: 'Ep. serie TV',          value: data.tvEpisodes,     color: 'var(--type-tv)' },
   ].filter(s => s.value > 0)
 
   return (
@@ -127,10 +127,10 @@ function Slide3({ data, onNext }: { data: WrappedData; onNext: () => void }) {
             className="flex items-center gap-4 bg-white/5 rounded-2xl px-5 py-4 border border-white/10"
             style={{ animationDelay: `${i * 100}ms` }}
           >
-            <s.Icon size={28} className={s.color} />
+            <s.Icon size={28} style={{ color: s.color }} />
             <div className="flex-1">
               <p className="text-xs text-zinc-500">{s.label}</p>
-              <p className={`text-2xl font-black tabular-nums ${s.color}`}>
+              <p className="text-2xl font-black tabular-nums" style={{ color: s.color }}>
                 {s.value.toLocaleString('it')}
               </p>
             </div>
