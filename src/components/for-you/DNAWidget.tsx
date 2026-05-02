@@ -28,6 +28,46 @@ export interface TasteProfile {
   lowConfidence?: boolean
 }
 
+const EMPTY_PROFILE: TasteProfile = {
+  globalGenres: [],
+  topGenres: { anime: [], manga: [], movie: [], tv: [], game: [], boardgame: [] },
+  collectionSize: {},
+  recentWindow: 6,
+  deepSignals: { topThemes: [], topTones: [], topSettings: [] },
+  discoveryGenres: [],
+  negativeGenres: [],
+  creatorScores: { topStudios: [], topDirectors: [] },
+  bingeProfile: { isBinger: false, avgCompletionDays: 0, bingeGenres: [], slowGenres: [] },
+  wishlistGenres: [],
+  searchIntentGenres: [],
+  lowConfidence: true,
+}
+
+function normalizeTasteProfile(profile?: Partial<TasteProfile> | null): TasteProfile {
+  return {
+    ...EMPTY_PROFILE,
+    ...(profile || {}),
+    globalGenres: Array.isArray(profile?.globalGenres) ? profile.globalGenres : [],
+    topGenres: { ...EMPTY_PROFILE.topGenres, ...(profile?.topGenres || {}) },
+    collectionSize: profile?.collectionSize || {},
+    deepSignals: { ...EMPTY_PROFILE.deepSignals, ...(profile?.deepSignals || {}) },
+    discoveryGenres: Array.isArray(profile?.discoveryGenres) ? profile.discoveryGenres : [],
+    negativeGenres: Array.isArray(profile?.negativeGenres) ? profile.negativeGenres : [],
+    creatorScores: {
+      topStudios: Array.isArray(profile?.creatorScores?.topStudios) ? profile.creatorScores.topStudios : [],
+      topDirectors: Array.isArray(profile?.creatorScores?.topDirectors) ? profile.creatorScores.topDirectors : [],
+    },
+    bingeProfile: {
+      ...EMPTY_PROFILE.bingeProfile!,
+      ...(profile?.bingeProfile || {}),
+      bingeGenres: Array.isArray(profile?.bingeProfile?.bingeGenres) ? profile.bingeProfile.bingeGenres : [],
+      slowGenres: Array.isArray(profile?.bingeProfile?.slowGenres) ? profile.bingeProfile.slowGenres : [],
+    },
+    wishlistGenres: Array.isArray(profile?.wishlistGenres) ? profile.wishlistGenres : [],
+    searchIntentGenres: Array.isArray(profile?.searchIntentGenres) ? profile.searchIntentGenres : [],
+  }
+}
+
 function uniqueStrings(values: string[] | undefined): string[] {
   const seen = new Set<string>()
   const result: string[] = []
@@ -40,43 +80,44 @@ function uniqueStrings(values: string[] | undefined): string[] {
   return result
 }
 
-export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }: {
-  tasteProfile: TasteProfile
-  totalEntries: number
+export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries = 0 }: {
+  tasteProfile?: Partial<TasteProfile> | null
+  totalEntries?: number
 }) {
+  const profile = normalizeTasteProfile(tasteProfile)
   const [open, setOpen] = useState(() => {
     if (typeof window === 'undefined') return false
     if (!localStorage.getItem('dna_widget_seen')) { localStorage.setItem('dna_widget_seen', '1'); return true }
     return false
   })
 
-  const maxScore = tasteProfile.globalGenres[0]?.score || 1
-  const binge = tasteProfile.bingeProfile
+  const maxScore = profile.globalGenres[0]?.score || 1
+  const binge = profile.bingeProfile
   const seenGenres = new Set<string>()
-  const top5 = tasteProfile.globalGenres.filter(g => {
+  const top5 = profile.globalGenres.filter(g => {
     if (seenGenres.has(g.genre)) return false
     seenGenres.add(g.genre)
     return true
   }).slice(0, 5)
   const top5Total = top5.reduce((s, g) => s + g.score, 0) || 1
-  const topTones = uniqueStrings(tasteProfile.deepSignals?.topTones)
-  const topSettings = uniqueStrings(tasteProfile.deepSignals?.topSettings)
+  const topTones = uniqueStrings(profile.deepSignals?.topTones)
+  const topSettings = uniqueStrings(profile.deepSignals?.topSettings)
   const bingeGenres = uniqueStrings(binge?.bingeGenres)
   const slowGenres = uniqueStrings(binge?.slowGenres)
-  const searchIntentGenres = uniqueStrings(tasteProfile.searchIntentGenres)
-  const wishlistGenres = uniqueStrings(tasteProfile.wishlistGenres)
-  const discoveryGenres = uniqueStrings(tasteProfile.discoveryGenres)
+  const searchIntentGenres = uniqueStrings(profile.searchIntentGenres)
+  const wishlistGenres = uniqueStrings(profile.wishlistGenres)
+  const discoveryGenres = uniqueStrings(profile.discoveryGenres)
 
-  const hasCreators = tasteProfile.creatorScores &&
-    ((tasteProfile.creatorScores.topStudios?.length ?? 0) > 0 ||
-     (tasteProfile.creatorScores.topDirectors?.length ?? 0) > 0)
+  const hasCreators = profile.creatorScores &&
+    ((profile.creatorScores.topStudios?.length ?? 0) > 0 ||
+     (profile.creatorScores.topDirectors?.length ?? 0) > 0)
   const hasStyle = topTones.length > 0 || topSettings.length > 0
 
   const BAR_COLORS = ['#E6FF3D', '#38BDF8', '#4ADE80', '#FB923C', '#F97066']
 
   return (
     <div className="mb-8 overflow-hidden rounded-[28px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(230,255,61,0.09),rgba(139,92,246,0.07),rgba(20,20,27,0.88))] shadow-[0_18px_60px_rgba(0,0,0,0.28)]">
-      <button onClick={() => setOpen(v => !v)} className="w-full px-5 pb-4 pt-5 text-left">
+      <button type="button" data-no-swipe="true" onClick={() => setOpen(v => !v)} className="w-full px-5 pb-4 pt-5 text-left">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
@@ -84,7 +125,7 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
             </div>
             <h2 className="gk-title mb-1 text-[var(--text-primary)]">Il tuo algoritmo parte da qui.</h2>
             <p className="gk-caption">
-              {totalEntries} titoli · ultimi {tasteProfile.recentWindow || 6} mesi
+              {totalEntries} titoli · ultimi {profile.recentWindow || 6} mesi
               {binge?.isBinger && (
                 <span className="ml-2 inline-flex items-center gap-0.5 text-orange-400">
                   <Flame size={10} className="inline" />binge mode
@@ -129,11 +170,11 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
 
       {open && (
         <div className="space-y-6 border-t border-[rgba(255,255,255,0.06)] px-5 pb-5 pt-5">
-          {tasteProfile.globalGenres.length > 0 && (
+          {profile.globalGenres.length > 0 ? (
             <div>
               <p className="gk-label mb-3">Generi dominanti</p>
               <div className="space-y-2.5">
-                {tasteProfile.globalGenres.slice(0, 6).map(({ genre, score }, i) => {
+                {profile.globalGenres.slice(0, 6).map(({ genre, score }, i) => {
                   const pct = Math.round((score / maxScore) * 100)
                   const barColor = BAR_COLORS[i % BAR_COLORS.length]
                   return (
@@ -148,18 +189,23 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
                 })}
               </div>
             </div>
+          ) : (
+            <div className="rounded-2xl border border-[var(--border)] bg-black/18 p-4">
+              <p className="gk-label mb-1 text-[var(--accent)]">DNA in costruzione</p>
+              <p className="gk-caption">Aggiungi e valuta più media per vedere generi, creator e segnali di gusto più precisi.</p>
+            </div>
           )}
 
           {hasCreators && (
             <div>
               <p className="gk-label mb-3">Creator amati</p>
               <div className="flex flex-wrap gap-2">
-                {(tasteProfile.creatorScores?.topStudios ?? []).slice(0, 4).map((s, i) => (
+                {(profile.creatorScores?.topStudios ?? []).slice(0, 4).map((s, i) => (
                   <span key={`studio-${s.name}-${i}`} className="flex items-center gap-1.5 rounded-xl border border-sky-500/20 bg-sky-500/10 px-2.5 py-1 text-xs text-sky-300">
                     <Clapperboard size={10} />{s.name}
                   </span>
                 ))}
-                {(tasteProfile.creatorScores?.topDirectors ?? []).slice(0, 3).map((d, i) => (
+                {(profile.creatorScores?.topDirectors ?? []).slice(0, 3).map((d, i) => (
                   <span key={`director-${d.name}-${i}`} className="flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)', color: 'rgba(230,255,61,0.85)' }}>
                     <User size={10} />{d.name}
                   </span>
