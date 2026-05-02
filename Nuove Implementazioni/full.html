@@ -1,0 +1,917 @@
+<!doctype html>
+<html lang="it"><head>
+<meta charset="utf-8"/>
+<title>Geekore — Wireframe completo</title>
+<link rel="stylesheet" href="_shared.css"/>
+<style>
+.grid-2 { display:grid; grid-template-columns: 360px 1fr; gap:32px; align-items:flex-start; }
+</style>
+</head><body>
+
+<header class="doc-head">
+  <div class="eyebrow">Geekore · Wireframe completo · v2</div>
+  <h1>Mappa visiva di ogni schermata</h1>
+  <p>Tutte le pagine principali e secondarie dell'app, ognuna in versione mobile (360×720) e desktop (1280+ con sidebar fissa). I layout rispettano una griglia coerente: sidebar 240px sempre a sinistra dentro l'app autenticata, right-rail 280px dove utile, bottom-nav mobile a 5 tab.</p>
+  <div class="nav">
+    <a href="#s01">01 Landing</a><a href="#s02">02 Auth</a><a href="#s03">03 Onboarding</a>
+    <a href="#s04">04 Home</a><a href="#s05">05 Per te</a><a href="#s06">06 Library</a>
+    <a href="#s07">07 Discover</a><a href="#s08">08 Friends</a><a href="#s09">09 Swipe</a>
+    <a href="#s10">10 Profilo</a><a href="#s11">11 Media drawer</a><a href="#s12">12 Post</a>
+    <a href="#s13">13 Notifiche</a><a href="#s14">14 Settings</a><a href="#s15">15 Search</a>
+  </div>
+</header>
+
+<!-- ═══ S01 LANDING ═══ -->
+<section class="block" id="s01">
+  <div class="section-head"><span class="num">01</span><h2>Landing · /</h2><span class="desc">— pubblica · no auth</span></div>
+  <div class="row">
+    <div class="frame frame-mobile">
+      <div class="frame-label">Mobile · /</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-header">
+        <div class="wm-mobile"><div class="mark">★</div>geekore</div>
+        <div style="display:flex;gap:6px;"><span class="pill" style="height:28px;font-size:11px;">Accedi</span><span class="pill active" style="height:28px;font-size:11px;background:var(--accent);color:#0B0B0F;border-color:var(--accent);">Iscriviti</span></div>
+      </div>
+      <div class="m-content no-bottom" style="padding:20px 14px;">
+        <div class="pill" style="margin-bottom:14px;color:var(--accent);border-color:rgba(230,255,61,0.2);background:rgba(230,255,61,0.08);">● Universo geek in un posto</div>
+        <h1 style="font-family:var(--display);font-weight:900;font-size:42px;line-height:1;letter-spacing:-0.04em;margin:0;">Traccia tutto<br/><span style="color:var(--accent)">ciò che ami</span></h1>
+        <p style="font-size:14px;color:var(--text-2);line-height:1.5;margin:14px 0 18px;">Anime, manga, videogiochi, serie, film e boardgame in un unico profilo.</p>
+        <div class="cta" style="margin-bottom:10px;">Registrati gratis</div>
+        <div class="cta sec">Accedi</div>
+        <div style="margin-top:18px;border:1px solid var(--border);border-radius:18px;padding:12px;text-align:center;">
+          <div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:8px;"><span style="width:8px;height:8px;background:#4ADE80;border-radius:99px;"></span><span class="label-mono">Community live</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+            <div><div style="font-family:var(--display);font-weight:900;font-size:20px;letter-spacing:-0.03em;">2.4k</div><div style="font-size:9px;color:var(--text-3);">geek</div></div>
+            <div><div style="font-family:var(--display);font-weight:900;font-size:20px;letter-spacing:-0.03em;">38k</div><div style="font-size:9px;color:var(--text-3);">media</div></div>
+            <div><div style="font-family:var(--display);font-weight:900;font-size:20px;letter-spacing:-0.03em;">5+</div><div style="font-size:9px;color:var(--text-3);">categorie</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="frame frame-desktop tall">
+      <div class="frame-label">Desktop · /</div>
+      <div style="height:62px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 32px;">
+        <div class="wm-mobile"><div class="mark">★</div>geekore</div>
+        <div style="display:flex;gap:24px;font-size:13px;color:var(--text-2);"><span>Cos'è</span><span>Funzioni</span><span>Community</span><span>Pricing</span></div>
+        <div style="display:flex;gap:10px;"><span class="pill" style="height:34px;font-size:12px;padding:0 14px;">Accedi</span><span class="pill" style="height:34px;font-size:12px;padding:0 14px;background:var(--accent);color:#0B0B0F;border-color:var(--accent);">Iscriviti gratis</span></div>
+      </div>
+      <div style="padding:60px;text-align:center;height:calc(100% - 62px);overflow:hidden;">
+        <div class="pill" style="margin-bottom:24px;color:var(--accent);border-color:rgba(230,255,61,0.2);background:rgba(230,255,61,0.08);">● Universo geek in un posto</div>
+        <h1 style="font-family:var(--display);font-weight:900;font-size:88px;line-height:1;letter-spacing:-0.04em;margin:0;">Traccia tutto<br/><span style="color:var(--accent)">ciò che ami</span></h1>
+        <p style="font-size:18px;color:var(--text-2);line-height:1.6;margin:24px auto 32px;max-width:520px;">Anime, manga, videogiochi, serie, film e boardgame. Un profilo. La community.</p>
+        <div style="display:flex;gap:14px;justify-content:center;">
+          <div style="height:54px;padding:0 32px;border-radius:18px;background:var(--accent);color:#0B0B0F;display:grid;place-items:center;font-weight:800;font-family:var(--display);font-size:16px;">Registrati gratis</div>
+          <div style="height:54px;padding:0 32px;border-radius:18px;background:var(--bg-3);border:1px solid var(--border);display:grid;place-items:center;font-weight:800;font-family:var(--display);font-size:16px;">Guarda demo</div>
+        </div>
+        <div style="margin-top:40px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+          <span class="pill t-anime">⚔ Anime</span><span class="pill t-manga">≡ Manga</span><span class="pill t-game">🎮 Game</span><span class="pill t-tv">▶ TV</span><span class="pill t-movie">🎬 Film</span><span class="pill t-board">⬢ Board</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="annot">Header pubblico solo qui. CTA primary in alto-destra. Nessuna sidebar fino al login.</div>
+</section>
+
+<!-- ═══ S02 AUTH (login + register + forgot) ═══ -->
+<section class="block" id="s02">
+  <div class="section-head"><span class="num">02</span><h2>Auth · /login · /register · /forgot-password</h2><span class="desc">— pagine senza nav</span></div>
+  <div class="row">
+    <div class="frame frame-mobile">
+      <div class="frame-label">Mobile · /login</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-content full" style="padding:24px 14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <div class="wm-mobile" style="font-size:18px;"><div class="mark" style="width:24px;height:24px;font-size:13px;">★</div>geekore</div>
+          <div style="display:flex;background:var(--bg-3);border:1px solid var(--border);border-radius:12px;padding:3px;gap:2px;"><span style="padding:4px 10px;border-radius:9px;background:var(--accent);color:#0B0B0F;font-size:10px;font-weight:800;">IT</span><span style="padding:4px 10px;font-size:10px;color:var(--text-3);font-weight:800;">EN</span></div>
+        </div>
+        <div style="padding:22px;border:1px solid var(--border);border-radius:24px;background:var(--bg-3);">
+          <div style="font-family:var(--display);font-size:28px;font-weight:900;letter-spacing:-0.03em;margin:0 0 6px;">Bentornato</div>
+          <div style="color:var(--text-2);font-size:13px;margin-bottom:18px;">Accedi per continuare.</div>
+          <div class="input" style="margin-bottom:10px;">Email</div>
+          <div class="input" style="display:flex;justify-content:space-between;"><span>Password</span><span>👁</span></div>
+          <a style="font-family:var(--mono);font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;display:block;text-align:right;margin:6px 0 14px;">Password dimenticata?</a>
+          <div class="cta">Accedi</div>
+          <div style="text-align:center;font-size:11px;color:var(--text-3);margin:14px 0;">— oppure —</div>
+          <div class="cta sec" style="height:42px;font-size:13px;margin-bottom:8px;">⚪ Continua con Google</div>
+          <div class="cta sec" style="height:42px;font-size:13px;"> Continua con Apple</div>
+          <div style="text-align:center;font-size:12px;color:var(--text-3);margin-top:18px;">Non hai un account? <span style="color:var(--accent);font-weight:700;">Registrati</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="frame frame-mobile">
+      <div class="frame-label">Mobile · /register</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-content full" style="padding:24px 14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <div class="wm-mobile" style="font-size:18px;"><div class="mark" style="width:24px;height:24px;font-size:13px;">★</div>geekore</div>
+          <span class="label-mono">PASSO 1/2</span>
+        </div>
+        <div style="padding:22px;border:1px solid var(--border);border-radius:24px;background:var(--bg-3);">
+          <div style="font-family:var(--display);font-size:26px;font-weight:900;letter-spacing:-0.03em;margin:0 0 6px;">Crea il tuo profilo</div>
+          <div style="color:var(--text-2);font-size:13px;margin-bottom:18px;">Bastano un'email e uno username.</div>
+          <div class="input" style="margin-bottom:10px;">Email</div>
+          <div class="input" style="margin-bottom:10px;">@username</div>
+          <div class="input" style="margin-bottom:6px;display:flex;justify-content:space-between;"><span>Password</span><span>👁</span></div>
+          <div style="display:flex;gap:4px;margin:8px 0 14px;">
+            <i style="height:3px;flex:1;border-radius:99px;background:var(--accent);"></i>
+            <i style="height:3px;flex:1;border-radius:99px;background:var(--accent);"></i>
+            <i style="height:3px;flex:1;border-radius:99px;background:var(--accent);"></i>
+            <i style="height:3px;flex:1;border-radius:99px;background:var(--bg-4);"></i>
+          </div>
+          <div style="font-size:11px;color:var(--text-3);margin-bottom:14px;">Continuando accetti i <span style="color:var(--text);">Termini</span> e la <span style="color:var(--text);">Privacy</span>.</div>
+          <div class="cta">Continua →</div>
+        </div>
+      </div>
+    </div>
+    <div class="frame frame-mobile">
+      <div class="frame-label">Mobile · /forgot</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-content full" style="padding:24px 14px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;"><div class="icon-btn">‹</div><div class="wm-mobile" style="font-size:18px;"><div class="mark" style="width:24px;height:24px;font-size:13px;">★</div>geekore</div></div>
+        <div style="padding:22px;border:1px solid var(--border);border-radius:24px;background:var(--bg-3);">
+          <div style="font-family:var(--display);font-size:26px;font-weight:900;letter-spacing:-0.03em;margin:0 0 6px;">Password dimenticata?</div>
+          <div style="color:var(--text-2);font-size:13px;margin-bottom:18px;line-height:1.5;">Ti inviamo un link per reimpostarla.</div>
+          <div class="input" style="margin-bottom:14px;">Email</div>
+          <div class="cta">Invia link</div>
+          <div style="text-align:center;margin-top:14px;font-size:12px;color:var(--text-3);">Torna al <span style="color:var(--accent);font-weight:700;">login</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="frame" style="flex:1; min-width:480px; height:540px;">
+      <div class="frame-label">Desktop · /login</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;height:100%;">
+        <div style="padding:40px;background:linear-gradient(135deg,rgba(230,255,61,0.04),transparent);border-right:1px solid var(--border);display:flex;flex-direction:column;justify-content:space-between;">
+          <div class="wm-mobile"><div class="mark">★</div>geekore</div>
+          <div>
+            <div style="font-family:var(--display);font-size:42px;font-weight:900;line-height:1;letter-spacing:-0.04em;">La tua biblioteca,<br/><span style="color:var(--accent)">tutta insieme.</span></div>
+            <p style="color:var(--text-2);font-size:14px;line-height:1.6;margin-top:14px;max-width:340px;">2.400 geek, 38k titoli tracciati. Aggiungi anche tu.</p>
+          </div>
+          <span class="label-mono">© 2025 Geekore · Termini · Privacy</span>
+        </div>
+        <div style="padding:48px;display:flex;flex-direction:column;justify-content:center;">
+          <div style="font-family:var(--display);font-size:32px;font-weight:900;letter-spacing:-0.03em;margin-bottom:8px;">Bentornato</div>
+          <div style="color:var(--text-2);font-size:14px;margin-bottom:24px;">Accedi al tuo account</div>
+          <div class="input" style="margin-bottom:10px;">Email</div>
+          <div class="input" style="display:flex;justify-content:space-between;"><span>Password</span><span>👁</span></div>
+          <a style="font-family:var(--mono);font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;display:block;text-align:right;margin:8px 0 16px;">Password dimenticata?</a>
+          <div class="cta">Accedi</div>
+          <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin:18px 0;color:var(--text-3);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;font-family:var(--mono);"><i style="height:1px;background:var(--border);"></i>oppure<i style="height:1px;background:var(--border);"></i></div>
+          <div style="display:flex;gap:8px;"><div class="cta sec" style="flex:1;height:42px;font-size:13px;">⚪ Google</div><div class="cta sec" style="flex:1;height:42px;font-size:13px;"> Apple</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="annot">3 mobile (login, register, forgot) + desktop split-screen 50/50 con narrativa a sinistra. Mai bottom-nav, mai sidebar.</div>
+</section>
+
+<!-- ═══ S03 ONBOARDING (4 step) ═══ -->
+<section class="block" id="s03">
+  <div class="section-head"><span class="num">03</span><h2>Onboarding · /onboarding</h2><span class="desc">— 4 step lineari</span></div>
+  <div class="row">
+    <div class="frame frame-mobile">
+      <div class="frame-label">Step 1 · media</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-content full" style="padding-top:16px;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;padding:0 14px;margin-bottom:6px;">Passo 1 di 4 · 25%</div>
+        <div style="height:4px;background:var(--border);border-radius:99px;margin:12px 14px;overflow:hidden;"><i style="display:block;height:100%;width:25%;background:var(--accent);"></i></div>
+        <h2 style="padding:0 14px;font-family:var(--display);font-weight:800;font-size:24px;line-height:1.1;letter-spacing:-0.02em;">Cosa ti appassiona?</h2>
+        <p style="padding:8px 14px 16px;color:var(--text-2);font-size:13px;line-height:1.5;">Almeno una. Modificabile dopo.</p>
+        <div style="padding:0 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div style="aspect-ratio:1.05;border:1px solid rgba(230,255,61,0.5);border-radius:18px;padding:14px;background:rgba(230,255,61,0.06);display:flex;flex-direction:column;justify-content:space-between;"><div style="width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:rgba(56,189,248,0.18);color:var(--t-anime);">⚔</div><div style="font-size:13px;font-weight:800;">Anime</div></div>
+          <div style="aspect-ratio:1.05;border:1px solid var(--border);border-radius:18px;padding:14px;background:var(--bg-3);display:flex;flex-direction:column;justify-content:space-between;"><div style="width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:rgba(249,112,102,0.15);color:var(--t-manga);">≡</div><div style="font-size:13px;font-weight:800;">Manga</div></div>
+          <div style="aspect-ratio:1.05;border:1px solid rgba(230,255,61,0.5);border-radius:18px;padding:14px;background:rgba(230,255,61,0.06);display:flex;flex-direction:column;justify-content:space-between;"><div style="width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:rgba(74,222,128,0.18);color:var(--t-game);">🎮</div><div style="font-size:13px;font-weight:800;">Game</div></div>
+          <div style="aspect-ratio:1.05;border:1px solid var(--border);border-radius:18px;padding:14px;background:var(--bg-3);display:flex;flex-direction:column;justify-content:space-between;"><div style="width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:rgba(192,132,252,0.18);color:var(--t-tv);">▶</div><div style="font-size:13px;font-weight:800;">Serie</div></div>
+          <div style="aspect-ratio:1.05;border:1px solid var(--border);border-radius:18px;padding:14px;background:var(--bg-3);display:flex;flex-direction:column;justify-content:space-between;"><div style="width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:rgba(239,68,68,0.18);color:var(--t-movie);">🎬</div><div style="font-size:13px;font-weight:800;">Film</div></div>
+          <div style="aspect-ratio:1.05;border:1px solid var(--border);border-radius:18px;padding:14px;background:var(--bg-3);display:flex;flex-direction:column;justify-content:space-between;"><div style="width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:rgba(251,146,60,0.18);color:var(--t-board);">⬢</div><div style="font-size:13px;font-weight:800;">Board</div></div>
+        </div>
+        <div class="cta" style="margin:16px 14px 0;">Continua →</div>
+      </div>
+    </div>
+    <div class="frame frame-mobile">
+      <div class="frame-label">Step 2 · import</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-content full" style="padding-top:16px;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;padding:0 14px;margin-bottom:6px;">Passo 2 di 4 · 50%</div>
+        <div style="height:4px;background:var(--border);border-radius:99px;margin:12px 14px;overflow:hidden;"><i style="display:block;height:100%;width:50%;background:var(--accent);"></i></div>
+        <h2 style="padding:0 14px;font-family:var(--display);font-weight:800;font-size:24px;line-height:1.1;letter-spacing:-0.02em;">Importa la tua libreria</h2>
+        <p style="padding:8px 14px 14px;color:var(--text-2);font-size:13px;line-height:1.5;">Collegati a un servizio. Opzionale.</p>
+        <div style="padding:0 14px;display:flex;flex-direction:column;gap:10px;">
+          <div class="card" style="display:flex;align-items:center;gap:12px;padding:12px;"><div style="width:36px;height:36px;border-radius:11px;background:rgba(56,189,248,0.15);color:var(--t-anime);display:grid;place-items:center;">⚔</div><div style="flex:1;"><div style="font-weight:800;font-size:13px;">AniList</div><div style="font-size:10px;color:var(--text-3);">Anime e manga</div></div><span style="color:var(--accent);">→</span></div>
+          <div class="card" style="display:flex;align-items:center;gap:12px;padding:12px;border-color:rgba(230,255,61,0.3);background:rgba(230,255,61,0.04);"><div style="width:36px;height:36px;border-radius:11px;background:rgba(74,222,128,0.15);color:var(--t-game);display:grid;place-items:center;">🎮</div><div style="flex:1;"><div style="font-weight:800;font-size:13px;">Steam</div><div style="font-size:10px;color:var(--accent);">✓ collegato · 47 giochi</div></div></div>
+          <div class="card" style="display:flex;align-items:center;gap:12px;padding:12px;"><div style="width:36px;height:36px;border-radius:11px;background:rgba(239,68,68,0.15);color:var(--t-movie);display:grid;place-items:center;">🎬</div><div style="flex:1;"><div style="font-weight:800;font-size:13px;">Letterboxd</div><div style="font-size:10px;color:var(--text-3);">Film e rating</div></div><span style="color:var(--accent);">→</span></div>
+          <div class="card" style="display:flex;align-items:center;gap:12px;padding:12px;"><div style="width:36px;height:36px;border-radius:11px;background:rgba(251,146,60,0.15);color:var(--t-board);display:grid;place-items:center;">⬢</div><div style="flex:1;"><div style="font-weight:800;font-size:13px;">BGG</div><div style="font-size:10px;color:var(--text-3);">Boardgame collection</div></div><span style="color:var(--accent);">→</span></div>
+        </div>
+        <div style="display:flex;gap:10px;margin:16px 14px 0;"><div class="cta sec" style="flex:1;height:46px;font-size:13px;">Salta</div><div class="cta" style="flex:1;height:46px;">Continua →</div></div>
+      </div>
+    </div>
+    <div class="frame frame-mobile">
+      <div class="frame-label">Step 3 · swipe</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-content full" style="padding-top:16px;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;padding:0 14px;margin-bottom:6px;">Passo 3 di 4 · 75%</div>
+        <div style="height:4px;background:var(--border);border-radius:99px;margin:12px 14px;overflow:hidden;"><i style="display:block;height:100%;width:75%;background:var(--accent);"></i></div>
+        <h2 style="padding:0 14px;font-family:var(--display);font-weight:800;font-size:22px;line-height:1.1;letter-spacing:-0.02em;">Swipe a destra se ti piace</h2>
+        <p style="padding:6px 14px 12px;color:var(--text-2);font-size:13px;">8 / 10 valutati</p>
+        <div style="margin:0 14px;aspect-ratio:3/4;border-radius:24px;background:linear-gradient(135deg,#1a1a24,#0e0e14);border:1px solid var(--border);position:relative;overflow:hidden;display:grid;align-content:end;">
+          <div style="position:absolute;inset:8px -8px -16px 8px;border-radius:24px;background:var(--bg-3);z-index:-1;border:1px solid var(--border);"></div>
+          <div style="position:absolute;top:14px;left:14px;display:flex;gap:6px;z-index:3;"><span class="pill t-anime" style="height:22px;font-size:10px;">Anime</span><span class="pill match" style="height:22px;font-size:10px;">★ 96%</span></div>
+          <div style="padding:16px;background:linear-gradient(180deg,transparent,rgba(0,0,0,0.85));z-index:2;">
+            <div style="font-family:var(--display);font-weight:900;font-size:22px;letter-spacing:-0.02em;line-height:1.1;">Frieren</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text-3);margin-top:6px;letter-spacing:0.05em;">2023 · 28 EP · FANTASY</div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:center;gap:14px;padding:14px;"><div style="width:50px;height:50px;border-radius:50%;background:var(--bg-3);border:1px solid var(--border);display:grid;place-items:center;color:#EF4444;">✕</div><div style="width:42px;height:42px;border-radius:50%;background:var(--bg-3);border:1px solid var(--border);display:grid;place-items:center;color:var(--text-2);">↻</div><div style="width:50px;height:50px;border-radius:50%;background:rgba(230,255,61,0.08);border:1px solid rgba(230,255,61,0.4);display:grid;place-items:center;color:var(--accent);">♥</div></div>
+      </div>
+    </div>
+    <div class="frame frame-mobile">
+      <div class="frame-label">Step 4 · amici</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-content full" style="padding-top:16px;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;padding:0 14px;margin-bottom:6px;">Passo 4 di 4 · 100%</div>
+        <div style="height:4px;background:var(--border);border-radius:99px;margin:12px 14px;overflow:hidden;"><i style="display:block;height:100%;width:100%;background:var(--accent);"></i></div>
+        <h2 style="padding:0 14px;font-family:var(--display);font-weight:800;font-size:22px;line-height:1.1;letter-spacing:-0.02em;">Trova la tua tribù</h2>
+        <p style="padding:6px 14px 14px;color:var(--text-2);font-size:13px;line-height:1.5;">Geek con gusti simili ai tuoi.</p>
+        <div style="padding:0 14px;display:flex;flex-direction:column;gap:8px;">
+          <div class="card" style="padding:10px;display:flex;gap:10px;align-items:center;"><div class="avatar md28">SK</div><div style="flex:1;"><div style="font-size:12px;font-weight:700;">@sakura_92</div><div style="font-family:var(--mono);font-size:9px;color:var(--text-3);">94% TASTE MATCH</div></div><span class="pill match" style="height:24px;font-size:10px;">+ Segui</span></div>
+          <div class="card" style="padding:10px;display:flex;gap:10px;align-items:center;"><div class="avatar md28">JM</div><div style="flex:1;"><div style="font-size:12px;font-weight:700;">@jin_m</div><div style="font-family:var(--mono);font-size:9px;color:var(--text-3);">88% TASTE MATCH</div></div><span class="pill match" style="height:24px;font-size:10px;">+ Segui</span></div>
+          <div class="card" style="padding:10px;display:flex;gap:10px;align-items:center;"><div class="avatar md28">YK</div><div style="flex:1;"><div style="font-size:12px;font-weight:700;">@yuki_k</div><div style="font-family:var(--mono);font-size:9px;color:var(--text-3);">82% TASTE MATCH</div></div><span class="pill" style="height:24px;font-size:10px;">✓ Seguiti</span></div>
+        </div>
+        <div class="cta" style="margin:18px 14px 0;">Entra in Geekore →</div>
+      </div>
+    </div>
+  </div>
+  <div class="annot">Stesso pattern su desktop: card centrata 480px max-width, niente sidebar fino a fine onboarding. Progress bar sempre in cima.</div>
+</section>
+
+<!-- ═══ S04 HOME (FEED) ═══ -->
+<section class="block" id="s04">
+  <div class="section-head"><span class="num">04</span><h2>Home · /home</h2><span class="desc">— feed sociale · core</span></div>
+  <div class="row">
+    <div class="frame frame-mobile">
+      <div class="frame-label">Mobile · /home</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-header">
+        <div class="wm-mobile"><div class="mark">★</div>geekore</div>
+        <div style="display:flex;align-items:center;gap:2px;"><div class="icon-btn" style="position:relative;">🔔<span class="badge-dot"></span></div><div class="avatar sm">MR</div></div>
+      </div>
+      <div class="m-content">
+        <div class="filter-row"><span class="pill active">Tutti</span><span class="pill">Seguiti</span><span class="pill">Trending</span><span class="pill">Discovery</span></div>
+        <div class="filter-row"><span class="pill t-anime">⚔ Anime</span><span class="pill t-game">🎮 Game</span><span class="pill t-tv">▶ TV</span></div>
+        <div style="margin:14px;border:1px solid var(--border);border-radius:18px;background:var(--bg-3);padding:12px;display:flex;gap:10px;align-items:center;"><div class="avatar md28" style="font-size:11px;">MR</div><div style="flex:1;height:36px;border-radius:12px;background:var(--bg-2);border:1px solid var(--border);padding:0 12px;display:flex;align-items:center;color:var(--text-3);font-size:13px;">Cosa stai guardando?</div><div style="width:36px;height:36px;border-radius:12px;background:var(--accent);display:grid;place-items:center;color:#0B0B0F;">↑</div></div>
+        <div class="feed-card">
+          <div class="head"><div class="ring-story"><div class="inner"><div class="avatar">SK</div></div></div><div class="meta"><div class="name">sakura_92</div><div class="ts">12 MIN · ANIME</div></div><div class="icon-btn">⋯</div></div>
+          <div class="body"><span class="pill t-anime" style="height:22px;font-size:10px;margin-bottom:8px;">Frieren EP 14</span><div class="text">Quel flashback con Himmel mi ha distrutta 😭</div></div>
+          <div class="img">— immagine 16:9 —</div>
+          <div class="actions"><span class="a"><span style="color:#EF4444;">♥</span> 124</span><span class="a">💬 18</span><span class="a">↗</span><span style="margin-left:auto;" class="a">🔖</span></div>
+        </div>
+        <div class="feed-card">
+          <div class="head"><div class="avatar" style="background:linear-gradient(135deg,var(--t-game),var(--t-board));">JM</div><div class="meta"><div class="name">jin_m</div><div class="ts">36 MIN · GAME</div></div><div class="icon-btn">⋯</div></div>
+          <div class="body"><span class="pill t-game" style="height:22px;font-size:10px;margin-bottom:8px;">Silksong</span><div class="text">Finalmente platinato. Sinfonia di rage e gratitudine.</div></div>
+          <div class="actions"><span class="a"><span style="color:#EF4444;">♥</span> 48</span><span class="a">💬 7</span><span class="a">↗</span><span style="margin-left:auto;" class="a">🔖</span></div>
+        </div>
+      </div>
+      <div class="m-bottom">
+        <div class="m-tab active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V11z"/></svg><span>Home</span></div>
+        <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"/></svg><span>Per te</span></div>
+        <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 9h16"/></svg><span>Library</span></div>
+        <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg><span>Discover</span></div>
+        <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/></svg><span>Friends</span></div>
+      </div>
+    </div>
+    <div class="frame frame-desktop tall">
+      <div class="frame-label">Desktop · /home · sidebar 240 + feed + rail 280</div>
+      <div class="d-shell">
+        <div class="d-sidebar">
+          <div class="d-logo"><div class="mark">★</div><div class="word">geekore</div></div>
+          <div class="d-nav-item active">⌂ Home</div>
+          <div class="d-nav-item">✦ Per te</div>
+          <div class="d-nav-item">▦ Library</div>
+          <div class="d-nav-item">◎ Discover</div>
+          <div class="d-nav-item">◐ Friends</div>
+          <div class="d-search">⌕ Cerca utenti…</div>
+          <div class="d-section-label">Scopri</div>
+          <div class="d-nav-item small">⤴ Trending</div>
+          <div class="d-nav-item small">♡ Wishlist</div>
+          <div class="d-nav-item small">▤ Liste</div>
+          <div class="d-nav-item small">📊 Stats</div>
+          <div class="d-user"><div class="avatar md28">MR</div><div class="nm"><div class="n">Marco Rossi</div><div class="h">@marco_r</div></div><span style="color:var(--text-3);">▾</span></div>
+        </div>
+        <div class="d-content">
+          <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;"><span class="pill active">Tutti</span><span class="pill">Seguiti</span><span class="pill">Trending</span><span class="pill">Discovery</span><span class="pill t-anime">Anime</span><span class="pill t-game">Game</span></div>
+          <div class="card" style="margin-bottom:14px;display:flex;gap:12px;align-items:center;padding:12px;"><div class="avatar">MR</div><div style="flex:1;height:40px;border-radius:14px;background:var(--bg-2);border:1px solid var(--border);padding:0 14px;display:flex;align-items:center;color:var(--text-3);font-size:13px;">Cosa stai guardando, Marco?</div><div style="height:40px;padding:0 18px;border-radius:14px;background:var(--accent);color:#0B0B0F;display:grid;place-items:center;font-weight:800;font-size:13px;">Pubblica</div></div>
+          <div class="card" style="margin-bottom:12px;padding:14px;">
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;"><div class="ring-story"><div class="inner"><div class="avatar">SK</div></div></div><div style="flex:1;"><div style="font-size:13px;font-weight:700;">sakura_92</div><div style="font-family:var(--mono);font-size:10px;color:var(--text-3);">12 MIN · ANIME</div></div><span style="color:var(--text-3);">⋯</span></div>
+            <span class="pill t-anime" style="margin-bottom:8px;font-size:10px;height:22px;">Frieren EP 14</span>
+            <p style="font-size:14px;line-height:1.5;color:var(--text);margin:8px 0 0;">Quel flashback con Himmel mi ha distrutta 😭</p>
+            <div style="height:160px;border-radius:12px;background:linear-gradient(135deg,#1a1a24,#0e0e14);margin-top:10px;border:1px solid var(--border-soft);"></div>
+            <div style="display:flex;gap:18px;margin-top:10px;color:var(--text-2);font-size:12px;"><span><span style="color:#EF4444;">♥</span> 124</span><span>💬 18</span><span>↗</span><span style="margin-left:auto;">🔖</span></div>
+          </div>
+          <div class="card" style="padding:14px;">
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;"><div class="avatar" style="background:linear-gradient(135deg,var(--t-game),var(--t-board));">JM</div><div style="flex:1;"><div style="font-size:13px;font-weight:700;">jin_m</div><div style="font-family:var(--mono);font-size:10px;color:var(--text-3);">36 MIN · GAME</div></div><span style="color:var(--text-3);">⋯</span></div>
+            <span class="pill t-game" style="margin-bottom:8px;font-size:10px;height:22px;">Silksong</span>
+            <p style="font-size:14px;line-height:1.5;color:var(--text);margin:8px 0 0;">Finalmente platinato.</p>
+          </div>
+        </div>
+        <div class="d-rightrail">
+          <div class="card" style="background:linear-gradient(135deg,rgba(230,255,61,0.08),rgba(20,20,27,0.94));border-color:rgba(230,255,61,0.18);"><div class="label-mono" style="margin-bottom:8px;color:var(--accent);">★ Estate 2025</div><div style="font-family:var(--display);font-weight:800;font-size:16px;letter-spacing:-0.02em;line-height:1.15;">14 anime · 92 ep</div><div style="margin-top:10px;height:6px;border-radius:99px;background:var(--bg-4);"><span style="display:block;width:62%;height:100%;background:var(--accent);border-radius:99px;"></span></div></div>
+          <div class="card"><div class="label-mono" style="margin-bottom:8px;">Trending tra amici</div><div style="display:flex;flex-direction:column;gap:8px;"><div style="display:flex;align-items:center;gap:8px;"><div style="width:30px;height:42px;border-radius:6px;background:linear-gradient(135deg,#1a1a24,#0e0e14);"></div><div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:700;">Frieren</div><div style="font-family:var(--mono);font-size:10px;color:var(--text-3);">7 amici</div></div></div><div style="display:flex;align-items:center;gap:8px;"><div style="width:30px;height:42px;border-radius:6px;background:linear-gradient(135deg,#1a1a24,#0e0e14);"></div><div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:700;">Silksong</div><div style="font-family:var(--mono);font-size:10px;color:var(--text-3);">5 amici</div></div></div></div></div>
+          <div class="card"><div class="label-mono" style="margin-bottom:8px;">Suggeriti</div><div style="display:flex;flex-direction:column;gap:8px;"><div style="display:flex;align-items:center;gap:8px;"><div class="avatar md28">YK</div><div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:700;">@yuki_k</div><div style="font-family:var(--mono);font-size:10px;color:var(--text-3);">94% match</div></div><span class="pill match" style="height:22px;font-size:10px;">+</span></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="annot">Layout desktop fisso a tre colonne: sidebar 240 + feed flex + right rail 280. Sidebar+rail si nascondono sotto 1024px.</div>
+</section>
+
+<!-- ═══ S05 PER TE ═══ -->
+<section class="block" id="s05">
+  <div class="section-head"><span class="num">05</span><h2>Per te · /for-you</h2><span class="desc">— rail di raccomandazioni</span></div>
+  <div class="row">
+    <div class="frame frame-mobile">
+      <div class="frame-label">Mobile · /for-you</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-header"><div style="display:flex;align-items:center;gap:10px;"><div class="icon-btn sm" style="background:var(--bg-3);border:1px solid var(--border);color:var(--accent);">✦</div><h1 style="font-weight:700;font-size:17px;letter-spacing:-0.01em;margin:0;">Per te</h1></div><div style="display:flex;gap:2px;"><div class="icon-btn">⟲</div><div class="icon-btn">≣</div></div></div>
+      <div class="m-content">
+        <div style="padding:14px 14px 0;"><div class="card" style="background:linear-gradient(135deg,rgba(230,255,61,0.08),rgba(20,20,27,0.94));border-color:rgba(230,255,61,0.18);"><div class="label-mono" style="margin-bottom:6px;color:var(--accent);">★ Il tuo DNA</div><div style="font-family:var(--display);font-weight:800;font-size:17px;letter-spacing:-0.02em;line-height:1.15;">Slow-burn · Filosofico</div><div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;"><span class="pill t-anime" style="font-size:10px;height:22px;">Fantasy 92%</span><span class="pill t-tv" style="font-size:10px;height:22px;">Drama 81%</span></div></div></div>
+        <div style="padding:8px 0 12px;">
+          <div style="display:flex;align-items:center;gap:10px;padding:14px 14px 8px;"><div style="width:24px;height:24px;border-radius:8px;display:grid;place-items:center;background:rgba(230,255,61,0.1);color:var(--accent);border:1px solid rgba(230,255,61,0.2);">★</div><div><div style="font-size:13px;font-weight:800;line-height:1;">Top match</div></div></div>
+          <div class="rail-row">
+            <div class="media-card"><div class="cover"><span class="tt" style="color:var(--t-anime);">ANIME</span><span style="position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:9px;color:var(--accent);background:rgba(230,255,61,0.15);padding:2px 6px;border-radius:99px;border:1px solid rgba(230,255,61,0.3);">★ 96%</span></div><div class="title">Mushishi</div><div class="sub">2005 · 26 EP</div></div>
+            <div class="media-card"><div class="cover"><span class="tt" style="color:var(--t-tv);">TV</span><span style="position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:9px;color:var(--accent);background:rgba(230,255,61,0.15);padding:2px 6px;border-radius:99px;border:1px solid rgba(230,255,61,0.3);">★ 91%</span></div><div class="title">Pachinko</div><div class="sub">2022 · 8 EP</div></div>
+            <div class="media-card"><div class="cover"><span class="tt" style="color:var(--t-game);">GAME</span></div><div class="title">Outer Wilds</div><div class="sub">2019</div></div>
+          </div>
+        </div>
+        <div style="padding:8px 0 12px;">
+          <div style="display:flex;align-items:center;gap:10px;padding:6px 14px 8px;"><div style="width:24px;height:24px;border-radius:8px;display:grid;place-items:center;background:rgba(74,222,128,0.1);color:var(--t-game);border:1px solid rgba(74,222,128,0.2);">◐</div><div><div style="font-size:13px;font-weight:800;line-height:1;">Dai tuoi amici</div></div></div>
+          <div class="rail-row"><div class="media-card"><div class="cover"><span class="tt" style="color:var(--t-tv);">TV</span></div><div class="title">Severance · S2</div><div class="sub">7 amici</div></div><div class="media-card"><div class="cover"><span class="tt" style="color:var(--t-anime);">ANIME</span></div><div class="title">Dan Da Dan</div><div class="sub">5 amici</div></div></div>
+        </div>
+      </div>
+      <div class="m-bottom"><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V11z"/></svg><span>Home</span></div><div class="m-tab active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"/></svg><span>Per te</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="3"/></svg><span>Library</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/></svg><span>Discover</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/></svg><span>Friends</span></div></div>
+    </div>
+    <div class="frame frame-desktop tall">
+      <div class="frame-label">Desktop · /for-you · sidebar + rail full-width</div>
+      <div class="d-shell">
+        <div class="d-sidebar">
+          <div class="d-logo"><div class="mark">★</div><div class="word">geekore</div></div>
+          <div class="d-nav-item">⌂ Home</div>
+          <div class="d-nav-item active">✦ Per te</div>
+          <div class="d-nav-item">▦ Library</div>
+          <div class="d-nav-item">◎ Discover</div>
+          <div class="d-nav-item">◐ Friends</div>
+          <div class="d-search">⌕ Cerca…</div>
+          <div class="d-section-label">For-you</div>
+          <div class="d-nav-item small">★ Top match</div>
+          <div class="d-nav-item small">→ Continua</div>
+          <div class="d-nav-item small">◐ Amici</div>
+          <div class="d-nav-item small">✦ Hidden gems</div>
+          <div class="d-user"><div class="avatar md28">MR</div><div class="nm"><div class="n">Marco</div><div class="h">@marco_r</div></div></div>
+        </div>
+        <div class="d-content">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;">
+            <div><div class="label-mono" style="color:var(--accent);">★ Il tuo DNA</div><div style="font-family:var(--display);font-weight:900;font-size:32px;letter-spacing:-0.03em;line-height:1.1;margin-top:4px;">Slow-burn · Filosofico · Personaggi</div><div style="display:flex;gap:6px;margin-top:10px;"><span class="pill t-anime">Fantasy 92%</span><span class="pill t-tv">Drama 81%</span><span class="pill t-game">Adventure 76%</span></div></div>
+            <div style="display:flex;gap:8px;"><div class="cta sec" style="height:40px;font-size:12px;padding:0 16px;">Filtri</div><div class="cta" style="height:40px;font-size:12px;padding:0 16px;">Swipe →</div></div>
+          </div>
+          <div style="margin-bottom:18px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><div style="width:28px;height:28px;border-radius:9px;background:rgba(230,255,61,0.1);color:var(--accent);display:grid;place-items:center;border:1px solid rgba(230,255,61,0.2);">★</div><div style="font-family:var(--display);font-size:18px;font-weight:800;letter-spacing:-0.02em;">Top match per te</div><span style="margin-left:auto;color:var(--text-3);font-size:11px;font-family:var(--mono);">VEDI TUTTI →</span></div>
+            <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;"><div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-anime);">ANIME</span></div><div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-tv);">TV</span></div><div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-game);">GAME</span></div><div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-anime);">ANIME</span></div><div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-movie);">FILM</span></div><div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-manga);">MANGA</span></div></div>
+          </div>
+          <div><div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><div style="width:28px;height:28px;border-radius:9px;background:rgba(74,222,128,0.1);color:var(--t-game);display:grid;place-items:center;border:1px solid rgba(74,222,128,0.2);">◐</div><div style="font-family:var(--display);font-size:18px;font-weight:800;letter-spacing:-0.02em;">Dai tuoi amici</div></div>
+            <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;"><div class="cover" style="aspect-ratio:2/3;"></div><div class="cover" style="aspect-ratio:2/3;"></div><div class="cover" style="aspect-ratio:2/3;"></div><div class="cover" style="aspect-ratio:2/3;"></div><div class="cover" style="aspect-ratio:2/3;"></div><div class="cover" style="aspect-ratio:2/3;"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="annot">For-you desktop full-width (no right-rail): permette griglie 6-col di copertine 2:3. Sidebar identica a /home.</div>
+</section>
+
+<!-- ═══ S06 LIBRARY ═══ -->
+<section class="block" id="s06">
+  <div class="section-head"><span class="num">06</span><h2>Library · /library</h2><span class="desc">— list · grid · stats</span></div>
+  <div class="row">
+    <div class="frame frame-mobile">
+      <div class="frame-label">Mobile · list</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-header"><div style="display:flex;align-items:center;gap:10px;"><div class="icon-btn sm" style="background:var(--bg-3);border:1px solid var(--border);color:var(--text-2);">▦</div><h1 style="font-weight:700;font-size:17px;margin:0;">Library</h1></div><div style="display:flex;gap:2px;"><div class="icon-btn">⌕</div><div class="avatar sm">MR</div></div></div>
+      <div class="m-content">
+        <div class="filter-row"><span class="pill active">Tutto</span><span class="pill">In corso</span><span class="pill">Completati</span><span class="pill">Wishlist</span></div>
+        <div style="display:flex;justify-content:space-between;padding:8px 14px;align-items:center;"><span class="label-mono">147 titoli</span><div style="display:flex;gap:4px;background:var(--bg-3);border:1px solid var(--border);border-radius:10px;padding:3px;"><span style="padding:4px 10px;border-radius:7px;background:var(--accent);color:#0B0B0F;font-size:10px;font-weight:800;">List</span><span style="padding:4px 10px;border-radius:7px;color:var(--text-3);font-size:10px;font-weight:800;">Grid</span><span style="padding:4px 10px;border-radius:7px;color:var(--text-3);font-size:10px;font-weight:800;">Stats</span></div></div>
+        <div style="display:flex;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border-soft);align-items:center;"><div style="width:44px;height:60px;border-radius:8px;background:linear-gradient(135deg,#1a1a24,#0e0e14);border:1px solid var(--border);position:relative;"><span style="position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(255,255,255,0.06);"><span style="display:block;height:100%;width:65%;background:var(--accent);"></span></span></div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;">Frieren</div><div style="font-family:var(--mono);font-size:10px;color:var(--text-3);margin-top:2px;"><span class="pill t-anime" style="height:16px;font-size:8px;padding:0 5px;">ANIME</span> · 18/28 EP</div></div><div style="font-family:var(--mono);font-size:10px;color:var(--accent);">★ 9.0</div></div>
+        <div style="display:flex;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border-soft);align-items:center;"><div style="width:44px;height:60px;border-radius:8px;background:linear-gradient(135deg,#1a1a24,#0e0e14);border:1px solid var(--border);"></div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;">Silksong</div><div style="font-family:var(--mono);font-size:10px;color:var(--text-3);margin-top:2px;"><span class="pill t-game" style="height:16px;font-size:8px;padding:0 5px;">GAME</span> · 12h · 30%</div></div><div style="font-family:var(--mono);font-size:10px;color:var(--text-3);">★ 9.4</div></div>
+        <div style="display:flex;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border-soft);align-items:center;"><div style="width:44px;height:60px;border-radius:8px;background:linear-gradient(135deg,#1a1a24,#0e0e14);border:1px solid var(--border);position:relative;"><span style="position:absolute;top:4px;right:4px;width:14px;height:14px;border-radius:99px;background:var(--accent);color:#0B0B0F;display:grid;place-items:center;font-size:9px;font-weight:800;">✓</span></div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;">Vinland Saga S2</div><div style="font-family:var(--mono);font-size:10px;color:var(--text-3);margin-top:2px;"><span class="pill t-anime" style="height:16px;font-size:8px;padding:0 5px;">ANIME</span> · Completato</div></div><div style="font-family:var(--mono);font-size:10px;color:var(--accent);">★ 9.5</div></div>
+        <div style="display:flex;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border-soft);align-items:center;"><div style="width:44px;height:60px;border-radius:8px;background:linear-gradient(135deg,#1a1a24,#0e0e14);border:1px solid var(--border);"></div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;">Berserk</div><div style="font-family:var(--mono);font-size:10px;color:var(--text-3);margin-top:2px;"><span class="pill t-manga" style="height:16px;font-size:8px;padding:0 5px;">MANGA</span> · 41 vol.</div></div><div style="font-family:var(--mono);font-size:10px;color:var(--accent);">★ 9.7</div></div>
+      </div>
+      <div class="m-bottom"><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V11z"/></svg><span>Home</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"/></svg><span>Per te</span></div><div class="m-tab active"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="3"/></svg><span>Library</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/></svg><span>Discover</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/></svg><span>Friends</span></div></div>
+    </div>
+    <div class="frame frame-mobile">
+      <div class="frame-label">Mobile · stats</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-header"><div style="display:flex;align-items:center;gap:10px;"><div class="icon-btn sm" style="background:var(--bg-3);border:1px solid var(--border);color:var(--text-2);">📊</div><h1 style="font-weight:700;font-size:17px;margin:0;">Stats</h1></div><div class="avatar sm">MR</div></div>
+      <div class="m-content" style="padding:14px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;"><div class="card" style="padding:10px;"><div class="label-mono" style="margin-bottom:4px;font-size:9px;">Totale</div><div style="font-family:var(--mono);font-size:22px;font-weight:900;letter-spacing:-0.02em;line-height:1;">147</div></div><div class="card" style="padding:10px;"><div class="label-mono" style="margin-bottom:4px;font-size:9px;">Completi</div><div style="font-family:var(--mono);font-size:22px;font-weight:900;letter-spacing:-0.02em;line-height:1;color:var(--accent);">82</div></div><div class="card" style="padding:10px;"><div class="label-mono" style="margin-bottom:4px;font-size:9px;">In corso</div><div style="font-family:var(--mono);font-size:22px;font-weight:900;letter-spacing:-0.02em;line-height:1;">38</div></div></div>
+        <div class="card" style="background:linear-gradient(135deg,rgba(230,255,61,0.06),rgba(20,20,27,0.94));border-color:rgba(230,255,61,0.16);padding:12px;margin-bottom:12px;"><div class="label-mono" style="color:var(--accent);">Heatmap</div><div id="hm" style="display:grid;grid-template-rows:repeat(7,1fr);grid-auto-flow:column;gap:2px;margin-top:8px;"></div></div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;align-items:center;gap:8px;"><span class="pill t-anime" style="height:20px;font-size:10px;width:60px;justify-content:center;">Anime</span><div style="flex:1;height:6px;border-radius:99px;background:var(--bg-3);overflow:hidden;"><span style="display:block;height:100%;width:62%;background:var(--t-anime);"></span></div><span class="label-mono" style="width:24px;text-align:right;font-size:10px;">62</span></div>
+          <div style="display:flex;align-items:center;gap:8px;"><span class="pill t-game" style="height:20px;font-size:10px;width:60px;justify-content:center;">Game</span><div style="flex:1;height:6px;border-radius:99px;background:var(--bg-3);overflow:hidden;"><span style="display:block;height:100%;width:38%;background:var(--t-game);"></span></div><span class="label-mono" style="width:24px;text-align:right;font-size:10px;">38</span></div>
+          <div style="display:flex;align-items:center;gap:8px;"><span class="pill t-manga" style="height:20px;font-size:10px;width:60px;justify-content:center;">Manga</span><div style="flex:1;height:6px;border-radius:99px;background:var(--bg-3);overflow:hidden;"><span style="display:block;height:100%;width:24%;background:var(--t-manga);"></span></div><span class="label-mono" style="width:24px;text-align:right;font-size:10px;">24</span></div>
+          <div style="display:flex;align-items:center;gap:8px;"><span class="pill t-tv" style="height:20px;font-size:10px;width:60px;justify-content:center;">TV</span><div style="flex:1;height:6px;border-radius:99px;background:var(--bg-3);overflow:hidden;"><span style="display:block;height:100%;width:14%;background:var(--t-tv);"></span></div><span class="label-mono" style="width:24px;text-align:right;font-size:10px;">14</span></div>
+        </div>
+      </div>
+      <div class="m-bottom"><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V11z"/></svg><span>Home</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"/></svg><span>Per te</span></div><div class="m-tab active"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="3"/></svg><span>Library</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/></svg><span>Discover</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/></svg><span>Friends</span></div></div>
+    </div>
+    <div class="frame" style="flex:1; min-width:560px; height:720px;">
+      <div class="frame-label">Desktop · /library · grid</div>
+      <div class="d-shell">
+        <div class="d-sidebar" style="width:220px;"><div class="d-logo"><div class="mark">★</div><div class="word">geekore</div></div><div class="d-nav-item">⌂ Home</div><div class="d-nav-item">✦ Per te</div><div class="d-nav-item active">▦ Library</div><div class="d-nav-item">◎ Discover</div><div class="d-nav-item">◐ Friends</div><div class="d-section-label">Filtri</div><div class="d-nav-item small">In corso · 38</div><div class="d-nav-item small">Completati · 82</div><div class="d-nav-item small">Wishlist · 27</div><div class="d-section-label">Tipo</div><div class="d-nav-item small" style="color:var(--t-anime);">⚔ Anime</div><div class="d-nav-item small" style="color:var(--t-game);">🎮 Game</div><div class="d-nav-item small" style="color:var(--t-manga);">≡ Manga</div></div>
+        <div class="d-content">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;"><div><h2 style="font-family:var(--display);font-size:24px;font-weight:800;letter-spacing:-0.02em;margin:0;">La tua collezione</h2><div class="label-mono" style="margin-top:4px;">147 TITOLI · 38 IN CORSO</div></div><div style="display:flex;gap:8px;"><div style="display:flex;gap:2px;background:var(--bg-3);border:1px solid var(--border);border-radius:10px;padding:3px;"><span style="padding:5px 12px;border-radius:7px;color:var(--text-3);font-size:11px;font-weight:800;">List</span><span style="padding:5px 12px;border-radius:7px;background:var(--accent);color:#0B0B0F;font-size:11px;font-weight:800;">Grid</span><span style="padding:5px 12px;border-radius:7px;color:var(--text-3);font-size:11px;font-weight:800;">Stats</span></div><div class="cta sec" style="height:34px;font-size:12px;padding:0 14px;">⇅ Ordina</div></div></div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px;">
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-anime);">ANIME</span><span class="pg"><i style="width:65%;"></i></span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-game);">GAME</span><span class="pg"><i style="width:30%;"></i></span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-manga);">MANGA</span><span class="check">✓</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-tv);">TV</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-anime);">ANIME</span><span class="check">✓</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-game);">GAME</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-movie);">FILM</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-anime);">ANIME</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-board);">BOARD</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-tv);">TV</span><span class="pg"><i style="width:80%;"></i></span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-anime);">ANIME</span><span class="check">✓</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-manga);">MANGA</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-game);">GAME</span><span class="check">✓</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-tv);">TV</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="annot">Sidebar Library include filtri persistenti (in corso/completati/wishlist + tipo media). Switcher view nell'header. Grid 7-col su 1440w.</div>
+</section>
+
+<!-- ═══ S07 DISCOVER ═══ -->
+<section class="block" id="s07">
+  <div class="section-head"><span class="num">07</span><h2>Discover · /discover</h2><span class="desc">— search + browse</span></div>
+  <div class="row">
+    <div class="frame frame-mobile">
+      <div class="frame-label">Mobile · /discover</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-header"><div style="display:flex;align-items:center;gap:10px;"><div class="icon-btn sm" style="background:var(--bg-3);border:1px solid var(--border);color:var(--text-2);">⌕</div><h1 style="font-weight:700;font-size:17px;margin:0;">Discover</h1></div><div style="display:flex;gap:2px;"><div class="icon-btn">🔔</div><div class="avatar sm">MR</div></div></div>
+      <div class="m-content">
+        <div style="padding:14px 14px 8px;"><div style="height:46px;border-radius:14px;background:var(--bg-3);border:1px solid var(--border);padding:0 14px;display:flex;align-items:center;gap:10px;color:var(--text-3);font-size:13px;"><span>⌕</span><span style="flex:1;">Cerca anime, manga, film…</span><span style="color:var(--accent);">🎤</span></div></div>
+        <div class="filter-row"><span class="pill active">Tutti</span><span class="pill t-anime">Anime</span><span class="pill t-manga">Manga</span><span class="pill t-game">Game</span><span class="pill t-tv">TV</span></div>
+        <div class="m-section-head"><h3>Browse</h3></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 14px;">
+          <div class="card" style="padding:12px;border-color:rgba(56,189,248,0.18);background:rgba(56,189,248,0.04);"><div style="width:36px;height:36px;border-radius:11px;background:rgba(56,189,248,0.18);color:var(--t-anime);display:grid;place-items:center;margin-bottom:8px;">⚔</div><div style="font-weight:800;font-size:13px;">Anime in onda</div><div class="label-mono" style="margin-top:4px;font-size:9px;">FRIEREN, DAN DA DAN</div></div>
+          <div class="card" style="padding:12px;border-color:rgba(249,112,102,0.18);background:rgba(249,112,102,0.04);"><div style="width:36px;height:36px;border-radius:11px;background:rgba(249,112,102,0.18);color:var(--t-manga);display:grid;place-items:center;margin-bottom:8px;">≡</div><div style="font-weight:800;font-size:13px;">Manga cult</div><div class="label-mono" style="margin-top:4px;font-size:9px;">BERSERK, VAGABOND</div></div>
+          <div class="card" style="padding:12px;border-color:rgba(192,132,252,0.18);background:rgba(192,132,252,0.04);"><div style="width:36px;height:36px;border-radius:11px;background:rgba(192,132,252,0.18);color:var(--t-tv);display:grid;place-items:center;margin-bottom:8px;">▶</div><div style="font-weight:800;font-size:13px;">Serie prestige</div><div class="label-mono" style="margin-top:4px;font-size:9px;">SEVERANCE</div></div>
+          <div class="card" style="padding:12px;border-color:rgba(74,222,128,0.18);background:rgba(74,222,128,0.04);"><div style="width:36px;height:36px;border-radius:11px;background:rgba(74,222,128,0.18);color:var(--t-game);display:grid;place-items:center;margin-bottom:8px;">🎮</div><div style="font-weight:800;font-size:13px;">Must-play</div><div class="label-mono" style="margin-top:4px;font-size:9px;">ELDEN RING</div></div>
+        </div>
+        <div class="m-section-head"><h3>Trending oggi</h3><a>Tutto</a></div>
+        <div class="rail-row">
+          <div class="media-card"><div class="cover"><span class="tt" style="color:var(--t-anime);">ANIME</span></div><div class="title">Frieren</div><div class="sub">★ 9.1</div></div>
+          <div class="media-card"><div class="cover"><span class="tt" style="color:var(--t-game);">GAME</span></div><div class="title">Silksong</div><div class="sub">★ 9.4</div></div>
+          <div class="media-card"><div class="cover"><span class="tt" style="color:var(--t-tv);">TV</span></div><div class="title">Severance S2</div><div class="sub">★ 8.9</div></div>
+        </div>
+      </div>
+      <div class="m-bottom"><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V11z"/></svg><span>Home</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"/></svg><span>Per te</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="3"/></svg><span>Library</span></div><div class="m-tab active"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9"/></svg><span>Discover</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/></svg><span>Friends</span></div></div>
+    </div>
+    <div class="frame frame-desktop tall">
+      <div class="frame-label">Desktop · /discover</div>
+      <div class="d-shell">
+        <div class="d-sidebar"><div class="d-logo"><div class="mark">★</div><div class="word">geekore</div></div><div class="d-nav-item">⌂ Home</div><div class="d-nav-item">✦ Per te</div><div class="d-nav-item">▦ Library</div><div class="d-nav-item active">◎ Discover</div><div class="d-nav-item">◐ Friends</div><div class="d-section-label">Categorie</div><div class="d-nav-item small" style="color:var(--t-anime);">⚔ Anime</div><div class="d-nav-item small" style="color:var(--t-manga);">≡ Manga</div><div class="d-nav-item small" style="color:var(--t-game);">🎮 Game</div><div class="d-nav-item small" style="color:var(--t-tv);">▶ TV</div><div class="d-nav-item small" style="color:var(--t-movie);">🎬 Film</div><div class="d-nav-item small" style="color:var(--t-board);">⬢ Board</div><div class="d-user"><div class="avatar md28">MR</div><div class="nm"><div class="n">Marco</div><div class="h">@marco_r</div></div></div></div>
+        <div class="d-content">
+          <div style="height:54px;border-radius:16px;background:var(--bg-3);border:1px solid var(--border);padding:0 18px;display:flex;align-items:center;gap:12px;color:var(--text-3);font-size:14px;margin-bottom:18px;"><span>⌕</span><span style="flex:1;">Cerca anime, manga, film, giochi, board…</span><span class="label-mono">⌘K</span></div>
+          <div style="display:flex;gap:8px;margin-bottom:18px;"><span class="pill active">Tutti</span><span class="pill t-anime">Anime</span><span class="pill t-manga">Manga</span><span class="pill t-game">Game</span><span class="pill t-tv">TV</span><span class="pill t-movie">Film</span><span class="pill t-board">Board</span></div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;">
+            <div class="card" style="border-color:rgba(56,189,248,0.18);background:rgba(56,189,248,0.04);padding:18px;"><div style="width:44px;height:44px;border-radius:13px;background:rgba(56,189,248,0.18);color:var(--t-anime);display:grid;place-items:center;margin-bottom:14px;">⚔</div><div style="font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:-0.02em;">Anime in onda</div><div class="label-mono" style="margin-top:6px;">FRIEREN · DAN DA DAN · APOTHECARY</div></div>
+            <div class="card" style="border-color:rgba(74,222,128,0.18);background:rgba(74,222,128,0.04);padding:18px;"><div style="width:44px;height:44px;border-radius:13px;background:rgba(74,222,128,0.18);color:var(--t-game);display:grid;place-items:center;margin-bottom:14px;">🎮</div><div style="font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:-0.02em;">Must-play 2025</div><div class="label-mono" style="margin-top:6px;">SILKSONG · ZELDA · ELDEN RING</div></div>
+            <div class="card" style="border-color:rgba(192,132,252,0.18);background:rgba(192,132,252,0.04);padding:18px;"><div style="width:44px;height:44px;border-radius:13px;background:rgba(192,132,252,0.18);color:var(--t-tv);display:grid;place-items:center;margin-bottom:14px;">▶</div><div style="font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:-0.02em;">Serie prestige</div><div class="label-mono" style="margin-top:6px;">SEVERANCE · SUCCESSION</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><div style="font-family:var(--display);font-size:18px;font-weight:800;letter-spacing:-0.02em;">Trending oggi</div></div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:12px;">
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-anime);">ANIME</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-game);">GAME</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-tv);">TV</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-anime);">ANIME</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-movie);">FILM</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-manga);">MANGA</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-board);">BOARD</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ S08 FRIENDS ═══ -->
+<section class="block" id="s08">
+  <div class="section-head"><span class="num">08</span><h2>Friends · /friends</h2><span class="desc">— stories + activity</span></div>
+  <div class="row">
+    <div class="frame frame-mobile">
+      <div class="frame-label">Mobile · /friends</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-header"><div style="display:flex;align-items:center;gap:10px;"><div class="icon-btn sm" style="background:var(--bg-3);border:1px solid var(--border);color:var(--text-2);">◐</div><h1 style="font-weight:700;font-size:17px;margin:0;">Friends</h1></div><div style="display:flex;gap:2px;"><div class="icon-btn">+</div><div class="avatar sm">MR</div></div></div>
+      <div class="m-content">
+        <div style="display:flex;gap:12px;padding:12px 14px 4px;overflow:hidden;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;"><div class="ring-story"><div class="inner"><div class="avatar">SK</div></div></div><div style="font-size:10px;color:var(--text-2);max-width:54px;text-align:center;">sakura_92</div></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;"><div class="ring-story"><div class="inner"><div class="avatar" style="background:linear-gradient(135deg,var(--t-game),var(--t-board));">JM</div></div></div><div style="font-size:10px;color:var(--text-2);">jin_m</div></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;"><div class="ring-story"><div class="inner"><div class="avatar" style="background:linear-gradient(135deg,var(--t-tv),var(--t-anime));">YK</div></div></div><div style="font-size:10px;color:var(--text-2);">yuki_k</div></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;"><div class="ring-story"><div class="inner"><div class="avatar" style="background:linear-gradient(135deg,var(--t-movie),var(--t-manga));">RT</div></div></div><div style="font-size:10px;color:var(--text-2);">retro_dev</div></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;"><div style="width:48px;height:48px;border-radius:99px;background:var(--bg-3);border:1px dashed var(--border);display:grid;place-items:center;color:var(--text-3);">+</div><div style="font-size:10px;color:var(--text-3);">aggiungi</div></div>
+        </div>
+        <div class="filter-row"><span class="pill active">Attività</span><span class="pill">In comune</span><span class="pill">Suggeriti</span></div>
+        <div style="padding:8px 14px 0;display:flex;flex-direction:column;gap:8px;">
+          <div class="card" style="padding:10px;display:flex;gap:10px;align-items:center;"><div class="avatar">SK</div><div style="flex:1;min-width:0;"><div style="font-size:12px;"><b>@sakura_92</b> sta guardando</div><div style="font-family:var(--mono);font-size:10px;color:var(--text-3);">Frieren EP 14 · 12 MIN</div></div><div style="width:30px;height:42px;border-radius:6px;background:linear-gradient(135deg,#1a1a24,#0e0e14);"></div></div>
+          <div class="card" style="padding:10px;display:flex;gap:10px;align-items:center;"><div class="avatar" style="background:linear-gradient(135deg,var(--t-game),var(--t-board));">JM</div><div style="flex:1;min-width:0;"><div style="font-size:12px;"><b>@jin_m</b> ha completato</div><div style="font-family:var(--mono);font-size:10px;color:var(--text-3);">Silksong · 36 MIN</div></div><div style="width:30px;height:42px;border-radius:6px;background:linear-gradient(135deg,#1a1a24,#0e0e14);"></div></div>
+          <div class="card" style="padding:10px;display:flex;gap:10px;align-items:center;"><div class="avatar" style="background:linear-gradient(135deg,var(--t-tv),var(--t-anime));">YK</div><div style="flex:1;min-width:0;"><div style="font-size:12px;"><b>@yuki_k</b> ha votato 9.5</div><div style="font-family:var(--mono);font-size:10px;color:var(--text-3);">Severance S2 · 1H</div></div><div style="width:30px;height:42px;border-radius:6px;background:linear-gradient(135deg,#1a1a24,#0e0e14);"></div></div>
+        </div>
+      </div>
+      <div class="m-bottom"><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V11z"/></svg><span>Home</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"/></svg><span>Per te</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="3"/></svg><span>Library</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/></svg><span>Discover</span></div><div class="m-tab active"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/></svg><span>Friends</span></div></div>
+    </div>
+    <div class="frame frame-desktop tall">
+      <div class="frame-label">Desktop · /friends</div>
+      <div class="d-shell">
+        <div class="d-sidebar"><div class="d-logo"><div class="mark">★</div><div class="word">geekore</div></div><div class="d-nav-item">⌂ Home</div><div class="d-nav-item">✦ Per te</div><div class="d-nav-item">▦ Library</div><div class="d-nav-item">◎ Discover</div><div class="d-nav-item active">◐ Friends</div><div class="d-section-label">Sezioni</div><div class="d-nav-item small">📡 Attività live</div><div class="d-nav-item small">⊘ In comune</div><div class="d-nav-item small">+ Suggeriti</div><div class="d-nav-item small">✉ Inviti</div><div class="d-user"><div class="avatar md28">MR</div><div class="nm"><div class="n">Marco</div><div class="h">@marco_r</div></div></div></div>
+        <div class="d-content">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;"><div><h2 style="font-family:var(--display);font-size:24px;font-weight:800;letter-spacing:-0.02em;margin:0;">La tua tribù</h2><div class="label-mono" style="margin-top:4px;">128 AMICI · 7 ATTIVI ORA</div></div><div class="cta" style="height:36px;font-size:12px;padding:0 16px;">+ Invita</div></div>
+          <div style="display:flex;gap:14px;margin-bottom:18px;overflow:hidden;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div class="ring-story"><div class="inner"><div class="avatar lg" style="width:60px;height:60px;border-radius:99px;font-size:18px;">SK</div></div></div><div style="font-size:11px;">sakura_92</div></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div class="ring-story"><div class="inner"><div class="avatar lg" style="width:60px;height:60px;border-radius:99px;font-size:18px;background:linear-gradient(135deg,var(--t-game),var(--t-board));">JM</div></div></div><div style="font-size:11px;">jin_m</div></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div class="ring-story"><div class="inner"><div class="avatar lg" style="width:60px;height:60px;border-radius:99px;font-size:18px;background:linear-gradient(135deg,var(--t-tv),var(--t-anime));">YK</div></div></div><div style="font-size:11px;">yuki_k</div></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div class="ring-story"><div class="inner"><div class="avatar lg" style="width:60px;height:60px;border-radius:99px;font-size:18px;background:linear-gradient(135deg,var(--t-movie),var(--t-manga));">RT</div></div></div><div style="font-size:11px;">retro_dev</div></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:14px;"><span class="pill active">Attività</span><span class="pill">In comune</span><span class="pill">Suggeriti</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="card" style="padding:12px;display:flex;gap:10px;align-items:center;"><div class="avatar">SK</div><div style="flex:1;"><div style="font-size:13px;"><b>@sakura_92</b> sta guardando</div><div class="label-mono" style="margin-top:2px;font-size:10px;">Frieren EP 14 · 12 MIN FA</div></div><div style="width:36px;height:48px;border-radius:8px;background:linear-gradient(135deg,#1a1a24,#0e0e14);"></div></div>
+            <div class="card" style="padding:12px;display:flex;gap:10px;align-items:center;"><div class="avatar" style="background:linear-gradient(135deg,var(--t-game),var(--t-board));">JM</div><div style="flex:1;"><div style="font-size:13px;"><b>@jin_m</b> ha completato</div><div class="label-mono" style="margin-top:2px;font-size:10px;">Silksong · 36 MIN FA</div></div><div style="width:36px;height:48px;border-radius:8px;background:linear-gradient(135deg,#1a1a24,#0e0e14);"></div></div>
+            <div class="card" style="padding:12px;display:flex;gap:10px;align-items:center;"><div class="avatar" style="background:linear-gradient(135deg,var(--t-tv),var(--t-anime));">YK</div><div style="flex:1;"><div style="font-size:13px;"><b>@yuki_k</b> ha votato 9.5</div><div class="label-mono" style="margin-top:2px;font-size:10px;">Severance S2 · 1 ORA FA</div></div><div style="width:36px;height:48px;border-radius:8px;background:linear-gradient(135deg,#1a1a24,#0e0e14);"></div></div>
+            <div class="card" style="padding:12px;display:flex;gap:10px;align-items:center;"><div class="avatar" style="background:linear-gradient(135deg,var(--t-movie),var(--t-manga));">RT</div><div style="flex:1;"><div style="font-size:13px;"><b>@retro_dev</b> ha aggiunto a wishlist</div><div class="label-mono" style="margin-top:2px;font-size:10px;">Outer Wilds · 2 ORE FA</div></div><div style="width:36px;height:48px;border-radius:8px;background:linear-gradient(135deg,#1a1a24,#0e0e14);"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ S09 SWIPE ═══ -->
+<section class="block" id="s09">
+  <div class="section-head"><span class="num">09</span><h2>Swipe · /swipe</h2><span class="desc">— modalità immersiva · niente sidebar nemmeno desktop</span></div>
+  <div class="row">
+    <div class="frame frame-mobile">
+      <div class="frame-label">Mobile · /swipe</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-content full" style="background:#000;display:flex;flex-direction:column;">
+        <div style="display:flex;justify-content:space-between;padding:14px;align-items:center;"><div class="icon-btn sm">‹</div><div style="font-family:var(--display);font-weight:900;font-size:16px;letter-spacing:-0.02em;">Swipe</div><div style="font-family:var(--mono);font-size:10px;color:var(--text-3);">8 / 50</div></div>
+        <div style="flex:1;padding:0 14px 14px;display:flex;flex-direction:column;">
+          <div style="margin:0;flex:1;border-radius:24px;background:linear-gradient(135deg,#1a1a24,#0e0e14);border:1px solid var(--border);position:relative;overflow:hidden;display:grid;align-content:end;">
+            <div style="position:absolute;inset:8px -8px -16px 8px;border-radius:24px;background:var(--bg-3);z-index:-1;border:1px solid var(--border);"></div>
+            <div style="position:absolute;top:14px;left:14px;display:flex;gap:6px;z-index:3;"><span class="pill t-game" style="height:22px;font-size:10px;">Game</span><span class="pill match" style="height:22px;font-size:10px;">★ 92%</span></div>
+            <div style="padding:14px;background:linear-gradient(180deg,transparent,rgba(0,0,0,0.85));z-index:2;"><div style="font-family:var(--display);font-weight:900;font-size:22px;letter-spacing:-0.02em;line-height:1.1;">Hollow Knight: Silksong</div><div style="font-family:var(--mono);font-size:10px;color:var(--text-3);margin-top:6px;letter-spacing:0.05em;">METROIDVANIA · ATMOSPHERIC</div><div style="font-size:11px;color:var(--text-2);margin-top:6px;line-height:1.4;">Hornet vola e balza nel regno di Pharloom.</div></div>
+          </div>
+          <div style="display:flex;justify-content:center;gap:12px;padding-top:14px;"><div style="width:50px;height:50px;border-radius:50%;background:var(--bg-3);border:1px solid var(--border);display:grid;place-items:center;color:#EF4444;">✕</div><div style="width:42px;height:42px;border-radius:50%;background:var(--bg-3);border:1px solid var(--border);display:grid;place-items:center;color:var(--text-2);">↻</div><div style="width:50px;height:50px;border-radius:50%;background:rgba(230,255,61,0.08);border:1px solid rgba(230,255,61,0.4);display:grid;place-items:center;color:var(--accent);">♥</div><div style="width:42px;height:42px;border-radius:50%;background:var(--bg-3);border:1px solid var(--border);display:grid;place-items:center;color:var(--accent);">+</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="frame" style="flex:1; min-width:680px; height:720px;">
+      <div class="frame-label">Desktop · /swipe · immersivo</div>
+      <div style="height:62px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;"><div style="display:flex;align-items:center;gap:14px;"><div class="icon-btn sm">‹</div><div class="wm-mobile" style="font-size:16px;"><div class="mark" style="width:24px;height:24px;font-size:13px;">★</div>geekore</div></div><div style="font-family:var(--display);font-weight:900;font-size:18px;letter-spacing:-0.02em;">Modalità Swipe</div><div style="font-family:var(--mono);font-size:11px;color:var(--text-3);">8 / 50</div></div>
+      <div style="height:calc(100% - 62px);background:#000;display:grid;place-items:center;padding:32px;">
+        <div style="display:flex;gap:32px;align-items:center;max-width:1100px;width:100%;">
+          <div style="width:60px;height:60px;border-radius:50%;background:var(--bg-3);border:1px solid var(--border);display:grid;place-items:center;color:#EF4444;font-size:22px;">✕</div>
+          <div style="flex:1;max-width:380px;aspect-ratio:3/4;border-radius:32px;background:linear-gradient(135deg,#1a1a24,#0e0e14);border:1px solid var(--border);position:relative;overflow:hidden;display:grid;align-content:end;box-shadow:0 60px 120px rgba(0,0,0,0.6);">
+            <div style="position:absolute;top:18px;left:18px;display:flex;gap:6px;z-index:3;"><span class="pill t-game" style="height:24px;font-size:11px;">Game</span><span class="pill match" style="height:24px;font-size:11px;">★ 92% match</span></div>
+            <div style="padding:24px;background:linear-gradient(180deg,transparent,rgba(0,0,0,0.85));z-index:2;"><div style="font-family:var(--display);font-weight:900;font-size:32px;letter-spacing:-0.03em;line-height:1.05;">Hollow Knight: Silksong</div><div style="font-family:var(--mono);font-size:11px;color:var(--text-3);margin-top:8px;letter-spacing:0.05em;">METROIDVANIA · ACTION · ATMOSPHERIC · 2024</div><div style="font-size:13px;color:var(--text-2);margin-top:10px;line-height:1.5;">Hornet vola, balza e affronta il regno frantumato di Pharloom.</div></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:14px;"><div style="width:60px;height:60px;border-radius:50%;background:var(--bg-3);border:1px solid var(--border);display:grid;place-items:center;color:var(--text-2);font-size:18px;">↻</div><div style="width:60px;height:60px;border-radius:50%;background:rgba(230,255,61,0.08);border:1px solid rgba(230,255,61,0.4);display:grid;place-items:center;color:var(--accent);font-size:22px;">♥</div><div style="width:60px;height:60px;border-radius:50%;background:var(--bg-3);border:1px solid var(--border);display:grid;place-items:center;color:var(--accent);font-size:22px;">+</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="annot">/swipe è l'unica vista che NON ha sidebar nemmeno su desktop. Header minimal con back arrow, contatore, wordmark.</div>
+</section>
+
+<!-- ═══ S10 PROFILO (own + other) ═══ -->
+<section class="block" id="s10">
+  <div class="section-head"><span class="num">10</span><h2>Profilo · /profile/[username]</h2><span class="desc">— proprio + altrui</span></div>
+  <div class="row">
+    <div class="frame frame-mobile">
+      <div class="frame-label">Mobile · profilo proprio</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-header"><h1 style="font-weight:700;font-size:17px;margin:0;">marco_r</h1><div style="display:flex;gap:2px;"><div class="icon-btn">✎</div><div class="icon-btn">⚙</div></div></div>
+      <div class="m-content">
+        <div style="padding:18px 14px 14px;display:flex;gap:14px;border-bottom:1px solid var(--border);">
+          <div class="avatar lg" style="background:linear-gradient(135deg,var(--accent),var(--t-anime));">MR</div>
+          <div style="flex:1;min-width:0;"><div style="font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-0.02em;line-height:1.1;">Marco Rossi</div><div style="font-family:var(--mono);font-size:11px;color:var(--text-3);margin-top:2px;">@marco_r</div><div style="font-size:12px;color:var(--text-2);margin-top:8px;line-height:1.4;">Anime, soulslike, Berserk maxxer.</div><div style="display:flex;align-items:center;gap:18px;margin-top:10px;"><div><div style="font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:-0.02em;">147</div><div style="font-family:var(--mono);font-size:9px;color:var(--text-3);">OPERE</div></div><div><div style="font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:-0.02em;">312</div><div style="font-family:var(--mono);font-size:9px;color:var(--text-3);">FOLLOWERS</div></div><div><div style="font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:-0.02em;">128</div><div style="font-family:var(--mono);font-size:9px;color:var(--text-3);">FOLLOWING</div></div></div></div>
+        </div>
+        <div style="display:flex;border-bottom:1px solid var(--border);"><div style="flex:1;padding:14px 0;text-align:center;font-size:12px;font-weight:800;color:var(--accent);text-transform:uppercase;border-bottom:2px solid var(--accent);">Collezione</div><div style="flex:1;padding:14px 0;text-align:center;font-size:12px;font-weight:800;color:var(--text-3);text-transform:uppercase;">Activity</div><div style="flex:1;padding:14px 0;text-align:center;font-size:12px;font-weight:800;color:var(--text-3);text-transform:uppercase;">Wall</div></div>
+        <div style="padding:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+          <div class="cover" style="aspect-ratio:2/3;width:100%;"><span class="tt" style="color:var(--t-anime);font-size:8px;">ANIME</span><span class="pg"><i style="width:65%;"></i></span></div>
+          <div class="cover" style="aspect-ratio:2/3;width:100%;"><span class="tt" style="color:var(--t-game);font-size:8px;">GAME</span><span class="pg"><i style="width:30%;"></i></span></div>
+          <div class="cover" style="aspect-ratio:2/3;width:100%;"><span class="tt" style="color:var(--t-manga);font-size:8px;">MANGA</span><span class="check">✓</span></div>
+          <div class="cover" style="aspect-ratio:2/3;width:100%;"><span class="tt" style="color:var(--t-tv);font-size:8px;">TV</span></div>
+          <div class="cover" style="aspect-ratio:2/3;width:100%;"><span class="tt" style="color:var(--t-game);font-size:8px;">GAME</span></div>
+          <div class="cover" style="aspect-ratio:2/3;width:100%;"><span class="tt" style="color:var(--t-anime);font-size:8px;">ANIME</span></div>
+        </div>
+      </div>
+      <div class="m-bottom"><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V11z"/></svg><span>Home</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"/></svg><span>Per te</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="3"/></svg><span>Library</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/></svg><span>Discover</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/></svg><span>Friends</span></div></div>
+    </div>
+    <div class="frame frame-mobile">
+      <div class="frame-label">Mobile · altrui</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-header"><div style="display:flex;align-items:center;gap:6px;"><div class="icon-btn" style="margin-left:-8px;">‹</div><h1 style="font-weight:700;font-size:17px;margin:0;">sakura_92</h1></div><div style="display:flex;gap:2px;"><div class="icon-btn">⋯</div></div></div>
+      <div class="m-content">
+        <div style="padding:18px 14px 14px;display:flex;gap:14px;border-bottom:1px solid var(--border);">
+          <div class="avatar lg" style="background:linear-gradient(135deg,var(--t-tv),var(--t-anime));">SK</div>
+          <div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:6px;"><div style="font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-0.02em;line-height:1.1;">Sakura</div><span style="font-size:14px;color:var(--accent);">✓</span></div><div style="font-family:var(--mono);font-size:11px;color:var(--text-3);margin-top:2px;">@sakura_92</div><div style="font-size:12px;color:var(--text-2);margin-top:8px;line-height:1.4;">Slice-of-life addict</div><div style="display:flex;align-items:center;gap:14px;margin-top:10px;"><div><div style="font-family:var(--display);font-weight:800;font-size:16px;">213</div><div style="font-family:var(--mono);font-size:9px;color:var(--text-3);">OPERE</div></div><div><div style="font-family:var(--display);font-weight:800;font-size:16px;">1.2k</div><div style="font-family:var(--mono);font-size:9px;color:var(--text-3);">FOLLOW</div></div></div><div style="display:flex;gap:6px;margin-top:12px;"><div style="flex:1;height:34px;border-radius:11px;background:var(--accent);color:#0B0B0F;display:grid;place-items:center;font-weight:800;font-size:11px;">Segui</div><div style="flex:1;height:34px;border-radius:11px;background:var(--bg-3);border:1px solid var(--border);display:grid;place-items:center;font-weight:800;font-size:11px;color:var(--text-2);">Messaggio</div></div></div>
+        </div>
+        <div style="padding:12px 14px;border-bottom:1px solid var(--border-soft);"><div class="card" style="padding:10px 12px;border-color:rgba(230,255,61,0.18);background:rgba(230,255,61,0.04);"><div style="display:flex;justify-content:space-between;align-items:center;"><span class="label-mono" style="color:var(--accent);">Taste match</span><span style="font-family:var(--display);font-weight:900;font-size:18px;color:var(--accent);letter-spacing:-0.02em;">87%</span></div><div style="margin-top:6px;height:5px;border-radius:99px;background:var(--bg-4);"><span style="display:block;width:87%;height:100%;background:var(--accent);border-radius:99px;"></span></div></div></div>
+        <div style="display:flex;border-bottom:1px solid var(--border);"><div style="flex:1;padding:14px 0;text-align:center;font-size:12px;font-weight:800;color:var(--accent);text-transform:uppercase;border-bottom:2px solid var(--accent);">Collezione</div><div style="flex:1;padding:14px 0;text-align:center;font-size:12px;font-weight:800;color:var(--text-3);text-transform:uppercase;">Activity</div><div style="flex:1;padding:14px 0;text-align:center;font-size:12px;font-weight:800;color:var(--text-3);text-transform:uppercase;">Wall</div></div>
+        <div style="padding:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;"><div class="cover" style="aspect-ratio:2/3;width:100%;"><span class="tt" style="color:var(--t-anime);font-size:8px;">ANIME</span></div><div class="cover" style="aspect-ratio:2/3;width:100%;"><span class="tt" style="color:var(--t-anime);font-size:8px;">ANIME</span></div><div class="cover" style="aspect-ratio:2/3;width:100%;"><span class="tt" style="color:var(--t-manga);font-size:8px;">MANGA</span></div></div>
+      </div>
+      <div class="m-bottom"><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V11z"/></svg><span>Home</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"/></svg><span>Per te</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="3"/></svg><span>Library</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/></svg><span>Discover</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/></svg><span>Friends</span></div></div>
+    </div>
+    <div class="frame frame-desktop tall">
+      <div class="frame-label">Desktop · /profile/sakura_92</div>
+      <div class="d-shell">
+        <div class="d-sidebar"><div class="d-logo"><div class="mark">★</div><div class="word">geekore</div></div><div class="d-nav-item">⌂ Home</div><div class="d-nav-item">✦ Per te</div><div class="d-nav-item">▦ Library</div><div class="d-nav-item">◎ Discover</div><div class="d-nav-item">◐ Friends</div><div class="d-search">⌕ Cerca…</div><div class="d-user"><div class="avatar md28">MR</div><div class="nm"><div class="n">Marco</div><div class="h">@marco_r</div></div></div></div>
+        <div class="d-content" style="padding:0;">
+          <div style="height:160px;background:linear-gradient(135deg,rgba(192,132,252,0.2),rgba(56,189,248,0.15),transparent);border-bottom:1px solid var(--border);position:relative;"></div>
+          <div style="padding:0 32px;margin-top:-44px;display:flex;gap:20px;align-items:flex-end;margin-bottom:24px;">
+            <div class="avatar" style="width:96px;height:96px;border-radius:28px;font-size:32px;background:linear-gradient(135deg,var(--t-tv),var(--t-anime));border:4px solid var(--bg);">SK</div>
+            <div style="flex:1;padding-bottom:8px;"><div style="display:flex;align-items:center;gap:8px;"><div style="font-family:var(--display);font-weight:900;font-size:28px;letter-spacing:-0.03em;line-height:1.1;">Sakura</div><span style="font-size:18px;color:var(--accent);">✓</span></div><div style="font-family:var(--mono);font-size:12px;color:var(--text-3);margin-top:2px;">@sakura_92 · Tokyo · Iscritta da apr 2024</div><div style="font-size:13px;color:var(--text-2);margin-top:6px;max-width:560px;line-height:1.5;">Slice-of-life addict, scrivo recensioni in giapponese maccheronico.</div></div>
+            <div style="display:flex;gap:8px;padding-bottom:8px;"><div class="cta sec" style="height:36px;font-size:12px;padding:0 16px;">Messaggio</div><div class="cta" style="height:36px;font-size:12px;padding:0 18px;">+ Segui</div></div>
+          </div>
+          <div style="padding:0 32px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px;margin-bottom:18px;">
+            <div class="card" style="padding:12px;"><div class="label-mono" style="font-size:10px;">Opere</div><div style="font-family:var(--display);font-weight:900;font-size:24px;letter-spacing:-0.02em;">213</div></div>
+            <div class="card" style="padding:12px;"><div class="label-mono" style="font-size:10px;">Followers</div><div style="font-family:var(--display);font-weight:900;font-size:24px;letter-spacing:-0.02em;">1.2k</div></div>
+            <div class="card" style="padding:12px;"><div class="label-mono" style="font-size:10px;">Following</div><div style="font-family:var(--display);font-weight:900;font-size:24px;letter-spacing:-0.02em;">340</div></div>
+            <div class="card" style="padding:12px;border-color:rgba(230,255,61,0.3);background:rgba(230,255,61,0.06);"><div class="label-mono" style="font-size:10px;color:var(--accent);">Taste match</div><div style="font-family:var(--display);font-weight:900;font-size:24px;color:var(--accent);letter-spacing:-0.02em;">87%</div></div>
+          </div>
+          <div style="padding:0 32px;border-bottom:1px solid var(--border);display:flex;gap:24px;"><div style="padding:12px 0;font-size:13px;font-weight:800;color:var(--accent);border-bottom:2px solid var(--accent);">COLLEZIONE</div><div style="padding:12px 0;font-size:13px;font-weight:800;color:var(--text-3);">ACTIVITY</div><div style="padding:12px 0;font-size:13px;font-weight:800;color:var(--text-3);">WALL</div><div style="padding:12px 0;font-size:13px;font-weight:800;color:var(--text-3);">LISTE</div></div>
+          <div style="padding:18px 32px;display:grid;grid-template-columns:repeat(8,1fr);gap:10px;">
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-anime);font-size:8px;">ANIME</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-anime);font-size:8px;">ANIME</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-manga);font-size:8px;">MANGA</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-tv);font-size:8px;">TV</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-anime);font-size:8px;">ANIME</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-game);font-size:8px;">GAME</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-anime);font-size:8px;">ANIME</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-movie);font-size:8px;">FILM</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="annot">Desktop profilo: hero a tutta larghezza con cover gradient + avatar che sborda di -44px. Niente right-rail, content full-width per ospitare la griglia 8-col delle copertine.</div>
+</section>
+
+<!-- ═══ S11 MEDIA DRAWER ═══ -->
+<section class="block" id="s11">
+  <div class="section-head"><span class="num">11</span><h2>Media · drawer / dettaglio</h2><span class="desc">— bottom-sheet mobile · modal desktop</span></div>
+  <div class="row">
+    <div class="frame frame-mobile">
+      <div class="frame-label">Mobile · drawer</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-content full" style="padding:0;position:relative;background:#000;">
+        <div style="height:240px;background:linear-gradient(180deg,rgba(56,189,248,0.3),#000);position:relative;"><div style="position:absolute;top:14px;left:14px;display:flex;gap:6px;"><div class="icon-btn" style="background:rgba(0,0,0,0.6);">‹</div></div><div style="position:absolute;top:14px;right:14px;display:flex;gap:6px;"><div class="icon-btn" style="background:rgba(0,0,0,0.6);">↗</div><div class="icon-btn" style="background:rgba(0,0,0,0.6);">⋯</div></div></div>
+        <div style="background:var(--bg);border-radius:24px 24px 0 0;margin-top:-24px;padding:18px 14px;position:relative;">
+          <div style="display:flex;justify-content:center;margin:-6px 0 12px;"><div style="width:36px;height:4px;background:var(--border);border-radius:99px;"></div></div>
+          <div style="display:flex;gap:6px;margin-bottom:10px;"><span class="pill t-anime" style="height:22px;font-size:10px;">ANIME · 2023</span><span class="pill" style="height:22px;font-size:10px;">★ 9.1 · 28 EP</span></div>
+          <h2 style="font-family:var(--display);font-weight:900;font-size:24px;letter-spacing:-0.03em;line-height:1.1;margin:0 0 6px;">Frieren: Beyond Journey's End</h2>
+          <p style="font-size:13px;color:var(--text-2);line-height:1.5;margin:0 0 14px;">Una maga elfa rivisita i compagni dopo la morte dell'eroe.</p>
+          <div style="display:flex;gap:8px;margin-bottom:14px;"><div class="cta" style="flex:1;height:42px;font-size:13px;">+ Aggiungi</div><div class="cta sec" style="width:42px;height:42px;font-size:14px;display:grid;place-items:center;">♡</div><div class="cta sec" style="width:42px;height:42px;font-size:14px;display:grid;place-items:center;">★</div></div>
+          <div class="label-mono" style="margin-bottom:8px;">Cast principale</div>
+          <div style="display:flex;gap:8px;overflow:hidden;"><div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><div class="avatar md28" style="background:linear-gradient(135deg,var(--accent),var(--t-anime));"></div><div style="font-size:9px;text-align:center;max-width:60px;">Frieren</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><div class="avatar md28" style="background:linear-gradient(135deg,var(--t-game),var(--t-tv));"></div><div style="font-size:9px;text-align:center;max-width:60px;">Fern</div></div></div>
+          <div class="label-mono" style="margin:14px 0 8px;">Discusso da 7 amici</div>
+          <div style="display:flex;gap:-6px;"><div class="avatar md28">SK</div><div class="avatar md28" style="margin-left:-8px;background:linear-gradient(135deg,var(--t-game),var(--t-board));">JM</div><div class="avatar md28" style="margin-left:-8px;background:linear-gradient(135deg,var(--t-tv),var(--t-anime));">YK</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="frame frame-desktop">
+      <div class="frame-label">Desktop · modal sopra /discover</div>
+      <div style="position:relative;height:100%;background:rgba(0,0,0,0.6);">
+        <div style="position:absolute;inset:0;background:rgba(11,11,15,0.96);"></div>
+        <div style="position:absolute;inset:24px 80px;background:var(--bg-2);border:1px solid var(--border);border-radius:24px;overflow:hidden;display:grid;grid-template-columns:380px 1fr;box-shadow:0 60px 120px rgba(0,0,0,0.7);">
+          <div style="background:linear-gradient(180deg,rgba(56,189,248,0.2),var(--bg-3));padding:24px;display:flex;flex-direction:column;justify-content:space-between;">
+            <div style="display:flex;justify-content:space-between;"><span class="pill t-anime" style="height:22px;font-size:10px;">ANIME</span><span class="label-mono">2023 · 28 EP</span></div>
+            <div style="aspect-ratio:2/3;border-radius:14px;background:linear-gradient(135deg,#1a1a24,#0e0e14);border:1px solid var(--border);"></div>
+            <div style="display:flex;gap:8px;"><div class="cta" style="flex:1;height:42px;font-size:12px;">+ Aggiungi</div><div class="cta sec" style="width:42px;height:42px;display:grid;place-items:center;">♡</div></div>
+          </div>
+          <div style="padding:24px;overflow:hidden;position:relative;"><div class="icon-btn" style="position:absolute;top:14px;right:14px;background:var(--bg-3);border:1px solid var(--border);">✕</div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span class="pill" style="font-family:var(--mono);height:22px;font-size:10px;color:var(--accent);border-color:rgba(230,255,61,0.3);background:rgba(230,255,61,0.08);">★ 9.1</span><span class="label-mono">FANTASY · DRAMA · ADVENTURE</span></div>
+            <h2 style="font-family:var(--display);font-weight:900;font-size:38px;letter-spacing:-0.03em;line-height:1.05;margin:0 0 12px;">Frieren: Beyond Journey's End</h2>
+            <p style="font-size:14px;color:var(--text-2);line-height:1.6;margin:0 0 18px;">Una maga elfa che è sopravvissuta alla sua compagnia di eroi rivisita i suoi amici uno dopo l'altro, scoprendo cosa significhi davvero essere umani.</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:18px;"><div class="card" style="padding:10px;"><div class="label-mono" style="font-size:9px;">Studio</div><div style="font-size:13px;font-weight:700;margin-top:2px;">Madhouse</div></div><div class="card" style="padding:10px;"><div class="label-mono" style="font-size:9px;">Status</div><div style="font-size:13px;font-weight:700;margin-top:2px;">In corso</div></div><div class="card" style="padding:10px;"><div class="label-mono" style="font-size:9px;">Tuoi EP</div><div style="font-size:13px;font-weight:700;margin-top:2px;color:var(--accent);">18/28</div></div><div class="card" style="padding:10px;"><div class="label-mono" style="font-size:9px;">Tua nota</div><div style="font-size:13px;font-weight:700;margin-top:2px;">★ 9.0</div></div></div>
+            <div class="label-mono" style="margin-bottom:10px;">Cast</div>
+            <div style="display:flex;gap:14px;margin-bottom:18px;"><div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><div class="avatar md28"></div><div style="font-size:10px;">Frieren</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><div class="avatar md28"></div><div style="font-size:10px;">Fern</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><div class="avatar md28"></div><div style="font-size:10px;">Stark</div></div></div>
+            <div class="label-mono" style="margin-bottom:10px;">Amici che lo seguono · 7</div>
+            <div style="display:flex;"><div class="avatar md28">SK</div><div class="avatar md28" style="margin-left:-8px;background:linear-gradient(135deg,var(--t-game),var(--t-board));">JM</div><div class="avatar md28" style="margin-left:-8px;background:linear-gradient(135deg,var(--t-tv),var(--t-anime));">YK</div><div class="avatar md28" style="margin-left:-8px;background:linear-gradient(135deg,var(--t-movie),var(--t-manga));">RT</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ S12 POST DETAIL ═══ -->
+<section class="block" id="s12">
+  <div class="section-head"><span class="num">12</span><h2>Post · /p/[id]</h2><span class="desc">— singolo post + thread</span></div>
+  <div class="row">
+    <div class="frame frame-mobile">
+      <div class="frame-label">Mobile · post</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-header"><div style="display:flex;align-items:center;gap:6px;"><div class="icon-btn" style="margin-left:-8px;">‹</div><h1 style="font-weight:700;font-size:15px;margin:0;">Post</h1></div><div class="icon-btn">⋯</div></div>
+      <div class="m-content">
+        <div class="feed-card" style="margin:14px;">
+          <div class="head"><div class="ring-story"><div class="inner"><div class="avatar">SK</div></div></div><div class="meta"><div class="name">sakura_92 · <span style="color:var(--text-3);font-weight:500;font-size:11px;">@sakura_92</span></div><div class="ts">12 MIN · ANIME</div></div><div class="cta sec" style="height:30px;font-size:11px;padding:0 12px;">+ Segui</div></div>
+          <div class="body"><span class="pill t-anime" style="height:22px;font-size:10px;margin-bottom:8px;">Frieren EP 14</span><div class="text">Quel flashback con Himmel mi ha distrutta 😭. Sono bastati pochi minuti per ribaltare tutto il senso del viaggio.</div></div>
+          <div class="img">— immagine 16:9 —</div>
+          <div class="actions"><span class="a"><span style="color:#EF4444;">♥</span> 124</span><span class="a">💬 18</span><span class="a">↗</span><span style="margin-left:auto;" class="a">🔖</span></div>
+        </div>
+        <div style="padding:0 14px 14px;">
+          <div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start;"><div class="avatar sm" style="width:30px;height:30px;font-size:11px;">YK</div><div style="flex:1;background:var(--bg-3);border:1px solid var(--border);border-radius:14px;padding:8px 12px;"><div style="font-size:12px;font-weight:700;">@yuki_k <span style="color:var(--text-3);font-weight:500;font-size:10px;font-family:var(--mono);">8 MIN</span></div><div style="font-size:13px;line-height:1.4;color:var(--text-2);margin-top:2px;">anche io! il flashback è devastante 🥲</div></div></div>
+          <div style="display:flex;gap:10px;align-items:flex-start;"><div class="avatar sm" style="width:30px;height:30px;font-size:11px;background:linear-gradient(135deg,var(--t-game),var(--t-board));">JM</div><div style="flex:1;background:var(--bg-3);border:1px solid var(--border);border-radius:14px;padding:8px 12px;"><div style="font-size:12px;font-weight:700;">@jin_m <span style="color:var(--text-3);font-weight:500;font-size:10px;font-family:var(--mono);">3 MIN</span></div><div style="font-size:13px;line-height:1.4;color:var(--text-2);margin-top:2px;">madhouse al top come sempre</div></div></div>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:0;left:0;right:0;padding:10px 14px;background:rgba(11,11,15,0.96);border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;"><div class="avatar sm" style="width:30px;height:30px;font-size:11px;">MR</div><div style="flex:1;height:36px;border-radius:12px;background:var(--bg-2);border:1px solid var(--border);padding:0 12px;display:flex;align-items:center;color:var(--text-3);font-size:12px;">Aggiungi un commento…</div><div style="width:36px;height:36px;border-radius:12px;background:var(--accent);display:grid;place-items:center;color:#0B0B0F;">↑</div></div>
+    </div>
+    <div class="frame frame-desktop">
+      <div class="frame-label">Desktop · /p/[id] · sidebar + post + rail</div>
+      <div class="d-shell">
+        <div class="d-sidebar"><div class="d-logo"><div class="mark">★</div><div class="word">geekore</div></div><div class="d-nav-item active">⌂ Home</div><div class="d-nav-item">✦ Per te</div><div class="d-nav-item">▦ Library</div><div class="d-nav-item">◎ Discover</div><div class="d-nav-item">◐ Friends</div><div class="d-search">⌕ Cerca…</div></div>
+        <div class="d-content" style="max-width:680px;">
+          <div class="card" style="padding:18px;margin-bottom:14px;">
+            <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;"><div class="ring-story"><div class="inner"><div class="avatar">SK</div></div></div><div style="flex:1;"><div style="font-size:14px;font-weight:700;">sakura_92</div><div style="font-family:var(--mono);font-size:11px;color:var(--text-3);">@sakura_92 · 12 MIN · ANIME</div></div><div class="cta sec" style="height:32px;font-size:12px;padding:0 14px;">+ Segui</div></div>
+            <span class="pill t-anime" style="margin-bottom:10px;font-size:11px;height:24px;">Frieren EP 14</span>
+            <p style="font-size:15px;line-height:1.6;color:var(--text);margin:8px 0 0;">Quel flashback con Himmel mi ha distrutta 😭. Sono bastati pochi minuti per ribaltare tutto il senso del viaggio.</p>
+            <div style="height:280px;border-radius:14px;background:linear-gradient(135deg,#1a1a24,#0e0e14);margin-top:12px;border:1px solid var(--border-soft);"></div>
+            <div style="display:flex;gap:24px;margin-top:14px;color:var(--text-2);font-size:13px;border-top:1px solid var(--border-soft);padding-top:12px;"><span><span style="color:#EF4444;">♥</span> 124 like</span><span>💬 18 commenti</span><span>↗ Condividi</span><span style="margin-left:auto;">🔖 Salva</span></div>
+          </div>
+          <div style="display:flex;gap:10px;margin-bottom:14px;"><div class="avatar md28">MR</div><div style="flex:1;height:40px;border-radius:14px;background:var(--bg-3);border:1px solid var(--border);padding:0 14px;display:flex;align-items:center;color:var(--text-3);font-size:13px;">Aggiungi un commento…</div></div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;gap:10px;"><div class="avatar md28">YK</div><div style="flex:1;background:var(--bg-3);border:1px solid var(--border);border-radius:14px;padding:10px 14px;"><div style="font-size:13px;font-weight:700;">@yuki_k <span style="color:var(--text-3);font-weight:500;font-size:11px;font-family:var(--mono);">8 MIN</span></div><div style="font-size:14px;line-height:1.5;color:var(--text-2);margin-top:2px;">anche io! il flashback è devastante 🥲</div><div style="display:flex;gap:14px;margin-top:6px;font-size:11px;color:var(--text-3);"><span>♥ 4</span><span>Rispondi</span></div></div></div>
+            <div style="display:flex;gap:10px;"><div class="avatar md28" style="background:linear-gradient(135deg,var(--t-game),var(--t-board));">JM</div><div style="flex:1;background:var(--bg-3);border:1px solid var(--border);border-radius:14px;padding:10px 14px;"><div style="font-size:13px;font-weight:700;">@jin_m <span style="color:var(--text-3);font-weight:500;font-size:11px;font-family:var(--mono);">3 MIN</span></div><div style="font-size:14px;line-height:1.5;color:var(--text-2);margin-top:2px;">madhouse al top come sempre</div></div></div>
+          </div>
+        </div>
+        <div class="d-rightrail">
+          <div class="card"><div class="label-mono" style="margin-bottom:10px;">Media del post</div><div style="display:flex;gap:10px;align-items:center;"><div style="width:50px;height:70px;border-radius:8px;background:linear-gradient(135deg,#1a1a24,#0e0e14);border:1px solid var(--border);"></div><div><div style="font-size:13px;font-weight:700;">Frieren</div><div class="label-mono" style="font-size:9px;margin-top:2px;">2023 · 28 EP · ★ 9.1</div></div></div><div class="cta" style="height:34px;font-size:11px;margin-top:12px;">Apri scheda</div></div>
+          <div class="card"><div class="label-mono" style="margin-bottom:8px;">Discutono</div><div style="display:flex;flex-direction:column;gap:8px;"><div style="display:flex;align-items:center;gap:8px;"><div class="avatar sm" style="width:24px;height:24px;">SK</div><div style="font-size:12px;">sakura_92</div></div><div style="display:flex;align-items:center;gap:8px;"><div class="avatar sm" style="width:24px;height:24px;">YK</div><div style="font-size:12px;">yuki_k</div></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ S13 NOTIFICHE ═══ -->
+<section class="block" id="s13">
+  <div class="section-head"><span class="num">13</span><h2>Notifiche · drawer + page</h2><span class="desc">— bottom-sheet · pannello desktop</span></div>
+  <div class="row">
+    <div class="frame frame-mobile">
+      <div class="frame-label">Mobile · drawer aperto</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-header" style="opacity:0.4;"><div class="wm-mobile"><div class="mark">★</div>geekore</div><div style="display:flex;align-items:center;gap:2px;"><div class="icon-btn" style="position:relative;">🔔</div><div class="avatar sm">MR</div></div></div>
+      <div class="m-content" style="opacity:0.18;"><div class="filter-row"><span class="pill active">Tutti</span><span class="pill">Seguiti</span></div></div>
+      <div style="position:absolute;top:140px;left:0;right:0;bottom:58px;background:var(--bg-2);border-radius:24px 24px 0 0;border:1px solid var(--border);overflow:hidden;">
+        <div style="display:flex;justify-content:center;padding:8px 0 4px;"><div style="width:36px;height:4px;background:var(--border);border-radius:99px;"></div></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px 12px;border-bottom:1px solid var(--border);"><h3 style="font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:-0.02em;margin:0;">Notifiche</h3><span class="label-mono" style="color:var(--accent);">3 nuove</span></div>
+        <div style="display:flex;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border-soft);align-items:flex-start;"><div style="width:6px;height:6px;border-radius:99px;background:var(--accent);margin-top:6px;"></div><div class="avatar sm" style="width:32px;height:32px;font-size:11px;">SK</div><div style="font-size:12px;line-height:1.4;flex:1;"><b>@sakura_92</b> ha messo like al tuo post su <i>Frieren</i>.<div class="label-mono" style="margin-top:2px;font-size:9px;">5 MIN FA</div></div></div>
+        <div style="display:flex;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border-soft);align-items:flex-start;"><div style="width:6px;height:6px;border-radius:99px;background:var(--accent);margin-top:6px;"></div><div class="avatar sm" style="width:32px;height:32px;font-size:11px;background:linear-gradient(135deg,var(--t-game),var(--t-board));">JM</div><div style="font-size:12px;line-height:1.4;flex:1;"><b>@jin_m</b> ha iniziato a seguirti.<div class="label-mono" style="margin-top:2px;font-size:9px;">22 MIN FA</div></div></div>
+        <div style="display:flex;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border-soft);align-items:flex-start;"><div style="width:6px;height:6px;margin-top:6px;"></div><div style="width:32px;height:32px;border-radius:11px;background:rgba(230,255,61,0.1);color:var(--accent);display:grid;place-items:center;border:1px solid rgba(230,255,61,0.2);">★</div><div style="font-size:12px;line-height:1.4;flex:1;">Nuova raccomandazione: <b style="color:var(--accent);">Mushishi</b> ti potrebbe piacere.<div class="label-mono" style="margin-top:2px;font-size:9px;">3 ORE FA</div></div></div>
+      </div>
+      <div class="m-bottom" style="opacity:0.4;"><div class="m-tab active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V11z"/></svg><span>Home</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"/></svg><span>Per te</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="3"/></svg><span>Library</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/></svg><span>Discover</span></div><div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/></svg><span>Friends</span></div></div>
+    </div>
+    <div class="frame frame-desktop">
+      <div class="frame-label">Desktop · /notifications</div>
+      <div class="d-shell">
+        <div class="d-sidebar"><div class="d-logo"><div class="mark">★</div><div class="word">geekore</div></div><div class="d-nav-item">⌂ Home</div><div class="d-nav-item">✦ Per te</div><div class="d-nav-item">▦ Library</div><div class="d-nav-item">◎ Discover</div><div class="d-nav-item">◐ Friends</div></div>
+        <div class="d-content" style="max-width:760px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><div><h2 style="font-family:var(--display);font-size:24px;font-weight:800;letter-spacing:-0.02em;margin:0;">Notifiche</h2><div class="label-mono" style="margin-top:4px;color:var(--accent);">3 NUOVE</div></div><div style="display:flex;gap:8px;"><div class="cta sec" style="height:32px;font-size:11px;padding:0 12px;">Segna lette</div><div class="cta sec" style="height:32px;font-size:11px;padding:0 12px;">⚙</div></div></div>
+          <div style="display:flex;gap:8px;margin-bottom:14px;"><span class="pill active">Tutto</span><span class="pill">Social</span><span class="pill">Sistema</span><span class="pill">Integrazioni</span></div>
+          <div class="card" style="padding:0;overflow:hidden;">
+            <div style="display:flex;gap:12px;padding:14px;border-bottom:1px solid var(--border-soft);align-items:center;"><div style="width:6px;height:6px;border-radius:99px;background:var(--accent);"></div><div class="avatar sm" style="width:36px;height:36px;font-size:12px;">SK</div><div style="flex:1;font-size:13px;line-height:1.5;"><b>@sakura_92</b> ha messo like al tuo post su <i>Frieren</i>. <div class="label-mono" style="margin-top:2px;font-size:10px;">5 MIN FA</div></div><div style="width:36px;height:48px;border-radius:6px;background:linear-gradient(135deg,#1a1a24,#0e0e14);"></div></div>
+            <div style="display:flex;gap:12px;padding:14px;border-bottom:1px solid var(--border-soft);align-items:center;"><div style="width:6px;height:6px;border-radius:99px;background:var(--accent);"></div><div class="avatar sm" style="width:36px;height:36px;font-size:12px;background:linear-gradient(135deg,var(--t-game),var(--t-board));">JM</div><div style="flex:1;font-size:13px;line-height:1.5;"><b>@jin_m</b> ha iniziato a seguirti. <div class="label-mono" style="margin-top:2px;font-size:10px;">22 MIN FA</div></div><div class="cta sec" style="height:32px;font-size:11px;padding:0 14px;">+ Segui</div></div>
+            <div style="display:flex;gap:12px;padding:14px;border-bottom:1px solid var(--border-soft);align-items:center;"><div style="width:6px;height:6px;border-radius:99px;background:var(--accent);"></div><div class="avatar sm" style="width:36px;height:36px;font-size:12px;background:linear-gradient(135deg,var(--t-tv),var(--t-anime));">YK</div><div style="flex:1;font-size:13px;line-height:1.5;"><b>@yuki_k</b> ha commentato il tuo post: <i>"anche io! il flashback è devastante"</i>. <div class="label-mono" style="margin-top:2px;font-size:10px;">1 ORA FA</div></div></div>
+            <div style="display:flex;gap:12px;padding:14px;border-bottom:1px solid var(--border-soft);align-items:center;"><div style="width:6px;height:6px;"></div><div style="width:36px;height:36px;border-radius:11px;background:rgba(230,255,61,0.1);color:var(--accent);display:grid;place-items:center;border:1px solid rgba(230,255,61,0.2);">★</div><div style="flex:1;font-size:13px;line-height:1.5;">Nuova raccomandazione: <b style="color:var(--accent);">Mushishi</b> ti potrebbe piacere (96% match). <div class="label-mono" style="margin-top:2px;font-size:10px;">3 ORE FA</div></div></div>
+            <div style="display:flex;gap:12px;padding:14px;align-items:center;"><div style="width:6px;height:6px;"></div><div style="width:36px;height:36px;border-radius:11px;background:rgba(74,222,128,0.1);color:var(--t-game);display:grid;place-items:center;border:1px solid rgba(74,222,128,0.2);">🎮</div><div style="flex:1;font-size:13px;line-height:1.5;">Steam ha aggiornato 12 ore in <b>Hollow Knight: Silksong</b>. <div class="label-mono" style="margin-top:2px;font-size:10px;">IERI</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ S14 SETTINGS ═══ -->
+<section class="block" id="s14">
+  <div class="section-head"><span class="num">14</span><h2>Settings · /settings/*</h2><span class="desc">— account · integrazioni · privacy · notifiche</span></div>
+  <div class="row">
+    <div class="frame frame-mobile">
+      <div class="frame-label">Mobile · /settings</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-header"><div style="display:flex;align-items:center;gap:6px;"><div class="icon-btn" style="margin-left:-8px;">‹</div><h1 style="font-weight:700;font-size:17px;margin:0;">Settings</h1></div></div>
+      <div class="m-content full">
+        <div style="padding:14px;display:flex;gap:12px;align-items:center;border-bottom:1px solid var(--border-soft);"><div class="avatar lg" style="width:56px;height:56px;font-size:18px;background:linear-gradient(135deg,var(--accent),var(--t-anime));">MR</div><div style="flex:1;"><div style="font-size:14px;font-weight:700;">Marco Rossi</div><div class="label-mono" style="font-size:10px;margin-top:2px;">@MARCO_R</div></div><span style="color:var(--text-3);">›</span></div>
+        <div class="d-section-label" style="padding:14px 14px 6px;">Account</div>
+        <div style="border-bottom:1px solid var(--border-soft);"><div style="padding:14px;display:flex;align-items:center;gap:10px;"><span style="width:24px;text-align:center;">👤</span><span style="flex:1;font-size:13px;">Profilo</span><span style="color:var(--text-3);">›</span></div><div style="padding:14px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--border-soft);"><span style="width:24px;text-align:center;">🔒</span><span style="flex:1;font-size:13px;">Privacy</span><span style="color:var(--text-3);">›</span></div><div style="padding:14px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--border-soft);"><span style="width:24px;text-align:center;">🔔</span><span style="flex:1;font-size:13px;">Notifiche</span><span style="color:var(--text-3);">›</span></div></div>
+        <div class="d-section-label" style="padding:14px 14px 6px;">Integrazioni</div>
+        <div style="border-bottom:1px solid var(--border-soft);"><div style="padding:14px;display:flex;align-items:center;gap:10px;"><span style="width:24px;text-align:center;color:var(--t-anime);">⚔</span><span style="flex:1;font-size:13px;">AniList</span><span class="pill" style="height:20px;font-size:9px;">Connetti</span></div><div style="padding:14px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--border-soft);"><span style="width:24px;text-align:center;color:var(--t-game);">🎮</span><span style="flex:1;font-size:13px;">Steam</span><span class="pill match" style="height:20px;font-size:9px;">✓ Attivo</span></div><div style="padding:14px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--border-soft);"><span style="width:24px;text-align:center;color:var(--t-movie);">🎬</span><span style="flex:1;font-size:13px;">Letterboxd</span><span class="pill" style="height:20px;font-size:9px;">Connetti</span></div></div>
+        <div class="d-section-label" style="padding:14px 14px 6px;">App</div>
+        <div><div style="padding:14px;display:flex;align-items:center;gap:10px;"><span style="width:24px;text-align:center;">🌐</span><span style="flex:1;font-size:13px;">Lingua</span><span style="color:var(--text-3);font-size:12px;">Italiano ›</span></div><div style="padding:14px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--border-soft);"><span style="width:24px;text-align:center;">🌙</span><span style="flex:1;font-size:13px;">Tema</span><span style="color:var(--text-3);font-size:12px;">Dark ›</span></div><div style="padding:14px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--border-soft);"><span style="width:24px;text-align:center;color:#EF4444;">⎋</span><span style="flex:1;font-size:13px;color:#EF4444;">Esci</span></div></div>
+      </div>
+    </div>
+    <div class="frame frame-desktop">
+      <div class="frame-label">Desktop · /settings</div>
+      <div class="d-shell">
+        <div class="d-sidebar"><div class="d-logo"><div class="mark">★</div><div class="word">geekore</div></div><div class="d-nav-item">⌂ Home</div><div class="d-nav-item">✦ Per te</div><div class="d-nav-item">▦ Library</div><div class="d-nav-item">◎ Discover</div><div class="d-nav-item">◐ Friends</div></div>
+        <div style="flex:1;display:flex;background:var(--bg);">
+          <div style="width:240px;border-right:1px solid var(--border);padding:24px 16px;">
+            <div style="font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:-0.02em;margin-bottom:14px;">Settings</div>
+            <div class="d-section-label" style="padding:8px 12px 4px;">Account</div>
+            <div class="d-nav-item small active" style="height:34px;">Profilo</div>
+            <div class="d-nav-item small">Privacy</div>
+            <div class="d-nav-item small">Notifiche</div>
+            <div class="d-nav-item small">Sicurezza</div>
+            <div class="d-section-label" style="padding:8px 12px 4px;">Integrazioni</div>
+            <div class="d-nav-item small">AniList</div>
+            <div class="d-nav-item small">Steam</div>
+            <div class="d-nav-item small">Letterboxd</div>
+            <div class="d-nav-item small">BoardGameGeek</div>
+            <div class="d-section-label" style="padding:8px 12px 4px;">App</div>
+            <div class="d-nav-item small">Lingua</div>
+            <div class="d-nav-item small">Tema</div>
+            <div class="d-nav-item small" style="color:#EF4444;">Esci</div>
+          </div>
+          <div style="flex:1;padding:32px 40px;">
+            <div style="font-family:var(--display);font-weight:900;font-size:28px;letter-spacing:-0.03em;margin-bottom:6px;">Profilo</div>
+            <div style="color:var(--text-2);font-size:13px;margin-bottom:24px;">Come ti presenti agli altri geek.</div>
+            <div style="display:flex;gap:18px;align-items:center;margin-bottom:24px;"><div class="avatar lg" style="background:linear-gradient(135deg,var(--accent),var(--t-anime));">MR</div><div style="flex:1;"><div class="cta sec" style="height:36px;font-size:12px;padding:0 14px;display:inline-grid;">Cambia avatar</div><div class="label-mono" style="margin-top:8px;font-size:10px;">PNG, JPG · max 2MB</div></div></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;"><div><div class="label-mono" style="margin-bottom:6px;">Nome visualizzato</div><div class="input">Marco Rossi</div></div><div><div class="label-mono" style="margin-bottom:6px;">Username</div><div class="input">@marco_r</div></div></div>
+            <div style="margin-bottom:14px;"><div class="label-mono" style="margin-bottom:6px;">Bio</div><div class="input" style="height:80px;align-items:flex-start;padding-top:12px;">Anime, soulslike e jazz. Berserk maxxer.</div></div>
+            <div style="display:flex;gap:8px;"><div class="cta" style="height:42px;padding:0 24px;">Salva</div><div class="cta sec" style="height:42px;padding:0 18px;font-size:13px;">Annulla</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ S15 SEARCH RESULTS ═══ -->
+<section class="block" id="s15">
+  <div class="section-head"><span class="num">15</span><h2>Search · /search · stati</h2><span class="desc">— digitazione + risultati + empty</span></div>
+  <div class="row">
+    <div class="frame frame-mobile">
+      <div class="frame-label">Mobile · risultati</div>
+      <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="m-header"><div style="display:flex;align-items:center;gap:8px;flex:1;"><div class="icon-btn" style="margin-left:-8px;">‹</div><div style="flex:1;height:36px;border-radius:12px;background:var(--bg-3);border:1px solid var(--border);padding:0 12px;display:flex;align-items:center;gap:8px;font-size:13px;">⌕ <span>silks</span><span style="margin-left:auto;color:var(--text-3);">✕</span></div></div></div>
+      <div class="m-content">
+        <div class="filter-row"><span class="pill active">Tutti · 24</span><span class="pill t-game">Game · 12</span><span class="pill t-tv">TV · 4</span></div>
+        <div style="padding:8px 14px;">
+          <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border-soft);align-items:center;"><div style="width:44px;height:60px;border-radius:8px;background:linear-gradient(135deg,#1a1a24,#0e0e14);border:1px solid var(--border);"></div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;">Hollow Knight: <mark style="background:rgba(230,255,61,0.2);color:var(--accent);padding:0 2px;border-radius:3px;">Silks</mark>ong</div><div class="label-mono" style="font-size:10px;margin-top:2px;"><span class="pill t-game" style="height:16px;font-size:8px;padding:0 5px;">GAME</span> · 2024 · ★ 9.4</div></div><span style="color:var(--text-3);">›</span></div>
+          <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border-soft);align-items:center;"><div style="width:44px;height:60px;border-radius:8px;background:linear-gradient(135deg,#1a1a24,#0e0e14);border:1px solid var(--border);"></div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;"><mark style="background:rgba(230,255,61,0.2);color:var(--accent);padding:0 2px;border-radius:3px;">Silks</mark> &amp; Stones</div><div class="label-mono" style="font-size:10px;margin-top:2px;"><span class="pill t-tv" style="height:16px;font-size:8px;padding:0 5px;">TV</span> · 2018 · ★ 7.2</div></div><span style="color:var(--text-3);">›</span></div>
+          <div class="d-section-label" style="padding:10px 0 4px;">Utenti</div>
+          <div style="display:flex;gap:12px;padding:10px 0;align-items:center;"><div class="avatar md28">@s</div><div style="flex:1;"><div style="font-size:13px;font-weight:700;">@<mark style="background:rgba(230,255,61,0.2);color:var(--accent);padding:0 2px;border-radius:3px;">silks</mark>ong_fan</div><div class="label-mono" style="font-size:10px;">128 OPERE</div></div><span class="pill" style="height:24px;font-size:10px;">+ Segui</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="frame frame-desktop">
+      <div class="frame-label">Desktop · /search?q=silks</div>
+      <div class="d-shell">
+        <div class="d-sidebar"><div class="d-logo"><div class="mark">★</div><div class="word">geekore</div></div><div class="d-nav-item">⌂ Home</div><div class="d-nav-item">✦ Per te</div><div class="d-nav-item">▦ Library</div><div class="d-nav-item active">◎ Discover</div><div class="d-nav-item">◐ Friends</div></div>
+        <div class="d-content">
+          <div style="height:54px;border-radius:16px;background:var(--bg-3);border:1px solid var(--border);padding:0 18px;display:flex;align-items:center;gap:12px;font-size:14px;margin-bottom:18px;"><span>⌕</span><span style="flex:1;">silks</span><span class="label-mono">24 RISULTATI</span><span style="color:var(--text-3);">✕</span></div>
+          <div style="display:flex;gap:8px;margin-bottom:18px;"><span class="pill active">Tutti · 24</span><span class="pill t-game">Game · 12</span><span class="pill t-tv">TV · 4</span><span class="pill">Utenti · 8</span></div>
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:24px;">
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-game);">GAME</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-game);">GAME</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-tv);">TV</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-game);">GAME</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-tv);">TV</span></div>
+            <div class="cover" style="aspect-ratio:2/3;"><span class="tt" style="color:var(--t-game);">GAME</span></div>
+          </div>
+          <div class="d-section-label" style="margin-bottom:10px;padding-left:0;">Utenti corrispondenti</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+            <div class="card" style="padding:12px;display:flex;gap:10px;align-items:center;"><div class="avatar md28">@s</div><div style="flex:1;"><div style="font-size:13px;font-weight:700;">@silksong_fan</div><div class="label-mono" style="font-size:10px;">128 OPERE</div></div><span class="pill match" style="height:24px;font-size:10px;">+ Segui</span></div>
+            <div class="card" style="padding:12px;display:flex;gap:10px;align-items:center;"><div class="avatar md28">@h</div><div style="flex:1;"><div style="font-size:13px;font-weight:700;">@hornet_main</div><div class="label-mono" style="font-size:10px;">62 OPERE</div></div><span class="pill match" style="height:24px;font-size:10px;">+ Segui</span></div>
+            <div class="card" style="padding:12px;display:flex;gap:10px;align-items:center;"><div class="avatar md28">@p</div><div style="flex:1;"><div style="font-size:13px;font-weight:700;">@pharloom</div><div class="label-mono" style="font-size:10px;">94 OPERE</div></div><span class="pill" style="height:24px;font-size:10px;">✓ Seguiti</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+const hm = document.getElementById('hm');
+if (hm) {
+  for (let i=0;i<22*7;i++){
+    const el=document.createElement('i');
+    el.style.width='7px';el.style.height='7px';el.style.borderRadius='2px';el.style.display='block';
+    const r=Math.random();
+    if (r>0.85) el.style.background='rgba(230,255,61,0.85)';
+    else if (r>0.7) el.style.background='rgba(230,255,61,0.5)';
+    else if (r>0.5) el.style.background='rgba(230,255,61,0.25)';
+    else if (r>0.3) el.style.background='rgba(230,255,61,0.12)';
+    else el.style.background='rgba(255,255,255,0.04)';
+    hm.appendChild(el);
+  }
+}
+</script>
+</body></html>
