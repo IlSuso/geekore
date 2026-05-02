@@ -10,13 +10,11 @@ import {
   Bookmark, Calendar, Swords, Gamepad2, Film, Tv,
   Trash2, Check, Loader2, SlidersHorizontal, CheckCircle2, Layers,
 } from 'lucide-react'
+import { getMediaTypeColor, getMediaTypeLabel } from '@/lib/mediaTypes'
+import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 
-const TYPE_CONFIG: Record<string, { label: string; color: string; dot: string; icon: React.ElementType }> = {
-  anime:     { label: 'Anime',   color: 'bg-sky-500',    dot: 'bg-sky-400',    icon: Swords },
-  manga:     { label: 'Manga',   color: 'bg-orange-500', dot: 'bg-orange-400', icon: Layers },
-  game:      { label: 'Videogioco', color: 'bg-emerald-500', dot: 'bg-emerald-400', icon: Gamepad2 },
-  movie:     { label: 'Film',    color: 'bg-red-500',    dot: 'bg-red-400',    icon: Film },
-  tv:        { label: 'Serie',   color: 'bg-purple-500', dot: 'bg-purple-400', icon: Tv },
+const TYPE_ICON: Record<string, React.ElementType> = {
+  anime: Swords, manga: Layers, game: Gamepad2, movie: Film, tv: Tv,
 }
 
 function daysUntil(dateStr: string | null): { label: string; available: boolean } {
@@ -115,7 +113,7 @@ export default function WishlistPage() {
           {types.length > 2 && (
             <div className="flex gap-2 mt-4 overflow-x-auto pb-1 hide-scrollbar">
               {types.map(type => {
-                const cfg = type !== 'all' ? TYPE_CONFIG[type] : null
+                const typeColor = type !== 'all' ? getMediaTypeColor(type) : null
                 return (
                   <button
                     key={type}
@@ -127,8 +125,8 @@ export default function WishlistPage() {
                     }`}
                     style={activeFilter === type ? { background: '#E6FF3D', color: '#0B0B0F' } : {}}
                   >
-                    {cfg && <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />}
-                    {type === 'all' ? 'Tutti' : cfg?.label || type}
+                    {typeColor && <span className="w-1.5 h-1.5 rounded-full" style={{ background: typeColor }} />}
+                    {type === 'all' ? 'Tutti' : getMediaTypeLabel(type)}
                     <span className="opacity-60">
                       {type === 'all' ? wishlist.length : wishlist.filter(i => i.type === type).length}
                     </span>
@@ -154,8 +152,7 @@ export default function WishlistPage() {
         ) : (
           <div className="space-y-3">
             {filtered.map((item) => {
-              const config = TYPE_CONFIG[item.type] ?? TYPE_CONFIG.anime
-              const Icon = config.icon
+              const Icon = TYPE_ICON[item.type] ?? Bookmark
               const countdown = daysUntil(item.release_date)
               const isRemoving = removing === item.id
 
@@ -182,9 +179,7 @@ export default function WishlistPage() {
                   {/* Info */}
                   <div className="flex-1 min-w-0 px-4 py-3">
                     <div className="flex items-center gap-2 mb-1.5">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white ${config.color}`}>
-                        {config.label}
-                      </span>
+                      <MediaTypeBadge type={item.type} size="xs" />
                     </div>
                     <h3 className="text-sm font-semibold text-white leading-tight truncate">{item.title}</h3>
                     {countdown.label && (

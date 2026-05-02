@@ -4,23 +4,11 @@
 
 import { Film, Gamepad2, Tv, Trophy, Star, Users, Layers } from 'lucide-react'
 import type { TrendingItem } from './page'
-
-const TYPE_COLOR: Record<string, string> = {
-  anime: 'bg-sky-500',
-  manga: 'bg-orange-500',
-  game: 'bg-green-500',
-  tv: 'bg-purple-500',
-  movie: 'bg-red-500',
-}
+import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 
 const TYPE_ICON: Record<string, React.ElementType> = {
   anime: Film, manga: Layers, game: Gamepad2,
   tv: Tv, movie: Film,
-}
-
-const TYPE_LABEL: Record<string, string> = {
-  anime: 'Anime', manga: 'Manga', game: 'Videogioco',
-  tv: 'Serie TV', movie: 'Film',
 }
 
 export function TrendingCard({ item, rank }: { item: TrendingItem; rank: number }) {
@@ -60,9 +48,7 @@ export function TrendingCard({ item, rank }: { item: TrendingItem; rank: number 
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-white text-sm leading-tight truncate">{item.title}</p>
         <div className="flex items-center gap-2 mt-1">
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${TYPE_COLOR[item.type] || 'bg-zinc-700'}`}>
-            {TYPE_LABEL[item.type] || item.type}
-          </span>
+          <MediaTypeBadge type={item.type} size="xs" />
         </div>
       </div>
 

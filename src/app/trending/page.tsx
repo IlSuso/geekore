@@ -16,15 +16,6 @@ export interface TrendingItem {
   external_id: string | null
 }
 
-export const TYPE_COLOR: Record<string, string> = {
-  anime: 'bg-sky-500',
-  manga: 'bg-orange-500',
-  game: 'bg-green-500',
-  tv: 'bg-purple-500',
-  movie: 'bg-red-500',
-  boardgame: 'bg-amber-500',
-  }
-
 export const TYPE_LABEL: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', game: 'Videogioco',
   tv: 'Serie TV', movie: 'Film', boardgame: 'Gioco da Tavolo',

@@ -7,14 +7,14 @@ import { useState } from 'react'
 import Image from 'next/image'
 
 const GRADIENTS: [string, string][] = [
-  ['#7c3aed', '#a21caf'],
-  ['#0891b2', '#7c3aed'],
+  ['#0f766e', '#1d4ed8'],
+  ['#0891b2', '#0f766e'],
   ['#059669', '#0891b2'],
   ['#d97706', '#dc2626'],
-  ['#7c3aed', '#2563eb'],
-  ['#be185d', '#7c3aed'],
+  ['#0f766e', '#2563eb'],
+  ['#be185d', '#0f766e'],
   ['#0e7490', '#059669'],
-  ['#b45309', '#7c3aed'],
+  ['#b45309', '#0f766e'],
 ]
 
 function getGradient(seed: string): [string, string] {

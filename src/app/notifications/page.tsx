@@ -159,7 +159,7 @@ export default function NotificationsPage() {
       <span className={base} style={{ background: '#E6FF3D' }}><UserPlus size={10} color="#0B0B0F" /></span>
     )
     if (type === 'comment') return (
-      <span className={`${base}`} style={{ background: '#8b5cf6' }}><MessageCircle size={10} color="white" /></span>
+      <span className={base} style={{ background: '#E6FF3D' }}><MessageCircle size={10} color="#0B0B0F" /></span>
     )
     if (type === 'rating') return (
       <span className={`${base} bg-yellow-500`}><Star size={10} fill="white" color="white" /></span>
@@ -311,7 +311,7 @@ export default function NotificationsPage() {
                     <div
                       key={n.id}
                       data-notif-id={n.id}
-                      className={`flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-[var(--bg-hover)] ${!n.is_read ? 'bg-blue-500/5' : ''}`}
+                      className={`flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-[var(--bg-hover)] ${!n.is_read ? 'bg-[rgba(230,255,61,0.03)]' : ''}`}
                     >
                       {/* Avatar with action badge — aggregato mostra stack di avatar */}
                       <div className="relative flex-shrink-0">
