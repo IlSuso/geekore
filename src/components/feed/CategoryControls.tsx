@@ -7,7 +7,6 @@ import { ArrowLeft, Check, Filter, Loader2, Search, Tag, X } from 'lucide-react'
 import { gestureState } from '@/hooks/gestureState'
 import { CategoryIcon, MACRO_CATEGORIES, parseCategoryString } from '@/components/feed/CategoryBasics'
 
-// Suggerimenti rapidi per sottocategoria — mostrati come chip nel composer
 const QUICK_SUBS: Record<string, string[]> = {
   'Film': ['Azione', 'Commedia', 'Horror', 'Fantascienza', 'Animazione'],
   'Serie TV': ['Drama', 'Commedia', 'Thriller', 'Fantascienza', 'Reality'],
@@ -16,8 +15,6 @@ const QUICK_SUBS: Record<string, string[]> = {
   'Manga': ['Shonen', 'Shojo', 'Seinen', 'Josei', 'Webtoon'],
   'Giochi da tavolo': ['Eurogame', 'Cooperativo', 'Astratto', 'Family', 'Deck Building'],
 }
-
-// ── API search per categoria ─────────────────────────────────────────────────
 
 function normalize(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()
@@ -45,10 +42,7 @@ async function searchByCategory(category: string, query: string): Promise<Search
   try {
     if (category === 'Film') {
       const res = await fetch(`/api/tmdb?q=${q}&type=movie`, { signal: AbortSignal.timeout(5000) })
-      if (!res.ok) {
-        if (process.env.NODE_ENV === 'development') console.warn('[CategorySearch] TMDB film error:', res.status)
-        return []
-      }
+      if (!res.ok) return []
       const data = await res.json()
       const items = Array.isArray(data) ? data : []
       return items.slice(0, 8).map((item: any) => ({
@@ -61,10 +55,7 @@ async function searchByCategory(category: string, query: string): Promise<Search
 
     if (category === 'Serie TV') {
       const res = await fetch(`/api/tmdb?q=${q}&type=tv`, { signal: AbortSignal.timeout(5000) })
-      if (!res.ok) {
-        if (process.env.NODE_ENV === 'development') console.warn('[CategorySearch] TMDB tv error:', res.status)
-        return []
-      }
+      if (!res.ok) return []
       const data = await res.json()
       const items = Array.isArray(data) ? data : []
       return items.slice(0, 8).map((item: any) => ({
@@ -82,10 +73,7 @@ async function searchByCategory(category: string, query: string): Promise<Search
         body: JSON.stringify({ search: query.trim(), limit: 8 }),
         signal: AbortSignal.timeout(6000),
       })
-      if (!res.ok) {
-        if (process.env.NODE_ENV === 'development') console.warn('[CategorySearch] IGDB error:', res.status)
-        return []
-      }
+      if (!res.ok) return []
       const data = await res.json()
       const items = Array.isArray(data) ? data : (data.results || data.games || [])
       return items.slice(0, 8).map((item: any) => ({
@@ -100,10 +88,7 @@ async function searchByCategory(category: string, query: string): Promise<Search
     if (category === 'Anime' || category === 'Manga') {
       const type = category === 'Anime' ? 'anime' : 'manga'
       const res = await fetch(`/api/anilist?search=${q}&type=${type}&lang=it`, { signal: AbortSignal.timeout(5000) })
-      if (!res.ok) {
-        if (process.env.NODE_ENV === 'development') console.warn('[CategorySearch] AniList error:', res.status)
-        return []
-      }
+      if (!res.ok) return []
       const data = await res.json()
       const items = Array.isArray(data) ? data : (data.results || data.media || [])
       return items.slice(0, 8).map((item: any) => ({
@@ -116,10 +101,7 @@ async function searchByCategory(category: string, query: string): Promise<Search
 
     if (category === 'Giochi da tavolo') {
       const res = await fetch(`/api/bgg?q=${q}`, { signal: AbortSignal.timeout(6000) })
-      if (!res.ok) {
-        if (process.env.NODE_ENV === 'development') console.warn('[CategorySearch] BGG error:', res.status)
-        return []
-      }
+      if (!res.ok) return []
       const data = await res.json()
       const items = Array.isArray(data) ? data : []
       return items.slice(0, 8).map((item: any) => ({
@@ -129,16 +111,11 @@ async function searchByCategory(category: string, query: string): Promise<Search
         image: item.coverImage,
       })).filter((i: SearchResult) => i.title)
     }
-
   } catch (err) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('[CategorySearch] fetch error:', err)
-    }
+    if (process.env.NODE_ENV === 'development') console.warn('[CategorySearch] fetch error:', err)
   }
   return []
 }
-
-// ── Selettore categoria — dropup nel footer del composer ────────────────────
 
 export function CategorySelector({ value, onChange, alwaysExpanded = false }: {
   value: string; onChange: (val: string) => void; alwaysExpanded?: boolean
@@ -159,7 +136,6 @@ export function CategorySelector({ value, onChange, alwaysExpanded = false }: {
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
 
-  // Lock body scroll and page-swipe when the panel is open on mobile
   useEffect(() => {
     if (typeof window === 'undefined' || window.innerWidth >= 768) return
     if (open) {
@@ -174,17 +150,13 @@ export function CategorySelector({ value, onChange, alwaysExpanded = false }: {
 
   const API_CATEGORIES = new Set(['Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga', 'Giochi da tavolo'])
 
-  // Chiudi cliccando fuori
   useEffect(() => {
     if (!open) return
     const handler = (e: MouseEvent) => {
       const target = e.target as Node
       if (wrapRef.current && !wrapRef.current.contains(target)) {
-        // Check if click is inside the portal panel
         const portalPanel = document.getElementById('category-portal-panel')
-        if (!portalPanel || !portalPanel.contains(target)) {
-          setOpen(false)
-        }
+        if (!portalPanel || !portalPanel.contains(target)) setOpen(false)
       }
     }
     document.addEventListener('mousedown', handler)
@@ -195,7 +167,6 @@ export function CategorySelector({ value, onChange, alwaysExpanded = false }: {
     if (open && step === 'search') setTimeout(() => inputRef.current?.focus(), 60)
   }, [open, step])
 
-  // Debounced search
   useEffect(() => {
     if (!selectedCat || !API_CATEGORIES.has(selectedCat) || step !== 'search') return
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -209,26 +180,22 @@ export function CategorySelector({ value, onChange, alwaysExpanded = false }: {
   }, [subInput, selectedCat, step])
 
   const openDropup = (e: React.MouseEvent<HTMLButtonElement>) => {
-    {
-      const rect = e.currentTarget.getBoundingClientRect()
-      const isMobile = window.innerWidth < 768
+    const rect = e.currentTarget.getBoundingClientRect()
+    const isMobile = window.innerWidth < 768
 
-      if (isMobile) {
-        // Mobile: position above or below depending on where the trigger sits
-        const above = rect.top + rect.height / 2 > window.innerHeight / 2
-        openAboveRef.current = above
-        setOpenAbove(above)
-        setPanelPos({ top: rect.bottom + (above ? 0 : 8), left: 12 })
-      } else {
-        // Desktop: a destra del tag
-        const left = rect.right + 6
-        const triggerMidY = rect.top + rect.height / 2
-        const above = triggerMidY > window.innerHeight / 2
-        const top = above ? rect.bottom : rect.top
-        openAboveRef.current = above
-        setOpenAbove(above)
-        setPanelPos({ top, left })
-      }
+    if (isMobile) {
+      const above = rect.top + rect.height / 2 > window.innerHeight / 2
+      openAboveRef.current = above
+      setOpenAbove(above)
+      setPanelPos({ top: rect.bottom + (above ? 0 : 8), left: 12 })
+    } else {
+      const left = rect.right + 6
+      const triggerMidY = rect.top + rect.height / 2
+      const above = triggerMidY > window.innerHeight / 2
+      const top = above ? rect.bottom : rect.top
+      openAboveRef.current = above
+      setOpenAbove(above)
+      setPanelPos({ top, left })
     }
     setOpen(true)
     setStep('macro')
@@ -260,12 +227,11 @@ export function CategorySelector({ value, onChange, alwaysExpanded = false }: {
     : selectedCat === 'Videogiochi' ? 'Cerca un videogioco...'
     : selectedCat === 'Anime' ? 'Cerca un anime...'
     : selectedCat === 'Manga' ? 'Cerca un manga...'
-    : selectedCat === 'Giochi da tavolo' ? 'Cerca un gioco da tavolo...'
+    : selectedCat === 'Giochi da tavolo' ? 'Cerca un boardgame...'
     : 'Cerca un titolo...'
 
   return (
     <div ref={wrapRef} className="relative">
-      {/* Trigger button */}
       <button
         type="button"
         onClick={value ? clearValue : openDropup}
@@ -284,11 +250,10 @@ export function CategorySelector({ value, onChange, alwaysExpanded = false }: {
             <X size={11} className="flex-shrink-0 ml-0.5" />
           </span>
         ) : (
-          <span>Categoria</span>
+          <span>Medium / titolo</span>
         )}
       </button>
 
-      {/* Category panel — portal per evitare clipping da overflow */}
       {open && mounted && typeof document !== 'undefined' && createPortal(
         <div
           id="category-portal-panel"
@@ -296,11 +261,10 @@ export function CategorySelector({ value, onChange, alwaysExpanded = false }: {
           className="fixed z-[10000] bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-2xl shadow-black/70 overflow-hidden"
           style={{ top: panelPos.top, left: panelPos.left, width: '300px', transform: openAboveRef.current ? 'translateY(-100%)' : 'none' }}
         >
-          {/* Step 1: griglia macro-categorie — specchiata se dropup */}
           {step === 'macro' && (
             <div className={`p-3 flex flex-col ${openAboveRef.current ? 'flex-col-reverse' : ''}`}>
               <div className={`flex items-center justify-between ${openAboveRef.current ? 'mb-1' : 'mb-2.5'}`}>
-                <span className={`text-[11px] font-semibold text-zinc-500 uppercase tracking-wider ${openAboveRef.current ? 'mt-3' : ''}`}>Seleziona categoria</span>
+                <span className={`text-[11px] font-semibold text-zinc-500 uppercase tracking-wider ${openAboveRef.current ? 'mt-3' : ''}`}>Scegli medium</span>
                 <button type="button" onClick={close} className="text-zinc-600 hover:text-zinc-400 transition-colors p-0.5"><X size={13} /></button>
               </div>
               <div className="grid grid-cols-3 gap-1.5 mb-1.5">
@@ -324,9 +288,7 @@ export function CategorySelector({ value, onChange, alwaysExpanded = false }: {
             </div>
           )}
 
-          {/* Step 2: cerca titolo */}
           {step === 'search' && (() => {
-            const isAbove = openAboveRef.current
             const header = (
               <div className="flex items-center gap-2 mb-2">
                 <button type="button" onClick={() => { setStep('macro'); setSuggestions([]) }}
@@ -397,10 +359,10 @@ export function CategorySelector({ value, onChange, alwaysExpanded = false }: {
             const usaSoloMacro = (
               <button type="button" onClick={() => { onChange(selectedCat); close() }}
                 className="mt-1 w-full text-center text-[12px] text-zinc-600 hover:text-zinc-400 transition py-1">
-                Usa solo "{selectedCat}" senza titolo
+                Usa solo medium "{selectedCat}"
               </button>
             )
-            return isAbove ? (
+            return openAboveRef.current ? (
               <div className="p-3">
                 {usaSoloMacro}{results}{usaLibero}{nessunRis}{chips}{inputEl}{header}
               </div>
@@ -416,10 +378,6 @@ export function CategorySelector({ value, onChange, alwaysExpanded = false }: {
     </div>
   )
 }
-
-
-// ── Filtro feed per categoria ─────────────────────────────────────────────────
-// Permette di filtrare per macro + cercare sottocategoria specifica
 
 export function CategoryFilter({
   activeFilter,
@@ -467,8 +425,8 @@ export function CategoryFilter({
 
   const parsed = parseCategoryString(activeFilter)
   const displayLabel = activeFilter
-    ? (parsed?.subcategory ? parsed.subcategory.trim() : parsed?.category || 'Filtra categoria')
-    : 'Filtra categoria'
+    ? (parsed?.subcategory ? parsed.subcategory.trim() : parsed?.category || 'Filtra medium')
+    : 'Filtra medium'
 
   return (
     <div ref={ref} className="relative">
@@ -488,9 +446,8 @@ export function CategoryFilter({
 
       {open && (
         <div className="fixed sm:absolute top-auto sm:top-full left-0 right-0 sm:left-auto sm:right-auto bottom-0 sm:bottom-auto mt-0 sm:mt-2 bg-zinc-900 border border-zinc-700 rounded-t-3xl sm:rounded-2xl shadow-2xl shadow-black/60 w-full sm:w-[300px] p-3 pb-6 sm:pb-3" style={{ zIndex: 20000 }}>
-          <p className="text-[10px] text-zinc-500 font-semibold px-1 pb-2 uppercase tracking-wider">Filtra per categoria</p>
+          <p className="text-[10px] text-zinc-500 font-semibold px-1 pb-2 uppercase tracking-wider">Filtra per medium</p>
 
-          {/* Macro chips — 3+3 */}
           <div className="mb-3">
             <div className="grid grid-cols-3 gap-1.5 mb-1.5">
               {MACRO_CATEGORIES.slice(0, 3).map(cat => (
@@ -524,7 +481,7 @@ export function CategoryFilter({
             <>
               <button onClick={() => applyFilter(activeMacro)}
                 className="w-full text-left px-3 py-2 rounded-xl text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition mb-2">
-                Tutti i post di <strong>{activeMacro}</strong>
+                Tutte le activity di <strong>{activeMacro}</strong>
               </button>
 
               <div className="relative mb-2">
@@ -541,7 +498,6 @@ export function CategoryFilter({
                 {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin" style={{ color: 'var(--accent)' }} />}
               </div>
 
-              {/* Risultati API */}
               {suggestions.length > 0 && (
                 <div className="rounded-xl overflow-hidden border border-zinc-700/50 bg-zinc-950 max-h-[200px] overflow-y-auto overscroll-contain mb-2">
                   {suggestions.map(result => (
@@ -570,4 +526,3 @@ export function CategoryFilter({
     </div>
   )
 }
-
