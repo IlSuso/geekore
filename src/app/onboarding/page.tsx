@@ -4,10 +4,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Zap, Gamepad2, Film, Tv, Check, Layers, Swords, ArrowRight, Sparkles, Users, TrendingUp, UploadCloud, SteamIcon as SteamIconMissing } from 'lucide-react'
+import { Zap, Gamepad2, Film, Tv, Check, Layers, Swords, ArrowRight, Sparkles, Users, TrendingUp, UploadCloud } from 'lucide-react'
 import { SwipeMode } from '@/components/for-you/SwipeMode'
 import type { SwipeItem } from '@/components/for-you/SwipeMode'
-import { SteamIcon } from '@/components/icons/SteamIcon'
 
 const MEDIA_TYPES = [
   { id: 'anime',  label: 'Anime',       icon: Swords,   color: '#38bdf8', active: 'bg-sky-500/25 border-sky-400 text-sky-200',         inactive: 'bg-sky-500/10 border-sky-500/30 text-zinc-400' },
