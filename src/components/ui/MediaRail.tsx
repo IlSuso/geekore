@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { PosterCard } from '@/components/ui/PosterCard'
 import { RailSection } from '@/components/ui/RailSection'
+import { MediaRailSkeleton } from '@/components/ui/MediaSkeletons'
 
 export interface MediaRailItem {
   id: string | number
@@ -32,6 +33,8 @@ interface MediaRailProps<T extends MediaRailItem = MediaRailItem> {
   icon?: ReactNode
   items: T[]
   limit?: number
+  loading?: boolean
+  skeletonCount?: number
   showMetaRow?: boolean
   className?: string
   itemClassName?: string
@@ -48,6 +51,8 @@ export function MediaRail<T extends MediaRailItem = MediaRailItem>({
   icon,
   items,
   limit,
+  loading = false,
+  skeletonCount = 8,
   showMetaRow = false,
   className = '',
   itemClassName = 'w-[118px] sm:w-[138px] md:w-[150px] flex-shrink-0 snap-start',
@@ -66,7 +71,9 @@ export function MediaRail<T extends MediaRailItem = MediaRailItem>({
       icon={icon}
       className={className}
     >
-      {visibleItems.length > 0 ? (
+      {loading ? (
+        <MediaRailSkeleton count={skeletonCount} showMeta={showMetaRow} />
+      ) : visibleItems.length > 0 ? (
         visibleItems.map(item => (
           <PosterCard
             key={item.id}
