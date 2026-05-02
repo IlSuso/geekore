@@ -23,7 +23,13 @@ const QUICK_PRESETS = [
   { label: 'Sci-fi & fantasy', eyebrow: 'mondi strani · avventura · lore', prefs: { fav_anime_genres: ['Sci-Fi', 'Fantasy'], fav_movie_genres: ['Science Fiction', 'Fantasy', 'Adventure'], fav_game_genres: ['RPG', 'Adventure'] } },
 ]
 
-export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+type PreferencesModalProps = {
+  open?: boolean
+  onClose: () => void
+  onSaved: () => void
+}
+
+export function PreferencesModal({ open = true, onClose, onSaved }: PreferencesModalProps) {
   const { t } = useLocale()
   const fy = t.forYou
   const supabase = createClient()
@@ -36,15 +42,29 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
   })
 
   useEffect(() => {
+    if (!open) return
     gestureState.drawerActive = true
     androidBack.push(onClose)
-    return () => { gestureState.drawerActive = false; androidBack.pop(onClose) }
-  }, [onClose])
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      gestureState.drawerActive = false
+      androidBack.pop(onClose)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open, onClose])
 
   useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setLoading(true)
     supabase.auth.getUser().then(({ data: { user } }) => {
+      if (cancelled) return
       if (!user) { setLoading(false); return }
       supabase.from('user_preferences').select('*').eq('user_id', user.id).single().then(({ data }) => {
+        if (cancelled) return
         if (data) {
           setPrefs({
             fav_game_genres: data.fav_game_genres || [],
@@ -55,12 +75,17 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
             disliked_genres: data.disliked_genres || []
           })
           const hasPrefs = Object.values(data).some(v => Array.isArray(v) && (v as unknown[]).length > 0)
-          if (hasPrefs) setStep(1)
+          setStep(hasPrefs ? 1 : 0)
+        } else {
+          setStep(0)
         }
         setLoading(false)
       })
     })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { cancelled = true }
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!open) return null
 
   const toggle = (key: string, genre: string) => setPrefs(prev => ({
     ...prev,
@@ -107,8 +132,8 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center">
-        <div className="flex min-h-[220px] w-full max-w-2xl items-center justify-center rounded-[28px] border border-[var(--border)] bg-[var(--bg-primary)] p-8">
+      <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center" data-no-swipe="true" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+        <div className="flex min-h-[220px] w-full max-w-2xl items-center justify-center rounded-[28px] border border-[var(--border)] bg-[var(--bg-primary)] p-8" onMouseDown={e => e.stopPropagation()}>
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
         </div>
       </div>
@@ -116,8 +141,8 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center">
-      <div className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[var(--bg-primary)] shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center" data-no-swipe="true" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[var(--bg-primary)] shadow-[0_24px_80px_rgba(0,0,0,0.55)]" onMouseDown={e => e.stopPropagation()}>
         <div className="border-b border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.08),rgba(139,92,246,0.06),rgba(20,20,27,0.9))] p-5">
           <div className="mb-3 flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
@@ -133,7 +158,7 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
                   : currentSection?.desc}
               </p>
             </div>
-            <button onClick={onClose} className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--border)] bg-black/20 text-[var(--text-secondary)] hover:text-white">
+            <button type="button" data-no-swipe="true" onClick={onClose} className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--border)] bg-black/20 text-[var(--text-secondary)] hover:text-white" aria-label="Chiudi taste tuning">
               <X size={17} />
             </button>
           </div>
@@ -157,7 +182,7 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
             <div>
               <div className="mb-5 grid grid-cols-1 gap-2">
                 {QUICK_PRESETS.map(preset => (
-                  <button key={preset.label} onClick={() => applyPreset(preset)}
+                  <button key={preset.label} type="button" data-no-swipe="true" onClick={() => applyPreset(preset)}
                     className="group flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-left transition-all hover:border-[rgba(230,255,61,0.35)] hover:bg-[var(--bg-card-hover)]">
                     <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-[rgba(230,255,61,0.08)] text-[var(--accent)]">
                       <Sparkles size={17} />
@@ -170,7 +195,7 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
                   </button>
                 ))}
               </div>
-              <button onClick={() => setStep(1)} className="w-full rounded-2xl border border-[var(--border)] py-3 text-sm font-bold text-[var(--text-secondary)] transition-colors hover:border-[rgba(230,255,61,0.28)] hover:text-[var(--text-primary)]">
+              <button type="button" data-no-swipe="true" onClick={() => setStep(1)} className="w-full rounded-2xl border border-[var(--border)] py-3 text-sm font-bold text-[var(--text-secondary)] transition-colors hover:border-[rgba(230,255,61,0.28)] hover:text-[var(--text-primary)]">
                 Configura manualmente
               </button>
             </div>
@@ -186,7 +211,7 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
                 {currentSection.genres.map(genre => {
                   const sel = prefs[currentSection.key]?.includes(genre)
                   return (
-                    <button key={genre} onClick={() => toggle(currentSection.key, genre)}
+                    <button key={genre} type="button" data-no-swipe="true" onClick={() => toggle(currentSection.key, genre)}
                       className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-all ${
                         sel
                           ? (currentSection.key === 'disliked_genres'
@@ -206,18 +231,18 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
 
         {step > 0 && (
           <div className="flex items-center gap-3 border-t border-[var(--border)] p-5">
-            <button onClick={() => setStep(s => Math.max(0, s - 1))}
+            <button type="button" data-no-swipe="true" onClick={() => setStep(s => Math.max(0, s - 1))}
               className="rounded-2xl border border-[var(--border)] px-4 py-2.5 text-sm font-bold text-[var(--text-secondary)] transition-colors hover:text-white">
               Indietro
             </button>
             {step < totalSteps ? (
-              <button onClick={() => setStep(s => s + 1)}
+              <button type="button" data-no-swipe="true" onClick={() => setStep(s => s + 1)}
                 className="flex-1 rounded-2xl py-2.5 text-sm font-black transition-all"
                 style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
                 Avanti
               </button>
             ) : (
-              <button onClick={save} disabled={saving}
+              <button type="button" data-no-swipe="true" onClick={save} disabled={saving}
                 className="flex-1 rounded-2xl py-2.5 text-sm font-black transition-all disabled:opacity-50"
                 style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
                 {saving ? 'Salvo…' : fy.prefsSave}
