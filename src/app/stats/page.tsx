@@ -1,13 +1,10 @@
 'use client'
-// src/app/stats/page.tsx
-// A2: Cache in-memory con TTL 5 minuti — evita fetch pesante ad ogni visita
-// A2: useMemo per getComparisons (calcolo inline senza re-esecuzione)
-// P5: SkeletonCard durante il caricamento
 
+import Link from 'next/link'
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Clock, Gamepad2, Film, Tv, Share2, Gem, Globe, Briefcase, Calendar, Plane, Layers } from 'lucide-react'
-import Link from 'next/link'
+import { Clock, Gamepad2, Film, Tv, Gem, Briefcase, Calendar, Plane, Layers, Sparkles, Library } from 'lucide-react'
+import { PageScaffold } from '@/components/ui/PageScaffold'
 
 const AVG_ANIME_EP_MINUTES = 24
 const AVG_MANGA_CHAPTER_MINUTES = 5
@@ -31,16 +28,15 @@ interface Stats {
   totalMinutes: number
 }
 
-// A2: Cache in-memory con TTL — chiave per userId
 const statsCache = new Map<string, { entries: MediaEntry[]; ts: number }>()
-const CACHE_TTL = 5 * 60 * 1000 // 5 minuti
+const CACHE_TTL = 5 * 60 * 1000
 
 function formatDuration(minutes: number) {
   const totalHours = Math.floor(minutes / 60)
   const days = Math.floor(totalHours / 24)
   const hours = totalHours % 24
   const mins = Math.round(minutes % 60)
-  return { days, hours, minutes: mins }
+  return { days, hours, minutes: mins, totalHours }
 }
 
 function formatReadable(minutes: number): string {
@@ -52,47 +48,55 @@ function formatReadable(minutes: number): string {
   return parts.join(', ') || '0 minuti'
 }
 
-function StatBar({ label, icon: Icon, hours, color, detail, maxHours = 1 }: { label: string; icon: React.ElementType; hours: number; color: string; detail: string; maxHours?: number }) {
+function StatBar({ label, icon: Icon, hours, color, detail, maxHours = 1 }: {
+  label: string
+  icon: React.ElementType
+  hours: number
+  color: string
+  detail: string
+  maxHours?: number
+}) {
+  const pct = Math.min(Math.round((hours / maxHours) * 100), 100)
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Icon size={16} className={color} />
-          <span className="text-sm font-medium text-white">{label}</span>
+    <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3.5">
+      <div className="mb-2.5 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-black/20 ring-1 ring-white/5" style={{ color }}>
+            <Icon size={16} />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-[var(--text-primary)]">{label}</p>
+            <p className="gk-mono text-[var(--text-muted)]">{detail}</p>
+          </div>
         </div>
-        <div className="text-right">
-          <span className="text-sm font-bold text-white">{Math.round(hours)}h</span>
-          <span className="text-xs text-zinc-500 ml-2">{detail}</span>
-        </div>
+        <span className="font-mono-data text-sm font-black text-[var(--text-primary)]">{Math.round(hours)}h</span>
       </div>
-      <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all duration-700 ${color.startsWith('text-[') ? color.replace('text-[', 'bg-[') : color.replace('text-', 'bg-')}`}
-          style={{ width: `${Math.min(Math.round((hours / maxHours) * 100), 100)}%` }}
-        />
+      <div className="h-2 overflow-hidden rounded-full bg-black/25 ring-1 ring-white/5">
+        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: color }} />
       </div>
     </div>
   )
 }
 
-// P5: skeleton per stats
 function StatsSkeleton() {
   return (
-    <div className="animate-pulse space-y-6">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 space-y-4">
-        <div className="h-8 bg-zinc-800 rounded-full w-48" />
-        <div className="h-16 bg-zinc-800 rounded-2xl" />
-        <div className="h-5 bg-zinc-800 rounded-full w-32" />
+    <div className="animate-pulse space-y-4">
+      <div className="h-[220px] rounded-[30px] bg-[var(--bg-card)]" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-24 rounded-2xl bg-[var(--bg-card)]" />)}
       </div>
-      {[1, 2, 3, 4, 5].map(i => (
-        <div key={i} className="space-y-2">
-          <div className="flex justify-between">
-            <div className="h-4 bg-zinc-800 rounded-full w-24" />
-            <div className="h-4 bg-zinc-800 rounded-full w-16" />
-          </div>
-          <div className="h-2 bg-zinc-800 rounded-full" />
-        </div>
-      ))}
+      {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-[78px] rounded-2xl bg-[var(--bg-card)]" />)}
+    </div>
+  )
+}
+
+function TimeStat({ label, value, suffix, accent = false }: { label: string; value: string | number; suffix?: string; accent?: boolean }) {
+  return (
+    <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
+      <p className={`font-mono-data text-[22px] font-black leading-none ${accent ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>
+        {value}<span className="ml-1 text-[11px] font-bold text-[var(--text-muted)]">{suffix}</span>
+      </p>
+      <p className="gk-label mt-1">{label}</p>
     </div>
   )
 }
@@ -112,7 +116,6 @@ export default function StatsPage() {
       setIsLoggedIn(true)
       userId = user.id
 
-      // A2: controlla cache prima di fare fetch (skip se forceRefresh)
       if (!forceRefresh) {
         const cached = statsCache.get(user.id)
         if (cached && Date.now() - cached.ts < CACHE_TTL) {
@@ -128,7 +131,6 @@ export default function StatsPage() {
         .eq('user_id', user.id)
 
       const result = data || []
-      // A2: salva in cache
       statsCache.set(user.id, { entries: result, ts: Date.now() })
       setEntries(result)
       setLoading(false)
@@ -136,8 +138,6 @@ export default function StatsPage() {
 
     load()
 
-    // Realtime: ascolta INSERT/UPDATE/DELETE su user_media_entries
-    // e invalida la cache + ricarica immediatamente
     const CH = 'stats-media-changes'
     const existingCh = supabase.getChannels().find(c => c.topic === `realtime:${CH}`)
     const channel = existingCh ?? supabase
@@ -146,7 +146,6 @@ export default function StatsPage() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'user_media_entries' },
         () => {
-          // Invalida cache per questo utente
           if (userId) statsCache.delete(userId)
           load(true)
         }
@@ -154,9 +153,8 @@ export default function StatsPage() {
       .subscribe()
 
     return () => { if (!existingCh) supabase.removeChannel(channel) }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // A2: useMemo per stats — non ricalcola ad ogni render
   const stats = useMemo<Stats>(() => {
     const anime = entries.filter(e => e.type === 'anime')
     const manga = entries.filter(e => e.type === 'manga')
@@ -186,110 +184,118 @@ export default function StatsPage() {
     }
   }, [entries])
 
-  // A2: useMemo per comparisons
   const comparisons = useMemo(() => {
     const hours = stats.totalMinutes / 60
     return [
-      { label: 'Volte il Signore degli Anelli (trilogia estesa)', value: (hours / 11.4).toFixed(1), Icon: Gem },
-      { label: 'Pizze che potresti aver mangiato (30 min a pizza)', value: Math.round(stats.totalMinutes / 30).toLocaleString('it'), Icon: Clock },
-      { label: 'Giri del mondo in aereo (20h di volo)', value: (hours / 20).toFixed(1), Icon: Plane },
-      { label: 'Settimane di lavoro a tempo pieno', value: (hours / 40).toFixed(1), Icon: Briefcase },
-      { label: 'Giorni di vita', value: (hours / 24).toFixed(1), Icon: Calendar },
+      { label: 'Trilogie estese del Signore degli Anelli', value: (hours / 11.4).toFixed(1), Icon: Gem },
+      { label: 'Pizze mangiate con calma', value: Math.round(stats.totalMinutes / 30).toLocaleString('it'), Icon: Clock },
+      { label: 'Giri del mondo in aereo', value: (hours / 20).toFixed(1), Icon: Plane },
+      { label: 'Settimane lavorative full-time', value: (hours / 40).toFixed(1), Icon: Briefcase },
+      { label: 'Giorni di vita convertiti in media', value: (hours / 24).toFixed(1), Icon: Calendar },
     ]
   }, [stats.totalMinutes])
 
-  const { days, hours: remHours, minutes: remMins } = formatDuration(stats.totalMinutes)
+  const { days, hours: remHours, minutes: remMins, totalHours } = formatDuration(stats.totalMinutes)
+  const maxH = Math.max(stats.animeHours, stats.gameHours, stats.tvHours, stats.movieHours, stats.mangaHours, 1)
 
   if (!isLoggedIn && !loading) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center text-white text-center px-6">
+      <div className="flex min-h-screen items-center justify-center bg-[var(--bg-primary)] px-6 text-center text-white">
         <div>
           <Clock size={48} className="mx-auto mb-4 text-zinc-600" />
-          <p className="text-xl font-semibold mb-2">Accedi per vedere le tue statistiche</p>
-          <p className="text-zinc-500 mb-6">Traccia la tua collezione e scopri quanto tempo hai "sprecato"</p>
-          <Link href="/login" className="px-6 py-3 rounded-2xl font-semibold transition-all" style={{ background: 'var(--accent)', color: '#0B0B0F' }}>Accedi</Link>
+          <p className="mb-2 text-xl font-semibold">Accedi per vedere le tue statistiche</p>
+          <p className="mb-6 text-zinc-500">Traccia la tua collezione e scopri il tuo Time DNA.</p>
+          <Link href="/login" className="rounded-2xl px-6 py-3 font-semibold transition-all" style={{ background: 'var(--accent)', color: '#0B0B0F' }}>Accedi</Link>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-white pb-24">
-      <div className="max-w-3xl mx-auto px-3 sm:px-4 pt-2 md:pt-8">
-        <div className="mb-8">
-          <h1 className="hidden md:block text-5xl font-black tracking-tighter" style={{ color: 'var(--accent)' }}>
-            Tempo sprecato
-          </h1>
-          <p className="text-zinc-500 text-sm mt-1">Quanto della tua vita hai dedicato ai media?</p>
-        </div>
-
-        {loading ? <StatsSkeleton /> : (
-          <>
-            {/* Totale */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 mb-8 text-center">
-              <p className="text-zinc-500 text-sm mb-3 uppercase tracking-widest font-medium">Totale stimato</p>
-              <div className="flex items-end justify-center gap-4 mb-4">
-                {days > 0 && (
-                  <div>
-                    <p className="gk-display text-white">{days}</p>
-                    <p className="text-zinc-500 text-sm">giorni</p>
-                  </div>
-                )}
-                {remHours > 0 && (
-                  <div>
-                    <p className="gk-display" style={{ color: 'var(--accent)' }}>{remHours}</p>
-                    <p className="text-zinc-500 text-sm">ore</p>
-                  </div>
-                )}
-                {remMins > 0 && days === 0 && (
-                  <div>
-                    <p className="gk-display" style={{ color: 'var(--accent)' }}>{remMins}</p>
-                    <p className="text-zinc-500 text-sm">minuti</p>
-                  </div>
-                )}
-                {stats.totalMinutes === 0 && (
-                  <p className="gk-display text-zinc-600">0</p>
-                )}
-              </div>
-              <p className="text-zinc-600 text-xs">{formatReadable(stats.totalMinutes)}</p>
+    <PageScaffold
+      title="Stats"
+      description="Quanto tempo hai trasformato in anime, manga, film, serie e videogiochi."
+      icon={<Clock size={16} />}
+      contentClassName="max-w-screen-md pt-2 md:pt-8 pb-28"
+    >
+      {loading ? <StatsSkeleton /> : (
+        <>
+          <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(230,255,61,0.09),rgba(139,92,246,0.07),rgba(20,20,27,0.92))] p-4 text-center shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-6">
+            <div className="mx-auto mb-3 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+              <Sparkles size={12} />
+              Time DNA
             </div>
-
-            {/* Barre per categoria */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 mb-8 space-y-5">
-              {(() => {
-                const maxH = Math.max(stats.animeHours, stats.gameHours, stats.tvHours, stats.movieHours, stats.mangaHours, 1)
-                return (<>
-                  {stats.animeHours > 0 && <StatBar label="Anime" icon={Tv} hours={stats.animeHours} color="text-[var(--type-anime)]" detail={`${stats.animeEpisodes} ep`} maxHours={maxH} />}
-                  {stats.gameHours > 0 && <StatBar label="Videogiochi" icon={Gamepad2} hours={stats.gameHours} color="text-[var(--type-game)]" detail="ore Steam" maxHours={maxH} />}
-                  {stats.tvHours > 0 && <StatBar label="Serie TV" icon={Tv} hours={stats.tvHours} color="text-[var(--type-tv)]" detail={`${stats.tvEpisodes} ep`} maxHours={maxH} />}
-                  {stats.movieHours > 0 && <StatBar label="Film" icon={Film} hours={stats.movieHours} color="text-[var(--type-movie)]" detail={`${stats.movieCount} film`} maxHours={maxH} />}
-                  {stats.mangaHours > 0 && <StatBar label="Manga" icon={Layers} hours={stats.mangaHours} color="text-[var(--type-manga)]" detail={`${stats.mangaChapters} cap`} maxHours={maxH} />}
-                </>)
-              })()}
-              
-              {stats.totalMinutes === 0 && (
-                <p className="text-zinc-600 text-center py-4">Aggiungi media alla tua collezione per vedere le statistiche</p>
+            <p className="gk-label mb-3">Totale stimato</p>
+            <div className="mb-4 flex items-end justify-center gap-4">
+              {days > 0 && (
+                <div>
+                  <p className="gk-display text-[var(--text-primary)]">{days}</p>
+                  <p className="text-sm text-[var(--text-muted)]">giorni</p>
+                </div>
               )}
+              {remHours > 0 && (
+                <div>
+                  <p className="gk-display text-[var(--accent)]">{remHours}</p>
+                  <p className="text-sm text-[var(--text-muted)]">ore</p>
+                </div>
+              )}
+              {remMins > 0 && days === 0 && (
+                <div>
+                  <p className="gk-display text-[var(--accent)]">{remMins}</p>
+                  <p className="text-sm text-[var(--text-muted)]">minuti</p>
+                </div>
+              )}
+              {stats.totalMinutes === 0 && <p className="gk-display text-zinc-600">0</p>}
             </div>
+            <p className="gk-body mx-auto max-w-md">{formatReadable(stats.totalMinutes)}</p>
+            <div className="mt-5 grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
+              <TimeStat label="ore totali" value={Math.round(totalHours)} accent />
+              <TimeStat label="titoli" value={entries.length} />
+              <TimeStat label="media/titolo" value={entries.length ? Math.round(totalHours / entries.length) : 0} suffix="h" />
+            </div>
+          </div>
 
-            {/* Comparisons */}
-            {stats.totalMinutes > 0 && (
-              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-3">
-                <p className="text-sm font-semibold text-zinc-400 mb-4">Equivale a…</p>
-                {comparisons.map((c, i) => (
-                  <div key={i} className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <c.Icon size={18} className="text-zinc-500 flex-shrink-0" />
-                      <span className="text-xs text-zinc-400">{c.label}</span>
-                    </div>
-                    <span className="text-sm font-bold text-white tabular-nums flex-shrink-0">{c.value}×</span>
-                  </div>
-                ))}
+          {stats.totalMinutes === 0 ? (
+            <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-16 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-secondary)]">
+                <Library size={28} className="text-[var(--text-muted)]" />
               </div>
-            )}
-          </>
-        )}
-      </div>
-    </div>
+              <p className="gk-headline mb-1 text-[var(--text-primary)]">Nessun dato ancora</p>
+              <p className="gk-body mx-auto mb-5 max-w-sm">Aggiungi media alla Library per calcolare il tuo Time DNA.</p>
+              <Link href="/discover" className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]">
+                Apri Discover
+              </Link>
+            </div>
+          ) : (
+            <>
+              <div className="mb-6 space-y-2">
+                {stats.animeHours > 0 && <StatBar label="Anime" icon={Tv} hours={stats.animeHours} color="var(--type-anime)" detail={`${stats.animeEpisodes} ep`} maxHours={maxH} />}
+                {stats.gameHours > 0 && <StatBar label="Videogiochi" icon={Gamepad2} hours={stats.gameHours} color="var(--type-game)" detail="ore Steam" maxHours={maxH} />}
+                {stats.tvHours > 0 && <StatBar label="Serie TV" icon={Tv} hours={stats.tvHours} color="var(--type-tv)" detail={`${stats.tvEpisodes} ep`} maxHours={maxH} />}
+                {stats.movieHours > 0 && <StatBar label="Film" icon={Film} hours={stats.movieHours} color="var(--type-movie)" detail={`${stats.movieCount} film`} maxHours={maxH} />}
+                {stats.mangaHours > 0 && <StatBar label="Manga" icon={Layers} hours={stats.mangaHours} color="var(--type-manga)" detail={`${stats.mangaChapters} cap`} maxHours={maxH} />}
+              </div>
+
+              <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] p-4 md:p-5">
+                <p className="gk-label mb-4">Equivale a…</p>
+                <div className="space-y-3">
+                  {comparisons.map((c, i) => (
+                    <div key={i} className="flex items-center justify-between gap-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-black/20 text-[var(--text-muted)] ring-1 ring-white/5">
+                          <c.Icon size={17} />
+                        </div>
+                        <span className="line-clamp-1 text-xs font-semibold text-[var(--text-secondary)]">{c.label}</span>
+                      </div>
+                      <span className="font-mono-data flex-shrink-0 text-sm font-black text-[var(--text-primary)]">{c.value}×</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </PageScaffold>
   )
 }
