@@ -31,19 +31,20 @@ export function FeedPostHeader({
     <div className="flex items-start gap-3">
       <Link
         href={`/profile/${post.profiles.username}`}
+        data-no-swipe="true"
         className="group shrink-0"
         onClick={event => {
           event.stopPropagation()
           onProfileClick?.()
         }}
       >
-        <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-zinc-600/20 group-hover:ring-zinc-600/50 transition-all">
+        <div className="h-10 w-10 overflow-hidden rounded-2xl ring-1 ring-white/10 transition-all group-hover:ring-[rgba(230,255,61,0.35)]">
           <Avatar
             src={post.profiles.avatar_url}
             username={post.profiles.username}
             displayName={post.profiles.display_name}
             size={40}
-            className="rounded-full"
+            className="rounded-2xl"
           />
         </div>
       </Link>
@@ -51,18 +52,19 @@ export function FeedPostHeader({
       <div className="min-w-0 flex-1">
         <Link
           href={`/profile/${post.profiles.username}`}
-          className="hover:text-[var(--accent)] transition-colors"
+          data-no-swipe="true"
+          className="transition-colors hover:text-[var(--accent)]"
           onClick={event => {
             event.stopPropagation()
             onProfileClick?.()
           }}
         >
-          <p className="text-[15px] font-semibold leading-tight text-[var(--text-primary)]">
+          <p className="text-[15px] font-black leading-tight text-[var(--text-primary)]">
             <UserBadge badge={post.profiles.badge} displayName={post.profiles.display_name || post.profiles.username} />
           </p>
         </Link>
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
-          <p className="text-xs text-[var(--text-muted)]">
+          <p className="gk-mono text-[var(--text-muted)]">
             {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })}
           </p>
           {showPostType && <PostTypeBadge type={postType} />}
@@ -71,8 +73,10 @@ export function FeedPostHeader({
 
       {currentUserId === post.user_id && onPostOptions && (
         <button
+          type="button"
+          data-no-swipe="true"
           onClick={() => onPostOptions(post.id)}
-          className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all"
+          className="rounded-2xl p-2 text-[var(--text-muted)] transition-all hover:bg-[var(--bg-card-hover)] hover:text-white"
           aria-label="Opzioni post"
         >
           <MoreHorizontal size={18} aria-hidden="true" />
