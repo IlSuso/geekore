@@ -11,6 +11,7 @@ import { PostSignalBadge } from '@/components/ui/PostSignalBadge'
 import { FeedPostHeader } from '@/components/feed/FeedPostHeader'
 import { FeedCommentRow } from '@/components/feed/FeedCommentRow'
 import { FeedCommentComposer } from '@/components/feed/FeedCommentComposer'
+import { FeedEngagementSummary } from '@/components/feed/FeedEngagementSummary'
 import { androidBack } from '@/hooks/androidBack'
 import { CategoryBadge } from '@/components/feed/CategoryBasics'
 import type { Post } from '@/components/feed/feedTypes'
@@ -90,7 +91,6 @@ export function BottomSheet({
       style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.6)' }}
       onClick={onClose}
     >
-      {/* Desktop: modale centrato */}
       <div className="hidden md:flex items-center justify-center h-full">
         <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl overflow-hidden w-[400px] shadow-2xl" onClick={e => e.stopPropagation()}>
           {title && <div className="px-6 py-4 border-b border-[var(--border)]"><p className="text-[var(--text-muted)] text-xs text-center leading-relaxed">{title}</p></div>}
@@ -104,7 +104,6 @@ export function BottomSheet({
         </div>
       </div>
 
-      {/* Mobile: bottom sheet */}
       <div className="md:hidden flex items-end justify-center h-full">
         <div className="w-full max-w-sm mb-4 mx-4" onClick={e => e.stopPropagation()}>
           <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl overflow-hidden mb-2">
@@ -291,21 +290,13 @@ export function PostModal({
             </div>
           )}
 
-          <div className="px-5 py-2.5 flex items-center gap-6 border-t border-[var(--border-subtle)]">
-            <button
-              onClick={() => onLike(post.id)}
-              aria-label={post.liked_by_user ? 'Rimuovi like' : 'Metti like'}
-              className={`flex items-center gap-2 group transition-all ${post.liked_by_user ? 'text-orange-500' : 'text-[var(--text-muted)] hover:text-orange-400'}`}
-            >
-              <div className={`p-1.5 rounded-xl transition-colors ${post.liked_by_user ? 'bg-orange-500/15' : 'group-hover:bg-orange-500/10'}`}>
-                <span className={`block h-[19px] w-[19px] rounded-full ${isLiking ? 'animate-heart-burst' : ''}`} />
-              </div>
-              <span className="text-xs font-bold">{post.likes_count}</span>
-            </button>
-            <div className="flex items-center gap-2 text-[var(--text-muted)]">
-              <span className="text-xs font-bold">{post.comments_count} commenti</span>
-            </div>
-          </div>
+          <FeedEngagementSummary
+            liked={post.liked_by_user}
+            likesCount={post.likes_count}
+            commentsCount={post.comments_count}
+            isLiking={isLiking}
+            onLike={() => onLike(post.id)}
+          />
 
           {post.comments.length > 0 ? (
             <>
