@@ -21,10 +21,29 @@ export function MediaProgress({ current, total, label, compact = false, classNam
     ? `${current}`
     : '—')
 
+  if (compact) {
+    return (
+      <div className={`flex min-w-0 items-center gap-2 ${className}`}>
+        <div className="h-1 min-w-[42px] flex-1 overflow-hidden rounded-full bg-[var(--bg-card-hover)]">
+          <div
+            className="h-full rounded-full transition-[width] duration-300"
+            style={{
+              width: hasTotal ? `${percent}%` : hasCurrent ? '100%' : '0%',
+              background: 'var(--accent)',
+            }}
+          />
+        </div>
+        <span className="font-mono-data text-[10px] font-bold text-[var(--text-muted)]">
+          {progressLabel}
+        </span>
+      </div>
+    )
+  }
+
   return (
     <div className={`min-w-0 ${className}`}>
       <div className="mb-1 flex items-center justify-between gap-2">
-        {!compact && <span className="gk-caption uppercase tracking-[0.08em]">Progresso</span>}
+        <span className="gk-caption uppercase tracking-[0.08em]">Progresso</span>
         <span className="font-mono-data text-[11px] font-bold text-[var(--text-secondary)]">
           {progressLabel}
         </span>
