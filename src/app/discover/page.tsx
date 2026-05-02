@@ -2,7 +2,7 @@
 // src/app/discover/page.tsx
 // Discover: search multi-source + browse sections + native URL query params.
 
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import {
   Search, X, Film, Tv, Gamepad2, Mic, MicOff, Loader2, Swords, Layers, Dices, Sparkles,
@@ -68,32 +68,33 @@ type TrendingItem = {
 const DEBOUNCE_MS = 350
 const VALID_DISCOVER_TYPES = new Set(['all', 'anime', 'manga', 'movie', 'tv', 'game', 'boardgame'])
 
+// Roadmap Fase 8 + full.html: anime → game → tv → manga → movie → board.
 const TYPE_ORDER: Record<string, number> = {
   anime: 0,
-  manga: 1,
-  movie: 2,
-  tv: 3,
-  game: 4,
+  game: 1,
+  tv: 2,
+  manga: 3,
+  movie: 4,
   boardgame: 5,
 }
 
 const TYPE_LABELS: Record<string, string> = {
   anime: 'Anime',
+  game: 'Videogiochi',
+  tv: 'Serie TV',
   manga: 'Manga',
   movie: 'Film',
-  tv: 'Serie TV',
-  game: 'Videogiochi',
   boardgame: 'Giochi da tavolo',
 }
 
 const FILTERS: { id: string; label: string; icon: React.ReactNode }[] = [
   { id: 'all', label: 'Tutti', icon: null },
   { id: 'anime', label: 'Anime', icon: <Swords size={13} /> },
+  { id: 'game', label: 'Game', icon: <Gamepad2 size={13} /> },
+  { id: 'tv', label: 'TV', icon: <Tv size={13} /> },
   { id: 'manga', label: 'Manga', icon: <Layers size={13} /> },
   { id: 'movie', label: 'Film', icon: <Film size={13} /> },
-  { id: 'tv', label: 'Serie', icon: <Tv size={13} /> },
-  { id: 'game', label: 'Videogiochi', icon: <Gamepad2 size={13} /> },
-  { id: 'boardgame', label: 'Giochi da Tavolo', icon: <Dices size={13} /> },
+  { id: 'boardgame', label: 'Board', icon: <Dices size={13} /> },
 ]
 
 const TYPE_PLACEHOLDER_ICON: Record<string, React.ReactNode> = {
@@ -105,13 +106,22 @@ const TYPE_PLACEHOLDER_ICON: Record<string, React.ReactNode> = {
   tv: <Tv size={28} />,
 }
 
+const TYPE_COLORS: Record<string, string> = {
+  anime: 'var(--type-anime)',
+  manga: 'var(--type-manga)',
+  game: 'var(--type-game)',
+  tv: 'var(--type-tv)',
+  movie: 'var(--type-movie)',
+  boardgame: 'var(--type-board)',
+}
+
 const BROWSE_PROMPTS = [
-  { label: 'Anime in onda', q: 'frieren', type: 'anime', icon: Swords, color: 'var(--type-anime)' },
-  { label: 'Manga cult', q: 'berserk', type: 'manga', icon: Layers, color: 'var(--type-manga)' },
-  { label: 'Film sci-fi', q: 'dune', type: 'movie', icon: Film, color: 'var(--type-movie)' },
-  { label: 'Serie prestige', q: 'severance', type: 'tv', icon: Tv, color: 'var(--type-tv)' },
-  { label: 'Giochi must-play', q: 'zelda', type: 'game', icon: Gamepad2, color: 'var(--type-game)' },
-  { label: 'Boardgame night', q: 'catan', type: 'boardgame', icon: Dices, color: 'var(--type-board)' },
+  { label: 'Anime & Manga', subtitle: 'stagionali, cult, shonen', q: 'frieren', type: 'anime', icon: Swords, color: 'var(--type-anime)' },
+  { label: 'Videogiochi', subtitle: 'must-play e indie', q: 'zelda', type: 'game', icon: Gamepad2, color: 'var(--type-game)' },
+  { label: 'Serie TV', subtitle: 'prestige e binge', q: 'severance', type: 'tv', icon: Tv, color: 'var(--type-tv)' },
+  { label: 'Manga', subtitle: 'seinen, shonen, cult', q: 'berserk', type: 'manga', icon: Layers, color: 'var(--type-manga)' },
+  { label: 'Film', subtitle: 'sci-fi, horror, classici', q: 'dune', type: 'movie', icon: Film, color: 'var(--type-movie)' },
+  { label: 'Board Game', subtitle: 'serate e collezioni', q: 'catan', type: 'boardgame', icon: Dices, color: 'var(--type-board)' },
 ]
 
 function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
@@ -254,6 +264,27 @@ function useVoiceSearch(onResult: (text: string) => void) {
   }, [isListening, startListening, stopListening])
 
   return { isListening, isSupported, toggle }
+}
+
+function BrowseTile({ prompt, onClick }: { prompt: typeof BROWSE_PROMPTS[number]; onClick: () => void }) {
+  const Icon = prompt.icon
+  return (
+    <button
+      type="button"
+      data-no-swipe="true"
+      onClick={onClick}
+      className="group flex min-h-[104px] flex-col justify-between rounded-[18px] border p-4 text-left transition-transform hover:scale-[1.015] active:scale-[0.97]"
+      style={{ borderColor: `color-mix(in srgb, ${prompt.color} 18%, transparent)`, background: `color-mix(in srgb, ${prompt.color} 4%, transparent)` }}
+    >
+      <span className="grid h-10 w-10 place-items-center rounded-[14px]" style={{ background: `color-mix(in srgb, ${prompt.color} 12%, transparent)`, color: prompt.color }}>
+        <Icon size={19} />
+      </span>
+      <span>
+        <span className="block text-[14px] font-black text-[var(--text-primary)]">{prompt.label}</span>
+        <span className="mt-1 block font-mono-data text-[10px] text-[var(--text-tertiary)]">{prompt.subtitle}</span>
+      </span>
+    </button>
+  )
 }
 
 export default function DiscoverPage() {
@@ -469,95 +500,103 @@ export default function DiscoverPage() {
     }, {} as Record<string, MediaItem[]>),
   ).sort(([a], [b]) => (TYPE_ORDER[a] ?? 99) - (TYPE_ORDER[b] ?? 99))
 
+  const browseSections = useMemo(() => [
+    { label: 'Anime', subtitle: 'Stagionali e cult', items: trendingAnime, typeKey: 'anime', icon: <Swords size={15} /> },
+    { label: 'Videogiochi', subtitle: 'Must-play e scoperte', items: trendingGames, typeKey: 'game', icon: <Gamepad2 size={15} /> },
+    { label: 'Serie TV', subtitle: 'Popolari ora', items: trendingTV, typeKey: 'tv', icon: <Tv size={15} /> },
+    { label: 'Manga', subtitle: 'Dalle ricerche rapide', items: trendingAnime.filter(item => item.type === 'manga'), typeKey: 'manga', icon: <Layers size={15} /> },
+    { label: 'Film', subtitle: 'Trending settimana', items: trendingMovies, typeKey: 'movie', icon: <Film size={15} /> },
+    { label: 'Board Game', subtitle: 'Per la prossima serata', items: trendingBoardgames, typeKey: 'boardgame', icon: <Dices size={15} /> },
+  ], [trendingAnime, trendingGames, trendingTV, trendingMovies, trendingBoardgames])
+
+  const trendingToday = useMemo(() => {
+    const mixed = [
+      ...trendingAnime.slice(0, 3),
+      ...trendingGames.slice(0, 3),
+      ...trendingTV.slice(0, 3),
+      ...trendingMovies.slice(0, 3),
+      ...trendingBoardgames.slice(0, 3),
+    ]
+    const seen = new Set<string>()
+    return mixed.filter(item => {
+      if (seen.has(item.id)) return false
+      seen.add(item.id)
+      return true
+    }).sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 10)
+  }, [trendingAnime, trendingGames, trendingTV, trendingMovies, trendingBoardgames])
+
   const showingResults = !loading && !searchError && results.length > 0
-  const browseSections = [
-    { label: 'Trending Anime', items: trendingAnime, typeKey: 'anime' },
-    { label: 'Film della settimana', items: trendingMovies, typeKey: 'movie' },
-    { label: 'Serie TV popolari', items: trendingTV, typeKey: 'tv' },
-    { label: 'Giochi must-play', items: trendingGames, typeKey: 'game' },
-    { label: 'Boardgame night', items: trendingBoardgames, typeKey: 'boardgame' },
-  ]
 
   return (
-    <div className="gk-discover-page min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] pb-24">
+    <div className="gk-discover-page min-h-screen bg-[var(--bg-primary)] pb-24 text-[var(--text-primary)]">
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
-      <div className="max-w-screen-2xl mx-auto px-4 pt-14 md:pt-8">
-        <div className="mb-5 overflow-hidden rounded-[30px] border border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.10),rgba(139,92,246,0.08),rgba(255,255,255,0.02))] p-5 md:p-7">
-          <h1 className="gk-h1 mb-2 max-w-2xl">Esplora il tuo prossimo universo.</h1>
-          <p className="gk-body max-w-2xl">
-            Cerca un titolo, sfoglia per medium o parti da un suggerimento rapido.
-          </p>
-          <div className="mt-4 flex gap-2 overflow-x-auto scrollbar-hide" data-no-swipe="true">
-            {BROWSE_PROMPTS.map(({ label, q, type, icon: Icon, color }) => (
-              <button
-                key={`${type}-${q}`}
-                type="button"
-                data-no-swipe="true"
-                onClick={() => applyPrompt(q, type)}
-                className="flex flex-shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-[12px] font-bold transition-transform hover:scale-[1.02]"
-                style={{ borderColor: color, color, background: `color-mix(in srgb, ${color} 10%, transparent)` }}
-              >
-                <Icon size={14} />
-                {label}
-              </button>
-            ))}
+      <div className="mx-auto max-w-screen-2xl px-4 pt-14 md:px-6 md:pt-8 xl:px-8">
+        <div className="mb-5 flex items-center gap-3 md:hidden">
+          <div className="grid h-9 w-9 place-items-center rounded-[14px] border border-[rgba(230,255,61,0.2)] bg-[rgba(230,255,61,0.08)] text-[var(--accent)]">
+            <Sparkles size={18} />
+          </div>
+          <div>
+            <p className="gk-label text-[var(--accent)]">Discover</p>
+            <h1 className="text-[22px] font-black tracking-[-0.03em]">Esplora</h1>
           </div>
         </div>
 
-        <div className="relative mb-4" data-no-swipe="true">
-          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
-          <input
-            data-testid="search-input"
-            data-no-swipe="true"
-            type="text"
-            value={searchTerm}
-            ref={searchInputRef}
-            onChange={e => setSearchTerm(e.target.value)}
-            placeholder={isListening ? 'In ascolto...' : 'Cerca anime, film, giochi, boardgame...'}
-            className={`w-full rounded-xl pl-10 pr-20 py-2.5 text-[15px] outline-none transition-colors ${isListening
-              ? 'bg-red-500/10 border border-red-500/40 text-[var(--text-primary)] placeholder-red-400/60'
-              : 'bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-zinc-600/60'
-            }`}
-          />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-            {searchTerm && !isListening && (
-              <button
-                type="button"
-                data-no-swipe="true"
-                onClick={() => { setSearchTerm(''); setResults([]); setIsPending(false); lastTrackedQueryRef.current = '' }}
-                className="w-7 h-7 flex items-center justify-center rounded-full bg-[var(--text-muted)] text-[var(--bg-primary)]"
-                aria-label="Cancella ricerca"
-              >
-                <X size={12} strokeWidth={2.5} />
-              </button>
-            )}
-            {voiceSupported && (
-              <button
-                type="button"
-                data-no-swipe="true"
-                onClick={toggleVoice}
-                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${isListening ? 'bg-red-500 text-white' : 'text-[var(--text-secondary)] hover:text-[var(--accent)]'}`}
-                aria-label={isListening ? 'Ferma ricerca vocale' : 'Avvia ricerca vocale'}
-              >
-                {isListening ? <MicOff size={15} /> : <Mic size={15} />}
-              </button>
-            )}
+        <div className="mb-4 md:mx-auto md:max-w-4xl" data-no-swipe="true">
+          <div className="relative">
+            <Search size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+            <input
+              data-testid="search-input"
+              data-no-swipe="true"
+              type="text"
+              value={searchTerm}
+              ref={searchInputRef}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder={isListening ? 'In ascolto...' : 'Cerca anime, film, giochi, boardgame...'}
+              className={`h-12 w-full rounded-2xl border pl-11 pr-24 text-[16px] outline-none transition-colors md:h-[54px] ${isListening
+                ? 'border-red-500/40 bg-red-500/10 text-[var(--text-primary)] placeholder-red-400/60'
+                : 'border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[rgba(230,255,61,0.45)] focus:ring-2 focus:ring-[rgba(230,255,61,0.16)]'
+              }`}
+            />
+            <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
+              {searchTerm && !isListening && (
+                <button
+                  type="button"
+                  data-no-swipe="true"
+                  onClick={() => { setSearchTerm(''); setResults([]); setIsPending(false); lastTrackedQueryRef.current = '' }}
+                  className="grid h-8 w-8 place-items-center rounded-[12px] bg-[var(--bg-elevated)] text-[var(--text-muted)] transition-colors hover:text-white"
+                  aria-label="Cancella ricerca"
+                >
+                  <X size={13} strokeWidth={2.5} />
+                </button>
+              )}
+              {voiceSupported && (
+                <button
+                  type="button"
+                  data-no-swipe="true"
+                  onClick={toggleVoice}
+                  className={`grid h-9 w-9 place-items-center rounded-[14px] transition-all ${isListening ? 'bg-red-500 text-white' : 'bg-[var(--accent)] text-[#0B0B0F] hover:opacity-90'}`}
+                  aria-label={isListening ? 'Ferma ricerca vocale' : 'Avvia ricerca vocale'}
+                >
+                  {isListening ? <MicOff size={15} /> : <Mic size={15} />}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
         {isListening && (
-          <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-red-500/8 border border-red-500/20 rounded-xl" data-no-swipe="true">
-            <div className="flex gap-0.5 items-end">
+          <div className="mb-3 flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/8 px-3 py-2 md:mx-auto md:max-w-4xl" data-no-swipe="true">
+            <div className="flex items-end gap-0.5">
               {[10, 16, 12].map((h, i) => (
-                <div key={i} className="w-0.5 bg-red-400 rounded-full animate-bounce" style={{ height: h, animationDelay: `${i * 0.12}s` }} />
+                <div key={i} className="w-0.5 animate-bounce rounded-full bg-red-400" style={{ height: h, animationDelay: `${i * 0.12}s` }} />
               ))}
             </div>
-            <span className="text-[13px] text-red-400 font-medium flex-1">In ascolto...</span>
+            <span className="flex-1 text-[13px] font-medium text-red-400">In ascolto...</span>
             <button type="button" data-no-swipe="true" onClick={toggleVoice} className="text-[12px] text-red-400 hover:text-red-300">Annulla</button>
           </div>
         )}
 
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 mb-5 -mx-4 px-4" data-no-swipe="true">
+        <div className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-hide md:mx-auto md:max-w-4xl" data-no-swipe="true">
           {FILTERS.map(tf => (
             <button
               key={tf.id}
@@ -565,9 +604,9 @@ export default function DiscoverPage() {
               data-no-swipe="true"
               type="button"
               onClick={() => setActiveType(tf.id)}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all flex-shrink-0 border ${activeType === tf.id
+              className={`flex h-9 flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-4 text-[13px] font-bold transition-all ${activeType === tf.id
                 ? 'border-transparent'
-                : 'bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                : 'border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
               style={activeType === tf.id ? { background: 'var(--accent)', color: '#0B0B0F', border: '1px solid var(--accent)' } : {}}
             >
@@ -577,8 +616,8 @@ export default function DiscoverPage() {
         </div>
 
         {loading && (
-          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
-            {Array.from({ length: 12 }).map((_, i) => <SkeletonDiscoverCard key={i} />)}
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
+            {Array.from({ length: 14 }).map((_, i) => <SkeletonDiscoverCard key={i} />)}
           </div>
         )}
 
@@ -589,23 +628,62 @@ export default function DiscoverPage() {
           </div>
         )}
 
-        {searchError && !loading && <p className="text-center py-12 text-[var(--text-muted)] text-[14px]">{searchError}</p>}
+        {searchError && !loading && <p className="py-12 text-center text-[14px] text-[var(--text-muted)]">{searchError}</p>}
 
         {!loading && !searchTerm.trim() && (
           <div className="space-y-8">
-            {browseSections.map(({ label, items, typeKey }) => (
-              <DiscoverSection key={typeKey} title={label} action={(
+            <DiscoverSection title="Sfoglia" subtitle="Scegli un universo e parti da una ricerca guidata" icon={<Sparkles size={15} />}>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                {BROWSE_PROMPTS.map(prompt => (
+                  <BrowseTile key={prompt.type} prompt={prompt} onClick={() => applyPrompt(prompt.q, prompt.type)} />
+                ))}
+              </div>
+            </DiscoverSection>
+
+            <DiscoverSection title="Trending oggi" subtitle="I media più caldi ora, mischiati per categoria" icon={<Sparkles size={15} />}>
+              {trendingToday.length === 0 ? (
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
+                  {Array.from({ length: 7 }).map((_, i) => <div key={i} className="aspect-[2/3] animate-pulse rounded-xl bg-[var(--bg-card)]" />)}
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
+                  {trendingToday.map((item) => (
+                    <DiscoverMediaCard
+                      key={item.id}
+                      title={item.title}
+                      type={item.type}
+                      coverImage={item.coverImage}
+                      year={item.year}
+                      score={item.score}
+                      placeholderIcon={TYPE_PLACEHOLDER_ICON[item.type]}
+                      onClick={() => setDrawerMedia({
+                        id: item.id,
+                        title: item.title,
+                        type: item.type,
+                        coverImage: item.coverImage,
+                        year: item.year,
+                        genres: item.genres,
+                        source: item.source as any,
+                      })}
+                    />
+                  ))}
+                </div>
+              )}
+            </DiscoverSection>
+
+            {browseSections.map(({ label, subtitle, items, typeKey, icon }) => (
+              <DiscoverSection key={typeKey} title={label} subtitle={subtitle} icon={icon} action={(
                 <button type="button" data-no-swipe="true" onClick={() => setActiveType(typeKey)} className="text-[12px] font-semibold text-[var(--accent)] transition-opacity hover:opacity-80">
                   Vedi tutti
                 </button>
               )}>
                 {items.length === 0 ? (
-                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
-                    {Array.from({ length: 6 }).map((_, i) => <div key={i} className="aspect-[2/3] rounded-xl bg-[var(--bg-card)] animate-pulse" />)}
+                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
+                    {Array.from({ length: 7 }).map((_, i) => <div key={i} className="aspect-[2/3] animate-pulse rounded-xl bg-[var(--bg-card)]" />)}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
-                    {items.slice(0, 6).map((item) => (
+                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
+                    {items.slice(0, 7).map((item) => (
                       <DiscoverMediaCard
                         key={item.id}
                         title={item.title}
@@ -643,8 +721,8 @@ export default function DiscoverPage() {
         )}
 
         {showingResults && grouped.map(([type, items]) => items.length === 0 ? null : (
-          <DiscoverSection key={type} title={TYPE_LABELS[type] || type} count={items.length}>
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+          <DiscoverSection key={type} title={TYPE_LABELS[type] || type} count={items.length} icon={TYPE_PLACEHOLDER_ICON[type]}>
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
               {items.map((item) => (
                 <DiscoverMediaCard
                   key={item.id}
