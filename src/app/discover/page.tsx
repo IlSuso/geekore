@@ -491,11 +491,12 @@ export default function DiscoverPage() {
           <p className="gk-body max-w-2xl">
             Parti da un medium, apri una sezione o cerca un titolo. Discover deve essere una porta d’ingresso, non una pagina vuota con una search bar.
           </p>
-          <div className="mt-4 flex gap-2 overflow-x-auto scrollbar-hide">
+          <div className="mt-4 flex gap-2 overflow-x-auto scrollbar-hide" data-no-swipe="true">
             {BROWSE_PROMPTS.map(({ label, q, type, icon: Icon, color }) => (
               <button
                 key={`${type}-${q}`}
                 type="button"
+                data-no-swipe="true"
                 onClick={() => applyPrompt(q, type)}
                 className="flex flex-shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-[12px] font-bold transition-transform hover:scale-[1.02]"
                 style={{ borderColor: color, color, background: `color-mix(in srgb, ${color} 10%, transparent)` }}
@@ -507,10 +508,11 @@ export default function DiscoverPage() {
           </div>
         </div>
 
-        <div className="relative mb-4">
+        <div className="relative mb-4" data-no-swipe="true">
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
           <input
             data-testid="search-input"
+            data-no-swipe="true"
             type="text"
             value={searchTerm}
             ref={searchInputRef}
@@ -525,6 +527,7 @@ export default function DiscoverPage() {
             {searchTerm && !isListening && (
               <button
                 type="button"
+                data-no-swipe="true"
                 onClick={() => { setSearchTerm(''); setResults([]); setIsPending(false); lastTrackedQueryRef.current = '' }}
                 className="w-7 h-7 flex items-center justify-center rounded-full bg-[var(--text-muted)] text-[var(--bg-primary)]"
                 aria-label="Cancella ricerca"
@@ -535,6 +538,7 @@ export default function DiscoverPage() {
             {voiceSupported && (
               <button
                 type="button"
+                data-no-swipe="true"
                 onClick={toggleVoice}
                 className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${isListening ? 'bg-red-500 text-white' : 'text-[var(--text-secondary)] hover:text-[var(--accent)]'}`}
                 aria-label={isListening ? 'Ferma ricerca vocale' : 'Avvia ricerca vocale'}
@@ -546,22 +550,23 @@ export default function DiscoverPage() {
         </div>
 
         {isListening && (
-          <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-red-500/8 border border-red-500/20 rounded-xl">
+          <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-red-500/8 border border-red-500/20 rounded-xl" data-no-swipe="true">
             <div className="flex gap-0.5 items-end">
               {[10, 16, 12].map((h, i) => (
                 <div key={i} className="w-0.5 bg-red-400 rounded-full animate-bounce" style={{ height: h, animationDelay: `${i * 0.12}s` }} />
               ))}
             </div>
             <span className="text-[13px] text-red-400 font-medium flex-1">In ascolto...</span>
-            <button type="button" onClick={toggleVoice} className="text-[12px] text-red-400 hover:text-red-300">Annulla</button>
+            <button type="button" data-no-swipe="true" onClick={toggleVoice} className="text-[12px] text-red-400 hover:text-red-300">Annulla</button>
           </div>
         )}
 
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 mb-5 -mx-4 px-4">
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 mb-5 -mx-4 px-4" data-no-swipe="true">
           {FILTERS.map(tf => (
             <button
               key={tf.id}
               data-testid={`filter-${tf.id}`}
+              data-no-swipe="true"
               type="button"
               onClick={() => setActiveType(tf.id)}
               className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all flex-shrink-0 border ${activeType === tf.id
@@ -594,7 +599,7 @@ export default function DiscoverPage() {
           <div className="space-y-8">
             {browseSections.map(({ label, items, typeKey }) => (
               <DiscoverSection key={typeKey} title={label} action={(
-                <button type="button" onClick={() => setActiveType(typeKey)} className="text-[12px] font-semibold text-[var(--accent)] transition-opacity hover:opacity-80">
+                <button type="button" data-no-swipe="true" onClick={() => setActiveType(typeKey)} className="text-[12px] font-semibold text-[var(--accent)] transition-opacity hover:opacity-80">
                   Vedi tutti
                 </button>
               )}>
