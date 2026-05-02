@@ -12,7 +12,8 @@ export default function NotFound() {
       {/* Glitch 404 */}
       <div className="relative select-none mb-2">
         <h1
-          className="text-[140px] sm:text-[180px] font-black leading-none text-transparent bg-clip-text bg-gradient-to-b from-violet-400 to-violet-700"
+          className="text-[140px] sm:text-[180px] font-black leading-none"
+          style={{ color: '#E6FF3D' }}
           style={{ fontVariantNumeric: 'tabular-nums' }}
         >
           404
