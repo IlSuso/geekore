@@ -15,11 +15,20 @@ export interface TrendingItem {
   count: number
   avg_rating: number | null
   external_id: string | null
+  rated_count?: number
 }
 
 export const TYPE_LABEL: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', game: 'Videogioco',
-  tv: 'Serie TV', movie: 'Film', boardgame: 'Gioco da Tavolo',
+  tv: 'Serie TV', movie: 'Film', boardgame: 'Gioco da Tavolo', board_game: 'Gioco da Tavolo',
+}
+
+function normalizeType(type: string | null | undefined): string {
+  return type === 'board_game' ? 'boardgame' : (type || 'unknown')
+}
+
+function makeTrendKey(type: string, title: string, externalId?: string | null): string {
+  return `${type}::${externalId || title.trim().toLowerCase()}`
 }
 
 async function getTrending(): Promise<{ byAdditions: TrendingItem[]; byRating: TrendingItem[] }> {
@@ -33,35 +42,42 @@ async function getTrending(): Promise<{ byAdditions: TrendingItem[]; byRating: T
     .not('cover_image', 'is', null)
     .not('title', 'is', null)
 
-  const addMap = new Map<string, TrendingItem>()
+  const addMap = new Map<string, TrendingItem & { rating_sum?: number }>()
   for (const row of data || []) {
     if (!row.title) continue
-    const key = `${row.type}::${row.title}`
+    const type = normalizeType(row.type)
+    const rating = typeof row.rating === 'number' && row.rating > 0 ? row.rating : null
+    const key = makeTrendKey(type, row.title, row.external_id)
     const existing = addMap.get(key)
     if (existing) {
       existing.count++
-      if (row.rating && row.rating > 0) {
-        existing.avg_rating = existing.avg_rating
-          ? (existing.avg_rating * (existing.count - 1) + row.rating) / existing.count
-          : row.rating
+      if (rating != null) {
+        existing.rated_count = (existing.rated_count || 0) + 1
+        existing.rating_sum = (existing.rating_sum || 0) + rating
+        existing.avg_rating = existing.rating_sum / existing.rated_count
       }
+      if (!existing.cover_image && row.cover_image) existing.cover_image = row.cover_image
     } else {
       addMap.set(key, {
         title: row.title,
-        type: row.type,
+        type,
         cover_image: row.cover_image,
         external_id: row.external_id,
         count: 1,
-        avg_rating: row.rating && row.rating > 0 ? row.rating : null,
+        rated_count: rating != null ? 1 : 0,
+        rating_sum: rating ?? 0,
+        avg_rating: rating,
       })
     }
   }
 
-  const all = Array.from(addMap.values())
-  const topAdditions = [...all].sort((a, b) => b.count - a.count).slice(0, 20)
+  const all = Array.from(addMap.values()).map(({ rating_sum, ...item }) => item)
+  const topAdditions = [...all]
+    .sort((a, b) => b.count - a.count || (b.avg_rating ?? 0) - (a.avg_rating ?? 0) || a.title.localeCompare(b.title))
+    .slice(0, 20)
   const topByRating = all
-    .filter(item => item.count >= 2 && item.avg_rating != null)
-    .sort((a, b) => (b.avg_rating ?? 0) - (a.avg_rating ?? 0))
+    .filter(item => item.count >= 2 && item.avg_rating != null && (item.rated_count || 0) >= 2)
+    .sort((a, b) => (b.avg_rating ?? 0) - (a.avg_rating ?? 0) || b.count - a.count)
     .slice(0, 10)
 
   return { byAdditions: topAdditions, byRating: topByRating }
@@ -80,8 +96,9 @@ export default async function TrendingPage() {
   const { byAdditions, byRating } = await getTrending()
 
   const grouped = byAdditions.reduce((acc: Record<string, TrendingItem[]>, item) => {
-    if (!acc[item.type]) acc[item.type] = []
-    acc[item.type].push(item)
+    const type = normalizeType(item.type)
+    if (!acc[type]) acc[type] = []
+    acc[type].push({ ...item, type })
     return acc
   }, {})
 
@@ -121,7 +138,7 @@ export default async function TrendingPage() {
           </div>
           <p className="gk-headline mb-1 text-[var(--text-primary)]">Nessun dato questa settimana</p>
           <p className="gk-body mx-auto mb-5 max-w-sm">Aggiungi titoli alla Library o torna quando la community avrà generato nuovo segnale.</p>
-          <Link href="/discover" className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]">
+          <Link href="/discover" data-no-swipe="true" className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]">
             Apri Discover
           </Link>
         </div>
@@ -133,7 +150,7 @@ export default async function TrendingPage() {
             </h2>
             <div className="space-y-2">
               {byAdditions.slice(0, 10).map((item, i) => (
-                <TrendingCard key={`top-${item.type}-${item.title}`} item={item} rank={i} />
+                <TrendingCard key={`top-${item.type}-${item.external_id || item.title}`} item={item} rank={i} />
               ))}
             </div>
           </div>
@@ -145,7 +162,7 @@ export default async function TrendingPage() {
               </h2>
               <div className="space-y-2">
                 {byRating.map((item, i) => (
-                  <TrendingCard key={`rated-${item.type}-${item.title}`} item={item} rank={i} />
+                  <TrendingCard key={`rated-${item.type}-${item.external_id || item.title}`} item={item} rank={i} />
                 ))}
               </div>
             </div>
@@ -161,7 +178,7 @@ export default async function TrendingPage() {
                 </h2>
                 <div className="space-y-2">
                   {items.slice(0, 5).map((item, i) => (
-                    <TrendingCard key={`${type}-${item.title}`} item={item} rank={i} />
+                    <TrendingCard key={`${type}-${item.external_id || item.title}`} item={item} rank={i} />
                   ))}
                 </div>
               </div>
@@ -174,6 +191,7 @@ export default async function TrendingPage() {
         <p className="gk-body mb-4">Vuoi vedere quanto pesano i tuoi media?</p>
         <Link
           href="/stats"
+          data-no-swipe="true"
           className="inline-flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-black transition-transform hover:scale-[1.02]"
           style={{ background: 'var(--accent)', color: '#0B0B0F' }}
         >
