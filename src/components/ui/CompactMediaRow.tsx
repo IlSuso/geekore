@@ -37,25 +37,30 @@ export function CompactMediaRow({
     <Component
       type={onClick ? 'button' : undefined}
       onClick={onClick}
-      className={`w-full min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-3 text-left transition-colors hover:bg-[var(--bg-card-hover)] ${className}`}
+      className={`group w-full min-w-0 rounded-[18px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-2.5 text-left transition-colors hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)] ${className}`}
     >
       <div className="flex min-w-0 items-center gap-3">
-        <div className="h-16 w-11 flex-shrink-0 overflow-hidden rounded-xl bg-[var(--bg-secondary)]">
+        <div className="h-[58px] w-10 flex-shrink-0 overflow-hidden rounded-xl bg-[var(--bg-secondary)] ring-1 ring-white/5">
           {coverImage ? (
-            <img src={coverImage} alt={`Copertina di ${title}`} className="h-full w-full object-cover" loading="lazy" />
+            <img
+              src={coverImage}
+              alt={`Copertina di ${title}`}
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              loading="lazy"
+            />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-[var(--text-muted)]">
-              <ImageIcon size={18} strokeWidth={1.5} />
+              <ImageIcon size={17} strokeWidth={1.5} />
             </div>
           )}
         </div>
 
         <div className="min-w-0 flex-1">
-          <h3 className="line-clamp-1 text-[14px] font-bold leading-tight text-[var(--text-primary)]">
+          <h3 className="line-clamp-1 text-[14px] font-bold leading-tight tracking-[-0.01em] text-[var(--text-primary)]">
             {title}
           </h3>
           <MediaMetaRow
-            className="mt-1.5"
+            className="mt-1"
             type={type}
             status={status}
             year={year}
@@ -64,7 +69,7 @@ export function CompactMediaRow({
           />
         </div>
 
-        {trailing && <div className="flex-shrink-0">{trailing}</div>}
+        {trailing && <div className="flex-shrink-0 self-stretch py-1">{trailing}</div>}
       </div>
     </Component>
   )
