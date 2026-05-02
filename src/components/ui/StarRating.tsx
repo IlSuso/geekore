@@ -19,8 +19,6 @@ export function StarRating({
   viewOnly = false,
 }: StarRatingProps) {
   const [hovered,  setHovered]  = useState<number | null>(null)
-  // Optimistic value: holds the committed rating while the parent prop catches up,
-  // preventing the one-frame flash back to the old value after touchend.
   const [pending,  setPending]  = useState<number | null>(null)
   const gestureActive = useRef(false)
   const instanceId    = useId()
@@ -28,12 +26,19 @@ export function StarRating({
 
   const displayed = hovered ?? pending ?? value
 
-  // Once the parent value matches what we committed, drop the optimistic state.
   useEffect(() => {
     if (pending !== null && value === pending) setPending(null)
   }, [value, pending])
 
   const GAP = 2
+
+  const commitRating = useCallback((rating: number) => {
+    if (viewOnly) return
+    const normalized = Math.max(0, Math.min(5, rating))
+    setPending(normalized)
+    setHovered(null)
+    if (normalized !== value) onChange?.(normalized)
+  }, [viewOnly, value, onChange])
 
   const ratingFromClientX = useCallback((clientX: number): number => {
     const el = containerRef.current
@@ -50,6 +55,7 @@ export function StarRating({
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (viewOnly) return
     e.preventDefault()
+    e.stopPropagation()
     gestureActive.current = true
     setHovered(ratingFromClientX(e.touches[0].clientX))
   }, [viewOnly, ratingFromClientX])
@@ -57,26 +63,52 @@ export function StarRating({
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (viewOnly || !gestureActive.current) return
     e.preventDefault()
+    e.stopPropagation()
     setHovered(ratingFromClientX(e.touches[0].clientX))
   }, [viewOnly, ratingFromClientX])
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     if (viewOnly) return
     e.preventDefault()
+    e.stopPropagation()
     gestureActive.current = false
-    if (hovered !== null && hovered !== value) {
-      setPending(hovered)   // keep displaying new value while parent updates
-      onChange?.(hovered)
-    }
+    if (hovered !== null) commitRating(hovered)
     setHovered(null)
-  }, [viewOnly, hovered, value, onChange])
+  }, [viewOnly, hovered, commitRating])
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (viewOnly) return
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+      e.preventDefault()
+      commitRating((displayed || 0) - 0.5)
+    }
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      commitRating((displayed || 0) + 0.5)
+    }
+    if (e.key === 'Home') {
+      e.preventDefault()
+      commitRating(0)
+    }
+    if (e.key === 'End') {
+      e.preventDefault()
+      commitRating(5)
+    }
+  }, [viewOnly, displayed, commitRating])
 
   return (
-    <div className={`inline-flex items-center gap-1.5 select-none ${viewOnly ? '' : 'group'}`}>
-      {/* Clear button — outside containerRef to not affect star coordinate math */}
+    <div
+      data-no-swipe="true"
+      data-interactive="true"
+      className={`inline-flex items-center gap-1.5 select-none ${viewOnly ? '' : 'group'}`}
+      onClick={e => e.stopPropagation()}
+      onPointerDown={e => !viewOnly && e.stopPropagation()}
+    >
       {!viewOnly && (
         <button
-          onClick={() => { onChange?.(0); setHovered(null); setPending(null) }}
+          type="button"
+          data-no-swipe="true"
+          onClick={(event) => { event.stopPropagation(); commitRating(0); setHovered(null); setPending(null) }}
           onMouseEnter={() => setHovered(0)}
           onMouseLeave={() => setHovered(null)}
           aria-label="Rimuovi voto"
@@ -91,15 +123,22 @@ export function StarRating({
         </button>
       )}
 
-      {/* Stars — data-no-swipe prevents SwipeablePageContainer from stealing the touch */}
       <div
         ref={containerRef}
-        data-no-swipe
-        className={`flex flex-row items-center gap-0.5 ${viewOnly ? 'pointer-events-none' : 'touch-none'}`}
+        data-no-swipe="true"
+        data-interactive="true"
+        role={viewOnly ? 'img' : 'slider'}
+        aria-label={viewOnly ? `Voto ${displayed} su 5` : 'Seleziona voto'}
+        aria-valuemin={viewOnly ? undefined : 0}
+        aria-valuemax={viewOnly ? undefined : 5}
+        aria-valuenow={viewOnly ? undefined : displayed}
+        tabIndex={viewOnly ? -1 : 0}
+        className={`flex flex-row items-center gap-0.5 outline-none ${viewOnly ? 'pointer-events-none' : 'touch-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 rounded-lg'}`}
         onMouseLeave={() => !viewOnly && setHovered(null)}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onKeyDown={handleKeyDown}
       >
         {[1, 2, 3, 4, 5].map((star) => {
           const full   = displayed >= star
@@ -112,13 +151,11 @@ export function StarRating({
               className={`relative ${!viewOnly ? 'cursor-pointer hover:scale-110' : ''} transition-transform duration-100`}
               style={{ width: size, height: size }}
             >
-              {/* Base star (gray) */}
-              <svg width={size} height={size} viewBox="0 0 24 24" className="absolute inset-0">
+              <svg width={size} height={size} viewBox="0 0 24 24" className="absolute inset-0" aria-hidden="true">
                 <path d={STAR_PATH} fill="#27272a" />
               </svg>
 
-              {/* Colored star (full or half) */}
-              <svg width={size} height={size} viewBox="0 0 24 24" className="absolute inset-0 transition-colors duration-100">
+              <svg width={size} height={size} viewBox="0 0 24 24" className="absolute inset-0 transition-colors duration-100" aria-hidden="true">
                 <defs>
                   <clipPath id={clipId}>
                     <rect x="0" y="0" width="12" height="24" />
@@ -131,20 +168,25 @@ export function StarRating({
                 />
               </svg>
 
-              {/* Clickable zones — mouse only; touch handled on container */}
               {!viewOnly && (
                 <>
-                  <div
-                    className="absolute inset-y-0 left-0 z-10"
+                  <button
+                    type="button"
+                    data-no-swipe="true"
+                    aria-label={`${star - 0.5} stelle`}
+                    className="absolute inset-y-0 left-0 z-10 cursor-pointer"
                     style={{ width: '50%' }}
                     onMouseEnter={() => setHovered(star - 0.5)}
-                    onClick={() => { if (star - 0.5 !== value) onChange?.(star - 0.5) }}
+                    onClick={(event) => { event.stopPropagation(); commitRating(star - 0.5) }}
                   />
-                  <div
-                    className="absolute inset-y-0 right-0 z-10"
+                  <button
+                    type="button"
+                    data-no-swipe="true"
+                    aria-label={`${star} stelle`}
+                    className="absolute inset-y-0 right-0 z-10 cursor-pointer"
                     style={{ width: '50%' }}
                     onMouseEnter={() => setHovered(star)}
-                    onClick={() => { if (star !== value) onChange?.(star) }}
+                    onClick={(event) => { event.stopPropagation(); commitRating(star) }}
                   />
                 </>
               )}
@@ -152,7 +194,7 @@ export function StarRating({
           )
         })}
       </div>
-      {/* Valore numerico — visibile quando c'è un voto */}
+
       {displayed > 0 && (
         <span className="text-[12px] font-bold text-[var(--accent)] tabular-nums leading-none ml-0.5">
           {displayed % 1 === 0 ? displayed.toFixed(1) : displayed}
