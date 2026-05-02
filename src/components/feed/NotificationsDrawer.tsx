@@ -24,7 +24,7 @@ interface Notification {
 function NotifIcon({ type }: { type: string }) {
   if (type === 'like') return <Heart size={14} className="text-red-400" fill="currentColor" />
   if (type === 'comment') return <MessageCircle size={14} className="text-blue-400" fill="currentColor" />
-  if (type === 'follow') return <UserPlus size={14} className="text-violet-400" />
+  if (type === 'follow') return <UserPlus size={14} style={{ color: '#E6FF3D' }} />
   return <Bell size={14} className="text-zinc-400" />
 }
 

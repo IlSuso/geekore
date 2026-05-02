@@ -155,7 +155,7 @@ export function PushNotificationsToggle() {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-3 p-4 bg-zinc-900 border border-zinc-800 rounded-2xl">
-        <div className={`flex-shrink-0 ${state === 'granted' ? 'text-violet-400' : 'text-zinc-500'}`}>
+        <div className="flex-shrink-0" style={state === 'granted' ? { color: '#E6FF3D' } : { color: '#71717a' }}>
           {state === 'loading'
             ? <Loader2 size={18} className="animate-spin" />
             : state === 'granted'

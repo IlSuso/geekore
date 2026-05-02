@@ -206,7 +206,7 @@ export default function Navbar() {
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-white leading-tight">{res.display_name || res.username}</p>
-                        <p className="text-xs text-violet-400">@{res.username}</p>
+                        <p className="text-xs text-zinc-500">@{res.username}</p>
                       </div>
                     </Link>
                   ))}

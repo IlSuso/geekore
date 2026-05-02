@@ -49,9 +49,9 @@ export function SearchSection() {
   return (
     <div ref={containerRef} className="relative z-50">
       <div className={`flex items-center gap-3 bg-zinc-900 border rounded-2xl px-5 py-3.5 transition-colors ${
-        open && results.length > 0 ? 'border-violet-500/50' : 'border-zinc-800 focus-within:border-violet-500/50'
+        open && results.length > 0 ? 'border-zinc-600' : 'border-zinc-800 focus-within:border-zinc-600'
       }`}>
-        <Search size={18} className={loading ? 'text-violet-400 animate-pulse' : 'text-zinc-500'} />
+        <Search size={18} className={loading ? 'animate-pulse' : 'text-zinc-500'} style={loading ? { color: '#E6FF3D' } : {}} />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -87,7 +87,7 @@ export function SearchSection() {
                 <p className="text-sm font-semibold text-white leading-tight">
                   {res.display_name || res.username}
                 </p>
-                <p className="text-xs text-violet-400">@{res.username}</p>
+                <p className="text-xs text-zinc-500">@{res.username}</p>
               </div>
             </Link>
           ))}

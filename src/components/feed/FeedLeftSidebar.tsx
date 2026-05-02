@@ -30,12 +30,11 @@ function NavItem({ href, icon: Icon, label, active }: { href: string; icon: Reac
     <Link
       href={href}
       className={`flex items-center gap-4 px-4 py-3.5 rounded-xl text-[15px] font-medium transition-colors ${
-        active
-          ? 'bg-violet-600/15 text-violet-300'
-          : 'text-zinc-300 hover:text-white hover:bg-zinc-800/70'
+        active ? 'bg-zinc-800/80' : 'text-zinc-300 hover:text-white hover:bg-zinc-800/70'
       }`}
+      style={active ? { color: '#E6FF3D' } : {}}
     >
-      <Icon size={22} className={active ? 'text-violet-400' : 'text-zinc-400'} />
+      <Icon size={22} style={active ? { color: '#E6FF3D' } : { color: '#a1a1aa' }} />
       {label}
     </Link>
   )

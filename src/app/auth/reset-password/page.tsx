@@ -123,7 +123,7 @@ export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <Loader2 size={40} className="text-violet-500 animate-spin" />
+        <Loader2 size={40} className="animate-spin" style={{ color: '#E6FF3D' }} />
       </div>
     }>
       <ResetContent />

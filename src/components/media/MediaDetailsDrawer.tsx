@@ -617,9 +617,9 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
             {/* Perché te lo consigliamo */}
             {media.why && (
-              <div className="flex gap-2.5 bg-violet-500/8 border border-violet-500/20 rounded-xl p-3.5">
-                <Sparkles size={14} className="text-violet-400 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-violet-200 leading-relaxed">{media.why}</p>
+              <div className="flex gap-2.5 rounded-xl p-3.5" style={{ background: 'rgba(230,255,61,0.06)', border: '1px solid rgba(230,255,61,0.2)' }}>
+                <Sparkles size={14} className="flex-shrink-0 mt-0.5" style={{ color: '#E6FF3D' }} />
+                <p className="text-xs leading-relaxed" style={{ color: 'rgba(230,255,61,0.85)' }}>{media.why}</p>
               </div>
             )}
 
@@ -627,9 +627,9 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             {(() => {
               const cells: React.ReactElement[] = []
               if (media.matchScore != null) cells.push(
-                <div key="match" className="bg-violet-500/10 border border-violet-500/25 rounded-xl p-3 text-center">
+                <div key="match" className="rounded-xl p-3 text-center" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)' }}>
                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Match</p>
-                  <p className="text-lg font-bold text-violet-300 font-mono">{media.matchScore}%</p>
+                  <p className="text-lg font-bold font-mono" style={{ color: '#E6FF3D' }}>{media.matchScore}%</p>
                 </div>
               )
               if (media.score != null) cells.push(

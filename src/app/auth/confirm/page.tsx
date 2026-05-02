@@ -98,7 +98,7 @@ function ConfirmContent() {
       <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl p-10 text-center">
         {status === 'loading' && (
           <>
-            <Loader2 size={56} className="mx-auto mb-6 text-violet-500 animate-spin" />
+            <Loader2 size={56} className="mx-auto mb-6 animate-spin" style={{ color: '#E6FF3D' }} />
             <h1 className="text-2xl font-bold mb-2">Conferma in corso...</h1>
             <p className="text-zinc-400">Stiamo verificando il tuo account.</p>
           </>
@@ -178,7 +178,7 @@ export default function AuthConfirmPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <Loader2 size={40} className="text-violet-500 animate-spin" />
+        <Loader2 size={40} className="animate-spin" style={{ color: '#E6FF3D' }} />
       </div>
     }>
       <ConfirmContent />

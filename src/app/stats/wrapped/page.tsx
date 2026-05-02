@@ -54,10 +54,10 @@ function Slide1({ data, onNext }: { data: WrappedData; onNext: () => void }) {
         <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-fuchsia-600/20 rounded-full blur-[60px]" />
       </div>
       <div className="relative z-10">
-        <p className="text-violet-400 text-sm font-semibold uppercase tracking-widest mb-4">Geekore</p>
+        <p className="text-sm font-semibold uppercase tracking-widest mb-4" style={{ color: '#E6FF3D' }}>Geekore</p>
         <h1 className="text-6xl font-black tracking-tighter mb-2 text-white">{data.year}</h1>
         <h2 className="text-3xl font-black tracking-tight mb-6">
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400">
+          <span style={{ color: '#E6FF3D' }}>
             Wrapped
           </span>
         </h2>
@@ -169,7 +169,7 @@ function Slide5({ data, onShare }: { data: WrappedData; onShare: () => void }) {
       </div>
       <div className="relative z-10 w-full">
         <p className="text-4xl mb-4">{rankEmoji}</p>
-        <p className="text-violet-400 text-xs font-semibold uppercase tracking-widest mb-2">Il tuo rango</p>
+        <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#E6FF3D' }}>Il tuo rango</p>
         <p className="text-5xl font-black text-white mb-8">{rank}</p>
         <div className="bg-white/5 border border-white/10 rounded-3xl p-6 mb-8 space-y-3">
           <div className="flex justify-between items-center">
@@ -182,7 +182,7 @@ function Slide5({ data, onShare }: { data: WrappedData; onShare: () => void }) {
           </div>
           <div className="flex justify-between items-center">
             <span className="text-zinc-500 text-sm">Genere top</span>
-            <span className="text-violet-400 font-bold">{data.topGenre || 'Vario'}</span>
+            <span className="font-bold" style={{ color: '#E6FF3D' }}>{data.topGenre || 'Vario'}</span>
           </div>
         </div>
         <button

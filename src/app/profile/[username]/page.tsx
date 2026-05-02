@@ -1396,10 +1396,10 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
           {/* DNA Taste widget — mostrato se ci sono generi nella media list */}
           {topGenres.length > 0 && (
             <div className="mt-4 mb-4 px-4 w-full max-w-sm mx-auto">
-              <div className="p-4 bg-violet-500/5 border border-violet-500/15 rounded-2xl">
+              <div className="p-4 rounded-2xl" style={{ background: 'rgba(230,255,61,0.04)', border: '1px solid rgba(230,255,61,0.12)' }}>
                 <div className="flex items-center gap-2 mb-3">
-                  <Sparkles size={12} className="text-violet-400" />
-                  <span className="text-[11px] font-bold text-violet-400 uppercase tracking-[.08em]">
+                  <Sparkles size={12} style={{ color: '#E6FF3D' }} />
+                  <span className="text-[11px] font-bold uppercase tracking-[.08em]" style={{ color: '#E6FF3D' }}>
                     Taste DNA
                   </span>
                   <span className="ml-auto text-[10px] text-zinc-600">
@@ -1523,16 +1523,16 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
               data-testid={`tab-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-all border-b-2 -mb-px whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'border-violet-500 text-violet-400'
-                  : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                activeTab === tab.id ? 'border-transparent' : 'border-transparent text-zinc-500 hover:text-zinc-300'
               }`}
+              style={activeTab === tab.id ? { color: '#E6FF3D', borderBottomColor: '#E6FF3D' } : {}}
             >
               {tab.label}
               {tab.count !== undefined && (
                 <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                  activeTab === tab.id ? 'bg-violet-500/20 text-violet-300' : 'bg-zinc-800 text-zinc-500'
-                }`}>
+                  activeTab === tab.id ? '' : 'bg-zinc-800 text-zinc-500'
+                }`}
+                style={activeTab === tab.id ? { background: 'rgba(230,255,61,0.15)', color: '#E6FF3D' } : {}}>
                   {tab.count}
                 </span>
               )}

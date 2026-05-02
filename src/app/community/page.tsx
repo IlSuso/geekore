@@ -136,8 +136,8 @@ export default async function CommunityPage() {
         {/* Stats strip */}
         <div className="grid grid-cols-2 gap-3 mb-8">
           <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-violet-600/20 flex items-center justify-center flex-shrink-0">
-              <Users size={18} className="text-violet-400" />
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(230,255,61,0.1)' }}>
+              <Users size={18} style={{ color: '#E6FF3D' }} />
             </div>
             <div>
               <p className="text-xl font-bold text-white leading-none">{totalCount.toLocaleString('it-IT')}</p>
@@ -160,7 +160,7 @@ export default async function CommunityPage() {
           <section className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <UserPlus size={16} className="text-violet-400" />
+                <UserPlus size={16} style={{ color: '#E6FF3D' }} />
                 <h2 className="text-[13px] font-semibold text-zinc-400 uppercase tracking-wider">Chi seguire</h2>
               </div>
             </div>

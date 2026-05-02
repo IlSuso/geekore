@@ -64,7 +64,7 @@ function EmailChangeContent() {
 
         {status === 'loading' && (
           <>
-            <Loader2 size={56} className="mx-auto mb-6 text-violet-500 animate-spin" />
+            <Loader2 size={56} className="mx-auto mb-6 animate-spin" style={{ color: '#E6FF3D' }} />
             <h1 className="text-2xl font-bold mb-2">Conferma in corso...</h1>
             <p className="text-zinc-400">Stiamo verificando il cambio email.</p>
           </>
@@ -112,7 +112,7 @@ export default function EmailChangePage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <Loader2 size={40} className="text-violet-500 animate-spin" />
+        <Loader2 size={40} className="animate-spin" style={{ color: '#E6FF3D' }} />
       </div>
     }>
       <EmailChangeContent />
