@@ -40,6 +40,7 @@
   --font-display:   'Cabinet Grotesk', var(--font-display-fallback), system-ui, sans-serif;
   --font-mono-data: var(--font-mono), 'JetBrains Mono', monospace;
   --mobile-nav-h:   56px;
+  --desktop-sidebar-w: 200px;
   color-scheme: dark;
 }
 
@@ -53,7 +54,7 @@
 .border-theme      { border-color: var(--border); }
 .border-subtle     { border-color: var(--border-subtle); }
 
-.mobile-nav, nav.fixed {
+.mobile-nav, nav.fixed, aside.fixed {
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   transform: translateZ(0);
@@ -469,15 +470,20 @@ h1, h2 { font-family: var(--font-display); }
   color: var(--text-muted);
 }
 
-/* App shell padding — compensa navbar/headbar fissa. Escluse pagine auth (data-auth). */
+/* App shell padding — mobile header/bottom nav e desktop sidebar. */
 main:not([data-auth]) {
   padding-top: calc(3.5rem + env(safe-area-inset-top, 0px));
   padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
 }
 @media (min-width: 768px) {
   main:not([data-auth]) {
-    padding-top: 3rem;
+    padding-top: 0;
+    padding-left: var(--desktop-sidebar-w);
     padding-bottom: 2rem;
+  }
+
+  footer {
+    margin-left: var(--desktop-sidebar-w);
   }
 }
 
