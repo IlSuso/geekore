@@ -48,28 +48,30 @@ interface FriendActivity {
 
 const TYPE_ICONS: Record<MediaType, React.ElementType> = {
   anime: Swords, manga: Layers, movie: Film, tv: Tv, game: Gamepad2,
-  boardgame: Dices, }
+  boardgame: Dices,
+}
 
 const TYPE_LABEL: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Videogioco',
-  boardgame: 'Gioco da Tavolo', }
+  boardgame: 'Gioco da Tavolo',
+}
 
 // Colori CSS vars per ogni tipo — coerenti col design system
 const TYPE_COLORS: Record<string, string> = {
-  anime:     'var(--type-anime)',
-  manga:     'var(--type-manga)',
-  movie:     'var(--type-movie)',
-  tv:        'var(--type-tv)',
-  game:      'var(--type-game)',
+  anime: 'var(--type-anime)',
+  manga: 'var(--type-manga)',
+  movie: 'var(--type-movie)',
+  tv: 'var(--type-tv)',
+  game: 'var(--type-game)',
   boardgame: 'var(--type-board)',
-  }
+}
 
 function triggerTasteDelta(options: {
   action: 'rating' | 'status_change' | 'wishlist_add' | 'rewatch' | 'progress'
   mediaId: string; mediaType: string; genres: string[]
   rating?: number; prevRating?: number; status?: string; prevStatus?: string
 }) {
-  fetch('/api/taste/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(options) }).catch(() => {})
+  fetch('/api/taste/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(options) }).catch(() => { })
 }
 
 function MatchBadge({ score }: { score: number }) {
@@ -246,7 +248,8 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
 // Cerca in tutte le API (AniList, TMDb, IGDB) in parallelo — stesso pattern della discover
 const TYPE_LABEL_SEARCH: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV',
-  game: 'Videogioco', }
+  game: 'Videogioco',
+}
 
 interface SearchSuggestion {
   id: string; title: string; type: string
@@ -311,7 +314,7 @@ function SimilarSearchBar({ onSearch, loading }: {
 
       setSuggestions(all.slice(0, 4))
       setOpen(all.length > 0)
-    } catch {}
+    } catch { }
     setSearching(false)
   }
 
@@ -401,12 +404,12 @@ function SimilarSearchBar({ onSearch, loading }: {
 }
 
 const SIMILAR_TYPE_FILTERS: Array<{ key: MediaType | 'all'; label: string }> = [
-  { key: 'all',       label: 'Tutti' },
-  { key: 'anime',     label: 'Anime' },
-  { key: 'movie',     label: 'Film' },
-  { key: 'tv',        label: 'Serie TV' },
-  { key: 'game',      label: 'Videogiochi' },
-  { key: 'manga',     label: 'Manga' },
+  { key: 'all', label: 'Tutti' },
+  { key: 'anime', label: 'Anime' },
+  { key: 'movie', label: 'Film' },
+  { key: 'tv', label: 'Serie TV' },
+  { key: 'game', label: 'Videogiochi' },
+  { key: 'manga', label: 'Manga' },
 ]
 
 const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, items, onFeedback, onSimilar, onDetail, onClose, dismissedIds, similarLoadingId }: {
@@ -473,11 +476,10 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
             const isActive = typeFilter === key
             return (
               <button key={key} onClick={() => handleFilterChange(key)}
-                className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                  isActive
+                className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${isActive
                     ? 'border-transparent'
                     : 'bg-zinc-800/60 border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300'
-                }`}
+                  }`}
                 style={isActive ? { background: 'var(--accent)', color: '#0B0B0F', borderColor: 'var(--accent)' } : {}}>
                 {key !== 'all' && <span className="w-1.5 h-1.5 rounded-full" style={{ background: TYPE_COLORS[key as MediaType] }} />}
                 {label}
@@ -538,15 +540,15 @@ const RAIL_ICONS: Record<RecommendationRail['kind'], React.ElementType> = {
 }
 
 const RAIL_COLORS: Record<RecommendationRail['kind'], string> = {
-  'top-match':    'var(--accent)',
-  continue:       '#f59e0b',
-  social:         'var(--type-anime)',
-  fresh:          'var(--type-movie)',
-  discovery:      'var(--type-game)',
-  genre:          '#0ea5e9',
-  'because-title':'#10b981',
-  'quick-picks':  'var(--accent)',
-  'hidden-gems':  'var(--type-board)',
+  'top-match': 'var(--accent)',
+  continue: '#f59e0b',
+  social: 'var(--type-anime)',
+  fresh: 'var(--type-movie)',
+  discovery: 'var(--type-game)',
+  genre: '#0ea5e9',
+  'because-title': '#10b981',
+  'quick-picks': 'var(--accent)',
+  'hidden-gems': 'var(--type-board)',
 }
 
 const NetflixRailSection = memo(function NetflixRailSection({ rail, onFeedback, dismissedIds, onSimilar, onDetail, similarLoadingId }: {
@@ -908,7 +910,7 @@ function SwipeModeWrapper() {
             source: r.source,
           })))
         }
-      } catch {}
+      } catch { }
       setLoading(false)
     }
     init()
@@ -924,9 +926,9 @@ function SwipeModeWrapper() {
     <SwipeMode
       items={items}
       userId={userIdRef.current || undefined}
-      onSeen={() => {}}
-      onSkip={() => {}}
-      onClose={() => {}}
+      onSeen={() => { }}
+      onSkip={() => { }}
+      onClose={() => { }}
       onRequestMore={async () => []}
     />
   )
@@ -1059,8 +1061,8 @@ export default function ForYouPage() {
           supabase.from('wishlist').select('external_id').eq('user_id', userId),
         ]).then(([{ data: entries }, { data: wish }]) => {
           const newAddedIds = new Set((entries || []).map((e: any) => e.external_id as string).filter(Boolean))
-          const newTitles   = new Set((entries || []).map((e: any) => (e.title as string)?.toLowerCase()).filter(Boolean))
-          const newWishIds  = new Set((wish || []).map((w: any) => w.external_id as string).filter(Boolean))
+          const newTitles = new Set((entries || []).map((e: any) => (e.title as string)?.toLowerCase()).filter(Boolean))
+          const newWishIds = new Set((wish || []).map((w: any) => w.external_id as string).filter(Boolean))
           setAddedIds(newAddedIds); setWishlistIds(newWishIds); setTotalEntries(entries?.length || 0)
           addedTitlesRef.current = newTitles
           forYouCache.addedIds = newAddedIds; forYouCache.wishlistIds = newWishIds
@@ -1077,8 +1079,8 @@ export default function ForYouPage() {
       ])
 
       const newAddedIds = new Set((entries || []).map((e: any) => e.external_id as string).filter(Boolean))
-      const newTitles   = new Set((entries || []).map((e: any) => (e.title as string)?.toLowerCase()).filter(Boolean))
-      const newWishIds  = new Set((wish || []).map((w: any) => w.external_id as string).filter(Boolean))
+      const newTitles = new Set((entries || []).map((e: any) => (e.title as string)?.toLowerCase()).filter(Boolean))
+      const newWishIds = new Set((wish || []).map((w: any) => w.external_id as string).filter(Boolean))
       setAddedIds(newAddedIds); setWishlistIds(newWishIds); setTotalEntries(entries?.length || 0)
       addedTitlesRef.current = newTitles
       forYouCache.addedIds = newAddedIds; forYouCache.wishlistIds = newWishIds
@@ -1255,15 +1257,15 @@ export default function ForYouPage() {
       matchScore: item.matchScore,
       isAwardWinner: item.isAwardWinner,
       source: item.id.startsWith('anilist-anime') ? 'anilist'
-            : item.id.startsWith('anilist-manga') ? 'anilist'
-            : item.id.startsWith('tmdb-') ? 'tmdb'
+        : item.id.startsWith('anilist-manga') ? 'anilist'
+          : item.id.startsWith('tmdb-') ? 'tmdb'
             : item.id.startsWith('igdb-') ? 'igdb'
-            : item.id.startsWith('ol-') ? 'ol'
-            : item.id.startsWith('bgg-') ? 'bgg'
-            : item.type === 'boardgame' ? 'bgg'
-            : /^\d+$/.test(item.id) && item.type === 'game' ? 'igdb'
-            : /^\d+$/.test(item.id) && (item.type === 'movie' || item.type === 'tv' || item.type === 'anime') ? 'tmdb'
-            : undefined,
+              : item.id.startsWith('ol-') ? 'ol'
+                : item.id.startsWith('bgg-') ? 'bgg'
+                  : item.type === 'boardgame' ? 'bgg'
+                    : /^\d+$/.test(item.id) && item.type === 'game' ? 'igdb'
+                      : /^\d+$/.test(item.id) && (item.type === 'movie' || item.type === 'tv' || item.type === 'anime') ? 'tmdb'
+                        : undefined,
     }
     setDetailItem(details as any)
   }, [])
@@ -1400,51 +1402,80 @@ export default function ForYouPage() {
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPulling} />
       <div className="pt-2 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
 
-        {/* Utility bar — Lista/Swipe toggle + controlli */}
-        <div className="flex items-center gap-2 mb-4">
-          {/* Lista / Swipe toggle */}
-          <div className="flex items-center rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900/80 flex-shrink-0">
-            <button
-              onClick={() => setViewMode('lista')}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-all"
-              style={{
-                background: viewMode === 'lista' ? 'var(--accent)' : 'transparent',
-                color: viewMode === 'lista' ? '#0B0B0F' : '#71717a',
-              }}
-            >
-              <List size={13} />
-              <span>Lista</span>
-            </button>
-            <button
-              onClick={() => setViewMode('swipe')}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-all"
-              style={{
-                background: viewMode === 'swipe' ? 'var(--accent)' : 'transparent',
-                color: viewMode === 'swipe' ? '#0B0B0F' : '#71717a',
-              }}
-            >
-              <Shuffle size={13} />
-              <span>Swipe</span>
-            </button>
+        <section className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(230,255,61,0.09),rgba(139,92,246,0.07),rgba(20,20,27,0.9))] p-4 md:p-6 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="min-w-0">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+                <Sparkles size={12} /> For You engine
+              </div>
+              <h1 className="gk-h1 mb-2 text-[var(--text-primary)]">Consigli costruiti sul tuo Taste DNA.</h1>
+              <p className="gk-body max-w-2xl">
+                Rail ordinati, swipe rapido e segnali espliciti: ogni card deve spiegare perché entra nel tuo universo.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-1 rounded-[18px] border border-[rgba(230,255,61,0.18)] bg-[rgba(20,20,27,0.94)] p-1 shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('lista')}
+                  className="inline-flex h-9 items-center gap-2 rounded-[14px] px-3 text-xs font-black transition-all"
+                  style={{
+                    background: viewMode === 'lista' ? 'var(--accent)' : 'transparent',
+                    color: viewMode === 'lista' ? '#0B0B0F' : 'var(--text-secondary)',
+                  }}
+                >
+                  <List size={14} />
+                  <span>Lista</span>
+                  <span className="hidden font-mono-data text-[9px] uppercase tracking-[0.08em] opacity-60 sm:inline">rail</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('swipe')}
+                  className="inline-flex h-9 items-center gap-2 rounded-[14px] px-3 text-xs font-black transition-all"
+                  style={{
+                    background: viewMode === 'swipe' ? 'var(--accent)' : 'transparent',
+                    color: viewMode === 'swipe' ? '#0B0B0F' : 'var(--text-secondary)',
+                  }}
+                >
+                  <Shuffle size={14} />
+                  <span>Swipe</span>
+                  <span className="hidden font-mono-data text-[9px] uppercase tracking-[0.08em] opacity-60 sm:inline">cards</span>
+                </button>
+              </div>
+
+              <button onClick={() => setShowPrefs(true)}
+                className="inline-flex h-10 items-center gap-2 rounded-[16px] border border-[var(--border)] bg-[var(--bg-card)] px-3.5 text-xs font-bold text-[var(--text-secondary)] transition-all hover:border-[rgba(230,255,61,0.28)] hover:text-[var(--text-primary)]">
+                <SlidersHorizontal size={14} />
+                <span>{fy.preferences}</span>
+              </button>
+              <div className="relative">
+                <button onClick={handleRefresh} disabled={refreshing}
+                  className="flex h-10 w-10 items-center justify-center rounded-[16px] border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] transition-all hover:text-[var(--text-primary)] disabled:opacity-40">
+                  <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+                </button>
+                {showNewRecsBadge && (
+                  <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 animate-pulse rounded-full border border-black" style={{ background: 'var(--accent)' }} />
+                )}
+              </div>
+            </div>
           </div>
 
-          <div className="flex-1" />
-
-          <button onClick={() => setShowPrefs(true)}
-            className="flex items-center gap-2 px-3.5 py-2 bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all">
-            <SlidersHorizontal size={13} />
-            <span className="hidden sm:inline">{fy.preferences}</span>
-          </button>
-          <div className="relative">
-            <button onClick={handleRefresh} disabled={refreshing}
-              className="w-8 h-8 flex items-center justify-center bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 disabled:opacity-40 rounded-xl text-zinc-400 hover:text-zinc-200 transition-all">
-              <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
-            </button>
-            {showNewRecsBadge && (
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-black animate-pulse" style={{ background: 'var(--accent)' }} />
-            )}
+          <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
+            <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
+              <p className="font-mono-data text-[18px] font-black leading-none text-[var(--accent)]">{totalEntries}</p>
+              <p className="gk-label mt-1">library signals</p>
+            </div>
+            <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
+              <p className="font-mono-data text-[18px] font-black leading-none text-[var(--text-primary)]">{visibleRails.length || SECTIONS.length}</p>
+              <p className="gk-label mt-1">rails active</p>
+            </div>
+            <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
+              <p className="font-mono-data text-[18px] font-black leading-none text-[var(--text-primary)]">{spotlightItem ? spotlightItem.matchScore : '—'}</p>
+              <p className="gk-label mt-1">top match</p>
+            </div>
           </div>
-        </div>
+        </section>
 
         {!hasEnoughData ? (
           <EmptyState
@@ -1528,11 +1559,11 @@ export default function ForYouPage() {
               const items = (displayRecs[key] || []).filter(i => !dismissedIds.has(i.id))
               return !items.length
             }) && (
-              <div className="text-center py-20">
-                <p className="text-zinc-400">{fy.sectionEmpty}</p>
-                <button onClick={handleRefresh} className="mt-4 text-sm hover:underline" style={{ color: 'var(--accent)' }}>{fy.refresh}</button>
-              </div>
-            )}
+                <div className="text-center py-20">
+                  <p className="text-zinc-400">{fy.sectionEmpty}</p>
+                  <button onClick={handleRefresh} className="mt-4 text-sm hover:underline" style={{ color: 'var(--accent)' }}>{fy.refresh}</button>
+                </div>
+              )}
           </>
         )}
       </div>
