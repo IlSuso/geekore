@@ -15,6 +15,19 @@ import { scoreAndBalanceSimilarResults } from '@/lib/reco/similar/scoring'
 import type { SimilarContext, SimilarItem } from '@/lib/reco/similar/types'
 
 const TRANSLATE_TYPES = new Set(['game', 'manga'])
+const VALID_SOURCE_TYPES = new Set(['anime', 'manga', 'movie', 'tv', 'game', 'boardgame'])
+
+function cleanParam(value: string | null, maxLength: number): string {
+  return (value || '').trim().slice(0, maxLength)
+}
+
+function cleanListParam(value: string | null, maxItems: number, maxItemLength: number): string[] {
+  return [...new Set((value || '')
+    .split(',')
+    .map(item => item.trim().slice(0, maxItemLength))
+    .filter(Boolean)
+  )].slice(0, maxItems)
+}
 
 export async function GET(request: NextRequest) {
   const rl = rateLimit(request, { limit: 20, windowMs: 60_000, prefix: 'similar' })
@@ -25,13 +38,14 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
-  const sourceTitle = searchParams.get('title') || ''
-  const rawGenres = (searchParams.get('genres') || '').split(',').map(g => g.trim()).filter(Boolean)
-  const rawKeywords = (searchParams.get('keywords') || '').split(',').map(k => k.trim()).filter(Boolean)
-  const rawTags = (searchParams.get('tags') || '').split(',').map(t => t.trim()).filter(Boolean)
-  const excludeId = searchParams.get('excludeId') || ''
-  const sourceType = searchParams.get('type') || ''
-  const excludeIdNum = excludeId ? parseInt(excludeId, 10) : NaN
+  const sourceTitle = cleanParam(searchParams.get('title'), 300)
+  const rawGenres = cleanListParam(searchParams.get('genres'), 20, 80)
+  const rawKeywords = cleanListParam(searchParams.get('keywords'), 30, 80)
+  const rawTags = cleanListParam(searchParams.get('tags'), 30, 80)
+  const excludeId = cleanParam(searchParams.get('excludeId'), 120)
+  const rawSourceType = cleanParam(searchParams.get('type'), 40)
+  const sourceType = VALID_SOURCE_TYPES.has(rawSourceType) ? rawSourceType : ''
+  const excludeIdNum = /^\d+$/.test(excludeId) ? parseInt(excludeId, 10) : NaN
 
   if (rawGenres.length === 0) return NextResponse.json({ error: 'genres richiesti' }, { status: 400 })
 
