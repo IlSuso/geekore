@@ -63,7 +63,7 @@ async function CommunityLive() {
 
       {/* Contatori */}
       <div className="relative">
-        <div className="absolute -inset-1 bg-gradient-to-r from-violet-600/20 to-fuchsia-600/20 rounded-3xl blur-xl" />
+        <div className="absolute -inset-1 rounded-3xl blur-xl" style={{ background: 'rgba(230,255,61,0.06)' }} />
         <div className="relative bg-zinc-900/60 border border-zinc-800 rounded-3xl p-8 backdrop-blur">
           <div className="flex items-center gap-2 mb-8 justify-center">
             <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />

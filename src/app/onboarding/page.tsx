@@ -144,7 +144,7 @@ function BrandPanel({ step }: { step: number }) {
   return (
     <div className="relative w-full h-full flex flex-col justify-between px-14 xl:px-20 py-14 overflow-hidden">
       <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full blur-[140px] pointer-events-none" style={{ background: "rgba(230,255,61,0.05)" }} />
-      <div className="absolute -bottom-32 -right-10 w-96 h-96 bg-fuchsia-600/10 rounded-full blur-[110px] pointer-events-none" />
+      <div className="absolute -bottom-32 -right-10 w-96 h-96 rounded-full blur-[110px] pointer-events-none" style={{ background: 'rgba(230,255,61,0.05)' }} />
       <div className="absolute top-1/2 -translate-y-1/2 left-1/3 w-60 h-60 bg-sky-500/8 rounded-full blur-[90px] pointer-events-none" />
 
       <div className="relative z-10 flex items-center gap-3">
@@ -157,7 +157,7 @@ function BrandPanel({ step }: { step: number }) {
       <div className="relative z-10 space-y-7">
         <h2 key={step} className="text-4xl xl:text-5xl font-black tracking-tight leading-[1.1] text-white">
           {h.lines.map((line, li) => (
-            <span key={li} className={`block ${li === h.lines.length - 1 ? 'text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400' : ''}`}>
+            <span key={li} style={li === h.lines.length - 1 ? { color: '#E6FF3D' } : {}}>
               {line}
             </span>
           ))}
@@ -470,7 +470,7 @@ export default function OnboardingPage() {
               <div className="lg:hidden mb-8">
                 <h1 className="text-4xl font-black tracking-tight leading-tight text-white mb-3">
                   Il tuo universo geek,{' '}
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400">
+                  <span style={{ color: '#E6FF3D' }}>
                     finalmente unificato.
                   </span>
                 </h1>

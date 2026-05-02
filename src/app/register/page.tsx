@@ -153,12 +153,12 @@ export default function RegisterPage() {
 
       {/* Left — Branding */}
       <div className="hidden lg:flex lg:w-[45%] relative flex-col justify-between p-16 overflow-hidden border-r border-zinc-800/50">
-        <div className="absolute top-1/3 -left-20 w-96 h-96 bg-fuchsia-600/15 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute top-1/3 -left-20 w-96 h-96 rounded-full blur-[120px] pointer-events-none" style={{ background: 'rgba(230,255,61,0.05)' }} />
         <div className="absolute bottom-1/4 right-0 w-72 h-72 rounded-full blur-[100px] pointer-events-none" style={{ background: "rgba(230,255,61,0.05)" }} />
 
         <div className="relative flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center shadow-lg shadow-violet-500/30">
-            <Zap size={20} className="text-white" />
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+            <Zap size={20} className="text-black" />
           </div>
           <span className="text-2xl font-bold tracking-tighter">geekore</span>
         </div>
@@ -166,7 +166,7 @@ export default function RegisterPage() {
         <div className="relative space-y-6">
           <h2 className="text-5xl font-black tracking-tighter leading-none">
             {l.tagline.split(' ').slice(0, -1).join(' ')}<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400">
+            <span style={{ color: '#E6FF3D' }}>
               {l.tagline.split(' ').slice(-1)[0]}
             </span>
           </h2>

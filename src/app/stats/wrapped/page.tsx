@@ -51,7 +51,7 @@ function Slide1({ data, onNext }: { data: WrappedData; onNext: () => void }) {
     >
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-64 h-64 rounded-full blur-[80px]" style={{ background: "rgba(230,255,61,0.08)" }} />
-        <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-fuchsia-600/20 rounded-full blur-[60px]" />
+        <div className="absolute bottom-1/4 right-1/4 w-48 h-48 rounded-full blur-[60px]" style={{ background: 'rgba(230,255,61,0.06)' }} />
       </div>
       <div className="relative z-10">
         <p className="text-sm font-semibold uppercase tracking-widest mb-4" style={{ color: '#E6FF3D' }}>Geekore</p>
@@ -119,7 +119,7 @@ function Slide3({ data, onNext }: { data: WrappedData; onNext: () => void }) {
       className="h-full flex flex-col justify-center px-8 cursor-pointer select-none"
       style={{ background: 'linear-gradient(160deg, #1a0a0e 0%, #0d0a1a 100%)' }}
     >
-      <p className="text-fuchsia-400 text-xs font-semibold uppercase tracking-widest mb-8 text-center">I tuoi numeri</p>
+      <p className="text-xs font-semibold uppercase tracking-widest mb-8 text-center" style={{ color: '#E6FF3D' }}>I tuoi numeri</p>
       <div className="space-y-4">
         {stats.map((s, i) => (
           <div
