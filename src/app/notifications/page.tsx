@@ -254,7 +254,8 @@ export default function NotificationsPage() {
       title="Notifiche"
       description="Like, commenti, follow e segnali social dalla community."
       icon={<Sparkles size={16} />}
-      contentClassName="max-w-3xl pt-2 md:pt-8 pb-28"
+      className="gk-notifications-page"
+      contentClassName="gk-page-density max-w-3xl pt-2 md:pt-8 pb-28"
     >
       <PullToRefreshIndicator distance={pullDistance} refreshing={isRefreshing} />
       <NotificationHero total={notifications.length} unread={unread} />
