@@ -20,19 +20,37 @@ PR #10 was merged into `main` and covered:
 - Push rate-limit context fix.
 - Import and mutation safety fixes.
 
-## Planned pass 5 priorities
+## Done in PR #11
 
-1. Review remaining non-recommendation API routes for:
-   - mutation via GET;
-   - missing origin/auth/rate-limit guards;
-   - broad service-role writes;
-   - unbounded external fetches or request bodies.
+- Hardened list item payload validation.
+- Hardened wishlist payload validation and cover URL handling.
+- Hardened recommendation feedback validation and DB error handling.
+- Hardened recommendation mood DB error handling.
+- Hardened search tracking DB error handling.
+- Hardened Xbox import input validation and cover URL handling.
+- Hardened report target validation.
+- Reviewed avatar and post image uploads; no extra patch needed.
+- Reviewed `recommendations/route` cautiously through connector-limited context; no direct broad edit applied.
+- Reviewed recommendation fetchers where safe; no broad algorithm edit applied.
 
-2. Review recommendation-adjacent files carefully:
-   - `src/app/api/recommendations/route.ts`
-   - `src/lib/reco/*`
-   - avoid broad algorithm changes.
+## Known follow-ups
 
-3. Prepare a local/Codex-friendly note for `recommendations/similar` instead of editing it through truncated connector views.
+1. `src/app/api/recommendations/route.ts`
+   - Large/truncated through connector views.
+   - Potential targeted follow-up: ensure `bypass_cooldown=1` is service-call only.
+   - Do this locally/Codex with full file context, not via truncated connector patch.
 
-4. Final CI/build-risk review before merge.
+2. `src/lib/reco/fetchers-igdb.ts`
+   - IGDB token fetch should get an explicit timeout.
+   - File is long and contains multiple fetcher sections; patch locally/Codex with full context.
+
+3. `src/app/api/recommendations/similar/route.ts`
+   - Still large/recommendation-critical.
+   - Do not rewrite blindly through connector-truncated file views.
+   - Best next step: local/Codex pass for rate limits, input caps, timeout checks, and helper extraction.
+
+## Current status
+
+- PR #11 is draft and mergeable.
+- Latest CI is green before this tracker-only update.
+- Keep remaining changes small or stop and review/merge.
