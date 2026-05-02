@@ -107,9 +107,57 @@
   }
 }
 
+/* 16.2 Discover: search dashboard, browse 2×3 / 3×2 e rails larghi. */
+.gk-discover-page > div.mx-auto {
+  width: 100%;
+}
+
+.gk-discover-page section {
+  scroll-margin-top: 84px;
+}
+
+.gk-discover-page section:first-of-type {
+  margin-top: 2px;
+}
+
+.gk-discover-page input[data-testid='search-input'] {
+  box-shadow: 0 14px 42px rgba(0, 0, 0, 0.18);
+}
+
+@media (min-width: 768px) {
+  .gk-discover-page > div.mx-auto {
+    padding-top: 28px;
+  }
+
+  .gk-discover-page input[data-testid='search-input'] {
+    font-size: 17px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .gk-discover-page > div.mx-auto > div:has(input[data-testid='search-input']),
+  .gk-discover-page > div.mx-auto > div:has(button[data-testid='filter-all']) {
+    max-width: min(920px, calc(100vw - var(--gk-sidebar-w) - 96px)) !important;
+  }
+
+  .gk-discover-page section {
+    margin-bottom: 36px;
+  }
+
+  .gk-discover-page section:first-of-type > div:last-child {
+    max-width: 920px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .gk-discover-page .xl\:grid-cols-7 {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 14px;
+  }
+}
+
 /* Desktop grid density suggerita dal full wireframe. */
 @media (min-width: 1280px) {
-  .gk-discover-page .xl\:grid-cols-7,
   .gk-library-page .xl\:grid-cols-7,
   .gk-profile-page .xl\:grid-cols-8 {
     gap: 14px;
