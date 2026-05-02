@@ -2,15 +2,30 @@
 
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Heart, UserPlus, MessageCircle, BellOff, Star, Sparkles } from 'lucide-react'
+import { Heart, UserPlus, MessageCircle, BellOff, Star, Sparkles, PlugZap, Bell } from 'lucide-react'
 import Link from 'next/link'
 import { FollowBackButton } from '@/components/notifications/FollowBackButton'
 import { Avatar } from '@/components/ui/Avatar'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PageScaffold } from '@/components/ui/PageScaffold'
+
+type NotificationFilter = 'all' | 'social' | 'system' | 'integration'
+
+const FILTERS: Array<{ id: NotificationFilter; label: string }> = [
+  { id: 'all', label: 'Tutto' },
+  { id: 'social', label: 'Social' },
+  { id: 'system', label: 'Sistema' },
+  { id: 'integration', label: 'Integrazioni' },
+]
+
+function notificationBucket(type: string): NotificationFilter {
+  if (type === 'like' || type === 'comment' || type === 'follow') return 'social'
+  if (type === 'integration' || type === 'steam' || type === 'letterboxd' || type === 'anilist' || type === 'bgg') return 'integration'
+  return 'system'
+}
 
 function setAppBadge(count: number) {
   if (typeof navigator === 'undefined') return
@@ -23,13 +38,13 @@ function setAppBadge(count: number) {
 function compactTimeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const m = Math.floor(diff / 60000)
-  if (m < 1) return 'ora'
-  if (m < 60) return `${m}m`
+  if (m < 1) return 'ORA'
+  if (m < 60) return `${m}M`
   const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h`
+  if (h < 24) return `${h}H`
   const d = Math.floor(h / 24)
-  if (d < 7) return `${d}g`
-  return `${Math.floor(d / 7)}sett`
+  if (d < 7) return `${d}G`
+  return `${Math.floor(d / 7)}SETT`
 }
 
 function NotificationHero({ total, unread }: { total: number; unread: number }) {
@@ -37,10 +52,10 @@ function NotificationHero({ total, unread }: { total: number; unread: number }) 
     <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(230,255,61,0.09),rgba(139,92,246,0.07),rgba(20,20,27,0.92))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-5">
       <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
         <Sparkles size={12} />
-        Social signals
+        Notification center
       </div>
-      <h1 className="gk-h1 mb-2 text-[var(--text-primary)]">Tutto ciò che la community ti sta dicendo.</h1>
-      <p className="gk-body max-w-2xl">Like, commenti, follow e segnali social concentrati in un centro notifiche leggibile.</p>
+      <h1 className="gk-h1 mb-2 text-[var(--text-primary)]">Notifiche</h1>
+      <p className="gk-body max-w-2xl">Social, sistema e integrazioni raccolti in un centro notifiche leggibile.</p>
       <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
         <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
           <p className="font-mono-data text-[20px] font-black leading-none text-[var(--accent)]">{total}</p>
@@ -62,6 +77,7 @@ function NotificationHero({ total, unread }: { total: number; unread: number }) 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [activeFilter, setActiveFilter] = useState<NotificationFilter>('all')
   const supabase = createClient()
 
   const fetchNotifications = useCallback(async () => {
@@ -150,7 +166,8 @@ export default function NotificationsPage() {
     if (type === 'comment') return 'ha commentato il tuo post.'
     if (type === 'follow') return 'ha iniziato a seguirti.'
     if (type === 'rating') return 'ha votato un media.'
-    return 'ha interagito con te.'
+    if (notificationBucket(type) === 'integration') return 'ha sincronizzato una nuova integrazione.'
+    return 'ha una nuova raccomandazione per te.'
   }
 
   function NotifIcon({ type }: { type: string }) {
@@ -159,7 +176,8 @@ export default function NotificationsPage() {
     if (type === 'follow') return <span className={base} style={{ background: 'var(--accent)' }}><UserPlus size={10} color="#0B0B0F" /></span>
     if (type === 'comment') return <span className={base} style={{ background: 'var(--accent)' }}><MessageCircle size={10} color="#0B0B0F" /></span>
     if (type === 'rating') return <span className={`${base} bg-yellow-500`}><Star size={10} fill="white" color="white" /></span>
-    return null
+    if (notificationBucket(type) === 'integration') return <span className={`${base} bg-sky-500`}><PlugZap size={10} color="white" /></span>
+    return <span className={base} style={{ background: 'var(--accent)' }}><Bell size={10} color="#0B0B0F" /></span>
   }
 
   const today = new Date()
@@ -216,7 +234,12 @@ export default function NotificationsPage() {
     return result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
   }
 
-  const grouped = aggregateNotifications(notifications).reduce((acc: Record<string, any[]>, n: any) => {
+  const visibleNotifications = useMemo(() => {
+    if (activeFilter === 'all') return notifications
+    return notifications.filter(n => notificationBucket(n.type) === activeFilter)
+  }, [notifications, activeFilter])
+
+  const grouped = aggregateNotifications(visibleNotifications).reduce((acc: Record<string, any[]>, n: any) => {
     const g = getGroup(n.created_at)
     if (!acc[g]) acc[g] = []
     acc[g].push(n)
@@ -236,6 +259,29 @@ export default function NotificationsPage() {
       <PullToRefreshIndicator distance={pullDistance} refreshing={isRefreshing} />
       <NotificationHero total={notifications.length} unread={unread} />
 
+      <div className="mb-5 grid grid-cols-4 gap-1 rounded-[22px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/80 p-2 ring-1 ring-white/5" data-no-swipe="true">
+        {FILTERS.map(filter => {
+          const active = activeFilter === filter.id
+          const count = filter.id === 'all'
+            ? notifications.length
+            : notifications.filter(n => notificationBucket(n.type) === filter.id).length
+          return (
+            <button
+              key={filter.id}
+              type="button"
+              data-no-swipe="true"
+              onClick={() => setActiveFilter(filter.id)}
+              className="min-h-11 rounded-xl px-1 py-2 text-[11px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 sm:text-[12px]"
+              style={active ? { background: 'rgba(230,255,61,0.09)', color: 'var(--accent)' } : { color: 'var(--text-muted)' }}
+              aria-pressed={active}
+            >
+              <span className="block">{filter.label}</span>
+              <span className="font-mono-data text-[9px] opacity-70">{count}</span>
+            </button>
+          )
+        })}
+      </div>
+
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 8 }).map((_, i) => (
@@ -249,13 +295,13 @@ export default function NotificationsPage() {
             </div>
           ))}
         </div>
-      ) : notifications.length === 0 ? (
+      ) : visibleNotifications.length === 0 ? (
         <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-16 text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-secondary)]">
             <BellOff size={28} className="text-[var(--text-muted)]" />
           </div>
           <p className="gk-headline mb-1 text-[var(--text-primary)]">Nessuna notifica</p>
-          <p className="gk-body mx-auto max-w-sm">Quando qualcuno interagisce con te, le notifiche appariranno qui.</p>
+          <p className="gk-body mx-auto max-w-sm">Quando ci saranno notifiche in questa categoria, appariranno qui.</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -292,6 +338,7 @@ export default function NotificationsPage() {
                           : 'border-[var(--border-subtle)] bg-[var(--bg-card)]'
                       }`}
                     >
+                      <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${n.is_read ? 'bg-transparent' : 'bg-[var(--accent)]'}`} />
                       <div className="relative flex-shrink-0">
                         {n._aggregated ? (
                           <div className="relative h-11 w-11">
@@ -302,9 +349,13 @@ export default function NotificationsPage() {
                               <Avatar src={n._senders[0]?.avatar_url} username={n._senders[0]?.username || 'user'} displayName={n._senders[0]?.display_name} size={32} />
                             </div>
                           </div>
-                        ) : (
+                        ) : n.sender ? (
                           <div className="h-11 w-11 overflow-hidden rounded-2xl ring-1 ring-white/10">
                             <Avatar src={n.sender?.avatar_url} username={n.sender?.username || 'user'} displayName={n.sender?.display_name} size={44} />
+                          </div>
+                        ) : (
+                          <div className="grid h-11 w-11 place-items-center rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)]">
+                            {notificationBucket(n.type) === 'integration' ? <PlugZap size={18} className="text-sky-300" /> : <Bell size={18} className="text-[var(--accent)]" />}
                           </div>
                         )}
                         <NotifIcon type={n.type} />
@@ -316,15 +367,14 @@ export default function NotificationsPage() {
                             <>
                               {username ? (
                                 <Link href={`/profile/${username}`} className="font-black text-[var(--text-primary)] transition-opacity hover:opacity-70">{name}</Link>
-                              ) : (
+                              ) : n.sender ? (
                                 <span className="font-black text-[var(--text-primary)]">{name}</span>
-                              )}{' '}
+                              ) : null}{' '}
                               <span>{notifText(n.type)}</span>
                             </>
                           )}
-                          {' '}
-                          <span className="font-mono-data text-[11px] text-[var(--text-muted)]">{compactTimeAgo(n.created_at)}</span>
                         </p>
+                        <p className="mt-1 font-mono-data text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">{compactTimeAgo(n.created_at)}</p>
                       </div>
 
                       <div className="flex-shrink-0">
