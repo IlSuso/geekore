@@ -14,6 +14,7 @@ async function getIgdbToken(clientId: string, secret: string): Promise<string | 
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ client_id: clientId, client_secret: secret, grant_type: 'client_credentials' }),
+    signal: AbortSignal.timeout(6000),
   })
   const data = await res.json()
   if (!data.access_token) return null
