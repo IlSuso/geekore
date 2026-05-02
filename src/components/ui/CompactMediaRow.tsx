@@ -60,6 +60,7 @@ export function CompactMediaRow({
             {title}
           </h3>
           <MediaMetaRow
+            dense
             className="mt-1"
             type={type}
             status={status}
