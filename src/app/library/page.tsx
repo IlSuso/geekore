@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/context/AuthContext'
-import { BookOpen, LayoutGrid, List, Search, X, Star, Plus, Sparkles, Clock, Trophy } from 'lucide-react'
+import { BookOpen, LayoutGrid, List, Search, X, Star, Plus, Sparkles, Clock, Trophy, BarChart3, CheckSquare, Square, Trash2, CheckCircle2, Layers } from 'lucide-react'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { PageScaffold } from '@/components/ui/PageScaffold'
@@ -31,6 +31,8 @@ type MediaEntry = {
   genres?: string[]
   external_id?: string
 }
+
+type ViewMode = 'list' | 'grid' | 'stats'
 
 const TYPES = [
   { id: 'all', label: 'Tutto' },
@@ -98,6 +100,130 @@ function LibraryStat({ label, value, accent = false, icon }: { label: string; va
   )
 }
 
+function LibraryHeatmap({ entries }: { entries: MediaEntry[] }) {
+  const weeks = useMemo(() => {
+    const now = new Date()
+    const days = Array.from({ length: 182 }, (_, index) => {
+      const date = new Date(now)
+      date.setDate(now.getDate() - (181 - index))
+      const key = date.toISOString().slice(0, 10)
+      return { key, count: 0 }
+    })
+    const map = new Map(days.map(day => [day.key, day]))
+    for (const entry of entries) {
+      const key = new Date(entry.updated_at).toISOString().slice(0, 10)
+      const bucket = map.get(key)
+      if (bucket) bucket.count += 1
+    }
+    return days
+  }, [entries])
+
+  const max = Math.max(1, ...weeks.map(day => day.count))
+
+  return (
+    <div className="rounded-[28px] border border-[rgba(230,255,61,0.16)] bg-[linear-gradient(135deg,rgba(230,255,61,0.075),rgba(20,20,27,0.94))] p-4 ring-1 ring-white/5" data-no-swipe="true">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <p className="gk-label text-[var(--accent)]">Heatmap anno</p>
+          <h2 className="gk-headline text-[var(--text-primary)]">Il ritmo della tua collezione</h2>
+        </div>
+        <span className="gk-mono text-[var(--text-muted)]">ultimi 6 mesi</span>
+      </div>
+      <div className="grid grid-flow-col grid-rows-7 gap-1 overflow-x-auto pb-1" data-horizontal-scroll="true" data-no-swipe="true">
+        {weeks.map(day => {
+          const level = day.count === 0 ? 0 : Math.max(0.18, day.count / max)
+          return (
+            <div
+              key={day.key}
+              title={`${day.key}: ${day.count} aggiornamenti`}
+              className="h-3 w-3 rounded-[4px] border border-white/5"
+              style={{ background: day.count ? `rgba(230,255,61,${level})` : 'rgba(255,255,255,0.045)' }}
+            />
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function StatsView({ entries, stats }: { entries: MediaEntry[]; stats: ReturnType<typeof computeStats> }) {
+  const typeRows = Object.entries(stats.byType).sort(([, a], [, b]) => b - a)
+  const genreRows = Object.entries(stats.byGenre).sort(([, a], [, b]) => b - a).slice(0, 10)
+  const maxType = Math.max(1, ...typeRows.map(([, count]) => count))
+  const maxGenre = Math.max(1, ...genreRows.map(([, count]) => count))
+
+  return (
+    <div className="space-y-5">
+      <LibraryHeatmap entries={entries} />
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+          <p className="gk-label mb-4">Medium</p>
+          <div className="space-y-3">
+            {typeRows.map(([type, count]) => (
+              <div key={type}>
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <span className="text-sm font-bold text-[var(--text-primary)]">{type}</span>
+                  <span className="gk-mono text-[var(--text-muted)]">{count}</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-black/30">
+                  <div className="h-full rounded-full" style={{ width: `${Math.round((count / maxType) * 100)}%`, background: TYPE_COLORS[type] || 'var(--accent)' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+          <p className="gk-label mb-4">Generi più presenti</p>
+          <div className="space-y-3">
+            {genreRows.length ? genreRows.map(([genre, count]) => (
+              <div key={genre}>
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <span className="line-clamp-1 text-sm font-bold text-[var(--text-primary)]">{genre}</span>
+                  <span className="gk-mono text-[var(--text-muted)]">{count}</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-black/30">
+                  <div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${Math.round((count / maxGenre) * 100)}%` }} />
+                </div>
+              </div>
+            )) : (
+              <p className="gk-caption">Aggiungi generi ai media per vedere questa sezione.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function computeStats(entries: MediaEntry[]) {
+  const currentYear = new Date().getFullYear()
+  const rated = entries.filter(e => typeof e.rating === 'number')
+  const averageRating = rated.length
+    ? rated.reduce((sum, e) => sum + Number(e.rating || 0), 0) / rated.length
+    : 0
+  const completed = entries.filter(e => e.status === 'completed').length
+  const byType: Record<string, number> = {}
+  const byGenre: Record<string, number> = {}
+  for (const entry of entries) {
+    const type = normalizeType(entry.type)
+    byType[type] = (byType[type] || 0) + 1
+    for (const genre of entry.genres || []) byGenre[genre] = (byGenre[genre] || 0) + 1
+  }
+
+  return {
+    total: entries.length,
+    thisYear: entries.filter(e => new Date(e.updated_at).getFullYear() === currentYear).length,
+    inProgress: entries.filter(e => e.status === 'watching' || e.status === 'reading').length,
+    completed,
+    totalProgress: entries.reduce((sum, e) => sum + (e.current_episode || 0), 0),
+    mediaTypes: new Set(entries.map(e => normalizeType(e.type))).size,
+    averageRating,
+    byType,
+    byGenre,
+  }
+}
+
 export default function LibraryPage() {
   const router = useRouter()
   const authUser = useUser()
@@ -106,8 +232,11 @@ export default function LibraryPage() {
   const [loading, setLoading] = useState(true)
   const [activeFilter, setActiveFilter] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null)
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
 
   useEffect(() => {
     if (!authUser) { router.push('/login'); return }
@@ -128,48 +257,20 @@ export default function LibraryPage() {
     let result = entries
 
     if (activeFilter !== 'all') {
-      if (isStatusFilter(activeFilter)) {
-        result = result.filter(e => (e.status || 'planning') === activeFilter)
-      } else {
-        result = result.filter(e => normalizeType(e.type) === activeFilter)
-      }
+      if (isStatusFilter(activeFilter)) result = result.filter(e => (e.status || 'planning') === activeFilter)
+      else result = result.filter(e => normalizeType(e.type) === activeFilter)
     }
 
     if (query) {
       result = result.filter(e => {
-        const haystack = [
-          e.title,
-          e.title_en || '',
-          normalizeType(e.type),
-          ...(e.genres || []),
-          getMediaStatusLabel(e.status || 'planning'),
-        ].map(normalize).join(' ')
+        const haystack = [e.title, e.title_en || '', normalizeType(e.type), ...(e.genres || []), getMediaStatusLabel(e.status || 'planning')].map(normalize).join(' ')
         return haystack.includes(query)
       })
     }
     return result
   }, [entries, activeFilter, searchTerm])
 
-  const stats = useMemo(() => {
-    const currentYear = new Date().getFullYear()
-    const rated = entries.filter(e => typeof e.rating === 'number')
-    const averageRating = rated.length
-      ? rated.reduce((sum, e) => sum + Number(e.rating || 0), 0) / rated.length
-      : 0
-    const completed = entries.filter(e => e.status === 'completed').length
-    const totalProgress = entries.reduce((sum, e) => sum + (e.current_episode || 0), 0)
-    const mediaTypes = new Set(entries.map(e => normalizeType(e.type))).size
-
-    return {
-      total: entries.length,
-      thisYear: entries.filter(e => new Date(e.updated_at).getFullYear() === currentYear).length,
-      inProgress: entries.filter(e => e.status === 'watching' || e.status === 'reading').length,
-      completed,
-      totalProgress,
-      mediaTypes,
-      averageRating,
-    }
-  }, [entries])
+  const stats = useMemo(() => computeStats(entries), [entries])
 
   const grouped = useMemo((): { status: string; items: MediaEntry[] }[] => {
     if (activeFilter !== 'all' && isStatusFilter(activeFilter)) return [{ status: activeFilter, items: filtered }]
@@ -184,6 +285,10 @@ export default function LibraryPage() {
   }, [filtered, activeFilter])
 
   function openDrawer(entry: MediaEntry) {
+    if (selectMode) {
+      toggleSelected(entry.id)
+      return
+    }
     setDrawerMedia({
       id: entry.external_id || entry.id,
       title: entry.title,
@@ -198,10 +303,46 @@ export default function LibraryPage() {
 
   const gridItems = useMemo(() => filtered.map(toRailItem), [filtered])
   const hasActiveFilters = activeFilter !== 'all' || searchTerm.trim().length > 0
+  const selectedCount = selectedIds.size
 
-  const clearFilters = () => {
-    setSearchTerm('')
-    setActiveFilter('all')
+  const clearFilters = () => { setSearchTerm(''); setActiveFilter('all') }
+
+  function toggleSelected(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectMode() {
+    setSelectMode(v => !v)
+    setSelectedIds(new Set())
+  }
+
+  async function bulkSetStatus(status: string) {
+    if (!authUser || selectedIds.size === 0 || bulkBusy) return
+    const ids = Array.from(selectedIds)
+    setBulkBusy(true)
+    const prev = entries
+    setEntries(current => current.map(entry => ids.includes(entry.id) ? { ...entry, status } : entry))
+    const { error } = await supabase.from('user_media_entries').update({ status }).eq('user_id', authUser.id).in('id', ids)
+    if (error) setEntries(prev)
+    else { setSelectedIds(new Set()); setSelectMode(false) }
+    setBulkBusy(false)
+  }
+
+  async function bulkDelete() {
+    if (!authUser || selectedIds.size === 0 || bulkBusy) return
+    const ids = Array.from(selectedIds)
+    setBulkBusy(true)
+    const prev = entries
+    setEntries(current => current.filter(entry => !ids.includes(entry.id)))
+    const { error } = await supabase.from('user_media_entries').delete().eq('user_id', authUser.id).in('id', ids)
+    if (error) setEntries(prev)
+    else { setSelectedIds(new Set()); setSelectMode(false) }
+    setBulkBusy(false)
   }
 
   return (
@@ -211,7 +352,7 @@ export default function LibraryPage() {
       icon={<BookOpen size={16} />}
       contentClassName="max-w-screen-lg pt-2 md:pt-8 pb-28"
     >
-      <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.16)] bg-[linear-gradient(135deg,rgba(139,92,246,0.14),rgba(230,255,61,0.055),rgba(20,20,27,0.92))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-5">
+      <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.16)] bg-[linear-gradient(135deg,rgba(230,255,61,0.08),rgba(20,20,27,0.92))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-5">
         <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.32)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
           <Sparkles size={12} />
           Il tuo archivio geek
@@ -219,18 +360,23 @@ export default function LibraryPage() {
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0">
             <h1 className="gk-h1 mb-2">Library compatta, non vetrina.</h1>
-            <p className="gk-body max-w-2xl">
-              Tutto quello che consumi, organizzato per stato e medium, con filtri rapidi e vista compatta per gestire davvero la collezione.
-            </p>
+            <p className="gk-body max-w-2xl">Tre viste, bulk actions e heatmap: una collezione densa da gestire davvero, non solo da guardare.</p>
           </div>
-          <Link
-            href="/discover"
-            data-no-swipe="true"
-            className="inline-flex h-10 flex-shrink-0 items-center justify-center gap-2 rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
-          >
-            <Plus size={15} />
-            Aggiungi media
-          </Link>
+          <div className="flex flex-wrap gap-2" data-no-swipe="true">
+            <button
+              type="button"
+              data-no-swipe="true"
+              onClick={toggleSelectMode}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 text-sm font-black text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
+            >
+              <CheckSquare size={15} />
+              {selectMode ? 'Annulla bulk' : 'Bulk select'}
+            </button>
+            <Link href="/discover" data-no-swipe="true" className="inline-flex h-10 flex-shrink-0 items-center justify-center gap-2 rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35">
+              <Plus size={15} />
+              Aggiungi media
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -241,132 +387,72 @@ export default function LibraryPage() {
         <LibraryStat label="Media voto" value={stats.averageRating ? stats.averageRating.toFixed(1) : '—'} icon={<Star size={16} />} />
       </div>
 
+      {entries.length > 0 && <div className="mb-5"><LibraryHeatmap entries={entries} /></div>}
+
       <div className="mb-5 space-y-3" data-no-swipe="true" data-interactive="true">
         <div className="relative">
           <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-          <input
-            data-no-swipe="true"
-            type="text"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Cerca titolo, genere, medium..."
-            className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] py-2.5 pl-10 pr-10 text-[14px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]"
-          />
-          {searchTerm && (
-            <button
-              type="button"
-              data-no-swipe="true"
-              onClick={() => setSearchTerm('')}
-              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
-              aria-label="Cancella ricerca libreria"
-            >
-              <X size={14} />
-            </button>
-          )}
+          <input data-no-swipe="true" type="text" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Cerca titolo, genere, medium..." className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] py-2.5 pl-10 pr-10 text-[14px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]" />
+          {searchTerm && <button type="button" data-no-swipe="true" onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35" aria-label="Cancella ricerca libreria"><X size={14} /></button>}
         </div>
 
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
-            <FilterBar
-              items={TYPES}
-              activeId={activeFilter}
-              onChange={(id) => setActiveFilter(id)}
-              className="mx-0 px-0"
-              chipClassName="h-8 px-3 text-[12px]"
-              ariaLabel="Filtri Library"
-            />
+            <FilterBar items={TYPES} activeId={activeFilter} onChange={(id) => setActiveFilter(id)} className="mx-0 px-0" chipClassName="h-8 px-3 text-[12px]" ariaLabel="Filtri Library" />
           </div>
           <div className="flex flex-shrink-0 items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-1" data-no-swipe="true">
-            <button
-              type="button"
-              data-no-swipe="true"
-              onClick={() => setViewMode('list')}
-              className="rounded-lg p-1.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
-              style={{ background: viewMode === 'list' ? 'var(--accent)' : 'transparent' }}
-              aria-label="Vista lista"
-              aria-pressed={viewMode === 'list'}
-            >
-              <List size={14} style={{ color: viewMode === 'list' ? '#0B0B0F' : 'var(--text-muted)' }} />
-            </button>
-            <button
-              type="button"
-              data-no-swipe="true"
-              onClick={() => setViewMode('grid')}
-              className="rounded-lg p-1.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
-              style={{ background: viewMode === 'grid' ? 'var(--accent)' : 'transparent' }}
-              aria-label="Vista griglia"
-              aria-pressed={viewMode === 'grid'}
-            >
-              <LayoutGrid size={14} style={{ color: viewMode === 'grid' ? '#0B0B0F' : 'var(--text-muted)' }} />
-            </button>
+            {([
+              ['list', <List key="list" size={14} />],
+              ['grid', <LayoutGrid key="grid" size={14} />],
+              ['stats', <BarChart3 key="stats" size={14} />],
+            ] as [ViewMode, React.ReactNode][]).map(([mode, icon]) => (
+              <button key={mode} type="button" data-no-swipe="true" onClick={() => setViewMode(mode)} className="rounded-lg p-1.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35" style={{ background: viewMode === mode ? 'var(--accent)' : 'transparent', color: viewMode === mode ? '#0B0B0F' : 'var(--text-muted)' }} aria-label={`Vista ${mode}`} aria-pressed={viewMode === mode}>
+                {icon}
+              </button>
+            ))}
           </div>
         </div>
+
+        {selectMode && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[rgba(230,255,61,0.18)] bg-[rgba(230,255,61,0.06)] px-3 py-2">
+            <span className="gk-mono text-[var(--accent)]">{selectedCount} selezionati</span>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" data-no-swipe="true" disabled={selectedCount === 0 || bulkBusy} onClick={() => bulkSetStatus('completed')} className="inline-flex items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-xs font-bold text-[var(--text-secondary)] disabled:opacity-40"><CheckCircle2 size={13} /> completati</button>
+              <button type="button" data-no-swipe="true" disabled={selectedCount === 0 || bulkBusy} onClick={() => bulkSetStatus('planning')} className="inline-flex items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-xs font-bold text-[var(--text-secondary)] disabled:opacity-40"><Layers size={13} /> wishlist</button>
+              <button type="button" data-no-swipe="true" disabled={selectedCount === 0 || bulkBusy} onClick={bulkDelete} className="inline-flex items-center gap-1 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-300 disabled:opacity-40"><Trash2 size={13} /> elimina</button>
+            </div>
+          </div>
+        )}
 
         {hasActiveFilters && (
           <div className="flex items-center justify-between rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2">
             <span className="gk-mono text-[var(--text-muted)]">{filtered.length} risultati su {entries.length}</span>
-            <button type="button" data-no-swipe="true" onClick={clearFilters} className="gk-mono rounded-lg px-2 py-1 text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35">
-              reset
-            </button>
+            <button type="button" data-no-swipe="true" onClick={clearFilters} className="gk-mono rounded-lg px-2 py-1 text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35">reset</button>
           </div>
         )}
       </div>
 
       {loading ? (
-        viewMode === 'grid' ? (
-          <MediaGridSkeleton count={15} showMeta />
-        ) : (
-          <div className="space-y-2">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="h-[74px] rounded-2xl bg-[var(--bg-card)] skeleton" />
-            ))}
-          </div>
-        )
+        viewMode === 'grid' ? <MediaGridSkeleton count={15} showMeta /> : <div className="space-y-2">{Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-[74px] rounded-2xl bg-[var(--bg-card)] skeleton" />)}</div>
       ) : filtered.length === 0 ? (
         <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-20 text-center">
-          <p className="gk-headline mb-1 text-[var(--text-primary)]">
-            {entries.length === 0 ? 'Library vuota' : 'Nessun elemento trovato'}
-          </p>
-          <p className="gk-body mx-auto mb-6 max-w-sm">
-            {entries.length === 0
-              ? 'Aggiungi media dalla sezione Discover per iniziare a costruire il tuo DNA.'
-              : hasActiveFilters
-                ? 'Prova a cambiare ricerca o filtri.'
-                : 'Prova a cambiare i filtri.'}
-          </p>
-          {entries.length === 0 ? (
-            <ActionButton href="/discover">Vai a Discover</ActionButton>
-          ) : hasActiveFilters ? (
-            <button
-              type="button"
-              data-no-swipe="true"
-              onClick={clearFilters}
-              className="inline-flex h-10 items-center justify-center rounded-xl bg-[var(--accent)] px-4 text-sm font-bold text-[#0B0B0F] transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
-            >
-              Cancella filtri
-            </button>
-          ) : null}
+          <p className="gk-headline mb-1 text-[var(--text-primary)]">{entries.length === 0 ? 'Library vuota' : 'Nessun elemento trovato'}</p>
+          <p className="gk-body mx-auto mb-6 max-w-sm">{entries.length === 0 ? 'Aggiungi media dalla sezione Discover per iniziare a costruire il tuo DNA.' : hasActiveFilters ? 'Prova a cambiare ricerca o filtri.' : 'Prova a cambiare i filtri.'}</p>
+          {entries.length === 0 ? <ActionButton href="/discover">Vai a Discover</ActionButton> : hasActiveFilters ? <button type="button" data-no-swipe="true" onClick={clearFilters} className="inline-flex h-10 items-center justify-center rounded-xl bg-[var(--accent)] px-4 text-sm font-bold text-[#0B0B0F] transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35">Cancella filtri</button> : null}
         </div>
+      ) : viewMode === 'stats' ? (
+        <StatsView entries={filtered} stats={computeStats(filtered)} />
       ) : viewMode === 'grid' ? (
-        <MediaGrid
-          items={gridItems}
-          showMetaRow
-          onItemClick={(item) => {
-            const entry = filtered.find(e => e.id === item.id)
-            if (entry) openDrawer(entry)
-          }}
-        />
+        <MediaGrid items={gridItems} showMetaRow onItemClick={(item) => { const entry = filtered.find(e => e.id === item.id); if (entry) openDrawer(entry) }} />
       ) : (
         <div className="space-y-7">
           {grouped.map(({ status, items }) => (
             <section key={status}>
-              <div className="mb-2 flex items-center gap-2">
-                <h2 className="gk-label">{getMediaStatusLabel(status)}</h2>
-                <span className="gk-mono text-[var(--text-muted)]">{items.length}</span>
-              </div>
+              <div className="mb-2 flex items-center gap-2"><h2 className="gk-label">{getMediaStatusLabel(status)}</h2><span className="gk-mono text-[var(--text-muted)]">{items.length}</span></div>
               <div className="space-y-1.5">
                 {items.map(entry => {
                   const color = TYPE_COLORS[normalizeType(entry.type)] || 'var(--border)'
+                  const selected = selectedIds.has(entry.id)
                   return (
                     <CompactMediaRow
                       key={entry.id}
@@ -375,22 +461,8 @@ export default function LibraryPage() {
                       coverImage={entry.cover_image}
                       status={entry.status || 'planning'}
                       score={entry.rating}
-                      progress={entry.episodes && entry.episodes > 0
-                        ? { current: entry.current_episode || 0, total: entry.episodes }
-                        : undefined}
-                      trailing={(
-                        <div className="flex min-w-[54px] flex-col items-end gap-1">
-                          <span className="h-2 w-2 rounded-full" style={{ background: color }} />
-                          {typeof entry.rating === 'number' ? (
-                            <span className="inline-flex items-center gap-1 font-mono-data text-[12px] font-bold text-[var(--text-primary)]">
-                              <Star size={11} className="text-[var(--accent)]" fill="var(--accent)" />
-                              {entry.rating}
-                            </span>
-                          ) : (
-                            <span className="gk-mono text-[var(--text-muted)]">—</span>
-                          )}
-                        </div>
-                      )}
+                      progress={entry.episodes && entry.episodes > 0 ? { current: entry.current_episode || 0, total: entry.episodes } : undefined}
+                      trailing={<div className="flex min-w-[54px] flex-col items-end gap-1">{selectMode ? (selected ? <CheckSquare size={18} className="text-[var(--accent)]" /> : <Square size={18} className="text-[var(--text-muted)]" />) : <><span className="h-2 w-2 rounded-full" style={{ background: color }} />{typeof entry.rating === 'number' ? <span className="inline-flex items-center gap-1 font-mono-data text-[12px] font-bold text-[var(--text-primary)]"><Star size={11} className="text-[var(--accent)]" fill="var(--accent)" />{entry.rating}</span> : <span className="gk-mono text-[var(--text-muted)]">—</span>}</>}</div>}
                       onClick={() => openDrawer(entry)}
                     />
                   )
@@ -401,10 +473,7 @@ export default function LibraryPage() {
         </div>
       )}
 
-      <MediaDetailsDrawer
-        media={drawerMedia}
-        onClose={() => setDrawerMedia(null)}
-      />
+      <MediaDetailsDrawer media={drawerMedia} onClose={() => setDrawerMedia(null)} />
     </PageScaffold>
   )
 }
