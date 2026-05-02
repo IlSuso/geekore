@@ -29,12 +29,15 @@ export async function POST(request: NextRequest) {
   const expiresAt = mood ? new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString() : null
 
   // Salva in user_preferences (persistenza leggera)
-  await supabase.from('user_preferences').upsert({
+  const { error } = await supabase.from('user_preferences').upsert({
     user_id: user.id,
     last_mood: mood,
     mood_expires_at: expiresAt,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id' })
+  if (error) {
+    return NextResponse.json({ error: 'Mood non salvato' }, { status: 500, headers: rl.headers })
+  }
 
   // Risposta con cookie per accesso rapido lato server (TTL 4 ore)
   const res = NextResponse.json({ success: true, mood, expiresAt }, { headers: rl.headers })
