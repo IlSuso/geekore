@@ -17,51 +17,58 @@ export function EditPostModal({
   onSave: () => void
 }) {
   return (
-    <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/80 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget && !window.getSelection()?.toString()) onClose() }}>
-      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-lg p-6" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-white">Modifica post</h3>
-          <button onClick={onClose} className="text-zinc-500 hover:text-white transition"><X size={18} /></button>
+    <div
+      className="fixed inset-0 z-[600] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+      onMouseDown={(e) => { if (e.target === e.currentTarget && !window.getSelection()?.toString()) onClose() }}
+    >
+      <div
+        className="w-full max-w-lg overflow-hidden rounded-[28px] border border-[var(--border)] bg-[var(--bg-primary)] shadow-[0_24px_80px_rgba(0,0,0,0.55)]"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.08),rgba(139,92,246,0.055),transparent)] px-5 py-4">
+          <div>
+            <p className="gk-label text-[var(--accent)]">Post editor</p>
+            <h3 className="gk-title text-[var(--text-primary)]">Modifica post</h3>
+          </div>
+          <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-2xl border border-[var(--border)] text-[var(--text-muted)] transition hover:text-white">
+            <X size={17} />
+          </button>
         </div>
-        <textarea
-          value={editContent}
-          onChange={e => setEditContent(e.target.value.slice(0, 2000))}
-          rows={5}
-          autoFocus
-          className="w-full bg-zinc-800 border border-zinc-700 focus:border-zinc-600 focus:outline-none rounded-2xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none resize-none transition mb-4"
-        />
-        <div className="flex gap-2 justify-end">
-          <button onClick={onClose} className="px-5 py-2.5 rounded-xl border border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-sm font-semibold transition">
-            Annulla
-          </button>
-          <button onClick={onSave} disabled={!editContent.trim()} className="px-5 py-2.5 rounded-xl disabled:opacity-40 text-sm font-semibold transition" style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
-            Salva
-          </button>
+        <div className="p-5">
+          <textarea
+            value={editContent}
+            onChange={e => setEditContent(e.target.value.slice(0, 2000))}
+            rows={5}
+            autoFocus
+            className="mb-4 w-full resize-none rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition focus:border-[rgba(230,255,61,0.45)]"
+          />
+          <div className="flex items-center justify-between gap-3">
+            <span className="gk-mono text-[var(--text-muted)]">{editContent.length}/2000</span>
+            <div className="flex gap-2">
+              <button onClick={onClose} className="rounded-2xl border border-[var(--border)] px-5 py-2.5 text-sm font-bold text-[var(--text-secondary)] transition hover:text-white">
+                Annulla
+              </button>
+              <button onClick={onSave} disabled={!editContent.trim()} className="rounded-2xl px-5 py-2.5 text-sm font-black transition disabled:opacity-40" style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
+                Salva
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-export function NewPostsBanner({
-  count,
-  onShow,
-}: {
-  count: number
-  onShow: () => void
-}) {
+export function NewPostsBanner({ count, onShow }: { count: number; onShow: () => void }) {
   if (count <= 0) return null
   return (
-    <div className="sticky top-[52px] z-10 flex justify-center py-2">
+    <div className="sticky top-[52px] z-10 flex justify-center py-2 pointer-events-none">
       <button
+        type="button"
         onClick={onShow}
-        className="flex items-center gap-2 px-5 py-2 rounded-full text-[13px] font-semibold shadow-lg transition-all hover:scale-105 animate-bounce-in"
-        style={{
-          background: 'var(--bg-card)',
-          color: 'var(--text-primary)',
-          border: '0.5px solid var(--border)',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-        }}
+        data-no-swipe="true"
+        className="pointer-events-auto flex items-center gap-2 rounded-full px-5 py-2 text-[13px] font-black shadow-lg transition-all hover:scale-105 animate-bounce-in"
+        style={{ background: 'var(--accent)', color: '#0B0B0F', boxShadow: '0 4px 24px rgba(230,255,61,0.20)' }}
       >
         <ArrowUp size={14} />
         {count === 1 ? '1 nuovo post' : `${count} nuovi post`}
@@ -84,19 +91,18 @@ export function FeedFilterTabs({
   labels: { filterAll: string; filterFollowing: string }
 }) {
   return (
-    <div className="flex items-stretch mb-0 mt-1 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/60 px-1">
+    <div className="mb-0 mt-1 flex items-stretch rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/80 p-1 ring-1 ring-white/5">
       {(['all', 'following'] as const).map(filter => (
         <button
           key={filter}
+          type="button"
           data-testid={`filter-${filter}`}
+          data-no-swipe="true"
           onClick={() => onFilterChange(filter)}
-          className={`relative flex-1 py-3 text-[13px] font-bold transition-all ${feedFilter === filter ? '' : 'text-[var(--text-muted)]'}`}
-          style={{ color: feedFilter === filter ? 'var(--accent)' : undefined }}
+          className="relative flex-1 rounded-xl py-2.5 text-[13px] font-black transition-all"
+          style={feedFilter === filter ? { background: 'rgba(230,255,61,0.09)', color: 'var(--accent)' } : { color: 'var(--text-muted)' }}
         >
           {filter === 'all' ? labels.filterAll : labels.filterFollowing}
-          {feedFilter === filter && (
-            <span className="absolute bottom-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full" style={{ background: 'var(--accent)' }} />
-          )}
         </button>
       ))}
 
@@ -129,33 +135,25 @@ export function MediumTypeChipRow({
       <div className="mb-2 flex items-center justify-between">
         <p className="gk-label">Medium</p>
         {categoryFilter && (
-          <button
-            type="button"
-            onClick={() => setCategoryFilter('')}
-            className="gk-mono text-[var(--accent)]"
-          >
+          <button type="button" onClick={() => setCategoryFilter('')} data-no-swipe="true" className="gk-mono text-[var(--accent)]">
             reset
           </button>
         )}
       </div>
-      <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+      <div className="flex gap-2 overflow-x-auto scrollbar-hide" data-no-swipe="true">
         {chips.map(chip => {
           const parsedActive = parseCategoryString(categoryFilter)
-          const isActive = chip.value === ''
-            ? categoryFilter === ''
-            : parsedActive?.category === chip.value
+          const isActive = chip.value === '' ? categoryFilter === '' : parsedActive?.category === chip.value
           return (
             <button
               key={chip.value || 'all'}
+              type="button"
+              data-no-swipe="true"
               onClick={() => setCategoryFilter(isActive && chip.value !== '' ? '' : chip.value)}
               className="flex-shrink-0 rounded-full border px-3.5 py-1.5 text-[12px] font-bold transition-all"
               style={{
-                background: isActive
-                  ? (chip.value ? `color-mix(in srgb, ${chip.color} 18%, transparent)` : 'var(--accent)')
-                  : 'var(--bg-card)',
-                color: isActive
-                  ? (chip.value ? chip.color : '#0B0B0F')
-                  : 'var(--text-secondary)',
+                background: isActive ? (chip.value ? `color-mix(in srgb, ${chip.color} 18%, transparent)` : 'var(--accent)') : 'var(--bg-card)',
+                color: isActive ? (chip.value ? chip.color : '#0B0B0F') : 'var(--text-secondary)',
                 borderColor: isActive ? chip.color : 'var(--border)',
                 boxShadow: isActive && chip.value ? `0 0 22px color-mix(in srgb, ${chip.color} 18%, transparent)` : undefined,
               }}
@@ -182,24 +180,27 @@ export function EmptyFeedState({
   clearCategoryFilter: () => void
 }) {
   return (
-    <div className="text-center py-24 px-8">
-      <div className="w-16 h-16 rounded-full border-2 border-[var(--border)] flex items-center justify-center mx-auto mb-4">
+    <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-8 py-20 text-center">
+      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[rgba(230,255,61,0.22)] bg-[rgba(230,255,61,0.06)]">
         <Sparkles size={28} style={{ color: 'var(--accent)' }} />
       </div>
-      <p className="text-[16px] font-semibold text-[var(--text-primary)] mb-1">
+      <p className="gk-headline mb-1 text-[var(--text-primary)]">
         {categoryFilter
           ? `Nessun post per "${parseCategoryString(categoryFilter)?.subcategory || categoryFilter}"`
           : feedFilter === 'following' ? labels.noFollowingTitle : labels.emptyTitle}
       </p>
-      <p className="text-[14px] text-[var(--text-secondary)]">
+      <p className="gk-body mx-auto max-w-sm">
         {categoryFilter
           ? 'Sii il primo a pubblicare in questa categoria!'
           : feedFilter === 'following' ? labels.noFollowingHint : labels.emptyHint}
       </p>
       {categoryFilter && (
-        <button onClick={clearCategoryFilter}
-          className="mt-4 px-5 py-2 rounded-full text-[13px] font-semibold transition-all"
-          style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+        <button
+          type="button"
+          data-no-swipe="true"
+          onClick={clearCategoryFilter}
+          className="mt-5 rounded-2xl border border-[var(--border)] px-5 py-2 text-[13px] font-bold text-[var(--text-secondary)] transition-all hover:text-[var(--text-primary)]"
+        >
           Rimuovi filtro
         </button>
       )}
