@@ -47,12 +47,17 @@ export function PosterCard({
 }: PosterCardProps) {
   const hasCover = !!coverImage
   const collectionStatus = isInCollection ? 'collection' : isWishlisted ? 'wishlist' : null
+  const Component = onClick ? 'button' : 'article'
 
   return (
-    <article
-      className={`group relative min-w-0 ${onClick ? 'cursor-pointer' : ''} ${className}`}
-      onClick={onClick}
+    <Component
+      type={onClick ? 'button' : undefined}
+      data-no-swipe="true"
+      className={`group relative min-w-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 rounded-2xl ${onClick ? 'cursor-pointer' : ''} ${className}`}
+      onClick={(event: any) => { event.stopPropagation?.(); onClick?.() }}
+      onPointerDown={(event: any) => event.stopPropagation?.()}
       style={getMediaTypeAccentStyle(type)}
+      aria-label={onClick ? `Apri ${title}` : undefined}
     >
       <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]">
         {hasCover ? (
@@ -73,18 +78,18 @@ export function PosterCard({
         )}
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80" />
-        <div className="absolute left-2 top-2">
+        <div className="absolute left-2 top-2 pointer-events-none">
           <MediaTypeBadge type={type} size="xs" variant="soft" />
         </div>
 
         {score != null && score !== '' && !showMetaRow && (
-          <div className="absolute bottom-2 left-2 rounded-full border border-white/10 bg-black/70 px-2 py-1 font-mono-data text-[10px] font-bold text-white backdrop-blur-sm">
+          <div className="pointer-events-none absolute bottom-2 left-2 rounded-full border border-white/10 bg-black/70 px-2 py-1 font-mono-data text-[10px] font-bold text-white backdrop-blur-sm">
             {score}
           </div>
         )}
 
         {collectionStatus && (
-          <div className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-lg shadow-lg"
+          <div className="pointer-events-none absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-lg shadow-lg"
             style={collectionStatus === 'collection'
               ? { background: 'var(--accent)', color: '#0B0B0F' }
               : { background: 'rgba(0,0,0,0.72)', color: 'var(--accent)', border: '1px solid rgba(230,255,61,0.45)' }}
@@ -94,7 +99,7 @@ export function PosterCard({
         )}
 
         {actions && (
-          <div className="absolute inset-0 flex items-end justify-end p-2 opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="absolute inset-0 flex items-end justify-end p-2 opacity-0 transition-opacity group-hover:opacity-100" data-no-swipe="true">
             {actions}
           </div>
         )}
@@ -119,6 +124,6 @@ export function PosterCard({
           </p>
         )}
       </div>
-    </article>
+    </Component>
   )
 }
