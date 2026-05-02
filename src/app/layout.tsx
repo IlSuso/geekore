@@ -4,6 +4,7 @@ import './globals.css'
 import './visual-vision.css'
 import './visual-vision-completion.css'
 import './visual-vision-pages.css'
+import './roadmap.css'
 import Navbar from '@/components/Navbar'
 
 // Manteniamo next/font come fallback self-hosted e usiamo i link nel <head>
