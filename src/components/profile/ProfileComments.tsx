@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
-import { MessageSquare, Send, MoreHorizontal, Loader2 } from 'lucide-react'
+import { MessageSquare, Send, MoreHorizontal, Loader2, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -25,6 +25,20 @@ interface ProfileCommentsProps {
   profileId: string
   profileUsername: string
   isOwner: boolean
+}
+
+function CommentAvatar({ author }: { author: Comment['author'] }) {
+  return (
+    <div className="h-10 w-10 overflow-hidden rounded-2xl bg-[var(--bg-secondary)] ring-1 ring-white/5">
+      {author?.avatar_url ? (
+        <img src={author.avatar_url} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,rgba(230,255,61,0.18),rgba(139,92,246,0.18))] text-sm font-black text-[var(--text-primary)]">
+          {(author?.display_name?.[0] || author?.username?.[0] || '?').toUpperCase()}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function ProfileComments({ profileId, profileUsername, isOwner }: ProfileCommentsProps) {
@@ -52,7 +66,7 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
       await loadComments()
     }
     init()
-  }, [profileId])
+  }, [profileId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadComments = async () => {
     setLoading(true)
@@ -80,7 +94,7 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
 
   const handlePost = async () => {
     if (!newComment.trim() || !currentUserId || posting) return
-    if (newComment.trim().length > 500) { return }
+    if (newComment.trim().length > 500) return
 
     setPosting(true)
     const optimistic: Comment = {
@@ -123,84 +137,95 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ comment_id: commentId }),
     }).catch(() => null)
-    if (!res?.ok) { return }
+    if (!res?.ok) return
     setComments(prev => prev.filter(c => c.id !== commentId))
   }
 
   return (
     <>
       <div className="mt-12">
-        <div className="flex items-center gap-2 mb-6">
-          <MessageSquare size={18} className="text-zinc-400" />
-          <h3 className="text-xl font-semibold">Bacheca</h3>
-          <span className="text-xs text-zinc-600 bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full ml-1">
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div>
+            <div className="mb-1 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.30)] bg-[rgba(230,255,61,0.07)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+              <Sparkles size={12} />
+              Profile wall
+            </div>
+            <h3 className="gk-title text-[var(--text-primary)]">Bacheca</h3>
+            <p className="gk-caption">Messaggi pubblici lasciati dalla community.</p>
+          </div>
+          <span className="rounded-full border border-[var(--border)] bg-[var(--bg-card)] px-2.5 py-1 font-mono-data text-xs font-black text-[var(--text-secondary)]">
             {comments.length}
           </span>
         </div>
 
         {currentUserId && (
-          <div className="mb-6 flex gap-3">
+          <div className="mb-5 rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-3">
             <textarea
               value={newComment}
               onChange={e => setNewComment(e.target.value.slice(0, 500))}
               placeholder={`Lascia un messaggio su @${profileUsername}...`}
-              rows={2}
-              className="flex-1 bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none resize-none transition-colors"
+              rows={3}
+              className="mb-3 w-full resize-none bg-transparent px-1 text-sm leading-relaxed text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
             />
-            <button
-              onClick={handlePost}
-              disabled={!newComment.trim() || posting}
-              className="self-end px-4 py-3 disabled:opacity-40 rounded-2xl transition"
-              style={{ background: 'var(--accent)', color: '#0B0B0F' }}
-            >
-              {posting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-            </button>
+            <div className="flex items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-3">
+              <span className={`font-mono-data text-[11px] font-bold ${newComment.length >= 480 ? 'text-red-400' : 'text-[var(--text-muted)]'}`}>
+                {500 - newComment.length}
+              </span>
+              <button
+                onClick={handlePost}
+                disabled={!newComment.trim() || posting}
+                className="inline-flex h-9 items-center gap-2 rounded-2xl px-4 text-xs font-black transition-all disabled:opacity-40"
+                style={{ background: 'var(--accent)', color: '#0B0B0F' }}
+              >
+                {posting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                Pubblica
+              </button>
+            </div>
           </div>
         )}
 
         {loading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 size={24} className="animate-spin" style={{ color: 'var(--accent)' }} />
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-[86px] rounded-[20px] bg-[var(--bg-card)] skeleton" />
+            ))}
           </div>
         ) : comments.length === 0 ? (
-          <div className="text-center py-10 text-zinc-600 text-sm">
-            Nessun messaggio ancora. Sii il primo a scrivere qualcosa!
+          <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-14 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-secondary)]">
+              <MessageSquare size={28} className="text-[var(--text-muted)]" />
+            </div>
+            <p className="gk-headline mb-1 text-[var(--text-primary)]">Nessun messaggio ancora</p>
+            <p className="gk-body mx-auto max-w-sm">Sii il primo a lasciare un commento su questo profilo.</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {comments.map(comment => (
-              <div key={comment.id} className="flex gap-3 p-4 bg-zinc-900 border border-zinc-800 rounded-2xl group">
+              <div key={comment.id} className="group flex gap-3 rounded-[20px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 transition-all hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)]">
                 <Link href={`/profile/${comment.author?.username}`} className="flex-shrink-0">
-                  <div className="w-9 h-9 rounded-xl overflow-hidden bg-zinc-800">
-                    {comment.author?.avatar_url ? (
-                      <img src={comment.author.avatar_url} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-zinc-700 flex items-center justify-center text-white font-bold text-sm">
-                        {(comment.author?.display_name?.[0] || comment.author?.username?.[0] || '?').toUpperCase()}
-                      </div>
-                    )}
-                  </div>
+                  <CommentAvatar author={comment.author} />
                 </Link>
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <Link href={`/profile/${comment.author?.username}`} className="text-sm font-semibold hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>
+                    <Link href={`/profile/${comment.author?.username}`} className="truncate text-sm font-black text-[var(--text-primary)] transition-colors hover:text-[var(--accent)]">
                       @{comment.author?.username || 'utente'}
                     </Link>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-zinc-600">
+                    <div className="flex flex-shrink-0 items-center gap-2">
+                      <span className="gk-mono text-[var(--text-muted)]">
                         {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: it })}
                       </span>
                       {(currentUserId === comment.author_id || isOwner) && (
                         <button
                           onClick={() => setConfirmDelete({ id: comment.id, authorId: comment.author_id })}
-                          className="opacity-40 hover:opacity-100 text-zinc-500 hover:text-white transition-all"
+                          className="rounded-lg p-1 text-[var(--text-muted)] opacity-55 transition-all hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)] hover:opacity-100"
+                          aria-label="Opzioni commento"
                         >
                           <MoreHorizontal size={15} />
                         </button>
                       )}
                     </div>
                   </div>
-                  <p className="text-sm text-zinc-300 mt-1 leading-relaxed">{comment.content}</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-[var(--text-secondary)]">{comment.content}</p>
                 </div>
               </div>
             ))}
@@ -210,31 +235,30 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
 
       {confirmDelete !== null && portalMounted && createPortal(
         <div
-          style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.6)' }}
+          className="fixed inset-0 z-[20000] flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center"
           onClick={() => setConfirmDelete(null)}
         >
           <div
-            style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0 16px 16px' }}
+            className="w-full max-w-sm overflow-hidden rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
-            <div style={{ background: '#27272a', borderRadius: 16, overflow: 'hidden', marginBottom: 8 }}>
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                <p style={{ color: '#a1a1aa', fontSize: 12, textAlign: 'center' }}>Eliminare il commento?</p>
-              </div>
-              <button
-                onClick={() => {
-                  const target = confirmDelete
-                  setConfirmDelete(null)
-                  handleDelete(target.id, target.authorId)
-                }}
-                style={{ width: '100%', padding: '14px', color: '#f87171', fontWeight: 600, fontSize: 15, background: 'none', border: 'none', cursor: 'pointer' }}
-              >
-                Elimina
-              </button>
+            <div className="border-b border-[var(--border)] px-5 py-4 text-center">
+              <p className="gk-headline text-[var(--text-primary)]">Eliminare il commento?</p>
+              <p className="gk-caption mt-1">L’azione non può essere annullata.</p>
             </div>
             <button
+              onClick={() => {
+                const target = confirmDelete
+                setConfirmDelete(null)
+                handleDelete(target.id, target.authorId)
+              }}
+              className="w-full border-b border-[var(--border-subtle)] px-5 py-4 text-sm font-black text-red-400 transition-colors hover:bg-red-500/10"
+            >
+              Elimina
+            </button>
+            <button
               onClick={() => setConfirmDelete(null)}
-              style={{ width: '100%', padding: '14px', background: '#27272a', borderRadius: 16, color: 'white', fontWeight: 600, fontSize: 15, border: 'none', cursor: 'pointer' }}
+              className="w-full px-5 py-4 text-sm font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-card-hover)]"
             >
               Annulla
             </button>
