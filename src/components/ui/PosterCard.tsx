@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
-import { Check, BookmarkCheck, ImageIcon } from 'lucide-react'
+import { Check, BookmarkCheck } from 'lucide-react'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 import { MediaMetaRow } from '@/components/ui/MediaMetaRow'
-import { getMediaTypeAccentStyle } from '@/lib/mediaTypes'
+import { getMediaTypeAccentStyle, getMediaTypeColor } from '@/lib/mediaTypes'
+import { getMediaStatusLabel } from '@/lib/mediaStatus'
 
 interface PosterCardProps {
   title: string
@@ -45,10 +46,15 @@ function PosterCardContent({
 }: Omit<PosterCardProps, 'onClick' | 'className'>) {
   const hasCover = !!coverImage
   const collectionStatus = isInCollection ? 'collection' : isWishlisted ? 'wishlist' : null
+  const typeColor = getMediaTypeColor(type)
+  const visibleStatus = status || (isInCollection ? 'completed' : isWishlisted ? 'planned' : null)
 
   return (
     <>
-      <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]">
+      <div
+        className="gk-poster-first relative aspect-[2/3] overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]"
+        style={{ boxShadow: `0 10px 30px rgba(0,0,0,0.22), inset 0 -3px 0 ${typeColor}` }}
+      >
         {hasCover ? (
           <img
             src={coverImage || undefined}
@@ -58,15 +64,12 @@ function PosterCardContent({
             className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04] ${imageClassName || ''}`}
           />
         ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-3 text-center text-[var(--text-muted)]">
-            <ImageIcon size={28} strokeWidth={1.4} />
-            <span className="line-clamp-3 text-[12px] font-semibold leading-tight text-[var(--text-secondary)]">
-              {title}
-            </span>
+          <div className="gk-cover-placeholder h-full w-full" style={{ ['--gk-type' as string]: typeColor }}>
+            <span className="line-clamp-5">{title}</span>
           </div>
         )}
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/86 via-black/24 to-transparent opacity-90" />
         <div className="pointer-events-none absolute left-2 top-2">
           <MediaTypeBadge type={type} size="xs" variant="soft" />
         </div>
@@ -78,12 +81,24 @@ function PosterCardContent({
         )}
 
         {collectionStatus && (
-          <div className="pointer-events-none absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-lg shadow-lg"
-            style={collectionStatus === 'collection'
-              ? { background: 'var(--accent)', color: '#0B0B0F' }
-              : { background: 'rgba(0,0,0,0.72)', color: 'var(--accent)', border: '1px solid rgba(230,255,61,0.45)' }}
-          >
-            {collectionStatus === 'collection' ? <Check size={12} strokeWidth={2.6} /> : <BookmarkCheck size={12} strokeWidth={2.2} />}
+          <div className="pointer-events-none absolute right-2 top-2">
+            {collectionStatus === 'collection' ? (
+              <div className="gk-status-pill !static !bg-[var(--accent)] !text-[#0B0B0F]">
+                <Check size={10} strokeWidth={2.6} />
+                {getMediaStatusLabel(visibleStatus)}
+              </div>
+            ) : (
+              <div className="gk-status-pill !static">
+                <BookmarkCheck size={10} strokeWidth={2.2} />
+                Wishlist
+              </div>
+            )}
+          </div>
+        )}
+
+        {!collectionStatus && visibleStatus && (
+          <div className="pointer-events-none absolute right-2 top-2">
+            <div className="gk-status-pill !static">{getMediaStatusLabel(visibleStatus)}</div>
           </div>
         )}
 
@@ -99,14 +114,7 @@ function PosterCardContent({
           {title}
         </h3>
         {showMetaRow ? (
-          <MediaMetaRow
-            className="mt-2"
-            type={type}
-            status={status}
-            year={year}
-            score={score}
-            progress={progress}
-          />
+          <MediaMetaRow className="mt-2" type={type} status={status} year={year} score={score} progress={progress} />
         ) : (year || meta) && (
           <p className="mt-1 truncate font-mono-data text-[11px] text-[var(--text-muted)]">
             {[year, meta].filter(Boolean).join(' · ')}

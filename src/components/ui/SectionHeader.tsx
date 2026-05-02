@@ -15,27 +15,26 @@ interface SectionHeaderProps {
 }
 
 export function SectionHeader({ eyebrow, title, description, action, icon, className = '' }: SectionHeaderProps) {
-  const actionClass = 'rounded-lg px-1 py-0.5 text-[12px] font-bold transition-colors hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35'
-  const actionStyle = { color: 'var(--accent)' }
+  const actionClass = 'inline-flex min-h-9 items-center rounded-2xl border border-[rgba(230,255,61,0.22)] bg-[rgba(230,255,61,0.07)] px-3 py-1 text-[12px] font-black text-[var(--accent)] transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35'
 
   return (
-    <div className={`flex items-end justify-between gap-4 ${className}`} data-no-swipe="true">
+    <div className={`gk-surface flex items-end justify-between gap-4 overflow-hidden p-4 md:p-5 ${className}`} data-no-swipe="true">
       <div className="min-w-0">
         {eyebrow && (
-          <div className="gk-label mb-1.5" style={{ color: 'var(--accent)' }}>
+          <div className="gk-label mb-2 text-[var(--accent)]">
             {eyebrow}
           </div>
         )}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-3">
           {icon && (
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-card-hover)] text-[var(--text-secondary)]">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[rgba(230,255,61,0.18)] bg-[rgba(230,255,61,0.07)] text-[var(--accent)] shadow-[0_0_24px_rgba(230,255,61,0.08)]">
               {icon}
             </div>
           )}
           <h2 className="gk-title truncate text-[var(--text-primary)]">{title}</h2>
         </div>
         {description && (
-          <p className="mt-1 max-w-xl text-[13px] leading-relaxed text-[var(--text-secondary)]">
+          <p className="gk-body mt-2 max-w-xl">
             {description}
           </p>
         )}
@@ -47,7 +46,6 @@ export function SectionHeader({ eyebrow, title, description, action, icon, class
             href={action.href}
             data-no-swipe="true"
             className={actionClass}
-            style={actionStyle}
             onClick={event => event.stopPropagation()}
             onPointerDown={event => event.stopPropagation()}
           >
@@ -60,7 +58,6 @@ export function SectionHeader({ eyebrow, title, description, action, icon, class
             onClick={(event) => { event.stopPropagation(); action.onClick?.() }}
             onPointerDown={event => event.stopPropagation()}
             className={actionClass}
-            style={actionStyle}
           >
             {action.label}
           </button>

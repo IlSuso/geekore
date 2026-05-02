@@ -12,7 +12,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/context/AuthContext'
 import { Avatar, getLocalAvatarSvg } from '@/components/ui/Avatar'
 import { useLocale } from '@/lib/locale'
-import { GeekoreMonogram, GeekoreWordmark } from '@/components/ui/GeekoreWordmark'
+import { GeekoreWordmark } from '@/components/ui/GeekoreWordmark'
 
 const AUTH_PATHS = ['/login', '/register', '/auth/confirm', '/forgot-password', '/auth/reset-password', '/onboarding']
 
@@ -155,15 +155,15 @@ export default function Navbar() {
     <>
       <aside
         data-no-swipe="true"
-        className="hidden md:flex fixed left-0 top-0 bottom-0 z-[100] w-[200px] flex-col border-r border-[var(--border)] bg-[rgba(11,11,15,0.96)] px-3 py-5 backdrop-blur-2xl"
+        className="hidden md:flex fixed left-0 top-0 bottom-0 z-[100] w-[240px] flex-col border-r border-[var(--border)] bg-[rgba(11,11,15,0.96)] px-4 py-5 backdrop-blur-2xl"
       >
-        <div className="mb-7 flex items-center gap-2 px-1.5">
+        <div className="mb-8 flex items-center gap-2 px-1">
           <Link href="/home" data-no-swipe="true" className="inline-flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 rounded-xl">
             <GeekoreWordmark size="md" />
           </Link>
         </div>
 
-        <nav className="space-y-1" aria-label="Navigazione principale desktop">
+        <nav className="space-y-1.5" aria-label="Navigazione principale desktop">
           {NAV_ITEMS.map((item) => {
             const itemTab = pathnameToTab(item.href)
             const isActive = activeTab ? activeTab === itemTab : (item.href === '/home' ? pathname === '/home' || pathname === '/' : pathname === item.href)
@@ -175,31 +175,32 @@ export default function Navbar() {
                 data-testid={`nav-${item.href.replace('/', '')}`}
                 onMouseEnter={item.href === '/for-you' && !isActive ? () => fetch('/api/recommendations?type=all', { credentials: 'include' }).catch(() => {}) : undefined}
                 onClick={() => navigateToTab(item.href)}
-                className="flex h-9 w-full items-center gap-2.5 rounded-xl px-2.5 text-left text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
+                className="relative flex h-11 w-full items-center gap-3 overflow-hidden rounded-2xl px-3 text-left text-[13px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
                 style={isActive
-                  ? { background: 'rgba(230,255,61,0.08)', color: 'var(--accent)' }
-                  : { color: 'var(--text-secondary)' }}
+                  ? { background: 'rgba(230,255,61,0.085)', color: 'var(--accent)', border: '1px solid rgba(230,255,61,0.16)' }
+                  : { color: 'var(--text-secondary)', border: '1px solid transparent' }}
                 aria-current={isActive ? 'page' : undefined}
               >
-                <span className="w-4 text-center text-[14px] leading-none">{item.glyph}</span>
+                {isActive && <span className="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-[var(--accent)]" />}
+                <span className="w-5 text-center font-mono-data text-[15px] leading-none">{item.glyph}</span>
                 <span>{item.label}</span>
               </button>
             )
           })}
         </nav>
 
-        <div ref={searchRef} className="relative mt-5">
-          <Search size={13} className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${searchLoading ? 'animate-pulse' : 'text-zinc-500'}`} style={searchLoading ? { color: 'var(--accent)' } : {}} />
+        <div ref={searchRef} className="relative mt-6">
+          <Search size={13} className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${searchLoading ? 'animate-pulse' : 'text-[var(--text-muted)]'}`} style={searchLoading ? { color: 'var(--accent)' } : {}} />
           <input
             ref={searchInputRef}
             data-no-swipe="true"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Cerca utenti..."
-            className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] py-2 pl-8 pr-8 text-[12px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-colors focus:border-[rgba(230,255,61,0.45)]"
+            className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] py-2.5 pl-8 pr-8 text-[12px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-colors focus:border-[rgba(230,255,61,0.45)]"
           />
           {searchQuery && (
-            <button type="button" data-no-swipe="true" onClick={clearSearch} className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-lg text-zinc-500 hover:text-zinc-300" aria-label="Cancella ricerca">
+            <button type="button" data-no-swipe="true" onClick={clearSearch} className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)]" aria-label="Cancella ricerca">
               <X size={12} />
             </button>
           )}
@@ -228,7 +229,7 @@ export default function Navbar() {
         </div>
 
         <div className="mt-auto border-t border-[var(--border-subtle)] pt-3">
-          <Link href="/notifications" data-no-swipe="true" className="mb-2 flex h-9 items-center gap-2.5 rounded-xl px-2.5 text-[13px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35">
+          <Link href="/notifications" data-no-swipe="true" className="mb-2 flex h-10 items-center gap-2.5 rounded-2xl px-3 text-[13px] font-bold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35">
             <Bell size={15} />
             Notifiche
           </Link>
@@ -238,7 +239,7 @@ export default function Navbar() {
               type="button"
               data-no-swipe="true"
               onClick={() => setMenuOpen(o => !o)}
-              className={`flex w-full items-center gap-2 rounded-2xl px-2 py-2 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${menuOpen ? 'bg-[var(--bg-card-hover)]' : 'hover:bg-[var(--bg-card-hover)]'}`}
+              className={`flex w-full items-center gap-2 rounded-2xl border px-2 py-2 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${menuOpen ? 'border-[rgba(230,255,61,0.18)] bg-[rgba(230,255,61,0.06)]' : 'border-transparent hover:bg-[var(--bg-card-hover)]'}`}
               aria-label="Menu account"
             >
               <Avatar src={avatarSrc} username={currentUsername || 'me'} displayName={currentDisplayName || 'Utente'} size={28} />
@@ -246,7 +247,7 @@ export default function Navbar() {
                 <p className="truncate text-[12px] font-bold text-[var(--text-primary)]">{currentDisplayName || currentUsername || 'Utente'}</p>
                 <p className="gk-mono truncate text-[var(--text-muted)]">{currentUsername ? `@${currentUsername}` : 'L42 · 247'}</p>
               </div>
-              <ChevronDown size={13} className={`text-zinc-500 transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown size={13} className={`text-[var(--text-muted)] transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {menuOpen && (
@@ -270,7 +271,7 @@ export default function Navbar() {
       </aside>
 
       <nav className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100]" data-no-swipe="true" style={{ paddingBottom: 'env(safe-area-inset-bottom)', background: 'rgba(11,11,15,0.97)' }}>
-        <div className="flex h-[56px] items-stretch">
+        <div className="flex h-[58px] items-stretch px-1">
           {NAV_ITEMS.map((item) => {
             const itemTab = pathnameToTab(item.href)
             const isActive = activeTab
@@ -286,15 +287,15 @@ export default function Navbar() {
                 onClick={() => navigateToTab(item.href)}
                 aria-current={isActive ? 'page' : undefined}
               >
-                {isActive && <span className="absolute top-0 left-1/2 h-[2px] w-6 -translate-x-1/2 rounded-full bg-[var(--accent)]" />}
+                {isActive && <span className="absolute top-0 left-1/2 h-[2px] w-7 -translate-x-1/2 rounded-full bg-[var(--accent)] shadow-[0_0_18px_rgba(230,255,61,0.45)]" />}
                 <item.icon
                   size={21}
-                  strokeWidth={isActive ? 2.1 : 1.6}
+                  strokeWidth={isActive ? 2.35 : 1.65}
                   style={{ color: isActive ? 'var(--accent)' : undefined }}
-                  className={isActive ? '' : 'text-zinc-500'}
+                  className={isActive ? 'drop-shadow-[0_0_10px_rgba(230,255,61,0.18)]' : 'text-zinc-500'}
                   fill={isActive && item.href === '/home' ? 'var(--accent)' : 'none'}
                 />
-                <span className={`text-[11px] leading-none font-semibold ${isActive ? '' : 'text-zinc-500'}`} style={{ color: isActive ? 'var(--accent)' : undefined }}>
+                <span className={`text-[10px] leading-none font-black tracking-[-0.01em] ${isActive ? '' : 'text-zinc-500'}`} style={{ color: isActive ? 'var(--accent)' : undefined }}>
                   {item.label}
                 </span>
               </button>

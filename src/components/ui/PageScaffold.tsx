@@ -33,13 +33,13 @@ export function PageScaffold({
       <div
         className={`${contained ? 'mx-auto max-w-screen-2xl px-3 sm:px-4 md:px-6' : ''} ${contentClassName}`}
         style={{
-          paddingTop: contentClassName.includes('pt-') ? undefined : 'calc(0.5rem + env(safe-area-inset-top, 0px))',
+          paddingTop: contentClassName.includes('pt-') ? undefined : 'calc(0.75rem + env(safe-area-inset-top, 0px))',
           paddingBottom: contentClassName.includes('pb-') ? undefined : 'calc(6rem + env(safe-area-inset-bottom, 0px))',
         }}
       >
         {title && (
           <SectionHeader
-            eyebrow={eyebrow}
+            eyebrow={eyebrow || 'Geekore'}
             title={title}
             description={description}
             action={action}
@@ -47,7 +47,9 @@ export function PageScaffold({
             className="mb-5 hidden md:flex"
           />
         )}
-        {children}
+        <div className="relative">
+          {children}
+        </div>
       </div>
     </div>
   )

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
-import { ImageIcon } from 'lucide-react'
 import { MediaMetaRow } from '@/components/ui/MediaMetaRow'
+import { getMediaStatusLabel } from '@/lib/mediaStatus'
+import { getMediaTypeColor } from '@/lib/mediaTypes'
 
 interface CompactMediaRowProps {
   title: string
@@ -29,9 +30,15 @@ function CompactMediaRowContent({
   progress,
   trailing,
 }: Omit<CompactMediaRowProps, 'onClick' | 'className'>) {
+  const color = getMediaTypeColor(type)
+  const statusLabel = getMediaStatusLabel(status || 'planning')
+
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <div className="h-[58px] w-10 flex-shrink-0 overflow-hidden rounded-xl bg-[var(--bg-secondary)] ring-1 ring-white/5">
+      <div
+        className="relative h-[64px] w-11 flex-shrink-0 overflow-hidden rounded-xl bg-[var(--bg-secondary)] ring-1 ring-white/5"
+        style={{ boxShadow: `inset 0 -2px 0 ${color}` }}
+      >
         {coverImage ? (
           <img
             src={coverImage}
@@ -41,10 +48,16 @@ function CompactMediaRowContent({
             decoding="async"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-[var(--text-muted)]">
-            <ImageIcon size={17} strokeWidth={1.5} />
+          <div
+            className="gk-cover-placeholder h-full w-full"
+            style={{ ['--gk-type' as string]: color }}
+          >
+            <span className="line-clamp-3">{title}</span>
           </div>
         )}
+        <span className="gk-status-pill !right-1 !top-1 !px-1.5 !py-0.5 !text-[8px]">
+          {statusLabel}
+        </span>
       </div>
 
       <div className="min-w-0 flex-1">
@@ -79,18 +92,22 @@ export function CompactMediaRow({
   onClick,
   className = '',
 }: CompactMediaRowProps) {
-  const classes = `group w-full min-w-0 rounded-[18px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-2.5 text-left transition-colors hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${className}`
+  const color = getMediaTypeColor(type)
+  const classes = `gk-library-row group relative w-full min-w-0 overflow-hidden rounded-[18px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-2.5 text-left transition-colors hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${className}`
   const content = (
-    <CompactMediaRowContent
-      title={title}
-      type={type}
-      coverImage={coverImage}
-      year={year}
-      score={score}
-      status={status}
-      progress={progress}
-      trailing={trailing}
-    />
+    <>
+      <span className="absolute inset-y-2 left-0 w-[3px] rounded-r-full" style={{ background: color }} aria-hidden="true" />
+      <CompactMediaRowContent
+        title={title}
+        type={type}
+        coverImage={coverImage}
+        year={year}
+        score={score}
+        status={status}
+        progress={progress}
+        trailing={trailing}
+      />
+    </>
   )
 
   if (onClick) {

@@ -209,39 +209,41 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
   const showReport = user && user.id !== post.user_id
 
   return (
-    <div className={`bg-zinc-900 border rounded-2xl md:rounded-3xl overflow-hidden transition-all duration-300 ${
+    <article className={`gk-feed-card overflow-hidden transition-all duration-300 ${
       post.pinned
-        ? 'border-zinc-700 ring-1 ring-zinc-700/50'
-        : 'border-zinc-800 hover:border-zinc-700'
+        ? 'ring-1 ring-[rgba(230,255,61,0.20)]'
+        : 'hover:border-[var(--border)]'
     }`}>
 
       {post.pinned && (
         <div className="flex items-center gap-1.5 px-4 md:px-6 pt-3.5" style={{ color: 'var(--accent)' }}>
           <Pin size={12} className="rotate-45" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">In evidenza</span>
+          <span className="gk-label text-[var(--accent)]">In evidenza</span>
         </div>
       )}
 
       {/* Header: avatar + nome + timestamp */}
       <div className="p-4 md:p-6 pb-3 md:pb-4 flex items-center gap-3">
         <Link href={`/profile/${profile?.username}`} className="group shrink-0">
-          <div className="w-10 h-10 md:w-11 md:h-11 rounded-full overflow-hidden ring-2 ring-zinc-700/40 group-hover:ring-zinc-600/60 transition-all">
-            <Avatar
-              src={profile?.avatar_url}
-              username={profile?.username || 'user'}
-              displayName={profile?.display_name}
-              size={44}
-              className="rounded-full"
-            />
+          <div className="gk-avatar-ring w-10 h-10 md:w-11 md:h-11 rounded-full overflow-hidden transition-all">
+            <div className="gk-avatar-ring-inner h-full w-full">
+              <Avatar
+                src={profile?.avatar_url}
+                username={profile?.username || 'user'}
+                displayName={profile?.display_name}
+                size={44}
+                className="rounded-full"
+              />
+            </div>
           </div>
         </Link>
         <div className="flex-1 min-w-0">
           <Link href={`/profile/${profile?.username}`} className="hover:text-[var(--accent)] transition-colors">
-            <p className="font-semibold text-white text-sm leading-tight truncate">
+            <p className="gk-headline truncate text-[var(--text-primary)]">
               <UserBadge badge={profile?.badge} displayName={profile?.display_name || profile?.username || 'Utente'} />
             </p>
           </Link>
-          <p className="text-xs text-zinc-500 mt-0.5">
+          <p className="gk-mono mt-0.5 text-[var(--text-muted)]">
             @{profile?.username || 'anon'} · {timeAgo}
           </p>
         </div>
@@ -257,12 +259,12 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
 
       {/* Contenuto testo */}
       <div className="px-4 md:px-6 pb-3.5 md:pb-4">
-        <p className="text-zinc-200 text-sm leading-relaxed whitespace-pre-wrap">{post.content}</p>
+        <p className="gk-body whitespace-pre-wrap text-[var(--text-primary)]">{post.content}</p>
       </div>
 
       {/* Immagine allegata */}
       {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
-        <div className="mx-3 md:mx-4 mb-3.5 md:mb-4 rounded-xl md:rounded-2xl overflow-hidden border border-zinc-800">
+        <div className="mx-3 md:mx-4 mb-3.5 md:mb-4 rounded-xl md:rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--bg-card-hover)]">
           <img
             src={optimizeImage(post.image_url, 'feed-post')}
             alt={`Immagine del post di ${profile?.username || 'utente'}`}
@@ -274,31 +276,31 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
       )}
 
       {/* Azioni: like + commenti */}
-      <div className="px-4 md:px-6 py-3 md:py-4 border-t border-zinc-800/60 flex items-center gap-5 md:gap-6">
+      <div className="px-4 md:px-6 py-3 md:py-4 border-t border-[var(--border)] flex items-center gap-5 md:gap-6">
         <button
           onClick={handleLike}
           aria-label={hasLiked ? 'Rimuovi like' : 'Metti like'}
-          className={`flex items-center gap-2 group transition-all ${hasLiked ? 'text-orange-500' : 'text-zinc-500 hover:text-orange-400'}`}
+          className={`flex items-center gap-2 group transition-all ${hasLiked ? 'text-[var(--accent)]' : 'text-[var(--text-muted)] hover:text-[var(--accent)]'}`}
         >
-          <div className={`p-1.5 rounded-xl transition-colors ${hasLiked ? 'bg-orange-500/15' : 'group-hover:bg-orange-500/10'}`}>
+          <div className={`p-1.5 rounded-xl transition-colors ${hasLiked ? 'bg-[rgba(230,255,61,0.12)]' : 'group-hover:bg-[rgba(230,255,61,0.08)]'}`}>
             <Flame
               size={20}
-              className={`transition-transform ${hasLiked ? 'fill-orange-500' : ''} ${likeAnimating ? 'animate-heart-burst' : ''}`}
+              className={`transition-transform ${hasLiked ? 'fill-[var(--accent)]' : ''} ${likeAnimating ? 'animate-heart-burst' : ''}`}
             />
           </div>
-          <span className="text-xs font-bold">{likesCount}</span>
+          <span className="gk-mono font-bold">{likesCount}</span>
         </button>
 
         <button
           onClick={handleToggleComments}
           aria-label={showComments ? 'Nascondi commenti' : 'Mostra commenti'}
-          className={`flex items-center gap-2 group transition-all ${showComments ? '' : 'text-zinc-500'}`}
+          className={`flex items-center gap-2 group transition-all ${showComments ? '' : 'text-[var(--text-muted)]'}`}
           style={showComments ? { color: 'var(--accent)' } : {}}
         >
-          <div className={`p-1.5 rounded-xl transition-colors ${showComments ? 'bg-zinc-800' : 'group-hover:bg-zinc-800/60'}`}>
+          <div className={`p-1.5 rounded-xl transition-colors ${showComments ? 'bg-[rgba(230,255,61,0.10)]' : 'group-hover:bg-[var(--bg-card-hover)]'}`}>
             <MessageSquare size={20} />
           </div>
-          <span className="text-xs font-bold">{comments.length}</span>
+          <span className="gk-mono font-bold">{comments.length}</span>
         </button>
 
         {showReport && (
@@ -310,12 +312,12 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
 
       {/* Sezione commenti espandibile */}
       {showComments && (
-        <div className="px-4 md:px-6 pb-4 md:pb-6 border-t border-zinc-800/60 pt-3.5 bg-black/20">
+        <div className="px-4 md:px-6 pb-4 md:pb-6 border-t border-[var(--border)] pt-3.5 bg-black/20">
           {comments.length > 0 && (
             <div className="space-y-3 mb-4 max-h-56 overflow-y-auto">
               {comments.map((comment) => (
                 <div key={comment.id} className="flex gap-2.5">
-                  <Link href={`/profile/${comment.profiles?.username}`} className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 hover:ring-2 hover:ring-zinc-600/60 transition-all">
+                  <Link href={`/profile/${comment.profiles?.username}`} className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 hover:ring-2 hover:ring-[var(--accent)]/40 transition-all">
                     <Avatar
                       src={comment.profiles?.avatar_url}
                       username={comment.profiles?.username || 'user'}
@@ -324,9 +326,9 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
                       className="rounded-full"
                     />
                   </Link>
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3.5 py-2 flex-1 min-w-0">
+                  <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl px-3.5 py-2 flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <Link href={`/profile/${comment.profiles?.username}`} className="text-[10px] font-bold uppercase tracking-wider truncate hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>
+                      <Link href={`/profile/${comment.profiles?.username}`} className="gk-mono truncate hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>
                         @{comment.profiles?.username || 'user'}
                       </Link>
                       <div className="flex items-center gap-1 flex-shrink-0">
@@ -334,7 +336,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
                           <button
                             onClick={() => handleDeleteComment(comment.id)}
                             aria-label="Elimina commento"
-                            className="text-zinc-600 hover:text-red-400 transition-colors"
+                            className="text-[var(--text-muted)] hover:text-red-400 transition-colors"
                           >
                             <Trash2 size={11} />
                           </button>
@@ -343,7 +345,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
                         ) : null}
                       </div>
                     </div>
-                    <p className="text-zinc-300 text-xs mt-0.5 break-words">{comment.content}</p>
+                    <p className="text-[var(--text-secondary)] text-xs mt-0.5 break-words">{comment.content}</p>
                   </div>
                 </div>
               ))}
@@ -357,13 +359,13 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
               onChange={handleCommentChange}
               placeholder="Scrivi un commento..."
               maxLength={MAX_COMMENT_LENGTH}
-              className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl py-3 px-4 pr-20 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
+              className="w-full bg-[var(--bg-card)] border border-[var(--border)] focus:border-[rgba(230,255,61,0.45)] rounded-2xl py-3 px-4 pr-20 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none transition-colors"
             />
             {commentCharCount > 0 && (
               <span className={`absolute right-11 top-1/2 -translate-y-1/2 text-[10px] font-medium transition-colors ${
                 commentCharCount > MAX_COMMENT_LENGTH * 0.9
                   ? commentCharCount >= MAX_COMMENT_LENGTH ? 'text-red-400' : 'text-yellow-400'
-                  : 'text-zinc-600'
+                  : 'text-[var(--text-muted)]'
               }`}>
                 {MAX_COMMENT_LENGTH - commentCharCount}
               </span>
@@ -379,6 +381,6 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
           </form>
         </div>
       )}
-    </div>
+    </article>
   )
 })

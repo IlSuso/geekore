@@ -1,0 +1,144 @@
+/* Geekore visual vision completion layer
+   Broad, low-risk selectors for legacy/profile/auth/settings surfaces that still use old utility classes. */
+
+/* Auth / onboarding / setup pages */
+main[data-auth] input,
+main[data-auth] textarea,
+main[data-auth] select,
+[data-auth='true'] input,
+[data-auth='true'] textarea,
+[data-auth='true'] select,
+input.bg-zinc-900,
+textarea.bg-zinc-900,
+select.bg-zinc-900 {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+  border-radius: 16px !important;
+}
+
+main[data-auth] input:focus,
+main[data-auth] textarea:focus,
+[data-auth='true'] input:focus,
+[data-auth='true'] textarea:focus,
+input.bg-zinc-900:focus,
+textarea.bg-zinc-900:focus {
+  border-color: rgba(230,255,61,.45) !important;
+  box-shadow: 0 0 0 2px rgba(230,255,61,.08) !important;
+}
+
+main[data-auth] form,
+[data-auth='true'] form,
+.gk-auth-panel {
+  background: color-mix(in srgb, var(--bg-secondary) 92%, transparent) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 28px !important;
+  box-shadow: 0 24px 70px rgba(0,0,0,.32);
+}
+
+main[data-auth] button[type='submit'],
+[data-auth='true'] button[type='submit'] {
+  background: var(--brand) !important;
+  color: var(--text-primary) !important;
+  border-color: color-mix(in srgb, var(--brand-light) 42%, transparent) !important;
+  border-radius: 18px !important;
+  font-weight: 900 !important;
+}
+
+/* Profile and settings: make old zinc cards obey the editorial surface system. */
+.bg-zinc-900.border,
+.bg-zinc-950.border,
+.border-zinc-800.bg-zinc-900,
+.border-zinc-800.bg-zinc-950,
+.rounded-2xl.bg-zinc-900,
+.rounded-3xl.bg-zinc-900 {
+  background: var(--bg-secondary) !important;
+  border-color: var(--border) !important;
+}
+
+.text-zinc-500 { color: var(--text-muted) !important; }
+.text-zinc-400 { color: var(--text-secondary) !important; }
+.text-zinc-300 { color: var(--text-secondary) !important; }
+.text-zinc-200 { color: var(--text-primary) !important; }
+.border-zinc-800 { border-color: var(--border) !important; }
+.border-zinc-700 { border-color: var(--border) !important; }
+.bg-zinc-800 { background-color: var(--bg-card-hover) !important; }
+.bg-zinc-900 { background-color: var(--bg-card) !important; }
+.bg-zinc-950 { background-color: var(--bg-primary) !important; }
+
+/* Profile cards: poster-first treatment without touching DnD/logic. */
+.profile-media-card,
+.card-fixed-height,
+.media-card-grid > * {
+  border-color: var(--border) !important;
+  background: var(--bg-secondary) !important;
+}
+
+.media-card-grid img,
+.profile-media-card img,
+.card-fixed-height img {
+  object-fit: cover;
+}
+
+/* Tabs and segmented controls. */
+[role='tab'][aria-selected='true'],
+button[aria-pressed='true'] {
+  background: var(--accent) !important;
+  color: #0B0B0F !important;
+  border-color: var(--accent) !important;
+}
+
+.profile-tab-active,
+.gk-tab-active {
+  color: var(--accent) !important;
+  border-bottom-color: var(--accent) !important;
+}
+
+/* Modals / drawers / sheets. */
+[role='dialog'] .bg-zinc-900,
+[role='dialog'] .bg-zinc-950,
+.bottom-sheet,
+.gk-modal-panel {
+  background: var(--bg-secondary) !important;
+  border-color: var(--border) !important;
+}
+
+[role='dialog'] input,
+[role='dialog'] textarea,
+[role='dialog'] select {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Import cards and banners: practical cards, not marketing blobs. */
+.gk-import-card,
+[class*='Import'] .rounded-2xl,
+[class*='Import'] .rounded-3xl {
+  background: var(--bg-secondary) !important;
+  border-color: var(--border) !important;
+}
+
+/* Notifications / toast / ephemeral UI. */
+.gk-toast,
+[role='status'],
+[aria-live='polite'] {
+  background: var(--bg-secondary) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Make tiny metadata consistent across old components. */
+.gk-data-row,
+.text-xs.text-zinc-500,
+.text-\[10px\].text-zinc-500,
+.text-\[11px\].text-zinc-500 {
+  font-family: var(--font-mono-data) !important;
+  letter-spacing: .04em;
+  color: var(--text-muted) !important;
+}
+
+/* Explicitly keep danger colors meaningful. */
+.text-red-300, .text-red-400 { color: #FCA5A5 !important; }
+.bg-red-500\/10 { background-color: rgba(239,68,68,.10) !important; }
+.border-red-500\/25, .border-red-500\/20 { border-color: rgba(239,68,68,.25) !important; }
