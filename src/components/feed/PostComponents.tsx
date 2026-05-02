@@ -15,6 +15,8 @@ import { UserBadge } from '@/components/ui/UserBadge'
 import { FeedActionBar } from '@/components/ui/FeedActionBar'
 import { PostSignalBadge } from '@/components/ui/PostSignalBadge'
 import { FeedPostHeader } from '@/components/feed/FeedPostHeader'
+import { FeedCommentRow } from '@/components/feed/FeedCommentRow'
+import { FeedCommentComposer } from '@/components/feed/FeedCommentComposer'
 import { androidBack } from '@/hooks/androidBack'
 import { CategoryBadge } from '@/components/feed/CategoryBasics'
 import type { Post } from '@/components/feed/feedTypes'
@@ -347,34 +349,14 @@ export function PostModal({
               <div className="h-px bg-zinc-800/70 mx-5" />
               <div className="px-5 py-3 space-y-4">
                 {post.comments.map(comment => (
-                  <div key={comment.id} className="flex items-start gap-3 group/mc">
-                    <Link href={`/profile/${comment.username}`} onClick={onClose} className="shrink-0">
-                      <div className="w-8 h-8 rounded-full overflow-hidden ring-1 ring-zinc-700/60">
-                        <Avatar src={undefined} username={comment.username || 'user'} displayName={comment.display_name} size={32} className="rounded-full" />
-                      </div>
-                    </Link>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] leading-snug">
-                        <Link href={`/profile/${comment.username}`} onClick={onClose}
-                          className="font-semibold text-white hover:text-[#E6FF3D] transition-colors mr-1">
-                          {comment.username}
-                        </Link>
-                        <span className="text-zinc-400">{comment.content}</span>
-                      </p>
-                      <p className="text-[10px] text-zinc-600 mt-0.5">
-                        {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })}
-                      </p>
-                    </div>
-                    {currentUser?.id === comment.user_id && (
-                      <button
-                        onClick={() => onCommentOptions(comment.id, post.id)}
-                        aria-label="Opzioni commento"
-                        className="text-zinc-600 hover:text-white opacity-0 group-hover/mc:opacity-100 transition-all shrink-0 mt-0.5"
-                      >
-                        <MoreHorizontal size={14} aria-hidden="true" />
-                      </button>
-                    )}
-                  </div>
+                  <FeedCommentRow
+                    key={comment.id}
+                    comment={comment}
+                    locale={locale}
+                    currentUserId={currentUser?.id}
+                    onClose={onClose}
+                    onOptions={(commentId) => onCommentOptions(commentId, post.id)}
+                  />
                 ))}
               </div>
             </>
@@ -387,25 +369,12 @@ export function PostModal({
 
         {/* Comment input */}
         {currentUser && (
-          <div className="border-t border-zinc-800 px-5 py-3 flex items-center gap-3 flex-shrink-0">
-            <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 ring-1 ring-zinc-700/60">
-              <Avatar src={currentProfile?.avatar_url} username={currentProfile?.username || 'user'} displayName={currentProfile?.display_name} size={32} className="rounded-full" />
-            </div>
-            <input
-              type="text"
-              value={commentText}
-              onChange={e => setCommentText(e.target.value.slice(0, 500))}
-              placeholder="Aggiungi un commento..."
-              maxLength={500}
-              className="flex-1 bg-transparent text-[14px] text-white placeholder-zinc-500 focus:outline-none min-w-0"
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment() } }}
-            />
-            {commentText.trim() && (
-              <button onClick={submitComment} className="font-bold text-sm shrink-0" style={{ color: '#E6FF3D' }}>
-                Pubblica
-              </button>
-            )}
-          </div>
+          <FeedCommentComposer
+            value={commentText}
+            onChange={setCommentText}
+            onSubmit={submitComment}
+            profile={currentProfile}
+          />
         )}
       </div>
     </div>
