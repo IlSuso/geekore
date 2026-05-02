@@ -12,6 +12,8 @@ import { PageScaffold } from '@/components/ui/PageScaffold'
 let leaderboardCache: { data: any[]; ts: number } | null = null
 const LEADERBOARD_CACHE_TTL = 3 * 60 * 1000
 
+type LeaderboardTab = 'score' | 'game_hours' | 'anime_count'
+
 interface Leader {
   user_id: string
   username: string
@@ -33,10 +35,16 @@ function RankingStat({ label, value, accent = false }: { label: string; value: s
   )
 }
 
+function formatValue(leader: Leader, tab: LeaderboardTab): string {
+  if (tab === 'game_hours') return `${Math.round(leader.game_hours || 0).toLocaleString('it')}h`
+  if (tab === 'anime_count') return `${leader.anime_count.toLocaleString('it')} anime`
+  return `${leader.score.toLocaleString('it')} pts`
+}
+
 export default function LeaderboardPage() {
   const [leaders, setLeaders] = useState<Leader[]>([])
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'score' | 'game_hours' | 'anime_count'>('score')
+  const [tab, setTab] = useState<LeaderboardTab>('score')
   const supabase = createClient()
 
   useEffect(() => {
@@ -83,22 +91,31 @@ export default function LeaderboardPage() {
         <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
           <RankingStat label="utenti" value={leaders.length} accent />
           <RankingStat label="score tot." value={totalScore.toLocaleString('it')} />
-          <RankingStat label="ore game" value={Math.round(totalGameHours)} />
+          <RankingStat label="ore game" value={Math.round(totalGameHours).toLocaleString('it')} />
         </div>
       </div>
 
-      <div className="mb-5 flex gap-2 rounded-[20px] border border-[var(--border)] bg-[var(--bg-card)] p-1.5" data-no-swipe="true">
+      <div
+        className="mb-5 flex gap-2 rounded-[20px] border border-[var(--border)] bg-[var(--bg-card)] p-1.5"
+        data-no-swipe="true"
+        data-interactive="true"
+        role="tablist"
+        aria-label="Ordina classifica"
+      >
         {([
           ['score', <><Zap size={12} /> Geek Score</>],
           ['game_hours', <><Gamepad2 size={12} /> Steam</>],
           ['anime_count', <><Tv size={12} /> Anime</>],
-        ] as [string, React.ReactNode][]).map(([id, label]) => (
+        ] as [LeaderboardTab, React.ReactNode][]).map(([id, label]) => (
           <button
             key={id}
             type="button"
+            role="tab"
+            aria-selected={tab === id}
             data-no-swipe="true"
-            onClick={() => setTab(id as 'score' | 'game_hours' | 'anime_count')}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2 text-xs font-black transition-all active:scale-[0.98]"
+            onClick={() => setTab(id)}
+            onPointerDown={event => event.stopPropagation()}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2 text-xs font-black transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
             style={tab === id
               ? { background: 'var(--accent)', color: '#0B0B0F' }
               : { color: 'var(--text-secondary)' }}
@@ -112,7 +129,7 @@ export default function LeaderboardPage() {
         <Link
           href={`/profile/${topLeader.username}`}
           data-no-swipe="true"
-          className="mb-4 flex items-center gap-3 rounded-[24px] border border-[rgba(230,255,61,0.28)] bg-[linear-gradient(135deg,rgba(230,255,61,0.10),rgba(255,255,255,0.025))] p-4 transition-colors hover:border-[rgba(230,255,61,0.45)]"
+          className="mb-4 flex items-center gap-3 rounded-[24px] border border-[rgba(230,255,61,0.28)] bg-[linear-gradient(135deg,rgba(230,255,61,0.10),rgba(255,255,255,0.025))] p-4 transition-colors hover:border-[rgba(230,255,61,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
         >
           <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-[var(--accent)] text-[#0B0B0F] shadow-[0_0_28px_rgba(230,255,61,0.2)]">
             <Crown size={22} />
@@ -124,7 +141,7 @@ export default function LeaderboardPage() {
             <p className="gk-mono text-[var(--text-muted)]">@{topLeader.username}</p>
           </div>
           <p className="font-mono-data text-sm font-black text-[var(--text-primary)]">
-            {tab === 'game_hours' ? `${topLeader.game_hours}h` : tab === 'anime_count' ? topLeader.anime_count : topLeader.score.toLocaleString('it')}
+            {formatValue(topLeader, tab)}
           </p>
         </Link>
       )}
@@ -142,11 +159,7 @@ export default function LeaderboardPage() {
       ) : (
         <div className="space-y-2">
           {sorted.map((leader, i) => {
-            const value = tab === 'game_hours'
-              ? `${leader.game_hours}h`
-              : tab === 'anime_count'
-                ? `${leader.anime_count} anime`
-                : `${leader.score.toLocaleString('it')} pts`
+            const value = formatValue(leader, tab)
             const rank = i + 1
             const medalClass = rank === 1 ? 'text-yellow-300' : rank === 2 ? 'text-zinc-300' : rank === 3 ? 'text-amber-600' : 'text-[var(--text-muted)]'
 
@@ -155,7 +168,7 @@ export default function LeaderboardPage() {
                 key={leader.user_id}
                 href={`/profile/${leader.username}`}
                 data-no-swipe="true"
-                className="group flex items-center gap-3 rounded-[20px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 transition-all hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)] animate-in fade-in"
+                className="group flex items-center gap-3 rounded-[20px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 transition-all hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)] animate-in fade-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
                 style={{ animationDelay: `${i * 24}ms` }}
               >
                 <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl bg-[var(--bg-secondary)] ring-1 ring-white/5">
@@ -178,7 +191,7 @@ export default function LeaderboardPage() {
                   {tab === 'score' && (
                     <p className="flex items-center justify-end gap-1 text-[10px] text-[var(--text-muted)]">
                       {leader.anime_count > 0 && <><Tv size={9} />{leader.anime_count}</>}
-                      {leader.game_hours > 0 && <><Gamepad2 size={9} />{leader.game_hours}h</>}
+                      {leader.game_hours > 0 && <><Gamepad2 size={9} />{Math.round(leader.game_hours)}h</>}
                     </p>
                   )}
                 </div>
