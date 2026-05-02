@@ -30,7 +30,13 @@ export function PageScaffold({
 }: PageScaffoldProps) {
   return (
     <div className={`min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] ${className}`}>
-      <div className={`${contained ? 'mx-auto max-w-screen-2xl px-4 md:px-6' : ''} ${contentClassName}`}>
+      <div
+        className={`${contained ? 'mx-auto max-w-screen-2xl px-3 sm:px-4 md:px-6' : ''} ${contentClassName}`}
+        style={{
+          paddingTop: contentClassName.includes('pt-') ? undefined : 'calc(0.5rem + env(safe-area-inset-top, 0px))',
+          paddingBottom: contentClassName.includes('pb-') ? undefined : 'calc(6rem + env(safe-area-inset-bottom, 0px))',
+        }}
+      >
         {title && (
           <SectionHeader
             eyebrow={eyebrow}
