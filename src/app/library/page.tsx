@@ -34,11 +34,15 @@ type MediaEntry = {
 
 type ViewMode = 'list' | 'grid' | 'stats'
 
-const TYPES = [
+const STATUS_FILTERS = [
   { id: 'all', label: 'Tutto' },
   { id: 'watching', label: 'In corso' },
   { id: 'completed', label: 'Completati' },
   { id: 'planning', label: 'Wishlist' },
+]
+
+const TYPE_FILTERS = [
+  { id: 'all', label: 'Tutti' },
   { id: 'anime', label: 'Anime' },
   { id: 'manga', label: 'Manga' },
   { id: 'game', label: 'Game' },
@@ -80,10 +84,6 @@ function toRailItem(entry: MediaEntry): MediaRailItem {
       ? { current: entry.current_episode || 0, total: entry.episodes }
       : undefined,
   }
-}
-
-function isStatusFilter(id: string): boolean {
-  return ['watching', 'reading', 'completed', 'planning', 'paused', 'dropped'].includes(id)
 }
 
 function LibraryStat({ label, value, accent = false, icon }: { label: string; value: string | number; accent?: boolean; icon?: React.ReactNode }) {
@@ -230,7 +230,8 @@ export default function LibraryPage() {
   const supabase = createClient()
   const [entries, setEntries] = useState<MediaEntry[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeFilter, setActiveFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null)
@@ -256,10 +257,8 @@ export default function LibraryPage() {
     const query = normalize(searchTerm)
     let result = entries
 
-    if (activeFilter !== 'all') {
-      if (isStatusFilter(activeFilter)) result = result.filter(e => (e.status || 'planning') === activeFilter)
-      else result = result.filter(e => normalizeType(e.type) === activeFilter)
-    }
+    if (statusFilter !== 'all') result = result.filter(e => (e.status || 'planning') === statusFilter)
+    if (typeFilter !== 'all') result = result.filter(e => normalizeType(e.type) === typeFilter)
 
     if (query) {
       result = result.filter(e => {
@@ -268,12 +267,12 @@ export default function LibraryPage() {
       })
     }
     return result
-  }, [entries, activeFilter, searchTerm])
+  }, [entries, statusFilter, typeFilter, searchTerm])
 
   const stats = useMemo(() => computeStats(entries), [entries])
 
   const grouped = useMemo((): { status: string; items: MediaEntry[] }[] => {
-    if (activeFilter !== 'all' && isStatusFilter(activeFilter)) return [{ status: activeFilter, items: filtered }]
+    if (statusFilter !== 'all') return [{ status: statusFilter, items: filtered }]
     const order = ['watching', 'reading', 'completed', 'planning', 'paused', 'dropped']
     const groups: Record<string, MediaEntry[]> = {}
     for (const e of filtered) {
@@ -282,7 +281,7 @@ export default function LibraryPage() {
       groups[key].push(e)
     }
     return order.filter(k => groups[k]?.length).map(k => ({ status: k, items: groups[k] }))
-  }, [filtered, activeFilter])
+  }, [filtered, statusFilter])
 
   function openDrawer(entry: MediaEntry) {
     if (selectMode) {
@@ -302,10 +301,10 @@ export default function LibraryPage() {
   }
 
   const gridItems = useMemo(() => filtered.map(toRailItem), [filtered])
-  const hasActiveFilters = activeFilter !== 'all' || searchTerm.trim().length > 0
+  const hasActiveFilters = statusFilter !== 'all' || typeFilter !== 'all' || searchTerm.trim().length > 0
   const selectedCount = selectedIds.size
 
-  const clearFilters = () => { setSearchTerm(''); setActiveFilter('all') }
+  const clearFilters = () => { setSearchTerm(''); setStatusFilter('all'); setTypeFilter('all') }
 
   function toggleSelected(id: string) {
     setSelectedIds(prev => {
@@ -350,7 +349,7 @@ export default function LibraryPage() {
       title="Library"
       description="La tua collezione viva: progressi, completati, wishlist e voto medio in un unico spazio compatto."
       icon={<BookOpen size={16} />}
-      contentClassName="max-w-screen-lg pt-2 md:pt-8 pb-28"
+      contentClassName="max-w-screen-xl pt-2 md:pt-8 pb-28"
     >
       <div className="mb-4 flex items-center justify-end gap-2" data-no-swipe="true">
         <button
@@ -368,14 +367,11 @@ export default function LibraryPage() {
         </Link>
       </div>
 
-      <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <LibraryStat label="Totali" value={stats.total} accent icon={<BookOpen size={16} />} />
+      <div className="mb-5 grid grid-cols-3 gap-3 md:grid-cols-3">
+        <LibraryStat label="Totale" value={stats.total} accent icon={<BookOpen size={16} />} />
         <LibraryStat label="Completati" value={stats.completed} icon={<Trophy size={16} />} />
         <LibraryStat label="In corso" value={stats.inProgress} icon={<Clock size={16} />} />
-        <LibraryStat label="Media voto" value={stats.averageRating ? stats.averageRating.toFixed(1) : '—'} icon={<Star size={16} />} />
       </div>
-
-
 
       <div className="mb-5 space-y-3" data-no-swipe="true" data-interactive="true">
         <div className="relative">
@@ -384,10 +380,39 @@ export default function LibraryPage() {
           {searchTerm && <button type="button" data-no-swipe="true" onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35" aria-label="Cancella ricerca libreria"><X size={14} /></button>}
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="min-w-0 flex-1">
-            <FilterBar items={TYPES} activeId={activeFilter} onChange={(id) => setActiveFilter(id)} className="mx-0 px-0" chipClassName="h-8 px-3 text-[12px]" ariaLabel="Filtri Library" />
+        <div className="rounded-[22px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/80 p-2 ring-1 ring-white/5">
+          <div className="mb-2 grid grid-cols-4 gap-1">
+            {STATUS_FILTERS.map(filter => {
+              const active = statusFilter === filter.id
+              return (
+                <button
+                  key={filter.id}
+                  type="button"
+                  data-no-swipe="true"
+                  onClick={() => setStatusFilter(filter.id)}
+                  className="min-h-11 rounded-xl px-1 py-2 text-[11px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 sm:text-[12px]"
+                  style={active ? { background: 'rgba(230,255,61,0.09)', color: 'var(--accent)' } : { color: 'var(--text-muted)' }}
+                  aria-pressed={active}
+                >
+                  {filter.label}
+                </button>
+              )
+            })}
           </div>
+
+          <div className="border-t border-[var(--border-soft)] pt-2">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="gk-label text-[var(--text-muted)]">Tipo media</p>
+              {typeFilter !== 'all' && (
+                <button type="button" data-no-swipe="true" onClick={() => setTypeFilter('all')} className="gk-mono rounded-lg px-1 text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35">reset</button>
+              )}
+            </div>
+            <FilterBar items={TYPE_FILTERS} activeId={typeFilter} onChange={(id) => setTypeFilter(id)} className="mx-0 px-0" chipClassName="h-8 px-3 text-[12px]" ariaLabel="Filtri tipo media Library" />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <p className="gk-mono text-[var(--text-muted)]">{filtered.length} elementi</p>
           <div className="flex flex-shrink-0 items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-1" data-no-swipe="true">
             {([
               ['list', <List key="list" size={14} />],
@@ -421,7 +446,7 @@ export default function LibraryPage() {
       </div>
 
       {loading ? (
-        viewMode === 'grid' ? <MediaGridSkeleton count={15} showMeta /> : <div className="space-y-2">{Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-[74px] rounded-2xl bg-[var(--bg-card)] skeleton" />)}</div>
+        viewMode === 'grid' ? <MediaGridSkeleton count={21} showMeta /> : <div className="space-y-2">{Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-[74px] rounded-2xl bg-[var(--bg-card)] skeleton" />)}</div>
       ) : filtered.length === 0 ? (
         <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-20 text-center">
           <p className="gk-headline mb-1 text-[var(--text-primary)]">{entries.length === 0 ? 'Library vuota' : 'Nessun elemento trovato'}</p>
