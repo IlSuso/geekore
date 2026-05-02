@@ -22,6 +22,7 @@ const JIKAN_BASE     = 'https://api.jikan.moe/v4'
 const MAX_PARALLEL   = 5
 const BATCH_DELAY_MS = 350
 const RETRY_DAYS     = 30
+const MAX_XML_BYTES  = 5 * 1024 * 1024
 
 // ── Mappe status ──────────────────────────────────────────────────────────────
 
@@ -362,14 +363,17 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     if (!file) return NextResponse.json({ error: 'File non trovato' }, { status: 400, headers: rl.headers })
-    if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: 'File troppo grande (max 5MB)' }, { status: 400, headers: rl.headers })
+    if (file.size > MAX_XML_BYTES) return NextResponse.json({ error: 'File troppo grande (max 5MB)' }, { status: 400, headers: rl.headers })
     xmlContent = await file.text()
   } else {
     let body: any
     try { body = await request.json() } catch {
       return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers })
     }
-    xmlContent = body?.xml || ''
+    xmlContent = typeof body?.xml === 'string' ? body.xml : ''
+    if (new TextEncoder().encode(xmlContent).length > MAX_XML_BYTES) {
+      return NextResponse.json({ error: 'XML troppo grande (max 5MB)' }, { status: 400, headers: rl.headers })
+    }
   }
 
   if (!xmlContent || !xmlContent.includes('<myanimelist>')) {

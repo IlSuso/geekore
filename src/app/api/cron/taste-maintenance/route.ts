@@ -1,32 +1,26 @@
 // DESTINAZIONE: src/app/api/cron/taste-maintenance/route.ts
-// ═══════════════════════════════════════════════════════════════════════════
 // V3: Cron job per manutenzione del Taste Engine
-//
-// Da schedulare ogni 24h (es. via Vercel Cron o GitHub Actions).
-// Protetto da CRON_SECRET env var.
-//
-// Operazioni:
-//   1. Cleanup search_history (mantieni max 500 per utente, rimuovi > 60 giorni)
-//   2. Invalida recommendations_cache scaduta
-//   3. Sincronizza user_creator_profile per utenti attivi
-//   4. Pulisce user_taste_profile per utenti inattivi (> 90 giorni)
-//
-// GET /api/cron/taste-maintenance
-//   Header: Authorization: Bearer <CRON_SECRET>
-// ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server'
 import { logger } from '@/lib/logger'
 import { createServiceClient } from '@/lib/supabase/service'
 
-export async function GET(request: NextRequest) {
-  // Verifica il secret del cron
+export const maxDuration = 60
+
+function isAuthorized(request: NextRequest): boolean {
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret) return false
   const authHeader = request.headers.get('authorization')
+  const cronHeader = request.headers.get('x-cron-secret')
+  return authHeader === `Bearer ${cronSecret}` || cronHeader === cronSecret
+}
+
+export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET
   if (!cronSecret) {
     return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 503 })
   }
-  if (authHeader !== `Bearer ${cronSecret}`) {
+  if (!isAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -43,7 +37,7 @@ export async function GET(request: NextRequest) {
       .lt('created_at', cutoff60)
 
     results.deletedSearchHistory = deletedSearches || 0
-    logger.info('cron.taste', `Deleted ${deletedSearches} old search history entries`)
+    logger.info('cron.taste', `Deleted ${deletedSearches || 0} old search history entries`)
 
     // ── 2. Invalida recommendations_cache scaduta ────────────────────────────
     const { count: deletedCache } = await supabase
@@ -54,9 +48,8 @@ export async function GET(request: NextRequest) {
     results.deletedExpiredCache = deletedCache || 0
 
     // ── 3. Per ogni utente con search_history > 500 righe, tronca ───────────
-    // Query diretta SQL più efficiente del loop
     const { error: cleanupErr } = await supabase.rpc('cleanup_search_history_bulk', {
-      p_keep: 500
+      p_keep: 500,
     })
     if (cleanupErr) logger.warn('cron.taste', 'cleanup_search_history_bulk error', cleanupErr)
 
@@ -73,7 +66,7 @@ export async function GET(request: NextRequest) {
 
     // ── 5. Per gli utenti attivi, aggiorna user_creator_profile se outdated ──
     let updatedCreatorProfiles = 0
-    for (const userId of activeUserIds.slice(0, 20)) { // max 20 per cron
+    for (const userId of activeUserIds.slice(0, 20)) {
       try {
         const { data: entries } = await supabase
           .from('user_media_entries')
@@ -105,16 +98,16 @@ export async function GET(request: NextRequest) {
 
         await supabase.from('user_creator_profile').upsert({
           user_id: userId,
-          studios: Object.fromEntries(Object.entries(studios).sort(([,a],[,b]) => b - a).slice(0, 30)),
-          directors: Object.fromEntries(Object.entries(directors).sort(([,a],[,b]) => b - a).slice(0, 20)),
-          authors: Object.fromEntries(Object.entries(authors).sort(([,a],[,b]) => b - a).slice(0, 20)),
-          developers: Object.fromEntries(Object.entries(developers).sort(([,a],[,b]) => b - a).slice(0, 20)),
+          studios: Object.fromEntries(Object.entries(studios).sort(([, a], [, b]) => b - a).slice(0, 30)),
+          directors: Object.fromEntries(Object.entries(directors).sort(([, a], [, b]) => b - a).slice(0, 20)),
+          authors: Object.fromEntries(Object.entries(authors).sort(([, a], [, b]) => b - a).slice(0, 20)),
+          developers: Object.fromEntries(Object.entries(developers).sort(([, a], [, b]) => b - a).slice(0, 20)),
           updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id' })
 
         updatedCreatorProfiles++
       } catch (err) {
-        logger.warn('cron.taste', `Failed to update creator profile for ${userId}`, err)
+        logger.warn('cron.taste', 'Failed to update creator profile', { userId, err })
       }
     }
     results.updatedCreatorProfiles = updatedCreatorProfiles
@@ -136,9 +129,12 @@ export async function GET(request: NextRequest) {
       elapsed: `${elapsed}ms`,
       ...results,
     })
-
   } catch (error) {
     logger.error('cron.taste', 'Maintenance failed', error)
     return NextResponse.json({ error: 'Maintenance failed', elapsed: `${Date.now() - startTime}ms` }, { status: 500 })
   }
+}
+
+export async function POST(request: NextRequest) {
+  return GET(request)
 }

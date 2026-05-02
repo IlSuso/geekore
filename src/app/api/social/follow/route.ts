@@ -37,11 +37,11 @@ export async function POST(request: NextRequest) {
     if (!existing) {
       await service.from('follows').insert({ follower_id: user.id, following_id: target_id })
       await service.from('notifications').insert({ type: 'follow', sender_id: user.id, receiver_id: target_id })
-    }
 
-    const { data: sender } = await service.from('profiles').select('username').eq('id', user.id).single()
-    if (sender?.username) {
-      await sendPushToUser(target_id, followPayload(sender.username), 'follow', user.id)
+      const { data: sender } = await service.from('profiles').select('username').eq('id', user.id).single()
+      if (sender?.username) {
+        await sendPushToUser(target_id, followPayload(sender.username), 'follow', user.id)
+      }
     }
   } else {
     await service.from('follows').delete().eq('follower_id', user.id).eq('following_id', target_id)

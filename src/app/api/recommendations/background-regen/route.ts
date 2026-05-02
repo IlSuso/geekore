@@ -9,7 +9,8 @@ import { logger } from '@/lib/logger'
 import { createServiceClient } from '@/lib/supabase/service'
 
 const CRON_SECRET = process.env.CRON_SECRET || ''
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const INTERNAL_REGEN_FETCH_TIMEOUT_MS = 55_000
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i
 
 export async function POST(request: NextRequest) {
   const secret = request.headers.get('X-Cron-Secret')
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
           'X-Service-User-Id': userId,
           'X-Service-Secret': CRON_SECRET,
         },
+        signal: AbortSignal.timeout(INTERNAL_REGEN_FETCH_TIMEOUT_MS),
       })
       if (!res.ok) {
         const text = await res.text()
