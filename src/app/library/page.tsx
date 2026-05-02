@@ -10,6 +10,7 @@ import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { PageScaffold } from '@/components/ui/PageScaffold'
 import { SearchField } from '@/components/ui/SearchField'
 import { FilterBar } from '@/components/ui/FilterBar'
+import { ViewToggle, type ViewToggleOption } from '@/components/ui/ViewToggle'
 import { MediaGrid } from '@/components/ui/MediaGrid'
 import type { MediaRailItem } from '@/components/ui/MediaRail'
 import { MediaMetaRow } from '@/components/ui/MediaMetaRow'
@@ -32,6 +33,13 @@ type MediaEntry = {
   genres?: string[]
   external_id?: string
 }
+
+type LibraryViewMode = 'list' | 'grid'
+
+const VIEW_OPTIONS: ViewToggleOption<LibraryViewMode>[] = [
+  { id: 'list', label: 'Vista lista', icon: <List size={14} /> },
+  { id: 'grid', label: 'Vista griglia', icon: <LayoutGrid size={14} /> },
+]
 
 const TYPES = [
   { id: 'all', label: 'Tutto' },
@@ -80,7 +88,7 @@ export default function LibraryPage() {
   const [activeType, setActiveType] = useState('all')
   const [activeStatus, setActiveStatus] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
+  const [viewMode, setViewMode] = useState<LibraryViewMode>('list')
   const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null)
 
   useEffect(() => {
@@ -188,24 +196,12 @@ export default function LibraryPage() {
               chipClassName="h-7 px-3 text-[11px]"
             />
           </div>
-          <div className="flex-shrink-0 flex items-center gap-1 p-1 rounded-xl bg-[var(--bg-card)] border border-[var(--border)]">
-            <button
-              onClick={() => setViewMode('list')}
-              className="p-1.5 rounded-lg transition-all"
-              style={{ background: viewMode === 'list' ? 'var(--accent)' : 'transparent' }}
-              aria-label="Vista lista"
-            >
-              <List size={14} style={{ color: viewMode === 'list' ? '#0B0B0F' : 'var(--text-muted)' }} />
-            </button>
-            <button
-              onClick={() => setViewMode('grid')}
-              className="p-1.5 rounded-lg transition-all"
-              style={{ background: viewMode === 'grid' ? 'var(--accent)' : 'transparent' }}
-              aria-label="Vista griglia"
-            >
-              <LayoutGrid size={14} style={{ color: viewMode === 'grid' ? '#0B0B0F' : 'var(--text-muted)' }} />
-            </button>
-          </div>
+          <ViewToggle
+            value={viewMode}
+            options={VIEW_OPTIONS}
+            onChange={setViewMode}
+            className="flex-shrink-0"
+          />
         </div>
       </div>
 
