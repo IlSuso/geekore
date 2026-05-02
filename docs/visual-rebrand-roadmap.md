@@ -96,11 +96,13 @@ Obiettivo: rendere il sistema mantenibile.
 - Ridurre colori inline a token/classi.
 - Controllare mobile safe area, contrasto, tap target e empty states.
 
-## Primo intervento di questa PR
+## Interventi inclusi in questa PR
 
-Questa PR avvia la Fase 0:
+Questa PR avvia la Fase 0 e prepara la Fase 1:
 
 - sostituisce il theme color PWA/meta da `#000000` a `#0B0B0F`;
-- rimuove `bg-black text-white` dal `body` del root layout, lasciando `globals.css` governare background e colore via token.
+- rimuove `bg-black text-white` dal `body` del root layout, lasciando `globals.css` governare background e colore via token;
+- aggiunge `src/lib/mediaTypes.ts` come fonte canonica per label e colori medium;
+- aggiunge `MediaTypeBadge`, `PosterCard`, `SectionHeader` e `RailSection` come componenti base del nuovo sistema poster-first.
 
-La modifica e intenzionalmente piccola: serve a non combattere contro il nero puro mentre si procede con il rebrand visuale.
+Le nuove componenti sono intenzionalmente additive: non riscrivono ancora pagine complesse, ma permettono di migrare Discover, For You, Library e Feed a piccoli passaggi senza duplicare stile e logica visuale.
