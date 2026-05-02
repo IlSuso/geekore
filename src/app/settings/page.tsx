@@ -80,6 +80,8 @@ function LogoutButton() {
 
   return (
     <button
+      type="button"
+      data-no-swipe="true"
       onClick={handleLogout}
       disabled={loading}
       className="group flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-red-500/5 disabled:opacity-60"
@@ -133,6 +135,8 @@ function ChangePasswordSheet() {
   return (
     <div className="overflow-hidden rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)]">
       <button
+        type="button"
+        data-no-swipe="true"
         onClick={() => setOpen(o => !o)}
         className="flex w-full items-center justify-between p-4 transition-colors hover:bg-[var(--bg-card-hover)]"
       >
@@ -150,6 +154,7 @@ function ChangePasswordSheet() {
         <form onSubmit={handleSubmit} className="space-y-3 border-t border-[var(--border)] px-4 pb-4 pt-4">
           <div className="relative">
             <input
+              data-no-swipe="true"
               type={showCurrent ? 'text' : 'password'}
               placeholder="Password attuale"
               value={currentPass}
@@ -157,13 +162,14 @@ function ChangePasswordSheet() {
               className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-2.5 pr-10 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]"
               required
             />
-            <button type="button" onClick={() => setShowCurrent(s => !s)}
+            <button type="button" data-no-swipe="true" onClick={() => setShowCurrent(s => !s)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)]">
               {showCurrent ? <EyeOff size={14} /> : <Eye size={14} />}
             </button>
           </div>
           <div className="relative">
             <input
+              data-no-swipe="true"
               type={showNew ? 'text' : 'password'}
               placeholder="Nuova password (min. 8 caratteri)"
               value={newPass}
@@ -172,13 +178,14 @@ function ChangePasswordSheet() {
               minLength={8}
               required
             />
-            <button type="button" onClick={() => setShowNew(s => !s)}
+            <button type="button" data-no-swipe="true" onClick={() => setShowNew(s => !s)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)]">
               {showNew ? <EyeOff size={14} /> : <Eye size={14} />}
             </button>
           </div>
           <button
             type="submit"
+            data-no-swipe="true"
             disabled={loading}
             className="flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-black transition-colors disabled:opacity-60"
             style={{ background: 'var(--accent)', color: '#0B0B0F' }}
@@ -212,6 +219,8 @@ function GlobalLogoutButton() {
 
   return (
     <button
+      type="button"
+      data-no-swipe="true"
       onClick={handleGlobalLogout}
       disabled={loading}
       className="group flex w-full items-center gap-3 rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)] p-4 text-left transition-all hover:border-red-500/35 hover:bg-red-500/5 disabled:opacity-60"
@@ -315,6 +324,8 @@ function DigestToggle() {
         <Loader2 size={18} className="animate-spin text-[var(--text-muted)]" />
       ) : (
         <button
+          type="button"
+          data-no-swipe="true"
           onClick={toggle}
           className="relative h-6 w-11 flex-shrink-0 rounded-full transition-colors duration-200"
           style={{ background: enabled ? 'var(--accent)' : 'var(--bg-secondary)' }}
@@ -407,6 +418,8 @@ function StreamingPlatformsSelector({ onSelectedCountChange }: { onSelectedCount
             return (
               <button
                 key={id}
+                type="button"
+                data-no-swipe="true"
                 onClick={() => toggle(id)}
                 className={`flex items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-sm font-bold transition-all ${
                   isSelected
@@ -425,6 +438,8 @@ function StreamingPlatformsSelector({ onSelectedCountChange }: { onSelectedCount
 
       <div className="px-3 pb-3">
         <button
+          type="button"
+          data-no-swipe="true"
           onClick={save}
           disabled={saving || loading}
           className="flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-black transition-colors disabled:opacity-50"
@@ -455,6 +470,8 @@ function DeleteAccountSection() {
   return (
     <>
       <button
+        type="button"
+        data-no-swipe="true"
         onClick={() => setShowModal(true)}
         className="group flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-red-500/5"
       >
@@ -490,10 +507,12 @@ export default function SettingsPage() {
       <SettingsSection icon={<Globe size={15} />} title={t.settings.language}>
         <SettingsCard>
           <p className="gk-body max-w-none px-5 pb-3 pt-4">{t.settings.languageDesc}</p>
-          <div className="flex gap-2 p-3">
+          <div className="flex gap-2 p-3" data-no-swipe="true">
             {(['it', 'en'] as const).map(lang => (
               <button
                 key={lang}
+                type="button"
+                data-no-swipe="true"
                 onClick={() => setLocale(lang)}
                 className={`flex flex-1 items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black transition-all ${
                   locale === lang ? '' : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
@@ -541,6 +560,7 @@ export default function SettingsPage() {
             <Link
               key={href}
               href={href}
+              data-no-swipe="true"
               className="group flex items-center justify-between rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)] p-4 transition-colors hover:bg-[var(--bg-card-hover)]"
             >
               <div className="flex items-center gap-3">
@@ -567,7 +587,7 @@ export default function SettingsPage() {
       <div className="flex flex-col items-center gap-3 pb-2 pt-2">
         <p className="gk-label text-[var(--text-muted)]">{locale === 'it' ? 'Dati forniti da' : 'Data provided by'}</p>
         <div className="flex flex-wrap items-center justify-center gap-4 opacity-40 transition-opacity hover:opacity-70">
-          <a href="https://boardgamegeek.com" target="_blank" rel="noopener noreferrer" aria-label="Powered by BoardGameGeek">
+          <a href="https://boardgamegeek.com" target="_blank" rel="noopener noreferrer" aria-label="Powered by BoardGameGeek" data-no-swipe="true">
             <img src="/powered-by-bgg.svg" alt="Powered by BGG" className="h-5 w-auto" />
           </a>
           <span className="text-[10px] text-[var(--text-muted)]">TMDb</span>
