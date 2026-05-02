@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Loader2, UserCheck, UserPlus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useLocale } from '@/lib/locale'
 
@@ -23,7 +24,6 @@ export function FollowBackButton({
       if (!user) return
       setCurrentUserId(user.id)
       if (user.id === targetId) return
-      // Se isFollowingInitial è già stato passato, non fare la query
       if (isFollowingInitial !== undefined) return
       const { data } = await supabase
         .from('follows').select('follower_id')
@@ -31,40 +31,38 @@ export function FollowBackButton({
       setIsFollowing(!!data)
     }
     check()
-  }, [targetId, isFollowingInitial])
+  }, [targetId, isFollowingInitial]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (isFollowing === null || !currentUserId || currentUserId === targetId) return null
 
   const toggle = async () => {
     if (!currentUserId || loading) return
+    const next = !isFollowing
     setLoading(true)
-    if (isFollowing) {
-      await fetch('/api/social/follow', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target_id: targetId, action: 'unfollow' }),
-      }).catch(() => {})
-      setIsFollowing(false)
-    } else {
-      await fetch('/api/social/follow', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target_id: targetId, action: 'follow' }),
-      }).catch(() => {})
-      setIsFollowing(true)
-    }
+    setIsFollowing(next)
+
+    const res = await fetch('/api/social/follow', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target_id: targetId, action: next ? 'follow' : 'unfollow' }),
+    }).catch(() => null)
+
+    if (!res?.ok) setIsFollowing(!next)
     setLoading(false)
   }
 
   return (
     <button
-      onClick={toggle} disabled={loading}
-      className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all ${
-        isFollowing ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 border border-zinc-700' : ''
-      }`}
-      style={!isFollowing ? { background: 'var(--accent)', color: '#0B0B0F' } : {}}
+      type="button"
+      onClick={toggle}
+      disabled={loading}
+      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-2xl px-3 text-[11px] font-black transition-all disabled:opacity-55"
+      style={isFollowing
+        ? { background: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }
+        : { background: 'var(--accent)', color: '#0B0B0F' }}
     >
-      {loading ? '…' : isFollowing ? t.follow.following : t.follow.follow}
+      {loading ? <Loader2 size={12} className="animate-spin" /> : isFollowing ? <UserCheck size={12} /> : <UserPlus size={12} />}
+      {isFollowing ? t.follow.following : t.follow.follow}
     </button>
   )
 }
