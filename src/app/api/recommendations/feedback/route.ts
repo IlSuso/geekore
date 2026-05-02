@@ -10,6 +10,7 @@ import { checkOrigin } from '@/lib/csrf'
 
 const VALID_ACTIONS = ['added', 'dismissed', 'not_interested', 'already_seen'] as const
 const VALID_REASONS = ['not_genre', 'not_format', 'bad_quality', 'already_seen', 'not_my_genre', 'too_similar', 'already_know', 'bad_rec', null] as const
+const MEDIA_TYPES = new Set(['anime', 'manga', 'game', 'movie', 'tv', 'book', 'boardgame', 'board_game', 'all'])
 type FeedbackReason = typeof VALID_REASONS[number]
 
 function cleanString(value: unknown, max = 200): string {
@@ -45,12 +46,15 @@ export async function POST(request: NextRequest) {
   if (!rec_id || !VALID_ACTIONS.includes(action)) {
     return NextResponse.json({ error: 'Parametri non validi' }, { status: 400, headers: rl.headers })
   }
+  if (!MEDIA_TYPES.has(rec_type)) {
+    return NextResponse.json({ error: 'rec_type non valido' }, { status: 400, headers: rl.headers })
+  }
 
   const genres = cleanGenres(body?.rec_genres)
   const feedbackReason: FeedbackReason = VALID_REASONS.includes(reason) ? reason : null
 
   // Salva feedback con reason granulare
-  await supabase.from('recommendation_feedback').insert({
+  const { error: feedbackError } = await supabase.from('recommendation_feedback').insert({
     user_id: user.id,
     rec_id,
     rec_type,
@@ -58,15 +62,21 @@ export async function POST(request: NextRequest) {
     action,
     reason: feedbackReason,
   })
+  if (feedbackError) {
+    return NextResponse.json({ error: 'Feedback non salvato' }, { status: 500, headers: rl.headers })
+  }
 
   // V5: aggiorna recommendations_shown con l'azione (per anti-ripetizione)
-  await supabase.from('recommendations_shown').upsert({
+  const { error: shownError } = await supabase.from('recommendations_shown').upsert({
     user_id: user.id,
     rec_id,
     rec_type,
     shown_at: new Date().toISOString(),
     action,
   }, { onConflict: 'user_id,rec_id' })
+  if (shownError) {
+    return NextResponse.json({ error: 'Feedback non aggiornato' }, { status: 500, headers: rl.headers })
+  }
 
   // Aggiorna soft-preferences in base alla reason
   if (action === 'not_interested' || action === 'dismissed') {
@@ -107,21 +117,31 @@ export async function POST(request: NextRequest) {
         .map(([k]) => k),
     ])]
 
-    await supabase.from('user_preferences').upsert({
+    const { error: preferencesError } = await supabase.from('user_preferences').upsert({
       user_id: user.id,
       genre_feedback_counts: counts,
       soft_disliked_genres: newSoftDisliked,
       format_feedback_counts: formatCounts,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' })
+    if (preferencesError) {
+      return NextResponse.json({ error: 'Preferenze non aggiornate' }, { status: 500, headers: rl.headers })
+    }
   }
 
   // Invalida cache raccomandazioni
-  await supabase
+  const cacheQuery = supabase
     .from('recommendations_cache')
     .delete()
     .eq('user_id', user.id)
-    .eq('media_type', rec_type || 'anime')
+
+  const { error: cacheError } = rec_type === 'all'
+    ? await cacheQuery
+    : await cacheQuery.eq('media_type', rec_type)
+
+  if (cacheError) {
+    return NextResponse.json({ error: 'Cache non invalidata' }, { status: 500, headers: rl.headers })
+  }
 
   return NextResponse.json({ success: true }, { headers: rl.headers })
 }
