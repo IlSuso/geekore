@@ -6,21 +6,21 @@ import { SkeletonFeedPost } from '@/components/ui/SkeletonCard'
 export function FeedLoadingSkeleton() {
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
-      <div className="pt-0 pb-24 xl:pb-6 relative min-h-screen">
-        <div className="lg:pl-[360px] flex items-start min-h-screen">
-          <div className="flex-1 min-w-0">
-            <div className="max-w-[680px] mx-auto px-4">
-              <div className="my-4 rounded-2xl border border-zinc-800 bg-zinc-900/60 px-4 py-3.5 flex items-center gap-3 animate-pulse">
-                <div className="w-9 h-9 rounded-full bg-zinc-800 flex-shrink-0" />
-                <div className="h-3.5 bg-zinc-800 rounded-full w-48" />
+      <div className="relative min-h-screen pb-24 pt-0 xl:pb-6">
+        <div className="flex min-h-screen items-start lg:pl-[360px]">
+          <div className="min-w-0 flex-1">
+            <div className="mx-auto max-w-[680px] px-4">
+              <div className="my-4 flex items-center gap-3 rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3.5 ring-1 ring-white/5 animate-pulse">
+                <div className="h-10 w-10 flex-shrink-0 rounded-2xl bg-[var(--bg-secondary)]" />
+                <div className="h-3.5 w-48 rounded-full bg-[var(--bg-secondary)]" />
               </div>
 
-              <div className="flex items-stretch mb-0 mt-1">
-                <div className="flex-1 py-3 flex justify-center">
-                  <div className="h-3.5 w-10 bg-zinc-800 rounded-full animate-pulse" />
+              <div className="mb-1 mt-1 flex items-stretch rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/60 p-1">
+                <div className="flex flex-1 justify-center py-3">
+                  <div className="h-3.5 w-10 animate-pulse rounded-full bg-[var(--bg-secondary)]" />
                 </div>
-                <div className="flex-1 py-3 flex justify-center">
-                  <div className="h-3.5 w-20 bg-zinc-800 rounded-full animate-pulse" />
+                <div className="flex flex-1 justify-center py-3">
+                  <div className="h-3.5 w-20 animate-pulse rounded-full bg-[var(--bg-secondary)]" />
                 </div>
               </div>
 
@@ -30,28 +30,28 @@ export function FeedLoadingSkeleton() {
             </div>
           </div>
 
-          <div className="hidden xl:block w-[420px] flex-shrink-0 sticky top-12 pt-4 px-4 space-y-6 animate-pulse">
-            <div>
-              <div className="h-4 w-40 bg-zinc-800 rounded-full mb-4" />
+          <div className="hidden w-[420px] flex-shrink-0 space-y-6 px-4 pt-4 animate-pulse xl:block">
+            <div className="rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+              <div className="mb-4 h-4 w-40 rounded-full bg-[var(--bg-secondary)]" />
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3 py-2.5">
-                  <div className="w-16 h-[88px] bg-zinc-800 rounded-xl flex-shrink-0" />
+                  <div className="h-[88px] w-16 flex-shrink-0 rounded-2xl bg-[var(--bg-secondary)]" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-3.5 bg-zinc-800 rounded-full w-3/4" />
-                    <div className="h-2.5 bg-zinc-800 rounded-full w-1/3" />
+                    <div className="h-3.5 w-3/4 rounded-full bg-[var(--bg-secondary)]" />
+                    <div className="h-2.5 w-1/3 rounded-full bg-[var(--bg-secondary)]" />
                   </div>
                 </div>
               ))}
             </div>
-            <div>
-              <div className="h-4 w-32 bg-zinc-800 rounded-full mb-4" />
+            <div className="rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+              <div className="mb-4 h-4 w-32 rounded-full bg-[var(--bg-secondary)]" />
               {Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="flex items-center justify-between py-2.5">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 bg-zinc-800 rounded-full flex-shrink-0" />
-                    <div className="h-3 bg-zinc-800 rounded-full w-20" />
+                    <div className="h-9 w-9 flex-shrink-0 rounded-2xl bg-[var(--bg-secondary)]" />
+                    <div className="h-3 w-20 rounded-full bg-[var(--bg-secondary)]" />
                   </div>
-                  <div className="w-14 h-7 bg-zinc-800 rounded-xl" />
+                  <div className="h-7 w-14 rounded-xl bg-[var(--bg-secondary)]" />
                 </div>
               ))}
             </div>
@@ -64,11 +64,11 @@ export function FeedLoadingSkeleton() {
 
 export function EndOfFeedNotice() {
   return (
-    <div className="text-center py-10 flex flex-col items-center gap-2">
-      <div className="w-12 h-12 rounded-full border border-[var(--border)] flex items-center justify-center">
+    <div className="flex flex-col items-center gap-2 py-10 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[rgba(230,255,61,0.22)] bg-[rgba(230,255,61,0.06)]">
         <PartyPopper size={20} style={{ color: 'var(--accent)' }} />
       </div>
-      <p className="text-[13px] text-[var(--text-muted)]">Hai visto tutto!</p>
+      <p className="gk-caption">Hai visto tutto!</p>
     </div>
   )
 }
@@ -90,10 +90,12 @@ export function MobileCreatePostFab({ onClick }: { onClick: () => void }) {
       }}
     >
       <button
+        type="button"
         onClick={onClick}
         aria-label="Crea nuovo post"
-        className="w-14 h-14 rounded-full flex items-center justify-center active:scale-95 transition-transform shadow-xl"
-        style={{ pointerEvents: 'auto', background: 'var(--accent)', boxShadow: '0 0 20px rgba(230,255,61,0.35)' }}
+        data-no-swipe="true"
+        className="flex h-14 w-14 items-center justify-center rounded-2xl active:scale-95 transition-transform shadow-xl ring-1 ring-black/20"
+        style={{ pointerEvents: 'auto', background: 'var(--accent)', boxShadow: '0 0 24px rgba(230,255,61,0.32)' }}
       >
         <Plus size={26} className="text-black" strokeWidth={2.5} aria-hidden="true" />
       </button>
