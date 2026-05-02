@@ -133,9 +133,9 @@ function FeedActivityContext({ category, media, onCategoryClick }: {
       type="button"
       data-no-swipe="true"
       onClick={onCategoryClick ? () => onCategoryClick(category) : undefined}
-      className="mx-5 mb-3 flex w-[calc(100%-2.5rem)] items-center gap-3 rounded-[20px] border border-[var(--border-subtle)] bg-[linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0.012))] p-3 text-left transition-colors hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)]"
+      className="mx-3 mb-3 flex w-[calc(100%-1.5rem)] items-center gap-3 rounded-[16px] border border-[var(--border-soft)] bg-[linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0.012))] p-3 text-left transition-colors hover:border-[var(--border)] hover:bg-[var(--bg-elevated)]"
     >
-      <div className="h-[74px] w-[50px] flex-shrink-0 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)]">
+      <div className="h-[74px] w-[50px] flex-shrink-0 overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-secondary)]">
         {media?.cover_image ? (
           <img src={media.cover_image} alt={`Copertina di ${mediaTitle}`} className="h-full w-full object-cover" loading="lazy" />
         ) : (
@@ -188,19 +188,19 @@ export const PostCard = memo(function PostCard({
   }
 
   return (
-    <article className={`overflow-hidden rounded-[24px] transition-all duration-300 animate-fade-in ${
-      post.pinned ? 'bg-[var(--bg-card)] border border-[var(--border)] ring-1 ring-[rgba(230,255,61,0.16)]'
-        : post.isDiscovery ? 'bg-[var(--bg-card)] border border-[rgba(167,139,250,0.28)] ring-1 ring-[rgba(167,139,250,0.10)]'
-          : 'bg-[var(--bg-card)] border border-[var(--border)]'
+    <article className={`gk-feed-card overflow-hidden transition-all duration-300 animate-fade-in ${
+      post.pinned ? 'ring-1 ring-[rgba(230,255,61,0.16)]'
+        : post.isDiscovery ? 'border-[rgba(167,139,250,0.28)] ring-1 ring-[rgba(167,139,250,0.10)]'
+          : ''
     }`}>
-      {post.pinned && <div className="px-5 pt-4 pb-1"><PostSignalBadge type="pinned" /></div>}
-      {post.isDiscovery && !post.pinned && <div className="px-5 pt-4 pb-1"><PostSignalBadge type="discovery" /></div>}
+      {post.pinned && <div className="px-3 pt-3 pb-1"><PostSignalBadge type="pinned" /></div>}
+      {post.isDiscovery && !post.pinned && <div className="px-3 pt-3 pb-1"><PostSignalBadge type="discovery" /></div>}
 
-      <div className="px-5 pt-4 pb-2.5">
+      <div className="gk-feed-card-body pb-2">
         <FeedPostHeader post={post} locale={locale} currentUserId={currentUser?.id} onPostOptions={onPostOptions} />
       </div>
 
-      <div className="px-5 pb-3">
+      <div className="px-3 pb-3">
         <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-[var(--text-primary)]">{post.content.replace(/\n{3,}/g, '\n\n')}</p>
         {post.is_edited && <p className="gk-mono mt-1 text-[var(--text-muted)]">modificato</p>}
       </div>
@@ -208,8 +208,8 @@ export const PostCard = memo(function PostCard({
       {post.category && <FeedActivityContext category={post.category} media={post.media_preview} onCategoryClick={onCategoryClick} />}
 
       {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
-        <div className="mx-5 mb-4 overflow-hidden rounded-[20px] border border-[var(--border-subtle)] bg-black/30">
-          <img src={post.image_url} alt={`Post di ${post.profiles.username}`} className="max-h-[420px] w-full object-cover transition-transform duration-500 hover:scale-[1.02]" loading="lazy" decoding="async" />
+        <div className="gk-feed-card-image mb-3 aspect-video">
+          <img src={post.image_url} alt={`Post di ${post.profiles.username}`} className="h-full w-full object-cover transition-transform duration-500 hover:scale-[1.02]" loading="lazy" decoding="async" />
         </div>
       )}
 

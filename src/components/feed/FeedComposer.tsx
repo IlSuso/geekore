@@ -2,7 +2,7 @@
 
 import type { ChangeEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { Image as ImageIcon, Loader2, Tag, X, Sparkles } from 'lucide-react'
+import { Image as ImageIcon, Loader2, Tag, X, Sparkles, Send } from 'lucide-react'
 import { CategorySelector } from '@/components/feed/CategoryControls'
 
 type ComposerModalPos = {
@@ -109,7 +109,7 @@ export function FeedComposer({
   handleImageSelect,
 }: FeedComposerProps) {
   const publishDisabled = isPublishing || (!newPostContent.trim() && !selectedImage)
-  const activityPlaceholder = 'Che cosa hai appena visto, letto, giocato o completato?'
+  const activityPlaceholder = 'Cosa stai guardando?'
 
   const handleTextChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setNewPostContent(e.target.value.slice(0, 500))
@@ -125,36 +125,22 @@ export function FeedComposer({
 
   return (
     <>
-      <button
-        type="button"
-        data-no-swipe="true"
-        className="mx-4 my-4 block w-[calc(100%-2rem)] cursor-pointer rounded-[22px] border border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.045),rgba(255,255,255,0.015))] text-left transition-all duration-200 hover:border-[rgba(230,255,61,0.35)] hover:bg-[var(--bg-card)]"
-        onClick={openComposer}
-      >
-        <div className="flex items-center gap-3 px-4 py-3.5">
-          <ProfileAvatar profile={profile} />
-          <div className="min-w-0 flex-1">
-            <span className="block truncate text-[15px] font-semibold text-[var(--text-secondary)] select-none">
-              {activityPlaceholder}
-            </span>
-            <span className="gk-mono mt-0.5 block text-[var(--text-muted)]">linka un medium e crea activity</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 overflow-x-auto border-t border-[var(--border-subtle)] px-4 pb-3 pt-2.5 scrollbar-hide">
-          <div className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-full border border-[rgba(230,255,61,0.32)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[12px] font-bold text-[var(--accent)]">
-            <Sparkles size={14} strokeWidth={1.8} />
-            Activity
-          </div>
-          <div className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1 text-[12px] font-semibold text-[var(--text-secondary)]">
-            <Tag size={13} strokeWidth={1.6} />
-            Medium / titolo
-          </div>
-          <div className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1 text-[12px] font-semibold text-[var(--text-secondary)]">
-            <ImageIcon size={14} strokeWidth={1.6} />
-            Foto opzionale
-          </div>
-        </div>
-      </button>
+      <div className="sticky top-[58px] z-20 -mx-4 bg-[rgba(11,11,15,0.82)] px-4 py-3 backdrop-blur-2xl md:top-4" data-no-swipe="true">
+        <button
+          type="button"
+          data-no-swipe="true"
+          className="flex w-full cursor-pointer items-center gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--bg-card)] p-3 text-left transition-all duration-200 hover:border-[rgba(230,255,61,0.35)] hover:bg-[var(--bg-elevated)] active:scale-[0.99]"
+          onClick={openComposer}
+        >
+          <ProfileAvatar profile={profile} className="h-10 w-10" textClassName="text-sm" />
+          <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-[var(--text-secondary)] select-none">
+            {activityPlaceholder}
+          </span>
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] bg-[var(--accent)] text-[#0B0B0F]">
+            <Send size={17} />
+          </span>
+        </button>
+      </div>
 
       {composerOpen && (
         <>
