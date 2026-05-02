@@ -1064,7 +1064,7 @@ function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
     <SwipeMode
       items={items}
       userId={userIdRef.current || undefined}
-      onSeen={(item, rating) => sendSwipeFeedback(item, 'already_seen', rating)}
+      onSeen={(item, rating) => sendSwipeFeedback(item, 'already_seen', rating ?? undefined)}
       onSkip={(item) => sendSwipeFeedback(item, 'not_interested')}
       onClose={onClose}
       onRequestMore={requestMore}
