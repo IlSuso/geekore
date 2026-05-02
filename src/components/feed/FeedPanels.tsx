@@ -95,23 +95,33 @@ export function FeedFilterTabs({
   setCategoryFilter: (value: string) => void
   labels: { filterAll: string; filterFollowing: string }
 }) {
-  return (
-    <div className="mb-0 mt-1 flex items-stretch rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/80 p-1 ring-1 ring-white/5" data-no-swipe="true" data-interactive="true">
-      {(['all', 'following'] as const).map(filter => (
-        <button
-          key={filter}
-          type="button"
-          data-testid={`filter-${filter}`}
-          data-no-swipe="true"
-          onClick={() => onFilterChange(filter)}
-          className="relative flex-1 rounded-xl py-2.5 text-[13px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
-          style={feedFilter === filter ? { background: 'rgba(230,255,61,0.09)', color: 'var(--accent)' } : { color: 'var(--text-muted)' }}
-        >
-          {filter === 'all' ? labels.filterAll : labels.filterFollowing}
-        </button>
-      ))}
+  const primaryFilters: Array<{ id: FeedFilter; label: string }> = [
+    { id: 'all', label: 'Tutti' },
+    { id: 'following', label: 'Seguiti' },
+    { id: 'trending', label: 'In tendenza' },
+    { id: 'discovery', label: 'Discovery' },
+  ]
 
-      <div className="flex items-center pr-1" data-no-swipe="true">
+  return (
+    <div className="mb-0 mt-1 space-y-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/80 p-2 ring-1 ring-white/5" data-no-swipe="true" data-interactive="true">
+      <div className="grid grid-cols-4 gap-1">
+        {primaryFilters.map(filter => (
+          <button
+            key={filter.id}
+            type="button"
+            data-testid={`filter-${filter.id}`}
+            data-no-swipe="true"
+            onClick={() => onFilterChange(filter.id)}
+            className="relative min-h-11 rounded-xl px-1 py-2 text-[11px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 sm:text-[12px]"
+            style={feedFilter === filter.id ? { background: 'rgba(230,255,61,0.09)', color: 'var(--accent)' } : { color: 'var(--text-muted)' }}
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between gap-3 border-t border-[var(--border-soft)] pt-2">
+        <p className="gk-label text-[var(--text-muted)]">Categoria libera</p>
         <CategorySelector value={categoryFilter} onChange={setCategoryFilter} />
       </div>
     </div>
@@ -126,21 +136,21 @@ export function MediumTypeChipRow({
   setCategoryFilter: (value: string) => void
 }) {
   const chips = [
-    { label: 'Tutto', value: '', color: 'var(--accent)' },
-    { label: 'Anime', value: 'Anime', color: 'var(--type-anime)' },
-    { label: 'Manga', value: 'Manga', color: 'var(--type-manga)' },
-    { label: 'Game', value: 'Videogiochi', color: 'var(--type-game)' },
-    { label: 'TV', value: 'Serie TV', color: 'var(--type-tv)' },
-    { label: 'Film', value: 'Film', color: 'var(--type-movie)' },
-    { label: 'Board', value: 'Giochi da tavolo', color: 'var(--type-board)' },
+    { label: 'Tutto', value: '', className: 'gk-chip-active' },
+    { label: 'Anime', value: 'Anime', className: 'gk-chip-anime' },
+    { label: 'Manga', value: 'Manga', className: 'gk-chip-manga' },
+    { label: 'Game', value: 'Videogiochi', className: 'gk-chip-game' },
+    { label: 'TV', value: 'Serie TV', className: 'gk-chip-tv' },
+    { label: 'Film', value: 'Film', className: 'gk-chip-movie' },
+    { label: 'Board', value: 'Giochi da tavolo', className: 'gk-chip-board' },
   ]
 
   return (
     <div className="-mx-4 border-b border-[var(--border-subtle)] px-4 pb-3 pt-3" data-no-swipe="true">
       <div className="mb-2 flex items-center justify-between">
-        <p className="gk-label">Medium</p>
+        <p className="gk-label">Tipo media</p>
         {categoryFilter && (
-          <button type="button" onClick={() => setCategoryFilter('')} data-no-swipe="true" className="gk-mono text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 rounded-lg px-1">
+          <button type="button" onClick={() => setCategoryFilter('')} data-no-swipe="true" className="gk-mono rounded-lg px-1 text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35">
             reset
           </button>
         )}
@@ -155,15 +165,9 @@ export function MediumTypeChipRow({
               type="button"
               data-no-swipe="true"
               onClick={() => setCategoryFilter(isActive && chip.value !== '' ? '' : chip.value)}
-              className="flex-shrink-0 rounded-full border px-3.5 py-1.5 text-[12px] font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
-              style={{
-                background: isActive ? (chip.value ? `color-mix(in srgb, ${chip.color} 18%, transparent)` : 'var(--accent)') : 'var(--bg-card)',
-                color: isActive ? (chip.value ? chip.color : '#0B0B0F') : 'var(--text-secondary)',
-                borderColor: isActive ? chip.color : 'var(--border)',
-                boxShadow: isActive && chip.value ? `0 0 22px color-mix(in srgb, ${chip.color} 18%, transparent)` : undefined,
-              }}
+              className={`gk-chip ${isActive ? chip.className : ''} gk-focus-ring`}
+              data-active={isActive && chip.value === '' ? 'true' : undefined}
             >
-              <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full" style={{ background: isActive && !chip.value ? '#0B0B0F' : chip.color }} />
               {chip.label}
             </button>
           )
@@ -184,27 +188,37 @@ export function EmptyFeedState({
   labels: { noFollowingTitle: string; emptyTitle: string; noFollowingHint: string; emptyHint: string }
   clearCategoryFilter: () => void
 }) {
+  const title = categoryFilter
+    ? `Nessun post per "${parseCategoryString(categoryFilter)?.subcategory || categoryFilter}"`
+    : feedFilter === 'following'
+      ? labels.noFollowingTitle
+      : feedFilter === 'trending'
+        ? 'Nessun trend per ora'
+        : feedFilter === 'discovery'
+          ? 'Nessuna discovery disponibile'
+          : labels.emptyTitle
+
+  const hint = categoryFilter
+    ? 'Sii il primo a pubblicare in questa categoria!'
+    : feedFilter === 'following'
+      ? labels.noFollowingHint
+      : feedFilter === 'trending'
+        ? 'Quando i post ricevono like o commenti appariranno qui.'
+        : feedFilter === 'discovery'
+          ? 'Segui meno persone o torna più tardi per nuovi post fuori dalla tua rete.'
+          : labels.emptyHint
+
   return (
-    <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-8 py-20 text-center">
-      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[rgba(230,255,61,0.22)] bg-[rgba(230,255,61,0.06)]">
-        <Sparkles size={28} style={{ color: 'var(--accent)' }} />
-      </div>
-      <p className="gk-headline mb-1 text-[var(--text-primary)]">
-        {categoryFilter
-          ? `Nessun post per "${parseCategoryString(categoryFilter)?.subcategory || categoryFilter}"`
-          : feedFilter === 'following' ? labels.noFollowingTitle : labels.emptyTitle}
-      </p>
-      <p className="gk-body mx-auto max-w-sm">
-        {categoryFilter
-          ? 'Sii il primo a pubblicare in questa categoria!'
-          : feedFilter === 'following' ? labels.noFollowingHint : labels.emptyHint}
-      </p>
+    <div className="gk-empty-state py-20">
+      <Sparkles className="gk-empty-state-icon" style={{ color: 'var(--accent)' }} />
+      <p className="gk-empty-state-title">{title}</p>
+      <p className="gk-empty-state-subtitle">{hint}</p>
       {categoryFilter && (
         <button
           type="button"
           data-no-swipe="true"
           onClick={clearCategoryFilter}
-          className="mt-5 rounded-2xl border border-[var(--border)] px-5 py-2 text-[13px] font-bold text-[var(--text-secondary)] transition-all hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
+          className="gk-btn gk-btn-secondary gk-focus-ring mt-3 h-10 px-5 text-[13px]"
         >
           Rimuovi filtro
         </button>
