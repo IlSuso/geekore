@@ -3,6 +3,7 @@
 // Pull-to-refresh stile Instagram con mutex — non si attiva se swipe orizzontale è attivo
 
 import { useEffect, useRef, useState, useCallback, useContext } from 'react'
+import type { RefObject } from 'react'
 import { gestureState } from './gestureState'
 import { ScrollPanelContext } from '@/context/ScrollPanelContext'
 
@@ -10,6 +11,7 @@ interface Options {
   onRefresh: () => Promise<void>
   threshold?: number
   enabled?: boolean
+  containerRef?: RefObject<HTMLElement | null>
 }
 
 interface State {
@@ -18,14 +20,13 @@ interface State {
   distance: number
 }
 
-export function usePullToRefresh({ onRefresh, threshold = 70, enabled = true }: Options) {
+export function usePullToRefresh({ onRefresh, threshold = 70, enabled = true, containerRef }: Options) {
   const [state, setState] = useState<State>({ pulling: false, refreshing: false, distance: 0 })
   const startY = useRef(0)
   const startX = useRef(0)
   const active = useRef(false)
   const loading = useRef(false)
 
-  // Legge il panelRef dal context — è il div scrollabile reale (non window)
   const { panelRef } = useContext(ScrollPanelContext)
 
   useEffect(() => {
@@ -37,16 +38,14 @@ export function usePullToRefresh({ onRefresh, threshold = 70, enabled = true }: 
   }, [enabled])
 
   const getScrollTop = useCallback(() => {
-    // Il panel usa overflow-y:auto su un div fisso — window.scrollY è sempre 0.
-    // Leggiamo direttamente lo scrollTop del container reale.
-    return panelRef.current?.scrollTop ?? 0
-  }, [panelRef])
+    const container = containerRef?.current ?? panelRef.current
+    return container?.scrollTop ?? 0
+  }, [containerRef, panelRef])
 
   const onStart = useCallback((e: TouchEvent) => {
     if (!enabled) return
     if (loading.current) return
     if (gestureState.swipeActive) return
-    // Attiva SOLO se il panel è in cima (scrollTop <= 4)
     if (getScrollTop() > 4) return
     const x = e.touches[0].clientX
     const w = window.innerWidth
@@ -59,7 +58,6 @@ export function usePullToRefresh({ onRefresh, threshold = 70, enabled = true }: 
   const onMove = useCallback((e: TouchEvent) => {
     if (!enabled || !active.current || loading.current) return
     if (gestureState.swipeActive) { active.current = false; return }
-    // Controlla di nuovo durante il move — l'utente potrebbe aver scrollato
     if (getScrollTop() > 4) { active.current = false; return }
 
     const raw = e.touches[0].clientY - startY.current
@@ -69,7 +67,6 @@ export function usePullToRefresh({ onRefresh, threshold = 70, enabled = true }: 
     if (dx > raw * 0.8) { active.current = false; return }
     if (raw < 8) return
 
-    // Resistenza progressiva identica a Instagram
     const dist = Math.min(Math.pow(raw, 0.72) * 1.8, threshold * 1.4)
     setState({ pulling: true, refreshing: false, distance: dist })
     gestureState.pullActive = true
