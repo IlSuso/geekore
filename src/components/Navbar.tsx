@@ -6,7 +6,7 @@ import {
   Home, Search, Sparkles, Library, User, X, Settings, LogOut, ChevronDown, Bell,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useActiveTab, pathnameToTab, type KATab } from '@/context/ActiveTabContext'
+import { useActiveTab, pathnameToTab } from '@/context/ActiveTabContext'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/context/AuthContext'
 import { Avatar, getLocalAvatarSvg } from '@/components/ui/Avatar'
@@ -37,6 +37,12 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
+  const navigateToTab = useCallback((href: string) => {
+    const tab = pathnameToTab(href)
+    if (tab) setActiveTab(tab)
+    router.push(href)
+  }, [router, setActiveTab])
+
   const handleLogout = async () => {
     setMenuOpen(false)
     await supabase.auth.signOut()
@@ -49,21 +55,20 @@ export default function Navbar() {
   const isPublicLanding = pathname === '/'
 
   const NAV_ITEMS = [
-    { href: '/home',     label: t.nav.home,    icon: Home     },
-    { href: '/for-you',  label: t.nav.forYou,  icon: Sparkles },
-    { href: '/library',  label: 'Libreria',    icon: Library  },
-    { href: '/discover', label: t.nav.discover, icon: Search  },
+    { href: '/home',     label: t.nav.home,     icon: Home     },
+    { href: '/for-you',  label: t.nav.forYou,   icon: Sparkles },
+    { href: '/library',  label: 'Libreria',     icon: Library  },
+    { href: '/discover', label: t.nav.discover, icon: Search   },
   ]
 
   const MOBILE_NAV_ITEMS = [
-    { href: '/home',     label: t.nav.home,    icon: Home,     hasDot: false },
-    { href: '/for-you',  label: t.nav.forYou,  icon: Sparkles, hasDot: false },
-    { href: '/library',  label: 'Libreria',    icon: Library,  hasDot: false },
-    { href: '/discover', label: t.nav.discover, icon: Search,  hasDot: false },
-    { href: username ? `/profile/${username}` : '/profile/me', label: t.nav.profile, icon: User, hasDot: false },
+    { href: '/home',     label: t.nav.home,     icon: Home    },
+    { href: '/for-you',  label: t.nav.forYou,   icon: Sparkles},
+    { href: '/library',  label: 'Libreria',     icon: Library },
+    { href: '/discover', label: t.nav.discover, icon: Search  },
+    { href: username ? `/profile/${username}` : '/profile/me', label: t.nav.profile, icon: User },
   ]
 
-  // Close search on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
@@ -74,7 +79,6 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  // Close menu on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -85,7 +89,6 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  // PERF FIX: usa AuthContext invece di getUser() per-componente
   const authUser = useUser()
   useEffect(() => {
     if (isAuthPage || !authUser) {
@@ -114,7 +117,7 @@ export default function Navbar() {
     setSearchResults(data || [])
     setSearchOpen(true)
     setSearchLoading(false)
-  }, [])
+  }, [supabase])
 
   useEffect(() => {
     const timer = setTimeout(() => searchUsers(searchQuery), 280)
@@ -126,8 +129,6 @@ export default function Navbar() {
     searchInputRef.current?.focus()
   }
 
-  // Aggiunge/rimuove classe al body per gestire la safe-area su mobile
-  // nelle pagine senza navbar (auth, landing non loggato)
   const navbarVisible = !(
     isAuthPage ||
     (isPublicLanding && isLoggedIn === false) ||
@@ -135,11 +136,8 @@ export default function Navbar() {
     isLoggedIn === null
   )
   useEffect(() => {
-    if (navbarVisible) {
-      document.body.classList.remove('no-mobile-nav')
-    } else {
-      document.body.classList.add('no-mobile-nav')
-    }
+    if (navbarVisible) document.body.classList.remove('no-mobile-nav')
+    else document.body.classList.add('no-mobile-nav')
     return () => { document.body.classList.remove('no-mobile-nav') }
   }, [navbarVisible])
 
@@ -155,11 +153,8 @@ export default function Navbar() {
 
   return (
     <>
-      {/* ── Desktop navbar — Facebook layout ─────────────────────────────── */}
       <nav className="hidden md:flex fixed top-0 left-0 right-0 z-[100] bg-[rgba(11,11,15,0.92)] backdrop-blur-2xl border-b border-[var(--border)] h-12">
         <div className="w-full flex items-center h-full">
-
-          {/* LEFT: Logo + Search ─────────────────────────────────────────── */}
           <div className="flex items-center gap-3 flex-1 min-w-0 px-4">
             <div className="flex-shrink-0 group flex items-center gap-2">
               <Link
@@ -170,7 +165,6 @@ export default function Navbar() {
               >
                 <span className="font-display text-[18px] font-black leading-none text-[#0B0B0F] tracking-[-0.05em]">g.</span>
               </Link>
-              {/* Wordmark — visibile da lg in su */}
               <GeekoreWordmark href="/home" size="sm" className="hidden lg:inline-flex" />
             </div>
 
@@ -183,7 +177,7 @@ export default function Navbar() {
                 className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-full pl-9 pr-8 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
               />
               {searchQuery && (
-                <button onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
+                <button onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300" aria-label="Cancella ricerca">
                   <X size={13} />
                 </button>
               )}
@@ -213,7 +207,6 @@ export default function Navbar() {
             </div>
           </div>
 
-          {/* CENTER: Nav icon tabs ───────────────────────────────────────── */}
           <div className="flex items-end h-full flex-shrink-0" style={{ transform: 'translateX(-30px)' }}>
             {NAV_ITEMS.map((item) => {
               const itemTab = pathnameToTab(item.href)
@@ -227,24 +220,15 @@ export default function Navbar() {
                   onMouseEnter={item.href === '/for-you' && !isActive
                     ? () => fetch('/api/recommendations?type=all', { credentials: 'include' }).catch(() => {})
                     : undefined}
-                  onClick={() => {
-                    const tab = pathnameToTab(item.href)
-                    if (tab) setActiveTab(tab)
-                    // history.replaceState: aggiorna URL SENZA passare per Next.js router
-                    // → zero re-render, zero conflitti con i panel fissi
-                    window.history.replaceState(null, '', item.href)
-                  }}
-                  className={`relative flex flex-col items-center justify-center w-16 lg:w-20 h-full transition-colors group bg-transparent border-0 cursor-pointer ${
-                    isActive ? 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/60' : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/60'
-                  }`}
+                  onClick={() => navigateToTab(item.href)}
+                  className="relative flex flex-col items-center justify-center w-16 lg:w-20 h-full transition-colors group bg-transparent border-0 cursor-pointer text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/60"
                   style={{ color: isActive ? 'var(--accent)' : undefined }}
+                  aria-current={isActive ? 'page' : undefined}
                 >
                   <item.icon size={22} strokeWidth={isActive ? 2.2 : 1.6} />
-                  {/* Tooltip on hover */}
                   <span className="absolute -top-9 left-1/2 -translate-x-1/2 bg-zinc-900 border border-zinc-700 text-zinc-200 text-[11px] font-semibold px-2.5 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[130]">
                     {item.label}
                   </span>
-                  {/* Active bottom indicator */}
                   {isActive && (
                     <span className="absolute bottom-0 left-3 right-3 h-[3px] rounded-t-full" style={{ background: 'var(--accent)' }} />
                   )}
@@ -253,9 +237,7 @@ export default function Navbar() {
             })}
           </div>
 
-          {/* RIGHT: Avatar + dropdown menu ───────────────────────────────── */}
           <div className="flex items-center justify-end flex-1 px-4">
-            {/* Campanella notifiche desktop */}
             <Link
               href="/notifications"
               className="relative w-9 h-9 flex items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition-colors mr-3"
@@ -283,7 +265,6 @@ export default function Navbar() {
 
               {menuOpen && (
                 <div className="absolute right-0 top-full mt-2 w-72 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl shadow-black/70 overflow-hidden z-[120]">
-                  {/* User info header */}
                   <Link
                     href={`/profile/${currentUsername || 'me'}`}
                     onClick={() => setMenuOpen(false)}
@@ -304,7 +285,6 @@ export default function Navbar() {
                     </div>
                   </Link>
 
-                  {/* Menu items */}
                   <div className="py-1">
                     <Link href={`/profile/${currentUsername || 'me'}`} onClick={() => setMenuOpen(false)}
                       className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 transition-colors text-sm text-zinc-300 hover:text-white">
@@ -335,11 +315,9 @@ export default function Navbar() {
               )}
             </div>
           </div>
-
         </div>
       </nav>
 
-      {/* ── Mobile bottom navbar ─────────────────────────────────────────── */}
       <nav
         className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100]"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)', background: 'rgba(11,11,15,0.97)' }}
@@ -359,11 +337,8 @@ export default function Navbar() {
               <button key={item.href}
                 data-testid={`nav-mobile-${item.href.replace('/', '')}`}
                 className="flex flex-col items-center justify-center flex-1 relative gap-[3px] py-2 bg-transparent border-0 cursor-pointer"
-                onClick={() => {
-                  const tab = pathnameToTab(item.href)
-                  if (tab) setActiveTab(tab)
-                  window.history.replaceState(null, '', item.href)
-                }}
+                onClick={() => navigateToTab(item.href)}
+                aria-current={isActive ? 'page' : undefined}
               >
                 {isActive && (
                   <span className="absolute top-0 left-1/2 -translate-x-1/2 rounded-full" style={{ width: 24, height: 2, background: 'var(--accent)' }} />
