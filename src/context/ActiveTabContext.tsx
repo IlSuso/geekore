@@ -1,18 +1,19 @@
 'use client'
 // src/context/ActiveTabContext.tsx
 // Context per il tab attivo — aggiornato immediatamente al click nella Navbar.
-// Swipe resta nel tipo per compatibilità con vecchi wrapper/gesture, ma /swipe
-// viene mappata a For You perché ora è una modalità, non una tab primaria.
+// Swipe resta compatibile ma viene mappata a For You perché è una modalità.
+// Profile non è più tab primaria: l'accesso avviene dall'avatar/header.
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 
-export type KATab = 'feed' | 'for-you' | 'library' | 'discover' | 'profile' | 'swipe'
+export type KATab = 'feed' | 'for-you' | 'library' | 'discover' | 'friends' | 'profile' | 'swipe'
 
 function pathnameToTab(pathname: string): KATab | null {
   if (pathname === '/home' || pathname === '/') return 'feed'
   if (pathname === '/for-you' || pathname === '/swipe') return 'for-you'
   if (pathname === '/library') return 'library'
   if (pathname === '/discover') return 'discover'
+  if (pathname === '/friends' || pathname === '/community') return 'friends'
   if (pathname.startsWith('/profile/') && pathname.split('/').length === 3) return 'profile'
   return null
 }
@@ -35,8 +36,6 @@ export function ActiveTabProvider({ children, initialPathname }: { children: Rea
   )
 
   const setActiveTab = useCallback((tab: KATab | null) => {
-    // Protezione extra: se vecchi gesture/helper provano ancora a impostare
-    // 'swipe', l'indicatore resta su For You.
     setActiveTabState(tab === 'swipe' ? 'for-you' : tab)
   }, [])
 
