@@ -4,33 +4,45 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Zap, Gamepad2, Film, Tv, Check, Layers, Swords, ArrowRight, Sparkles, Users, TrendingUp, UploadCloud } from 'lucide-react'
+import {
+  Zap, Gamepad2, Film, Tv, Check, Layers, Swords, ArrowRight,
+  Sparkles, Users, TrendingUp, UploadCloud, Dices, ArrowLeft,
+} from 'lucide-react'
 import { SwipeMode } from '@/components/for-you/SwipeMode'
 import type { SwipeItem } from '@/components/for-you/SwipeMode'
 
+const TOTAL_STEPS = 4
+
 const MEDIA_TYPES = [
-  { id: 'anime',  label: 'Anime',       icon: Swords,   color: '#38bdf8', active: 'bg-sky-500/25 border-sky-400 text-sky-200',         inactive: 'bg-sky-500/10 border-sky-500/30 text-zinc-400' },
-  { id: 'manga',  label: 'Manga',       icon: Layers,   color: '#f97066', active: 'bg-orange-500/25 border-orange-400 text-orange-200', inactive: 'bg-orange-500/10 border-orange-500/30 text-zinc-400' },
-  { id: 'game',   label: 'Videogiochi', icon: Gamepad2, color: '#4ade80', active: 'bg-green-500/25 border-green-400 text-green-200',    inactive: 'bg-green-500/10 border-green-500/30 text-zinc-400' },
-  { id: 'tv',     label: 'Serie TV',    icon: Tv,       color: '#a78bfa', active: 'bg-violet-500/25 border-violet-400 text-violet-200', inactive: 'bg-violet-500/10 border-violet-500/30 text-zinc-400' },
-  { id: 'movie',  label: 'Film',        icon: Film,     color: '#fb7185', active: 'bg-rose-500/25 border-rose-400 text-rose-200',       inactive: 'bg-rose-500/10 border-rose-500/30 text-zinc-400' },
+  { id: 'anime', label: 'Anime', icon: Swords, color: 'var(--type-anime)' },
+  { id: 'manga', label: 'Manga', icon: Layers, color: 'var(--type-manga)' },
+  { id: 'game', label: 'Videogiochi', icon: Gamepad2, color: 'var(--type-game)' },
+  { id: 'tv', label: 'Serie TV', icon: Tv, color: 'var(--type-tv)' },
+  { id: 'movie', label: 'Film', icon: Film, color: 'var(--type-movie)' },
+  { id: 'boardgame', label: 'Boardgame', icon: Dices, color: 'var(--type-board)' },
 ]
 
 const IMPORT_SOURCES = [
   { id: 'anilist', label: 'AniList', detail: 'Anime e manga già visti', href: '/profile/me?import=anilist', icon: Swords, color: 'var(--type-anime)' },
-  { id: 'mal', label: 'MyAnimeList', detail: 'Anime list storica', href: '/profile/me?import=mal', icon: Layers, color: 'var(--type-manga)' },
   { id: 'steam', label: 'Steam', detail: 'Ore giocate e libreria PC', href: '/profile/me?import=steam', icon: Gamepad2, color: 'var(--type-game)' },
   { id: 'letterboxd', label: 'Letterboxd', detail: 'Film e rating', href: '/profile/me?import=letterboxd', icon: Film, color: 'var(--type-movie)' },
   { id: 'bgg', label: 'BoardGameGeek', detail: 'Boardgame collection', href: '/profile/me?import=bgg', icon: UploadCloud, color: 'var(--type-board)' },
 ]
 
 const FEATURES = [
-  { icon: Sparkles,   label: 'Raccomandazioni personalizzate basate sui tuoi gusti' },
-  { icon: Users,      label: 'Segui amici e scopri cosa stanno guardando' },
+  { icon: Sparkles, label: 'Raccomandazioni personalizzate basate sui tuoi gusti' },
+  { icon: Users, label: 'Segui amici e scopri cosa stanno guardando' },
   { icon: TrendingUp, label: 'Traccia i progressi su tutti i tuoi media preferiti' },
 ]
 
-type CategoryKey = 'all' | 'anime' | 'manga' | 'movie' | 'tv' | 'game'
+type CategoryKey = 'all' | 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame'
+
+type SuggestedUser = {
+  id: string
+  username: string | null
+  display_name?: string | null
+  avatar_url?: string | null
+}
 
 const POOL_QUICK = 15
 const POOL_TARGET = 50
@@ -95,13 +107,13 @@ function setOnboardingCookie() {
 function StepDots({ current, total }: { current: number; total: number }) {
   const pct = Math.round(((current + 1) / total) * 100)
   return (
-    <div className="flex w-full flex-col gap-1.5">
+    <div className="flex w-full flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Passo {current + 1} di {total}</span>
-        <span className="text-[11px] font-bold" style={{ color: 'var(--accent)' }}>{pct}%</span>
+        <span className="gk-mono text-[var(--text-muted)]">Passo {current + 1} di {total}</span>
+        <span className="font-mono-data text-[11px] font-bold text-[var(--accent)]">{pct}%</span>
       </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
-        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: 'var(--accent)' }} />
+      <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--border)]">
+        <div className="h-full rounded-full bg-[var(--accent)] transition-all duration-500" style={{ width: `${pct}%` }} />
       </div>
     </div>
   )
@@ -109,28 +121,43 @@ function StepDots({ current, total }: { current: number; total: number }) {
 
 function BrandPanel({ step }: { step: number }) {
   const copy = [
-    { title: ['Il tuo universo geek,', 'finalmente unificato.'], sub: 'Anime, manga, videogiochi, film e serie TV in un solo posto. Condividi progressi e scopri nuovi titoli.' },
-    { title: ['Scegli i medium', 'che contano.'], sub: 'Partiamo dalle categorie che vuoi davvero tracciare.' },
-    { title: ['Importa la storia,', 'non ripartire da zero.'], sub: 'AniList, MAL, Steam, Letterboxd e BGG diventano il tuo cold-start intelligente.' },
-    { title: ['Dai 5 segnali', 'forti al DNA.'], sub: 'Valuta, salva o scarta titoli: il feed parte già con una direzione.' },
+    { title: ['Scegli i media', 'che contano.'], sub: 'Partiamo dalle categorie che vuoi davvero tracciare.' },
+    { title: ['Importa la storia,', 'non ripartire da zero.'], sub: 'AniList, Steam, Letterboxd e BGG diventano il tuo cold-start intelligente.' },
+    { title: ['Dai segnali forti', 'al tuo DNA.'], sub: 'Valuta, salva o scarta titoli: il feed parte già con una direzione.' },
+    { title: ['Preferenze pronte,', 'entra nel feed.'], sub: 'Conferma il tuo profilo iniziale e scopri utenti da seguire.' },
   ][Math.min(step, 3)]
 
   return (
     <div className="relative flex h-full w-full flex-col justify-between overflow-hidden px-14 py-14 xl:px-20">
-      <div className="absolute -left-40 -top-40 h-[500px] w-[500px] rounded-full blur-[140px] pointer-events-none" style={{ background: 'rgba(230,255,61,0.05)' }} />
-      <div className="absolute -bottom-32 -right-10 h-96 w-96 rounded-full blur-[110px] pointer-events-none" style={{ background: 'rgba(230,255,61,0.05)' }} />
       <div className="relative z-10 flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl" style={{ background: 'var(--accent)' }}><Zap size={22} className="text-black" /></div>
-        <span className="text-2xl font-bold tracking-tighter text-white">geekore</span>
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--accent)]"><Zap size={22} className="text-black" /></div>
+        <span className="font-display text-2xl font-black tracking-[-0.03em] text-white">geekore</span>
       </div>
       <div className="relative z-10 space-y-7">
         <h2 key={step} className="gk-display max-w-[520px] text-white">
           {copy.title.map((line, i) => <span key={line} className="block" style={i === copy.title.length - 1 ? { color: 'var(--accent)' } : {}}>{line}</span>)}
         </h2>
-        <p className="max-w-[380px] text-lg leading-relaxed text-zinc-400">{copy.sub}</p>
-        {step === 0 && <div className="space-y-4 pt-2">{FEATURES.map(({ icon: Icon, label }) => <div key={label} className="flex items-start gap-3"><div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)' }}><Icon size={17} style={{ color: 'var(--accent)' }} /></div><span className="pt-1 text-sm leading-relaxed text-zinc-300">{label}</span></div>)}</div>}
+        <p className="max-w-[380px] text-lg leading-relaxed text-[var(--text-secondary)]">{copy.sub}</p>
+        {step === 0 && <div className="space-y-4 pt-2">{FEATURES.map(({ icon: Icon, label }) => <div key={label} className="flex items-start gap-3"><div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[rgba(230,255,61,0.2)] bg-[rgba(230,255,61,0.08)]"><Icon size={17} className="text-[var(--accent)]" /></div><span className="pt-1 text-sm leading-relaxed text-zinc-300">{label}</span></div>)}</div>}
       </div>
       <p className="relative z-10 text-xs text-zinc-800">© {new Date().getFullYear()} Geekore</p>
+    </div>
+  )
+}
+
+function UserSuggestionCard({ user }: { user: SuggestedUser }) {
+  const name = user.display_name || user.username || 'Geekore user'
+  const initial = name.trim().slice(0, 1).toUpperCase() || 'G'
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-3">
+      <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-[var(--bg-elevated)] font-display text-sm font-black text-[var(--accent)]">
+        {user.avatar_url ? <img src={user.avatar_url} alt="" className="h-full w-full object-cover" /> : initial}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-black text-white">{name}</p>
+        {user.username && <p className="truncate font-mono-data text-[10px] text-[var(--text-muted)]">@{user.username}</p>}
+      </div>
+      <span className="gk-chip gk-chip-match">Da seguire</span>
     </div>
   )
 }
@@ -145,6 +172,7 @@ export default function OnboardingPage() {
   const userIdRef = useRef<string | null>(null)
   const [poolReady, setPoolReady] = useState(false)
   const [swipePool, setSwipePool] = useState<SwipeItem[]>([])
+  const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([])
   const skippedItemsRef = useRef<SwipeItem[]>([])
   const acceptedItemsRef = useRef<Map<string, { item: SwipeItem; rating: number | null }>>(new Map())
   const wishlistItemsRef = useRef<Set<string>>(new Set())
@@ -159,6 +187,16 @@ export default function OnboardingPage() {
       setUserId(user.id); userIdRef.current = user.id
     })
   }, []) // eslint-disable-line
+
+  useEffect(() => {
+    if (!userId) return
+    supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url')
+      .neq('id', userId)
+      .limit(8)
+      .then(({ data }) => setSuggestedUsers((data || []) as SuggestedUser[]))
+  }, [userId]) // eslint-disable-line
 
   useEffect(() => {
     const run = async () => {
@@ -187,6 +225,7 @@ export default function OnboardingPage() {
   const handleOnboardingUndo = useCallback((item: SwipeItem) => { acceptedItemsRef.current.delete(item.id); skippedItemsRef.current = skippedItemsRef.current.filter(i => i.id !== item.id) }, [])
   const handleOnboardingUndoWishlist = useCallback((item: SwipeItem) => { wishlistItemsRef.current.delete(item.id); acceptedItemsRef.current.delete(item.id) }, [])
   const handleOnboardingSkip = useCallback((item: SwipeItem) => { acceptedItemsRef.current.delete(item.id); wishlistItemsRef.current.delete(item.id); skippedItemsRef.current.push(item) }, [])
+  const goToConfirmation = useCallback(() => setStep(3), [])
 
   const handleOnboardingRequestMore = useCallback(async (filter: string = 'all'): Promise<SwipeItem[]> => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -213,22 +252,109 @@ export default function OnboardingPage() {
     const res = await fetch('/api/onboarding/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accepted, wishlist, skipped: skippedItemsRef.current, selected_types: selectedTypes, import_skipped: importSkipped }) }).catch(() => null)
     if (!res?.ok) return
     setOnboardingCookie(); fetch('/api/recommendations?refresh=1&onboarding=1').catch(() => {}); router.push('/home')
-  }, [userId, selectedTypes, importSkipped, router])
+  }, [selectedTypes, importSkipped, router])
 
-  if (step === 3) {
-    return <SwipeMode items={swipePool} onSeen={handleOnboardingSeen} onSkip={handleOnboardingSkip} onClose={completeOnboarding} onRequestMore={handleOnboardingRequestMore} isOnboarding onOnboardingComplete={completeOnboarding} onUndo={handleOnboardingUndo} onUndoWishlist={handleOnboardingUndoWishlist} />
+  if (step === 2) {
+    return <SwipeMode items={swipePool} onSeen={handleOnboardingSeen} onSkip={handleOnboardingSkip} onClose={goToConfirmation} onRequestMore={handleOnboardingRequestMore} isOnboarding onOnboardingComplete={goToConfirmation} onUndo={handleOnboardingUndo} onUndoWishlist={handleOnboardingUndoWishlist} />
   }
 
+  const selectedLabels = selectedTypes
+    .map(id => MEDIA_TYPES.find(t => t.id === id)?.label)
+    .filter(Boolean)
+
   return (
-    <div className="gk-onboarding-page flex min-h-screen w-full">
-      <div className="hidden shrink-0 border-r border-zinc-800/50 lg:block lg:w-[46%] xl:w-[50%]"><div className="sticky top-0 h-screen"><BrandPanel step={step} /></div></div>
+    <div className="gk-onboarding-page flex min-h-screen w-full bg-[var(--bg-primary)] text-[var(--text-primary)]">
+      <div className="hidden shrink-0 border-r border-[var(--border)] lg:block lg:w-[46%] xl:w-[50%]"><div className="sticky top-0 h-screen"><BrandPanel step={step} /></div></div>
       <div className="flex flex-1 flex-col items-center justify-center px-7 py-12 sm:px-12 lg:px-14 xl:px-20">
-        <div className="mb-10 flex items-center gap-3 self-start lg:hidden"><div className="flex h-10 w-10 items-center justify-center rounded-2xl" style={{ background: 'var(--accent)' }}><Zap size={20} className="text-black" /></div><span className="text-2xl font-bold tracking-tighter text-white">geekore</span></div>
+        <div className="mb-10 flex items-center gap-3 self-start lg:hidden"><div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--accent)]"><Zap size={20} className="text-black" /></div><span className="font-display text-2xl font-black tracking-[-0.03em] text-white">geekore</span></div>
         <div className="w-full max-w-md">
-          <div className="mb-8"><StepDots current={step} total={4} /></div>
-          {step === 0 && <><div className="mb-8 lg:hidden"><h1 className="gk-display mb-3 text-white">Il tuo universo geek, <span style={{ color: 'var(--accent)' }}>finalmente unificato.</span></h1><p className="text-zinc-400">Anime, manga, videogiochi, film e serie in un solo posto.</p></div><button type="button" data-no-swipe="true" onClick={() => setStep(1)} className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-lg font-semibold transition-all" style={{ background: 'var(--accent)', color: '#0B0B0F' }}>Inizia <ArrowRight size={20} /></button></>}
-          {step === 1 && <><div className="mb-7"><h1 className="gk-title mb-2 text-white">Cosa tracci?</h1><p className="text-zinc-400">Seleziona i media che ti interessano.</p></div><div className="mb-7 grid grid-cols-2 gap-3">{MEDIA_TYPES.map(({ id, label, icon: Icon, color, active, inactive }) => { const sel = selectedTypes.includes(id); return <button key={id} type="button" data-no-swipe="true" onClick={() => toggleType(id)} className={`relative flex items-center gap-2 rounded-2xl border p-4 transition-all hover:scale-[1.02] active:scale-[0.98] ${sel ? active : inactive}`}><Icon size={19} style={sel ? { color } : {}} /><span className="text-sm font-medium">{label}</span>{sel && <div className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full" style={{ background: 'var(--accent)' }}><Check size={11} className="text-black" strokeWidth={3} /></div>}</button> })}</div><div className="flex gap-3"><button type="button" data-no-swipe="true" onClick={() => setStep(0)} className="rounded-2xl border border-zinc-800 bg-zinc-900 px-5 py-4 text-sm font-medium text-zinc-300 transition-all hover:bg-zinc-800">Indietro</button><button type="button" data-no-swipe="true" onClick={() => setStep(2)} className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-4 font-semibold transition-all" style={{ background: 'var(--accent)', color: '#0B0B0F' }}>Continua <ArrowRight size={18} /></button></div></>}
-          {step === 2 && <><div className="mb-7"><h1 className="gk-title mb-2 text-white">Importa la tua storia</h1><p className="text-zinc-400">Collega o importa le librerie che hai già. Puoi saltare e farlo dopo dal profilo.</p></div><div className="mb-7 space-y-2">{IMPORT_SOURCES.map(({ id, label, detail, href, icon: Icon, color }) => <a key={id} href={href} data-no-swipe="true" className="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3 transition-colors hover:bg-zinc-800"><div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${color}18`, color }}><Icon size={18} /></div><div className="min-w-0 flex-1"><p className="text-sm font-black text-white">{label}</p><p className="text-xs text-zinc-500">{detail}</p></div><ArrowRight size={16} className="text-zinc-600" /></a>)}</div><div className="flex gap-3"><button type="button" data-no-swipe="true" onClick={() => setStep(1)} className="rounded-2xl border border-zinc-800 bg-zinc-900 px-5 py-4 text-sm font-medium text-zinc-300 transition-all hover:bg-zinc-800">Indietro</button><button type="button" data-no-swipe="true" onClick={() => { setImportSkipped(true); setStep(3) }} disabled={!poolReady} className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-4 font-semibold transition-all disabled:cursor-wait disabled:opacity-50" style={{ background: 'var(--accent)', color: '#0B0B0F' }}>{!poolReady ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-black/20 border-t-black" />Caricamento…</> : <>Scegli 5 titoli <ArrowRight size={18} /></>}</button></div></>}
+          <div className="mb-8"><StepDots current={step} total={TOTAL_STEPS} /></div>
+
+          {step === 0 && <>
+            <div className="mb-7">
+              <h1 className="gk-title mb-2 text-white">Cosa tracci?</h1>
+              <p className="gk-body">Scegli almeno una categoria. Puoi cambiarle più avanti dal profilo.</p>
+            </div>
+            <div className="mb-4 grid grid-cols-2 gap-3">
+              {MEDIA_TYPES.map(({ id, label, icon: Icon, color }) => {
+                const selected = selectedTypes.includes(id)
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    data-no-swipe="true"
+                    onClick={() => toggleType(id)}
+                    className="gk-active-press relative flex aspect-[1.05] flex-col justify-between rounded-[18px] border p-4 text-left transition-colors"
+                    style={selected ? { borderColor: 'rgba(230,255,61,0.55)', background: 'rgba(230,255,61,0.06)' } : { borderColor: 'var(--border)', background: 'var(--bg-card)' }}
+                    aria-pressed={selected}
+                  >
+                    <span className="grid h-9 w-9 place-items-center rounded-xl" style={{ background: `color-mix(in srgb, ${color} 14%, transparent)`, color }}><Icon size={18} /></span>
+                    <span className="text-sm font-black text-white">{label}</span>
+                    {selected && <span className="absolute right-2 top-2 grid h-5 w-5 place-items-center rounded-full bg-[var(--accent)]"><Check size={11} className="text-black" strokeWidth={3} /></span>}
+                  </button>
+                )
+              })}
+            </div>
+            {selectedTypes.length === 0 && <p className="gk-caption mb-5 text-[var(--text-muted)]">Seleziona almeno un tipo media per continuare.</p>}
+            <button type="button" data-no-swipe="true" onClick={() => setStep(1)} disabled={selectedTypes.length === 0} className="gk-btn gk-btn-primary gk-focus-ring w-full disabled:opacity-50">
+              Continua <ArrowRight size={18} />
+            </button>
+          </>}
+
+          {step === 1 && <>
+            <div className="mb-7">
+              <h1 className="gk-title mb-2 text-white">Importa la tua storia</h1>
+              <p className="gk-body">Collega o importa le librerie che hai già. Puoi saltare e farlo dopo dal profilo.</p>
+            </div>
+            <div className="mb-7 space-y-2">
+              {IMPORT_SOURCES.map(({ id, label, detail, href, icon: Icon, color }) => <a key={id} href={href} data-no-swipe="true" className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-3 transition-colors hover:bg-[var(--bg-elevated)]"><div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `color-mix(in srgb, ${color} 14%, transparent)`, color }}><Icon size={18} /></div><div className="min-w-0 flex-1"><p className="text-sm font-black text-white">{label}</p><p className="text-xs text-[var(--text-muted)]">{detail}</p></div><ArrowRight size={16} className="text-[var(--text-muted)]" /></a>)}
+            </div>
+            <div className="flex gap-3">
+              <button type="button" data-no-swipe="true" onClick={() => setStep(0)} className="gk-btn gk-btn-secondary gk-focus-ring px-5"><ArrowLeft size={16} /> Indietro</button>
+              <button type="button" data-no-swipe="true" onClick={() => { setImportSkipped(true); setStep(2) }} disabled={!poolReady} className="gk-btn gk-btn-secondary gk-focus-ring flex-1 disabled:cursor-wait disabled:opacity-50">Salta</button>
+              <button type="button" data-no-swipe="true" onClick={() => { setImportSkipped(false); setStep(2) }} disabled={!poolReady} className="gk-btn gk-btn-primary gk-focus-ring flex-1 disabled:cursor-wait disabled:opacity-50">{!poolReady ? 'Caricamento…' : 'Continua'} <ArrowRight size={18} /></button>
+            </div>
+          </>}
+
+          {step === 3 && <>
+            <div className="mb-7">
+              <h1 className="gk-title mb-2 text-white">Preferenze pronte</h1>
+              <p className="gk-body">Hai creato il tuo profilo iniziale. Puoi entrare nella home e continuare a raffinare il DNA con l’uso.</p>
+            </div>
+
+            <div className="mb-5 rounded-[24px] border border-[rgba(230,255,61,0.20)] bg-[rgba(230,255,61,0.05)] p-4">
+              <p className="gk-label mb-3 text-[var(--accent)]">Riepilogo</p>
+              <div className="flex flex-wrap gap-2">
+                {selectedLabels.length > 0 ? selectedLabels.map(label => <span key={label} className="gk-chip gk-chip-match">{label}</span>) : <span className="gk-caption">Nessuna categoria selezionata</span>}
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-2xl bg-black/18 p-3"><p className="font-mono-data text-lg font-black text-white">{acceptedItemsRef.current.size}</p><p className="gk-mono text-[var(--text-muted)]">segnali</p></div>
+                <div className="rounded-2xl bg-black/18 p-3"><p className="font-mono-data text-lg font-black text-white">{wishlistItemsRef.current.size}</p><p className="gk-mono text-[var(--text-muted)]">wishlist</p></div>
+                <div className="rounded-2xl bg-black/18 p-3"><p className="font-mono-data text-lg font-black text-white">{skippedItemsRef.current.length}</p><p className="gk-mono text-[var(--text-muted)]">skip</p></div>
+              </div>
+            </div>
+
+            <div className="mb-7">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="gk-label text-[var(--text-secondary)]">Suggeriti da seguire</p>
+                <span className="font-mono-data text-[10px] text-[var(--text-muted)]">{Math.min(suggestedUsers.length, 8)} utenti</span>
+              </div>
+              <div className="space-y-2">
+                {suggestedUsers.length > 0 ? suggestedUsers.slice(0, 8).map(user => <UserSuggestionCard key={user.id} user={user} />) : (
+                  <div className="gk-empty-state">
+                    <Users className="gk-empty-state-icon" />
+                    <p className="gk-empty-state-title">Nessun suggerimento ancora</p>
+                    <p className="gk-empty-state-subtitle">Entrerai comunque nella home e potrai seguire utenti dalla sezione Friends.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button type="button" data-no-swipe="true" onClick={() => setStep(2)} className="gk-btn gk-btn-secondary gk-focus-ring px-5"><ArrowLeft size={16} /> Swipe</button>
+              <button type="button" data-no-swipe="true" onClick={completeOnboarding} className="gk-btn gk-btn-primary gk-focus-ring flex-1">Inizia <ArrowRight size={18} /></button>
+            </div>
+          </>}
         </div>
       </div>
     </div>
