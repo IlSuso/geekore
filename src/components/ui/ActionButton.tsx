@@ -24,19 +24,19 @@ type NativeActionButtonProps = BaseProps & Omit<ButtonHTMLAttributes<HTMLButtonE
 type ActionButtonProps = LinkActionButtonProps | NativeActionButtonProps
 
 const variantClasses: Record<ActionButtonVariant, string> = {
-  primary: 'border-transparent bg-[var(--accent)] text-[#0B0B0F] hover:opacity-90',
-  secondary: 'border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]',
-  ghost: 'border-transparent bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)]',
+  primary: 'gk-primary-cta hover:scale-[1.02]',
+  secondary: 'border-[rgba(230,255,61,0.22)] bg-[rgba(230,255,61,0.07)] text-[var(--accent)] hover:bg-[rgba(230,255,61,0.11)]',
+  ghost: 'border-transparent bg-transparent text-[var(--text-secondary)] hover:text-[var(--accent)] hover:bg-[rgba(230,255,61,0.06)]',
   danger: 'border-red-500/20 bg-red-500/10 text-red-300 hover:bg-red-500/15',
 }
 
 const sizeClasses: Record<ActionButtonSize, string> = {
   sm: 'h-9 px-3 text-[12px] rounded-xl gap-1.5',
-  md: 'h-10 px-4 text-[13px] rounded-xl gap-2',
-  lg: 'h-12 px-5 text-[15px] rounded-2xl gap-2.5',
+  md: 'h-10 px-4 text-[13px] rounded-2xl gap-2',
+  lg: 'h-12 px-5 text-[15px] rounded-[22px] gap-2.5',
 }
 
-const baseClass = 'inline-flex items-center justify-center border font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35'
+const baseClass = 'inline-flex items-center justify-center border font-black transition-all disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35'
 
 export function ActionButton({
   children,
