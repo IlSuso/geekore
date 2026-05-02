@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
-import { ChevronLeft, Bell, Heart, MessageCircle, UserPlus } from 'lucide-react'
+import { ChevronLeft, Bell, Heart, MessageCircle, UserPlus, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { Avatar } from '@/components/ui/Avatar'
 import { formatDistanceToNow } from 'date-fns'
@@ -24,14 +24,14 @@ function NotifIcon({ type }: { type: string }) {
   if (type === 'like') return <Heart size={13} className="text-red-400" fill="currentColor" />
   if (type === 'comment') return <MessageCircle size={13} style={{ color: 'var(--accent)' }} fill="currentColor" />
   if (type === 'follow') return <UserPlus size={13} style={{ color: 'var(--accent)' }} />
-  return <Bell size={13} className="text-zinc-400" />
+  return <Bell size={13} className="text-[var(--text-muted)]" />
 }
 
 function notifLabel(type: string, actor: string) {
-  if (type === 'like') return <><span className="font-semibold text-white">{actor}</span> ha messo like al tuo post</>
-  if (type === 'comment') return <><span className="font-semibold text-white">{actor}</span> ha commentato il tuo post</>
-  if (type === 'follow') return <><span className="font-semibold text-white">{actor}</span> ha iniziato a seguirti</>
-  return <><span className="font-semibold text-white">{actor}</span> ti ha inviato una notifica</>
+  if (type === 'like') return <><span className="font-black text-[var(--text-primary)]">{actor}</span> ha messo like al tuo post</>
+  if (type === 'comment') return <><span className="font-black text-[var(--text-primary)]">{actor}</span> ha commentato il tuo post</>
+  if (type === 'follow') return <><span className="font-black text-[var(--text-primary)]">{actor}</span> ha iniziato a seguirti</>
+  return <><span className="font-black text-[var(--text-primary)]">{actor}</span> ti ha inviato una notifica</>
 }
 
 export function MobileNotificationsDrawer({
@@ -52,7 +52,6 @@ export function MobileNotificationsDrawer({
   onCloseRef.current = onClose
   const didLoad = useRef(false)
 
-  // Enter animation — one rAF after mount so the CSS transition fires
   useEffect(() => {
     if (!open) return
     setClosing(false)
@@ -60,7 +59,6 @@ export function MobileNotificationsDrawer({
     return () => cancelAnimationFrame(id)
   }, [open])
 
-  // Load notifications once per open
   useEffect(() => {
     if (!open || didLoad.current) return
     didLoad.current = true
@@ -81,12 +79,11 @@ export function MobileNotificationsDrawer({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ all: true }),
-          }).catch(() => {})
+          }).catch(() => { })
         })
     })
   }, [open])
 
-  // Back gesture — Android usa androidBack (niente pushState), iOS usa pushState
   useEffect(() => {
     if (!open) { gestureState.drawerActive = false; return }
     gestureState.drawerActive = true
@@ -105,14 +102,16 @@ export function MobileNotificationsDrawer({
       }
     }
 
-    // iOS
     history.pushState({ notifDrawer: true }, '', location.href)
     historyPushed.current = true
     const onPop = (e: PopStateEvent) => {
       if (backInitiatedByCode.current) { backInitiatedByCode.current = false; e.stopImmediatePropagation(); return }
       if (!historyPushed.current) return
       e.stopImmediatePropagation()
-      history.pushState({ notifDrawer: true }, '', location.href)
+      historyPushed.current = false
+      setShow(false)
+      setClosing(true)
+      setTimeout(() => onCloseRef.current(), 300)
     }
     window.addEventListener('popstate', onPop, { capture: true })
     return () => {
@@ -137,7 +136,7 @@ export function MobileNotificationsDrawer({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[200] bg-[var(--bg-primary)] flex flex-col"
+      className="fixed inset-0 z-[200] flex flex-col bg-[var(--bg-primary)]"
       style={{
         paddingTop: 'env(safe-area-inset-top)',
         paddingBottom: 'env(safe-area-inset-bottom)',
@@ -146,28 +145,31 @@ export function MobileNotificationsDrawer({
         willChange: 'transform',
       }}
     >
-      {/* Header — stessa altezza e stile di MobileHeader */}
-      <div className="flex items-center gap-1 px-3 h-[52px] border-b border-[var(--border)] flex-shrink-0">
+      <div className="flex h-[52px] flex-shrink-0 items-center gap-1 border-b border-[var(--border)] bg-[rgba(11,11,15,0.92)] px-3 backdrop-blur-2xl">
         <button
           onClick={doClose}
-          className="w-10 h-10 -ml-2 flex items-center justify-center text-[var(--text-primary)]"
+          className="-ml-2 flex h-10 w-10 items-center justify-center rounded-2xl text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-card-hover)]"
           aria-label="Indietro"
         >
-          <ChevronLeft size={28} strokeWidth={1.6} />
+          <ChevronLeft size={27} strokeWidth={1.75} />
         </button>
-        <h1 className="text-[17px] font-semibold text-[var(--text-primary)]">Notifiche</h1>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] ring-1 ring-white/5">
+            <Bell size={14} />
+          </div>
+          <h1 className="truncate text-[17px] font-black tracking-tight text-[var(--text-primary)]">Notifiche</h1>
+        </div>
       </div>
 
-      {/* Lista notifiche */}
       <div className="flex-1 overflow-y-auto overscroll-contain">
         {loading && (
-          <div className="flex flex-col gap-1 pt-2">
-            {[...Array(10)].map((_, i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-3 animate-pulse">
-                <div className="w-11 h-11 rounded-full bg-zinc-800 flex-shrink-0" />
+          <div className="flex flex-col gap-2 p-3">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="flex items-center gap-3 rounded-[20px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 animate-pulse">
+                <div className="h-11 w-11 flex-shrink-0 rounded-2xl bg-[var(--bg-secondary)]" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-3 bg-zinc-800 rounded-full w-3/4" />
-                  <div className="h-2.5 bg-zinc-800/50 rounded-full w-2/5" />
+                  <div className="h-3 w-3/4 rounded-full bg-[var(--bg-secondary)]" />
+                  <div className="h-2.5 w-2/5 rounded-full bg-[var(--bg-secondary)]" />
                 </div>
               </div>
             ))}
@@ -175,63 +177,60 @@ export function MobileNotificationsDrawer({
         )}
 
         {!loading && notifications.length === 0 && (
-          <div className="flex flex-col items-center justify-center gap-3 py-24 px-8 text-center">
-            <div className="w-16 h-16 rounded-full bg-zinc-800/80 flex items-center justify-center">
-              <Bell size={26} className="text-zinc-500" />
+          <div className="flex flex-col items-center justify-center gap-3 px-8 py-24 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-card)]">
+              <Sparkles size={26} className="text-[var(--text-muted)]" />
             </div>
-            <p className="text-sm font-medium text-zinc-400">Nessuna notifica</p>
-            <p className="text-xs text-zinc-600 leading-relaxed">
-              Quando qualcuno interagisce con te, lo vedrai qui.
-            </p>
+            <p className="gk-headline text-[var(--text-primary)]">Nessuna notifica</p>
+            <p className="gk-body max-w-xs">Quando qualcuno interagisce con te, lo vedrai qui.</p>
           </div>
         )}
 
-        {!loading && notifications.map(notif => {
-          const actor = notif.actor
-          const name = actor?.display_name || actor?.username || 'Qualcuno'
-          const time = formatDistanceToNow(new Date(notif.created_at), { addSuffix: true, locale: it })
-          return (
-            <div
-              key={notif.id}
-              className={`flex items-center gap-3 px-4 py-3.5 border-b border-zinc-800/40 transition-colors active:bg-zinc-900/60 ${
-                !notif.is_read ? 'bg-zinc-800/40' : ''
-              }`}
-            >
-              <div className="relative flex-shrink-0">
-                {actor ? (
-                  <Link href={`/profile/${actor.username}`} onClick={doClose}>
-                    <div className="w-11 h-11 rounded-full overflow-hidden ring-1 ring-zinc-700/60">
-                      <Avatar
-                        src={actor.avatar_url}
-                        username={actor.username}
-                        displayName={actor.display_name}
-                        size={44}
-                      />
-                    </div>
-                  </Link>
-                ) : (
-                  <div className="w-11 h-11 rounded-full bg-zinc-800 flex items-center justify-center">
-                    <Bell size={20} className="text-zinc-500" />
+        {!loading && notifications.length > 0 && (
+          <div className="space-y-2 p-3">
+            {notifications.map(notif => {
+              const actor = notif.actor
+              const name = actor?.display_name || actor?.username || 'Qualcuno'
+              const time = formatDistanceToNow(new Date(notif.created_at), { addSuffix: true, locale: it })
+              return (
+                <div
+                  key={notif.id}
+                  className={`flex items-center gap-3 rounded-[20px] border p-3 transition-colors active:bg-[var(--bg-card-hover)] ${
+                    !notif.is_read
+                      ? 'border-[rgba(230,255,61,0.20)] bg-[rgba(230,255,61,0.055)]'
+                      : 'border-[var(--border-subtle)] bg-[var(--bg-card)]'
+                  }`}
+                >
+                  <div className="relative flex-shrink-0">
+                    {actor ? (
+                      <Link href={`/profile/${actor.username}`} onClick={doClose}>
+                        <div className="h-11 w-11 overflow-hidden rounded-2xl ring-1 ring-white/10">
+                          <Avatar src={actor.avatar_url} username={actor.username} displayName={actor.display_name} size={44} />
+                        </div>
+                      </Link>
+                    ) : (
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--bg-secondary)]">
+                        <Bell size={20} className="text-[var(--text-muted)]" />
+                      </div>
+                    )}
+                    <span className="absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-primary)]">
+                      <NotifIcon type={notif.type} />
+                    </span>
                   </div>
-                )}
-                <span className="absolute -bottom-0.5 -right-0.5 w-[18px] h-[18px] rounded-full bg-zinc-950 border border-zinc-800 flex items-center justify-center">
-                  <NotifIcon type={notif.type} />
-                </span>
-              </div>
 
-              <div className="flex-1 min-w-0">
-                <p className="text-[13.5px] text-zinc-300 leading-snug">
-                  {notifLabel(notif.type, name)}
-                </p>
-                <p className="text-[11px] text-zinc-500 mt-0.5">{time}</p>
-              </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13.5px] leading-snug text-[var(--text-secondary)]">
+                      {notifLabel(notif.type, name)}
+                    </p>
+                    <p className="gk-mono mt-1 text-[var(--text-muted)]">{time}</p>
+                  </div>
 
-              {!notif.is_read && (
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: 'var(--accent)' }} />
-              )}
-            </div>
-          )
-        })}
+                  {!notif.is_read && <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ background: 'var(--accent)' }} />}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>,
     document.body
