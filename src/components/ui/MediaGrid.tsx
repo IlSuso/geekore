@@ -32,18 +32,18 @@ export function MediaGrid<T extends MediaRailItem = MediaRailItem>({
 
   if (items.length === 0) {
     return (
-      <>
+      <div data-no-swipe="true">
         {emptyState || (
           <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-[var(--border)] bg-[var(--bg-card)] px-6 text-center text-[13px] text-[var(--text-muted)]">
             Nessun elemento da mostrare.
           </div>
         )}
-      </>
+      </div>
     )
   }
 
   return (
-    <div className={`grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 ${className}`}>
+    <div className={`grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 ${className}`} data-no-swipe="true">
       {items.map(item => (
         <PosterCard
           key={item.id}
