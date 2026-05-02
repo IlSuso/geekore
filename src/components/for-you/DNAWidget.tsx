@@ -53,13 +53,18 @@ const EMPTY_PROFILE: TasteProfile = {
 }
 
 function normalizeTasteProfile(profile?: Partial<TasteProfile> | null): TasteProfile {
+  const deepSignals = profile?.deepSignals
   return {
     ...EMPTY_PROFILE,
     ...(profile || {}),
     globalGenres: Array.isArray(profile?.globalGenres) ? profile.globalGenres : [],
     topGenres: { ...EMPTY_PROFILE.topGenres, ...(profile?.topGenres || {}) },
     collectionSize: profile?.collectionSize || {},
-    deepSignals: { ...EMPTY_PROFILE.deepSignals, ...(profile?.deepSignals || {}) },
+    deepSignals: {
+      topThemes: Array.isArray(deepSignals?.topThemes) ? deepSignals.topThemes : [],
+      topTones: Array.isArray(deepSignals?.topTones) ? deepSignals.topTones : [],
+      topSettings: Array.isArray(deepSignals?.topSettings) ? deepSignals.topSettings : [],
+    },
     discoveryGenres: Array.isArray(profile?.discoveryGenres) ? profile.discoveryGenres : [],
     negativeGenres: Array.isArray(profile?.negativeGenres) ? profile.negativeGenres : [],
     creatorScores: {
