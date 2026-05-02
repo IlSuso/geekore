@@ -112,7 +112,7 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
     return (
       <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4">
         <div className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-2xl p-8 flex items-center justify-center" style={{ minHeight: 200 }}>
-          <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#E6FF3D', borderTopColor: 'transparent' }} />
+          <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
         </div>
       </div>
     )

@@ -478,7 +478,7 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
                     ? 'border-transparent'
                     : 'bg-zinc-800/60 border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300'
                 }`}
-                style={isActive ? { background: 'var(--accent)', color: '#0B0B0F', borderColor: '#E6FF3D' } : {}}>
+                style={isActive ? { background: 'var(--accent)', color: '#0B0B0F', borderColor: 'var(--accent)' } : {}}>
                 {key !== 'all' && <span className="w-1.5 h-1.5 rounded-full" style={{ background: TYPE_COLORS[key as MediaType] }} />}
                 {label}
                 <span className={`text-[10px] ${isActive ? '' : 'text-zinc-600'}`} style={isActive ? { color: 'rgba(11,11,15,0.7)' } : {}}>{count}</span>
@@ -916,7 +916,7 @@ function SwipeModeWrapper() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#E6FF3D', borderTopColor: 'transparent' }} />
+      <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
     </div>
   )
 

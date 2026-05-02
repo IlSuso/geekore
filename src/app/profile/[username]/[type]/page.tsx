@@ -172,7 +172,7 @@ function SortableCard({ media, children, dragEnabled }: { media: UserMedia; chil
         userSelect: 'none',
         WebkitUserSelect: 'none',
         touchAction: dragEnabled ? 'none' : undefined,
-        borderColor: isDragging ? '#E6FF3D' : undefined,
+        borderColor: isDragging ? 'var(--accent)' : undefined,
       }}
       {...attributes}
       {...(dragEnabled ? listeners : {})}
@@ -246,7 +246,7 @@ const MediaCard = memo(function MediaCard({
             onClick={e => { e.stopPropagation(); isOwner ? onNotes?.(media) : onViewNotes?.(media) }}
             aria-label="Note"
             className={`absolute bottom-3 right-3 z-20 p-1.5 rounded-lg border transition-all ${isOwner ? 'hidden md:flex' : 'flex'}`}
-            style={{ background: 'var(--accent)', color: '#0B0B0F', borderColor: '#E6FF3D' }}
+            style={{ background: 'var(--accent)', color: '#0B0B0F', borderColor: 'var(--accent)' }}
           >
             <Edit3 size={11} />
           </button>

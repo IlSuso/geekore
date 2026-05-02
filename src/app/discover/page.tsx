@@ -475,7 +475,7 @@ export default function DiscoverPage() {
                   ? 'border-transparent'
                   : 'bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border)] hover:text-[var(--text-primary)]'
                 }`}
-              style={activeType === tf.id ? { background: 'var(--accent)', color: '#0B0B0F', border: '1px solid #E6FF3D' } : {}}
+              style={activeType === tf.id ? { background: 'var(--accent)', color: '#0B0B0F', border: '1px solid var(--accent)' } : {}}
             >
               {tf.icon}{tf.label}
             </button>

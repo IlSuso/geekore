@@ -197,7 +197,7 @@ function SortableBox({ media, children, disabled }: { media: UserMedia; children
         transition: isDragging ? 'none' : (transition || undefined),
         userSelect: 'none',
         WebkitUserSelect: 'none',
-        borderColor: isDragging ? '#E6FF3D' : undefined,
+        borderColor: isDragging ? 'var(--accent)' : undefined,
       }}
       {...attributes}
       {...(disabled ? {} : listeners)}

@@ -286,7 +286,7 @@ export default function WrappedPage() {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
         <div className="text-center space-y-4">
-          <div className="w-16 h-16 border-2 border-t-transparent rounded-full animate-spin mx-auto" style={{ borderColor: '#E6FF3D', borderTopColor: 'transparent' }} />
+          <div className="w-16 h-16 border-2 border-t-transparent rounded-full animate-spin mx-auto" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
           <p className="text-zinc-400 text-sm">Costruendo il tuo {year} Wrapped…</p>
         </div>
       </div>
