@@ -8,10 +8,7 @@ import { BookOpen, LayoutGrid, List } from 'lucide-react'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { PageScaffold } from '@/components/ui/PageScaffold'
-import { SearchField } from '@/components/ui/SearchField'
 import { FilterBar } from '@/components/ui/FilterBar'
-import { SortSelect, type SortSelectOption } from '@/components/ui/SortSelect'
-import { ViewToggle, type ViewToggleOption } from '@/components/ui/ViewToggle'
 import { MediaGrid } from '@/components/ui/MediaGrid'
 import type { MediaRailItem } from '@/components/ui/MediaRail'
 import { MediaMetaRow } from '@/components/ui/MediaMetaRow'
@@ -35,21 +32,6 @@ type MediaEntry = {
   external_id?: string
 }
 
-type LibraryViewMode = 'list' | 'grid'
-type LibrarySortMode = 'recent' | 'title' | 'rating' | 'progress'
-
-const VIEW_OPTIONS: ViewToggleOption<LibraryViewMode>[] = [
-  { id: 'list', label: 'Vista lista', icon: <List size={14} /> },
-  { id: 'grid', label: 'Vista griglia', icon: <LayoutGrid size={14} /> },
-]
-
-const SORT_OPTIONS: SortSelectOption<LibrarySortMode>[] = [
-  { id: 'recent', label: 'Recenti' },
-  { id: 'title', label: 'Titolo' },
-  { id: 'rating', label: 'Voto' },
-  { id: 'progress', label: 'Progresso' },
-]
-
 const TYPES = [
   { id: 'all', label: 'Tutto' },
   { id: 'anime', label: 'Anime' },
@@ -69,15 +51,6 @@ const STATUS_FILTERS = [
   { id: 'paused', label: 'In pausa' },
   { id: 'dropped', label: 'Abbandonati' },
 ]
-
-function normalizeSearch(value: string) {
-  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
-}
-
-function getProgressRatio(entry: MediaEntry) {
-  if (!entry.episodes || entry.episodes <= 0) return 0
-  return Math.min(1, Math.max(0, (entry.current_episode || 0) / entry.episodes))
-}
 
 function toRailItem(entry: MediaEntry): MediaRailItem {
   return {
@@ -101,9 +74,7 @@ export default function LibraryPage() {
   const [loading, setLoading] = useState(true)
   const [activeType, setActiveType] = useState('all')
   const [activeStatus, setActiveStatus] = useState('all')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [sortMode, setSortMode] = useState<LibrarySortMode>('recent')
-  const [viewMode, setViewMode] = useState<LibraryViewMode>('list')
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
   const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null)
 
   useEffect(() => {
@@ -123,31 +94,8 @@ export default function LibraryPage() {
   const filtered = useMemo(() => {
     let result = activeType === 'all' ? entries : entries.filter(e => e.type === activeType)
     if (activeStatus !== 'all') result = result.filter(e => (e.status || 'planning') === activeStatus)
-
-    const q = normalizeSearch(searchTerm)
-    if (q) {
-      result = result.filter(e => {
-        const title = normalizeSearch(e.title || '')
-        const titleEn = normalizeSearch(e.title_en || '')
-        return title.includes(q) || titleEn.includes(q)
-      })
-    }
-
-    return [...result].sort((a, b) => {
-      if (sortMode === 'title') return a.title.localeCompare(b.title, 'it')
-      if (sortMode === 'rating') return (b.rating || 0) - (a.rating || 0)
-      if (sortMode === 'progress') return getProgressRatio(b) - getProgressRatio(a)
-      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-    })
-  }, [entries, activeType, activeStatus, searchTerm, sortMode])
-
-  const hasActiveFilters = activeType !== 'all' || activeStatus !== 'all' || searchTerm.trim().length > 0
-
-  const resetFilters = () => {
-    setActiveType('all')
-    setActiveStatus('all')
-    setSearchTerm('')
-  }
+    return result
+  }, [entries, activeType, activeStatus])
 
   const stats = useMemo(() => ({
     total: entries.length,
@@ -189,7 +137,6 @@ export default function LibraryPage() {
       icon={<BookOpen size={16} />}
       contentClassName="max-w-screen-lg pt-2 md:pt-8 pb-28"
     >
-      {/* Hero stats */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         {[
           { label: 'Totale', value: stats.total },
@@ -204,11 +151,6 @@ export default function LibraryPage() {
       </div>
 
       <div className="space-y-3 mb-6">
-        <SearchField
-          value={searchTerm}
-          onChange={setSearchTerm}
-          placeholder="Cerca nella tua libreria..."
-        />
         <FilterBar
           items={TYPES}
           activeId={activeType}
@@ -224,37 +166,26 @@ export default function LibraryPage() {
               chipClassName="h-7 px-3 text-[11px]"
             />
           </div>
-          <SortSelect
-            value={sortMode}
-            options={SORT_OPTIONS}
-            onChange={setSortMode}
-            className="flex-shrink-0"
-          />
-          <ViewToggle
-            value={viewMode}
-            options={VIEW_OPTIONS}
-            onChange={setViewMode}
-            className="flex-shrink-0"
-          />
+          <div className="flex-shrink-0 flex items-center gap-1 p-1 rounded-xl bg-[var(--bg-card)] border border-[var(--border)]">
+            <button
+              onClick={() => setViewMode('list')}
+              className="p-1.5 rounded-lg transition-all"
+              style={{ background: viewMode === 'list' ? 'var(--accent)' : 'transparent' }}
+              aria-label="Vista lista"
+            >
+              <List size={14} style={{ color: viewMode === 'list' ? '#0B0B0F' : 'var(--text-muted)' }} />
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              className="p-1.5 rounded-lg transition-all"
+              style={{ background: viewMode === 'grid' ? 'var(--accent)' : 'transparent' }}
+              aria-label="Vista griglia"
+            >
+              <LayoutGrid size={14} style={{ color: viewMode === 'grid' ? '#0B0B0F' : 'var(--text-muted)' }} />
+            </button>
+          </div>
         </div>
       </div>
-
-      {!loading && entries.length > 0 && (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2">
-          <p className="font-mono-data text-[11px] text-[var(--text-muted)]">
-            <span className="font-bold text-[var(--text-secondary)]">{filtered.length}</span> di {entries.length} elementi
-          </p>
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="text-[11px] font-bold text-[var(--accent)] transition-opacity hover:opacity-80"
-            >
-              Azzera filtri
-            </button>
-          )}
-        </div>
-      )}
 
       {loading ? (
         viewMode === 'grid' ? (
@@ -272,17 +203,11 @@ export default function LibraryPage() {
             {entries.length === 0 ? 'Libreria vuota' : 'Nessun elemento trovato'}
           </p>
           <p className="gk-body mb-6">
-            {entries.length === 0
-              ? 'Aggiungi media dalla sezione Scopri'
-              : searchTerm
-              ? 'Prova con un titolo diverso o cancella la ricerca'
-              : 'Prova a cambiare i filtri'}
+            {entries.length === 0 ? 'Aggiungi media dalla sezione Scopri' : 'Prova a cambiare i filtri'}
           </p>
-          {entries.length === 0 ? (
+          {entries.length === 0 && (
             <ActionButton href="/discover">Vai a Scopri</ActionButton>
-          ) : hasActiveFilters ? (
-            <ActionButton variant="secondary" onClick={resetFilters}>Azzera filtri</ActionButton>
-          ) : null}
+          )}
         </div>
       ) : viewMode === 'grid' ? (
         <MediaGrid
