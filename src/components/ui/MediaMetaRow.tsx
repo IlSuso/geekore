@@ -40,7 +40,7 @@ export function MediaMetaRow({
   return (
     <div className={`${dense ? 'space-y-1' : 'space-y-2'} ${className}`}>
       <div className={`flex min-w-0 flex-wrap items-center ${dense ? 'gap-1.5' : 'gap-2'}`}>
-        {type && <MediaTypeBadge type={type} size="xs" variant={subtle ? 'line' : 'soft'} />}
+        {type && <MediaTypeBadge type={type} size="xs" variant={subtle ? 'tag' : 'soft'} />}
         {status && <MediaStatusBadge status={status} />}
 
         {hasTextMeta && (type || status) && <MetaDot />}
