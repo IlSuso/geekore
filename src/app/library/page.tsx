@@ -8,6 +8,7 @@ import { BookOpen, LayoutGrid, List } from 'lucide-react'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { PageScaffold } from '@/components/ui/PageScaffold'
+import { SearchField } from '@/components/ui/SearchField'
 import { FilterBar } from '@/components/ui/FilterBar'
 import { MediaGrid } from '@/components/ui/MediaGrid'
 import type { MediaRailItem } from '@/components/ui/MediaRail'
@@ -52,6 +53,10 @@ const STATUS_FILTERS = [
   { id: 'dropped', label: 'Abbandonati' },
 ]
 
+function normalizeSearch(value: string) {
+  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+}
+
 function toRailItem(entry: MediaEntry): MediaRailItem {
   return {
     id: entry.id,
@@ -74,6 +79,7 @@ export default function LibraryPage() {
   const [loading, setLoading] = useState(true)
   const [activeType, setActiveType] = useState('all')
   const [activeStatus, setActiveStatus] = useState('all')
+  const [searchTerm, setSearchTerm] = useState('')
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
   const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null)
 
@@ -94,8 +100,18 @@ export default function LibraryPage() {
   const filtered = useMemo(() => {
     let result = activeType === 'all' ? entries : entries.filter(e => e.type === activeType)
     if (activeStatus !== 'all') result = result.filter(e => (e.status || 'planning') === activeStatus)
+
+    const q = normalizeSearch(searchTerm)
+    if (q) {
+      result = result.filter(e => {
+        const title = normalizeSearch(e.title || '')
+        const titleEn = normalizeSearch(e.title_en || '')
+        return title.includes(q) || titleEn.includes(q)
+      })
+    }
+
     return result
-  }, [entries, activeType, activeStatus])
+  }, [entries, activeType, activeStatus, searchTerm])
 
   const stats = useMemo(() => ({
     total: entries.length,
@@ -152,6 +168,11 @@ export default function LibraryPage() {
       </div>
 
       <div className="space-y-3 mb-6">
+        <SearchField
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder="Cerca nella tua libreria..."
+        />
         <FilterBar
           items={TYPES}
           activeId={activeType}
@@ -204,11 +225,17 @@ export default function LibraryPage() {
             {entries.length === 0 ? 'Libreria vuota' : 'Nessun elemento trovato'}
           </p>
           <p className="gk-body mb-6">
-            {entries.length === 0 ? 'Aggiungi media dalla sezione Scopri' : 'Prova a cambiare i filtri'}
+            {entries.length === 0
+              ? 'Aggiungi media dalla sezione Scopri'
+              : searchTerm
+              ? 'Prova con un titolo diverso o cancella la ricerca'
+              : 'Prova a cambiare i filtri'}
           </p>
-          {entries.length === 0 && (
+          {entries.length === 0 ? (
             <ActionButton href="/discover">Vai a Scopri</ActionButton>
-          )}
+          ) : searchTerm ? (
+            <ActionButton variant="secondary" onClick={() => setSearchTerm('')}>Cancella ricerca</ActionButton>
+          ) : null}
         </div>
       ) : viewMode === 'grid' ? (
         <MediaGrid
