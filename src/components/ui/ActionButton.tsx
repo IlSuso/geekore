@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from 'react'
 import Link from 'next/link'
 
 type ActionButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
@@ -12,10 +12,8 @@ interface BaseProps {
   className?: string
 }
 
-interface LinkActionButtonProps extends BaseProps {
+interface LinkActionButtonProps extends BaseProps, Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> {
   href: string
-  onClick?: never
-  type?: never
   disabled?: never
 }
 
@@ -57,8 +55,9 @@ export function ActionButton({
   )
 
   if ('href' in props && props.href) {
+    const { href, ...linkProps } = props
     return (
-      <Link href={props.href} className={classes}>
+      <Link href={href} className={classes} {...linkProps}>
         {content}
       </Link>
     )
