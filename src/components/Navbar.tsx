@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   Home, Search, Sparkles, Library, User, X, Settings, LogOut, ChevronDown, Bell, Users,
+  Bookmark, BarChart3, List, Trophy,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useActiveTab, pathnameToTab } from '@/context/ActiveTabContext'
@@ -17,21 +18,21 @@ const AUTH_PATHS = ['/login', '/register', '/auth/confirm', '/forgot-password', 
 
 export default function Navbar() {
   const pathname = usePathname()
-  const router   = useRouter()
+  const router = useRouter()
   const { setActiveTab, activeTab } = useActiveTab()
   const supabase = createClient()
-  const { t }    = useLocale()
+  const { t } = useLocale()
 
-  const [avatarUrl,    setAvatarUrl]    = useState<string | null>(null)
-  const [displayName,  setDisplayName]  = useState<string | null>(null)
-  const [username,     setUsername]     = useState<string | null>(null)
-  const [isLoggedIn,   setIsLoggedIn]   = useState<boolean | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [displayName, setDisplayName] = useState<string | null>(null)
+  const [username, setUsername] = useState<string | null>(null)
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
 
-  const [searchQuery,   setSearchQuery]   = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
-  const [searchOpen,    setSearchOpen]    = useState(false)
-  const searchRef    = useRef<HTMLDivElement>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   const [menuOpen, setMenuOpen] = useState(false)
@@ -50,15 +51,24 @@ export default function Navbar() {
     router.push('/login')
   }
 
-  const isAuthPage      = AUTH_PATHS.some(p => pathname.startsWith(p))
+  const isAuthPage = AUTH_PATHS.some(p => pathname.startsWith(p))
   const isPublicLanding = pathname === '/'
 
   const NAV_ITEMS = [
-    { href: '/home',     label: t.nav.home,     icon: Home     },
-    { href: '/for-you',  label: t.nav.forYou,   icon: Sparkles },
-    { href: '/library',  label: 'Library',      icon: Library  },
-    { href: '/discover', label: t.nav.discover, icon: Search   },
-    { href: '/friends',  label: 'Friends',      icon: Users    },
+    { href: '/home', label: t.nav.home, icon: Home },
+    { href: '/for-you', label: t.nav.forYou, icon: Sparkles },
+    { href: '/library', label: 'Library', icon: Library },
+    { href: '/discover', label: t.nav.discover, icon: Search },
+    { href: '/friends', label: 'Friends', icon: Users },
+  ]
+
+  const ACCOUNT_LINKS = [
+    { href: `/profile/${username || 'me'}`, label: 'Il tuo profilo', icon: User },
+    { href: '/wishlist', label: 'Wishlist', icon: Bookmark },
+    { href: '/stats', label: 'Stats', icon: BarChart3 },
+    { href: '/lists', label: 'Liste', icon: List },
+    { href: '/leaderboard', label: 'Classifica', icon: Trophy },
+    { href: '/settings', label: 'Impostazioni', icon: Settings },
   ]
 
   useEffect(() => {
@@ -135,13 +145,13 @@ export default function Navbar() {
 
   if (isAuthPage) return null
   if (isPublicLanding && isLoggedIn === false) return null
-  if (isPublicLanding && isLoggedIn === null)  return null
+  if (isPublicLanding && isLoggedIn === null) return null
   if (isLoggedIn === null) return null
 
-  const currentUsername    = username || ''
+  const currentUsername = username || ''
   const currentDisplayName = displayName || username || ''
-  const localAvatarSrc     = currentUsername ? getLocalAvatarSvg(currentUsername, displayName) : undefined
-  const avatarSrc          = avatarUrl || localAvatarSrc
+  const localAvatarSrc = currentUsername ? getLocalAvatarSvg(currentUsername, displayName) : undefined
+  const avatarSrc = avatarUrl || localAvatarSrc
 
   return (
     <>
@@ -208,12 +218,12 @@ export default function Navbar() {
                     ? () => fetch('/api/recommendations?type=all', { credentials: 'include' }).catch(() => {})
                     : undefined}
                   onClick={() => navigateToTab(item.href)}
-                  className="relative flex h-full w-16 flex-col items-center justify-center bg-transparent text-zinc-500 transition-colors hover:bg-[var(--bg-card-hover)] hover:text-zinc-200 lg:w-20"
+                  className="group relative flex h-full w-16 flex-col items-center justify-center bg-transparent text-zinc-500 transition-colors hover:bg-[var(--bg-card-hover)] hover:text-zinc-200 lg:w-20"
                   style={{ color: isActive ? 'var(--accent)' : undefined }}
                   aria-current={isActive ? 'page' : undefined}
                 >
                   <item.icon size={21} strokeWidth={isActive ? 2.2 : 1.6} />
-                  <span className="pointer-events-none absolute -top-9 left-1/2 z-[130] -translate-x-1/2 whitespace-nowrap rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1 text-[11px] font-semibold text-[var(--text-primary)] opacity-0 transition-opacity group-hover:opacity-100">
+                  <span className="pointer-events-none absolute -top-9 left-1/2 z-[130] -translate-x-1/2 whitespace-nowrap rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1 text-[11px] font-semibold text-[var(--text-primary)] opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
                     {item.label}
                   </span>
                   {isActive && (
@@ -264,23 +274,24 @@ export default function Navbar() {
                     </div>
                   </Link>
 
-                  <div className="py-1">
-                    <Link href={`/profile/${currentUsername || 'me'}`} onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm text-zinc-300 transition-colors hover:bg-[var(--bg-card-hover)] hover:text-white">
-                      <div className="w-8 h-8 bg-[var(--bg-card)] rounded-full flex items-center justify-center">
-                        <User size={15} />
-                      </div>
-                      Il tuo profilo
-                    </Link>
-                    <Link href="/settings" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm text-zinc-300 transition-colors hover:bg-[var(--bg-card-hover)] hover:text-white">
-                      <div className="w-8 h-8 bg-[var(--bg-card)] rounded-full flex items-center justify-center">
-                        <Settings size={15} />
-                      </div>
-                      Impostazioni
-                    </Link>
+                  <div className="grid grid-cols-2 gap-1 p-2">
+                    {ACCOUNT_LINKS.map(({ href, label, icon: Icon }) => (
+                      <Link
+                        key={href}
+                        href={href}
+                        onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]"
+                      >
+                        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-[var(--bg-card)] text-[var(--text-muted)]">
+                          <Icon size={15} />
+                        </div>
+                        <span className="truncate">{label}</span>
+                      </Link>
+                    ))}
                   </div>
 
                   <div className="border-t border-[var(--border)] py-1">
-                    <button onClick={handleLogout} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-red-400 transition-colors hover:bg-[var(--bg-card-hover)] hover:text-red-300">
+                    <button onClick={handleLogout} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-bold text-red-400 transition-colors hover:bg-[var(--bg-card-hover)] hover:text-red-300">
                       <div className="w-8 h-8 bg-red-500/10 rounded-full flex items-center justify-center">
                         <LogOut size={15} className="text-red-400" />
                       </div>
