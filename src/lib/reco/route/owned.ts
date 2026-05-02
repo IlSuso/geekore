@@ -8,6 +8,7 @@ type OwnedByType = {
 }
 
 const ALL_MEDIA_TYPES: MediaType[] = ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame']
+const VALID_MEDIA_TYPES = new Set<string>(ALL_MEDIA_TYPES)
 const ALWAYS_INCLUDE: MediaType[] = ['boardgame']
 
 function normalizeTitle(t: string) {
@@ -115,11 +116,12 @@ export function selectTypesToFetch({
     ...wishlistItems.map(w => w.type),
   ])
 
+  const safeOnboardingTypes = onboardingTypes?.filter(type => VALID_MEDIA_TYPES.has(type))
   const typesToFetch: MediaType[] = isOnboardingCall
-    ? (onboardingTypes && onboardingTypes.length > 0 ? onboardingTypes : ALL_MEDIA_TYPES)
+    ? (safeOnboardingTypes && safeOnboardingTypes.length > 0 ? safeOnboardingTypes : ALL_MEDIA_TYPES)
     : ALL_MEDIA_TYPES.filter(t => allTypesInCollection.has(t) || ALWAYS_INCLUDE.includes(t))
 
-  if (requestedType !== 'all' && !typesToFetch.includes(requestedType as MediaType)) {
+  if (requestedType !== 'all' && VALID_MEDIA_TYPES.has(requestedType) && !typesToFetch.includes(requestedType as MediaType)) {
     typesToFetch.push(requestedType as MediaType)
   }
 
