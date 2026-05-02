@@ -1626,16 +1626,6 @@ export default function ForYouPage() {
               loading={!!similarLoading}
             />
 
-            {spotlightItem && (
-              <SpotlightRecommendation
-                item={spotlightItem}
-                onFeedback={handleFeedback}
-                onSimilar={handleSimilar}
-                onDetail={handleDetail}
-                isSimilarLoading={similarLoading === spotlightItem.id}
-              />
-            )}
-
             {similarSection && (
               <SimilarSection
                 key={similarSection.sourceTitle}
