@@ -24,13 +24,11 @@ export function ToastProvider() {
 
   const addToast = useCallback((message: string, type: ToastType = 'success') => {
     setToasts(prev => {
-      // Ignora duplicato se già presente
       if (prev.some(t => t.message === message && t.type === type)) return prev
       const id = ++toastId
       setTimeout(() => {
         setToasts(p => p.filter(t => t.id !== id))
       }, 3000)
-      // Max 2 toast contemporanei: rimuove il più vecchio
       const base = prev.length >= 2 ? prev.slice(1) : prev
       return [...base, { id, message, type }]
     })
@@ -45,29 +43,29 @@ export function ToastProvider() {
 
   return (
     <div className="fixed bottom-24 md:bottom-6 right-4 z-[200] flex flex-col gap-2 pointer-events-none">
-      {toasts.map(toast => (
-        <div
-          key={toast.id}
-          className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border pointer-events-auto
-            animate-in slide-in-from-right-4 fade-in duration-300
-            ${toast.type === 'success'
-              ? 'bg-zinc-900 border-emerald-800 text-emerald-400'
-              : 'bg-zinc-900 border-red-800 text-red-400'
-            }`}
-        >
-          {toast.type === 'success'
-            ? <CheckCircle size={18} className="shrink-0" />
-            : <XCircle size={18} className="shrink-0" />
-          }
-          <span className="text-sm font-medium text-white">{toast.message}</span>
-          <button
-            onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
-            className="ml-1 text-zinc-500 hover:text-white transition shrink-0"
+      {toasts.map(toast => {
+        const success = toast.type === 'success'
+        return (
+          <div
+            key={toast.id}
+            className="gk-toast flex items-center gap-3 rounded-2xl border px-4 py-3 shadow-2xl pointer-events-auto animate-in slide-in-from-right-4 fade-in duration-300"
+            style={success ? { borderColor: 'rgba(230,255,61,0.24)' } : { borderColor: 'rgba(239,68,68,0.28)' }}
           >
-            <X size={14} />
-          </button>
-        </div>
-      ))}
+            {success
+              ? <CheckCircle size={18} className="shrink-0 text-[var(--accent)]" />
+              : <XCircle size={18} className="shrink-0 text-red-400" />
+            }
+            <span className="text-[13px] font-bold text-[var(--text-primary)]">{toast.message}</span>
+            <button
+              onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+              className="ml-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition shrink-0"
+              aria-label="Chiudi notifica"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )
+      })}
     </div>
   )
 }
