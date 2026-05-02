@@ -106,7 +106,7 @@ export async function loadMasterPoolState({
   const typesToRegenBackground: MediaType[] = []
 
   if (forceRefresh) {
-    const canBypassForceCooldown = isServiceCall || searchParams.get('bypass_cooldown') === '1'
+    const canBypassForceCooldown = isServiceCall && searchParams.get('bypass_cooldown') === '1'
     for (const type of typesToFetch) {
       const health = masterHealthByType.get(type)
       const row = rowByType.get(type)
