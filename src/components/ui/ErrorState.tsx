@@ -72,7 +72,7 @@ export function EmptyState({
         <button
           onClick={action.onClick}
           className="mt-5 px-4 py-2 rounded-2xl text-sm font-semibold transition-all"
-          style={{ background: '#E6FF3D', color: '#0B0B0F' }}
+          style={{ background: 'var(--accent)', color: '#0B0B0F' }}
         >
           {action.label}
         </button>

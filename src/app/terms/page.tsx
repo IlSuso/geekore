@@ -10,7 +10,7 @@ export default function TermsPage() {
   const lastUpdated = '7 aprile 2025'
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-white">
       <div className="max-w-3xl mx-auto px-6 pt-10 pb-24">
 
         <div className="flex items-center gap-3 mb-2">

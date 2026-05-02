@@ -93,7 +93,7 @@ export function MobileCreatePostFab({ onClick }: { onClick: () => void }) {
         onClick={onClick}
         aria-label="Crea nuovo post"
         className="w-14 h-14 rounded-full flex items-center justify-center active:scale-95 transition-transform shadow-xl"
-        style={{ pointerEvents: 'auto', background: '#E6FF3D', boxShadow: '0 0 20px rgba(230,255,61,0.35)' }}
+        style={{ pointerEvents: 'auto', background: 'var(--accent)', boxShadow: '0 0 20px rgba(230,255,61,0.35)' }}
       >
         <Plus size={26} className="text-black" strokeWidth={2.5} aria-hidden="true" />
       </button>

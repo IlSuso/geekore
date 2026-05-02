@@ -75,7 +75,7 @@ export function NavigationProgress() {
       <div
         className="h-full"
         style={{
-          background: width > 0 ? '#E6FF3D' : 'transparent',
+          background: width > 0 ? 'var(--accent)' : 'transparent',
           boxShadow: width > 0 ? '0 0 8px rgba(230,255,61,0.4)' : 'none',
           width: `${width}%`,
           transition: width === 100 ? 'width 200ms ease-out' : 'width 80ms linear',

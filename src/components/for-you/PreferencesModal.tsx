@@ -133,7 +133,7 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
             {step > 0 && (
               <div className="flex gap-1">
                 {sections.map((_, i) => (
-                  <div key={i} className={`h-1 rounded-full flex-1 transition-all ${i < step ? '' : 'bg-zinc-800'}`} style={i < step ? { background: '#E6FF3D' } : {}} />
+                  <div key={i} className={`h-1 rounded-full flex-1 transition-all ${i < step ? '' : 'bg-zinc-800'}`} style={i < step ? { background: 'var(--accent)' } : {}} />
                 ))}
               </div>
             )}
@@ -198,13 +198,13 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
             {step < totalSteps ? (
               <button onClick={() => setStep(s => s + 1)}
                 className="flex-1 py-2.5 rounded-2xl text-sm font-semibold transition-all"
-                style={{ background: '#E6FF3D', color: '#0B0B0F' }}>
+                style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
                 Avanti →
               </button>
             ) : (
               <button onClick={save} disabled={saving}
                 className="flex-1 py-2.5 disabled:opacity-50 rounded-2xl text-sm font-semibold transition-all"
-                style={{ background: '#E6FF3D', color: '#0B0B0F' }}>
+                style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
                 {saving ? 'Salvo...' : fy.prefsSave}
               </button>
             )}

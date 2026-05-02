@@ -266,7 +266,7 @@ export default function EditProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center text-white">
         <Loader2 size={40} className="animate-spin" style={{ color: 'var(--accent)' }} />
       </div>
     )
@@ -275,7 +275,7 @@ export default function EditProfilePage() {
   const isBusy = saving || uploadingAvatar
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-6">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-white flex items-center justify-center p-6">
       <div className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-bold">{pe.title}</h1>
@@ -464,7 +464,7 @@ export default function EditProfilePage() {
             type="submit"
             disabled={isBusy || !!fieldErrors.username || !!fieldErrors.bio}
             className="w-full py-4 rounded-2xl font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2"
-            style={{ background: '#E6FF3D', color: '#0B0B0F' }}
+            style={{ background: 'var(--accent)', color: '#0B0B0F' }}
           >
             {isBusy
               ? <><Loader2 size={18} className="animate-spin" /> {uploadingAvatar ? 'Caricamento avatar...' : pe.saving}</>

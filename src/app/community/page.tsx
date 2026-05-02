@@ -119,13 +119,13 @@ export default async function CommunityPage() {
   const { suggested, engagingPosts, publicLists, freshMembers, totalCount, activeThisWeek } = await getCommunityData(user.id)
 
   return (
-    <div className="min-h-screen bg-black text-white pb-24">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-white pb-24">
       <div className="max-w-3xl mx-auto px-4 pt-6 md:pt-10">
 
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: '#E6FF3D' }}>
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: 'var(--accent)' }}>
               <Users size={20} className="text-black" />
             </div>
             <h1 className="text-2xl font-bold text-white tracking-tight">Community</h1>

@@ -1,7 +1,7 @@
 // src/app/search/loading.tsx
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-black pt-8 pb-20 max-w-2xl mx-auto px-4">
+    <div className="min-h-screen bg-[var(--bg-primary)] pt-8 pb-20 max-w-2xl mx-auto px-4">
       <div className="mb-6 animate-pulse">
         <div className="h-12 bg-zinc-900 border border-zinc-800 rounded-2xl" />
       </div>

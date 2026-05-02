@@ -1,7 +1,7 @@
 // src/app/profile/[username]/loading.tsx
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-black pt-8 pb-20 max-w-screen-2xl mx-auto px-4 md:px-6">
+    <div className="min-h-screen bg-[var(--bg-primary)] pt-8 pb-20 max-w-screen-2xl mx-auto px-4 md:px-6">
       {/* Header profilo */}
       <div className="flex flex-col items-center mb-10 animate-pulse">
         <div className="w-28 h-28 bg-zinc-800 rounded-full mb-4" />

@@ -87,7 +87,7 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
       {/* Header — uguale aperto e chiuso */}
       <button onClick={() => setOpen(v => !v)} className="w-full px-5 pt-5 pb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#E6FF3D' }}>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'var(--accent)' }}>
             <Brain size={17} className="text-black" />
           </div>
           <div className="text-left">

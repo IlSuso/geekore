@@ -163,7 +163,7 @@ export default function ListDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
         <Loader2 size={32} className="animate-spin" style={{ color: 'var(--accent)' }} />
       </div>
     )
@@ -178,7 +178,7 @@ export default function ListDetailPage() {
   )
 
   return (
-    <div className="min-h-screen bg-black text-white pb-24">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-white pb-24">
       <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 pt-8">
 
         {/* Back */}
@@ -233,7 +233,7 @@ export default function ListDetailPage() {
                 <button
                   onClick={() => setShowAddPanel(v => !v)}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition"
-                  style={{ background: '#E6FF3D', color: '#0B0B0F' }}
+                  style={{ background: 'var(--accent)', color: '#0B0B0F' }}
                 >
                   <Plus size={14} />
                   Aggiungi

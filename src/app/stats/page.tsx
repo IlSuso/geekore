@@ -202,19 +202,19 @@ export default function StatsPage() {
 
   if (!isLoggedIn && !loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center text-white text-center px-6">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center text-white text-center px-6">
         <div>
           <Clock size={48} className="mx-auto mb-4 text-zinc-600" />
           <p className="text-xl font-semibold mb-2">Accedi per vedere le tue statistiche</p>
           <p className="text-zinc-500 mb-6">Traccia la tua collezione e scopri quanto tempo hai "sprecato"</p>
-          <Link href="/login" className="px-6 py-3 rounded-2xl font-semibold transition-all" style={{ background: '#E6FF3D', color: '#0B0B0F' }}>Accedi</Link>
+          <Link href="/login" className="px-6 py-3 rounded-2xl font-semibold transition-all" style={{ background: 'var(--accent)', color: '#0B0B0F' }}>Accedi</Link>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-black text-white pb-24">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-white pb-24">
       <div className="max-w-3xl mx-auto px-3 sm:px-4 pt-2 md:pt-8">
         <div className="mb-8">
           <h1 className="hidden md:block text-5xl font-black tracking-tighter" style={{ color: 'var(--accent)' }}>

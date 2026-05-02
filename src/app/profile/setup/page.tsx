@@ -138,12 +138,12 @@ export default function ProfileSetupPage() {
   const canSubmit = validState === 'available' && !saving
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-6 py-12">
+    <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col items-center justify-center px-6 py-12">
       <div className="w-full max-w-md">
 
         {/* Logo */}
         <div className="flex items-center gap-3 mb-10">
-          <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: 'var(--accent)' }}>
             <Zap size={20} className="text-black" />
           </div>
           <span className="text-2xl font-bold tracking-tighter text-white">geekore</span>
@@ -223,7 +223,7 @@ export default function ProfileSetupPage() {
             type="submit"
             disabled={!canSubmit}
             className="w-full py-4 rounded-2xl font-semibold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
-            style={{ background: '#E6FF3D', color: '#0B0B0F' }}
+            style={{ background: 'var(--accent)', color: '#0B0B0F' }}
           >
             {saving ? (
               <><Loader2 size={20} className="animate-spin" /> Salvataggio...</>

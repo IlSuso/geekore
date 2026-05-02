@@ -16,7 +16,7 @@ export default function Error({
   }, [error])
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-white px-6">
+    <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col items-center justify-center text-white px-6">
       <div className="text-center max-w-md">
         <div className="flex justify-center mb-6">
           <div className="w-20 h-20 bg-red-950 border border-red-800 rounded-3xl flex items-center justify-center">
@@ -31,7 +31,7 @@ export default function Error({
           <button
             onClick={reset}
             className="px-8 py-3 rounded-full font-semibold transition-all hover:scale-105"
-            style={{ background: '#E6FF3D', color: '#0B0B0F' }}
+            style={{ background: 'var(--accent)', color: '#0B0B0F' }}
           >
             Riprova
           </button>

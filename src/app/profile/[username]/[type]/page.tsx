@@ -246,7 +246,7 @@ const MediaCard = memo(function MediaCard({
             onClick={e => { e.stopPropagation(); isOwner ? onNotes?.(media) : onViewNotes?.(media) }}
             aria-label="Note"
             className={`absolute bottom-3 right-3 z-20 p-1.5 rounded-lg border transition-all ${isOwner ? 'hidden md:flex' : 'flex'}`}
-            style={{ background: '#E6FF3D', color: '#0B0B0F', borderColor: '#E6FF3D' }}
+            style={{ background: 'var(--accent)', color: '#0B0B0F', borderColor: '#E6FF3D' }}
           >
             <Edit3 size={11} />
           </button>
@@ -891,14 +891,14 @@ export default function ProfileTypePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
         <Loader2 size={32} className="animate-spin" style={{ color: 'var(--accent)' }} />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white pb-24">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-white pb-24">
       <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6 pt-8">
 
         {/* Back */}
@@ -979,7 +979,7 @@ export default function ProfileTypePage() {
                     ? 'border-transparent shadow-lg'
                     : 'bg-zinc-900 border-zinc-800 text-zinc-400 active:bg-zinc-800'
                 }`}
-                style={isDragEnabled ? { background: '#E6FF3D', color: '#0B0B0F' } : {}}
+                style={isDragEnabled ? { background: 'var(--accent)', color: '#0B0B0F' } : {}}
               >
                 <GripVertical size={14} />
                 {isDragEnabled ? 'Fine' : 'Riordina'}

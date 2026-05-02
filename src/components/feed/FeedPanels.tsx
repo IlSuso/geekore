@@ -34,7 +34,7 @@ export function EditPostModal({
           <button onClick={onClose} className="px-5 py-2.5 rounded-xl border border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-sm font-semibold transition">
             Annulla
           </button>
-          <button onClick={onSave} disabled={!editContent.trim()} className="px-5 py-2.5 rounded-xl disabled:opacity-40 text-sm font-semibold transition" style={{ background: '#E6FF3D', color: '#0B0B0F' }}>
+          <button onClick={onSave} disabled={!editContent.trim()} className="px-5 py-2.5 rounded-xl disabled:opacity-40 text-sm font-semibold transition" style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
             Salva
           </button>
         </div>
@@ -91,11 +91,11 @@ export function FeedFilterTabs({
           data-testid={`filter-${filter}`}
           onClick={() => onFilterChange(filter)}
           className={`flex-1 py-3 text-[14px] font-semibold transition-all relative ${feedFilter === filter ? '' : 'text-[var(--text-muted)]'}`}
-          style={{ color: feedFilter === filter ? '#E6FF3D' : undefined }}
+          style={{ color: feedFilter === filter ? 'var(--accent)' : undefined }}
         >
           {filter === 'all' ? labels.filterAll : labels.filterFollowing}
           {feedFilter === filter && (
-            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full" style={{ background: '#E6FF3D' }} />
+            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full" style={{ background: 'var(--accent)' }} />
           )}
         </button>
       ))}
@@ -136,13 +136,13 @@ export function MediumTypeChipRow({
             className="flex-shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-semibold transition-all"
             style={{
               background: isActive
-                ? (chip.color || '#E6FF3D')
+                ? (chip.color || 'var(--accent)')
                 : 'var(--bg-card)',
               color: isActive
                 ? (chip.color ? '#fff' : '#0B0B0F')
                 : 'var(--text-secondary)',
               border: isActive
-                ? `1px solid ${chip.color || '#E6FF3D'}`
+                ? `1px solid ${chip.color || 'var(--accent)'}`
                 : '1px solid var(--border)',
             }}
           >

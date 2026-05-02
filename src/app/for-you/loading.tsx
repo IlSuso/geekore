@@ -2,7 +2,7 @@ import { SkeletonForYouRow, SkeletonFriendsWatching } from '@/components/ui/Skel
 
 export default function ForYouLoading() {
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-white">
       <div className="pt-2 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
         {/* Utility bar */}
         <div className="flex justify-end items-center gap-2 mb-4">

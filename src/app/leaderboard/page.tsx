@@ -60,7 +60,7 @@ export default function LeaderboardPage() {
   })
 
   return (
-    <main className="min-h-screen bg-black pt-3 md:pt-8 pb-32 px-4 text-white">
+    <main className="min-h-screen bg-[var(--bg-primary)] pt-3 md:pt-8 pb-32 px-4 text-white">
       <div className="max-w-3xl mx-auto">
         <div className="mb-6">
           <h1 className="hidden md:block text-5xl font-black tracking-tighter">Classifica</h1>

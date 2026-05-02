@@ -1,7 +1,7 @@
 // src/app/notifications/loading.tsx
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-black pt-8 pb-20 max-w-3xl mx-auto px-4">
+    <div className="min-h-screen bg-[var(--bg-primary)] pt-8 pb-20 max-w-3xl mx-auto px-4">
       <div className="mb-8 animate-pulse">
         <div className="h-9 w-40 bg-zinc-800 rounded-2xl" />
       </div>

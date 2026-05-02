@@ -150,7 +150,7 @@ function ChangePasswordSheet() {
             type="submit"
             disabled={loading}
             className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-            style={{ background: '#E6FF3D', color: '#0B0B0F' }}
+            style={{ background: 'var(--accent)', color: '#0B0B0F' }}
           >
             {loading && <Loader2 size={14} className="animate-spin" />}
             {loading ? 'Aggiornamento...' : 'Aggiorna password'}
@@ -300,7 +300,7 @@ function DigestToggle() {
         <button
           onClick={toggle}
           className="relative w-11 h-6 rounded-full transition-colors duration-200"
-          style={{ background: enabled ? '#E6FF3D' : undefined }}
+          style={{ background: enabled ? 'var(--accent)' : undefined }}
           aria-label={enabled ? 'Disattiva digest' : 'Attiva digest'}
         >
           <span
@@ -418,7 +418,7 @@ function StreamingPlatformsSelector() {
           onClick={save}
           disabled={saving || loading}
           className="w-full py-2.5 rounded-xl disabled:opacity-50 text-sm font-semibold transition-colors flex items-center justify-center gap-2"
-          style={{ background: '#E6FF3D', color: '#0B0B0F' }}
+          style={{ background: 'var(--accent)', color: '#0B0B0F' }}
         >
           {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
           {saving ? 'Salvataggio…' : 'Salva piattaforme'}
@@ -471,7 +471,7 @@ export default function SettingsPage() {
   const { locale, setLocale, t } = useLocale()
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-white">
       <div className="max-w-3xl mx-auto px-4 md:px-6 pt-3 md:pt-10 pb-28 space-y-6">
 
         <div className="flex items-center gap-3 mb-2">
@@ -499,7 +499,7 @@ export default function SettingsPage() {
                       ? ''
                       : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
                   }`}
-                  style={locale === lang ? { background: '#E6FF3D', color: '#0B0B0F' } : {}}
+                  style={locale === lang ? { background: 'var(--accent)', color: '#0B0B0F' } : {}}
                 >
                   {lang === 'it' ? t.settings.italian : t.settings.english}
                   {locale === lang && <Check size={12} className="text-black" />}

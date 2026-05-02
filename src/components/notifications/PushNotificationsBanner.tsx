@@ -102,7 +102,7 @@ export function PushNotificationsBanner() {
             <div className="flex gap-2 mt-3">
               <button onClick={handleEnable} disabled={loading}
                 className="flex-1 py-2 disabled:opacity-60 rounded-xl text-xs font-semibold transition-colors"
-                style={{ background: '#E6FF3D', color: '#0B0B0F' }}>
+                style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
                 {loading ? 'Attivazione…' : 'Attiva'}
               </button>
               <button onClick={dismiss}

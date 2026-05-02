@@ -42,7 +42,7 @@ function ResetContent() {
 
   if (done) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-6">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center px-6">
         <div className="text-center">
           <CheckCircle size={56} className="mx-auto mb-6 text-emerald-400" />
           <h1 className="text-2xl font-bold text-white mb-2">Password aggiornata!</h1>
@@ -53,10 +53,10 @@ function ResetContent() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-6">
+    <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center px-6">
       <div className="w-full max-w-md">
         <div className="flex items-center gap-3 mb-10">
-          <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: 'var(--accent)' }}>
             <Zap size={20} className="text-black" />
           </div>
           <span className="text-2xl font-bold tracking-tighter text-white">geekore</span>
@@ -109,7 +109,7 @@ function ResetContent() {
             type="submit"
             disabled={loading}
             className="w-full py-4 rounded-2xl font-semibold text-lg transition-all disabled:opacity-60"
-            style={{ background: '#E6FF3D', color: '#0B0B0F' }}
+            style={{ background: 'var(--accent)', color: '#0B0B0F' }}
           >
             {loading ? 'Aggiornamento...' : 'Aggiorna password'}
           </button>
@@ -122,7 +122,7 @@ function ResetContent() {
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
         <Loader2 size={40} className="animate-spin" style={{ color: 'var(--accent)' }} />
       </div>
     }>

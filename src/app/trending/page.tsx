@@ -78,12 +78,12 @@ export default async function TrendingPage() {
   const typeOrder = ['game', 'anime', 'tv', 'movie', 'manga', 'boardgame']
 
   return (
-    <div className="min-h-screen bg-black text-white pb-24">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-white pb-24">
       <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 pt-2 md:pt-8">
 
         <div className="hidden md:block mb-10">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: 'var(--accent)' }}>
               <TrendingUp size={20} className="text-black" />
             </div>
             <h1 className="text-4xl font-black tracking-tighter">Trending</h1>
@@ -149,7 +149,7 @@ export default async function TrendingPage() {
           <Link
             href="/stats"
             className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl font-semibold text-sm transition"
-            style={{ background: '#E6FF3D', color: '#0B0B0F' }}
+            style={{ background: 'var(--accent)', color: '#0B0B0F' }}
           >
             <TrendingUp size={16} />
             Calcola il tuo tempo sprecato

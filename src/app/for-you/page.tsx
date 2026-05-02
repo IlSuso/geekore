@@ -445,7 +445,7 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
 
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0" style={{ background: '#E6FF3D' }}>
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0" style={{ background: 'var(--accent)' }}>
           <Search size={15} className="text-black" />
         </div>
         <div className="flex-1 min-w-0">
@@ -478,7 +478,7 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
                     ? 'border-transparent'
                     : 'bg-zinc-800/60 border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300'
                 }`}
-                style={isActive ? { background: '#E6FF3D', color: '#0B0B0F', borderColor: '#E6FF3D' } : {}}>
+                style={isActive ? { background: 'var(--accent)', color: '#0B0B0F', borderColor: '#E6FF3D' } : {}}>
                 {key !== 'all' && <span className="w-1.5 h-1.5 rounded-full" style={{ background: TYPE_COLORS[key as MediaType] }} />}
                 {label}
                 <span className={`text-[10px] ${isActive ? '' : 'text-zinc-600'}`} style={isActive ? { color: 'rgba(11,11,15,0.7)' } : {}}>{count}</span>
@@ -538,14 +538,14 @@ const RAIL_ICONS: Record<RecommendationRail['kind'], React.ElementType> = {
 }
 
 const RAIL_COLORS: Record<RecommendationRail['kind'], string> = {
-  'top-match':    '#E6FF3D',
+  'top-match':    'var(--accent)',
   continue:       '#f59e0b',
   social:         'var(--type-anime)',
   fresh:          'var(--type-movie)',
   discovery:      'var(--type-game)',
   genre:          '#0ea5e9',
   'because-title':'#10b981',
-  'quick-picks':  '#E6FF3D',
+  'quick-picks':  'var(--accent)',
   'hidden-gems':  'var(--type-board)',
 }
 
@@ -821,7 +821,7 @@ const FriendsWatchingSection = memo(function FriendsWatchingSection({ items }: {
   return (
     <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-5 mb-10">
       <div className="flex items-center gap-3 mb-5">
-        <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent)' }}>
           <Users size={16} className="text-black" />
         </div>
         <h2 className="text-sm font-bold text-white">Amici che guardano</h2>
@@ -1380,7 +1380,7 @@ export default function ForYouPage() {
 
 
   if (loading) return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-white">
       <div className="pt-2 md:pt-8 pb-28 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
         {/* Utility bar skeleton */}
         <div className="flex justify-end items-center gap-2 mb-4 animate-pulse">
@@ -1396,7 +1396,7 @@ export default function ForYouPage() {
   )
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-white">
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPulling} />
       <div className="pt-2 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
 
@@ -1408,7 +1408,7 @@ export default function ForYouPage() {
               onClick={() => setViewMode('lista')}
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-all"
               style={{
-                background: viewMode === 'lista' ? '#E6FF3D' : 'transparent',
+                background: viewMode === 'lista' ? 'var(--accent)' : 'transparent',
                 color: viewMode === 'lista' ? '#0B0B0F' : '#71717a',
               }}
             >
@@ -1419,7 +1419,7 @@ export default function ForYouPage() {
               onClick={() => setViewMode('swipe')}
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-all"
               style={{
-                background: viewMode === 'swipe' ? '#E6FF3D' : 'transparent',
+                background: viewMode === 'swipe' ? 'var(--accent)' : 'transparent',
                 color: viewMode === 'swipe' ? '#0B0B0F' : '#71717a',
               }}
             >
@@ -1441,7 +1441,7 @@ export default function ForYouPage() {
               <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
             </button>
             {showNewRecsBadge && (
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-black animate-pulse" style={{ background: '#E6FF3D' }} />
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-black animate-pulse" style={{ background: 'var(--accent)' }} />
             )}
           </div>
         </div>

@@ -59,7 +59,7 @@ function EmailChangeContent() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white px-6">
+    <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center text-white px-6">
       <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl p-10 text-center">
 
         {status === 'loading' && (
@@ -90,7 +90,7 @@ function EmailChangeContent() {
               <a
                 href="/settings/profile"
                 className="w-full py-3 rounded-2xl font-semibold transition"
-                style={{ background: '#E6FF3D', color: '#0B0B0F' }}
+                style={{ background: 'var(--accent)', color: '#0B0B0F' }}
               >
                 Torna alle impostazioni
               </a>
@@ -111,7 +111,7 @@ function EmailChangeContent() {
 export default function EmailChangePage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
         <Loader2 size={40} className="animate-spin" style={{ color: 'var(--accent)' }} />
       </div>
     }>

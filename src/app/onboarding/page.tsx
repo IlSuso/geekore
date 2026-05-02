@@ -120,7 +120,7 @@ function StepDots({ current, total }: { current: number; total: number }) {
       <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden w-full">
         <div
           className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${pct}%`, background: '#E6FF3D' }}
+          style={{ width: `${pct}%`, background: 'var(--accent)' }}
         />
       </div>
     </div>
@@ -148,7 +148,7 @@ function BrandPanel({ step }: { step: number }) {
       <div className="absolute top-1/2 -translate-y-1/2 left-1/3 w-60 h-60 bg-sky-500/8 rounded-full blur-[90px] pointer-events-none" />
 
       <div className="relative z-10 flex items-center gap-3">
-        <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+        <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: 'var(--accent)' }}>
           <Zap size={22} className="text-black" />
         </div>
         <span className="text-2xl font-bold tracking-tighter text-white">geekore</span>
@@ -452,7 +452,7 @@ export default function OnboardingPage() {
 
         {/* Logo mobile */}
         <div className="lg:hidden flex items-center gap-3 mb-10 self-start">
-          <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: 'var(--accent)' }}>
             <Zap size={20} className="text-black" />
           </div>
           <span className="text-2xl font-bold tracking-tighter text-white">geekore</span>
@@ -496,7 +496,7 @@ export default function OnboardingPage() {
               <button
                 onClick={() => setStep(1)}
                 className="w-full py-4 rounded-2xl font-semibold text-lg transition-all flex items-center justify-center gap-2"
-                style={{ background: '#E6FF3D', color: '#0B0B0F' }}
+                style={{ background: 'var(--accent)', color: '#0B0B0F' }}
               >
                 Inizia <ArrowRight size={20} />
               </button>
@@ -522,7 +522,7 @@ export default function OnboardingPage() {
                       <Icon size={19} style={sel ? { color } : {}} />
                       <span className="font-medium text-sm">{label}</span>
                       {sel && (
-                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: 'var(--accent)' }}>
                           <Check size={11} className="text-black" strokeWidth={3} />
                         </div>
                       )}
@@ -542,7 +542,7 @@ export default function OnboardingPage() {
                       <Icon size={19} style={sel ? { color } : {}} />
                       <span className="font-medium text-sm">{label}</span>
                       {sel && (
-                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: 'var(--accent)' }}>
                           <Check size={11} className="text-black" strokeWidth={3} />
                         </div>
                       )}
@@ -559,7 +559,7 @@ export default function OnboardingPage() {
                 </button>
                 <button onClick={goToSwipe} disabled={!poolReady}
                   className="flex-1 py-4 disabled:opacity-50 disabled:cursor-wait rounded-2xl font-semibold transition-all flex items-center justify-center gap-2"
-                  style={{ background: '#E6FF3D', color: '#0B0B0F' }}>
+                  style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
                   {!poolReady ? (
                     <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Caricamento titoli…</>
                   ) : (

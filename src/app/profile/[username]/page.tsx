@@ -354,7 +354,7 @@ function MediaCard({
                 ? 'border-transparent opacity-100'
                 : 'opacity-0 group-hover:opacity-100 bg-black/70 hover:bg-black/90 border-white/20'
               }`}
-            style={hasNotes ? { background: '#E6FF3D', color: '#0B0B0F' } : {}}
+            style={hasNotes ? { background: 'var(--accent)', color: '#0B0B0F' } : {}}
           >
             <Edit3 size={11} />
           </button>
@@ -1230,7 +1230,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
   }, [mediaList])
 
   if (loading) return <Spinner />
-  if (!profile) return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white">{t.profile.notFound}</div>
+  if (!profile) return <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center text-white">{t.profile.notFound}</div>
 
   const cats = t.profile.categories
 
@@ -1526,7 +1526,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
               className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-all border-b-2 -mb-px whitespace-nowrap ${
                 activeTab === tab.id ? 'border-transparent' : 'border-transparent text-zinc-500 hover:text-zinc-300'
               }`}
-              style={activeTab === tab.id ? { color: 'var(--accent)', borderBottomColor: '#E6FF3D' } : {}}
+              style={activeTab === tab.id ? { color: 'var(--accent)', borderBottomColor: 'var(--accent)' } : {}}
             >
               {tab.label}
               {tab.count !== undefined && (

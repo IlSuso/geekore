@@ -177,7 +177,7 @@ export function PushNotificationsToggle() {
           className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-50 ${
             state === 'granted' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : ''
           }`}
-          style={state !== 'granted' ? { background: '#E6FF3D', color: '#0B0B0F' } : {}}
+          style={state !== 'granted' ? { background: 'var(--accent)', color: '#0B0B0F' } : {}}
         >
           {state === 'loading' ? '...' : state === 'granted' ? 'Disattiva' : 'Attiva'}
         </button>

@@ -15,12 +15,12 @@ function LocaleToggle() {
       <button
         onClick={() => setLocale('it')}
         className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${locale === 'it' ? '' : 'text-zinc-500 hover:text-white'}`}
-        style={locale === 'it' ? { background: '#E6FF3D', color: '#0B0B0F' } : {}}
+        style={locale === 'it' ? { background: 'var(--accent)', color: '#0B0B0F' } : {}}
       >IT</button>
       <button
         onClick={() => setLocale('en')}
         className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${locale === 'en' ? '' : 'text-zinc-500 hover:text-white'}`}
-        style={locale === 'en' ? { background: '#E6FF3D', color: '#0B0B0F' } : {}}
+        style={locale === 'en' ? { background: 'var(--accent)', color: '#0B0B0F' } : {}}
       >EN</button>
     </div>
   )
@@ -121,7 +121,7 @@ export default function RegisterPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center p-6">
         <div className="text-center max-w-md mx-auto">
           <div className="w-20 h-20 bg-zinc-900 border border-zinc-800 rounded-3xl flex items-center justify-center mx-auto mb-6">
             <Mail size={36} style={{ color: 'var(--accent)' }} />
@@ -149,7 +149,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-stretch bg-zinc-950">
+    <div className="min-h-screen flex items-stretch bg-[var(--bg-primary)]">
 
       {/* Left — Branding */}
       <div className="hidden lg:flex lg:w-[45%] relative flex-col justify-between p-16 overflow-hidden border-r border-zinc-800/50">
@@ -157,7 +157,7 @@ export default function RegisterPage() {
         <div className="absolute bottom-1/4 right-0 w-72 h-72 rounded-full blur-[100px] pointer-events-none" style={{ background: "rgba(230,255,61,0.05)" }} />
 
         <div className="relative flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: 'var(--accent)' }}>
             <Zap size={20} className="text-black" />
           </div>
           <span className="text-2xl font-bold tracking-tighter">geekore</span>
@@ -189,7 +189,7 @@ export default function RegisterPage() {
 
           <div className="flex items-center justify-between mb-10">
             <div className="lg:hidden flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+              <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: 'var(--accent)' }}>
                 <Zap size={20} className="text-black" />
               </div>
               <span className="text-2xl font-bold tracking-tighter">geekore</span>
@@ -241,7 +241,7 @@ export default function RegisterPage() {
               type="submit"
               disabled={loading || passwordTooWeak}
               className="w-full py-4 rounded-2xl font-semibold text-lg transition-all disabled:opacity-60 mt-2"
-              style={{ background: '#E6FF3D', color: '#0B0B0F' }}
+              style={{ background: 'var(--accent)', color: '#0B0B0F' }}
             >
               {loading ? l.creating : l.create}
             </button>

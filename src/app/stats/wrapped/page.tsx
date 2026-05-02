@@ -188,7 +188,7 @@ function Slide5({ data, onShare }: { data: WrappedData; onShare: () => void }) {
         <button
           onClick={onShare}
           className="flex items-center gap-2 mx-auto px-8 py-4 rounded-2xl font-bold text-sm transition-all"
-          style={{ background: '#E6FF3D', color: '#0B0B0F' }}
+          style={{ background: 'var(--accent)', color: '#0B0B0F' }}
         >
           <Share2 size={16} />
           Condividi il tuo Wrapped
@@ -284,7 +284,7 @@ export default function WrappedPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 border-2 border-t-transparent rounded-full animate-spin mx-auto" style={{ borderColor: '#E6FF3D', borderTopColor: 'transparent' }} />
           <p className="text-zinc-400 text-sm">Costruendo il tuo {year} Wrapped…</p>

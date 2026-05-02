@@ -60,7 +60,7 @@ export function FollowButton({
       className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-[13px] font-semibold transition-all disabled:opacity-50"
       style={isFollowing
         ? { background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-primary)' }
-        : { background: '#E6FF3D', color: '#0B0B0F' }
+        : { background: 'var(--accent)', color: '#0B0B0F' }
       }
     >
       {isFollowing

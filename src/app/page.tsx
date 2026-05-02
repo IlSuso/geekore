@@ -187,12 +187,12 @@ export default async function HomePage() {
   if (user) redirect('/home')
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex flex-col -mt-16">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-white flex flex-col -mt-16">
 
       {/* Nav */}
       <nav className="flex items-center justify-between px-6 py-5 max-w-6xl mx-auto w-full">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-2xl flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+          <div className="w-9 h-9 rounded-2xl flex items-center justify-center" style={{ background: 'var(--accent)' }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="#0B0B0F">
               <path d="M13 2L4.09 12.97 12 12l-1 9 8.91-10.97L12 11z"/>
             </svg>
@@ -203,7 +203,7 @@ export default async function HomePage() {
           <Link href="/login" className="px-5 py-2 text-sm font-medium text-zinc-400 hover:text-white transition">
             Accedi
           </Link>
-          <Link href="/register" className="px-5 py-2 text-sm font-semibold rounded-full transition" style={{ background: '#E6FF3D', color: '#0B0B0F' }}>
+          <Link href="/register" className="px-5 py-2 text-sm font-semibold rounded-full transition" style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
             Registrati
           </Link>
         </div>
@@ -214,7 +214,7 @@ export default async function HomePage() {
         <div className="max-w-3xl mx-auto">
 
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-8" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)', color: 'var(--accent)' }}>
-            <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#E6FF3D' }} />
+            <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: 'var(--accent)' }} />
             Il tuo universo geek in un unico posto
           </div>
 
@@ -232,7 +232,7 @@ export default async function HomePage() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/register" className="px-10 py-4 rounded-2xl font-bold text-lg transition-all hover:scale-105" style={{ background: '#E6FF3D', color: '#0B0B0F' }}>
+            <Link href="/register" className="px-10 py-4 rounded-2xl font-bold text-lg transition-all hover:scale-105" style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
               Registrati gratis
             </Link>
             <Link href="/login" className="px-10 py-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl font-bold text-lg transition-all">

@@ -934,7 +934,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                       season: parseInt(formSeason) || 1,
                     })}
                     className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all disabled:opacity-40"
-                    style={{ background: '#E6FF3D', color: '#0B0B0F' }}
+                    style={{ background: 'var(--accent)', color: '#0B0B0F' }}
                   >
                     Conferma
                   </button>
@@ -943,7 +943,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                 <button
                   onClick={() => setShowAddForm(true)}
                   className="w-full py-3 rounded-2xl font-semibold transition-all"
-                  style={{ background: '#E6FF3D', color: '#0B0B0F' }}
+                  style={{ background: 'var(--accent)', color: '#0B0B0F' }}
                 >
                   Aggiungi alla collezione
                 </button>

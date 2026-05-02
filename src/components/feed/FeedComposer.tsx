@@ -150,7 +150,7 @@ export function FeedComposer({
                   onClick={async (e) => { await handleCreatePost(e as any); closeComposer() }}
                   disabled={publishDisabled}
                   className="px-5 py-2 rounded-full text-[13px] font-bold disabled:opacity-30 transition-all"
-                  style={{ background: '#E6FF3D', color: '#0B0B0F' }}
+                  style={{ background: 'var(--accent)', color: '#0B0B0F' }}
                 >
                   {isPublishing ? <Loader2 size={14} className="animate-spin" /> : 'Pubblica'}
                 </button>
@@ -207,7 +207,7 @@ export function FeedComposer({
                 <button
                   onClick={async (e) => { await handleCreatePost(e as any); closeComposer() }}
                   disabled={publishDisabled}
-                  style={{ background: '#E6FF3D', color: '#0B0B0F', border: 'none', borderRadius: 999, padding: '8px 20px', fontSize: 13, fontWeight: 700, opacity: publishDisabled ? 0.3 : 1, cursor: 'pointer' }}
+                  style={{ background: 'var(--accent)', color: '#0B0B0F', border: 'none', borderRadius: 999, padding: '8px 20px', fontSize: 13, fontWeight: 700, opacity: publishDisabled ? 0.3 : 1, cursor: 'pointer' }}
                 >
                   {isPublishing ? '...' : 'Pubblica'}
                 </button>

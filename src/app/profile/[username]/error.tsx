@@ -30,7 +30,7 @@ export default function ProfileError({
           <button
             onClick={reset}
             className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-medium transition-all"
-            style={{ background: '#E6FF3D', color: '#0B0B0F' }}
+            style={{ background: 'var(--accent)', color: '#0B0B0F' }}
           >
             <RefreshCw size={16} />
             Riprova

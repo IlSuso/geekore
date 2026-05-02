@@ -79,14 +79,14 @@ export default function WishlistPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <main className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
         <Loader2 size={28} className="animate-spin" style={{ color: 'var(--accent)' }} />
       </main>
     )
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 pt-2 md:pt-6 pb-24 px-4 text-white">
+    <main className="min-h-screen bg-[var(--bg-primary)] pt-2 md:pt-6 pb-24 px-4 text-white">
       <div className="max-w-3xl mx-auto">
 
         {/* Header */}
@@ -123,7 +123,7 @@ export default function WishlistPage() {
                         ? ''
                         : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
                     }`}
-                    style={activeFilter === type ? { background: '#E6FF3D', color: '#0B0B0F' } : {}}
+                    style={activeFilter === type ? { background: 'var(--accent)', color: '#0B0B0F' } : {}}
                   >
                     {typeColor && <span className="w-1.5 h-1.5 rounded-full" style={{ background: typeColor }} />}
                     {type === 'all' ? 'Tutti' : getMediaTypeLabel(type)}

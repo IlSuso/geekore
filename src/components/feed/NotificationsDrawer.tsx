@@ -165,7 +165,7 @@ export function NotificationsDrawer({ open, onClose }: { open: boolean; onClose:
                   <p className="text-[11px] text-zinc-500 mt-0.5">{time}</p>
                 </div>
                 {!notif.is_read && (
-                  <span className="w-2 h-2 rounded-full flex-shrink-0 mt-2" style={{ background: '#E6FF3D' }} />
+                  <span className="w-2 h-2 rounded-full flex-shrink-0 mt-2" style={{ background: 'var(--accent)' }} />
                 )}
               </div>
             )

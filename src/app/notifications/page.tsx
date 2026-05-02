@@ -156,10 +156,10 @@ export default function NotificationsPage() {
       <span className={`${base} bg-red-500`}><Heart size={10} fill="white" color="white" /></span>
     )
     if (type === 'follow') return (
-      <span className={base} style={{ background: '#E6FF3D' }}><UserPlus size={10} color="#0B0B0F" /></span>
+      <span className={base} style={{ background: 'var(--accent)' }}><UserPlus size={10} color="#0B0B0F" /></span>
     )
     if (type === 'comment') return (
-      <span className={base} style={{ background: '#E6FF3D' }}><MessageCircle size={10} color="#0B0B0F" /></span>
+      <span className={base} style={{ background: 'var(--accent)' }}><MessageCircle size={10} color="#0B0B0F" /></span>
     )
     if (type === 'rating') return (
       <span className={`${base} bg-yellow-500`}><Star size={10} fill="white" color="white" /></span>

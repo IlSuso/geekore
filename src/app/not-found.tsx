@@ -7,7 +7,7 @@ import { Home, Search, User } from 'lucide-react'
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-white px-6">
+    <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col items-center justify-center text-white px-6">
 
       {/* Glitch 404 */}
       <div className="relative select-none mb-2">
@@ -74,7 +74,7 @@ export default function NotFound() {
         <Link
           href="/home"
           className="flex items-center gap-2 px-6 py-3 rounded-full font-semibold transition-all hover:scale-105 text-sm"
-          style={{ background: '#E6FF3D', color: '#0B0B0F' }}
+          style={{ background: 'var(--accent)', color: '#0B0B0F' }}
         >
           <Home size={16} /> Home
         </Link>

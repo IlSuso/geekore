@@ -29,7 +29,7 @@ export default function ForgotPasswordPage() {
 
   if (sent) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-6">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center px-6">
         <div className="w-full max-w-md text-center">
           <div className="w-20 h-20 bg-emerald-500/10 border border-emerald-500/30 rounded-3xl flex items-center justify-center mx-auto mb-6">
             <CheckCircle size={36} className="text-emerald-400" />
@@ -47,10 +47,10 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-6">
+    <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center px-6">
       <div className="w-full max-w-md">
         <div className="flex items-center gap-3 mb-10">
-          <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: 'var(--accent)' }}>
             <Zap size={20} className="text-black" />
           </div>
           <span className="text-2xl font-bold tracking-tighter text-white">geekore</span>
@@ -87,7 +87,7 @@ export default function ForgotPasswordPage() {
             type="submit"
             disabled={loading}
             className="w-full py-4 rounded-2xl font-semibold text-lg transition-all disabled:opacity-60"
-            style={{ background: '#E6FF3D', color: '#0B0B0F' }}
+            style={{ background: 'var(--accent)', color: '#0B0B0F' }}
           >
             {loading ? 'Invio in corso...' : 'Invia link di reset'}
           </button>

@@ -73,7 +73,7 @@ export function PWAInstallBanner() {
   return (
     <div className="fixed bottom-20 left-3 right-3 md:left-auto md:right-6 md:bottom-6 md:w-80 z-[200] animate-in slide-in-from-bottom-4 duration-300">
       <div className="bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl shadow-black/60 p-4 flex items-center gap-3">
-        <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: '#E6FF3D' }}>
+        <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: 'var(--accent)' }}>
           <Zap size={20} className="text-black" />
         </div>
         <div className="flex-1 min-w-0">
@@ -83,7 +83,7 @@ export function PWAInstallBanner() {
         <div className="flex items-center gap-2 flex-shrink-0">
           <button onClick={handleInstall} disabled={installing}
             className="flex items-center gap-1.5 px-3 py-1.5 disabled:opacity-60 rounded-xl text-xs font-semibold transition-all"
-            style={{ background: '#E6FF3D', color: '#0B0B0F' }}>
+            style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
             <Download size={13} />
             Installa
           </button>

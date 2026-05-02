@@ -325,7 +325,7 @@ export default function SwipePage() {
         <div className="flex flex-col items-center gap-5 text-center">
           <div className="relative">
             <div className="absolute inset-0 w-16 h-16 rounded-3xl blur-xl" style={{ background: 'rgba(230,255,61,0.2)' }} />
-            <div className="relative w-16 h-16 rounded-3xl flex items-center justify-center shadow-2xl" style={{ background: '#E6FF3D' }}>
+            <div className="relative w-16 h-16 rounded-3xl flex items-center justify-center shadow-2xl" style={{ background: 'var(--accent)' }}>
               <Shuffle size={28} className="text-black" />
             </div>
           </div>

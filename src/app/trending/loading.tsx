@@ -1,7 +1,7 @@
 // src/app/trending/loading.tsx
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-black pt-8 pb-20 max-w-3xl mx-auto px-3 sm:px-4 md:px-6">
+    <div className="min-h-screen bg-[var(--bg-primary)] pt-8 pb-20 max-w-3xl mx-auto px-3 sm:px-4 md:px-6">
       {/* Header */}
       <div className="mb-10 animate-pulse">
         <div className="h-10 w-56 bg-zinc-800 rounded-2xl mb-3" />
