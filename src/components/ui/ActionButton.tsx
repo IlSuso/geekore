@@ -12,12 +12,12 @@ interface BaseProps {
   className?: string
 }
 
-interface LinkActionButtonProps extends BaseProps, Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> {
+type LinkActionButtonProps = BaseProps & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, keyof BaseProps | 'href'> & {
   href: string
   disabled?: never
 }
 
-interface NativeActionButtonProps extends BaseProps, ButtonHTMLAttributes<HTMLButtonElement> {
+type NativeActionButtonProps = BaseProps & Omit<ButtonHTMLAttributes<HTMLButtonElement>, keyof BaseProps> & {
   href?: never
 }
 
