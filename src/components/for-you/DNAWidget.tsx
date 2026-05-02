@@ -26,6 +26,14 @@ export interface TasteProfile {
   wishlistGenres?: string[]
   searchIntentGenres?: string[]
   lowConfidence?: boolean
+  totalEntries?: number
+}
+
+type DNAWidgetProps = {
+  tasteProfile?: Partial<TasteProfile> | null
+  profile?: Partial<TasteProfile> | null
+  totalEntries?: number
+  compact?: boolean
 }
 
 const EMPTY_PROFILE: TasteProfile = {
@@ -41,6 +49,7 @@ const EMPTY_PROFILE: TasteProfile = {
   wishlistGenres: [],
   searchIntentGenres: [],
   lowConfidence: true,
+  totalEntries: 0,
 }
 
 function normalizeTasteProfile(profile?: Partial<TasteProfile> | null): TasteProfile {
@@ -65,6 +74,7 @@ function normalizeTasteProfile(profile?: Partial<TasteProfile> | null): TastePro
     },
     wishlistGenres: Array.isArray(profile?.wishlistGenres) ? profile.wishlistGenres : [],
     searchIntentGenres: Array.isArray(profile?.searchIntentGenres) ? profile.searchIntentGenres : [],
+    totalEntries: typeof profile?.totalEntries === 'number' ? profile.totalEntries : 0,
   }
 }
 
@@ -80,11 +90,14 @@ function uniqueStrings(values: string[] | undefined): string[] {
   return result
 }
 
-export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries = 0 }: {
-  tasteProfile?: Partial<TasteProfile> | null
-  totalEntries?: number
-}) {
-  const profile = normalizeTasteProfile(tasteProfile)
+export const DNAWidget = memo(function DNAWidget({ tasteProfile, profile: legacyProfile, totalEntries, compact = false }: DNAWidgetProps) {
+  const sourceProfile = tasteProfile || legacyProfile || null
+  const profile = normalizeTasteProfile(sourceProfile)
+  const resolvedTotalEntries = typeof totalEntries === 'number'
+    ? totalEntries
+    : typeof profile.totalEntries === 'number'
+      ? profile.totalEntries
+      : 0
   const [open, setOpen] = useState(() => {
     if (typeof window === 'undefined') return false
     if (!localStorage.getItem('dna_widget_seen')) { localStorage.setItem('dna_widget_seen', '1'); return true }
@@ -116,7 +129,7 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries = 
   const BAR_COLORS = ['#E6FF3D', '#38BDF8', '#4ADE80', '#FB923C', '#F97066']
 
   return (
-    <div className="mb-8 overflow-hidden rounded-[28px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(230,255,61,0.09),rgba(139,92,246,0.07),rgba(20,20,27,0.88))] shadow-[0_18px_60px_rgba(0,0,0,0.28)]">
+    <div className={`mb-8 overflow-hidden rounded-[28px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(230,255,61,0.09),rgba(139,92,246,0.07),rgba(20,20,27,0.88))] shadow-[0_18px_60px_rgba(0,0,0,0.28)] ${compact ? 'md:mb-6' : ''}`}>
       <button type="button" data-no-swipe="true" onClick={() => setOpen(v => !v)} className="w-full px-5 pb-4 pt-5 text-left">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
@@ -125,7 +138,7 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries = 
             </div>
             <h2 className="gk-title mb-1 text-[var(--text-primary)]">Il tuo algoritmo parte da qui.</h2>
             <p className="gk-caption">
-              {totalEntries} titoli · ultimi {profile.recentWindow || 6} mesi
+              {resolvedTotalEntries} titoli · ultimi {profile.recentWindow || 6} mesi
               {binge?.isBinger && (
                 <span className="ml-2 inline-flex items-center gap-0.5 text-orange-400">
                   <Flame size={10} className="inline" />binge mode
