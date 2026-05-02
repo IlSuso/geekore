@@ -133,6 +133,8 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   const [inCollection, setInCollection] = useState(false)
   const [inWishlist, setInWishlist] = useState(false)
   const [checkDone, setCheckDone] = useState(false)
+  const [addingToCollection, setAddingToCollection] = useState(false)
+  const [wishlistBusy, setWishlistBusy] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
   const [formRating, setFormRating] = useState<number>(0)
   const [formEpisode, setFormEpisode] = useState<string>('0')
@@ -183,6 +185,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   useEffect(() => {
     setShowAddForm(false); setFormRating(0); setFormEpisode('0'); setFormSeason('1')
     setFormEpisodeError(null); setFormSeasonError(null); setDescExpanded(false)
+    setAddingToCollection(false); setWishlistBusy(false)
   }, [media?.id])
 
   useEffect(() => {
@@ -213,9 +216,10 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   }, [media?.id])
 
   const handleAddToCollection = useCallback(async (opts?: { rating?: number; episode?: number; season?: number }) => {
-    if (!media) return
+    if (!media || addingToCollection || inCollection) return
+    setAddingToCollection(true)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) { setAddingToCollection(false); return }
 
     const isMovie = media.type === 'movie'
     const isBoardgame = media.type === 'boardgame'
@@ -281,19 +285,22 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
         }
       }
     }
-  }, [media, onAdd])
+    setAddingToCollection(false)
+  }, [media, onAdd, addingToCollection, inCollection])
 
   const handleToggleWishlist = useCallback(async () => {
-    if (!media) return
+    if (!media || wishlistBusy) return
+    setWishlistBusy(true)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) { setWishlistBusy(false); return }
     if (inWishlist) {
       const res = await fetch('/api/wishlist', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ external_id: media.id }),
       }).catch(() => null)
-      if (res?.ok) setInWishlist(false);
+      if (res?.ok) setInWishlist(false)
+      setWishlistBusy(false)
     } else {
       const res = await fetch('/api/wishlist', {
         method: 'POST',
@@ -305,13 +312,14 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
           cover_image: media.coverImage,
         }),
       }).catch(() => null)
-      if (!res?.ok) return
-      setInWishlist(true);
+      if (!res?.ok) { setWishlistBusy(false); return }
+      setInWishlist(true)
       if ((media.genres || []).length > 0) {
         triggerTasteDelta({ action: 'wishlist_add', mediaId: media.id, mediaType: media.type, genres: media.genres || [] })
       }
+      setWishlistBusy(false)
     }
-  }, [media, inWishlist])
+  }, [media, inWishlist, wishlistBusy])
 
   // gestureState + androidBack registration
   // Su Android: niente pushState — usiamo androidBack.push/pop per registrare
@@ -476,15 +484,18 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
     <>
       {/* Backdrop — below MobileHeader (z-99) and Navbar (z-100) */}
       <div
+        data-no-swipe="true"
         className="fixed inset-0 z-[80] bg-black/76 backdrop-blur-md"
-        onClick={handleClose}
+        onMouseDown={handleClose}
         aria-hidden
       />
 
       {/* Drawer — sits behind MobileHeader/Navbar; top/bottom account for their heights */}
       <div
+        data-no-swipe="true"
         className="fixed right-0 z-[80] w-full max-w-md flex flex-col shadow-[0_0_80px_rgba(0,0,0,0.55)]"
         role="dialog" aria-modal aria-label={media.title}
+        onMouseDown={event => event.stopPropagation()}
         style={{
           background: 'var(--bg-primary)',
           borderLeft: '1px solid rgba(230,255,61,0.14)',
@@ -540,7 +551,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
         />
 
         {/* ── CONTENUTO SCORREVOLE ───────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto bg-[var(--bg-primary)]">
+        <div className="flex-1 overflow-y-auto overscroll-contain bg-[var(--bg-primary)]" data-no-swipe="true">
           <div className="space-y-4 p-4">
 
             {/* Generi */}
@@ -644,6 +655,8 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                 </p>
                 {isLongDesc && (
                   <button
+                    type="button"
+                    data-no-swipe="true"
                     onClick={() => setDescExpanded(v => !v)}
                     className="mt-2 text-xs font-bold text-[var(--text-muted)] transition-colors hover:text-[var(--accent)]"
                   >
@@ -768,7 +781,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             {continuityRelations.length > 0 && (
               <div>
                 <h3 className="gk-label mb-2">Nella stessa serie</h3>
-                <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide">
+                <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide" data-no-swipe="true">
                   {continuityRelations.map(rel => (
                     <div key={rel.id} className="flex-shrink-0 w-16">
                       <div className="relative mb-1 h-24 overflow-hidden rounded-2xl bg-[var(--bg-card)] ring-1 ring-white/5">
@@ -789,10 +802,10 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
             {/* Form aggiunta */}
             {showAddForm && (
-              <div ref={formRef} className="space-y-4 rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+              <div ref={formRef} data-no-swipe="true" className="space-y-4 rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
                 <div>
                   <p className="gk-label mb-2">Il tuo voto (opzionale)</p>
-                  <div data-no-swipe="">
+                  <div data-no-swipe="true">
                     <StarRating value={formRating} onChange={setFormRating} size={28} />
                   </div>
                 </div>
@@ -803,7 +816,9 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                     <div>
                       <p className="gk-label mb-1">Stagione{maxSeasons ? ` (max ${maxSeasons})` : ''}</p>
                       <input
-                        type="number" min={1} max={maxSeasons ?? undefined} value={formSeason}
+                        data-no-swipe="true"
+                        type="number" inputMode="numeric" min={1} max={maxSeasons ?? undefined} value={formSeason}
+                        aria-invalid={!!formSeasonError}
                         onChange={e => {
                           const val = e.target.value; setFormSeason(val)
                           const n = parseInt(val)
@@ -827,7 +842,9 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                     <div>
                       <p className="gk-label mb-1">{label}{maxEp ? ` (max ${maxEp})` : ''}</p>
                       <input
-                        type="number" min={0} max={maxEp ?? undefined} value={formEpisode}
+                        data-no-swipe="true"
+                        type="number" inputMode="numeric" min={0} max={maxEp ?? undefined} value={formEpisode}
+                        aria-invalid={!!formEpisodeError}
                         onChange={e => {
                           const val = e.target.value; setFormEpisode(val)
                           const n = parseInt(val)
@@ -848,7 +865,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
         </div>
 
         {/* ── FOOTER STICKY ────────────────────────────────────────── */}
-        <div className="flex-shrink-0 space-y-2 border-t border-[var(--border)] bg-[rgba(11,11,15,0.92)] p-3 backdrop-blur-xl">
+        <div className="flex-shrink-0 space-y-2 border-t border-[var(--border)] bg-[rgba(11,11,15,0.92)] p-3 backdrop-blur-xl" data-no-swipe="true">
           {!checkDone ? (
             <div className="animate-pulse space-y-2">
               <div className="h-10 bg-[var(--bg-card)] rounded-2xl" />
@@ -859,13 +876,17 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               {showAddForm ? (
                 <div className="flex gap-2">
                   <button
+                    type="button"
+                    data-no-swipe="true"
                     onClick={() => setShowAddForm(false)}
                     className="flex-1 rounded-2xl border border-[var(--border)] py-2.5 text-sm font-bold text-[var(--text-secondary)] transition-all hover:border-[rgba(230,255,61,0.45)] hover:text-[var(--text-primary)]"
                   >
                     Annulla
                   </button>
                   <button
-                    disabled={!!formEpisodeError || !!formSeasonError}
+                    type="button"
+                    data-no-swipe="true"
+                    disabled={addingToCollection || !!formEpisodeError || !!formSeasonError}
                     onClick={() => handleAddToCollection({
                       rating: formRating || undefined,
                       episode: parseInt(formEpisode) || 0,
@@ -874,11 +895,13 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                     className="flex-1 rounded-2xl py-2.5 text-sm font-black transition-all disabled:opacity-40"
                     style={{ background: 'var(--accent)', color: '#0B0B0F' }}
                   >
-                    Conferma
+                    {addingToCollection ? 'Aggiungo…' : 'Conferma'}
                   </button>
                 </div>
               ) : !inCollection ? (
                 <button
+                  type="button"
+                  data-no-swipe="true"
                   onClick={() => setShowAddForm(true)}
                   className="w-full rounded-2xl py-3 font-black transition-all shadow-[0_0_28px_rgba(230,255,61,0.14)]"
                   style={{ background: 'var(--accent)', color: '#0B0B0F' }}
@@ -893,8 +916,11 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
               <div className="flex gap-2">
                 <button
+                  type="button"
+                  data-no-swipe="true"
                   onClick={handleToggleWishlist}
-                  className={`flex-1 py-2 rounded-2xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${inWishlist
+                  disabled={wishlistBusy}
+                  className={`flex-1 py-2 rounded-2xl text-xs font-bold border transition-all disabled:opacity-60 flex items-center justify-center gap-1.5 ${inWishlist
                       ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
                       : 'bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[rgba(230,255,61,0.45)]'
                     }`}
@@ -905,6 +931,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
                 {externalUrl && (
                   <a
+                    data-no-swipe="true"
                     href={externalUrl}
                     target="_blank"
                     rel="noopener noreferrer"
