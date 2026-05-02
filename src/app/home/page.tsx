@@ -24,7 +24,6 @@ import { Loader2 } from 'lucide-react'
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll'
 import { useLocale } from '@/lib/locale'
 import { FeedSidebar } from '@/components/feed/FeedSidebar'
-import { FeedLeftSidebar } from '@/components/feed/FeedLeftSidebar'
 import { StickyFromBottom } from '@/components/ui/StickyFromBottom'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
@@ -588,18 +587,11 @@ export default function FeedPage() {
       )}
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
 
-      {/* ── Sidebar sinistra — fixed al viewport, mai scorrevole.
-           Vive FUORI da PullWrapper per evitare che il suo transform
-           inline (translateY) rompa position:fixed. ── */}
-      <div className="hidden lg:block fixed top-12 left-0 w-[360px] h-[calc(100vh-3rem)] z-20 bg-[var(--bg-primary)] overflow-y-auto">
-        <FeedLeftSidebar profile={currentProfile} />
-      </div>
-
       <PullWrapper distance={pullDistance} refreshing={isPullRefreshing}>
-      {/* Layout: full-bleed su mobile, tre colonne su desktop — stile Facebook */}
-      <div className="pt-0 pb-24 xl:pb-6 relative min-h-screen">
+      {/* Layout: colonna centrale centrata su desktop, full-bleed su mobile */}
+      <div className="pt-14 md:pt-4 pb-24 xl:pb-6 relative min-h-screen">
 
-        <div className="lg:pl-[360px] flex items-start gap-0 min-h-screen">
+        <div className="flex items-start min-h-screen">
 
           {/* ── Colonna principale ─────────────────────────────────── */}
           <div className="flex-1 min-w-0 flex justify-center">

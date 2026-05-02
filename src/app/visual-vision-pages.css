@@ -137,36 +137,35 @@ main[data-auth='true'] {
   border-color: var(--border) !important;
 }
 
-/* Tabs/chips/buttons: active yellow must be obvious across large pages. */
+/* Tabs/chips/buttons: active yellow scoped to page surfaces. */
 .gk-profile-page button[aria-selected='true'],
 .gk-profile-type-page button[aria-selected='true'],
 .gk-for-you-page button[aria-selected='true'],
 .gk-discover-page button[aria-selected='true'],
-.gk-settings-page button[aria-selected='true'] {
+.gk-settings-page button[aria-selected='true'],
+.gk-profile-page [role='tab'][aria-selected='true'],
+.gk-profile-type-page [role='tab'][aria-selected='true'],
+.gk-for-you-page [role='tab'][aria-selected='true'],
+.gk-discover-page [role='tab'][aria-selected='true'],
+.gk-settings-page [role='tab'][aria-selected='true'],
+.gk-profile-page button[aria-pressed='true'],
+.gk-profile-type-page button[aria-pressed='true'],
+.gk-for-you-page button[aria-pressed='true'],
+.gk-discover-page button[aria-pressed='true'],
+.gk-settings-page button[aria-pressed='true'] {
   background: var(--accent) !important;
   color: #0B0B0F !important;
   border-color: var(--accent) !important;
 }
 
-.gk-profile-page button:hover,
-.gk-profile-type-page button:hover,
-.gk-for-you-page button:hover,
-.gk-discover-page button:hover,
-.gk-settings-page button:hover,
-.gk-onboarding-page button:hover {
+/* Hover accent border only for buttons that already have a border class. */
+.gk-profile-page button.border:hover,
+.gk-profile-type-page button.border:hover,
+.gk-for-you-page button.border:hover,
+.gk-discover-page button.border:hover,
+.gk-settings-page button.border:hover,
+.gk-onboarding-page button.border:hover {
   border-color: rgba(230,255,61,0.26);
-}
-
-/* Prevent random white/black swipe islands from breaking the cabinet look. */
-.gk-swipe-mode .bg-white,
-.gk-for-you-page .bg-white,
-.gk-discover-page .bg-white {
-  background-color: var(--accent) !important;
-}
-.gk-swipe-mode .text-black,
-.gk-for-you-page .text-black,
-.gk-discover-page .text-black {
-  color: #0B0B0F !important;
 }
 
 /* Stats/settings/list cards. */

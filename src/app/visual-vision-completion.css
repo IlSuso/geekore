@@ -81,13 +81,8 @@ main[data-auth] button[type='submit'],
 }
 
 /* Tabs and segmented controls. */
-[role='tab'][aria-selected='true'],
-button[aria-pressed='true'] {
-  background: var(--accent) !important;
-  color: #0B0B0F !important;
-  border-color: var(--accent) !important;
-}
-
+/* Note: active-state yellow is handled by page-scoped rules in visual-vision-pages.css.
+   Only the utility classes below stay global. */
 .profile-tab-active,
 .gk-tab-active {
   color: var(--accent) !important;

@@ -31,14 +31,8 @@ export function ForYouEngineHero({
     <section className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(230,255,61,0.09),rgba(139,92,246,0.07),rgba(20,20,27,0.9))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0">
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
-            <Sparkles size={12} />
-            For You engine
-          </div>
-          <h1 className="gk-h1 mb-2 text-[var(--text-primary)]">Consigli costruiti sul tuo Taste DNA.</h1>
-          <p className="gk-body max-w-2xl">
-            Rail ordinati, swipe rapido e segnali espliciti: ogni card deve spiegare perché entra nel tuo universo.
-          </p>
+          <h1 className="gk-h1 mb-1 text-[var(--text-primary)]">Per Te</h1>
+          <p className="gk-caption text-[var(--text-secondary)]">Consigli personalizzati sul tuo Taste DNA</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -100,11 +94,11 @@ export function ForYouEngineHero({
       <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
         <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
           <p className="font-mono-data text-[18px] font-black leading-none text-[var(--accent)]">{totalEntries}</p>
-          <p className="gk-label mt-1">library signals</p>
+          <p className="gk-label mt-1">in libreria</p>
         </div>
         <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
           <p className="font-mono-data text-[18px] font-black leading-none text-[var(--text-primary)]">{railsCount}</p>
-          <p className="gk-label mt-1">rails active</p>
+          <p className="gk-label mt-1">sezioni</p>
         </div>
         <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
           <p className="font-mono-data text-[18px] font-black leading-none text-[var(--text-primary)]">{topMatch ?? '—'}</p>

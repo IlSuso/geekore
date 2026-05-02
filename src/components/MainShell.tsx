@@ -9,7 +9,7 @@ const AUTH_PATHS = ['/login', '/register', '/auth/', '/forgot-password', '/onboa
 export function MainShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const isAuth = AUTH_PATHS.some(p => pathname === p || (p !== '/' && pathname.startsWith(p)))
-  const showForYouSwitch = pathname === '/for-you' || pathname === '/swipe'
+  const showForYouSwitch = pathname === '/swipe'
   const showDiscoverQuickLinks = pathname === '/discover'
   const pageSurface = !isAuth && pathname !== '/swipe'
 

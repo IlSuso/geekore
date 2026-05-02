@@ -483,13 +483,9 @@ export default function DiscoverPage() {
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
       <div className="max-w-screen-2xl mx-auto px-4 pt-16 md:pt-20">
         <div className="mb-5 overflow-hidden rounded-[30px] border border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.10),rgba(139,92,246,0.08),rgba(255,255,255,0.02))] p-5 md:p-7">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--accent)]">
-            <Sparkles size={13} />
-            Discover engine
-          </div>
-          <h1 className="gk-h1 mb-2 max-w-2xl">Non cercare soltanto: esplora il tuo prossimo universo.</h1>
+          <h1 className="gk-h1 mb-2 max-w-2xl">Esplora il tuo prossimo universo.</h1>
           <p className="gk-body max-w-2xl">
-            Parti da un medium, apri una sezione o cerca un titolo. Discover deve essere una porta d’ingresso, non una pagina vuota con una search bar.
+            Cerca un titolo, sfoglia per medium o parti da un suggerimento rapido.
           </p>
           <div className="mt-4 flex gap-2 overflow-x-auto scrollbar-hide" data-no-swipe="true">
             {BROWSE_PROMPTS.map(({ label, q, type, icon: Icon, color }) => (
