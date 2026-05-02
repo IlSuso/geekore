@@ -1,19 +1,17 @@
 'use client'
 // src/context/ActiveTabContext.tsx
-// Context per il tab attivo — aggiornato IMMEDIATAMENTE al click nella Navbar,
-// senza aspettare il ciclo di navigazione Next.js (~100-150ms).
-// KeepAliveTabShell legge questo invece di usePathname() per lo switch visivo.
+// Context per il tab attivo — aggiornato immediatamente al click nella Navbar.
+// Swipe non è più una tab primaria: resta una modalità interna di For You.
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 
-export type KATab = 'feed' | 'discover' | 'for-you' | 'swipe' | 'library' | 'profile'
+export type KATab = 'feed' | 'for-you' | 'library' | 'discover' | 'profile'
 
 function pathnameToTab(pathname: string): KATab | null {
   if (pathname === '/home' || pathname === '/') return 'feed'
-  if (pathname === '/discover') return 'discover'
-  if (pathname === '/for-you') return 'for-you'
-  if (pathname === '/swipe') return 'swipe'
+  if (pathname === '/for-you' || pathname === '/swipe') return 'for-you'
   if (pathname === '/library') return 'library'
+  if (pathname === '/discover') return 'discover'
   if (pathname.startsWith('/profile/') && pathname.split('/').length === 3) return 'profile'
   return null
 }
