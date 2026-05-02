@@ -2,7 +2,7 @@
 
 import type { ChangeEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { Image as ImageIcon, Loader2, Tag, X } from 'lucide-react'
+import { Image as ImageIcon, Loader2, Tag, X, Sparkles } from 'lucide-react'
 import { CategorySelector } from '@/components/feed/CategoryControls'
 
 type ComposerModalPos = {
@@ -94,6 +94,7 @@ export function FeedComposer({
   handleImageSelect,
 }: FeedComposerProps) {
   const publishDisabled = isPublishing || (!newPostContent.trim() && !selectedImage)
+  const activityPlaceholder = 'Che cosa hai appena visto, letto, giocato o completato?'
 
   const handleTextChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setNewPostContent(e.target.value.slice(0, 500))
@@ -109,34 +110,39 @@ export function FeedComposer({
 
   return (
     <>
-      {/* Barra statica — sempre visibile, poco invasiva */}
       <div
-        className="mx-4 my-4 rounded-2xl border border-zinc-800 bg-zinc-900/60 cursor-pointer hover:border-zinc-600 hover:bg-zinc-900 transition-all duration-200"
+        className="mx-4 my-4 cursor-pointer rounded-[22px] border border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.045),rgba(255,255,255,0.015))] transition-all duration-200 hover:border-[rgba(230,255,61,0.35)] hover:bg-[var(--bg-card)]"
         onClick={openComposer}
       >
         <div className="flex items-center gap-3 px-4 py-3.5">
           <ProfileAvatar profile={profile} />
-          <span className="flex-1 text-[15px] text-zinc-500 select-none">{placeholder}</span>
-        </div>
-        <div className="flex items-center gap-4 px-4 pb-3 border-t border-zinc-800/60 pt-2.5">
-          <div className="flex items-center gap-1.5 text-zinc-500 text-[13px]">
-            <ImageIcon size={16} strokeWidth={1.6} />
-            <span>Foto</span>
+          <div className="min-w-0 flex-1">
+            <span className="block truncate text-[15px] font-semibold text-[var(--text-secondary)] select-none">
+              {activityPlaceholder}
+            </span>
+            <span className="gk-mono mt-0.5 block text-[var(--text-muted)]">linka un medium e crea activity</span>
           </div>
-          <div className="flex items-center gap-1.5 text-zinc-500 text-[13px]">
-            <Tag size={15} strokeWidth={1.6} />
-            <span>Categoria</span>
+        </div>
+        <div className="flex items-center gap-2 border-t border-[var(--border-subtle)] px-4 pb-3 pt-2.5">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(230,255,61,0.32)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[12px] font-bold text-[var(--accent)]">
+            <Sparkles size={14} strokeWidth={1.8} />
+            Activity
+          </div>
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1 text-[12px] font-semibold text-[var(--text-secondary)]">
+            <Tag size={13} strokeWidth={1.6} />
+            Medium / titolo
+          </div>
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1 text-[12px] font-semibold text-[var(--text-secondary)]">
+            <ImageIcon size={14} strokeWidth={1.6} />
+            Foto opzionale
           </div>
         </div>
       </div>
 
-      {/* Modal composer */}
       {composerOpen && (
         <>
-          {/* Desktop: backdrop */}
           <div className="hidden md:block fixed inset-0 z-[250] bg-black/70 backdrop-blur-sm" onClick={closeComposer} />
 
-          {/* Desktop: modal posizionato */}
           {modalPos && (
             <div
               className="hidden md:flex fixed z-[260] flex-col rounded-2xl shadow-2xl shadow-black/70 border border-zinc-700/60"
@@ -145,7 +151,7 @@ export function FeedComposer({
             >
               <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800/80 flex-shrink-0">
                 <button onClick={closeComposer} className="text-[14px] font-medium text-zinc-400 hover:text-white transition-colors">Annulla</button>
-                <span className="text-[16px] font-bold text-white tracking-tight">Nuovo post</span>
+                <span className="gk-headline text-white">Nuova activity</span>
                 <button
                   onClick={async (e) => { await handleCreatePost(e as any); closeComposer() }}
                   disabled={publishDisabled}
@@ -166,7 +172,7 @@ export function FeedComposer({
                       autoFocus
                       value={newPostContent}
                       onChange={handleTextChange}
-                      placeholder={placeholder}
+                      placeholder={activityPlaceholder || placeholder}
                       maxLength={500}
                       rows={3}
                       className="no-nav-hide w-full bg-transparent text-[16px] text-white placeholder-zinc-500 outline-none resize-none leading-relaxed"
@@ -189,7 +195,10 @@ export function FeedComposer({
                   <ImageIcon size={22} strokeWidth={1.5} />
                   <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
                 </label>
-                <CategorySelector value={newPostCategory} onChange={setNewPostCategory} />
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <span className="gk-label hidden text-[var(--text-muted)] sm:inline">Medium</span>
+                  <CategorySelector value={newPostCategory} onChange={setNewPostCategory} />
+                </div>
                 <div className="ml-auto flex items-center gap-2.5">
                   <ComposerProgress length={newPostContent.length} />
                 </div>
@@ -197,13 +206,11 @@ export function FeedComposer({
             </div>
           )}
 
-          {/* Mobile: fullscreen usando un portale sul body */}
           {!modalPos && typeof document !== 'undefined' && createPortal(
             <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 9999, background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column' }}>
-              {/* Header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0, paddingTop: 'max(16px, env(safe-area-inset-top))' }}>
                 <button onClick={closeComposer} style={{ fontSize: 14, color: '#a1a1aa', background: 'none', border: 'none', cursor: 'pointer' }}>Annulla</button>
-                <span style={{ fontSize: 16, fontWeight: 700, color: 'white' }}>Nuovo post</span>
+                <span style={{ fontSize: 16, fontWeight: 700, color: 'white' }}>Nuova activity</span>
                 <button
                   onClick={async (e) => { await handleCreatePost(e as any); closeComposer() }}
                   disabled={publishDisabled}
@@ -213,7 +220,6 @@ export function FeedComposer({
                 </button>
               </div>
 
-              {/* Body scrollabile */}
               <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
                 <div style={{ display: 'flex', gap: 12, padding: '20px 20px 12px' }}>
                   <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: '#27272a' }}>
@@ -228,7 +234,7 @@ export function FeedComposer({
                       data-testid="post-composer"
                       value={newPostContent}
                       onChange={handleTextChange}
-                      placeholder={placeholder}
+                      placeholder={activityPlaceholder}
                       maxLength={500}
                       rows={4}
                       style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '12px', outline: 'none', resize: 'none', color: 'white', fontSize: 16, lineHeight: 1.6, minHeight: 100, fontFamily: 'inherit' }}
@@ -249,7 +255,6 @@ export function FeedComposer({
                 )}
               </div>
 
-              {/* Footer — attaccato al bottom, SEMPRE visibile */}
               <div style={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', paddingBottom: 'max(10px, env(safe-area-inset-bottom))', background: 'var(--bg-primary)' }}>
                 <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: 12, color: '#a1a1aa' }}>
                   <ImageIcon size={22} strokeWidth={1.5} />
