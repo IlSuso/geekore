@@ -24,6 +24,16 @@ const TYPE_LABELS: Record<string, string> = {
   tv: 'TV',
 }
 
+const TYPE_COLOR_VAR: Record<string, string> = {
+  anime: 'var(--type-anime)',
+  manga: 'var(--type-manga)',
+  game: 'var(--type-game)',
+  board: 'var(--type-board)',
+  boardgame: 'var(--type-board)',
+  movie: 'var(--type-movie)',
+  tv: 'var(--type-tv)',
+}
+
 export function MediaCover({
   src,
   alt,
@@ -41,6 +51,7 @@ export function MediaCover({
     : null
   const resolvedType = type || undefined
   const resolvedTypeLabel = typeLabel || (resolvedType ? TYPE_LABELS[resolvedType] || resolvedType : null)
+  const typeColor = resolvedType ? TYPE_COLOR_VAR[resolvedType] : undefined
 
   return (
     <div className={`gk-cover ${className}`}>
@@ -53,7 +64,7 @@ export function MediaCover({
       )}
 
       {resolvedTypeLabel && (
-        <span className={`gk-cover-tag ${resolvedType ? `text-[var(--type-${resolvedType === 'boardgame' ? 'board' : resolvedType})]` : ''}`}>
+        <span className="gk-cover-tag" style={typeColor ? { color: typeColor } : undefined}>
           <span className="sr-only">Tipo media: </span>{resolvedTypeLabel}
         </span>
       )}
