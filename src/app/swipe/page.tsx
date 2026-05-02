@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { List, Shuffle } from 'lucide-react'
+import { Shuffle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { SwipeMode } from '@/components/for-you/SwipeMode'
 import type { SwipeItem } from '@/components/for-you/SwipeMode'
@@ -69,25 +69,6 @@ function toQueueRow(r: any, userId: string) {
     is_discovery: r.isDiscovery || false,
     source: r.source ?? null,
   }
-}
-
-function ForYouModeHeader() {
-  const router = useRouter()
-  return (
-    <div className="fixed left-0 right-0 top-0 z-[120] flex items-center justify-between border-b border-[var(--border)] bg-[rgba(11,11,15,0.94)] px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-2xl md:top-12 md:pt-3">
-      <button
-        type="button"
-        onClick={() => router.push('/for-you')}
-        className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] transition-colors hover:border-[var(--accent)]"
-      >
-        <List size={15} />
-        Lista
-      </button>
-      <div className="rounded-full border border-[rgba(230,255,61,0.45)] bg-[rgba(230,255,61,0.12)] px-3 py-1.5 text-xs font-bold text-[var(--accent)]">
-        Swipe mode
-      </div>
-    </div>
-  )
 }
 
 export default function SwipePage() {
@@ -344,20 +325,15 @@ export default function SwipePage() {
   }
 
   return (
-    <>
-      <ForYouModeHeader />
-      <div className="pt-[calc(58px+env(safe-area-inset-top,0px))] md:pt-[104px]">
-        <SwipeMode
-          standalone
-          items={initialItems}
-          userId={userIdRef.current ?? undefined}
-          onSeen={handleSwipeSeen}
-          onSkip={handleSwipeSkip}
-          onUndo={handleSwipeUndo}
-          onRequestMore={handleSwipeRequestMore}
-          onClose={() => router.push('/for-you')}
-        />
-      </div>
-    </>
+    <SwipeMode
+      standalone
+      items={initialItems}
+      userId={userIdRef.current ?? undefined}
+      onSeen={handleSwipeSeen}
+      onSkip={handleSwipeSkip}
+      onUndo={handleSwipeUndo}
+      onRequestMore={handleSwipeRequestMore}
+      onClose={() => router.push('/for-you')}
+    />
   )
 }
