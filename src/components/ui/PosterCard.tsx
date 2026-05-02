@@ -27,7 +27,7 @@ interface PosterCardProps {
   priority?: boolean
 }
 
-export function PosterCard({
+function PosterCardContent({
   title,
   type,
   coverImage,
@@ -36,29 +36,18 @@ export function PosterCard({
   score,
   status,
   progress,
-  showMetaRow = false,
-  isInCollection = false,
-  isWishlisted = false,
+  showMetaRow,
+  isInCollection,
+  isWishlisted,
   actions,
-  onClick,
-  className = '',
-  imageClassName = '',
-  priority = false,
-}: PosterCardProps) {
+  imageClassName,
+  priority,
+}: Omit<PosterCardProps, 'onClick' | 'className'>) {
   const hasCover = !!coverImage
   const collectionStatus = isInCollection ? 'collection' : isWishlisted ? 'wishlist' : null
-  const Component = onClick ? 'button' : 'article'
 
   return (
-    <Component
-      type={onClick ? 'button' : undefined}
-      data-no-swipe="true"
-      className={`group relative min-w-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 rounded-2xl ${onClick ? 'cursor-pointer' : ''} ${className}`}
-      onClick={(event: any) => { event.stopPropagation?.(); onClick?.() }}
-      onPointerDown={(event: any) => event.stopPropagation?.()}
-      style={getMediaTypeAccentStyle(type)}
-      aria-label={onClick ? `Apri ${title}` : undefined}
-    >
+    <>
       <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]">
         {hasCover ? (
           <img
@@ -66,7 +55,7 @@ export function PosterCard({
             alt={`Copertina di ${title}`}
             loading={priority ? 'eager' : 'lazy'}
             decoding="async"
-            className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04] ${imageClassName}`}
+            className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04] ${imageClassName || ''}`}
           />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-3 text-center text-[var(--text-muted)]">
@@ -78,7 +67,7 @@ export function PosterCard({
         )}
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80" />
-        <div className="absolute left-2 top-2 pointer-events-none">
+        <div className="pointer-events-none absolute left-2 top-2">
           <MediaTypeBadge type={type} size="xs" variant="soft" />
         </div>
 
@@ -124,6 +113,68 @@ export function PosterCard({
           </p>
         )}
       </div>
-    </Component>
+    </>
+  )
+}
+
+export function PosterCard({
+  title,
+  type,
+  coverImage,
+  year,
+  meta,
+  score,
+  status,
+  progress,
+  showMetaRow = false,
+  isInCollection = false,
+  isWishlisted = false,
+  actions,
+  onClick,
+  className = '',
+  imageClassName = '',
+  priority = false,
+}: PosterCardProps) {
+  const classes = `group relative min-w-0 rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${onClick ? 'cursor-pointer' : ''} ${className}`
+  const style = getMediaTypeAccentStyle(type)
+  const content = (
+    <PosterCardContent
+      title={title}
+      type={type}
+      coverImage={coverImage}
+      year={year}
+      meta={meta}
+      score={score}
+      status={status}
+      progress={progress}
+      showMetaRow={showMetaRow}
+      isInCollection={isInCollection}
+      isWishlisted={isWishlisted}
+      actions={actions}
+      imageClassName={imageClassName}
+      priority={priority}
+    />
+  )
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        data-no-swipe="true"
+        className={classes}
+        onClick={(event) => { event.stopPropagation(); onClick() }}
+        onPointerDown={event => event.stopPropagation()}
+        style={style}
+        aria-label={`Apri ${title}`}
+      >
+        {content}
+      </button>
+    )
+  }
+
+  return (
+    <article data-no-swipe="true" className={classes} style={style}>
+      {content}
+    </article>
   )
 }
