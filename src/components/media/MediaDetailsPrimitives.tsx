@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Star, Sparkles, X } from 'lucide-react'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 import { optimizeCover } from '@/lib/imageOptimizer'
+import { getMediaTypeColor } from '@/lib/mediaTypes'
 
 type DrawerPrimitiveMedia = {
   title: string
@@ -22,6 +23,8 @@ interface MediaDetailsHeroProps {
 }
 
 export function MediaDetailsHero({ media, fallbackIcon, meta, subtitle, onClose }: MediaDetailsHeroProps) {
+  const typeColor = getMediaTypeColor(media.type)
+
   return (
     <div className="relative overflow-hidden border-b border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.08),rgba(139,92,246,0.055),rgba(20,20,27,0.88))] p-5 pr-12">
       {media.coverImage && (
@@ -33,7 +36,10 @@ export function MediaDetailsHero({ media, fallbackIcon, meta, subtitle, onClose 
         />
       )}
       <div className="relative z-10 flex gap-4">
-        <div className="h-28 w-20 flex-shrink-0 overflow-hidden rounded-2xl bg-[var(--bg-card)] shadow-[0_14px_40px_rgba(0,0,0,0.28)] ring-1 ring-white/10">
+        <div
+          className="gk-poster-first relative h-32 w-[88px] flex-shrink-0 overflow-hidden rounded-2xl bg-[var(--bg-card)] shadow-[0_14px_40px_rgba(0,0,0,0.28)] ring-1 ring-white/10"
+          style={{ boxShadow: `0 14px 40px rgba(0,0,0,0.28), inset 0 -3px 0 ${typeColor}` }}
+        >
           {media.coverImage ? (
             <img
               src={optimizeCover(media.coverImage, 'drawer-cover')}
@@ -43,10 +49,15 @@ export function MediaDetailsHero({ media, fallbackIcon, meta, subtitle, onClose 
               decoding="async"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-[var(--text-muted)]">
-              {fallbackIcon || <Sparkles size={26} />}
+            <div
+              className="gk-cover-placeholder h-full w-full"
+              style={{ ['--gk-type' as string]: typeColor }}
+            >
+              <span className="line-clamp-5">{media.title}</span>
+              <span className="sr-only">{fallbackIcon || <Sparkles size={26} />}</span>
             </div>
           )}
+          <span className="absolute inset-x-0 bottom-0 h-[3px]" style={{ background: typeColor }} aria-hidden="true" />
         </div>
 
         <div className="min-w-0 flex-1 self-center">
@@ -64,7 +75,7 @@ export function MediaDetailsHero({ media, fallbackIcon, meta, subtitle, onClose 
             )}
           </div>
 
-          <h2 className="line-clamp-2 text-[18px] font-black leading-tight text-[var(--text-primary)]">
+          <h2 className="gk-title line-clamp-2 text-[var(--text-primary)]">
             {media.title}
           </h2>
 
@@ -102,7 +113,7 @@ export function MediaDetailsHero({ media, fallbackIcon, meta, subtitle, onClose 
 
 export function MediaDetailsSection({ title, children, icon }: { title?: string; children: ReactNode; icon?: ReactNode }) {
   return (
-    <section className="rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+    <section className="gk-panel rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
       {title && (
         <div className="mb-3 flex items-center gap-2">
           {icon && <span className="text-[var(--accent)]">{icon}</span>}
