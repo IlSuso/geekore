@@ -30,6 +30,7 @@ export function GeekoreMonogram({ className = '' }: { className?: string }) {
   return (
     <span
       className={`inline-flex items-center justify-center rounded-[22%] bg-[var(--accent)] font-display text-[#0B0B0F] shadow-[0_0_28px_rgba(230,255,61,0.28)] ${className}`}
+      data-geekore-dot="true"
       aria-hidden="true"
     >
       <span className="translate-y-[-2px] text-[1.32em] font-black leading-none tracking-[-0.06em]">g.</span>
@@ -50,7 +51,8 @@ export function GeekoreWordmark({
       {showMark && (
         <span
           aria-hidden="true"
-          className="inline-block flex-shrink-0 bg-[var(--accent)]"
+          data-geekore-dot="true"
+          className="gk-logo-dot inline-block flex-shrink-0 bg-[var(--accent)]"
           style={{
             ...cfg.mark,
             boxShadow: size === 'lg' ? '0 0 32px rgba(230,255,61,0.5)' : undefined,
