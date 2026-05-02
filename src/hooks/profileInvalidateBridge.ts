@@ -6,6 +6,10 @@ type Listener = () => void
 
 let listener: Listener | null = null
 
+function emitInvalidate() {
+  listener?.()
+}
+
 export const profileInvalidateBridge = {
   /** Chiamato dalla ProfilePage per registrarsi */
   register(fn: Listener) {
@@ -16,6 +20,10 @@ export const profileInvalidateBridge = {
   },
   /** Chiamato da Discover / ForYou / Swipe dopo aver aggiunto un titolo */
   invalidate() {
-    listener?.()
+    emitInvalidate()
+  },
+  /** Alias legacy usato ancora da alcune pagine vecchie. */
+  notify() {
+    emitInvalidate()
   },
 }
