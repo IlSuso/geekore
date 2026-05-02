@@ -5,6 +5,19 @@ import { rateLimitAsync } from '@/lib/rateLimit'
 
 const MEDIA_TYPES = new Set(['anime', 'manga', 'game', 'movie', 'tv', 'book', 'boardgame', 'board_game'])
 
+function cleanUrl(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const cleaned = value.trim()
+  if (!cleaned || cleaned.length > 1000) return null
+  try {
+    const url = new URL(cleaned)
+    if (url.protocol !== 'https:') return null
+    return cleaned
+  } catch {
+    return null
+  }
+}
+
 export async function POST(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 60, windowMs: 60_000, prefix: 'wishlist' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
@@ -17,10 +30,10 @@ export async function POST(request: NextRequest) {
   let body: any
   try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
 
-  const externalId = typeof body?.external_id === 'string' ? body.external_id.trim() : ''
+  const externalId = typeof body?.external_id === 'string' ? body.external_id.trim().slice(0, 200) : ''
   const title = typeof body?.title === 'string' ? body.title.trim().slice(0, 300) : ''
   const type = typeof body?.type === 'string' ? body.type.trim() : ''
-  const coverImage = typeof body?.cover_image === 'string' ? body.cover_image.trim().slice(0, 1000) : null
+  const coverImage = cleanUrl(body?.cover_image)
 
   if (!externalId) return NextResponse.json({ error: 'external_id mancante' }, { status: 400, headers: rl.headers })
   if (!title) return NextResponse.json({ error: 'title mancante' }, { status: 400, headers: rl.headers })
@@ -51,7 +64,7 @@ export async function DELETE(request: NextRequest) {
   try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
 
   const id = typeof body?.id === 'string' ? body.id.trim() : ''
-  const externalId = typeof body?.external_id === 'string' ? body.external_id.trim() : ''
+  const externalId = typeof body?.external_id === 'string' ? body.external_id.trim().slice(0, 200) : ''
   if (!id && !externalId) return NextResponse.json({ error: 'id o external_id mancante' }, { status: 400, headers: rl.headers })
 
   let query = supabase.from('wishlist').delete().eq('user_id', user.id)
