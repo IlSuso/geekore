@@ -112,8 +112,9 @@ export function MobileHeader() {
     '/lists':         { title: 'Liste',               icon: <List size={14} className="text-zinc-400" />,    iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
     '/search':        { title: 'Cerca',               icon: <Search size={14} className="text-zinc-400" />,  iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
     '/explore':       { title: 'Esplora',             icon: <Search size={14} className="text-zinc-400" />,   iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
-    '/community':     { title: 'Community',           icon: <Users size={14} className="text-black" />,       iconBg: '', iconStyle: { background: 'var(--accent)' } },
-    '/library':       { title: 'Libreria',            icon: <Library size={14} className="text-white" />,     iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
+    '/friends':       { title: 'Friends',             icon: <Users size={14} className="text-black" />,       iconBg: '', iconStyle: { background: 'var(--accent)' } },
+    '/community':     { title: 'Friends',             icon: <Users size={14} className="text-black" />,       iconBg: '', iconStyle: { background: 'var(--accent)' } },
+    '/library':       { title: 'Library',             icon: <Library size={14} className="text-white" />,     iconBg: 'bg-[#1C1C26] border border-[#2A2A36]' },
   }
 
   const pageConfig = Object.entries(PAGE_CONFIG).find(
