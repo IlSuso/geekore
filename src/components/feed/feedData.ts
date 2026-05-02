@@ -183,6 +183,64 @@ async function fetchDiscoveryPosts(
   }))
 }
 
+async function fetchTrendingPosts(supabase: SupabaseClient, userId: string, from: number, to: number): Promise<Post[]> {
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const { data } = await supabase.from('posts')
+    .select(`
+      id, user_id, content, image_url, created_at, category, is_edited,
+      profiles (id, username, display_name, avatar_url, badge),
+      likes (id, user_id),
+      comments (
+        id, content, created_at, user_id,
+        profiles (id, username, display_name)
+      )
+    `)
+    .gte('created_at', since)
+    .limit(80)
+
+  const ranked = (data || [])
+    .map((p: any) => ({ ...p, _score: (p.likes || []).length * 2 + (p.comments || []).length }))
+    .filter((p: any) => p._score > 0)
+    .sort((a: any, b: any) => b._score - a._score || new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(from, to + 1)
+
+  const previews = await attachMediaPreviews(supabase, ranked)
+  return ranked.map((post: any) => formatPost(post, userId, { mediaPreview: previews.get(post.id) || null }))
+}
+
+async function fetchPureDiscoveryPosts(supabase: SupabaseClient, userId: string, from: number, to: number): Promise<Post[]> {
+  const { data: followsData } = await supabase
+    .from('follows')
+    .select('following_id')
+    .eq('follower_id', userId)
+
+  const followingIds = (followsData || []).map((f: any) => f.following_id)
+  const excludeIds = [userId, ...followingIds]
+
+  const { data } = await supabase.from('posts')
+    .select(`
+      id, user_id, content, image_url, created_at, category, is_edited,
+      profiles (id, username, display_name, avatar_url, badge),
+      likes (id, user_id),
+      comments (
+        id, content, created_at, user_id,
+        profiles (id, username, display_name)
+      )
+    `)
+    .order('created_at', { ascending: false })
+    .limit(100)
+
+  const candidates = (data || [])
+    .filter((p: any) => !excludeIds.includes(p.user_id))
+    .slice(from, to + 1)
+
+  const previews = await attachMediaPreviews(supabase, candidates)
+  return candidates.map((post: any) => formatPost(post, userId, {
+    isDiscovery: true,
+    mediaPreview: previews.get(post.id) || null,
+  }))
+}
+
 export async function fetchFeedPostsPage({
   supabase,
   userId,
@@ -198,6 +256,16 @@ export async function fetchFeedPostsPage({
 }): Promise<{ posts: Post[]; hasMore: boolean }> {
   const from = pageIndex * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
+
+  if (filter === 'trending') {
+    const posts = await fetchTrendingPosts(supabase, userId, from, to)
+    return { posts, hasMore: posts.length === PAGE_SIZE }
+  }
+
+  if (filter === 'discovery') {
+    const posts = await fetchPureDiscoveryPosts(supabase, userId, from, to)
+    return { posts, hasMore: posts.length === PAGE_SIZE }
+  }
 
   const { data: followsData } = await supabase
     .from('follows')
