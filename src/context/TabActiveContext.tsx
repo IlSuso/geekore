@@ -17,7 +17,10 @@ import { createContext, useContext } from 'react'
 
 const TabActiveContext = createContext<boolean>(true)
 
-export function useTabActive() {
+export function useTabActive(_tabPath?: string) {
+  // _tabPath è accettato solo per compatibilità con pagine che chiamano
+  // useTabActive('/for-you'). Il provider espone già il boolean corretto
+  // per il panel corrente, quindi non serve confrontare qui il pathname.
   return useContext(TabActiveContext)
 }
 
