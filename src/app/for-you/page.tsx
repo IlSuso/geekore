@@ -174,58 +174,117 @@ const ContinuitySection = memo(function ContinuitySection({ items, onFeedback, o
   )
 })
 
-const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, onSimilar, onDetail, isSimilarLoading, dismissed, showDetails }: {
+const RecommendationCard = memo(function RecommendationCard({
+  item, onFeedback, onSimilar, onDetail, isSimilarLoading, dismissed, showDetails,
+  added = false, wishlisted = false, adding = false, onAdd, onWishlist,
+}: {
   item: Recommendation
   onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
   onSimilar?: (i: Recommendation) => void
   onDetail?: (i: Recommendation) => void
-  isSimilarLoading: boolean; dismissed: boolean
+  isSimilarLoading: boolean
+  dismissed: boolean
   showDetails?: boolean
+  added?: boolean
+  wishlisted?: boolean
+  adding?: boolean
+  onAdd?: (i: Recommendation) => void
+  onWishlist?: (i: Recommendation) => void
 }) {
-  const Icon = TYPE_ICONS[item.type]; const colorClass = TYPE_COLORS[item.type]
+  const Icon = TYPE_ICONS[item.type]
+  const colorClass = TYPE_COLORS[item.type]
   if (dismissed) return null
 
   const episodeLabel = item.type === 'manga'
     ? (item.episodes ? `${item.episodes} cap.` : null)
     : (item.episodes && item.type !== 'movie' ? `${item.episodes} ep.` : null)
 
+  const signals = [
+    item.isAwardWinner ? { key: 'award', label: 'Award', icon: Trophy, tone: 'text-amber-300 border-amber-400/25 bg-amber-500/12' } : null,
+    item.isSeasonal ? { key: 'seasonal', label: 'Seasonal', icon: Calendar, tone: 'text-sky-300 border-sky-400/25 bg-sky-500/12' } : null,
+    item.isSerendipity ? { key: 'serendipity', label: 'Serendipity', icon: Compass, tone: 'text-violet-300 border-violet-400/25 bg-violet-500/12' } : null,
+    item.friendWatching ? { key: 'friend', label: item.friendWatching, icon: Users, tone: 'text-emerald-300 border-emerald-400/25 bg-emerald-500/12' } : null,
+  ].filter(Boolean) as Array<{ key: string; label: string; icon: React.ElementType; tone: string }>
+
+  const addDisabled = adding || added
+
   return (
     <div className={`flex-shrink-0 group ${showDetails ? 'w-52' : 'w-40'}`}>
       <div
-        className={`relative ${showDetails ? 'h-72' : 'h-60'} rounded-2xl overflow-hidden bg-zinc-900 mb-2 cursor-pointer`}
+        className={`relative ${showDetails ? 'h-72' : 'h-60'} rounded-[22px] overflow-hidden bg-zinc-900 mb-2 cursor-pointer border border-white/8 shadow-[0_14px_40px_rgba(0,0,0,0.22)]`}
         onClick={() => onDetail?.(item)}
       >
         {item.coverImage
-          ? <img src={optimizeCover(item.coverImage, 'foryou-card-large')} alt={item.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+          ? <img src={optimizeCover(item.coverImage, 'foryou-card-large')} alt={item.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
           : <div className="w-full h-full flex items-center justify-center"><Icon size={32} className="text-zinc-700" /></div>
         }
-        {/* Bordo inset sottile — invisibile su cover colorate, separa quelle nere dallo sfondo */}
-        <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/10 pointer-events-none" />
-        {/* Solo badge tipo media in alto a sinistra */}
-        <div className="absolute top-2 left-2 text-white text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: colorClass }}>
-          {TYPE_LABEL[item.type] || item.type.toUpperCase()}
-        </div>
-        {/* Pulsanti azione in basso */}
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-          <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }} title="Non mi interessa"
-            className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-red-300 hover:bg-red-900/60 transition-colors">
-            <ThumbsDown size={11} />
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'already_seen') }} title="L'ho già visto"
-            className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-white hover:bg-zinc-600/60 transition-colors">
-            <Eye size={11} />
-          </button>
-          {onSimilar && (
-            <button onClick={(e) => { e.stopPropagation(); onSimilar(item) }} disabled={isSimilarLoading} title="Simili"
-              className={`w-7 h-7 flex items-center justify-center rounded-full backdrop-blur-sm transition-colors ${isSimilarLoading ? 'bg-zinc-800/80' : 'bg-black/60 text-zinc-300 hover:text-white hover:bg-zinc-700/80'}`}
-              style={isSimilarLoading ? { color: 'var(--accent)' } : {}}>
-              {isSimilarLoading ? <RefreshCw size={11} className="animate-spin" /> : <Search size={11} />}
-            </button>
+        <div className="absolute inset-0 rounded-[22px] ring-1 ring-inset ring-white/10 pointer-events-none" />
+        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/92 via-black/45 to-transparent pointer-events-none" />
+
+        <div className="absolute left-2 top-2 flex max-w-[calc(100%-4rem)] flex-wrap gap-1.5">
+          <span className="text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm" style={{ background: colorClass }}>
+            {TYPE_LABEL[item.type] || item.type.toUpperCase()}
+          </span>
+          {item.creatorBoost && showDetails && (
+            <span className="max-w-[110px] truncate rounded-full border border-white/10 bg-black/65 px-2 py-0.5 text-[9px] font-bold text-zinc-200 backdrop-blur-sm">
+              {item.creatorBoost}
+            </span>
           )}
         </div>
+
+        <div className="absolute right-2 top-2">
+          <MatchBadge score={item.isContinuity ? 100 : item.matchScore} />
+        </div>
+
+        {signals.length > 0 && (
+          <div className="absolute bottom-12 left-2 right-2 flex flex-wrap gap-1.5">
+            {signals.slice(0, showDetails ? 3 : 2).map(signal => {
+              const SignalIcon = signal.icon
+              return (
+                <span key={signal.key} className={`inline-flex min-w-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold backdrop-blur-sm ${signal.tone}`}>
+                  <SignalIcon size={9} className="flex-shrink-0" />
+                  <span className="truncate">{signal.label}</span>
+                </span>
+              )
+            })}
+          </div>
+        )}
+
+        {item.socialBoost && showDetails && (
+          <div className="absolute bottom-20 left-2 right-2 rounded-xl border border-white/10 bg-black/62 px-2.5 py-1.5 text-[10px] font-semibold text-zinc-200 backdrop-blur-sm">
+            {item.socialBoost}
+          </div>
+        )}
+
+        <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-1.5">
+          <button
+            onClick={(e) => { e.stopPropagation(); onAdd?.(item) }}
+            disabled={addDisabled || !onAdd}
+            title={added ? 'Già in libreria' : 'Aggiungi alla libreria'}
+            className={`flex h-8 flex-1 items-center justify-center gap-1 rounded-xl text-[11px] font-black transition-all disabled:cursor-default ${added
+                ? 'bg-[var(--accent)] text-[#0B0B0F]'
+                : 'bg-white text-black hover:bg-zinc-200 disabled:opacity-50'
+              }`}
+          >
+            {added ? <Check size={13} /> : <Plus size={13} />}
+            <span>{added ? 'Aggiunto' : 'Add'}</span>
+          </button>
+
+          <button
+            onClick={(e) => { e.stopPropagation(); onWishlist?.(item) }}
+            disabled={!onWishlist}
+            title={wishlisted ? 'Rimuovi dalla wishlist' : 'Aggiungi alla wishlist'}
+            className={`flex h-8 w-8 items-center justify-center rounded-xl border backdrop-blur-sm transition-all ${wishlisted
+                ? 'border-[rgba(230,255,61,0.55)] bg-black/75 text-[var(--accent)]'
+                : 'border-white/10 bg-black/68 text-zinc-200 hover:text-[var(--accent)]'
+              }`}
+          >
+            {wishlisted ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
+          </button>
+        </div>
       </div>
+
       <p className="text-xs font-semibold text-white leading-tight line-clamp-2 mb-1">{item.title}</p>
-      {/* Metadati: anno · episodi · voto (sempre visibile, voto a destra dell'anno) */}
       <div className="flex items-center gap-1.5 flex-wrap mb-1">
         {item.year && <p className="text-[10px] text-zinc-500">{item.year}</p>}
         {item.score && (
@@ -233,11 +292,25 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
             <Star size={8} fill="currentColor" />{Math.min(item.score, 5).toFixed(1)}
           </span>
         )}
-        {episodeLabel && (
-          <span className="text-[10px] text-zinc-500">{episodeLabel}</span>
+        {episodeLabel && <span className="text-[10px] text-zinc-500">{episodeLabel}</span>}
+      </div>
+      <div className="flex items-center gap-1">
+        <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }} title="Non mi interessa"
+          className="w-7 h-7 flex items-center justify-center rounded-full bg-zinc-900/80 border border-zinc-800 text-zinc-400 hover:text-red-300 hover:border-red-900/70 transition-colors">
+          <ThumbsDown size={11} />
+        </button>
+        <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'already_seen') }} title="L'ho già visto"
+          className="w-7 h-7 flex items-center justify-center rounded-full bg-zinc-900/80 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors">
+          <Eye size={11} />
+        </button>
+        {onSimilar && (
+          <button onClick={(e) => { e.stopPropagation(); onSimilar(item) }} disabled={isSimilarLoading} title="Simili"
+            className={`w-7 h-7 flex items-center justify-center rounded-full border transition-colors ${isSimilarLoading ? 'bg-zinc-800/80 border-zinc-700' : 'bg-zinc-900/80 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600'}`}
+            style={isSimilarLoading ? { color: 'var(--accent)' } : {}}>
+            {isSimilarLoading ? <RefreshCw size={11} className="animate-spin" /> : <Search size={11} />}
+          </button>
         )}
       </div>
-      <MatchBadge score={item.isContinuity ? 100 : item.matchScore} />
     </div>
   )
 })
@@ -248,7 +321,7 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
 // Cerca in tutte le API (AniList, TMDb, IGDB) in parallelo — stesso pattern della discover
 const TYPE_LABEL_SEARCH: Record<string, string> = {
   anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV',
-  game: 'Videogioco',
+  game: 'Videogioco', boardgame: 'Gioco da Tavolo',
 }
 
 interface SearchSuggestion {
@@ -412,7 +485,10 @@ const SIMILAR_TYPE_FILTERS: Array<{ key: MediaType | 'all'; label: string }> = [
   { key: 'manga', label: 'Manga' },
 ]
 
-const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, items, onFeedback, onSimilar, onDetail, onClose, dismissedIds, similarLoadingId }: {
+const SimilarSection = memo(function SimilarSection({
+  sourceTitle, sourceType, items, onFeedback, onSimilar, onDetail, onClose, dismissedIds,
+  similarLoadingId, addedIds, wishlistIds, addingIds, onAdd, onWishlist,
+}: {
   sourceTitle: string
   sourceType: MediaType
   items: Recommendation[]
@@ -422,6 +498,11 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
   onClose: () => void
   dismissedIds: Set<string>
   similarLoadingId?: string | null
+  addedIds: Set<string>
+  wishlistIds: Set<string>
+  addingIds: Set<string>
+  onAdd: (i: Recommendation) => void
+  onWishlist: (i: Recommendation) => void
 }) {
   const [visibleCount, setVisibleCount] = useState(20)
   const [typeFilter, setTypeFilter] = useState<MediaType | 'all'>('all')
@@ -477,8 +558,8 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
             return (
               <button key={key} onClick={() => handleFilterChange(key)}
                 className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${isActive
-                    ? 'border-transparent'
-                    : 'bg-zinc-800/60 border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300'
+                  ? 'border-transparent'
+                  : 'bg-zinc-800/60 border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300'
                   }`}
                 style={isActive ? { background: 'var(--accent)', color: '#0B0B0F', borderColor: 'var(--accent)' } : {}}>
                 {key !== 'all' && <span className="w-1.5 h-1.5 rounded-full" style={{ background: TYPE_COLORS[key as MediaType] }} />}
@@ -504,6 +585,11 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
               isSimilarLoading={similarLoadingId === item.id}
               dismissed={dismissedIds.has(item.id)}
               showDetails
+              added={addedIds.has(item.id)}
+              wishlisted={wishlistIds.has(item.id)}
+              adding={addingIds.has(item.id)}
+              onAdd={onAdd}
+              onWishlist={onWishlist}
             />
           ))}
           {hasMore && (
@@ -551,13 +637,21 @@ const RAIL_COLORS: Record<RecommendationRail['kind'], string> = {
   'hidden-gems': 'var(--type-board)',
 }
 
-const NetflixRailSection = memo(function NetflixRailSection({ rail, onFeedback, dismissedIds, onSimilar, onDetail, similarLoadingId }: {
+const NetflixRailSection = memo(function NetflixRailSection({
+  rail, onFeedback, dismissedIds, onSimilar, onDetail, similarLoadingId,
+  addedIds, wishlistIds, addingIds, onAdd, onWishlist,
+}: {
   rail: RecommendationRail
   onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
   dismissedIds: Set<string>
   onSimilar?: (i: Recommendation) => void
   onDetail?: (i: Recommendation) => void
   similarLoadingId?: string | null
+  addedIds: Set<string>
+  wishlistIds: Set<string>
+  addingIds: Set<string>
+  onAdd: (i: Recommendation) => void
+  onWishlist: (i: Recommendation) => void
 }) {
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
   const visible = rail.items.filter(i => !dismissedIds.has(i.id))
@@ -594,6 +688,11 @@ const NetflixRailSection = memo(function NetflixRailSection({ rail, onFeedback, 
             isSimilarLoading={similarLoadingId === item.id}
             dismissed={dismissedIds.has(item.id)}
             showDetails={rail.kind === 'top-match' || rail.kind === 'because-title'}
+            added={addedIds.has(item.id)}
+            wishlisted={wishlistIds.has(item.id)}
+            adding={addingIds.has(item.id)}
+            onAdd={onAdd}
+            onWishlist={onWishlist}
           />
         ))}
         {hasMore && (
@@ -667,7 +766,10 @@ const SpotlightRecommendation = memo(function SpotlightRecommendation({ item, on
   )
 })
 
-const RecommendationSection = memo(function RecommendationSection({ type, items, label, onFeedback, dismissedIds, onSimilar, onDetail, similarLoadingId, isPrimary }: {
+const RecommendationSection = memo(function RecommendationSection({
+  type, items, label, onAdd, onWishlist, onFeedback, dismissedIds, onSimilar, onDetail,
+  similarLoadingId, isPrimary, addedIds, wishlistIds, addingIds,
+}: {
   type: MediaType; items: Recommendation[]; label: string
   onAdd: (i: Recommendation) => void; onWishlist: (i: Recommendation) => void
   onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
@@ -676,6 +778,9 @@ const RecommendationSection = memo(function RecommendationSection({ type, items,
   onDetail?: (i: Recommendation) => void
   similarLoadingId?: string | null
   isPrimary?: boolean
+  addedIds: Set<string>
+  wishlistIds: Set<string>
+  addingIds: Set<string>
 }) {
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)  // Fix 2.13
   const Icon = TYPE_ICONS[type]; const colorClass = TYPE_COLORS[type]
@@ -714,6 +819,8 @@ const RecommendationSection = memo(function RecommendationSection({ type, items,
           <RecommendationCard
             key={item.id} item={item} onFeedback={onFeedback} onSimilar={onSimilar} onDetail={onDetail}
             isSimilarLoading={similarLoadingId === item.id} dismissed={dismissedIds.has(item.id)}
+            added={addedIds.has(item.id)} wishlisted={wishlistIds.has(item.id)} adding={addingIds.has(item.id)}
+            onAdd={onAdd} onWishlist={onWishlist}
           />
         ))}
         {hasMore && (
@@ -869,7 +976,7 @@ const forYouCache: {
 }
 
 // Inline swipe mode wrapper — carica le raccomandazioni dalla cache e le passa a SwipeMode
-function SwipeModeWrapper() {
+function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
   const supabase = createClient()
   const router = useRouter()
   const [items, setItems] = useState<SwipeItem[]>([])
@@ -922,14 +1029,45 @@ function SwipeModeWrapper() {
     </div>
   )
 
+  const sendSwipeFeedback = async (item: SwipeItem, action: FeedbackAction, rating?: number) => {
+    await fetch('/api/recommendations/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres || [], action }),
+    }).catch(() => null)
+    if ((action === 'already_seen' || action === 'added') && (item.genres || []).length > 0) {
+      triggerTasteDelta({
+        action: 'rating',
+        mediaId: item.id,
+        mediaType: item.type,
+        genres: item.genres || [],
+        rating: rating || item.score || 3.5,
+      })
+    }
+  }
+
+  const requestMore = async (): Promise<SwipeItem[]> => {
+    const res = await fetch('/api/recommendations?type=all&refresh=1', { credentials: 'include' }).catch(() => null)
+    if (!res?.ok) return []
+    const json = await res.json()
+    const all = (Object.values(json.recommendations || {}) as any[][]).flat()
+    return all.map((r: any) => ({
+      id: r.id, title: r.title, type: r.type,
+      coverImage: r.coverImage, year: r.year, genres: r.genres || [],
+      score: r.score, description: r.description, why: r.why,
+      matchScore: r.matchScore || 0, episodes: r.episodes,
+      source: r.source,
+    }))
+  }
+
   return (
     <SwipeMode
       items={items}
       userId={userIdRef.current || undefined}
-      onSeen={() => { }}
-      onSkip={() => { }}
-      onClose={() => { }}
-      onRequestMore={async () => []}
+      onSeen={(item, rating) => sendSwipeFeedback(item, 'already_seen', rating)}
+      onSkip={(item) => sendSwipeFeedback(item, 'not_interested')}
+      onClose={onClose}
+      onRequestMore={requestMore}
     />
   )
 }
@@ -1060,9 +1198,9 @@ export default function ForYouPage() {
           supabase.from('user_media_entries').select('external_id, title').eq('user_id', userId),
           supabase.from('wishlist').select('external_id').eq('user_id', userId),
         ]).then(([{ data: entries }, { data: wish }]) => {
-          const newAddedIds = new Set((entries || []).map((e: any) => e.external_id as string).filter(Boolean))
-          const newTitles = new Set((entries || []).map((e: any) => (e.title as string)?.toLowerCase()).filter(Boolean))
-          const newWishIds = new Set((wish || []).map((w: any) => w.external_id as string).filter(Boolean))
+          const newAddedIds: Set<string> = new Set((entries || []).map((e: any) => e.external_id as string).filter(Boolean))
+          const newTitles: Set<string> = new Set((entries || []).map((e: any) => (e.title as string)?.toLowerCase()).filter(Boolean))
+          const newWishIds: Set<string> = new Set((wish || []).map((w: any) => w.external_id as string).filter(Boolean))
           setAddedIds(newAddedIds); setWishlistIds(newWishIds); setTotalEntries(entries?.length || 0)
           addedTitlesRef.current = newTitles
           forYouCache.addedIds = newAddedIds; forYouCache.wishlistIds = newWishIds
@@ -1078,9 +1216,9 @@ export default function ForYouPage() {
         supabase.from('wishlist').select('external_id').eq('user_id', userId),
       ])
 
-      const newAddedIds = new Set((entries || []).map((e: any) => e.external_id as string).filter(Boolean))
-      const newTitles = new Set((entries || []).map((e: any) => (e.title as string)?.toLowerCase()).filter(Boolean))
-      const newWishIds = new Set((wish || []).map((w: any) => w.external_id as string).filter(Boolean))
+      const newAddedIds: Set<string> = new Set((entries || []).map((e: any) => e.external_id as string).filter(Boolean))
+      const newTitles: Set<string> = new Set((entries || []).map((e: any) => (e.title as string)?.toLowerCase()).filter(Boolean))
+      const newWishIds: Set<string> = new Set((wish || []).map((w: any) => w.external_id as string).filter(Boolean))
       setAddedIds(newAddedIds); setWishlistIds(newWishIds); setTotalEntries(entries?.length || 0)
       addedTitlesRef.current = newTitles
       forYouCache.addedIds = newAddedIds; forYouCache.wishlistIds = newWishIds
@@ -1178,7 +1316,9 @@ export default function ForYouPage() {
   })
 
   const handleAdd = useCallback(async (item: Recommendation) => {
-    const { data: { user } } = await supabase.auth.getUser(); if (!user) return
+    if (addedIds.has(item.id) || addingIds.has(item.id)) return
+    setAddingIds(prev => new Set([...prev, item.id]))
+    const { data: { user } } = await supabase.auth.getUser(); if (!user) { setAddingIds(prev => { const s = new Set(prev); s.delete(item.id); return s }); return }
     const isBoardgame = item.type === 'boardgame'
     const bggAchievementData = isBoardgame && ((item as any).complexity != null || (item as any).min_players != null || (item as any).playing_time != null)
       ? { bgg: { score: (item as any).score ?? null, complexity: (item as any).complexity ?? null, min_players: (item as any).min_players ?? null, max_players: (item as any).max_players ?? null, playing_time: (item as any).playing_time ?? null } }
@@ -1207,8 +1347,11 @@ export default function ForYouPage() {
       if (item.genres.length > 0) {
         triggerTasteDelta({ action: 'status_change', mediaId: item.id, mediaType: item.type, genres: item.genres, status: item.type === 'movie' ? 'completed' : 'watching' })
       }
+      setDismissedIds(prev => new Set([...prev, item.id]))
+      profileInvalidateBridge.invalidate()
     }
-  }, [supabase])
+    setAddingIds(prev => { const s = new Set(prev); s.delete(item.id); return s })
+  }, [supabase, addedIds, addingIds])
 
   const handleWishlist = useCallback(async (item: Recommendation) => {
     const { data: { user } } = await supabase.auth.getUser(); if (!user) return
@@ -1273,10 +1416,8 @@ export default function ForYouPage() {
   // searchSimilar e handleSimilar unite — searchSimilar dichiarata prima per evitare
   // problemi di closure con useCallback deps=[]
   const searchSimilar = useCallback(async (title: string, genres: string[], excludeId?: string, tags?: string[], keywords?: string[], type?: string) => {
-    if (!genres.length) {
-      return
-    }
-    const params = new URLSearchParams({ title, genres: genres.slice(0, 5).join(',') })
+    const params = new URLSearchParams({ title })
+    if (genres.length) params.set('genres', genres.slice(0, 5).join(','))
     if (tags?.length) params.set('tags', tags.slice(0, 15).join(','))
     if (keywords?.length) params.set('keywords', keywords.slice(0, 15).join(','))
     if (excludeId) params.set('excludeId', excludeId)
@@ -1309,21 +1450,21 @@ export default function ForYouPage() {
   }, [])
 
   const handleFeedback = useCallback((item: Recommendation, action: FeedbackAction, reason?: FeedbackReason) => {
-    setDismissedIds(prev => new Set([...prev, item.id]))
     if (action === 'not_interested' && reason === undefined) {
-      // Fix 2.6: mostra quick-reason sheet invece di dismiss diretto
+      // Mostra il quick-reason sheet prima di inviare il segnale negativo.
+      // Così il feedback non viene duplicato e il dismiss avviene solo alla conferma.
       setReasonPending(item)
-      sendFeedback(item, action, undefined)  // invia subito senza reason, aggiorna se arriva
-    } else {
-      sendFeedback(item, action, reason)
+      return
     }
+    setDismissedIds(prev => new Set([...prev, item.id]))
+    sendFeedback(item, action, reason)
   }, [sendFeedback])
 
   // Fix mutazione cache: clona i dati prima di modificarli
   // Senza clone, il boost si accumula ad ogni render perché modifica oggetti nel forYouCache
   const displayRecs = Object.fromEntries(
-    Object.entries(recommendations).map(([type, items]) => [type, items.map(r => ({ ...r }))])
-  )
+    Object.entries(recommendations).map(([type, items]) => [type, (items as Recommendation[]).map(r => ({ ...r }))])
+  ) as Record<string, Recommendation[]>
 
   // Fix 2.9: eleva nelle sezioni i titoli guardati da amici con sim ≥80%
   const friendWatchingMap = new Map<string, string>()  // mediaId → username
@@ -1486,7 +1627,7 @@ export default function ForYouPage() {
             accent="violet"
           />
         ) : viewMode === 'swipe' ? (
-          <SwipeModeWrapper />
+          <SwipeModeWrapper onClose={() => setViewMode('lista')} />
         ) : (
           <>
             {totalEntries < 15 && <LowConfidenceBanner totalEntries={totalEntries} />}
@@ -1519,6 +1660,11 @@ export default function ForYouPage() {
                 onClose={() => setSimilarSection(null)}
                 dismissedIds={dismissedIds}
                 similarLoadingId={similarLoading}
+                addedIds={addedIds}
+                wishlistIds={wishlistIds}
+                addingIds={addingIds}
+                onAdd={handleAdd}
+                onWishlist={handleWishlist}
               />
             )}
             {visibleRails.length > 0 ? visibleRails.map(rail => (
@@ -1530,6 +1676,11 @@ export default function ForYouPage() {
                 onSimilar={handleSimilar}
                 onDetail={handleDetail}
                 similarLoadingId={similarLoading}
+                addedIds={addedIds}
+                wishlistIds={wishlistIds}
+                addingIds={addingIds}
+                onAdd={handleAdd}
+                onWishlist={handleWishlist}
               />
             )) : SECTIONS.map(({ key, label }) => {
               const items = displayRecs[key] || []
@@ -1551,6 +1702,9 @@ export default function ForYouPage() {
                   onDetail={handleDetail}
                   similarLoadingId={similarLoading}
                   isPrimary={key === primarySectionKey}
+                  addedIds={addedIds}
+                  wishlistIds={wishlistIds}
+                  addingIds={addingIds}
                 />
               )
             })}
@@ -1586,7 +1740,8 @@ export default function ForYouPage() {
         <QuickReasonSheet
           item={reasonPending}
           onConfirm={(reason) => {
-            if (reason !== undefined) sendFeedback(reasonPending, 'not_interested', reason)
+            setDismissedIds(prev => new Set([...prev, reasonPending.id]))
+            sendFeedback(reasonPending, 'not_interested', reason)
             setReasonPending(null)
           }}
           onDismiss={() => setReasonPending(null)}
