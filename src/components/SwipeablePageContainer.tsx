@@ -1,6 +1,7 @@
 'use client'
 // SwipeablePageContainer — swipe orizzontale tra tab primarie.
 // Swipe non è più una tab: è una modalità interna di For You.
+// Profile non è più tab primaria: è accessibile dall'avatar/header.
 
 import { usePathname, useRouter } from 'next/navigation'
 import { useRef, useEffect, type ReactNode } from 'react'
@@ -9,7 +10,7 @@ import { gestureState } from '@/hooks/gestureState'
 import { swipeNavBridge } from '@/hooks/swipeNavBridge'
 import { useActiveTab, pathnameToTab } from '@/context/ActiveTabContext'
 
-export const TAB_ORDER = ['/home', '/for-you', '/library', '/discover', '/profile/me']
+export const TAB_ORDER = ['/home', '/for-you', '/library', '/discover', '/friends']
 
 const THRESHOLD     = 0.40
 const VEL_THRESHOLD = 0.5
@@ -38,8 +39,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
   const { setActiveTab } = useActiveTab()
 
   const currentIdx = TAB_ORDER.findIndex(t => {
-    if (t === '/profile/me') return pathname.startsWith('/profile/')
-    if (t === '/home')       return pathname === '/home'
+    if (t === '/home') return pathname === '/home'
     return pathname === t
   })
   const isMain  = currentIdx !== -1
