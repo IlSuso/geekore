@@ -76,8 +76,8 @@ function triggerTasteDelta(options: {
 
 function MatchBadge({ score }: { score: number }) {
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-bold font-mono px-1.5 py-0.5 rounded-full" style={{ color: 'var(--accent)', background: 'rgba(230,255,61,0.1)', border: '1px solid rgba(230,255,61,0.2)' }}>
-      <Star size={8} fill="currentColor" />{score}%
+    <span className="inline-flex items-center gap-0.5 text-[10px] font-black font-mono px-1.5 py-0.5 rounded-full" style={{ color: 'var(--accent)', background: 'rgba(230,255,61,0.15)', border: '1px solid rgba(230,255,61,0.3)' }}>
+      <Zap size={8} fill="currentColor" />{score}%
     </span>
   )
 }

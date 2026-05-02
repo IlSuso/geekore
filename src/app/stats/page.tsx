@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Clock, Gamepad2, Film, Tv, Gem, Briefcase, Calendar, Plane, Layers, Sparkles, Library } from 'lucide-react'
+import { Clock, Gamepad2, Film, Tv, Gem, Briefcase, Calendar, Plane, Layers, Library } from 'lucide-react'
 import { PageScaffold } from '@/components/ui/PageScaffold'
 
 const AVG_ANIME_EP_MINUTES = 24
@@ -216,16 +216,12 @@ export default function StatsPage() {
       title="Stats"
       description="Quanto tempo hai trasformato in anime, manga, film, serie e videogiochi."
       icon={<Clock size={16} />}
-      contentClassName="max-w-screen-md pt-2 md:pt-8 pb-28"
+      contentClassName="max-w-screen-lg pt-2 md:pt-8 pb-28"
     >
       {loading ? <StatsSkeleton /> : (
         <>
-          <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(160deg,rgba(230,255,61,0.07),var(--bg-secondary))] p-4 text-center shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-6">
-            <div className="mx-auto mb-3 gk-section-eyebrow">
-              <Sparkles size={12} />
-              Time DNA
-            </div>
-            <p className="gk-label mb-3">Totale stimato</p>
+          <div className="mb-5 overflow-hidden rounded-[30px] border border-[var(--border)] bg-[var(--bg-secondary)] p-4 text-center md:p-6">
+            <p className="gk-label mb-3 text-[var(--text-muted)]">Time DNA · totale stimato</p>
             <div className="mb-4 flex items-end justify-center gap-4">
               {days > 0 && (
                 <div>

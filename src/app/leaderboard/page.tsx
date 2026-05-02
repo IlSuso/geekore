@@ -3,7 +3,7 @@
 import React from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Zap, Gamepad2, Tv, Trophy, Sparkles, Medal, Crown } from 'lucide-react'
+import { Zap, Gamepad2, Tv, Trophy, Medal, Crown } from 'lucide-react'
 import Link from 'next/link'
 import { Avatar } from '@/components/ui/Avatar'
 import { SkeletonLeaderboardRow } from '@/components/ui/SkeletonCard'
@@ -79,20 +79,12 @@ export default function LeaderboardPage() {
       title="Classifica"
       description="Geek Score, ore giocate e anime tracciati dalla community."
       icon={<Trophy size={16} />}
-      contentClassName="max-w-screen-md pt-2 md:pt-8 pb-28"
+      contentClassName="max-w-screen-lg pt-2 md:pt-8 pb-28"
     >
-      <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(160deg,rgba(230,255,61,0.07),var(--bg-secondary))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-5">
-        <div className="mb-2 gk-section-eyebrow">
-          <Sparkles size={12} />
-          Community ranking
-        </div>
-        <h1 className="gk-h1 mb-2 text-[var(--text-primary)]">Chi sta vivendo più universi?</h1>
-        <p className="gk-body max-w-2xl">La classifica trasforma Library e attività in segnali social: score, ore, anime e presenza nella community.</p>
-        <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
-          <RankingStat label="utenti" value={leaders.length} accent />
-          <RankingStat label="score tot." value={totalScore.toLocaleString('it')} />
-          <RankingStat label="ore game" value={Math.round(totalGameHours).toLocaleString('it')} />
-        </div>
+      <div className="mb-5 grid grid-cols-3 gap-3">
+        <RankingStat label="utenti" value={leaders.length} accent />
+        <RankingStat label="score tot." value={totalScore.toLocaleString('it')} />
+        <RankingStat label="ore game" value={Math.round(totalGameHours).toLocaleString('it')} />
       </div>
 
       <div

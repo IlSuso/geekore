@@ -50,7 +50,7 @@ export function TrendingCard({ item, rank }: { item: TrendingItem; rank: number 
           : <span className="font-mono-data text-xs font-black text-[var(--text-muted)]">#{rank + 1}</span>}
       </div>
 
-      <div className="h-[72px] w-12 flex-shrink-0 overflow-hidden rounded-2xl bg-[var(--bg-secondary)] ring-1 ring-white/5">
+      <div className="h-[88px] w-16 flex-shrink-0 overflow-hidden rounded-2xl bg-[var(--bg-secondary)] ring-1 ring-white/5">
         {item.cover_image ? (
           <img
             src={item.cover_image}

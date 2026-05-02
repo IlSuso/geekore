@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Heart, UserPlus, MessageCircle, BellOff, Star, Sparkles, PlugZap, Bell } from 'lucide-react'
+import { Heart, UserPlus, MessageCircle, Star, PlugZap, Bell } from 'lucide-react'
 import Link from 'next/link'
 import { FollowBackButton } from '@/components/notifications/FollowBackButton'
 import { Avatar } from '@/components/ui/Avatar'
@@ -47,28 +47,20 @@ function compactTimeAgo(dateStr: string): string {
   return `${Math.floor(d / 7)}SETT`
 }
 
-function NotificationHero({ total, unread }: { total: number; unread: number }) {
+function NotificationCompactStats({ total, unread }: { total: number; unread: number }) {
   return (
-    <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(160deg,rgba(230,255,61,0.07),var(--bg-secondary))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-5">
-      <div className="mb-2 gk-section-eyebrow">
-        <Sparkles size={12} />
-        Notification center
+    <div className="mb-4 grid grid-cols-3 gap-3">
+      <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
+        <p className="font-mono-data text-[20px] font-black leading-none text-[var(--accent)]">{total}</p>
+        <p className="gk-label mt-1">totali</p>
       </div>
-      <h1 className="gk-h1 mb-2 text-[var(--text-primary)]">Notifiche</h1>
-      <p className="gk-body max-w-2xl">Social, sistema e integrazioni raccolti in un centro notifiche leggibile.</p>
-      <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
-        <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
-          <p className="font-mono-data text-[20px] font-black leading-none text-[var(--accent)]">{total}</p>
-          <p className="gk-label mt-1">totali</p>
-        </div>
-        <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
-          <p className="font-mono-data text-[20px] font-black leading-none text-[var(--text-primary)]">{unread}</p>
-          <p className="gk-label mt-1">non lette</p>
-        </div>
-        <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
-          <p className="font-mono-data text-[20px] font-black leading-none text-[var(--text-primary)]">24h</p>
-          <p className="gk-label mt-1">merge</p>
-        </div>
+      <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
+        <p className="font-mono-data text-[20px] font-black leading-none text-[var(--text-primary)]">{unread}</p>
+        <p className="gk-label mt-1">non lette</p>
+      </div>
+      <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
+        <p className="font-mono-data text-[20px] font-black leading-none text-[var(--text-primary)]">24h</p>
+        <p className="gk-label mt-1">merge</p>
       </div>
     </div>
   )
@@ -255,10 +247,10 @@ export default function NotificationsPage() {
       description="Like, commenti, follow e segnali social dalla community."
       icon={<Sparkles size={16} />}
       className="gk-notifications-page"
-      contentClassName="gk-page-density max-w-3xl pt-2 md:pt-8 pb-28"
+      contentClassName="gk-page-density max-w-screen-lg pt-2 md:pt-8 pb-28"
     >
       <PullToRefreshIndicator distance={pullDistance} refreshing={isRefreshing} />
-      <NotificationHero total={notifications.length} unread={unread} />
+      <NotificationCompactStats total={notifications.length} unread={unread} />
 
       <div className="mb-5 grid grid-cols-4 gap-1 rounded-[22px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/80 p-2 ring-1 ring-white/5" data-no-swipe="true">
         {FILTERS.map(filter => {

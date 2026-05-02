@@ -309,6 +309,7 @@ export default function DiscoverPage() {
   const [trendingTV, setTrendingTV] = useState<TrendingItem[]>([])
   const [trendingGames, setTrendingGames] = useState<TrendingItem[]>([])
   const [trendingBoardgames, setTrendingBoardgames] = useState<TrendingItem[]>([])
+  const [trendingManga, setTrendingManga] = useState<TrendingItem[]>([])
 
   const abortRef = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -341,12 +342,14 @@ export default function DiscoverPage() {
       fetch('/api/trending?section=tv').then(r => r.ok ? r.json() : []).catch(() => []),
       fetch('/api/trending?section=game').then(r => r.ok ? r.json() : []).catch(() => []),
       fetch('/api/trending?section=boardgame').then(r => r.ok ? r.json() : []).catch(() => []),
-    ]).then(([anime, movies, tv, games, boardgames]) => {
+      fetch('/api/trending?section=manga').then(r => r.ok ? r.json() : []).catch(() => []),
+    ]).then(([anime, movies, tv, games, boardgames, manga]) => {
       setTrendingAnime(anime)
       setTrendingMovies(movies)
       setTrendingTV(tv)
       setTrendingGames(games)
       setTrendingBoardgames(boardgames)
+      setTrendingManga(manga)
     })
   }, [])
 
@@ -504,10 +507,10 @@ export default function DiscoverPage() {
     { label: 'Anime', subtitle: 'Stagionali e cult', items: trendingAnime, typeKey: 'anime', icon: <Swords size={15} /> },
     { label: 'Videogiochi', subtitle: 'Must-play e scoperte', items: trendingGames, typeKey: 'game', icon: <Gamepad2 size={15} /> },
     { label: 'Serie TV', subtitle: 'Popolari ora', items: trendingTV, typeKey: 'tv', icon: <Tv size={15} /> },
-    { label: 'Manga', subtitle: 'Dalle ricerche rapide', items: trendingAnime.filter(item => item.type === 'manga'), typeKey: 'manga', icon: <Layers size={15} /> },
+    { label: 'Manga', subtitle: 'Seinen, shonen, cult', items: trendingManga, typeKey: 'manga', icon: <Layers size={15} /> },
     { label: 'Film', subtitle: 'Trending settimana', items: trendingMovies, typeKey: 'movie', icon: <Film size={15} /> },
     { label: 'Board Game', subtitle: 'Per la prossima serata', items: trendingBoardgames, typeKey: 'boardgame', icon: <Dices size={15} /> },
-  ], [trendingAnime, trendingGames, trendingTV, trendingMovies, trendingBoardgames])
+  ], [trendingAnime, trendingGames, trendingTV, trendingManga, trendingMovies, trendingBoardgames])
 
   const trendingToday = useMemo(() => {
     const mixed = [
@@ -631,8 +634,8 @@ export default function DiscoverPage() {
         {searchError && !loading && <p className="py-12 text-center text-[14px] text-[var(--text-muted)]">{searchError}</p>}
 
         {!loading && !searchTerm.trim() && (
-          <div className="space-y-8">
-            <DiscoverSection title="Sfoglia" subtitle="Scegli un universo e parti da una ricerca guidata" icon={<Sparkles size={15} />}>
+          <div className="space-y-8 md:mx-auto md:max-w-4xl">
+            <DiscoverSection title="Sfoglia" subtitle="Scegli un universo e parti da una ricerca guidata" icon={<Sparkles size={13} />}>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 {BROWSE_PROMPTS.map(prompt => (
                   <BrowseTile key={prompt.type} prompt={prompt} onClick={() => applyPrompt(prompt.q, prompt.type)} />
@@ -720,28 +723,32 @@ export default function DiscoverPage() {
           <EmptyState icon={Search} title="Nessun risultato" description={d.noResults} accent="zinc" />
         )}
 
-        {showingResults && grouped.map(([type, items]) => items.length === 0 ? null : (
-          <DiscoverSection key={type} title={TYPE_LABELS[type] || type} count={items.length} icon={TYPE_PLACEHOLDER_ICON[type]}>
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
-              {items.map((item) => (
-                <DiscoverMediaCard
-                  key={item.id}
-                  title={locale === 'en' && item.title_en ? item.title_en : item.title}
-                  type={item.type}
-                  coverImage={hasValidCover(item) ? optimizeCover(item.coverImage, 'discover-card') : undefined}
-                  year={item.year}
-                  score={item.score}
-                  added={alreadyAdded.includes(item.id)}
-                  wishlisted={wishlistIds.includes(item.id)}
-                  placeholderIcon={TYPE_PLACEHOLDER_ICON[type] ?? <Film size={28} />}
-                  onClick={() => handleResultClick(item)}
-                  onWishlist={!alreadyAdded.includes(item.id) ? () => toggleWishlist(item) : undefined}
-                  className="animate-fade-in"
-                />
-              ))}
-            </div>
-          </DiscoverSection>
-        ))}
+        {showingResults && (
+          <div className="space-y-8 md:mx-auto md:max-w-4xl">
+            {grouped.map(([type, items]) => items.length === 0 ? null : (
+              <DiscoverSection key={type} title={TYPE_LABELS[type] || type} count={items.length} icon={TYPE_PLACEHOLDER_ICON[type]}>
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
+                  {items.map((item) => (
+                    <DiscoverMediaCard
+                      key={item.id}
+                      title={locale === 'en' && item.title_en ? item.title_en : item.title}
+                      type={item.type}
+                      coverImage={hasValidCover(item) ? optimizeCover(item.coverImage, 'discover-card') : undefined}
+                      year={item.year}
+                      score={item.score}
+                      added={alreadyAdded.includes(item.id)}
+                      wishlisted={wishlistIds.includes(item.id)}
+                      placeholderIcon={TYPE_PLACEHOLDER_ICON[type] ?? <Film size={28} />}
+                      onClick={() => handleResultClick(item)}
+                      onWishlist={!alreadyAdded.includes(item.id) ? () => toggleWishlist(item) : undefined}
+                      className="animate-fade-in"
+                    />
+                  ))}
+                </div>
+              </DiscoverSection>
+            ))}
+          </div>
+        )}
       </div>
 
       {drawerMedia && (

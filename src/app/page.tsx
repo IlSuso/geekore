@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Suspense } from 'react'
+import { Zap } from 'lucide-react'
 
 // ─── Fetch dati reali ─────────────────────────────────────────────────────────
 
@@ -47,17 +48,17 @@ async function CommunityLive() {
           <p className="font-display font-black tracking-tight text-[22px] leading-none" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.03em' }}>
             {formatCount(userCount)}
           </p>
-          <p className="mt-1 text-[9px]" style={{ color: 'var(--text-muted)' }}>geek iscritti</p>
+          <p className="mt-1 gk-label" style={{ color: 'var(--text-muted)' }}>geek iscritti</p>
         </div>
         <div>
           <p className="font-black tracking-tight text-[22px] leading-none" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.03em' }}>
             {formatCount(mediaCount)}
           </p>
-          <p className="mt-1 text-[9px]" style={{ color: 'var(--text-muted)' }}>media tracciati</p>
+          <p className="mt-1 gk-label" style={{ color: 'var(--text-muted)' }}>media tracciati</p>
         </div>
         <div>
           <p className="font-black tracking-tight text-[22px] leading-none" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.03em' }}>5+</p>
-          <p className="mt-1 text-[9px]" style={{ color: 'var(--text-muted)' }}>categorie</p>
+          <p className="mt-1 gk-label" style={{ color: 'var(--text-muted)' }}>categorie</p>
         </div>
       </div>
     </div>
@@ -83,7 +84,7 @@ export default async function LandingPage() {
   return (
     <div
       className="min-h-screen flex flex-col"
-      style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+      style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)', backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(230,255,61,0.07), transparent)' }}
     >
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header
@@ -93,10 +94,10 @@ export default async function LandingPage() {
         {/* Wordmark */}
         <div className="flex items-center gap-2" style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 22, letterSpacing: '-0.03em' }}>
           <div
-            className="flex items-center justify-center flex-shrink-0"
-            style={{ width: 28, height: 28, borderRadius: 9, background: 'var(--accent)', color: '#0B0B0F', fontSize: 14, fontWeight: 900 }}
+            className="grid place-items-center flex-shrink-0"
+            style={{ width: 28, height: 28, borderRadius: 9, background: 'var(--accent)', color: '#0B0B0F' }}
             aria-hidden="true"
-          >★</div>
+          ><Zap size={15} fill="currentColor" /></div>
           geekore
         </div>
         {/* CTA pills */}

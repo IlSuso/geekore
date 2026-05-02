@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   Bookmark, Calendar, Swords, Gamepad2, Film, Tv,
-  Trash2, Loader2, CheckCircle2, Layers, Sparkles, Search,
+  Trash2, Loader2, CheckCircle2, Layers, Search,
 } from 'lucide-react'
 import { getMediaTypeColor, getMediaTypeLabel } from '@/lib/mediaTypes'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
@@ -111,22 +111,12 @@ export default function WishlistPage() {
       title="Wishlist"
       description="La tua coda dei desideri: titoli salvati da Discover e For You, pronti a diventare Library."
       icon={<Bookmark size={16} />}
-      contentClassName="max-w-screen-md pt-2 md:pt-8 pb-28"
+      contentClassName="max-w-screen-lg pt-2 md:pt-8 pb-28"
     >
-      <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(160deg,rgba(230,255,61,0.07),var(--bg-secondary))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-5">
-        <div className="mb-2 gk-section-eyebrow">
-          <Sparkles size={12} />
-          Saved queue
-        </div>
-        <h1 className="gk-h1 mb-2 text-[var(--text-primary)]">Tutto ciò che vuoi recuperare dopo.</h1>
-        <p className="gk-body max-w-2xl">
-          Wishlist è il ponte tra scoperta e Library: salva ora, aggiungi quando sei pronto, tieni d’occhio le uscite.
-        </p>
-        <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
-          <WishlistStat label="salvati" value={wishlist.length} accent />
-          <WishlistStat label="disponibili" value={availableCount} />
-          <WishlistStat label="in arrivo" value={upcomingCount} />
-        </div>
+      <div className="mb-5 grid grid-cols-3 gap-3">
+        <WishlistStat label="salvati" value={wishlist.length} accent />
+        <WishlistStat label="disponibili" value={availableCount} />
+        <WishlistStat label="in arrivo" value={upcomingCount} />
       </div>
 
       <div className="mb-4 space-y-3">
@@ -209,7 +199,7 @@ export default function WishlistPage() {
                     : 'border-[var(--border-subtle)] hover:border-[var(--border)]'
                 }`}
               >
-                <div className="h-[72px] w-12 shrink-0 overflow-hidden rounded-2xl bg-[var(--bg-secondary)] ring-1 ring-white/5">
+                <div className="h-[88px] w-16 shrink-0 overflow-hidden rounded-2xl bg-[var(--bg-secondary)] ring-1 ring-white/5">
                   {item.cover_image ? (
                     <img src={item.cover_image} alt={item.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
                   ) : (

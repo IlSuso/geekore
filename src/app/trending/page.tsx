@@ -3,7 +3,7 @@
 // Server Component — dati freschi ad ogni richiesta.
 
 import { createClient } from '@/lib/supabase/server'
-import { TrendingUp, Flame, Sparkles, Star, Users } from 'lucide-react'
+import { TrendingUp, Flame, Star, Users } from 'lucide-react'
 import Link from 'next/link'
 import { TrendingCard } from './TrendingCard'
 import { PageScaffold } from '@/components/ui/PageScaffold'
@@ -113,22 +113,12 @@ export default async function TrendingPage() {
       title="Trending"
       description="Il battito settimanale della community: titoli aggiunti, votati e scoperti."
       icon={<TrendingUp size={16} />}
-      contentClassName="max-w-screen-md pt-2 md:pt-8 pb-28"
+      contentClassName="max-w-screen-lg pt-2 md:pt-8 pb-28"
     >
-      <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(160deg,rgba(230,255,61,0.07),var(--bg-secondary))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-5">
-        <div className="mb-2 gk-section-eyebrow">
-          <Sparkles size={12} />
-          Community pulse
-        </div>
-        <h1 className="gk-h1 mb-2 text-[var(--text-primary)]">Cosa sta entrando nelle librerie di tutti?</h1>
-        <p className="gk-body max-w-2xl">
-          Trending legge le aggiunte recenti e fa emergere il rumore utile: cosa cresce, cosa viene votato, quale medium si muove.
-        </p>
-        <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
-          <PulseStat label="titoli" value={byAdditions.length} accent />
-          <PulseStat label="aggiunte" value={totalAdds} />
-          <PulseStat label="top medium" value={topType?.count ? (TYPE_LABEL[topType.type] || topType.type) : '—'} />
-        </div>
+      <div className="mb-5 grid grid-cols-3 gap-3">
+        <PulseStat label="titoli" value={byAdditions.length} accent />
+        <PulseStat label="aggiunte" value={totalAdds} />
+        <PulseStat label="medium caldo" value={topType?.count ? (TYPE_LABEL[topType.type] || topType.type) : '—'} />
       </div>
 
       {byAdditions.length === 0 ? (

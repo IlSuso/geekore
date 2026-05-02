@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { androidBack } from '@/hooks/androidBack'
 import {
   List, Plus, Trash2, Edit3, Globe, Lock, X, Check,
-  ChevronRight, Loader2, Sparkles, Search,
+  ChevronRight, Loader2, Search,
 } from 'lucide-react'
 import { PageScaffold } from '@/components/ui/PageScaffold'
 
@@ -316,34 +316,24 @@ export default function ListsPage() {
       title="Liste"
       description="Raccolte curate, classifiche personali e collezioni da condividere."
       icon={<List size={16} />}
-      contentClassName="max-w-screen-md pt-2 md:pt-8 pb-28"
+      contentClassName="max-w-screen-lg pt-2 md:pt-8 pb-28"
     >
-      <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(160deg,rgba(230,255,61,0.07),var(--bg-secondary))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-5">
-        <div className="mb-2 gk-section-eyebrow">
-          <Sparkles size={12} />
-          Curated collections
-        </div>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="min-w-0">
-            <h1 className="gk-h1 mb-2 text-[var(--text-primary)]">Liste che raccontano il tuo universo.</h1>
-            <p className="gk-body max-w-2xl">Top, percorsi, watch party, backlog e classifiche personali: non solo archiviazione, ma identità curata.</p>
-          </div>
-          <button
-            type="button"
-            data-no-swipe="true"
-            onClick={() => { setEditingList(undefined); setShowModal(true) }}
-            className="inline-flex h-10 flex-shrink-0 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black transition-transform hover:scale-[1.02]"
-            style={{ background: 'var(--accent)', color: '#0B0B0F' }}
-          >
-            <Plus size={16} />
-            Nuova lista
-          </button>
-        </div>
-        <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
+      <div className="mb-4 flex items-center gap-3">
+        <div className="grid grid-cols-3 gap-3 flex-1">
           <ListsStat label="liste" value={lists.length} accent />
           <ListsStat label="pubbliche" value={publicCount} />
           <ListsStat label="titoli" value={totalItems} />
         </div>
+        <button
+          type="button"
+          data-no-swipe="true"
+          onClick={() => { setEditingList(undefined); setShowModal(true) }}
+          className="inline-flex h-10 flex-shrink-0 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black transition-transform hover:scale-[1.02]"
+          style={{ background: 'var(--accent)', color: '#0B0B0F' }}
+        >
+          <Plus size={16} />
+          Nuova
+        </button>
       </div>
 
       <div className="relative mb-5">
