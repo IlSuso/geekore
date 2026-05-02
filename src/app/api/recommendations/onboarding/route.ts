@@ -11,6 +11,7 @@ const ANILIST_GQL = 'https://graphql.anilist.co'
 const IGDB_GAMES = 'https://api.igdb.com/v4/games'
 const IGDB_TOKEN_URL = 'https://id.twitch.tv/oauth2/token'
 const TARGET_PER_TYPE = 50
+const VALID_TYPES = ['anime', 'manga', 'movie', 'tv', 'game'] as const
 
 let _igdbToken: { token: string; expiresAt: number } | null = null
 
@@ -222,8 +223,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const typesParam = searchParams.get('types')
     const requestedTypes = typesParam
-      ? typesParam.split(',').filter(t => ['anime', 'manga', 'movie', 'tv', 'game'].includes(t))
-      : ['anime', 'manga', 'movie', 'tv', 'game']
+      ? [...new Set(typesParam.split(',').filter(t => VALID_TYPES.includes(t as any)))].slice(0, VALID_TYPES.length)
+      : [...VALID_TYPES]
 
     const tmdbToken = process.env.TMDB_API_KEY || ''
     const igdbClientId = process.env.IGDB_CLIENT_ID || ''
