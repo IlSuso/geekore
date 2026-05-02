@@ -68,7 +68,7 @@ function ListModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-4 backdrop-blur-sm sm:items-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-4 backdrop-blur-sm sm:items-center" data-no-swipe="true">
       <div className="w-full max-w-md overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[var(--bg-primary)] shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
         <div className="border-b border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.08),rgba(139,92,246,0.06),rgba(20,20,27,0.9))] p-5">
           <div className="mb-2 flex items-center justify-between gap-4">
@@ -79,7 +79,7 @@ function ListModal({
               </div>
               <h3 className="gk-title text-[var(--text-primary)]">{list ? 'Modifica lista' : 'Nuova lista'}</h3>
             </div>
-            <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-2xl border border-[var(--border)] bg-black/20 text-[var(--text-secondary)] hover:text-white">
+            <button type="button" data-no-swipe="true" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-2xl border border-[var(--border)] bg-black/20 text-[var(--text-secondary)] hover:text-white">
               <X size={17} />
             </button>
           </div>
@@ -90,6 +90,7 @@ function ListModal({
           <div>
             <label className="gk-label mb-2 block">Titolo *</label>
             <input
+              data-no-swipe="true"
               type="text"
               value={title}
               onChange={e => setTitle(e.target.value.slice(0, 100))}
@@ -103,6 +104,7 @@ function ListModal({
           <div>
             <label className="gk-label mb-2 block">Descrizione</label>
             <textarea
+              data-no-swipe="true"
               value={description}
               onChange={e => setDescription(e.target.value.slice(0, 500))}
               placeholder="Breve descrizione della lista..."
@@ -121,6 +123,8 @@ function ListModal({
               </div>
             </div>
             <button
+              type="button"
+              data-no-swipe="true"
               onClick={() => setIsPublic(v => !v)}
               className="h-6 w-12 rounded-full p-0.5 transition-colors"
               style={{ background: isPublic ? 'var(--accent)' : 'var(--bg-card-hover)' }}
@@ -133,12 +137,16 @@ function ListModal({
 
         <div className="flex gap-3 border-t border-[var(--border)] p-5">
           <button
+            type="button"
+            data-no-swipe="true"
             onClick={onClose}
             className="flex-1 rounded-2xl border border-[var(--border)] py-3 font-bold text-[var(--text-secondary)] transition hover:text-white"
           >
             Annulla
           </button>
           <button
+            type="button"
+            data-no-swipe="true"
             onClick={handleSave}
             disabled={!title.trim() || saving}
             className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 font-black transition disabled:opacity-50"
@@ -164,7 +172,7 @@ function ListCard({
 }) {
   return (
     <div className="group overflow-hidden rounded-[22px] border border-[var(--border-subtle)] bg-[var(--bg-card)] transition-colors hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)]">
-      <Link href={`/lists/${list.id}`} className="block p-4">
+      <Link href={`/lists/${list.id}`} data-no-swipe="true" className="block p-4">
         <div className="flex items-center gap-3">
           <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.12),rgba(139,92,246,0.10))] text-[var(--accent)]">
             <List size={22} />
@@ -189,16 +197,20 @@ function ListCard({
         </div>
       </Link>
 
-      <div className="flex gap-2 border-t border-[var(--border-subtle)] px-4 py-3">
+      <div className="flex gap-2 border-t border-[var(--border-subtle)] px-4 py-3" data-no-swipe="true">
         <button
+          type="button"
+          data-no-swipe="true"
           onClick={() => onEdit(list)}
-          className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+          className="flex items-center gap-1.5 rounded-xl px-2 py-1 text-xs font-bold text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)]"
         >
           <Edit3 size={12} /> Modifica
         </button>
         <button
+          type="button"
+          data-no-swipe="true"
           onClick={() => onDelete(list.id)}
-          className="ml-auto flex items-center gap-1.5 text-xs font-bold text-[var(--text-muted)] transition-colors hover:text-red-400"
+          className="ml-auto flex items-center gap-1.5 rounded-xl px-2 py-1 text-xs font-bold text-[var(--text-muted)] transition-colors hover:bg-red-500/10 hover:text-red-400"
         >
           <Trash2 size={12} /> Elimina
         </button>
@@ -291,7 +303,7 @@ export default function ListsPage() {
           <List size={48} className="mx-auto mb-4 text-zinc-600" />
           <h1 className="mb-3 text-2xl font-bold">Le tue liste</h1>
           <p className="mb-6 text-zinc-400">Accedi per creare liste personalizzate</p>
-          <Link href="/login" className="rounded-2xl px-6 py-3 font-semibold transition" style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
+          <Link href="/login" data-no-swipe="true" className="rounded-2xl px-6 py-3 font-semibold transition" style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
             Accedi
           </Link>
         </div>
@@ -317,6 +329,8 @@ export default function ListsPage() {
             <p className="gk-body max-w-2xl">Top, percorsi, watch party, backlog e classifiche personali: non solo archiviazione, ma identità curata.</p>
           </div>
           <button
+            type="button"
+            data-no-swipe="true"
             onClick={() => { setEditingList(undefined); setShowModal(true) }}
             className="inline-flex h-10 flex-shrink-0 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black transition-transform hover:scale-[1.02]"
             style={{ background: 'var(--accent)', color: '#0B0B0F' }}
@@ -335,6 +349,7 @@ export default function ListsPage() {
       <div className="relative mb-5">
         <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
         <input
+          data-no-swipe="true"
           value={query}
           onChange={event => setQuery(event.target.value)}
           placeholder="Cerca liste, temi, descrizioni..."
@@ -362,6 +377,8 @@ export default function ListsPage() {
               : 'Prova a cambiare ricerca.'}
           </p>
           <button
+            type="button"
+            data-no-swipe="true"
             onClick={() => { lists.length === 0 ? setShowModal(true) : setQuery('') }}
             className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]"
           >
