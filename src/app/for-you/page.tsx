@@ -595,8 +595,11 @@ const SimilarSection = memo(function SimilarSection({
           {hasMore && (
             <div className="flex-shrink-0 w-40 flex items-center justify-center">
               <button onClick={() => setVisibleCount(v => v + 10)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full border border-zinc-700 bg-zinc-900 text-zinc-300 hover:text-white hover:border-zinc-500 transition-all text-xs font-semibold">
-                Mostra altri
+                className="flex flex-col items-center gap-2 text-zinc-500 hover:text-zinc-300 transition-colors">
+                <div className="w-10 h-10 rounded-full border border-zinc-700 hover:border-zinc-500 flex items-center justify-center">
+                  <ChevronDown size={18} />
+                </div>
+                <span className="text-[10px]">+{filtered.length - visibleCount} altri</span>
               </button>
             </div>
           )}
@@ -606,16 +609,43 @@ const SimilarSection = memo(function SimilarSection({
   )
 })
 
-// v6: Generic rail component
-const RecommendationRailSection = memo(function RecommendationRailSection({
-  rail, onFeedback, onSimilar, onDetail, dismissedIds, similarLoadingId,
+
+const INITIAL_VISIBLE = 20
+const LOAD_MORE_STEP = 10
+
+const RAIL_ICONS: Record<RecommendationRail['kind'], React.ElementType> = {
+  'top-match': Sparkles,
+  continue: ArrowRight,
+  social: Users,
+  fresh: Flame,
+  discovery: Compass,
+  genre: Tag,
+  'because-title': Brain,
+  'quick-picks': Zap,
+  'hidden-gems': Trophy,
+}
+
+const RAIL_COLORS: Record<RecommendationRail['kind'], string> = {
+  'top-match': 'var(--accent)',
+  continue: '#f59e0b',
+  social: 'var(--type-anime)',
+  fresh: 'var(--type-movie)',
+  discovery: 'var(--type-game)',
+  genre: '#0ea5e9',
+  'because-title': '#10b981',
+  'quick-picks': 'var(--accent)',
+  'hidden-gems': 'var(--type-board)',
+}
+
+const NetflixRailSection = memo(function NetflixRailSection({
+  rail, onFeedback, dismissedIds, onSimilar, onDetail, similarLoadingId,
   addedIds, wishlistIds, addingIds, onAdd, onWishlist,
 }: {
   rail: RecommendationRail
   onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
+  dismissedIds: Set<string>
   onSimilar?: (i: Recommendation) => void
   onDetail?: (i: Recommendation) => void
-  dismissedIds: Set<string>
   similarLoadingId?: string | null
   addedIds: Set<string>
   wishlistIds: Set<string>
@@ -623,47 +653,41 @@ const RecommendationRailSection = memo(function RecommendationRailSection({
   onAdd: (i: Recommendation) => void
   onWishlist: (i: Recommendation) => void
 }) {
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
   const visible = rail.items.filter(i => !dismissedIds.has(i.id))
   if (!visible.length) return null
 
-  const kindIcon: Record<string, React.ElementType> = {
-    'top-match': Brain,
-    continue: ArrowRight,
-    social: Users,
-    fresh: Sparkles,
-    discovery: Compass,
-    genre: Tag,
-    'because-title': Search,
-    'quick-picks': Zap,
-    'hidden-gems': Trophy,
-  }
-  const Icon = kindIcon[rail.kind] || Sparkles
+  const Icon = RAIL_ICONS[rail.kind] || Sparkles
+  const shown = visible.slice(0, visibleCount)
+  const hasMore = visible.length > visibleCount
 
   return (
     <div className="mb-10">
-      <div className="mb-4 flex items-center gap-3">
-        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl border border-[rgba(230,255,61,0.24)] bg-[rgba(230,255,61,0.07)] text-[var(--accent)]">
-          <Icon size={17} />
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg" style={{ background: RAIL_COLORS[rail.kind] }}>
+          <Icon size={16} className={rail.kind === 'quick-picks' || rail.kind === 'top-match' ? 'text-black' : 'text-white'} />
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h2 className="truncate text-[15px] font-black text-white">{rail.title}</h2>
-            {rail.badge && <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[9px] font-bold text-zinc-400">{rail.badge}</span>}
-          </div>
-          <p className="line-clamp-1 text-[11px] text-zinc-500">{rail.subtitle}</p>
+        <div className="min-w-0">
+          <h2 className="text-base font-bold text-white">{rail.title}</h2>
+          <p className="text-[10px] text-zinc-500 line-clamp-1">{rail.subtitle}</p>
         </div>
+        {rail.badge && (
+          <span className="ml-auto hidden sm:inline-flex text-[10px] font-semibold text-zinc-300 bg-zinc-900/80 border border-zinc-800 px-2 py-0.5 rounded-full">
+            {rail.badge}
+          </span>
+        )}
       </div>
       <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
-        {visible.map(item => (
+        {shown.map(item => (
           <RecommendationCard
-            key={item.id}
+            key={`${rail.id}-${item.type}-${item.id}`}
             item={item}
             onFeedback={onFeedback}
             onSimilar={onSimilar}
             onDetail={onDetail}
             isSimilarLoading={similarLoadingId === item.id}
             dismissed={dismissedIds.has(item.id)}
-            showDetails={rail.kind === 'top-match' || rail.kind === 'social' || rail.kind === 'because-title'}
+            showDetails={rail.kind === 'top-match' || rail.kind === 'because-title'}
             added={addedIds.has(item.id)}
             wishlisted={wishlistIds.has(item.id)}
             adding={addingIds.has(item.id)}
@@ -671,498 +695,1058 @@ const RecommendationRailSection = memo(function RecommendationRailSection({
             onWishlist={onWishlist}
           />
         ))}
+        {hasMore && (
+          <div className="flex-shrink-0 w-40 flex items-center justify-center">
+            <button onClick={() => setVisibleCount(v => v + LOAD_MORE_STEP)}
+              className="flex flex-col items-center gap-2 text-zinc-500 hover:text-zinc-300 transition-colors">
+              <div className="w-10 h-10 rounded-full border border-zinc-700 hover:border-zinc-500 flex items-center justify-center">
+                <ChevronDown size={18} />
+              </div>
+              <span className="text-[10px]">+{visible.length - visibleCount} altri</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
 })
 
-function buildFallbackRails(items: Recommendation[]): RecommendationRail[] {
-  const byScore = [...items].sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0))
-  const top = byScore.slice(0, 10)
-  const discovery = byScore.filter(i => i.isDiscovery || i.isSerendipity).slice(0, 10)
-  const social = byScore.filter(i => i.friendWatching || i.socialBoost).slice(0, 10)
-  const award = byScore.filter(i => i.isAwardWinner || i.isSeasonal).slice(0, 10)
-
-  const rails: RecommendationRail[] = []
-  if (top.length) rails.push({ id: 'top-match', title: 'Top match per te', subtitle: 'I consigli con maggiore affinità, ma non solo score.', kind: 'top-match', items: top, priority: 100 })
-  if (social.length) rails.push({ id: 'social', title: 'Visti dalla tua cerchia', subtitle: 'Titoli con segnali dagli utenti che segui.', kind: 'social', items: social, priority: 90 })
-  if (discovery.length) rails.push({ id: 'discovery', title: 'Fuori dalla comfort zone', subtitle: 'Serendipity controllata per evitare consigli troppo ripetitivi.', kind: 'discovery', items: discovery, priority: 80 })
-  if (award.length) rails.push({ id: 'fresh-awards', title: 'Premiati e stagionali', subtitle: 'Titoli con segnali editoriali forti.', kind: 'fresh', items: award, priority: 70 })
-
-  const byType = new Map<MediaType, Recommendation[]>()
-  for (const item of byScore) {
-    if (!byType.has(item.type)) byType.set(item.type, [])
-    byType.get(item.type)!.push(item)
-  }
-  for (const [type, typeItems] of byType) {
-    if (typeItems.length >= 4) {
-      rails.push({
-        id: `type-${type}`,
-        title: `${TYPE_LABEL[type]} che potresti amare`,
-        subtitle: 'Rilevanza + varietà controllata.',
-        kind: 'genre',
-        items: typeItems.slice(0, 10),
-        priority: 50,
-      })
-    }
-  }
-
-  return rails.sort((a, b) => (b.priority || 0) - (a.priority || 0)).slice(0, 8)
-}
-
-// ════════════════════════════════════════════════════════════════════════════════
-// Main Page
-// ════════════════════════════════════════════════════════════════════════════════
-
-export default function ForYouPage() {
-  const { t } = useLocale()
-  const router = useRouter()
-  const pathname = usePathname()
-  const supabase = createClient()
-  const scrollRef = useScrollPanel()
-  const isTabActive = useTabActive('/for-you')
-
-  const [items, setItems] = useState<Recommendation[]>([])
-  const [rails, setRails] = useState<RecommendationRail[]>([])
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [activeType, setActiveType] = useState<MediaType | 'all'>('all')
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
-  const [detail, setDetail] = useState<Recommendation | null>(null)
-  const [prefsOpen, setPrefsOpen] = useState(false)
-  const [feedbackToast, setFeedbackToast] = useState<{ msg: string; undo?: () => void } | null>(null)
-  const [lowConfidence, setLowConfidence] = useState(false)
-  const [tasteProfile, setTasteProfile] = useState<TasteProfile | null>(null)
-  const [similarSection, setSimilarSection] = useState<{ title: string; type: MediaType; items: Recommendation[] } | null>(null)
-  const [similarLoadingId, setSimilarLoadingId] = useState<string | null>(null)
-  const [addedIds, setAddedIds] = useState<Set<string>>(new Set())
-  const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set())
-  const [addingIds, setAddingIds] = useState<Set<string>>(new Set())
-  const [friendActivity, setFriendActivity] = useState<FriendActivity[]>([])
-  const userIdRef = useRef<string | null>(null)
-  const [isSwipeMode, setIsSwipeMode] = useState(false)
-
-  const shownRef = useRef<Set<string>>(new Set())
-  const dismissTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
-
-  const markShown = useCallback((recs: Recommendation[], userId?: string | null) => {
-    if (!userId) return
-    const unseen = recs.filter(r => !shownRef.current.has(r.id)).slice(0, 40)
-    if (!unseen.length) return
-    unseen.forEach(r => shownRef.current.add(r.id))
-    fetch('/api/recommendations/shown', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids: unseen.map(r => r.id), context: 'for-you' }),
-    }).catch(() => { })
-  }, [])
-
-  const fetchRecommendations = useCallback(async (force = false) => {
-    setLoading(!force)
-    setRefreshing(force)
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setLoading(false); setRefreshing(false); return }
-      userIdRef.current = user.id
-
-      const url = `/api/recommendations?type=${activeType === 'all' ? 'all' : activeType}${force ? '&refresh=1' : ''}`
-      const res = await fetch(url, { cache: 'no-store' })
-      if (!res.ok) throw new Error('Failed')
-      const data = await res.json()
-      let recs: Recommendation[] = []
-      let apiRails: RecommendationRail[] = []
-
-      if (Array.isArray(data)) {
-        recs = data
-      } else {
-        recs = data.items || data.recommendations || []
-        apiRails = data.rails || []
-        setLowConfidence(!!data.lowConfidence)
-        setTasteProfile(data.tasteProfile || null)
-      }
-
-      if (activeType !== 'all') recs = recs.filter(r => r.type === activeType)
-
-      const finalRails = apiRails.length ? apiRails : buildFallbackRails(recs)
-      setItems(recs)
-      setRails(finalRails)
-      markShown(recs, user.id)
-
-      // Carica stato già in libreria/wishlist
-      const ids = recs.map(r => r.id)
-      if (ids.length) {
-        const [{ data: mediaRows }, { data: wishlistRows }] = await Promise.all([
-          supabase.from('user_media_entries').select('media_id').eq('user_id', user.id).in('media_id', ids),
-          supabase.from('wishlist').select('media_id').eq('user_id', user.id).in('media_id', ids),
-        ])
-        setAddedIds(new Set((mediaRows || []).map((r: any) => r.media_id)))
-        setWishlistIds(new Set((wishlistRows || []).map((r: any) => r.media_id)))
-      }
-    } catch (e) { console.error('recommendations', e) }
-    setLoading(false)
-    setRefreshing(false)
-  }, [activeType, supabase, markShown])
-
-  useEffect(() => { fetchRecommendations() }, [fetchRecommendations])
-
-  useEffect(() => {
-    let cancelled = false
-    const loadFriends = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const res = await fetch('/api/social/friend-activity?limit=8').catch(() => null)
-      if (!res?.ok) return
-      const data = await res.json().catch(() => [])
-      if (!cancelled) setFriendActivity(Array.isArray(data) ? data : [])
-    }
-    loadFriends()
-    return () => { cancelled = true }
-  }, [supabase])
-
-  const { distance: pullDistance, refreshing: isPullRefreshing } = usePullToRefresh({
-    onRefresh: () => fetchRecommendations(true),
-    containerRef: scrollRef,
-    enabled: isTabActive && !isSwipeMode && !detail && !prefsOpen,
-  })
-
-  useEffect(() => {
-    if (!isSwipeMode) return
-    const close = () => setIsSwipeMode(false)
-    androidBack.push(close)
-    return () => androidBack.pop(close)
-  }, [isSwipeMode])
-
-  const sendSwipeFeedback = useCallback(async (item: Recommendation, action: FeedbackAction, rating?: number, reason?: FeedbackReason) => {
-    // Rimuovi subito dalla UI
-    setDismissedIds(prev => new Set([...prev, item.id]))
-    setFeedbackToast({
-      msg: action === 'not_interested' ? 'Nascosto' : action === 'already_seen' ? 'Segnato come visto' : 'Salvato',
-      undo: () => {
-        if (dismissTimersRef.current.has(item.id)) {
-          clearTimeout(dismissTimersRef.current.get(item.id)!)
-          dismissTimersRef.current.delete(item.id)
-        }
-        setDismissedIds(prev => { const n = new Set(prev); n.delete(item.id); return n })
-      },
-    })
-
-    const timer = setTimeout(async () => {
-      dismissTimersRef.current.delete(item.id)
-      await fetch('/api/recommendations/feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mediaId: item.id, mediaType: item.type, action, reason, rating }),
-      }).catch(() => { })
-    }, 900)
-    dismissTimersRef.current.set(item.id, timer)
-  }, [])
-
-  const handleAdd = useCallback(async (item: Recommendation) => {
-    if (addedIds.has(item.id) || addingIds.has(item.id)) return
-    setAddingIds(prev => new Set(prev).add(item.id))
-    try {
-      const res = await fetch('/api/media/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          media_id: item.id,
-          title: item.title,
-          type: item.type,
-          cover_image: item.coverImage,
-          total_episodes: item.episodes,
-          episodes: item.episodes,
-          status: 'watching',
-          rating: item.score,
-          genres: item.genres,
-        }),
-      })
-      if (res.ok) {
-        setAddedIds(prev => new Set(prev).add(item.id))
-        setFeedbackToast({ msg: 'Aggiunto alla libreria' })
-        profileInvalidateBridge.notify()
-        triggerTasteDelta({ action: 'status_change', mediaId: item.id, mediaType: item.type, genres: item.genres, status: 'watching' })
-      }
-    } catch { }
-    setAddingIds(prev => { const n = new Set(prev); n.delete(item.id); return n })
-  }, [addedIds, addingIds])
-
-  const handleWishlist = useCallback(async (item: Recommendation) => {
-    const exists = wishlistIds.has(item.id)
-    setWishlistIds(prev => { const n = new Set(prev); exists ? n.delete(item.id) : n.add(item.id); return n })
-    await fetch('/api/wishlist', {
-      method: exists ? 'DELETE' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        mediaId: item.id,
-        mediaType: item.type,
-        title: item.title,
-        coverImage: item.coverImage,
-        year: item.year,
-        genres: item.genres,
-        score: item.score,
-        matchScore: item.matchScore,
-      }),
-    }).catch(() => { })
-    if (!exists) {
-      setFeedbackToast({ msg: 'Aggiunto alla wishlist' })
-      triggerTasteDelta({ action: 'wishlist_add', mediaId: item.id, mediaType: item.type, genres: item.genres })
-    }
-  }, [wishlistIds])
-
-  const handleSimilar = useCallback(async (item: Recommendation) => {
-    setSimilarLoadingId(item.id)
-    try {
-      const params = new URLSearchParams({
-        title: item.title,
-        type: item.type,
-        genres: item.genres.slice(0, 5).join(','),
-      })
-      if (item.keywords?.length) params.set('keywords', item.keywords.slice(0, 8).join(','))
-      const res = await fetch(`/api/recommendations/similar?${params}`)
-      if (res.ok) {
-        const data = await res.json()
-        const list = Array.isArray(data) ? data : (data.items || data.recommendations || [])
-        setSimilarSection({ title: item.title, type: item.type, items: list })
-      }
-    } catch { }
-    setSimilarLoadingId(null)
-  }, [])
-
-  const handleManualSimilarSearch = useCallback(async (title: string, genres: string[], keywords?: string[], type?: string) => {
-    setSimilarLoadingId('__manual__')
-    try {
-      const params = new URLSearchParams({ title, type: type || 'all' })
-      if (genres.length) params.set('genres', genres.slice(0, 6).join(','))
-      if (keywords?.length) params.set('keywords', keywords.slice(0, 10).join(','))
-      const res = await fetch(`/api/recommendations/similar?${params}`)
-      if (res.ok) {
-        const data = await res.json()
-        const list = Array.isArray(data) ? data : (data.items || data.recommendations || [])
-        setSimilarSection({ title, type: (type as MediaType) || 'movie', items: list })
-      }
-    } catch { }
-    setSimilarLoadingId(null)
-  }, [])
-
-  const toMediaDetails = (item: Recommendation): MediaDetails => ({
-    id: item.id,
-    title: item.title,
-    type: item.type as any,
-    coverImage: item.coverImage,
-    year: item.year,
-    genres: item.genres,
-    score: item.score,
-    description: item.description,
-    why: item.why,
-    matchScore: item.matchScore,
-    episodes: item.episodes,
-    authors: item.authors,
-    developers: item.developers,
-    platforms: item.platforms,
-    min_players: item.min_players,
-    max_players: item.max_players,
-    playing_time: item.playing_time,
-    complexity: item.complexity,
-    tags: item.tags,
-    isAwardWinner: item.isAwardWinner,
-    externalId: item.id,
-  })
-
-  const filteredItems = activeType === 'all' ? items : items.filter(i => i.type === activeType)
-  const visibleItems = filteredItems.filter(i => !dismissedIds.has(i.id))
-  const totalCount = items.length
-  const discoveryCount = items.filter(i => i.isDiscovery || i.isSerendipity).length
-  const socialCount = items.filter(i => i.friendWatching || i.socialBoost).length
-
-  if (loading && !refreshing) {
-    return <div className="min-h-screen bg-[var(--bg-primary)] text-white pb-24">
-      <div className="mx-auto max-w-6xl px-4 pt-4 md:pt-8">
-        <div className="mb-6 h-40 rounded-[30px] bg-[var(--bg-card)] skeleton" />
-        {Array.from({ length: 4 }).map((_, i) => <SkeletonForYouRow key={i} />)}
-      </div>
-    </div>
-  }
+const SpotlightRecommendation = memo(function SpotlightRecommendation({ item, onFeedback, onSimilar, onDetail, isSimilarLoading }: {
+  item: Recommendation
+  onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
+  onSimilar?: (i: Recommendation) => void
+  onDetail?: (i: Recommendation) => void
+  isSimilarLoading: boolean
+}) {
+  const Icon = TYPE_ICONS[item.type]
+  const colorClass = TYPE_COLORS[item.type]
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-white pb-28">
-      <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing || refreshing} />
-      <div ref={scrollRef} className="mx-auto max-w-6xl px-4 pt-3 md:pt-8">
-        <div className="mb-6 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(230,255,61,0.09),rgba(139,92,246,0.07),rgba(20,20,27,0.92))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-5">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
-              <Sparkles size={12} />
-              For You engine
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setIsSwipeMode(true)} className="inline-flex items-center gap-1.5 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-xs font-bold text-zinc-200 hover:text-[var(--accent)] transition-colors">
-                <Shuffle size={14} /> Swipe
-              </button>
-              <button onClick={() => fetchRecommendations(true)} disabled={refreshing} className="inline-flex items-center gap-1.5 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-xs font-bold text-zinc-200 hover:text-[var(--accent)] transition-colors disabled:opacity-50">
-                <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} /> Refresh
-              </button>
-              <button onClick={() => setPrefsOpen(true)} className="inline-flex items-center gap-1.5 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-xs font-bold text-zinc-200 hover:text-[var(--accent)] transition-colors">
-                <SlidersHorizontal size={14} /> Tune
-              </button>
-            </div>
+    <section className="relative min-h-[190px] md:min-h-[230px] overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 mb-8">
+      {item.coverImage && (
+        <img
+          src={optimizeCover(item.coverImage, 'foryou-card-large')}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover opacity-35 blur-[1px] scale-105"
+          loading="lazy"
+        />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-black/25" />
+      <div className="relative z-10 flex min-h-[190px] md:min-h-[230px] items-end p-4 md:p-6">
+        <div className="max-w-2xl">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-white px-2 py-1 rounded-full" style={{ background: colorClass }}>
+              <Icon size={11} /> {TYPE_LABEL[item.type]}
+            </span>
+            <MatchBadge score={item.isContinuity ? 100 : item.matchScore} />
           </div>
-          <h1 className="gk-h1 mb-2">Consigli che imparano, ma non si fossilizzano.</h1>
-          <p className="gk-body max-w-2xl">Match score, segnali social, serendipity controllata e feedback negativo granulare per evitare il loop dei soliti titoli.</p>
-          <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-4 md:grid-cols-4">
-            <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5"><p className="font-mono-data text-[20px] font-black text-[var(--accent)] leading-none">{totalCount}</p><p className="gk-label mt-1">titoli</p></div>
-            <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5"><p className="font-mono-data text-[20px] font-black text-white leading-none">{discoveryCount}</p><p className="gk-label mt-1">scoperte</p></div>
-            <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5"><p className="font-mono-data text-[20px] font-black text-white leading-none">{socialCount}</p><p className="gk-label mt-1">social</p></div>
-            <div className="hidden rounded-2xl bg-black/18 p-3 ring-1 ring-white/5 md:block"><p className="font-mono-data text-[20px] font-black text-white leading-none">{activeType === 'all' ? 'all' : TYPE_LABEL[activeType]}</p><p className="gk-label mt-1">filtro</p></div>
+          <h1 className="text-2xl md:text-4xl font-black text-white leading-tight mb-2 line-clamp-2">{item.title}</h1>
+          <p className="text-sm text-zinc-300 line-clamp-2 mb-4">{item.why}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={() => onDetail?.(item)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-black text-xs font-bold hover:bg-zinc-200 transition-colors">
+              <Plus size={14} /> Dettagli
+            </button>
+            {onSimilar && (
+              <button onClick={() => onSimilar(item)} disabled={isSimilarLoading}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900/80 border border-zinc-700 text-zinc-100 text-xs font-semibold hover:bg-zinc-800 transition-colors disabled:opacity-60">
+                {isSimilarLoading ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
+                Simili
+              </button>
+            )}
+            <button onClick={() => onFeedback(item, 'not_interested')}
+              className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-zinc-900/80 border border-zinc-700 text-zinc-300 hover:text-red-300 hover:border-red-900/70 transition-colors"
+              title="Non mi interessa">
+              <ThumbsDown size={14} />
+            </button>
           </div>
         </div>
+      </div>
+    </section>
+  )
+})
 
-        <DNAWidget profile={tasteProfile} compact />
+const RecommendationSection = memo(function RecommendationSection({
+  type, items, label, onAdd, onWishlist, onFeedback, dismissedIds, onSimilar, onDetail,
+  similarLoadingId, isPrimary, addedIds, wishlistIds, addingIds,
+}: {
+  type: MediaType; items: Recommendation[]; label: string
+  onAdd: (i: Recommendation) => void; onWishlist: (i: Recommendation) => void
+  onFeedback: (i: Recommendation, a: FeedbackAction, reason?: FeedbackReason) => void
+  dismissedIds: Set<string>
+  onSimilar?: (i: Recommendation) => void
+  onDetail?: (i: Recommendation) => void
+  similarLoadingId?: string | null
+  isPrimary?: boolean
+  addedIds: Set<string>
+  wishlistIds: Set<string>
+  addingIds: Set<string>
+}) {
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)  // Fix 2.13
+  const Icon = TYPE_ICONS[type]; const colorClass = TYPE_COLORS[type]
+  const visible = items.filter(i => !dismissedIds.has(i.id))
+  if (!visible.length) return null
 
-        {lowConfidence && (
-          <div className="mb-6 rounded-[22px] border border-amber-500/25 bg-amber-500/8 p-4 text-sm text-amber-200">
-            <div className="mb-1 flex items-center gap-2 font-black"><AlertCircle size={16} /> Profilo gusto ancora giovane</div>
-            Valuta o aggiungi più media: useremo questi segnali per alzare la qualità dei consigli.
-          </div>
-        )}
+  const shown = visible.slice(0, visibleCount)
+  const hasMore = visible.length > visibleCount
+  const topScore = visible[0]?.matchScore || 0
 
-        <div className="mb-6 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-          {(['all', 'anime', 'manga', 'movie', 'tv', 'game', 'boardgame'] as const).map(type => {
-            const active = activeType === type
-            const label = type === 'all' ? 'Tutti' : TYPE_LABEL[type]
-            return (
-              <button key={type} onClick={() => setActiveType(type)} className="flex-shrink-0 rounded-full border px-3.5 py-2 text-xs font-bold transition-all"
-                style={active ? { background: 'var(--accent)', borderColor: 'var(--accent)', color: '#0B0B0F' } : { background: 'var(--bg-card)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
-                {label}
-              </button>
-            )
-          })}
+  return (
+    <div className="mb-10">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg" style={{ background: colorClass }}>
+          <Icon size={16} className="text-white" />
         </div>
-
-        <SimilarSearchBar onSearch={handleManualSimilarSearch} loading={similarLoadingId === '__manual__'} />
-
-        {similarSection && (
-          <SimilarSection
-            sourceTitle={similarSection.title}
-            sourceType={similarSection.type}
-            items={similarSection.items}
-            onFeedback={sendSwipeFeedback}
-            onSimilar={handleSimilar}
-            onDetail={setDetail}
-            onClose={() => setSimilarSection(null)}
-            dismissedIds={dismissedIds}
-            similarLoadingId={similarLoadingId}
-            addedIds={addedIds}
-            wishlistIds={wishlistIds}
-            addingIds={addingIds}
-            onAdd={handleAdd}
-            onWishlist={handleWishlist}
-          />
-        )}
-
-        <ContinuitySection items={visibleItems} onFeedback={sendSwipeFeedback} onDetail={setDetail} dismissedIds={dismissedIds} />
-
-        {rails.map(rail => (
-          <RecommendationRailSection
-            key={rail.id}
-            rail={activeType === 'all' ? rail : { ...rail, items: rail.items.filter(i => i.type === activeType) }}
-            onFeedback={sendSwipeFeedback}
-            onSimilar={handleSimilar}
-            onDetail={setDetail}
-            dismissedIds={dismissedIds}
-            similarLoadingId={similarLoadingId}
-            addedIds={addedIds}
-            wishlistIds={wishlistIds}
-            addingIds={addingIds}
-            onAdd={handleAdd}
-            onWishlist={handleWishlist}
+        <div>
+          <h2 className="text-base font-bold text-white">{label}</h2>
+          <p className="text-[10px] text-zinc-500">{visible.length} titoli</p>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          {isPrimary && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ color: 'var(--accent)', background: 'rgba(230,255,61,0.1)', border: '1px solid rgba(230,255,61,0.2)' }}>
+              Il tuo tipo principale
+            </span>
+          )}
+          {topScore >= 80 && !isPrimary && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ color: 'var(--accent)', background: 'rgba(230,255,61,0.1)', border: '1px solid rgba(230,255,61,0.2)' }}>
+              <Flame size={9} /> Ottimo match
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
+        {shown.map(item => (
+          <RecommendationCard
+            key={item.id} item={item} onFeedback={onFeedback} onSimilar={onSimilar} onDetail={onDetail}
+            isSimilarLoading={similarLoadingId === item.id} dismissed={dismissedIds.has(item.id)}
+            added={addedIds.has(item.id)} wishlisted={wishlistIds.has(item.id)} adding={addingIds.has(item.id)}
+            onAdd={onAdd} onWishlist={onWishlist}
           />
         ))}
-
-        {visibleItems.length === 0 && (
-          <EmptyState title="Nessun consiglio visibile" subtitle="Aggiorna o modifica i gusti per generare nuovi suggerimenti." icon={<Sparkles size={32} />} action={{ label: 'Aggiorna', onClick: () => fetchRecommendations(true) }} />
+        {hasMore && (
+          <div className="flex-shrink-0 w-40 flex items-center justify-center">
+            <button onClick={() => setVisibleCount(v => v + LOAD_MORE_STEP)}
+              className="flex flex-col items-center gap-2 text-zinc-500 hover:text-zinc-300 transition-colors">
+              <div className="w-10 h-10 rounded-full border border-zinc-700 hover:border-zinc-500 flex items-center justify-center">
+                <ChevronDown size={18} />
+              </div>
+              <span className="text-[10px]">+{visible.length - visibleCount} altri</span>
+            </button>
+          </div>
         )}
       </div>
+    </div>
+  )
+})
 
-      {friendActivity.length > 0 && (
-        <div className="mx-auto max-w-6xl px-4 pb-8">
-          <div className="rounded-[26px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
-            <div className="mb-3 flex items-center gap-2"><Users size={16} className="text-[var(--accent)]" /><p className="gk-label">Dalla tua cerchia</p></div>
-            <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
-              {friendActivity.map(a => (
-                <Link key={`${a.userId}-${a.mediaId}`} href={`/profile/${a.username}`} className="flex w-56 flex-shrink-0 items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-2 hover:bg-[var(--bg-card-hover)] transition-colors">
-                  <Avatar src={a.avatarUrl} username={a.username} displayName={a.displayName} size={34} className="rounded-xl" />
-                  <div className="min-w-0"><p className="truncate text-xs font-bold text-white">{a.displayName || a.username}</p><p className="truncate text-[11px] text-zinc-500">sta seguendo {a.mediaTitle}</p></div>
-                </Link>
-              ))}
-            </div>
-          </div>
+// Quick-reason modal — raccoglie il motivo dopo "non mi interessa"
+function QuickReasonSheet({ item, onConfirm, onDismiss }: {
+  item: Recommendation
+  onConfirm: (reason: FeedbackReason) => void
+  onDismiss: () => void
+}) {
+  useEffect(() => {
+    androidBack.push(onDismiss)
+    return () => androidBack.pop(onDismiss)
+  }, [onDismiss])
+
+  const options: { reason: FeedbackReason; label: string; sub: string; icon: React.ReactNode }[] = [
+    {
+      reason: 'not_my_genre',
+      label: 'Non è il mio genere',
+      sub: 'Aiuta a calibrare i tuoi gusti',
+      icon: <X size={15} className="text-zinc-400" />,
+    },
+    {
+      reason: 'bad_rec',
+      label: 'Non fa per me',
+      sub: 'Non suggerirlo più',
+      icon: <ThumbsDown size={15} className="text-zinc-400" />,
+    },
+  ]
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" onClick={onDismiss}>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <div className="relative w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-3xl p-5"
+        onClick={e => e.stopPropagation()}>
+        <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-1">Perché non ti interessa?</p>
+        <p className="text-sm font-semibold text-white mb-5 truncate">{item.title}</p>
+        <div className="space-y-2">
+          {options.map(({ reason, label, sub, icon }) => (
+            <button key={reason} onClick={() => onConfirm(reason)}
+              className="w-full flex items-center gap-3.5 px-4 py-3.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl transition-all text-left group">
+              <div className="w-8 h-8 rounded-xl bg-zinc-800 group-hover:bg-zinc-700 flex items-center justify-center flex-shrink-0 transition-colors">
+                {icon}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-white">{label}</p>
+                <p className="text-[11px] text-zinc-500">{sub}</p>
+              </div>
+            </button>
+          ))}
         </div>
-      )}
-
-      {detail && (
-        <MediaDetailsDrawer
-          media={toMediaDetails(detail)}
-          open={!!detail}
-          onClose={() => setDetail(null)}
-          onAdd={(m) => handleAdd(detail)}
-          onWishlist={(m) => handleWishlist(detail)}
-          isAdded={addedIds.has(detail.id)}
-          isWishlisted={wishlistIds.has(detail.id)}
-        />
-      )}
-
-      <PreferencesModal open={prefsOpen} onClose={() => setPrefsOpen(false)} onSaved={() => fetchRecommendations(true)} />
-
-      {isSwipeMode && (
-        <FullScreenSwipe
-          items={visibleItems as any as SwipeItem[]}
-          onClose={() => setIsSwipeMode(false)}
-          sendSwipeFeedback={sendSwipeFeedback as any}
-          handleWishlist={handleWishlist as any}
-          userIdRef={userIdRef}
-        />
-      )}
-
-      {feedbackToast && (
-        <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-1/2 z-[300] -translate-x-1/2 rounded-full border border-[var(--border)] bg-[var(--bg-card)] px-4 py-2 text-sm font-bold text-white shadow-2xl">
-          {feedbackToast.msg}
-          {feedbackToast.undo && <button onClick={() => { feedbackToast.undo?.(); setFeedbackToast(null) }} className="ml-3 text-[var(--accent)]">Annulla</button>}
-        </div>
-      )}
+        <button onClick={onDismiss}
+          className="w-full mt-3 py-2.5 px-4 rounded-2xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-sm font-medium text-zinc-400 hover:text-zinc-200 transition-all">
+          Annulla
+        </button>
+      </div>
     </div>
   )
 }
 
-function FullScreenSwipe({ items, onClose, sendSwipeFeedback, handleWishlist, userIdRef }: {
-  items: SwipeItem[]
-  onClose: () => void
-  sendSwipeFeedback: (item: Recommendation, action: FeedbackAction, rating?: number, reason?: FeedbackReason) => void
-  handleWishlist: (item: Recommendation) => void
-  userIdRef: React.MutableRefObject<string | null>
-}) {
-  const requestMore = async (filter?: any): Promise<SwipeItem[]> => {
-    const params = new URLSearchParams({ type: filter && filter !== 'all' ? filter : 'all', refresh: '1' })
-    const res = await fetch(`/api/recommendations?${params}`)
-    if (!res.ok) return []
-    const data = await res.json()
-    const list = Array.isArray(data) ? data : (data.items || data.recommendations || [])
-    return list
+function LowConfidenceBanner({ totalEntries }: { totalEntries: number }) {
+  const needed = 15
+  const pct = Math.min(100, Math.round((totalEntries / needed) * 100))
+  return (
+    <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6">
+      <AlertCircle size={18} className="text-amber-400 flex-shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-amber-300 mb-1">Consigli in miglioramento</p>
+        <p className="text-xs text-amber-200/70 mb-3">
+          I tuoi consigli migliorano man mano che aggiungi titoli. Hai ancora {needed - totalEntries} titoli per sbloccare i consigli personalizzati.
+        </p>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-1.5 bg-amber-500/20 rounded-full overflow-hidden">
+            <div className="h-full bg-amber-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
+          </div>
+          <span className="text-[10px] text-amber-400 font-bold">{totalEntries}/{needed}</span>
+        </div>
+        <Link href="/discover" className="inline-flex items-center gap-1.5 mt-3 text-xs font-semibold text-amber-400 hover:text-amber-300">
+          <Plus size={13} />Aggiungi dalla libreria
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+const FriendsWatchingSection = memo(function FriendsWatchingSection({ items }: { items: FriendActivity[] }) {
+  if (!items.length) return null
+  const timeAgo = (d: string) => {
+    const diff = Date.now() - new Date(d).getTime()
+    const h = Math.floor(diff / 3600000), days = Math.floor(diff / 86400000)
+    if (h < 1) return 'ora'; if (h < 24) return `${h}h fa`; return `${days}g fa`
+  }
+  return (
+    <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-5 mb-10">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent)' }}>
+          <Users size={16} className="text-black" />
+        </div>
+        <h2 className="text-sm font-bold text-white">Amici che guardano</h2>
+        <span className="text-xs text-zinc-500 ml-auto">{items.length}</span>
+      </div>
+      <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+        {items.map(a => (
+          <Link key={`${a.userId}-${a.mediaId}`} href={`/profile/${a.username}`} className="flex-shrink-0 w-28 group">
+            <div className="relative h-40 rounded-2xl overflow-hidden bg-zinc-800 mb-2">
+              {a.mediaCover
+                ? <img src={optimizeCover(a.mediaCover, 'foryou-friend')} alt={a.mediaTitle} className="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" />
+                : <div className="w-full h-full flex items-center justify-center text-zinc-600"><Tv size={28} /></div>
+              }
+              <div className="absolute bottom-2 left-2 ring-2 ring-black rounded-full">
+                <Avatar src={a.avatarUrl} username={a.username} displayName={a.displayName} size={24} />
+              </div>
+              <div className="absolute top-2 right-2 bg-black/70 text-[9px] text-zinc-300 px-1.5 py-0.5 rounded-full">{timeAgo(a.updatedAt)}</div>
+            </div>
+            <p className="text-[10px] font-semibold text-zinc-300 line-clamp-2 mb-0.5">{a.mediaTitle}</p>
+            <p className="text-[9px] truncate" style={{ color: 'var(--accent)' }}>@{a.username}</p>
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+})
+
+// Module-level cache — sopravvive alle navigazioni nella stessa sessione
+const forYouCache: {
+  recommendations: Record<string, Recommendation[]> | null
+  rails: RecommendationRail[] | null
+  tasteProfile: TasteProfile | null
+  friendsActivity: FriendActivity[]
+  addedIds: Set<string>
+  wishlistIds: Set<string>
+  addedTitles: Set<string>
+  totalEntries: number
+  ts: number
+} = {
+  recommendations: null, rails: null, tasteProfile: null, friendsActivity: [],
+  addedIds: new Set(), wishlistIds: new Set(), addedTitles: new Set(),
+  totalEntries: 0, ts: 0,
+}
+
+// Inline swipe mode wrapper — carica le raccomandazioni dalla cache e le passa a SwipeMode
+function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
+  const supabase = createClient()
+  const router = useRouter()
+  const [items, setItems] = useState<SwipeItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const userIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/login'); return }
+      userIdRef.current = user.id
+      // Try queue first
+      const { data: queueRows } = await supabase
+        .from('swipe_queue_all').select('*').eq('user_id', user.id)
+        .order('inserted_at', { ascending: true })
+      if (queueRows && queueRows.length >= 5) {
+        setItems(queueRows.map((r: any) => ({
+          id: r.external_id, title: r.title, type: r.type,
+          coverImage: r.cover_image, year: r.year, genres: r.genres || [],
+          score: r.score, description: r.description, why: r.why,
+          matchScore: r.match_score || 0, episodes: r.episodes,
+          source: r.source,
+        })))
+        setLoading(false)
+        return
+      }
+      // Fall back to recommendations API
+      try {
+        const res = await fetch('/api/recommendations?type=all')
+        if (res.ok) {
+          const json = await res.json()
+          const all = (Object.values(json.recommendations || {}) as any[][]).flat()
+          setItems(all.map((r: any) => ({
+            id: r.id, title: r.title, type: r.type,
+            coverImage: r.coverImage, year: r.year, genres: r.genres || [],
+            score: r.score, description: r.description, why: r.why,
+            matchScore: r.matchScore || 0, episodes: r.episodes,
+            source: r.source,
+          })))
+        }
+      } catch { }
+      setLoading(false)
+    }
+    init()
+  }, []) // eslint-disable-line
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
+    </div>
+  )
+
+  const sendSwipeFeedback = async (item: SwipeItem, action: FeedbackAction, rating?: number) => {
+    await fetch('/api/recommendations/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres || [], action }),
+    }).catch(() => null)
+    if ((action === 'already_seen' || action === 'added') && (item.genres || []).length > 0) {
+      triggerTasteDelta({
+        action: 'rating',
+        mediaId: item.id,
+        mediaType: item.type,
+        genres: item.genres || [],
+        rating: rating || item.score || 3.5,
+      })
+    }
+  }
+
+  const requestMore = async (): Promise<SwipeItem[]> => {
+    const res = await fetch('/api/recommendations?type=all&refresh=1', { credentials: 'include' }).catch(() => null)
+    if (!res?.ok) return []
+    const json = await res.json()
+    const all = (Object.values(json.recommendations || {}) as any[][]).flat()
+    return all.map((r: any) => ({
+      id: r.id, title: r.title, type: r.type,
+      coverImage: r.coverImage, year: r.year, genres: r.genres || [],
+      score: r.score, description: r.description, why: r.why,
+      matchScore: r.matchScore || 0, episodes: r.episodes,
+      source: r.source,
+    }))
   }
 
   return (
     <SwipeMode
       items={items}
       userId={userIdRef.current || undefined}
-      onSeen={(item, rating) => sendSwipeFeedback(item, 'already_seen', rating ?? undefined)}
+      onSeen={(item, rating) => sendSwipeFeedback(item, 'already_seen', rating)}
       onSkip={(item) => sendSwipeFeedback(item, 'not_interested')}
       onClose={onClose}
       onRequestMore={requestMore}
-      standalone
-      onUndo={(item) => {
-        // opzionale: ripristina UI se necessario
-      }}
-      onUndoWishlist={(item) => {
-        // opzionale
-      }}
     />
+  )
+}
+
+export default function ForYouPage() {
+  const pathname = usePathname()
+  const { scrollToTop } = useScrollPanel()
+  const isActive = useTabActive()
+  const supabase = createClient(); const router = useRouter()
+  const { t } = useLocale(); const fy = t.forYou
+  const hasCachedData = forYouCache.recommendations !== null
+  const [loading, setLoading] = useState(!hasCachedData); const [refreshing, setRefreshing] = useState(false)
+  const [recommendations, setRecommendations] = useState<Record<string, Recommendation[]>>(forYouCache.recommendations ?? {})
+  const [rails, setRails] = useState<RecommendationRail[]>(forYouCache.rails ?? [])
+  const [tasteProfile, setTasteProfile] = useState<TasteProfile | null>(forYouCache.tasteProfile)
+  const [totalEntries, setTotalEntries] = useState(forYouCache.totalEntries)
+  const [addedIds, setAddedIds] = useState<Set<string>>(forYouCache.addedIds)
+  const [wishlistIds, setWishlistIds] = useState<Set<string>>(forYouCache.wishlistIds)
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
+  const [showPrefs, setShowPrefs] = useState(false)
+  const [isCached, setIsCached] = useState(hasCachedData)
+  const [friendsActivity, setFriendsActivity] = useState<FriendActivity[]>(forYouCache.friendsActivity)
+  const [friendsLoading, setFriendsLoading] = useState(!hasCachedData || forYouCache.friendsActivity.length === 0)
+  const [addingIds, setAddingIds] = useState<Set<string>>(new Set())
+  const [reasonPending, setReasonPending] = useState<Recommendation | null>(null)
+  const [similarLoading, setSimilarLoading] = useState<string | null>(null)
+  const [detailItem, setDetailItem] = useState<Recommendation | null>(null)
+  const [similarSection, setSimilarSection] = useState<{ sourceTitle: string; sourceType: MediaType; items: Recommendation[] } | null>(null)
+  const [showNewRecsBadge, setShowNewRecsBadge] = useState(false)
+  const [viewMode, setViewMode] = useState<'lista' | 'swipe'>('lista')
+  const addedTitlesRef = useRef<Set<string>>(forYouCache.addedTitles)
+
+  const fetchRecommendations = useCallback(async (force = false) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { router.push('/login'); return }
+    const res = await fetch(`/api/recommendations?type=all${force ? '&refresh=1' : ''}`)
+    if (!res.ok) return
+    const json = await res.json()
+    const incoming = json.recommendations || {}
+    if (Array.isArray(json.rails)) {
+      setRails(json.rails)
+      forYouCache.rails = json.rails
+    }
+    // Merge invece di replace: non sovrascrivere con dati parziali.
+    // Se la risposta contiene meno tipi di quelli in memoria, manteniamo i vecchi.
+    setRecommendations(prev => {
+      const merged = { ...prev }
+      for (const [type, items] of Object.entries(incoming)) {
+        if (Array.isArray(items) && items.length > 0) {
+          merged[type] = items as Recommendation[]
+        }
+      }
+      return merged
+    })
+    setTasteProfile(json.tasteProfile || null)
+    setIsCached(!!json.cached)
+  }, [])
+
+  const fetchFriends = useCallback(async (userId: string) => {
+    setFriendsLoading(true)
+    try {
+      const { data: follows } = await supabase.from('follows').select('following_id').eq('follower_id', userId)
+      const ids = (follows || []).map((f: any) => f.following_id)
+      if (!ids.length) { setFriendsActivity([]); setFriendsLoading(false); return }
+      const since = new Date(Date.now() - 7 * 86400000).toISOString()
+      const { data: entries } = await supabase.from('user_media_entries').select('user_id, external_id, title, cover_image, type, updated_at').in('user_id', ids).gte('updated_at', since).order('updated_at', { ascending: false }).limit(20)
+      if (!entries?.length) { setFriendsActivity([]); setFriendsLoading(false); return }
+      const uids = [...new Set(entries.map(e => e.user_id))]
+
+      // Profiles + similarity in parallel → single setState, no double-render wave
+      const [{ data: profiles }, { data: simData }] = await Promise.all([
+        supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', uids),
+        supabase.from('taste_similarity').select('other_user_id, similarity_score')
+          .eq('user_id', userId).in('other_user_id', ids).gte('similarity_score', 80),
+      ])
+
+      const pm: Record<string, any> = {}; profiles?.forEach(p => { pm[p.id] = p })
+      const highSimIds = new Set((simData || []).map((s: any) => s.other_user_id))
+      const simMap = Object.fromEntries((simData || []).map((s: any) => [s.other_user_id, s.similarity_score]))
+
+      const seen = new Set<string>(); const activity: FriendActivity[] = []
+      for (const e of entries) {
+        const key = `${e.user_id}-${e.external_id}`
+        if (seen.has(key)) continue; seen.add(key)
+        const p = pm[e.user_id]; if (!p) continue
+        activity.push({
+          userId: e.user_id, username: p.username, displayName: p.display_name,
+          avatarUrl: p.avatar_url, mediaId: e.external_id, mediaTitle: e.title,
+          mediaCover: e.cover_image, mediaType: e.type, updatedAt: e.updated_at,
+          isHighSim: highSimIds.has(e.user_id), simScore: simMap[e.user_id] || 0,
+        })
+      }
+      const result = activity.slice(0, 12)
+      setFriendsActivity(result)
+      forYouCache.friendsActivity = result
+    } catch { setFriendsActivity([]) }
+    setFriendsLoading(false)
+  }, [supabase])
+
+  useEffect(() => {
+    let cancelled = false
+    let profileChannel: ReturnType<typeof supabase.channel> | null = null
+
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || cancelled) { if (!user) router.push('/login'); return }
+      const userId = user.id
+
+      // Realtime: aggiorna entry_count solo se il panel è attivo.
+      // Controlla getChannels() per evitare doppia subscribe (StrictMode).
+      if (isActive) {
+        const chName = `profile-entry-count-${userId}`
+        const existing = supabase.getChannels().find(c => c.topic === `realtime:${chName}`)
+        if (!existing) {
+          profileChannel = supabase
+            .channel(chName)
+            .on('postgres_changes', {
+              event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}`,
+            }, (payload: any) => { setTotalEntries(payload.new?.entry_count ?? 0) })
+            .subscribe()
+        }
+      }
+
+      // ── Cache hit: mostra tutto immediatamente, poi aggiorna in background ──
+      if (forYouCache.recommendations !== null) {
+        // Aggiorna libreria e amici in background senza bloccare la UI
+        Promise.all([
+          supabase.from('user_media_entries').select('external_id, title').eq('user_id', userId),
+          supabase.from('wishlist').select('external_id').eq('user_id', userId),
+        ]).then(([{ data: entries }, { data: wish }]) => {
+          const newAddedIds: Set<string> = new Set((entries || []).map((e: any) => e.external_id as string).filter(Boolean))
+          const newTitles: Set<string> = new Set((entries || []).map((e: any) => (e.title as string)?.toLowerCase()).filter(Boolean))
+          const newWishIds: Set<string> = new Set((wish || []).map((w: any) => w.external_id as string).filter(Boolean))
+          setAddedIds(newAddedIds); setWishlistIds(newWishIds); setTotalEntries(entries?.length || 0)
+          addedTitlesRef.current = newTitles
+          forYouCache.addedIds = newAddedIds; forYouCache.wishlistIds = newWishIds
+          forYouCache.addedTitles = newTitles; forYouCache.totalEntries = entries?.length || 0
+        })
+        fetchFriends(userId)
+        return
+      }
+
+      // ── Cold start: fetch sequenziale ────────────────────────────────────────
+      const [{ data: entries }, { data: wish }] = await Promise.all([
+        supabase.from('user_media_entries').select('external_id, title').eq('user_id', userId),
+        supabase.from('wishlist').select('external_id').eq('user_id', userId),
+      ])
+
+      const newAddedIds: Set<string> = new Set((entries || []).map((e: any) => e.external_id as string).filter(Boolean))
+      const newTitles: Set<string> = new Set((entries || []).map((e: any) => (e.title as string)?.toLowerCase()).filter(Boolean))
+      const newWishIds: Set<string> = new Set((wish || []).map((w: any) => w.external_id as string).filter(Boolean))
+      setAddedIds(newAddedIds); setWishlistIds(newWishIds); setTotalEntries(entries?.length || 0)
+      addedTitlesRef.current = newTitles
+      forYouCache.addedIds = newAddedIds; forYouCache.wishlistIds = newWishIds
+      forYouCache.addedTitles = newTitles; forYouCache.totalEntries = entries?.length || 0
+
+      fetchFriends(userId)
+
+      // 1. Pool persistente (fast path ~50ms)
+      const poolRes = await fetch('/api/recommendations?source=pool', { cache: 'no-store' })
+      if (poolRes.ok) {
+        const poolJson = await poolRes.json()
+        if ((poolJson.source === 'pool' || poolJson.source === 'pool_master_sample') && poolJson.recommendations) {
+          const recs = poolJson.recommendations || {}
+          const nextRails = Array.isArray(poolJson.rails) ? poolJson.rails : []
+          setRecommendations(recs); setTasteProfile(poolJson.tasteProfile || null); setIsCached(true)
+          setRails(nextRails)
+          forYouCache.recommendations = recs; forYouCache.rails = nextRails; forYouCache.tasteProfile = poolJson.tasteProfile || null
+          forYouCache.ts = Date.now()
+          setLoading(false)
+          const lastVisit = localStorage.getItem('for_you_last_visit')
+          const now = Date.now()
+          if (lastVisit && now - parseInt(lastVisit || '') > 4 * 3600000) setShowNewRecsBadge(true)
+          localStorage.setItem('for_you_last_visit', String(now))
+          return
+        }
+      }
+
+      // 2. Pool vuota → calcola tutto
+      const recsRes = await fetch('/api/recommendations?type=all')
+      if (recsRes.ok) {
+        const json = await recsRes.json()
+        const incoming = json.recommendations || {}
+        const merged: Record<string, Recommendation[]> = {}
+        for (const [type, items] of Object.entries(incoming)) {
+          if (Array.isArray(items) && (items as any[]).length > 0) merged[type] = items as Recommendation[]
+        }
+        setRecommendations(merged); setTasteProfile(json.tasteProfile || null); setIsCached(!!json.cached)
+        const nextRails = Array.isArray(json.rails) ? json.rails : []
+        setRails(nextRails)
+        forYouCache.recommendations = merged; forYouCache.rails = nextRails; forYouCache.tasteProfile = json.tasteProfile || null
+        forYouCache.ts = Date.now()
+      }
+
+      setLoading(false)
+      const lastVisit = localStorage.getItem('for_you_last_visit')
+      const now = Date.now()
+      if (lastVisit && now - parseInt(lastVisit || '') > 4 * 3600000) setShowNewRecsBadge(true)
+      localStorage.setItem('for_you_last_visit', String(now))
+    }
+    init()
+    return () => {
+      cancelled = true
+      if (profileChannel) supabase.removeChannel(profileChannel)
+    }
+  }, [])
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    setShowNewRecsBadge(false)
+    const { data: { user } } = await supabase.auth.getUser()
+    const [lightJson] = await Promise.all([
+      fetch('/api/recommendations?source=refresh_pool', { cache: 'no-store' })
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null),
+      user ? fetchFriends(user.id) : Promise.resolve(),
+    ])
+
+    let json = lightJson
+
+    if (json && json.recommendations) {
+      const incoming = json.recommendations as Record<string, Recommendation[]>
+      if (Array.isArray(json.rails)) {
+        setRails(json.rails)
+        forYouCache.rails = json.rails
+      }
+      setRecommendations(prev => {
+        const merged = { ...prev }
+        for (const [type, items] of Object.entries(incoming)) {
+          if (Array.isArray(items) && items.length > 0) merged[type] = items
+        }
+        forYouCache.recommendations = merged
+        forYouCache.ts = Date.now()
+        return merged
+      })
+      if (json.tasteProfile) { setTasteProfile(json.tasteProfile); forYouCache.tasteProfile = json.tasteProfile }
+      setIsCached(false)
+    }
+    setRefreshing(false)
+  }
+
+  // Pull-to-refresh su mobile — deve stare DOPO handleRefresh
+  const { distance: pullDistance, refreshing: isPulling } = usePullToRefresh({
+    onRefresh: handleRefresh,
+    enabled: pathname === '/for-you',
+  })
+
+  const handleAdd = useCallback(async (item: Recommendation) => {
+    if (addedIds.has(item.id) || addingIds.has(item.id)) return
+    setAddingIds(prev => new Set([...prev, item.id]))
+    const { data: { user } } = await supabase.auth.getUser(); if (!user) { setAddingIds(prev => { const s = new Set(prev); s.delete(item.id); return s }); return }
+    const isBoardgame = item.type === 'boardgame'
+    const bggAchievementData = isBoardgame && ((item as any).complexity != null || (item as any).min_players != null || (item as any).playing_time != null)
+      ? { bgg: { score: (item as any).score ?? null, complexity: (item as any).complexity ?? null, min_players: (item as any).min_players ?? null, max_players: (item as any).max_players ?? null, playing_time: (item as any).playing_time ?? null } }
+      : null
+    const res = await fetch('/api/collection', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        external_id: item.id, title: item.title, type: item.type,
+        cover_image: item.coverImage, genres: item.genres,
+        tags: isBoardgame ? ((item as any).mechanics || []) : [],
+        authors: isBoardgame ? ((item as any).designers || []) : [],
+        achievement_data: bggAchievementData,
+        status: (item.type === 'movie' || isBoardgame) ? 'completed' : 'watching',
+        current_episode: isBoardgame ? null : 1,
+        display_order: Date.now(),
+      }),
+    }).catch(() => null)
+    if (res?.ok) {
+      setAddedIds(prev => new Set([...prev, item.id]))
+      addedTitlesRef.current.add(item.title.toLowerCase())
+      await fetch('/api/recommendations/feedback', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres, action: 'added' })
+      })
+      if (item.genres.length > 0) {
+        triggerTasteDelta({ action: 'status_change', mediaId: item.id, mediaType: item.type, genres: item.genres, status: item.type === 'movie' ? 'completed' : 'watching' })
+      }
+      setDismissedIds(prev => new Set([...prev, item.id]))
+      profileInvalidateBridge.invalidate()
+    }
+    setAddingIds(prev => { const s = new Set(prev); s.delete(item.id); return s })
+  }, [supabase, addedIds, addingIds])
+
+  const handleWishlist = useCallback(async (item: Recommendation) => {
+    const { data: { user } } = await supabase.auth.getUser(); if (!user) return
+    if (wishlistIds.has(item.id)) {
+      const res = await fetch('/api/wishlist', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ external_id: item.id }),
+      }).catch(() => null)
+      if (res?.ok) setWishlistIds(prev => { const s = new Set(prev); s.delete(item.id); return s })
+    } else {
+      const res = await fetch('/api/wishlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          external_id: item.id,
+          title: item.title,
+          type: item.type,
+          cover_image: item.coverImage,
+        }),
+      }).catch(() => null)
+      if (!res?.ok) return
+      setWishlistIds(prev => new Set([...prev, item.id]))
+      if (item.genres.length > 0) {
+        triggerTasteDelta({ action: 'wishlist_add', mediaId: item.id, mediaType: item.type, genres: item.genres })
+      }
+    }
+  }, [supabase, wishlistIds, t])
+
+  // Fix 1.15: "Simili a questo" — richiede i consigli filtrati per i generi del titolo
+  const handleDetail = useCallback((item: Recommendation) => {
+    const details: MediaDetails = {
+      id: item.id,
+      title: item.title,
+      type: item.type,
+      coverImage: item.coverImage,
+      year: item.year,
+      genres: item.genres,
+      description: item.description,
+      score: item.score,
+      episodes: item.episodes,
+      authors: item.authors,
+      developers: item.developers,
+      platforms: item.platforms,
+      why: item.why,
+      matchScore: item.matchScore,
+      isAwardWinner: item.isAwardWinner,
+      source: item.id.startsWith('anilist-anime') ? 'anilist'
+        : item.id.startsWith('anilist-manga') ? 'anilist'
+          : item.id.startsWith('tmdb-') ? 'tmdb'
+            : item.id.startsWith('igdb-') ? 'igdb'
+              : item.id.startsWith('ol-') ? 'ol'
+                : item.id.startsWith('bgg-') ? 'bgg'
+                  : item.type === 'boardgame' ? 'bgg'
+                    : /^\d+$/.test(item.id) && item.type === 'game' ? 'igdb'
+                      : /^\d+$/.test(item.id) && (item.type === 'movie' || item.type === 'tv' || item.type === 'anime') ? 'tmdb'
+                        : undefined,
+    }
+    setDetailItem(details as any)
+  }, [])
+
+  // searchSimilar e handleSimilar unite — searchSimilar dichiarata prima per evitare
+  // problemi di closure con useCallback deps=[]
+  const searchSimilar = useCallback(async (title: string, genres: string[], excludeId?: string, tags?: string[], keywords?: string[], type?: string) => {
+    const params = new URLSearchParams({ title })
+    if (genres.length) params.set('genres', genres.slice(0, 5).join(','))
+    if (tags?.length) params.set('tags', tags.slice(0, 15).join(','))
+    if (keywords?.length) params.set('keywords', keywords.slice(0, 15).join(','))
+    if (excludeId) params.set('excludeId', excludeId)
+    if (type) params.set('type', type)
+    const res = await fetch(`/api/recommendations/similar?${params}`)
+    if (res.ok) {
+      const json = await res.json()
+      const items: Recommendation[] = (json.items || []).filter((r: Recommendation) => r.id !== excludeId)
+      setSimilarSection({ sourceTitle: title, sourceType: (type as MediaType) || 'movie', items })
+      scrollToTop('smooth')
+    } else {
+    }
+  }, [])
+
+  const handleSimilar = useCallback(async (item: Recommendation) => {
+    if (!item.genres.length) return
+    setSimilarLoading(item.id)
+    await searchSimilar(item.title, item.genres, item.id, item.tags, item.keywords, item.type)
+    setSimilarLoading(null)
+  }, [searchSimilar])
+
+  const sendFeedback = useCallback(async (item: Recommendation, action: FeedbackAction, reason?: FeedbackReason) => {
+    await fetch('/api/recommendations/feedback', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres, action, reason: reason || null })
+    })
+    if (action === 'not_interested' && item.genres.length > 0) {
+      triggerTasteDelta({ action: 'status_change', mediaId: item.id, mediaType: item.type, genres: item.genres, status: 'dropped' })
+    }
+  }, [])
+
+  const handleFeedback = useCallback((item: Recommendation, action: FeedbackAction, reason?: FeedbackReason) => {
+    if (action === 'not_interested' && reason === undefined) {
+      // Mostra il quick-reason sheet prima di inviare il segnale negativo.
+      // Così il feedback non viene duplicato e il dismiss avviene solo alla conferma.
+      setReasonPending(item)
+      return
+    }
+    setDismissedIds(prev => new Set([...prev, item.id]))
+    sendFeedback(item, action, reason)
+  }, [sendFeedback])
+
+  // Fix mutazione cache: clona i dati prima di modificarli
+  // Senza clone, il boost si accumula ad ogni render perché modifica oggetti nel forYouCache
+  const displayRecs = Object.fromEntries(
+    Object.entries(recommendations).map(([type, items]) => [type, (items as Recommendation[]).map(r => ({ ...r }))])
+  ) as Record<string, Recommendation[]>
+
+  // Fix 2.9: eleva nelle sezioni i titoli guardati da amici con sim ≥80%
+  const friendWatchingMap = new Map<string, string>()  // mediaId → username
+  for (const a of friendsActivity) {
+    if (a.isHighSim && a.mediaId && !friendWatchingMap.has(a.mediaId)) {
+      friendWatchingMap.set(a.mediaId, a.displayName || a.username)
+    }
+  }
+  // Inietta friendWatching nelle recs clonate (non nel cache originale)
+  for (const recs of Object.values(displayRecs)) {
+    for (const rec of recs) {
+      if (friendWatchingMap.has(rec.id)) {
+        rec.friendWatching = friendWatchingMap.get(rec.id)
+        rec.matchScore = Math.min(100, rec.matchScore + 12)
+      }
+    }
+  }
+
+  const displayRailsWithFriends = rails.map(rail => ({
+    ...rail,
+    items: rail.items.map(rec => {
+      if (!friendWatchingMap.has(rec.id)) return rec
+      return { ...rec, friendWatching: friendWatchingMap.get(rec.id), matchScore: Math.min(100, rec.matchScore + 12) }
+    }),
+  }))
+
+  const visibleRails = displayRailsWithFriends
+    .map(rail => ({ ...rail, items: rail.items.filter(i => !dismissedIds.has(i.id)) }))
+    .filter(rail => rail.items.length > 0)
+  const spotlightItem = visibleRails.find(rail => rail.kind === 'top-match')?.items[0] || visibleRails[0]?.items[0]
+
+  const hasEnoughData = totalEntries >= 1
+
+  // Mostra solo sezioni per tipi che l'utente ha nella collezione
+  // E ordina per numero di titoli consigliati (sezioni più ricche prima)
+  const collectionSize = tasteProfile?.collectionSize || {}
+  const ALL_SECTIONS: Array<{ key: MediaType; label: string }> = [
+    { key: 'anime', label: fy.sections.anime },
+    { key: 'game', label: fy.sections.game },
+    { key: 'movie', label: fy.sections.movie },
+    { key: 'tv', label: fy.sections.tv },
+    { key: 'manga', label: fy.sections.manga },
+    { key: 'boardgame', label: fy.sections.boardgame },
+  ]
+  // Fix 2.4: ordina per affinità reale (collectionSize nel profilo) non per count consigli
+  // Chi ha più titoli nel profilo viene prima — riflette il tipo centrale per l'utente
+  const SECTIONS = ALL_SECTIONS.filter(({ key }) =>
+    (collectionSize[key] || 0) >= 1 || (displayRecs[key] || []).length >= 1
+  ).sort((a, b) => {
+    const sizeA = collectionSize[a.key] || 0
+    const sizeB = collectionSize[b.key] || 0
+    return sizeB - sizeA
+  })
+  const primarySectionKey = SECTIONS[0]?.key
+
+
+
+  if (loading) return (
+    <div className="min-h-screen bg-[var(--bg-primary)] text-white">
+      <div className="pt-2 md:pt-8 pb-28 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
+        {/* Utility bar skeleton */}
+        <div className="flex justify-end items-center gap-2 mb-4 animate-pulse">
+          <div className="h-8 w-28 bg-zinc-900 border border-zinc-800/80 rounded-xl" />
+          <div className="h-8 w-8 bg-zinc-900 border border-zinc-800/80 rounded-xl" />
+        </div>
+        {/* Search bar "Trova simili a…" */}
+        <div className="h-9 w-full bg-zinc-900 rounded-2xl mb-6 animate-pulse" />
+        <SkeletonForYouRow />
+        <SkeletonForYouRow />
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="min-h-screen bg-[var(--bg-primary)] text-white">
+      <PullToRefreshIndicator distance={pullDistance} refreshing={isPulling} />
+      <div className="pt-2 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
+
+        <section className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(230,255,61,0.09),rgba(139,92,246,0.07),rgba(20,20,27,0.9))] p-4 md:p-6 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="min-w-0">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+                <Sparkles size={12} /> For You engine
+              </div>
+              <h1 className="gk-h1 mb-2 text-[var(--text-primary)]">Consigli costruiti sul tuo Taste DNA.</h1>
+              <p className="gk-body max-w-2xl">
+                Rail ordinati, swipe rapido e segnali espliciti: ogni card deve spiegare perché entra nel tuo universo.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-1 rounded-[18px] border border-[rgba(230,255,61,0.18)] bg-[rgba(20,20,27,0.94)] p-1 shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('lista')}
+                  className="inline-flex h-9 items-center gap-2 rounded-[14px] px-3 text-xs font-black transition-all"
+                  style={{
+                    background: viewMode === 'lista' ? 'var(--accent)' : 'transparent',
+                    color: viewMode === 'lista' ? '#0B0B0F' : 'var(--text-secondary)',
+                  }}
+                >
+                  <List size={14} />
+                  <span>Lista</span>
+                  <span className="hidden font-mono-data text-[9px] uppercase tracking-[0.08em] opacity-60 sm:inline">rail</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('swipe')}
+                  className="inline-flex h-9 items-center gap-2 rounded-[14px] px-3 text-xs font-black transition-all"
+                  style={{
+                    background: viewMode === 'swipe' ? 'var(--accent)' : 'transparent',
+                    color: viewMode === 'swipe' ? '#0B0B0F' : 'var(--text-secondary)',
+                  }}
+                >
+                  <Shuffle size={14} />
+                  <span>Swipe</span>
+                  <span className="hidden font-mono-data text-[9px] uppercase tracking-[0.08em] opacity-60 sm:inline">cards</span>
+                </button>
+              </div>
+
+              <button onClick={() => setShowPrefs(true)}
+                className="inline-flex h-10 items-center gap-2 rounded-[16px] border border-[var(--border)] bg-[var(--bg-card)] px-3.5 text-xs font-bold text-[var(--text-secondary)] transition-all hover:border-[rgba(230,255,61,0.28)] hover:text-[var(--text-primary)]">
+                <SlidersHorizontal size={14} />
+                <span>{fy.preferences}</span>
+              </button>
+              <div className="relative">
+                <button onClick={handleRefresh} disabled={refreshing}
+                  className="flex h-10 w-10 items-center justify-center rounded-[16px] border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] transition-all hover:text-[var(--text-primary)] disabled:opacity-40">
+                  <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+                </button>
+                {showNewRecsBadge && (
+                  <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 animate-pulse rounded-full border border-black" style={{ background: 'var(--accent)' }} />
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
+            <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
+              <p className="font-mono-data text-[18px] font-black leading-none text-[var(--accent)]">{totalEntries}</p>
+              <p className="gk-label mt-1">library signals</p>
+            </div>
+            <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
+              <p className="font-mono-data text-[18px] font-black leading-none text-[var(--text-primary)]">{visibleRails.length || SECTIONS.length}</p>
+              <p className="gk-label mt-1">rails active</p>
+            </div>
+            <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
+              <p className="font-mono-data text-[18px] font-black leading-none text-[var(--text-primary)]">{spotlightItem ? spotlightItem.matchScore : '—'}</p>
+              <p className="gk-label mt-1">top match</p>
+            </div>
+          </div>
+        </section>
+
+        {!hasEnoughData ? (
+          <EmptyState
+            icon={Sparkles}
+            title={fy.title}
+            description={fy.emptyState}
+            action={{ label: fy.emptyStateCta, href: '/discover' }}
+            accent="violet"
+          />
+        ) : viewMode === 'swipe' ? (
+          <SwipeModeWrapper onClose={() => setViewMode('lista')} />
+        ) : (
+          <>
+            {totalEntries < 15 && <LowConfidenceBanner totalEntries={totalEntries} />}
+            {tasteProfile && <DNAWidget tasteProfile={tasteProfile} totalEntries={totalEntries} />}
+            {/* Barra ricerca libera "Trova simili a..." */}
+            <SimilarSearchBar
+              onSearch={(title, genres, keywords, type) => searchSimilar(title, genres, undefined, undefined, keywords, type)}
+              loading={!!similarLoading}
+            />
+
+            {spotlightItem && (
+              <SpotlightRecommendation
+                item={spotlightItem}
+                onFeedback={handleFeedback}
+                onSimilar={handleSimilar}
+                onDetail={handleDetail}
+                isSimilarLoading={similarLoading === spotlightItem.id}
+              />
+            )}
+
+            {similarSection && (
+              <SimilarSection
+                key={similarSection.sourceTitle}
+                sourceTitle={similarSection.sourceTitle}
+                sourceType={similarSection.sourceType}
+                items={similarSection.items}
+                onFeedback={handleFeedback}
+                onSimilar={handleSimilar}
+                onDetail={handleDetail}
+                onClose={() => setSimilarSection(null)}
+                dismissedIds={dismissedIds}
+                similarLoadingId={similarLoading}
+                addedIds={addedIds}
+                wishlistIds={wishlistIds}
+                addingIds={addingIds}
+                onAdd={handleAdd}
+                onWishlist={handleWishlist}
+              />
+            )}
+            {visibleRails.length > 0 ? visibleRails.map(rail => (
+              <NetflixRailSection
+                key={rail.id}
+                rail={rail}
+                onFeedback={handleFeedback}
+                dismissedIds={dismissedIds}
+                onSimilar={handleSimilar}
+                onDetail={handleDetail}
+                similarLoadingId={similarLoading}
+                addedIds={addedIds}
+                wishlistIds={wishlistIds}
+                addingIds={addingIds}
+                onAdd={handleAdd}
+                onWishlist={handleWishlist}
+              />
+            )) : SECTIONS.map(({ key, label }) => {
+              const items = displayRecs[key] || []
+              const allItems = items
+                .filter(i => !dismissedIds.has(i.id))
+                .sort((a, b) => b.matchScore - a.matchScore)
+              if (!allItems.length) return null
+              return (
+                <RecommendationSection
+                  key={key}
+                  type={key}
+                  items={allItems}
+                  label={label}
+                  onAdd={handleAdd}
+                  onWishlist={handleWishlist}
+                  onFeedback={handleFeedback}
+                  dismissedIds={dismissedIds}
+                  onSimilar={handleSimilar}
+                  onDetail={handleDetail}
+                  similarLoadingId={similarLoading}
+                  isPrimary={key === primarySectionKey}
+                  addedIds={addedIds}
+                  wishlistIds={wishlistIds}
+                  addingIds={addingIds}
+                />
+              )
+            })}
+
+            {visibleRails.length === 0 && SECTIONS.every(({ key }) => {
+              const items = (displayRecs[key] || []).filter(i => !dismissedIds.has(i.id))
+              return !items.length
+            }) && (
+                <div className="text-center py-20">
+                  <p className="text-zinc-400">{fy.sectionEmpty}</p>
+                  <button onClick={handleRefresh} className="mt-4 text-sm hover:underline" style={{ color: 'var(--accent)' }}>{fy.refresh}</button>
+                </div>
+              )}
+          </>
+        )}
+      </div>
+      {showPrefs && <PreferencesModal onClose={() => setShowPrefs(false)} onSaved={handleRefresh} />}
+      {/* Drawer dettaglio titolo — stesso del Discover */}
+      {detailItem && (
+        <MediaDetailsDrawer
+          media={detailItem as any}
+          onClose={() => setDetailItem(null)}
+          onAdd={(media) => {
+            setAddedIds(prev => new Set([...prev, media.id]))
+            addedTitlesRef.current.add((media.title as string)?.toLowerCase())
+            setDetailItem(null)
+            profileInvalidateBridge.invalidate()
+          }}
+        />
+      )}
+      {/* Fix 2.6: quick-reason sheet */}
+      {reasonPending && (
+        <QuickReasonSheet
+          item={reasonPending}
+          onConfirm={(reason) => {
+            setDismissedIds(prev => new Set([...prev, reasonPending.id]))
+            sendFeedback(reasonPending, 'not_interested', reason)
+            setReasonPending(null)
+          }}
+          onDismiss={() => setReasonPending(null)}
+        />
+      )}
+    </div>
   )
 }
