@@ -53,12 +53,12 @@ export function TasteSimilarityBadge({ targetUserId }: Props) {
       <div className="flex items-center gap-1.5">
         <Zap size={12} className="fill-current" />
         <span className="text-xs font-bold">{data.score}% match</span>
-        <span className="text-[10px] opacity-70">· {data.label}</span>
+        <span className="gk-mono opacity-70">· {data.label}</span>
       </div>
       {data.commonGenres.length > 0 && (
         <div className="flex gap-1 flex-wrap">
           {data.commonGenres.slice(0, 3).map(g => (
-            <span key={g} className="text-[9px] bg-black/20 px-1.5 py-0.5 rounded-full opacity-80">{g}</span>
+            <span key={g} className="text-[10px] font-medium bg-black/20 px-1.5 py-0.5 rounded-full opacity-80">{g}</span>
           ))}
         </div>
       )}

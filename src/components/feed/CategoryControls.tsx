@@ -446,7 +446,7 @@ export function CategoryFilter({
 
       {open && (
         <div className="fixed sm:absolute top-auto sm:top-full left-0 right-0 sm:left-auto sm:right-auto bottom-0 sm:bottom-auto mt-0 sm:mt-2 bg-zinc-900 border border-zinc-700 rounded-t-3xl sm:rounded-2xl shadow-2xl shadow-black/60 w-full sm:w-[300px] p-3 pb-6 sm:pb-3" style={{ zIndex: 20000 }}>
-          <p className="text-[10px] text-zinc-500 font-semibold px-1 pb-2 uppercase tracking-wider">Filtra per medium</p>
+          <p className="gk-label px-1 pb-2">Filtra per medium</p>
 
           <div className="mb-3">
             <div className="grid grid-cols-3 gap-1.5 mb-1.5">

@@ -267,7 +267,7 @@ export function MobileMediaModal({
         </div>
 
         <div
-          className="flex-shrink-0 touch-none cursor-grab border-b border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.08),rgba(139,92,246,0.055),transparent)] px-4 pb-4 pt-2"
+          className="flex-shrink-0 touch-none cursor-grab border-b border-[var(--border)] bg-[rgba(230,255,61,0.04)] px-4 pb-4 pt-2"
           onTouchStart={onHandleTouchStart}
           onTouchMove={onHandleTouchMove}
           onTouchEnd={onHandleTouchEnd}

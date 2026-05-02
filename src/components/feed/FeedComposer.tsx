@@ -38,7 +38,7 @@ function ProfileAvatar({ profile, className = 'h-9 w-9', textClassName = 'text-x
       {profile?.avatar_url ? (
         <img src={profile.avatar_url} alt="avatar" className="h-full w-full object-cover" />
       ) : (
-        <div className={`flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,rgba(230,255,61,0.18),rgba(139,92,246,0.18))] font-black text-[var(--text-primary)] ${textClassName}`}>
+        <div className={`flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,rgba(230,255,61,0.22),rgba(74,222,128,0.16))] font-black text-[var(--text-primary)] ${textClassName}`}>
           {(profile?.username?.[0] || '?').toUpperCase()}
         </div>
       )}
@@ -153,7 +153,7 @@ export function FeedComposer({
               style={{ top: modalPos.top, left: modalPos.left, width: modalPos.width, maxHeight: modalPos.maxHeight }}
               onClick={e => e.stopPropagation()}
             >
-              <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.08),rgba(139,92,246,0.055),transparent)] px-5 py-4">
+              <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--border)] bg-[rgba(230,255,61,0.04)] px-5 py-4">
                 <button type="button" onClick={closeComposer} data-no-swipe="true" className="text-[14px] font-bold text-[var(--text-muted)] transition-colors hover:text-white">Annulla</button>
                 <div className="text-center">
                   <p className="gk-label text-[var(--accent)]">Activity composer</p>

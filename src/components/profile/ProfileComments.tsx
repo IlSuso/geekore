@@ -33,7 +33,7 @@ function CommentAvatar({ author }: { author: Comment['author'] }) {
       {author?.avatar_url ? (
         <img src={author.avatar_url} alt="" className="h-full w-full object-cover" />
       ) : (
-        <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,rgba(230,255,61,0.18),rgba(139,92,246,0.18))] text-sm font-black text-[var(--text-primary)]">
+        <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,rgba(230,255,61,0.22),rgba(74,222,128,0.16))] text-sm font-black text-[var(--text-primary)]">
           {(author?.display_name?.[0] || author?.username?.[0] || '?').toUpperCase()}
         </div>
       )}
@@ -146,7 +146,7 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
       <div className="mt-12">
         <div className="mb-5 flex items-start justify-between gap-3">
           <div>
-            <div className="mb-1 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.30)] bg-[rgba(230,255,61,0.07)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+            <div className="mb-1 gk-section-eyebrow">
               <Sparkles size={12} />
               Profile wall
             </div>

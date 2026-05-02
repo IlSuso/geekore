@@ -43,10 +43,8 @@ interface PageTitleProps {
 
 function PageTitle({ title, icon }: PageTitleProps) {
   return (
-    <div className="flex min-w-0 items-center gap-2.5">
-      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] ring-1 ring-white/5">
-        {icon}
-      </div>
+    <div className="flex min-w-0 items-center gap-2">
+      <span className="flex-shrink-0 text-[var(--text-muted)]">{icon}</span>
       <h1 className="gk-headline truncate text-[var(--text-primary)]">{title}</h1>
     </div>
   )
@@ -95,23 +93,23 @@ export function MobileHeader() {
   const iconCls = 'flex h-10 w-10 items-center justify-center rounded-2xl text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-card-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35'
 
   const PAGE_CONFIG: Record<string, PageTitleProps> = {
-    '/discover': { title: t.nav.discover, icon: <Search size={14} /> },
-    '/for-you': { title: t.nav.forYou, icon: <Sparkles size={14} /> },
-    '/trending': { title: 'Trending', icon: <TrendingUp size={14} /> },
-    '/swipe': { title: 'Swipe', icon: <Shuffle size={14} /> },
-    '/notifications': { title: 'Notifiche', icon: <Bell size={14} /> },
-    '/settings/profile': { title: 'Modifica Profilo', icon: <Edit3 size={14} /> },
-    '/settings': { title: t.nav.settings, icon: <Settings size={14} /> },
-    '/profile/setup': { title: 'Crea Profilo', icon: <Edit3 size={14} /> },
-    '/wishlist': { title: 'Wishlist', icon: <Bookmark size={14} /> },
-    '/stats': { title: 'Statistiche', icon: <BarChart2 size={14} /> },
-    '/leaderboard': { title: 'Classifica', icon: <Trophy size={14} /> },
-    '/lists': { title: 'Liste', icon: <List size={14} /> },
-    '/search': { title: 'Cerca', icon: <Search size={14} /> },
-    '/explore': { title: 'Esplora', icon: <Search size={14} /> },
-    '/friends': { title: 'Friends', icon: <Users size={14} /> },
-    '/community': { title: 'Friends', icon: <Users size={14} /> },
-    '/library': { title: 'Library', icon: <Library size={14} /> },
+    '/discover': { title: t.nav.discover, icon: <Search size={16} /> },
+    '/for-you': { title: t.nav.forYou, icon: <Sparkles size={16} /> },
+    '/trending': { title: 'Trending', icon: <TrendingUp size={16} /> },
+    '/swipe': { title: 'Swipe', icon: <Shuffle size={16} /> },
+    '/notifications': { title: 'Notifiche', icon: <Bell size={16} /> },
+    '/settings/profile': { title: 'Modifica Profilo', icon: <Edit3 size={16} /> },
+    '/settings': { title: t.nav.settings, icon: <Settings size={16} /> },
+    '/profile/setup': { title: 'Crea Profilo', icon: <Edit3 size={16} /> },
+    '/wishlist': { title: 'Wishlist', icon: <Bookmark size={16} /> },
+    '/stats': { title: 'Statistiche', icon: <BarChart2 size={16} /> },
+    '/leaderboard': { title: 'Classifica', icon: <Trophy size={16} /> },
+    '/lists': { title: 'Liste', icon: <List size={16} /> },
+    '/search': { title: 'Cerca', icon: <Search size={16} /> },
+    '/explore': { title: 'Esplora', icon: <Search size={16} /> },
+    '/friends': { title: 'Friends', icon: <Users size={16} /> },
+    '/community': { title: 'Friends', icon: <Users size={16} /> },
+    '/library': { title: 'Library', icon: <Library size={16} /> },
   }
 
   const pageConfig = Object.entries(PAGE_CONFIG)

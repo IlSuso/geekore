@@ -86,11 +86,11 @@ function SummerCard({ currentUserId }: { currentUserId: string | null }) {
       </div>
       <div className="grid grid-cols-3 gap-2 text-center">
         <div className="rounded-2xl bg-black/18 p-3">
-          <p className="font-mono-data text-[18px] font-black text-white">{stats.total}</p>
+          <p className="font-display text-[18px] font-black tracking-[-0.02em] text-white">{stats.total}</p>
           <p className="gk-mono text-[var(--text-muted)]">media</p>
         </div>
         <div className="rounded-2xl bg-black/18 p-3">
-          <p className="font-mono-data text-[18px] font-black text-white">{stats.completed}</p>
+          <p className="font-display text-[18px] font-black tracking-[-0.02em] text-white">{stats.completed}</p>
           <p className="gk-mono text-[var(--text-muted)]">done</p>
         </div>
         <div className="rounded-2xl bg-black/18 p-3">
@@ -147,7 +147,7 @@ function FriendsTrendingCard() {
               </div>
               <div className="min-w-0">
                 <p className="line-clamp-2 text-[13px] font-black leading-tight text-[var(--text-primary)]">{item.title}</p>
-                <p className="mt-1 text-[10px] text-[var(--text-muted)]">{item.count} attività · {CATEGORY_LABEL[item.type] || item.type}</p>
+                <p className="gk-caption mt-1">{item.count} attività · {CATEGORY_LABEL[item.type] || item.type}</p>
               </div>
             </div>
           )
@@ -206,7 +206,7 @@ function SuggestedUsersCard({ currentUserId }: { currentUserId: string }) {
                   <UserBadge badge={user.badge} displayName={user.display_name || user.username} />
                 </p>
               </Link>
-              <p className="font-mono-data text-[10px] text-[var(--text-muted)]">taste match {92 - index * 7}%</p>
+              <p className="gk-mono text-[var(--text-muted)]">taste match {92 - index * 7}%</p>
             </div>
             {followed.has(user.id) ? (
               <span className="gk-chip">Seguito</span>

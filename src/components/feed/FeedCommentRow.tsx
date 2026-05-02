@@ -48,7 +48,7 @@ export function FeedCommentRow({
           </Link>
           <span className="text-[var(--text-secondary)]">{comment.content}</span>
         </p>
-        <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
+        <p className="gk-mono mt-0.5 text-[var(--text-muted)]">
           {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })}
         </p>
       </div>

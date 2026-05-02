@@ -12,7 +12,7 @@ interface SettingsControlHeroProps {
 function HeroStat({ label, value, accent = false }: { label: string; value: string | number; accent?: boolean }) {
   return (
     <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
-      <p className={`font-mono-data text-[20px] font-black leading-none ${accent ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>{value}</p>
+      <p className={`font-display text-[20px] font-black leading-none tracking-[-0.03em] ${accent ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>{value}</p>
       <p className="gk-label mt-1">{label}</p>
     </div>
   )
@@ -25,8 +25,8 @@ export function SettingsControlHero({
   digestEnabled = true,
 }: SettingsControlHeroProps) {
   return (
-    <section className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(230,255,61,0.09),rgba(139,92,246,0.07),rgba(20,20,27,0.92))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-5">
-      <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+    <section className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(160deg,rgba(230,255,61,0.07),var(--bg-secondary))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-5">
+      <div className="mb-2 gk-section-eyebrow">
         <Sparkles size={12} />
         Control center
       </div>

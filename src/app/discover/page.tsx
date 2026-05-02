@@ -281,7 +281,7 @@ function BrowseTile({ prompt, onClick }: { prompt: typeof BROWSE_PROMPTS[number]
       </span>
       <span>
         <span className="block text-[14px] font-black text-[var(--text-primary)]">{prompt.label}</span>
-        <span className="mt-1 block font-mono-data text-[10px] text-[var(--text-tertiary)]">{prompt.subtitle}</span>
+        <span className="mt-1 block gk-mono text-[var(--text-muted)]">{prompt.subtitle}</span>
       </span>
     </button>
   )

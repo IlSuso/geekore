@@ -93,7 +93,7 @@ function LibraryStat({ label, value, accent = false, icon }: { label: string; va
         <p className="gk-label">{label}</p>
         {icon && <span className={accent ? 'text-[var(--accent)]' : 'text-[var(--text-muted)]'}>{icon}</span>}
       </div>
-      <p className={`font-mono-data text-[28px] font-black leading-none ${accent ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>
+      <p className={`font-display text-[28px] font-black leading-none tracking-[-0.04em] ${accent ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>
         {value}
       </p>
     </div>
@@ -449,11 +449,42 @@ export default function LibraryPage() {
       {loading ? (
         viewMode === 'grid' ? <MediaGridSkeleton count={21} showMeta /> : <div className="space-y-2">{Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-[74px] rounded-2xl bg-[var(--bg-card)] skeleton" />)}</div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-20 text-center">
-          <p className="gk-headline mb-1 text-[var(--text-primary)]">{entries.length === 0 ? 'Library vuota' : 'Nessun elemento trovato'}</p>
-          <p className="gk-body mx-auto mb-6 max-w-sm">{entries.length === 0 ? 'Aggiungi media dalla sezione Discover per iniziare a costruire il tuo DNA.' : hasActiveFilters ? 'Prova a cambiare ricerca o filtri.' : 'Prova a cambiare i filtri.'}</p>
-          {entries.length === 0 ? <ActionButton href="/discover">Vai a Discover</ActionButton> : hasActiveFilters ? <button type="button" data-no-swipe="true" onClick={clearFilters} className="inline-flex h-10 items-center justify-center rounded-xl bg-[var(--accent)] px-4 text-sm font-bold text-[#0B0B0F] transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35">Cancella filtri</button> : null}
-        </div>
+        entries.length === 0 ? (
+          <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-14">
+            <div className="mb-8 text-center">
+              <p className="gk-h2 mb-2 text-[var(--text-primary)]">La tua Library è vuota</p>
+              <p className="gk-body mx-auto max-w-sm">Inizia importando le tue librerie esistenti o aggiungendo media da Discover.</p>
+            </div>
+            <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { href: '/settings?tab=import&platform=anilist', label: 'AniList', subtitle: 'Anime & Manga', color: 'var(--type-anime)' },
+                { href: '/settings?tab=import&platform=steam', label: 'Steam', subtitle: 'Videogiochi', color: 'var(--type-game)' },
+                { href: '/settings?tab=import&platform=letterboxd', label: 'Letterboxd', subtitle: 'Film', color: 'var(--type-movie)' },
+                { href: '/settings?tab=import&platform=mal', label: 'MyAnimeList', subtitle: 'Anime & Manga', color: 'var(--type-manga)' },
+              ].map(({ href, label, subtitle, color }) => (
+                <Link
+                  key={label}
+                  href={href}
+                  data-no-swipe="true"
+                  className="flex flex-col items-center gap-2 rounded-[20px] border p-4 text-center transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
+                  style={{ borderColor: `color-mix(in srgb, ${color} 20%, transparent)`, background: `color-mix(in srgb, ${color} 5%, transparent)` }}
+                >
+                  <span className="gk-headline" style={{ color }}>{label}</span>
+                  <span className="gk-caption">{subtitle}</span>
+                </Link>
+              ))}
+            </div>
+            <div className="text-center">
+              <ActionButton href="/discover">Oppure sfoglia Discover →</ActionButton>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-20 text-center">
+            <p className="gk-headline mb-1 text-[var(--text-primary)]">Nessun elemento trovato</p>
+            <p className="gk-body mx-auto mb-6 max-w-sm">{hasActiveFilters ? 'Prova a cambiare ricerca o filtri.' : 'Prova a cambiare i filtri.'}</p>
+            {hasActiveFilters && <button type="button" data-no-swipe="true" onClick={clearFilters} className="inline-flex h-10 items-center justify-center rounded-xl bg-[var(--accent)] px-4 text-sm font-bold text-[#0B0B0F] transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35">Cancella filtri</button>}
+          </div>
+        )
       ) : viewMode === 'stats' ? (
         <StatsView entries={filtered} stats={computeStats(filtered)} />
       ) : viewMode === 'grid' ? (

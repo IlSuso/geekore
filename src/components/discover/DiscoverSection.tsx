@@ -32,12 +32,12 @@ export function DiscoverSection({
             <div className="flex min-w-0 items-center gap-2">
               <h2 className="truncate text-[14px] font-black text-[var(--text-primary)]">{title}</h2>
               {typeof count === 'number' && (
-                <span className="font-mono-data text-[10px] text-[var(--text-muted)]">
+                <span className="gk-mono text-[var(--text-muted)]">
                   {count}
                 </span>
               )}
             </div>
-            {subtitle && <p className="mt-0.5 truncate text-[10px] text-[var(--text-tertiary)]">{subtitle}</p>}
+            {subtitle && <p className="gk-caption mt-0.5 truncate text-[var(--text-muted)]">{subtitle}</p>}
           </div>
         </div>
         {action && <div className="flex-shrink-0">{action}</div>}

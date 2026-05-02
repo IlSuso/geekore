@@ -70,10 +70,10 @@ function ListModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-4 backdrop-blur-sm sm:items-center" data-no-swipe="true">
       <div className="w-full max-w-md overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[var(--bg-primary)] shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
-        <div className="border-b border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.08),rgba(139,92,246,0.06),rgba(20,20,27,0.9))] p-5">
+        <div className="border-b border-[var(--border)] bg-[rgba(230,255,61,0.04)] p-5">
           <div className="mb-2 flex items-center justify-between gap-4">
             <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+              <div className="mb-2 gk-section-eyebrow">
                 <Sparkles size={12} />
                 Collection builder
               </div>
@@ -174,7 +174,7 @@ function ListCard({
     <div className="group overflow-hidden rounded-[22px] border border-[var(--border-subtle)] bg-[var(--bg-card)] transition-colors hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)]">
       <Link href={`/lists/${list.id}`} data-no-swipe="true" className="block p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.12),rgba(139,92,246,0.10))] text-[var(--accent)]">
+          <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--border)] bg-[rgba(230,255,61,0.10)] text-[var(--accent)]">
             <List size={22} />
           </div>
           <div className="min-w-0 flex-1">
@@ -318,8 +318,8 @@ export default function ListsPage() {
       icon={<List size={16} />}
       contentClassName="max-w-screen-md pt-2 md:pt-8 pb-28"
     >
-      <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(230,255,61,0.09),rgba(139,92,246,0.07),rgba(20,20,27,0.92))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-5">
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+      <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(160deg,rgba(230,255,61,0.07),var(--bg-secondary))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-5">
+        <div className="mb-2 gk-section-eyebrow">
           <Sparkles size={12} />
           Curated collections
         </div>

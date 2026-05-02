@@ -154,7 +154,7 @@ function FeedActivityContext({ category, media, onCategoryClick }: {
           {media?.status && <span className="gk-mono rounded-full border border-[var(--border)] px-2 py-0.5 text-[var(--text-secondary)]">{media.status}</span>}
           {progressLabel && <span className="gk-mono text-[var(--text-muted)]">{progressLabel}</span>}
           {media?.rating != null && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-yellow-500/15 bg-yellow-500/8 px-1.5 py-0.5 font-mono-data text-[10px] font-black text-yellow-300">
+            <span className="inline-flex items-center gap-1 rounded-full border border-yellow-500/20 bg-yellow-500/8 px-1.5 py-0.5 gk-mono text-yellow-300">
               <Star size={10} fill="currentColor" />
               {media.rating}
             </span>
@@ -251,7 +251,7 @@ export function PostModal({
   return (
     <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" data-no-swipe="true" onClick={onClose}>
       <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_24px_80px_rgba(0,0,0,0.55)]" onClick={e => e.stopPropagation()}>
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.06),rgba(139,92,246,0.045),transparent)] px-5 py-3.5">
+        <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--border)] bg-[rgba(230,255,61,0.03)] px-5 py-3.5">
           <div>
             <p className="gk-label text-[var(--accent)]">Thread</p>
             <h3 className="font-black text-[var(--text-primary)]">Post</h3>

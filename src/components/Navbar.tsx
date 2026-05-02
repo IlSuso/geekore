@@ -315,11 +315,10 @@ export default function Navbar() {
                 <item.icon
                   size={21}
                   strokeWidth={isActive ? 2.35 : 1.65}
-                  style={{ color: isActive ? 'var(--accent)' : undefined }}
+                  style={{ color: isActive ? 'var(--accent)' : undefined, fill: isActive ? 'var(--accent)' : 'none' }}
                   className={isActive ? 'drop-shadow-[0_0_10px_rgba(230,255,61,0.18)]' : 'text-zinc-500'}
-                  fill={isActive && item.href === '/home' ? 'var(--accent)' : 'none'}
                 />
-                <span className={`text-[10px] leading-none font-black tracking-[-0.01em] ${isActive ? '' : 'text-zinc-500'}`} style={{ color: isActive ? 'var(--accent)' : undefined }}>
+                <span className={`text-[11px] leading-none font-bold tracking-[-0.01em] ${isActive ? '' : 'text-zinc-500'}`} style={{ color: isActive ? 'var(--accent)' : undefined }}>
                   {item.label}
                 </span>
               </button>

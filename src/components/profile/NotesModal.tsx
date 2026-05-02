@@ -59,10 +59,10 @@ export function NotesModal({
         className="w-full max-w-lg overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[var(--bg-primary)] shadow-[0_24px_80px_rgba(0,0,0,0.55)]"
         onMouseDown={event => event.stopPropagation()}
       >
-        <div className="border-b border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.08),rgba(139,92,246,0.06),rgba(20,20,27,0.92))] p-5">
+        <div className="border-b border-[var(--border)] bg-[rgba(230,255,61,0.04)] p-5">
           <div className="mb-3 flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+              <div className="mb-2 gk-section-eyebrow">
                 {readOnly ? <Sparkles size={12} /> : <Edit3 size={12} />}
                 {readOnly ? 'Private notes' : 'Notes editor'}
               </div>

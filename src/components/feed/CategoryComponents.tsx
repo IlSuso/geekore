@@ -61,7 +61,7 @@ export function CategoryBadge({ category, onClick }: { category: string | null |
   return (
     <span
       onClick={onClick}
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-[10px] font-semibold text-zinc-300 ${onClick ? 'cursor-pointer hover:border-[rgba(230,255,61,0.5)] hover:text-[var(--accent)] transition-colors' : ''}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--bg-card)] border border-[var(--border)] text-[11px] font-semibold text-[var(--text-secondary)] ${onClick ? 'cursor-pointer hover:border-[rgba(230,255,61,0.5)] hover:text-[var(--accent)] transition-colors' : ''}`}
     >
       <CategoryIcon category={parsed.category} size={10} />
       {label}
@@ -459,7 +459,7 @@ export function CategoryFilter({
 
       {open && (
         <div className="fixed sm:absolute top-auto sm:top-full left-0 right-0 sm:left-auto sm:right-auto bottom-0 sm:bottom-auto mt-0 sm:mt-2 bg-zinc-900 border border-zinc-700 rounded-t-3xl sm:rounded-2xl shadow-2xl shadow-black/60 w-full sm:w-[300px] p-3 pb-6 sm:pb-3" style={{ zIndex: 20000 }}>
-          <p className="text-[10px] text-zinc-500 font-semibold px-1 pb-2 uppercase tracking-wider">Filtra per categoria</p>
+          <p className="gk-label px-1 pb-2">Filtra per categoria</p>
 
           <div className="flex flex-wrap gap-1.5 mb-3">
             {MACRO_CATEGORIES.map(cat => (

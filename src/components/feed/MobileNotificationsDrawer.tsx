@@ -165,7 +165,7 @@ export function MobileNotificationsDrawer({ open, onClose }: { open: boolean; on
           <div className="flex items-center justify-between gap-3">
             <div>
               <h1 className="font-display text-[22px] font-black tracking-[-0.03em] text-[var(--text-primary)]">Notifiche</h1>
-              <p className="font-mono-data text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">{unread} nuove</p>
+              <p className="gk-section-eyebrow">{unread} nuove</p>
             </div>
             <Link href="/notifications" onClick={doClose} className="gk-chip gk-chip-match">
               Apri pagina
@@ -232,7 +232,7 @@ export function MobileNotificationsDrawer({ open, onClose }: { open: boolean; on
                       <p className="text-[13.5px] leading-snug text-[var(--text-secondary)]">
                         {notifLabel(notif.type, name)}
                       </p>
-                      <p className="mt-1 font-mono-data text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">{compactTime(notif.created_at)}</p>
+                      <p className="mt-1 gk-mono text-[var(--text-muted)]">{compactTime(notif.created_at)}</p>
                     </div>
                   </div>
                 )

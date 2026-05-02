@@ -222,14 +222,9 @@ const RecommendationCard = memo(function RecommendationCard({
         <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/92 via-black/45 to-transparent pointer-events-none" />
 
         <div className="absolute left-2 top-2 flex max-w-[calc(100%-4rem)] flex-wrap gap-1.5">
-          <span className="text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm" style={{ background: colorClass }}>
+          <span className="text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full shadow-sm" style={{ background: colorClass }}>
             {TYPE_LABEL[item.type] || item.type.toUpperCase()}
           </span>
-          {item.creatorBoost && showDetails && (
-            <span className="max-w-[110px] truncate rounded-full border border-white/10 bg-black/65 px-2 py-0.5 text-[9px] font-bold text-zinc-200 backdrop-blur-sm">
-              {item.creatorBoost}
-            </span>
-          )}
         </div>
 
         <div className="absolute right-2 top-2">
@@ -238,11 +233,11 @@ const RecommendationCard = memo(function RecommendationCard({
 
         {signals.length > 0 && (
           <div className="absolute bottom-12 left-2 right-2 flex flex-wrap gap-1.5">
-            {signals.slice(0, showDetails ? 3 : 2).map(signal => {
+            {signals.slice(0, 1).map(signal => {
               const SignalIcon = signal.icon
               return (
-                <span key={signal.key} className={`inline-flex min-w-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold backdrop-blur-sm ${signal.tone}`}>
-                  <SignalIcon size={9} className="flex-shrink-0" />
+                <span key={signal.key} className={`inline-flex min-w-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold backdrop-blur-sm ${signal.tone}`}>
+                  <SignalIcon size={10} className="flex-shrink-0" />
                   <span className="truncate">{signal.label}</span>
                 </span>
               )
@@ -1543,7 +1538,7 @@ export default function ForYouPage() {
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPulling} />
       <div className="pt-2 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
 
-        <section className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(230,255,61,0.09),rgba(139,92,246,0.07),rgba(20,20,27,0.9))] p-4 md:p-6 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
+        <section className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(160deg,rgba(230,255,61,0.07),var(--bg-secondary))] p-4 md:p-6 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="min-w-0">
               <h1 className="gk-h1 mb-1 text-[var(--text-primary)]">Per Te</h1>

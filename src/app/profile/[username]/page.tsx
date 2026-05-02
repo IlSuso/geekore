@@ -1347,7 +1347,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
       <div className="gk-page-density pt-4 md:pt-8 max-w-screen-2xl mx-auto px-4 md:px-6">
 
         {/* ── Profile hero — media identity hub ── */}
-        <section className="mb-6 overflow-hidden rounded-[34px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(230,255,61,0.09),rgba(139,92,246,0.07),rgba(20,20,27,0.94))] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.28)] md:mb-8 md:p-6">
+        <section className="mb-6 overflow-hidden rounded-[34px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(160deg,rgba(230,255,61,0.07),var(--bg-secondary))] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.28)] md:mb-8 md:p-6">
           <div className="mb-5 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div className="flex min-w-0 flex-col items-center gap-4 text-center md:flex-row md:text-left">
               <div className="relative flex-shrink-0">
@@ -1367,7 +1367,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
               </div>
 
               <div className="min-w-0 flex-1">
-                <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+                <div className="mb-2 gk-section-eyebrow">
                   <Sparkles size={12} />
                   Media identity
                 </div>
@@ -1735,7 +1735,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
             className="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-[30px] border border-[var(--border)] bg-[var(--bg-primary)] shadow-[0_24px_80px_rgba(0,0,0,0.55)] sm:max-w-lg sm:rounded-[30px]"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.08),rgba(139,92,246,0.06),transparent)] px-6 py-4">
+            <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--border)] bg-[rgba(230,255,61,0.04)] px-6 py-4">
               <div className="flex items-center gap-3">
                 {importPlatform === 'steam' && (
                   <div className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0"><SteamIcon size={32} /></div>

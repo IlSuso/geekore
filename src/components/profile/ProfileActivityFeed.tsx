@@ -84,7 +84,7 @@ export function ProfileActivityFeed({ userId }: { userId: string }) {
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="mb-1 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.30)] bg-[rgba(230,255,61,0.07)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+          <div className="mb-1 gk-section-eyebrow">
             <Sparkles size={12} />
             Activity stream
           </div>

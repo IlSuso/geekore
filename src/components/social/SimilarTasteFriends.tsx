@@ -45,7 +45,7 @@ function SimilarityRing({ score }: { score: number }) {
           style={{ transition: 'stroke-dashoffset 0.5s ease' }}
         />
       </svg>
-      <span className="text-[10px] font-black text-white relative z-10">{score}%</span>
+      <span className="text-[11px] font-black text-white relative z-10">{score}%</span>
     </div>
   )
 }
@@ -65,14 +65,14 @@ export function SimilarTasteFriends() {
   }, [])
 
   if (loading) return (
-    <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-5 mb-10 animate-pulse">
-      <div className="h-4 w-40 bg-zinc-800 rounded mb-4" />
+    <div className="rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-5 mb-10 animate-pulse">
+      <div className="h-4 w-40 skeleton rounded mb-4" />
       <div className="flex gap-3">
         {[1,2,3,4].map(i => (
           <div key={i} className="flex-shrink-0 w-24">
-            <div className="w-12 h-12 bg-zinc-800 rounded-full mx-auto mb-2" />
-            <div className="h-3 bg-zinc-800 rounded mx-auto w-16 mb-1" />
-            <div className="h-2 bg-zinc-800 rounded mx-auto w-10" />
+            <div className="w-12 h-12 skeleton rounded-full mx-auto mb-2" />
+            <div className="h-3 skeleton rounded mx-auto w-16 mb-1" />
+            <div className="h-2 skeleton rounded mx-auto w-10" />
           </div>
         ))}
       </div>
@@ -82,14 +82,14 @@ export function SimilarTasteFriends() {
   if (!friends.length) return null
 
   return (
-    <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-5 mb-10">
+    <div className="rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-5 mb-10">
       <div className="flex items-center gap-3 mb-5">
         <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent)' }}>
           <Zap size={16} className="text-black" />
         </div>
         <div>
-          <h2 className="text-sm font-bold text-white">Gusti simili ai tuoi</h2>
-          <p className="text-[10px] text-zinc-500">Amici con cui condividi più gusti</p>
+          <h2 className="gk-headline text-[var(--text-primary)]">Gusti simili ai tuoi</h2>
+          <p className="gk-caption">Amici con cui condividi più gusti</p>
         </div>
       </div>
 
@@ -115,16 +115,16 @@ export function SimilarTasteFriends() {
                 </div>
               </div>
 
-              <p className="text-[10px] font-semibold text-zinc-200 truncate w-full text-center group-hover:text-white transition-colors">
+              <p className="text-[11px] font-semibold text-[var(--text-primary)] truncate w-full text-center group-hover:text-white transition-colors">
                 {f.profile.display_name || f.profile.username}
               </p>
-              <p className="text-[9px] font-medium" style={{ color: 'var(--accent)' }}>{f.label}</p>
+              <p className="gk-mono" style={{ color: 'var(--accent)' }}>{f.label}</p>
 
               {/* Top generi in comune */}
               {f.commonGenres.length > 0 && (
                 <div className="flex flex-wrap gap-0.5 justify-center mt-1">
                   {f.commonGenres.slice(0, 2).map(g => (
-                    <span key={g} className="text-[8px] px-1 py-0.5 rounded-full truncate max-w-full" style={{ background: 'rgba(230,255,61,0.1)', color: 'var(--accent)' }}>
+                    <span key={g} className="text-[10px] font-medium px-1.5 py-0.5 rounded-full truncate max-w-full" style={{ background: 'rgba(230,255,61,0.1)', color: 'var(--accent)' }}>
                       {g}
                     </span>
                   ))}

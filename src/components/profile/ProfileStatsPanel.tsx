@@ -15,12 +15,12 @@ type UserMedia = {
 }
 
 const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  anime:     { label: 'Anime',    color: 'var(--type-anime)',    bg: 'rgba(244,114,182,0.10)', icon: Tv },
-  tv:        { label: 'Serie TV', color: 'var(--type-tv)',       bg: 'rgba(56,189,248,0.10)', icon: Tv },
-  manga:     { label: 'Manga',    color: 'var(--type-manga)',    bg: 'rgba(167,139,250,0.10)', icon: Layers },
-  game:      { label: 'Game',     color: 'var(--type-game)',     bg: 'rgba(74,222,128,0.10)', icon: Gamepad2 },
-  movie:     { label: 'Film',     color: 'var(--type-movie)',    bg: 'rgba(251,146,60,0.10)', icon: Film },
-  boardgame: { label: 'Board',    color: 'var(--type-board)',    bg: 'rgba(45,212,191,0.10)', icon: Dice5 },
+  anime:     { label: 'Anime',    color: 'var(--type-anime)',    bg: 'rgba(56,189,248,0.10)',  icon: Tv },
+  tv:        { label: 'Serie TV', color: 'var(--type-tv)',       bg: 'rgba(192,132,252,0.10)', icon: Tv },
+  manga:     { label: 'Manga',    color: 'var(--type-manga)',    bg: 'rgba(249,112,102,0.10)', icon: Layers },
+  game:      { label: 'Game',     color: 'var(--type-game)',     bg: 'rgba(74,222,128,0.10)',  icon: Gamepad2 },
+  movie:     { label: 'Film',     color: 'var(--type-movie)',    bg: 'rgba(239,68,68,0.10)',   icon: Film },
+  boardgame: { label: 'Board',    color: 'var(--type-board)',    bg: 'rgba(251,146,60,0.10)',  icon: Dice5 },
 }
 
 function normalizeType(type: string): string {
@@ -30,7 +30,7 @@ function normalizeType(type: string): string {
 function ProfileDNAStat({ label, value, accent = false }: { label: string; value: string | number; accent?: boolean }) {
   return (
     <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
-      <p className={`font-mono-data text-[20px] font-black leading-none ${accent ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>{value}</p>
+      <p className={`font-display text-[20px] font-black leading-none tracking-[-0.03em] ${accent ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>{value}</p>
       <p className="gk-label mt-1">{label}</p>
     </div>
   )
@@ -93,10 +93,10 @@ export function ProfileStatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
   if (stats.total === 0) return null
 
   return (
-    <div className="mb-8 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.16)] bg-[linear-gradient(135deg,rgba(230,255,61,0.07),rgba(139,92,246,0.055),rgba(20,20,27,0.88))] p-4 shadow-[0_16px_50px_rgba(0,0,0,0.20)]">
+    <div className="mb-8 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.16)] bg-[linear-gradient(160deg,rgba(230,255,61,0.06),var(--bg-secondary))] p-4 shadow-[0_16px_50px_rgba(0,0,0,0.20)]">
       <div className="mb-4 flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.32)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+          <div className="mb-2 gk-section-eyebrow">
             <Sparkles size={12} />
             Profile DNA
           </div>

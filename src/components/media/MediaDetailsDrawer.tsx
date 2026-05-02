@@ -759,7 +759,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                     <span key={p} className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-300">{p}</span>
                   ))}
                 </div>
-                <p className="text-[9px] text-zinc-600 mt-1.5">Powered by JustWatch</p>
+                <p className="gk-mono text-[var(--text-muted)] mt-1.5">Powered by JustWatch</p>
               </div>
             )}
 
@@ -792,7 +792,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                           {RELATION_LABEL[rel.relationType] || rel.relationType}
                         </div>
                       </div>
-                      <p className="line-clamp-2 text-[9px] font-bold leading-tight text-[var(--text-secondary)]">{rel.title}</p>
+                      <p className="line-clamp-2 text-[10px] font-bold leading-tight text-[var(--text-secondary)]">{rel.title}</p>
                       {rel.year && <p className="text-[8px] text-[var(--text-muted)]">{rel.year}</p>}
                     </div>
                   ))}

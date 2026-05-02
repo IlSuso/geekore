@@ -156,7 +156,7 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, profile: legacy
   const discoveryGenres = uniqueStrings(profile.discoveryGenres)
 
   return (
-    <section className={`mb-8 overflow-hidden rounded-[28px] border border-[rgba(230,255,61,0.20)] bg-[linear-gradient(135deg,rgba(230,255,61,0.08),rgba(139,92,246,0.07),rgba(20,20,27,0.92))] shadow-[0_18px_60px_rgba(0,0,0,0.28)] ${compact ? 'md:mb-6' : ''}`}>
+    <section className={`mb-8 overflow-hidden rounded-[28px] border border-[rgba(230,255,61,0.20)] bg-[linear-gradient(160deg,rgba(230,255,61,0.07),var(--bg-secondary))] shadow-[0_18px_60px_rgba(0,0,0,0.28)] ${compact ? 'md:mb-6' : ''}`}>
       <button type="button" data-no-swipe="true" onClick={() => setOpen(v => !v)} className="w-full px-5 pb-4 pt-5 text-left md:px-6 md:pt-6">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
@@ -250,7 +250,7 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, profile: legacy
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {topTones.length > 0 && (
                   <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
-                    <p className="mb-2 text-[10px] text-zinc-500">Toni preferiti</p>
+                    <p className="gk-caption mb-2">Toni preferiti</p>
                     <div className="flex flex-wrap gap-1.5">
                       {topTones.slice(0, 6).map((tone, index) => (
                         <span key={`tone-${tone}-${index}`} className="gk-chip gk-chip-match">{tone}</span>
@@ -260,7 +260,7 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, profile: legacy
                 )}
                 {topSettings.length > 0 && (
                   <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
-                    <p className="mb-2 text-[10px] text-zinc-500">Setting amati</p>
+                    <p className="gk-caption mb-2">Setting amati</p>
                     <div className="flex flex-wrap gap-1.5">
                       {topSettings.slice(0, 6).map((setting, index) => (
                         <span key={`setting-${setting}-${index}`} className="gk-chip">{setting}</span>
@@ -278,26 +278,26 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, profile: legacy
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {bingeGenres.length > 0 && (
                   <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
-                    <p className="mb-2 flex items-center gap-1 text-[10px] text-zinc-500"><Flame size={10} className="text-orange-400" /> Binge watch</p>
-                    <div className="flex flex-wrap gap-1.5">{bingeGenres.slice(0, 4).map((g, i) => <span key={`binge-${g}-${i}`} className="rounded-full bg-orange-500/15 px-2 py-0.5 text-[10px] text-orange-300">{g}</span>)}</div>
+                    <p className="mb-2 flex items-center gap-1 gk-caption"><Flame size={10} className="text-orange-400" /> Binge watch</p>
+                    <div className="flex flex-wrap gap-1.5">{bingeGenres.slice(0, 4).map((g, i) => <span key={`binge-${g}-${i}`} className="rounded-full bg-orange-500/15 px-2 py-0.5 text-[11px] font-medium text-orange-300">{g}</span>)}</div>
                   </div>
                 )}
                 {searchIntentGenres.length > 0 && (
                   <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
-                    <p className="mb-2 flex items-center gap-1 text-[10px] text-zinc-500"><Search size={10} /> Cerchi spesso</p>
-                    <div className="flex flex-wrap gap-1.5">{searchIntentGenres.slice(0, 4).map((g, i) => <span key={`search-${g}-${i}`} className="rounded-full border border-amber-500/15 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">{g}</span>)}</div>
+                    <p className="mb-2 flex items-center gap-1 gk-caption"><Search size={10} /> Cerchi spesso</p>
+                    <div className="flex flex-wrap gap-1.5">{searchIntentGenres.slice(0, 4).map((g, i) => <span key={`search-${g}-${i}`} className="rounded-full border border-amber-500/15 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-300">{g}</span>)}</div>
                   </div>
                 )}
                 {wishlistGenres.length > 0 && (
                   <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
-                    <p className="mb-2 flex items-center gap-1 text-[10px] text-zinc-500"><Bookmark size={10} /> Dalla wishlist</p>
-                    <div className="flex flex-wrap gap-1.5">{wishlistGenres.slice(0, 4).map((g, i) => <span key={`wishlist-${g}-${i}`} className="rounded-full border border-emerald-500/15 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">{g}</span>)}</div>
+                    <p className="mb-2 flex items-center gap-1 gk-caption"><Bookmark size={10} /> Dalla wishlist</p>
+                    <div className="flex flex-wrap gap-1.5">{wishlistGenres.slice(0, 4).map((g, i) => <span key={`wishlist-${g}-${i}`} className="rounded-full border border-emerald-500/15 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-300">{g}</span>)}</div>
                   </div>
                 )}
                 {discoveryGenres.length > 0 && (
                   <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
-                    <p className="mb-2 flex items-center gap-1 text-[10px] text-zinc-500"><Sparkles size={10} /> Da esplorare</p>
-                    <div className="flex flex-wrap gap-1.5">{discoveryGenres.slice(0, 4).map((g, i) => <span key={`discovery-${g}-${i}`} className="rounded-full border border-teal-500/15 bg-teal-500/10 px-2 py-0.5 text-[10px] text-teal-300">{g}</span>)}</div>
+                    <p className="mb-2 flex items-center gap-1 gk-caption"><Sparkles size={10} /> Da esplorare</p>
+                    <div className="flex flex-wrap gap-1.5">{discoveryGenres.slice(0, 4).map((g, i) => <span key={`discovery-${g}-${i}`} className="rounded-full border border-teal-500/15 bg-teal-500/10 px-2 py-0.5 text-[11px] font-medium text-teal-300">{g}</span>)}</div>
                   </div>
                 )}
               </div>

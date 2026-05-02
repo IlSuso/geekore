@@ -220,8 +220,8 @@ export default function StatsPage() {
     >
       {loading ? <StatsSkeleton /> : (
         <>
-          <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(230,255,61,0.09),rgba(139,92,246,0.07),rgba(20,20,27,0.92))] p-4 text-center shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-6">
-            <div className="mx-auto mb-3 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+          <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(160deg,rgba(230,255,61,0.07),var(--bg-secondary))] p-4 text-center shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-6">
+            <div className="mx-auto mb-3 gk-section-eyebrow">
               <Sparkles size={12} />
               Time DNA
             </div>

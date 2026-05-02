@@ -29,7 +29,7 @@ export function EditPostModal({
         onClick={e => e.stopPropagation()}
         onMouseDown={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.08),rgba(139,92,246,0.055),transparent)] px-5 py-4">
+        <div className="flex items-center justify-between border-b border-[var(--border)] bg-[rgba(230,255,61,0.04)] px-5 py-4">
           <div>
             <p className="gk-label text-[var(--accent)]">Post editor</p>
             <h3 className="gk-title text-[var(--text-primary)]">Modifica post</h3>
