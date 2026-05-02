@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Check, BookmarkCheck, ImageIcon } from 'lucide-react'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
+import { MediaMetaRow } from '@/components/ui/MediaMetaRow'
 import { getMediaTypeAccentStyle } from '@/lib/mediaTypes'
 
 interface PosterCardProps {
@@ -10,6 +11,13 @@ interface PosterCardProps {
   year?: number | string | null
   meta?: string | null
   score?: number | string | null
+  status?: string | null
+  progress?: {
+    current?: number | null
+    total?: number | null
+    label?: string
+  }
+  showMetaRow?: boolean
   isInCollection?: boolean
   isWishlisted?: boolean
   actions?: ReactNode
@@ -26,6 +34,9 @@ export function PosterCard({
   year,
   meta,
   score,
+  status,
+  progress,
+  showMetaRow = false,
   isInCollection = false,
   isWishlisted = false,
   actions,
@@ -35,7 +46,7 @@ export function PosterCard({
   priority = false,
 }: PosterCardProps) {
   const hasCover = !!coverImage
-  const status = isInCollection ? 'collection' : isWishlisted ? 'wishlist' : null
+  const collectionStatus = isInCollection ? 'collection' : isWishlisted ? 'wishlist' : null
 
   return (
     <article
@@ -66,19 +77,19 @@ export function PosterCard({
           <MediaTypeBadge type={type} size="xs" variant="soft" />
         </div>
 
-        {score != null && score !== '' && (
+        {score != null && score !== '' && !showMetaRow && (
           <div className="absolute bottom-2 left-2 rounded-full border border-white/10 bg-black/70 px-2 py-1 font-mono-data text-[10px] font-bold text-white backdrop-blur-sm">
             {score}
           </div>
         )}
 
-        {status && (
+        {collectionStatus && (
           <div className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-lg shadow-lg"
-            style={status === 'collection'
+            style={collectionStatus === 'collection'
               ? { background: 'var(--accent)', color: '#0B0B0F' }
               : { background: 'rgba(0,0,0,0.72)', color: 'var(--accent)', border: '1px solid rgba(230,255,61,0.45)' }}
           >
-            {status === 'collection' ? <Check size={12} strokeWidth={2.6} /> : <BookmarkCheck size={12} strokeWidth={2.2} />}
+            {collectionStatus === 'collection' ? <Check size={12} strokeWidth={2.6} /> : <BookmarkCheck size={12} strokeWidth={2.2} />}
           </div>
         )}
 
@@ -93,7 +104,16 @@ export function PosterCard({
         <h3 className="line-clamp-2 text-[13px] font-bold leading-tight tracking-[-0.01em] text-[var(--text-primary)]">
           {title}
         </h3>
-        {(year || meta) && (
+        {showMetaRow ? (
+          <MediaMetaRow
+            className="mt-2"
+            type={type}
+            status={status}
+            year={year}
+            score={score}
+            progress={progress}
+          />
+        ) : (year || meta) && (
           <p className="mt-1 truncate font-mono-data text-[11px] text-[var(--text-muted)]">
             {[year, meta].filter(Boolean).join(' · ')}
           </p>
