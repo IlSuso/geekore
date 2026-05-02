@@ -13,6 +13,7 @@ interface FilterBarProps<T extends FilterBarItem = FilterBarItem> {
   onChange: (id: T['id'], item: T) => void
   className?: string
   chipClassName?: string
+  ariaLabel?: string
 }
 
 export function FilterBar<T extends FilterBarItem = FilterBarItem>({
@@ -21,9 +22,19 @@ export function FilterBar<T extends FilterBarItem = FilterBarItem>({
   onChange,
   className = '',
   chipClassName = '',
+  ariaLabel = 'Filtri',
 }: FilterBarProps<T>) {
   return (
-    <div className={`gk-carousel -mx-4 flex gap-2 px-4 pb-1 ${className}`}>
+    <div
+      role="tablist"
+      aria-label={ariaLabel}
+      data-no-swipe="true"
+      data-horizontal-scroll="true"
+      data-interactive="true"
+      className={`gk-carousel -mx-4 flex gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1 ${className}`}
+      onClick={event => event.stopPropagation()}
+      onPointerDown={event => event.stopPropagation()}
+    >
       {items.map(item => (
         <FilterChip
           key={item.id}
