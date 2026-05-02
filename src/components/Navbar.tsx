@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  Home, Search, Zap, Sparkles, Library, User, X, Settings, LogOut, ChevronDown, Bell,
+  Home, Search, Sparkles, Library, User, X, Settings, LogOut, ChevronDown, Bell,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useActiveTab, pathnameToTab, type KATab } from '@/context/ActiveTabContext'
@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/context/AuthContext'
 import { Avatar, getLocalAvatarSvg } from '@/components/ui/Avatar'
 import { useLocale } from '@/lib/locale'
+import { GeekoreWordmark } from '@/components/ui/GeekoreWordmark'
 
 const AUTH_PATHS = ['/login', '/register', '/auth/confirm', '/forgot-password', '/auth/reset-password', '/onboarding']
 
@@ -155,34 +156,26 @@ export default function Navbar() {
   return (
     <>
       {/* ── Desktop navbar — Facebook layout ─────────────────────────────── */}
-      <nav className="hidden md:flex fixed top-0 left-0 right-0 z-[100] bg-black/90 backdrop-blur-2xl border-b border-zinc-800/60 h-12">
+      <nav className="hidden md:flex fixed top-0 left-0 right-0 z-[100] bg-[rgba(11,11,15,0.92)] backdrop-blur-2xl border-b border-[var(--border)] h-12">
         <div className="w-full flex items-center h-full">
 
           {/* LEFT: Logo + Search ─────────────────────────────────────────── */}
           <div className="flex items-center gap-3 flex-1 min-w-0 px-4">
-            <Link href="/" className="flex-shrink-0 group flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors" style={{ background: '#E6FF3D' }}>
-                <Zap size={17} className="text-black" />
-              </div>
+            <div className="flex-shrink-0 group flex items-center gap-2">
+              <Link
+                href="/home"
+                className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
+                style={{ background: 'var(--accent)' }}
+                aria-label="Geekore home"
+              >
+                <span className="font-display text-[18px] font-black leading-none text-[#0B0B0F] tracking-[-0.05em]">g.</span>
+              </Link>
               {/* Wordmark — visibile da lg in su */}
-              <span className="hidden lg:flex items-center gap-[3px] font-display" style={{ letterSpacing: '-0.03em' }}>
-                <span className="text-[15px] font-bold text-white">geekore</span>
-                <span
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: 1.5,
-                    background: '#E6FF3D',
-                    display: 'inline-block',
-                    marginBottom: 1,
-                    flexShrink: 0,
-                  }}
-                />
-              </span>
-            </Link>
+              <GeekoreWordmark href="/home" size="sm" className="hidden lg:inline-flex" />
+            </div>
 
             <div ref={searchRef} className="relative w-full max-w-[260px]">
-              <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${searchLoading ? 'animate-pulse' : 'text-zinc-500'}`} style={searchLoading ? { color: '#E6FF3D' } : {}} />
+              <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${searchLoading ? 'animate-pulse' : 'text-zinc-500'}`} style={searchLoading ? { color: 'var(--accent)' } : {}} />
               <input
                 ref={searchInputRef} value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -244,7 +237,7 @@ export default function Navbar() {
                   className={`relative flex flex-col items-center justify-center w-16 lg:w-20 h-full transition-colors group bg-transparent border-0 cursor-pointer ${
                     isActive ? 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/60' : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/60'
                   }`}
-                  style={{ color: isActive ? '#E6FF3D' : undefined }}
+                  style={{ color: isActive ? 'var(--accent)' : undefined }}
                 >
                   <item.icon size={22} strokeWidth={isActive ? 2.2 : 1.6} />
                   {/* Tooltip on hover */}
@@ -253,7 +246,7 @@ export default function Navbar() {
                   </span>
                   {/* Active bottom indicator */}
                   {isActive && (
-                    <span className="absolute bottom-0 left-3 right-3 h-[3px] rounded-t-full" style={{ background: '#E6FF3D' }} />
+                    <span className="absolute bottom-0 left-3 right-3 h-[3px] rounded-t-full" style={{ background: 'var(--accent)' }} />
                   )}
                 </button>
               )
@@ -349,7 +342,7 @@ export default function Navbar() {
       {/* ── Mobile bottom navbar ─────────────────────────────────────────── */}
       <nav
         className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100]"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)', background: 'rgba(0,0,0,0.97)' }}
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)', background: 'rgba(11,11,15,0.97)' }}
       >
         <div className="flex items-stretch h-[56px]">
           {MOBILE_NAV_ITEMS.map((item) => {
@@ -373,14 +366,14 @@ export default function Navbar() {
                 }}
               >
                 {isActive && (
-                  <span className="absolute top-0 left-1/2 -translate-x-1/2 rounded-full" style={{ width: 24, height: 2, background: '#E6FF3D' }} />
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 rounded-full" style={{ width: 24, height: 2, background: 'var(--accent)' }} />
                 )}
                 {item.href.startsWith('/profile/') && (avatarUrl || currentUsername) ? (
                   <div className="rounded-full p-[2px]" style={{
-                    background: isActive ? '#E6FF3D' : 'transparent',
+                    background: isActive ? 'var(--accent)' : 'transparent',
                     border: isActive ? 'none' : '1.5px solid #3f3f3f',
                   }}>
-                    <div className="rounded-full overflow-hidden bg-black p-[1.5px]">
+                    <div className="rounded-full overflow-hidden bg-[var(--bg-primary)] p-[1.5px]">
                       <div className="w-[22px] h-[22px] rounded-full overflow-hidden">
                         <img src={avatarUrl || localAvatarSrc} alt={`Avatar di ${currentDisplayName}`} width={22} height={22} className="w-full h-full object-cover" />
                       </div>
@@ -388,13 +381,13 @@ export default function Navbar() {
                   </div>
                 ) : (
                   <item.icon size={22} strokeWidth={isActive ? 2.1 : 1.6}
-                    style={{ color: isActive ? '#E6FF3D' : undefined }}
+                    style={{ color: isActive ? 'var(--accent)' : undefined }}
                     className={isActive ? '' : 'text-zinc-500'}
-                    fill={isActive && item.href === '/home' ? '#E6FF3D' : 'none'}
+                    fill={isActive && item.href === '/home' ? 'var(--accent)' : 'none'}
                   />
                 )}
                 <span className={`text-[11px] leading-none font-semibold tracking-tight ${isActive ? '' : 'text-zinc-600'}`}
-                  style={{ color: isActive ? '#E6FF3D' : undefined }}>
+                  style={{ color: isActive ? 'var(--accent)' : undefined }}>
                   {item.label}
                 </span>
               </button>
