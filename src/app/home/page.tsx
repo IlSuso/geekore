@@ -636,7 +636,7 @@ function CategoryFilter({
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(o => !o)}
         className={`flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm font-semibold border transition-all max-w-[160px] sm:max-w-none ${
-          activeFilter ? 'bg-fuchsia-600/20 border-fuchsia-500/40 text-fuchsia-300' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'
+          activeFilter ? 'border-[rgba(230,255,61,0.4)] text-[#E6FF3D]' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'
         }`}>
         <Filter size={14} className="flex-shrink-0" />
         {activeFilter && <CategoryIcon category={parsed?.category || ''} size={13} className="flex-shrink-0" />}
@@ -659,7 +659,7 @@ function CategoryFilter({
                 <button key={cat} onClick={() => handleMacro(cat)}
                   className={`flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-all ${
                     activeMacro === cat
-                      ? 'bg-fuchsia-600/30 border-fuchsia-500/60 text-fuchsia-300'
+                      ? 'border-[rgba(230,255,61,0.5)] text-[#E6FF3D]'
                       : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-500'
                   }`}>
                   <CategoryIcon category={cat} size={11} />
@@ -672,7 +672,7 @@ function CategoryFilter({
                 <button key={cat} onClick={() => handleMacro(cat)}
                   className={`flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-all ${
                     activeMacro === cat
-                      ? 'bg-fuchsia-600/30 border-fuchsia-500/60 text-fuchsia-300'
+                      ? 'border-[rgba(230,255,61,0.5)] text-[#E6FF3D]'
                       : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-500'
                   }`}>
                   <CategoryIcon category={cat} size={11} />
@@ -698,9 +698,9 @@ function CategoryFilter({
                   onChange={e => setSubSearch(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && subSearch.trim()) applyFilter(`${activeMacro}:${subSearch.trim()}`) }}
                   placeholder={`Cerca titolo in ${activeMacro}...`}
-                  className="w-full bg-zinc-800 border border-zinc-700 focus:border-fuchsia-500 focus:outline-none rounded-xl pl-8 pr-8 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
+                  className="w-full bg-zinc-800 border border-zinc-700 focus:border-zinc-500 focus:outline-none rounded-xl pl-8 pr-8 py-2 text-sm text-white placeholder-zinc-500 transition"
                 />
-                {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-fuchsia-400 animate-spin" />}
+                {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin" style={{ color: '#E6FF3D' }} />}
               </div>
 
               {/* Risultati API */}
@@ -720,7 +720,8 @@ function CategoryFilter({
 
               {subSearch.trim() && !isSearching && (
                 <button onClick={() => applyFilter(`${activeMacro}:${subSearch.trim()}`)}
-                  className="w-full px-3 py-2 rounded-xl bg-fuchsia-600/20 border border-fuchsia-500/40 text-fuchsia-300 text-sm font-semibold hover:bg-fuchsia-600/30 transition">
+                  className="w-full px-3 py-2 rounded-xl text-sm font-semibold transition"
+                  style={{ background: 'rgba(230,255,61,0.1)', border: '1px solid rgba(230,255,61,0.25)', color: '#E6FF3D' }}>
                   Cerca «{subSearch.trim()}» in {activeMacro}
                 </button>
               )}
@@ -896,7 +897,7 @@ const PostCard = memo(function PostCard({
   return (
     <div className={`rounded-2xl transition-all duration-300 animate-fade-in ${
       post.pinned ? 'bg-zinc-900 border border-zinc-700 ring-1 ring-zinc-700/30'
-      : post.isDiscovery ? 'bg-zinc-900 border border-fuchsia-500/25 ring-1 ring-fuchsia-500/10'
+      : post.isDiscovery ? 'bg-zinc-900 border border-zinc-700/60 ring-1 ring-zinc-700/20'
       : 'bg-zinc-900 border border-zinc-800/70'
     }`}>
 
@@ -907,7 +908,7 @@ const PostCard = memo(function PostCard({
         </div>
       )}
       {post.isDiscovery && !post.pinned && (
-        <div className="flex items-center gap-1.5 px-5 pt-4 pb-1 text-fuchsia-400">
+        <div className="flex items-center gap-1.5 px-5 pt-4 pb-1" style={{ color: '#E6FF3D' }}>
           <Sparkles size={11} />
           <span className="text-[10px] font-bold uppercase tracking-widest">Consigliato per te</span>
         </div>
@@ -1064,7 +1065,7 @@ function PostModal({
             </div>
           )}
           {post.isDiscovery && !post.pinned && (
-            <div className="flex items-center gap-1.5 px-5 pt-4 pb-1 text-fuchsia-400">
+            <div className="flex items-center gap-1.5 px-5 pt-4 pb-1" style={{ color: '#E6FF3D' }}>
               <Sparkles size={11} />
               <span className="text-[10px] font-bold uppercase tracking-widest">Consigliato per te</span>
             </div>
@@ -2000,7 +2001,7 @@ export default function FeedPage() {
                       {currentProfile?.avatar_url ? (
                         <img src={currentProfile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-violet-600 to-fuchsia-600 flex items-center justify-center text-white text-xs font-bold">
+                        <div className="w-full h-full bg-zinc-700 flex items-center justify-center text-white text-xs font-bold">
                           {(currentProfile?.username?.[0] || '?').toUpperCase()}
                         </div>
                       )}
@@ -2045,7 +2046,7 @@ export default function FeedPage() {
                         <div className="flex-1 min-h-0 overflow-y-auto">
                           <div className="flex gap-3 px-5 pt-5 pb-3">
                             <div className="w-10 h-10 rounded-full overflow-hidden bg-zinc-800 flex-shrink-0">
-                              {currentProfile?.avatar_url ? <img src={currentProfile.avatar_url} alt="avatar" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gradient-to-br from-violet-600 to-fuchsia-600 flex items-center justify-center text-white font-bold text-sm">{(currentProfile?.username?.[0] || '?').toUpperCase()}</div>}
+                              {currentProfile?.avatar_url ? <img src={currentProfile.avatar_url} alt="avatar" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-zinc-700 flex items-center justify-center text-white font-bold text-sm">{(currentProfile?.username?.[0] || '?').toUpperCase()}</div>}
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-[14px] font-bold text-white mb-1.5">{currentProfile?.display_name || currentProfile?.username}</p>

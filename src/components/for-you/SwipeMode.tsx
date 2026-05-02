@@ -960,7 +960,7 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
 
         {(standalone || isOnboarding) && (
           <div className="absolute inset-0 z-0 pointer-events-none" aria-hidden>
-            <div className="absolute inset-0 bg-gradient-to-br from-violet-950 via-black to-zinc-900 opacity-60" />
+            <div className="absolute inset-0 bg-gradient-to-br from-zinc-950 via-black to-zinc-900 opacity-60" />
           </div>
         )}
 

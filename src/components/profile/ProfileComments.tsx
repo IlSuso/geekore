@@ -175,7 +175,7 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
                     {comment.author?.avatar_url ? (
                       <img src={comment.author.avatar_url} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-sm">
+                      <div className="w-full h-full bg-zinc-700 flex items-center justify-center text-white font-bold text-sm">
                         {(comment.author?.display_name?.[0] || comment.author?.username?.[0] || '?').toUpperCase()}
                       </div>
                     )}

@@ -61,7 +61,7 @@ export function CategoryBadge({ category, onClick }: { category: string | null |
   return (
     <span
       onClick={onClick}
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-[10px] font-semibold text-zinc-300 ${onClick ? 'cursor-pointer hover:border-fuchsia-500/60 hover:text-fuchsia-300 transition-colors' : ''}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-[10px] font-semibold text-zinc-300 ${onClick ? 'cursor-pointer hover:border-[rgba(230,255,61,0.5)] hover:text-[#E6FF3D] transition-colors' : ''}`}
     >
       <CategoryIcon category={parsed.category} size={10} />
       {label}
@@ -445,7 +445,7 @@ export function CategoryFilter({
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(o => !o)}
         className={`flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm font-semibold border transition-all ${
-          activeFilter ? 'bg-fuchsia-600/20 border-fuchsia-500/40 text-fuchsia-300' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'
+          activeFilter ? 'border-[rgba(230,255,61,0.4)] text-[#E6FF3D]' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'
         }`}>
         <Filter size={14} />
         {activeFilter && <CategoryIcon category={parsed?.category || ''} size={13} />}
@@ -466,7 +466,7 @@ export function CategoryFilter({
               <button key={cat} onClick={() => handleMacro(cat)}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
                   activeMacro === cat
-                    ? 'bg-fuchsia-600/30 border-fuchsia-500/60 text-fuchsia-300'
+                    ? 'border-[rgba(230,255,61,0.5)] text-[#E6FF3D]'
                     : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-500'
                 }`}>
                 <CategoryIcon category={cat} size={11} />
@@ -491,9 +491,9 @@ export function CategoryFilter({
                   onChange={e => setSubSearch(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && subSearch.trim()) applyFilter(`${activeMacro}:${subSearch.trim()}`) }}
                   placeholder={`Cerca titolo in ${activeMacro}...`}
-                  className="w-full bg-zinc-800 border border-zinc-700 focus:border-fuchsia-500 focus:outline-none rounded-xl pl-8 pr-8 py-2 text-sm text-white placeholder-zinc-500 transition"
+                  className="w-full bg-zinc-800 border border-zinc-700 focus:border-zinc-500 focus:outline-none rounded-xl pl-8 pr-8 py-2 text-sm text-white placeholder-zinc-500 transition"
                 />
-                {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-fuchsia-400 animate-spin" />}
+                {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin" style={{ color: '#E6FF3D' }} />}
               </div>
 
               {suggestions.length > 0 && (
@@ -512,7 +512,8 @@ export function CategoryFilter({
 
               {subSearch.trim() && !isSearching && (
                 <button onClick={() => applyFilter(`${activeMacro}:${subSearch.trim()}`)}
-                  className="w-full px-3 py-2 rounded-xl bg-fuchsia-600/20 border border-fuchsia-500/40 text-fuchsia-300 text-sm font-semibold hover:bg-fuchsia-600/30 transition">
+                  className="w-full px-3 py-2 rounded-xl text-sm font-semibold transition"
+                  style={{ background: 'rgba(230,255,61,0.1)', border: '1px solid rgba(230,255,61,0.25)', color: '#E6FF3D' }}>
                   Cerca «{subSearch.trim()}» in {activeMacro}
                 </button>
               )}

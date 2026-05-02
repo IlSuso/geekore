@@ -1,5 +1,5 @@
 "use client"
-// follow-button.tsx — Geekore style: gradient viola→fuchsia per segui, outline per seguendo
+// follow-button.tsx — Geekore style: yellow fill per segui, outline per seguendo
 // Fix #18 Repair Bible: rollback ottimistico in caso di errore API
 
 import { useState } from 'react'

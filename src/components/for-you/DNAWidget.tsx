@@ -176,7 +176,7 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
                     <p className="text-[10px] text-zinc-600 mb-2">Toni preferiti</p>
                     <div className="flex flex-wrap gap-1.5">
                       {tasteProfile.deepSignals!.topTones.map(t => (
-                        <span key={t} className="text-[10px] bg-fuchsia-500/10 text-fuchsia-300 px-2 py-0.5 rounded-full capitalize border border-fuchsia-500/15">{t}</span>
+                        <span key={t} className="text-[10px] px-2 py-0.5 rounded-full capitalize" style={{ background: 'rgba(230,255,61,0.08)', color: '#E6FF3D', border: '1px solid rgba(230,255,61,0.15)' }}>{t}</span>
                       ))}
                     </div>
                   </div>

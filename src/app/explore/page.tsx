@@ -269,7 +269,7 @@ export default async function ExplorePage() {
         {trendingGenres.length > 0 && (
           <section className="mb-10">
             <div className="flex items-center gap-2 mb-4">
-              <Heart size={14} className="text-fuchsia-400" />
+              <Heart size={14} style={{ color: '#E6FF3D' }} />
               <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Generi più amati questa settimana</h2>
             </div>
             <div className="space-y-2">

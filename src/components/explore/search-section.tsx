@@ -78,7 +78,7 @@ export function SearchSection() {
                 {res.avatar_url ? (
                   <Image src={res.avatar_url} alt="" fill className="object-cover" sizes="36px" />
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-sm">
+                  <div className="w-full h-full bg-zinc-700 flex items-center justify-center text-white font-bold text-sm">
                     {(res.display_name?.[0] || res.username?.[0] || '?').toUpperCase()}
                   </div>
                 )}

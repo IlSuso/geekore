@@ -696,7 +696,7 @@ const RecommendationSection = memo(function RecommendationSection({ type, items,
         </div>
         <div className="ml-auto flex items-center gap-2">
           {isPrimary && (
-            <span className="text-[10px] font-semibold text-fuchsia-300 bg-fuchsia-500/10 border border-fuchsia-500/20 px-2 py-0.5 rounded-full">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ color: '#E6FF3D', background: 'rgba(230,255,61,0.1)', border: '1px solid rgba(230,255,61,0.2)' }}>
               Il tuo tipo principale
             </span>
           )}
@@ -821,8 +821,8 @@ const FriendsWatchingSection = memo(function FriendsWatchingSection({ items }: {
   return (
     <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-5 mb-10">
       <div className="flex items-center gap-3 mb-5">
-        <div className="w-8 h-8 bg-gradient-to-br from-fuchsia-500 to-violet-500 rounded-xl flex items-center justify-center">
-          <Users size={16} className="text-white" />
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: '#E6FF3D' }}>
+          <Users size={16} className="text-black" />
         </div>
         <h2 className="text-sm font-bold text-white">Amici che guardano</h2>
         <span className="text-xs text-zinc-500 ml-auto">{items.length}</span>
@@ -1441,7 +1441,7 @@ export default function ForYouPage() {
               <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
             </button>
             {showNewRecsBadge && (
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-fuchsia-500 rounded-full border border-black animate-pulse" />
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-black animate-pulse" style={{ background: '#E6FF3D' }} />
             )}
           </div>
         </div>
@@ -1452,7 +1452,7 @@ export default function ForYouPage() {
             title={fy.title}
             description={fy.emptyState}
             action={{ label: fy.emptyStateCta, href: '/discover' }}
-            accent="fuchsia"
+            accent="violet"
           />
         ) : viewMode === 'swipe' ? (
           <SwipeModeWrapper />

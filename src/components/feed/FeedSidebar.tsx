@@ -61,7 +61,7 @@ function TrendingMini() {
   return (
     <div className="px-1">
       <div className="flex items-center gap-1.5 mb-3">
-        <TrendingUp size={13} className="text-fuchsia-400" />
+        <TrendingUp size={13} style={{ color: '#E6FF3D' }} />
         <p className="text-[12px] font-semibold text-[var(--text-secondary)]">Trending questa settimana</p>
       </div>
       <div className="space-y-2.5">
@@ -79,7 +79,7 @@ function TrendingMini() {
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-semibold text-[var(--text-primary)] truncate leading-tight">{item.title}</p>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-[10px] font-medium text-fuchsia-400/80 bg-fuchsia-500/10 px-1.5 py-px rounded-full">
+                  <span className="text-[10px] font-medium px-1.5 py-px rounded-full" style={{ color: 'rgba(230,255,61,0.8)', background: 'rgba(230,255,61,0.08)' }}>
                     {CATEGORY_LABEL[item.type] || item.type}
                   </span>
                   <span className="text-[10px] text-[var(--text-muted)]">{item.count} {item.count === 1 ? 'aggiunta' : 'aggiunte'}</span>

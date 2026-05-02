@@ -565,7 +565,7 @@ export default function SettingsPage() {
           <div className="space-y-2">
             {[
               { href: '/stats', icon: BarChart3, color: 'bg-zinc-800', iconColor: '', iconStyle: { color: '#E6FF3D' } as React.CSSProperties, label: 'Tempo sprecato', desc: 'Calcola quante ore hai speso' },
-              { href: '/trending', icon: TrendingUp, color: 'bg-fuchsia-500/20', iconColor: 'text-fuchsia-400', iconStyle: undefined as React.CSSProperties | undefined, label: 'Trending community', desc: 'I più aggiunti questa settimana' },
+              { href: '/trending', icon: TrendingUp, color: 'bg-zinc-800', iconColor: '', iconStyle: { color: '#E6FF3D' } as React.CSSProperties, label: 'Trending community', desc: 'I più aggiunti questa settimana' },
               { href: '/lists', icon: List, color: 'bg-emerald-500/20', iconColor: 'text-emerald-400', iconStyle: undefined as React.CSSProperties | undefined, label: 'Le mie liste', desc: 'Crea e condividi liste tematiche' },
             ].map(({ href, icon: Icon, color, iconColor, iconStyle, label, desc }) => (
               <Link

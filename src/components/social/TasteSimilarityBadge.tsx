@@ -41,7 +41,7 @@ export function TasteSimilarityBadge({ targetUserId }: Props) {
   const colorClass = data.score >= 70
     ? ''
     : data.score >= 50
-    ? 'bg-fuchsia-500/20 border-fuchsia-500/40 text-fuchsia-300'
+    ? 'bg-zinc-800 border-zinc-600 text-zinc-300'
     : 'bg-zinc-800 border-zinc-700 text-zinc-400'
 
   const colorStyle = data.score >= 70

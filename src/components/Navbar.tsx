@@ -280,7 +280,7 @@ export default function Navbar() {
                   {avatarSrc ? (
                     <img src={avatarSrc} alt={`Avatar di ${currentDisplayName}`} width={36} height={36} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+                    <div className="w-full h-full bg-zinc-700 flex items-center justify-center">
                       <User size={18} className="text-white" />
                     </div>
                   )}
@@ -300,7 +300,7 @@ export default function Navbar() {
                       {avatarSrc ? (
                         <img src={avatarSrc} alt={`Avatar di ${currentDisplayName}`} width={48} height={48} className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+                        <div className="w-full h-full bg-zinc-700 flex items-center justify-center">
                           <User size={22} className="text-white" />
                         </div>
                       )}

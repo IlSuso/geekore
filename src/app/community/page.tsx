@@ -199,7 +199,7 @@ export default async function CommunityPage() {
         {engagingPosts.length > 0 && (
           <section className="mb-8">
             <div className="flex items-center gap-2 mb-4">
-              <MessageCircle size={16} className="text-fuchsia-400" />
+              <MessageCircle size={16} style={{ color: '#E6FF3D' }} />
               <h2 className="text-[13px] font-semibold text-zinc-400 uppercase tracking-wider">Conversazioni in corso</h2>
             </div>
             <div className="flex flex-col gap-2">

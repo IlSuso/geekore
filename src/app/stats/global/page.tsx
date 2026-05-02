@@ -154,7 +154,7 @@ export default async function GlobalStatsPage() {
         {/* Big stats grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-10">
           <StatCard label="Utenti registrati" value={formatNumber(stats.totalUsers)} icon={Users} color="bg-emerald-600" />
-          <StatCard label="Titoli in collezione" value={formatNumber(stats.totalEntries)} icon={TrendingUp} color="bg-fuchsia-600" />
+          <StatCard label="Titoli in collezione" value={formatNumber(stats.totalEntries)} icon={TrendingUp} color="bg-zinc-700" />
           <StatCard label="Ore di contenuto" value={formatNumber(stats.totalHours)} sub="stima aggregata" icon={Clock} color="bg-emerald-600" />
           <StatCard label="Ep. anime guardati" value={formatNumber(stats.animeEps)} sub={`≈ ${formatNumber(stats.animeHours)} ore`} icon={Tv} color="bg-sky-600" />
           <StatCard label="Ore Steam" value={formatNumber(stats.gameHours)} icon={Gamepad2} color="bg-green-600" />

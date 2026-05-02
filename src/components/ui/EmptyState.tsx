@@ -12,8 +12,7 @@ interface EmptyStateProps {
     href?: string
     onClick?: () => void
   }
-  /** Colore accent icona — default 'violet' */
-  accent?: 'violet' | 'fuchsia' | 'zinc'
+  accent?: 'violet' | 'zinc'
   className?: string
 }
 
@@ -26,9 +25,8 @@ export function EmptyState({
   className = '',
 }: EmptyStateProps) {
   const accentMap = {
-    violet:  { icon: 'text-[#E6FF3D]',  ring: 'border-[rgba(230,255,61,0.2)]', bg: 'bg-[rgba(230,255,61,0.06)]' },
-    fuchsia: { icon: 'text-fuchsia-400', ring: 'border-fuchsia-500/20', bg: 'bg-fuchsia-500/8' },
-    zinc:    { icon: 'text-zinc-500',    ring: 'border-[var(--border)]', bg: 'bg-[var(--bg-card)]' },
+    violet: { icon: 'text-[#E6FF3D]', ring: 'border-[rgba(230,255,61,0.2)]', bg: 'bg-[rgba(230,255,61,0.06)]' },
+    zinc:   { icon: 'text-zinc-500',  ring: 'border-[var(--border)]', bg: 'bg-[var(--bg-card)]' },
   }
   const colors = accentMap[accent]
 

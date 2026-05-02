@@ -324,9 +324,9 @@ export default function SwipePage() {
       <div className="fixed inset-0 md:pt-16 bg-black flex flex-col items-center justify-center">
         <div className="flex flex-col items-center gap-5 text-center">
           <div className="relative">
-            <div className="absolute inset-0 w-16 h-16 rounded-3xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 blur-xl" />
-            <div className="relative w-16 h-16 bg-gradient-to-br from-violet-600 to-fuchsia-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-violet-900/50">
-              <Shuffle size={28} className="text-white" />
+            <div className="absolute inset-0 w-16 h-16 rounded-3xl blur-xl" style={{ background: 'rgba(230,255,61,0.2)' }} />
+            <div className="relative w-16 h-16 rounded-3xl flex items-center justify-center shadow-2xl" style={{ background: '#E6FF3D' }}>
+              <Shuffle size={28} className="text-black" />
             </div>
           </div>
           <div>
