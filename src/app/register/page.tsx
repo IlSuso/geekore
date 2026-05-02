@@ -123,8 +123,8 @@ export default function RegisterPage() {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
         <div className="text-center max-w-md mx-auto">
-          <div className="w-20 h-20 bg-violet-500/10 border border-violet-500/30 rounded-3xl flex items-center justify-center mx-auto mb-6">
-            <Mail size={36} className="text-violet-400" />
+          <div className="w-20 h-20 bg-zinc-900 border border-zinc-800 rounded-3xl flex items-center justify-center mx-auto mb-6">
+            <Mail size={36} style={{ color: '#E6FF3D' }} />
           </div>
           <h1 className="text-3xl font-bold tracking-tight mb-3">{l.confirmTitle}</h1>
           <p className="text-zinc-400 leading-relaxed mb-2">{l.confirmSent}</p>
@@ -249,7 +249,7 @@ export default function RegisterPage() {
 
           <p className="text-center text-zinc-500 text-sm mt-8">
             {l.hasAccount}{' '}
-            <Link href="/login" className="text-violet-400 hover:text-violet-300 font-medium transition-colors">
+            <Link href="/login" className="font-medium hover:opacity-80 transition-opacity" style={{ color: '#E6FF3D' }}>
               {l.loginLink}
             </Link>
           </p>

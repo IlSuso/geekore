@@ -147,12 +147,12 @@ export default function LoginPage() {
               <label className="block text-sm font-medium text-zinc-400 mb-2">{l.email}</label>
               <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                 placeholder={l.emailPlaceholder} autoComplete="email"
-                className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors" required />
+                className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors" required />
             </div>
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-sm font-medium text-zinc-400">{l.password}</label>
-                <Link href="/forgot-password" className="text-xs text-violet-400 hover:text-violet-300 transition-colors">
+                <Link href="/forgot-password" className="text-xs hover:opacity-80 transition-opacity" style={{ color: '#E6FF3D' }}">
                   Password dimenticata?
                 </Link>
               </div>
@@ -160,7 +160,7 @@ export default function LoginPage() {
                 <input type={showPassword ? 'text' : 'password'} value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder={l.passwordPlaceholder} autoComplete="current-password"
-                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl px-5 py-3.5 pr-12 text-white placeholder-zinc-600 focus:outline-none transition-colors" required />
+                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl px-5 py-3.5 pr-12 text-white placeholder-zinc-600 focus:outline-none transition-colors" required />
                 <button type="button" onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors">
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -181,7 +181,7 @@ export default function LoginPage() {
 
           <p className="text-center text-zinc-500 text-sm mt-8">
             {l.noAccount}{' '}
-            <Link href="/register" className="text-violet-400 hover:text-violet-300 font-medium transition-colors">
+            <Link href="/register" className="font-medium hover:opacity-80 transition-opacity" style={{ color: '#E6FF3D' }}>
               {l.registerLink}
             </Link>
           </p>

@@ -158,7 +158,7 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
                   </span>
                 ))}
                 {(tasteProfile.creatorScores?.topDirectors ?? []).slice(0, 3).map(d => (
-                  <span key={d.name} className="flex items-center gap-1.5 text-xs bg-violet-500/10 text-violet-300 px-2.5 py-1 rounded-xl border border-violet-500/20">
+                  <span key={d.name} className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-xl" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)', color: 'rgba(230,255,61,0.85)' }}>
                     <User size={10} />{d.name}
                   </span>
                 ))}
@@ -213,11 +213,11 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
                 </div>
                 <div className="bg-zinc-800/50 rounded-2xl p-3">
                   <p className="text-[10px] text-zinc-500 mb-2 flex items-center gap-1">
-                    <Sparkles size={10} className="text-violet-400" />Gusto raffinato
+                    <Sparkles size={10} style={{ color: '#E6FF3D' }} />Gusto raffinato
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {binge.slowGenres.slice(0, 3).map(g => (
-                      <span key={g} className="text-[10px] bg-violet-500/15 text-violet-300 px-1.5 py-0.5 rounded-full capitalize">{g}</span>
+                      <span key={g} className="text-[10px] px-1.5 py-0.5 rounded-full capitalize" style={{ background: 'rgba(230,255,61,0.1)', color: 'rgba(230,255,61,0.8)' }}>{g}</span>
                     ))}
                     {binge.slowGenres.length === 0 && <span className="text-[10px] text-zinc-700">—</span>}
                   </div>

@@ -210,7 +210,8 @@ export default function ListDetailPage() {
                 <span className="text-xs text-zinc-600">di</span>
                 <Link
                   href={`/profile/${list.owner?.username}`}
-                  className="text-xs text-violet-400 hover:text-violet-300 transition"
+                  className="text-xs hover:opacity-80 transition"
+                  style={{ color: '#E6FF3D' }}
                 >
                   @{list.owner?.username}
                 </Link>
@@ -298,7 +299,8 @@ export default function ListDetailPage() {
             {isOwner && (
               <button
                 onClick={() => setShowAddPanel(true)}
-                className="mt-4 text-violet-400 hover:text-violet-300 text-sm transition"
+                className="mt-4 text-sm hover:opacity-80 transition"
+                style={{ color: '#E6FF3D' }}
               >
                 Aggiungi titoli dalla tua collezione →
               </button>

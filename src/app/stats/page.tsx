@@ -237,7 +237,7 @@ export default function StatsPage() {
                 )}
                 {remHours > 0 && (
                   <div>
-                    <p className="gk-display text-violet-400">{remHours}</p>
+                    <p className="gk-display" style={{ color: '#E6FF3D' }}>{remHours}</p>
                     <p className="text-zinc-500 text-sm">ore</p>
                   </div>
                 )}

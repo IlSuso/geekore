@@ -131,7 +131,7 @@ export default function LeaderboardPage() {
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-white truncate group-hover:text-violet-400 transition-colors">
+                    <p className="font-semibold text-sm text-white truncate group-hover:text-[#E6FF3D] transition-colors">
                       {leader.display_name || leader.username}
                     </p>
                     <p className="text-xs text-zinc-500">@{leader.username}</p>

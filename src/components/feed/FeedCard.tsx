@@ -211,12 +211,12 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
   return (
     <div className={`bg-zinc-900 border rounded-2xl md:rounded-3xl overflow-hidden transition-all duration-300 ${
       post.pinned
-        ? 'border-violet-500/40 ring-1 ring-violet-500/20'
-        : 'border-zinc-800 hover:border-violet-500/30'
+        ? 'border-zinc-700 ring-1 ring-zinc-700/50'
+        : 'border-zinc-800 hover:border-zinc-700'
     }`}>
 
       {post.pinned && (
-        <div className="flex items-center gap-1.5 px-4 md:px-6 pt-3.5 text-violet-400">
+        <div className="flex items-center gap-1.5 px-4 md:px-6 pt-3.5" style={{ color: '#E6FF3D' }}>
           <Pin size={12} className="rotate-45" />
           <span className="text-[10px] font-bold uppercase tracking-widest">In evidenza</span>
         </div>
@@ -225,7 +225,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
       {/* Header: avatar + nome + timestamp */}
       <div className="p-4 md:p-6 pb-3 md:pb-4 flex items-center gap-3">
         <Link href={`/profile/${profile?.username}`} className="group shrink-0">
-          <div className="w-10 h-10 md:w-11 md:h-11 rounded-full overflow-hidden ring-2 ring-violet-500/20 group-hover:ring-violet-500/50 transition-all">
+          <div className="w-10 h-10 md:w-11 md:h-11 rounded-full overflow-hidden ring-2 ring-zinc-700/40 group-hover:ring-zinc-600/60 transition-all">
             <Avatar
               src={profile?.avatar_url}
               username={profile?.username || 'user'}
@@ -236,7 +236,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
           </div>
         </Link>
         <div className="flex-1 min-w-0">
-          <Link href={`/profile/${profile?.username}`} className="hover:text-violet-400 transition-colors">
+          <Link href={`/profile/${profile?.username}`} className="hover:text-[#E6FF3D] transition-colors">
             <p className="font-semibold text-white text-sm leading-tight truncate">
               <UserBadge badge={profile?.badge} displayName={profile?.display_name || profile?.username || 'Utente'} />
             </p>
@@ -292,9 +292,10 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
         <button
           onClick={handleToggleComments}
           aria-label={showComments ? 'Nascondi commenti' : 'Mostra commenti'}
-          className={`flex items-center gap-2 group transition-all ${showComments ? 'text-violet-400' : 'text-zinc-500 hover:text-violet-400'}`}
+          className={`flex items-center gap-2 group transition-all ${showComments ? '' : 'text-zinc-500'}`}
+          style={showComments ? { color: '#E6FF3D' } : {}}
         >
-          <div className={`p-1.5 rounded-xl transition-colors ${showComments ? 'bg-violet-500/15' : 'group-hover:bg-violet-500/10'}`}>
+          <div className={`p-1.5 rounded-xl transition-colors ${showComments ? 'bg-zinc-800' : 'group-hover:bg-zinc-800/60'}`}>
             <MessageSquare size={20} />
           </div>
           <span className="text-xs font-bold">{comments.length}</span>
@@ -314,7 +315,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
             <div className="space-y-3 mb-4 max-h-56 overflow-y-auto">
               {comments.map((comment) => (
                 <div key={comment.id} className="flex gap-2.5">
-                  <Link href={`/profile/${comment.profiles?.username}`} className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 hover:ring-2 hover:ring-violet-500/50 transition-all">
+                  <Link href={`/profile/${comment.profiles?.username}`} className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 hover:ring-2 hover:ring-zinc-600/60 transition-all">
                     <Avatar
                       src={comment.profiles?.avatar_url}
                       username={comment.profiles?.username || 'user'}
@@ -325,7 +326,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
                   </Link>
                   <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3.5 py-2 flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <Link href={`/profile/${comment.profiles?.username}`} className="text-[10px] font-bold text-violet-400 uppercase tracking-wider hover:text-violet-300 truncate">
+                      <Link href={`/profile/${comment.profiles?.username}`} className="text-[10px] font-bold uppercase tracking-wider truncate hover:opacity-80 transition-opacity" style={{ color: '#E6FF3D' }}>
                         @{comment.profiles?.username || 'user'}
                       </Link>
                       <div className="flex items-center gap-1 flex-shrink-0">
@@ -355,7 +356,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
               onChange={handleCommentChange}
               placeholder="Scrivi un commento..."
               maxLength={MAX_COMMENT_LENGTH}
-              className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500 rounded-2xl py-3 px-4 pr-20 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
+              className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl py-3 px-4 pr-20 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
             />
             {commentCharCount > 0 && (
               <span className={`absolute right-11 top-1/2 -translate-y-1/2 text-[10px] font-medium transition-colors ${
@@ -369,7 +370,8 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
             <button
               type="submit"
               disabled={isSubmitting || !newComment.trim()}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-violet-400 hover:text-violet-300 disabled:opacity-40 transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 disabled:opacity-40 transition-colors hover:opacity-80"
+              style={{ color: '#E6FF3D' }}
             >
               {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
             </button>

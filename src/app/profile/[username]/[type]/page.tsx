@@ -440,7 +440,7 @@ const MediaCard = memo(function MediaCard({
                     </div>
                   )}
                   {isOwner && !maxCh && (
-                    <button onClick={() => onEnrichEpisodes?.(media.id)} onPointerDown={e => e.stopPropagation()} disabled={enriching} className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-violet-400 transition-colors disabled:opacity-50">
+                    <button onClick={() => onEnrichEpisodes?.(media.id)} onPointerDown={e => e.stopPropagation()} disabled={enriching} className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-[#E6FF3D] transition-colors disabled:opacity-50">
                       {enriching ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
                       {enriching ? 'Recupero…' : 'Recupera totale'}
                     </button>
@@ -468,7 +468,7 @@ const MediaCard = memo(function MediaCard({
                 onClick={() => onEnrichEpisodes?.(media.id)}
                 onPointerDown={e => e.stopPropagation()}
                 disabled={enriching}
-                className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-violet-400 transition-colors disabled:opacity-50"
+                className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-[#E6FF3D] transition-colors disabled:opacity-50"
               >
                 {enriching ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
                 {enriching ? 'Recupero…' : 'Recupera episodi'}

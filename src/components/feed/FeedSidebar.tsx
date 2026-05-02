@@ -90,7 +90,7 @@ function TrendingMini() {
         })}
       </div>
       <div className="mt-3 flex justify-end">
-        <Link href="/trending" className="text-[11px] font-semibold text-violet-400 hover:text-violet-300 transition-colors">
+        <Link href="/trending" className="text-[11px] font-semibold hover:opacity-80 transition-opacity" style={{ color: '#E6FF3D' }}>
           Vedi tutti →
         </Link>
       </div>
@@ -190,7 +190,8 @@ function SuggestedUsersCompact({ currentUserId }: { currentUserId: string }) {
             ) : (
               <button
                 onClick={() => handleFollow(user.id)}
-                className="flex-shrink-0 text-[12px] font-semibold text-violet-400 hover:text-violet-300 transition-colors"
+                className="flex-shrink-0 text-[12px] font-semibold hover:opacity-80 transition-opacity"
+                style={{ color: '#E6FF3D' }}
               >
                 Segui
               </button>

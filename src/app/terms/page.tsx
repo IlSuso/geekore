@@ -15,7 +15,7 @@ export default function TermsPage() {
 
         <div className="flex items-center gap-3 mb-2">
           <div className="w-10 h-10 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-center">
-            <FileText size={18} className="text-violet-400" />
+            <FileText size={18} style={{ color: '#E6FF3D' }} />
           </div>
           <h1 className="text-3xl font-bold tracking-tight">
             {isEN ? 'Terms of Service' : 'Termini di Servizio'}
@@ -98,7 +98,7 @@ export default function TermsPage() {
 
               <section>
                 <h2 className="text-xl font-semibold text-white mb-3">11. Contact</h2>
-                <p>Questions about these Terms: <a href="mailto:support@geekore.app" className="text-violet-400 hover:underline">support@geekore.app</a></p>
+                <p>Questions about these Terms: <a href="mailto:support@geekore.app" className="hover:underline" style={{ color: '#E6FF3D' }}>support@geekore.app</a></p>
               </section>
             </>
           ) : (
@@ -173,18 +173,18 @@ export default function TermsPage() {
 
               <section>
                 <h2 className="text-xl font-semibold text-white mb-3">11. Contatti</h2>
-                <p>Domande su questi Termini: <a href="mailto:support@geekore.app" className="text-violet-400 hover:underline">support@geekore.app</a></p>
+                <p>Domande su questi Termini: <a href="mailto:support@geekore.app" className="hover:underline" style={{ color: '#E6FF3D' }}>support@geekore.app</a></p>
               </section>
             </>
           )}
         </div>
 
         <div className="mt-12 pt-8 border-t border-zinc-800 flex flex-wrap gap-4 text-sm text-zinc-500">
-          <Link href="/privacy" className="hover:text-violet-400 transition-colors">
+          <Link href="/privacy" className="hover:text-[#E6FF3D] transition-colors">
             {isEN ? 'Privacy Policy' : 'Informativa Privacy'}
           </Link>
-          <Link href="/cookies" className="hover:text-violet-400 transition-colors">Cookie Policy</Link>
-          <Link href="/" className="hover:text-violet-400 transition-colors">
+          <Link href="/cookies" className="hover:text-[#E6FF3D] transition-colors">Cookie Policy</Link>
+          <Link href="/" className="hover:text-[#E6FF3D] transition-colors">
             ← {isEN ? 'Back to Geekore' : 'Torna a Geekore'}
           </Link>
         </div>

@@ -116,7 +116,8 @@ export function ProfileStatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
           {stats.topGenres.map(g => (
             <span
               key={g}
-              className="text-[11px] px-3 py-1.5 rounded-full font-medium border bg-violet-500/8 border-violet-500/20 text-violet-300"
+              className="text-[11px] px-3 py-1.5 rounded-full font-medium border"
+              style={{ background: 'rgba(230,255,61,0.06)', borderColor: 'rgba(230,255,61,0.2)', color: 'rgba(230,255,61,0.8)' }}
             >
               {g}
             </span>

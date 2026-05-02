@@ -180,7 +180,7 @@ export default async function CommunityPage() {
                     />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[14px] font-semibold text-white truncate group-hover:text-violet-300 transition-colors">
+                    <p className="text-[14px] font-semibold text-white truncate group-hover:text-white transition-colors">
                       <UserBadge badge={(u.profile as any).badge} displayName={u.profile.display_name || u.profile.username} />
                     </p>
                     <p className="text-[12px] text-zinc-500 truncate">@{u.profile.username}</p>
@@ -219,7 +219,7 @@ export default async function CommunityPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-1">
-                      <span className="text-[13px] font-semibold text-white group-hover:text-violet-300 transition-colors truncate">
+                      <span className="text-[13px] font-semibold text-white group-hover:text-white transition-colors truncate">
                         <UserBadge badge={post.author?.badge} displayName={post.author?.display_name || post.author?.username || '?'} />
                       </span>
                       <span className="text-zinc-600 text-[11px]">·</span>
@@ -281,7 +281,7 @@ export default async function CommunityPage() {
                   href={`/lists/${list.id}`}
                   className="p-4 bg-zinc-900/60 border border-zinc-800 rounded-2xl hover:border-zinc-700 hover:bg-zinc-900 transition-all group"
                 >
-                  <p className="text-[14px] font-semibold text-white mb-1 group-hover:text-violet-300 transition-colors truncate">
+                  <p className="text-[14px] font-semibold text-white mb-1 group-hover:text-white transition-colors truncate">
                     {list.title}
                   </p>
                   {list.description && (

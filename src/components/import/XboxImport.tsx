@@ -116,13 +116,13 @@ export function XboxImport() {
               onClick={() => setShowHelp(v => !v)}
               className="w-full flex items-center gap-2 px-4 py-3 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
             >
-              <Info size={13} className="text-violet-400 flex-shrink-0" />
+              <Info size={13} className="flex-shrink-0" style={{ color: '#E6FF3D' }} />
               <span>Come trovo il mio XUID?</span>
               <span className="ml-auto text-zinc-600">{showHelp ? '▲' : '▼'}</span>
             </button>
             {showHelp && (
               <div className="px-4 pb-4 text-xs text-zinc-500 space-y-1.5 border-t border-zinc-800 pt-3">
-                <p>1. Vai su <a href="https://www.cxkes.me/xbox/xuid" target="_blank" rel="noopener noreferrer" className="text-violet-400 underline">cxkes.me/xbox/xuid</a></p>
+                <p>1. Vai su <a href="https://www.cxkes.me/xbox/xuid" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity" style={{ color: '#E6FF3D' }}>cxkes.me/xbox/xuid</a></p>
                 <p>2. Inserisci il tuo Gamertag Xbox nel campo di ricerca</p>
                 <p>3. Copia il numero sotto <span className="text-zinc-300 font-medium">XUID (DEC)</span> — non quello HEX</p>
                 <p className="text-zinc-600">Es: <span className="font-mono text-zinc-500">2535416081689610</span></p>

@@ -104,8 +104,8 @@ function ChangePasswordSheet() {
         className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors"
       >
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-violet-500/20 rounded-xl flex items-center justify-center">
-            <KeyRound size={15} className="text-violet-400" />
+          <div className="w-8 h-8 bg-zinc-800 rounded-xl flex items-center justify-center">
+            <KeyRound size={15} style={{ color: '#E6FF3D' }} />
           </div>
           <div className="text-left">
             <p className="text-sm font-medium text-white">Cambia password</p>
@@ -285,8 +285,8 @@ function DigestToggle() {
   return (
     <div className="flex items-center justify-between p-4 bg-zinc-900 border border-zinc-800 rounded-2xl">
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 bg-violet-500/20 rounded-xl flex items-center justify-center">
-          <Mail size={15} className="text-violet-400" />
+        <div className="w-8 h-8 bg-zinc-800 rounded-xl flex items-center justify-center">
+          <Mail size={15} style={{ color: '#E6FF3D' }} />
         </div>
         <div>
           <p className="text-sm font-medium text-white">Digest settimanale</p>
@@ -377,7 +377,7 @@ function StreamingPlatformsSelector() {
       <div className="px-5 pt-4 pb-3">
         <p className="text-sm text-zinc-400 leading-relaxed">
           Seleziona le piattaforme che hai attivo. I consigli di film e serie verranno
-          <span className="text-violet-400 font-medium"> boostati</span> se disponibili su queste piattaforme.
+          <span className="font-medium" style={{ color: '#E6FF3D' }}> boostati</span> se disponibili su queste piattaforme.
         </p>
         {selected.length === 0 && !loading && (
           <p className="text-xs text-zinc-600 mt-1">
@@ -406,7 +406,7 @@ function StreamingPlatformsSelector() {
               >
                 <span className="text-base leading-none">{logo}</span>
                 <span className="truncate">{name}</span>
-                {isSelected && <Check size={12} className="ml-auto flex-shrink-0 text-violet-400" />}
+                {isSelected && <Check size={12} className="ml-auto flex-shrink-0" style={{ color: '#E6FF3D' }} />}
               </button>
             )
           })}
@@ -476,7 +476,7 @@ export default function SettingsPage() {
 
         <div className="flex items-center gap-3 mb-2">
           <div className="w-10 h-10 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-center">
-            <Settings size={20} className="text-violet-400" />
+            <Settings size={20} style={{ color: '#E6FF3D' }} />
           </div>
           <h1 className="hidden md:block text-3xl font-bold tracking-tight">{t.settings.title}</h1>
         </div>
@@ -564,10 +564,10 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-2">
             {[
-              { href: '/stats', icon: BarChart3, color: 'bg-violet-500/20', iconColor: 'text-violet-400', label: 'Tempo sprecato', desc: 'Calcola quante ore hai speso' },
-              { href: '/trending', icon: TrendingUp, color: 'bg-fuchsia-500/20', iconColor: 'text-fuchsia-400', label: 'Trending community', desc: 'I più aggiunti questa settimana' },
-              { href: '/lists', icon: List, color: 'bg-emerald-500/20', iconColor: 'text-emerald-400', label: 'Le mie liste', desc: 'Crea e condividi liste tematiche' },
-            ].map(({ href, icon: Icon, color, iconColor, label, desc }) => (
+              { href: '/stats', icon: BarChart3, color: 'bg-zinc-800', iconColor: '', iconStyle: { color: '#E6FF3D' } as React.CSSProperties, label: 'Tempo sprecato', desc: 'Calcola quante ore hai speso' },
+              { href: '/trending', icon: TrendingUp, color: 'bg-fuchsia-500/20', iconColor: 'text-fuchsia-400', iconStyle: undefined as React.CSSProperties | undefined, label: 'Trending community', desc: 'I più aggiunti questa settimana' },
+              { href: '/lists', icon: List, color: 'bg-emerald-500/20', iconColor: 'text-emerald-400', iconStyle: undefined as React.CSSProperties | undefined, label: 'Le mie liste', desc: 'Crea e condividi liste tematiche' },
+            ].map(({ href, icon: Icon, color, iconColor, iconStyle, label, desc }) => (
               <Link
                 key={href}
                 href={href}
@@ -575,7 +575,7 @@ export default function SettingsPage() {
               >
                 <div className="flex items-center gap-3">
                   <div className={`w-9 h-9 ${color} rounded-xl flex items-center justify-center`}>
-                    <Icon size={16} className={iconColor} />
+                    <Icon size={16} className={iconColor} style={iconStyle} />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-white">{label}</p>

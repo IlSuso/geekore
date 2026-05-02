@@ -176,9 +176,10 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
                         sel
                           ? (currentSection.key === 'disliked_genres'
                               ? 'bg-red-500/20 border-red-500/50 text-red-300'
-                              : 'bg-violet-500/20 border-violet-500/50 text-violet-300')
+                              : '')
                           : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
-                      }`}>
+                      }`}
+                      style={sel && currentSection.key !== 'disliked_genres' ? { background: 'rgba(230,255,61,0.12)', borderColor: 'rgba(230,255,61,0.4)', color: '#E6FF3D' } : {}}>
                       {genre}
                     </button>
                   )

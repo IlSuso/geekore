@@ -82,7 +82,7 @@ export default function WishlistPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <Loader2 size={28} className="animate-spin text-violet-400" />
+        <Loader2 size={28} className="animate-spin" style={{ color: '#E6FF3D' }} />
       </main>
     )
   }

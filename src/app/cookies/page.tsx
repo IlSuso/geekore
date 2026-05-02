@@ -15,7 +15,7 @@ export default function CookiePage() {
 
         <div className="flex items-center gap-3 mb-2">
           <div className="w-10 h-10 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-center">
-            <Cookie size={18} className="text-violet-400" />
+            <Cookie size={18} className="" style={{ color: '#E6FF3D' }} />
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Cookie Policy</h1>
         </div>
@@ -44,8 +44,8 @@ export default function CookiePage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800">
-                      <tr><td className="px-4 py-3 font-mono text-xs text-violet-400">sb-*</td><td className="px-4 py-3">Authentication session (Supabase)</td><td className="px-4 py-3">Session / 7 days</td></tr>
-                      <tr><td className="px-4 py-3 font-mono text-xs text-violet-400">geekore_locale</td><td className="px-4 py-3">Language preference (localStorage)</td><td className="px-4 py-3">Persistent</td></tr>
+                      <tr><td className="px-4 py-3 font-mono text-xs text-[#E6FF3D]">sb-*</td><td className="px-4 py-3">Authentication session (Supabase)</td><td className="px-4 py-3">Session / 7 days</td></tr>
+                      <tr><td className="px-4 py-3 font-mono text-xs text-[#E6FF3D]">geekore_locale</td><td className="px-4 py-3">Language preference (localStorage)</td><td className="px-4 py-3">Persistent</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -68,7 +68,7 @@ export default function CookiePage() {
 
               <section>
                 <h2 className="text-xl font-semibold text-white mb-3">Managing Cookies</h2>
-                <p>You can clear cookies at any time through your browser settings. Clearing authentication cookies will log you out of Geekore. The language preference is stored in <code className="text-violet-400 bg-zinc-900 px-1 rounded">localStorage</code> and can be cleared from browser developer tools or changed in Settings.</p>
+                <p>You can clear cookies at any time through your browser settings. Clearing authentication cookies will log you out of Geekore. The language preference is stored in <code className="text-[#E6FF3D] bg-zinc-900 px-1 rounded">localStorage</code> and can be cleared from browser developer tools or changed in Settings.</p>
               </section>
             </>
           ) : (
@@ -91,8 +91,8 @@ export default function CookiePage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800">
-                      <tr><td className="px-4 py-3 font-mono text-xs text-violet-400">sb-*</td><td className="px-4 py-3">Sessione di autenticazione (Supabase)</td><td className="px-4 py-3">Sessione / 7 giorni</td></tr>
-                      <tr><td className="px-4 py-3 font-mono text-xs text-violet-400">geekore_locale</td><td className="px-4 py-3">Preferenza lingua (localStorage)</td><td className="px-4 py-3">Persistente</td></tr>
+                      <tr><td className="px-4 py-3 font-mono text-xs text-[#E6FF3D]">sb-*</td><td className="px-4 py-3">Sessione di autenticazione (Supabase)</td><td className="px-4 py-3">Sessione / 7 giorni</td></tr>
+                      <tr><td className="px-4 py-3 font-mono text-xs text-[#E6FF3D]">geekore_locale</td><td className="px-4 py-3">Preferenza lingua (localStorage)</td><td className="px-4 py-3">Persistente</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -115,20 +115,20 @@ export default function CookiePage() {
 
               <section>
                 <h2 className="text-xl font-semibold text-white mb-3">Gestione dei Cookie</h2>
-                <p>Puoi cancellare i cookie in qualsiasi momento tramite le impostazioni del browser. La cancellazione dei cookie di autenticazione comporterà il logout da Geekore. La preferenza della lingua è memorizzata nel <code className="text-violet-400 bg-zinc-900 px-1 rounded">localStorage</code> e può essere cancellata dagli strumenti di sviluppo del browser o modificata nelle Impostazioni.</p>
+                <p>Puoi cancellare i cookie in qualsiasi momento tramite le impostazioni del browser. La cancellazione dei cookie di autenticazione comporterà il logout da Geekore. La preferenza della lingua è memorizzata nel <code className="text-[#E6FF3D] bg-zinc-900 px-1 rounded">localStorage</code> e può essere cancellata dagli strumenti di sviluppo del browser o modificata nelle Impostazioni.</p>
               </section>
             </>
           )}
         </div>
 
         <div className="mt-12 pt-8 border-t border-zinc-800 flex flex-wrap gap-4 text-sm text-zinc-500">
-          <Link href="/privacy" className="hover:text-violet-400 transition-colors">
+          <Link href="/privacy" className="hover:text-[#E6FF3D] transition-colors">
             {isEN ? 'Privacy Policy' : 'Informativa Privacy'}
           </Link>
-          <Link href="/terms" className="hover:text-violet-400 transition-colors">
+          <Link href="/terms" className="hover:text-[#E6FF3D] transition-colors">
             {isEN ? 'Terms of Service' : 'Termini di Servizio'}
           </Link>
-          <Link href="/" className="hover:text-violet-400 transition-colors">
+          <Link href="/" className="hover:text-[#E6FF3D] transition-colors">
             ← {isEN ? 'Back to Geekore' : 'Torna a Geekore'}
           </Link>
         </div>

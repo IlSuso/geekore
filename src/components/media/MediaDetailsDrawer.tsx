@@ -531,7 +531,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                 </span>
               )}
               {media.matchScore != null && (
-                <span className="text-[9px] bg-violet-500/20 border border-violet-500/30 text-violet-300 px-1.5 py-0.5 rounded-full">
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(230,255,61,0.12)', border: '1px solid rgba(230,255,61,0.25)', color: '#E6FF3D' }}>
                   {media.matchScore}% match
                 </span>
               )}

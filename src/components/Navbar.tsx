@@ -182,12 +182,12 @@ export default function Navbar() {
             </Link>
 
             <div ref={searchRef} className="relative w-full max-w-[260px]">
-              <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${searchLoading ? 'text-violet-400 animate-pulse' : 'text-zinc-500'}`} />
+              <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${searchLoading ? 'animate-pulse' : 'text-zinc-500'}`} style={searchLoading ? { color: '#E6FF3D' } : {}} />
               <input
                 ref={searchInputRef} value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Cerca utenti..."
-                className="w-full bg-zinc-900 border border-zinc-800 focus:border-violet-500/60 rounded-full pl-9 pr-8 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
+                className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-full pl-9 pr-8 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
               />
               {searchQuery && (
                 <button onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">

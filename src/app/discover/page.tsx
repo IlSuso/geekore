@@ -451,7 +451,7 @@ export default function DiscoverPage() {
               <button
                 onClick={toggleVoice}
                 className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${
-                  isListening ? 'bg-red-500 text-white' : 'text-[var(--text-secondary)] hover:text-violet-400'
+                  isListening ? 'bg-red-500 text-white' : 'text-[var(--text-secondary)] hover:text-[#E6FF3D]'
                 }`}
               >
                 {isListening ? <MicOff size={15} /> : <Mic size={15} />}

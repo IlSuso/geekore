@@ -321,7 +321,8 @@ export default function EditProfilePage() {
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="text-sm text-violet-400 hover:text-violet-300 transition"
+              className="text-sm hover:opacity-80 transition"
+              style={{ color: '#E6FF3D' }}
             >
               {pe.changePhoto}
             </button>
@@ -370,7 +371,7 @@ export default function EditProfilePage() {
               maxLength={USERNAME_MAX}
               required
               className={`w-full bg-zinc-800 border rounded-2xl px-5 py-3 focus:outline-none transition ${
-                fieldErrors.username ? 'border-red-500 focus:border-red-500' : 'border-zinc-700 focus:border-violet-500'
+                fieldErrors.username ? 'border-red-500 focus:border-red-500' : 'border-zinc-700 focus:border-zinc-500'
               }`}
             />
             {fieldErrors.username ? (
@@ -395,7 +396,7 @@ export default function EditProfilePage() {
               maxLength={BIO_MAX}
               placeholder={pe.bioPlaceholder}
               className={`w-full bg-zinc-800 border rounded-2xl px-5 py-3 focus:outline-none transition resize-none ${
-                fieldErrors.bio ? 'border-red-500 focus:border-red-500' : 'border-zinc-700 focus:border-violet-500'
+                fieldErrors.bio ? 'border-red-500 focus:border-red-500' : 'border-zinc-700 focus:border-zinc-500'
               }`}
             />
             {fieldErrors.bio && (
@@ -406,9 +407,9 @@ export default function EditProfilePage() {
           {/* Gusti & Preferenze */}
           <div className="pt-4 border-t border-zinc-800">
             <div className="flex items-center gap-2 mb-4">
-              <Sparkles size={16} className="text-violet-400" />
+              <Sparkles size={16} style={{ color: '#E6FF3D' }} />
               <span className="text-sm font-semibold text-white">Gusti & Preferenze</span>
-              <Link href="/for-you" className="ml-auto text-xs text-violet-400 hover:text-violet-300 transition">
+              <Link href="/for-you" className="ml-auto text-xs hover:opacity-80 transition" style={{ color: '#E6FF3D' }}>
                 Personalizza tutto →
               </Link>
             </div>
@@ -422,9 +423,10 @@ export default function EditProfilePage() {
                     )}
                     className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
                       likedGenres.includes(genre)
-                        ? 'bg-violet-500/20 border-violet-500/50 text-violet-300'
+                        ? ''
                         : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-500'
                     }`}
+                    style={likedGenres.includes(genre) ? { background: 'rgba(230,255,61,0.12)', borderColor: 'rgba(230,255,61,0.4)', color: '#E6FF3D' } : {}}
                   >{genre}</button>
                 ))}
               </div>

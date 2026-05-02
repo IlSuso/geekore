@@ -48,9 +48,9 @@ export function parseCategoryString(cat: string | null | undefined): { category:
   return { category: cat.slice(0, idx), subcategory: cat.slice(idx + 1) }
 }
 
-export function CategoryIcon({ category, size = 13, className = '' }: { category: string; size?: number; className?: string }) {
+export function CategoryIcon({ category, size = 13, className = '', style }: { category: string; size?: number; className?: string; style?: React.CSSProperties }) {
   const Icon = CATEGORY_ICON_MAP[category] || Tag
-  return <Icon size={size} className={className} />
+  return <Icon size={size} className={className} style={style} />
 }
 
 export function CategoryBadge({ category, onClick }: { category: string | null | undefined; onClick?: () => void }) {
@@ -254,9 +254,10 @@ export function CategorySelector({ value, onChange }: {
         onClick={value ? clearValue : openDropup}
         className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-medium border transition-all ${
           value
-            ? 'bg-violet-600/20 border-violet-500/40 text-violet-300 hover:border-red-500/40 hover:text-red-400'
+            ? 'bg-zinc-800 border-zinc-600 hover:border-red-500/40 hover:text-red-400'
             : 'bg-zinc-800/80 border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-600'
         }`}
+        style={value ? { color: '#E6FF3D' } : {}}
       >
         <Tag size={14} strokeWidth={1.6} />
         {value ? (
@@ -285,8 +286,8 @@ export function CategorySelector({ value, onChange }: {
               <div className="grid grid-cols-3 gap-1.5 mb-1.5">
                 {MACRO_CATEGORIES.slice(0, 3).map(cat => (
                   <button key={cat} type="button" onClick={() => selectMacro(cat)}
-                    className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 hover:bg-zinc-800 hover:border-violet-500/50 transition-all group">
-                    <CategoryIcon category={cat} size={18} className="text-zinc-400 group-hover:text-violet-400 transition-colors" />
+                    className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 hover:bg-zinc-800 hover:border-zinc-600 transition-all group">
+                    <CategoryIcon category={cat} size={18} className="text-zinc-400 group-hover:text-white transition-colors" />
                     <span className="text-[11px] font-medium text-zinc-300 group-hover:text-white leading-tight text-center">{cat}</span>
                   </button>
                 ))}
@@ -295,8 +296,8 @@ export function CategorySelector({ value, onChange }: {
                 {MACRO_CATEGORIES.slice(3).map(cat => (
                   <button key={cat} type="button" onClick={() => selectMacro(cat)}
                     style={{ width: 'calc(33.333% - 3px)' }}
-                    className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 hover:bg-zinc-800 hover:border-violet-500/50 transition-all group">
-                    <CategoryIcon category={cat} size={18} className="text-zinc-400 group-hover:text-violet-400 transition-colors" />
+                    className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 hover:bg-zinc-800 hover:border-zinc-600 transition-all group">
+                    <CategoryIcon category={cat} size={18} className="text-zinc-400 group-hover:text-white transition-colors" />
                     <span className="text-[11px] font-medium text-zinc-300 group-hover:text-white leading-tight text-center">{cat}</span>
                   </button>
                 ))}
@@ -312,7 +313,7 @@ export function CategorySelector({ value, onChange }: {
                   className="w-7 h-7 flex items-center justify-center rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all flex-shrink-0">
                   <ArrowLeft size={13} />
                 </button>
-                <CategoryIcon category={selectedCat} size={14} className="text-violet-400 flex-shrink-0" />
+                <CategoryIcon category={selectedCat} size={14} className="flex-shrink-0" style={{ color: '#E6FF3D' }} />
                 <span className="text-sm font-semibold text-white flex-1 truncate">{selectedCat}</span>
                 <button type="button" onClick={close} className="text-zinc-600 hover:text-zinc-400 p-0.5"><X size={13} /></button>
               </div>
@@ -327,9 +328,9 @@ export function CategorySelector({ value, onChange }: {
                   onChange={e => setSubInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder={hasApiSupport ? searchPlaceholder : 'Titolo specifico...'}
-                  className="no-nav-hide w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500 rounded-xl pl-8 pr-8 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
+                  className="no-nav-hide w-full bg-zinc-800 border border-zinc-700 focus:border-zinc-500 rounded-xl pl-8 pr-8 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
                 />
-                {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-violet-400 animate-spin" />}
+                {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin" style={{ color: '#E6FF3D' }} />}
                 {!isSearching && subInput && (
                   <button type="button" onClick={() => setSubInput('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400">
                     <X size={13} />
@@ -341,7 +342,7 @@ export function CategorySelector({ value, onChange }: {
               <div className="rounded-xl overflow-hidden border border-zinc-700/50 bg-zinc-950 max-h-[200px] overflow-y-auto mb-2">
                 {suggestions.map((result, idx) => (
                   <button key={result.id} type="button" onClick={() => selectSuggestion(result)}
-                    className={`w-full flex items-center gap-3 px-3 py-2 text-left border-b border-zinc-800/60 last:border-0 transition-colors ${idx === activeSuggestion ? 'bg-violet-600/20' : 'hover:bg-zinc-800/80'}`}>
+                    className={`w-full flex items-center gap-3 px-3 py-2 text-left border-b border-zinc-800/60 last:border-0 transition-colors ${idx === activeSuggestion ? 'bg-zinc-700/40' : 'hover:bg-zinc-800/80'}`}>
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-semibold text-white truncate">{result.title}</p>
                       {result.subtitle && <p className="text-[11px] text-zinc-500">{result.subtitle}</p>}
@@ -352,7 +353,8 @@ export function CategorySelector({ value, onChange }: {
             ) : null
             const usaLibero = subInput.trim() && !isSearching ? (
               <button type="button" onClick={() => { onChange(`${selectedCat}:${subInput.trim()}`); close() }}
-                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-violet-600/15 border border-violet-500/30 text-violet-300 text-[13px] font-medium hover:bg-violet-600/25 transition mb-2">
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-medium transition mb-2"
+                style={{ background: 'rgba(230,255,61,0.1)', border: '1px solid rgba(230,255,61,0.25)', color: '#E6FF3D' }}>
                 <Check size={13} />
                 Usa <strong className="font-semibold">&quot;{subInput.trim()}&quot;</strong>
               </button>
@@ -364,7 +366,7 @@ export function CategorySelector({ value, onChange }: {
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {(QUICK_SUBS[selectedCat] || []).map(sub => (
                   <button key={sub} type="button" onClick={() => { onChange(`${selectedCat}:${sub}`); close() }}
-                    className="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700/80 text-[11px] text-zinc-300 hover:border-violet-500/50 hover:text-violet-300 transition-all">
+                    className="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700/80 text-[11px] text-zinc-300 hover:border-zinc-500 hover:text-white transition-all">
                     {sub}
                   </button>
                 ))}

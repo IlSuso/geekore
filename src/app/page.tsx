@@ -132,7 +132,7 @@ async function CommunityLive() {
                     className="rounded-xl"
                   />
                 </div>
-                <span className="text-xs font-semibold text-violet-400">
+                <span className="text-xs font-semibold" style={{ color: '#E6FF3D' }}>
                   @{post.profiles?.username || 'utente'}
                 </span>
               </div>
@@ -142,7 +142,7 @@ async function CommunityLive() {
             </div>
           ))}
           <div className="text-center pt-2">
-            <Link href="/register" className="text-xs text-zinc-600 hover:text-violet-400 transition-colors">
+            <Link href="/register" className="text-xs text-zinc-600 hover:text-[#E6FF3D] transition-colors">
               Registrati per vedere il feed completo →
             </Link>
           </div>
@@ -213,15 +213,15 @@ export default async function HomePage() {
       <main className="flex-1 flex flex-col items-center justify-center text-center px-6 pb-20">
         <div className="max-w-3xl mx-auto">
 
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-violet-500/10 border border-violet-500/20 rounded-full text-violet-400 text-sm font-medium mb-8">
-            <div className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-8" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)', color: '#E6FF3D' }}>
+            <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#E6FF3D' }} />
             Il tuo universo geek in un unico posto
           </div>
 
           <h1 className="text-5xl md:text-8xl font-black tracking-tighter leading-none mb-6">
             Traccia tutto
             <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-fuchsia-400 to-cyan-400">
+            <span style={{ color: '#E6FF3D' }}>
               ciò che ami
             </span>
           </h1>

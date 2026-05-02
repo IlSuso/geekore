@@ -115,7 +115,7 @@ function StepDots({ current, total }: { current: number; total: number }) {
         <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest">
           Passo {current + 1} di {total}
         </span>
-        <span className="text-[11px] font-bold text-violet-400">{pct}%</span>
+        <span className="text-[11px] font-bold" style={{ color: '#E6FF3D' }}>{pct}%</span>
       </div>
       <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden w-full">
         <div
@@ -169,7 +169,7 @@ function BrandPanel({ step }: { step: number }) {
             {FEATURES.map(({ icon: Icon, label }) => (
               <div key={label} className="flex items-start gap-3">
                 <div className="w-9 h-9 bg-violet-500/10 border border-violet-500/25 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
-                  <Icon size={17} className="text-violet-400" />
+                  <Icon size={17} className="" style={{ color: '#E6FF3D' }} />
                 </div>
                 <span className="text-zinc-300 text-sm leading-relaxed pt-1">{label}</span>
               </div>
@@ -480,7 +480,7 @@ export default function OnboardingPage() {
                 {FEATURES.map(({ icon: Icon, label }) => (
                   <div key={label} className="flex items-start gap-3">
                     <div className="w-8 h-8 bg-violet-500/15 border border-violet-500/30 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
-                      <Icon size={15} className="text-violet-400" />
+                      <Icon size={15} className="" style={{ color: '#E6FF3D' }} />
                     </div>
                     <span className="text-zinc-300 text-sm leading-relaxed pt-1">{label}</span>
                   </div>
@@ -489,7 +489,7 @@ export default function OnboardingPage() {
 
               {/* Titolo desktop */}
               <div className="hidden lg:block mb-8">
-                <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-2">Cominciamo <Sparkles size={26} className="text-violet-400" /></h1>
+                <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-2">Cominciamo <Sparkles size={26} className="" style={{ color: '#E6FF3D' }} /></h1>
                 <p className="text-zinc-400">Ci vorranno meno di 2 minuti.</p>
               </div>
 

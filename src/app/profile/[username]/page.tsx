@@ -203,7 +203,7 @@ function SortableBox({ media, children, disabled }: { media: UserMedia; children
       className={`${disabled ? '' : 'cursor-grab active:cursor-grabbing'} rounded-3xl overflow-hidden min-h-[340px] sm:min-h-[380px] md:min-h-[420px] h-full flex flex-col ${
         isDragging
           ? 'border-2 border-violet-500 shadow-2xl scale-[1.02] z-50'
-          : 'border border-zinc-800 md:hover:border-violet-500/50 md:hover:shadow-xl'
+          : 'border border-zinc-800 md:hover:border-zinc-600 md:hover:shadow-xl'
       }`}
     >
       {children}
@@ -277,8 +277,8 @@ function MediaCard({
   const rating = media.rating || 0
   const hasNotes = !!media.notes?.trim()
 
-  const statusBadge: Record<string, { label: string; cls: string }> = {
-    completed: { label: 'Completato', cls: 'bg-violet-600/25 text-violet-300 border border-violet-500/40' },
+  const statusBadge: Record<string, { label: string; cls: string; style?: React.CSSProperties }> = {
+    completed: { label: 'Completato', cls: '', style: { background: 'rgba(230,255,61,0.12)', color: '#E6FF3D', border: '1px solid rgba(230,255,61,0.3)' } },
     paused:    { label: 'In pausa',   cls: 'bg-amber-500/20 text-amber-300 border border-amber-500/40' },
     dropped:   { label: 'Abbandonato',cls: 'bg-red-500/20 text-red-300 border border-red-500/40' },
     watching:  { label: 'In corso',   cls: 'bg-sky-500/20 text-sky-300 border border-sky-500/40' },
@@ -466,7 +466,7 @@ function MediaCard({
               (() => {
                 const badge = statusBadge[media.status || 'watching']
                 return badge ? (
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit ${badge.cls}`}>{badge.label}</span>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit ${badge.cls}`} style={badge.style}>{badge.label}</span>
                 ) : null
               })()
             )
@@ -559,7 +559,7 @@ function MediaCard({
                       </div>
                     )}
                     {isOwner && !maxCh && (
-                      <button onClick={() => onEnrichEpisodes?.(media.id)} onPointerDown={e => e.stopPropagation()} disabled={enriching} className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-violet-400 transition-colors disabled:opacity-50">
+                      <button onClick={() => onEnrichEpisodes?.(media.id)} onPointerDown={e => e.stopPropagation()} disabled={enriching} className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-[#E6FF3D] transition-colors disabled:opacity-50">
                         {enriching ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
                         {enriching ? 'Recupero…' : 'Recupera totale'}
                       </button>
@@ -609,7 +609,7 @@ function MediaCard({
               onClick={() => onEnrichEpisodes?.(media.id)}
               onPointerDown={e => e.stopPropagation()}
               disabled={enriching}
-              className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-violet-400 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-[#E6FF3D] transition-colors disabled:opacity-50"
             >
               {enriching ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
               {enriching ? 'Recupero…' : 'Recupera episodi'}
@@ -1408,9 +1408,9 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {topGenres.slice(0, 6).map((genre, i) => (
-                    <span key={genre} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-violet-500/10 border border-violet-500/20 text-violet-300">
+                    <span key={genre} className="px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)', color: '#E6FF3D' }}>
                       {genre}
-                      {i === 0 && <span className="ml-1 text-violet-500/50">#{i + 1}</span>}
+                      {i === 0 && <span className="ml-1" style={{ color: 'rgba(230,255,61,0.4)' }}>#{i + 1}</span>}
                     </span>
                   ))}
                   {topGenres.length > 6 && (
@@ -1502,7 +1502,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
               { href: '/lists',      icon: <List size={14} className="text-cyan-400" />,        label: 'Liste' },
               { href: '/stats',      icon: <BarChart2 size={14} className="text-indigo-400" />, label: 'Statistiche' },
               { href: '/trending',   icon: <TrendingUp size={14} className="text-orange-400" />,label: 'Trending' },
-              { href: '/community',  icon: <Users size={14} className="text-violet-400" />,     label: 'Community' },
+              { href: '/community',  icon: <Users size={14} style={{ color: '#E6FF3D' }} />,     label: 'Community' },
             ] as const).map(item => (
               <Link key={item.href} href={item.href}
                 className="flex items-center gap-2 px-3 py-2 bg-zinc-900 rounded-2xl border border-zinc-800 text-sm font-medium text-zinc-300 hover:border-zinc-600 transition-colors flex-shrink-0 whitespace-nowrap">
@@ -1576,7 +1576,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                             {hasMore && (
                               <Link
                                 href={`/profile/${profile.username}/${categoryToType[category] || category}`}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 border border-zinc-700 hover:border-violet-500/50 rounded-xl text-xs text-zinc-400 hover:text-violet-400 transition-all"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-xl text-xs text-zinc-400 hover:text-[#E6FF3D] transition-all"
                               >
                                 Vedi tutti <ChevronRight size={13} />
                               </Link>
@@ -1601,7 +1601,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                                 {hasMore && (
                                   <Link
                                     href={`/profile/${profile.username}/${categoryToType[category] || category}`}
-                                    className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-violet-500/50 rounded-3xl min-h-[340px] sm:min-h-[380px] md:min-h-[420px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-violet-400 transition-all group"
+                                    className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-zinc-600 rounded-3xl min-h-[340px] sm:min-h-[380px] md:min-h-[420px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-[#E6FF3D] transition-all group"
                                   >
                                     <ChevronRight size={16} />
                                     <span className="text-xs font-semibold">+{items.length - 6}</span>
@@ -1619,7 +1619,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                             {hasMore && (
                               <Link
                                 href={`/profile/${profile.username}/${categoryToType[category] || category}`}
-                                className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-violet-500/50 rounded-3xl min-h-[340px] sm:min-h-[380px] md:min-h-[420px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-violet-400 transition-all group"
+                                className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-zinc-600 rounded-3xl min-h-[340px] sm:min-h-[380px] md:min-h-[420px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-[#E6FF3D] transition-all group"
                               >
                                 <ChevronRight size={16} />
                                 <span className="text-xs font-semibold">+{items.length - 6}</span>

@@ -1,11 +1,12 @@
 // components/UserBadge.tsx
 import { Gem } from "lucide-react";
 
-const BADGE_CONFIG: Record<string, { icon: React.ReactNode; label: string; className: string }> = {
+const BADGE_CONFIG: Record<string, { icon: React.ReactNode; label: string; className: string; style?: React.CSSProperties }> = {
   early_supporter: {
     icon: <Gem size={14} strokeWidth={2} />,
     label: "Early Supporter",
-    className: "text-violet-400",
+    className: "",
+    style: { color: '#E6FF3D' },
   },
 };
 
@@ -23,6 +24,7 @@ export function UserBadge({ badge, displayName, className = "" }: UserBadgeProps
       {config && (
         <span
           className={`${config.className} flex-shrink-0`}
+          style={config.style}
           title={config.label}
         >
           {config.icon}

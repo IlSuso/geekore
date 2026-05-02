@@ -433,9 +433,10 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
         onClick={value ? clearValue : openDropup}
         className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-medium border transition-all ${
           value
-            ? 'bg-violet-600/20 border-violet-500/40 text-violet-300 hover:border-red-500/40 hover:text-red-400'
+            ? 'bg-zinc-800 border-zinc-600 hover:border-red-500/40 hover:text-red-400'
             : 'bg-zinc-800/80 border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-600'
         }`}
+        style={value ? { color: '#E6FF3D' } : {}}
       >
         <Tag size={14} strokeWidth={1.6} />
         {value ? (
@@ -468,7 +469,7 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
                 {MACRO_CATEGORIES.slice(0, 3).map(cat => (
                   <button key={cat} type="button" onClick={() => selectMacro(cat)}
                     className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 hover:bg-zinc-800 hover:border-violet-500/50 transition-all group">
-                    <CategoryIcon category={cat} size={18} className="text-zinc-400 group-hover:text-violet-400 transition-colors" />
+                    <CategoryIcon category={cat} size={18} className="text-zinc-400 group-hover:text-white transition-colors" />
                     <span className="text-[11px] font-medium text-zinc-300 group-hover:text-white leading-tight text-center">{cat}</span>
                   </button>
                 ))}
@@ -477,7 +478,7 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
                 {MACRO_CATEGORIES.slice(3).map(cat => (
                   <button key={cat} type="button" onClick={() => selectMacro(cat)}
                     className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 hover:bg-zinc-800 hover:border-violet-500/50 transition-all group">
-                    <CategoryIcon category={cat} size={18} className="text-zinc-400 group-hover:text-violet-400 transition-colors" />
+                    <CategoryIcon category={cat} size={18} className="text-zinc-400 group-hover:text-white transition-colors" />
                     <span className="text-[11px] font-medium text-zinc-300 group-hover:text-white leading-tight text-center">{cat}</span>
                   </button>
                 ))}
@@ -494,7 +495,7 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
                   className="w-7 h-7 flex items-center justify-center rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all flex-shrink-0">
                   <ArrowLeft size={13} />
                 </button>
-                <CategoryIcon category={selectedCat} size={14} className="text-violet-400 flex-shrink-0" />
+                <CategoryIcon category={selectedCat} size={14} className="flex-shrink-0" style={{ color: '#E6FF3D' }} />
                 <span className="text-sm font-semibold text-white flex-1 truncate">{selectedCat}</span>
                 <button type="button" onClick={close} className="text-zinc-600 hover:text-zinc-400 p-0.5"><X size={13} /></button>
               </div>
@@ -511,7 +512,7 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
                   placeholder={hasApiSupport ? searchPlaceholder : 'Titolo specifico...'}
                   className="no-nav-hide w-full bg-zinc-800 border border-zinc-700 focus:border-violet-500 focus:outline-none rounded-xl pl-8 pr-8 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
                 />
-                {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-violet-400 animate-spin" />}
+                {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin" style={{ color: '#E6FF3D' }}" />}
                 {!isSearching && subInput && (
                   <button type="button" onClick={() => setSubInput('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400">
                     <X size={13} />
@@ -536,7 +537,8 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
             ) : null
             const usaLibero = subInput.trim() && !isSearching ? (
               <button type="button" onClick={() => { onChange(`${selectedCat}:${subInput.trim()}`); close() }}
-                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-violet-600/15 border border-violet-500/30 text-violet-300 text-[13px] font-medium hover:bg-violet-600/25 transition mb-2">
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-medium transition mb-2"
+                style={{ background: 'rgba(230,255,61,0.1)', border: '1px solid rgba(230,255,61,0.25)', color: '#E6FF3D' }}>
                 <Check size={13} />
                 Usa <strong className="font-semibold">"{subInput.trim()}"</strong>
               </button>
@@ -548,7 +550,7 @@ function CategorySelector({ value, onChange, alwaysExpanded = false }: {
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {(QUICK_SUBS[selectedCat] || []).map(sub => (
                   <button key={sub} type="button" onClick={() => { onChange(`${selectedCat}:${sub}`); close() }}
-                    className="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700/80 text-[11px] text-zinc-300 hover:border-violet-500/50 hover:text-violet-300 transition-all">
+                    className="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700/80 text-[11px] text-zinc-300 hover:border-zinc-500 hover:text-white transition-all">
                     {sub}
                   </button>
                 ))}
@@ -899,7 +901,7 @@ const PostCard = memo(function PostCard({
     }`}>
 
       {post.pinned && (
-        <div className="flex items-center gap-1.5 px-5 pt-4 pb-1 text-violet-400">
+        <div className="flex items-center gap-1.5 px-5 pt-4 pb-1" style={{ color: '#E6FF3D' }}>
           <Pin size={11} className="rotate-45" />
           <span className="text-[10px] font-bold uppercase tracking-widest">In evidenza</span>
         </div>
@@ -919,7 +921,7 @@ const PostCard = memo(function PostCard({
           </div>
         </Link>
         <div className="flex-1 min-w-0">
-          <Link href={`/profile/${post.profiles.username}`} className="hover:text-violet-400 transition-colors" onClick={e => e.stopPropagation()}>
+          <Link href={`/profile/${post.profiles.username}`} className="hover:text-[#E6FF3D] transition-colors" onClick={e => e.stopPropagation()}>
             <p className="font-semibold text-[var(--text-primary)] text-[15px] leading-tight">
               <UserBadge badge={post.profiles.badge} displayName={post.profiles.display_name || post.profiles.username} />
             </p>
@@ -976,7 +978,7 @@ const PostCard = memo(function PostCard({
         <button
           onClick={() => onOpenModal(post.id)}
           aria-label="Vedi commenti"
-          className="flex items-center gap-2 group transition-all text-zinc-500 hover:text-violet-400"
+          className="flex items-center gap-2 group transition-all text-zinc-500 hover:text-[#E6FF3D]"
         >
           <div className="p-1.5 rounded-xl transition-colors group-hover:bg-violet-500/10">
             <MessageCircle size={19} />
@@ -1001,7 +1003,7 @@ const PostCard = memo(function PostCard({
             }
           }}
           aria-label="Condividi post"
-          className={`flex items-center gap-2 group text-zinc-500 hover:text-violet-400 transition-all ${currentUser && currentUser.id !== post.user_id ? '' : 'ml-auto'}`}
+          className={`flex items-center gap-2 group text-zinc-500 hover:text-[#E6FF3D] transition-all ${currentUser && currentUser.id !== post.user_id ? '' : 'ml-auto'}`}
         >
           <div className="p-1.5 rounded-xl transition-colors group-hover:bg-violet-500/10">
             <Send size={18} aria-hidden="true" />
@@ -1056,7 +1058,7 @@ function PostModal({
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto">
           {post.pinned && (
-            <div className="flex items-center gap-1.5 px-5 pt-4 pb-1 text-violet-400">
+            <div className="flex items-center gap-1.5 px-5 pt-4 pb-1" style={{ color: '#E6FF3D' }}>
               <Pin size={11} className="rotate-45" />
               <span className="text-[10px] font-bold uppercase tracking-widest">In evidenza</span>
             </div>
@@ -1076,7 +1078,7 @@ function PostModal({
               </div>
             </Link>
             <div className="flex-1 min-w-0">
-              <Link href={`/profile/${post.profiles.username}`} onClick={onClose} className="hover:text-violet-400 transition-colors">
+              <Link href={`/profile/${post.profiles.username}`} onClick={onClose} className="hover:text-[#E6FF3D] transition-colors">
                 <p className="font-semibold text-[var(--text-primary)] text-[15px] leading-tight">
                   <UserBadge badge={post.profiles.badge} displayName={post.profiles.display_name || post.profiles.username} />
                 </p>
@@ -1142,7 +1144,7 @@ function PostModal({
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] leading-snug">
                         <Link href={`/profile/${comment.username}`} onClick={onClose}
-                          className="font-semibold text-white hover:text-violet-400 transition-colors mr-1">
+                          className="font-semibold text-white hover:text-[#E6FF3D] transition-colors mr-1">
                           {comment.username}
                         </Link>
                         <span className="text-zinc-400">{comment.content}</span>
@@ -2062,7 +2064,7 @@ export default function FeedPage() {
                           )}
                         </div>
                         <div className="flex-shrink-0 border-t border-zinc-800/60 px-4 py-3 flex items-center gap-3" style={{ background: 'var(--bg-primary)' }}>
-                          <label className="cursor-pointer flex items-center justify-center w-10 h-10 rounded-2xl text-zinc-400 hover:text-violet-400 hover:bg-zinc-800 transition-all select-none">
+                          <label className="cursor-pointer flex items-center justify-center w-10 h-10 rounded-2xl text-zinc-400 hover:text-[#E6FF3D] hover:bg-zinc-800 transition-all select-none">
                             <ImageIcon size={22} strokeWidth={1.5} />
                             <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
                           </label>
@@ -2250,7 +2252,7 @@ export default function FeedPage() {
               {displayedPosts.length === 0 ? (
                 <div className="text-center py-24 px-8">
                   <div className="w-16 h-16 rounded-full border-2 border-[var(--border)] flex items-center justify-center mx-auto mb-4">
-                    <Sparkles size={28} className="text-violet-400" />
+                    <Sparkles size={28} className="" style={{ color: '#E6FF3D' }} />
                   </div>
                   <p className="text-[16px] font-semibold text-[var(--text-primary)] mb-1">
                     {categoryFilter
@@ -2286,14 +2288,14 @@ export default function FeedPage() {
 
               {loadingMore && (
                 <div className="flex justify-center py-8">
-                  <Loader2 size={22} className="animate-spin text-violet-400" />
+                  <Loader2 size={22} className="animate-spin" style={{ color: '#E6FF3D' }} />
                 </div>
               )}
 
               {!hasMore && posts.length > 0 && (
                 <div className="text-center py-10 flex flex-col items-center gap-2">
                   <div className="w-12 h-12 rounded-full border border-[var(--border)] flex items-center justify-center">
-                    <PartyPopper size={20} className="text-violet-400" />
+                    <PartyPopper size={20} className="" style={{ color: '#E6FF3D' }} />
                   </div>
                   <p className="text-[13px] text-[var(--text-muted)]">Hai visto tutto!</p>
                 </div>

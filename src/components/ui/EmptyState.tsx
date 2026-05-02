@@ -26,7 +26,7 @@ export function EmptyState({
   className = '',
 }: EmptyStateProps) {
   const accentMap = {
-    violet:  { icon: 'text-violet-400',  ring: 'border-violet-500/20', bg: 'bg-violet-500/8' },
+    violet:  { icon: 'text-[#E6FF3D]',  ring: 'border-[rgba(230,255,61,0.2)]', bg: 'bg-[rgba(230,255,61,0.06)]' },
     fuchsia: { icon: 'text-fuchsia-400', ring: 'border-fuchsia-500/20', bg: 'bg-fuchsia-500/8' },
     zinc:    { icon: 'text-zinc-500',    ring: 'border-[var(--border)]', bg: 'bg-[var(--bg-card)]' },
   }

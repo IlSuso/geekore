@@ -146,7 +146,7 @@ export default async function GlobalStatsPage() {
               <p className="text-zinc-500 text-sm">La community Geekore in numeri</p>
             </div>
           </div>
-          <Link href="/stats" className="text-xs text-violet-400 hover:text-violet-300 transition-colors">
+          <Link href="/stats" className="text-xs hover:opacity-80 transition-opacity" style={{ color: '#E6FF3D' }}>
             ← Le mie statistiche personali
           </Link>
         </div>
@@ -231,14 +231,14 @@ export default async function GlobalStatsPage() {
         {stats.popularGenres.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">
-              <Layers size={14} className="text-violet-400" />
+              <Layers size={14} style={{ color: '#E6FF3D' }} />
               <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-widest">Generi più amati</h2>
             </div>
             <div className="flex flex-wrap gap-2">
               {stats.popularGenres.map(([genre, count]) => (
                 <div key={genre} className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-full">
                   <span className="text-sm font-medium text-zinc-200">{genre}</span>
-                  <span className="text-xs text-violet-400 font-bold">{formatNumber(count)}</span>
+                  <span className="text-xs font-bold" style={{ color: '#E6FF3D' }}>{formatNumber(count)}</span>
                 </div>
               ))}
             </div>

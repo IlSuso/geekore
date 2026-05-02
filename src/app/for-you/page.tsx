@@ -74,7 +74,7 @@ function triggerTasteDelta(options: {
 
 function MatchBadge({ score }: { score: number }) {
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-bold font-mono text-violet-300 bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 rounded-full">
+    <span className="inline-flex items-center gap-1 text-[10px] font-bold font-mono px-1.5 py-0.5 rounded-full" style={{ color: '#E6FF3D', background: 'rgba(230,255,61,0.1)', border: '1px solid rgba(230,255,61,0.2)' }}>
       <Star size={8} fill="currentColor" />{score}%
     </span>
   )
@@ -215,7 +215,8 @@ const RecommendationCard = memo(function RecommendationCard({ item, onFeedback, 
           </button>
           {onSimilar && (
             <button onClick={(e) => { e.stopPropagation(); onSimilar(item) }} disabled={isSimilarLoading} title="Simili"
-              className={`w-7 h-7 flex items-center justify-center rounded-full backdrop-blur-sm transition-colors ${isSimilarLoading ? 'bg-violet-900/60 text-violet-300' : 'bg-black/60 text-zinc-300 hover:text-violet-200 hover:bg-violet-900/60'}`}>
+              className={`w-7 h-7 flex items-center justify-center rounded-full backdrop-blur-sm transition-colors ${isSimilarLoading ? 'bg-zinc-800/80' : 'bg-black/60 text-zinc-300 hover:text-white hover:bg-zinc-700/80'}`}
+              style={isSimilarLoading ? { color: '#E6FF3D' } : {}}>
               {isSimilarLoading ? <RefreshCw size={11} className="animate-spin" /> : <Search size={11} />}
             </button>
           )}
@@ -341,7 +342,8 @@ function SimilarSearchBar({ onSearch, loading }: {
       <div className="relative">
         <Search
           size={14}
-          className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${searching || loading ? 'text-violet-400 animate-pulse' : 'text-zinc-500'}`}
+          className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${searching || loading ? 'animate-pulse' : 'text-zinc-500'}`}
+          style={searching || loading ? { color: '#E6FF3D' } : {}}
         />
         <input
           value={query}
@@ -380,7 +382,7 @@ function SimilarSearchBar({ onSearch, loading }: {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-white leading-tight truncate">{s.title}</p>
-                <p className="text-xs text-violet-400">
+                <p className="text-xs" style={{ color: '#E6FF3D' }}>
                   {TYPE_LABEL_SEARCH[s.type] || s.type}{s.year ? ` · ${s.year}` : ''}
                 </p>
               </div>
@@ -448,7 +450,7 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="text-sm font-bold text-white">
-            Titoli simili a <span className="text-violet-300">"{sourceTitle}"</span>
+            Titoli simili a <span style={{ color: '#E6FF3D' }}>"{sourceTitle}"</span>
           </h2>
           <p className="text-[10px] text-zinc-500">
             {filtered.length} {filtered.length === items.filter(i => !dismissedIds.has(i.id)).length ? 'titoli trovati' : `di ${items.filter(i => !dismissedIds.has(i.id)).length} totali`}
@@ -479,7 +481,7 @@ const SimilarSection = memo(function SimilarSection({ sourceTitle, sourceType, i
                 style={isActive ? { background: '#E6FF3D', color: '#0B0B0F', borderColor: '#E6FF3D' } : {}}>
                 {key !== 'all' && <span className="w-1.5 h-1.5 rounded-full" style={{ background: TYPE_COLORS[key as MediaType] }} />}
                 {label}
-                <span className={`text-[10px] ${isActive ? 'text-violet-200' : 'text-zinc-600'}`}>{count}</span>
+                <span className={`text-[10px] ${isActive ? '' : 'text-zinc-600'}`} style={isActive ? { color: 'rgba(11,11,15,0.7)' } : {}}>{count}</span>
               </button>
             )
           })}
@@ -699,7 +701,7 @@ const RecommendationSection = memo(function RecommendationSection({ type, items,
             </span>
           )}
           {topScore >= 80 && !isPrimary && (
-            <span className="text-[10px] font-semibold text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ color: '#E6FF3D', background: 'rgba(230,255,61,0.1)', border: '1px solid rgba(230,255,61,0.2)' }}>
               <Flame size={9} /> Ottimo match
             </span>
           )}
@@ -839,7 +841,7 @@ const FriendsWatchingSection = memo(function FriendsWatchingSection({ items }: {
               <div className="absolute top-2 right-2 bg-black/70 text-[9px] text-zinc-300 px-1.5 py-0.5 rounded-full">{timeAgo(a.updatedAt)}</div>
             </div>
             <p className="text-[10px] font-semibold text-zinc-300 line-clamp-2 mb-0.5">{a.mediaTitle}</p>
-            <p className="text-[9px] text-violet-400 truncate">@{a.username}</p>
+            <p className="text-[9px] truncate" style={{ color: '#E6FF3D' }}>@{a.username}</p>
           </Link>
         ))}
       </div>
@@ -1528,7 +1530,7 @@ export default function ForYouPage() {
             }) && (
               <div className="text-center py-20">
                 <p className="text-zinc-400">{fy.sectionEmpty}</p>
-                <button onClick={handleRefresh} className="mt-4 text-violet-400 text-sm hover:underline">{fy.refresh}</button>
+                <button onClick={handleRefresh} className="mt-4 text-sm hover:underline" style={{ color: '#E6FF3D' }}>{fy.refresh}</button>
               </div>
             )}
           </>

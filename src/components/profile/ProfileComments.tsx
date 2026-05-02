@@ -160,7 +160,7 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
 
         {loading ? (
           <div className="flex justify-center py-8">
-            <Loader2 size={24} className="animate-spin text-violet-400" />
+            <Loader2 size={24} className="animate-spin" style={{ color: '#E6FF3D' }} />
           </div>
         ) : comments.length === 0 ? (
           <div className="text-center py-10 text-zinc-600 text-sm">
@@ -183,7 +183,7 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
                 </Link>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <Link href={`/profile/${comment.author?.username}`} className="text-sm font-semibold text-violet-400 hover:text-violet-300 transition-colors">
+                    <Link href={`/profile/${comment.author?.username}`} className="text-sm font-semibold hover:opacity-80 transition-opacity" style={{ color: '#E6FF3D' }}>
                       @{comment.author?.username || 'utente'}
                     </Link>
                     <div className="flex items-center gap-2">

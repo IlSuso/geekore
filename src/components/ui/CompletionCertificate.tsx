@@ -258,7 +258,7 @@ export function CompletionCertificate(props: CertificateProps) {
               ))}
             </div>
           )}
-          <p className="text-[10px] text-violet-400 mt-2">@{props.username} su geekore.it</p>
+          <p className="text-[10px] mt-2" style={{ color: '#E6FF3D' }}>@{props.username} su geekore.it</p>
         </div>
 
         {/* Actions */}

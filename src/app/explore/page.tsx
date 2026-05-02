@@ -185,7 +185,7 @@ function UserCard({ user }: { user: { id: string; count: number; profile: any } 
         />
       </div>
       <div className="text-center">
-        <p className="text-xs font-semibold text-white group-hover:text-violet-400 transition-colors truncate max-w-[64px]">
+        <p className="text-xs font-semibold text-white group-hover:text-white transition-colors truncate max-w-[64px]">
           {profile.display_name || profile.username}
         </p>
         <p className="text-[10px] text-zinc-600">{user.count} aggiorn.</p>
@@ -214,7 +214,7 @@ function PopularPostCard({ post }: { post: { id: string; content: string; image_
       />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 mb-1">
-          <span className="text-xs font-semibold text-white group-hover:text-violet-400 transition-colors">
+          <span className="text-xs font-semibold text-white group-hover:text-white transition-colors">
             {post.author.display_name || post.author.username}
           </span>
           {post.category && (
@@ -293,7 +293,7 @@ export default async function ExplorePage() {
         {trendingUsers.length > 0 && (
           <section className="mb-10">
             <div className="flex items-center gap-2 mb-4">
-              <TrendingUp size={14} className="text-violet-400" />
+              <TrendingUp size={14} className="" style={{ color: '#E6FF3D' }} />
               <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Più attivi questa settimana</h2>
             </div>
             <div className="grid grid-cols-4 sm:grid-cols-6 gap-4">
@@ -312,7 +312,7 @@ export default async function ExplorePage() {
                 <Zap size={14} className="text-yellow-400" />
                 <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Media più aggiunti questa settimana</h2>
               </div>
-              <Link href="/trending" className="text-xs text-violet-400 hover:text-violet-300 transition-colors">
+              <Link href="/trending" className="text-xs hover:opacity-80 transition-colors" style={{ color: '#E6FF3D' }}>
                 Vedi tutti →
               </Link>
             </div>
@@ -332,7 +332,7 @@ export default async function ExplorePage() {
                 <ThumbsUp size={14} className="text-pink-400" />
                 <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Post più apprezzati</h2>
               </div>
-              <Link href="/home" className="text-xs text-violet-400 hover:text-violet-300 transition-colors">
+              <Link href="/home" className="text-xs hover:opacity-80 transition-colors" style={{ color: '#E6FF3D' }}>
                 Vai al feed →
               </Link>
             </div>
@@ -361,12 +361,12 @@ export default async function ExplorePage() {
                     className="flex items-center gap-3 p-4 bg-zinc-900 border border-zinc-800 rounded-2xl hover:border-zinc-700 transition-colors group"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-white group-hover:text-violet-300 transition-colors truncate">{list.title}</p>
+                      <p className="text-sm font-semibold text-white group-hover:text-white transition-colors truncate">{list.title}</p>
                       {list.description && (
                         <p className="text-xs text-zinc-500 truncate mt-0.5">{list.description}</p>
                       )}
                       <p className="text-xs text-zinc-600 mt-1">
-                        di <span className="text-violet-400">@{owner?.username || 'utente'}</span>
+                        di <span className="" style={{ color: '#E6FF3D' }}>@{owner?.username || 'utente'}</span>
                       </p>
                     </div>
                     <span className="text-zinc-600 group-hover:text-zinc-400 transition-colors flex-shrink-0">→</span>

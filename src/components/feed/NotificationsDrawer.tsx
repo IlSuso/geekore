@@ -177,7 +177,8 @@ export function NotificationsDrawer({ open, onClose }: { open: boolean; onClose:
           <Link
             href="/notifications"
             onClick={onClose}
-            className="block w-full text-center text-[13px] font-semibold text-violet-400 hover:text-violet-300 transition-colors py-2"
+            className="block w-full text-center text-[13px] font-semibold hover:opacity-80 transition-opacity py-2"
+            style={{ color: '#E6FF3D' }}
           >
             Vedi tutte le notifiche
           </Link>
