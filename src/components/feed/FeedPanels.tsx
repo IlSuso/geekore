@@ -84,23 +84,23 @@ export function FeedFilterTabs({
   labels: { filterAll: string; filterFollowing: string }
 }) {
   return (
-    <div className="flex items-stretch mb-0 mt-1">
+    <div className="flex items-stretch mb-0 mt-1 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/60 px-1">
       {(['all', 'following'] as const).map(filter => (
         <button
           key={filter}
           data-testid={`filter-${filter}`}
           onClick={() => onFilterChange(filter)}
-          className={`flex-1 py-3 text-[14px] font-semibold transition-all relative ${feedFilter === filter ? '' : 'text-[var(--text-muted)]'}`}
+          className={`relative flex-1 py-3 text-[13px] font-bold transition-all ${feedFilter === filter ? '' : 'text-[var(--text-muted)]'}`}
           style={{ color: feedFilter === filter ? 'var(--accent)' : undefined }}
         >
           {filter === 'all' ? labels.filterAll : labels.filterFollowing}
           {feedFilter === filter && (
-            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full" style={{ background: 'var(--accent)' }} />
+            <span className="absolute bottom-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full" style={{ background: 'var(--accent)' }} />
           )}
         </button>
       ))}
 
-      <div className="flex items-center pr-2">
+      <div className="flex items-center pr-1">
         <CategorySelector value={categoryFilter} onChange={setCategoryFilter} />
       </div>
     </div>
@@ -114,42 +114,58 @@ export function MediumTypeChipRow({
   categoryFilter: string
   setCategoryFilter: (value: string) => void
 }) {
+  const chips = [
+    { label: 'Tutto', value: '', color: 'var(--accent)' },
+    { label: 'Anime', value: 'Anime', color: 'var(--type-anime)' },
+    { label: 'Manga', value: 'Manga', color: 'var(--type-manga)' },
+    { label: 'Game', value: 'Videogiochi', color: 'var(--type-game)' },
+    { label: 'TV', value: 'Serie TV', color: 'var(--type-tv)' },
+    { label: 'Film', value: 'Film', color: 'var(--type-movie)' },
+    { label: 'Board', value: 'Giochi da tavolo', color: 'var(--type-board)' },
+  ]
+
   return (
-    <div className="flex gap-2 overflow-x-auto pb-2 pt-1 px-3 -mx-3 scrollbar-none">
-      {[
-        { label: 'Tutto', value: '' },
-        { label: 'Anime',    value: 'Anime',             color: 'var(--type-anime)' },
-        { label: 'Manga',    value: 'Manga',             color: 'var(--type-manga)' },
-        { label: 'Giochi',   value: 'Videogiochi',       color: 'var(--type-game)'  },
-        { label: 'Serie TV', value: 'Serie TV',          color: 'var(--type-tv)'    },
-        { label: 'Film',     value: 'Film',              color: 'var(--type-movie)'  },
-        { label: 'Board',    value: 'Giochi da tavolo',  color: 'var(--type-board)'  },
-      ].map(chip => {
-        const parsedActive = parseCategoryString(categoryFilter)
-        const isActive = chip.value === ''
-          ? categoryFilter === ''
-          : parsedActive?.category === chip.value
-        return (
+    <div className="-mx-4 border-b border-[var(--border-subtle)] px-4 pb-3 pt-3">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="gk-label">Medium</p>
+        {categoryFilter && (
           <button
-            key={chip.value}
-            onClick={() => setCategoryFilter(isActive && chip.value !== '' ? '' : chip.value)}
-            className="flex-shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-semibold transition-all"
-            style={{
-              background: isActive
-                ? (chip.color || 'var(--accent)')
-                : 'var(--bg-card)',
-              color: isActive
-                ? (chip.color ? '#fff' : '#0B0B0F')
-                : 'var(--text-secondary)',
-              border: isActive
-                ? `1px solid ${chip.color || 'var(--accent)'}`
-                : '1px solid var(--border)',
-            }}
+            type="button"
+            onClick={() => setCategoryFilter('')}
+            className="gk-mono text-[var(--accent)]"
           >
-            {chip.label}
+            reset
           </button>
-        )
-      })}
+        )}
+      </div>
+      <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+        {chips.map(chip => {
+          const parsedActive = parseCategoryString(categoryFilter)
+          const isActive = chip.value === ''
+            ? categoryFilter === ''
+            : parsedActive?.category === chip.value
+          return (
+            <button
+              key={chip.value || 'all'}
+              onClick={() => setCategoryFilter(isActive && chip.value !== '' ? '' : chip.value)}
+              className="flex-shrink-0 rounded-full border px-3.5 py-1.5 text-[12px] font-bold transition-all"
+              style={{
+                background: isActive
+                  ? (chip.value ? `color-mix(in srgb, ${chip.color} 18%, transparent)` : 'var(--accent)')
+                  : 'var(--bg-card)',
+                color: isActive
+                  ? (chip.value ? chip.color : '#0B0B0F')
+                  : 'var(--text-secondary)',
+                borderColor: isActive ? chip.color : 'var(--border)',
+                boxShadow: isActive && chip.value ? `0 0 22px color-mix(in srgb, ${chip.color} 18%, transparent)` : undefined,
+              }}
+            >
+              <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full" style={{ background: isActive && !chip.value ? '#0B0B0F' : chip.color }} />
+              {chip.label}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
