@@ -62,6 +62,7 @@ export async function handleRefreshPoolFastPath({
             'X-Service-User-Id': userId,
             'X-Service-Secret': process.env.CRON_SECRET || '',
           },
+          signal: AbortSignal.timeout(20_000),
         })
       } finally {
         await finishRegen(regenKey, FORCE_REGEN_COOLDOWN_MINUTES * 60000)
