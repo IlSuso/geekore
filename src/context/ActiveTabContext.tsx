@@ -1,11 +1,12 @@
 'use client'
 // src/context/ActiveTabContext.tsx
 // Context per il tab attivo — aggiornato immediatamente al click nella Navbar.
-// Swipe non è più una tab primaria: resta una modalità interna di For You.
+// Swipe resta nel tipo per compatibilità con vecchi wrapper/gesture, ma /swipe
+// viene mappata a For You perché ora è una modalità, non una tab primaria.
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 
-export type KATab = 'feed' | 'for-you' | 'library' | 'discover' | 'profile'
+export type KATab = 'feed' | 'for-you' | 'library' | 'discover' | 'profile' | 'swipe'
 
 function pathnameToTab(pathname: string): KATab | null {
   if (pathname === '/home' || pathname === '/') return 'feed'
@@ -34,7 +35,9 @@ export function ActiveTabProvider({ children, initialPathname }: { children: Rea
   )
 
   const setActiveTab = useCallback((tab: KATab | null) => {
-    setActiveTabState(tab)
+    // Protezione extra: se vecchi gesture/helper provano ancora a impostare
+    // 'swipe', l'indicatore resta su For You.
+    setActiveTabState(tab === 'swipe' ? 'for-you' : tab)
   }, [])
 
   return (
