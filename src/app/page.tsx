@@ -132,7 +132,7 @@ async function CommunityLive() {
                     className="rounded-xl"
                   />
                 </div>
-                <span className="text-xs font-semibold" style={{ color: '#E6FF3D' }}>
+                <span className="text-xs font-semibold" style={{ color: 'var(--accent)' }}>
                   @{post.profiles?.username || 'utente'}
                 </span>
               </div>
@@ -142,7 +142,7 @@ async function CommunityLive() {
             </div>
           ))}
           <div className="text-center pt-2">
-            <Link href="/register" className="text-xs text-zinc-600 hover:text-[#E6FF3D] transition-colors">
+            <Link href="/register" className="text-xs text-zinc-600 hover:text-[var(--accent)] transition-colors">
               Registrati per vedere il feed completo →
             </Link>
           </div>
@@ -213,7 +213,7 @@ export default async function HomePage() {
       <main className="flex-1 flex flex-col items-center justify-center text-center px-6 pb-20">
         <div className="max-w-3xl mx-auto">
 
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-8" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)', color: '#E6FF3D' }}>
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-8" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)', color: 'var(--accent)' }}>
             <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#E6FF3D' }} />
             Il tuo universo geek in un unico posto
           </div>
@@ -221,7 +221,7 @@ export default async function HomePage() {
           <h1 className="text-5xl md:text-8xl font-black tracking-tighter leading-none mb-6">
             Traccia tutto
             <br />
-            <span style={{ color: '#E6FF3D' }}>
+            <span style={{ color: 'var(--accent)' }}>
               ciò che ami
             </span>
           </h1>

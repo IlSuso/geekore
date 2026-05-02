@@ -194,7 +194,7 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
                     <p className="text-[10px] text-zinc-600 mb-2">Toni preferiti</p>
                     <div className="flex flex-wrap gap-1.5">
                       {topTones.map((t, i) => (
-                        <span key={`tone-${t}-${i}`} className="text-[10px] px-2 py-0.5 rounded-full capitalize" style={{ background: 'rgba(230,255,61,0.08)', color: '#E6FF3D', border: '1px solid rgba(230,255,61,0.15)' }}>{t}</span>
+                        <span key={`tone-${t}-${i}`} className="text-[10px] px-2 py-0.5 rounded-full capitalize" style={{ background: 'rgba(230,255,61,0.08)', color: 'var(--accent)', border: '1px solid rgba(230,255,61,0.15)' }}>{t}</span>
                       ))}
                     </div>
                   </div>
@@ -231,7 +231,7 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
                 </div>
                 <div className="bg-zinc-800/50 rounded-2xl p-3">
                   <p className="text-[10px] text-zinc-500 mb-2 flex items-center gap-1">
-                    <Sparkles size={10} style={{ color: '#E6FF3D' }} />Gusto raffinato
+                    <Sparkles size={10} style={{ color: 'var(--accent)' }} />Gusto raffinato
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {slowGenres.slice(0, 3).map((g, i) => (

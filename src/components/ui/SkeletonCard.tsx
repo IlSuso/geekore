@@ -218,7 +218,7 @@ const RANKS = [
   { min: 0,     label: 'Novizio',      Icon: Award,   color: 'text-zinc-400' },
   { min: 500,   label: 'Appassionato', Icon: Star,    color: 'text-blue-400' },
   { min: 2000,  label: 'Esperto',      Icon: Trophy,  color: 'text-yellow-400' },
-  { min: 10000, label: 'Leggenda',     Icon: Gem,     color: 'text-[#E6FF3D]' },
+  { min: 10000, label: 'Leggenda',     Icon: Gem,     color: 'text-[var(--accent)]' },
 ]
 
 function getRank(score: number) {

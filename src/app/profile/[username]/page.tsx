@@ -279,7 +279,7 @@ function MediaCard({
   const hasNotes = !!media.notes?.trim()
 
   const statusBadge: Record<string, { label: string; cls: string; style?: React.CSSProperties }> = {
-    completed: { label: 'Completato', cls: '', style: { background: 'rgba(230,255,61,0.12)', color: '#E6FF3D', border: '1px solid rgba(230,255,61,0.3)' } },
+    completed: { label: 'Completato', cls: '', style: { background: 'rgba(230,255,61,0.12)', color: 'var(--accent)', border: '1px solid rgba(230,255,61,0.3)' } },
     paused:    { label: 'In pausa',   cls: 'bg-amber-500/20 text-amber-300 border border-amber-500/40' },
     dropped:   { label: 'Abbandonato',cls: 'bg-red-500/20 text-red-300 border border-red-500/40' },
     watching:  { label: 'In corso',   cls: 'bg-sky-500/20 text-sky-300 border border-sky-500/40' },
@@ -560,7 +560,7 @@ function MediaCard({
                       </div>
                     )}
                     {isOwner && !maxCh && (
-                      <button onClick={() => onEnrichEpisodes?.(media.id)} onPointerDown={e => e.stopPropagation()} disabled={enriching} className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-[#E6FF3D] transition-colors disabled:opacity-50">
+                      <button onClick={() => onEnrichEpisodes?.(media.id)} onPointerDown={e => e.stopPropagation()} disabled={enriching} className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-[var(--accent)] transition-colors disabled:opacity-50">
                         {enriching ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
                         {enriching ? 'Recupero…' : 'Recupera totale'}
                       </button>
@@ -610,7 +610,7 @@ function MediaCard({
               onClick={() => onEnrichEpisodes?.(media.id)}
               onPointerDown={e => e.stopPropagation()}
               disabled={enriching}
-              className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-[#E6FF3D] transition-colors disabled:opacity-50"
+              className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-[var(--accent)] transition-colors disabled:opacity-50"
             >
               {enriching ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
               {enriching ? 'Recupero…' : 'Recupera episodi'}
@@ -1399,8 +1399,8 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
             <div className="mt-4 mb-4 px-4 w-full max-w-sm mx-auto">
               <div className="p-4 rounded-2xl" style={{ background: 'rgba(230,255,61,0.04)', border: '1px solid rgba(230,255,61,0.12)' }}>
                 <div className="flex items-center gap-2 mb-3">
-                  <Sparkles size={12} style={{ color: '#E6FF3D' }} />
-                  <span className="text-[11px] font-bold uppercase tracking-[.08em]" style={{ color: '#E6FF3D' }}>
+                  <Sparkles size={12} style={{ color: 'var(--accent)' }} />
+                  <span className="text-[11px] font-bold uppercase tracking-[.08em]" style={{ color: 'var(--accent)' }}>
                     Taste DNA
                   </span>
                   <span className="ml-auto text-[10px] text-zinc-600">
@@ -1409,7 +1409,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {topGenres.slice(0, 6).map((genre, i) => (
-                    <span key={genre} className="px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)', color: '#E6FF3D' }}>
+                    <span key={genre} className="px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)', color: 'var(--accent)' }}>
                       {genre}
                       {i === 0 && <span className="ml-1" style={{ color: 'rgba(230,255,61,0.4)' }}>#{i + 1}</span>}
                     </span>
@@ -1499,11 +1499,11 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
         {isOwner && (
           <div className="md:hidden flex items-center gap-2 mb-5 -mx-4 px-4 overflow-x-auto scrollbar-hide">
             {([
-              { href: '/wishlist',   icon: <Bookmark size={14} style={{ color: '#E6FF3D' }} />,   label: 'Wishlist' },
+              { href: '/wishlist',   icon: <Bookmark size={14} style={{ color: 'var(--accent)' }} />,   label: 'Wishlist' },
               { href: '/lists',      icon: <List size={14} className="text-cyan-400" />,        label: 'Liste' },
               { href: '/stats',      icon: <BarChart2 size={14} className="text-zinc-400" />, label: 'Statistiche' },
               { href: '/trending',   icon: <TrendingUp size={14} className="text-orange-400" />,label: 'Trending' },
-              { href: '/community',  icon: <Users size={14} style={{ color: '#E6FF3D' }} />,     label: 'Community' },
+              { href: '/community',  icon: <Users size={14} style={{ color: 'var(--accent)' }} />,     label: 'Community' },
             ] as const).map(item => (
               <Link key={item.href} href={item.href}
                 className="flex items-center gap-2 px-3 py-2 bg-zinc-900 rounded-2xl border border-zinc-800 text-sm font-medium text-zinc-300 hover:border-zinc-600 transition-colors flex-shrink-0 whitespace-nowrap">
@@ -1526,14 +1526,14 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
               className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-all border-b-2 -mb-px whitespace-nowrap ${
                 activeTab === tab.id ? 'border-transparent' : 'border-transparent text-zinc-500 hover:text-zinc-300'
               }`}
-              style={activeTab === tab.id ? { color: '#E6FF3D', borderBottomColor: '#E6FF3D' } : {}}
+              style={activeTab === tab.id ? { color: 'var(--accent)', borderBottomColor: '#E6FF3D' } : {}}
             >
               {tab.label}
               {tab.count !== undefined && (
                 <span className={`text-xs px-1.5 py-0.5 rounded-full ${
                   activeTab === tab.id ? '' : 'bg-zinc-800 text-zinc-500'
                 }`}
-                style={activeTab === tab.id ? { background: 'rgba(230,255,61,0.15)', color: '#E6FF3D' } : {}}>
+                style={activeTab === tab.id ? { background: 'rgba(230,255,61,0.15)', color: 'var(--accent)' } : {}}>
                   {tab.count}
                 </span>
               )}
@@ -1577,7 +1577,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                             {hasMore && (
                               <Link
                                 href={`/profile/${profile.username}/${categoryToType[category] || category}`}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-xl text-xs text-zinc-400 hover:text-[#E6FF3D] transition-all"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-xl text-xs text-zinc-400 hover:text-[var(--accent)] transition-all"
                               >
                                 Vedi tutti <ChevronRight size={13} />
                               </Link>
@@ -1602,7 +1602,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                                 {hasMore && (
                                   <Link
                                     href={`/profile/${profile.username}/${categoryToType[category] || category}`}
-                                    className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-zinc-600 rounded-3xl min-h-[340px] sm:min-h-[380px] md:min-h-[420px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-[#E6FF3D] transition-all group"
+                                    className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-zinc-600 rounded-3xl min-h-[340px] sm:min-h-[380px] md:min-h-[420px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-[var(--accent)] transition-all group"
                                   >
                                     <ChevronRight size={16} />
                                     <span className="text-xs font-semibold">+{items.length - 6}</span>
@@ -1620,7 +1620,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                             {hasMore && (
                               <Link
                                 href={`/profile/${profile.username}/${categoryToType[category] || category}`}
-                                className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-zinc-600 rounded-3xl min-h-[340px] sm:min-h-[380px] md:min-h-[420px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-[#E6FF3D] transition-all group"
+                                className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-zinc-600 rounded-3xl min-h-[340px] sm:min-h-[380px] md:min-h-[420px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-[var(--accent)] transition-all group"
                               >
                                 <ChevronRight size={16} />
                                 <span className="text-xs font-semibold">+{items.length - 6}</span>

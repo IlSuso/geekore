@@ -179,7 +179,7 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
                               : '')
                           : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
                       }`}
-                      style={sel && currentSection.key !== 'disliked_genres' ? { background: 'rgba(230,255,61,0.12)', borderColor: 'rgba(230,255,61,0.4)', color: '#E6FF3D' } : {}}>
+                      style={sel && currentSection.key !== 'disliked_genres' ? { background: 'rgba(230,255,61,0.12)', borderColor: 'rgba(230,255,61,0.4)', color: 'var(--accent)' } : {}}>
                       {genre}
                     </button>
                   )

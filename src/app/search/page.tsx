@@ -113,7 +113,7 @@ export default function SearchPage() {
         <div className="relative mb-6">
           <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none">
             {loading
-              ? <Loader2 size={18} className="animate-spin" style={{ color: '#E6FF3D' }} />
+              ? <Loader2 size={18} className="animate-spin" style={{ color: 'var(--accent)' }} />
               : <Search size={18} />}
           </div>
           <input

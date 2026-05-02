@@ -267,7 +267,7 @@ export default function EditProfilePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white">
-        <Loader2 size={40} className="animate-spin" style={{ color: '#E6FF3D' }} />
+        <Loader2 size={40} className="animate-spin" style={{ color: 'var(--accent)' }} />
       </div>
     )
   }
@@ -322,7 +322,7 @@ export default function EditProfilePage() {
               type="button"
               onClick={() => fileRef.current?.click()}
               className="text-sm hover:opacity-80 transition"
-              style={{ color: '#E6FF3D' }}
+              style={{ color: 'var(--accent)' }}
             >
               {pe.changePhoto}
             </button>
@@ -407,9 +407,9 @@ export default function EditProfilePage() {
           {/* Gusti & Preferenze */}
           <div className="pt-4 border-t border-zinc-800">
             <div className="flex items-center gap-2 mb-4">
-              <Sparkles size={16} style={{ color: '#E6FF3D' }} />
+              <Sparkles size={16} style={{ color: 'var(--accent)' }} />
               <span className="text-sm font-semibold text-white">Gusti & Preferenze</span>
-              <Link href="/for-you" className="ml-auto text-xs hover:opacity-80 transition" style={{ color: '#E6FF3D' }}>
+              <Link href="/for-you" className="ml-auto text-xs hover:opacity-80 transition" style={{ color: 'var(--accent)' }}>
                 Personalizza tutto →
               </Link>
             </div>
@@ -426,7 +426,7 @@ export default function EditProfilePage() {
                         ? ''
                         : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-500'
                     }`}
-                    style={likedGenres.includes(genre) ? { background: 'rgba(230,255,61,0.12)', borderColor: 'rgba(230,255,61,0.4)', color: '#E6FF3D' } : {}}
+                    style={likedGenres.includes(genre) ? { background: 'rgba(230,255,61,0.12)', borderColor: 'rgba(230,255,61,0.4)', color: 'var(--accent)' } : {}}
                   >{genre}</button>
                 ))}
               </div>

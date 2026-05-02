@@ -291,7 +291,7 @@ export default function ListsPage() {
 
         {loading ? (
           <div className="flex justify-center py-16">
-            <Loader2 size={32} className="animate-spin" style={{ color: '#E6FF3D' }} />
+            <Loader2 size={32} className="animate-spin" style={{ color: 'var(--accent)' }} />
           </div>
         ) : lists.length === 0 ? (
           <div className="text-center py-20">

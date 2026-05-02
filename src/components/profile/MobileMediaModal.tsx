@@ -433,7 +433,7 @@ export function MobileMediaModal({
                       </div>
                     )}
                     {isOwner && !maxCh && (
-                      <button onClick={() => onEnrichEpisodes?.(media.id)} disabled={enriching} className="flex items-center gap-2 text-sm text-zinc-500 hover:text-[#E6FF3D] transition disabled:opacity-50">
+                      <button onClick={() => onEnrichEpisodes?.(media.id)} disabled={enriching} className="flex items-center gap-2 text-sm text-zinc-500 hover:text-[var(--accent)] transition disabled:opacity-50">
                         {enriching ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                         {enriching ? 'Recupero…' : 'Recupera totale capitoli'}
                       </button>
@@ -447,7 +447,7 @@ export function MobileMediaModal({
               return isOwner ? (
                 <div>
                   <p className="text-xs text-zinc-500 mb-2 font-medium">Episodi</p>
-                  <button onClick={() => onEnrichEpisodes?.(media.id)} disabled={enriching} className="flex items-center gap-2 text-sm text-zinc-500 hover:text-[#E6FF3D] transition disabled:opacity-50">
+                  <button onClick={() => onEnrichEpisodes?.(media.id)} disabled={enriching} className="flex items-center gap-2 text-sm text-zinc-500 hover:text-[var(--accent)] transition disabled:opacity-50">
                     {enriching ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                     {enriching ? 'Recupero…' : 'Recupera dati episodi'}
                   </button>
@@ -514,7 +514,7 @@ export function MobileMediaModal({
                   ? ''
                   : 'border-zinc-700 bg-zinc-800 text-zinc-400 hover:text-white'
               }`}
-              style={media.notes?.trim() ? { borderColor: 'rgba(230,255,61,0.3)', background: 'rgba(230,255,61,0.06)', color: '#E6FF3D' } : {}}
+              style={media.notes?.trim() ? { borderColor: 'rgba(230,255,61,0.3)', background: 'rgba(230,255,61,0.06)', color: 'var(--accent)' } : {}}
             >
               <Edit3 size={15} />
               {media.notes?.trim() ? 'Modifica note' : 'Aggiungi note'}

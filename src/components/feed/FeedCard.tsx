@@ -216,7 +216,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
     }`}>
 
       {post.pinned && (
-        <div className="flex items-center gap-1.5 px-4 md:px-6 pt-3.5" style={{ color: '#E6FF3D' }}>
+        <div className="flex items-center gap-1.5 px-4 md:px-6 pt-3.5" style={{ color: 'var(--accent)' }}>
           <Pin size={12} className="rotate-45" />
           <span className="text-[10px] font-bold uppercase tracking-widest">In evidenza</span>
         </div>
@@ -236,7 +236,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
           </div>
         </Link>
         <div className="flex-1 min-w-0">
-          <Link href={`/profile/${profile?.username}`} className="hover:text-[#E6FF3D] transition-colors">
+          <Link href={`/profile/${profile?.username}`} className="hover:text-[var(--accent)] transition-colors">
             <p className="font-semibold text-white text-sm leading-tight truncate">
               <UserBadge badge={profile?.badge} displayName={profile?.display_name || profile?.username || 'Utente'} />
             </p>
@@ -293,7 +293,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
           onClick={handleToggleComments}
           aria-label={showComments ? 'Nascondi commenti' : 'Mostra commenti'}
           className={`flex items-center gap-2 group transition-all ${showComments ? '' : 'text-zinc-500'}`}
-          style={showComments ? { color: '#E6FF3D' } : {}}
+          style={showComments ? { color: 'var(--accent)' } : {}}
         >
           <div className={`p-1.5 rounded-xl transition-colors ${showComments ? 'bg-zinc-800' : 'group-hover:bg-zinc-800/60'}`}>
             <MessageSquare size={20} />
@@ -326,13 +326,14 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
                   </Link>
                   <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3.5 py-2 flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <Link href={`/profile/${comment.profiles?.username}`} className="text-[10px] font-bold uppercase tracking-wider truncate hover:opacity-80 transition-opacity" style={{ color: '#E6FF3D' }}>
+                      <Link href={`/profile/${comment.profiles?.username}`} className="text-[10px] font-bold uppercase tracking-wider truncate hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>
                         @{comment.profiles?.username || 'user'}
                       </Link>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         {user?.id === comment.user_id ? (
                           <button
                             onClick={() => handleDeleteComment(comment.id)}
+                            aria-label="Elimina commento"
                             className="text-zinc-600 hover:text-red-400 transition-colors"
                           >
                             <Trash2 size={11} />
@@ -371,7 +372,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
               type="submit"
               disabled={isSubmitting || !newComment.trim()}
               className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 disabled:opacity-40 transition-colors hover:opacity-80"
-              style={{ color: '#E6FF3D' }}
+              style={{ color: 'var(--accent)' }}
             >
               {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
             </button>

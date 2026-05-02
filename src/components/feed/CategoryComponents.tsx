@@ -61,7 +61,7 @@ export function CategoryBadge({ category, onClick }: { category: string | null |
   return (
     <span
       onClick={onClick}
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-[10px] font-semibold text-zinc-300 ${onClick ? 'cursor-pointer hover:border-[rgba(230,255,61,0.5)] hover:text-[#E6FF3D] transition-colors' : ''}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-[10px] font-semibold text-zinc-300 ${onClick ? 'cursor-pointer hover:border-[rgba(230,255,61,0.5)] hover:text-[var(--accent)] transition-colors' : ''}`}
     >
       <CategoryIcon category={parsed.category} size={10} />
       {label}
@@ -257,7 +257,7 @@ export function CategorySelector({ value, onChange }: {
             ? 'bg-zinc-800 border-zinc-600 hover:border-red-500/40 hover:text-red-400'
             : 'bg-zinc-800/80 border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-600'
         }`}
-        style={value ? { color: '#E6FF3D' } : {}}
+        style={value ? { color: 'var(--accent)' } : {}}
       >
         <Tag size={14} strokeWidth={1.6} />
         {value ? (
@@ -313,7 +313,7 @@ export function CategorySelector({ value, onChange }: {
                   className="w-7 h-7 flex items-center justify-center rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all flex-shrink-0">
                   <ArrowLeft size={13} />
                 </button>
-                <CategoryIcon category={selectedCat} size={14} className="flex-shrink-0" style={{ color: '#E6FF3D' }} />
+                <CategoryIcon category={selectedCat} size={14} className="flex-shrink-0" style={{ color: 'var(--accent)' }} />
                 <span className="text-sm font-semibold text-white flex-1 truncate">{selectedCat}</span>
                 <button type="button" onClick={close} className="text-zinc-600 hover:text-zinc-400 p-0.5"><X size={13} /></button>
               </div>
@@ -330,7 +330,7 @@ export function CategorySelector({ value, onChange }: {
                   placeholder={hasApiSupport ? searchPlaceholder : 'Titolo specifico...'}
                   className="no-nav-hide w-full bg-zinc-800 border border-zinc-700 focus:border-zinc-500 rounded-xl pl-8 pr-8 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
                 />
-                {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin" style={{ color: '#E6FF3D' }} />}
+                {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin" style={{ color: 'var(--accent)' }} />}
                 {!isSearching && subInput && (
                   <button type="button" onClick={() => setSubInput('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400">
                     <X size={13} />
@@ -354,7 +354,7 @@ export function CategorySelector({ value, onChange }: {
             const usaLibero = subInput.trim() && !isSearching ? (
               <button type="button" onClick={() => { onChange(`${selectedCat}:${subInput.trim()}`); close() }}
                 className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-medium transition mb-2"
-                style={{ background: 'rgba(230,255,61,0.1)', border: '1px solid rgba(230,255,61,0.25)', color: '#E6FF3D' }}>
+                style={{ background: 'rgba(230,255,61,0.1)', border: '1px solid rgba(230,255,61,0.25)', color: 'var(--accent)' }}>
                 <Check size={13} />
                 Usa <strong className="font-semibold">&quot;{subInput.trim()}&quot;</strong>
               </button>
@@ -445,7 +445,7 @@ export function CategoryFilter({
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(o => !o)}
         className={`flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm font-semibold border transition-all ${
-          activeFilter ? 'border-[rgba(230,255,61,0.4)] text-[#E6FF3D]' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'
+          activeFilter ? 'border-[rgba(230,255,61,0.4)] text-[var(--accent)]' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'
         }`}>
         <Filter size={14} />
         {activeFilter && <CategoryIcon category={parsed?.category || ''} size={13} />}
@@ -466,7 +466,7 @@ export function CategoryFilter({
               <button key={cat} onClick={() => handleMacro(cat)}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
                   activeMacro === cat
-                    ? 'border-[rgba(230,255,61,0.5)] text-[#E6FF3D]'
+                    ? 'border-[rgba(230,255,61,0.5)] text-[var(--accent)]'
                     : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-500'
                 }`}>
                 <CategoryIcon category={cat} size={11} />
@@ -493,7 +493,7 @@ export function CategoryFilter({
                   placeholder={`Cerca titolo in ${activeMacro}...`}
                   className="w-full bg-zinc-800 border border-zinc-700 focus:border-zinc-500 focus:outline-none rounded-xl pl-8 pr-8 py-2 text-sm text-white placeholder-zinc-500 transition"
                 />
-                {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin" style={{ color: '#E6FF3D' }} />}
+                {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin" style={{ color: 'var(--accent)' }} />}
               </div>
 
               {suggestions.length > 0 && (
@@ -513,7 +513,7 @@ export function CategoryFilter({
               {subSearch.trim() && !isSearching && (
                 <button onClick={() => applyFilter(`${activeMacro}:${subSearch.trim()}`)}
                   className="w-full px-3 py-2 rounded-xl text-sm font-semibold transition"
-                  style={{ background: 'rgba(230,255,61,0.1)', border: '1px solid rgba(230,255,61,0.25)', color: '#E6FF3D' }}>
+                  style={{ background: 'rgba(230,255,61,0.1)', border: '1px solid rgba(230,255,61,0.25)', color: 'var(--accent)' }}>
                   Cerca «{subSearch.trim()}» in {activeMacro}
                 </button>
               )}

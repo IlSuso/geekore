@@ -54,10 +54,10 @@ function Slide1({ data, onNext }: { data: WrappedData; onNext: () => void }) {
         <div className="absolute bottom-1/4 right-1/4 w-48 h-48 rounded-full blur-[60px]" style={{ background: 'rgba(230,255,61,0.06)' }} />
       </div>
       <div className="relative z-10">
-        <p className="text-sm font-semibold uppercase tracking-widest mb-4" style={{ color: '#E6FF3D' }}>Geekore</p>
+        <p className="text-sm font-semibold uppercase tracking-widest mb-4" style={{ color: 'var(--accent)' }}>Geekore</p>
         <h1 className="text-6xl font-black tracking-tighter mb-2 text-white">{data.year}</h1>
         <h2 className="text-3xl font-black tracking-tight mb-6">
-          <span style={{ color: '#E6FF3D' }}>
+          <span style={{ color: 'var(--accent)' }}>
             Wrapped
           </span>
         </h2>
@@ -119,7 +119,7 @@ function Slide3({ data, onNext }: { data: WrappedData; onNext: () => void }) {
       className="h-full flex flex-col justify-center px-8 cursor-pointer select-none"
       style={{ background: 'linear-gradient(160deg, #1a0a0e 0%, #0d0a1a 100%)' }}
     >
-      <p className="text-xs font-semibold uppercase tracking-widest mb-8 text-center" style={{ color: '#E6FF3D' }}>I tuoi numeri</p>
+      <p className="text-xs font-semibold uppercase tracking-widest mb-8 text-center" style={{ color: 'var(--accent)' }}>I tuoi numeri</p>
       <div className="space-y-4">
         {stats.map((s, i) => (
           <div
@@ -169,7 +169,7 @@ function Slide5({ data, onShare }: { data: WrappedData; onShare: () => void }) {
       </div>
       <div className="relative z-10 w-full">
         <p className="text-4xl mb-4">{rankEmoji}</p>
-        <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#E6FF3D' }}>Il tuo rango</p>
+        <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--accent)' }}>Il tuo rango</p>
         <p className="text-5xl font-black text-white mb-8">{rank}</p>
         <div className="bg-white/5 border border-white/10 rounded-3xl p-6 mb-8 space-y-3">
           <div className="flex justify-between items-center">
@@ -182,7 +182,7 @@ function Slide5({ data, onShare }: { data: WrappedData; onShare: () => void }) {
           </div>
           <div className="flex justify-between items-center">
             <span className="text-zinc-500 text-sm">Genere top</span>
-            <span className="font-bold" style={{ color: '#E6FF3D' }}>{data.topGenre || 'Vario'}</span>
+            <span className="font-bold" style={{ color: 'var(--accent)' }}>{data.topGenre || 'Vario'}</span>
           </div>
         </div>
         <button

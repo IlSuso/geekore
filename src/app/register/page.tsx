@@ -124,7 +124,7 @@ export default function RegisterPage() {
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
         <div className="text-center max-w-md mx-auto">
           <div className="w-20 h-20 bg-zinc-900 border border-zinc-800 rounded-3xl flex items-center justify-center mx-auto mb-6">
-            <Mail size={36} style={{ color: '#E6FF3D' }} />
+            <Mail size={36} style={{ color: 'var(--accent)' }} />
           </div>
           <h1 className="text-3xl font-bold tracking-tight mb-3">{l.confirmTitle}</h1>
           <p className="text-zinc-400 leading-relaxed mb-2">{l.confirmSent}</p>
@@ -166,7 +166,7 @@ export default function RegisterPage() {
         <div className="relative space-y-6">
           <h2 className="text-5xl font-black tracking-tighter leading-none">
             {l.tagline.split(' ').slice(0, -1).join(' ')}<br />
-            <span style={{ color: '#E6FF3D' }}>
+            <span style={{ color: 'var(--accent)' }}>
               {l.tagline.split(' ').slice(-1)[0]}
             </span>
           </h2>
@@ -249,7 +249,7 @@ export default function RegisterPage() {
 
           <p className="text-center text-zinc-500 text-sm mt-8">
             {l.hasAccount}{' '}
-            <Link href="/login" className="font-medium hover:opacity-80 transition-opacity" style={{ color: '#E6FF3D' }}>
+            <Link href="/login" className="font-medium hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>
               {l.loginLink}
             </Link>
           </p>

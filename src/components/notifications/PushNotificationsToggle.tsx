@@ -155,7 +155,7 @@ export function PushNotificationsToggle() {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-3 p-4 bg-zinc-900 border border-zinc-800 rounded-2xl">
-        <div className="flex-shrink-0" style={state === 'granted' ? { color: '#E6FF3D' } : { color: '#71717a' }}>
+        <div className="flex-shrink-0" style={state === 'granted' ? { color: 'var(--accent)' } : { color: '#71717a' }}>
           {state === 'loading'
             ? <Loader2 size={18} className="animate-spin" />
             : state === 'granted'
@@ -197,10 +197,10 @@ export function PushNotificationsToggle() {
 
       {showAndroidTip && (
         <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: 'rgba(230,255,61,0.05)', border: '1px solid rgba(230,255,61,0.15)' }}>
-          <Smartphone size={15} className="flex-shrink-0 mt-0.5" style={{ color: '#E6FF3D' }} />
+          <Smartphone size={15} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--accent)' }} />
           <p className="text-xs leading-relaxed" style={{ color: 'rgba(230,255,61,0.7)' }}>
             Notifiche attivate! Assicurati che Chrome abbia i permessi di notifica in{' '}
-            <span className="font-semibold" style={{ color: '#E6FF3D' }}>
+            <span className="font-semibold" style={{ color: 'var(--accent)' }}>
               Impostazioni Android → App → Chrome → Notifiche
             </span>
           </p>

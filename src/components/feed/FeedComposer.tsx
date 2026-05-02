@@ -62,7 +62,7 @@ function ComposerProgress({ length }: { length: number }) {
             cy="13"
             r="10"
             fill="none"
-            stroke={length >= 490 ? '#f87171' : length >= 450 ? '#fb923c' : '#7c3aed'}
+            stroke={length >= 490 ? '#f87171' : length >= 450 ? '#fb923c' : '#E6FF3D'}
             strokeWidth="2.5"
             strokeDasharray={`${(length / 500) * 62.83} 62.83`}
             strokeLinecap="round"
@@ -185,7 +185,7 @@ export function FeedComposer({
               </div>
 
               <div className="flex-shrink-0 border-t border-zinc-800/60 px-4 py-3 flex items-center gap-3" style={{ background: 'var(--bg-primary)' }}>
-                <label className="cursor-pointer flex items-center justify-center w-10 h-10 rounded-2xl text-zinc-400 hover:text-[#E6FF3D] hover:bg-zinc-800 transition-all select-none">
+                <label className="cursor-pointer flex items-center justify-center w-10 h-10 rounded-2xl text-zinc-400 hover:text-[var(--accent)] hover:bg-zinc-800 transition-all select-none">
                   <ImageIcon size={22} strokeWidth={1.5} />
                   <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
                 </label>
@@ -258,7 +258,7 @@ export function FeedComposer({
                 <CategorySelector value={newPostCategory} onChange={setNewPostCategory} />
                 <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
                   {newPostContent.length >= 400 && <span style={{ fontSize: 12, fontWeight: 600, color: newPostContent.length >= 490 ? '#f87171' : '#71717a' }}>{500 - newPostContent.length}</span>}
-                  {newPostContent.length > 0 && <svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="10" fill="none" stroke="#27272a" strokeWidth="2.5" /><circle cx="13" cy="13" r="10" fill="none" stroke={newPostContent.length >= 490 ? '#f87171' : newPostContent.length >= 450 ? '#fb923c' : '#7c3aed'} strokeWidth="2.5" strokeDasharray={`${(newPostContent.length / 500) * 62.83} 62.83`} strokeLinecap="round" transform="rotate(-90 13 13)" /></svg>}
+                  {newPostContent.length > 0 && <svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="10" fill="none" stroke="#27272a" strokeWidth="2.5" /><circle cx="13" cy="13" r="10" fill="none" stroke={newPostContent.length >= 490 ? '#f87171' : newPostContent.length >= 450 ? '#fb923c' : '#E6FF3D'} strokeWidth="2.5" strokeDasharray={`${(newPostContent.length / 500) * 62.83} 62.83`} strokeLinecap="round" transform="rotate(-90 13 13)" /></svg>}
                 </div>
               </div>
             </div>,

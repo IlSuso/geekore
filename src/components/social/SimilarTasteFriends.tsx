@@ -118,13 +118,13 @@ export function SimilarTasteFriends() {
               <p className="text-[10px] font-semibold text-zinc-200 truncate w-full text-center group-hover:text-white transition-colors">
                 {f.profile.display_name || f.profile.username}
               </p>
-              <p className="text-[9px] font-medium" style={{ color: '#E6FF3D' }}>{f.label}</p>
+              <p className="text-[9px] font-medium" style={{ color: 'var(--accent)' }}>{f.label}</p>
 
               {/* Top generi in comune */}
               {f.commonGenres.length > 0 && (
                 <div className="flex flex-wrap gap-0.5 justify-center mt-1">
                   {f.commonGenres.slice(0, 2).map(g => (
-                    <span key={g} className="text-[8px] px-1 py-0.5 rounded-full truncate max-w-full" style={{ background: 'rgba(230,255,61,0.1)', color: '#E6FF3D' }}>
+                    <span key={g} className="text-[8px] px-1 py-0.5 rounded-full truncate max-w-full" style={{ background: 'rgba(230,255,61,0.1)', color: 'var(--accent)' }}>
                       {g}
                     </span>
                   ))}

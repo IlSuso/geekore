@@ -441,7 +441,7 @@ const MediaCard = memo(function MediaCard({
                     </div>
                   )}
                   {isOwner && !maxCh && (
-                    <button onClick={() => onEnrichEpisodes?.(media.id)} onPointerDown={e => e.stopPropagation()} disabled={enriching} className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-[#E6FF3D] transition-colors disabled:opacity-50">
+                    <button onClick={() => onEnrichEpisodes?.(media.id)} onPointerDown={e => e.stopPropagation()} disabled={enriching} className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-[var(--accent)] transition-colors disabled:opacity-50">
                       {enriching ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
                       {enriching ? 'Recupero…' : 'Recupera totale'}
                     </button>
@@ -469,7 +469,7 @@ const MediaCard = memo(function MediaCard({
                 onClick={() => onEnrichEpisodes?.(media.id)}
                 onPointerDown={e => e.stopPropagation()}
                 disabled={enriching}
-                className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-[#E6FF3D] transition-colors disabled:opacity-50"
+                className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-[var(--accent)] transition-colors disabled:opacity-50"
               >
                 {enriching ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
                 {enriching ? 'Recupero…' : 'Recupera episodi'}
@@ -892,7 +892,7 @@ export default function ProfileTypePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <Loader2 size={32} className="animate-spin" style={{ color: '#E6FF3D' }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--accent)' }} />
       </div>
     )
   }

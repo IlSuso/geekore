@@ -164,7 +164,7 @@ export default function ListDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <Loader2 size={32} className="animate-spin" style={{ color: '#E6FF3D' }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--accent)' }} />
       </div>
     )
   }
@@ -211,7 +211,7 @@ export default function ListDetailPage() {
                 <Link
                   href={`/profile/${list.owner?.username}`}
                   className="text-xs hover:opacity-80 transition"
-                  style={{ color: '#E6FF3D' }}
+                  style={{ color: 'var(--accent)' }}
                 >
                   @{list.owner?.username}
                 </Link>
@@ -300,7 +300,7 @@ export default function ListDetailPage() {
               <button
                 onClick={() => setShowAddPanel(true)}
                 className="mt-4 text-sm hover:opacity-80 transition"
-                style={{ color: '#E6FF3D' }}
+                style={{ color: 'var(--accent)' }}
               >
                 Aggiungi titoli dalla tua collezione →
               </button>

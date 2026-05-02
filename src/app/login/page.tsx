@@ -104,7 +104,7 @@ export default function LoginPage() {
           <div>
             <h2 className="text-5xl font-black tracking-tighter leading-none mb-5">
               {l.tagline.split(' ').slice(0, -1).join(' ')}<br />
-              <span style={{ color: '#E6FF3D' }}>
+              <span style={{ color: 'var(--accent)' }}>
                 {l.tagline.split(' ').slice(-1)[0]}
               </span>
             </h2>
@@ -152,7 +152,7 @@ export default function LoginPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-sm font-medium text-zinc-400">{l.password}</label>
-                <Link href="/forgot-password" className="text-xs hover:opacity-80 transition-opacity" style={{ color: '#E6FF3D' }}>
+                <Link href="/forgot-password" className="text-xs hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>
                   Password dimenticata?
                 </Link>
               </div>
@@ -181,7 +181,7 @@ export default function LoginPage() {
 
           <p className="text-center text-zinc-500 text-sm mt-8">
             {l.noAccount}{' '}
-            <Link href="/register" className="font-medium hover:opacity-80 transition-opacity" style={{ color: '#E6FF3D' }}>
+            <Link href="/register" className="font-medium hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>
               {l.registerLink}
             </Link>
           </p>

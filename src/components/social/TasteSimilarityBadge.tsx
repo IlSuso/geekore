@@ -45,7 +45,7 @@ export function TasteSimilarityBadge({ targetUserId }: Props) {
     : 'bg-zinc-800 border-zinc-700 text-zinc-400'
 
   const colorStyle = data.score >= 70
-    ? { background: 'rgba(230,255,61,0.1)', borderColor: 'rgba(230,255,61,0.3)', color: '#E6FF3D' }
+    ? { background: 'rgba(230,255,61,0.1)', borderColor: 'rgba(230,255,61,0.3)', color: 'var(--accent)' }
     : {}
 
   return (

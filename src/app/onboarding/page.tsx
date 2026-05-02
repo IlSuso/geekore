@@ -115,7 +115,7 @@ function StepDots({ current, total }: { current: number; total: number }) {
         <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest">
           Passo {current + 1} di {total}
         </span>
-        <span className="text-[11px] font-bold" style={{ color: '#E6FF3D' }}>{pct}%</span>
+        <span className="text-[11px] font-bold" style={{ color: 'var(--accent)' }}>{pct}%</span>
       </div>
       <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden w-full">
         <div
@@ -157,7 +157,7 @@ function BrandPanel({ step }: { step: number }) {
       <div className="relative z-10 space-y-7">
         <h2 key={step} className="text-4xl xl:text-5xl font-black tracking-tight leading-[1.1] text-white">
           {h.lines.map((line, li) => (
-            <span key={li} style={li === h.lines.length - 1 ? { color: '#E6FF3D' } : {}}>
+            <span key={li} style={li === h.lines.length - 1 ? { color: 'var(--accent)' } : {}}>
               {line}
             </span>
           ))}
@@ -169,7 +169,7 @@ function BrandPanel({ step }: { step: number }) {
             {FEATURES.map(({ icon: Icon, label }) => (
               <div key={label} className="flex items-start gap-3">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)' }}>
-                  <Icon size={17} style={{ color: '#E6FF3D' }} />
+                  <Icon size={17} style={{ color: 'var(--accent)' }} />
                 </div>
                 <span className="text-zinc-300 text-sm leading-relaxed pt-1">{label}</span>
               </div>
@@ -470,7 +470,7 @@ export default function OnboardingPage() {
               <div className="lg:hidden mb-8">
                 <h1 className="text-4xl font-black tracking-tight leading-tight text-white mb-3">
                   Il tuo universo geek,{' '}
-                  <span style={{ color: '#E6FF3D' }}>
+                  <span style={{ color: 'var(--accent)' }}>
                     finalmente unificato.
                   </span>
                 </h1>
@@ -480,7 +480,7 @@ export default function OnboardingPage() {
                 {FEATURES.map(({ icon: Icon, label }) => (
                   <div key={label} className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)' }}>
-                      <Icon size={15} style={{ color: '#E6FF3D' }} />
+                      <Icon size={15} style={{ color: 'var(--accent)' }} />
                     </div>
                     <span className="text-zinc-300 text-sm leading-relaxed pt-1">{label}</span>
                   </div>
@@ -489,7 +489,7 @@ export default function OnboardingPage() {
 
               {/* Titolo desktop */}
               <div className="hidden lg:block mb-8">
-                <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-2">Cominciamo <Sparkles size={26} style={{ color: '#E6FF3D' }} /></h1>
+                <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-2">Cominciamo <Sparkles size={26} style={{ color: 'var(--accent)' }} /></h1>
                 <p className="text-zinc-400">Ci vorranno meno di 2 minuti.</p>
               </div>
 

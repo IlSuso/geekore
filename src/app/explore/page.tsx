@@ -269,7 +269,7 @@ export default async function ExplorePage() {
         {trendingGenres.length > 0 && (
           <section className="mb-10">
             <div className="flex items-center gap-2 mb-4">
-              <Heart size={14} style={{ color: '#E6FF3D' }} />
+              <Heart size={14} style={{ color: 'var(--accent)' }} />
               <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Generi più amati questa settimana</h2>
             </div>
             <div className="space-y-2">
@@ -293,7 +293,7 @@ export default async function ExplorePage() {
         {trendingUsers.length > 0 && (
           <section className="mb-10">
             <div className="flex items-center gap-2 mb-4">
-              <TrendingUp size={14} style={{ color: '#E6FF3D' }} />
+              <TrendingUp size={14} style={{ color: 'var(--accent)' }} />
               <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Più attivi questa settimana</h2>
             </div>
             <div className="grid grid-cols-4 sm:grid-cols-6 gap-4">
@@ -312,7 +312,7 @@ export default async function ExplorePage() {
                 <Zap size={14} className="text-yellow-400" />
                 <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Media più aggiunti questa settimana</h2>
               </div>
-              <Link href="/trending" className="text-xs hover:opacity-80 transition-colors" style={{ color: '#E6FF3D' }}>
+              <Link href="/trending" className="text-xs hover:opacity-80 transition-colors" style={{ color: 'var(--accent)' }}>
                 Vedi tutti →
               </Link>
             </div>
@@ -332,7 +332,7 @@ export default async function ExplorePage() {
                 <ThumbsUp size={14} className="text-pink-400" />
                 <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Post più apprezzati</h2>
               </div>
-              <Link href="/home" className="text-xs hover:opacity-80 transition-colors" style={{ color: '#E6FF3D' }}>
+              <Link href="/home" className="text-xs hover:opacity-80 transition-colors" style={{ color: 'var(--accent)' }}>
                 Vai al feed →
               </Link>
             </div>
@@ -366,7 +366,7 @@ export default async function ExplorePage() {
                         <p className="text-xs text-zinc-500 truncate mt-0.5">{list.description}</p>
                       )}
                       <p className="text-xs text-zinc-600 mt-1">
-                        di <span style={{ color: '#E6FF3D' }}>@{owner?.username || 'utente'}</span>
+                        di <span style={{ color: 'var(--accent)' }}>@{owner?.username || 'utente'}</span>
                       </p>
                     </div>
                     <span className="text-zinc-600 group-hover:text-zinc-400 transition-colors flex-shrink-0">→</span>

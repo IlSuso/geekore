@@ -66,7 +66,7 @@ export function EndOfFeedNotice() {
   return (
     <div className="text-center py-10 flex flex-col items-center gap-2">
       <div className="w-12 h-12 rounded-full border border-[var(--border)] flex items-center justify-center">
-        <PartyPopper size={20} style={{ color: '#E6FF3D' }} />
+        <PartyPopper size={20} style={{ color: 'var(--accent)' }} />
       </div>
       <p className="text-[13px] text-[var(--text-muted)]">Hai visto tutto!</p>
     </div>

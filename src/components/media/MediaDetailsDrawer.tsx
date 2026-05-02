@@ -531,7 +531,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                 </span>
               )}
               {media.matchScore != null && (
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(230,255,61,0.12)', border: '1px solid rgba(230,255,61,0.25)', color: '#E6FF3D' }}>
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(230,255,61,0.12)', border: '1px solid rgba(230,255,61,0.25)', color: 'var(--accent)' }}>
                   {media.matchScore}% match
                 </span>
               )}
@@ -618,7 +618,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
             {/* Perché te lo consigliamo */}
             {media.why && (
               <div className="flex gap-2.5 rounded-xl p-3.5" style={{ background: 'rgba(230,255,61,0.06)', border: '1px solid rgba(230,255,61,0.2)' }}>
-                <Sparkles size={14} className="flex-shrink-0 mt-0.5" style={{ color: '#E6FF3D' }} />
+                <Sparkles size={14} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--accent)' }} />
                 <p className="text-xs leading-relaxed" style={{ color: 'rgba(230,255,61,0.85)' }}>{media.why}</p>
               </div>
             )}
@@ -629,7 +629,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               if (media.matchScore != null) cells.push(
                 <div key="match" className="rounded-xl p-3 text-center" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)' }}>
                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Match</p>
-                  <p className="text-lg font-bold font-mono" style={{ color: '#E6FF3D' }}>{media.matchScore}%</p>
+                  <p className="text-lg font-bold font-mono" style={{ color: 'var(--accent)' }}>{media.matchScore}%</p>
                 </div>
               )
               if (media.score != null) cells.push(

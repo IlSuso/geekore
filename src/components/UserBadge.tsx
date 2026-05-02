@@ -6,7 +6,7 @@ const BADGE_CONFIG: Record<string, { icon: React.ReactNode; label: string; class
     icon: <Gem size={14} strokeWidth={2} />,
     label: "Early Supporter",
     className: "",
-    style: { color: '#E6FF3D' },
+    style: { color: 'var(--accent)' },
   },
 };
 

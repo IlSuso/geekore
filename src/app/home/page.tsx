@@ -692,7 +692,7 @@ export default function FeedPage() {
 
               {loadingMore && (
                 <div className="flex justify-center py-8">
-                  <Loader2 size={22} className="animate-spin" style={{ color: '#E6FF3D' }} />
+                  <Loader2 size={22} className="animate-spin" style={{ color: 'var(--accent)' }} />
                 </div>
               )}
 

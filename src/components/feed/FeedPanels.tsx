@@ -168,7 +168,7 @@ export function EmptyFeedState({
   return (
     <div className="text-center py-24 px-8">
       <div className="w-16 h-16 rounded-full border-2 border-[var(--border)] flex items-center justify-center mx-auto mb-4">
-        <Sparkles size={28} style={{ color: '#E6FF3D' }} />
+        <Sparkles size={28} style={{ color: 'var(--accent)' }} />
       </div>
       <p className="text-[16px] font-semibold text-[var(--text-primary)] mb-1">
         {categoryFilter

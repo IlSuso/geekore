@@ -25,8 +25,8 @@ export function EmptyState({
   className = '',
 }: EmptyStateProps) {
   const accentMap = {
-    signature: { icon: 'text-[#E6FF3D]', ring: 'border-[rgba(230,255,61,0.2)]', bg: 'bg-[rgba(230,255,61,0.06)]' },
-    violet:    { icon: 'text-[#E6FF3D]', ring: 'border-[rgba(230,255,61,0.2)]', bg: 'bg-[rgba(230,255,61,0.06)]' },
+    signature: { icon: 'text-[var(--accent)]', ring: 'border-[rgba(230,255,61,0.2)]', bg: 'bg-[rgba(230,255,61,0.06)]' },
+    violet:    { icon: 'text-[var(--accent)]', ring: 'border-[rgba(230,255,61,0.2)]', bg: 'bg-[rgba(230,255,61,0.06)]' },
     zinc:      { icon: 'text-zinc-500',  ring: 'border-[var(--border)]', bg: 'bg-[var(--bg-card)]' },
   }
   const colors = accentMap[accent]

@@ -80,7 +80,7 @@ export default function WishlistPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <Loader2 size={28} className="animate-spin" style={{ color: '#E6FF3D' }} />
+        <Loader2 size={28} className="animate-spin" style={{ color: 'var(--accent)' }} />
       </main>
     )
   }
@@ -209,7 +209,7 @@ export default function WishlistPage() {
                   </div>
 
                   {/* Accent bar */}
-                  <div className={`w-1 self-stretch opacity-40 ${config.color}`} />
+                  <div className="w-1 self-stretch opacity-40" style={{ background: getMediaTypeColor(item.type) }} />
                 </div>
               )
             })}

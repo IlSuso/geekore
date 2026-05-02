@@ -217,7 +217,7 @@ export default function StatsPage() {
     <div className="min-h-screen bg-black text-white pb-24">
       <div className="max-w-3xl mx-auto px-3 sm:px-4 pt-2 md:pt-8">
         <div className="mb-8">
-          <h1 className="hidden md:block text-5xl font-black tracking-tighter" style={{ color: '#E6FF3D' }}>
+          <h1 className="hidden md:block text-5xl font-black tracking-tighter" style={{ color: 'var(--accent)' }}>
             Tempo sprecato
           </h1>
           <p className="text-zinc-500 text-sm mt-1">Quanto della tua vita hai dedicato ai media?</p>
@@ -237,13 +237,13 @@ export default function StatsPage() {
                 )}
                 {remHours > 0 && (
                   <div>
-                    <p className="gk-display" style={{ color: '#E6FF3D' }}>{remHours}</p>
+                    <p className="gk-display" style={{ color: 'var(--accent)' }}>{remHours}</p>
                     <p className="text-zinc-500 text-sm">ore</p>
                   </div>
                 )}
                 {remMins > 0 && days === 0 && (
                   <div>
-                    <p className="gk-display" style={{ color: '#E6FF3D' }}>{remMins}</p>
+                    <p className="gk-display" style={{ color: 'var(--accent)' }}>{remMins}</p>
                     <p className="text-zinc-500 text-sm">minuti</p>
                   </div>
                 )}

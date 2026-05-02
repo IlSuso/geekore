@@ -137,7 +137,7 @@ export default async function CommunityPage() {
         <div className="grid grid-cols-2 gap-3 mb-8">
           <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-4 flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(230,255,61,0.1)' }}>
-              <Users size={18} style={{ color: '#E6FF3D' }} />
+              <Users size={18} style={{ color: 'var(--accent)' }} />
             </div>
             <div>
               <p className="text-xl font-bold text-white leading-none">{totalCount.toLocaleString('it-IT')}</p>
@@ -160,7 +160,7 @@ export default async function CommunityPage() {
           <section className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <UserPlus size={16} style={{ color: '#E6FF3D' }} />
+                <UserPlus size={16} style={{ color: 'var(--accent)' }} />
                 <h2 className="text-[13px] font-semibold text-zinc-400 uppercase tracking-wider">Chi seguire</h2>
               </div>
             </div>
@@ -199,7 +199,7 @@ export default async function CommunityPage() {
         {engagingPosts.length > 0 && (
           <section className="mb-8">
             <div className="flex items-center gap-2 mb-4">
-              <MessageCircle size={16} style={{ color: '#E6FF3D' }} />
+              <MessageCircle size={16} style={{ color: 'var(--accent)' }} />
               <h2 className="text-[13px] font-semibold text-zinc-400 uppercase tracking-wider">Conversazioni in corso</h2>
             </div>
             <div className="flex flex-col gap-2">

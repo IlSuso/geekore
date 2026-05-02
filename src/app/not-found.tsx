@@ -13,7 +13,7 @@ export default function NotFound() {
       <div className="relative select-none mb-2">
         <h1
           className="text-[140px] sm:text-[180px] font-black leading-none"
-          style={{ color: '#E6FF3D', fontVariantNumeric: 'tabular-nums' }}
+          style={{ color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}
         >
           404
         </h1>

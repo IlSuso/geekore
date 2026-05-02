@@ -61,7 +61,7 @@ function TrendingMini() {
   return (
     <div className="px-1">
       <div className="flex items-center gap-1.5 mb-3">
-        <TrendingUp size={13} style={{ color: '#E6FF3D' }} />
+        <TrendingUp size={13} style={{ color: 'var(--accent)' }} />
         <p className="text-[12px] font-semibold text-[var(--text-secondary)]">Trending questa settimana</p>
       </div>
       <div className="space-y-2.5">
@@ -90,7 +90,7 @@ function TrendingMini() {
         })}
       </div>
       <div className="mt-3 flex justify-end">
-        <Link href="/trending" className="text-[11px] font-semibold hover:opacity-80 transition-opacity" style={{ color: '#E6FF3D' }}>
+        <Link href="/trending" className="text-[11px] font-semibold hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>
           Vedi tutti →
         </Link>
       </div>
@@ -191,7 +191,7 @@ function SuggestedUsersCompact({ currentUserId }: { currentUserId: string }) {
               <button
                 onClick={() => handleFollow(user.id)}
                 className="flex-shrink-0 text-[12px] font-semibold hover:opacity-80 transition-opacity"
-                style={{ color: '#E6FF3D' }}
+                style={{ color: 'var(--accent)' }}
               >
                 Segui
               </button>

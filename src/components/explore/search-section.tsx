@@ -51,7 +51,7 @@ export function SearchSection() {
       <div className={`flex items-center gap-3 bg-zinc-900 border rounded-2xl px-5 py-3.5 transition-colors ${
         open && results.length > 0 ? 'border-zinc-600' : 'border-zinc-800 focus-within:border-zinc-600'
       }`}>
-        <Search size={18} className={loading ? 'animate-pulse' : 'text-zinc-500'} style={loading ? { color: '#E6FF3D' } : {}} />
+        <Search size={18} className={loading ? 'animate-pulse' : 'text-zinc-500'} style={loading ? { color: 'var(--accent)' } : {}} />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}

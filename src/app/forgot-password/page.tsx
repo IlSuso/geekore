@@ -95,7 +95,7 @@ export default function ForgotPasswordPage() {
 
         <p className="text-center text-zinc-500 text-sm mt-8">
           Ricordi la password?{' '}
-          <Link href="/login" className="font-medium hover:opacity-80 transition-opacity" style={{ color: '#E6FF3D' }}>
+          <Link href="/login" className="font-medium hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>
             Accedi
           </Link>
         </p>

@@ -78,7 +78,7 @@ export default function LeaderboardPage() {
               key={id}
               onClick={() => setTab(id as 'score' | 'game_hours' | 'anime_count')}
               className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${tab === id ? '' : 'text-zinc-400 hover:text-white'}`}
-              style={tab === id ? { background: '#E6FF3D', color: '#0B0B0F' } : {}}
+              style={tab === id ? { background: 'var(--accent)', color: '#0B0B0F' } : {}}
             >
               {label}
             </button>
@@ -131,7 +131,7 @@ export default function LeaderboardPage() {
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-white truncate group-hover:text-[#E6FF3D] transition-colors">
+                    <p className="font-semibold text-sm text-white truncate group-hover:text-[var(--accent)] transition-colors">
                       {leader.display_name || leader.username}
                     </p>
                     <p className="text-xs text-zinc-500">@{leader.username}</p>

@@ -442,7 +442,7 @@ export default function DiscoverPage() {
             {voiceSupported && (
               <button
                 onClick={toggleVoice}
-                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${isListening ? 'bg-red-500 text-white' : 'text-[var(--text-secondary)] hover:text-[#E6FF3D]'
+                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${isListening ? 'bg-red-500 text-white' : 'text-[var(--text-secondary)] hover:text-[var(--accent)]'
                   }`}
               >
                 {isListening ? <MicOff size={15} /> : <Mic size={15} />}
@@ -492,7 +492,7 @@ export default function DiscoverPage() {
         {/* Pending indicator */}
         {isPending && !loading && searchTerm.trim().length >= 2 && (
           <div className="flex items-center justify-center gap-2 py-4">
-            <Loader2 size={16} className="animate-spin" style={{ color: '#E6FF3D' }} />
+            <Loader2 size={16} className="animate-spin" style={{ color: 'var(--accent)' }} />
             <span className="text-[13px] text-[var(--text-secondary)]">Ricerca in corso…</span>
           </div>
         )}
