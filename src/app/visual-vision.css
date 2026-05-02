@@ -1,0 +1,237 @@
+/* Geekore visual vision v1 — Cabinet Maximalism
+   Source: IMPLEMENTAZIONI/visione-visiva.html / uploaded visione-visiva.html
+   This file intentionally centralizes the uncompromising visual rules:
+   poster-first, acid-yellow signature, saturated media colors, dense library,
+   desktop three-column shell, and dogmatic gk-* typography. */
+
+:root {
+  --bg-primary: #0B0B0F;
+  --bg-secondary: #14141B;
+  --bg-card: #14141B;
+  --bg-card-hover: #1C1C26;
+  --bg-hover: #25252F;
+  --bg-input: #14141B;
+  --text-primary: #F4F4F5;
+  --text-secondary: #A1A1AA;
+  --text-muted: #52525B;
+  --border: #2A2A36;
+  --border-subtle: #1C1C26;
+  --brand: #8B5CF6;
+  --brand-light: #A78BFA;
+  --accent: #E6FF3D;
+  --accent-2: #F87171;
+  --success: #10B981;
+  --rating-star: #FBBF24;
+  --type-anime: #38BDF8;
+  --type-manga: #F97066;
+  --type-game: #4ADE80;
+  --type-board: #FB923C;
+  --type-movie: #EF4444;
+  --type-tv: #C084FC;
+  --desktop-sidebar-w: 240px;
+  --desktop-context-w: 320px;
+  --shell-max-w: 920px;
+}
+
+body {
+  background:
+    radial-gradient(1200px 650px at 100% 0%, rgba(139,92,246,0.08), transparent 55%),
+    radial-gradient(900px 700px at 0% 100%, rgba(230,255,61,0.035), transparent 62%),
+    var(--bg-primary);
+}
+
+/* Wordmark rule: the yellow square is sacred. */
+.gk-logo-dot,
+[data-geekore-dot='true'] {
+  background: var(--accent) !important;
+  border-radius: 2px !important;
+  box-shadow: 0 0 24px rgba(230,255,61,0.28);
+}
+
+/* Dogmatic type scale. These override drift from arbitrary Tailwind sizes. */
+.gk-display { font-family: var(--font-display); font-size: clamp(40px, 7vw, 88px); line-height: .92; font-weight: 900; letter-spacing: -0.04em; }
+.gk-h1 { font-family: var(--font-display); font-size: clamp(28px, 3vw, 32px); line-height: 1.05; font-weight: 800; letter-spacing: -0.03em; }
+.gk-title { font-family: var(--font-display); font-size: 22px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em; }
+.gk-headline { font-family: var(--font-body); font-size: 17px; line-height: 1.35; font-weight: 700; letter-spacing: -0.01em; }
+.gk-body { font-family: var(--font-body); font-size: 15px; line-height: 1.6; color: var(--text-secondary); }
+.gk-caption { font-family: var(--font-body); font-size: 12px; line-height: 1.4; font-weight: 500; color: var(--text-secondary); }
+.gk-mono { font-family: var(--font-mono-data); font-size: 11px; line-height: 1.45; font-weight: 500; letter-spacing: .05em; }
+.gk-label { font-family: var(--font-body); font-size: 11px; line-height: 1.3; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+
+/* Chrome must stay quiet; covers carry the app. */
+.gk-card,
+.gk-panel,
+.gk-feed-card,
+.gk-surface {
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 18px;
+}
+
+.gk-poster-first img,
+.gk-cover img,
+[class*='DiscoverMediaCard'] img {
+  object-fit: cover;
+}
+
+/* Medium color utilities — saturated and never gradient-mixed. */
+.gk-type-anime { --gk-type: var(--type-anime); color: var(--type-anime); }
+.gk-type-manga { --gk-type: var(--type-manga); color: var(--type-manga); }
+.gk-type-game { --gk-type: var(--type-game); color: var(--type-game); }
+.gk-type-boardgame, .gk-type-board { --gk-type: var(--type-board); color: var(--type-board); }
+.gk-type-movie { --gk-type: var(--type-movie); color: var(--type-movie); }
+.gk-type-tv { --gk-type: var(--type-tv); color: var(--type-tv); }
+.gk-type-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--gk-type, var(--accent)) 48%, transparent);
+  background: color-mix(in srgb, var(--gk-type, var(--accent)) 14%, transparent);
+  color: var(--gk-type, var(--accent));
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-family: var(--font-mono-data);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+/* CTA discipline: big CTA = violet, small active state = acid yellow. */
+.gk-primary-cta {
+  background: var(--brand) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid color-mix(in srgb, var(--brand-light) 42%, transparent) !important;
+  box-shadow: 0 14px 34px rgba(139,92,246,.20);
+}
+.gk-active-accent,
+[aria-current='page'] {
+  color: var(--accent);
+}
+
+/* Bottom nav: five tabs, visible labels, acid top bar, no gradient/fill gimmicks. */
+.mobile-nav {
+  border-top: 1px solid var(--border) !important;
+  background: rgba(11,11,15,.97) !important;
+}
+.mobile-nav button { min-height: 56px; }
+.mobile-nav [aria-current='page']::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 24px;
+  height: 2px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+/* Desktop shell: fixed 240px sidebar + readable center + optional 320px context rail. */
+@media (min-width: 768px) {
+  aside.fixed { width: var(--desktop-sidebar-w) !important; }
+  main:not([data-auth]) {
+    padding-left: var(--desktop-sidebar-w) !important;
+    padding-right: 0;
+  }
+  main:not([data-auth]) > div:first-child {
+    max-width: min(100%, calc(var(--shell-max-w) + var(--desktop-context-w) + 48px));
+  }
+}
+
+@media (min-width: 1280px) {
+  .gk-three-column-page {
+    display: grid;
+    grid-template-columns: minmax(0, var(--shell-max-w)) var(--desktop-context-w);
+    gap: 24px;
+    align-items: start;
+  }
+  .gk-context-rail {
+    display: block;
+    position: sticky;
+    top: 24px;
+  }
+}
+@media (max-width: 1279px) {
+  .gk-context-rail { display: none; }
+}
+
+/* Library: density before spa-like whitespace. */
+.gk-library-compact {
+  display: grid;
+  gap: 8px;
+}
+.gk-library-row {
+  min-height: 64px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  border-radius: 14px;
+  padding: 8px;
+}
+.gk-status-pill {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: rgba(11,11,15,.78);
+  border: 1px solid rgba(244,244,245,.14);
+  color: var(--accent);
+  font-family: var(--font-mono-data);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  backdrop-filter: blur(12px);
+}
+
+/* Activity posts: auto-generated completion cards must look visual, not text-only. */
+.gk-activity-card {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px;
+}
+.gk-activity-cover {
+  aspect-ratio: 2 / 3;
+  width: 72px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--bg-card-hover);
+}
+
+/* Empty states cannot be filler. */
+.gk-empty-actionable {
+  border: 1px dashed color-mix(in srgb, var(--accent) 35%, transparent);
+  background: rgba(230,255,61,.04);
+  border-radius: 18px;
+}
+
+/* Remove old Instagram-ish/violet-fuchsia gradient feeling wherever the global shell can catch it. */
+.bg-gradient-to-r.from-violet-500,
+.bg-gradient-to-br.from-violet-500,
+.bg-gradient-to-r.from-fuchsia-500,
+.bg-gradient-to-br.from-fuchsia-500 {
+  background-image: none !important;
+  background-color: var(--brand) !important;
+}
+
+/* Poster placeholders: medium color + mono title, never generic lonely icon. */
+.gk-cover-placeholder {
+  background: color-mix(in srgb, var(--gk-type, var(--brand)) 26%, #0B0B0F);
+  color: var(--text-primary);
+  display: flex;
+  align-items: flex-end;
+  padding: 10px;
+  font-family: var(--font-mono-data);
+  font-size: 10px;
+  line-height: 1.2;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
