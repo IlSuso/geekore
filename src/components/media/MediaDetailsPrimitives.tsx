@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Star, Sparkles } from 'lucide-react'
+import { Star, Sparkles, X } from 'lucide-react'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 import { optimizeCover } from '@/lib/imageOptimizer'
 
@@ -88,11 +88,12 @@ export function MediaDetailsHero({ media, fallbackIcon, meta, subtitle, onClose 
       {onClose && (
         <button
           type="button"
+          data-no-swipe="true"
           onClick={onClose}
           className="absolute right-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-2xl border border-[var(--border)] bg-black/35 text-[var(--text-secondary)] backdrop-blur transition-colors hover:text-white"
           aria-label="Chiudi"
         >
-          ×
+          <X size={16} />
         </button>
       )}
     </div>
