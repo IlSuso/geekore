@@ -23,6 +23,10 @@ const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; ic
   boardgame: { label: 'Board',    color: 'var(--type-board)',    bg: 'rgba(45,212,191,0.10)', icon: Dice5 },
 }
 
+function normalizeType(type: string): string {
+  return type === 'board_game' ? 'boardgame' : type
+}
+
 function ProfileDNAStat({ label, value, accent = false }: { label: string; value: string | number; accent?: boolean }) {
   return (
     <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
@@ -34,7 +38,7 @@ function ProfileDNAStat({ label, value, accent = false }: { label: string; value
 
 export function ProfileStatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
   const stats = useMemo(() => {
-    const byType = (t: string) => mediaList.filter(m => m.type === t)
+    const byType = (t: string) => mediaList.filter(m => normalizeType(m.type) === t)
     const steamHours = byType('game').filter(m => m.is_steam).reduce((s, m) => s + (m.current_episode || 0), 0)
     const animeEps = byType('anime').reduce((s, m) => s + (m.current_episode || 0), 0)
     const mangaChapters = byType('manga').reduce((s, m) => s + (m.current_episode || 0), 0)
