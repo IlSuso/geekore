@@ -90,7 +90,7 @@ export default function LoginPage() {
   ]
 
   return (
-    <div className="min-h-screen flex items-stretch bg-[var(--bg-primary)]">
+    <div className="gk-auth-page min-h-screen flex items-stretch bg-[var(--bg-primary)]">
       <div className="hidden lg:flex lg:w-[45%] relative flex-col justify-between p-16 overflow-hidden border-r border-zinc-800/50">
         <div className="absolute top-1/4 -left-20 w-96 h-96 rounded-full blur-[120px] pointer-events-none" style={{ background: "rgba(230,255,61,0.07)" }} />
         <div className="absolute bottom-1/3 right-0 w-72 h-72 rounded-full blur-[100px] pointer-events-none" style={{ background: 'rgba(230,255,61,0.05)' }} />

@@ -1,0 +1,232 @@
+/* Geekore visual vision page pass
+   This layer is intentionally page-oriented: it finishes the large legacy screens
+   without rewriting their business logic, Supabase calls, drag/drop or mutation flows. */
+
+.gk-profile-page,
+.gk-profile-type-page,
+.gk-for-you-page,
+.gk-home-page,
+.gk-discover-page,
+.gk-settings-page,
+.gk-onboarding-page {
+  background:
+    radial-gradient(900px 520px at 84% 0%, rgba(139,92,246,0.08), transparent 62%),
+    radial-gradient(760px 460px at 12% 18%, rgba(230,255,61,0.035), transparent 58%),
+    var(--bg-primary) !important;
+}
+
+.gk-page-density {
+  max-width: min(100%, calc(var(--shell-max-w) + var(--desktop-context-w) + 96px));
+}
+
+/* Page hero discipline: editorial card, not marketing gradient soup. */
+.gk-profile-page section:first-of-type,
+.gk-for-you-page section:first-of-type,
+.gk-discover-page > div > div:first-child,
+.gk-settings-page > section:first-child,
+.gk-onboarding-page [class*='BrandPanel'],
+.gk-page-hero {
+  border-color: rgba(230,255,61,0.18) !important;
+  background:
+    linear-gradient(135deg, rgba(230,255,61,0.08), rgba(139,92,246,0.055), rgba(20,20,27,0.92)) !important;
+  box-shadow: 0 18px 60px rgba(0,0,0,0.24);
+}
+
+/* Profile collection cards: poster-first and status-forward. */
+.gk-profile-page [class*='rounded-[28px]'],
+.gk-profile-type-page [class*='rounded-[28px]'] {
+  border-color: var(--border) !important;
+  background: var(--bg-secondary) !important;
+}
+
+.gk-profile-page img[alt],
+.gk-profile-type-page img[alt],
+.gk-home-page img[alt],
+.gk-discover-page img[alt],
+.gk-for-you-page img[alt] {
+  object-fit: cover;
+}
+
+.gk-profile-page select,
+.gk-profile-page input,
+.gk-profile-page textarea,
+.gk-profile-type-page select,
+.gk-profile-type-page input,
+.gk-settings-page select,
+.gk-settings-page input,
+.gk-settings-page textarea {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+.gk-profile-page select:focus,
+.gk-profile-page input:focus,
+.gk-profile-page textarea:focus,
+.gk-profile-type-page select:focus,
+.gk-profile-type-page input:focus,
+.gk-settings-page select:focus,
+.gk-settings-page input:focus,
+.gk-settings-page textarea:focus {
+  border-color: rgba(230,255,61,0.46) !important;
+  box-shadow: 0 0 0 2px rgba(230,255,61,0.08) !important;
+}
+
+/* Legacy profile/list rows: keep dense, readable, media-colored. */
+.gk-profile-page [class*='rounded-[20px]'].group,
+.gk-profile-type-page [class*='rounded-[20px]'].group,
+.gk-home-page article,
+.gk-home-page [class*='Feed'],
+.gk-discover-page [class*='Section'] {
+  border-color: var(--border) !important;
+}
+
+/* Mobile media modals and sheets must feel like Geekore, not generic overlays. */
+[role='dialog'] [class*='rounded-3xl'],
+[role='dialog'] [class*='rounded-[28px]'],
+.gk-swipe-mode [class*='rounded-3xl'] {
+  border-color: var(--border) !important;
+  background-color: var(--bg-secondary) !important;
+}
+
+/* Swipe mode: acid active filters, quiet black stage, saturated cards. */
+.gk-swipe-mode {
+  color: var(--text-primary);
+  background:
+    radial-gradient(700px 420px at 50% 0%, rgba(230,255,61,0.06), transparent 60%),
+    var(--bg-primary) !important;
+}
+
+.gk-swipe-mode button[aria-pressed='true'],
+.gk-swipe-mode button[aria-selected='true'] {
+  background: var(--accent) !important;
+  color: #0B0B0F !important;
+}
+
+/* Onboarding: make every step feel like product setup, not a landing page. */
+.gk-onboarding-page {
+  color: var(--text-primary);
+}
+.gk-onboarding-page a,
+.gk-onboarding-page button {
+  border-radius: 18px;
+}
+.gk-onboarding-page a[class*='border-zinc-800'],
+.gk-onboarding-page button[class*='border-zinc-800'] {
+  background: var(--bg-secondary) !important;
+  border-color: var(--border) !important;
+}
+.gk-onboarding-page button[style*='--accent'],
+.gk-onboarding-page button[style*='#E6FF3D'] {
+  font-weight: 900;
+}
+
+/* Auth pages use the same brand language as onboarding. */
+.gk-auth-page,
+main[data-auth='true'] {
+  background:
+    radial-gradient(800px 520px at 22% 14%, rgba(230,255,61,0.045), transparent 60%),
+    radial-gradient(780px 620px at 100% 0%, rgba(139,92,246,0.08), transparent 62%),
+    var(--bg-primary) !important;
+}
+
+.gk-auth-page form,
+.gk-auth-page [class*='rounded-3xl'],
+.gk-auth-page [class*='rounded-[32px]'] {
+  background: rgba(20,20,27,0.94) !important;
+  border-color: var(--border) !important;
+}
+
+/* Tabs/chips/buttons: active yellow must be obvious across large pages. */
+.gk-profile-page button[aria-selected='true'],
+.gk-profile-type-page button[aria-selected='true'],
+.gk-for-you-page button[aria-selected='true'],
+.gk-discover-page button[aria-selected='true'],
+.gk-settings-page button[aria-selected='true'] {
+  background: var(--accent) !important;
+  color: #0B0B0F !important;
+  border-color: var(--accent) !important;
+}
+
+.gk-profile-page button:hover,
+.gk-profile-type-page button:hover,
+.gk-for-you-page button:hover,
+.gk-discover-page button:hover,
+.gk-settings-page button:hover,
+.gk-onboarding-page button:hover {
+  border-color: rgba(230,255,61,0.26);
+}
+
+/* Prevent random white/black swipe islands from breaking the cabinet look. */
+.gk-swipe-mode .bg-white,
+.gk-for-you-page .bg-white,
+.gk-discover-page .bg-white {
+  background-color: var(--accent) !important;
+}
+.gk-swipe-mode .text-black,
+.gk-for-you-page .text-black,
+.gk-discover-page .text-black {
+  color: #0B0B0F !important;
+}
+
+/* Stats/settings/list cards. */
+.gk-settings-page [class*='SettingsCard'],
+.gk-settings-page [class*='rounded-2xl'],
+.gk-settings-page [class*='rounded-3xl'],
+.gk-profile-page [class*='StatsPanel'],
+.gk-home-page aside,
+.gk-home-page [class*='Sidebar'] {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border) !important;
+}
+
+/* Stronger typography on page titles still using arbitrary sizes. */
+.gk-profile-page h1,
+.gk-profile-type-page h1,
+.gk-for-you-page h1,
+.gk-discover-page h1,
+.gk-settings-page h1,
+.gk-onboarding-page h1 {
+  font-family: var(--font-display);
+  letter-spacing: -0.035em;
+}
+
+/* Scrollbars on dense pages stay invisible but comfortable. */
+.gk-profile-page,
+.gk-profile-type-page,
+.gk-for-you-page,
+.gk-home-page,
+.gk-discover-page {
+  scrollbar-gutter: stable both-edges;
+}
+
+/* Any page still routed through PageScaffold inherits the final cabinet finish. */
+.gk-page-scaffold {
+  background:
+    radial-gradient(900px 500px at 100% 0%, rgba(139,92,246,0.07), transparent 62%),
+    radial-gradient(720px 440px at 0% 20%, rgba(230,255,61,0.028), transparent 58%),
+    var(--bg-primary) !important;
+}
+
+.gk-page-scaffold [class*='rounded-2xl'].border,
+.gk-page-scaffold [class*='rounded-3xl'].border,
+.gk-page-scaffold article.border,
+.gk-page-scaffold section.border {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border) !important;
+}
+
+.gk-page-scaffold input,
+.gk-page-scaffold textarea,
+.gk-page-scaffold select {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+.gk-page-scaffold input:focus,
+.gk-page-scaffold textarea:focus,
+.gk-page-scaffold select:focus {
+  border-color: rgba(230,255,61,0.46) !important;
+  box-shadow: 0 0 0 2px rgba(230,255,61,0.08) !important;
+}

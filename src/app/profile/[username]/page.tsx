@@ -1342,9 +1342,9 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
   const profileDisplayName = profile.display_name || profile.username
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] pb-24 md:pb-20">
+    <div className="gk-profile-page min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] pb-24 md:pb-20">
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
-      <div className="pt-4 md:pt-8 max-w-screen-2xl mx-auto px-4 md:px-6">
+      <div className="gk-page-density pt-4 md:pt-8 max-w-screen-2xl mx-auto px-4 md:px-6">
 
         {/* ── Profile hero — media identity hub ── */}
         <section className="mb-6 overflow-hidden rounded-[34px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(230,255,61,0.09),rgba(139,92,246,0.07),rgba(20,20,27,0.94))] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.28)] md:mb-8 md:p-6">

@@ -100,7 +100,7 @@ export default function SearchPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--bg-primary)] pb-24 text-white">
+    <main className="gk-page-scaffold gk-search-page min-h-screen bg-[var(--bg-primary)] pb-24 text-[var(--text-primary)]">
       <div className="max-w-screen-2xl mx-auto px-4 pt-8">
 
         {/* Header */}

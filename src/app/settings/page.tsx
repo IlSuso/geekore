@@ -495,7 +495,7 @@ export default function SettingsPage() {
       title={t.settings.title}
       description="Lingua, notifiche, sicurezza e piattaforme: il pannello operativo del tuo account."
       icon={<Shield size={16} />}
-      contentClassName="max-w-3xl pt-2 md:pt-8 pb-28 space-y-6"
+      contentClassName="gk-settings-page max-w-3xl pt-2 md:pt-8 pb-28 space-y-6"
     >
       <SettingsControlHero
         localeLabel={locale.toUpperCase()}

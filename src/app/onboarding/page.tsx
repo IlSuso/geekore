@@ -220,7 +220,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="flex min-h-screen w-full">
+    <div className="gk-onboarding-page flex min-h-screen w-full">
       <div className="hidden shrink-0 border-r border-zinc-800/50 lg:block lg:w-[46%] xl:w-[50%]"><div className="sticky top-0 h-screen"><BrandPanel step={step} /></div></div>
       <div className="flex flex-1 flex-col items-center justify-center px-7 py-12 sm:px-12 lg:px-14 xl:px-20">
         <div className="mb-10 flex items-center gap-3 self-start lg:hidden"><div className="flex h-10 w-10 items-center justify-center rounded-2xl" style={{ background: 'var(--accent)' }}><Zap size={20} className="text-black" /></div><span className="text-2xl font-bold tracking-tighter text-white">geekore</span></div>

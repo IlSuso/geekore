@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans, Space_Grotesk, JetBrains_Mono } from 'next/font/goog
 import './globals.css'
 import './visual-vision.css'
 import './visual-vision-completion.css'
+import './visual-vision-pages.css'
 import Navbar from '@/components/Navbar'
 
 // Manteniamo next/font come fallback self-hosted e usiamo i link nel <head>

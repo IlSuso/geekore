@@ -1523,7 +1523,7 @@ export default function ForYouPage() {
 
 
   if (loading) return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-white">
+    <div className="gk-for-you-page min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
       <div className="pt-2 md:pt-8 pb-28 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
         {/* Utility bar skeleton */}
         <div className="flex justify-end items-center gap-2 mb-4 animate-pulse">
@@ -1539,7 +1539,7 @@ export default function ForYouPage() {
   )
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-white">
+    <div className="gk-for-you-page min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPulling} />
       <div className="pt-2 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
 

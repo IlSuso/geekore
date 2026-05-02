@@ -949,8 +949,8 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
   const topCoverImage = filteredQueue[0]?.coverImage
 
   const containerClass = standalone
-    ? 'fixed inset-0 bg-black flex flex-col overflow-hidden'
-    : 'fixed inset-0 bg-black flex flex-col'
+    ? 'gk-swipe-mode fixed inset-0 bg-[var(--bg-primary)] flex flex-col overflow-hidden'
+    : 'gk-swipe-mode fixed inset-0 bg-[var(--bg-primary)] flex flex-col'
   const containerStyle = standalone
     ? { contain: 'layout style paint' as const }
     : { zIndex: 9999, contain: 'layout style paint' as const }
@@ -973,7 +973,7 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
             {CATEGORIES.map(cat => (
               <button key={cat.key} onClick={() => handleFilterChange(cat.key)}
                 className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-                  activeFilter === cat.key ? 'bg-white text-black' : 'bg-white/10 text-white/60 hover:bg-white/15 hover:text-white'
+                  activeFilter === cat.key ? 'bg-[var(--accent)] text-[#0B0B0F]' : 'bg-[rgba(244,244,245,0.08)] text-[var(--text-secondary)] hover:bg-[rgba(244,244,245,0.12)] hover:text-[var(--text-primary)]'
                 }`}>
                 {cat.label}
               </button>

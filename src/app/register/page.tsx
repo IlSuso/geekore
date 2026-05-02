@@ -149,7 +149,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-stretch bg-[var(--bg-primary)]">
+    <div className="gk-auth-page min-h-screen flex items-stretch bg-[var(--bg-primary)]">
 
       {/* Left — Branding */}
       <div className="hidden lg:flex lg:w-[45%] relative flex-col justify-between p-16 overflow-hidden border-r border-zinc-800/50">

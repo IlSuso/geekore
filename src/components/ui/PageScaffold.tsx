@@ -29,7 +29,7 @@ export function PageScaffold({
   contentClassName = '',
 }: PageScaffoldProps) {
   return (
-    <div className={`min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] ${className}`}>
+    <div className={`gk-page-scaffold min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] ${className}`}>
       <div
         className={`${contained ? 'mx-auto max-w-screen-2xl px-3 sm:px-4 md:px-6' : ''} ${contentClassName}`}
         style={{

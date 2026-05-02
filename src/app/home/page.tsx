@@ -554,7 +554,7 @@ export default function FeedPage() {
   const sheetTitle = getFeedSheetTitle(sheet)
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
+    <div className="gk-home-page min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
       {/* Bottom Sheet globale — fuori da qualsiasi overflow/transform */}
       <BottomSheet open={sheet.open} title={sheetTitle} actions={sheetActions} onClose={closeSheet} />
 

@@ -29,7 +29,7 @@ export default function ForgotPasswordPage() {
 
   if (sent) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center px-6">
+      <div className="gk-auth-page min-h-screen bg-[var(--bg-primary)] flex items-center justify-center px-6">
         <div className="w-full max-w-md text-center">
           <div className="w-20 h-20 bg-emerald-500/10 border border-emerald-500/30 rounded-3xl flex items-center justify-center mx-auto mb-6">
             <CheckCircle size={36} className="text-emerald-400" />
@@ -47,7 +47,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center px-6">
+    <div className="gk-auth-page min-h-screen bg-[var(--bg-primary)] flex items-center justify-center px-6">
       <div className="w-full max-w-md">
         <div className="flex items-center gap-3 mb-10">
           <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: 'var(--accent)' }}>
