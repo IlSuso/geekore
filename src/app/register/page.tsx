@@ -1,5 +1,3 @@
-// DESTINAZIONE: src/app/register/page.tsx
-
 'use client'
 
 import { useState, useMemo } from 'react'
@@ -7,22 +5,35 @@ import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { Eye, EyeOff, Zap, CheckCircle, Mail } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
+import { PrimitiveButton } from '@/components/ui/PrimitiveButton'
+import { PrimitiveInput } from '@/components/ui/PrimitiveInput'
 
 function LocaleToggle() {
   const { locale, setLocale } = useLocale()
   return (
-    <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-xl p-1">
+    <div className="inline-flex items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-1" aria-label="Seleziona lingua">
       <button
+        type="button"
         onClick={() => setLocale('it')}
-        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${locale === 'it' ? '' : 'text-zinc-500 hover:text-white'}`}
-        style={locale === 'it' ? { background: 'var(--accent)', color: '#0B0B0F' } : {}}
+        className={`h-7 rounded-lg px-3 text-xs font-bold transition-colors ${locale === 'it' ? 'bg-[var(--accent)] text-[#0B0B0F]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
       >IT</button>
       <button
+        type="button"
         onClick={() => setLocale('en')}
-        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${locale === 'en' ? '' : 'text-zinc-500 hover:text-white'}`}
-        style={locale === 'en' ? { background: 'var(--accent)', color: '#0B0B0F' } : {}}
+        className={`h-7 rounded-lg px-3 text-xs font-bold transition-colors ${locale === 'en' ? 'bg-[var(--accent)] text-[#0B0B0F]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
       >EN</button>
     </div>
+  )
+}
+
+function AuthWordmark() {
+  return (
+    <Link href="/" className="inline-flex items-center gap-2 text-[var(--text-primary)]" aria-label="Geekore home">
+      <span className="grid h-7 w-7 place-items-center rounded-[9px] bg-[var(--accent)] text-sm font-black text-[#0B0B0F]">
+        <Zap size={15} fill="currentColor" />
+      </span>
+      <span className="font-display text-[22px] font-black tracking-[-0.03em]">geekore</span>
+    </Link>
   )
 }
 
@@ -38,26 +49,24 @@ function calcStrength(password: string): number {
 
 const STRENGTH_LABELS = ['', 'Debole', 'Media', 'Buona', 'Forte']
 const STRENGTH_LABELS_EN = ['', 'Weak', 'Medium', 'Good', 'Strong']
-const STRENGTH_COLORS = ['', 'bg-red-500', 'bg-yellow-500', 'bg-emerald-400', 'bg-emerald-500']
-const STRENGTH_TEXT_COLORS = ['', 'text-red-400', 'text-yellow-400', 'text-emerald-400', 'text-emerald-400']
 
 function PasswordStrengthBar({ password, locale }: { password: string; locale: string }) {
   const strength = calcStrength(password)
   if (!password) return null
   const labels = locale === 'en' ? STRENGTH_LABELS_EN : STRENGTH_LABELS
+  const activeColor = strength <= 1 ? '#EF4444' : strength === 2 ? '#F59E0B' : '#4ADE80'
   return (
     <div className="mt-2 space-y-1.5">
-      <div className="flex gap-1">
+      <div className="flex gap-1" aria-hidden>
         {[1, 2, 3, 4].map(level => (
           <div
             key={level}
-            className={`h-1 flex-1 rounded-full transition-all duration-300 ${
-              strength >= level ? STRENGTH_COLORS[strength] : 'bg-zinc-800'
-            }`}
+            className="h-1 flex-1 rounded-full transition-colors"
+            style={{ background: strength >= level ? activeColor : 'var(--bg-elevated)' }}
           />
         ))}
       </div>
-      <p className={`text-xs font-medium ${STRENGTH_TEXT_COLORS[strength]}`}>
+      <p className="text-xs font-medium" style={{ color: activeColor }}>
         {labels[strength]}
         {strength === 1 && (locale === 'en' ? ' — min. 8 chars, a number and a symbol' : ' — min. 8 caratteri, un numero e un simbolo')}
         {strength === 2 && (locale === 'en' ? ' — add a symbol or make it longer' : ' — aggiungi un simbolo o allungala')}
@@ -66,21 +75,24 @@ function PasswordStrengthBar({ password, locale }: { password: string; locale: s
   )
 }
 
-function generateUsername(displayName: string, email: string): string {
-  const base = displayName || email.split('@')[0]
-  return base
+function normalizeUsername(value: string): string {
+  return value
     .toLowerCase()
-    .replace(/[^a-z0-9_]/g, '_')  // sostituisce tutto ciò che non è valido con _
-    .replace(/_{2,}/g, '_')        // collassa underscore multipli
-    .replace(/^_|_$/g, '')         // rimuove underscore iniziali/finali
-    .substring(0, 28)              // max 28 chars (lascia spazio per suffisso numerico nel trigger)
-    || 'user'                      // fallback se tutto viene rimosso
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_{2,}/g, '_')
+    .replace(/^_|_$/g, '')
+    .substring(0, 28)
+}
+
+function generateUsername(displayName: string, email: string): string {
+  return normalizeUsername(displayName || email.split('@')[0]) || 'user'
 }
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
+  const [username, setUsername] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -98,16 +110,16 @@ export default function RegisterPage() {
     setLoading(true)
     setError(null)
     try {
-      const username = generateUsername(displayName, email)
+      const resolvedUsername = normalizeUsername(username) || generateUsername(displayName, email)
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             display_name: displayName || email.split('@')[0],
-            username,
+            username: resolvedUsername,
           },
-          emailRedirectTo: `https://geekore.it/auth/confirm?email=${encodeURIComponent(email)}`
+          emailRedirectTo: `https://geekore.it/auth/confirm?email=${encodeURIComponent(email)}`,
         },
       })
       if (error) { setError(error.message); return }
@@ -121,146 +133,136 @@ export default function RegisterPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center p-6">
-        <div className="text-center max-w-md mx-auto">
-          <div className="w-20 h-20 bg-zinc-900 border border-zinc-800 rounded-3xl flex items-center justify-center mx-auto mb-6">
-            <Mail size={36} style={{ color: 'var(--accent)' }} />
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight mb-3">{l.confirmTitle}</h1>
-          <p className="text-zinc-400 leading-relaxed mb-2">{l.confirmSent}</p>
-          <p className="text-white font-semibold mb-8">{email}</p>
-          <div className="space-y-3 text-sm text-zinc-500 mb-10">
-            <div className="flex items-center gap-2 justify-center">
-              <CheckCircle size={14} className="text-emerald-500" />
-              <span>{l.confirmLink}</span>
+      <main data-auth className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
+        <header className="flex h-[52px] items-center justify-between px-[14px] md:px-8">
+          <AuthWordmark />
+          <LocaleToggle />
+        </header>
+        <section className="flex min-h-[calc(100vh-52px)] items-center justify-center px-[14px] pb-10">
+          <div className="w-full max-w-[420px] rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-[22px] text-center">
+            <div className="mx-auto mb-6 grid h-20 w-20 place-items-center rounded-3xl border border-[rgba(230,255,61,0.2)] bg-[rgba(230,255,61,0.06)]">
+              <Mail size={36} style={{ color: 'var(--accent)' }} />
             </div>
-            <div className="flex items-center gap-2 justify-center">
-              <CheckCircle size={14} className="text-emerald-500" />
-              <span>{l.confirmSpam}</span>
+            <h1 className="gk-h1 mb-3">{l.confirmTitle}</h1>
+            <p className="gk-body mb-2">{l.confirmSent}</p>
+            <p className="gk-body-strong mb-8 text-[var(--text-primary)]">{email}</p>
+            <div className="mb-8 space-y-3 text-sm text-[var(--text-secondary)]">
+              <div className="flex items-center justify-center gap-2">
+                <CheckCircle size={14} className="text-emerald-400" />
+                <span>{l.confirmLink}</span>
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                <CheckCircle size={14} className="text-emerald-400" />
+                <span>{l.confirmSpam}</span>
+              </div>
             </div>
+            <Link href="/login" className="gk-btn gk-btn-secondary gk-focus-ring w-full">
+              {l.backToLogin}
+            </Link>
           </div>
-          <Link href="/login"
-            className="inline-flex items-center gap-2 px-8 py-3 border border-zinc-700 hover:border-zinc-500 rounded-full text-sm font-medium transition-colors">
-            {l.backToLogin}
-          </Link>
-        </div>
-      </div>
+        </section>
+      </main>
     )
   }
 
   return (
-    <div className="gk-auth-page min-h-screen flex items-stretch bg-[var(--bg-primary)]">
+    <main data-auth className="gk-auth-page min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
+      <header className="flex h-[52px] items-center justify-between px-[14px] md:px-8">
+        <AuthWordmark />
+        <LocaleToggle />
+      </header>
 
-      {/* Left — Branding */}
-      <div className="hidden lg:flex lg:w-[45%] relative flex-col justify-between p-16 overflow-hidden border-r border-zinc-800/50">
-        <div className="absolute top-1/3 -left-20 w-96 h-96 rounded-full blur-[120px] pointer-events-none" style={{ background: 'rgba(230,255,61,0.05)' }} />
-        <div className="absolute bottom-1/4 right-0 w-72 h-72 rounded-full blur-[100px] pointer-events-none" style={{ background: "rgba(230,255,61,0.05)" }} />
-
-        <div className="relative flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: 'var(--accent)' }}>
-            <Zap size={20} className="text-black" />
-          </div>
-          <span className="text-2xl font-bold tracking-tighter">geekore</span>
-        </div>
-
-        <div className="relative space-y-6">
-          <h2 className="text-5xl font-black tracking-tighter leading-none">
-            {l.tagline.split(' ').slice(0, -1).join(' ')}<br />
-            <span style={{ color: 'var(--accent)' }}>
-              {l.tagline.split(' ').slice(-1)[0]}
-            </span>
-          </h2>
-          <p className="text-zinc-400 text-lg leading-relaxed">{l.description}</p>
-          <div className="flex flex-wrap gap-2 pt-2">
-            {l.tags.map((tag: string) => (
-              <span key={tag} className="px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-full text-xs text-zinc-400">
-                {tag}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <p className="relative text-xs text-zinc-700">{l.footer}</p>
-      </div>
-
-      {/* Right — Form */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-md">
-
-          <div className="flex items-center justify-between mb-10">
-            <div className="lg:hidden flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: 'var(--accent)' }}>
-                <Zap size={20} className="text-black" />
-              </div>
-              <span className="text-2xl font-bold tracking-tighter">geekore</span>
-            </div>
-            <div className="hidden lg:block" />
-            <LocaleToggle />
+      <section className="flex min-h-[calc(100vh-52px)] items-start justify-center px-[14px] pb-10 pt-6 md:items-center md:pt-0">
+        <div className="w-full max-w-[420px] rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-[22px]">
+          <div className="mb-6">
+            <p className="gk-label mb-2 text-[var(--accent)]">Registrazione</p>
+            <h1 className="gk-h1 mb-2">{l.title}</h1>
+            <p className="gk-caption text-[var(--text-secondary)]">{l.subtitle}</p>
           </div>
 
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight mb-2">{l.title}</h1>
-            <p className="text-zinc-500">{l.subtitle}</p>
-          </div>
+          <form onSubmit={handleRegister} className="space-y-4" noValidate>
+            <PrimitiveInput
+              name="displayName"
+              label={l.displayName}
+              type="text"
+              value={displayName}
+              onChange={e => setDisplayName(e.target.value)}
+              placeholder={l.displayNamePlaceholder}
+              autoComplete="name"
+            />
 
-          <form onSubmit={handleRegister} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">{l.displayName}</label>
-              <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)}
-                placeholder={l.displayNamePlaceholder} autoComplete="name"
-                className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">{l.email}</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                placeholder={l.emailPlaceholder} autoComplete="email"
-                className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl px-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors"
-                required />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">{l.password}</label>
+            <PrimitiveInput
+              name="username"
+              label="Username"
+              type="text"
+              value={username}
+              onChange={e => setUsername(normalizeUsername(e.target.value))}
+              placeholder="es. edo_geek"
+              autoComplete="username"
+              helperText="Solo lettere, numeri e underscore. Se lo lasci vuoto lo generiamo noi."
+            />
+
+            <PrimitiveInput
+              name="email"
+              label={l.email}
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder={l.emailPlaceholder}
+              autoComplete="email"
+              required
+            />
+
+            <div className="gk-field">
+              <label htmlFor="password" className="gk-label normal-case tracking-normal text-[var(--text-secondary)]">
+                {l.password}
+              </label>
               <div className="relative">
-                <input type={showPassword ? 'text' : 'password'} value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={l.passwordPlaceholder} autoComplete="new-password"
-                  className={`w-full bg-zinc-900 border rounded-2xl px-5 py-3.5 pr-12 text-white placeholder-zinc-600 focus:outline-none transition-colors ${
-                    passwordTooWeak ? 'border-red-500/60 focus:border-red-500' : 'border-zinc-800 focus:border-zinc-600'
-                  }`}
-                  required />
-                <button type="button" onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder={l.passwordPlaceholder}
+                  autoComplete="new-password"
+                  className="gk-input pr-12"
+                  aria-invalid={passwordTooWeak ? true : undefined}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  className="absolute right-2 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-[14px] text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
+                  aria-label={showPassword ? 'Nascondi password' : 'Mostra password'}
+                >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
               <PasswordStrengthBar password={password} locale={locale} />
             </div>
+
             {error && (
-              <div className="bg-red-950/60 border border-red-800/50 text-red-400 px-5 py-3.5 rounded-2xl text-sm">{error}</div>
+              <p className="gk-input-error-msg rounded-2xl border border-red-500/30 bg-red-500/8 px-3 py-2" role="alert">
+                {error}
+              </p>
             )}
-            <button
-              type="submit"
-              disabled={loading || passwordTooWeak}
-              className="w-full py-4 rounded-2xl font-semibold text-lg transition-all disabled:opacity-60 mt-2"
-              style={{ background: 'var(--accent)', color: '#0B0B0F' }}
-            >
+
+            <PrimitiveButton type="submit" disabled={loading || passwordTooWeak} className="w-full">
               {loading ? l.creating : l.create}
-            </button>
+            </PrimitiveButton>
           </form>
 
-          <p className="text-center text-zinc-500 text-sm mt-8">
-            {l.hasAccount}{' '}
-            <Link href="/login" className="font-medium hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>
-              {l.loginLink}
-            </Link>
-          </p>
-
-          <p className="text-center text-zinc-700 text-xs mt-6">
-            <Link href="/privacy" className="hover:text-zinc-500 transition-colors">{t.legal.privacy}</Link>
-            {' · '}
-            <Link href="/terms" className="hover:text-zinc-500 transition-colors">{t.legal.terms}</Link>
-          </p>
+          <div className="mt-6 border-t border-[var(--border-soft)] pt-5 text-center">
+            <p className="gk-caption">
+              {l.hasAccount}{' '}
+              <Link href="/login" className="font-bold text-[var(--accent)] hover:opacity-80">
+                {l.loginLink}
+              </Link>
+            </p>
+          </div>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   )
 }
