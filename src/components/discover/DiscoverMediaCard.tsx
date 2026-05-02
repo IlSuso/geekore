@@ -29,6 +29,8 @@ export function DiscoverMediaCard({
   onWishlist,
   className = '',
 }: DiscoverMediaCardProps) {
+  const hasState = added || wishlisted
+
   return (
     <div className={`group relative min-w-0 cursor-pointer ${className}`} onClick={onClick}>
       <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)]">
@@ -46,15 +48,17 @@ export function DiscoverMediaCard({
           </div>
         )}
 
-        {(added || wishlisted) && (
+        <div className="absolute inset-0 rounded-xl ring-1 ring-inset ring-white/10 pointer-events-none" />
+
+        {hasState && (
           <div className="absolute right-1.5 top-1.5 z-10">
             {added ? (
-              <div className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--accent)] shadow-sm">
-                <Check size={9} className="text-[#0B0B0F]" strokeWidth={2.5} />
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--accent)] shadow-sm">
+                <Check size={11} className="text-[#0B0B0F]" strokeWidth={2.5} />
               </div>
             ) : (
-              <div className="flex h-5 w-5 items-center justify-center rounded-md border border-[rgba(230,255,61,0.5)] bg-black/70 shadow-sm backdrop-blur-sm">
-                <BookmarkCheck size={9} className="text-[var(--accent)]" />
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg border border-[rgba(230,255,61,0.5)] bg-black/70 shadow-sm backdrop-blur-sm">
+                <BookmarkCheck size={11} className="text-[var(--accent)]" />
               </div>
             )}
           </div>
@@ -67,16 +71,20 @@ export function DiscoverMediaCard({
               event.stopPropagation()
               onWishlist()
             }}
-            className="absolute right-1.5 bottom-1.5 flex h-7 w-7 items-center justify-center rounded-lg bg-black/70 text-white opacity-0 shadow-sm backdrop-blur-sm transition-opacity hover:text-[var(--accent)] group-hover:opacity-100"
+            className={`absolute bottom-1.5 right-1.5 flex h-8 w-8 items-center justify-center rounded-xl border shadow-sm backdrop-blur-sm transition-all hover:scale-105 ${
+              wishlisted
+                ? 'border-[rgba(230,255,61,0.5)] bg-black/75 text-[var(--accent)]'
+                : 'border-white/10 bg-black/70 text-white hover:text-[var(--accent)]'
+            }`}
             aria-label={wishlisted ? 'Rimuovi dalla wishlist' : 'Aggiungi alla wishlist'}
           >
-            {wishlisted ? <BookmarkCheck size={14} /> : <Plus size={15} />}
+            {wishlisted ? <BookmarkCheck size={15} /> : <Plus size={16} />}
           </button>
         )}
       </div>
 
       <div className="mt-1.5 min-w-0 px-0.5">
-        <p className="line-clamp-2 text-[12px] font-semibold leading-tight text-[var(--text-primary)]">
+        <p className="line-clamp-2 text-[13px] font-semibold leading-tight text-[var(--text-primary)]">
           {title}
         </p>
         <MediaMetaRow
