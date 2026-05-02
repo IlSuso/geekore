@@ -5,7 +5,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import {
-  Search, X, Film, Tv, Gamepad2, Mic, MicOff, Loader2, Swords, Layers, Dices,
+  Search, X, Film, Tv, Gamepad2, Mic, MicOff, Loader2, Swords, Layers, Dices, Sparkles,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/context/AuthContext'
@@ -104,6 +104,15 @@ const TYPE_PLACEHOLDER_ICON: Record<string, React.ReactNode> = {
   movie: <Film size={28} />,
   tv: <Tv size={28} />,
 }
+
+const BROWSE_PROMPTS = [
+  { label: 'Anime in onda', q: 'frieren', type: 'anime', icon: Swords, color: 'var(--type-anime)' },
+  { label: 'Manga cult', q: 'berserk', type: 'manga', icon: Layers, color: 'var(--type-manga)' },
+  { label: 'Film sci-fi', q: 'dune', type: 'movie', icon: Film, color: 'var(--type-movie)' },
+  { label: 'Serie prestige', q: 'severance', type: 'tv', icon: Tv, color: 'var(--type-tv)' },
+  { label: 'Giochi must-play', q: 'zelda', type: 'game', icon: Gamepad2, color: 'var(--type-game)' },
+  { label: 'Boardgame night', q: 'catan', type: 'boardgame', icon: Dices, color: 'var(--type-board)' },
+]
 
 function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
   if (!item?.coverImage || typeof item.coverImage !== 'string') return false
@@ -267,6 +276,8 @@ export default function DiscoverPage() {
   const [trendingAnime, setTrendingAnime] = useState<TrendingItem[]>([])
   const [trendingMovies, setTrendingMovies] = useState<TrendingItem[]>([])
   const [trendingTV, setTrendingTV] = useState<TrendingItem[]>([])
+  const [trendingGames, setTrendingGames] = useState<TrendingItem[]>([])
+  const [trendingBoardgames, setTrendingBoardgames] = useState<TrendingItem[]>([])
 
   const abortRef = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -297,10 +308,14 @@ export default function DiscoverPage() {
       fetch('/api/trending?section=anime').then(r => r.ok ? r.json() : []).catch(() => []),
       fetch('/api/trending?section=movie').then(r => r.ok ? r.json() : []).catch(() => []),
       fetch('/api/trending?section=tv').then(r => r.ok ? r.json() : []).catch(() => []),
-    ]).then(([anime, movies, tv]) => {
+      fetch('/api/trending?section=game').then(r => r.ok ? r.json() : []).catch(() => []),
+      fetch('/api/trending?section=boardgame').then(r => r.ok ? r.json() : []).catch(() => []),
+    ]).then(([anime, movies, tv, games, boardgames]) => {
       setTrendingAnime(anime)
       setTrendingMovies(movies)
       setTrendingTV(tv)
+      setTrendingGames(games)
+      setTrendingBoardgames(boardgames)
     })
   }, [])
 
@@ -311,6 +326,12 @@ export default function DiscoverPage() {
     supabase.from('user_media_entries').select('external_id').eq('user_id', authUser.id)
       .then(({ data }) => { if (data) setAlreadyAdded(data.map((e: any) => e.external_id)) })
   }, [authUser]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const applyPrompt = useCallback((query: string, type: string) => {
+    setActiveType(type)
+    setSearchTerm(query)
+    searchInputRef.current?.focus()
+  }, [])
 
   const search = useCallback(async (term: string, type: string, lang: string) => {
     const trimmed = term.trim()
@@ -449,11 +470,43 @@ export default function DiscoverPage() {
   ).sort(([a], [b]) => (TYPE_ORDER[a] ?? 99) - (TYPE_ORDER[b] ?? 99))
 
   const showingResults = !loading && !searchError && results.length > 0
+  const browseSections = [
+    { label: 'Trending Anime', items: trendingAnime, typeKey: 'anime' },
+    { label: 'Film della settimana', items: trendingMovies, typeKey: 'movie' },
+    { label: 'Serie TV popolari', items: trendingTV, typeKey: 'tv' },
+    { label: 'Giochi must-play', items: trendingGames, typeKey: 'game' },
+    { label: 'Boardgame night', items: trendingBoardgames, typeKey: 'boardgame' },
+  ]
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] pb-24">
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
       <div className="max-w-screen-2xl mx-auto px-4 pt-16 md:pt-20">
+        <div className="mb-5 overflow-hidden rounded-[30px] border border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.10),rgba(139,92,246,0.08),rgba(255,255,255,0.02))] p-5 md:p-7">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--accent)]">
+            <Sparkles size={13} />
+            Discover engine
+          </div>
+          <h1 className="gk-h1 mb-2 max-w-2xl">Non cercare soltanto: esplora il tuo prossimo universo.</h1>
+          <p className="gk-body max-w-2xl">
+            Parti da un medium, apri una sezione o cerca un titolo. Discover deve essere una porta d’ingresso, non una pagina vuota con una search bar.
+          </p>
+          <div className="mt-4 flex gap-2 overflow-x-auto scrollbar-hide">
+            {BROWSE_PROMPTS.map(({ label, q, type, icon: Icon, color }) => (
+              <button
+                key={`${type}-${q}`}
+                type="button"
+                onClick={() => applyPrompt(q, type)}
+                className="flex flex-shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-[12px] font-bold transition-transform hover:scale-[1.02]"
+                style={{ borderColor: color, color, background: `color-mix(in srgb, ${color} 10%, transparent)` }}
+              >
+                <Icon size={14} />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="relative mb-4">
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
           <input
@@ -539,11 +592,7 @@ export default function DiscoverPage() {
 
         {!loading && !searchTerm.trim() && (
           <div className="space-y-8">
-            {[
-              { label: 'Trending Anime', items: trendingAnime, typeKey: 'anime' },
-              { label: 'Film della settimana', items: trendingMovies, typeKey: 'movie' },
-              { label: 'Serie TV popolari', items: trendingTV, typeKey: 'tv' },
-            ].map(({ label, items, typeKey }) => (
+            {browseSections.map(({ label, items, typeKey }) => (
               <DiscoverSection key={typeKey} title={label} action={(
                 <button type="button" onClick={() => setActiveType(typeKey)} className="text-[12px] font-semibold text-[var(--accent)] transition-opacity hover:opacity-80">
                   Vedi tutti
