@@ -15,11 +15,11 @@ interface SectionHeaderProps {
 }
 
 export function SectionHeader({ eyebrow, title, description, action, icon, className = '' }: SectionHeaderProps) {
-  const actionClass = 'text-[12px] font-bold transition-colors hover:opacity-80'
+  const actionClass = 'rounded-lg px-1 py-0.5 text-[12px] font-bold transition-colors hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35'
   const actionStyle = { color: 'var(--accent)' }
 
   return (
-    <div className={`flex items-end justify-between gap-4 ${className}`}>
+    <div className={`flex items-end justify-between gap-4 ${className}`} data-no-swipe="true">
       <div className="min-w-0">
         {eyebrow && (
           <div className="gk-label mb-1.5" style={{ color: 'var(--accent)' }}>
@@ -32,10 +32,10 @@ export function SectionHeader({ eyebrow, title, description, action, icon, class
               {icon}
             </div>
           )}
-          <h2 className="gk-title text-[var(--text-primary)] truncate">{title}</h2>
+          <h2 className="gk-title truncate text-[var(--text-primary)]">{title}</h2>
         </div>
         {description && (
-          <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-secondary)] max-w-xl">
+          <p className="mt-1 max-w-xl text-[13px] leading-relaxed text-[var(--text-secondary)]">
             {description}
           </p>
         )}
@@ -43,11 +43,25 @@ export function SectionHeader({ eyebrow, title, description, action, icon, class
 
       {action && (
         action.href ? (
-          <Link href={action.href} className={actionClass} style={actionStyle}>
+          <Link
+            href={action.href}
+            data-no-swipe="true"
+            className={actionClass}
+            style={actionStyle}
+            onClick={event => event.stopPropagation()}
+            onPointerDown={event => event.stopPropagation()}
+          >
             {action.label}
           </Link>
         ) : (
-          <button type="button" onClick={action.onClick} className={actionClass} style={actionStyle}>
+          <button
+            type="button"
+            data-no-swipe="true"
+            onClick={(event) => { event.stopPropagation(); action.onClick?.() }}
+            onPointerDown={event => event.stopPropagation()}
+            className={actionClass}
+            style={actionStyle}
+          >
             {action.label}
           </button>
         )
