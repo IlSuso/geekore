@@ -40,7 +40,7 @@
   --font-display:   'Cabinet Grotesk', var(--font-display-fallback), system-ui, sans-serif;
   --font-mono-data: var(--font-mono), 'JetBrains Mono', monospace;
   --mobile-nav-h:   56px;
-  --desktop-sidebar-w: 200px;
+  --desktop-sidebar-w: 240px;
   color-scheme: dark;
 }
 

@@ -158,9 +158,7 @@ export default function Navbar() {
         className="hidden md:flex fixed left-0 top-0 bottom-0 z-[100] w-[240px] flex-col border-r border-[var(--border)] bg-[rgba(11,11,15,0.96)] px-4 py-5 backdrop-blur-2xl"
       >
         <div className="mb-8 flex items-center gap-2 px-1">
-          <Link href="/home" data-no-swipe="true" className="inline-flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 rounded-xl">
-            <GeekoreWordmark size="md" />
-          </Link>
+          <GeekoreWordmark size="md" />
         </div>
 
         <nav className="space-y-1.5" aria-label="Navigazione principale desktop">
