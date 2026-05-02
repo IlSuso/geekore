@@ -6,84 +6,27 @@
   "start_url": "/home",
   "scope": "/",
   "display": "standalone",
-  "display_override": [
-    "standalone",
-    "minimal-ui"
-  ],
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait-primary",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#0B0B0F",
+  "theme_color": "#0B0B0F",
   "lang": "it",
   "dir": "ltr",
-  "launch_handler": {
-    "client_mode": "navigate-existing"
-  },
-  "categories": [
-    "entertainment",
-    "social",
-    "lifestyle"
-  ],
+  "launch_handler": { "client_mode": "navigate-existing" },
+  "categories": ["entertainment", "social", "lifestyle"],
   "icons": [
-    {
-      "src": "/icons/icon-72x72.png",
-      "sizes": "72x72",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/icon-96x96.png",
-      "sizes": "96x96",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/icon-128x128.png",
-      "sizes": "128x128",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/icon-144x144.png",
-      "sizes": "144x144",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/icon-152x152.png",
-      "sizes": "152x152",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/icon-384x384.png",
-      "sizes": "384x384",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/icon-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/apple-touch-icon.png",
-      "sizes": "180x180",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icons/favicon-32.png",
-      "sizes": "32x32",
-      "type": "image/png",
-      "purpose": "any"
-    }
+    { "src": "/icons/icon-48x48.png", "sizes": "48x48", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-72x72.png", "sizes": "72x72", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-96x96.png", "sizes": "96x96", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-144x144.png", "sizes": "144x144", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-152x152.png", "sizes": "152x152", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-384x384.png", "sizes": "384x384", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/geekore-icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/geekore-icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "/icons/geekore-touch.svg", "sizes": "180x180", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/favicon-32.svg", "sizes": "32x32", "type": "image/svg+xml", "purpose": "any" }
   ],
   "shortcuts": [
     {
@@ -91,81 +34,38 @@
       "short_name": "Feed",
       "description": "Vai al feed della community",
       "url": "/home",
-      "icons": [
-        {
-          "src": "/icons/shortcut-feed.png",
-          "sizes": "96x96"
-        },
-        {
-          "src": "/icons/icon-96x96.png",
-          "sizes": "96x96"
-        }
-      ]
+      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96", "type": "image/png" }]
     },
     {
       "name": "Discover",
       "short_name": "Discover",
       "description": "Cerca nuovi media",
       "url": "/discover",
-      "icons": [
-        {
-          "src": "/icons/shortcut-discover.png",
-          "sizes": "96x96"
-        },
-        {
-          "src": "/icons/icon-96x96.png",
-          "sizes": "96x96"
-        }
-      ]
+      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96", "type": "image/png" }]
     },
     {
       "name": "La mia collezione",
       "short_name": "Collezione",
       "description": "Vedi i tuoi progressi",
       "url": "/profile/me",
-      "icons": [
-        {
-          "src": "/icons/shortcut-profile.png",
-          "sizes": "96x96"
-        },
-        {
-          "src": "/icons/icon-96x96.png",
-          "sizes": "96x96"
-        }
-      ]
+      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96", "type": "image/png" }]
     },
     {
       "name": "Notifiche",
       "short_name": "Notifiche",
       "description": "Vedi le tue notifiche",
       "url": "/notifications",
-      "icons": [
-        {
-          "src": "/icons/icon-96x96.png",
-          "sizes": "96x96"
-        }
-      ]
+      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96", "type": "image/png" }]
     }
   ],
   "share_target": {
     "action": "/discover",
     "method": "GET",
-    "params": {
-      "title": "title",
-      "text": "search",
-      "url": "url"
-    },
+    "params": { "title": "title", "text": "search", "url": "url" },
     "enctype": "application/x-www-form-urlencoded"
   },
-  "protocol_handlers": [
-    {
-      "protocol": "web+geekore",
-      "url": "/discover?search=%s"
-    }
-  ],
-  "edge_side_panel": {
-    "preferred_width": 400
-  },
+  "protocol_handlers": [{ "protocol": "web+geekore", "url": "/discover?search=%s" }],
+  "edge_side_panel": { "preferred_width": 400 },
   "related_applications": [],
   "prefer_related_applications": false
 }
