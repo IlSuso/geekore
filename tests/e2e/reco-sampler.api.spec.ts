@@ -350,7 +350,7 @@ test.describe('master pool recruitment', () => {
       { title: 'B', type: 'game', rating: 5, status: 'completed', genres: ['Role-playing (RPG)'], themes: ['survival'] },
       { title: 'C', type: 'tv', rating: 4, status: 'completed', genres: ['Mystery'] },
     ]
-    const profile = computeTasteProfile(entries, null, [], [])
+    const profile = computeTasteProfile(entries, {}, [], [])
     const plan = buildRecruitmentSlots('anime', profile, 40)
 
     expect(plan.slots.length).toBeGreaterThan(0)
