@@ -204,7 +204,7 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
                     <p className="text-[10px] text-zinc-600 mb-2">Setting amati</p>
                     <div className="flex flex-wrap gap-1.5">
                       {topSettings.map((s, i) => (
-                        <span key={`setting-${s}-${i}`} className="text-[10px] bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded-full capitalize border border-indigo-500/15">{s}</span>
+                        <span key={`setting-${s}-${i}`} className="text-[10px] px-2 py-0.5 rounded-full capitalize" style={{ background: 'rgba(230,255,61,0.06)', color: 'rgba(230,255,61,0.7)', border: '1px solid rgba(230,255,61,0.12)' }}>{s}</span>
                       ))}
                     </div>
                   </div>

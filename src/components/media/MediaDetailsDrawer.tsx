@@ -922,7 +922,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                 <div className="flex gap-2">
                   <button
                     onClick={() => setShowAddForm(false)}
-                    className="flex-1 py-2.5 rounded-xl border border-[var(--border)] text-[var(--text-secondary)] text-sm hover:border-[var(--brand)] transition-all"
+                    className="flex-1 py-2.5 rounded-xl border border-[var(--border)] text-[var(--text-secondary)] text-sm hover:border-[var(--accent)] transition-all"
                   >
                     Annulla
                   </button>
@@ -959,7 +959,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                   className={`flex-1 py-2 rounded-xl font-medium text-xs border transition-all flex items-center justify-center gap-1.5 ${
                     inWishlist
                       ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
-                      : 'bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--brand)]/50'
+                      : 'bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--accent)]/50'
                   }`}
                 >
                   <Bookmark size={12} fill={inWishlist ? 'currentColor' : 'none'} />
@@ -971,7 +971,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                     href={externalUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 py-2 rounded-xl font-medium text-xs bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--brand)]/50 transition-all flex items-center justify-center gap-1.5"
+                    className="flex-1 py-2 rounded-xl font-medium text-xs bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--accent)]/50 transition-all flex items-center justify-center gap-1.5"
                   >
                     <ExternalLink size={12} />{sourceLabel}
                   </a>

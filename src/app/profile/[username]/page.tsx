@@ -1499,9 +1499,9 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
         {isOwner && (
           <div className="md:hidden flex items-center gap-2 mb-5 -mx-4 px-4 overflow-x-auto scrollbar-hide">
             {([
-              { href: '/wishlist',   icon: <Bookmark size={14} className="text-pink-400" />,   label: 'Wishlist' },
+              { href: '/wishlist',   icon: <Bookmark size={14} style={{ color: '#E6FF3D' }} />,   label: 'Wishlist' },
               { href: '/lists',      icon: <List size={14} className="text-cyan-400" />,        label: 'Liste' },
-              { href: '/stats',      icon: <BarChart2 size={14} className="text-indigo-400" />, label: 'Statistiche' },
+              { href: '/stats',      icon: <BarChart2 size={14} className="text-zinc-400" />, label: 'Statistiche' },
               { href: '/trending',   icon: <TrendingUp size={14} className="text-orange-400" />,label: 'Trending' },
               { href: '/community',  icon: <Users size={14} style={{ color: '#E6FF3D' }} />,     label: 'Community' },
             ] as const).map(item => (

@@ -103,7 +103,7 @@ input[type="number"].no-spinner { -moz-appearance: textfield; }
 
 /* ── Instagram story ring ────────────────────────────────────────────────── */
 .gk-avatar-ring {
-  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-light) 52%, var(--accent) 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, rgba(230,255,61,0.6) 52%, var(--accent) 100%);
   padding: 2px;
   border-radius: 50%;
 }
