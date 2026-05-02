@@ -5,6 +5,14 @@ import { usePathname } from 'next/navigation'
 import { useLocale } from '@/lib/locale'
 import { GeekoreWordmark } from '@/components/ui/GeekoreWordmark'
 
+const PRODUCT_LINKS = [
+  { href: '/discover', label: 'Discover' },
+  { href: '/for-you', label: 'For You' },
+  { href: '/trending', label: 'Trending' },
+  { href: '/leaderboard', label: 'Classifica' },
+  { href: '/settings', label: 'Settings' },
+]
+
 export function Footer() {
   const pathname = usePathname()
   const { t } = useLocale()
@@ -12,17 +20,33 @@ export function Footer() {
   if (pathname === '/') return null
 
   return (
-    <footer className="hidden md:block border-t border-[var(--border-subtle)] bg-[var(--bg-primary)] px-6 py-8">
-      <div className="max-w-screen-2xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-        <GeekoreWordmark size="sm" className="opacity-70 hover:opacity-100 transition-opacity" />
-        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
-          <Link href="/privacy" className="hover:text-[var(--text-secondary)] transition-colors">{t.legal.privacy}</Link>
-          <span className="text-[var(--border)]">·</span>
-          <Link href="/terms" className="hover:text-[var(--text-secondary)] transition-colors">{t.legal.terms}</Link>
-          <span className="text-[var(--border)]">·</span>
-          <Link href="/cookies" className="hover:text-[var(--text-secondary)] transition-colors">Cookie Policy</Link>
+    <footer className="hidden border-t border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(11,11,15,0.98),rgba(11,11,15,1))] px-6 py-8 md:block">
+      <div className="mx-auto flex max-w-screen-2xl flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-2">
+          <GeekoreWordmark size="sm" className="opacity-75 transition-opacity hover:opacity-100" />
+          <p className="max-w-sm text-xs leading-relaxed text-[var(--text-muted)]">
+            Il tuo universo media: library, consigli, community e profilo pubblico nello stesso posto.
+          </p>
         </div>
-        <p className="text-xs text-[var(--text-muted)]">{t.legal.rights}</p>
+
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-bold text-[var(--text-muted)]">
+          {PRODUCT_LINKS.map(link => (
+            <Link key={link.href} href={link.href} className="transition-colors hover:text-[var(--accent)]">
+              {link.label}
+            </Link>
+          ))}
+        </div>
+
+        <div className="flex flex-col gap-2 lg:items-end">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-muted)]">
+            <Link href="/privacy" className="transition-colors hover:text-[var(--text-secondary)]">{t.legal.privacy}</Link>
+            <span className="text-[var(--border)]">·</span>
+            <Link href="/terms" className="transition-colors hover:text-[var(--text-secondary)]">{t.legal.terms}</Link>
+            <span className="text-[var(--border)]">·</span>
+            <Link href="/cookies" className="transition-colors hover:text-[var(--text-secondary)]">Cookie Policy</Link>
+          </div>
+          <p className="text-xs text-[var(--text-muted)]">{t.legal.rights}</p>
+        </div>
       </div>
     </footer>
   )
