@@ -43,7 +43,13 @@ export function normalizeMediaStatus(status?: string | null): MediaStatus | null
   if (!status) return null
   const normalized = status.toLowerCase().trim().replace(/[-\s]+/g, '_')
 
-  if (normalized === 'plan_to_watch' || normalized === 'plan_to_read' || normalized === 'plan_to_play') return 'planned'
+  if (
+    normalized === 'planned' ||
+    normalized === 'planning' ||
+    normalized === 'plan_to_watch' ||
+    normalized === 'plan_to_read' ||
+    normalized === 'plan_to_play'
+  ) return 'planned'
   if (normalized === 'watching') return 'watching'
   if (normalized === 'reading') return 'reading'
   if (normalized === 'playing') return 'playing'
