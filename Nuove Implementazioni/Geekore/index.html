@@ -1,0 +1,2212 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<title>Geekore — Wireframe & Design System</title>
+<style>
+  :root {
+    --bg: #0B0B0F;
+    --bg-2: #14141B;
+    --bg-3: #16161E;
+    --bg-4: #1C1C26;
+    --border: #2A2A36;
+    --border-soft: #1C1C26;
+    --text: #F4F4F5;
+    --text-2: #A1A1AA;
+    --text-3: #52525B;
+    --accent: #E6FF3D;
+    --t-anime: #38BDF8;
+    --t-manga: #F97066;
+    --t-game:  #4ADE80;
+    --t-board: #FB923C;
+    --t-movie: #EF4444;
+    --t-tv:    #C084FC;
+    --display: 'Cabinet Grotesk', 'Space Grotesk', system-ui, sans-serif;
+    --body: 'Switzer', 'Plus Jakarta Sans', system-ui, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #050507;
+    color: var(--text);
+    font-family: var(--body);
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background-image:
+      radial-gradient(circle at 20% 0%, rgba(230,255,61,0.04), transparent 40%),
+      radial-gradient(circle at 80% 60%, rgba(139,92,246,0.05), transparent 40%);
+    padding: 56px 48px 96px;
+  }
+  .doc-head {
+    max-width: 1280px;
+    margin: 0 auto 56px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--border);
+  }
+  .doc-head .eyebrow {
+    font-family: var(--mono); font-size: 11px;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700;
+  }
+  .doc-head h1 {
+    font-family: var(--display);
+    font-size: 56px; line-height: 1; font-weight: 900;
+    letter-spacing: -0.04em; margin: 12px 0 8px;
+  }
+  .doc-head p {
+    font-size: 16px; color: var(--text-2); max-width: 720px;
+    line-height: 1.6;
+  }
+  section.block {
+    max-width: 1280px;
+    margin: 0 auto 80px;
+  }
+  .section-head {
+    display: flex; align-items: baseline; gap: 16px;
+    border-bottom: 1px dashed var(--border);
+    padding-bottom: 12px;
+    margin-bottom: 28px;
+  }
+  .section-head .num {
+    font-family: var(--mono); font-size: 11px; color: var(--accent);
+    font-weight: 700; letter-spacing: 0.12em;
+  }
+  .section-head h2 {
+    font-family: var(--display); font-weight: 800;
+    font-size: 28px; letter-spacing: -0.02em; margin: 0;
+  }
+  .section-head .desc {
+    margin-left: auto; color: var(--text-3); font-size: 12px;
+    font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.08em;
+  }
+
+  /* — Blueprint canvases — */
+  .row {
+    display: flex; gap: 32px; flex-wrap: wrap;
+  }
+  .frame {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+  }
+  .frame-label {
+    position: absolute; top: -12px; left: 16px;
+    background: #050507; padding: 2px 10px;
+    font-family: var(--mono); font-size: 10px;
+    color: var(--accent); letter-spacing: 0.14em;
+    border: 1px solid var(--border); border-radius: 6px;
+    text-transform: uppercase;
+  }
+  .frame-mobile { width: 360px; height: 720px; border-radius: 36px; }
+  .frame-desktop { flex: 1; min-width: 720px; height: 620px; }
+
+  /* mobile chrome */
+  .m-status {
+    height: 28px; display: flex; align-items: center;
+    justify-content: space-between; padding: 0 18px;
+    font-family: var(--mono); font-size: 10px; color: var(--text);
+    background: var(--bg);
+  }
+  .m-header {
+    height: 52px; display: flex; align-items: center;
+    justify-content: space-between; padding: 0 14px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(11,11,15,0.92);
+  }
+  .m-bottom {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 58px; display: flex; align-items: stretch;
+    background: rgba(11,11,15,0.97);
+    border-top: 1px solid var(--border);
+  }
+  .m-tab {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 4px; color: var(--text-3); font-size: 9px; font-weight: 800;
+    letter-spacing: -0.01em; position: relative;
+  }
+  .m-tab.active { color: var(--accent); }
+  .m-tab.active::before {
+    content: ''; position: absolute; top: 0;
+    width: 28px; height: 2px; border-radius: 99px;
+    background: var(--accent);
+    box-shadow: 0 0 14px rgba(230,255,61,0.5);
+  }
+  .m-tab svg { width: 21px; height: 21px; }
+  .m-content {
+    height: calc(100% - 28px - 52px - 58px);
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .m-content.no-bottom { height: calc(100% - 28px - 52px); }
+
+  /* desktop chrome */
+  .d-shell { display: flex; height: 100%; }
+  .d-sidebar {
+    width: 240px; flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    background: rgba(11,11,15,0.96);
+    padding: 20px 16px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .d-content {
+    flex: 1; overflow: hidden; padding: 28px 36px;
+    background: var(--bg);
+  }
+  .d-logo {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 28px; padding: 4px;
+  }
+  .d-logo .mark {
+    width: 28px; height: 28px; border-radius: 9px;
+    background: var(--accent); display: grid; place-items: center;
+    color: #0B0B0F;
+  }
+  .d-logo .word {
+    font-family: var(--display); font-weight: 900;
+    font-size: 18px; letter-spacing: -0.03em;
+  }
+  .d-nav-item {
+    height: 40px; display: flex; align-items: center; gap: 12px;
+    padding: 0 12px; border-radius: 16px;
+    font-size: 13px; font-weight: 800; color: var(--text-2);
+    border: 1px solid transparent;
+  }
+  .d-nav-item.active {
+    background: rgba(230,255,61,0.085);
+    color: var(--accent);
+    border-color: rgba(230,255,61,0.16);
+    position: relative;
+  }
+  .d-nav-item.active::before {
+    content: ''; position: absolute; left: 0; top: 8px; bottom: 8px;
+    width: 3px; border-radius: 0 99px 99px 0; background: var(--accent);
+  }
+  .d-search {
+    margin-top: 18px;
+    height: 40px; border-radius: 16px;
+    border: 1px solid var(--border);
+    background: var(--bg-3);
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 12px; font-size: 12px; color: var(--text-3);
+  }
+  .d-section-label {
+    font-family: var(--body); font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--text-3);
+    padding: 12px 12px 6px;
+  }
+
+  /* common UI primitives */
+  .wordmark-mobile {
+    font-family: var(--display); font-weight: 900;
+    font-size: 22px; letter-spacing: -0.03em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .wordmark-mobile .mark {
+    width: 28px; height: 28px; border-radius: 9px;
+    background: var(--accent); display: grid; place-items: center;
+    color: #0B0B0F;
+  }
+  .icon-btn {
+    width: 40px; height: 40px; border-radius: 14px;
+    display: grid; place-items: center;
+    color: var(--text);
+  }
+  .icon-btn:hover { background: var(--bg-4); }
+  .badge-dot {
+    position: absolute; top: 8px; right: 8px;
+    width: 8px; height: 8px; background: #EF4444;
+    border-radius: 99px; border: 1.5px solid #000;
+  }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--t-tv), var(--t-anime));
+    display: grid; place-items: center;
+    font-family: var(--display); font-weight: 800;
+    color: #0B0B0F; font-size: 12px;
+  }
+  .avatar.lg { width: 76px; height: 76px; border-radius: 24px; font-size: 26px; }
+  .avatar.sm { width: 24px; height: 24px; border-radius: 8px; font-size: 9px; }
+  .ring-story {
+    background: linear-gradient(135deg, var(--accent), rgba(230,255,61,0.5), var(--accent));
+    padding: 2px; border-radius: 50%;
+  }
+  .ring-story .inner { background: var(--bg); padding: 2px; border-radius: 50%; }
+
+  /* Type tokens */
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 24px; padding: 0 10px; border-radius: 99px;
+    font-size: 11px; font-weight: 700;
+    border: 1px solid var(--border);
+    background: var(--bg-3);
+    color: var(--text-2);
+  }
+  .pill.active { color: var(--accent); border-color: rgba(230,255,61,0.3); background: rgba(230,255,61,0.08); }
+  .pill.t-anime { color: var(--t-anime); border-color: rgba(56,189,248,0.3); background: rgba(56,189,248,0.08); }
+  .pill.t-manga { color: var(--t-manga); border-color: rgba(249,112,102,0.3); background: rgba(249,112,102,0.08); }
+  .pill.t-game  { color: var(--t-game);  border-color: rgba(74,222,128,0.3);  background: rgba(74,222,128,0.08); }
+  .pill.t-board { color: var(--t-board); border-color: rgba(251,146,60,0.3);  background: rgba(251,146,60,0.08); }
+  .pill.t-movie { color: var(--t-movie); border-color: rgba(239,68,68,0.3);   background: rgba(239,68,68,0.08); }
+  .pill.t-tv    { color: var(--t-tv);    border-color: rgba(192,132,252,0.3); background: rgba(192,132,252,0.08); }
+
+  .label-mono {
+    font-family: var(--mono); font-size: 11px; color: var(--text-3);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 14px;
+  }
+  .feed-card {
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin: 0 14px 14px;
+  }
+  .feed-card .head {
+    display: flex; align-items: center; gap: 10px; padding: 12px;
+  }
+  .feed-card .head .meta {
+    flex: 1; min-width: 0;
+  }
+  .feed-card .head .name {
+    font-size: 13px; font-weight: 700; letter-spacing: -0.01em;
+  }
+  .feed-card .head .ts {
+    font-family: var(--mono); font-size: 10px; color: var(--text-3); letter-spacing: 0.05em;
+  }
+  .feed-card .body {
+    padding: 0 12px 12px;
+  }
+  .feed-card .body .cat {
+    margin-bottom: 8px;
+  }
+  .feed-card .body .text {
+    font-size: 14px; line-height: 1.5; color: var(--text);
+  }
+  .feed-card .img {
+    height: 200px;
+    background: linear-gradient(135deg, #1a1a24, #0e0e14);
+    border-top: 1px solid var(--border-soft);
+    border-bottom: 1px solid var(--border-soft);
+    display: grid; place-items: center;
+    color: var(--text-3); font-family: var(--mono); font-size: 11px;
+    position: relative;
+    overflow: hidden;
+  }
+  .feed-card .img::after {
+    content: ''; position: absolute; inset: 0;
+    background:
+      repeating-linear-gradient(45deg, transparent 0 14px, rgba(255,255,255,0.018) 14px 15px);
+  }
+  .feed-card .actions {
+    display: flex; align-items: center; gap: 18px; padding: 8px 12px 12px;
+    color: var(--text-2);
+  }
+  .feed-card .actions .a {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+  }
+
+  /* Media card */
+  .media-card {
+    width: 130px; flex-shrink: 0;
+  }
+  .media-cover {
+    aspect-ratio: 2/3;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #1a1a24, #0e0e14);
+    border: 1px solid var(--border);
+    position: relative; overflow: hidden;
+    display: grid; place-items: center;
+    color: var(--text-3); font-family: var(--mono); font-size: 10px;
+  }
+  .media-cover .type-tag {
+    position: absolute; top: 8px; left: 8px;
+    padding: 3px 7px; border-radius: 6px;
+    font-size: 9px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+    background: rgba(11,11,15,0.85); backdrop-filter: blur(4px);
+  }
+  .media-cover .progress {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 3px; background: rgba(255,255,255,0.08);
+  }
+  .media-cover .progress > i {
+    display: block; height: 100%; background: var(--accent);
+  }
+  .media-card .title {
+    margin-top: 8px;
+    font-size: 12px; font-weight: 700; line-height: 1.3;
+    overflow: hidden; display: -webkit-box;
+    -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .media-card .sub {
+    margin-top: 2px;
+    font-family: var(--mono); font-size: 10px; color: var(--text-3);
+  }
+
+  /* Discover grid */
+  .discover-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+    padding: 0 14px;
+  }
+
+  /* Hero in landing */
+  .hero-h1 {
+    font-family: var(--display);
+    font-weight: 900; letter-spacing: -0.04em;
+    font-size: 64px; line-height: 1;
+  }
+  .hero-h1 .accent { color: var(--accent); }
+
+  /* Section header (mobile inner) */
+  .m-section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 14px 8px;
+  }
+  .m-section-head h3 {
+    font-size: 15px; font-weight: 800; letter-spacing: -0.01em;
+    margin: 0;
+  }
+  .m-section-head a {
+    font-family: var(--mono); font-size: 10px; color: var(--text-3);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+
+  /* Stories rail */
+  .stories {
+    display: flex; gap: 12px; padding: 12px 14px 4px;
+    overflow-x: hidden;
+  }
+  .story {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    flex-shrink: 0;
+  }
+  .story .lbl {
+    font-size: 10px; color: var(--text-2); max-width: 56px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* Composer */
+  .composer-box {
+    margin: 0 14px 14px;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: var(--bg-3);
+    padding: 12px;
+    display: flex; gap: 10px; align-items: center;
+  }
+  .composer-input {
+    flex: 1; height: 36px; border-radius: 12px;
+    background: var(--bg-2); border: 1px solid var(--border);
+    padding: 0 12px; display: flex; align-items: center;
+    color: var(--text-3); font-size: 13px;
+  }
+  .composer-send {
+    width: 36px; height: 36px; border-radius: 12px;
+    background: var(--accent); display: grid; place-items: center;
+    color: #0B0B0F;
+  }
+
+  /* Profile header */
+  .profile-hero {
+    padding: 18px 14px 14px;
+    display: flex; gap: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .profile-stats {
+    display: flex; align-items: center; gap: 18px;
+    margin-top: 10px;
+  }
+  .profile-stats .stat .v {
+    font-family: var(--display); font-weight: 800; font-size: 18px;
+    letter-spacing: -0.02em;
+  }
+  .profile-stats .stat .l {
+    font-family: var(--mono); font-size: 10px; color: var(--text-3);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .profile-tabs {
+    display: flex; gap: 0; border-bottom: 1px solid var(--border);
+  }
+  .profile-tabs .tab {
+    flex: 1; padding: 14px 0; text-align: center;
+    font-size: 12px; font-weight: 800; letter-spacing: -0.01em;
+    color: var(--text-3); text-transform: uppercase;
+  }
+  .profile-tabs .tab.active {
+    color: var(--accent);
+    border-bottom: 2px solid var(--accent);
+  }
+
+  /* Swipe card */
+  .swipe-stack {
+    margin: 12px 14px;
+    aspect-ratio: 3/4;
+    border-radius: 24px;
+    background: linear-gradient(135deg, #1a1a24 0%, #0e0e14 100%);
+    border: 1px solid var(--border);
+    position: relative; overflow: hidden;
+    display: grid; align-content: end;
+  }
+  .swipe-stack .meta {
+    padding: 16px;
+    background: linear-gradient(180deg, transparent, rgba(0,0,0,0.85));
+    z-index: 2;
+  }
+  .swipe-stack .stack-bg-1 {
+    position: absolute; inset: 8px -8px -16px 8px;
+    border-radius: 24px;
+    background: var(--bg-3); z-index: -1;
+    border: 1px solid var(--border);
+  }
+  .swipe-actions {
+    display: flex; justify-content: center; gap: 14px;
+    padding: 8px 14px 14px;
+  }
+  .swipe-act {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--bg-3); border: 1px solid var(--border);
+    display: grid; place-items: center;
+  }
+  .swipe-act.no { color: #EF4444; }
+  .swipe-act.yes { color: var(--accent); border-color: rgba(230,255,61,0.4); background: rgba(230,255,61,0.08); }
+
+  /* For-you rail */
+  .rail-section { padding: 8px 0 16px; }
+  .rail-head {
+    display: flex; align-items: center; gap: 10px; padding: 0 14px 10px;
+  }
+  .rail-head .ic {
+    width: 28px; height: 28px; border-radius: 10px;
+    display: grid; place-items: center; flex-shrink: 0;
+    background: rgba(230,255,61,0.1); color: var(--accent);
+    border: 1px solid rgba(230,255,61,0.2);
+  }
+  .rail-head .t1 { font-size: 14px; font-weight: 800; line-height: 1; letter-spacing: -0.01em; }
+  .rail-head .t2 { font-size: 10px; color: var(--text-3); margin-top: 2px; }
+  .rail-row {
+    display: flex; gap: 10px; padding: 0 14px;
+    overflow: hidden;
+  }
+
+  /* Onboarding */
+  .ob-progress {
+    height: 4px; background: var(--border); border-radius: 99px; margin: 12px 14px;
+    overflow: hidden;
+  }
+  .ob-progress > i { display: block; height: 100%; width: 40%; background: var(--accent); }
+  .ob-step-label {
+    font-family: var(--mono); font-size: 11px; color: var(--text-3);
+    text-transform: uppercase; letter-spacing: 0.1em;
+    padding: 0 14px; margin-bottom: 6px;
+  }
+  .ob-h2 {
+    padding: 0 14px;
+    font-family: var(--display); font-weight: 800;
+    font-size: 26px; line-height: 1.1; letter-spacing: -0.02em;
+  }
+  .ob-sub { padding: 8px 14px 16px; color: var(--text-2); font-size: 14px; line-height: 1.5; }
+  .ob-grid {
+    padding: 0 14px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  }
+  .ob-tile {
+    aspect-ratio: 1.05;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 14px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    background: var(--bg-3);
+  }
+  .ob-tile.selected {
+    border-color: rgba(230,255,61,0.5);
+    background: rgba(230,255,61,0.06);
+  }
+  .ob-tile .ic { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; }
+  .ob-tile .lbl { font-size: 13px; font-weight: 800; }
+  .ob-cta {
+    margin: 16px 14px 0;
+    height: 48px; border-radius: 16px;
+    background: var(--accent); color: #0B0B0F;
+    font-weight: 800; display: grid; place-items: center;
+    font-family: var(--display); font-size: 15px;
+  }
+
+  /* Login */
+  .login-card {
+    margin: 24px 14px;
+    padding: 22px;
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    background: var(--bg-3);
+  }
+  .login-h1 {
+    font-family: var(--display); font-size: 28px;
+    font-weight: 900; letter-spacing: -0.03em; margin: 0 0 6px;
+  }
+  .login-sub { color: var(--text-2); font-size: 13px; margin-bottom: 18px; }
+  .login-input {
+    height: 48px; border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--bg-2);
+    padding: 0 14px; display: flex; align-items: center;
+    color: var(--text-3); font-size: 13px;
+    margin-bottom: 10px;
+  }
+  .login-cta {
+    height: 48px; border-radius: 14px;
+    background: var(--accent); color: #0B0B0F;
+    font-weight: 800; display: grid; place-items: center;
+    font-family: var(--display); font-size: 14px; letter-spacing: -0.01em;
+    margin-top: 8px;
+  }
+
+  /* Notifiche drawer */
+  .notif-row {
+    display: flex; gap: 10px; padding: 12px 14px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .notif-row .dot {
+    width: 6px; height: 6px; border-radius: 99px; background: var(--accent);
+    margin-top: 6px; flex-shrink: 0;
+  }
+  .notif-row .dot.read { background: transparent; }
+  .notif-row .text { font-size: 13px; line-height: 1.4; flex: 1; }
+  .notif-row .text b { color: var(--accent); }
+
+  /* Library list */
+  .lib-row {
+    display: flex; gap: 12px; padding: 12px 14px;
+    border-bottom: 1px solid var(--border-soft);
+    align-items: center;
+  }
+  .lib-row .cv {
+    width: 44px; height: 60px; border-radius: 8px;
+    background: linear-gradient(135deg, #1a1a24, #0e0e14);
+    border: 1px solid var(--border); flex-shrink: 0;
+    overflow: hidden; position: relative;
+  }
+  .lib-row .info { flex: 1; min-width: 0; }
+  .lib-row .info .t1 {
+    font-size: 13px; font-weight: 700; line-height: 1.25;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .lib-row .info .t2 {
+    margin-top: 2px;
+    font-family: var(--mono); font-size: 10px; color: var(--text-3);
+  }
+  .lib-row .progress {
+    width: 64px; height: 4px;
+    border-radius: 99px; background: var(--bg-4); position: relative;
+  }
+  .lib-row .progress > i {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    border-radius: 99px; background: var(--accent);
+  }
+
+  /* Filter tabs */
+  .filter-row {
+    display: flex; gap: 8px; padding: 10px 14px 4px;
+    overflow: hidden;
+  }
+  /* Heatmap */
+  .heatmap {
+    margin: 14px;
+    padding: 14px;
+    border: 1px solid rgba(230,255,61,0.16);
+    border-radius: 22px;
+    background: linear-gradient(135deg, rgba(230,255,61,0.06), rgba(20,20,27,0.94));
+  }
+  .heatmap .grid {
+    display: grid; grid-template-rows: repeat(7, 1fr); grid-auto-flow: column;
+    gap: 3px; margin-top: 10px;
+  }
+  .heatmap .grid > i {
+    width: 10px; height: 10px; border-radius: 3px;
+    background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.05);
+    display: block;
+  }
+
+  /* — Tokens table — */
+  .tokens {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+  }
+  .swatch {
+    border: 1px solid var(--border); border-radius: 14px;
+    overflow: hidden; background: var(--bg-3);
+  }
+  .swatch .chip { height: 80px; }
+  .swatch .meta { padding: 10px 12px; }
+  .swatch .meta .name {
+    font-family: var(--display); font-weight: 800; font-size: 13px;
+  }
+  .swatch .meta .hex {
+    font-family: var(--mono); font-size: 10px; color: var(--text-3);
+    margin-top: 4px;
+  }
+
+  .type-table {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  .type-spec {
+    border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px; background: var(--bg-3);
+  }
+  .type-spec .label { color: var(--text-3); font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .type-spec .meta { color: var(--text-3); font-family: var(--mono); font-size: 10px; margin-top: 8px; }
+
+  /* — Print-style annotations — */
+  .annot {
+    color: var(--text-3); font-family: var(--mono); font-size: 11px;
+    margin-top: 12px; line-height: 1.6;
+    padding: 12px 14px; border-left: 2px solid var(--accent);
+    background: rgba(230,255,61,0.03);
+    border-radius: 0 10px 10px 0;
+  }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+</style>
+</head>
+<body>
+
+  <!-- ──────────────────────────────────────────────────── -->
+  <header class="doc-head">
+    <div class="eyebrow">Geekore · Design system + wireframe</div>
+    <h1>Mappa visiva delle schermate</h1>
+    <p>
+      Documento di sintesi della direzione visiva attuale di Geekore: token, tipografia, componenti
+      ricorrenti e wireframe annotati delle schermate principali in versione mobile e desktop.
+      Pensato come riferimento condiviso fra design e sviluppo.
+    </p>
+  </header>
+
+  <!-- ──────────────────────────────────────────────────── -->
+  <section class="block">
+    <div class="section-head">
+      <span class="num">01</span>
+      <h2>Token cromatici</h2>
+      <span class="desc">— oklch + tailwind vars</span>
+    </div>
+    <div class="tokens">
+      <div class="swatch"><div class="chip" style="background:#0B0B0F"></div><div class="meta"><div class="name">bg-primary</div><div class="hex">#0B0B0F · nero bluastro</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#14141B"></div><div class="meta"><div class="name">bg-secondary</div><div class="hex">#14141B · superfici elevate</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#16161E"></div><div class="meta"><div class="name">bg-card</div><div class="hex">#16161E · contenitori</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#2A2A36"></div><div class="meta"><div class="name">border</div><div class="hex">#2A2A36 · 1px hairline</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#E6FF3D"></div><div class="meta"><div class="name">accent</div><div class="hex">#E6FF3D · giallo-lime acido</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#38BDF8"></div><div class="meta"><div class="name">type-anime</div><div class="hex">#38BDF8</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#F97066"></div><div class="meta"><div class="name">type-manga</div><div class="hex">#F97066</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#4ADE80"></div><div class="meta"><div class="name">type-game</div><div class="hex">#4ADE80</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#FB923C"></div><div class="meta"><div class="name">type-board</div><div class="hex">#FB923C</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#EF4444"></div><div class="meta"><div class="name">type-movie</div><div class="hex">#EF4444</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#C084FC"></div><div class="meta"><div class="name">type-tv</div><div class="hex">#C084FC</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#8B5CF6"></div><div class="meta"><div class="name">brand</div><div class="hex">#8B5CF6 · alias retro</div></div></div>
+    </div>
+    <div class="annot">
+      Il sistema usa giallo-lime (E6FF3D) come unico accent attivo. I sei colori "type" sono
+      destinati esclusivamente a media (anime/manga/game/board/movie/tv) e non vanno usati per
+      stati o azioni.
+    </div>
+  </section>
+
+  <!-- ──────────────────────────────────────────────────── -->
+  <section class="block">
+    <div class="section-head">
+      <span class="num">02</span>
+      <h2>Tipografia</h2>
+      <span class="desc">— display · body · mono</span>
+    </div>
+    <div class="type-table">
+      <div class="type-spec">
+        <div class="label">Display · Cabinet Grotesk</div>
+        <div style="font-family: var(--display); font-weight: 900; font-size: 56px; line-height: 1; letter-spacing: -0.04em; margin-top: 12px;">Traccia tutto</div>
+        <div class="meta">gk-display · 56/1.0 · -0.04em · 900</div>
+        <div style="font-family: var(--display); font-weight: 800; font-size: 32px; line-height: 1.05; letter-spacing: -0.03em; margin-top: 16px;">Heading 32</div>
+        <div class="meta">gk-h1 · 32/1.05 · -0.03em · 800</div>
+        <div style="font-family: var(--display); font-weight: 800; font-size: 22px; letter-spacing: -0.02em; margin-top: 16px;">Title 22</div>
+        <div class="meta">gk-title · 22/1.1 · -0.02em · 800</div>
+      </div>
+      <div class="type-spec">
+        <div class="label">Body · Switzer · Mono · JetBrains</div>
+        <div style="font-family: var(--body); font-size: 17px; font-weight: 700; letter-spacing: -0.01em; margin-top: 12px;">Headline 17 · usata sopra alle card per nomi e titoli sezione.</div>
+        <div class="meta">gk-headline · 17/1.35 · 700</div>
+        <div style="font-family: var(--body); font-size: 15px; line-height: 1.6; color: var(--text-2); margin-top: 14px;">Body 15 · descrizioni, abstract di media, copy di stato. Lunghezza preferita 50–70 caratteri.</div>
+        <div class="meta">gk-body · 15/1.6 · 400 · text-secondary</div>
+        <div style="font-family: var(--mono); font-size: 11px; color: var(--text-3); letter-spacing: 0.05em; margin-top: 14px;">@username · 12 MIN FA · 47/100 EP · S03E07</div>
+        <div class="meta">gk-mono · 11/1.45 · uppercase · 0.05em</div>
+        <div style="font-family: var(--body); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); margin-top: 14px;">Continua a guardare</div>
+        <div class="meta">gk-label · 11/1.3 · 700 · 0.1em</div>
+      </div>
+    </div>
+    <div class="annot">
+      Cabinet Grotesk per ogni titolo e wordmark. Switzer per body e UI. JetBrains Mono solo per
+      dati: timestamp, conteggi, ID, hashtag tecnici. Mai mescolare display e body in una stessa
+      riga di lettura.
+    </div>
+  </section>
+
+  <!-- ──────────────────────────────────────────────────── -->
+  <section class="block">
+    <div class="section-head">
+      <span class="num">03</span>
+      <h2>Landing pubblica · /</h2>
+      <span class="desc">— hero + community live + features</span>
+    </div>
+    <div class="row">
+      <div class="frame frame-mobile">
+        <div class="frame-label">Mobile · /</div>
+        <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+        <div class="m-header">
+          <div class="wordmark-mobile"><div class="mark">★</div>geekore</div>
+          <div style="display:flex;gap:6px;">
+            <span class="pill" style="height:28px;font-size:11px;">Accedi</span>
+            <span class="pill active" style="height:28px;font-size:11px;background:var(--accent);color:#0B0B0F;border-color:var(--accent);">Registrati</span>
+          </div>
+        </div>
+        <div class="m-content no-bottom" style="padding:20px 14px; overflow:hidden;">
+          <div class="pill" style="margin-bottom:14px;color:var(--accent);border-color:rgba(230,255,61,0.2);background:rgba(230,255,61,0.08);">● Il tuo universo geek in un unico posto</div>
+          <h1 style="font-family:var(--display);font-weight:900;font-size:42px;line-height:1;letter-spacing:-0.04em;margin:0;">
+            Traccia tutto<br/><span style="color:var(--accent)">ciò che ami</span>
+          </h1>
+          <p style="font-size:14px;color:var(--text-2);line-height:1.5;margin:14px 0 18px;">
+            Anime, manga, videogiochi, serie TV e film in un unico profilo. Condividi i tuoi
+            progressi con la community.
+          </p>
+          <div style="height:48px;border-radius:16px;background:var(--accent);color:#0B0B0F;display:grid;place-items:center;font-weight:800;font-family:var(--display);font-size:14px;margin-bottom:10px;">Registrati gratis</div>
+          <div style="height:48px;border-radius:16px;background:var(--bg-3);border:1px solid var(--border);color:var(--text);display:grid;place-items:center;font-weight:800;font-family:var(--display);font-size:14px;">Accedi</div>
+
+          <div style="margin-top:20px;border:1px solid var(--border);border-radius:20px;background:rgba(20,20,27,0.6);padding:14px;">
+            <div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:10px;">
+              <span style="width:8px;height:8px;background:#4ADE80;border-radius:99px;"></span>
+              <span class="label-mono">Community live</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;">
+              <div><div style="font-family:var(--display);font-weight:900;font-size:22px;letter-spacing:-0.03em;">2.4k</div><div style="font-size:9px;color:var(--text-3);">geek iscritti</div></div>
+              <div><div style="font-family:var(--display);font-weight:900;font-size:22px;letter-spacing:-0.03em;">38k</div><div style="font-size:9px;color:var(--text-3);">media tracciati</div></div>
+              <div><div style="font-family:var(--display);font-weight:900;font-size:22px;letter-spacing:-0.03em;">5+</div><div style="font-size:9px;color:var(--text-3);">categorie</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame frame-desktop">
+        <div class="frame-label">Desktop · / · 1280w</div>
+        <div style="height:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:60px;">
+          <div style="max-width:680px;">
+            <div class="pill" style="margin-bottom:24px;color:var(--accent);border-color:rgba(230,255,61,0.2);background:rgba(230,255,61,0.08);">● Il tuo universo geek in un unico posto</div>
+            <h1 class="hero-h1" style="font-size:88px;">Traccia tutto<br/><span class="accent">ciò che ami</span></h1>
+            <p style="font-size:18px;color:var(--text-2);line-height:1.6;margin:24px auto 32px;max-width:520px;">
+              Anime, manga, videogiochi, serie TV e film in un unico profilo. Condividi i tuoi
+              progressi con la community.
+            </p>
+            <div style="display:flex;gap:14px;justify-content:center;">
+              <div style="height:54px;padding:0 32px;border-radius:18px;background:var(--accent);color:#0B0B0F;display:grid;place-items:center;font-weight:800;font-family:var(--display);font-size:16px;">Registrati gratis</div>
+              <div style="height:54px;padding:0 32px;border-radius:18px;background:var(--bg-3);border:1px solid var(--border);display:grid;place-items:center;font-weight:800;font-family:var(--display);font-size:16px;">Accedi</div>
+            </div>
+            <div style="margin-top:48px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+              <span class="pill">Anime &amp; Manga</span>
+              <span class="pill">Videogiochi</span>
+              <span class="pill">Serie TV</span>
+              <span class="pill">Film</span>
+              <span class="pill">Board Game</span>
+              <span class="pill">Steam</span>
+              <span class="pill">Progressi</span>
+              <span class="pill">Feed social</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="annot">
+      Hero centrato verticalmente. La community live è la prova sociale principale: entra in
+      streaming dopo il TTFB tramite Suspense. CTA primaria su accent giallo, CTA secondaria su
+      superficie scura.
+    </div>
+  </section>
+
+  <!-- ──────────────────────────────────────────────────── -->
+  <section class="block">
+    <div class="section-head">
+      <span class="num">04</span>
+      <h2>Login · /login</h2>
+      <span class="desc">— accesso email + password</span>
+    </div>
+    <div class="row">
+      <div class="frame frame-mobile">
+        <div class="frame-label">Mobile · /login</div>
+        <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+        <div class="m-content no-bottom" style="height: calc(100% - 28px); padding-top: 24px;">
+          <div style="padding: 0 14px 20px; display:flex; justify-content:space-between; align-items:center;">
+            <div class="wordmark-mobile"><div class="mark">★</div>geekore</div>
+            <div style="display:flex;background:var(--bg-3);border:1px solid var(--border);border-radius:12px;padding:3px;gap:2px;">
+              <span style="padding:4px 10px;border-radius:9px;background:var(--accent);color:#0B0B0F;font-size:10px;font-weight:800;">IT</span>
+              <span style="padding:4px 10px;font-size:10px;color:var(--text-3);font-weight:800;">EN</span>
+            </div>
+          </div>
+          <div class="login-card">
+            <div class="login-h1">Bentornato</div>
+            <div class="login-sub">Accedi per continuare a tracciare i tuoi media.</div>
+            <div class="login-input">Email</div>
+            <div class="login-input" style="display:flex;justify-content:space-between;">
+              <span>Password</span><span>👁</span>
+            </div>
+            <a style="font-family:var(--mono);font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;display:block;text-align:right;margin:6px 0 14px;">Password dimenticata?</a>
+            <div class="login-cta">Accedi</div>
+            <div style="text-align:center;font-size:12px;color:var(--text-3);margin-top:18px;">
+              Non hai un account? <span style="color:var(--accent);font-weight:700;">Registrati</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame" style="flex:1; min-width: 480px; height: 540px;">
+        <div class="frame-label">Note di pattern</div>
+        <div style="padding:32px;height:100%;overflow:hidden;">
+          <h3 style="font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:-0.02em;margin:0 0 12px;">Pattern auth</h3>
+          <ul style="color:var(--text-2);font-size:14px;line-height:1.8;padding-left:18px;">
+            <li>Wordmark ridotta in alto a sinistra, mai centrata.</li>
+            <li>Toggle locale (IT/EN) come segmented control compatto.</li>
+            <li>Card singola con padding interno 22px e radius 24.</li>
+            <li>Input alti 48px, radius 14, font-size 16 per evitare zoom iOS.</li>
+            <li>CTA primaria ad accent + colore testo #0B0B0F. Niente gradients.</li>
+            <li>Errore inline sotto al form, mai toast.</li>
+            <li>Le pagine /login, /register, /onboarding non mostrano la bottom nav.</li>
+          </ul>
+          <div class="annot" style="margin-top:18px;">
+            La pagina /register specchia la stessa anatomia. /forgot-password riusa la card e mostra
+            soltanto un campo email + CTA "Invia link".
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────────────────────────────────────────────────── -->
+  <section class="block">
+    <div class="section-head">
+      <span class="num">05</span>
+      <h2>Onboarding · /onboarding</h2>
+      <span class="desc">— 4 step · type → import → swipe → done</span>
+    </div>
+    <div class="row">
+      <div class="frame frame-mobile">
+        <div class="frame-label">Step 1 · scegli i media</div>
+        <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+        <div class="m-content no-bottom" style="height: calc(100% - 28px); padding-top: 16px;">
+          <div class="ob-step-label">Passo 1 di 4 · 25%</div>
+          <div class="ob-progress"><i style="width:25%;"></i></div>
+          <h2 class="ob-h2">Cosa ti appassiona?</h2>
+          <p class="ob-sub">Seleziona almeno una categoria. Possiamo cambiare in qualsiasi momento.</p>
+          <div class="ob-grid">
+            <div class="ob-tile selected">
+              <div class="ic" style="background:rgba(56,189,248,0.18);color:var(--t-anime);">⚔</div>
+              <div class="lbl">Anime</div>
+            </div>
+            <div class="ob-tile">
+              <div class="ic" style="background:rgba(249,112,102,0.15);color:var(--t-manga);">≡</div>
+              <div class="lbl">Manga</div>
+            </div>
+            <div class="ob-tile selected">
+              <div class="ic" style="background:rgba(74,222,128,0.18);color:var(--t-game);">🎮</div>
+              <div class="lbl">Videogiochi</div>
+            </div>
+            <div class="ob-tile">
+              <div class="ic" style="background:rgba(192,132,252,0.18);color:var(--t-tv);">▶</div>
+              <div class="lbl">Serie TV</div>
+            </div>
+            <div class="ob-tile">
+              <div class="ic" style="background:rgba(239,68,68,0.18);color:var(--t-movie);">🎬</div>
+              <div class="lbl">Film</div>
+            </div>
+            <div class="ob-tile">
+              <div class="ic" style="background:rgba(251,146,60,0.18);color:var(--t-board);">⬢</div>
+              <div class="lbl">Boardgame</div>
+            </div>
+          </div>
+          <div class="ob-cta">Continua →</div>
+        </div>
+      </div>
+      <div class="frame frame-mobile">
+        <div class="frame-label">Step 2 · import sources</div>
+        <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+        <div class="m-content no-bottom" style="height: calc(100% - 28px); padding-top: 16px;">
+          <div class="ob-step-label">Passo 2 di 4 · 50%</div>
+          <div class="ob-progress"><i style="width:50%;"></i></div>
+          <h2 class="ob-h2">Importa la tua libreria</h2>
+          <p class="ob-sub">Collegati a un servizio per partire con i media già visti. Opzionale.</p>
+          <div style="padding:0 14px;display:flex;flex-direction:column;gap:10px;">
+            <div class="card" style="display:flex;align-items:center;gap:12px;">
+              <div style="width:36px;height:36px;border-radius:11px;background:rgba(56,189,248,0.15);color:var(--t-anime);display:grid;place-items:center;">⚔</div>
+              <div style="flex:1;"><div style="font-weight:800;font-size:14px;">AniList</div><div style="font-size:11px;color:var(--text-3);">Anime e manga già visti</div></div>
+              <div style="font-family:var(--mono);font-size:10px;color:var(--accent);">→</div>
+            </div>
+            <div class="card" style="display:flex;align-items:center;gap:12px;">
+              <div style="width:36px;height:36px;border-radius:11px;background:rgba(74,222,128,0.15);color:var(--t-game);display:grid;place-items:center;">🎮</div>
+              <div style="flex:1;"><div style="font-weight:800;font-size:14px;">Steam</div><div style="font-size:11px;color:var(--text-3);">Ore giocate e libreria PC</div></div>
+              <div style="font-family:var(--mono);font-size:10px;color:var(--accent);">→</div>
+            </div>
+            <div class="card" style="display:flex;align-items:center;gap:12px;">
+              <div style="width:36px;height:36px;border-radius:11px;background:rgba(239,68,68,0.15);color:var(--t-movie);display:grid;place-items:center;">🎬</div>
+              <div style="flex:1;"><div style="font-weight:800;font-size:14px;">Letterboxd</div><div style="font-size:11px;color:var(--text-3);">Film e rating</div></div>
+              <div style="font-family:var(--mono);font-size:10px;color:var(--accent);">→</div>
+            </div>
+            <div class="card" style="display:flex;align-items:center;gap:12px;">
+              <div style="width:36px;height:36px;border-radius:11px;background:rgba(251,146,60,0.15);color:var(--t-board);display:grid;place-items:center;">⬢</div>
+              <div style="flex:1;"><div style="font-weight:800;font-size:14px;">BoardGameGeek</div><div style="font-size:11px;color:var(--text-3);">Boardgame collection</div></div>
+              <div style="font-family:var(--mono);font-size:10px;color:var(--accent);">→</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin:16px 14px 0;">
+            <div style="flex:1;height:48px;border-radius:14px;background:var(--bg-3);border:1px solid var(--border);display:grid;place-items:center;font-weight:700;font-size:13px;color:var(--text-2);">Salta</div>
+            <div style="flex:1;height:48px;border-radius:14px;background:var(--accent);color:#0B0B0F;display:grid;place-items:center;font-weight:800;font-family:var(--display);font-size:14px;">Continua →</div>
+          </div>
+        </div>
+      </div>
+      <div class="frame frame-mobile">
+        <div class="frame-label">Step 3 · swipe per i gusti</div>
+        <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+        <div class="m-content no-bottom" style="height: calc(100% - 28px); padding-top: 16px;">
+          <div class="ob-step-label">Passo 3 di 4 · 75%</div>
+          <div class="ob-progress"><i style="width:75%;"></i></div>
+          <h2 class="ob-h2">Tap a destra se ti piace</h2>
+          <p class="ob-sub">Bastano una decina di titoli per calibrare le raccomandazioni.</p>
+          <div class="swipe-stack">
+            <div class="stack-bg-1"></div>
+            <div style="position:absolute;top:14px;left:14px;display:flex;gap:6px;z-index:3;">
+              <span class="pill t-anime" style="height:22px;font-size:10px;">Anime</span>
+              <span class="pill" style="height:22px;font-size:10px;color:var(--accent);border-color:rgba(230,255,61,0.4);background:rgba(230,255,61,0.08);">★ 96% match</span>
+            </div>
+            <div class="meta">
+              <div style="font-family:var(--display);font-weight:900;font-size:24px;letter-spacing:-0.02em;line-height:1.1;">Frieren: Beyond Journey's End</div>
+              <div style="font-family:var(--mono);font-size:10px;color:var(--text-3);margin-top:6px;letter-spacing:0.05em;">2023 · 28 EP · FANTASY · DRAMA</div>
+            </div>
+          </div>
+          <div class="swipe-actions">
+            <div class="swipe-act no">✕</div>
+            <div class="swipe-act" style="color:var(--text-2);">↻</div>
+            <div class="swipe-act yes">♥</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="annot">
+      Onboarding lineare a 4 step (l'ultimo è una conferma): la barra di progresso rimane sempre
+      in alto, le CTA sono sempre nella stessa posizione (footer). Nessuna possibilità di tornare
+      indietro distrugge i dati: lo stato persiste tra step.
+    </div>
+  </section>
+
+  <!-- ──────────────────────────────────────────────────── -->
+  <section class="block">
+    <div class="section-head">
+      <span class="num">06</span>
+      <h2>Feed · /home</h2>
+      <span class="desc">— core dell'app · post + composer + filtri</span>
+    </div>
+    <div class="row">
+      <div class="frame frame-mobile">
+        <div class="frame-label">Mobile · /home</div>
+        <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+        <div class="m-header">
+          <div class="wordmark-mobile"><div class="mark">★</div>geekore</div>
+          <div style="display:flex;align-items:center;gap:2px;">
+            <div class="icon-btn" style="position:relative;">🔔<span class="badge-dot"></span></div>
+            <div class="avatar sm">MR</div>
+          </div>
+        </div>
+        <div class="m-content">
+          <div class="filter-row">
+            <span class="pill active">Tutti</span>
+            <span class="pill">Seguiti</span>
+            <span class="pill">In tendenza</span>
+            <span class="pill">Discovery</span>
+          </div>
+          <div class="filter-row">
+            <span class="pill t-anime">⚔ Anime</span>
+            <span class="pill t-manga">≡ Manga</span>
+            <span class="pill t-game">🎮 Game</span>
+            <span class="pill t-tv">▶ TV</span>
+          </div>
+
+          <div class="composer-box">
+            <div class="avatar sm" style="width:32px;height:32px;border-radius:11px;font-size:11px;">MR</div>
+            <div class="composer-input">Cosa stai guardando?</div>
+            <div class="composer-send">↑</div>
+          </div>
+
+          <div class="feed-card">
+            <div class="head">
+              <div class="ring-story"><div class="inner"><div class="avatar">SK</div></div></div>
+              <div class="meta">
+                <div class="name">sakura · <span style="color:var(--text-3);font-weight:500;font-size:11px;">@sakura_92</span></div>
+                <div class="ts">12 MIN FA · ANIME</div>
+              </div>
+              <div class="icon-btn">⋯</div>
+            </div>
+            <div class="body">
+              <div class="cat"><span class="pill t-anime" style="font-size:10px;height:22px;">Anime · Frieren EP 14</span></div>
+              <div class="text">Episodio 14 di Frieren è una delle cose più belle che ho visto quest'anno. Quel flashback con Himmel mi ha distrutta 😭</div>
+            </div>
+            <div class="img">— immagine post · 16:9 —</div>
+            <div class="actions">
+              <span class="a"><span style="color:#EF4444;">♥</span> 124</span>
+              <span class="a">💬 18</span>
+              <span class="a">↗</span>
+              <span style="margin-left:auto;" class="a">🔖</span>
+            </div>
+          </div>
+
+          <div class="feed-card">
+            <div class="head">
+              <div class="avatar" style="background:linear-gradient(135deg,var(--t-game),var(--t-board));">JM</div>
+              <div class="meta">
+                <div class="name">jin_master · <span style="color:var(--text-3);font-weight:500;font-size:11px;">@jin_m</span></div>
+                <div class="ts">36 MIN FA · GAME</div>
+              </div>
+              <div class="icon-btn">⋯</div>
+            </div>
+            <div class="body">
+              <div class="cat"><span class="pill t-game" style="font-size:10px;height:22px;">Game · Hollow Knight: Silksong</span></div>
+              <div class="text">Finalmente platinato. Ce l'ho messa tutta. Il livello finale è una sinfonia di rage e gratitudine.</div>
+            </div>
+            <div class="actions">
+              <span class="a"><span style="color:#EF4444;">♥</span> 48</span>
+              <span class="a">💬 7</span>
+              <span class="a">↗</span>
+              <span style="margin-left:auto;" class="a">🔖</span>
+            </div>
+          </div>
+        </div>
+        <div class="m-bottom">
+          <div class="m-tab active">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V11z"/></svg>
+            <span>Home</span>
+          </div>
+          <div class="m-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"/></svg>
+            <span>Per te</span>
+          </div>
+          <div class="m-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 9h16"/></svg>
+            <span>Library</span>
+          </div>
+          <div class="m-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg>
+            <span>Discover</span>
+          </div>
+          <div class="m-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5M14 19c0-2 2-4 5-4s4 2 4 4"/></svg>
+            <span>Friends</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame frame-desktop">
+        <div class="frame-label">Desktop · /home</div>
+        <div class="d-shell">
+          <div class="d-sidebar">
+            <div class="d-logo"><div class="mark">★</div><div class="word">geekore</div></div>
+            <div class="d-nav-item active">⌂ Home</div>
+            <div class="d-nav-item">✦ Per te</div>
+            <div class="d-nav-item">▦ Library</div>
+            <div class="d-nav-item">◎ Discover</div>
+            <div class="d-nav-item">◐ Friends</div>
+            <div class="d-search">⌕ Cerca utenti…</div>
+            <div class="d-section-label">Scopri</div>
+            <div class="d-nav-item" style="height:34px;font-size:12px;">⤴ Trending</div>
+            <div class="d-nav-item" style="height:34px;font-size:12px;">♡ Wishlist</div>
+            <div class="d-nav-item" style="height:34px;font-size:12px;">▤ Liste</div>
+            <div class="d-nav-item" style="height:34px;font-size:12px;">📊 Stats</div>
+            <div class="d-nav-item" style="height:34px;font-size:12px;">🏆 Classifica</div>
+            <div style="margin-top:auto;padding-top:14px;border-top:1px solid var(--border-soft);">
+              <div class="d-nav-item" style="height:34px;font-size:12px;">🔔 Notifiche</div>
+              <div style="display:flex;gap:10px;align-items:center;padding:8px;border-radius:14px;border:1px solid transparent;">
+                <div class="avatar sm" style="width:32px;height:32px;font-size:12px;">MR</div>
+                <div style="min-width:0;flex:1;">
+                  <div style="font-size:12px;font-weight:700;">Marco Rossi</div>
+                  <div style="font-family:var(--mono);font-size:10px;color:var(--text-3);">@marco_r</div>
+                </div>
+                <span style="color:var(--text-3);">▾</span>
+              </div>
+            </div>
+          </div>
+          <div class="d-content">
+            <div style="display:grid;grid-template-columns:1fr 280px;gap:28px;height:100%;">
+              <div style="overflow:hidden;">
+                <div style="display:flex;gap:8px;margin-bottom:16px;">
+                  <span class="pill active">Tutti</span>
+                  <span class="pill">Seguiti</span>
+                  <span class="pill">In tendenza</span>
+                  <span class="pill">Discovery</span>
+                  <span class="pill t-anime">Anime</span>
+                  <span class="pill t-game">Game</span>
+                </div>
+                <div class="card" style="margin-bottom:16px;display:flex;gap:12px;align-items:center;">
+                  <div class="avatar" style="background:linear-gradient(135deg,var(--accent),var(--t-anime));">MR</div>
+                  <div style="flex:1;height:40px;border-radius:14px;background:var(--bg-2);border:1px solid var(--border);padding:0 14px;display:flex;align-items:center;color:var(--text-3);font-size:13px;">Cosa stai guardando, Marco?</div>
+                  <div style="height:40px;padding:0 18px;border-radius:14px;background:var(--accent);color:#0B0B0F;display:grid;place-items:center;font-weight:800;font-size:13px;">Pubblica</div>
+                </div>
+                <div class="card" style="margin-bottom:14px;">
+                  <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;">
+                    <div class="avatar">SK</div>
+                    <div style="flex:1;">
+                      <div style="font-size:13px;font-weight:700;">sakura · <span style="color:var(--text-3);font-weight:500;font-size:11px;">@sakura_92</span></div>
+                      <div style="font-family:var(--mono);font-size:10px;color:var(--text-3);">12 MIN FA · ANIME</div>
+                    </div>
+                    <div style="color:var(--text-3);">⋯</div>
+                  </div>
+                  <span class="pill t-anime" style="margin-bottom:8px;font-size:10px;height:22px;">Anime · Frieren EP 14</span>
+                  <p style="font-size:14px;line-height:1.5;color:var(--text);margin:8px 0 0;">Episodio 14 di Frieren è una delle cose più belle che ho visto quest'anno. Quel flashback mi ha distrutta 😭</p>
+                  <div style="height:180px;border-radius:12px;background:linear-gradient(135deg,#1a1a24,#0e0e14);margin-top:10px;border:1px solid var(--border-soft);display:grid;place-items:center;color:var(--text-3);font-family:var(--mono);font-size:11px;">— immagine post —</div>
+                  <div style="display:flex;gap:18px;margin-top:10px;color:var(--text-2);font-size:12px;">
+                    <span><span style="color:#EF4444;">♥</span> 124</span>
+                    <span>💬 18</span>
+                    <span>↗ Condividi</span>
+                    <span style="margin-left:auto;">🔖 Salva</span>
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:14px;overflow:hidden;">
+                <div class="card">
+                  <div class="label-mono" style="margin-bottom:10px;color:var(--accent);">★ La tua estate</div>
+                  <div style="font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:-0.02em;line-height:1.1;">14 anime tracciati, 92 episodi</div>
+                  <div style="margin-top:10px;height:6px;border-radius:99px;background:var(--bg-4);position:relative;">
+                    <span style="position:absolute;left:0;top:0;bottom:0;width:62%;background:var(--accent);border-radius:99px;"></span>
+                  </div>
+                </div>
+                <div class="card">
+                  <div class="label-mono" style="margin-bottom:10px;">Trending tra i tuoi amici</div>
+                  <div style="display:flex;flex-direction:column;gap:10px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                      <div style="width:36px;height:48px;border-radius:8px;background:linear-gradient(135deg,#1a1a24,#0e0e14);"></div>
+                      <div style="flex:1;min-width:0;">
+                        <div style="font-size:12px;font-weight:700;">Frieren</div>
+                        <div style="font-family:var(--mono);font-size:10px;color:var(--text-3);">7 amici lo guardano</div>
+                      </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                      <div style="width:36px;height:48px;border-radius:8px;background:linear-gradient(135deg,#1a1a24,#0e0e14);"></div>
+                      <div style="flex:1;min-width:0;">
+                        <div style="font-size:12px;font-weight:700;">Silksong</div>
+                        <div style="font-family:var(--mono);font-size:10px;color:var(--text-3);">5 amici lo giocano</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="card">
+                  <div class="label-mono" style="margin-bottom:10px;">Suggeriti da seguire</div>
+                  <div style="display:flex;flex-direction:column;gap:10px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                      <div class="avatar sm" style="width:32px;height:32px;font-size:11px;background:linear-gradient(135deg,var(--t-tv),var(--t-anime));">YK</div>
+                      <div style="flex:1;min-width:0;">
+                        <div style="font-size:12px;font-weight:700;">@yuki_k</div>
+                        <div style="font-family:var(--mono);font-size:10px;color:var(--text-3);">94% taste match</div>
+                      </div>
+                      <span class="pill" style="font-size:10px;height:24px;color:var(--accent);border-color:rgba(230,255,61,0.3);background:rgba(230,255,61,0.08);">+ Segui</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                      <div class="avatar sm" style="width:32px;height:32px;font-size:11px;background:linear-gradient(135deg,var(--t-game),var(--t-board));">RT</div>
+                      <div style="flex:1;min-width:0;">
+                        <div style="font-size:12px;font-weight:700;">@retro_dev</div>
+                        <div style="font-family:var(--mono);font-size:10px;color:var(--text-3);">88% taste match</div>
+                      </div>
+                      <span class="pill" style="font-size:10px;height:24px;color:var(--accent);border-color:rgba(230,255,61,0.3);background:rgba(230,255,61,0.08);">+ Segui</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="annot">
+      Anatomia del feed: filtri primari (4 chip stato) + filtri secondari (chip tipo media,
+      colorate). Composer sempre visibile in alto. Card senza bordi spessi: bordo 1px su superficie
+      bg-card. Le immagini hanno separatori sottili sopra/sotto, non drop shadow.
+    </div>
+  </section>
+
+  <!-- ──────────────────────────────────────────────────── -->
+  <section class="block">
+    <div class="section-head">
+      <span class="num">07</span>
+      <h2>Discover · /discover</h2>
+      <span class="desc">— search multi-source + browse</span>
+    </div>
+    <div class="row">
+      <div class="frame frame-mobile">
+        <div class="frame-label">Mobile · /discover</div>
+        <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+        <div class="m-header">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:30px;height:30px;border-radius:11px;background:var(--bg-3);border:1px solid var(--border);display:grid;place-items:center;color:var(--text-2);">⌕</div>
+            <h1 style="font-family:var(--body);font-weight:700;font-size:17px;letter-spacing:-0.01em;margin:0;">Discover</h1>
+          </div>
+          <div style="display:flex;align-items:center;gap:2px;">
+            <div class="icon-btn" style="position:relative;">🔔<span class="badge-dot"></span></div>
+            <div class="avatar sm">MR</div>
+          </div>
+        </div>
+        <div class="m-content">
+          <div style="padding:14px 14px 8px;">
+            <div style="height:48px;border-radius:16px;background:var(--bg-3);border:1px solid var(--border);padding:0 14px;display:flex;align-items:center;gap:10px;color:var(--text-3);font-size:14px;">
+              <span>⌕</span>
+              <span style="flex:1;">Cerca anime, manga, film, giochi…</span>
+              <span style="color:var(--accent);">🎤</span>
+            </div>
+          </div>
+          <div class="filter-row">
+            <span class="pill active">Tutti</span>
+            <span class="pill t-anime">⚔ Anime</span>
+            <span class="pill t-manga">≡ Manga</span>
+            <span class="pill t-movie">🎬 Film</span>
+            <span class="pill t-tv">▶ Serie</span>
+            <span class="pill t-game">🎮 Game</span>
+          </div>
+          <div class="m-section-head"><h3>Browse</h3><a>Vedi tutto</a></div>
+          <div class="discover-grid">
+            <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:10px;border-color:rgba(56,189,248,0.18);background:rgba(56,189,248,0.04);">
+              <div style="width:40px;height:40px;border-radius:13px;background:rgba(56,189,248,0.18);color:var(--t-anime);display:grid;place-items:center;">⚔</div>
+              <div>
+                <div style="font-weight:800;font-size:14px;">Anime in onda</div>
+                <div style="font-family:var(--mono);font-size:10px;color:var(--text-3);margin-top:4px;">FRIEREN, DAN DA DAN…</div>
+              </div>
+            </div>
+            <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:10px;border-color:rgba(249,112,102,0.18);background:rgba(249,112,102,0.04);">
+              <div style="width:40px;height:40px;border-radius:13px;background:rgba(249,112,102,0.18);color:var(--t-manga);display:grid;place-items:center;">≡</div>
+              <div>
+                <div style="font-weight:800;font-size:14px;">Manga cult</div>
+                <div style="font-family:var(--mono);font-size:10px;color:var(--text-3);margin-top:4px;">BERSERK, VAGABOND…</div>
+              </div>
+            </div>
+            <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:10px;border-color:rgba(192,132,252,0.18);background:rgba(192,132,252,0.04);">
+              <div style="width:40px;height:40px;border-radius:13px;background:rgba(192,132,252,0.18);color:var(--t-tv);display:grid;place-items:center;">▶</div>
+              <div>
+                <div style="font-weight:800;font-size:14px;">Serie prestige</div>
+                <div style="font-family:var(--mono);font-size:10px;color:var(--text-3);margin-top:4px;">SEVERANCE, SUCCESSION…</div>
+              </div>
+            </div>
+            <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:10px;border-color:rgba(74,222,128,0.18);background:rgba(74,222,128,0.04);">
+              <div style="width:40px;height:40px;border-radius:13px;background:rgba(74,222,128,0.18);color:var(--t-game);display:grid;place-items:center;">🎮</div>
+              <div>
+                <div style="font-weight:800;font-size:14px;">Must-play</div>
+                <div style="font-family:var(--mono);font-size:10px;color:var(--text-3);margin-top:4px;">ZELDA, ELDEN RING…</div>
+              </div>
+            </div>
+          </div>
+          <div class="m-section-head"><h3>Trending oggi</h3><a>Tutto</a></div>
+          <div class="rail-row">
+            <div class="media-card">
+              <div class="media-cover">
+                <span class="type-tag" style="color:var(--t-anime);">ANIME</span>
+                <span style="position:absolute;bottom:8px;left:8px;font-family:var(--mono);font-size:9px;color:#fff;background:rgba(0,0,0,0.6);padding:2px 5px;border-radius:4px;">★ 9.1</span>
+              </div>
+              <div class="title">Frieren: Beyond Journey's End</div>
+              <div class="sub">2023 · 28 EP</div>
+            </div>
+            <div class="media-card">
+              <div class="media-cover">
+                <span class="type-tag" style="color:var(--t-game);">GAME</span>
+                <span style="position:absolute;bottom:8px;left:8px;font-family:var(--mono);font-size:9px;color:#fff;background:rgba(0,0,0,0.6);padding:2px 5px;border-radius:4px;">★ 9.4</span>
+              </div>
+              <div class="title">Hollow Knight: Silksong</div>
+              <div class="sub">2024 · ACTION</div>
+            </div>
+            <div class="media-card">
+              <div class="media-cover">
+                <span class="type-tag" style="color:var(--t-tv);">TV</span>
+                <span style="position:absolute;bottom:8px;left:8px;font-family:var(--mono);font-size:9px;color:#fff;background:rgba(0,0,0,0.6);padding:2px 5px;border-radius:4px;">★ 8.9</span>
+              </div>
+              <div class="title">Severance — Stagione 2</div>
+              <div class="sub">2025 · 10 EP</div>
+            </div>
+          </div>
+        </div>
+        <div class="m-bottom">
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V11z"/></svg><span>Home</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"/></svg><span>Per te</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 9h16"/></svg><span>Library</span></div>
+          <div class="m-tab active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg><span>Discover</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/></svg><span>Friends</span></div>
+        </div>
+      </div>
+      <div class="frame" style="flex:1; min-width: 480px; height: 720px;">
+        <div class="frame-label">Pattern · ricerca</div>
+        <div style="padding:32px;height:100%;overflow:hidden;">
+          <h3 style="font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:-0.02em;margin:0 0 14px;">Discover · gerarchia</h3>
+          <ol style="color:var(--text-2);font-size:14px;line-height:1.8;padding-left:20px;">
+            <li><b style="color:var(--text);">Search bar</b> sempre in cima, supporta voce.</li>
+            <li><b style="color:var(--text);">Type chips</b> agiscono come scope per la ricerca successiva.</li>
+            <li><b style="color:var(--text);">Browse</b> a 6 prompt fissi (uno per tipo media), griglia 2×3 mobile / 3×2 desktop.</li>
+            <li><b style="color:var(--text);">Trending oggi</b> rail orizzontale, copertine 2:3, tag tipo + score.</li>
+            <li><b style="color:var(--text);">Sotto</b> rail per tipo media (uno alla volta) con TYPE_ORDER fisso.</li>
+            <li><b style="color:var(--text);">Tap</b> sulla card apre il <i>MediaDetailsDrawer</i>: bottom sheet 90% altezza con cover full-bleed in cima.</li>
+          </ol>
+
+          <h3 style="font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:-0.02em;margin:24px 0 8px;">Stato vuoto</h3>
+          <div class="card" style="border-style:dashed;text-align:center;padding:32px;">
+            <div style="font-size:28px;margin-bottom:8px;">⌕</div>
+            <div style="font-weight:800;font-size:14px;margin-bottom:4px;">Nessun risultato</div>
+            <div style="font-size:12px;color:var(--text-3);">Prova un termine diverso o cambia categoria.</div>
+          </div>
+          <div class="annot" style="margin-top:18px;">
+            La ricerca debounce 350ms, mostra skeleton ranked. Cinque sorgenti: anilist, tmdb,
+            igdb, bgg, openlibrary. Ranking client-side per starts-with prima di contains.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────────────────────────────────────────────────── -->
+  <section class="block">
+    <div class="section-head">
+      <span class="num">08</span>
+      <h2>Per te · /for-you</h2>
+      <span class="desc">— rail di raccomandazioni · DNA gusti</span>
+    </div>
+    <div class="row">
+      <div class="frame frame-mobile">
+        <div class="frame-label">Mobile · /for-you</div>
+        <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+        <div class="m-header">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:30px;height:30px;border-radius:11px;background:var(--bg-3);border:1px solid var(--border);display:grid;place-items:center;color:var(--accent);">✦</div>
+            <h1 style="font-family:var(--body);font-weight:700;font-size:17px;letter-spacing:-0.01em;margin:0;">Per te</h1>
+          </div>
+          <div style="display:flex;align-items:center;gap:2px;">
+            <div class="icon-btn">⟲</div>
+            <div class="icon-btn">≣</div>
+          </div>
+        </div>
+        <div class="m-content">
+          <div style="padding:14px 14px 0;">
+            <div class="card" style="background:linear-gradient(135deg,rgba(230,255,61,0.08),rgba(20,20,27,0.94));border-color:rgba(230,255,61,0.18);padding:14px;">
+              <div class="label-mono" style="margin-bottom:6px;color:var(--accent);">★ Il tuo DNA</div>
+              <div style="font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:-0.02em;line-height:1.15;">Slow-burn · Filosofico · Personaggi</div>
+              <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+                <span class="pill" style="font-size:10px;height:22px;background:rgba(56,189,248,0.1);color:var(--t-anime);border-color:rgba(56,189,248,0.25);">Fantasy 92%</span>
+                <span class="pill" style="font-size:10px;height:22px;background:rgba(192,132,252,0.1);color:var(--t-tv);border-color:rgba(192,132,252,0.25);">Drama 81%</span>
+                <span class="pill" style="font-size:10px;height:22px;background:rgba(74,222,128,0.1);color:var(--t-game);border-color:rgba(74,222,128,0.25);">Adventure 76%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="rail-section">
+            <div class="rail-head">
+              <div class="ic">★</div>
+              <div><div class="t1">Top match per te</div><div class="t2">In base ai tuoi gusti</div></div>
+            </div>
+            <div class="rail-row">
+              <div class="media-card">
+                <div class="media-cover">
+                  <span class="type-tag" style="color:var(--t-anime);">ANIME</span>
+                  <span style="position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:9px;color:var(--accent);background:rgba(230,255,61,0.15);padding:2px 6px;border-radius:99px;border:1px solid rgba(230,255,61,0.3);">★ 96%</span>
+                </div>
+                <div class="title">Mushishi</div>
+                <div class="sub">2005 · 26 EP</div>
+              </div>
+              <div class="media-card">
+                <div class="media-cover">
+                  <span class="type-tag" style="color:var(--t-tv);">TV</span>
+                  <span style="position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:9px;color:var(--accent);background:rgba(230,255,61,0.15);padding:2px 6px;border-radius:99px;border:1px solid rgba(230,255,61,0.3);">★ 91%</span>
+                </div>
+                <div class="title">Pachinko</div>
+                <div class="sub">2022 · 8 EP</div>
+              </div>
+              <div class="media-card">
+                <div class="media-cover">
+                  <span class="type-tag" style="color:var(--t-game);">GAME</span>
+                  <span style="position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:9px;color:var(--accent);background:rgba(230,255,61,0.15);padding:2px 6px;border-radius:99px;border:1px solid rgba(230,255,61,0.3);">★ 89%</span>
+                </div>
+                <div class="title">Outer Wilds</div>
+                <div class="sub">2019 · MYSTERY</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rail-section">
+            <div class="rail-head">
+              <div class="ic" style="background:rgba(245,158,11,0.1);color:#F59E0B;border-color:rgba(245,158,11,0.2);">→</div>
+              <div><div class="t1">Continua a guardare</div><div class="t2">Sequel dei tuoi titoli completati</div></div>
+            </div>
+            <div class="rail-row">
+              <div class="media-card">
+                <div class="media-cover">
+                  <span class="type-tag" style="color:var(--t-anime);">ANIME</span>
+                  <span class="progress" style="position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,0.08);"><i style="display:block;height:100%;width:65%;background:var(--accent);"></i></span>
+                </div>
+                <div class="title">JJK · Stagione 3</div>
+                <div class="sub">2025 · IN ARRIVO</div>
+              </div>
+              <div class="media-card">
+                <div class="media-cover">
+                  <span class="type-tag" style="color:var(--t-game);">GAME</span>
+                </div>
+                <div class="title">Tears of the Kingdom · DLC</div>
+                <div class="sub">2024 · DLC</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rail-section">
+            <div class="rail-head">
+              <div class="ic" style="background:rgba(74,222,128,0.1);color:var(--t-game);border-color:rgba(74,222,128,0.2);">◐</div>
+              <div><div class="t1">Dai tuoi amici</div><div class="t2">7 amici lo stanno guardando</div></div>
+            </div>
+            <div class="rail-row">
+              <div class="media-card">
+                <div class="media-cover">
+                  <span class="type-tag" style="color:var(--t-tv);">TV</span>
+                </div>
+                <div class="title">Severance · S2</div>
+                <div class="sub">7 amici</div>
+              </div>
+              <div class="media-card">
+                <div class="media-cover">
+                  <span class="type-tag" style="color:var(--t-anime);">ANIME</span>
+                </div>
+                <div class="title">Dan Da Dan</div>
+                <div class="sub">5 amici</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="m-bottom">
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V11z"/></svg><span>Home</span></div>
+          <div class="m-tab active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"/></svg><span>Per te</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 9h16"/></svg><span>Library</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg><span>Discover</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/></svg><span>Friends</span></div>
+        </div>
+      </div>
+
+      <div class="frame frame-mobile">
+        <div class="frame-label">Mobile · /swipe</div>
+        <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+        <div class="m-content" style="height:calc(100% - 28px - 58px);background:#000;">
+          <div style="height:100%;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:space-between;padding:14px;align-items:center;">
+              <div style="font-family:var(--display);font-weight:900;font-size:18px;letter-spacing:-0.02em;">Swipe</div>
+              <div style="font-family:var(--mono);font-size:10px;color:var(--text-3);">8 / 50</div>
+            </div>
+            <div style="flex:1;padding:0 14px 14px;display:flex;flex-direction:column;">
+              <div class="swipe-stack" style="margin:0;flex:1;">
+                <div class="stack-bg-1"></div>
+                <div style="position:absolute;top:14px;left:14px;display:flex;gap:6px;z-index:3;">
+                  <span class="pill t-game" style="height:22px;font-size:10px;">Game · 2024</span>
+                  <span class="pill" style="height:22px;font-size:10px;color:var(--accent);border-color:rgba(230,255,61,0.4);background:rgba(230,255,61,0.08);">★ 92% match</span>
+                </div>
+                <div style="position:absolute;top:50px;right:14px;width:28px;height:28px;border-radius:99px;background:rgba(11,11,15,0.7);display:grid;place-items:center;color:#fff;font-size:14px;backdrop-filter:blur(4px);z-index:3;">i</div>
+                <div class="meta">
+                  <div style="font-family:var(--display);font-weight:900;font-size:24px;letter-spacing:-0.02em;line-height:1.1;">Hollow Knight: Silksong</div>
+                  <div style="font-family:var(--mono);font-size:10px;color:var(--text-3);margin-top:6px;letter-spacing:0.05em;">METROIDVANIA · ACTION · ATMOSPHERIC</div>
+                  <div style="font-size:12px;color:var(--text-2);margin-top:8px;line-height:1.4;">Hornet vola, balza e affronta il regno frantumato di Pharloom in questo seguito tanto atteso.</div>
+                </div>
+              </div>
+              <div class="swipe-actions" style="padding-bottom:0;">
+                <div class="swipe-act no">✕</div>
+                <div class="swipe-act" style="color:var(--text-2);width:48px;height:48px;">↻</div>
+                <div class="swipe-act yes">♥</div>
+                <div class="swipe-act" style="color:var(--accent);width:48px;height:48px;">+</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="m-bottom">
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V11z"/></svg><span>Home</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"/></svg><span>Per te</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 9h16"/></svg><span>Library</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg><span>Discover</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/></svg><span>Friends</span></div>
+        </div>
+      </div>
+
+      <div class="frame" style="flex:1; min-width: 380px; height: 720px;">
+        <div class="frame-label">Rails — gerarchia</div>
+        <div style="padding:32px;height:100%;overflow:hidden;">
+          <h3 style="font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:-0.02em;margin:0 0 14px;">For-you · ordine fisso dei rail</h3>
+          <ol style="color:var(--text-2);font-size:13px;line-height:1.7;padding-left:20px;">
+            <li>DNA Widget (gusti dominanti).</li>
+            <li>Top match (priorità 100).</li>
+            <li>Continua a guardare — sequel/season.</li>
+            <li>Dai tuoi amici — alta affinità sociale.</li>
+            <li>Quick picks — 5 titoli random + alta confidence.</li>
+            <li>Hidden gems — score &lt;7000 voti.</li>
+            <li>Per genere — prima i top 3 generi del DNA.</li>
+            <li>"Perché hai amato X" — semantically related.</li>
+          </ol>
+
+          <h3 style="font-family:var(--display);font-weight:800;font-size:16px;letter-spacing:-0.02em;margin:22px 0 8px;">Badge sui titoli</h3>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            <span class="pill" style="font-size:10px;color:var(--accent);border-color:rgba(230,255,61,0.4);background:rgba(230,255,61,0.08);">★ 92% match</span>
+            <span class="pill" style="font-size:10px;color:#F59E0B;border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.08);">🏆 Award</span>
+            <span class="pill" style="font-size:10px;color:#A78BFA;border-color:rgba(167,139,250,0.3);background:rgba(167,139,250,0.08);">✦ Serendipity</span>
+            <span class="pill" style="font-size:10px;color:var(--t-anime);border-color:rgba(56,189,248,0.3);background:rgba(56,189,248,0.08);">📅 Stagione</span>
+          </div>
+
+          <h3 style="font-family:var(--display);font-weight:800;font-size:16px;letter-spacing:-0.02em;margin:22px 0 8px;">Swipe mode (/swipe)</h3>
+          <div style="color:var(--text-2);font-size:13px;line-height:1.6;">
+            Stack di card aspect 3:4. Swipe sinistra = skip, destra = aggiungi a wishlist, alto = aggiungi alla libreria,
+            basso = "già visto". Le 4 azioni rotondeggianti sotto la card replicano i gesti.
+          </div>
+          <div class="annot" style="margin-top:14px;">
+            Lo swipe è coda persistente lato server (tabella swipe_queue_*). Skip vengono memorizzati per non riproporre.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────────────────────────────────────────────────── -->
+  <section class="block">
+    <div class="section-head">
+      <span class="num">09</span>
+      <h2>Library · /library</h2>
+      <span class="desc">— collezione personale · grid + list + stats</span>
+    </div>
+    <div class="row">
+      <div class="frame frame-mobile">
+        <div class="frame-label">Mobile · /library — list view</div>
+        <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+        <div class="m-header">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:30px;height:30px;border-radius:11px;background:var(--bg-3);border:1px solid var(--border);display:grid;place-items:center;color:var(--text-2);">▦</div>
+            <h1 style="font-family:var(--body);font-weight:700;font-size:17px;letter-spacing:-0.01em;margin:0;">Library</h1>
+          </div>
+          <div style="display:flex;align-items:center;gap:2px;">
+            <div class="icon-btn">🔔</div>
+            <div class="avatar sm">MR</div>
+          </div>
+        </div>
+        <div class="m-content">
+          <div class="filter-row">
+            <span class="pill active">Tutto</span>
+            <span class="pill">In corso</span>
+            <span class="pill">Completati</span>
+            <span class="pill">Wishlist</span>
+            <span class="pill t-anime">Anime</span>
+            <span class="pill t-game">Game</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:8px 14px;align-items:center;">
+            <span class="label-mono">147 titoli · 38 in corso</span>
+            <div style="display:flex;gap:4px;background:var(--bg-3);border:1px solid var(--border);border-radius:10px;padding:3px;">
+              <span style="padding:4px 10px;border-radius:7px;background:var(--accent);color:#0B0B0F;font-size:10px;font-weight:800;">List</span>
+              <span style="padding:4px 10px;border-radius:7px;color:var(--text-3);font-size:10px;font-weight:800;">Grid</span>
+              <span style="padding:4px 10px;border-radius:7px;color:var(--text-3);font-size:10px;font-weight:800;">Stats</span>
+            </div>
+          </div>
+
+          <div class="lib-row">
+            <div class="cv">
+              <span style="position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(255,255,255,0.06);"><span style="display:block;height:100%;width:65%;background:var(--accent);"></span></span>
+            </div>
+            <div class="info">
+              <div class="t1">Frieren: Beyond Journey's End</div>
+              <div class="t2"><span class="pill t-anime" style="height:18px;font-size:9px;padding:0 6px;">ANIME</span> · 18/28 EP</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+              <div class="progress"><i style="width:65%;"></i></div>
+              <span class="label-mono" style="font-size:9px;">★ 9.0</span>
+            </div>
+          </div>
+          <div class="lib-row">
+            <div class="cv">
+              <span style="position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(255,255,255,0.06);"><span style="display:block;height:100%;width:30%;background:var(--accent);"></span></span>
+            </div>
+            <div class="info">
+              <div class="t1">Hollow Knight: Silksong</div>
+              <div class="t2"><span class="pill t-game" style="height:18px;font-size:9px;padding:0 6px;">GAME</span> · 12h · 30%</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+              <div class="progress"><i style="width:30%;"></i></div>
+              <span class="label-mono" style="font-size:9px;">★ 9.4</span>
+            </div>
+          </div>
+          <div class="lib-row">
+            <div class="cv">
+              <span style="position:absolute;top:6px;right:6px;width:14px;height:14px;border-radius:99px;background:var(--accent);color:#0B0B0F;display:grid;place-items:center;font-size:9px;font-weight:800;">✓</span>
+            </div>
+            <div class="info">
+              <div class="t1">Vinland Saga · Stagione 2</div>
+              <div class="t2"><span class="pill t-anime" style="height:18px;font-size:9px;padding:0 6px;">ANIME</span> · Completato</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+              <span class="label-mono" style="font-size:9px;color:var(--accent);">★ 9.5</span>
+            </div>
+          </div>
+          <div class="lib-row">
+            <div class="cv"></div>
+            <div class="info">
+              <div class="t1">Berserk · vol. 38–41</div>
+              <div class="t2"><span class="pill t-manga" style="height:18px;font-size:9px;padding:0 6px;">MANGA</span> · 41/41 vol.</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+              <span class="label-mono" style="font-size:9px;">★ 9.7</span>
+            </div>
+          </div>
+          <div class="lib-row">
+            <div class="cv"></div>
+            <div class="info">
+              <div class="t1">Severance · Stagione 2</div>
+              <div class="t2"><span class="pill t-tv" style="height:18px;font-size:9px;padding:0 6px;">TV</span> · S02E07/10</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+              <div class="progress"><i style="width:70%;"></i></div>
+            </div>
+          </div>
+        </div>
+        <div class="m-bottom">
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V11z"/></svg><span>Home</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"/></svg><span>Per te</span></div>
+          <div class="m-tab active"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="3"/></svg><span>Library</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg><span>Discover</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/></svg><span>Friends</span></div>
+        </div>
+      </div>
+
+      <div class="frame" style="flex:1; min-width: 480px; height: 720px;">
+        <div class="frame-label">Stats view</div>
+        <div style="padding:24px;height:100%;overflow:hidden;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div class="card" style="padding:14px;"><div class="label-mono" style="margin-bottom:8px;">Totale</div><div style="font-family:var(--mono);font-size:28px;font-weight:900;letter-spacing:-0.02em;line-height:1;">147</div></div>
+            <div class="card" style="padding:14px;"><div class="label-mono" style="margin-bottom:8px;">Completati</div><div style="font-family:var(--mono);font-size:28px;font-weight:900;letter-spacing:-0.02em;line-height:1;color:var(--accent);">82</div></div>
+            <div class="card" style="padding:14px;"><div class="label-mono" style="margin-bottom:8px;">In corso</div><div style="font-family:var(--mono);font-size:28px;font-weight:900;letter-spacing:-0.02em;line-height:1;">38</div></div>
+          </div>
+          <div class="heatmap">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+              <div>
+                <div class="label-mono" style="color:var(--accent);">Heatmap anno</div>
+                <div style="font-family:var(--display);font-weight:800;font-size:17px;letter-spacing:-0.02em;">Il ritmo della tua collezione</div>
+              </div>
+              <span class="label-mono">ULTIMI 6 MESI</span>
+            </div>
+            <div class="grid" id="heat"></div>
+          </div>
+          <h3 style="font-family:var(--display);font-weight:800;font-size:16px;letter-spacing:-0.02em;margin:18px 0 10px;">Per tipo</h3>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="pill t-anime" style="height:24px;font-size:11px;width:90px;justify-content:center;">Anime</span>
+              <div style="flex:1;height:8px;border-radius:99px;background:var(--bg-3);overflow:hidden;"><span style="display:block;height:100%;width:62%;background:var(--t-anime);"></span></div>
+              <span class="label-mono" style="width:36px;text-align:right;">62</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="pill t-game" style="height:24px;font-size:11px;width:90px;justify-content:center;">Game</span>
+              <div style="flex:1;height:8px;border-radius:99px;background:var(--bg-3);overflow:hidden;"><span style="display:block;height:100%;width:38%;background:var(--t-game);"></span></div>
+              <span class="label-mono" style="width:36px;text-align:right;">38</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="pill t-manga" style="height:24px;font-size:11px;width:90px;justify-content:center;">Manga</span>
+              <div style="flex:1;height:8px;border-radius:99px;background:var(--bg-3);overflow:hidden;"><span style="display:block;height:100%;width:24%;background:var(--t-manga);"></span></div>
+              <span class="label-mono" style="width:36px;text-align:right;">24</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="pill t-tv" style="height:24px;font-size:11px;width:90px;justify-content:center;">Serie TV</span>
+              <div style="flex:1;height:8px;border-radius:99px;background:var(--bg-3);overflow:hidden;"><span style="display:block;height:100%;width:14%;background:var(--t-tv);"></span></div>
+              <span class="label-mono" style="width:36px;text-align:right;">14</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="pill t-movie" style="height:24px;font-size:11px;width:90px;justify-content:center;">Film</span>
+              <div style="flex:1;height:8px;border-radius:99px;background:var(--bg-3);overflow:hidden;"><span style="display:block;height:100%;width:9%;background:var(--t-movie);"></span></div>
+              <span class="label-mono" style="width:36px;text-align:right;">9</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────────────────────────────────────────────────── -->
+  <section class="block">
+    <div class="section-head">
+      <span class="num">10</span>
+      <h2>Profilo · /profile/[username]</h2>
+      <span class="desc">— hero · stats · griglia opere · activity</span>
+    </div>
+    <div class="row">
+      <div class="frame frame-mobile">
+        <div class="frame-label">Mobile · profilo proprio</div>
+        <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+        <div class="m-header">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <h1 style="font-family:var(--body);font-weight:700;font-size:17px;letter-spacing:-0.01em;margin:0;">marco_r</h1>
+          </div>
+          <div style="display:flex;gap:2px;">
+            <div class="icon-btn">✎</div>
+            <div class="icon-btn">⚙</div>
+          </div>
+        </div>
+        <div class="m-content">
+          <div class="profile-hero">
+            <div class="avatar lg" style="background:linear-gradient(135deg,var(--accent),var(--t-anime));">MR</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-0.02em;line-height:1.1;">Marco Rossi</div>
+              <div style="font-family:var(--mono);font-size:11px;color:var(--text-3);margin-top:2px;">@marco_r</div>
+              <div style="font-size:12px;color:var(--text-2);margin-top:8px;line-height:1.4;">Anime, soulslike e jazz. Berserk maxxer.</div>
+              <div class="profile-stats">
+                <div class="stat"><div class="v">147</div><div class="l">Opere</div></div>
+                <div class="stat"><div class="v">312</div><div class="l">Followers</div></div>
+                <div class="stat"><div class="v">128</div><div class="l">Following</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="profile-tabs">
+            <div class="tab active">Collezione</div>
+            <div class="tab">Activity</div>
+            <div class="tab">Commenti</div>
+          </div>
+          <div style="padding:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+              <span class="label-mono">147 opere · ord. recente</span>
+              <div style="display:flex;gap:6px;">
+                <div style="width:30px;height:30px;border-radius:9px;background:var(--bg-3);border:1px solid var(--border);display:grid;place-items:center;color:var(--text-3);font-size:13px;">⌕</div>
+                <div style="width:30px;height:30px;border-radius:9px;background:var(--bg-3);border:1px solid var(--border);display:grid;place-items:center;color:var(--text-3);font-size:13px;">⇅</div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+              <div class="media-cover" style="aspect-ratio:2/3;width:100%;">
+                <span class="type-tag" style="color:var(--t-anime);font-size:8px;">ANIME</span>
+                <span class="progress"><i style="width:65%;"></i></span>
+              </div>
+              <div class="media-cover" style="aspect-ratio:2/3;width:100%;">
+                <span class="type-tag" style="color:var(--t-game);font-size:8px;">GAME</span>
+                <span class="progress"><i style="width:30%;"></i></span>
+              </div>
+              <div class="media-cover" style="aspect-ratio:2/3;width:100%;">
+                <span class="type-tag" style="color:var(--t-manga);font-size:8px;">MANGA</span>
+                <span style="position:absolute;top:6px;right:6px;width:14px;height:14px;border-radius:99px;background:var(--accent);color:#0B0B0F;display:grid;place-items:center;font-size:9px;font-weight:800;">✓</span>
+              </div>
+              <div class="media-cover" style="aspect-ratio:2/3;width:100%;">
+                <span class="type-tag" style="color:var(--t-tv);font-size:8px;">TV</span>
+              </div>
+              <div class="media-cover" style="aspect-ratio:2/3;width:100%;">
+                <span class="type-tag" style="color:var(--t-game);font-size:8px;">GAME</span>
+              </div>
+              <div class="media-cover" style="aspect-ratio:2/3;width:100%;">
+                <span class="type-tag" style="color:var(--t-anime);font-size:8px;">ANIME</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="m-bottom">
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V11z"/></svg><span>Home</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"/></svg><span>Per te</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 9h16"/></svg><span>Library</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg><span>Discover</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/></svg><span>Friends</span></div>
+        </div>
+      </div>
+
+      <div class="frame frame-mobile">
+        <div class="frame-label">Mobile · profilo altrui</div>
+        <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+        <div class="m-header">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div class="icon-btn" style="margin-left:-8px;">‹</div>
+            <h1 style="font-family:var(--body);font-weight:700;font-size:17px;letter-spacing:-0.01em;margin:0;">sakura_92</h1>
+          </div>
+          <div style="display:flex;gap:2px;">
+            <div class="icon-btn">🔔</div>
+            <div class="avatar sm">MR</div>
+          </div>
+        </div>
+        <div class="m-content">
+          <div class="profile-hero">
+            <div class="avatar lg" style="background:linear-gradient(135deg,var(--t-tv),var(--t-anime));">SK</div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <div style="font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-0.02em;line-height:1.1;">Sakura</div>
+                <span style="font-size:14px;color:var(--accent);">✓</span>
+              </div>
+              <div style="font-family:var(--mono);font-size:11px;color:var(--text-3);margin-top:2px;">@sakura_92</div>
+              <div style="font-size:12px;color:var(--text-2);margin-top:8px;line-height:1.4;">Slice-of-life addict · scrivo in giapponese maccheronico</div>
+              <div class="profile-stats">
+                <div class="stat"><div class="v">213</div><div class="l">Opere</div></div>
+                <div class="stat"><div class="v">1.2k</div><div class="l">Followers</div></div>
+                <div class="stat"><div class="v">340</div><div class="l">Following</div></div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:12px;">
+                <div style="flex:1;height:38px;border-radius:12px;background:var(--accent);color:#0B0B0F;display:grid;place-items:center;font-weight:800;font-size:12px;">Segui</div>
+                <div style="flex:1;height:38px;border-radius:12px;background:var(--bg-3);border:1px solid var(--border);display:grid;place-items:center;font-weight:800;font-size:12px;color:var(--text-2);">Messaggio</div>
+                <div style="width:38px;height:38px;border-radius:12px;background:var(--bg-3);border:1px solid var(--border);display:grid;place-items:center;color:var(--text-2);">⋯</div>
+              </div>
+              <div class="card" style="margin-top:12px;padding:10px 12px;border-color:rgba(230,255,61,0.18);background:rgba(230,255,61,0.04);">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span class="label-mono" style="color:var(--accent);">Taste match</span>
+                  <span style="font-family:var(--display);font-weight:900;font-size:18px;color:var(--accent);letter-spacing:-0.02em;">87%</span>
+                </div>
+                <div style="margin-top:6px;height:5px;border-radius:99px;background:var(--bg-4);"><span style="display:block;width:87%;height:100%;background:var(--accent);border-radius:99px;"></span></div>
+              </div>
+            </div>
+          </div>
+          <div class="profile-tabs">
+            <div class="tab active">Collezione</div>
+            <div class="tab">Activity</div>
+            <div class="tab">Commenti</div>
+          </div>
+          <div style="padding:14px;">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+              <div class="media-cover" style="aspect-ratio:2/3;width:100%;"><span class="type-tag" style="color:var(--t-anime);font-size:8px;">ANIME</span></div>
+              <div class="media-cover" style="aspect-ratio:2/3;width:100%;"><span class="type-tag" style="color:var(--t-anime);font-size:8px;">ANIME</span></div>
+              <div class="media-cover" style="aspect-ratio:2/3;width:100%;"><span class="type-tag" style="color:var(--t-manga);font-size:8px;">MANGA</span></div>
+              <div class="media-cover" style="aspect-ratio:2/3;width:100%;"><span class="type-tag" style="color:var(--t-tv);font-size:8px;">TV</span></div>
+              <div class="media-cover" style="aspect-ratio:2/3;width:100%;"><span class="type-tag" style="color:var(--t-anime);font-size:8px;">ANIME</span></div>
+              <div class="media-cover" style="aspect-ratio:2/3;width:100%;"><span class="type-tag" style="color:var(--t-game);font-size:8px;">GAME</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="m-bottom">
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V11z"/></svg><span>Home</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"/></svg><span>Per te</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 9h16"/></svg><span>Library</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg><span>Discover</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/></svg><span>Friends</span></div>
+        </div>
+      </div>
+
+      <div class="frame" style="flex:1; min-width: 320px; height: 720px;">
+        <div class="frame-label">Profilo · pattern</div>
+        <div style="padding:24px;height:100%;overflow:hidden;">
+          <h3 style="font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-0.02em;margin:0 0 12px;">Hero · 2 stati</h3>
+          <ol style="color:var(--text-2);font-size:13px;line-height:1.7;padding-left:18px;">
+            <li><b style="color:var(--text);">Proprio profilo:</b> azioni "Modifica" e "Settings" in header. Niente CTA Segui.</li>
+            <li><b style="color:var(--text);">Profilo altrui:</b> back arrow in header. Tre azioni: Segui (CTA primaria), Messaggio (secondaria), Menu (icona).</li>
+          </ol>
+
+          <h3 style="font-family:var(--display);font-weight:800;font-size:16px;margin:22px 0 8px;">Taste-match</h3>
+          <p style="color:var(--text-2);font-size:13px;line-height:1.6;">
+            Card dedicata sotto la bio quando è disponibile. Numero in display 18 + barra di progresso + label "Taste match" in mono accent.
+          </p>
+
+          <h3 style="font-family:var(--display);font-weight:800;font-size:16px;margin:22px 0 8px;">Tab</h3>
+          <ul style="color:var(--text-2);font-size:13px;line-height:1.6;padding-left:18px;">
+            <li>Collezione: griglia 3 col mobile / 6 col desktop, drag-reorder solo per profilo proprio.</li>
+            <li>Activity: timeline cronologica come feed nel proprio profilo.</li>
+            <li>Commenti: muro pubblico, simile guestbook.</li>
+          </ul>
+
+          <div class="annot" style="margin-top:18px;">
+            La cover ha sempre un type-tag in alto (8–9px, monospace, uppercase). Progress bar sottile (3px) sul bordo
+            inferiore per i media in corso. Check accent in alto-destra per i completati.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────────────────────────────────────────────────── -->
+  <section class="block">
+    <div class="section-head">
+      <span class="num">11</span>
+      <h2>Notifiche · drawer</h2>
+      <span class="desc">— pannello bottom mobile</span>
+    </div>
+    <div class="row">
+      <div class="frame frame-mobile">
+        <div class="frame-label">Mobile · drawer aperto</div>
+        <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+        <div class="m-header" style="opacity:0.4;">
+          <div class="wordmark-mobile"><div class="mark">★</div>geekore</div>
+          <div style="display:flex;align-items:center;gap:2px;">
+            <div class="icon-btn" style="position:relative;">🔔</div>
+            <div class="avatar sm">MR</div>
+          </div>
+        </div>
+        <div class="m-content" style="opacity:0.18;">
+          <div class="filter-row">
+            <span class="pill active">Tutti</span><span class="pill">Seguiti</span>
+          </div>
+        </div>
+        <div style="position:absolute;top:140px;left:0;right:0;bottom:58px;background:var(--bg-2);border-radius:24px 24px 0 0;border:1px solid var(--border);border-bottom:none;overflow:hidden;">
+          <div style="display:flex;justify-content:center;padding:8px 0 4px;">
+            <div style="width:36px;height:4px;background:var(--border);border-radius:99px;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px 12px;border-bottom:1px solid var(--border);">
+            <h3 style="font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:-0.02em;margin:0;">Notifiche</h3>
+            <span class="label-mono" style="color:var(--accent);">3 nuove</span>
+          </div>
+          <div class="notif-row">
+            <div class="dot"></div>
+            <div class="avatar sm" style="width:32px;height:32px;font-size:11px;">SK</div>
+            <div class="text"><b>@sakura_92</b> ha messo like al tuo post su <i>Frieren</i>.<div class="label-mono" style="margin-top:2px;font-size:9px;">5 MIN FA</div></div>
+          </div>
+          <div class="notif-row">
+            <div class="dot"></div>
+            <div class="avatar sm" style="width:32px;height:32px;font-size:11px;background:linear-gradient(135deg,var(--t-game),var(--t-board));">JM</div>
+            <div class="text"><b>@jin_m</b> ha iniziato a seguirti.<div class="label-mono" style="margin-top:2px;font-size:9px;">22 MIN FA</div></div>
+          </div>
+          <div class="notif-row">
+            <div class="dot"></div>
+            <div class="avatar sm" style="width:32px;height:32px;font-size:11px;background:linear-gradient(135deg,var(--t-tv),var(--t-anime));">YK</div>
+            <div class="text"><b>@yuki_k</b> ha commentato: "anche io! il flashback è devastante".<div class="label-mono" style="margin-top:2px;font-size:9px;">1 ORA FA</div></div>
+          </div>
+          <div class="notif-row">
+            <div class="dot read"></div>
+            <div style="width:32px;height:32px;border-radius:11px;background:rgba(230,255,61,0.1);color:var(--accent);display:grid;place-items:center;border:1px solid rgba(230,255,61,0.2);">★</div>
+            <div class="text">Nuova raccomandazione: <b style="color:var(--accent);">Mushishi</b> ti potrebbe piacere (96% match).<div class="label-mono" style="margin-top:2px;font-size:9px;">3 ORE FA</div></div>
+          </div>
+          <div class="notif-row">
+            <div class="dot read"></div>
+            <div style="width:32px;height:32px;border-radius:11px;background:rgba(74,222,128,0.1);color:var(--t-game);display:grid;place-items:center;border:1px solid rgba(74,222,128,0.2);">🎮</div>
+            <div class="text">Steam ha aggiornato 12 ore in <b>Hollow Knight: Silksong</b>.<div class="label-mono" style="margin-top:2px;font-size:9px;">IERI</div></div>
+          </div>
+        </div>
+        <div class="m-bottom" style="opacity:0.4;">
+          <div class="m-tab active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V11z"/></svg><span>Home</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"/></svg><span>Per te</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 9h16"/></svg><span>Library</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg><span>Discover</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/></svg><span>Friends</span></div>
+        </div>
+      </div>
+
+      <div class="frame" style="flex:1; min-width: 480px; height: 720px;">
+        <div class="frame-label">Componenti ricorrenti</div>
+        <div style="padding:24px;height:100%;overflow:auto;">
+          <h3 style="font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:-0.02em;margin:0 0 8px;">Mobile header — anatomia</h3>
+          <div class="card" style="padding:12px;margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:10px;">
+              <div class="wordmark-mobile" style="font-size:18px;"><div class="mark" style="width:24px;height:24px;font-size:13px;">★</div>geekore</div>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <div class="icon-btn" style="width:34px;height:34px;font-size:14px;position:relative;">🔔<span class="badge-dot" style="top:6px;right:6px;"></span></div>
+                <div class="avatar sm" style="width:28px;height:28px;">MR</div>
+              </div>
+            </div>
+            <p style="font-size:11px;color:var(--text-3);margin:8px 0 0;line-height:1.6;">52px alto · padding-x 14 · backdrop-blur 20px · border-bottom subtle.</p>
+          </div>
+
+          <h3 style="font-family:var(--display);font-weight:800;font-size:16px;letter-spacing:-0.02em;margin:14px 0 8px;">Bottom nav — 5 tab</h3>
+          <div class="card" style="padding:0;margin-bottom:14px;overflow:hidden;">
+            <div class="m-bottom" style="position:relative;border-radius:0;">
+              <div class="m-tab active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V11z"/></svg><span>Home</span></div>
+              <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"/></svg><span>Per te</span></div>
+              <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 9h16"/></svg><span>Library</span></div>
+              <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg><span>Discover</span></div>
+              <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/></svg><span>Friends</span></div>
+            </div>
+          </div>
+          <p style="font-size:12px;color:var(--text-3);line-height:1.6;">
+            58px alto + safe-area · indicator superiore di 2px × 28px · icona 21px · label 10px font-weight 800 · attivo accent + glow shadow.
+          </p>
+
+          <h3 style="font-family:var(--display);font-weight:800;font-size:16px;letter-spacing:-0.02em;margin:18px 0 8px;">Pill / chip — varianti</h3>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            <span class="pill">Default</span>
+            <span class="pill active">Active</span>
+            <span class="pill t-anime">Anime</span>
+            <span class="pill t-manga">Manga</span>
+            <span class="pill t-game">Game</span>
+            <span class="pill t-board">Board</span>
+            <span class="pill t-movie">Film</span>
+            <span class="pill t-tv">TV</span>
+            <span class="pill" style="color:var(--accent);border-color:rgba(230,255,61,0.4);background:rgba(230,255,61,0.08);">★ 92% match</span>
+            <span class="pill" style="color:#F59E0B;border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.08);">🏆 Award</span>
+          </div>
+
+          <h3 style="font-family:var(--display);font-weight:800;font-size:16px;letter-spacing:-0.02em;margin:18px 0 8px;">Avatar — Story ring</h3>
+          <div style="display:flex;gap:14px;align-items:center;">
+            <div class="ring-story"><div class="inner"><div class="avatar">SK</div></div></div>
+            <div class="avatar lg">MR</div>
+            <div class="avatar sm">YK</div>
+            <p style="font-size:11px;color:var(--text-3);line-height:1.5;margin:0;">Ring giallo-lime per attività recenti, stesso pattern di Instagram. Avatar quadrati radius 24/12/8.</p>
+          </div>
+
+          <div class="annot" style="margin-top:18px;">
+            Nessun gradient sui bottoni. Lo story-ring è l'unico gradient brand consentito (lineare 135°, accent → 60% → accent).
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────────────────────────────────────────────────── -->
+  <section class="block">
+    <div class="section-head">
+      <span class="num">12</span>
+      <h2>Friends · /friends</h2>
+      <span class="desc">— rete sociale interna · feed amici</span>
+    </div>
+    <div class="row">
+      <div class="frame frame-mobile">
+        <div class="frame-label">Mobile · /friends</div>
+        <div class="m-status"><span>9:41</span><span>● ● ●</span></div>
+        <div class="m-header">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:30px;height:30px;border-radius:11px;background:var(--bg-3);border:1px solid var(--border);display:grid;place-items:center;color:var(--text-2);">◐</div>
+            <h1 style="font-family:var(--body);font-weight:700;font-size:17px;letter-spacing:-0.01em;margin:0;">Friends</h1>
+          </div>
+          <div style="display:flex;align-items:center;gap:2px;">
+            <div class="icon-btn">+</div>
+            <div class="avatar sm">MR</div>
+          </div>
+        </div>
+        <div class="m-content">
+          <div class="stories">
+            <div class="story"><div class="ring-story"><div class="inner"><div class="avatar">SK</div></div></div><div class="lbl">sakura_92</div></div>
+            <div class="story"><div class="ring-story"><div class="inner"><div class="avatar" style="background:linear-gradient(135deg,var(--t-game),var(--t-board));">JM</div></div></div><div class="lbl">jin_m</div></div>
+            <div class="story"><div class="ring-story"><div class="inner"><div class="avatar" style="background:linear-gradient(135deg,var(--t-tv),var(--t-anime));">YK</div></div></div><div class="lbl">yuki_k</div></div>
+            <div class="story"><div class="ring-story"><div class="inner"><div class="avatar" style="background:linear-gradient(135deg,var(--t-movie),var(--t-manga));">RT</div></div></div><div class="lbl">retro_dev</div></div>
+            <div class="story"><div style="width:48px;height:48px;border-radius:99px;background:var(--bg-3);border:1px dashed var(--border);display:grid;place-items:center;color:var(--text-3);">+</div><div class="lbl">aggiungi</div></div>
+          </div>
+          <div class="filter-row">
+            <span class="pill active">Attività</span>
+            <span class="pill">In comune</span>
+            <span class="pill">Suggeriti</span>
+          </div>
+          <div style="padding:8px 14px 0;display:flex;flex-direction:column;gap:10px;">
+            <div class="card" style="display:flex;gap:10px;align-items:center;padding:12px;">
+              <div class="avatar">SK</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;"><b>@sakura_92</b> sta guardando</div>
+                <div style="font-family:var(--mono);font-size:10px;color:var(--text-3);">Frieren EP 14 · 12 MIN FA</div>
+              </div>
+              <div style="width:36px;height:48px;border-radius:8px;background:linear-gradient(135deg,#1a1a24,#0e0e14);border:1px solid var(--border);"></div>
+            </div>
+            <div class="card" style="display:flex;gap:10px;align-items:center;padding:12px;">
+              <div class="avatar" style="background:linear-gradient(135deg,var(--t-game),var(--t-board));">JM</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;"><b>@jin_m</b> ha completato</div>
+                <div style="font-family:var(--mono);font-size:10px;color:var(--text-3);">Hollow Knight: Silksong · 36 MIN FA</div>
+              </div>
+              <div style="width:36px;height:48px;border-radius:8px;background:linear-gradient(135deg,#1a1a24,#0e0e14);border:1px solid var(--border);"></div>
+            </div>
+            <div class="card" style="display:flex;gap:10px;align-items:center;padding:12px;">
+              <div class="avatar" style="background:linear-gradient(135deg,var(--t-tv),var(--t-anime));">YK</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;"><b>@yuki_k</b> ha votato 9.5</div>
+                <div style="font-family:var(--mono);font-size:10px;color:var(--text-3);">Severance S2 · 1 ORA FA</div>
+              </div>
+              <div style="width:36px;height:48px;border-radius:8px;background:linear-gradient(135deg,#1a1a24,#0e0e14);border:1px solid var(--border);"></div>
+            </div>
+          </div>
+        </div>
+        <div class="m-bottom">
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V11z"/></svg><span>Home</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"/></svg><span>Per te</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 9h16"/></svg><span>Library</span></div>
+          <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg><span>Discover</span></div>
+          <div class="m-tab active"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/></svg><span>Friends</span></div>
+        </div>
+      </div>
+
+      <div class="frame" style="flex:1; min-width: 480px; height: 720px;">
+        <div class="frame-label">Friends · pattern</div>
+        <div style="padding:24px;height:100%;overflow:hidden;">
+          <h3 style="font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-0.02em;margin:0 0 12px;">Tre canali sociali</h3>
+          <ul style="color:var(--text-2);font-size:14px;line-height:1.8;padding-left:20px;">
+            <li><b style="color:var(--text);">Stories rail</b> in cima — solo amici con attività &lt; 24h.</li>
+            <li><b style="color:var(--text);">Activity feed</b> in stile Discord/Last.fm: chi sta guardando cosa, in tempo reale.</li>
+            <li><b style="color:var(--text);">Suggeriti</b> per taste similarity — collegamento bidirezionale alla home/right rail.</li>
+          </ul>
+
+          <h3 style="font-family:var(--display);font-weight:800;font-size:16px;margin:22px 0 8px;">Activity card · anatomia</h3>
+          <div class="card" style="padding:12px;display:flex;gap:10px;align-items:center;">
+            <div class="avatar">SK</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;"><b>@sakura_92</b> sta guardando</div>
+              <div style="font-family:var(--mono);font-size:10px;color:var(--text-3);">Frieren EP 14 · 12 MIN FA</div>
+            </div>
+            <div style="width:36px;height:48px;border-radius:8px;background:linear-gradient(135deg,#1a1a24,#0e0e14);border:1px solid var(--border);"></div>
+          </div>
+          <p style="font-size:12px;color:var(--text-3);margin-top:8px;line-height:1.6;">Avatar 32 · username bold · azione lowercase · meta in mono · cover 36×48 a destra.</p>
+
+          <h3 style="font-family:var(--display);font-weight:800;font-size:16px;margin:22px 0 8px;">Verbi attività</h3>
+          <ul style="color:var(--text-2);font-size:13px;line-height:1.7;padding-left:18px;">
+            <li><b>sta guardando</b> · <b>ha iniziato</b> · <b>ha completato</b></li>
+            <li><b>ha votato</b> · <b>ha aggiunto alla wishlist</b></li>
+            <li><b>ha commentato</b> · <b>ha messo like</b></li>
+            <li><b>ha pubblicato</b> · <b>ha ricevuto un badge</b></li>
+          </ul>
+          <div class="annot" style="margin-top:18px;">
+            Tutte le attività sono tappabili: aprono il drawer del media o il post. Niente dettagli inline per evitare clutter.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────────────────────────────────────────────────── -->
+  <section class="block">
+    <div class="section-head">
+      <span class="num">13</span>
+      <h2>Spazio &amp; ritmo</h2>
+      <span class="desc">— scala 4 · radius · ombre</span>
+    </div>
+    <div class="grid-3">
+      <div class="card">
+        <div class="label-mono" style="margin-bottom:10px;">Scala spaziale</div>
+        <div style="font-family:var(--mono);font-size:11px;line-height:2;color:var(--text-2);">
+          4&nbsp;&nbsp;→ separatori interni (gap chip)<br/>
+          8&nbsp;&nbsp;→ tra elementi correlati<br/>
+          12 → padding card piccola<br/>
+          14 → padding-x mobile globale<br/>
+          18 → padding card<br/>
+          24 → margine sezione<br/>
+          32 → padding card hero<br/>
+          48 → margine sezione desktop
+        </div>
+      </div>
+      <div class="card">
+        <div class="label-mono" style="margin-bottom:10px;">Radius</div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--text-2);">
+          <div style="display:flex;gap:10px;align-items:center;"><div style="width:36px;height:36px;border-radius:8px;background:var(--bg-3);border:1px solid var(--border);"></div> 8 · pill cover · check</div>
+          <div style="display:flex;gap:10px;align-items:center;"><div style="width:36px;height:36px;border-radius:12px;background:var(--bg-3);border:1px solid var(--border);"></div> 12 · avatar small · input</div>
+          <div style="display:flex;gap:10px;align-items:center;"><div style="width:36px;height:36px;border-radius:14px;background:var(--bg-3);border:1px solid var(--border);"></div> 14 · button · cover media</div>
+          <div style="display:flex;gap:10px;align-items:center;"><div style="width:36px;height:36px;border-radius:16px;background:var(--bg-3);border:1px solid var(--border);"></div> 16 · feed card · big input</div>
+          <div style="display:flex;gap:10px;align-items:center;"><div style="width:36px;height:36px;border-radius:20px;background:var(--bg-3);border:1px solid var(--border);"></div> 20+ · drawer · sheet · modale</div>
+          <div style="display:flex;gap:10px;align-items:center;"><div style="width:36px;height:36px;border-radius:50%;background:var(--bg-3);border:1px solid var(--border);"></div> 99px · avatar story · swipe action</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="label-mono" style="margin-bottom:10px;">Ombre &amp; bordi</div>
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div style="background:var(--bg-3);border:1px solid var(--border);border-radius:14px;padding:14px;">
+            <div style="font-size:12px;font-weight:700;">Border 1px</div>
+            <div style="font-size:11px;color:var(--text-3);font-family:var(--mono);margin-top:4px;">#2A2A36 · default</div>
+          </div>
+          <div style="background:var(--bg-3);border:1px solid rgba(230,255,61,0.3);border-radius:14px;padding:14px;box-shadow:0 0 0 1px rgba(230,255,61,0.1);">
+            <div style="font-size:12px;font-weight:700;color:var(--accent);">Border accent</div>
+            <div style="font-size:11px;color:var(--text-3);font-family:var(--mono);margin-top:4px;">solo su stato selezionato</div>
+          </div>
+          <div style="background:var(--bg-3);border:1px solid var(--border);border-radius:14px;padding:14px;box-shadow:0 24px 80px rgba(0,0,0,0.5);">
+            <div style="font-size:12px;font-weight:700;">Drop shadow</div>
+            <div style="font-size:11px;color:var(--text-3);font-family:var(--mono);margin-top:4px;">solo per overlay (sheet, dropdown)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="annot">
+      Geekore evita drop shadow sui contenitori inline: si affida a contrasti di superficie
+      (bg-primary vs bg-card) + bordi 1px da #2A2A36. Le shadow appaiono solo su menu e drawer.
+      Niente effetti glow, eccetto la bottom-nav active e il focus ring (accent 35% alpha).
+    </div>
+  </section>
+
+</body>
+<script>
+  // popolo la heatmap
+  const heat = document.getElementById('heat');
+  if (heat) {
+    for (let i = 0; i < 26 * 7; i++) {
+      const el = document.createElement('i');
+      const r = Math.random();
+      if (r > 0.85) el.style.background = 'rgba(230,255,61,0.85)';
+      else if (r > 0.7) el.style.background = 'rgba(230,255,61,0.55)';
+      else if (r > 0.5) el.style.background = 'rgba(230,255,61,0.3)';
+      else if (r > 0.3) el.style.background = 'rgba(230,255,61,0.15)';
+      heat.appendChild(el);
+    }
+  }
+</script>
+</html>
