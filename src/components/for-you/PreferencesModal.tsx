@@ -1,15 +1,13 @@
 'use client'
 // src/components/for-you/PreferencesModal.tsx
-// Estratto da for-you/page.tsx — Fix #14 Repair Bible
+// Preferences come taste tuning: meno wizard generico, più controllo diretto sul For You.
 
 import { useState, useEffect } from 'react'
 import { gestureState } from '@/hooks/gestureState'
 import { androidBack } from '@/hooks/androidBack'
-import { X, ArrowRight, AlertCircle } from 'lucide-react'
+import { X, ArrowRight, AlertCircle, Brain, Sparkles } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useLocale } from '@/lib/locale'
-
-// ── Costanti generi ───────────────────────────────────────────────────────────
 
 const ANIME_GENRES = ['Action','Adventure','Comedy','Drama','Fantasy','Horror','Mystery','Romance','Sci-Fi','Slice of Life','Sports','Supernatural','Thriller','Psychological']
 const MANGA_GENRES = [...ANIME_GENRES,'Shounen','Seinen','Shoujo','Josei']
@@ -18,14 +16,12 @@ const MOVIE_GENRES = ['Action','Adventure','Animation','Comedy','Crime','Documen
 const TV_GENRES = [...MOVIE_GENRES,'Reality','Talk']
 
 const QUICK_PRESETS = [
-  { label: '🌑 Dark anime', prefs: { fav_anime_genres: ['Horror', 'Psychological', 'Thriller', 'Drama'], fav_manga_genres: ['Horror', 'Psychological', 'Thriller'] } },
-  { label: '⚔️ Gamer RPG', prefs: { fav_game_genres: ['Role-playing (RPG)', 'Adventure', 'Action', 'Strategy'] } },
-  { label: '🎬 Cinefilo europeo', prefs: { fav_movie_genres: ['Drama', 'Thriller', 'Crime', 'History'], fav_tv_genres: ['Drama', 'Crime', 'Thriller'] } },
-  { label: '😂 Comedy & feel-good', prefs: { fav_anime_genres: ['Comedy', 'Slice of Life', 'Romance'], fav_movie_genres: ['Comedy', 'Romance', 'Animation'] } },
-  { label: '🚀 Sci-fi & fantasy', prefs: { fav_anime_genres: ['Science Fiction', 'Fantasy'], fav_movie_genres: ['Science Fiction', 'Fantasy', 'Adventure'], fav_game_genres: ['Role-playing (RPG)', 'Adventure'] } },
+  { label: 'Dark anime', eyebrow: 'toni cupi · tensione · psicologico', prefs: { fav_anime_genres: ['Horror', 'Psychological', 'Thriller', 'Drama'], fav_manga_genres: ['Horror', 'Psychological', 'Thriller'] } },
+  { label: 'Gamer RPG', eyebrow: 'progressione · party · mondi aperti', prefs: { fav_game_genres: ['RPG', 'Adventure', 'Action', 'Strategy'] } },
+  { label: 'Cinefilo crime', eyebrow: 'drama · thriller · storia', prefs: { fav_movie_genres: ['Drama', 'Thriller', 'Crime', 'History'], fav_tv_genres: ['Drama', 'Crime', 'Thriller'] } },
+  { label: 'Comfort picks', eyebrow: 'comedy · romance · feel good', prefs: { fav_anime_genres: ['Comedy', 'Slice of Life', 'Romance'], fav_movie_genres: ['Comedy', 'Romance', 'Animation'] } },
+  { label: 'Sci-fi & fantasy', eyebrow: 'mondi strani · avventura · lore', prefs: { fav_anime_genres: ['Sci-Fi', 'Fantasy'], fav_movie_genres: ['Science Fiction', 'Fantasy', 'Adventure'], fav_game_genres: ['RPG', 'Adventure'] } },
 ]
-
-// ── Componente ────────────────────────────────────────────────────────────────
 
 export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const { t } = useLocale()
@@ -64,7 +60,7 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
         setLoading(false)
       })
     })
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = (key: string, genre: string) => setPrefs(prev => ({
     ...prev,
@@ -97,74 +93,93 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
   }
 
   const sections = [
-    { key: 'fav_anime_genres', label: '🎌 Anime preferiti', genres: ANIME_GENRES, desc: 'Seleziona i generi anime che ami di più' },
-    { key: 'fav_manga_genres', label: '📖 Manga preferiti', genres: MANGA_GENRES, desc: 'Generi manga che leggi volentieri' },
-    { key: 'fav_movie_genres', label: '🎬 Film preferiti', genres: MOVIE_GENRES, desc: 'Che tipo di film ti piace guardare?' },
-    { key: 'fav_tv_genres', label: '📺 Serie TV preferite', genres: TV_GENRES, desc: 'Generi di serie che non salti mai' },
-    { key: 'fav_game_genres', label: '🎮 Giochi preferiti', genres: GAME_GENRES, desc: 'A che tipo di giochi non riesci a smettere?' },
-    { key: 'disliked_genres', label: '🚫 Generi da nascondere', genres: [...new Set([...GAME_GENRES, ...ANIME_GENRES, ...MOVIE_GENRES])], desc: 'Questi generi non appariranno nei tuoi consigli' },
+    { key: 'fav_anime_genres', label: 'Anime', genres: ANIME_GENRES, desc: 'Generi che vuoi vedere pesare di più nei consigli anime.' },
+    { key: 'fav_manga_genres', label: 'Manga', genres: MANGA_GENRES, desc: 'Preferenze per letture, manga e webtoon.' },
+    { key: 'fav_movie_genres', label: 'Film', genres: MOVIE_GENRES, desc: 'Coordinate principali per film consigliati.' },
+    { key: 'fav_tv_genres', label: 'TV', genres: TV_GENRES, desc: 'Segnali per serie e stagioni da proporti.' },
+    { key: 'fav_game_genres', label: 'Game', genres: GAME_GENRES, desc: 'Cosa deve spingere i consigli gaming.' },
+    { key: 'disliked_genres', label: 'Da ridurre', genres: [...new Set([...GAME_GENRES, ...ANIME_GENRES, ...MOVIE_GENRES])], desc: 'Segnali negativi: Geekore li userà per abbassare il ranking.' },
   ]
 
   const currentSection = sections[step - 1]
   const totalSteps = sections.length
+  const selectedCount = Object.values(prefs).reduce((sum, list) => sum + list.length, 0)
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-        <div className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-2xl p-8 flex items-center justify-center" style={{ minHeight: 200 }}>
-          <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
+      <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center">
+        <div className="flex min-h-[220px] w-full max-w-2xl items-center justify-center rounded-[28px] border border-[var(--border)] bg-[var(--bg-primary)] p-8">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
         </div>
       </div>
     )
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-2xl max-h-[85vh] flex flex-col">
-        {/* Header con progress bar */}
-        <div className="flex items-center justify-between p-5 border-b border-zinc-800">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h2 className="text-base font-bold text-white">
-                {step === 0 ? 'Configura i tuoi gusti' : `${step} di ${totalSteps} — ${currentSection?.label}`}
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center">
+      <div className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[var(--bg-primary)] shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+        <div className="border-b border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.08),rgba(139,92,246,0.06),rgba(20,20,27,0.9))] p-5">
+          <div className="mb-3 flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+                <Brain size={12} /> Taste tuning
+              </div>
+              <h2 className="gk-title text-[var(--text-primary)]">
+                {step === 0 ? 'Accendi il tuo For You.' : `${currentSection?.label} · ${step}/${totalSteps}`}
               </h2>
-              <button onClick={onClose} className="ml-auto text-zinc-500 hover:text-white"><X size={18} /></button>
+              <p className="gk-caption mt-1">
+                {step === 0
+                  ? 'Scegli un preset o raffina manualmente i segnali che alimentano le raccomandazioni.'
+                  : currentSection?.desc}
+              </p>
             </div>
-            {step > 0 && (
+            <button onClick={onClose} className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--border)] bg-black/20 text-[var(--text-secondary)] hover:text-white">
+              <X size={17} />
+            </button>
+          </div>
+
+          {step > 0 && (
+            <div className="space-y-2">
               <div className="flex gap-1">
                 {sections.map((_, i) => (
-                  <div key={i} className={`h-1 rounded-full flex-1 transition-all ${i < step ? '' : 'bg-zinc-800'}`} style={i < step ? { background: 'var(--accent)' } : {}} />
+                  <div key={i} className="h-1 flex-1 rounded-full bg-black/30">
+                    <div className="h-full rounded-full transition-all" style={i < step ? { width: '100%', background: 'var(--accent)' } : { width: 0 }} />
+                  </div>
                 ))}
               </div>
-            )}
-          </div>
+              <p className="gk-mono text-[var(--text-muted)]">{selectedCount} segnali selezionati</p>
+            </div>
+          )}
         </div>
 
-        <div className="overflow-y-auto p-5 flex-1">
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">
           {step === 0 ? (
             <div>
-              <p className="text-sm text-zinc-400 mb-5">Scegli un profilo di partenza o configura tutto manualmente.</p>
-              <div className="grid grid-cols-1 gap-2 mb-6">
+              <div className="mb-5 grid grid-cols-1 gap-2">
                 {QUICK_PRESETS.map(preset => (
                   <button key={preset.label} onClick={() => applyPreset(preset)}
-                    className="flex items-center gap-3 px-4 py-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-zinc-600 rounded-2xl text-sm text-left transition-all">
-                    <span className="text-xl">{preset.label.split(' ')[0]}</span>
-                    <span className="font-medium text-zinc-200">{preset.label.split(' ').slice(1).join(' ')}</span>
-                    <ArrowRight size={14} className="ml-auto text-zinc-600" />
+                    className="group flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-left transition-all hover:border-[rgba(230,255,61,0.35)] hover:bg-[var(--bg-card-hover)]">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-[rgba(230,255,61,0.08)] text-[var(--accent)]">
+                      <Sparkles size={17} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-[var(--text-primary)]">{preset.label}</p>
+                      <p className="gk-caption truncate">{preset.eyebrow}</p>
+                    </div>
+                    <ArrowRight size={15} className="text-[var(--text-muted)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--accent)]" />
                   </button>
                 ))}
               </div>
-              <button onClick={() => setStep(1)} className="w-full py-3 text-sm text-zinc-500 hover:text-zinc-300 border border-zinc-800 rounded-2xl">
-                Configura manualmente →
+              <button onClick={() => setStep(1)} className="w-full rounded-2xl border border-[var(--border)] py-3 text-sm font-bold text-[var(--text-secondary)] transition-colors hover:border-[rgba(230,255,61,0.28)] hover:text-[var(--text-primary)]">
+                Configura manualmente
               </button>
             </div>
           ) : currentSection ? (
             <div>
-              <p className="text-xs text-zinc-500 mb-4">{currentSection.desc}</p>
               {currentSection.key === 'disliked_genres' && (
-                <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-4">
-                  <AlertCircle size={14} className="text-red-400 mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-red-300">Nasconderai tutti i contenuti di questi generi dai consigli.</p>
+                <div className="mb-4 flex items-start gap-2 rounded-2xl border border-red-500/20 bg-red-500/10 p-3">
+                  <AlertCircle size={14} className="mt-0.5 flex-shrink-0 text-red-400" />
+                  <p className="text-xs text-red-300">Questi generi non spariscono: vengono penalizzati, così evitiamo un For You troppo rigido.</p>
                 </div>
               )}
               <div className="flex flex-wrap gap-2">
@@ -172,12 +187,12 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
                   const sel = prefs[currentSection.key]?.includes(genre)
                   return (
                     <button key={genre} onClick={() => toggle(currentSection.key, genre)}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                      className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-all ${
                         sel
                           ? (currentSection.key === 'disliked_genres'
-                              ? 'bg-red-500/20 border-red-500/50 text-red-300'
+                              ? 'border-red-500/50 bg-red-500/20 text-red-300'
                               : '')
-                          : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                          : 'border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-[var(--border)] hover:text-[var(--text-primary)]'
                       }`}
                       style={sel && currentSection.key !== 'disliked_genres' ? { background: 'rgba(230,255,61,0.12)', borderColor: 'rgba(230,255,61,0.4)', color: 'var(--accent)' } : {}}>
                       {genre}
@@ -190,22 +205,22 @@ export function PreferencesModal({ onClose, onSaved }: { onClose: () => void; on
         </div>
 
         {step > 0 && (
-          <div className="p-5 border-t border-zinc-800 flex items-center gap-3">
+          <div className="flex items-center gap-3 border-t border-[var(--border)] p-5">
             <button onClick={() => setStep(s => Math.max(0, s - 1))}
-              className="px-4 py-2.5 text-sm text-zinc-400 hover:text-white border border-zinc-800 hover:border-zinc-600 rounded-2xl transition-all">
-              ← Indietro
+              className="rounded-2xl border border-[var(--border)] px-4 py-2.5 text-sm font-bold text-[var(--text-secondary)] transition-colors hover:text-white">
+              Indietro
             </button>
             {step < totalSteps ? (
               <button onClick={() => setStep(s => s + 1)}
-                className="flex-1 py-2.5 rounded-2xl text-sm font-semibold transition-all"
+                className="flex-1 rounded-2xl py-2.5 text-sm font-black transition-all"
                 style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
-                Avanti →
+                Avanti
               </button>
             ) : (
               <button onClick={save} disabled={saving}
-                className="flex-1 py-2.5 disabled:opacity-50 rounded-2xl text-sm font-semibold transition-all"
+                className="flex-1 rounded-2xl py-2.5 text-sm font-black transition-all disabled:opacity-50"
                 style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
-                {saving ? 'Salvo...' : fy.prefsSave}
+                {saving ? 'Salvo…' : fy.prefsSave}
               </button>
             )}
           </div>
