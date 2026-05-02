@@ -1,7 +1,6 @@
 'use client'
 
 import { ArrowUp, Sparkles, X } from 'lucide-react'
-import { CategorySelector } from '@/components/feed/CategoryControls'
 import { parseCategoryString } from '@/components/feed/CategoryBasics'
 import type { FeedFilter } from '@/components/feed/feedUtils'
 
@@ -85,9 +84,6 @@ export function NewPostsBanner({ count, onShow }: { count: number; onShow: () =>
 export function FeedFilterTabs({
   feedFilter,
   onFilterChange,
-  categoryFilter,
-  setCategoryFilter,
-  labels,
 }: {
   feedFilter: FeedFilter
   onFilterChange: (filter: FeedFilter) => void
@@ -103,7 +99,7 @@ export function FeedFilterTabs({
   ]
 
   return (
-    <div className="mb-0 mt-1 space-y-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/80 p-2 ring-1 ring-white/5" data-no-swipe="true" data-interactive="true">
+    <div className="mb-2 mt-1 rounded-[24px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/72 p-2 ring-1 ring-white/5" data-no-swipe="true" data-interactive="true">
       <div className="grid grid-cols-4 gap-1">
         {primaryFilters.map(filter => (
           <button
@@ -112,17 +108,12 @@ export function FeedFilterTabs({
             data-testid={`filter-${filter.id}`}
             data-no-swipe="true"
             onClick={() => onFilterChange(filter.id)}
-            className="relative min-h-11 rounded-xl px-1 py-2 text-[11px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 sm:text-[12px]"
+            className="relative min-h-11 rounded-2xl px-1 py-2 text-[11px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 sm:text-[12px]"
             style={feedFilter === filter.id ? { background: 'rgba(230,255,61,0.09)', color: 'var(--accent)' } : { color: 'var(--text-muted)' }}
           >
             {filter.label}
           </button>
         ))}
-      </div>
-
-      <div className="flex items-center justify-between gap-3 border-t border-[var(--border-soft)] pt-2">
-        <p className="gk-label text-[var(--text-muted)]">Categoria libera</p>
-        <CategorySelector value={categoryFilter} onChange={setCategoryFilter} />
       </div>
     </div>
   )
@@ -146,16 +137,8 @@ export function MediumTypeChipRow({
   ]
 
   return (
-    <div className="-mx-4 border-b border-[var(--border-subtle)] px-4 pb-3 pt-3" data-no-swipe="true">
-      <div className="mb-2 flex items-center justify-between">
-        <p className="gk-label">Tipo media</p>
-        {categoryFilter && (
-          <button type="button" onClick={() => setCategoryFilter('')} data-no-swipe="true" className="gk-mono rounded-lg px-1 text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35">
-            reset
-          </button>
-        )}
-      </div>
-      <div className="flex gap-2 overflow-x-auto overscroll-x-contain scrollbar-hide" data-no-swipe="true" data-horizontal-scroll="true">
+    <div className="border-b border-[var(--border-subtle)] pb-3 pt-2" data-no-swipe="true">
+      <div className="flex gap-2 overflow-x-auto overscroll-x-contain scrollbar-hide" data-no-swipe="true" data-horizontal-scroll="true" aria-label="Filtri tipo media Home">
         {chips.map(chip => {
           const parsedActive = parseCategoryString(categoryFilter)
           const isActive = chip.value === '' ? categoryFilter === '' : parsedActive?.category === chip.value
