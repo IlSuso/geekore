@@ -2,66 +2,67 @@
 // src/app/trending/TrendingCard.tsx
 // Client Component — necessario per onError handler sulle immagini
 
-import { Film, Gamepad2, Tv, Trophy, Star, Users, Layers } from 'lucide-react'
+import { Film, Gamepad2, Tv, Medal, Star, Users, Layers, Dice5 } from 'lucide-react'
 import type { TrendingItem } from './page'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 
 const TYPE_ICON: Record<string, React.ElementType> = {
-  anime: Film, manga: Layers, game: Gamepad2,
-  tv: Tv, movie: Film,
+  anime: Film,
+  manga: Layers,
+  game: Gamepad2,
+  tv: Tv,
+  movie: Film,
+  boardgame: Dice5,
 }
 
 export function TrendingCard({ item, rank }: { item: TrendingItem; rank: number }) {
   const Icon = TYPE_ICON[item.type] || Film
-  const medalColor = rank === 0 ? 'text-yellow-400' : rank === 1 ? 'text-zinc-300' : rank === 2 ? 'text-amber-600' : null
+  const medalClass = rank === 0 ? 'text-yellow-300' : rank === 1 ? 'text-zinc-300' : rank === 2 ? 'text-amber-600' : 'text-[var(--text-muted)]'
 
   return (
-    <div className="flex items-center gap-4 p-4 bg-zinc-900 border border-zinc-800 rounded-2xl hover:border-zinc-700 transition-colors">
-      {/* Rank */}
-      <div className="w-8 text-center flex-shrink-0">
-        {medalColor ? (
-          <Trophy size={18} className={medalColor} />
-        ) : (
-          <span className="text-sm font-bold text-zinc-600">#{rank + 1}</span>
-        )}
+    <div className="group flex items-center gap-3 rounded-[20px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-2.5 transition-all hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)]">
+      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl bg-[var(--bg-secondary)] ring-1 ring-white/5">
+        {rank < 3
+          ? <Medal size={18} className={medalClass} />
+          : <span className="font-mono-data text-xs font-black text-[var(--text-muted)]">#{rank + 1}</span>}
       </div>
 
-      {/* Cover */}
-      <div className="w-12 h-16 bg-zinc-800 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center">
+      <div className="h-[72px] w-12 flex-shrink-0 overflow-hidden rounded-2xl bg-[var(--bg-secondary)] ring-1 ring-white/5">
         {item.cover_image ? (
           <img
             src={item.cover_image}
             alt={item.title}
-            className="w-full h-full object-cover"
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
             loading={rank < 8 ? 'eager' : 'lazy'}
             fetchPriority={rank < 4 ? 'high' : 'auto'}
-            onError={(e) => {
-              e.currentTarget.style.display = 'none'
-            }}
+            onError={(e) => { e.currentTarget.style.display = 'none' }}
           />
         ) : (
-          <Icon size={20} className="text-zinc-600" />
+          <div className="flex h-full w-full items-center justify-center">
+            <Icon size={20} className="text-[var(--text-muted)]" />
+          </div>
         )}
       </div>
 
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold text-white text-sm leading-tight truncate">{item.title}</p>
-        <div className="flex items-center gap-2 mt-1">
+      <div className="min-w-0 flex-1">
+        <div className="mb-1.5 flex items-center gap-2">
           <MediaTypeBadge type={item.type} size="xs" />
         </div>
+        <p className="line-clamp-1 text-[14px] font-bold leading-tight text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent)]">
+          {item.title}
+        </p>
+        <p className="gk-mono mt-1 text-[var(--text-muted)]">community signal</p>
       </div>
 
-      {/* Stats */}
-      <div className="text-right flex-shrink-0 space-y-1">
-        <div className="flex items-center gap-1 justify-end text-emerald-400">
+      <div className="flex flex-shrink-0 flex-col items-end gap-1.5">
+        <div className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-emerald-300">
           <Users size={11} />
-          <span className="text-xs font-bold">{item.count}</span>
+          <span className="font-mono-data text-[11px] font-black">{item.count}</span>
         </div>
         {item.avg_rating != null && (
-          <div className="flex items-center gap-1 justify-end text-yellow-400">
+          <div className="inline-flex items-center gap-1 rounded-full border border-yellow-500/20 bg-yellow-500/10 px-2 py-1 text-yellow-300">
             <Star size={11} fill="currentColor" />
-            <span className="text-xs font-bold">{item.avg_rating.toFixed(1)}</span>
+            <span className="font-mono-data text-[11px] font-black">{item.avg_rating.toFixed(1)}</span>
           </div>
         )}
       </div>
