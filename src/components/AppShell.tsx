@@ -2,7 +2,7 @@
 // src/components/AppShell.tsx
 // Wrapper che decide quando montare SwipeablePageContainer + KeepAliveTabShell.
 // Il sistema keep-alive deve esistere SOLO sulle route-tab principali.
-// Visione visiva: Swipe non è più una tab primaria, resta una modalità di For You.
+// Visione visiva: Swipe non è più una tab primaria, resta una modalità immersiva di For You.
 
 import { usePathname } from 'next/navigation'
 import { SwipeablePageContainer } from '@/components/SwipeablePageContainer'
@@ -10,7 +10,7 @@ import { KeepAliveTabShell } from '@/components/KeepAliveTabShell'
 import { MainShell } from '@/components/MainShell'
 import type { ReactNode } from 'react'
 
-const BYPASS_ROUTES = ['/', '/login', '/register', '/forgot-password', '/onboarding']
+const BYPASS_ROUTES = ['/', '/login', '/register', '/forgot-password', '/onboarding', '/swipe']
 const KEEP_ALIVE_TAB_ROUTES = new Set(['/home', '/for-you', '/library', '/discover', '/friends', '/community'])
 
 function isBypassRoute(pathname: string): boolean {
@@ -28,11 +28,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   if (isBypassRoute(pathname)) {
     return <>{children}</>
-  }
-
-  // /swipe remains a full-screen child mode launched from For You, not a primary tab.
-  if (pathname === '/swipe') {
-    return <MainShell>{children}</MainShell>
   }
 
   if (!isKeepAliveTabRoute(pathname)) {
