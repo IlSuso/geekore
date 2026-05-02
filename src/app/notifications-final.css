@@ -1,0 +1,73 @@
+/* Geekore — Fase 16.8: Notifications check finale */
+
+.gk-notifications-page .gk-page-density {
+  width: 100%;
+}
+
+.gk-notifications-page [data-notif-id] {
+  min-height: 68px;
+  scroll-margin-top: 92px;
+}
+
+.gk-notifications-page [data-notif-id] a {
+  text-decoration: none;
+}
+
+.gk-notifications-page [data-notif-id] p:last-child {
+  letter-spacing: 0.08em;
+}
+
+.gk-notifications-page [data-notif-id] > span:first-child {
+  width: 6px;
+  height: 6px;
+}
+
+.gk-notifications-page button {
+  min-height: 44px;
+}
+
+@media (min-width: 768px) {
+  .gk-notifications-page .gk-page-density {
+    padding-top: 28px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .gk-notifications-page .gk-page-density {
+    max-width: min(880px, calc(100vw - var(--gk-sidebar-w) - 96px)) !important;
+  }
+
+  .gk-notifications-page .gk-page-density > div:nth-child(3) {
+    position: sticky;
+    top: 18px;
+    z-index: 18;
+    border-radius: 24px;
+    background: rgba(11, 11, 15, 0.84);
+    backdrop-filter: blur(20px) saturate(160%);
+  }
+}
+
+@media (min-width: 1280px) {
+  .gk-notifications-page .gk-page-density {
+    max-width: 920px !important;
+  }
+}
+
+/* Mobile drawer notifiche: il componente è già bottom sheet 60%, qui si consolidano misure e safe-area. */
+div[role='dialog'][aria-modal='true'][aria-label='Notifiche'] {
+  border-color: rgba(230, 255, 61, 0.16) !important;
+}
+
+@media (max-width: 767px) {
+  div[role='dialog'][aria-modal='true'][aria-label='Notifiche'] {
+    height: 60dvh !important;
+    min-height: 420px;
+    max-height: 640px;
+    border-radius: 28px 28px 0 0 !important;
+  }
+
+  div[role='dialog'][aria-modal='true'][aria-label='Notifiche'] > div:first-child button:first-child {
+    width: 36px;
+    height: 6px;
+  }
+}
