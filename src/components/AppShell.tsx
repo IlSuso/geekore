@@ -10,6 +10,7 @@ import { MainShell } from '@/components/MainShell'
 import type { ReactNode } from 'react'
 
 const BYPASS_ROUTES = ['/', '/login', '/register', '/forgot-password', '/onboarding']
+const KEEP_ALIVE_TAB_ROUTES = new Set(['/home', '/for-you', '/swipe', '/library', '/discover', '/friends', '/community'])
 
 function isBypassRoute(pathname: string): boolean {
   if (BYPASS_ROUTES.includes(pathname)) return true
@@ -18,13 +19,7 @@ function isBypassRoute(pathname: string): boolean {
 }
 
 function isKeepAliveTabRoute(pathname: string): boolean {
-  return (
-    pathname === '/home' ||
-    pathname === '/for-you' ||
-    pathname === '/library' ||
-    pathname === '/discover' ||
-    pathname === '/friends'
-  )
+  return KEEP_ALIVE_TAB_ROUTES.has(pathname)
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
