@@ -52,7 +52,6 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
 
   const maxScore = tasteProfile.globalGenres[0]?.score || 1
   const binge = tasteProfile.bingeProfile
-  // Deduplica per genere — evita chiavi React duplicate se globalGenres ha lo stesso genere più volte
   const seenGenres = new Set<string>()
   const top5 = tasteProfile.globalGenres.filter(g => {
     if (seenGenres.has(g.genre)) return false
@@ -73,62 +72,53 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
      (tasteProfile.creatorScores.topDirectors?.length ?? 0) > 0)
   const hasStyle = topTones.length > 0 || topSettings.length > 0
 
-  // Colori solidi per la barra DNA (gradient non funziona su flex segment)
-  const BAR_COLORS = [
-    '#E6FF3D', // accent
-    '#0ea5e9', // sky-500
-    '#10b981', // emerald-500
-    '#f59e0b', // amber-500
-    '#f43f5e', // rose-500
-  ]
+  const BAR_COLORS = ['#E6FF3D', '#38BDF8', '#4ADE80', '#FB923C', '#F97066']
 
   return (
-    <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl overflow-hidden mb-8">
-      {/* Header — uguale aperto e chiuso */}
-      <button onClick={() => setOpen(v => !v)} className="w-full px-5 pt-5 pb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'var(--accent)' }}>
-            <Brain size={17} className="text-black" />
-          </div>
-          <div className="text-left">
-            <p className="text-sm font-bold text-white">Il tuo DNA Geekore</p>
-            <p className="text-xs text-zinc-500">
-              {totalEntries} titoli · finestra {tasteProfile.recentWindow || 6} mesi
+    <div className="mb-8 overflow-hidden rounded-[28px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(230,255,61,0.09),rgba(139,92,246,0.07),rgba(20,20,27,0.88))] shadow-[0_18px_60px_rgba(0,0,0,0.28)]">
+      <button onClick={() => setOpen(v => !v)} className="w-full px-5 pb-4 pt-5 text-left">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+              <Brain size={12} /> Taste DNA
+            </div>
+            <h2 className="gk-title mb-1 text-[var(--text-primary)]">Il tuo algoritmo parte da qui.</h2>
+            <p className="gk-caption">
+              {totalEntries} titoli · ultimi {tasteProfile.recentWindow || 6} mesi
               {binge?.isBinger && (
                 <span className="ml-2 inline-flex items-center gap-0.5 text-orange-400">
-                  <Flame size={10} className="inline" />binge
+                  <Flame size={10} className="inline" />binge mode
                 </span>
               )}
             </p>
           </div>
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-[var(--accent)] text-[#0B0B0F] shadow-[0_0_32px_rgba(230,255,61,0.25)]">
+            {open ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </div>
         </div>
-        {open ? <ChevronUp size={16} className="text-zinc-500 flex-shrink-0" /> : <ChevronDown size={16} className="text-zinc-500 flex-shrink-0" />}
       </button>
 
-      {/* Collapsed: barra DNA + etichette generi */}
       {!open && top5.length > 0 && (
         <div className="px-5 pb-5">
-          {/* Barra proporzionale multi-colore */}
-          <div className="flex h-2 rounded-full overflow-hidden gap-px mb-3">
+          <div className="mb-3 flex h-2.5 overflow-hidden rounded-full bg-black/30 ring-1 ring-white/5">
             {top5.map(({ genre, score }, i) => (
               <div
                 key={`bar-${genre}-${i}`}
                 className="h-full flex-shrink-0"
                 style={{
-                  width: `${Math.round((score / top5Total) * 100)}%`,
+                  width: `${Math.max(7, Math.round((score / top5Total) * 100))}%`,
                   backgroundColor: BAR_COLORS[i],
-                  opacity: 1 - i * 0.1,
+                  opacity: 1 - i * 0.08,
                 }}
               />
             ))}
           </div>
-          {/* Legenda generi */}
           <div className="flex flex-wrap gap-x-4 gap-y-1.5">
             {top5.map(({ genre, score }, i) => (
-              <div key={`legend-${genre}-${i}`} className="flex items-center gap-1.5 min-w-0">
-                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: BAR_COLORS[i] }} />
-                <span className="text-xs text-zinc-300 truncate max-w-[90px]">{genre}</span>
-                <span className="text-[10px] text-zinc-600 font-semibold flex-shrink-0">
+              <div key={`legend-${genre}-${i}`} className="flex min-w-0 items-center gap-1.5">
+                <div className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: BAR_COLORS[i] }} />
+                <span className="truncate text-xs font-semibold text-zinc-200 max-w-[90px]">{genre}</span>
+                <span className="font-mono-data text-[10px] font-bold text-zinc-500">
                   {Math.round((score / maxScore) * 100)}%
                 </span>
               </div>
@@ -137,27 +127,22 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
         </div>
       )}
 
-      {/* Expanded */}
       {open && (
-        <div className="px-5 pb-5 space-y-6">
-          {/* Generi dominanti */}
+        <div className="space-y-6 border-t border-[rgba(255,255,255,0.06)] px-5 pb-5 pt-5">
           {tasteProfile.globalGenres.length > 0 && (
             <div>
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Generi dominanti</p>
+              <p className="gk-label mb-3">Generi dominanti</p>
               <div className="space-y-2.5">
                 {tasteProfile.globalGenres.slice(0, 6).map(({ genre, score }, i) => {
                   const pct = Math.round((score / maxScore) * 100)
                   const barColor = BAR_COLORS[i % BAR_COLORS.length]
                   return (
                     <div key={`global-${genre}-${i}`} className="flex items-center gap-3">
-                      <span className="text-xs text-zinc-300 w-28 truncate font-medium">{genre}</span>
-                      <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full"
-                          style={{ width: `${pct}%`, backgroundColor: barColor }}
-                        />
+                      <span className="w-28 truncate text-xs font-semibold text-zinc-300">{genre}</span>
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-black/30">
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: barColor }} />
                       </div>
-                      <span className="text-[10px] text-zinc-400 w-8 text-right font-bold">{pct}%</span>
+                      <span className="font-mono-data w-8 text-right text-[10px] font-bold text-zinc-400">{pct}%</span>
                     </div>
                   )
                 })}
@@ -165,18 +150,17 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
             </div>
           )}
 
-          {/* Creator amati */}
           {hasCreators && (
             <div>
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Creator amati</p>
+              <p className="gk-label mb-3">Creator amati</p>
               <div className="flex flex-wrap gap-2">
                 {(tasteProfile.creatorScores?.topStudios ?? []).slice(0, 4).map((s, i) => (
-                  <span key={`studio-${s.name}-${i}`} className="flex items-center gap-1.5 text-xs bg-sky-500/10 text-sky-300 px-2.5 py-1 rounded-xl border border-sky-500/20">
+                  <span key={`studio-${s.name}-${i}`} className="flex items-center gap-1.5 rounded-xl border border-sky-500/20 bg-sky-500/10 px-2.5 py-1 text-xs text-sky-300">
                     <Clapperboard size={10} />{s.name}
                   </span>
                 ))}
                 {(tasteProfile.creatorScores?.topDirectors ?? []).slice(0, 3).map((d, i) => (
-                  <span key={`director-${d.name}-${i}`} className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-xl" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)', color: 'rgba(230,255,61,0.85)' }}>
+                  <span key={`director-${d.name}-${i}`} className="flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)', color: 'rgba(230,255,61,0.85)' }}>
                     <User size={10} />{d.name}
                   </span>
                 ))}
@@ -184,27 +168,26 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
             </div>
           )}
 
-          {/* Stile personale */}
           {hasStyle && (
             <div>
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Toni e ambientazioni</p>
+              <p className="gk-label mb-3">Toni e ambientazioni</p>
               <div className="grid grid-cols-2 gap-4">
                 {topTones.length > 0 && (
                   <div>
-                    <p className="text-[10px] text-zinc-600 mb-2">Toni preferiti</p>
+                    <p className="mb-2 text-[10px] text-zinc-500">Toni preferiti</p>
                     <div className="flex flex-wrap gap-1.5">
                       {topTones.map((t, i) => (
-                        <span key={`tone-${t}-${i}`} className="text-[10px] px-2 py-0.5 rounded-full capitalize" style={{ background: 'rgba(230,255,61,0.08)', color: 'var(--accent)', border: '1px solid rgba(230,255,61,0.15)' }}>{t}</span>
+                        <span key={`tone-${t}-${i}`} className="rounded-full px-2 py-0.5 text-[10px] capitalize" style={{ background: 'rgba(230,255,61,0.08)', color: 'var(--accent)', border: '1px solid rgba(230,255,61,0.15)' }}>{t}</span>
                       ))}
                     </div>
                   </div>
                 )}
                 {topSettings.length > 0 && (
                   <div>
-                    <p className="text-[10px] text-zinc-600 mb-2">Setting amati</p>
+                    <p className="mb-2 text-[10px] text-zinc-500">Setting amati</p>
                     <div className="flex flex-wrap gap-1.5">
                       {topSettings.map((s, i) => (
-                        <span key={`setting-${s}-${i}`} className="text-[10px] px-2 py-0.5 rounded-full capitalize" style={{ background: 'rgba(230,255,61,0.06)', color: 'rgba(230,255,61,0.7)', border: '1px solid rgba(230,255,61,0.12)' }}>{s}</span>
+                        <span key={`setting-${s}-${i}`} className="rounded-full px-2 py-0.5 text-[10px] capitalize" style={{ background: 'rgba(230,255,61,0.06)', color: 'rgba(230,255,61,0.7)', border: '1px solid rgba(230,255,61,0.12)' }}>{s}</span>
                       ))}
                     </div>
                   </div>
@@ -213,29 +196,28 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
             </div>
           )}
 
-          {/* Ritmo di consumo */}
           {binge && (bingeGenres.length > 0 || slowGenres.length > 0) && (
             <div>
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Il tuo ritmo</p>
+              <p className="gk-label mb-3">Il tuo ritmo</p>
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-zinc-800/50 rounded-2xl p-3">
-                  <p className="text-[10px] text-zinc-500 mb-2 flex items-center gap-1">
+                <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/5">
+                  <p className="mb-2 flex items-center gap-1 text-[10px] text-zinc-500">
                     <Flame size={10} className="text-orange-400" />Binge watch
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {bingeGenres.slice(0, 3).map((g, i) => (
-                      <span key={`binge-${g}-${i}`} className="text-[10px] bg-orange-500/15 text-orange-300 px-1.5 py-0.5 rounded-full capitalize">{g}</span>
+                      <span key={`binge-${g}-${i}`} className="rounded-full bg-orange-500/15 px-1.5 py-0.5 text-[10px] capitalize text-orange-300">{g}</span>
                     ))}
                     {bingeGenres.length === 0 && <span className="text-[10px] text-zinc-700">—</span>}
                   </div>
                 </div>
-                <div className="bg-zinc-800/50 rounded-2xl p-3">
-                  <p className="text-[10px] text-zinc-500 mb-2 flex items-center gap-1">
+                <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/5">
+                  <p className="mb-2 flex items-center gap-1 text-[10px] text-zinc-500">
                     <Sparkles size={10} style={{ color: 'var(--accent)' }} />Gusto raffinato
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {slowGenres.slice(0, 3).map((g, i) => (
-                      <span key={`slow-${g}-${i}`} className="text-[10px] px-1.5 py-0.5 rounded-full capitalize" style={{ background: 'rgba(230,255,61,0.1)', color: 'rgba(230,255,61,0.8)' }}>{g}</span>
+                      <span key={`slow-${g}-${i}`} className="rounded-full px-1.5 py-0.5 text-[10px] capitalize" style={{ background: 'rgba(230,255,61,0.1)', color: 'rgba(230,255,61,0.8)' }}>{g}</span>
                     ))}
                     {slowGenres.length === 0 && <span className="text-[10px] text-zinc-700">—</span>}
                   </div>
@@ -244,43 +226,36 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
             </div>
           )}
 
-          {/* Generi cercati di recente */}
           {searchIntentGenres.length > 0 && (
             <div>
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                <Search size={9} />Cerchi spesso
-              </p>
-              <p className="text-[10px] text-zinc-700 mb-2">Generi che hai cercato di recente — li priorizziamo nei consigli</p>
+              <p className="gk-label mb-2 flex items-center gap-1.5"><Search size={9} />Cerchi spesso</p>
+              <p className="mb-2 text-[10px] text-zinc-600">Generi cercati di recente: li usiamo per dare priorità ai consigli.</p>
               <div className="flex flex-wrap gap-1.5">
                 {searchIntentGenres.map((g, i) => (
-                  <span key={`search-intent-${g}-${i}`} className="text-[10px] bg-amber-500/10 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/15">{g}</span>
+                  <span key={`search-intent-${g}-${i}`} className="rounded-full border border-amber-500/15 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">{g}</span>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Generi dalla wishlist */}
           {wishlistGenres.length > 0 && (
             <div>
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                <Bookmark size={9} />Dalla wishlist
-              </p>
-              <p className="text-[10px] text-zinc-700 mb-2">Generi dei titoli nella tua wishlist — influenzano i consigli</p>
+              <p className="gk-label mb-2 flex items-center gap-1.5"><Bookmark size={9} />Dalla wishlist</p>
+              <p className="mb-2 text-[10px] text-zinc-600">Generi dei titoli salvati: influenzano i consigli.</p>
               <div className="flex flex-wrap gap-1.5">
                 {wishlistGenres.slice(0, 5).map((g, i) => (
-                  <span key={`wishlist-${g}-${i}`} className="text-[10px] bg-emerald-500/10 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/15">{g}</span>
+                  <span key={`wishlist-${g}-${i}`} className="rounded-full border border-emerald-500/15 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">{g}</span>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Generi da esplorare */}
           {discoveryGenres.length > 0 && (
             <div>
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Generi da esplorare</p>
+              <p className="gk-label mb-2">Generi da esplorare</p>
               <div className="flex flex-wrap gap-1.5">
                 {discoveryGenres.map((g, i) => (
-                  <span key={`discovery-${g}-${i}`} className="text-[10px] bg-teal-500/10 text-teal-300 px-2 py-0.5 rounded-full border border-teal-500/15">{g}</span>
+                  <span key={`discovery-${g}-${i}`} className="rounded-full border border-teal-500/15 bg-teal-500/10 px-2 py-0.5 text-[10px] text-teal-300">{g}</span>
                 ))}
               </div>
             </div>
