@@ -18,9 +18,9 @@ export async function POST(request: NextRequest) {
   let body: any
   try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
 
-  const targetType = typeof body?.target_type === 'string' ? body.target_type : ''
-  const targetId = typeof body?.target_id === 'string' ? body.target_id : ''
-  const reason = typeof body?.reason === 'string' ? body.reason : ''
+  const targetType = typeof body?.target_type === 'string' ? body.target_type.trim() : ''
+  const targetId = typeof body?.target_id === 'string' ? body.target_id.trim().slice(0, 200) : ''
+  const reason = typeof body?.reason === 'string' ? body.reason.trim() : ''
   const notes = typeof body?.notes === 'string' ? body.notes.trim().slice(0, 300) : ''
 
   if (!TARGET_TYPES.has(targetType)) return NextResponse.json({ error: 'target_type non valido' }, { status: 400, headers: rl.headers })
