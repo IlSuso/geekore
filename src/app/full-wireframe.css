@@ -1,0 +1,129 @@
+/* Geekore — Fase 16: riallineamento full.html / shell globale */
+
+:root {
+  --gk-sidebar-w: 240px;
+  --gk-right-rail-w: 280px;
+  --gk-mobile-header-h: 52px;
+  --gk-mobile-nav-h: 58px;
+  --gk-page-max: 1280px;
+  --gk-page-gutter: 16px;
+}
+
+.gk-app-main {
+  min-height: 100dvh;
+  background: var(--bg-primary);
+}
+
+.gk-page-shell {
+  min-height: 100dvh;
+  padding-top: calc(var(--gk-mobile-header-h) + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(var(--gk-mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 18px);
+}
+
+@media (min-width: 768px) {
+  .gk-app-main {
+    padding-left: var(--gk-sidebar-w);
+  }
+
+  .gk-page-shell {
+    padding-top: 0;
+    padding-bottom: 32px;
+  }
+}
+
+.gk-page-density,
+.gk-page-shell > * {
+  min-width: 0;
+}
+
+/* Pagine senza right rail nel full.html: devono usare tutto il content desktop. */
+.gk-discover-page,
+.gk-for-you-page,
+.gk-profile-page,
+.gk-onboarding-page,
+.gk-swipe-immersive {
+  width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .gk-discover-page > div.mx-auto,
+  .gk-profile-page .gk-page-density,
+  .gk-for-you-page > div.mx-auto {
+    max-width: none !important;
+  }
+
+  .gk-discover-page > div.mx-auto {
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .gk-discover-page > div.mx-auto,
+  .gk-profile-page .gk-page-density,
+  .gk-for-you-page > div.mx-auto {
+    padding-left: 40px;
+    padding-right: 40px;
+  }
+}
+
+/* Home resta unica pagina dashboard 3-col: sidebar app + feed + right rail. */
+.gk-home-layout {
+  --gk-home-rail: var(--gk-right-rail-w);
+}
+
+@media (min-width: 1280px) {
+  .gk-home-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--gk-home-rail);
+    gap: 24px;
+    align-items: start;
+  }
+}
+
+/* Library e Friends: più larghe su desktop come full.html, ma senza right rail. */
+@media (min-width: 1280px) {
+  .gk-library-page .gk-page-density,
+  .gk-friends-page .gk-page-density,
+  .gk-notifications-page .gk-page-density {
+    max-width: 1120px;
+  }
+}
+
+/* Mobile target 360×720: evitare doppio padding verticale quando header/bottom nav sono presenti. */
+@media (max-width: 767px) {
+  .gk-discover-page,
+  .gk-for-you-page,
+  .gk-profile-page {
+    padding-bottom: calc(var(--gk-mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 24px);
+  }
+
+  .gk-page-shell [data-auth='true'],
+  .gk-page-shell .gk-auth-page,
+  .gk-page-shell .gk-onboarding-page,
+  .gk-page-shell .gk-swipe-immersive {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+
+/* Desktop grid density suggerita dal full wireframe. */
+@media (min-width: 1280px) {
+  .gk-discover-page .xl\:grid-cols-7,
+  .gk-library-page .xl\:grid-cols-7,
+  .gk-profile-page .xl\:grid-cols-8 {
+    gap: 14px;
+  }
+}
+
+/* `/swipe` rimane immersiva: mai padding di shell, mai sidebar. */
+.gk-swipe-immersive {
+  margin-left: 0 !important;
+  padding: 0 !important;
+}
+
+body:has(.gk-swipe-immersive) .mobile-nav,
+body:has(.gk-swipe-immersive) aside[data-no-swipe='true'],
+body:has(.gk-swipe-immersive) .gk-mobile-header {
+  display: none !important;
+}
