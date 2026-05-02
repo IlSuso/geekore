@@ -17,15 +17,34 @@ const VEL_THRESHOLD = 0.5
 const MIN_DIST_VEL = 30
 const EDGE = 20
 
+const INTERACTIVE_ROLES = new Set([
+  'button', 'link', 'checkbox', 'switch', 'tab', 'radio', 'menuitem',
+  'option', 'slider', 'spinbutton', 'textbox', 'combobox', 'searchbox',
+])
+
+const INTERACTIVE_SELECTOR = [
+  'a[href]', 'button', 'input', 'textarea', 'select', 'label', 'summary',
+  '[contenteditable="true"]', '[role="button"]', '[role="link"]',
+  '[role="checkbox"]', '[role="switch"]', '[role="tab"]', '[role="radio"]',
+  '[role="slider"]', '[role="spinbutton"]', '[role="textbox"]', '[role="combobox"]',
+  '[data-no-swipe="true"]', '[data-interactive="true"]', '[data-drawer="true"]',
+  '[data-modal="true"]', '[aria-modal="true"]', '[aria-disabled="true"]',
+].join(',')
+
 function isInteractiveTarget(target: EventTarget | null): boolean {
   let node = target as HTMLElement | null
   while (node && node.tagName !== 'BODY') {
     const tag = node.tagName.toLowerCase()
+    const role = node.getAttribute('role')
     if (
-      tag === 'a' || tag === 'button' || tag === 'input' || tag === 'textarea' ||
-      tag === 'select' || tag === 'label' || node.isContentEditable ||
-      node.dataset?.noSwipe === 'true' || node.dataset?.interactive === 'true' ||
-      node.getAttribute('role') === 'button' || node.getAttribute('role') === 'link'
+      node.matches?.(INTERACTIVE_SELECTOR) ||
+      INTERACTIVE_ROLES.has(role || '') ||
+      tag === 'form' || tag === 'fieldset' || tag === 'dialog' ||
+      node.isContentEditable ||
+      node.dataset?.noSwipe === 'true' ||
+      node.dataset?.interactive === 'true' ||
+      node.dataset?.drawer === 'true' ||
+      node.dataset?.modal === 'true'
     ) {
       return true
     }
@@ -34,17 +53,32 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
   return false
 }
 
+function isScrollableOnAxis(node: HTMLElement, axis: 'x' | 'y'): boolean {
+  const style = window.getComputedStyle(node)
+  const overflow = axis === 'x' ? style.overflowX : style.overflowY
+  if (!(overflow === 'auto' || overflow === 'scroll')) return false
+  return axis === 'x' ? node.scrollWidth > node.clientWidth : node.scrollHeight > node.clientHeight
+}
+
 function isHorizontalScroller(target: EventTarget | null, dx: number): boolean {
   let node = target as HTMLElement | null
   while (node && node.tagName !== 'BODY') {
     if (node.dataset && 'noSwipe' in node.dataset) return true
-    const ox = window.getComputedStyle(node).overflowX
-    if ((ox === 'auto' || ox === 'scroll') && node.scrollWidth > node.clientWidth) {
+    if (node.dataset?.horizontalScroll === 'true') return true
+
+    if (isScrollableOnAxis(node, 'x')) {
       const { scrollLeft, scrollWidth, clientWidth } = node
       const atStart = scrollLeft <= 0
       const atEnd = scrollLeft + clientWidth >= scrollWidth - 1
       if (dx > 0 ? !atStart : !atEnd) return true
     }
+
+    // Se un blocco scrolla verticalmente ed è dentro un dialog/drawer, lasciamo
+    // priorità allo scroll interno: evita swipe accidentali mentre si legge o si compila.
+    if (isScrollableOnAxis(node, 'y') && (node.closest('[role="dialog"], [aria-modal="true"], [data-drawer="true"], [data-modal="true"]'))) {
+      return true
+    }
+
     node = node.parentElement
   }
   return false
@@ -112,8 +146,9 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
         return memo
       }
 
+      const target = event?.target ?? null
+
       if (first) {
-        const target = event?.target ?? null
         const w = window.innerWidth
         if (x <= EDGE || x >= w - EDGE || isInteractiveTarget(target)) {
           cancel()
@@ -137,7 +172,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
       }
       if (memoState.locked === 'y') return memoState
 
-      if (!gestureState.pageSwipeZone && isHorizontalScroller(event?.target ?? null, mx)) {
+      if (!gestureState.pageSwipeZone && (isHorizontalScroller(target, mx) || isInteractiveTarget(target))) {
         cancel()
         return memoState
       }
