@@ -3,17 +3,19 @@ import { Plus_Jakarta_Sans, Space_Grotesk, JetBrains_Mono } from 'next/font/goog
 import './globals.css'
 import Navbar from '@/components/Navbar'
 
+// Manteniamo next/font come fallback self-hosted e usiamo i link nel <head>
+// per caricare la direzione visiva del documento: Cabinet + Switzer + JetBrains.
 const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
-  variable: '--font-body',
+  variable: '--font-body-fallback',
   display: 'swap',
 })
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
   weight: ['500', '600', '700'],
-  variable: '--font-display',
+  variable: '--font-display-fallback',
   display: 'swap',
 })
 
@@ -74,6 +76,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="it">
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@500;700;800;900&family=Switzer:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+          rel="stylesheet"
+        />
         <meta name="view-transition" content="same-origin" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
