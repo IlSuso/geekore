@@ -4,6 +4,19 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { Mail, Zap, CheckCircle } from 'lucide-react'
+import { PrimitiveButton } from '@/components/ui/PrimitiveButton'
+import { PrimitiveInput } from '@/components/ui/PrimitiveInput'
+
+function AuthWordmark() {
+  return (
+    <Link href="/" className="inline-flex items-center gap-2 text-[var(--text-primary)]" aria-label="Geekore home">
+      <span className="grid h-7 w-7 place-items-center rounded-[9px] bg-[var(--accent)] text-sm font-black text-[#0B0B0F]">
+        <Zap size={15} fill="currentColor" />
+      </span>
+      <span className="font-display text-[22px] font-black tracking-[-0.03em]">geekore</span>
+    </Link>
+  )
+}
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -29,77 +42,75 @@ export default function ForgotPasswordPage() {
 
   if (sent) {
     return (
-      <div className="gk-auth-page min-h-screen bg-[var(--bg-primary)] flex items-center justify-center px-6">
-        <div className="w-full max-w-md text-center">
-          <div className="w-20 h-20 bg-emerald-500/10 border border-emerald-500/30 rounded-3xl flex items-center justify-center mx-auto mb-6">
-            <CheckCircle size={36} className="text-emerald-400" />
+      <main data-auth className="gk-auth-page min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
+        <header className="flex h-[52px] items-center justify-between px-[14px] md:px-8">
+          <AuthWordmark />
+        </header>
+
+        <section className="flex min-h-[calc(100vh-52px)] items-start justify-center px-[14px] pb-10 pt-6 md:items-center md:pt-0">
+          <div className="w-full max-w-[420px] rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-[22px] text-center">
+            <div className="mx-auto mb-6 grid h-20 w-20 place-items-center rounded-3xl border border-emerald-400/30 bg-emerald-400/10">
+              <CheckCircle size={36} className="text-emerald-400" />
+            </div>
+            <h1 className="gk-h1 mb-3">Email inviata!</h1>
+            <p className="gk-body mb-2">Abbiamo inviato un link per reimpostare la password a</p>
+            <p className="gk-body-strong mb-6 text-[var(--text-primary)]">{email}</p>
+            <p className="gk-caption mb-8">Controlla anche la cartella spam. Il link scade dopo 1 ora.</p>
+            <Link href="/login" className="gk-btn gk-btn-secondary gk-focus-ring w-full">
+              Torna al login
+            </Link>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-3">Email inviata!</h1>
-          <p className="text-zinc-400 mb-2">Abbiamo inviato un link per reimpostare la password a</p>
-          <p className="text-white font-semibold mb-8">{email}</p>
-          <p className="text-zinc-500 text-sm mb-8">Controlla anche la cartella spam. Il link scade dopo 1 ora.</p>
-          <Link href="/login" className="inline-flex items-center gap-2 px-8 py-3 border border-zinc-700 hover:border-zinc-500 rounded-full text-sm font-medium transition-colors text-zinc-300">
-            Torna al login
-          </Link>
-        </div>
-      </div>
+        </section>
+      </main>
     )
   }
 
   return (
-    <div className="gk-auth-page min-h-screen bg-[var(--bg-primary)] flex items-center justify-center px-6">
-      <div className="w-full max-w-md">
-        <div className="flex items-center gap-3 mb-10">
-          <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: 'var(--accent)' }}>
-            <Zap size={20} className="text-black" />
+    <main data-auth className="gk-auth-page min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
+      <header className="flex h-[52px] items-center justify-between px-[14px] md:px-8">
+        <AuthWordmark />
+      </header>
+
+      <section className="flex min-h-[calc(100vh-52px)] items-start justify-center px-[14px] pb-10 pt-6 md:items-center md:pt-0">
+        <div className="w-full max-w-[420px] rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-[22px]">
+          <div className="mb-6">
+            <p className="gk-label mb-2 text-[var(--accent)]">Reset</p>
+            <h1 className="gk-h1 mb-2">Password dimenticata?</h1>
+            <p className="gk-caption text-[var(--text-secondary)]">Inserisci la tua email e ti mandiamo un link per reimpostarla.</p>
           </div>
-          <span className="text-2xl font-bold tracking-tighter text-white">geekore</span>
-        </div>
 
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Password dimenticata?</h1>
-          <p className="text-zinc-500">Inserisci la tua email e ti mandiamo un link per reimpostarla.</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-zinc-400 mb-2">Email</label>
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
-              <input
+              <PrimitiveInput
+                name="email"
+                label="Email"
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder="tuo@email.com"
+                autoComplete="email"
+                className="pl-12"
+                error={error || undefined}
                 required
-                className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl pl-12 pr-5 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors"
               />
+              <Mail className="pointer-events-none absolute left-4 top-[42px] text-[var(--text-muted)]" size={18} />
             </div>
+
+            <PrimitiveButton type="submit" disabled={loading} className="w-full">
+              {loading ? 'Invio in corso...' : 'Invia link'}
+            </PrimitiveButton>
+          </form>
+
+          <div className="mt-6 border-t border-[var(--border-soft)] pt-5 text-center">
+            <p className="gk-caption">
+              Ricordi la password?{' '}
+              <Link href="/login" className="font-bold text-[var(--accent)] hover:opacity-80">
+                Accedi
+              </Link>
+            </p>
           </div>
-
-          {error && (
-            <div className="bg-red-950/60 border border-red-800/50 text-red-400 px-5 py-3.5 rounded-2xl text-sm">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-4 rounded-2xl font-semibold text-lg transition-all disabled:opacity-60"
-            style={{ background: 'var(--accent)', color: '#0B0B0F' }}
-          >
-            {loading ? 'Invio in corso...' : 'Invia link di reset'}
-          </button>
-        </form>
-
-        <p className="text-center text-zinc-500 text-sm mt-8">
-          Ricordi la password?{' '}
-          <Link href="/login" className="font-medium hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>
-            Accedi
-          </Link>
-        </p>
-      </div>
-    </div>
+        </div>
+      </section>
+    </main>
   )
 }
