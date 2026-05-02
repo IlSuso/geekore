@@ -13,7 +13,7 @@ import { FeedCommentRow } from '@/components/feed/FeedCommentRow'
 import { FeedCommentComposer } from '@/components/feed/FeedCommentComposer'
 import { FeedEngagementSummary } from '@/components/feed/FeedEngagementSummary'
 import { androidBack } from '@/hooks/androidBack'
-import { CategoryBadge } from '@/components/feed/CategoryBasics'
+import { CategoryBadge, CategoryIcon, parseCategoryString } from '@/components/feed/CategoryBasics'
 import type { Post } from '@/components/feed/feedTypes'
 
 // ── VirtualPostCard ────────────────────────────────────────────────────────────
@@ -39,7 +39,6 @@ export const VirtualPostCard = memo(function VirtualPostCard({
         if (entry.isIntersecting) {
           setVisible(true)
         } else {
-          // Misura altezza reale prima di smontare
           heightRef.current = el.getBoundingClientRect().height || heightRef.current
           setVisible(false)
         }
@@ -56,10 +55,6 @@ export const VirtualPostCard = memo(function VirtualPostCard({
     </div>
   )
 })
-
-// ── Bottom Sheet globale stile Instagram ─────────────────────────────────────
-// Usato per opzioni post/commento — viene montato a livello di pagina (fuori dal PostCard)
-// per evitare che transform/overflow dei parent rompano il fixed positioning.
 
 export type BottomSheetAction = {
   label: string
@@ -124,6 +119,42 @@ export function BottomSheet({
   return createPortal(content, document.body)
 }
 
+function FeedActivityContext({
+  category,
+  onCategoryClick,
+}: {
+  category: string
+  onCategoryClick?: (category: string) => void
+}) {
+  const parsed = parseCategoryString(category)
+  if (!parsed) return null
+
+  const mediaTitle = parsed.subcategory?.trim()
+  const isSpecific = mediaTitle.length > 0
+
+  return (
+    <button
+      type="button"
+      onClick={onCategoryClick ? () => onCategoryClick(category) : undefined}
+      className="mx-5 mb-3 flex w-[calc(100%-2.5rem)] items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(135deg,rgba(255,255,255,0.035),rgba(255,255,255,0.012))] p-3 text-left transition-colors hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)]"
+    >
+      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)]">
+        <CategoryIcon category={parsed.category} size={18} className="text-[var(--accent)]" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="mb-1 flex items-center gap-2">
+          <span className="gk-label text-[var(--text-muted)]">Activity</span>
+          <CategoryBadge category={parsed.category} />
+        </div>
+        <p className="line-clamp-1 text-[14px] font-bold text-[var(--text-primary)]">
+          {isSpecific ? mediaTitle : parsed.category}
+        </p>
+      </div>
+      <span className="gk-mono hidden text-[var(--text-muted)] sm:inline">open</span>
+    </button>
+  )
+}
+
 export const PostCard = memo(function PostCard({
   post, currentUser, isLiking, locale,
   onLike, onOpenModal, onPostOptions, onCategoryClick,
@@ -181,9 +212,7 @@ export const PostCard = memo(function PostCard({
       </div>
 
       {post.category && (
-        <div className="px-5 pb-3 -mt-1">
-          <CategoryBadge category={post.category} onClick={onCategoryClick ? () => onCategoryClick(post.category!) : undefined} />
-        </div>
+        <FeedActivityContext category={post.category} onCategoryClick={onCategoryClick} />
       )}
 
       {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
@@ -277,9 +306,7 @@ export function PostModal({
           </div>
 
           {post.category && (
-            <div className="px-5 pb-3 -mt-1">
-              <CategoryBadge category={post.category} />
-            </div>
+            <FeedActivityContext category={post.category} />
           )}
 
           {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
@@ -333,4 +360,3 @@ export function PostModal({
     </div>
   )
 }
-
