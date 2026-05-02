@@ -8,7 +8,11 @@ interface MediaSkeletonsProps {
 function PosterSkeleton({ showMeta = false }: { showMeta?: boolean }) {
   return (
     <div className="min-w-0 animate-pulse">
-      <div className="aspect-[2/3] rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]" />
+      <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]">
+        <div className="absolute inset-0 skeleton" />
+        <div className="absolute left-2 top-2 h-5 w-14 rounded-full bg-black/28 ring-1 ring-white/5" />
+        <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[rgba(230,255,61,0.28)]" />
+      </div>
       <div className="mt-2 space-y-1.5 px-0.5">
         <div className="h-3 w-4/5 rounded-full bg-[var(--bg-card-hover)]" />
         <div className="h-3 w-1/2 rounded-full bg-[var(--bg-card-hover)]" />
