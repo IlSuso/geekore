@@ -87,7 +87,7 @@ export default function LeaderboardPage() {
         </div>
       </div>
 
-      <div className="mb-5 flex gap-2 rounded-[20px] border border-[var(--border)] bg-[var(--bg-card)] p-1.5">
+      <div className="mb-5 flex gap-2 rounded-[20px] border border-[var(--border)] bg-[var(--bg-card)] p-1.5" data-no-swipe="true">
         {([
           ['score', <><Zap size={12} /> Geek Score</>],
           ['game_hours', <><Gamepad2 size={12} /> Steam</>],
@@ -95,8 +95,10 @@ export default function LeaderboardPage() {
         ] as [string, React.ReactNode][]).map(([id, label]) => (
           <button
             key={id}
+            type="button"
+            data-no-swipe="true"
             onClick={() => setTab(id as 'score' | 'game_hours' | 'anime_count')}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2 text-xs font-black transition-all"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2 text-xs font-black transition-all active:scale-[0.98]"
             style={tab === id
               ? { background: 'var(--accent)', color: '#0B0B0F' }
               : { color: 'var(--text-secondary)' }}
@@ -109,6 +111,7 @@ export default function LeaderboardPage() {
       {topLeader && !loading && (
         <Link
           href={`/profile/${topLeader.username}`}
+          data-no-swipe="true"
           className="mb-4 flex items-center gap-3 rounded-[24px] border border-[rgba(230,255,61,0.28)] bg-[linear-gradient(135deg,rgba(230,255,61,0.10),rgba(255,255,255,0.025))] p-4 transition-colors hover:border-[rgba(230,255,61,0.45)]"
         >
           <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-[var(--accent)] text-[#0B0B0F] shadow-[0_0_28px_rgba(230,255,61,0.2)]">
@@ -151,6 +154,7 @@ export default function LeaderboardPage() {
               <Link
                 key={leader.user_id}
                 href={`/profile/${leader.username}`}
+                data-no-swipe="true"
                 className="group flex items-center gap-3 rounded-[20px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 transition-all hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)] animate-in fade-in"
                 style={{ animationDelay: `${i * 24}ms` }}
               >
