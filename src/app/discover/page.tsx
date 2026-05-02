@@ -6,8 +6,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import React, { memo } from 'react';
 import { usePathname } from 'next/navigation';
 import {
-  Search, Plus, X, Film, Tv, Gamepad2, Bookmark, BookmarkCheck,
-  Mic, MicOff, Loader2, Swords, Check, Layers, Dices,
+  Search, X, Film, Tv, Gamepad2,
+  Mic, MicOff, Loader2, Swords, Layers, Dices,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/context/AuthContext';
@@ -20,6 +20,8 @@ import type { MediaDetails } from '@/components/media/MediaDetailsDrawer';
 import { EmptyState } from '@/components/ui/EmptyState'
 import { profileInvalidateBridge } from '@/hooks/profileInvalidateBridge';
 import { optimizeCover } from '@/lib/imageOptimizer';
+import { DiscoverSection } from '@/components/discover/DiscoverSection';
+import { DiscoverMediaCard } from '@/components/discover/DiscoverMediaCard';
 
 type MediaItem = {
   id: string; title: string; title_en?: string; type: string; coverImage?: string; year?: number;
@@ -65,23 +67,14 @@ const TYPE_LABELS: Record<string, string> = {
   game: 'Videogiochi', boardgame: 'Giochi da tavolo',
 };
 
-const TYPE_COLORS: Record<string, string> = {
-  anime:     'text-sky-400 border-sky-500/30 bg-sky-500/10',
-  manga:     'text-orange-400 border-orange-500/30 bg-orange-500/10',
-  movie:     'text-red-400 border-red-500/30 bg-red-500/10',
-  tv:        'text-purple-400 border-purple-500/30 bg-purple-500/10',
-  game:      'text-green-400 border-green-500/30 bg-green-500/10',
-  boardgame: 'text-amber-400 border-amber-500/30 bg-amber-500/10',
-};
-
 // Icona placeholder nelle card senza copertina
 const TYPE_PLACEHOLDER_ICON: Record<string, React.ReactNode> = {
-  game:      <Gamepad2 size={28} />,
+  game: <Gamepad2 size={28} />,
   boardgame: <Dices size={28} />,
-  manga:     <Layers size={28} />,
-  anime:     <Swords size={28} />,
-  movie:     <Film size={28} />,
-  tv:        <Tv size={28} />,
+  manga: <Layers size={28} />,
+  anime: <Swords size={28} />,
+  movie: <Film size={28} />,
+  tv: <Tv size={28} />,
 };
 
 function toMediaDetails(item: MediaItem): MediaDetails {
@@ -154,12 +147,12 @@ function useVoiceSearch(onResult: (text: string) => void) {
 const DEBOUNCE_MS = 350;
 
 const FILTERS: { id: string; label: string; icon: React.ReactNode }[] = [
-  { id: 'all',       label: 'Tutti',    icon: null },
-  { id: 'anime',     label: 'Anime',    icon: <Swords size={13} /> },
-  { id: 'manga',     label: 'Manga',    icon: <Layers size={13} /> },
-  { id: 'movie',     label: 'Film',     icon: <Film size={13} /> },
-  { id: 'tv',        label: 'Serie',    icon: <Tv size={13} /> },
-  { id: 'game',      label: 'Videogiochi',      icon: <Gamepad2 size={13} /> },
+  { id: 'all', label: 'Tutti', icon: null },
+  { id: 'anime', label: 'Anime', icon: <Swords size={13} /> },
+  { id: 'manga', label: 'Manga', icon: <Layers size={13} /> },
+  { id: 'movie', label: 'Film', icon: <Film size={13} /> },
+  { id: 'tv', label: 'Serie', icon: <Tv size={13} /> },
+  { id: 'game', label: 'Videogiochi', icon: <Gamepad2 size={13} /> },
   { id: 'boardgame', label: 'Giochi da Tavolo', icon: <Dices size={13} /> },
 ];
 
@@ -171,7 +164,7 @@ function trackSearchQuery(query: string, mediaType?: string) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: query.trim(), media_type: mediaType || null }),
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 function trackSearchClick(query: string, item: MediaItem) {
@@ -185,7 +178,7 @@ function trackSearchClick(query: string, item: MediaItem) {
       result_clicked_type: item.type,
       result_clicked_genres: item.genres || [],
     }),
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 function triggerTasteDelta(options: {
@@ -197,7 +190,7 @@ function triggerTasteDelta(options: {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(options),
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -304,7 +297,7 @@ export default function DiscoverPage() {
           try {
             const data = await r.value.json();
             if (Array.isArray(data)) all.push(...data);
-          } catch {}
+          } catch { }
         }
       }
       if (controller.signal.aborted) return;
@@ -431,11 +424,10 @@ export default function DiscoverPage() {
             ref={searchInputRef}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder={isListening ? 'In ascolto...' : 'Cerca anime, film, giochi, libri...'}
-            className={`w-full rounded-xl pl-10 pr-20 py-2.5 text-[15px] outline-none transition-colors ${
-              isListening
+            className={`w-full rounded-xl pl-10 pr-20 py-2.5 text-[15px] outline-none transition-colors ${isListening
                 ? 'bg-red-500/10 border border-red-500/40 text-[var(--text-primary)] placeholder-red-400/60'
                 : 'bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-zinc-600/60'
-            }`}
+              }`}
             autoFocus={false}
           />
           <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -450,9 +442,8 @@ export default function DiscoverPage() {
             {voiceSupported && (
               <button
                 onClick={toggleVoice}
-                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${
-                  isListening ? 'bg-red-500 text-white' : 'text-[var(--text-secondary)] hover:text-[#E6FF3D]'
-                }`}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${isListening ? 'bg-red-500 text-white' : 'text-[var(--text-secondary)] hover:text-[#E6FF3D]'
+                  }`}
               >
                 {isListening ? <MicOff size={15} /> : <Mic size={15} />}
               </button>
@@ -480,11 +471,10 @@ export default function DiscoverPage() {
               key={tf.id}
               data-testid={`filter-${tf.id}`}
               onClick={() => setActiveType(tf.id)}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all flex-shrink-0 border ${
-                activeType === tf.id
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all flex-shrink-0 border ${activeType === tf.id
                   ? 'border-transparent'
                   : 'bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border)] hover:text-[var(--text-primary)]'
-              }`}
+                }`}
               style={activeType === tf.id ? { background: '#E6FF3D', color: '#0B0B0F', border: '1px solid #E6FF3D' } : {}}
             >
               {tf.icon}{tf.label}
@@ -519,65 +509,52 @@ export default function DiscoverPage() {
               { label: 'Film della settimana', items: trendingMovies, typeKey: 'movie' },
               { label: 'Serie TV popolari', items: trendingTV, typeKey: 'tv' },
             ].map(({ label, items, typeKey }) => (
-              <div key={typeKey}>
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-[15px] font-bold text-[var(--text-primary)]">{label}</h2>
+              <DiscoverSection
+                key={typeKey}
+                title={label}
+                action={(
                   <button
+                    type="button"
                     onClick={() => setActiveType(typeKey)}
-                    className="text-[12px] font-semibold"
-                    style={{ color: '#E6FF3D' }}
+                    className="text-[12px] font-semibold text-[var(--accent)] transition-opacity hover:opacity-80"
                   >
                     Vedi tutti
                   </button>
-                </div>
+                )}
+              >
                 {items.length === 0 ? (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
                     {Array.from({ length: 6 }).map((_, i) => (
                       <div key={i} className="aspect-[2/3] rounded-xl bg-[var(--bg-card)] animate-pulse" />
                     ))}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
                     {items.slice(0, 6).map((item) => (
-                      <div
+                      <DiscoverMediaCard
                         key={item.id}
-                        className="group cursor-pointer relative"
+                        title={item.title}
+                        type={item.type}
+                        coverImage={item.coverImage}
+                        year={item.year}
+                        score={item.score}
+                        placeholderIcon={TYPE_PLACEHOLDER_ICON[item.type]}
                         onClick={() => {
                           setDrawerMedia({
-                            id: item.id, title: item.title, type: item.type,
-                            coverImage: item.coverImage, year: item.year,
+                            id: item.id,
+                            title: item.title,
+                            type: item.type,
+                            coverImage: item.coverImage,
+                            year: item.year,
                             genres: item.genres,
                             source: item.source as any,
                           })
                         }}
-                      >
-                        <div className="aspect-[2/3] overflow-hidden bg-[var(--bg-card)] rounded-xl">
-                          {item.coverImage ? (
-                            <img
-                              src={item.coverImage}
-                              alt={item.title}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)]">
-                              {TYPE_PLACEHOLDER_ICON[item.type]}
-                            </div>
-                          )}
-                        </div>
-                        <div className="mt-1.5 px-0.5">
-                          <p className="text-[12px] font-semibold text-[var(--text-primary)] leading-tight line-clamp-2">
-                            {item.title}
-                          </p>
-                          {item.year && (
-                            <p className="text-[11px] text-[var(--text-muted)] font-mono mt-0.5">{item.year}</p>
-                          )}
-                        </div>
-                      </div>
+                      />
                     ))}
                   </div>
                 )}
-              </div>
+              </DiscoverSection>
             ))}
           </div>
         )}
@@ -601,108 +578,30 @@ export default function DiscoverPage() {
 
         {/* Risultati raggruppati per tipo */}
         {showingResults && grouped.map(([type, items]) => items.length === 0 ? null : (
-          <div key={type} className="mb-8">
-            {/* Header sezione */}
-            <div className="flex items-center gap-2 mb-3">
-              <span
-                className="text-[12px] font-semibold px-2.5 py-1 rounded-full"
-                style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)', border: '0.5px solid var(--border)' }}
-              >
-                {TYPE_LABELS[type] || type}
-              </span>
-              <span className="text-[12px] text-[var(--text-muted)]">{items.length} risultati</span>
-            </div>
-
-            {/* Grid 3 colonne */}
-            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
-              {items.map((item, i) => (
-                <div
+          <DiscoverSection
+            key={type}
+            title={TYPE_LABELS[type] || type}
+            count={items.length}
+          >
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+              {items.map((item) => (
+                <DiscoverMediaCard
                   key={item.id}
-                  className="group cursor-pointer relative"
-                  style={{ animationDelay: `${i * 30}ms` }}
+                  title={locale === 'en' && item.title_en ? item.title_en : item.title}
+                  type={item.type}
+                  coverImage={hasValidCover(item) ? optimizeCover(item.coverImage, 'discover-card') : undefined}
+                  year={item.year}
+                  score={item.score}
+                  added={alreadyAdded.includes(item.id)}
+                  wishlisted={wishlistIds.includes(item.id)}
+                  placeholderIcon={TYPE_PLACEHOLDER_ICON[type] ?? <Film size={28} />}
                   onClick={() => handleResultClick(item)}
-                >
-                  <div className="aspect-[2/3] overflow-hidden bg-[var(--bg-card)] rounded-xl">
-                    {hasValidCover(item)
-                      ? <img
-                          src={optimizeCover(item.coverImage, 'discover-card')}
-                          alt={`Copertina di ${item.title} (${TYPE_LABELS[item.type] || item.type})`}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                          loading="lazy"
-                          decoding="async"
-                          onError={e => {
-                            const el = e.currentTarget;
-                            if (el.src.includes('zoom=3')) {
-                              el.src = el.src.replace('zoom=3', 'zoom=1').replace('fife=w400', 'fife=w200');
-                            } else {
-                              el.style.display = 'none';
-                              const fb = el.nextElementSibling as HTMLElement | null;
-                              if (fb) fb.style.display = 'flex';
-                            }
-                          }}
-                        />
-                      : null}
-                    {/* Placeholder icon */}
-                    <div
-                      className="w-full h-full items-center justify-center text-[var(--text-muted)]"
-                      style={{ display: hasValidCover(item) ? 'none' : 'flex' }}
-                    >
-                      {TYPE_PLACEHOLDER_ICON[type] ?? <Film size={28} />}
-                    </div>
-
-                    {/* Stato sempre visibile: icona top-right se in collezione o wishlist */}
-                    <div className="absolute top-1.5 right-1.5 z-10">
-                      {alreadyAdded.includes(item.id) ? (
-                        <div className="w-5 h-5 rounded-md flex items-center justify-center shadow-sm" style={{ background: '#E6FF3D' }}>
-                          <Check size={9} className="text-black" strokeWidth={2.5} />
-                        </div>
-                      ) : wishlistIds.includes(item.id) ? (
-                        <div className="w-5 h-5 bg-black/70 backdrop-blur-sm rounded-md flex items-center justify-center shadow-sm" style={{ border: '1px solid rgba(230,255,61,0.5)' }}>
-                          <BookmarkCheck size={9} style={{ color: '#E6FF3D' }} />
-                        </div>
-                      ) : null}
-                    </div>
-
-                    {/* Hover overlay — desktop */}
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-
-                    {/* Azioni su hover (desktop) — su mobile il tap apre il drawer */}
-                    <div className="absolute inset-0 flex flex-col justify-between p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className="flex justify-end">
-                        {!alreadyAdded.includes(item.id) && (
-                          <button
-                            onClick={e => { e.stopPropagation(); toggleWishlist(item); }}
-                            className="w-6 h-6 bg-black/70 backdrop-blur-sm rounded-md flex items-center justify-center"
-                          >
-                            {wishlistIds.includes(item.id)
-                              ? <BookmarkCheck size={11} style={{ color: '#E6FF3D' }} />
-                              : <Bookmark size={11} className="text-white" />}
-                          </button>
-                        )}
-                      </div>
-                      <div className="flex justify-end">
-                        {!alreadyAdded.includes(item.id) && (
-                          <button
-                            onClick={e => { e.stopPropagation(); setDrawerMedia(toMediaDetails(item)); }}
-                            className="w-6 h-6 rounded-md flex items-center justify-center"
-                            style={{ background: '#E6FF3D' }}
-                          >
-                            <Plus size={11} className="text-black" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Titolo sotto */}
-                  <p className="text-[12px] font-medium text-[var(--text-primary)] line-clamp-2 leading-snug mt-1 px-0.5">
-                    {locale === 'en' && item.title_en ? item.title_en : item.title}
-                  </p>
-                  {item.year && <p className="text-[11px] text-[var(--text-muted)] px-0.5">{item.year}</p>}
-                </div>
+                  onWishlist={!alreadyAdded.includes(item.id) ? () => toggleWishlist(item) : undefined}
+                  className="animate-fade-in"
+                />
               ))}
             </div>
-          </div>
+          </DiscoverSection>
         ))}
       </div>
 
