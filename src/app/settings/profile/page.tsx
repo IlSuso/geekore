@@ -267,7 +267,7 @@ export default function EditProfilePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white">
-        <Loader2 size={40} className="animate-spin text-violet-500" />
+        <Loader2 size={40} className="animate-spin" style={{ color: '#E6FF3D' }} />
       </div>
     )
   }

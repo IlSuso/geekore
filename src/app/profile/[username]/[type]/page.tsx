@@ -891,7 +891,7 @@ export default function ProfileTypePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <Loader2 size={32} className="animate-spin text-violet-400" />
+        <Loader2 size={32} className="animate-spin" style={{ color: '#E6FF3D' }} />
       </div>
     )
   }

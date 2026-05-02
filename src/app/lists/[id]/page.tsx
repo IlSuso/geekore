@@ -164,7 +164,7 @@ export default function ListDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <Loader2 size={32} className="animate-spin text-violet-400" />
+        <Loader2 size={32} className="animate-spin" style={{ color: '#E6FF3D' }} />
       </div>
     )
   }

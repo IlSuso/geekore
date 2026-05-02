@@ -502,7 +502,7 @@ export default function DiscoverPage() {
         {/* Pending indicator */}
         {isPending && !loading && searchTerm.trim().length >= 2 && (
           <div className="flex items-center justify-center gap-2 py-4">
-            <Loader2 size={16} className="animate-spin text-violet-400" />
+            <Loader2 size={16} className="animate-spin" style={{ color: '#E6FF3D' }} />
             <span className="text-[13px] text-[var(--text-secondary)]">Ricerca in corso…</span>
           </div>
         )}
