@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Query non valida' }, { status: 400, headers: rl.headers })
   }
 
-  await supabase.from('search_history').insert({
+  const { error } = await supabase.from('search_history').insert({
     user_id: user.id,
     query,
     media_type: cleanMediaType(body?.media_type),
@@ -52,6 +52,9 @@ export async function POST(request: NextRequest) {
     result_clicked_type: cleanMediaType(body?.result_clicked_type),
     result_clicked_genres: cleanGenres(body?.result_clicked_genres),
   })
+  if (error) {
+    return NextResponse.json({ ok: false, error: 'Ricerca non salvata' }, { status: 500, headers: rl.headers })
+  }
 
   Promise.resolve(
     supabase.rpc('cleanup_old_search_history', {
