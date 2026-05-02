@@ -219,7 +219,7 @@ export async function queueBackgroundMasterRegen({
 
   if (backgroundRegenTypes.length === 0) return backgroundRegenTypes
 
-  ;(async () => {
+  after(async () => {
     const continuityRecsForBg = (backgroundRegenTypes.includes('anime') || backgroundRegenTypes.includes('manga'))
       ? await fetchContinuityRecs(allEntries, ownedIds, tasteProfile, supabase).catch(() => [])
       : []
@@ -255,7 +255,7 @@ export async function queueBackgroundMasterRegen({
         await finishRegen(regenKey, FORCE_REGEN_COOLDOWN_MINUTES * 60000)
       }
     }
-  })()
+  })
 
   return backgroundRegenTypes
 }
