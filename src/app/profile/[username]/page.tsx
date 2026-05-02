@@ -2,7 +2,7 @@
 
 import { logActivity } from '@/lib/activity'
 import { profileInvalidateBridge } from '@/hooks/profileInvalidateBridge'
-import { Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, ChevronRight, Download, X as XIcon, Gamepad2, Tv, BarChart2, Users, TrendingUp, GripVertical, List } from 'lucide-react'
+import { Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, ChevronRight, Download, X as XIcon, Gamepad2, Tv, Film, BarChart2, Users, TrendingUp, GripVertical, List } from 'lucide-react'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { gestureState } from '@/hooks/gestureState'
 import { useParams, usePathname, useRouter } from 'next/navigation'
@@ -202,11 +202,10 @@ function SortableBox({ media, children, disabled }: { media: UserMedia; children
       }}
       {...attributes}
       {...(disabled ? {} : listeners)}
-      className={`${disabled ? '' : 'cursor-grab active:cursor-grabbing'} rounded-3xl overflow-hidden min-h-[340px] sm:min-h-[380px] md:min-h-[420px] h-full flex flex-col ${
-        isDragging
+      className={`${disabled ? '' : 'cursor-grab active:cursor-grabbing'} rounded-3xl overflow-hidden min-h-[340px] sm:min-h-[380px] md:min-h-[420px] h-full flex flex-col ${isDragging
           ? 'border-2 shadow-2xl scale-[1.02] z-50'
           : 'border border-zinc-800 md:hover:border-zinc-600 md:hover:shadow-xl'
-      }`}
+        }`}
     >
       {children}
     </div>
@@ -272,9 +271,9 @@ function MediaCard({
 
   const statusBadge: Record<string, { label: string; cls: string; style?: React.CSSProperties }> = {
     completed: { label: 'Completato', cls: '', style: { background: 'rgba(230,255,61,0.12)', color: 'var(--accent)', border: '1px solid rgba(230,255,61,0.3)' } },
-    paused:    { label: 'In pausa',   cls: 'bg-amber-500/20 text-amber-300 border border-amber-500/40' },
-    dropped:   { label: 'Abbandonato',cls: 'bg-red-500/20 text-red-300 border border-red-500/40' },
-    watching:  { label: 'In corso',   cls: 'bg-sky-500/20 text-sky-300 border border-sky-500/40' },
+    paused: { label: 'In pausa', cls: 'bg-amber-500/20 text-amber-300 border border-amber-500/40' },
+    dropped: { label: 'Abbandonato', cls: 'bg-red-500/20 text-red-300 border border-red-500/40' },
+    watching: { label: 'In corso', cls: 'bg-sky-500/20 text-sky-300 border border-sky-500/40' },
   }
 
   // Cover rendering
@@ -294,8 +293,8 @@ function MediaCard({
               const referer = media.cover_image!.includes('myanimelist.net')
                 ? '&referer=https://myanimelist.net'
                 : media.cover_image!.includes('anilist.co')
-                ? '&referer=https://anilist.co'
-                : ''
+                  ? '&referer=https://anilist.co'
+                  : ''
               img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=webp${referer}`
             } else {
               setImgFailed(true)
@@ -629,7 +628,7 @@ function CopyProfileLink({ username }: { username: string }) {
       await navigator.clipboard.writeText(`https://geekore.it/profile/${username}`)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    } catch {}
+    } catch { }
   }
   return (
     <button onClick={handleCopy} title="Copia link profilo" className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium border transition-all ${copied ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500'}`}>
@@ -649,31 +648,33 @@ function CollectionControls({
   statusFilter: string; onStatusFilter: (v: string) => void
 }) {
   return (
-    <div className="space-y-2 mb-6">
-
-      {/* Riga 1: search bar full width */}
-      <div className="relative">
-        <SearchIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
-        <input
-          type="text"
-          value={search}
-          onChange={e => onSearch(e.target.value)}
-          placeholder="Cerca nella collezione…"
-          className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl pl-9 pr-8 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
-        />
-        {search && (
-          <button onClick={() => onSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
-            <X size={13} />
-          </button>
-        )}
+    <div className="mb-6 rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-3">
+      <div className="mb-3 flex items-center gap-2">
+        <SlidersHorizontal size={14} className="text-[var(--accent)]" />
+        <p className="gk-label">Collection controls</p>
       </div>
 
-      {/* Riga 2: filtri — right-aligned on desktop, full-width on mobile */}
-      <div className="flex items-center gap-2 md:justify-end">
+      <div className="grid gap-2 md:grid-cols-[1fr_auto_auto]">
+        <div className="relative">
+          <SearchIcon size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => onSearch(e.target.value)}
+            placeholder="Cerca nella collezione…"
+            className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] py-2.5 pl-9 pr-8 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]"
+          />
+          {search && (
+            <button onClick={() => onSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+              <X size={13} />
+            </button>
+          )}
+        </div>
+
         <select
           value={statusFilter}
           onChange={e => onStatusFilter(e.target.value)}
-          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-zinc-600 transition-colors appearance-none flex-1 md:flex-none md:w-40 min-w-0"
+          className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2.5 text-xs font-bold text-[var(--text-secondary)] outline-none transition-colors focus:border-[rgba(230,255,61,0.45)] md:w-40"
         >
           <option value="all">Tutti</option>
           <option value="watching">In corso</option>
@@ -685,7 +686,7 @@ function CollectionControls({
         <select
           value={sort}
           onChange={e => onSort(e.target.value as SortMode)}
-          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-zinc-600 transition-colors appearance-none flex-1 md:flex-none md:w-40 min-w-0"
+          className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2.5 text-xs font-bold text-[var(--text-secondary)] outline-none transition-colors focus:border-[rgba(230,255,61,0.45)] md:w-40"
         >
           <option value="default">Default</option>
           <option value="rating_desc">Voto ↓</option>
@@ -715,9 +716,9 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
   const displayTitle = locale === 'en' && media.title_en ? media.title_en : media.title
 
   return (
-    <div className="flex items-center gap-3 p-3 bg-zinc-900 border border-zinc-800 rounded-2xl hover:border-zinc-700 transition-colors group">
+    <div className="group flex items-center gap-3 rounded-[20px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 transition-colors hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)]">
       {/* Cover mini */}
-      <div className="w-10 h-14 bg-zinc-800 rounded-xl overflow-hidden flex-shrink-0">
+      <div className="h-16 w-11 flex-shrink-0 overflow-hidden rounded-2xl bg-[var(--bg-secondary)] ring-1 ring-white/5">
         {media.is_steam ? (
           <SteamCoverImg appid={media.appid} title={displayTitle} />
         ) : media.cover_image && !rowImgFailed ? (
@@ -733,8 +734,8 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
                 const referer = media.cover_image!.includes('myanimelist.net')
                   ? '&referer=https://myanimelist.net'
                   : media.cover_image!.includes('anilist.co')
-                  ? '&referer=https://anilist.co'
-                  : ''
+                    ? '&referer=https://anilist.co'
+                    : ''
                 img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=220&output=webp${referer}`
               } else {
                 setRowImgFailed(true)
@@ -748,11 +749,11 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
 
       {/* Title + type */}
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-sm text-white truncate">{displayTitle}</p>
+        <p className="truncate text-sm font-bold text-[var(--text-primary)]">{displayTitle}</p>
         <div className="flex items-center gap-2 mt-0.5">
           <MediaTypeBadge type={media.type} size="xs" />
           {isOwner && (
-            <select value={media.status || 'watching'} onChange={e => onStatusChange?.(media.id, e.target.value)} className="text-[10px] bg-transparent text-zinc-500 focus:outline-none cursor-pointer">
+            <select value={media.status || 'watching'} onChange={e => onStatusChange?.(media.id, e.target.value)} className="bg-transparent text-[10px] text-[var(--text-muted)] outline-none cursor-pointer">
               <option value="watching">In corso</option>
               <option value="completed">Completato</option>
               <option value="paused">Pausa</option>
@@ -807,9 +808,9 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ProfilePage({ usernameOverride }: { usernameOverride?: string } = {}) {
-  const params    = useParams<{ username: string }>()
-  const pathname  = usePathname()
-  const username  = usernameOverride || params.username
+  const params = useParams<{ username: string }>()
+  const pathname = usePathname()
+  const username = usernameOverride || params.username
   const supabase = createClient()
   const { t, locale } = useLocale()
   const sensors = useDndSensors()
@@ -1000,7 +1001,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
               setSteamProgressMsg(null)
               setSteamMessage({ text: event.message || t.toasts.steamNoGames, type: 'error' })
             }
-          } catch {}
+          } catch { }
         }
       }
     } catch {
@@ -1275,7 +1276,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ updates: updatedSorted.map(item => ({ id: item.id, display_order: item.display_order })) }),
-    }).catch(() => {})
+    }).catch(() => { })
   }
 
   const grouped = sortedList.reduce((acc: Record<string, UserMedia[]>, item) => {
@@ -1309,194 +1310,177 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     { id: 'comments', label: 'Bacheca' },
   ]
 
+  const ratedMedia = mediaList.filter(item => item.rating && item.rating > 0)
+  const avgProfileRating = ratedMedia.length > 0
+    ? (ratedMedia.reduce((sum, item) => sum + (item.rating || 0), 0) / ratedMedia.length).toFixed(1)
+    : '—'
+  const completedCount = mediaList.filter(item => item.status === 'completed').length
+  const inProgressCount = mediaList.filter(item => item.status === 'watching' || item.status === 'reading' || item.status === 'playing').length
+  const profileTopGenre = topGenres[0] || 'in costruzione'
+  const profileDisplayName = profile.display_name || profile.username
+
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] pb-24 md:pb-20">
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
       <div className="pt-4 md:pt-8 max-w-screen-2xl mx-auto px-4 md:px-6">
 
-        {/* ── Header profilo — centrato, pulito, identità Geekore ── */}
-        <div className="flex flex-col items-center text-center mb-8 md:mb-10">
-
-          {/* Avatar grande centrato */}
-          <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden ring-4 ring-zinc-600/30 hover:ring-zinc-600/60 transition-all mb-4 flex-shrink-0">
-            <Avatar
-              src={profile.avatar_url}
-              username={profile.username}
-              displayName={profile.display_name}
-              size={128}
-              className="w-full h-full"
-            />
-          </div>
-
-          {/* Nome + username */}
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-[var(--text-primary)] mb-1">
-            <UserBadge badge={profile.badge} displayName={profile.display_name || profile.username} className="text-2xl md:text-3xl font-bold" />
-          </h1>
-          <p className="text-sm text-zinc-500 mb-3">@{profile.username}</p>
-
-          {/* Bio */}
-          {profile.bio && (
-            <p className="text-sm text-zinc-400 max-w-sm leading-relaxed mb-4 px-4">
-              {profile.bio}
-            </p>
-          )}
-
-          {/* Follower / Following — compatti */}
-          <div className="flex items-center gap-6 mb-5">
-            <div className="text-center">
-              <p className="text-lg font-bold font-mono text-[var(--text-primary)]">{followersCount}</p>
-              <p className="text-xs text-zinc-500 uppercase tracking-widest">{t.profile.follower}</p>
-            </div>
-            <div className="w-px h-8 bg-zinc-800" />
-            <div className="text-center">
-              <p className="text-lg font-bold font-mono text-[var(--text-primary)]">{followingCount}</p>
-              <p className="text-xs text-zinc-500 uppercase tracking-widest">{t.profile.following}</p>
-            </div>
-          </div>
-
-          {/* Azioni principali */}
-          <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
-            {isOwner ? (
-              <>
-                <Link href="/settings/profile">
-                  <button
-                    data-testid="btn-edit-profile"
-                    className="px-6 py-2 rounded-2xl text-sm font-semibold bg-zinc-800 text-white hover:bg-zinc-700 border border-zinc-700 transition-all"
-                  >
-                    {t.profile.editProfile}
-                  </button>
-                </Link>
-                <CopyProfileLink username={profile.username} />
-              </>
-            ) : (
-              <>
-                {currentUserId && profile && (
-                  <FollowButton
-                    targetId={profile.id}
-                    currentUserId={currentUserId}
-                    isFollowingInitial={isFollowing}
-                    onFollowChange={(nowFollowing) => setFollowersCount(prev => nowFollowing ? prev + 1 : Math.max(0, prev - 1))}
+        {/* ── Profile hero — media identity hub ── */}
+        <section className="mb-6 overflow-hidden rounded-[34px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(230,255,61,0.09),rgba(139,92,246,0.07),rgba(20,20,27,0.94))] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.28)] md:mb-8 md:p-6">
+          <div className="mb-5 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+            <div className="flex min-w-0 flex-col items-center gap-4 text-center md:flex-row md:text-left">
+              <div className="relative flex-shrink-0">
+                <div className="h-24 w-24 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.22)] bg-[var(--bg-card)] p-1 shadow-[0_0_44px_rgba(230,255,61,0.10)] md:h-32 md:w-32">
+                  <Avatar
+                    src={profile.avatar_url}
+                    username={profile.username}
+                    displayName={profile.display_name}
+                    size={128}
+                    className="h-full w-full rounded-[26px]"
                   />
-                )}
-                <TasteSimilarityBadge targetUserId={profile.id} />
-                <CopyProfileLink username={profile.username} />
-              </>
-            )}
-          </div>
-
-          {/* DNA Taste widget — mostrato se ci sono generi nella media list */}
-          {topGenres.length > 0 && (
-            <div className="mt-4 mb-4 px-4 w-full max-w-sm mx-auto">
-              <div className="p-4 rounded-2xl" style={{ background: 'rgba(230,255,61,0.04)', border: '1px solid rgba(230,255,61,0.12)' }}>
-                <div className="flex items-center gap-2 mb-3">
-                  <Sparkles size={12} style={{ color: 'var(--accent)' }} />
-                  <span className="text-[11px] font-bold uppercase tracking-[.08em]" style={{ color: 'var(--accent)' }}>
-                    Taste DNA
-                  </span>
-                  <span className="ml-auto text-[10px] text-zinc-600">
-                    {mediaList.length} media
-                  </span>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {topGenres.slice(0, 6).map((genre, i) => (
-                    <span key={genre} className="px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)', color: 'var(--accent)' }}>
-                      {genre}
-                      {i === 0 && <span className="ml-1" style={{ color: 'rgba(230,255,61,0.4)' }}>#{i + 1}</span>}
-                    </span>
-                  ))}
-                  {topGenres.length > 6 && (
-                    <span className="px-3 py-1.5 rounded-lg text-xs font-bold bg-zinc-800 text-zinc-500">
-                      +{topGenres.length - 6}
-                    </span>
-                  )}
+                <div className="absolute -bottom-2 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full border border-[rgba(230,255,61,0.35)] bg-black/80 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-[var(--accent)] backdrop-blur">
+                  <Sparkles size={10} />
+                  Profile
                 </div>
               </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+                  <Sparkles size={12} />
+                  Media identity
+                </div>
+                <h1 className="mb-1 text-2xl font-black tracking-[-0.03em] text-[var(--text-primary)] md:text-4xl">
+                  <UserBadge badge={profile.badge} displayName={profileDisplayName} className="text-2xl font-black md:text-4xl" />
+                </h1>
+                <p className="gk-mono mb-3 text-[var(--text-muted)]">@{profile.username}</p>
+                {profile.bio ? (
+                  <p className="mx-auto max-w-xl text-sm leading-relaxed text-[var(--text-secondary)] md:mx-0">
+                    {profile.bio}
+                  </p>
+                ) : (
+                  <p className="mx-auto max-w-xl text-sm leading-relaxed text-[var(--text-muted)] md:mx-0">
+                    {isOwner ? 'Aggiungi una bio per raccontare il tuo universo media.' : 'Questo profilo sta ancora costruendo la propria identità.'}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-2 md:justify-end">
+              {isOwner ? (
+                <>
+                  <Link href="/settings/profile">
+                    <button
+                      data-testid="btn-edit-profile"
+                      className="inline-flex h-10 items-center gap-2 rounded-2xl border border-[rgba(230,255,61,0.28)] bg-[rgba(230,255,61,0.10)] px-4 text-sm font-black text-[var(--accent)] transition-all hover:border-[rgba(230,255,61,0.45)] hover:bg-[rgba(230,255,61,0.14)]"
+                    >
+                      <Settings size={15} />
+                      {t.profile.editProfile}
+                    </button>
+                  </Link>
+                  <CopyProfileLink username={profile.username} />
+                </>
+              ) : (
+                <>
+                  {currentUserId && profile && (
+                    <FollowButton
+                      targetId={profile.id}
+                      currentUserId={currentUserId}
+                      isFollowingInitial={isFollowing}
+                      onFollowChange={(nowFollowing) => setFollowersCount(prev => nowFollowing ? prev + 1 : Math.max(0, prev - 1))}
+                    />
+                  )}
+                  <TasteSimilarityBadge targetUserId={profile.id} />
+                  <CopyProfileLink username={profile.username} />
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 border-t border-white/5 pt-4 md:grid-cols-6">
+            <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/5">
+              <p className="font-mono-data text-[20px] font-black leading-none text-[var(--accent)]">{mediaList.length}</p>
+              <p className="gk-label mt-1">media</p>
+            </div>
+            <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/5">
+              <p className="font-mono-data text-[20px] font-black leading-none text-[var(--text-primary)]">{followersCount}</p>
+              <p className="gk-label mt-1">{t.profile.follower}</p>
+            </div>
+            <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/5">
+              <p className="font-mono-data text-[20px] font-black leading-none text-[var(--text-primary)]">{followingCount}</p>
+              <p className="gk-label mt-1">{t.profile.following}</p>
+            </div>
+            <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/5">
+              <p className="font-mono-data text-[20px] font-black leading-none text-[var(--text-primary)]">{completedCount}</p>
+              <p className="gk-label mt-1">completati</p>
+            </div>
+            <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/5">
+              <p className="font-mono-data text-[20px] font-black leading-none text-[var(--text-primary)]">{avgProfileRating}</p>
+              <p className="gk-label mt-1">rating</p>
+            </div>
+            <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/5">
+              <p className="line-clamp-1 font-mono-data text-[16px] font-black leading-none text-[var(--text-primary)]">{profileTopGenre}</p>
+              <p className="gk-label mt-1">top genre</p>
+            </div>
+          </div>
+
+          {topGenres.length > 0 && (
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2 border-t border-white/5 pt-4 md:justify-start">
+              {topGenres.slice(0, 8).map((genre, i) => (
+                <span
+                  key={genre}
+                  className="inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[11px] font-bold"
+                  style={{ background: 'rgba(230,255,61,0.06)', borderColor: 'rgba(230,255,61,0.2)', color: 'rgba(230,255,61,0.85)' }}
+                >
+                  {genre}
+                  {i === 0 && <span className="font-mono-data text-[10px] opacity-60">#1</span>}
+                </span>
+              ))}
+              {topGenres.length > 8 && (
+                <span className="rounded-full border border-[var(--border)] bg-black/20 px-3 py-1.5 text-[11px] font-bold text-[var(--text-muted)]">
+                  +{topGenres.length - 8}
+                </span>
+              )}
             </div>
           )}
 
-          {/* Import piattaforme — solo owner */}
           {isOwner && (
-            <div className="flex items-center justify-center gap-3 py-2 flex-wrap">
-              <button onClick={() => setImportPlatform('steam')} title={steamAccount ? 'Steam (connesso)' : 'Connetti Steam'}
-                className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all hover:scale-110 ${steamAccount ? 'border-[#66C0F4]/40' : 'border-zinc-700 opacity-50 hover:opacity-100'}`}>
-                <div className="w-full h-full rounded-full overflow-hidden">
-                  <SteamIcon size={36} className="w-full h-full block" />
-                </div>
-              </button>
-
-              <button onClick={() => setImportPlatform('anilist')} title="AniList"
-                className="w-9 h-9 rounded-full border border-zinc-700 hover:border-[#02a9ff]/60 transition-all hover:scale-110">
-                <div className="w-full h-full rounded-full overflow-hidden">
-                  <svg viewBox="0 0 512 512" className="w-full h-full" style={{display:"block"}}>
-                    <rect width="512" height="512" fill="#1e2630"/>
-                    <path d="M321.92 323.27V136.6c0-10.698-5.887-16.602-16.558-16.602h-36.433c-10.672 0-16.561 5.904-16.561 16.602v88.651c0 2.497 23.996 14.089 24.623 16.541 18.282 71.61 3.972 128.92-13.359 131.6 28.337 1.405 31.455 15.064 10.348 5.731 3.229-38.209 15.828-38.134 52.049-1.406.31.317 7.427 15.282 7.87 15.282h85.545c10.672 0 16.558-5.9 16.558-16.6v-36.524c0-10.698-5.886-16.602-16.558-16.602z" fill="#02a9ff"/>
-                    <path d="M170.68 120 74.999 393h74.338l16.192-47.222h80.96L262.315 393h73.968l-95.314-273zm11.776 165.28 23.183-75.629 25.393 75.629z" fill="#fefefe"/>
-                  </svg>
-                </div>
-              </button>
-
-              <button onClick={() => setImportPlatform('mal')} title="MyAnimeList"
-                className="w-9 h-9 rounded-full border border-zinc-700 hover:border-[#2e51a2]/80 transition-all hover:scale-110">
-                <div className="w-full h-full rounded-full overflow-hidden">
-                  <svg viewBox="0 0 256 256" className="w-full h-full" style={{display:"block"}}>
-                    <rect width="256" height="256" fill="#2e51a2"/>
-                    <path fill="#ffffff" d="m 30.638616,88.40918 v 68.70703 h 17.759766 v -41.91016 l 15.470703,19.77344 16.67825,-19.77344 v 41.91016 H 98.307101 V 88.40918 H 80.547335 L 63.869085,109.82324 48.398382,88.40918 Z"/>
-                    <path fill="#ffffff" d="m 182.49799,88.40918 v 68.70703 h 39.07974 l 3.78365,-14.65739 H 200.25775 V 88.40918 Z"/>
-                    <path fill="#ffffff" d="m 149.65186,88.40918 c -21.64279,0 -35.06651,10.210974 -39.36914,25.39258 -4.19953,14.81779 0.34128,34.3715 10.28711,53.78906 l 14.85742,-10.47461 c 0,0 -7.06411,-9.21728 -8.39453,-23.03516 h 21.98437 v 23.03516 h 19.73438 v -51.67969 h -19.73438 v 14.9668 H 130.8003 c 1.71696,-11.1972 8.295,-17.30859 15.46875,-17.30859 h 25.8164 l -5.12304,-14.68555 z"/>
-                  </svg>
-                </div>
-              </button>
-
-              <button onClick={() => setImportPlatform('letterboxd')} title="Letterboxd"
-                className="w-9 h-9 rounded-full border border-zinc-700 hover:border-zinc-500 transition-all hover:scale-110">
-                <div className="w-full h-full rounded-full overflow-hidden">
-                  <svg viewBox="0 0 40 40" className="w-full h-full" style={{display:"block"}}>
-                    <rect width="40" height="40" fill="#1a1a1a"/>
-                    <ellipse cx="11" cy="20" rx="9" ry="9" fill="#ff8000"/>
-                    <ellipse cx="20" cy="20" rx="9" ry="9" fill="#00e054"/>
-                    <ellipse cx="29" cy="20" rx="9" ry="9" fill="#40bcf4"/>
-                    <ellipse cx="15.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9"/>
-                    <ellipse cx="24.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9"/>
-                  </svg>
-                </div>
-              </button>
-
-              <button onClick={() => setImportPlatform('xbox')} title="Xbox"
-                className="w-9 h-9 rounded-full border border-zinc-700 hover:border-[#107c10]/60 transition-all hover:scale-110 bg-black flex items-center justify-center">
-                <div className="w-full h-full rounded-full overflow-hidden">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 88" className="w-full h-full">
-                    <path fill="#107c10" d="M39.73 86.91c-6.628-.635-13.338-3.015-19.102-6.776-4.83-3.15-5.92-4.447-5.92-7.032 0-5.193 5.71-14.29 15.48-24.658 5.547-5.89 13.275-12.79 14.11-12.604 1.626.363 14.616 13.034 19.48 19 7.69 9.43 11.224 17.154 9.428 20.597-1.365 2.617-9.837 7.733-16.06 9.698-5.13 1.62-11.867 2.306-17.416 1.775zM8.184 67.703c-4.014-6.158-6.042-12.22-7.02-20.988-.324-2.895-.21-4.55.733-10.494 1.173-7.4 5.39-15.97 10.46-21.24 2.24-2.24 2.35-2.3 4.982-1.41 3.19 1.08 6.6 3.436 11.89 8.22l3.09 2.794-1.69 2.07c-7.828 9.61-16.09 23.24-19.2 31.67-1.69 4.58-2.37 9.18-1.64 11.095.49 1.294.04.812-1.61-1.714zm70.453 1.047c.397-1.936-.105-5.49-1.28-9.076-2.545-7.765-11.054-22.21-18.867-32.032l-2.46-3.092 2.662-2.443c3.474-3.19 5.886-5.1 8.49-6.723 2.053-1.28 4.988-2.413 6.25-2.413.777 0 3.516 2.85 5.726 5.95 3.424 4.8 5.942 10.63 7.218 16.69.825 3.92.894 12.3.133 16.21-.63 3.208-1.95 7.366-3.23 10.187-.97 2.113-3.36 6.218-4.41 7.554-.54.687-.54.686-.24-.796zM40.44 11.505C36.834 9.675 31.272 7.71 28.2 7.18c-1.076-.185-2.913-.29-4.08-.23-2.536.128-2.423-.004 1.643-1.925 3.38-1.597 6.2-2.536 10.03-3.34C40.098.78 48.193.77 52.43 1.663c4.575.965 9.964 2.97 13 4.84l.904.554-2.07-.104C60.148 6.745 54.15 8.408 47.71 11.54c-1.942.946-3.63 1.7-3.754 1.68-.123-.024-1.706-.795-3.52-1.715z"/>
-                  </svg>
-                </div>
-              </button>
-
-              <button onClick={() => setImportPlatform('bgg')} title="BoardGameGeek"
-                className="w-9 h-9 rounded-full border border-zinc-700 hover:border-amber-500/60 transition-all hover:scale-110 bg-[#FF5100]">
-                <div className="w-full h-full rounded-full overflow-hidden">
-                  <svg viewBox="0 0 62 90" className="w-full h-full" style={{display:'block'}}>
-                    <rect width="62" height="90" fill="#FF5100"/>
-                    <path fill="#ffffff" d="M58.584 16.512l-8.864 2.415L58.4 0 2.119 20.715l3.077 24.813L0 50.537l15.494 38.811 32.932-12.134 11.448-26.875-4.914-4.738z"/>
-                  </svg>
-                </div>
-              </button>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2 border-t border-white/5 pt-4 md:justify-start">
+              {([
+                { key: 'steam', label: steamAccount ? 'Steam connesso' : 'Steam', icon: <SteamIcon size={18} /> },
+                { key: 'anilist', label: 'AniList', icon: <Tv size={15} /> },
+                { key: 'mal', label: 'MAL', icon: <Tv size={15} /> },
+                { key: 'letterboxd', label: 'Letterboxd', icon: <Film size={15} /> },
+                { key: 'xbox', label: 'Xbox', icon: <Gamepad2 size={15} /> },
+                { key: 'bgg', label: 'BGG', icon: <List size={15} /> },
+              ] as const).map(item => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setImportPlatform(item.key)}
+                  className="inline-flex h-9 items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-3 text-xs font-bold text-[var(--text-secondary)] transition-all hover:border-[rgba(230,255,61,0.32)] hover:text-[var(--text-primary)]"
+                >
+                  {item.icon}
+                  {item.label}
+                </button>
+              ))}
             </div>
           )}
-        </div>
+        </section>
 
 
 
-        {/* Quick links — mobile only, owner only */}
+        {/* Quick links — owner tools */}
         {isOwner && (
-          <div className="md:hidden flex items-center gap-2 mb-5 -mx-4 px-4 overflow-x-auto scrollbar-hide">
+          <div className="flex items-center gap-2 mb-5 -mx-4 px-4 overflow-x-auto scrollbar-hide md:mx-0 md:px-0">
             {([
-              { href: '/wishlist',   icon: <Bookmark size={14} style={{ color: 'var(--accent)' }} />,   label: 'Wishlist' },
-              { href: '/lists',      icon: <List size={14} className="text-cyan-400" />,        label: 'Liste' },
-              { href: '/stats',      icon: <BarChart2 size={14} className="text-zinc-400" />, label: 'Statistiche' },
-              { href: '/trending',   icon: <TrendingUp size={14} className="text-orange-400" />,label: 'Trending' },
-              { href: '/community',  icon: <Users size={14} style={{ color: 'var(--accent)' }} />,     label: 'Community' },
+              { href: '/wishlist', icon: <Bookmark size={14} style={{ color: 'var(--accent)' }} />, label: 'Wishlist' },
+              { href: '/lists', icon: <List size={14} className="text-cyan-400" />, label: 'Liste' },
+              { href: '/stats', icon: <BarChart2 size={14} className="text-zinc-400" />, label: 'Statistiche' },
+              { href: '/trending', icon: <TrendingUp size={14} className="text-orange-400" />, label: 'Trending' },
+              { href: '/community', icon: <Users size={14} style={{ color: 'var(--accent)' }} />, label: 'Community' },
             ] as const).map(item => (
               <Link key={item.href} href={item.href}
-                className="flex items-center gap-2 px-3 py-2 bg-zinc-900 rounded-2xl border border-zinc-800 text-sm font-medium text-zinc-300 hover:border-zinc-600 transition-colors flex-shrink-0 whitespace-nowrap">
+                className="flex flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm font-bold text-[var(--text-secondary)] transition-all hover:border-[rgba(230,255,61,0.28)] hover:text-[var(--text-primary)]">
                 {item.icon}{item.label}
               </Link>
             ))}
@@ -1507,35 +1491,49 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
         {mediaList.length > 0 && <ProfileStatsPanel mediaList={mediaList} />}
 
         {/* ── TABS ─────────────────────────────────────────────────── */}
-        <div className="flex border-b border-zinc-800 mb-6 md:mb-8 overflow-x-auto scrollbar-hide -mx-4 md:mx-0 px-4 md:px-0">
-          {TABS.map(tab => (
-            <button
-              key={tab.id}
-              data-testid={`tab-${tab.id}`}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-all border-b-2 -mb-px whitespace-nowrap ${
-                activeTab === tab.id ? 'border-transparent' : 'border-transparent text-zinc-500 hover:text-zinc-300'
-              }`}
-              style={activeTab === tab.id ? { color: 'var(--accent)', borderBottomColor: 'var(--accent)' } : {}}
-            >
-              {tab.label}
-              {tab.count !== undefined && (
-                <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                  activeTab === tab.id ? '' : 'bg-zinc-800 text-zinc-500'
-                }`}
-                style={activeTab === tab.id ? { background: 'rgba(230,255,61,0.15)', color: 'var(--accent)' } : {}}>
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
+        <div className="mb-6 flex gap-2 overflow-x-auto rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)] p-1.5 scrollbar-hide md:mb-8">
+          {TABS.map(tab => {
+            const isActive = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                data-testid={`tab-${tab.id}`}
+                onClick={() => setActiveTab(tab.id)}
+                className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-2xl px-4 py-2.5 text-sm font-black transition-all"
+                style={isActive
+                  ? { background: 'var(--accent)', color: '#0B0B0F' }
+                  : { color: 'var(--text-secondary)' }}
+              >
+                {tab.label}
+                {tab.count !== undefined && (
+                  <span
+                    className="font-mono-data rounded-full px-1.5 py-0.5 text-[10px] font-black"
+                    style={isActive ? { background: 'rgba(11,11,15,0.14)', color: '#0B0B0F' } : { background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}
+                  >
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            )
+          })}
         </div>
 
         {/* ── TAB: COLLECTION ─────────────────────────────────────── */}
         {activeTab === 'collection' && (
           <>
             {mediaList.length === 0 ? (
-              <div className="text-center py-20 text-zinc-500">{isOwner ? t.profile.emptyOwner : t.profile.emptyOther}</div>
+              <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-16 text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-secondary)]">
+                  <Bookmark size={28} className="text-[var(--text-muted)]" />
+                </div>
+                <p className="gk-headline mb-1 text-[var(--text-primary)]">{isOwner ? 'La tua collezione è vuota' : 'Nessun media pubblico'}</p>
+                <p className="gk-body mx-auto mb-5 max-w-sm">{isOwner ? t.profile.emptyOwner : t.profile.emptyOther}</p>
+                {isOwner && (
+                  <Link href="/discover" className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]">
+                    Apri Discover
+                  </Link>
+                )}
+              </div>
             ) : (
               <>
                 {mediaList.length > 3 && (
@@ -1547,34 +1545,45 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                 )}
 
                 {sortedList.length === 0 ? (
-                  <div className="text-center py-16 text-zinc-500">
-                    <SearchIcon size={36} className="mx-auto mb-3 opacity-30" />
-                    <p>Nessun titolo trovato</p>
+                  <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-14 text-center">
+                    <SearchIcon size={36} className="mx-auto mb-3 text-[var(--text-muted)]" />
+                    <p className="gk-headline mb-1 text-[var(--text-primary)]">Nessun titolo trovato</p>
+                    <p className="gk-body mx-auto mb-5 max-w-sm">Prova a modificare ricerca, filtro o ordinamento.</p>
+                    <button
+                      type="button"
+                      onClick={() => { setCollectionSearch(''); setStatusFilter('all'); setSortMode('default') }}
+                      className="inline-flex h-10 items-center justify-center rounded-2xl border border-[var(--border)] px-4 text-sm font-bold text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+                    >
+                      Cancella filtri
+                    </button>
                   </div>
                 ) : (
                   // Grid view — mostra 5 card per categoria + "Vedi tutti"
                   <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={() => setIsDraggingAny(true)} onDragEnd={onDragEnd}>
-                  {orderedCategories.map((category) => {
-                    const items = grouped[category]
-                    const preview = items.slice(0, 6)
-                    const hasMore = items.length > 6
-                    return (
-                      <div key={category} className="mb-10 md:mb-16">
-                        <div className="flex items-center justify-between mb-4 md:mb-6">
-                          <h3 className="text-lg md:text-2xl font-semibold">{category}</h3>
-                          <div className="flex items-center gap-3">
-                            <p className="text-zinc-500">{t.profile.elements(items.length)}</p>
-                            {hasMore && (
-                              <Link
-                                href={`/profile/${profile.username}/${categoryToType[category] || category}`}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-xl text-xs text-zinc-400 hover:text-[var(--accent)] transition-all"
-                              >
-                                Vedi tutti <ChevronRight size={13} />
-                              </Link>
-                            )}
+                    {orderedCategories.map((category) => {
+                      const items = grouped[category]
+                      const preview = items.slice(0, 6)
+                      const hasMore = items.length > 6
+                      return (
+                        <div key={category} className="mb-10 md:mb-14">
+                          <div className="mb-4 flex items-center justify-between gap-4 md:mb-5">
+                            <div className="min-w-0">
+                              <p className="gk-label mb-1">Collection rail</p>
+                              <h3 className="truncate text-lg font-black tracking-[-0.02em] text-[var(--text-primary)] md:text-2xl">{category}</h3>
+                            </div>
+                            <div className="flex flex-shrink-0 items-center gap-3">
+                              <p className="gk-mono text-[var(--text-muted)]">{t.profile.elements(items.length)}</p>
+                              {hasMore && (
+                                <Link
+                                  href={`/profile/${profile.username}/${categoryToType[category] || category}`}
+                                  className="flex items-center gap-1.5 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-xs font-bold text-[var(--text-secondary)] transition-all hover:border-[rgba(230,255,61,0.28)] hover:text-[var(--accent)]"
+                                >
+                                  Vedi tutti <ChevronRight size={13} />
+                                </Link>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        {isOwner ? (
+                          {isOwner ? (
                             <SortableContext items={preview.map(m => m.id)} strategy={rectSortingStrategy}>
                               <div className={`flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide `}>
                                 {preview.map((media) => (
@@ -1592,7 +1601,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                                 {hasMore && (
                                   <Link
                                     href={`/profile/${profile.username}/${categoryToType[category] || category}`}
-                                    className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-zinc-600 rounded-3xl min-h-[340px] sm:min-h-[380px] md:min-h-[420px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-[var(--accent)] transition-all group"
+                                    className="group flex min-h-[340px] w-12 flex-shrink-0 flex-col items-center justify-center gap-1.5 rounded-3xl border border-dashed border-[var(--border)] text-[var(--text-muted)] transition-all hover:border-[rgba(230,255,61,0.34)] hover:text-[var(--accent)] sm:min-h-[380px] md:min-h-[420px] md:w-14"
                                   >
                                     <ChevronRight size={16} />
                                     <span className="text-xs font-semibold">+{items.length - 6}</span>
@@ -1600,27 +1609,27 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                                 )}
                               </div>
                             </SortableContext>
-                        ) : (
-                          <div className="flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
-                            {preview.map((media) => (
-                              <div key={media.id} className="w-40 sm:w-48 md:w-52 flex-shrink-0 border border-zinc-800 rounded-3xl overflow-hidden min-h-[340px] sm:min-h-[380px] md:min-h-[420px] flex flex-col">
-                                <MediaCard media={media} isOwner={false} onStatusChange={changeStatus} onViewNotes={setViewingNotes} />
-                              </div>
-                            ))}
-                            {hasMore && (
-                              <Link
-                                href={`/profile/${profile.username}/${categoryToType[category] || category}`}
-                                className="flex-shrink-0 w-12 md:w-14 border border-dashed border-zinc-700 hover:border-zinc-600 rounded-3xl min-h-[340px] sm:min-h-[380px] md:min-h-[420px] flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-[var(--accent)] transition-all group"
-                              >
-                                <ChevronRight size={16} />
-                                <span className="text-xs font-semibold">+{items.length - 6}</span>
-                              </Link>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
+                          ) : (
+                            <div className="flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
+                              {preview.map((media) => (
+                                <div key={media.id} className="w-40 sm:w-48 md:w-52 flex-shrink-0 border border-zinc-800 rounded-3xl overflow-hidden min-h-[340px] sm:min-h-[380px] md:min-h-[420px] flex flex-col">
+                                  <MediaCard media={media} isOwner={false} onStatusChange={changeStatus} onViewNotes={setViewingNotes} />
+                                </div>
+                              ))}
+                              {hasMore && (
+                                <Link
+                                  href={`/profile/${profile.username}/${categoryToType[category] || category}`}
+                                  className="group flex min-h-[340px] w-12 flex-shrink-0 flex-col items-center justify-center gap-1.5 rounded-3xl border border-dashed border-[var(--border)] text-[var(--text-muted)] transition-all hover:border-[rgba(230,255,61,0.34)] hover:text-[var(--accent)] sm:min-h-[380px] md:min-h-[420px] md:w-14"
+                                >
+                                  <ChevronRight size={16} />
+                                  <span className="text-xs font-semibold">+{items.length - 6}</span>
+                                </Link>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </DndContext>
                 )}
               </>
@@ -1630,8 +1639,12 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
 
         {/* ── TAB: ACTIVITY ───────────────────────────────────────── */}
         {activeTab === 'activity' && (
-          <div>
-            <h3 className="text-xl font-semibold mb-5">Attività recente</h3>
+          <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] p-4 md:p-5">
+            <div className="mb-5">
+              <p className="gk-label mb-1">Activity log</p>
+              <h3 className="text-xl font-black text-[var(--text-primary)]">Attività recente</h3>
+              <p className="gk-body mt-1 max-w-xl">Aggiornamenti, progressi e segnali pubblici legati alla libreria.</p>
+            </div>
             <ProfileActivityFeed userId={profile.id} />
           </div>
         )}
@@ -1683,8 +1696,8 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
         <NotesModal
           title={viewingNotes.title}
           value={viewingNotes.notes || ''}
-          onChange={() => {}}
-          onSave={() => {}}
+          onChange={() => { }}
+          onSave={() => { }}
           onClose={() => setViewingNotes(null)}
           readOnly
         />
@@ -1707,22 +1720,22 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                 )}
                 {importPlatform === 'anilist' && (
                   <div className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0">
-                    <svg viewBox="0 0 512 512" width="32" height="32"><rect width="512" height="512" fill="#1e2630"/><path d="M321.92 323.27V136.6c0-10.698-5.887-16.602-16.558-16.602h-36.433c-10.672 0-16.561 5.904-16.561 16.602v88.651c0 2.497 23.996 14.089 24.623 16.541 18.282 71.61 3.972 128.92-13.359 131.6 28.337 1.405 31.455 15.064 10.348 5.731 3.229-38.209 15.828-38.134 52.049-1.406.31.317 7.427 15.282 7.87 15.282h85.545c10.672 0 16.558-5.9 16.558-16.6v-36.524c0-10.698-5.886-16.602-16.558-16.602z" fill="#02a9ff"/><path d="M170.68 120 74.999 393h74.338l16.192-47.222h80.96L262.315 393h73.968l-95.314-273zm11.776 165.28 23.183-75.629 25.393 75.629z" fill="#fefefe"/></svg>
+                    <svg viewBox="0 0 512 512" width="32" height="32"><rect width="512" height="512" fill="#1e2630" /><path d="M321.92 323.27V136.6c0-10.698-5.887-16.602-16.558-16.602h-36.433c-10.672 0-16.561 5.904-16.561 16.602v88.651c0 2.497 23.996 14.089 24.623 16.541 18.282 71.61 3.972 128.92-13.359 131.6 28.337 1.405 31.455 15.064 10.348 5.731 3.229-38.209 15.828-38.134 52.049-1.406.31.317 7.427 15.282 7.87 15.282h85.545c10.672 0 16.558-5.9 16.558-16.6v-36.524c0-10.698-5.886-16.602-16.558-16.602z" fill="#02a9ff" /><path d="M170.68 120 74.999 393h74.338l16.192-47.222h80.96L262.315 393h73.968l-95.314-273zm11.776 165.28 23.183-75.629 25.393 75.629z" fill="#fefefe" /></svg>
                   </div>
                 )}
                 {importPlatform === 'mal' && (
                   <div className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0">
-                    <svg viewBox="0 0 256 256" width="32" height="32"><rect width="256" height="256" fill="#2e51a2"/><path fill="#ffffff" d="m 30.638616,88.40918 v 68.70703 h 17.759766 v -41.91016 l 15.470703,19.77344 16.67825,-19.77344 v 41.91016 H 98.307101 V 88.40918 H 80.547335 L 63.869085,109.82324 48.398382,88.40918 Z"/><path fill="#ffffff" d="m 182.49799,88.40918 v 68.70703 h 39.07974 l 3.78365,-14.65739 H 200.25775 V 88.40918 Z"/><path fill="#ffffff" d="m 149.65186,88.40918 c -21.64279,0 -35.06651,10.210974 -39.36914,25.39258 -4.19953,14.81779 0.34128,34.3715 10.28711,53.78906 l 14.85742,-10.47461 c 0,0 -7.06411,-9.21728 -8.39453,-23.03516 h 21.98437 v 23.03516 h 19.73438 v -51.67969 h -19.73438 v 14.9668 H 130.8003 c 1.71696,-11.1972 8.295,-17.30859 15.46875,-17.30859 h 25.8164 l -5.12304,-14.68555 z"/></svg>
+                    <svg viewBox="0 0 256 256" width="32" height="32"><rect width="256" height="256" fill="#2e51a2" /><path fill="#ffffff" d="m 30.638616,88.40918 v 68.70703 h 17.759766 v -41.91016 l 15.470703,19.77344 16.67825,-19.77344 v 41.91016 H 98.307101 V 88.40918 H 80.547335 L 63.869085,109.82324 48.398382,88.40918 Z" /><path fill="#ffffff" d="m 182.49799,88.40918 v 68.70703 h 39.07974 l 3.78365,-14.65739 H 200.25775 V 88.40918 Z" /><path fill="#ffffff" d="m 149.65186,88.40918 c -21.64279,0 -35.06651,10.210974 -39.36914,25.39258 -4.19953,14.81779 0.34128,34.3715 10.28711,53.78906 l 14.85742,-10.47461 c 0,0 -7.06411,-9.21728 -8.39453,-23.03516 h 21.98437 v 23.03516 h 19.73438 v -51.67969 h -19.73438 v 14.9668 H 130.8003 c 1.71696,-11.1972 8.295,-17.30859 15.46875,-17.30859 h 25.8164 l -5.12304,-14.68555 z" /></svg>
                   </div>
                 )}
                 {importPlatform === 'letterboxd' && (
                   <div className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0">
-                    <svg viewBox="0 0 40 40" width="32" height="32"><rect width="40" height="40" fill="#1a1a1a"/><ellipse cx="11" cy="20" rx="9" ry="9" fill="#ff8000"/><ellipse cx="20" cy="20" rx="9" ry="9" fill="#00e054"/><ellipse cx="29" cy="20" rx="9" ry="9" fill="#40bcf4"/><ellipse cx="15.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9"/><ellipse cx="24.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9"/></svg>
+                    <svg viewBox="0 0 40 40" width="32" height="32"><rect width="40" height="40" fill="#1a1a1a" /><ellipse cx="11" cy="20" rx="9" ry="9" fill="#ff8000" /><ellipse cx="20" cy="20" rx="9" ry="9" fill="#00e054" /><ellipse cx="29" cy="20" rx="9" ry="9" fill="#40bcf4" /><ellipse cx="15.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9" /><ellipse cx="24.5" cy="20" rx="4.5" ry="9" fill="#ffffff" fillOpacity="0.9" /></svg>
                   </div>
                 )}
                 {importPlatform === 'xbox' && (
                   <div className="w-8 h-8 rounded-xl bg-black overflow-hidden flex items-center justify-center flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 88 88"><path fill="#107c10" d="M39.73 86.91c-6.628-.635-13.338-3.015-19.102-6.776-4.83-3.15-5.92-4.447-5.92-7.032 0-5.193 5.71-14.29 15.48-24.658 5.547-5.89 13.275-12.79 14.11-12.604 1.626.363 14.616 13.034 19.48 19 7.69 9.43 11.224 17.154 9.428 20.597-1.365 2.617-9.837 7.733-16.06 9.698-5.13 1.62-11.867 2.306-17.416 1.775zM8.184 67.703c-4.014-6.158-6.042-12.22-7.02-20.988-.324-2.895-.21-4.55.733-10.494 1.173-7.4 5.39-15.97 10.46-21.24 2.158-2.24 2.35-2.3 4.982-1.41 3.19 1.08 6.6 3.436 11.89 8.22l3.09 2.794-1.69 2.07c-7.828 9.61-16.09 23.24-19.2 31.67-1.69 4.58-2.37 9.18-1.64 11.095.49 1.294.04.812-1.61-1.714zm70.453 1.047c.397-1.936-.105-5.49-1.28-9.076-2.545-7.765-11.054-22.21-18.867-32.032l-2.46-3.092 2.662-2.443c3.474-3.19 5.886-5.1 8.49-6.723 2.053-1.28 4.988-2.413 6.25-2.413.777 0 3.516 2.85 5.726 5.95 3.424 4.8 5.942 10.63 7.218 16.69.825 3.92.894 12.3.133 16.21-.63 3.208-1.95 7.366-3.23 10.187-.97 2.113-3.36 6.218-4.41 7.554-.54.687-.54.686-.24-.796zM40.44 11.505C36.834 9.675 31.272 7.71 28.2 7.18c-1.076-.185-2.913-.29-4.08-.23-2.536.128-2.423-.004 1.643-1.925 3.38-1.597 6.2-2.536 10.03-3.34C40.098.78 48.193.77 52.43 1.663c4.575.965 9.964 2.97 13 4.84l.904.554-2.07-.104C60.148 6.745 54.15 8.408 47.71 11.54c-1.942.946-3.63 1.7-3.754 1.68-.123-.024-1.706-.795-3.52-1.715z"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 88 88"><path fill="#107c10" d="M39.73 86.91c-6.628-.635-13.338-3.015-19.102-6.776-4.83-3.15-5.92-4.447-5.92-7.032 0-5.193 5.71-14.29 15.48-24.658 5.547-5.89 13.275-12.79 14.11-12.604 1.626.363 14.616 13.034 19.48 19 7.69 9.43 11.224 17.154 9.428 20.597-1.365 2.617-9.837 7.733-16.06 9.698-5.13 1.62-11.867 2.306-17.416 1.775zM8.184 67.703c-4.014-6.158-6.042-12.22-7.02-20.988-.324-2.895-.21-4.55.733-10.494 1.173-7.4 5.39-15.97 10.46-21.24 2.158-2.24 2.35-2.3 4.982-1.41 3.19 1.08 6.6 3.436 11.89 8.22l3.09 2.794-1.69 2.07c-7.828 9.61-16.09 23.24-19.2 31.67-1.69 4.58-2.37 9.18-1.64 11.095.49 1.294.04.812-1.61-1.714zm70.453 1.047c.397-1.936-.105-5.49-1.28-9.076-2.545-7.765-11.054-22.21-18.867-32.032l-2.46-3.092 2.662-2.443c3.474-3.19 5.886-5.1 8.49-6.723 2.053-1.28 4.988-2.413 6.25-2.413.777 0 3.516 2.85 5.726 5.95 3.424 4.8 5.942 10.63 7.218 16.69.825 3.92.894 12.3.133 16.21-.63 3.208-1.95 7.366-3.23 10.187-.97 2.113-3.36 6.218-4.41 7.554-.54.687-.54.686-.24-.796zM40.44 11.505C36.834 9.675 31.272 7.71 28.2 7.18c-1.076-.185-2.913-.29-4.08-.23-2.536.128-2.423-.004 1.643-1.925 3.38-1.597 6.2-2.536 10.03-3.34C40.098.78 48.193.77 52.43 1.663c4.575.965 9.964 2.97 13 4.84l.904.554-2.07-.104C60.148 6.745 54.15 8.408 47.71 11.54c-1.942.946-3.63 1.7-3.754 1.68-.123-.024-1.706-.795-3.52-1.715z" /></svg>
                   </div>
                 )}
                 <h2 className="text-base font-bold">
