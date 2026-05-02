@@ -1,0 +1,194 @@
+/* Geekore Roadmap — Fase 15: Micro-interazioni & Accessibilità */
+
+:root {
+  --gk-press-scale: 0.97;
+  --gk-press-duration: 80ms;
+  --gk-focus-ring: 0 0 0 3px rgba(230, 255, 61, 0.35);
+  --gk-focus-ring-soft: 0 0 0 3px rgba(230, 255, 61, 0.20);
+  --gk-swipe-rotate: 6deg;
+}
+
+/* 15.1 Hover: bg-elevated, CTA accent 90% */
+button,
+a,
+[role='button'],
+.gk-interactive {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button:not(:disabled):not([aria-disabled='true']):hover,
+  a:hover,
+  [role='button']:not([aria-disabled='true']):hover {
+    transition-duration: 150ms;
+  }
+
+  .gk-hover-card:hover,
+  .gk-panel:hover,
+  .gk-feed-card:hover {
+    background-color: var(--bg-elevated);
+  }
+}
+
+.gk-btn-primary:hover,
+button[style*='var(--accent)']:hover,
+a[style*='var(--accent)']:hover {
+  opacity: 0.9;
+}
+
+/* 15.2 Active/pressed: scale 0.97 durata 80ms */
+button:not(:disabled):not([aria-disabled='true']),
+a.gk-btn,
+[role='button']:not([aria-disabled='true']),
+.gk-active-press,
+.gk-chip,
+.gk-cover,
+.gk-feed-card-actions button {
+  transition-property: transform, opacity, background-color, border-color, color, box-shadow;
+  transition-duration: var(--gk-press-duration), 150ms, 150ms, 150ms, 150ms, 150ms;
+  transition-timing-function: ease;
+}
+
+button:not(:disabled):not([aria-disabled='true']):active,
+a.gk-btn:active,
+[role='button']:not([aria-disabled='true']):active,
+.gk-active-press:active,
+.gk-chip:active,
+.gk-feed-card-actions button:active {
+  transform: scale(var(--gk-press-scale));
+}
+
+/* 15.3 Focus ring: 3px accent 35%, esterno */
+:where(button, a, input, textarea, select, [tabindex]:not([tabindex='-1']), [role='button']):focus-visible {
+  outline: none;
+  box-shadow: var(--gk-focus-ring);
+}
+
+.gk-input:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: var(--gk-focus-ring-soft);
+}
+
+/* 15.4 Swipe gesture: rotazione max 6°, overlay colore 30%.
+   Le classi sono opt-in così non rompono la logica gesture esistente. */
+.gk-swipe-card {
+  will-change: transform;
+  transform-origin: center bottom;
+}
+
+.gk-swipe-card[data-swipe='left'] {
+  transform: rotate(calc(var(--gk-swipe-rotate) * -1));
+}
+
+.gk-swipe-card[data-swipe='right'] {
+  transform: rotate(var(--gk-swipe-rotate));
+}
+
+.gk-swipe-overlay {
+  opacity: 0;
+  transition: opacity 120ms ease;
+  pointer-events: none;
+}
+
+.gk-swipe-card[data-swipe='left'] .gk-swipe-overlay,
+.gk-swipe-card[data-swipe='right'] .gk-swipe-overlay {
+  opacity: 0.3;
+}
+
+/* 15.6 Hit target minimo 44×44 */
+button,
+a[role='button'],
+.gk-btn,
+.gk-btn-ghost,
+.gk-feed-card-actions button,
+.gk-chip[role='button'],
+.gk-hit-target {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.gk-chip,
+.gk-pill {
+  min-height: 24px;
+}
+
+/* 15.7 Screen reader helpers e type-tag */
+.sr-only:not(:focus):not(:active),
+.gk-sr-only:not(:focus):not(:active) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.gk-type-tag::before,
+.gk-cover-tag::before {
+  content: '';
+}
+
+/* 15.8 Contrasto: evitare opacity troppo basse su testo secondario interattivo */
+button .text-\[var\(--text-muted\)\],
+a .text-\[var\(--text-muted\)\],
+[role='button'] .text-\[var\(--text-muted\)\] {
+  color: var(--text-secondary);
+}
+
+/* Skeleton mantiene proporzioni e non comunica contenuto ai lettori se aria-hidden */
+.gk-skeleton,
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-card) 0%, var(--bg-elevated) 48%, var(--bg-card) 100%);
+  background-size: 220% 100%;
+  animation: gk-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes gk-shimmer {
+  0% { background-position: 120% 0; }
+  100% { background-position: -120% 0; }
+}
+
+/* 15.5 prefers-reduced-motion: disabilita rotazioni/scale, mantiene fade */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+
+  button,
+  a,
+  [role='button'],
+  .gk-active-press,
+  .gk-chip,
+  .gk-cover,
+  .gk-swipe-card,
+  .gk-feed-card-actions button {
+    transition-property: opacity, background-color, border-color, color, box-shadow !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+
+  button:active,
+  a.gk-btn:active,
+  [role='button']:active,
+  .gk-active-press:active,
+  .gk-chip:active,
+  .gk-feed-card-actions button:active,
+  .gk-swipe-card,
+  .gk-swipe-card[data-swipe='left'],
+  .gk-swipe-card[data-swipe='right'] {
+    transform: none !important;
+  }
+
+  .gk-skeleton,
+  .skeleton {
+    animation: none !important;
+  }
+}
