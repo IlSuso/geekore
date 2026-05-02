@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { StarRating } from '@/components/ui/StarRating'
+import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 import { translateGenre } from '@/lib/genres'
 import { optimizeCover } from '@/lib/imageOptimizer'
 
@@ -119,16 +120,6 @@ function triggerTasteDelta(options: {
 const TYPE_ICON: Record<string, React.ElementType> = {
   anime: Film, manga: Layers, game: Gamepad2,
   tv: Tv, movie: Film, boardgame: Dices,
-}
-const TYPE_COLOR: Record<string, string> = {
-  anime: 'bg-sky-500', manga: 'bg-orange-500', game: 'bg-green-500',
-  tv: 'bg-purple-500', movie: 'bg-red-500',
-  boardgame: 'bg-amber-500',
-}
-const TYPE_LABEL: Record<string, string> = {
-  anime: 'Anime', manga: 'Manga', game: 'Videogioco',
-  tv: 'Serie TV', movie: 'Film',
-  boardgame: 'Gioco da Tavolo',
 }
 
 const RELATION_LABEL: Record<string, string> = {
@@ -522,9 +513,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
           <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full text-white ${TYPE_COLOR[media.type] || 'bg-zinc-700'}`}>
-                {TYPE_LABEL[media.type] || media.type}
-              </span>
+              <MediaTypeBadge type={media.type} size="xs" />
               {media.isAwardWinner && (
                 <span className="flex items-center gap-0.5 text-[9px] bg-amber-500/20 border border-amber-500/30 text-amber-300 px-1.5 py-0.5 rounded-full">
                   <Trophy size={8} />Acclamato

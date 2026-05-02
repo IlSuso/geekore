@@ -11,6 +11,7 @@ import {
   Film, Gamepad2, Tv, Share2, Layers,
 } from 'lucide-react'
 import Link from 'next/link'
+import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 
 // ─── Tipi ────────────────────────────────────────────────────────────────────
 
@@ -45,15 +46,6 @@ const TYPE_ICON: Record<string, React.ElementType> = {
   tv: Tv, movie: Film,
 }
 
-const TYPE_COLOR: Record<string, string> = {
-  anime: 'bg-sky-500', manga: 'bg-orange-500', game: 'bg-green-500',
-  tv: 'bg-purple-500', movie: 'bg-red-500',
-}
-
-const TYPE_LABEL: Record<string, string> = {
-  anime: 'Anime', manga: 'Manga', game: 'Videogioco',
-  tv: 'Serie TV', movie: 'Film',
-}
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 
@@ -274,9 +266,7 @@ export default function ListDetailPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white truncate">{entry.title}</p>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded text-white ${TYPE_COLOR[entry.type] || 'bg-zinc-600'}`}>
-                        {TYPE_LABEL[entry.type] || entry.type}
-                      </span>
+                      <MediaTypeBadge type={entry.type} size="xs" />
                     </div>
                     <Plus size={14} className="text-zinc-500 flex-shrink-0" />
                   </button>
@@ -334,9 +324,7 @@ export default function ListDetailPage() {
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-white text-sm truncate">{item.media_title}</p>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded text-white ${TYPE_COLOR[item.media_type] || 'bg-zinc-600'}`}>
-                      {TYPE_LABEL[item.media_type] || item.media_type}
-                    </span>
+                    <MediaTypeBadge type={item.media_type} size="xs" />
                     {item.notes && (
                       <p className="text-xs text-zinc-500 mt-1 truncate">{item.notes}</p>
                     )}
