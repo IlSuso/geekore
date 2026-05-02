@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, memo } from 'react'
 import type React from 'react'
 import { createPortal } from 'react-dom'
 import type { User } from '@supabase/supabase-js'
-import { X } from 'lucide-react'
+import { ImageIcon, Star, X } from 'lucide-react'
 import { ReportButton } from '@/components/ui/ReportButton'
 import { FeedActionBar } from '@/components/ui/FeedActionBar'
 import { PostSignalBadge } from '@/components/ui/PostSignalBadge'
@@ -14,13 +14,9 @@ import { FeedCommentComposer } from '@/components/feed/FeedCommentComposer'
 import { FeedEngagementSummary } from '@/components/feed/FeedEngagementSummary'
 import { androidBack } from '@/hooks/androidBack'
 import { CategoryBadge, CategoryIcon, parseCategoryString } from '@/components/feed/CategoryBasics'
-import type { Post } from '@/components/feed/feedTypes'
+import type { FeedMediaPreview, Post } from '@/components/feed/feedTypes'
 
-// ── VirtualPostCard ────────────────────────────────────────────────────────────
-// Wrapper leggero che smonta il contenuto della card quando è lontana dal viewport.
-// Misura l'altezza reale prima di smontare → placeholder esatta stessa dimensione.
-// Le prime ALWAYS_MOUNTED card non vengono mai smontate (above-the-fold).
-const VIRTUAL_MARGIN = '600px'  // margine fuori viewport prima di smontare
+const VIRTUAL_MARGIN = '600px'
 
 export const VirtualPostCard = memo(function VirtualPostCard({
   index, alwaysMounted, children,
@@ -121,36 +117,60 @@ export function BottomSheet({
 
 function FeedActivityContext({
   category,
+  media,
   onCategoryClick,
 }: {
   category: string
+  media?: FeedMediaPreview | null
   onCategoryClick?: (category: string) => void
 }) {
   const parsed = parseCategoryString(category)
   if (!parsed) return null
 
-  const mediaTitle = parsed.subcategory?.trim()
-  const isSpecific = mediaTitle.length > 0
+  const mediaTitle = media?.title || parsed.subcategory?.trim() || parsed.category
+  const progressLabel = media?.current_episode != null && media?.episodes
+    ? `${media.current_episode}/${media.episodes}`
+    : media?.current_episode != null
+    ? `${media.current_episode}`
+    : null
 
   return (
     <button
       type="button"
       onClick={onCategoryClick ? () => onCategoryClick(category) : undefined}
-      className="mx-5 mb-3 flex w-[calc(100%-2.5rem)] items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(135deg,rgba(255,255,255,0.035),rgba(255,255,255,0.012))] p-3 text-left transition-colors hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)]"
+      className="mx-5 mb-3 flex w-[calc(100%-2.5rem)] items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0.012))] p-3 text-left transition-colors hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)]"
     >
-      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)]">
-        <CategoryIcon category={parsed.category} size={18} className="text-[var(--accent)]" />
+      <div className="h-[74px] w-[50px] flex-shrink-0 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)]">
+        {media?.cover_image ? (
+          <img src={media.cover_image} alt={`Copertina di ${mediaTitle}`} className="h-full w-full object-cover" loading="lazy" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-[var(--text-muted)]">
+            <ImageIcon size={18} />
+          </div>
+        )}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="mb-1 flex items-center gap-2">
+        <div className="mb-1.5 flex items-center gap-2">
           <span className="gk-label text-[var(--text-muted)]">Activity</span>
           <CategoryBadge category={parsed.category} />
         </div>
-        <p className="line-clamp-1 text-[14px] font-bold text-[var(--text-primary)]">
-          {isSpecific ? mediaTitle : parsed.category}
+        <p className="line-clamp-1 text-[15px] font-bold leading-tight text-[var(--text-primary)]">
+          {mediaTitle}
         </p>
+        <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+          {media?.status && <span className="gk-mono rounded-full border border-[var(--border)] px-2 py-0.5 text-[var(--text-secondary)]">{media.status}</span>}
+          {progressLabel && <span className="gk-mono text-[var(--text-muted)]">{progressLabel}</span>}
+          {media?.rating != null && (
+            <span className="inline-flex items-center gap-1 font-mono-data text-[11px] font-bold text-[var(--text-primary)]">
+              <Star size={11} className="text-[var(--accent)]" fill="var(--accent)" />
+              {media.rating}
+            </span>
+          )}
+        </div>
       </div>
-      <span className="gk-mono hidden text-[var(--text-muted)] sm:inline">open</span>
+      <div className="hidden h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] sm:flex">
+        <CategoryIcon category={parsed.category} size={18} className="text-[var(--accent)]" />
+      </div>
     </button>
   )
 }
@@ -212,7 +232,7 @@ export const PostCard = memo(function PostCard({
       </div>
 
       {post.category && (
-        <FeedActivityContext category={post.category} onCategoryClick={onCategoryClick} />
+        <FeedActivityContext category={post.category} media={post.media_preview} onCategoryClick={onCategoryClick} />
       )}
 
       {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
@@ -306,7 +326,7 @@ export function PostModal({
           </div>
 
           {post.category && (
-            <FeedActivityContext category={post.category} />
+            <FeedActivityContext category={post.category} media={post.media_preview} />
           )}
 
           {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
