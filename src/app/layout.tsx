@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Plus_Jakarta_Sans, Space_Grotesk, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
+import './visual-vision.css'
 import Navbar from '@/components/Navbar'
 
 // Manteniamo next/font come fallback self-hosted e usiamo i link nel <head>
