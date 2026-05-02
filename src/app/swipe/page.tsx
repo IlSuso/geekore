@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Shuffle } from 'lucide-react'
+import { List, Shuffle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { SwipeMode } from '@/components/for-you/SwipeMode'
 import type { SwipeItem } from '@/components/for-you/SwipeMode'
@@ -71,6 +71,25 @@ function toQueueRow(r: any, userId: string) {
   }
 }
 
+function ForYouModeHeader() {
+  const router = useRouter()
+  return (
+    <div className="fixed left-0 right-0 top-0 z-[120] flex items-center justify-between border-b border-[var(--border)] bg-[rgba(11,11,15,0.94)] px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-2xl md:top-12 md:pt-3">
+      <button
+        type="button"
+        onClick={() => router.push('/for-you')}
+        className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] transition-colors hover:border-[var(--accent)]"
+      >
+        <List size={15} />
+        Lista
+      </button>
+      <div className="rounded-full border border-[rgba(230,255,61,0.45)] bg-[rgba(230,255,61,0.12)] px-3 py-1.5 text-xs font-bold text-[var(--accent)]">
+        Swipe mode
+      </div>
+    </div>
+  )
+}
+
 export default function SwipePage() {
   const supabase = createClient()
   const router = useRouter()
@@ -85,7 +104,6 @@ export default function SwipePage() {
       if (!user) { router.push('/login'); return }
       userIdRef.current = user.id
 
-      // Load library titles for dedup
       const { data: entries } = await supabase
         .from('user_media_entries')
         .select('title')
@@ -94,14 +112,12 @@ export default function SwipePage() {
         if (e.title) addedTitlesRef.current.add((e.title as string).toLowerCase())
       }
 
-      // Load skipped IDs
       const { data: skippedRows } = await supabase
         .from('swipe_skipped')
         .select('external_id')
         .eq('user_id', user.id)
       const skippedSet = new Set((skippedRows || []).map((r: any) => r.external_id as string))
 
-      // Try loading from existing queue first
       const { data: queueRows } = await supabase
         .from('swipe_queue_all')
         .select('*')
@@ -116,7 +132,6 @@ export default function SwipePage() {
         return
       }
 
-      // Not enough in queue — fetch from recommendations API
       try {
         const res = await fetch('/api/recommendations?type=all')
         if (res.ok) {
@@ -161,16 +176,11 @@ export default function SwipePage() {
   }, []) // eslint-disable-line
 
   const removeFromPool = useCallback(async (_userId: string, _externalId: string) => {
-    // Pool cleanup must stay server-side. Feedback/cache invalidation below prevents repeats
-    // without letting the browser mutate recommendations_pool directly.
     fetch('/api/recommendations?invalidateCache=true', { method: 'POST', keepalive: true }).catch(() => {})
   }, [])
 
   const handleSwipeSeen = useCallback(async (item: SwipeItem, rating: number | null, skipPersist = false) => {
-    if (!skipPersist && addedTitlesRef.current.has(item.title.toLowerCase())) {
-      return
-    }
-
+    if (!skipPersist && addedTitlesRef.current.has(item.title.toLowerCase())) return
 
     const uid = userIdRef.current
     if (!uid) return
@@ -221,13 +231,8 @@ export default function SwipePage() {
     }
   }, [removeFromPool])
 
-  const handleSwipeSkip = useCallback((_item: SwipeItem) => {
-    // SwipeMode handles persistence itself via persistSkipped
-  }, [])
+  const handleSwipeSkip = useCallback((_item: SwipeItem) => {}, [])
 
-  // Undo swipe destra: rimuove il titolo da user_media_entries e invalida il profilo.
-  // Chiamato da SwipeMode per qualsiasi tipo di undo (destra, sinistra, wishlist) —
-  // ma agisce su Supabase SOLO se il titolo era effettivamente stato aggiunto.
   const handleSwipeUndo = useCallback(async (item: SwipeItem) => {
     if (!addedTitlesRef.current.has(item.title.toLowerCase())) return
     const uid = userIdRef.current
@@ -339,15 +344,20 @@ export default function SwipePage() {
   }
 
   return (
-    <SwipeMode
-      standalone
-      items={initialItems}
-      userId={userIdRef.current ?? undefined}
-      onSeen={handleSwipeSeen}
-      onSkip={handleSwipeSkip}
-      onUndo={handleSwipeUndo}
-      onRequestMore={handleSwipeRequestMore}
-      onClose={() => {}}
-    />
+    <>
+      <ForYouModeHeader />
+      <div className="pt-[calc(58px+env(safe-area-inset-top,0px))] md:pt-[104px]">
+        <SwipeMode
+          standalone
+          items={initialItems}
+          userId={userIdRef.current ?? undefined}
+          onSeen={handleSwipeSeen}
+          onSkip={handleSwipeSkip}
+          onUndo={handleSwipeUndo}
+          onRequestMore={handleSwipeRequestMore}
+          onClose={() => router.push('/for-you')}
+        />
+      </div>
+    </>
   )
 }
