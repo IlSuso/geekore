@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/context/AuthContext'
-import { BookOpen, LayoutGrid, List, Search, X } from 'lucide-react'
+import { BookOpen, LayoutGrid, List, Search, X, Star } from 'lucide-react'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { PageScaffold } from '@/components/ui/PageScaffold'
@@ -33,23 +33,25 @@ type MediaEntry = {
 
 const TYPES = [
   { id: 'all', label: 'Tutto' },
+  { id: 'watching', label: 'In corso' },
+  { id: 'completed', label: 'Completati' },
+  { id: 'planning', label: 'Wishlist' },
   { id: 'anime', label: 'Anime' },
   { id: 'manga', label: 'Manga' },
-  { id: 'game', label: 'Giochi' },
-  { id: 'tv', label: 'Serie' },
+  { id: 'game', label: 'Game' },
+  { id: 'tv', label: 'TV' },
   { id: 'movie', label: 'Film' },
   { id: 'boardgame', label: 'Board' },
 ]
 
-const STATUS_FILTERS = [
-  { id: 'all', label: 'Tutti' },
-  { id: 'watching', label: 'In corso' },
-  { id: 'reading', label: 'Lettura' },
-  { id: 'completed', label: 'Completati' },
-  { id: 'planning', label: 'Pianificati' },
-  { id: 'paused', label: 'In pausa' },
-  { id: 'dropped', label: 'Abbandonati' },
-]
+const TYPE_COLORS: Record<string, string> = {
+  anime: 'var(--type-anime)',
+  manga: 'var(--type-manga)',
+  game: 'var(--type-game)',
+  boardgame: 'var(--type-board)',
+  movie: 'var(--type-movie)',
+  tv: 'var(--type-tv)',
+}
 
 function normalize(value: string): string {
   return value
@@ -73,14 +75,28 @@ function toRailItem(entry: MediaEntry): MediaRailItem {
   }
 }
 
+function isStatusFilter(id: string): boolean {
+  return ['watching', 'reading', 'completed', 'planning', 'paused', 'dropped'].includes(id)
+}
+
+function LibraryStat({ label, value, accent = false }: { label: string; value: string | number; accent?: boolean }) {
+  return (
+    <div className="rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+      <p className={`font-mono-data mb-1 text-[28px] font-bold leading-none ${accent ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>
+        {value}
+      </p>
+      <p className="gk-label">{label}</p>
+    </div>
+  )
+}
+
 export default function LibraryPage() {
   const router = useRouter()
   const authUser = useUser()
   const supabase = createClient()
   const [entries, setEntries] = useState<MediaEntry[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeType, setActiveType] = useState('all')
-  const [activeStatus, setActiveStatus] = useState('all')
+  const [activeFilter, setActiveFilter] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
   const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null)
@@ -101,8 +117,16 @@ export default function LibraryPage() {
 
   const filtered = useMemo(() => {
     const query = normalize(searchTerm)
-    let result = activeType === 'all' ? entries : entries.filter(e => e.type === activeType)
-    if (activeStatus !== 'all') result = result.filter(e => (e.status || 'planning') === activeStatus)
+    let result = entries
+
+    if (activeFilter !== 'all') {
+      if (isStatusFilter(activeFilter)) {
+        result = result.filter(e => (e.status || 'planning') === activeFilter)
+      } else {
+        result = result.filter(e => e.type === activeFilter)
+      }
+    }
+
     if (query) {
       result = result.filter(e => {
         const haystack = [
@@ -116,9 +140,10 @@ export default function LibraryPage() {
       })
     }
     return result
-  }, [entries, activeType, activeStatus, searchTerm])
+  }, [entries, activeFilter, searchTerm])
 
   const stats = useMemo(() => {
+    const currentYear = new Date().getFullYear()
     const rated = entries.filter(e => typeof e.rating === 'number')
     const averageRating = rated.length
       ? rated.reduce((sum, e) => sum + Number(e.rating || 0), 0) / rated.length
@@ -126,15 +151,15 @@ export default function LibraryPage() {
 
     return {
       total: entries.length,
-      completed: entries.filter(e => e.status === 'completed').length,
+      thisYear: entries.filter(e => new Date(e.updated_at).getFullYear() === currentYear).length,
       inProgress: entries.filter(e => e.status === 'watching' || e.status === 'reading').length,
       averageRating,
     }
   }, [entries])
 
   const grouped = useMemo((): { status: string; items: MediaEntry[] }[] => {
-    if (activeStatus !== 'all') return [{ status: activeStatus, items: filtered }]
-    const order = ['watching', 'reading', 'completed', 'paused', 'dropped', 'planning']
+    if (activeFilter !== 'all' && isStatusFilter(activeFilter)) return [{ status: activeFilter, items: filtered }]
+    const order = ['watching', 'reading', 'completed', 'planning', 'paused', 'dropped']
     const groups: Record<string, MediaEntry[]> = {}
     for (const e of filtered) {
       const key = e.status || 'planning'
@@ -142,7 +167,7 @@ export default function LibraryPage() {
       groups[key].push(e)
     }
     return order.filter(k => groups[k]?.length).map(k => ({ status: k, items: groups[k] }))
-  }, [filtered, activeStatus])
+  }, [filtered, activeFilter])
 
   function openDrawer(entry: MediaEntry) {
     setDrawerMedia({
@@ -158,38 +183,39 @@ export default function LibraryPage() {
   }
 
   const gridItems = useMemo(() => filtered.map(toRailItem), [filtered])
-  const hasActiveFilters = activeType !== 'all' || activeStatus !== 'all' || searchTerm.trim().length > 0
+  const hasActiveFilters = activeFilter !== 'all' || searchTerm.trim().length > 0
 
   return (
     <PageScaffold
-      title="Libreria"
-      description="Tutto quello che stai guardando, leggendo, giocando o hai completato."
+      title="Library"
+      description="La tua collezione viva: progressi, completati, wishlist e voto medio in un unico spazio compatto."
       icon={<BookOpen size={16} />}
       contentClassName="max-w-screen-lg pt-2 md:pt-8 pb-28"
     >
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        {[
-          { label: 'Totale', value: stats.total },
-          { label: 'Completati', value: stats.completed },
-          { label: 'In corso', value: stats.inProgress },
-          { label: 'Media voto', value: stats.averageRating ? stats.averageRating.toFixed(1) : '—' },
-        ].map(s => (
-          <div key={s.label} className="rounded-2xl p-4 text-center bg-[var(--bg-card)] border border-[var(--border)]">
-            <p className="text-[26px] font-bold leading-none mb-1 font-mono-data text-[var(--accent)]">{s.value}</p>
-            <p className="gk-label">{s.label}</p>
-          </div>
-        ))}
+      <div className="mb-5 rounded-[28px] border border-[var(--border)] bg-[linear-gradient(135deg,rgba(139,92,246,0.14),rgba(230,255,61,0.035))] p-4 md:p-5">
+        <p className="gk-label mb-2 text-[var(--accent)]">Il tuo archivio geek</p>
+        <h1 className="gk-h1 mb-2">Library compatta, non vetrina.</h1>
+        <p className="gk-body max-w-2xl">
+          Il valore centrale di Geekore è qui: tutto quello che consumi, organizzato per stato e medium, senza poster giganti inutili.
+        </p>
       </div>
 
-      <div className="space-y-3 mb-6">
+      <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <LibraryStat label="Totali" value={stats.total} accent />
+        <LibraryStat label="Quest’anno" value={stats.thisYear} />
+        <LibraryStat label="In corso" value={stats.inProgress} />
+        <LibraryStat label="Media voto" value={stats.averageRating ? stats.averageRating.toFixed(1) : '—'} />
+      </div>
+
+      <div className="mb-5 space-y-3">
         <div className="relative">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
+          <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
           <input
             type="text"
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Cerca nella tua libreria..."
-            className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] py-2.5 pl-10 pr-10 text-[14px] text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none transition-colors focus:border-[rgba(230,255,61,0.45)]"
+            placeholder="Cerca titolo, genere, medium..."
+            className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] py-2.5 pl-10 pr-10 text-[14px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]"
           />
           {searchTerm && (
             <button
@@ -203,26 +229,21 @@ export default function LibraryPage() {
           )}
         </div>
 
-        <FilterBar
-          items={TYPES}
-          activeId={activeType}
-          onChange={(id) => setActiveType(id)}
-        />
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
             <FilterBar
-              items={STATUS_FILTERS}
-              activeId={activeStatus}
-              onChange={(id) => setActiveStatus(id)}
+              items={TYPES}
+              activeId={activeFilter}
+              onChange={(id) => setActiveFilter(id)}
               className="mx-0 px-0"
-              chipClassName="h-7 px-3 text-[11px]"
+              chipClassName="h-8 px-3 text-[12px]"
             />
           </div>
-          <div className="flex-shrink-0 flex items-center gap-1 p-1 rounded-xl bg-[var(--bg-card)] border border-[var(--border)]">
+          <div className="flex flex-shrink-0 items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-1">
             <button
               type="button"
               onClick={() => setViewMode('list')}
-              className="p-1.5 rounded-lg transition-all"
+              className="rounded-lg p-1.5 transition-all"
               style={{ background: viewMode === 'list' ? 'var(--accent)' : 'transparent' }}
               aria-label="Vista lista"
             >
@@ -231,7 +252,7 @@ export default function LibraryPage() {
             <button
               type="button"
               onClick={() => setViewMode('grid')}
-              className="p-1.5 rounded-lg transition-all"
+              className="rounded-lg p-1.5 transition-all"
               style={{ background: viewMode === 'grid' ? 'var(--accent)' : 'transparent' }}
               aria-label="Vista griglia"
             >
@@ -247,28 +268,28 @@ export default function LibraryPage() {
         ) : (
           <div className="space-y-2">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="h-20 rounded-2xl animate-pulse bg-[var(--bg-card)]" />
+              <div key={i} className="h-[74px] rounded-2xl bg-[var(--bg-card)] skeleton" />
             ))}
           </div>
         )
       ) : filtered.length === 0 ? (
-        <div className="text-center py-20">
+        <div className="py-20 text-center">
           <p className="gk-headline mb-1 text-[var(--text-primary)]">
-            {entries.length === 0 ? 'Libreria vuota' : 'Nessun elemento trovato'}
+            {entries.length === 0 ? 'Library vuota' : 'Nessun elemento trovato'}
           </p>
           <p className="gk-body mb-6">
             {entries.length === 0
-              ? 'Aggiungi media dalla sezione Scopri'
+              ? 'Aggiungi media dalla sezione Discover'
               : hasActiveFilters
                 ? 'Prova a cambiare ricerca o filtri'
                 : 'Prova a cambiare i filtri'}
           </p>
           {entries.length === 0 ? (
-            <ActionButton href="/discover">Vai a Scopri</ActionButton>
+            <ActionButton href="/discover">Vai a Discover</ActionButton>
           ) : hasActiveFilters ? (
             <button
               type="button"
-              onClick={() => { setSearchTerm(''); setActiveType('all'); setActiveStatus('all') }}
+              onClick={() => { setSearchTerm(''); setActiveFilter('all') }}
               className="inline-flex h-10 items-center justify-center rounded-xl bg-[var(--accent)] px-4 text-sm font-bold text-[#0B0B0F] transition-transform hover:scale-[1.02]"
             >
               Cancella filtri
@@ -285,30 +306,46 @@ export default function LibraryPage() {
           }}
         />
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-7">
           {grouped.map(({ status, items }) => (
-            <div key={status}>
-              <div className="flex items-center gap-2 mb-3">
+            <section key={status}>
+              <div className="mb-2 flex items-center gap-2">
                 <h2 className="gk-label">{getMediaStatusLabel(status)}</h2>
-                <span className="font-mono-data text-[12px] text-[var(--text-muted)]">{items.length}</span>
+                <span className="gk-mono text-[var(--text-muted)]">{items.length}</span>
               </div>
-              <div className="space-y-2">
-                {items.map(entry => (
-                  <CompactMediaRow
-                    key={entry.id}
-                    title={entry.title}
-                    type={entry.type}
-                    coverImage={entry.cover_image}
-                    status={entry.status || 'planning'}
-                    score={entry.rating}
-                    progress={entry.episodes && entry.episodes > 0
-                      ? { current: entry.current_episode || 0, total: entry.episodes }
-                      : undefined}
-                    onClick={() => openDrawer(entry)}
-                  />
-                ))}
+              <div className="space-y-1.5">
+                {items.map(entry => {
+                  const color = TYPE_COLORS[entry.type] || 'var(--border)'
+                  return (
+                    <CompactMediaRow
+                      key={entry.id}
+                      title={entry.title}
+                      type={entry.type}
+                      coverImage={entry.cover_image}
+                      status={entry.status || 'planning'}
+                      score={entry.rating}
+                      progress={entry.episodes && entry.episodes > 0
+                        ? { current: entry.current_episode || 0, total: entry.episodes }
+                        : undefined}
+                      trailing={(
+                        <div className="flex min-w-[54px] flex-col items-end gap-1">
+                          <span className="h-2 w-2 rounded-full" style={{ background: color }} />
+                          {typeof entry.rating === 'number' ? (
+                            <span className="inline-flex items-center gap-1 font-mono-data text-[12px] font-bold text-[var(--text-primary)]">
+                              <Star size={11} className="text-[var(--accent)]" fill="var(--accent)" />
+                              {entry.rating}
+                            </span>
+                          ) : (
+                            <span className="gk-mono text-[var(--text-muted)]">—</span>
+                          )}
+                        </div>
+                      )}
+                      onClick={() => openDrawer(entry)}
+                    />
+                  )
+                })}
               </div>
-            </div>
+            </section>
           ))}
         </div>
       )}
