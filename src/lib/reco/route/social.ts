@@ -16,12 +16,16 @@ export async function loadSocialFavorites(
   const socialFavorites = new Map<string, string>()
   if (!similarFriends || similarFriends.length === 0) return socialFavorites
 
-  const friendIds = similarFriends.map((f: any) => f.other_user_id)
+  const friendIds = similarFriends.map((f: any) => f.other_user_id).filter(Boolean)
+  if (friendIds.length === 0) return socialFavorites
+
   const { data: friendEntries } = await supabase
     .from('user_media_entries')
     .select('user_id, external_id, rating')
     .in('user_id', friendIds)
     .gte('rating', 4)
+    .order('rating', { ascending: false })
+    .limit(500)
 
   if (!friendEntries) return socialFavorites
 
