@@ -33,28 +33,54 @@ import { AppShell } from '@/components/AppShell'
 import { ActiveTabProvider } from '@/context/ActiveTabContext'
 import { cookies, headers } from 'next/headers'
 
+const APP_THEME_COLOR = '#0B0B0F'
+const BRAND_ACCENT = '#E6FF3D'
+const APP_URL = 'https://geekore.app'
+
 export const metadata: Metadata = {
+  metadataBase: new URL(APP_URL),
   title: { default: 'Geekore', template: '%s — Geekore' },
   description: 'Traccia anime, manga, videogiochi, film e serie in un unico posto. Condividi i tuoi progressi con la community.',
   manifest: '/manifest.json',
+  applicationName: 'Geekore',
+  appleWebApp: {
+    capable: true,
+    title: 'Geekore',
+    statusBarStyle: 'black-translucent',
+  },
   icons: {
-    icon: '/icons/favicon-32.png',
-    apple: '/icons/apple-touch-icon.png',
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/icons/favicon-64.svg', sizes: '64x64', type: 'image/svg+xml' },
+      { url: '/icons/favicon-32.svg', sizes: '32x32', type: 'image/svg+xml' },
+      { url: '/icons/favicon-16.svg', sizes: '16x16', type: 'image/svg+xml' },
+      { url: '/icons/favicon-32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/icons/favicon-16.png', sizes: '16x16', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/icons/geekore-touch.svg', sizes: '180x180', type: 'image/svg+xml' },
+      { url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+    other: [
+      { rel: 'mask-icon', url: '/icons/icon-badge.svg', color: BRAND_ACCENT },
+    ],
   },
   openGraph: {
     title: 'Geekore',
-    description: 'Il tuo universo geek in un unico posto.',
+    description: 'Anime · Manga · Game · Film · Serie · Board. Il tuo universo geek in un unico posto.',
     type: 'website',
     locale: 'it_IT',
+    url: APP_URL,
+    siteName: 'Geekore',
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Geekore — Anime, Manga, Game, Film, Serie, Board' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Geekore',
     description: 'Il tuo universo geek in un unico posto.',
+    images: ['/og-image.png'],
   },
 }
-
-const APP_THEME_COLOR = '#0B0B0F'
 
 export const viewport: Viewport = {
   themeColor: APP_THEME_COLOR,
@@ -82,8 +108,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@500;700;800;900&family=Switzer:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
           rel="stylesheet"
         />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="icon" type="image/svg+xml" sizes="64x64" href="/icons/favicon-64.svg" />
+        <link rel="icon" type="image/svg+xml" sizes="32x32" href="/icons/favicon-32.svg" />
+        <link rel="icon" type="image/svg+xml" sizes="16x16" href="/icons/favicon-16.svg" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" sizes="180x180" />
+        <link rel="mask-icon" href="/icons/icon-badge.svg" color={BRAND_ACCENT} />
+        <meta name="msapplication-TileColor" content={BRAND_ACCENT} />
         <meta name="view-transition" content="same-origin" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="Geekore" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="color-scheme" content="dark" />
