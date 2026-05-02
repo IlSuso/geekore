@@ -1,7 +1,7 @@
 import { parseCategoryString } from '@/components/feed/CategoryBasics'
 import type { Post } from '@/components/feed/feedTypes'
 
-export type FeedFilter = 'all' | 'following'
+export type FeedFilter = 'all' | 'following' | 'trending' | 'discovery'
 
 export const cache: {
   posts: Post[] | null
