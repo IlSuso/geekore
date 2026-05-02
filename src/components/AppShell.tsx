@@ -25,7 +25,6 @@ function isKeepAliveTabRoute(pathname: string): boolean {
     pathname === '/home' ||
     pathname === '/discover' ||
     pathname === '/for-you' ||
-    pathname === '/swipe' ||
     pathname === '/library'
   ) {
     return true
@@ -49,7 +48,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   if (!isKeepAliveTabRoute(pathname)) {
-    // Pagine app normali: settings, wishlist, stats, lists, notifications, ecc.
+    // Pagine app normali: settings, wishlist, stats, lists, notifications, swipe mode, ecc.
     // Devono poter fare routing reale e non restare coperte dal pannello keep-alive.
     return <MainShell>{children}</MainShell>
   }
