@@ -18,12 +18,32 @@ The large-file refactor work was applied and tested outside the old connector PR
 - Do not use `tsconfig` exclusions as build workarounds.
 - For large files, request the full file and produce local ZIP patches rather than connector-replacing huge files.
 
-## Planned priorities
+## Done in PR #14
 
-1. Re-check current build/CI status from fresh PR.
-2. Continue remaining API hardening from the previous roadmap:
-   - recommendation-adjacent edge cases;
-   - external fetch timeouts;
-   - input caps and duplicate key warnings;
-   - service/internal-only bypasses.
-3. Keep PR small enough to merge safely.
+- Rechecked current build state from a fresh PR.
+- Restricted recommendation `bypass_cooldown=1` to internal/service calls only.
+- Validated recommendation media type selection against the allowed media-type whitelist.
+- Capped and deduplicated `/api/recommendations/similar` query inputs:
+  - `title`
+  - `genres`
+  - `keywords`
+  - `tags`
+  - `excludeId`
+  - `type`
+- Reviewed refactored similar helpers:
+  - `src/lib/reco/similar/igdb.ts`
+  - `src/lib/reco/similar/tmdb.ts`
+  - `src/lib/reco/similar/anilist.ts`
+  - `src/lib/reco/similar/scoring.ts`
+- Confirmed timeout coverage in the refactored similar helpers.
+- Confirmed duplicate-key DNA widget fix is already present on current `main`.
+
+## Current status
+
+- PR #14 is draft and mergeable.
+- Latest CI is green before this tracker-only update.
+- Keep any remaining changes small or stop and review/merge.
+
+## Remaining follow-up
+
+- `src/lib/reco/fetchers-igdb.ts` still contains a token fetch without explicit timeout, but the file remains too large for a safe connector replacement. Patch locally/Codex or provide the full file for a ZIP-style patch if needed.
