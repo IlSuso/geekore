@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 import { BookmarkCheck, Check, Film, Plus, Star } from 'lucide-react'
 import { MediaMetaRow } from '@/components/ui/MediaMetaRow'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
+import { getMediaStatusLabel } from '@/lib/mediaStatus'
+import { getMediaTypeColor } from '@/lib/mediaTypes'
 
 interface DiscoverMediaCardProps {
   title: string
@@ -32,6 +34,7 @@ export function DiscoverMediaCard({
 }: DiscoverMediaCardProps) {
   const hasState = added || wishlisted
   const Wrapper = onClick ? 'button' : 'div'
+  const typeColor = getMediaTypeColor(type)
 
   return (
     <Wrapper
@@ -41,7 +44,10 @@ export function DiscoverMediaCard({
       onClick={onClick}
       aria-label={onClick ? `Apri dettagli di ${title}` : undefined}
     >
-      <div className="relative aspect-[2/3] overflow-hidden rounded-[18px] border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-[0_10px_34px_rgba(0,0,0,0.22)]">
+      <div
+        className="gk-poster-first relative aspect-[2/3] overflow-hidden rounded-[18px] border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-[0_10px_34px_rgba(0,0,0,0.22)]"
+        style={{ boxShadow: `0 10px 34px rgba(0,0,0,0.22), inset 0 -3px 0 ${typeColor}` }}
+      >
         {coverImage ? (
           <img
             src={coverImage}
@@ -51,8 +57,12 @@ export function DiscoverMediaCard({
             decoding="async"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-[var(--text-muted)]">
-            {placeholderIcon || <Film size={28} />}
+          <div
+            className="gk-cover-placeholder h-full w-full"
+            style={{ ['--gk-type' as string]: typeColor }}
+          >
+            <span className="line-clamp-5">{title}</span>
+            <span className="sr-only">{placeholderIcon || <Film size={28} />}</span>
           </div>
         )}
 
@@ -75,12 +85,14 @@ export function DiscoverMediaCard({
         {hasState && (
           <div className="absolute right-1.5 top-1.5 z-10">
             {added ? (
-              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--accent)] shadow-sm">
-                <Check size={11} className="text-[#0B0B0F]" strokeWidth={2.5} />
+              <div className="gk-status-pill !static !bg-[var(--accent)] !text-[#0B0B0F]">
+                <Check size={10} strokeWidth={2.5} />
+                {getMediaStatusLabel('completed')}
               </div>
             ) : (
-              <div className="flex h-6 w-6 items-center justify-center rounded-lg border border-[rgba(230,255,61,0.5)] bg-black/70 shadow-sm backdrop-blur-sm">
-                <BookmarkCheck size={11} className="text-[var(--accent)]" />
+              <div className="gk-status-pill !static">
+                <BookmarkCheck size={10} />
+                Wishlist
               </div>
             )}
           </div>
