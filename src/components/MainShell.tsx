@@ -15,13 +15,17 @@ export function MainShell({ children }: { children: React.ReactNode }) {
   return (
     <main data-auth={isAuth ? 'true' : undefined}>
       {showForYouSwitch && (
-        <div className="fixed right-4 top-[calc(3.75rem+env(safe-area-inset-top,0px))] z-[95] md:top-16">
-          <ForYouModeSwitch active={pathname === '/swipe' ? 'swipe' : 'list'} />
+        <div className="pointer-events-none fixed right-4 top-[calc(3.75rem+env(safe-area-inset-top,0px))] z-[95] md:top-16">
+          <div className="pointer-events-auto">
+            <ForYouModeSwitch active={pathname === '/swipe' ? 'swipe' : 'list'} />
+          </div>
         </div>
       )}
       {showDiscoverQuickLinks && (
-        <div className="fixed left-2 right-2 top-[calc(3.65rem+env(safe-area-inset-top,0px))] z-[95] md:left-1/2 md:right-auto md:top-16 md:-translate-x-1/2">
-          <DiscoverQuickLinks />
+        <div className="pointer-events-none fixed left-2 right-2 top-[calc(3.65rem+env(safe-area-inset-top,0px))] z-[95] md:left-1/2 md:right-auto md:top-16 md:-translate-x-1/2">
+          <div className="pointer-events-auto">
+            <DiscoverQuickLinks />
+          </div>
         </div>
       )}
       {children}
