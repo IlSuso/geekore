@@ -26,6 +26,13 @@ function extractTitles(data: any): any[] {
   )
 }
 
+function cleanGamertag(value: string | null): string | null {
+  const clean = value?.trim() || ''
+  if (!clean || clean.length > 32) return null
+  if (!/^[\p{L}\p{N}\s._-]+$/u.test(clean)) return null
+  return clean
+}
+
 async function resolveGamertag(gamertag: string): Promise<string | null> {
   try {
     const res = await fetch(`${OPENXBL_BASE}/profile/gamertag/${encodeURIComponent(gamertag)}`, {
@@ -99,7 +106,12 @@ function extractCoverImage(title: any): string | null {
     title.images?.[0]?.url,
   ]
   for (const c of candidates) {
-    if (c && typeof c === 'string' && c.startsWith('http')) return c
+    if (c && typeof c === 'string') {
+      try {
+        const url = new URL(c)
+        if (url.protocol === 'https:') return c
+      } catch {}
+    }
   }
   return null
 }
@@ -119,7 +131,7 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url)
   let xuid: string | null = searchParams.get('xuid')?.trim() ?? null
-  const gamertag = searchParams.get('gamertag')?.trim()
+  const gamertag = cleanGamertag(searchParams.get('gamertag'))
 
   if (!xuid && !gamertag) {
     return NextResponse.json({ error: 'Parametro xuid o gamertag mancante' }, { status: 400, headers: rl.headers })
@@ -133,7 +145,7 @@ export async function GET(request: NextRequest) {
     xuid = await resolveGamertag(gamertag)
     if (!xuid) {
       return NextResponse.json({
-        error: `Gamertag "${gamertag}" non trovato. Inserisci il tuo XUID (16 cifre) da xboxgamertag.com`,
+        error: `Gamertag non trovato. Inserisci il tuo XUID (16 cifre) da xboxgamertag.com`,
       }, { status: 404, headers: rl.headers })
     }
   }
