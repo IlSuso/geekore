@@ -9,17 +9,58 @@ import { useState, useEffect } from 'react'
 import { useLocale } from '@/lib/locale'
 import { createClient } from '@/lib/supabase/client'
 import {
-  Settings, Globe, List, TrendingUp, BarChart3, Bell,
+  Globe, List, TrendingUp, BarChart3, Bell,
   Shield, KeyRound, LogOut, Eye, EyeOff, Loader2, ChevronDown, ChevronUp,
-  Mail, Check, Heart, Tv, Monitor, Trash2,
+  Mail, Check, Heart, Tv, Trash2,
 } from 'lucide-react'
 import { DeleteAccountModal } from '@/components/profile/DeleteAccountModal'
 import { useCsrf } from '@/hooks/useCsrf'
 import { PushNotificationsToggle } from '@/components/notifications/PushNotificationsToggle'
+import { PageScaffold } from '@/components/ui/PageScaffold'
+import { SettingsControlHero } from '@/components/settings/SettingsControlHero'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
-// ─── Logout semplice ─────────────────────────────────────────────────────────
+function SettingsSection({
+  icon,
+  title,
+  children,
+}: {
+  icon: React.ReactNode
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <section>
+      <div className="mb-3 flex items-center gap-2">
+        <span className="text-[var(--text-muted)]">{icon}</span>
+        <h2 className="gk-label">{title}</h2>
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function SettingsCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`overflow-hidden rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] ${className}`}>
+      {children}
+    </div>
+  )
+}
+
+function ActionIcon({ children, danger = false }: { children: React.ReactNode; danger?: boolean }) {
+  return (
+    <div
+      className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl ring-1 ring-white/5 transition-colors"
+      style={danger
+        ? { background: 'rgba(248,113,113,0.10)', color: '#f87171' }
+        : { background: 'rgba(230,255,61,0.08)', color: 'var(--accent)' }}
+    >
+      {children}
+    </div>
+  )
+}
 
 function LogoutButton() {
   const [loading, setLoading] = useState(false)
@@ -41,22 +82,18 @@ function LogoutButton() {
     <button
       onClick={handleLogout}
       disabled={loading}
-      className="w-full flex items-center gap-3 p-4 hover:bg-red-500/5 transition-colors group"
+      className="group flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-red-500/5 disabled:opacity-60"
     >
-      <div className="w-9 h-9 bg-red-500/10 rounded-xl flex items-center justify-center group-hover:bg-red-500/20 transition-colors">
-        {loading
-          ? <Loader2 size={16} className="text-red-400 animate-spin" />
-          : <LogOut size={16} className="text-red-400" />}
-      </div>
-      <div className="text-left">
-        <p className="text-sm font-medium text-white group-hover:text-red-300 transition-colors">Esci dall'account</p>
-        <p className="text-xs text-zinc-500">Disconnettiti da questo dispositivo</p>
+      <ActionIcon danger>
+        {loading ? <Loader2 size={16} className="animate-spin" /> : <LogOut size={16} />}
+      </ActionIcon>
+      <div>
+        <p className="text-sm font-bold text-[var(--text-primary)] transition-colors group-hover:text-red-300">Esci dall'account</p>
+        <p className="gk-caption">Disconnettiti da questo dispositivo</p>
       </div>
     </button>
   )
 }
-
-// ─── M5: Sezione cambio password ─────────────────────────────────────────────
 
 function ChangePasswordSheet() {
   const [open, setOpen] = useState(false)
@@ -69,9 +106,7 @@ function ChangePasswordSheet() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (newPass.length < 8) {
-      return
-    }
+    if (newPass.length < 8) return
     setLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -81,9 +116,7 @@ function ChangePasswordSheet() {
         email: user.email,
         password: currentPass,
       })
-      if (signInError) {
-        return
-      }
+      if (signInError) return
 
       const { error } = await supabase.auth.updateUser({ password: newPass })
       if (error) throw error
@@ -98,36 +131,34 @@ function ChangePasswordSheet() {
   }
 
   return (
-    <div className="border border-zinc-800 rounded-2xl overflow-hidden">
+    <div className="overflow-hidden rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)]">
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors"
+        className="flex w-full items-center justify-between p-4 transition-colors hover:bg-[var(--bg-card-hover)]"
       >
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-zinc-800 rounded-xl flex items-center justify-center">
-            <KeyRound size={15} style={{ color: 'var(--accent)' }} />
-          </div>
+          <ActionIcon><KeyRound size={15} /></ActionIcon>
           <div className="text-left">
-            <p className="text-sm font-medium text-white">Cambia password</p>
-            <p className="text-xs text-zinc-500">Aggiorna le credenziali di accesso</p>
+            <p className="text-sm font-bold text-[var(--text-primary)]">Cambia password</p>
+            <p className="gk-caption">Aggiorna le credenziali di accesso</p>
           </div>
         </div>
-        {open ? <ChevronUp size={16} className="text-zinc-500" /> : <ChevronDown size={16} className="text-zinc-500" />}
+        {open ? <ChevronUp size={16} className="text-[var(--text-muted)]" /> : <ChevronDown size={16} className="text-[var(--text-muted)]" />}
       </button>
 
       {open && (
-        <form onSubmit={handleSubmit} className="px-4 pb-4 space-y-3 border-t border-zinc-800 pt-4">
+        <form onSubmit={handleSubmit} className="space-y-3 border-t border-[var(--border)] px-4 pb-4 pt-4">
           <div className="relative">
             <input
               type={showCurrent ? 'text' : 'password'}
               placeholder="Password attuale"
               value={currentPass}
               onChange={e => setCurrentPass(e.target.value)}
-              className="w-full bg-zinc-800 border border-zinc-700 focus:border-zinc-600 rounded-xl px-4 py-2.5 pr-10 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
+              className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-2.5 pr-10 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]"
               required
             />
             <button type="button" onClick={() => setShowCurrent(s => !s)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)]">
               {showCurrent ? <EyeOff size={14} /> : <Eye size={14} />}
             </button>
           </div>
@@ -137,19 +168,19 @@ function ChangePasswordSheet() {
               placeholder="Nuova password (min. 8 caratteri)"
               value={newPass}
               onChange={e => setNewPass(e.target.value)}
-              className="w-full bg-zinc-800 border border-zinc-700 focus:border-zinc-600 rounded-xl px-4 py-2.5 pr-10 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
+              className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-2.5 pr-10 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]"
               minLength={8}
               required
             />
             <button type="button" onClick={() => setShowNew(s => !s)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)]">
               {showNew ? <EyeOff size={14} /> : <Eye size={14} />}
             </button>
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-black transition-colors disabled:opacity-60"
             style={{ background: 'var(--accent)', color: '#0B0B0F' }}
           >
             {loading && <Loader2 size={14} className="animate-spin" />}
@@ -160,8 +191,6 @@ function ChangePasswordSheet() {
     </div>
   )
 }
-
-// ─── M5: Logout globale ───────────────────────────────────────────────────────
 
 function GlobalLogoutButton() {
   const [loading, setLoading] = useState(false)
@@ -185,22 +214,18 @@ function GlobalLogoutButton() {
     <button
       onClick={handleGlobalLogout}
       disabled={loading}
-      className="w-full flex items-center gap-3 p-4 border border-zinc-800 rounded-2xl hover:border-red-500/40 hover:bg-red-500/5 transition-all group"
+      className="group flex w-full items-center gap-3 rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)] p-4 text-left transition-all hover:border-red-500/35 hover:bg-red-500/5 disabled:opacity-60"
     >
-      <div className="w-8 h-8 bg-red-500/20 rounded-xl flex items-center justify-center">
-        {loading
-          ? <Loader2 size={15} className="text-red-400 animate-spin" />
-          : <LogOut size={15} className="text-red-400" />}
-      </div>
-      <div className="text-left">
-        <p className="text-sm font-medium text-white group-hover:text-red-400 transition-colors">Esci da tutti i dispositivi</p>
-        <p className="text-xs text-zinc-500">Invalida tutte le sessioni attive</p>
+      <ActionIcon danger>
+        {loading ? <Loader2 size={15} className="animate-spin" /> : <LogOut size={15} />}
+      </ActionIcon>
+      <div>
+        <p className="text-sm font-bold text-[var(--text-primary)] transition-colors group-hover:text-red-300">Esci da tutti i dispositivi</p>
+        <p className="gk-caption">Invalida tutte le sessioni attive</p>
       </div>
     </button>
   )
 }
-
-// ─── M5: Ultimo accesso ───────────────────────────────────────────────────────
 
 function LastAccessInfo() {
   const [info, setInfo] = useState<string | null>(null)
@@ -216,18 +241,16 @@ function LastAccessInfo() {
         }))
       }
     })
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!info) return null
 
   return (
-    <p className="text-xs text-zinc-600 px-4 pb-3">
+    <p className="gk-caption px-1 pt-1">
       Sessione corrente iniziata il {info}
     </p>
   )
 }
-
-// ─── #24 Toggle digest email settimanale ─────────────────────────────────────
 
 function DigestToggle() {
   const [enabled, setEnabled] = useState(true)
@@ -239,7 +262,6 @@ function DigestToggle() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setLoading(false); return }
 
-      // Gestisce digest=off da URL (link unsubscribe nelle email)
       const params = new URLSearchParams(window.location.search)
       if (params.get('digest') === 'off') {
         await fetch('/api/preferences', {
@@ -249,7 +271,6 @@ function DigestToggle() {
         })
         setEnabled(false)
         setLoading(false)
-        // Rimuovi il param dall'URL senza ricaricare la pagina
         window.history.replaceState({}, '', window.location.pathname)
         return
       }
@@ -260,12 +281,11 @@ function DigestToggle() {
         .eq('user_id', user.id)
         .single()
 
-      // Default true se il campo non esiste ancora
       setEnabled(data?.digest_enabled !== false)
       setLoading(false)
     }
     load()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -279,45 +299,34 @@ function DigestToggle() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ digest_enabled: next }),
     })
-
   }
 
   return (
-    <div className="flex items-center justify-between p-4 bg-zinc-900 border border-zinc-800 rounded-2xl">
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 bg-zinc-800 rounded-xl flex items-center justify-center">
-          <Mail size={15} style={{ color: 'var(--accent)' }} />
-        </div>
-        <div>
-          <p className="text-sm font-medium text-white">Digest settimanale</p>
-          <p className="text-xs text-zinc-500">Riepilogo ogni lunedì: gusti, completati, trending</p>
+    <div className="flex items-center justify-between gap-3 rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <ActionIcon><Mail size={15} /></ActionIcon>
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-[var(--text-primary)]">Digest settimanale</p>
+          <p className="gk-caption line-clamp-1">Riepilogo ogni lunedì: gusti, completati, trending</p>
         </div>
       </div>
 
       {loading ? (
-        <Loader2 size={18} className="text-zinc-600 animate-spin" />
+        <Loader2 size={18} className="animate-spin text-[var(--text-muted)]" />
       ) : (
         <button
           onClick={toggle}
-          className="relative w-11 h-6 rounded-full transition-colors duration-200"
-          style={{ background: enabled ? 'var(--accent)' : undefined }}
+          className="relative h-6 w-11 flex-shrink-0 rounded-full transition-colors duration-200"
+          style={{ background: enabled ? 'var(--accent)' : 'var(--bg-secondary)' }}
           aria-label={enabled ? 'Disattiva digest' : 'Attiva digest'}
         >
-          <span
-            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
-              enabled ? 'translate-x-5' : 'translate-x-0'
-            }`}
-          />
+          <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
         </button>
       )}
     </div>
   )
 }
 
-// ─── Main Settings Page ───────────────────────────────────────────────────────
-
-// ─── #8 Platform Awareness — selezione piattaforme streaming ────────────────
-// TMDb provider IDs per le principali piattaforme (regione IT)
 const STREAMING_PLATFORMS = [
   { id: 8,    name: 'Netflix',        color: 'bg-red-600',      textColor: 'text-red-400',     borderColor: 'border-red-500/40',   logo: '🎬' },
   { id: 119,  name: 'Prime Video',    color: 'bg-sky-600',      textColor: 'text-sky-400',     borderColor: 'border-sky-500/40',   logo: '📦' },
@@ -333,7 +342,7 @@ const STREAMING_PLATFORMS = [
   { id: 188,  name: 'Sky Go',         color: 'bg-violet-700',   textColor: 'text-violet-400',  borderColor: 'border-violet-500/40',logo: '☁️' },
 ] as const
 
-function StreamingPlatformsSelector() {
+function StreamingPlatformsSelector({ onSelectedCountChange }: { onSelectedCountChange?: (count: number) => void }) {
   const [selected, setSelected] = useState<number[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -349,17 +358,21 @@ function StreamingPlatformsSelector() {
         .eq('user_id', user.id)
         .single()
       if (data?.streaming_platforms) {
-        setSelected(data.streaming_platforms as number[])
+        const platforms = data.streaming_platforms as number[]
+        setSelected(platforms)
+        onSelectedCountChange?.(platforms.length)
       }
       setLoading(false)
     }
     load()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = (id: number) => {
-    setSelected(prev =>
-      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
-    )
+    setSelected(prev => {
+      const next = prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+      onSelectedCountChange?.(next.length)
+      return next
+    })
   }
 
   const save = async () => {
@@ -373,35 +386,32 @@ function StreamingPlatformsSelector() {
   }
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-      <div className="px-5 pt-4 pb-3">
-        <p className="text-sm text-zinc-400 leading-relaxed">
-          Seleziona le piattaforme che hai attivo. I consigli di film e serie verranno
-          <span className="font-medium" style={{ color: 'var(--accent)' }}> boostati</span> se disponibili su queste piattaforme.
+    <SettingsCard>
+      <div className="px-5 pb-3 pt-4">
+        <p className="gk-body max-w-none">
+          Seleziona le piattaforme attive. I consigli di film e serie verranno <span className="font-bold text-[var(--accent)]">boostati</span> se disponibili su queste piattaforme.
         </p>
         {selected.length === 0 && !loading && (
-          <p className="text-xs text-zinc-600 mt-1">
-            Nessuna piattaforma selezionata — i consigli non terranno conto della disponibilità.
-          </p>
+          <p className="gk-caption mt-1">Nessuna piattaforma selezionata: i consigli non terranno conto della disponibilità.</p>
         )}
       </div>
 
       {loading ? (
         <div className="flex justify-center py-6">
-          <Loader2 size={18} className="text-zinc-600 animate-spin" />
+          <Loader2 size={18} className="animate-spin text-[var(--text-muted)]" />
         </div>
       ) : (
-        <div className="px-3 pb-3 grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 px-3 pb-3">
           {STREAMING_PLATFORMS.map(({ id, name, textColor, borderColor, logo }) => {
             const isSelected = selected.includes(id)
             return (
               <button
                 key={id}
                 onClick={() => toggle(id)}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                className={`flex items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-sm font-bold transition-all ${
                   isSelected
-                    ? `border ${borderColor} bg-zinc-800 ${textColor}`
-                    : 'border-zinc-800 bg-zinc-900 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
+                    ? `${borderColor} bg-[var(--bg-secondary)] ${textColor}`
+                    : 'border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:border-[var(--border)] hover:text-[var(--text-secondary)]'
                 }`}
               >
                 <span className="text-base leading-none">{logo}</span>
@@ -417,14 +427,14 @@ function StreamingPlatformsSelector() {
         <button
           onClick={save}
           disabled={saving || loading}
-          className="w-full py-2.5 rounded-xl disabled:opacity-50 text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-black transition-colors disabled:opacity-50"
           style={{ background: 'var(--accent)', color: '#0B0B0F' }}
         >
           {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
           {saving ? 'Salvataggio…' : 'Salva piattaforme'}
         </button>
       </div>
-    </div>
+    </SettingsCard>
   )
 }
 
@@ -439,7 +449,6 @@ function DeleteAccountSection() {
       await supabase.auth.signOut()
       document.cookie = 'geekore_onboarding_done=; path=/; max-age=0'
       window.location.href = '/'
-    } else {
     }
   }
 
@@ -447,181 +456,125 @@ function DeleteAccountSection() {
     <>
       <button
         onClick={() => setShowModal(true)}
-        className="w-full flex items-center gap-3 p-4 hover:bg-red-500/5 transition-colors group"
+        className="group flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-red-500/5"
       >
-        <div className="w-9 h-9 bg-red-500/10 rounded-xl flex items-center justify-center group-hover:bg-red-500/20 transition-colors">
-          <Trash2 size={16} className="text-red-400" />
-        </div>
-        <div className="text-left">
-          <p className="text-sm font-medium text-white group-hover:text-red-300 transition-colors">Elimina account</p>
-          <p className="text-xs text-zinc-500">Cancella tutti i tuoi dati in modo permanente</p>
+        <ActionIcon danger><Trash2 size={16} /></ActionIcon>
+        <div>
+          <p className="text-sm font-bold text-[var(--text-primary)] transition-colors group-hover:text-red-300">Elimina account</p>
+          <p className="gk-caption">Cancella tutti i tuoi dati in modo permanente</p>
         </div>
       </button>
-      {showModal && (
-        <DeleteAccountModal
-          onConfirm={handleDelete}
-          onClose={() => setShowModal(false)}
-        />
-      )}
+      {showModal && <DeleteAccountModal onConfirm={handleDelete} onClose={() => setShowModal(false)} />}
     </>
   )
 }
 
 export default function SettingsPage() {
   const { locale, setLocale, t } = useLocale()
+  const [selectedPlatformsCount, setSelectedPlatformsCount] = useState(0)
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-white">
-      <div className="max-w-3xl mx-auto px-4 md:px-6 pt-3 md:pt-10 pb-28 space-y-6">
+    <PageScaffold
+      title={t.settings.title}
+      description="Lingua, notifiche, sicurezza e piattaforme: il pannello operativo del tuo account."
+      icon={<Shield size={16} />}
+      contentClassName="max-w-3xl pt-2 md:pt-8 pb-28 space-y-6"
+    >
+      <SettingsControlHero
+        localeLabel={locale.toUpperCase()}
+        sectionsCount={6}
+        selectedPlatformsCount={selectedPlatformsCount}
+        digestEnabled
+      />
 
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-center">
-            <Settings size={20} style={{ color: 'var(--accent)' }} />
-          </div>
-          <h1 className="hidden md:block text-3xl font-bold tracking-tight">{t.settings.title}</h1>
-        </div>
-
-        {/* Lingua */}
-        <section>
-          <div className="flex items-center gap-2 mb-3">
-            <Globe size={15} className="text-zinc-500" />
-            <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">{t.settings.language}</h2>
-          </div>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-            <p className="text-sm text-zinc-500 px-5 pt-4 pb-3">{t.settings.languageDesc}</p>
-            <div className="flex p-3 gap-2">
-              {(['it', 'en'] as const).map(lang => (
-                <button
-                  key={lang}
-                  onClick={() => setLocale(lang)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold transition-all ${
-                    locale === lang
-                      ? ''
-                      : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
-                  }`}
-                  style={locale === lang ? { background: 'var(--accent)', color: '#0B0B0F' } : {}}
-                >
-                  {lang === 'it' ? t.settings.italian : t.settings.english}
-                  {locale === lang && <Check size={12} className="text-black" />}
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Logout rapido */}
-        <section>
-          <div className="flex items-center gap-2 mb-3">
-            <LogOut size={15} className="text-zinc-500" />
-            <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Account</h2>
-          </div>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-            <LogoutButton />
-          </div>
-        </section>
-
-        {/* M5: Sicurezza */}
-        <section>
-          <div className="flex items-center gap-2 mb-3">
-            <Shield size={15} className="text-zinc-500" />
-            <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Sicurezza</h2>
-          </div>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden space-y-0 divide-y divide-zinc-800">
-            <ChangePasswordSheet />
-            <div className="p-4">
-              <GlobalLogoutButton />
-            </div>
-            <LastAccessInfo />
-          </div>
-        </section>
-
-        {/* Notifiche push + digest */}
-        <section>
-          <div className="flex items-center gap-2 mb-3">
-            <Bell size={15} className="text-zinc-500" />
-            <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Notifiche</h2>
-          </div>
-          <div className="space-y-3">
-            <PushNotificationsToggle />
-            <DigestToggle />
-          </div>
-        </section>
-
-        {/* #8 Piattaforme Streaming */}
-        <section>
-          <div className="flex items-center gap-2 mb-3">
-            <Tv size={15} className="text-zinc-500" />
-            <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Piattaforme streaming</h2>
-          </div>
-          <StreamingPlatformsSelector />
-        </section>
-
-        {/* Link utili */}
-        <section>
-          <div className="flex items-center gap-2 mb-3">
-            <BarChart3 size={15} className="text-zinc-500" />
-            <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Altro</h2>
-          </div>
-          <div className="space-y-2">
-            {[
-              { href: '/stats', icon: BarChart3, color: 'bg-zinc-800', iconColor: '', iconStyle: { color: 'var(--accent)' } as React.CSSProperties, label: 'Tempo sprecato', desc: 'Calcola quante ore hai speso' },
-              { href: '/trending', icon: TrendingUp, color: 'bg-zinc-800', iconColor: '', iconStyle: { color: 'var(--accent)' } as React.CSSProperties, label: 'Trending community', desc: 'I più aggiunti questa settimana' },
-              { href: '/lists', icon: List, color: 'bg-emerald-500/20', iconColor: 'text-emerald-400', iconStyle: undefined as React.CSSProperties | undefined, label: 'Le mie liste', desc: 'Crea e condividi liste tematiche' },
-            ].map(({ href, icon: Icon, color, iconColor, iconStyle, label, desc }) => (
-              <Link
-                key={href}
-                href={href}
-                className="flex items-center justify-between p-4 bg-zinc-900 border border-zinc-800 rounded-2xl hover:border-zinc-700 transition-colors group"
+      <SettingsSection icon={<Globe size={15} />} title={t.settings.language}>
+        <SettingsCard>
+          <p className="gk-body max-w-none px-5 pb-3 pt-4">{t.settings.languageDesc}</p>
+          <div className="flex gap-2 p-3">
+            {(['it', 'en'] as const).map(lang => (
+              <button
+                key={lang}
+                onClick={() => setLocale(lang)}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black transition-all ${
+                  locale === lang ? '' : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+                style={locale === lang ? { background: 'var(--accent)', color: '#0B0B0F' } : {}}
               >
-                <div className="flex items-center gap-3">
-                  <div className={`w-9 h-9 ${color} rounded-xl flex items-center justify-center`}>
-                    <Icon size={16} className={iconColor} style={iconStyle} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-white">{label}</p>
-                    <p className="text-xs text-zinc-500">{desc}</p>
-                  </div>
-                </div>
-                <span className="text-zinc-600 group-hover:text-zinc-400 transition-colors">→</span>
-              </Link>
+                {lang === 'it' ? t.settings.italian : t.settings.english}
+                {locale === lang && <Check size={12} className="text-black" />}
+              </button>
             ))}
           </div>
-        </section>
+        </SettingsCard>
+      </SettingsSection>
 
-        {/* Zona pericolosa */}
-        <section>
-          <div className="flex items-center gap-2 mb-3">
-            <Trash2 size={15} className="text-zinc-500" />
-            <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Zona pericolosa</h2>
-          </div>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-            <DeleteAccountSection />
-          </div>
-        </section>
+      <SettingsSection icon={<LogOut size={15} />} title="Account">
+        <SettingsCard><LogoutButton /></SettingsCard>
+      </SettingsSection>
 
-        <div className="text-center text-zinc-700 text-xs pt-4">
-          <span className="inline-flex items-center gap-1">Geekore · {locale === 'it' ? 'Fatto con' : 'Made with'} <Heart size={11} className="text-red-500 fill-red-500" /> {locale === 'it' ? 'per i nerd' : 'for nerds'}</span>
+      <SettingsSection icon={<Shield size={15} />} title="Sicurezza">
+        <div className="space-y-3">
+          <ChangePasswordSheet />
+          <GlobalLogoutButton />
+          <LastAccessInfo />
         </div>
+      </SettingsSection>
 
-        {/* Crediti API — mostrati discretamente in fondo come fanno Letterboxd/Trakt */}
-        <div className="flex flex-col items-center gap-3 pt-2 pb-2">
-          <p className="text-[10px] text-zinc-700 uppercase tracking-widest">
-            {locale === 'it' ? 'Dati forniti da' : 'Data provided by'}
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-4 opacity-40 hover:opacity-70 transition-opacity">
-            <a href="https://boardgamegeek.com" target="_blank" rel="noopener noreferrer" aria-label="Powered by BoardGameGeek">
-              <img
-                src="/powered-by-bgg.svg"
-                alt="Powered by BGG"
-                className="h-5 w-auto"
-              />
-            </a>
-            <span className="text-zinc-700 text-[10px]">TMDb</span>
-            <span className="text-zinc-700 text-[10px]">AniList</span>
-            <span className="text-zinc-700 text-[10px]">IGDB</span>
-          </div>
+      <SettingsSection icon={<Bell size={15} />} title="Notifiche">
+        <div className="space-y-3">
+          <PushNotificationsToggle />
+          <DigestToggle />
+        </div>
+      </SettingsSection>
+
+      <SettingsSection icon={<Tv size={15} />} title="Piattaforme streaming">
+        <StreamingPlatformsSelector onSelectedCountChange={setSelectedPlatformsCount} />
+      </SettingsSection>
+
+      <SettingsSection icon={<BarChart3 size={15} />} title="Altro">
+        <div className="space-y-2">
+          {[
+            { href: '/stats', icon: BarChart3, label: 'Tempo sprecato', desc: 'Calcola quante ore hai speso' },
+            { href: '/trending', icon: TrendingUp, label: 'Trending community', desc: 'I più aggiunti questa settimana' },
+            { href: '/lists', icon: List, label: 'Le mie liste', desc: 'Crea e condividi liste tematiche' },
+          ].map(({ href, icon: Icon, label, desc }) => (
+            <Link
+              key={href}
+              href={href}
+              className="group flex items-center justify-between rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)] p-4 transition-colors hover:bg-[var(--bg-card-hover)]"
+            >
+              <div className="flex items-center gap-3">
+                <ActionIcon><Icon size={16} /></ActionIcon>
+                <div>
+                  <p className="text-sm font-bold text-[var(--text-primary)]">{label}</p>
+                  <p className="gk-caption">{desc}</p>
+                </div>
+              </div>
+              <span className="text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent)]">→</span>
+            </Link>
+          ))}
+        </div>
+      </SettingsSection>
+
+      <SettingsSection icon={<Trash2 size={15} />} title="Zona pericolosa">
+        <SettingsCard><DeleteAccountSection /></SettingsCard>
+      </SettingsSection>
+
+      <div className="pt-4 text-center text-xs text-[var(--text-muted)]">
+        <span className="inline-flex items-center gap-1">Geekore · {locale === 'it' ? 'Fatto con' : 'Made with'} <Heart size={11} className="fill-red-500 text-red-500" /> {locale === 'it' ? 'per i nerd' : 'for nerds'}</span>
+      </div>
+
+      <div className="flex flex-col items-center gap-3 pb-2 pt-2">
+        <p className="gk-label text-[var(--text-muted)]">{locale === 'it' ? 'Dati forniti da' : 'Data provided by'}</p>
+        <div className="flex flex-wrap items-center justify-center gap-4 opacity-40 transition-opacity hover:opacity-70">
+          <a href="https://boardgamegeek.com" target="_blank" rel="noopener noreferrer" aria-label="Powered by BoardGameGeek">
+            <img src="/powered-by-bgg.svg" alt="Powered by BGG" className="h-5 w-auto" />
+          </a>
+          <span className="text-[10px] text-[var(--text-muted)]">TMDb</span>
+          <span className="text-[10px] text-[var(--text-muted)]">AniList</span>
+          <span className="text-[10px] text-[var(--text-muted)]">IGDB</span>
         </div>
       </div>
-    </div>
+    </PageScaffold>
   )
 }
