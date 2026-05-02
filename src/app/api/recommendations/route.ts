@@ -27,6 +27,12 @@ import {
   updateRecommendationPoolProfile,
 } from '@/lib/reco/route/response'
 
+function flattenRecommendations(value: unknown): any[] {
+  if (Array.isArray(value)) return value
+  if (!value || typeof value !== 'object') return []
+  return Object.values(value as Record<string, unknown>).flatMap(group => Array.isArray(group) ? group : [])
+}
+
 export async function GET(request: NextRequest) {
   try {
     const context = await resolveRecommendationContext(request)
@@ -52,9 +58,11 @@ export async function GET(request: NextRequest) {
         const recs = requestedType === 'all'
           ? memHit.data
           : { [requestedType]: memHit.data[requestedType] || [] }
+        const items = flattenRecommendations(recs)
 
         if (requestedType !== 'all') {
           return NextResponse.json({
+            items,
             recommendations: recs,
             rails: composeRecommendationRails(recs, memHit.tasteProfile),
             tasteProfile: memHit.tasteProfile,
@@ -65,6 +73,7 @@ export async function GET(request: NextRequest) {
         const types = Object.keys(recs).filter(k => Array.isArray(recs[k]) && recs[k].length > 0)
         if (types.length >= 1) {
           return NextResponse.json({
+            items,
             recommendations: recs,
             rails: composeRecommendationRails(recs, memHit.tasteProfile),
             tasteProfile: memHit.tasteProfile,
@@ -200,7 +209,10 @@ export async function GET(request: NextRequest) {
       totalEntries: allEntries.length,
     })
 
+    const items = flattenRecommendations(recommendations)
+
     return NextResponse.json({
+      items,
       recommendations,
       rails: composeRecommendationRails(recommendations, tasteProfile),
       tasteProfile: {
