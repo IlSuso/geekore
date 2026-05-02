@@ -8,10 +8,13 @@ import type { User } from '@supabase/supabase-js'
 import { formatDistanceToNow } from 'date-fns'
 import { it } from 'date-fns/locale/it'
 import { enUS } from 'date-fns/locale/en-US'
-import { MessageCircle, MoreHorizontal, Pin, Send, Sparkles, X, Flame } from 'lucide-react'
+import { MessageCircle, MoreHorizontal, Pin, Sparkles, X, Flame } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { ReportButton } from '@/components/ui/ReportButton'
 import { UserBadge } from '@/components/ui/UserBadge'
+import { FeedActionBar } from '@/components/ui/FeedActionBar'
+import { PostSignalBadge } from '@/components/ui/PostSignalBadge'
+import { FeedPostHeader } from '@/components/feed/FeedPostHeader'
 import { androidBack } from '@/hooks/androidBack'
 import { CategoryBadge } from '@/components/feed/CategoryBasics'
 import type { Post } from '@/components/feed/feedTypes'
@@ -144,55 +147,48 @@ export const PostCard = memo(function PostCard({
   onPostOptions: (postId: string) => void
   onCategoryClick?: (category: string) => void
 }) {
+  const sharePost = async () => {
+    const url = `${window.location.origin}/home?post=${post.id}`
+    if (navigator.share) {
+      await navigator.share({ title: 'Geekore', text: post.content.slice(0, 80), url }).catch(() => {})
+    } else {
+      await navigator.clipboard.writeText(url).catch(() => {})
+    }
+  }
+
   return (
     <div className={`rounded-2xl transition-all duration-300 animate-fade-in ${
-      post.pinned ? 'bg-zinc-900 border border-zinc-700 ring-1 ring-zinc-700/30'
-      : post.isDiscovery ? 'bg-zinc-900 border border-fuchsia-500/25 ring-1 ring-fuchsia-500/10'
-      : 'bg-zinc-900 border border-zinc-800/70'
+      post.pinned ? 'bg-[var(--bg-card)] border border-[var(--border)] ring-1 ring-[rgba(230,255,61,0.16)]'
+      : post.isDiscovery ? 'bg-[var(--bg-card)] border border-[rgba(167,139,250,0.28)] ring-1 ring-[rgba(167,139,250,0.10)]'
+      : 'bg-[var(--bg-card)] border border-[var(--border)]'
     }`}>
 
       {post.pinned && (
-        <div className="flex items-center gap-1.5 px-5 pt-4 pb-1" style={{ color: '#E6FF3D' }}>
-          <Pin size={11} className="rotate-45" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">In evidenza</span>
+        <div className="px-5 pt-4 pb-1">
+          <PostSignalBadge type="pinned" />
         </div>
       )}
       {post.isDiscovery && !post.pinned && (
-        <div className="flex items-center gap-1.5 px-5 pt-4 pb-1 text-fuchsia-400">
-          <Sparkles size={11} />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Consigliato per te</span>
+        <div className="px-5 pt-4 pb-1">
+          <PostSignalBadge type="discovery" />
         </div>
       )}
 
       {/* Header */}
-      <div className="flex items-center gap-3 px-5 pt-4 pb-2.5">
-        <Link href={`/profile/${post.profiles.username}`} className="group shrink-0" onClick={e => e.stopPropagation()}>
-          <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-zinc-600/20 group-hover:ring-zinc-600/50 transition-all">
-            <Avatar src={post.profiles.avatar_url} username={post.profiles.username} displayName={post.profiles.display_name} size={40} className="rounded-full" />
-          </div>
-        </Link>
-        <div className="flex-1 min-w-0">
-          <Link href={`/profile/${post.profiles.username}`} className="hover:text-[#E6FF3D] transition-colors" onClick={e => e.stopPropagation()}>
-            <p className="font-semibold text-[var(--text-primary)] text-[15px] leading-tight">
-              <UserBadge badge={post.profiles.badge} displayName={post.profiles.display_name || post.profiles.username} />
-            </p>
-          </Link>
-          <p className="text-xs text-[var(--text-muted)] mt-0.5">
-            {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })}
-          </p>
-        </div>
-        {currentUser?.id === post.user_id && (
-          <button onClick={() => onPostOptions(post.id)} className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all" aria-label="Opzioni post">
-            <MoreHorizontal size={18} aria-hidden="true" />
-          </button>
-        )}
+      <div className="px-5 pt-4 pb-2.5">
+        <FeedPostHeader
+          post={post}
+          locale={locale}
+          currentUserId={currentUser?.id}
+          onPostOptions={onPostOptions}
+        />
       </div>
 
       {/* Testo del post */}
       <div className="px-5 pb-3">
         <p className="text-[var(--text-primary)] text-[15px] leading-relaxed whitespace-pre-wrap">{post.content.replace(/\n{3,}/g, '\n\n')}</p>
         {post.is_edited && (
-          <p className="text-[11px] text-zinc-600 mt-1">modificato</p>
+          <p className="text-[11px] text-[var(--text-muted)] mt-1">modificato</p>
         )}
       </div>
 
@@ -205,7 +201,7 @@ export const PostCard = memo(function PostCard({
 
       {/* Immagine */}
       {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
-        <div className="mx-5 mb-4 rounded-2xl overflow-hidden border border-zinc-800">
+        <div className="mx-5 mb-4 rounded-2xl overflow-hidden border border-[var(--border-subtle)]">
           <img src={post.image_url} alt={`Post di ${post.profiles.username}`}
             className="w-full max-h-[420px] object-cover hover:scale-[1.02] transition-transform duration-500"
             loading="lazy"
@@ -214,53 +210,18 @@ export const PostCard = memo(function PostCard({
       )}
 
       {/* Azioni */}
-      <div className="px-5 py-2.5 flex items-center gap-6 border-t border-zinc-800/50">
-        <button
-          onClick={() => onLike(post.id)}
-          aria-label={post.liked_by_user ? 'Rimuovi like' : 'Metti like'}
-          className={`flex items-center gap-2 group transition-all ${post.liked_by_user ? 'text-orange-500' : 'text-zinc-500 hover:text-orange-400'}`}
-        >
-          <div className={`p-1.5 rounded-xl transition-colors ${post.liked_by_user ? 'bg-orange-500/15' : 'group-hover:bg-orange-500/10'}`}>
-            <Flame size={19} className={`transition-transform ${post.liked_by_user ? 'fill-orange-500' : ''} ${isLiking ? 'animate-heart-burst' : ''}`} />
-          </div>
-          <span className="text-xs font-bold">{post.likes_count}</span>
-        </button>
-
-        <button
-          onClick={() => onOpenModal(post.id)}
-          aria-label="Vedi commenti"
-          className="flex items-center gap-2 group transition-all text-zinc-500 hover:text-[#E6FF3D]"
-        >
-          <div className="p-1.5 rounded-xl transition-colors group-hover:bg-zinc-800/60">
-            <MessageCircle size={19} />
-          </div>
-          <span className="text-xs font-bold">{post.comments_count}</span>
-        </button>
-
-        {currentUser && currentUser.id !== post.user_id && (
-          <div className="ml-auto">
-            <ReportButton targetType="post" targetId={post.id} iconOnly />
-          </div>
-        )}
-
-        {/* Share — Web Share API nativa, fallback clipboard */}
-        <button
-          onClick={async () => {
-            const url = `${window.location.origin}/home?post=${post.id}`
-            if (navigator.share) {
-              await navigator.share({ title: 'Geekore', text: post.content.slice(0, 80), url }).catch(() => {})
-            } else {
-              await navigator.clipboard.writeText(url).catch(() => {})
-            }
-          }}
-          aria-label="Condividi post"
-          className={`flex items-center gap-2 group text-zinc-500 hover:text-[#E6FF3D] transition-all ${currentUser && currentUser.id !== post.user_id ? '' : 'ml-auto'}`}
-        >
-          <div className="p-1.5 rounded-xl transition-colors group-hover:bg-zinc-800/60">
-            <Send size={18} aria-hidden="true" />
-          </div>
-        </button>
-      </div>
+      <FeedActionBar
+        liked={post.liked_by_user}
+        likesCount={post.likes_count}
+        commentsCount={post.comments_count}
+        isLiking={isLiking}
+        onLike={() => onLike(post.id)}
+        onComments={() => onOpenModal(post.id)}
+        onShare={sharePost}
+        reportSlot={currentUser && currentUser.id !== post.user_id ? (
+          <ReportButton targetType="post" targetId={post.id} iconOnly />
+        ) : undefined}
+      />
     </div>
   )
 })
