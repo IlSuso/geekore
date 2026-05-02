@@ -1,0 +1,225 @@
+/* Geekore — Fix visivi post-screenshot review
+   Obiettivo: correzioni chirurgiche senza toccare logiche React.
+*/
+
+/* -------------------------------------------------------------------------- */
+/* 1) HOME — composer sticky troppo invasivo e sovrapposto al feed              */
+/* -------------------------------------------------------------------------- */
+
+.gk-home-page {
+  overflow-x: hidden;
+}
+
+.gk-home-page .sticky.top-\[58px\],
+.gk-home-page .md\:top-4 {
+  position: static !important;
+  top: auto !important;
+  z-index: auto !important;
+  margin-bottom: 14px;
+  background: transparent !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  backdrop-filter: none !important;
+}
+
+.gk-home-page .sticky.top-\[58px\] > button,
+.gk-home-page .md\:top-4 > button {
+  min-height: 58px;
+  box-shadow: 0 14px 42px rgba(0, 0, 0, 0.18);
+}
+
+@media (min-width: 1280px) {
+  .gk-home-page .max-w-\[680px\] {
+    max-width: 720px !important;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* 2) LIBRARY — sticky search/filtri sovrapposti alla lista                    */
+/* -------------------------------------------------------------------------- */
+
+@media (min-width: 1024px) {
+  .gk-library-page .gk-page-density > div.relative > div:nth-child(3) {
+    position: static !important;
+    top: auto !important;
+    z-index: auto !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    margin-bottom: 18px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+  }
+}
+
+.gk-library-page .gk-page-density > div.relative > div:nth-child(3) + * {
+  margin-top: 12px;
+}
+
+.gk-library-page [aria-label='Vista list'],
+.gk-library-page [aria-label='Vista grid'],
+.gk-library-page [aria-label='Vista stats'] {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.gk-library-page .gk-page-density > div.relative > div:has([aria-label='Vista list']) {
+  margin-top: 6px;
+  margin-bottom: 18px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* 3) FRIENDS — sticky search/tab troppo pesante                               */
+/* -------------------------------------------------------------------------- */
+
+@media (min-width: 1024px) {
+  .gk-friends-page .gk-page-density > div.relative,
+  .gk-friends-page .gk-page-density > div.relative + div {
+    position: static !important;
+    top: auto !important;
+    z-index: auto !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
+
+  .gk-friends-page .gk-page-density > div.relative + div {
+    margin-bottom: 20px;
+  }
+}
+
+.gk-friends-page [data-horizontal-scroll='true']::before {
+  content: 'Attivi ora';
+  display: block;
+  margin-bottom: 8px;
+  padding-left: 2px;
+  font-family: var(--font-mono-data, var(--font-mono));
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.gk-friends-page [data-horizontal-scroll='true'] {
+  margin-bottom: 18px;
+}
+
+@media (min-width: 768px) {
+  .gk-friends-page [data-horizontal-scroll='true']::before {
+    padding-left: 0;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* 4) DISCOVER — search troppo larga/focus squadrato, sezioni con troppo vuoto */
+/* -------------------------------------------------------------------------- */
+
+.gk-discover-page input[data-testid='search-input']:focus,
+.gk-discover-page input[data-testid='search-input']:focus-visible {
+  outline: none !important;
+  border-color: rgba(230, 255, 61, 0.42) !important;
+  box-shadow: 0 0 0 3px rgba(230, 255, 61, 0.16), 0 14px 42px rgba(0, 0, 0, 0.18) !important;
+}
+
+@media (min-width: 1024px) {
+  .gk-discover-page > div.mx-auto {
+    max-width: min(1240px, calc(100vw - var(--gk-sidebar-w) - 72px)) !important;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .gk-discover-page > div.mx-auto > div:has(input[data-testid='search-input']),
+  .gk-discover-page > div.mx-auto > div:has(button[data-testid='filter-all']) {
+    max-width: 760px !important;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .gk-discover-page section:has(.grid) {
+    max-width: 980px;
+  }
+
+  .gk-discover-page section .grid {
+    align-items: start;
+  }
+}
+
+@media (min-width: 1280px) {
+  .gk-discover-page .xl\:grid-cols-7 {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* 5) FOR YOU — rail troppo larghi/tagliati e hero molto espanso              */
+/* -------------------------------------------------------------------------- */
+
+.gk-for-you-page {
+  overflow-x: hidden;
+}
+
+@media (min-width: 1024px) {
+  .gk-for-you-page > div.mx-auto {
+    max-width: min(1320px, calc(100vw - var(--gk-sidebar-w) - 64px)) !important;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .gk-for-you-page section:first-of-type,
+  .gk-for-you-page section:nth-of-type(2) {
+    max-width: 1120px !important;
+  }
+
+  .gk-for-you-page [class*='overflow-x-auto'] {
+    padding-right: 24px;
+    scroll-padding-right: 24px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .gk-for-you-page [class*='flex-shrink-0'][class*='w-40'] {
+    width: 10.75rem !important;
+    min-width: 10.75rem !important;
+    max-width: 10.75rem !important;
+  }
+
+  .gk-for-you-page [class*='flex-shrink-0'][class*='w-52'] {
+    width: 13.25rem !important;
+    min-width: 13.25rem !important;
+    max-width: 13.25rem !important;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* 6) Coerenza page header: riduce effetto “blocchi enormi” su desktop         */
+/* -------------------------------------------------------------------------- */
+
+@media (min-width: 1024px) {
+  .gk-library-page .gk-page-density > div:first-child,
+  .gk-friends-page .gk-page-density > div:first-child,
+  .gk-notifications-page .gk-page-density > div:first-child {
+    max-width: none;
+  }
+
+  .gk-library-page .gk-page-density > div:first-child {
+    margin-bottom: 18px;
+  }
+
+  .gk-friends-page .gk-page-density > div:first-child {
+    margin-bottom: 18px;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* 7) Safety: i componenti fixed/modal non devono essere colpiti dai reset     */
+/* -------------------------------------------------------------------------- */
+
+.gk-home-page [class*='fixed'],
+.gk-library-page [class*='fixed'],
+.gk-friends-page [class*='fixed'],
+.gk-discover-page [class*='fixed'],
+.gk-for-you-page [class*='fixed'] {
+  position: fixed;
+}
