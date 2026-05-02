@@ -21,7 +21,7 @@ const VIRTUAL_MARGIN = '600px'
 export const VirtualPostCard = memo(function VirtualPostCard({
   index, alwaysMounted, children,
 }: { index: number; alwaysMounted: boolean; children: React.ReactNode }) {
-  const wrapRef   = useRef<HTMLDivElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
   const heightRef = useRef<number>(0)
   const [visible, setVisible] = useState(true)
 
@@ -32,9 +32,8 @@ export const VirtualPostCard = memo(function VirtualPostCard({
 
     const obs = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true)
-        } else {
+        if (entry.isIntersecting) setVisible(true)
+        else {
           heightRef.current = el.getBoundingClientRect().height || heightRef.current
           setVisible(false)
         }
@@ -58,9 +57,7 @@ export type BottomSheetAction = {
   danger?: boolean
 }
 
-export function BottomSheet({
-  open, title, actions, onClose,
-}: {
+export function BottomSheet({ open, title, actions, onClose }: {
   open: boolean
   title?: string
   actions: BottomSheetAction[]
@@ -79,34 +76,35 @@ export function BottomSheet({
 
   const content = (
     <div
-      style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.6)' }}
+      className="fixed inset-0 z-[20000] bg-black/70 backdrop-blur-sm"
+      data-no-swipe="true"
       onClick={onClose}
     >
-      <div className="hidden md:flex items-center justify-center h-full">
-        <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl overflow-hidden w-[400px] shadow-2xl" onClick={e => e.stopPropagation()}>
-          {title && <div className="px-6 py-4 border-b border-[var(--border)]"><p className="text-[var(--text-muted)] text-xs text-center leading-relaxed">{title}</p></div>}
+      <div className="hidden h-full items-center justify-center md:flex">
+        <div className="w-[400px] overflow-hidden rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_24px_80px_rgba(0,0,0,0.55)]" onClick={e => e.stopPropagation()}>
+          {title && <div className="border-b border-[var(--border)] px-6 py-4"><p className="gk-caption text-center">{title}</p></div>}
           {actions.map((action, i) => (
-            <button key={i} onClick={() => { action.onClick() }}
-              className={`w-full py-4 font-semibold text-[15px] transition-colors border-b border-[var(--border-subtle)] last:border-0 hover:bg-[var(--bg-card-hover)] ${action.danger ? 'text-red-400' : 'text-[var(--text-primary)]'}`}>
+            <button key={i} type="button" data-no-swipe="true" onClick={action.onClick}
+              className={`w-full border-b border-[var(--border-subtle)] py-4 text-[15px] font-bold transition-colors last:border-0 hover:bg-[var(--bg-card-hover)] ${action.danger ? 'text-red-400' : 'text-[var(--text-primary)]'}`}>
               {action.label}
             </button>
           ))}
-          <button onClick={onClose} className="w-full py-4 text-[var(--text-primary)] text-[15px] font-normal hover:bg-[var(--bg-card-hover)] transition-colors border-t border-[var(--border)]">Annulla</button>
+          <button type="button" data-no-swipe="true" onClick={onClose} className="w-full border-t border-[var(--border)] py-4 text-[15px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-card-hover)]">Annulla</button>
         </div>
       </div>
 
-      <div className="md:hidden flex items-end justify-center h-full">
-        <div className="w-full max-w-sm mb-4 mx-4" onClick={e => e.stopPropagation()}>
-          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl overflow-hidden mb-2">
-            {title && <div className="px-4 py-3 border-b border-[var(--border)]"><p className="text-[var(--text-muted)] text-xs text-center leading-relaxed">{title}</p></div>}
+      <div className="flex h-full items-end justify-center md:hidden">
+        <div className="mx-4 mb-4 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+          <div className="mb-2 overflow-hidden rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)]">
+            {title && <div className="border-b border-[var(--border)] px-4 py-3"><p className="gk-caption text-center">{title}</p></div>}
             {actions.map((action, i) => (
-              <button key={i} onClick={() => { action.onClick() }}
-                className={`w-full py-4 font-semibold text-[15px] border-b border-[var(--border-subtle)] last:border-0 active:bg-[var(--bg-card-hover)] ${action.danger ? 'text-red-400' : 'text-[var(--text-primary)]'}`}>
+              <button key={i} type="button" data-no-swipe="true" onClick={action.onClick}
+                className={`w-full border-b border-[var(--border-subtle)] py-4 text-[15px] font-bold last:border-0 active:bg-[var(--bg-card-hover)] ${action.danger ? 'text-red-400' : 'text-[var(--text-primary)]'}`}>
                 {action.label}
               </button>
             ))}
           </div>
-          <button onClick={onClose} className="w-full bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl py-4 text-[var(--text-primary)] font-semibold text-[15px] active:bg-[var(--bg-card-hover)]">Annulla</button>
+          <button type="button" data-no-swipe="true" onClick={onClose} className="w-full rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)] py-4 text-[15px] font-bold text-[var(--text-primary)] active:bg-[var(--bg-card-hover)]">Annulla</button>
         </div>
       </div>
     </div>
@@ -115,11 +113,7 @@ export function BottomSheet({
   return createPortal(content, document.body)
 }
 
-function FeedActivityContext({
-  category,
-  media,
-  onCategoryClick,
-}: {
+function FeedActivityContext({ category, media, onCategoryClick }: {
   category: string
   media?: FeedMediaPreview | null
   onCategoryClick?: (category: string) => void
@@ -131,16 +125,17 @@ function FeedActivityContext({
   const progressLabel = media?.current_episode != null && media?.episodes
     ? `${media.current_episode}/${media.episodes}`
     : media?.current_episode != null
-    ? `${media.current_episode}`
-    : null
+      ? `${media.current_episode}`
+      : null
 
   return (
     <button
       type="button"
+      data-no-swipe="true"
       onClick={onCategoryClick ? () => onCategoryClick(category) : undefined}
-      className="mx-5 mb-3 flex w-[calc(100%-2.5rem)] items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0.012))] p-3 text-left transition-colors hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)]"
+      className="mx-5 mb-3 flex w-[calc(100%-2.5rem)] items-center gap-3 rounded-[20px] border border-[var(--border-subtle)] bg-[linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0.012))] p-3 text-left transition-colors hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)]"
     >
-      <div className="h-[74px] w-[50px] flex-shrink-0 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)]">
+      <div className="h-[74px] w-[50px] flex-shrink-0 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)]">
         {media?.cover_image ? (
           <img src={media.cover_image} alt={`Copertina di ${mediaTitle}`} className="h-full w-full object-cover" loading="lazy" />
         ) : (
@@ -154,21 +149,19 @@ function FeedActivityContext({
           <span className="gk-label text-[var(--text-muted)]">Activity</span>
           <CategoryBadge category={parsed.category} />
         </div>
-        <p className="line-clamp-1 text-[15px] font-bold leading-tight text-[var(--text-primary)]">
-          {mediaTitle}
-        </p>
+        <p className="line-clamp-1 text-[15px] font-black leading-tight text-[var(--text-primary)]">{mediaTitle}</p>
         <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
           {media?.status && <span className="gk-mono rounded-full border border-[var(--border)] px-2 py-0.5 text-[var(--text-secondary)]">{media.status}</span>}
           {progressLabel && <span className="gk-mono text-[var(--text-muted)]">{progressLabel}</span>}
           {media?.rating != null && (
-            <span className="inline-flex items-center gap-1 font-mono-data text-[11px] font-bold text-[var(--text-primary)]">
-              <Star size={11} className="text-[var(--accent)]" fill="var(--accent)" />
+            <span className="inline-flex items-center gap-1 rounded-full border border-yellow-500/15 bg-yellow-500/8 px-1.5 py-0.5 font-mono-data text-[10px] font-black text-yellow-300">
+              <Star size={10} fill="currentColor" />
               {media.rating}
             </span>
           )}
         </div>
       </div>
-      <div className="hidden h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] sm:flex">
+      <div className="hidden h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] sm:flex">
         <CategoryIcon category={parsed.category} size={18} className="text-[var(--accent)]" />
       </div>
     </button>
@@ -190,57 +183,33 @@ export const PostCard = memo(function PostCard({
 }) {
   const sharePost = async () => {
     const url = `${window.location.origin}/home?post=${post.id}`
-    if (navigator.share) {
-      await navigator.share({ title: 'Geekore', text: post.content.slice(0, 80), url }).catch(() => {})
-    } else {
-      await navigator.clipboard.writeText(url).catch(() => {})
-    }
+    if (navigator.share) await navigator.share({ title: 'Geekore', text: post.content.slice(0, 80), url }).catch(() => { })
+    else await navigator.clipboard.writeText(url).catch(() => { })
   }
 
   return (
-    <div className={`rounded-2xl transition-all duration-300 animate-fade-in ${
+    <article className={`overflow-hidden rounded-[24px] transition-all duration-300 animate-fade-in ${
       post.pinned ? 'bg-[var(--bg-card)] border border-[var(--border)] ring-1 ring-[rgba(230,255,61,0.16)]'
-      : post.isDiscovery ? 'bg-[var(--bg-card)] border border-[rgba(167,139,250,0.28)] ring-1 ring-[rgba(167,139,250,0.10)]'
-      : 'bg-[var(--bg-card)] border border-[var(--border)]'
+        : post.isDiscovery ? 'bg-[var(--bg-card)] border border-[rgba(167,139,250,0.28)] ring-1 ring-[rgba(167,139,250,0.10)]'
+          : 'bg-[var(--bg-card)] border border-[var(--border)]'
     }`}>
-
-      {post.pinned && (
-        <div className="px-5 pt-4 pb-1">
-          <PostSignalBadge type="pinned" />
-        </div>
-      )}
-      {post.isDiscovery && !post.pinned && (
-        <div className="px-5 pt-4 pb-1">
-          <PostSignalBadge type="discovery" />
-        </div>
-      )}
+      {post.pinned && <div className="px-5 pt-4 pb-1"><PostSignalBadge type="pinned" /></div>}
+      {post.isDiscovery && !post.pinned && <div className="px-5 pt-4 pb-1"><PostSignalBadge type="discovery" /></div>}
 
       <div className="px-5 pt-4 pb-2.5">
-        <FeedPostHeader
-          post={post}
-          locale={locale}
-          currentUserId={currentUser?.id}
-          onPostOptions={onPostOptions}
-        />
+        <FeedPostHeader post={post} locale={locale} currentUserId={currentUser?.id} onPostOptions={onPostOptions} />
       </div>
 
       <div className="px-5 pb-3">
-        <p className="text-[var(--text-primary)] text-[15px] leading-relaxed whitespace-pre-wrap">{post.content.replace(/\n{3,}/g, '\n\n')}</p>
-        {post.is_edited && (
-          <p className="text-[11px] text-[var(--text-muted)] mt-1">modificato</p>
-        )}
+        <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-[var(--text-primary)]">{post.content.replace(/\n{3,}/g, '\n\n')}</p>
+        {post.is_edited && <p className="gk-mono mt-1 text-[var(--text-muted)]">modificato</p>}
       </div>
 
-      {post.category && (
-        <FeedActivityContext category={post.category} media={post.media_preview} onCategoryClick={onCategoryClick} />
-      )}
+      {post.category && <FeedActivityContext category={post.category} media={post.media_preview} onCategoryClick={onCategoryClick} />}
 
       {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
-        <div className="mx-5 mb-4 rounded-2xl overflow-hidden border border-[var(--border-subtle)]">
-          <img src={post.image_url} alt={`Post di ${post.profiles.username}`}
-            className="w-full max-h-[420px] object-cover hover:scale-[1.02] transition-transform duration-500"
-            loading="lazy"
-            decoding="async" />
+        <div className="mx-5 mb-4 overflow-hidden rounded-[20px] border border-[var(--border-subtle)] bg-black/30">
+          <img src={post.image_url} alt={`Post di ${post.profiles.username}`} className="max-h-[420px] w-full object-cover transition-transform duration-500 hover:scale-[1.02]" loading="lazy" decoding="async" />
         </div>
       )}
 
@@ -252,11 +221,9 @@ export const PostCard = memo(function PostCard({
         onLike={() => onLike(post.id)}
         onComments={() => onOpenModal(post.id)}
         onShare={sharePost}
-        reportSlot={currentUser && currentUser.id !== post.user_id ? (
-          <ReportButton targetType="post" targetId={post.id} iconOnly />
-        ) : undefined}
+        reportSlot={currentUser && currentUser.id !== post.user_id ? <ReportButton targetType="post" targetId={post.id} iconOnly /> : undefined}
       />
-    </div>
+    </article>
   )
 })
 
@@ -282,100 +249,58 @@ export function PostModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-      data-no-swipe
-      onClick={onClose}
-    >
-      <div
-        className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--border)] flex-shrink-0">
-          <h3 className="font-semibold text-[var(--text-primary)] text-[15px]">Post</h3>
-          <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors p-1 rounded-lg hover:bg-[var(--bg-card-hover)]">
-            <X size={18} />
+    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" data-no-swipe="true" onClick={onClose}>
+      <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_24px_80px_rgba(0,0,0,0.55)]" onClick={e => e.stopPropagation()}>
+        <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.06),rgba(139,92,246,0.045),transparent)] px-5 py-3.5">
+          <div>
+            <p className="gk-label text-[var(--accent)]">Thread</p>
+            <h3 className="font-black text-[var(--text-primary)]">Post</h3>
+          </div>
+          <button type="button" data-no-swipe="true" onClick={onClose} className="rounded-2xl border border-[var(--border)] p-2 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]">
+            <X size={17} />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {post.pinned && (
-            <div className="px-5 pt-4 pb-1">
-              <PostSignalBadge type="pinned" />
-            </div>
-          )}
-          {post.isDiscovery && !post.pinned && (
-            <div className="px-5 pt-4 pb-1">
-              <PostSignalBadge type="discovery" />
-            </div>
-          )}
+          {post.pinned && <div className="px-5 pt-4 pb-1"><PostSignalBadge type="pinned" /></div>}
+          {post.isDiscovery && !post.pinned && <div className="px-5 pt-4 pb-1"><PostSignalBadge type="discovery" /></div>}
 
           <div className="px-5 pt-4 pb-2.5">
-            <FeedPostHeader
-              post={post}
-              locale={locale}
-              currentUserId={currentUser?.id}
-              onProfileClick={onClose}
-              showPostType
-            />
+            <FeedPostHeader post={post} locale={locale} currentUserId={currentUser?.id} onProfileClick={onClose} showPostType />
           </div>
 
           <div className="px-5 pb-3">
-            <p className="text-[var(--text-primary)] text-[15px] leading-relaxed whitespace-pre-wrap">{post.content.replace(/\n{3,}/g, '\n\n')}</p>
-            {post.is_edited && <p className="text-[11px] text-[var(--text-muted)] mt-1">modificato</p>}
+            <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-[var(--text-primary)]">{post.content.replace(/\n{3,}/g, '\n\n')}</p>
+            {post.is_edited && <p className="gk-mono mt-1 text-[var(--text-muted)]">modificato</p>}
           </div>
 
-          {post.category && (
-            <FeedActivityContext category={post.category} media={post.media_preview} />
-          )}
+          {post.category && <FeedActivityContext category={post.category} media={post.media_preview} />}
 
           {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
-            <div className="mx-5 mb-4 rounded-2xl overflow-hidden border border-[var(--border-subtle)]">
-              <img src={post.image_url} alt={`Post di ${post.profiles.username}`}
-                className="w-full max-h-[320px] object-cover" loading="lazy"
-                decoding="async" />
+            <div className="mx-5 mb-4 overflow-hidden rounded-[20px] border border-[var(--border-subtle)] bg-black/30">
+              <img src={post.image_url} alt={`Post di ${post.profiles.username}`} className="max-h-[320px] w-full object-cover" loading="lazy" decoding="async" />
             </div>
           )}
 
-          <FeedEngagementSummary
-            liked={post.liked_by_user}
-            likesCount={post.likes_count}
-            commentsCount={post.comments_count}
-            isLiking={isLiking}
-            onLike={() => onLike(post.id)}
-          />
+          <FeedEngagementSummary liked={post.liked_by_user} likesCount={post.likes_count} commentsCount={post.comments_count} isLiking={isLiking} onLike={() => onLike(post.id)} />
 
           {post.comments.length > 0 ? (
             <>
-              <div className="h-px bg-[var(--border-subtle)] mx-5" />
-              <div className="px-5 py-3 space-y-4">
+              <div className="mx-5 h-px bg-[var(--border-subtle)]" />
+              <div className="space-y-4 px-5 py-3">
                 {post.comments.map(comment => (
-                  <FeedCommentRow
-                    key={comment.id}
-                    comment={comment}
-                    locale={locale}
-                    currentUserId={currentUser?.id}
-                    onClose={onClose}
-                    onOptions={(commentId) => onCommentOptions(commentId, post.id)}
-                  />
+                  <FeedCommentRow key={comment.id} comment={comment} locale={locale} currentUserId={currentUser?.id} onClose={onClose} onOptions={(commentId) => onCommentOptions(commentId, post.id)} />
                 ))}
               </div>
             </>
           ) : (
             <div className="px-5 py-8 text-center">
-              <p className="text-[13px] text-[var(--text-muted)]">Nessun commento ancora. Sii il primo!</p>
+              <p className="gk-caption">Nessun commento ancora. Sii il primo!</p>
             </div>
           )}
         </div>
 
-        {currentUser && (
-          <FeedCommentComposer
-            value={commentText}
-            onChange={setCommentText}
-            onSubmit={submitComment}
-            profile={currentProfile}
-          />
-        )}
+        {currentUser && <FeedCommentComposer value={commentText} onChange={setCommentText} onSubmit={submitComment} profile={currentProfile} />}
       </div>
     </div>
   )
