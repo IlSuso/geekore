@@ -1,9 +1,9 @@
 'use client'
 // src/components/profile/NotesModal.tsx
-// 7.4 — estratto da profile/[username]/page.tsx
+// Notes modal coerente con il redesign Profile / Library.
 
 import { useEffect } from 'react'
-import { X } from 'lucide-react'
+import { X, Edit3, Sparkles } from 'lucide-react'
 import { gestureState } from '@/hooks/gestureState'
 import { androidBack } from '@/hooks/androidBack'
 
@@ -35,59 +35,93 @@ export function NotesModal({
   useEffect(() => {
     gestureState.drawerActive = true
     androidBack.push(onClose)
-    return () => { gestureState.drawerActive = false; androidBack.pop(onClose) }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      gestureState.drawerActive = false
+      androidBack.pop(onClose)
+      window.removeEventListener('keydown', onKeyDown)
+    }
   }, [onClose])
 
   const charCount = value.length
+  const nearLimit = charCount > MAX_NOTES_LENGTH * 0.9
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[120]">
-      <div className="bg-zinc-900 rounded-3xl w-full max-w-lg mx-4 overflow-hidden">
-        <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
-          <h3 className="text-xl font-semibold text-white truncate pr-4">{title}</h3>
-          <button
-            onClick={onClose}
-            className="text-zinc-400 hover:text-white flex-shrink-0 transition-colors"
-            aria-label="Chiudi"
-          >
-            <X size={24} />
-          </button>
+    <div
+      data-no-swipe="true"
+      className="fixed inset-0 z-[120] flex items-end justify-center bg-black/80 p-4 backdrop-blur-sm sm:items-center"
+      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}
+    >
+      <div
+        className="w-full max-w-lg overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[var(--bg-primary)] shadow-[0_24px_80px_rgba(0,0,0,0.55)]"
+        onMouseDown={event => event.stopPropagation()}
+      >
+        <div className="border-b border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.08),rgba(139,92,246,0.06),rgba(20,20,27,0.92))] p-5">
+          <div className="mb-3 flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+                {readOnly ? <Sparkles size={12} /> : <Edit3 size={12} />}
+                {readOnly ? 'Private notes' : 'Notes editor'}
+              </div>
+              <h3 className="line-clamp-2 text-[18px] font-black leading-tight text-[var(--text-primary)]">{title}</h3>
+              <p className="gk-caption mt-1">{readOnly ? 'Note salvate su questo media.' : 'Aggiungi contesto personale alla tua libreria.'}</p>
+            </div>
+            <button
+              type="button"
+              data-no-swipe="true"
+              onClick={onClose}
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--border)] bg-black/20 text-[var(--text-secondary)] transition-colors hover:text-white"
+              aria-label="Chiudi"
+            >
+              <X size={17} />
+            </button>
+          </div>
         </div>
-        <div className="p-6">
+
+        <div className="p-5">
           {readOnly ? (
-            <p className="text-zinc-300 text-sm leading-relaxed whitespace-pre-wrap min-h-[6rem] max-h-60 overflow-y-auto">
-              {value}
-            </p>
+            <div className="max-h-72 min-h-[8rem] overflow-y-auto whitespace-pre-wrap rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4 text-sm leading-relaxed text-[var(--text-secondary)]">
+              {value || 'Nessuna nota salvata.'}
+            </div>
           ) : (
             <div className="relative">
               <textarea
+                data-no-swipe="true"
                 value={value}
-                onChange={e => onChange(e.target.value.slice(0, MAX_NOTES_LENGTH))}
+                onChange={event => onChange(event.target.value.slice(0, MAX_NOTES_LENGTH))}
                 placeholder={placeholder}
                 maxLength={MAX_NOTES_LENGTH}
-                className="w-full h-40 bg-zinc-800 border border-zinc-700 rounded-2xl p-4 text-white resize-none overflow-y-auto focus:outline-none focus:border-zinc-600 transition-colors"
+                className="h-44 w-full resize-none overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4 pb-8 text-sm leading-relaxed text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]"
               />
-              <span className={`absolute bottom-3 right-3 text-[10px] font-medium transition-colors ${
-                charCount > MAX_NOTES_LENGTH * 0.9
-                  ? charCount >= MAX_NOTES_LENGTH ? 'text-red-400' : 'text-yellow-400'
-                  : 'text-zinc-600'
-              }`}>
+              <span
+                className={`absolute bottom-3 right-3 font-mono-data text-[10px] font-bold transition-colors ${
+                  nearLimit ? (charCount >= MAX_NOTES_LENGTH ? 'text-red-400' : 'text-yellow-400') : 'text-[var(--text-muted)]'
+                }`}
+              >
                 {charCount}/{MAX_NOTES_LENGTH}
               </span>
             </div>
           )}
         </div>
+
         {!readOnly && (
-          <div className="p-6 border-t border-zinc-800 flex gap-3">
+          <div className="flex gap-3 border-t border-[var(--border)] p-5">
             <button
+              type="button"
+              data-no-swipe="true"
               onClick={onClose}
-              className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors font-medium"
+              className="flex-1 rounded-2xl border border-[var(--border)] py-3 text-sm font-bold text-[var(--text-secondary)] transition-colors hover:text-white"
             >
               {cancelLabel}
             </button>
             <button
+              type="button"
+              data-no-swipe="true"
               onClick={onSave}
-              className="flex-1 py-3 rounded-2xl transition-colors font-semibold"
+              className="flex-1 rounded-2xl py-3 text-sm font-black transition-transform hover:scale-[1.01]"
               style={{ background: 'var(--accent)', color: '#0B0B0F' }}
             >
               {saveLabel}
