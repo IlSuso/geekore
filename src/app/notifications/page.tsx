@@ -1,21 +1,16 @@
 // src/app/notifications/page.tsx
-// Instagram-style notifications: full-bleed rows, no card borders, avatar + action icon
 
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Heart, UserPlus, MessageCircle, BellOff, Star } from 'lucide-react'
+import { Heart, UserPlus, MessageCircle, BellOff, Star, Sparkles } from 'lucide-react'
 import Link from 'next/link'
-import { formatDistanceToNow } from 'date-fns'
-import type { Locale } from 'date-fns'
 import { FollowBackButton } from '@/components/notifications/FollowBackButton'
 import { Avatar } from '@/components/ui/Avatar'
-import { SkeletonNotification } from '@/components/ui/SkeletonCard'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
-import { PullWrapper } from '@/components/ui/PullWrapper'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
-import { useLocale } from '@/lib/locale'
+import { PageScaffold } from '@/components/ui/PageScaffold'
 
 function setAppBadge(count: number) {
   if (typeof navigator === 'undefined') return
@@ -25,16 +20,6 @@ function setAppBadge(count: number) {
   }
 }
 
-async function getDateLocale(locale: string): Promise<Locale> {
-  if (locale === 'en') {
-    const { enUS } = await import('date-fns/locale/en-US')
-    return enUS
-  }
-  const { it } = await import('date-fns/locale/it')
-  return it
-}
-
-// Compact timeago: "2h" "3g" "4sett" — Instagram style
 function compactTimeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const m = Math.floor(diff / 60000)
@@ -47,11 +32,37 @@ function compactTimeAgo(dateStr: string): string {
   return `${Math.floor(d / 7)}sett`
 }
 
+function NotificationHero({ total, unread }: { total: number; unread: number }) {
+  return (
+    <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(230,255,61,0.09),rgba(139,92,246,0.07),rgba(20,20,27,0.92))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-5">
+      <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+        <Sparkles size={12} />
+        Social signals
+      </div>
+      <h1 className="gk-h1 mb-2 text-[var(--text-primary)]">Tutto ciò che la community ti sta dicendo.</h1>
+      <p className="gk-body max-w-2xl">Like, commenti, follow e segnali social concentrati in un centro notifiche leggibile.</p>
+      <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
+        <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
+          <p className="font-mono-data text-[20px] font-black leading-none text-[var(--accent)]">{total}</p>
+          <p className="gk-label mt-1">totali</p>
+        </div>
+        <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
+          <p className="font-mono-data text-[20px] font-black leading-none text-[var(--text-primary)]">{unread}</p>
+          <p className="gk-label mt-1">non lette</p>
+        </div>
+        <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
+          <p className="font-mono-data text-[20px] font-black leading-none text-[var(--text-primary)]">24h</p>
+          <p className="gk-label mt-1">merge</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
-  const { locale } = useLocale()
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true)
@@ -66,9 +77,6 @@ export default function NotificationsPage() {
       .limit(50)
 
     const list = data || []
-
-    // Batch-load follow status per tutti i sender di notifiche follow
-    // Evita N query separate nel FollowBackButton
     const followSenderIds = [...new Set(
       list.filter((n: any) => n.type === 'follow' && n.sender_id).map((n: any) => n.sender_id)
     )]
@@ -89,12 +97,9 @@ export default function NotificationsPage() {
 
     setNotifications(listWithFollow)
     setLoading(false)
+    setAppBadge(list.filter((n: any) => !n.is_read).length)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-    const unread = list.filter((n: any) => !n.is_read).length
-    setAppBadge(unread)
-  }, [])
-
-  // Fix #19 Repair Bible: mark-as-read solo per notifiche effettivamente viste
   useEffect(() => {
     if (notifications.length === 0) return
     const unreadIds = notifications.filter((n: any) => !n.is_read).map((n: any) => n.id)
@@ -129,9 +134,7 @@ export default function NotificationsPage() {
       }
     }, { threshold: [0.6] })
 
-    const els = document.querySelectorAll('[data-notif-id]')
-    els.forEach(el => observer.observe(el))
-
+    document.querySelectorAll('[data-notif-id]').forEach(el => observer.observe(el))
     return () => {
       observer.disconnect()
       if (flushTimer) clearTimeout(flushTimer)
@@ -151,23 +154,14 @@ export default function NotificationsPage() {
   }
 
   function NotifIcon({ type }: { type: string }) {
-    const base = "absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center border-[1.5px] border-black"
-    if (type === 'like') return (
-      <span className={`${base} bg-red-500`}><Heart size={10} fill="white" color="white" /></span>
-    )
-    if (type === 'follow') return (
-      <span className={base} style={{ background: 'var(--accent)' }}><UserPlus size={10} color="#0B0B0F" /></span>
-    )
-    if (type === 'comment') return (
-      <span className={base} style={{ background: 'var(--accent)' }}><MessageCircle size={10} color="#0B0B0F" /></span>
-    )
-    if (type === 'rating') return (
-      <span className={`${base} bg-yellow-500`}><Star size={10} fill="white" color="white" /></span>
-    )
+    const base = 'absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full border-[1.5px] border-black'
+    if (type === 'like') return <span className={`${base} bg-red-500`}><Heart size={10} fill="white" color="white" /></span>
+    if (type === 'follow') return <span className={base} style={{ background: 'var(--accent)' }}><UserPlus size={10} color="#0B0B0F" /></span>
+    if (type === 'comment') return <span className={base} style={{ background: 'var(--accent)' }}><MessageCircle size={10} color="#0B0B0F" /></span>
+    if (type === 'rating') return <span className={`${base} bg-yellow-500`}><Star size={10} fill="white" color="white" /></span>
     return null
   }
 
-  // Group by date — Instagram-style
   const today = new Date()
   const yesterday = new Date(today)
   yesterday.setDate(yesterday.getDate() - 1)
@@ -181,22 +175,13 @@ export default function NotificationsPage() {
     return 'Precedenti'
   }
 
-  // Aggregazione notifiche — stesso tipo + stesso contesto (post_id o null)
-  // Soglia: 3+ notifiche dello stesso gruppo → riga aggregata
   function aggregateNotifications(list: any[]): any[] {
-    // Finestra di aggregazione: 24 ore
-    // Notifiche dello stesso tipo + stesso contesto arrivate nella stessa finestra di 24h si aggregano
     const WINDOW_MS = 24 * 60 * 60 * 1000
-
-    // Ordina per data decrescente prima di raggruppare
     const sorted = [...list].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-
     const groups: Map<string, any[]> = new Map()
     for (const n of sorted) {
       const context = n.post_id ?? 'none'
       const ts = new Date(n.created_at).getTime()
-      // Cerca un gruppo esistente compatibile:
-      // stesso type + stesso context + dentro la finestra di 24h dalla notifica più recente del gruppo
       let placed = false
       for (const [key, group] of groups) {
         const [gType, gContext] = key.split('|')
@@ -208,90 +193,80 @@ export default function NotificationsPage() {
           break
         }
       }
-      if (!placed) {
-        // Crea un nuovo gruppo — chiave unica con timestamp della prima notifica
-        const key = `${n.type}|${context}|${ts}`
-        groups.set(key, [n])
-      }
+      if (!placed) groups.set(`${n.type}|${context}|${ts}`, [n])
     }
 
     const result: any[] = []
     for (const [, group] of groups) {
-      if (group.length < 3) {
-        // Meno di 3 → mostra singole
-        result.push(...group)
-      } else {
-        // 3+ → aggrega con la più recente come base
+      if (group.length < 3) result.push(...group)
+      else {
         const first = group[0]
         const second = group[1]
-        const othersCount = group.length - 2
         result.push({
           ...first,
           _aggregated: true,
           _senders: group.map((n: any) => n.sender),
           _firstSender: first.sender,
           _secondSender: second.sender,
-          _othersCount: othersCount,
+          _othersCount: group.length - 2,
           is_read: group.every((n: any) => n.is_read),
         })
       }
     }
-
-    // Riordina per data decrescente
     return result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
   }
 
-  const grouped = aggregateNotifications(notifications).reduce((acc: any, n: any) => {
+  const grouped = aggregateNotifications(notifications).reduce((acc: Record<string, any[]>, n: any) => {
     const g = getGroup(n.created_at)
     if (!acc[g]) acc[g] = []
     acc[g].push(n)
     return acc
-  }, {} as Record<string, any[]>)
+  }, {})
 
   const groupOrder = ['Oggi', 'Ieri', 'Questa settimana', 'Precedenti']
+  const unread = notifications.filter((n: any) => !n.is_read).length
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
+    <PageScaffold
+      title="Notifiche"
+      description="Like, commenti, follow e segnali social dalla community."
+      icon={<Sparkles size={16} />}
+      contentClassName="max-w-3xl pt-2 md:pt-8 pb-28"
+    >
       <PullToRefreshIndicator distance={pullDistance} refreshing={isRefreshing} />
+      <NotificationHero total={notifications.length} unread={unread} />
 
-      <div className="max-w-3xl mx-auto pb-24">
-
-        {loading ? (
-          <div className="px-4 pt-4 space-y-0">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 py-3 px-4 animate-pulse">
-                <div className="w-11 h-11 skeleton rounded-full flex-shrink-0" />
-                <div className="flex-1 space-y-1.5">
-                  <div className="h-3 skeleton rounded-full w-3/4" />
-                  <div className="h-2.5 skeleton rounded-full w-1/3" />
-                </div>
-                <div className="w-10 h-10 skeleton rounded-lg flex-shrink-0" />
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 rounded-[20px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 animate-pulse">
+              <div className="h-11 w-11 skeleton rounded-2xl flex-shrink-0" />
+              <div className="flex-1 space-y-1.5">
+                <div className="h-3 skeleton rounded-full w-3/4" />
+                <div className="h-2.5 skeleton rounded-full w-1/3" />
               </div>
-            ))}
-          </div>
-        ) : notifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center px-8">
-            {/* Instagram-style empty state */}
-            <div className="w-16 h-16 rounded-full border-[2px] border-[var(--border)] flex items-center justify-center mb-4">
-              <BellOff size={28} className="text-[var(--text-muted)]" />
+              <div className="h-8 w-16 skeleton rounded-2xl flex-shrink-0" />
             </div>
-            <p className="text-[16px] font-semibold text-[var(--text-primary)] mb-1">Nessuna notifica</p>
-            <p className="text-[14px] text-[var(--text-secondary)]">Quando qualcuno interagisce con te, le notifiche appariranno qui.</p>
+          ))}
+        </div>
+      ) : notifications.length === 0 ? (
+        <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-16 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-secondary)]">
+            <BellOff size={28} className="text-[var(--text-muted)]" />
           </div>
-        ) : (
-          <>
-            {groupOrder.filter(g => grouped[g]?.length).map(group => (
-              <div key={group}>
-                {/* Section header — Instagram style */}
-                <p className="px-4 pt-5 pb-2 text-[15px] font-semibold text-[var(--text-primary)]">
-                  {group}
-                </p>
-
+          <p className="gk-headline mb-1 text-[var(--text-primary)]">Nessuna notifica</p>
+          <p className="gk-body mx-auto max-w-sm">Quando qualcuno interagisce con te, le notifiche appariranno qui.</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {groupOrder.filter(g => grouped[g]?.length).map(group => (
+            <div key={group}>
+              <p className="gk-label mb-2 px-1">{group}</p>
+              <div className="space-y-2">
                 {grouped[group].map((n: any) => {
                   const username = n.sender?.username
                   const name = n.sender?.display_name || username || 'Qualcuno'
 
-                  // Testo aggregato
                   function aggregatedText(n: any): React.ReactNode {
                     const first = n._firstSender?.display_name || n._firstSender?.username || 'Qualcuno'
                     const second = n._secondSender?.display_name || n._secondSender?.username
@@ -299,9 +274,9 @@ export default function NotificationsPage() {
                     const action = notifText(n.type)
                     return (
                       <>
-                        <Link href={`/profile/${n._firstSender?.username}`} className="font-semibold hover:opacity-70 transition-opacity">{first}</Link>
-                        {second && <>, <Link href={`/profile/${n._secondSender?.username}`} className="font-semibold hover:opacity-70 transition-opacity">{second}</Link></>}
-                        {others > 0 && <> e altre <span className="font-semibold">{others}</span> persone</>}
+                        <Link href={`/profile/${n._firstSender?.username}`} className="font-black transition-opacity hover:opacity-70">{first}</Link>
+                        {second && <>, <Link href={`/profile/${n._secondSender?.username}`} className="font-black transition-opacity hover:opacity-70">{second}</Link></>}
+                        {others > 0 && <> e altre <span className="font-black">{others}</span> persone</>}
                         {' '}{action}
                       </>
                     )
@@ -311,46 +286,47 @@ export default function NotificationsPage() {
                     <div
                       key={n.id}
                       data-notif-id={n.id}
-                      className={`flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-[var(--bg-hover)] ${!n.is_read ? 'bg-[rgba(230,255,61,0.03)]' : ''}`}
+                      className={`flex items-center gap-3 rounded-[20px] border p-3 transition-colors hover:bg-[var(--bg-card-hover)] ${
+                        !n.is_read
+                          ? 'border-[rgba(230,255,61,0.22)] bg-[rgba(230,255,61,0.045)]'
+                          : 'border-[var(--border-subtle)] bg-[var(--bg-card)]'
+                      }`}
                     >
-                      {/* Avatar with action badge — aggregato mostra stack di avatar */}
                       <div className="relative flex-shrink-0">
                         {n._aggregated ? (
-                          <div className="relative w-11 h-11">
-                            <div className="absolute top-0 left-0 w-8 h-8 rounded-full overflow-hidden ring-2 ring-[var(--bg-primary)]">
+                          <div className="relative h-11 w-11">
+                            <div className="absolute left-0 top-0 h-8 w-8 overflow-hidden rounded-2xl ring-2 ring-[var(--bg-primary)]">
                               <Avatar src={n._senders[1]?.avatar_url} username={n._senders[1]?.username || 'user'} displayName={n._senders[1]?.display_name} size={32} />
                             </div>
-                            <div className="absolute bottom-0 right-0 w-8 h-8 rounded-full overflow-hidden ring-2 ring-[var(--bg-primary)]">
+                            <div className="absolute bottom-0 right-0 h-8 w-8 overflow-hidden rounded-2xl ring-2 ring-[var(--bg-primary)]">
                               <Avatar src={n._senders[0]?.avatar_url} username={n._senders[0]?.username || 'user'} displayName={n._senders[0]?.display_name} size={32} />
                             </div>
                           </div>
                         ) : (
-                          <div className="w-11 h-11 rounded-full overflow-hidden">
+                          <div className="h-11 w-11 overflow-hidden rounded-2xl ring-1 ring-white/10">
                             <Avatar src={n.sender?.avatar_url} username={n.sender?.username || 'user'} displayName={n.sender?.display_name} size={44} />
                           </div>
                         )}
                         <NotifIcon type={n.type} />
                       </div>
 
-                      {/* Text */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[14px] text-[var(--text-primary)] leading-snug">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[14px] leading-snug text-[var(--text-secondary)]">
                           {n._aggregated ? aggregatedText(n) : (
                             <>
                               {username ? (
-                                <Link href={`/profile/${username}`} className="font-semibold hover:opacity-70 transition-opacity">{name}</Link>
+                                <Link href={`/profile/${username}`} className="font-black text-[var(--text-primary)] transition-opacity hover:opacity-70">{name}</Link>
                               ) : (
-                                <span className="font-semibold">{name}</span>
+                                <span className="font-black text-[var(--text-primary)]">{name}</span>
                               )}{' '}
-                              <span className="text-[var(--text-primary)]">{notifText(n.type)}</span>
+                              <span>{notifText(n.type)}</span>
                             </>
                           )}
                           {' '}
-                          <span className="text-[var(--text-muted)]">{compactTimeAgo(n.created_at)}</span>
+                          <span className="font-mono-data text-[11px] text-[var(--text-muted)]">{compactTimeAgo(n.created_at)}</span>
                         </p>
                       </div>
 
-                      {/* Right side: follow back button (solo notifiche singole) */}
                       <div className="flex-shrink-0">
                         {!n._aggregated && n.type === 'follow' && n.sender_id ? (
                           <FollowBackButton targetId={n.sender_id} isFollowingInitial={n._isFollowing} />
@@ -360,10 +336,10 @@ export default function NotificationsPage() {
                   )
                 })}
               </div>
-            ))}
-          </>
-        )}
-      </div>
-    </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </PageScaffold>
   )
 }
