@@ -8,7 +8,7 @@ import { Activity } from 'react'
 import { animate } from 'motion/react'
 import { usePathname } from 'next/navigation'
 import { useActiveTab } from '@/context/ActiveTabContext'
-import { useEffect, useRef, useCallback, useState } from 'react'
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react'
 import type { ReactNode, CSSProperties, MutableRefObject } from 'react'
 import FeedPage     from '@/app/home/page'
 import DiscoverPage from '@/app/discover/page'
@@ -82,9 +82,15 @@ function PanelWrapper({
     divRef.current?.scrollTo({ top: 0, behavior })
   }, [divRef])
 
+  const scrollContextValue = useMemo(() => ({
+    panelRef: divRef,
+    scrollToTop,
+    current: divRef.current,
+  }), [divRef, scrollToTop])
+
   return (
     <TabActiveContext.Provider value={isActive}>
-      <ScrollPanelContext.Provider value={{ panelRef: divRef, scrollToTop }}>
+      <ScrollPanelContext.Provider value={scrollContextValue}>
         <div ref={divRef} style={style}>
           {children}
         </div>
