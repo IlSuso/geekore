@@ -349,7 +349,8 @@ export default function LibraryPage() {
       title="Library"
       description="La tua collezione viva: progressi, completati, wishlist e voto medio in un unico spazio compatto."
       icon={<BookOpen size={16} />}
-      contentClassName="max-w-screen-xl pt-2 md:pt-8 pb-28"
+      className="gk-library-page"
+      contentClassName="gk-page-density max-w-screen-xl pt-2 md:pt-8 pb-28"
     >
       <div className="mb-4 flex items-center justify-end gap-2" data-no-swipe="true">
         <button
