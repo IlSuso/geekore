@@ -30,7 +30,7 @@ function SimilarityRing({ score }: { score: number }) {
   const r = 16
   const circ = 2 * Math.PI * r
   const offset = circ - (score / 100) * circ
-  const color = score >= 70 ? '#8b5cf6' : score >= 50 ? '#ec4899' : '#6b7280'
+  const color = score >= 70 ? '#E6FF3D' : score >= 50 ? '#f59e0b' : '#6b7280'
 
   return (
     <div className="relative w-10 h-10 flex items-center justify-center">

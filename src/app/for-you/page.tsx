@@ -538,13 +538,13 @@ const RAIL_ICONS: Record<RecommendationRail['kind'], React.ElementType> = {
 }
 
 const RAIL_COLORS: Record<RecommendationRail['kind'], string> = {
-  'top-match':    '#a855f7',
+  'top-match':    '#E6FF3D',
   continue:       '#f59e0b',
   social:         'var(--type-anime)',
   fresh:          'var(--type-movie)',
   discovery:      'var(--type-game)',
-  genre:          '#6366f1',
-  'because-title':'#8b5cf6',
+  genre:          '#0ea5e9',
+  'because-title':'#10b981',
   'quick-picks':  '#E6FF3D',
   'hidden-gems':  'var(--type-board)',
 }
@@ -569,7 +569,7 @@ const NetflixRailSection = memo(function NetflixRailSection({ rail, onFeedback, 
     <div className="mb-10">
       <div className="flex items-center gap-3 mb-4">
         <div className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg" style={{ background: RAIL_COLORS[rail.kind] }}>
-          <Icon size={16} className={rail.kind === 'quick-picks' ? 'text-black' : 'text-white'} />
+          <Icon size={16} className={rail.kind === 'quick-picks' || rail.kind === 'top-match' ? 'text-black' : 'text-white'} />
         </div>
         <div className="min-w-0">
           <h2 className="text-base font-bold text-white">{rail.title}</h2>

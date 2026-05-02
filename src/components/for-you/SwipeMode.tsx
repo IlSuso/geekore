@@ -174,15 +174,15 @@ function LoadingScreen({ message = 'Caricamento nuovi titoli' }: { message?: str
       <div className="relative w-[88px] h-[88px] flex items-center justify-center">
         {/* Soft glow backdrop */}
         <div className="absolute inset-3 rounded-full"
-          style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.18) 0%, transparent 70%)' }} />
+          style={{ background: 'radial-gradient(circle, rgba(230,255,61,0.12) 0%, transparent 70%)' }} />
         {/* Single arc — calm, 1.4s */}
         <svg className="absolute inset-0 w-full h-full -rotate-90"
           style={{ animation: 'sw-arc 1.4s linear infinite' }} viewBox="0 0 88 88">
           <defs>
             <linearGradient id="swG" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#7c3aed" stopOpacity="0" />
-              <stop offset="60%" stopColor="#a855f7" />
-              <stop offset="100%" stopColor="#d946ef" />
+              <stop offset="0%" stopColor="#E6FF3D" stopOpacity="0" />
+              <stop offset="60%" stopColor="#E6FF3D" />
+              <stop offset="100%" stopColor="#a3e635" />
             </linearGradient>
           </defs>
           {/* Track */}

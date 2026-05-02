@@ -75,7 +75,7 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
 
   // Colori solidi per la barra DNA (gradient non funziona su flex segment)
   const BAR_COLORS = [
-    '#8b5cf6', // violet-500
+    '#E6FF3D', // accent
     '#0ea5e9', // sky-500
     '#10b981', // emerald-500
     '#f59e0b', // amber-500

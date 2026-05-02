@@ -219,7 +219,7 @@ export function FeedComposer({
                   <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: '#27272a' }}>
                     {profile?.avatar_url
                       ? <img src={profile.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#7c3aed,#db2777)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: 14 }}>{(profile?.username?.[0] || '?').toUpperCase()}</div>
+                      : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0f766e,#1d4ed8)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: 14 }}>{(profile?.username?.[0] || '?').toUpperCase()}</div>
                     }
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>

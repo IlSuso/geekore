@@ -94,8 +94,8 @@ function buildDigestHtml(params: {
 <body style="margin:0;padding:0;background:#09090b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
   <div style="max-width:520px;margin:0 auto;padding:32px 16px;">
     <div style="text-align:center;margin-bottom:32px;">
-      <div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#7c3aed,#a855f7);padding:8px 20px;border-radius:999px;margin-bottom:16px;">
-        <span style="color:white;font-size:20px;font-weight:900;letter-spacing:-0.5px;">Geekore</span>
+      <div style="display:inline-flex;align-items:center;gap:8px;background:#E6FF3D;padding:8px 20px;border-radius:999px;margin-bottom:16px;">
+        <span style="color:#0B0B0F;font-size:20px;font-weight:900;letter-spacing:-0.5px;">Geekore</span>
       </div>
       <h1 style="color:#f4f4f5;font-size:22px;font-weight:800;margin:0 0 6px;">Ciao, ${escapeHtml(displayName)}!</h1>
       <p style="color:#71717a;font-size:14px;margin:0;">Il tuo digest settimanale geek</p>
@@ -106,7 +106,7 @@ function buildDigestHtml(params: {
       <p style="color:#71717a;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin:0 0 10px;">I tuoi gusti dominanti</p>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">
         ${topGenres.slice(0, 5).map(g => `
-          <span style="background:rgba(124,58,237,0.15);color:#a78bfa;border:1px solid rgba(124,58,237,0.3);padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;">${escapeHtml(g)}</span>
+          <span style="background:rgba(230,255,61,0.12);color:#E6FF3D;border:1px solid rgba(230,255,61,0.25);padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;">${escapeHtml(g)}</span>
         `).join('')}
       </div>
     </div>
@@ -117,7 +117,7 @@ function buildDigestHtml(params: {
     ${friendsSection}
 
     <div style="text-align:center;margin:32px 0;">
-      <a href="https://geekore.it/for-you" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;font-size:14px;font-weight:700;padding:14px 32px;border-radius:999px;text-decoration:none;">
+      <a href="https://geekore.it/for-you" style="display:inline-block;background:#E6FF3D;color:#0B0B0F;font-size:14px;font-weight:700;padding:14px 32px;border-radius:999px;text-decoration:none;">
         Scopri i consigli di questa settimana →
       </a>
     </div>

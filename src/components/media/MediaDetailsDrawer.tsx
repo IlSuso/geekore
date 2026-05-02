@@ -604,9 +604,9 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                   <span key={g}
                     className="text-[11px] font-medium px-2.5 py-1 rounded-full"
                     style={{
-                      background: `color-mix(in srgb, var(--type-${media.type === 'boardgame' ? 'board' : media.type}, #6d28d9) 12%, transparent)`,
-                      color: `var(--type-${media.type === 'boardgame' ? 'board' : media.type}, #a78bfa)`,
-                      border: `1px solid color-mix(in srgb, var(--type-${media.type === 'boardgame' ? 'board' : media.type}, #6d28d9) 30%, transparent)`,
+                      background: `color-mix(in srgb, var(--type-${media.type === 'boardgame' ? 'board' : media.type}, #E6FF3D) 12%, transparent)`,
+                      color: `var(--type-${media.type === 'boardgame' ? 'board' : media.type}, #E6FF3D)`,
+                      border: `1px solid color-mix(in srgb, var(--type-${media.type === 'boardgame' ? 'board' : media.type}, #E6FF3D) 30%, transparent)`,
                     }}
                   >
                     {translateGenre(g)}

@@ -126,7 +126,7 @@ export function StarRating({
                 </defs>
                 <path
                   d={STAR_PATH}
-                  fill={full || half ? 'var(--brand, #8b5cf6)' : 'transparent'}
+                  fill={full || half ? 'var(--accent, #E6FF3D)' : 'transparent'}
                   clipPath={full ? undefined : half ? `url(#${clipId})` : undefined}
                 />
               </svg>
