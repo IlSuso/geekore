@@ -43,13 +43,16 @@ async function checkAndUpdateRateLimit(
   const windowMinutes = RATE_LIMIT_MINUTES[type] ?? 10
   const windowMs = windowMinutes * 60 * 1000
 
-  const { data: existing } = await supabase
+  const existingQuery = supabase
     .from('push_rate_limit')
     .select('id, last_sent_at')
     .eq('user_id', userId)
     .eq('type', type)
-    .is(contextId ? 'context_id' : 'context_id', contextId)
-    .maybeSingle()
+
+  const { data: existing } = await (contextId
+    ? existingQuery.eq('context_id', contextId)
+    : existingQuery.is('context_id', null)
+  ).maybeSingle()
 
   const now = Date.now()
 
