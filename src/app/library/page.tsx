@@ -141,6 +141,14 @@ export default function LibraryPage() {
     })
   }, [entries, activeType, activeStatus, searchTerm, sortMode])
 
+  const hasActiveFilters = activeType !== 'all' || activeStatus !== 'all' || searchTerm.trim().length > 0
+
+  const resetFilters = () => {
+    setActiveType('all')
+    setActiveStatus('all')
+    setSearchTerm('')
+  }
+
   const stats = useMemo(() => ({
     total: entries.length,
     completed: entries.filter(e => e.status === 'completed').length,
@@ -231,6 +239,23 @@ export default function LibraryPage() {
         </div>
       </div>
 
+      {!loading && entries.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2">
+          <p className="font-mono-data text-[11px] text-[var(--text-muted)]">
+            <span className="font-bold text-[var(--text-secondary)]">{filtered.length}</span> di {entries.length} elementi
+          </p>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="text-[11px] font-bold text-[var(--accent)] transition-opacity hover:opacity-80"
+            >
+              Azzera filtri
+            </button>
+          )}
+        </div>
+      )}
+
       {loading ? (
         viewMode === 'grid' ? (
           <MediaGridSkeleton count={15} showMeta />
@@ -255,8 +280,8 @@ export default function LibraryPage() {
           </p>
           {entries.length === 0 ? (
             <ActionButton href="/discover">Vai a Scopri</ActionButton>
-          ) : searchTerm ? (
-            <ActionButton variant="secondary" onClick={() => setSearchTerm('')}>Cancella ricerca</ActionButton>
+          ) : hasActiveFilters ? (
+            <ActionButton variant="secondary" onClick={resetFilters}>Azzera filtri</ActionButton>
           ) : null}
         </div>
       ) : viewMode === 'grid' ? (
