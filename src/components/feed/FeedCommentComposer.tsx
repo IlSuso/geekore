@@ -1,3 +1,4 @@
+import { Send } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 
 interface FeedCommentComposerProps {
@@ -24,24 +25,25 @@ export function FeedCommentComposer({
   const canSubmit = value.trim().length > 0
 
   return (
-    <div className="flex flex-shrink-0 items-center gap-3 border-t border-[var(--border)] px-5 py-3">
-      <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full ring-1 ring-[var(--border)]">
+    <div className="flex flex-shrink-0 items-center gap-3 border-t border-[var(--border)] bg-[var(--bg-primary)] px-4 py-3">
+      <div className="h-9 w-9 shrink-0 overflow-hidden rounded-2xl ring-1 ring-white/10">
         <Avatar
           src={profile?.avatar_url}
           username={profile?.username || 'user'}
           displayName={profile?.display_name}
-          size={32}
-          className="rounded-full"
+          size={36}
+          className="rounded-2xl"
         />
       </div>
 
       <input
+        data-no-swipe="true"
         type="text"
         value={value}
         onChange={event => onChange(event.target.value.slice(0, maxLength))}
         placeholder={placeholder}
         maxLength={maxLength}
-        className="min-w-0 flex-1 bg-transparent text-[14px] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none"
+        className="min-w-0 flex-1 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-2.5 text-[14px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition focus:border-[rgba(230,255,61,0.45)]"
         onKeyDown={event => {
           if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault()
@@ -50,15 +52,17 @@ export function FeedCommentComposer({
         }}
       />
 
-      {canSubmit && (
-        <button
-          type="button"
-          onClick={onSubmit}
-          className="shrink-0 text-sm font-bold text-[var(--accent)]"
-        >
-          Pubblica
-        </button>
-      )}
+      <button
+        type="button"
+        data-no-swipe="true"
+        onClick={onSubmit}
+        disabled={!canSubmit}
+        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl transition-all disabled:opacity-35"
+        style={canSubmit ? { background: 'var(--accent)', color: '#0B0B0F' } : { background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+        aria-label="Pubblica commento"
+      >
+        <Send size={15} />
+      </button>
     </div>
   )
 }
