@@ -28,6 +28,17 @@ export interface TasteProfile {
   lowConfidence?: boolean
 }
 
+function uniqueStrings(values: string[] | undefined): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const value of values ?? []) {
+    const clean = typeof value === 'string' ? value.trim() : ''
+    if (!clean || seen.has(clean)) continue
+    seen.add(clean)
+    result.push(clean)
+  }
+  return result
+}
 
 export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }: {
   tasteProfile: TasteProfile
@@ -49,11 +60,18 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
     return true
   }).slice(0, 5)
   const top5Total = top5.reduce((s, g) => s + g.score, 0) || 1
+  const topTones = uniqueStrings(tasteProfile.deepSignals?.topTones)
+  const topSettings = uniqueStrings(tasteProfile.deepSignals?.topSettings)
+  const bingeGenres = uniqueStrings(binge?.bingeGenres)
+  const slowGenres = uniqueStrings(binge?.slowGenres)
+  const searchIntentGenres = uniqueStrings(tasteProfile.searchIntentGenres)
+  const wishlistGenres = uniqueStrings(tasteProfile.wishlistGenres)
+  const discoveryGenres = uniqueStrings(tasteProfile.discoveryGenres)
+
   const hasCreators = tasteProfile.creatorScores &&
     ((tasteProfile.creatorScores.topStudios?.length ?? 0) > 0 ||
      (tasteProfile.creatorScores.topDirectors?.length ?? 0) > 0)
-  const hasStyle = (tasteProfile.deepSignals?.topTones?.length ?? 0) > 0 ||
-    (tasteProfile.deepSignals?.topSettings?.length ?? 0) > 0
+  const hasStyle = topTones.length > 0 || topSettings.length > 0
 
   // Colori solidi per la barra DNA (gradient non funziona su flex segment)
   const BAR_COLORS = [
@@ -152,13 +170,13 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
             <div>
               <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Creator amati</p>
               <div className="flex flex-wrap gap-2">
-                {(tasteProfile.creatorScores?.topStudios ?? []).slice(0, 4).map(s => (
-                  <span key={s.name} className="flex items-center gap-1.5 text-xs bg-sky-500/10 text-sky-300 px-2.5 py-1 rounded-xl border border-sky-500/20">
+                {(tasteProfile.creatorScores?.topStudios ?? []).slice(0, 4).map((s, i) => (
+                  <span key={`studio-${s.name}-${i}`} className="flex items-center gap-1.5 text-xs bg-sky-500/10 text-sky-300 px-2.5 py-1 rounded-xl border border-sky-500/20">
                     <Clapperboard size={10} />{s.name}
                   </span>
                 ))}
-                {(tasteProfile.creatorScores?.topDirectors ?? []).slice(0, 3).map(d => (
-                  <span key={d.name} className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-xl" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)', color: 'rgba(230,255,61,0.85)' }}>
+                {(tasteProfile.creatorScores?.topDirectors ?? []).slice(0, 3).map((d, i) => (
+                  <span key={`director-${d.name}-${i}`} className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-xl" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)', color: 'rgba(230,255,61,0.85)' }}>
                     <User size={10} />{d.name}
                   </span>
                 ))}
@@ -171,22 +189,22 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
             <div>
               <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Toni e ambientazioni</p>
               <div className="grid grid-cols-2 gap-4">
-                {(tasteProfile.deepSignals?.topTones?.length ?? 0) > 0 && (
+                {topTones.length > 0 && (
                   <div>
                     <p className="text-[10px] text-zinc-600 mb-2">Toni preferiti</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {tasteProfile.deepSignals!.topTones.map(t => (
-                        <span key={t} className="text-[10px] bg-fuchsia-500/10 text-fuchsia-300 px-2 py-0.5 rounded-full capitalize border border-fuchsia-500/15">{t}</span>
+                      {topTones.map((t, i) => (
+                        <span key={`tone-${t}-${i}`} className="text-[10px] bg-fuchsia-500/10 text-fuchsia-300 px-2 py-0.5 rounded-full capitalize border border-fuchsia-500/15">{t}</span>
                       ))}
                     </div>
                   </div>
                 )}
-                {(tasteProfile.deepSignals?.topSettings?.length ?? 0) > 0 && (
+                {topSettings.length > 0 && (
                   <div>
                     <p className="text-[10px] text-zinc-600 mb-2">Setting amati</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {tasteProfile.deepSignals!.topSettings.map(s => (
-                        <span key={s} className="text-[10px] bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded-full capitalize border border-indigo-500/15">{s}</span>
+                      {topSettings.map((s, i) => (
+                        <span key={`setting-${s}-${i}`} className="text-[10px] bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded-full capitalize border border-indigo-500/15">{s}</span>
                       ))}
                     </div>
                   </div>
@@ -196,7 +214,7 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
           )}
 
           {/* Ritmo di consumo */}
-          {binge && (binge.bingeGenres.length > 0 || binge.slowGenres.length > 0) && (
+          {binge && (bingeGenres.length > 0 || slowGenres.length > 0) && (
             <div>
               <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Il tuo ritmo</p>
               <div className="grid grid-cols-2 gap-3">
@@ -205,10 +223,10 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
                     <Flame size={10} className="text-orange-400" />Binge watch
                   </p>
                   <div className="flex flex-wrap gap-1">
-                    {binge.bingeGenres.slice(0, 3).map(g => (
-                      <span key={g} className="text-[10px] bg-orange-500/15 text-orange-300 px-1.5 py-0.5 rounded-full capitalize">{g}</span>
+                    {bingeGenres.slice(0, 3).map((g, i) => (
+                      <span key={`binge-${g}-${i}`} className="text-[10px] bg-orange-500/15 text-orange-300 px-1.5 py-0.5 rounded-full capitalize">{g}</span>
                     ))}
-                    {binge.bingeGenres.length === 0 && <span className="text-[10px] text-zinc-700">—</span>}
+                    {bingeGenres.length === 0 && <span className="text-[10px] text-zinc-700">—</span>}
                   </div>
                 </div>
                 <div className="bg-zinc-800/50 rounded-2xl p-3">
@@ -216,10 +234,10 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
                     <Sparkles size={10} style={{ color: '#E6FF3D' }} />Gusto raffinato
                   </p>
                   <div className="flex flex-wrap gap-1">
-                    {binge.slowGenres.slice(0, 3).map(g => (
-                      <span key={g} className="text-[10px] px-1.5 py-0.5 rounded-full capitalize" style={{ background: 'rgba(230,255,61,0.1)', color: 'rgba(230,255,61,0.8)' }}>{g}</span>
+                    {slowGenres.slice(0, 3).map((g, i) => (
+                      <span key={`slow-${g}-${i}`} className="text-[10px] px-1.5 py-0.5 rounded-full capitalize" style={{ background: 'rgba(230,255,61,0.1)', color: 'rgba(230,255,61,0.8)' }}>{g}</span>
                     ))}
-                    {binge.slowGenres.length === 0 && <span className="text-[10px] text-zinc-700">—</span>}
+                    {slowGenres.length === 0 && <span className="text-[10px] text-zinc-700">—</span>}
                   </div>
                 </div>
               </div>
@@ -227,42 +245,42 @@ export const DNAWidget = memo(function DNAWidget({ tasteProfile, totalEntries }:
           )}
 
           {/* Generi cercati di recente */}
-          {(tasteProfile.searchIntentGenres?.length ?? 0) > 0 && (
+          {searchIntentGenres.length > 0 && (
             <div>
               <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
                 <Search size={9} />Cerchi spesso
               </p>
               <p className="text-[10px] text-zinc-700 mb-2">Generi che hai cercato di recente — li priorizziamo nei consigli</p>
               <div className="flex flex-wrap gap-1.5">
-                {tasteProfile.searchIntentGenres!.map(g => (
-                  <span key={g} className="text-[10px] bg-amber-500/10 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/15">{g}</span>
+                {searchIntentGenres.map((g, i) => (
+                  <span key={`search-intent-${g}-${i}`} className="text-[10px] bg-amber-500/10 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/15">{g}</span>
                 ))}
               </div>
             </div>
           )}
 
           {/* Generi dalla wishlist */}
-          {(tasteProfile.wishlistGenres?.length ?? 0) > 0 && (
+          {wishlistGenres.length > 0 && (
             <div>
               <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
                 <Bookmark size={9} />Dalla wishlist
               </p>
               <p className="text-[10px] text-zinc-700 mb-2">Generi dei titoli nella tua wishlist — influenzano i consigli</p>
               <div className="flex flex-wrap gap-1.5">
-                {tasteProfile.wishlistGenres!.slice(0, 5).map(g => (
-                  <span key={g} className="text-[10px] bg-emerald-500/10 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/15">{g}</span>
+                {wishlistGenres.slice(0, 5).map((g, i) => (
+                  <span key={`wishlist-${g}-${i}`} className="text-[10px] bg-emerald-500/10 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/15">{g}</span>
                 ))}
               </div>
             </div>
           )}
 
           {/* Generi da esplorare */}
-          {(tasteProfile.discoveryGenres?.length ?? 0) > 0 && (
+          {discoveryGenres.length > 0 && (
             <div>
               <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Generi da esplorare</p>
               <div className="flex flex-wrap gap-1.5">
-                {tasteProfile.discoveryGenres!.map(g => (
-                  <span key={g} className="text-[10px] bg-teal-500/10 text-teal-300 px-2 py-0.5 rounded-full border border-teal-500/15">{g}</span>
+                {discoveryGenres.map((g, i) => (
+                  <span key={`discovery-${g}-${i}`} className="text-[10px] bg-teal-500/10 text-teal-300 px-2 py-0.5 rounded-full border border-teal-500/15">{g}</span>
                 ))}
               </div>
             </div>
