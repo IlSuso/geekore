@@ -5,6 +5,8 @@ import { rateLimit } from '@/lib/rateLimit'
 
 export type SupabaseClient = Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
 export type RecommendationRouteContext =
   | {
       response: NextResponse
@@ -40,6 +42,10 @@ export async function resolveRecommendationContext(request: NextRequest): Promis
   let userId: string
 
   if (isServiceCall) {
+    if (!serviceUserId || !UUID_RE.test(serviceUserId)) {
+      return { response: NextResponse.json({ error: 'Service user id non valido' }, { status: 400 }) }
+    }
+
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
       return { response: NextResponse.json({ error: 'Configurazione Supabase server mancante' }, { status: 503 }) }
     }
@@ -50,7 +56,7 @@ export async function resolveRecommendationContext(request: NextRequest): Promis
       process.env.SUPABASE_SERVICE_ROLE_KEY,
       { auth: { autoRefreshToken: false, persistSession: false } }
     ) as any
-    userId = serviceUserId!
+    userId = serviceUserId
     logger.info('recommendations', `[SERVICE CALL] Regen per userId=${userId}`)
   } else {
     const { data: { user } } = await supabase.auth.getUser()
