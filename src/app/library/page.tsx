@@ -11,10 +11,9 @@ import { PageScaffold } from '@/components/ui/PageScaffold'
 import { FilterBar } from '@/components/ui/FilterBar'
 import { MediaGrid } from '@/components/ui/MediaGrid'
 import type { MediaRailItem } from '@/components/ui/MediaRail'
-import { MediaMetaRow } from '@/components/ui/MediaMetaRow'
+import { CompactMediaRow } from '@/components/ui/CompactMediaRow'
 import { MediaGridSkeleton } from '@/components/ui/MediaSkeletons'
 import { ActionButton } from '@/components/ui/ActionButton'
-import { getMediaTypeColor, getMediaTypeLabel } from '@/lib/mediaTypes'
 import { getMediaStatusLabel } from '@/lib/mediaStatus'
 
 type MediaEntry = {
@@ -228,40 +227,18 @@ export default function LibraryPage() {
               </div>
               <div className="space-y-2">
                 {items.map(entry => (
-                  <button
+                  <CompactMediaRow
                     key={entry.id}
+                    title={entry.title}
+                    type={entry.type}
+                    coverImage={entry.cover_image}
+                    status={entry.status || 'planning'}
+                    score={entry.rating}
+                    progress={entry.episodes && entry.episodes > 0
+                      ? { current: entry.current_episode || 0, total: entry.episodes }
+                      : undefined}
                     onClick={() => openDrawer(entry)}
-                    className="w-full flex items-center gap-3 p-3 rounded-2xl text-left transition-colors hover:opacity-90 active:scale-[0.99] bg-[var(--bg-card)] border border-[var(--border)]"
-                  >
-                    <div className="w-10 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-[var(--bg-secondary)]">
-                      {entry.cover_image ? (
-                        <img src={entry.cover_image} alt={entry.title} className="w-full h-full object-cover" loading="lazy" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)] font-display font-bold">
-                          {entry.title.slice(0, 1)}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[14px] font-semibold leading-tight line-clamp-1 mb-1 text-[var(--text-primary)]">
-                        {entry.title}
-                      </p>
-                      <MediaMetaRow
-                        type={entry.type}
-                        status={entry.status || 'planning'}
-                        score={entry.rating}
-                        progress={entry.episodes && entry.episodes > 0
-                          ? { current: entry.current_episode || 0, total: entry.episodes }
-                          : undefined}
-                        trailing={(
-                          <span className="text-[11px] font-semibold" style={{ color: getMediaTypeColor(entry.type) }}>
-                            {getMediaTypeLabel(entry.type)}
-                          </span>
-                        )}
-                      />
-                    </div>
-                  </button>
+                  />
                 ))}
               </div>
             </div>
