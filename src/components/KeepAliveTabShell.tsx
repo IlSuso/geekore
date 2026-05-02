@@ -1,12 +1,8 @@
 'use client'
 
 // src/components/KeepAliveTabShell.tsx
-//
-// ARCHITETTURA 2026 (React 19 + Motion):
-//   - <Activity> de-prioritizza panel nascosti (React scheduler)
-//   - animate() da Motion per spring fisica vera al rilascio del dito
-//   - Durante il drag: DOM diretto via style (zero librerie, zero overhead)
-//   - Al rilascio: spring Motion con velocity del dito → feel nativo iOS/Android
+// Keep-alive solo per le tab primarie: Home, For You, Library, Discover, Profile.
+// Swipe è una modalità interna di For You e non vive più come pannello/tab separato.
 
 import { Activity } from 'react'
 import { animate } from 'motion/react'
@@ -17,14 +13,13 @@ import type { ReactNode, CSSProperties, MutableRefObject } from 'react'
 import FeedPage     from '@/app/home/page'
 import DiscoverPage from '@/app/discover/page'
 import ForYouPage   from '@/app/for-you/page'
-import SwipePage    from '@/app/swipe/page'
 import LibraryPage  from '@/app/library/page'
 import ProfilePage  from '@/app/profile/[username]/page'
 import { swipeNavBridge } from '@/hooks/swipeNavBridge'
 import { ScrollPanelContext } from '@/context/ScrollPanelContext'
 import { TabActiveContext } from '@/context/TabActiveContext'
 
-type KATab = 'feed' | 'discover' | 'for-you' | 'swipe' | 'library' | 'profile'
+type KATab = 'feed' | 'for-you' | 'library' | 'discover' | 'profile'
 
 const ALL_TABS: KATab[] = ['feed', 'for-you', 'library', 'discover', 'profile']
 const TAB_IDX_TO_KA: Array<KATab | null> = ['feed', 'for-you', 'library', 'discover', 'profile']
@@ -32,9 +27,7 @@ const TAB_IDX_TO_KA: Array<KATab | null> = ['feed', 'for-you', 'library', 'disco
 const HEADER_H_PX  = 53
 const HEADER_TOP   = `calc(env(safe-area-inset-top, 0px) + ${HEADER_H_PX}px)`
 const PANEL_HEIGHT = `calc(100dvh - env(safe-area-inset-top, 0px) - ${HEADER_H_PX}px)`
-const FULL_SCREEN_TABS = new Set<KATab>(['swipe'])
 
-// Spring per navigazione confermata — stiff + alto damping = nessun rimbalzo, feel nativo
 const SPRING_NAV = {
   type: 'spring' as const,
   stiffness: 400,
@@ -43,7 +36,6 @@ const SPRING_NAV = {
   restDelta: 0.5,
   restSpeed: 0.5,
 }
-// Spring per snap-back (torna indietro) — leggermente più morbido
 const SPRING_BACK = {
   type: 'spring' as const,
   stiffness: 300,
@@ -55,32 +47,25 @@ const SPRING_BACK = {
 
 function getKATab(pathname: string): KATab | null {
   if (pathname === '/home') return 'feed'
-  if (pathname === '/discover') return 'discover'
-  if (pathname === '/for-you') return 'for-you'
-  if (pathname === '/swipe') return 'swipe'
+  if (pathname === '/for-you' || pathname === '/swipe') return 'for-you'
   if (pathname === '/library') return 'library'
+  if (pathname === '/discover') return 'discover'
   if (pathname.startsWith('/profile/') && pathname.split('/').length === 3) return 'profile'
   return null
 }
 
-function panelBaseStyle(panelTab: KATab): CSSProperties {
-  const full = FULL_SCREEN_TABS.has(panelTab)
+function panelBaseStyle(): CSSProperties {
   return {
     position:  'fixed',
-    top:       full ? 0 : HEADER_TOP,
+    top:       HEADER_TOP,
     left:      0,
     width:     '100%',
-    height:    full ? '100dvh' : PANEL_HEIGHT,
+    height:    PANEL_HEIGHT,
     overflowY: 'auto',
     overflowX: 'hidden',
-    // PERF FIX #3a: elimina il 300ms delay touch del browser — scroll immediato
     touchAction: 'pan-y',
-    // PERF FIX #3b: evita scroll chaining con il browser di sistema (rimbalzo pagina)
     overscrollBehavior: 'contain',
     WebkitOverflowScrolling: 'touch' as CSSProperties['WebkitOverflowScrolling'],
-    // FIX GLITCH: isolation crea un nuovo stacking context che evita
-    // compositing artifacts nella zona inferiore (velo/bottoni) durante/dopo lo swipe.
-    // Questo è critico per il panel swipe che ha elementi fixed al suo interno.
     isolation: 'isolate' as CSSProperties['isolation'],
   }
 }
@@ -113,20 +98,16 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
   const { activeTab, setActiveTab } = useActiveTab()
 
   const pathnameTab = getKATab(pathname)
-  const tab = activeTab ?? pathnameTab
+  const tab = activeTab === 'swipe' ? 'for-you' : (activeTab ?? pathnameTab)
 
   const visited = useRef<Set<KATab>>(new Set())
-  // Sempre aggiungi subito il tab corrente — deve renderizzare immediatamente.
   if (tab) visited.current.add(tab)
-  // neighborReady: counter che forza un re-render dopo il delay del pre-mount.
-  // I vicini vengono montati 350ms dopo l'arrivo sul tab corrente, così non
-  // competono con l'animazione di entrata per il main thread.
+
   const [neighborReady, setNeighborReady] = useState(0)
   const preloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!tab) return
-    // Cancella il timer precedente (cambio tab rapido)
     if (preloadTimerRef.current) clearTimeout(preloadTimerRef.current)
     preloadTimerRef.current = setTimeout(() => {
       const idx = TAB_IDX_TO_KA.indexOf(tab)
@@ -139,17 +120,16 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
         const next = TAB_IDX_TO_KA[idx + 1] as KATab
         if (!visited.current.has(next)) { visited.current.add(next); changed = true }
       }
-      if (changed) setNeighborReady(n => n + 1) // trigger re-render solo se ci sono nuovi panel
+      if (changed) setNeighborReady(n => n + 1)
     }, 350)
     return () => { if (preloadTimerRef.current) clearTimeout(preloadTimerRef.current) }
-  }, [tab]) // eslint-disable-line
+  }, [tab])
 
-  // neighborReady è usato implicitamente: il re-render legge visited.current aggiornato.
   void neighborReady
 
   useEffect(() => {
     if (pathnameTab !== null) setActiveTab(pathnameTab)
-  }, [pathname]) // eslint-disable-line
+  }, [pathname]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const latestProfileUsername = useRef<string | null>(null)
   if (tab === 'profile') {
@@ -170,21 +150,14 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
   const tabRef      = useRef(tab)
   tabRef.current    = tab
 
-  // Ref per le animazioni Motion in corso — permettono interruzione/cancellazione
   const animCurrentRef = useRef<ReturnType<typeof animate> | null>(null)
   const animAdjRef     = useRef<ReturnType<typeof animate> | null>(null)
-  // Flag: true quando il cambio tab è stato triggerato dallo swipe gesture.
-  // Serve per evitare che useEffect([tab]) stoppi le animazioni spring mid-flight.
   const swipeAnimatingRef = useRef(false)
-  // Tab uscente durante lo swipe: tiene traccia del panel che sta animando verso fuori.
-  // Necessario perché dopo setActiveTab() il vecchio current non è più né adj né active,
-  // e getPanelStyle gli applicherebbe translateX(-300%) sovrascrivendo l'animazione.
   const [exitingTab, setExitingTab] = useState<KATab | null>(null)
   const exitingTabRef = useRef<KATab | null>(null)
 
   useEffect(() => {
     swipeNavBridge.register(
-      // onStart: prepara panel adiacenti
       (prevIdx, nextIdx) => {
         const pk = prevIdx != null ? TAB_IDX_TO_KA[prevIdx] : null
         const nk = nextIdx != null ? TAB_IDX_TO_KA[nextIdx] : null
@@ -195,15 +168,12 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
         setAdjLeft(newLeft)
         setAdjRight(newRight)
       },
-      // onEnd
       () => {},
-      // onDrag: muove panel via DOM diretto (zero Motion overhead durante drag)
       (dx: number) => {
         const currentEl = tabRef.current ? panelRefs.current[tabRef.current]?.current : null
         const leftEl    = adjLeftRef.current  ? panelRefs.current[adjLeftRef.current]?.current  : null
         const rightEl   = adjRightRef.current ? panelRefs.current[adjRightRef.current]?.current : null
 
-        // Cancella eventuali animazioni Motion in corso (interruzione mid-animation)
         animCurrentRef.current?.stop()
         animAdjRef.current?.stop()
 
@@ -215,209 +185,154 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
         }
         if (leftEl) {
           leftEl.style.willChange = 'transform'
-          // Usiamo px puro invece di calc() per evitare problemi di parsing con dx negativo
           leftEl.style.transform  = `translateX(${-w + dx}px)`
         }
         if (rightEl) {
           rightEl.style.willChange = 'transform'
-          // Usiamo px puro invece di calc() per evitare problemi di parsing con dx negativo
           rightEl.style.transform  = `translateX(${w + dx}px)`
         }
       },
-      // onSnap: usa Motion animate() con spring fisica
-      // targetX: destinazione in px (±viewport width o 0 per snap-back)
-      // velocityParam: velocity del dito al rilascio (passata alla spring)
-      // _unused: era la durata fissa — ora ignorata, usa spring
-      (targetX: number, velocityParam: number | string, _unused: number) => {
+      (targetX: number, velocityParam: number | string) => {
         const currentEl = tabRef.current ? panelRefs.current[tabRef.current]?.current : null
         const leftEl    = adjLeftRef.current  ? panelRefs.current[adjLeftRef.current]?.current  : null
         const rightEl   = adjRightRef.current ? panelRefs.current[adjRightRef.current]?.current : null
-        const isLeft    = !!adjLeftRef.current
         const adjEl     = leftEl ?? rightEl
 
-        // Calcola posizione corrente del panel dal suo style.transform.
-        // Durante il drag usiamo sempre px puri → i primi due casi coprono tutto.
-        // Il caso calc() rimane come fallback di sicurezza per stati residui.
         function getCurrentX(el: HTMLElement): number {
           const t = el.style.transform
           if (!t) return 0
-          // Caso px: translateX(123px) o translateX(-45px)
           const mPx = t.match(/translateX\((-?[\d.]+)px\)/)
           if (mPx) return parseFloat(mPx[1])
-          // Caso %: translateX(-100%) o translateX(100%)
           const mPct = t.match(/translateX\((-?[\d.]+)%\)/)
           if (mPct) return (parseFloat(mPct[1]) / 100) * window.innerWidth
-          // Caso calc (fallback): translateX(calc(-100% + 23px)) o translateX(calc(100% + -45px))
-          const mCalc = t.match(/translateX\(calc\((-?[\d.]+)%\s*\+\s*(-?[\d.]+)px\)\)/)
-          if (mCalc) return (parseFloat(mCalc[1]) / 100) * window.innerWidth + parseFloat(mCalc[2])
-          const mCalcSub = t.match(/translateX\(calc\((-?[\d.]+)%\s*-\s*([\d.]+)px\)\)/)
-          if (mCalcSub) return (parseFloat(mCalcSub[1]) / 100) * window.innerWidth - parseFloat(mCalcSub[2])
           return 0
         }
 
-        // Velocity del dito: use-gesture dà vx in px/ms → Motion animate() vuole px/s → *1000
-        const velocityPxPerSec = typeof velocityParam === 'number'
-          ? velocityParam * 1000
-          : 0
+        const velocityPxPerSec = typeof velocityParam === 'number' ? velocityParam * 1000 : 0
 
         if (targetX === 0) {
-          // SNAP-BACK: tutto torna alla posizione di riposo.
-          // Passiamo velocity solo qui — serve per il "respingimento" naturale del dito.
           if (currentEl) {
             const fromX = getCurrentX(currentEl)
-            // Se già a 0 (nessun drag avvenuto), pulizia immediata senza animazione
             if (Math.abs(fromX) < 1) {
               currentEl.style.transform = ''
               currentEl.style.willChange = ''
             } else {
-              animCurrentRef.current = animate(
-                fromX, 0,
-                {
-                  ...SPRING_BACK,
-                  velocity: velocityPxPerSec,
-                  onUpdate: (v: number) => {
-                    currentEl.style.transform = v !== 0 ? `translateX(${v}px)` : ''
-                  },
-                  onComplete: () => {
-                    currentEl.style.transform = ''
-                    currentEl.style.willChange = ''
-                    animCurrentRef.current = null
-                  },
-                }
-              )
+              animCurrentRef.current = animate(fromX, 0, {
+                ...SPRING_BACK,
+                velocity: velocityPxPerSec,
+                onUpdate: (v: number) => { currentEl.style.transform = v !== 0 ? `translateX(${v}px)` : '' },
+                onComplete: () => {
+                  currentEl.style.transform = ''
+                  currentEl.style.willChange = ''
+                  animCurrentRef.current = null
+                },
+              })
             }
           }
           if (adjEl) {
             const fromX   = getCurrentX(adjEl)
-            // restPos: panel sinistro torna a sinistra (-w), panel destro torna a destra (+w)
             const restPos = adjLeftRef.current ? -window.innerWidth : window.innerWidth
-            animAdjRef.current = animate(
-              fromX, restPos,
-              {
-                ...SPRING_BACK,
-                velocity: velocityPxPerSec,
-                onUpdate: (v: number) => {
-                  adjEl.style.transform = `translateX(${v}px)`
-                },
-                onComplete: () => {
-                  // Ripristina transform % per coerenza con getPanelStyle
-                  adjEl.style.transform  = adjLeftRef.current ? 'translateX(-100%)' : 'translateX(100%)'
-                  adjEl.style.willChange = ''
-                  adjLeftRef.current  = null
-                  adjRightRef.current = null
-                  setAdjLeft(null)
-                  setAdjRight(null)
-                  animAdjRef.current = null
-                },
-              }
-            )
+            animAdjRef.current = animate(fromX, restPos, {
+              ...SPRING_BACK,
+              velocity: velocityPxPerSec,
+              onUpdate: (v: number) => { adjEl.style.transform = `translateX(${v}px)` },
+              onComplete: () => {
+                adjEl.style.transform  = adjLeftRef.current ? 'translateX(-100%)' : 'translateX(100%)'
+                adjEl.style.willChange = ''
+                adjLeftRef.current = null
+                adjRightRef.current = null
+                setAdjLeft(null)
+                setAdjRight(null)
+                animAdjRef.current = null
+              },
+            })
           } else {
-            adjLeftRef.current = null; adjRightRef.current = null
-            setAdjLeft(null); setAdjRight(null)
+            adjLeftRef.current = null
+            adjRightRef.current = null
+            setAdjLeft(null)
+            setAdjRight(null)
           }
         } else {
-          // NAVIGAZIONE CONFERMATA: current esce, incoming entra.
-          // Segnala che il cambio tab è avvenuto via swipe: useEffect([tab])
-          // salterà il reset dei transform lasciando le spring completarsi.
           swipeAnimatingRef.current = true
-          // Traccia il panel uscente: getPanelStyle lo mantiene visibile con zIndex 1
-          // senza sovrascrivere il transform (gestito da Motion).
           const outgoingTab = tabRef.current
           if (outgoingTab) {
             exitingTabRef.current = outgoingTab
             setExitingTab(outgoingTab)
           }
-          // Passiamo la velocity del dito alla spring in modo che la pagina
-          // "continui" il momentum del dito → feel nativo iOS/Android.
-          // La velocity da use-gesture è in px/ms → Motion animate() vuole px/s → *1000
-          // Clamppiamo a un massimo ragionevole per evitare snap istantaneo su swipe molto veloci
           const clampedVelocity = Math.sign(velocityPxPerSec) * Math.min(Math.abs(velocityPxPerSec), 3000)
           const incomingEl = targetX > 0 ? leftEl : rightEl
 
           if (currentEl) {
             const fromX = getCurrentX(currentEl)
-            animCurrentRef.current = animate(
-              fromX, targetX,
-              {
-                ...SPRING_NAV,
-                velocity: clampedVelocity,
-                onUpdate: (v: number) => {
-                  currentEl.style.transform = `translateX(${v}px)`
-                },
-                onComplete: () => {
-                  currentEl.style.transform  = `translateX(${targetX > 0 ? '100%' : '-100%'})`
-                  currentEl.style.willChange = ''
-                  animCurrentRef.current = null
-                  exitingTabRef.current = null
-                  setExitingTab(null)
-                },
-              }
-            )
+            animCurrentRef.current = animate(fromX, targetX, {
+              ...SPRING_NAV,
+              velocity: clampedVelocity,
+              onUpdate: (v: number) => { currentEl.style.transform = `translateX(${v}px)` },
+              onComplete: () => {
+                currentEl.style.transform  = `translateX(${targetX > 0 ? '100%' : '-100%'})`
+                currentEl.style.willChange = ''
+                animCurrentRef.current = null
+                exitingTabRef.current = null
+                setExitingTab(null)
+              },
+            })
           }
 
           if (incomingEl) {
             const fromX = getCurrentX(incomingEl)
-            animAdjRef.current = animate(
-              fromX, 0,
-              {
-                ...SPRING_NAV,
-                velocity: clampedVelocity,
-                onUpdate: (v: number) => {
-                  incomingEl.style.transform = v !== 0 ? `translateX(${v}px)` : ''
-                },
-                onComplete: () => {
-                  incomingEl.style.transform  = ''
-                  incomingEl.style.willChange = ''
-                  adjLeftRef.current  = null
-                  adjRightRef.current = null
-                  setAdjLeft(null)
-                  setAdjRight(null)
-                  animAdjRef.current = null
-                },
-              }
-            )
+            animAdjRef.current = animate(fromX, 0, {
+              ...SPRING_NAV,
+              velocity: clampedVelocity,
+              onUpdate: (v: number) => { incomingEl.style.transform = v !== 0 ? `translateX(${v}px)` : '' },
+              onComplete: () => {
+                incomingEl.style.transform = ''
+                incomingEl.style.willChange = ''
+                adjLeftRef.current = null
+                adjRightRef.current = null
+                setAdjLeft(null)
+                setAdjRight(null)
+                animAdjRef.current = null
+              },
+            })
           } else {
-            adjLeftRef.current = null; adjRightRef.current = null
-            setAdjLeft(null); setAdjRight(null)
+            adjLeftRef.current = null
+            adjRightRef.current = null
+            setAdjLeft(null)
+            setAdjRight(null)
           }
         }
       },
     )
     return () => swipeNavBridge.unregister()
-  }, []) // eslint-disable-line
+  }, [])
 
   useEffect(() => {
-    // Se il cambio tab è avvenuto via swipe, le animazioni spring stanno già
-    // portando i panel nella posizione corretta: non le interrompiamo.
-    // (Si puliscono da sole nel loro onComplete.)
     if (swipeAnimatingRef.current) {
       swipeAnimatingRef.current = false
       return
     }
 
-    // Cambio tab da navbar / back button: cancella animazioni residue e resetta.
     animCurrentRef.current?.stop()
     animAdjRef.current?.stop()
     animCurrentRef.current = null
-    animAdjRef.current     = null
+    animAdjRef.current = null
 
-    adjLeftRef.current = null; adjRightRef.current = null
-    setAdjLeft(null); setAdjRight(null)
+    adjLeftRef.current = null
+    adjRightRef.current = null
+    setAdjLeft(null)
+    setAdjRight(null)
     if (tab) {
       const el = panelRefs.current[tab]?.current
       if (el) { el.style.transform = ''; el.style.willChange = '' }
     }
-  }, [tab]) // eslint-disable-line
+  }, [tab])
 
   const getPanelStyle = useCallback((panelTab: KATab): CSSProperties => {
-    const base = panelBaseStyle(panelTab)
+    const base = panelBaseStyle()
     if (tab === panelTab) {
       return { ...base, zIndex: 2, pointerEvents: 'auto', visibility: 'visible' }
     }
-    // FIX PERF: panel non attivi hanno overflowY:hidden — fermano lo scroll engine
-    // del browser su quei panel, riducendo il compositing overhead durante lo swipe.
-    // I panel adj durante lo swipe (adjLeft/adjRight) restano 'hidden' perché
-    // non devono essere scrollabili mentre entrano/escono — ma rimangono visibili.
+
     const frozen = { overflowY: 'hidden' as const }
 
     if (adjLeft === panelTab) {
@@ -426,22 +341,15 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
     if (adjRight === panelTab) {
       return { ...base, ...frozen, transform: 'translateX(100%)', zIndex: 1, pointerEvents: 'none', visibility: 'visible' }
     }
-    // Panel uscente durante swipe: lo manteniamo visibile con zIndex 1 e senza
-    // sovrascrivere il transform (che Motion sta animando verso ±100%).
     if (exitingTab === panelTab) {
       return { ...base, ...frozen, zIndex: 1, pointerEvents: 'none', visibility: 'visible' }
     }
     if (visited.current.has(panelTab)) {
-      // Panel visitato (o pre-montato): posizionalo fuori schermo nella direzione corretta.
-      // I vicini immediati del tab attivo ottengono ±100% (pronti per lo swipe),
-      // tutti gli altri vanno a -300% (nascosti lontano).
-      const currentIdx  = tab ? TAB_IDX_TO_KA.indexOf(tab) : -1
-      const panelIdx    = TAB_IDX_TO_KA.indexOf(panelTab)
-      const isNeighbor  = currentIdx !== -1 && Math.abs(panelIdx - currentIdx) === 1
+      const currentIdx = tab ? TAB_IDX_TO_KA.indexOf(tab) : -1
+      const panelIdx = TAB_IDX_TO_KA.indexOf(panelTab)
+      const isNeighbor = currentIdx !== -1 && Math.abs(panelIdx - currentIdx) === 1
       if (isNeighbor) {
         const tx = panelIdx < currentIdx ? '-100%' : '100%'
-        // content-visibility:auto: browser skippa layout/paint del subtree quando fuori viewport.
-        // contain-intrinsic-size fissa le dimensioni per evitare layout shift al ripristino.
         return { ...base, ...frozen, transform: `translateX(${tx})`, zIndex: 0, pointerEvents: 'none', visibility: 'hidden',
           contentVisibility: 'auto' as CSSProperties['contentVisibility'],
           containIntrinsicSize: '100vw 100dvh' as CSSProperties['containIntrinsicSize'] }
@@ -461,24 +369,15 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
 
   const profileUsername = latestProfileUsername.current
 
-  // shouldMount — una volta che un panel è stato visitato, rimane SEMPRE montato nel DOM.
-  // Non c'è smontaggio per distanza: lo stato della pagina viene preservato indefinitamente.
   function shouldMount(panelTab: KATab): boolean {
-    if (!visited.current.has(panelTab)) return false  // mai visitato → non montare
-    return true                                        // visitato → sempre montato
+    return visited.current.has(panelTab)
   }
 
   return (
     <>
       <Activity mode={activityMode('feed')}>
-        <PanelWrapper divRef={panelRefs.current['feed']} isActive={tab === 'feed'} style={getPanelStyle('feed')}>
+        <PanelWrapper divRef={panelRefs.current.feed} isActive={tab === 'feed'} style={getPanelStyle('feed')}>
           {shouldMount('feed') && <FeedPage />}
-        </PanelWrapper>
-      </Activity>
-
-      <Activity mode={activityMode('discover')}>
-        <PanelWrapper divRef={panelRefs.current['discover']} isActive={tab === 'discover'} style={getPanelStyle('discover')}>
-          {shouldMount('discover') && <DiscoverPage />}
         </PanelWrapper>
       </Activity>
 
@@ -488,20 +387,20 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
         </PanelWrapper>
       </Activity>
 
-      <Activity mode={activityMode('swipe')}>
-        <PanelWrapper divRef={panelRefs.current['swipe']} isActive={tab === 'swipe'} style={getPanelStyle('swipe')}>
-          {shouldMount('swipe') && <SwipePage />}
-        </PanelWrapper>
-      </Activity>
-
       <Activity mode={activityMode('library')}>
-        <PanelWrapper divRef={panelRefs.current['library']} isActive={tab === 'library'} style={getPanelStyle('library')}>
+        <PanelWrapper divRef={panelRefs.current.library} isActive={tab === 'library'} style={getPanelStyle('library')}>
           {shouldMount('library') && <LibraryPage />}
         </PanelWrapper>
       </Activity>
 
+      <Activity mode={activityMode('discover')}>
+        <PanelWrapper divRef={panelRefs.current.discover} isActive={tab === 'discover'} style={getPanelStyle('discover')}>
+          {shouldMount('discover') && <DiscoverPage />}
+        </PanelWrapper>
+      </Activity>
+
       <Activity mode={activityMode('profile')}>
-        <PanelWrapper divRef={panelRefs.current['profile']} isActive={tab === 'profile'} style={getPanelStyle('profile')}>
+        <PanelWrapper divRef={panelRefs.current.profile} isActive={tab === 'profile'} style={getPanelStyle('profile')}>
           {shouldMount('profile') && profileUsername && (
             <ProfilePage usernameOverride={profileUsername} />
           )}
