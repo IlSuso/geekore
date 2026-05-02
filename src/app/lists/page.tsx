@@ -1,17 +1,14 @@
 'use client'
-// src/app/lists/page.tsx
-// Liste personalizzate: "Top 10 anime di sempre", "Da guardare con la ragazza", ecc.
 
-import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { androidBack } from '@/hooks/androidBack'
 import {
   List, Plus, Trash2, Edit3, Globe, Lock, X, Check,
-  ChevronRight, Loader2, GripVertical,
+  ChevronRight, Loader2, Sparkles, Search,
 } from 'lucide-react'
-import Link from 'next/link'
-
-// ─── Tipi ────────────────────────────────────────────────────────────────────
+import { PageScaffold } from '@/components/ui/PageScaffold'
 
 interface UserList {
   id: string
@@ -23,7 +20,9 @@ interface UserList {
   item_count?: number
 }
 
-// ─── Modal crea/modifica lista ────────────────────────────────────────────────
+function normalize(value: string): string {
+  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+}
 
 function ListModal({
   list,
@@ -69,69 +68,80 @@ function ListModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-md p-8">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-bold">{list ? 'Modifica lista' : 'Nuova lista'}</h3>
-          <button onClick={onClose} className="text-zinc-500 hover:text-white">
-            <X size={20} />
-          </button>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-4 backdrop-blur-sm sm:items-center">
+      <div className="w-full max-w-md overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[var(--bg-primary)] shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+        <div className="border-b border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.08),rgba(139,92,246,0.06),rgba(20,20,27,0.9))] p-5">
+          <div className="mb-2 flex items-center justify-between gap-4">
+            <div>
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+                <Sparkles size={12} />
+                Collection builder
+              </div>
+              <h3 className="gk-title text-[var(--text-primary)]">{list ? 'Modifica lista' : 'Nuova lista'}</h3>
+            </div>
+            <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-2xl border border-[var(--border)] bg-black/20 text-[var(--text-secondary)] hover:text-white">
+              <X size={17} />
+            </button>
+          </div>
+          <p className="gk-caption">Crea raccolte tematiche da usare nel profilo e da condividere con la community.</p>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 p-5">
           <div>
-            <label className="block text-sm text-zinc-400 mb-2">Titolo *</label>
+            <label className="gk-label mb-2 block">Titolo *</label>
             <input
               type="text"
               value={title}
               onChange={e => setTitle(e.target.value.slice(0, 100))}
               placeholder="Es. Top 10 anime di sempre"
-              className="w-full bg-zinc-800 border border-zinc-700 focus:border-zinc-600 rounded-2xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none transition"
+              className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition focus:border-[rgba(230,255,61,0.45)]"
               maxLength={100}
             />
-            <p className="text-xs text-zinc-600 mt-1 text-right">{title.length}/100</p>
+            <p className="gk-mono mt-1 text-right text-[var(--text-muted)]">{title.length}/100</p>
           </div>
 
           <div>
-            <label className="block text-sm text-zinc-400 mb-2">Descrizione</label>
+            <label className="gk-label mb-2 block">Descrizione</label>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value.slice(0, 500))}
               placeholder="Breve descrizione della lista..."
               rows={3}
-              className="w-full bg-zinc-800 border border-zinc-700 focus:border-zinc-600 rounded-2xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none resize-none transition"
+              className="w-full resize-none rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition focus:border-[rgba(230,255,61,0.45)]"
               maxLength={500}
             />
           </div>
 
-          <div className="flex items-center justify-between p-4 bg-zinc-800 rounded-2xl">
-            <div className="flex items-center gap-2">
-              {isPublic ? <Globe size={16} className="text-emerald-400" /> : <Lock size={16} className="text-zinc-400" />}
-              <span className="text-sm font-medium">{isPublic ? 'Pubblica' : 'Privata'}</span>
-              <span className="text-xs text-zinc-500">
-                {isPublic ? 'Visibile a tutti' : 'Solo tu puoi vederla'}
-              </span>
+          <div className="flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4">
+            <div className="flex min-w-0 items-center gap-2">
+              {isPublic ? <Globe size={16} className="text-emerald-400" /> : <Lock size={16} className="text-[var(--text-muted)]" />}
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-[var(--text-primary)]">{isPublic ? 'Pubblica' : 'Privata'}</p>
+                <p className="gk-caption truncate">{isPublic ? 'Visibile a tutti' : 'Solo tu puoi vederla'}</p>
+              </div>
             </div>
             <button
               onClick={() => setIsPublic(v => !v)}
-              className={`w-12 h-6 rounded-full transition-colors ${isPublic ? 'bg-emerald-500' : 'bg-zinc-600'}`}
+              className="h-6 w-12 rounded-full p-0.5 transition-colors"
+              style={{ background: isPublic ? 'var(--accent)' : 'var(--bg-card-hover)' }}
+              aria-label="Cambia visibilità lista"
             >
-              <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform mx-0.5 ${isPublic ? 'translate-x-6' : 'translate-x-0'}`} />
+              <div className={`h-5 w-5 rounded-full bg-white shadow transition-transform ${isPublic ? 'translate-x-6' : 'translate-x-0'}`} />
             </button>
           </div>
         </div>
 
-        <div className="flex gap-3 mt-8">
+        <div className="flex gap-3 border-t border-[var(--border)] p-5">
           <button
             onClick={onClose}
-            className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl font-medium transition"
+            className="flex-1 rounded-2xl border border-[var(--border)] py-3 font-bold text-[var(--text-secondary)] transition hover:text-white"
           >
             Annulla
           </button>
           <button
             onClick={handleSave}
             disabled={!title.trim() || saving}
-            className="flex-1 py-3 disabled:opacity-50 rounded-2xl font-semibold transition flex items-center justify-center gap-2"
+            className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 font-black transition disabled:opacity-50"
             style={{ background: 'var(--accent)', color: '#0B0B0F' }}
           >
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
@@ -143,8 +153,6 @@ function ListModal({
   )
 }
 
-// ─── Card lista ───────────────────────────────────────────────────────────────
-
 function ListCard({
   list,
   onEdit,
@@ -155,37 +163,42 @@ function ListCard({
   onDelete: (id: string) => void
 }) {
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-zinc-700 transition-colors group">
-      <Link href={`/lists/${list.id}`} className="block p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+    <div className="group overflow-hidden rounded-[22px] border border-[var(--border-subtle)] bg-[var(--bg-card)] transition-colors hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)]">
+      <Link href={`/lists/${list.id}`} className="block p-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.12),rgba(139,92,246,0.10))] text-[var(--accent)]">
+            <List size={22} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 flex items-center gap-2">
               {list.is_public
-                ? <Globe size={12} className="text-emerald-400 flex-shrink-0" />
-                : <Lock size={12} className="text-zinc-500 flex-shrink-0" />}
-              <h3 className="font-semibold text-white truncate">{list.title}</h3>
+                ? <Globe size={12} className="flex-shrink-0 text-emerald-400" />
+                : <Lock size={12} className="flex-shrink-0 text-[var(--text-muted)]" />}
+              <h3 className="line-clamp-1 text-[15px] font-bold text-[var(--text-primary)]">{list.title}</h3>
             </div>
-            {list.description && (
-              <p className="text-xs text-zinc-500 line-clamp-2 mt-1">{list.description}</p>
+            {list.description ? (
+              <p className="line-clamp-1 text-xs text-[var(--text-muted)]">{list.description}</p>
+            ) : (
+              <p className="gk-mono text-[var(--text-muted)]">raccolta personale</p>
             )}
-            <p className="text-xs text-zinc-600 mt-2">
-              {list.item_count ?? 0} {(list.item_count ?? 0) === 1 ? 'titolo' : 'titoli'}
+            <p className="gk-mono mt-1 text-[var(--text-muted)]">
+              {list.item_count ?? 0} {(list.item_count ?? 0) === 1 ? 'titolo' : 'titoli'} · {list.is_public ? 'pubblica' : 'privata'}
             </p>
           </div>
-          <ChevronRight size={16} className="text-zinc-600 group-hover:text-zinc-400 transition-colors flex-shrink-0 mt-1" />
+          <ChevronRight size={17} className="flex-shrink-0 text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent)]" />
         </div>
       </Link>
 
-      <div className="px-5 pb-4 flex gap-2">
+      <div className="flex gap-2 border-t border-[var(--border-subtle)] px-4 py-3">
         <button
           onClick={() => onEdit(list)}
-          className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+          className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
         >
           <Edit3 size={12} /> Modifica
         </button>
         <button
           onClick={() => onDelete(list.id)}
-          className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-red-400 transition-colors ml-auto"
+          className="ml-auto flex items-center gap-1.5 text-xs font-bold text-[var(--text-muted)] transition-colors hover:text-red-400"
         >
           <Trash2 size={12} /> Elimina
         </button>
@@ -194,7 +207,14 @@ function ListCard({
   )
 }
 
-// ─── Pagina principale ────────────────────────────────────────────────────────
+function ListsStat({ label, value, accent = false }: { label: string; value: string | number; accent?: boolean }) {
+  return (
+    <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
+      <p className={`font-mono-data text-[20px] font-black leading-none ${accent ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>{value}</p>
+      <p className="gk-label mt-1">{label}</p>
+    </div>
+  )
+}
 
 export default function ListsPage() {
   const [lists, setLists] = useState<UserList[]>([])
@@ -202,6 +222,7 @@ export default function ListsPage() {
   const [showModal, setShowModal] = useState(false)
   const [editingList, setEditingList] = useState<UserList | undefined>()
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [query, setQuery] = useState('')
   const supabase = createClient()
 
   useEffect(() => {
@@ -216,7 +237,6 @@ export default function ListsPage() {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
-      // Conta gli item per ogni lista
       const listsWithCount = await Promise.all(
         (data || []).map(async l => {
           const { count } = await supabase
@@ -231,7 +251,16 @@ export default function ListsPage() {
       setLoading(false)
     }
     load()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filtered = useMemo(() => {
+    const q = normalize(query)
+    if (!q) return lists
+    return lists.filter(list => normalize([list.title, list.description || ''].join(' ')).includes(q))
+  }, [lists, query])
+
+  const publicCount = lists.filter(list => list.is_public).length
+  const totalItems = lists.reduce((sum, list) => sum + (list.item_count || 0), 0)
 
   const handleDelete = async (id: string) => {
     if (!confirm('Eliminare questa lista?')) return
@@ -257,12 +286,12 @@ export default function ListsPage() {
 
   if (!isLoggedIn && !loading) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center text-white px-3 sm:px-4 md:px-6 text-center">
+      <div className="flex min-h-screen items-center justify-center bg-[var(--bg-primary)] px-6 text-center text-white">
         <div>
           <List size={48} className="mx-auto mb-4 text-zinc-600" />
-          <h1 className="text-2xl font-bold mb-3">Le tue liste</h1>
-          <p className="text-zinc-400 mb-6">Accedi per creare liste personalizzate</p>
-          <Link href="/login" className="px-3 sm:px-4 md:px-6 py-3 rounded-2xl font-semibold transition" style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
+          <h1 className="mb-3 text-2xl font-bold">Le tue liste</h1>
+          <p className="mb-6 text-zinc-400">Accedi per creare liste personalizzate</p>
+          <Link href="/login" className="rounded-2xl px-6 py-3 font-semibold transition" style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
             Accedi
           </Link>
         </div>
@@ -271,58 +300,86 @@ export default function ListsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-white pb-24">
-      <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 pt-8">
-
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="hidden md:block text-4xl font-black tracking-tighter">Le mie liste</h1>
-            <p className="text-zinc-400 text-sm mt-1">Crea collezioni tematiche da condividere</p>
+    <PageScaffold
+      title="Liste"
+      description="Raccolte curate, classifiche personali e collezioni da condividere."
+      icon={<List size={16} />}
+      contentClassName="max-w-screen-md pt-2 md:pt-8 pb-28"
+    >
+      <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(230,255,61,0.09),rgba(139,92,246,0.07),rgba(20,20,27,0.92))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-5">
+        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
+          <Sparkles size={12} />
+          Curated collections
+        </div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="gk-h1 mb-2 text-[var(--text-primary)]">Liste che raccontano il tuo universo.</h1>
+            <p className="gk-body max-w-2xl">Top, percorsi, watch party, backlog e classifiche personali: non solo archiviazione, ma identità curata.</p>
           </div>
           <button
             onClick={() => { setEditingList(undefined); setShowModal(true) }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl font-medium text-sm transition"
+            className="inline-flex h-10 flex-shrink-0 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black transition-transform hover:scale-[1.02]"
             style={{ background: 'var(--accent)', color: '#0B0B0F' }}
           >
             <Plus size={16} />
             Nuova lista
           </button>
         </div>
-
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 size={32} className="animate-spin" style={{ color: 'var(--accent)' }} />
-          </div>
-        ) : lists.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="w-16 h-16 bg-zinc-900 border border-zinc-800 rounded-3xl flex items-center justify-center mx-auto mb-4">
-              <List size={28} className="text-zinc-600" />
-            </div>
-            <p className="text-zinc-400 font-medium mb-2">Nessuna lista ancora</p>
-            <p className="text-zinc-600 text-sm mb-6">
-              Crea la tua prima lista: "Top 10 anime di sempre", "Da guardare con gli amici"...
-            </p>
-            <button
-              onClick={() => setShowModal(true)}
-              className="px-3 sm:px-4 md:px-6 py-3 rounded-2xl font-semibold transition"
-            style={{ background: 'var(--accent)', color: '#0B0B0F' }}
-            >
-              Crea la prima lista
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {lists.map(list => (
-              <ListCard
-                key={list.id}
-                list={list}
-                onEdit={l => { setEditingList(l); setShowModal(true) }}
-                onDelete={handleDelete}
-              />
-            ))}
-          </div>
-        )}
+        <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
+          <ListsStat label="liste" value={lists.length} accent />
+          <ListsStat label="pubbliche" value={publicCount} />
+          <ListsStat label="titoli" value={totalItems} />
+        </div>
       </div>
+
+      <div className="relative mb-5">
+        <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+        <input
+          value={query}
+          onChange={event => setQuery(event.target.value)}
+          placeholder="Cerca liste, temi, descrizioni..."
+          className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] py-2.5 pl-10 pr-4 text-[14px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]"
+        />
+      </div>
+
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="h-[98px] rounded-2xl bg-[var(--bg-card)] skeleton" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-16 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-secondary)]">
+            <List size={28} className="text-[var(--text-muted)]" />
+          </div>
+          <p className="gk-headline mb-1 text-[var(--text-primary)]">
+            {lists.length === 0 ? 'Nessuna lista ancora' : 'Nessuna lista trovata'}
+          </p>
+          <p className="gk-body mx-auto mb-5 max-w-sm">
+            {lists.length === 0
+              ? 'Crea la tua prima lista: Top 10 anime, backlog estivo, film da vedere con amici.'
+              : 'Prova a cambiare ricerca.'}
+          </p>
+          <button
+            onClick={() => { lists.length === 0 ? setShowModal(true) : setQuery('') }}
+            className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]"
+          >
+            {lists.length === 0 ? 'Crea la prima lista' : 'Cancella ricerca'}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(list => (
+            <ListCard
+              key={list.id}
+              list={list}
+              onEdit={l => { setEditingList(l); setShowModal(true) }}
+              onDelete={handleDelete}
+            />
+          ))}
+        </div>
+      )}
 
       {showModal && (
         <ListModal
@@ -331,6 +388,6 @@ export default function ListsPage() {
           onSaved={handleSaved}
         />
       )}
-    </div>
+    </PageScaffold>
   )
 }
