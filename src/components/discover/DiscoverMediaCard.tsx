@@ -31,9 +31,16 @@ export function DiscoverMediaCard({
   className = '',
 }: DiscoverMediaCardProps) {
   const hasState = added || wishlisted
+  const Wrapper = onClick ? 'button' : 'div'
 
   return (
-    <div className={`group relative min-w-0 cursor-pointer ${className}`} onClick={onClick}>
+    <Wrapper
+      type={onClick ? 'button' : undefined}
+      data-no-swipe="true"
+      className={`group relative min-w-0 cursor-pointer text-left ${className}`}
+      onClick={onClick}
+      aria-label={onClick ? `Apri dettagli di ${title}` : undefined}
+    >
       <div className="relative aspect-[2/3] overflow-hidden rounded-[18px] border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-[0_10px_34px_rgba(0,0,0,0.22)]">
         {coverImage ? (
           <img
@@ -82,6 +89,7 @@ export function DiscoverMediaCard({
         {onWishlist && !added && (
           <button
             type="button"
+            data-no-swipe="true"
             onClick={event => {
               event.stopPropagation()
               onWishlist()
@@ -108,6 +116,6 @@ export function DiscoverMediaCard({
           year={year}
         />
       </div>
-    </div>
+    </Wrapper>
   )
 }
