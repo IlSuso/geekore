@@ -15,16 +15,19 @@ export function ErrorState({ error, onRetry, className = '' }: ErrorStateProps) 
   const Icon = isOffline ? WifiOff : isAuth ? ShieldAlert : AlertTriangle
 
   return (
-    <div className={`flex flex-col items-center justify-center py-16 px-6 text-center ${className}`}>
-      <div className="w-14 h-14 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center mb-4">
+    <div className={`flex flex-col items-center justify-center px-6 py-16 text-center ${className}`} data-no-swipe="true">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/10">
         <Icon size={24} className="text-red-400" />
       </div>
-      <p className="text-zinc-300 text-sm font-medium mb-1">Qualcosa è andato storto</p>
-      <p className="text-zinc-500 text-xs max-w-xs">{error}</p>
+      <p className="mb-1 text-sm font-medium text-zinc-300">Qualcosa è andato storto</p>
+      <p className="max-w-xs text-xs text-zinc-500">{error}</p>
       {onRetry && (
         <button
-          onClick={onRetry}
-          className="mt-5 flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-2xl text-sm text-zinc-300 transition-all"
+          type="button"
+          data-no-swipe="true"
+          onClick={(event) => { event.stopPropagation(); onRetry() }}
+          onPointerDown={event => event.stopPropagation()}
+          className="mt-5 flex items-center gap-2 rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm text-zinc-300 transition-all hover:bg-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/35"
         >
           <RefreshCw size={14} />
           Riprova
@@ -36,11 +39,18 @@ export function ErrorState({ error, onRetry, className = '' }: ErrorStateProps) 
 
 export function InlineError({ error, onRetry }: { error: string; onRetry?: () => void }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-3 bg-red-950/40 border border-red-800/50 rounded-2xl text-sm">
-      <AlertTriangle size={16} className="text-red-400 flex-shrink-0" />
-      <span className="text-red-300 flex-1">{error}</span>
+    <div className="flex items-center gap-3 rounded-2xl border border-red-800/50 bg-red-950/40 px-4 py-3 text-sm" data-no-swipe="true">
+      <AlertTriangle size={16} className="flex-shrink-0 text-red-400" />
+      <span className="flex-1 text-red-300">{error}</span>
       {onRetry && (
-        <button onClick={onRetry} className="text-red-400 hover:text-red-300 transition-colors flex-shrink-0">
+        <button
+          type="button"
+          data-no-swipe="true"
+          onClick={(event) => { event.stopPropagation(); onRetry() }}
+          onPointerDown={event => event.stopPropagation()}
+          className="flex-shrink-0 text-red-400 transition-colors hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/35 rounded-lg p-1"
+          aria-label="Riprova"
+        >
           <RefreshCw size={14} />
         </button>
       )}
@@ -62,16 +72,19 @@ export function EmptyState({
   className = '',
 }: EmptyStateProps) {
   return (
-    <div className={`flex flex-col items-center justify-center py-16 px-6 text-center ${className}`}>
-      <div className="w-14 h-14 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-center mb-4">
+    <div className={`flex flex-col items-center justify-center px-6 py-16 text-center ${className}`} data-no-swipe="true">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900">
         <Inbox size={24} className="text-zinc-600" />
       </div>
-      <p className="text-zinc-400 text-sm font-medium mb-1">{title}</p>
-      {description && <p className="text-zinc-600 text-xs max-w-xs">{description}</p>}
+      <p className="mb-1 text-sm font-medium text-zinc-400">{title}</p>
+      {description && <p className="max-w-xs text-xs text-zinc-600">{description}</p>}
       {action && (
         <button
-          onClick={action.onClick}
-          className="mt-5 px-4 py-2 rounded-2xl text-sm font-semibold transition-all"
+          type="button"
+          data-no-swipe="true"
+          onClick={(event) => { event.stopPropagation(); action.onClick() }}
+          onPointerDown={event => event.stopPropagation()}
+          className="mt-5 rounded-2xl px-4 py-2 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
           style={{ background: 'var(--accent)', color: '#0B0B0F' }}
         >
           {action.label}
@@ -114,7 +127,6 @@ export function PullToRefreshIndicator({
   // Resistenza progressiva: a fine corsa si ferma a ~20px sotto la navbar.
   // Durante il refresh rimane fermo nella posizione di rilascio.
   const NAVBAR_H = 53
-  const INDICATOR_H = SIZE
   const maxTravel = threshold * 0.55  // quanto scende al massimo
   const travel = refreshing
     ? Math.min(distance * 0.55, maxTravel)
@@ -132,7 +144,7 @@ export function PullToRefreshIndicator({
       `}</style>
 
       <div
-        className="fixed left-0 right-0 z-[99] flex justify-center pointer-events-none md:hidden"
+        className="pointer-events-none fixed left-0 right-0 z-[99] flex justify-center md:hidden"
         style={{
           top: topPx,
           opacity,
