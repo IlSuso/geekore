@@ -1,9 +1,12 @@
 import type { ReactNode } from 'react'
 import { PosterCard } from '@/components/ui/PosterCard'
+import { MediaGridSkeleton } from '@/components/ui/MediaSkeletons'
 import type { MediaRailItem } from '@/components/ui/MediaRail'
 
 interface MediaGridProps<T extends MediaRailItem = MediaRailItem> {
   items: T[]
+  loading?: boolean
+  skeletonCount?: number
   showMetaRow?: boolean
   className?: string
   itemClassName?: string
@@ -14,6 +17,8 @@ interface MediaGridProps<T extends MediaRailItem = MediaRailItem> {
 
 export function MediaGrid<T extends MediaRailItem = MediaRailItem>({
   items,
+  loading = false,
+  skeletonCount = 12,
   showMetaRow = false,
   className = '',
   itemClassName = '',
@@ -21,6 +26,10 @@ export function MediaGrid<T extends MediaRailItem = MediaRailItem>({
   renderActions,
   onItemClick,
 }: MediaGridProps<T>) {
+  if (loading) {
+    return <MediaGridSkeleton count={skeletonCount} showMeta={showMetaRow} className={className} />
+  }
+
   if (items.length === 0) {
     return (
       <>
