@@ -1,11 +1,10 @@
 // public/sw.js
 // Service Worker Geekore — PWA offline support + navigation speed
-// v8: fix /feed → /home (route corretta), bump cache name
+// v9: logo kit assets for cache + push notifications
 
-const CACHE_NAME = 'geekore-v8'
-const STATIC_CACHE = 'geekore-static-v8'
+const CACHE_NAME = 'geekore-v9'
+const STATIC_CACHE = 'geekore-static-v9'
 
-// Pagine navigate precachate all'installazione
 const NAV_PAGES = [
   '/home',
   '/discover',
@@ -13,28 +12,30 @@ const NAV_PAGES = [
   '/notifications',
 ]
 
-// Asset statici
 const STATIC_ASSETS = [
   '/manifest.json',
   '/offline.html',
+  '/favicon.svg',
+  '/icons/favicon-16.svg',
+  '/icons/favicon-32.svg',
+  '/icons/favicon-48.svg',
+  '/icons/favicon-64.svg',
+  '/icons/geekore-icon-192.svg',
+  '/icons/geekore-icon-512.svg',
+  '/icons/geekore-touch.svg',
+  '/icons/icon-badge.svg',
 ]
 
-// ── Install ──────────────────────────────────────────────────────────────────
 self.addEventListener('install', (event) => {
   event.waitUntil(
     Promise.all([
-      caches.open(CACHE_NAME).then(cache =>
-        cache.addAll(NAV_PAGES).catch(() => {})
-      ),
-      caches.open(STATIC_CACHE).then(cache =>
-        cache.addAll(STATIC_ASSETS).catch(() => {})
-      ),
+      caches.open(CACHE_NAME).then(cache => cache.addAll(NAV_PAGES).catch(() => {})),
+      caches.open(STATIC_CACHE).then(cache => cache.addAll(STATIC_ASSETS).catch(() => {})),
     ])
   )
   self.skipWaiting()
 })
 
-// ── Activate ─────────────────────────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then(keys =>
@@ -48,8 +49,6 @@ self.addEventListener('activate', (event) => {
   self.clients.claim()
 })
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 function isNavPage(url) {
   return NAV_PAGES.some(p => url.pathname === p || url.pathname.startsWith(p + '/'))
 }
@@ -58,6 +57,7 @@ function isStaticAsset(url) {
   return (
     url.pathname.startsWith('/_next/static/') ||
     url.pathname.startsWith('/icons/') ||
+    url.pathname === '/favicon.svg' ||
     url.pathname.endsWith('.png') ||
     url.pathname.endsWith('.ico') ||
     url.pathname.endsWith('.svg') ||
@@ -82,7 +82,6 @@ function isExternal(url) {
   )
 }
 
-// ── Fetch ─────────────────────────────────────────────────────────────────────
 self.addEventListener('fetch', (event) => {
   const { request } = event
   if (request.method !== 'GET') return
@@ -90,25 +89,18 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url)
   if (isExternal(url)) return
 
-  // Asset statici Next.js: cache-first (hanno hash nel filename, non cambiano mai)
   if (isStaticAsset(url)) {
     event.respondWith(cacheFirst(request, STATIC_CACHE))
     return
   }
 
-  // Pagine nav principali: network-first
-  // IMPORTANTE: non usare stale-while-revalidate qui — il middleware server
-  // deve sempre poter intercettare la richiesta (es. redirect onboarding)
   if (request.mode === 'navigate' && isNavPage(url)) {
     event.respondWith(networkFirst(request))
     return
   }
 
-  // Tutto il resto: network-first con fallback cache
   event.respondWith(networkFirst(request))
 })
-
-// ── Strategie ─────────────────────────────────────────────────────────────────
 
 async function cacheFirst(request, cacheName) {
   const cached = await caches.match(request)
@@ -123,24 +115,6 @@ async function cacheFirst(request, cacheName) {
   } catch {
     return new Response('Offline', { status: 503 })
   }
-}
-
-async function staleWhileRevalidate(request, cacheName) {
-  const cache = await caches.open(cacheName)
-  const cached = await cache.match(request)
-
-  const networkPromise = fetch(request).then(response => {
-    if (response.ok) cache.put(request, response.clone())
-    return response
-  }).catch(() => null)
-
-  if (cached) return cached
-
-  const networkResponse = await networkPromise
-  if (networkResponse) return networkResponse
-
-  const offlinePage = await cache.match('/offline.html')
-  return offlinePage || new Response('Offline', { status: 503 })
 }
 
 async function networkFirst(request) {
@@ -165,14 +139,14 @@ async function networkFirst(request) {
   }
 }
 
-// ── Push notifications ───────────────────────────────────────────────────────
 self.addEventListener('push', (event) => {
   if (!event.data) return
 
   let payload = {
     title: 'Geekore',
     body: 'Hai una nuova notifica',
-    icon: '/icons/icon-192x192.png',
+    icon: '/icons/geekore-icon-192.svg',
+    badge: '/icons/icon-badge.svg',
     tag: 'geekore-default',
     url: '/notifications',
   }
@@ -182,22 +156,18 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(payload.title, {
       body: payload.body,
-      icon: payload.icon || '/icons/icon-192x192.png',
-      badge: '/icons/icon-badge.svg',
-      // FIX: queste opzioni sono fondamentali per far suonare/vibrare Android
+      icon: payload.icon || '/icons/geekore-icon-192.svg',
+      badge: payload.badge || '/icons/icon-badge.svg',
       silent: false,
       vibrate: [200, 100, 200],
-      // FIX: tag + renotify → forza la notifica anche se stessa tag è già presente
       tag: payload.tag || 'geekore-default',
       renotify: true,
-      // Non richiedere interazione obbligatoria (si chiude da sola)
       requireInteraction: false,
       data: payload,
     })
   )
 })
 
-// ── Notification click ───────────────────────────────────────────────────────
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const url = event.notification.data?.url || '/notifications'
