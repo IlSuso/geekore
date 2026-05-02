@@ -32,14 +32,12 @@ export function EmptyState({
   const colors = accentMap[accent]
 
   return (
-    <div className={`flex flex-col items-center justify-center py-20 text-center px-8 ${className}`}>
-      {/* Icon container */}
-      <div className={`w-16 h-16 rounded-2xl ${colors.bg} border ${colors.ring} flex items-center justify-center mb-5`}>
+    <div className={`flex flex-col items-center justify-center px-8 py-20 text-center ${className}`} data-no-swipe="true">
+      <div className={`mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border ${colors.bg} ${colors.ring}`}>
         <Icon size={28} className={colors.icon} strokeWidth={1.5} />
       </div>
 
-      {/* Text */}
-      <p className="gk-headline text-[var(--text-primary)] mb-1.5">
+      <p className="gk-headline mb-1.5 text-[var(--text-primary)]">
         {title}
       </p>
       {description && (
@@ -48,21 +46,26 @@ export function EmptyState({
         </p>
       )}
 
-      {/* CTA */}
       {action && (
-        <div className="mt-6">
+        <div className="mt-6" data-no-swipe="true">
           {action.href ? (
             <Link
               href={action.href}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-semibold transition-colors"
+              data-no-swipe="true"
+              onClick={event => event.stopPropagation()}
+              onPointerDown={event => event.stopPropagation()}
+              className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
               style={{ background: 'var(--accent)', color: '#0B0B0F' }}
             >
               {action.label}
             </Link>
           ) : (
             <button
-              onClick={action.onClick}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-semibold bg-[var(--bg-card)] hover:bg-[var(--bg-card-hover)] text-[var(--text-primary)] border border-[var(--border)] transition-colors"
+              type="button"
+              data-no-swipe="true"
+              onClick={(event) => { event.stopPropagation(); action.onClick?.() }}
+              onPointerDown={event => event.stopPropagation()}
+              className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-2.5 text-[13px] font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-card-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
             >
               {action.label}
             </button>
