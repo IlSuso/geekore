@@ -14,13 +14,23 @@ interface MediaMetaRowProps {
     label?: string
   }
   trailing?: ReactNode
+  dense?: boolean
   className?: string
 }
 
-export function MediaMetaRow({ type, status, year, score, progress, trailing, className = '' }: MediaMetaRowProps) {
+export function MediaMetaRow({
+  type,
+  status,
+  year,
+  score,
+  progress,
+  trailing,
+  dense = false,
+  className = '',
+}: MediaMetaRowProps) {
   return (
-    <div className={`space-y-2 ${className}`}>
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
+    <div className={`${dense ? 'space-y-1' : 'space-y-2'} ${className}`}>
+      <div className={`flex min-w-0 flex-wrap items-center ${dense ? 'gap-1.5' : 'gap-2'}`}>
         {type && <MediaTypeBadge type={type} size="xs" />}
         {status && <MediaStatusBadge status={status} />}
         {year && <span className="font-mono-data text-[11px] text-[var(--text-muted)]">{year}</span>}
@@ -36,7 +46,7 @@ export function MediaMetaRow({ type, status, year, score, progress, trailing, cl
           current={progress.current}
           total={progress.total}
           label={progress.label}
-          compact
+          compact={dense}
         />
       )}
     </div>
