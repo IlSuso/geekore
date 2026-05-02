@@ -317,7 +317,8 @@ export default function FriendsPage() {
       title="Friends"
       description="Trova persone con gusti simili e trasforma la tua libreria in un diario condiviso."
       icon={<Users size={16} />}
-      contentClassName="max-w-screen-lg pt-2 md:pt-8 pb-28"
+      className="gk-friends-page"
+      contentClassName="gk-page-density max-w-screen-lg pt-2 md:pt-8 pb-28"
     >
       <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(135deg,rgba(139,92,246,0.13),rgba(230,255,61,0.07),rgba(20,20,27,0.92))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-5">
         <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.35)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
