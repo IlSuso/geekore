@@ -36,7 +36,7 @@ const sizeClasses: Record<ActionButtonSize, string> = {
   lg: 'h-12 px-5 text-[15px] rounded-2xl gap-2.5',
 }
 
-const baseClass = 'inline-flex items-center justify-center border font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50'
+const baseClass = 'inline-flex items-center justify-center border font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35'
 
 export function ActionButton({
   children,
@@ -55,18 +55,42 @@ export function ActionButton({
   )
 
   if ('href' in props && props.href) {
-    const { href, ...linkProps } = props
+    const { href, onClick, ...linkProps } = props
     return (
-      <Link href={href} className={classes} {...linkProps}>
+      <Link
+        href={href}
+        data-no-swipe="true"
+        className={classes}
+        onClick={(event) => {
+          event.stopPropagation()
+          onClick?.(event)
+        }}
+        onPointerDown={event => event.stopPropagation()}
+        {...linkProps}
+      >
         {content}
       </Link>
     )
   }
 
   const buttonProps = props as NativeActionButtonProps
+  const { type, onClick, onPointerDown, ...restButtonProps } = buttonProps
 
   return (
-    <button className={classes} {...buttonProps}>
+    <button
+      type={type || 'button'}
+      data-no-swipe="true"
+      className={classes}
+      onClick={(event) => {
+        event.stopPropagation()
+        onClick?.(event)
+      }}
+      onPointerDown={(event) => {
+        event.stopPropagation()
+        onPointerDown?.(event)
+      }}
+      {...restButtonProps}
+    >
       {content}
     </button>
   )
