@@ -14,8 +14,8 @@ const QUICK_LINKS = [
 
 export function DiscoverQuickLinks() {
   return (
-    <div className="pointer-events-auto hidden max-w-[min(720px,calc(100vw-2rem))] items-center gap-1.5 overflow-x-auto rounded-full border border-[var(--border)] bg-[rgba(20,20,27,0.92)] p-1 shadow-lg shadow-black/20 backdrop-blur-xl md:flex">
-      <div className="flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+    <div className="pointer-events-auto flex w-full max-w-[min(720px,calc(100vw-1rem))] items-center gap-1.5 overflow-x-auto rounded-full border border-[var(--border)] bg-[rgba(20,20,27,0.94)] p-1 shadow-lg shadow-black/20 backdrop-blur-xl">
+      <div className="flex h-8 flex-shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)] md:text-[11px]">
         <Search size={13} />
         Cerca rapido
       </div>
