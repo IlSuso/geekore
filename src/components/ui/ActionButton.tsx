@@ -63,8 +63,10 @@ export function ActionButton({
     )
   }
 
+  const buttonProps = props as NativeActionButtonProps
+
   return (
-    <button className={classes} {...props}>
+    <button className={classes} {...buttonProps}>
       {content}
     </button>
   )
