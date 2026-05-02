@@ -1,3 +1,4 @@
+import { after } from 'next/server'
 import type { Recommendation, TasteProfile } from '@/lib/reco/types'
 import type { SupabaseClient } from './context'
 import type { MasterHealth } from './masterState'
@@ -7,19 +8,23 @@ export function persistCreatorProfile(
   userId: string,
   tasteProfile: TasteProfile,
 ) {
-  ;(async () => {
-    const topStudios = Object.entries(tasteProfile.creatorScores.studios).sort(([, a], [, b]) => b - a).slice(0, 30)
-    const topDirectors = Object.entries(tasteProfile.creatorScores.directors).sort(([, a], [, b]) => b - a).slice(0, 30)
+  after(async () => {
+    try {
+      const topStudios = Object.entries(tasteProfile.creatorScores.studios).sort(([, a], [, b]) => b - a).slice(0, 30)
+      const topDirectors = Object.entries(tasteProfile.creatorScores.directors).sort(([, a], [, b]) => b - a).slice(0, 30)
 
-    await supabase.from('user_creator_profile').upsert({
-      user_id: userId,
-      studios: Object.fromEntries(topStudios),
-      directors: Object.fromEntries(topDirectors),
-      authors: Object.fromEntries(Object.entries(tasteProfile.creatorScores.authors).sort(([, a], [, b]) => b - a).slice(0, 20)),
-      developers: Object.fromEntries(Object.entries(tasteProfile.creatorScores.developers).sort(([, a], [, b]) => b - a).slice(0, 20)),
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' })
-  })()
+      await supabase.from('user_creator_profile').upsert({
+        user_id: userId,
+        studios: Object.fromEntries(topStudios),
+        directors: Object.fromEntries(topDirectors),
+        authors: Object.fromEntries(Object.entries(tasteProfile.creatorScores.authors).sort(([, a], [, b]) => b - a).slice(0, 20)),
+        developers: Object.fromEntries(Object.entries(tasteProfile.creatorScores.developers).sort(([, a], [, b]) => b - a).slice(0, 20)),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' })
+    } catch {
+      // background profile persistence is best-effort
+    }
+  })
 }
 
 export function buildTasteProfileResponse(tasteProfile: TasteProfile) {
@@ -81,9 +86,15 @@ export function updateRecommendationPoolProfile({
     }))
 
   if (profileUpdateUpserts.length > 0) {
-    supabase.from('recommendations_pool').upsert(profileUpdateUpserts, {
-      onConflict: 'user_id,media_type',
-    }).then(() => {})
+    after(async () => {
+      try {
+        await supabase.from('recommendations_pool').upsert(profileUpdateUpserts, {
+          onConflict: 'user_id,media_type',
+        })
+      } catch {
+        // background pool profile persistence is best-effort
+      }
+    })
   }
 }
 
