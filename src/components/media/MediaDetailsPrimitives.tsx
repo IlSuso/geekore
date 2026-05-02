@@ -26,19 +26,22 @@ export function MediaDetailsHero({ media, fallbackIcon, meta, subtitle, onClose 
   const typeColor = getMediaTypeColor(media.type)
 
   return (
-    <div className="relative overflow-hidden border-b border-[var(--border)] bg-[linear-gradient(135deg,rgba(230,255,61,0.08),rgba(139,92,246,0.055),rgba(20,20,27,0.88))] p-5 pr-12">
+    <div className="gk-media-details-hero relative min-h-[320px] overflow-hidden border-b border-[var(--border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(11,11,15,0.96))] p-5 pt-10 md:min-h-[360px] md:p-7 md:pt-12">
       {media.coverImage && (
         <img
           src={optimizeCover(media.coverImage, 'drawer-cover')}
           alt=""
-          className="absolute inset-0 h-full w-full scale-110 object-cover opacity-12 blur-xl"
+          className="absolute inset-0 h-full w-full scale-105 object-cover opacity-35 blur-[2px]"
           aria-hidden
         />
       )}
-      <div className="relative z-10 flex gap-4">
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.05),rgba(11,11,15,0.72)_48%,var(--bg-primary)_100%)]" aria-hidden />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-[linear-gradient(0deg,var(--bg-primary),transparent)]" aria-hidden />
+
+      <div className="relative z-10 flex min-h-[250px] flex-col justify-end gap-4 md:min-h-[280px] md:flex-row md:items-end md:justify-start">
         <div
-          className="gk-poster-first relative h-32 w-[88px] flex-shrink-0 overflow-hidden rounded-2xl bg-[var(--bg-card)] shadow-[0_14px_40px_rgba(0,0,0,0.28)] ring-1 ring-white/10"
-          style={{ boxShadow: `0 14px 40px rgba(0,0,0,0.28), inset 0 -3px 0 ${typeColor}` }}
+          className="gk-poster-first relative h-40 w-[108px] flex-shrink-0 overflow-hidden rounded-[20px] bg-[var(--bg-card)] shadow-[0_18px_60px_rgba(0,0,0,0.48)] ring-1 ring-white/12 md:h-52 md:w-[140px]"
+          style={{ boxShadow: `0 18px 60px rgba(0,0,0,0.48), inset 0 -3px 0 ${typeColor}` }}
         >
           {media.coverImage ? (
             <img
@@ -60,7 +63,7 @@ export function MediaDetailsHero({ media, fallbackIcon, meta, subtitle, onClose 
           <span className="absolute inset-x-0 bottom-0 h-[3px]" style={{ background: typeColor }} aria-hidden="true" />
         </div>
 
-        <div className="min-w-0 flex-1 self-center">
+        <div className="min-w-0 flex-1 self-auto md:max-w-[520px] md:pb-1">
           <div className="mb-2 flex flex-wrap items-center gap-1.5">
             <MediaTypeBadge type={media.type} size="xs" />
             {media.isAwardWinner && (
@@ -75,12 +78,12 @@ export function MediaDetailsHero({ media, fallbackIcon, meta, subtitle, onClose 
             )}
           </div>
 
-          <h2 className="gk-title line-clamp-2 text-[var(--text-primary)]">
+          <h2 className="font-display text-[28px] font-black leading-[0.96] tracking-[-0.045em] text-[var(--text-primary)] md:text-[42px]">
             {media.title}
           </h2>
 
           {(media.year || media.score != null) && (
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
               {media.year && <span className="font-mono-data text-[11px] font-bold text-[var(--text-muted)]">{media.year}</span>}
               {media.score != null && media.score !== '' && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-yellow-500/15 bg-yellow-500/8 px-1.5 py-0.5 font-mono-data text-[10px] font-black text-yellow-300">
@@ -92,16 +95,18 @@ export function MediaDetailsHero({ media, fallbackIcon, meta, subtitle, onClose 
           )}
 
           {subtitle && <div className="mt-2 text-[11px] text-[var(--text-secondary)]">{subtitle}</div>}
-          {meta && <div className="mt-2 flex flex-wrap items-center gap-1.5">{meta}</div>}
+          {meta && <div className="mt-3 flex flex-wrap items-center gap-1.5">{meta}</div>}
         </div>
       </div>
+
+      <div className="absolute left-1/2 top-3 z-20 h-1.5 w-9 -translate-x-1/2 rounded-full bg-zinc-500/70 md:hidden" aria-hidden />
 
       {onClose && (
         <button
           type="button"
           data-no-swipe="true"
           onClick={onClose}
-          className="absolute right-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-2xl border border-[var(--border)] bg-black/35 text-[var(--text-secondary)] backdrop-blur transition-colors hover:text-white"
+          className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-black/45 text-white backdrop-blur-xl transition-colors hover:bg-white/10"
           aria-label="Chiudi"
         >
           <X size={16} />
