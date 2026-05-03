@@ -408,9 +408,12 @@ export default function EditProfilePage() {
           <div className="pt-4 border-t border-zinc-800">
             <div className="flex items-center gap-2 mb-4">
               <Sparkles size={16} style={{ color: 'var(--accent)' }} />
-              <span className="text-sm font-semibold text-white">Gusti & Preferenze</span>
-              <Link href="/for-you" className="ml-auto text-xs hover:opacity-80 transition" style={{ color: 'var(--accent)' }}>
-                Personalizza tutto →
+              <div className="min-w-0 flex-1">
+                <span className="text-sm font-semibold text-white">Gusti & Preferenze</span>
+                <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">Per una personalizzazione avanzata apri il Taste DNA nella pagina Per Te.</p>
+              </div>
+              <Link href="/for-you" className="ml-auto flex-shrink-0 text-xs font-bold hover:opacity-80 transition" style={{ color: 'var(--accent)' }}>
+                Vai al Taste DNA →
               </Link>
             </div>
             <div className="mb-4">
