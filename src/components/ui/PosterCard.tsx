@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Check, BookmarkCheck } from 'lucide-react'
+import { BookmarkCheck } from 'lucide-react'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 import { MediaMetaRow } from '@/components/ui/MediaMetaRow'
 import { getMediaTypeAccentStyle, getMediaTypeColor } from '@/lib/mediaTypes'
@@ -26,6 +26,15 @@ interface PosterCardProps {
   className?: string
   imageClassName?: string
   priority?: boolean
+  /** Variante più pulita per Library/collection: meno badge duplicati, card più sobria. */
+  variant?: 'default' | 'library'
+}
+
+function hasRealScore(score?: number | string | null): boolean {
+  if (score == null || score === '') return false
+  const numeric = typeof score === 'string' ? Number(score) : score
+  if (Number.isNaN(numeric)) return true
+  return numeric > 0
 }
 
 function PosterCardContent({
@@ -43,16 +52,19 @@ function PosterCardContent({
   actions,
   imageClassName,
   priority,
+  variant = 'default',
 }: Omit<PosterCardProps, 'onClick' | 'className'>) {
   const hasCover = !!coverImage
   const collectionStatus = isInCollection ? 'collection' : isWishlisted ? 'wishlist' : null
   const typeColor = getMediaTypeColor(type)
   const visibleStatus = status || (isInCollection ? 'completed' : isWishlisted ? 'planned' : null)
+  const realScore = hasRealScore(score) ? score : null
+  const isLibrary = variant === 'library'
 
   return (
     <>
       <div
-        className="gk-poster-first relative aspect-[2/3] overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)]"
+        className={`gk-poster-first relative aspect-[2/3] overflow-hidden border border-[var(--border)] bg-[var(--bg-card)] ${isLibrary ? 'rounded-[16px]' : 'rounded-[14px]'}`}
       >
         {hasCover ? (
           <img
@@ -60,7 +72,7 @@ function PosterCardContent({
             alt={`Copertina di ${title}`}
             loading={priority ? 'eager' : 'lazy'}
             decoding="async"
-            className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04] ${imageClassName || ''}`}
+            className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.035] ${imageClassName || ''}`}
           />
         ) : (
           <div className="gk-cover-placeholder h-full w-full" style={{ ['--gk-type' as string]: typeColor }}>
@@ -68,18 +80,18 @@ function PosterCardContent({
           </div>
         )}
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/86 via-black/24 to-transparent opacity-90" />
+        <div className={`pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/88 via-black/28 to-transparent ${isLibrary ? 'h-20' : 'h-24 opacity-90'}`} />
         <div className="pointer-events-none absolute left-2 top-2">
           <MediaTypeBadge type={type} size="xs" variant="tag" />
         </div>
 
-        {score != null && score !== '' && !showMetaRow && (
-          <div className="pointer-events-none absolute bottom-2 left-2 font-mono-data text-[9px] font-bold text-white" style={{ background: 'rgba(0,0,0,0.6)', padding: '2px 5px', borderRadius: 4 }}>
-            ★ {score}
+        {realScore != null && !showMetaRow && (
+          <div className="pointer-events-none absolute bottom-2 left-2 font-mono-data text-[9px] font-bold text-white" style={{ background: 'rgba(0,0,0,0.62)', padding: '2px 5px', borderRadius: 999 }}>
+            ★ {realScore}
           </div>
         )}
 
-        {collectionStatus === 'collection' && (
+        {!isLibrary && collectionStatus === 'collection' && (
           <div className="pointer-events-none absolute right-1.5 top-1.5" style={{ width: 14, height: 14, borderRadius: '99px', background: 'var(--accent)', color: '#0B0B0F', display: 'grid', placeItems: 'center', fontSize: 9, fontWeight: 800 }}>
             ✓
           </div>
@@ -93,7 +105,7 @@ function PosterCardContent({
           </div>
         )}
 
-        {!collectionStatus && visibleStatus && (
+        {!collectionStatus && visibleStatus && !isLibrary && (
           <div className="pointer-events-none absolute right-2 top-2">
             <div className="gk-status-pill !static">{getMediaStatusLabel(visibleStatus)}</div>
           </div>
@@ -106,12 +118,12 @@ function PosterCardContent({
         )}
       </div>
 
-      <div className="mt-2 min-w-0 px-0.5">
-        <h3 className="line-clamp-2 text-[13px] font-bold leading-tight tracking-[-0.01em] text-[var(--text-primary)]">
+      <div className={`${isLibrary ? 'mt-2.5' : 'mt-2'} min-w-0 px-0.5`}>
+        <h3 className={`${isLibrary ? 'text-[14px]' : 'text-[13px]'} line-clamp-2 font-bold leading-tight tracking-[-0.01em] text-[var(--text-primary)]`}>
           {title}
         </h3>
         {showMetaRow ? (
-          <MediaMetaRow className="mt-2" type={type} status={status} year={year} score={score} progress={progress} />
+          <MediaMetaRow className="mt-2" type={type} status={isLibrary ? null : status} year={year} score={realScore} progress={progress} />
         ) : (year || meta) && (
           <p className="mt-1 truncate font-mono-data text-[11px] text-[var(--text-muted)]">
             {[year, meta].filter(Boolean).join(' · ')}
@@ -139,6 +151,7 @@ export function PosterCard({
   className = '',
   imageClassName = '',
   priority = false,
+  variant = 'default',
 }: PosterCardProps) {
   const classes = `group relative min-w-0 text-left focus-visible:outline-none ${onClick ? 'cursor-pointer' : ''} ${className}`
   const style = getMediaTypeAccentStyle(type)
@@ -158,6 +171,7 @@ export function PosterCard({
       actions={actions}
       imageClassName={imageClassName}
       priority={priority}
+      variant={variant}
     />
   )
 
