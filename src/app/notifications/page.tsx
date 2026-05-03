@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Heart, UserPlus, MessageCircle, Star, PlugZap, Bell, Sparkles } from 'lucide-react'
+import { Heart, UserPlus, MessageCircle, Star, PlugZap, Bell, BellOff, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { FollowBackButton } from '@/components/notifications/FollowBackButton'
 import { Avatar } from '@/components/ui/Avatar'
