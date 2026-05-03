@@ -2,7 +2,8 @@
 
 // src/components/KeepAliveTabShell.tsx
 // Keep-alive solo per le tab primarie: Home, For You, Library, Discover, Friends.
-// Swipe è una modalità interna di For You. Profile è accessibile dall'avatar.
+// Swipe è una modalità interna di For You. Profile/Community e altre pagine secondarie
+// devono renderizzare i children reali, non riusare il pannello cached della tab primaria.
 
 import { Activity } from 'react'
 import { animate } from 'motion/react'
@@ -50,7 +51,7 @@ function getKATab(pathname: string): KATab | null {
   if (pathname === '/for-you' || pathname === '/swipe') return 'for-you'
   if (pathname === '/library') return 'library'
   if (pathname === '/discover') return 'discover'
-  if (pathname === '/friends' || pathname === '/community') return 'friends'
+  if (pathname === '/friends') return 'friends'
   return null
 }
 
@@ -105,18 +106,20 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
 
   const pathnameTab = getKATab(pathname)
   const normalizedActiveTab = activeTab === 'swipe' ? 'for-you' : activeTab
-  const tab = (normalizedActiveTab && ALL_TABS.includes(normalizedActiveTab as KATab))
-    ? normalizedActiveTab as KATab
-    : pathnameTab
+  const tab = pathnameTab ?? (
+    normalizedActiveTab && ALL_TABS.includes(normalizedActiveTab as KATab)
+      ? normalizedActiveTab as KATab
+      : null
+  )
 
   const visited = useRef<Set<KATab>>(new Set())
-  if (tab) visited.current.add(tab)
+  if (tab && pathnameTab) visited.current.add(tab)
 
   const [neighborReady, setNeighborReady] = useState(0)
   const preloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    if (!tab) return
+    if (!tab || !pathnameTab) return
     if (preloadTimerRef.current) clearTimeout(preloadTimerRef.current)
     preloadTimerRef.current = setTimeout(() => {
       const idx = TAB_IDX_TO_KA.indexOf(tab)
@@ -132,13 +135,13 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
       if (changed) setNeighborReady(n => n + 1)
     }, 350)
     return () => { if (preloadTimerRef.current) clearTimeout(preloadTimerRef.current) }
-  }, [tab])
+  }, [tab, pathnameTab])
 
   void neighborReady
 
   useEffect(() => {
     if (pathnameTab !== null) setActiveTab(pathnameTab)
-  }, [pathname]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pathname, pathnameTab]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const panelRefs = useRef<Record<KATab, MutableRefObject<HTMLDivElement | null>>>(
     Object.fromEntries(
@@ -332,7 +335,7 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
 
   const getPanelStyle = useCallback((panelTab: KATab): CSSProperties => {
     const base = panelBaseStyle()
-    if (tab === panelTab) {
+    if (tab === panelTab && pathnameTab) {
       return { ...base, zIndex: 2, pointerEvents: 'auto', visibility: 'visible' }
     }
 
@@ -361,10 +364,10 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
         contentVisibility: 'hidden' as CSSProperties['contentVisibility'] }
     }
     return { display: 'none' }
-  }, [tab, adjLeft, adjRight, exitingTab])
+  }, [tab, pathnameTab, adjLeft, adjRight, exitingTab])
 
   function activityMode(panelTab: KATab): 'visible' | 'hidden' {
-    if (tab === panelTab) return 'visible'
+    if (pathnameTab && tab === panelTab) return 'visible'
     if (adjLeft === panelTab || adjRight === panelTab) return 'visible'
     if (exitingTab === panelTab) return 'visible'
     return 'hidden'
@@ -377,36 +380,36 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
   return (
     <>
       <Activity mode={activityMode('feed')}>
-        <PanelWrapper divRef={panelRefs.current.feed} isActive={tab === 'feed'} style={getPanelStyle('feed')}>
+        <PanelWrapper divRef={panelRefs.current.feed} isActive={pathnameTab === 'feed'} style={getPanelStyle('feed')}>
           {shouldMount('feed') && <FeedPage />}
         </PanelWrapper>
       </Activity>
 
       <Activity mode={activityMode('for-you')}>
-        <PanelWrapper divRef={panelRefs.current['for-you']} isActive={tab === 'for-you'} style={getPanelStyle('for-you')}>
+        <PanelWrapper divRef={panelRefs.current['for-you']} isActive={pathnameTab === 'for-you'} style={getPanelStyle('for-you')}>
           {shouldMount('for-you') && <ForYouPage />}
         </PanelWrapper>
       </Activity>
 
       <Activity mode={activityMode('library')}>
-        <PanelWrapper divRef={panelRefs.current.library} isActive={tab === 'library'} style={getPanelStyle('library')}>
+        <PanelWrapper divRef={panelRefs.current.library} isActive={pathnameTab === 'library'} style={getPanelStyle('library')}>
           {shouldMount('library') && <LibraryPage />}
         </PanelWrapper>
       </Activity>
 
       <Activity mode={activityMode('discover')}>
-        <PanelWrapper divRef={panelRefs.current.discover} isActive={tab === 'discover'} style={getPanelStyle('discover')}>
+        <PanelWrapper divRef={panelRefs.current.discover} isActive={pathnameTab === 'discover'} style={getPanelStyle('discover')}>
           {shouldMount('discover') && <DiscoverPage />}
         </PanelWrapper>
       </Activity>
 
       <Activity mode={activityMode('friends')}>
-        <PanelWrapper divRef={panelRefs.current.friends} isActive={tab === 'friends'} style={getPanelStyle('friends')}>
+        <PanelWrapper divRef={panelRefs.current.friends} isActive={pathnameTab === 'friends'} style={getPanelStyle('friends')}>
           {shouldMount('friends') && <FriendsPage />}
         </PanelWrapper>
       </Activity>
 
-      {tab === null && children}
+      {pathnameTab === null && children}
     </>
   )
 }
