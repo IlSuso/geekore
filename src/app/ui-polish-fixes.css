@@ -34,16 +34,6 @@
   box-shadow: none !important;
 }
 
-.gk-home-page [data-testid='filter-discovery']::after {
-  content: 'fuori rete';
-  display: block;
-  margin-top: 2px;
-  font-family: var(--font-mono-data, var(--font-mono));
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  opacity: 0.62;
-}
 
 .gk-home-page .gk-feed-card {
   border-radius: 24px !important;

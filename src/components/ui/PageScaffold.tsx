@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { SectionHeader } from '@/components/ui/SectionHeader'
 
 interface PageScaffoldProps {
   children: ReactNode
@@ -19,11 +18,6 @@ interface PageScaffoldProps {
 
 export function PageScaffold({
   children,
-  title,
-  eyebrow,
-  description,
-  action,
-  icon,
   contained = true,
   className = '',
   contentClassName = '',
@@ -33,20 +27,9 @@ export function PageScaffold({
       <div
         className={`${contained ? 'mx-auto max-w-screen-2xl px-3 sm:px-4 md:px-6' : ''} ${contentClassName}`}
         style={{
-          paddingTop: contentClassName.includes('pt-') ? undefined : 'calc(0.75rem + env(safe-area-inset-top, 0px))',
           paddingBottom: contentClassName.includes('pb-') ? undefined : 'calc(6rem + env(safe-area-inset-bottom, 0px))',
         }}
       >
-        {title && (
-          <SectionHeader
-            eyebrow={eyebrow || 'Geekore'}
-            title={title}
-            description={description}
-            action={action}
-            icon={icon}
-            className="mb-5 hidden md:flex"
-          />
-        )}
         <div className="relative">
           {children}
         </div>

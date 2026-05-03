@@ -627,9 +627,6 @@ export default function FeedPage() {
               <FeedFilterTabs
                 feedFilter={feedFilter}
                 onFilterChange={handleFilterChange}
-                categoryFilter={categoryFilter}
-                setCategoryFilter={setCategoryFilter}
-                labels={{ filterAll: f.filterAll, filterFollowing: f.filterFollowing }}
               />
             )}
 
