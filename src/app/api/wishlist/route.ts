@@ -8,6 +8,68 @@ import {
   normalizeMediaCore,
 } from '@/lib/mediaSanitizer'
 
+function localizedPayload(body: any, core: any) {
+  return {
+    title_original: cleanString(body?.title_original, 300) || core.title,
+    title_en: cleanString(body?.title_en, 300) || core.title,
+    title_it: cleanString(body?.title_it, 300),
+    description_en: typeof body?.description_en === 'string' ? body.description_en : null,
+    description_it: typeof body?.description_it === 'string' ? body.description_it : null,
+    localized: body?.localized && typeof body.localized === 'object' ? body.localized : {},
+  }
+}
+
+async function upsertWishlist(supabase: any, row: Record<string, unknown>) {
+  const full = row
+  const minimal = {
+    user_id: row.user_id,
+    external_id: row.external_id,
+    title: row.title,
+    type: row.type,
+    cover_image: row.cover_image,
+  }
+  const tiny = {
+    user_id: row.user_id,
+    external_id: row.external_id,
+    title: row.title,
+    type: row.type,
+  }
+
+  const attempts = [full, minimal, tiny]
+  let lastError: any = null
+
+  for (const payload of attempts) {
+    const { data: existing, error: selectError } = await supabase
+      .from('wishlist')
+      .select('id')
+      .eq('user_id', row.user_id)
+      .eq('external_id', row.external_id)
+      .maybeSingle()
+
+    if (selectError && selectError.code !== 'PGRST116') {
+      lastError = selectError
+      continue
+    }
+
+    if (existing?.id) {
+      const { error } = await supabase
+        .from('wishlist')
+        .update(payload)
+        .eq('user_id', row.user_id)
+        .eq('external_id', row.external_id)
+      if (!error) return null
+      lastError = error
+      continue
+    }
+
+    const { error } = await supabase.from('wishlist').insert(payload)
+    if (!error) return null
+    lastError = error
+  }
+
+  return lastError
+}
+
 export async function POST(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 60, windowMs: 60_000, prefix: 'wishlist' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
@@ -26,16 +88,22 @@ export async function POST(request: NextRequest) {
   if (!core.title) return NextResponse.json({ error: 'title mancante' }, { status: 400, headers: rl.headers })
   if (!core.type || !MEDIA_TYPES_WITH_LEGACY.has(core.type)) return NextResponse.json({ error: 'type non valido' }, { status: 400, headers: rl.headers })
 
-  const { error } = await supabase.from('wishlist').upsert({
+  const row = {
     user_id: user.id,
     external_id: core.external_id,
     title: core.title,
     type: core.type,
     cover_image: core.cover_image,
     genres: core.genres,
-  }, { onConflict: 'user_id,external_id' })
+    ...localizedPayload(body, core),
+  }
 
-  if (error) return NextResponse.json({ error: 'Wishlist non aggiornata' }, { status: 500, headers: rl.headers })
+  const error = await upsertWishlist(supabase, row)
+  if (error) {
+    console.error('[wishlist] save failed', error)
+    return NextResponse.json({ error: 'Wishlist non aggiornata' }, { status: 500, headers: rl.headers })
+  }
+
   return NextResponse.json({ success: true }, { headers: rl.headers })
 }
 

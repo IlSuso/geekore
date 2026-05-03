@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { SwipeMode } from "@/components/for-you/SwipeMode";
 import type { SwipeItem } from "@/components/for-you/SwipeMode";
+import { useLocale } from "@/lib/locale";
 
 const TOTAL_STEPS = 4;
 
@@ -154,17 +155,34 @@ function interleavedMix(
   return result;
 }
 
+async function localizeSwipeItems(
+  items: SwipeItem[],
+  locale: "it" | "en",
+): Promise<SwipeItem[]> {
+  if (!items.length) return items;
+  const res = await fetch("/api/media/localize", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ locale, items }),
+  }).catch(() => null);
+  if (!res?.ok) return items;
+  const json = await res.json().catch(() => null);
+  return Array.isArray(json?.items) ? json.items : items;
+}
+
 async function fetchCategoryTitles(
   category: CategoryKey,
   selectedTypes: string[],
   globalSeenIds: Set<string>,
   limit: number = POOL_TARGET,
+  locale: "it" | "en" = "it",
 ): Promise<SwipeItem[]> {
   const params = new URLSearchParams();
   if (category === "all" && selectedTypes.length > 0)
     params.set("types", selectedTypes.join(","));
   else if (category !== "all") params.set("types", category);
   try {
+    params.set("lang", locale);
     const res = await fetch(
       `/api/recommendations/onboarding?${params.toString()}`,
     );
@@ -178,18 +196,19 @@ async function fetchCategoryTitles(
           .sort(() => Math.random() - 0.4)
           .map(recToSwipeItem);
       }
-      return interleavedMix(byType, limit);
+      return await localizeSwipeItems(interleavedMix(byType, limit), locale);
     }
     let recs = (json.recommendations?.[category] || []) as any[];
     if (recs.length === 0)
       recs = (Object.values(json.recommendations || {}) as any[][])
         .flat()
         .filter((r: any) => r.type === category);
-    return recs
+    const mapped = recs
       .sort(() => Math.random() - 0.4)
       .filter((r: any) => !globalSeenIds.has(r.id))
       .slice(0, limit)
       .map(recToSwipeItem);
+    return await localizeSwipeItems(mapped, locale);
   } catch {
     return [];
   }
@@ -424,6 +443,7 @@ function UserSuggestionCard({
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { locale } = useLocale();
   const supabase = createClient();
   const [step, setStep] = useState(0);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
@@ -548,7 +568,7 @@ export default function OnboardingPage() {
       setUserId(user.id);
       userIdRef.current = user.id;
     });
-  }, []); // eslint-disable-line
+  }, [locale]); // eslint-disable-line
 
   useEffect(() => {
     if (!userId) return;
@@ -597,6 +617,7 @@ export default function OnboardingPage() {
         [],
         new Set(),
         POOL_QUICK,
+        locale,
       );
       if (quickAll.length > 0) {
         await fetch("/api/swipe/queue", {
@@ -620,7 +641,13 @@ export default function OnboardingPage() {
         "boardgame",
       ];
       for (const cat of specificTypes) {
-        const items = await fetchCategoryTitles(cat, [], new Set(), POOL_QUICK);
+        const items = await fetchCategoryTitles(
+          cat,
+          [],
+          new Set(),
+          POOL_QUICK,
+          locale,
+        );
         if (items.length > 0)
           await fetch("/api/swipe/queue", {
             method: "POST",
@@ -632,7 +659,7 @@ export default function OnboardingPage() {
           }).catch(() => null);
       }
       for (const cat of specificTypes)
-        fetchCategoryTitles(cat, [], new Set(), POOL_TARGET)
+        fetchCategoryTitles(cat, [], new Set(), POOL_TARGET, locale)
           .then(async (items) => {
             if (items.length)
               await fetch("/api/swipe/queue", {
@@ -742,13 +769,17 @@ export default function OnboardingPage() {
       // salvato boardgame senza dati ricchi o descrizioni game/manga in inglese.
       // In quel caso rifacciamo fetch e permettiamo l'upsert sugli stessi external_id.
       if (existingRows.length >= 20 && !needsQueueRefresh)
-        return existingRows.map(rowToSwipeItem);
+        return await localizeSwipeItems(
+          existingRows.map(rowToSwipeItem),
+          locale,
+        );
 
       const items = await fetchCategoryTitles(
         filter as CategoryKey,
         selectedTypes,
         excludedSet,
         50,
+        locale,
       );
       const newItems = items
         .filter(
@@ -781,12 +812,12 @@ export default function OnboardingPage() {
         const rich = merged.filter((i: SwipeItem) =>
           Boolean(i.coverImage && i.description),
         );
-        if (rich.length >= 10) return rich;
+        if (rich.length >= 10) return await localizeSwipeItems(rich, locale);
       }
 
-      return merged;
+      return await localizeSwipeItems(merged, locale);
     },
-    [supabase, selectedTypes, getOnboardingSessionProcessedIds],
+    [supabase, selectedTypes, getOnboardingSessionProcessedIds, locale],
   );
 
   const toggleFollowSuggestion = useCallback(
@@ -847,9 +878,11 @@ export default function OnboardingPage() {
     }).catch(() => null);
     if (!res?.ok) return;
     setOnboardingCookie();
-    fetch("/api/recommendations?refresh=1&onboarding=1").catch(() => {});
+    fetch(`/api/recommendations?refresh=1&onboarding=1&lang=${locale}`).catch(
+      () => {},
+    );
     router.push("/home");
-  }, [selectedTypes, importSkipped, router]);
+  }, [selectedTypes, importSkipped, router, locale]);
 
   const onboardingSwipePool = swipePool.filter(
     (item) => !getOnboardingSessionProcessedIds().has(item.id),

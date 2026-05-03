@@ -1,6 +1,7 @@
 import type { Locale } from './serverLocale'
 import type { Recommendation } from '@/lib/reco/types'
 import { composeRecommendationRails } from '@/lib/reco/rails'
+import { translateWithCache } from '@/lib/deepl'
 
 type RecommendationsByType = Record<string, Recommendation[]>
 
@@ -40,6 +41,12 @@ function cleanText(value: unknown): string | undefined {
   return text
 }
 
+function translationKey(item: any, sourceLocale: Locale, targetLocale: Locale) {
+  const source = item?.source || item?.type || 'media'
+  const id = item?.external_id || item?.id || item?.appid || item?.title || 'unknown'
+  return `${source}:${id}:description:${sourceLocale}->${targetLocale}`
+}
+
 function getLocalizedField(item: any, locale: Locale, field: 'title' | 'description'): string | undefined {
   const localized = item?.localized
   if (localized && typeof localized === 'object') {
@@ -50,16 +57,48 @@ function getLocalizedField(item: any, locale: Locale, field: 'title' | 'descript
   const direct = cleanText(item?.[`${field}_${locale}`])
   if (direct) return direct
 
-  if (locale === 'it') {
-    return cleanText(item?.[field])
-      || cleanText(item?.[`${field}_en`])
-      || cleanText(item?.[`${field}_original`])
+  if (field === 'title') {
+    if (locale === 'it') {
+      return cleanText(item?.title_it)
+        || cleanText(item?.title)
+        || cleanText(item?.title_en)
+        || cleanText(item?.title_original)
+    }
+
+    return cleanText(item?.title_en)
+      || cleanText(item?.title_original)
+      || cleanText(item?.title)
+      || cleanText(item?.title_it)
   }
 
-  return cleanText(item?.[`${field}_en`])
-    || cleanText(item?.[`${field}_original`])
-    || cleanText(item?.[field])
-    || cleanText(item?.[`${field}_it`])
+  // IMPORTANTISSIMO:
+  // Per le descrizioni non facciamo fallback libero alla lingua opposta.
+  // Se locale=en e abbiamo solo description/description_it in italiano, la traduzione lazy
+  // viene gestita da ensureRecommendationDescriptionsLocale().
+  if (locale === 'it') {
+    return cleanText(item?.description_it)
+      || cleanText(item?.localized?.it?.description)
+  }
+
+  return cleanText(item?.description_en)
+    || cleanText(item?.localized?.en?.description)
+}
+
+function fallbackDescriptionCandidate(item: any, locale: Locale): string | undefined {
+  if (locale === 'it') {
+    return cleanText(item?.description_en)
+      || cleanText(item?.localized?.en?.description)
+      || cleanText(item?.description)
+  }
+
+  return cleanText(item?.description_it)
+    || cleanText(item?.localized?.it?.description)
+    || cleanText(item?.description)
+}
+
+function sourceLocaleForMissingTarget(item: any, targetLocale: Locale): Locale {
+  if (targetLocale === 'it') return 'en'
+  return 'it'
 }
 
 export function mediaTypeLabel(type: string, locale: Locale): string {
@@ -102,16 +141,76 @@ export function localizeRecommendationItem<T extends Recommendation>(item: T, lo
   }
 }
 
-export function localizeRecommendationsRecord(
+export async function ensureRecommendationDescriptionsLocale<T extends Recommendation>(
+  items: T[],
+  locale: Locale,
+  options?: { maxSync?: number },
+): Promise<T[]> {
+  const maxSync = options?.maxSync ?? 48
+  const out = items.map(item => ({ ...item })) as T[]
+
+  const missing = out
+    .filter(item => !getLocalizedField(item, locale, 'description'))
+    .map(item => ({ item, source: fallbackDescriptionCandidate(item, locale) }))
+    .filter((entry): entry is { item: T; source: string } => Boolean(entry.source))
+    .slice(0, maxSync)
+
+  if (missing.length === 0) return out
+
+  const sourceLocale = sourceLocaleForMissingTarget(missing[0].item, locale)
+  const targetLang = locale === 'it' ? 'IT' : 'EN-US'
+  const sourceLang = locale === 'it' ? 'EN' : 'IT'
+
+  const translated = await translateWithCache(
+    missing.map(({ item, source }) => ({
+      id: translationKey(item, sourceLocale, locale),
+      text: source,
+    })),
+    targetLang,
+    sourceLang,
+  )
+
+  for (const { item } of missing) {
+    const key = translationKey(item, sourceLocale, locale)
+    const text = cleanText(translated[key])
+    if (!text) continue
+
+    const mutable = item as any
+    mutable[`description_${locale}`] = text
+    mutable.localized = {
+      ...(mutable.localized || {}),
+      [locale]: {
+        ...(mutable.localized?.[locale] || {}),
+        title: getLocalizedField(mutable, locale, 'title') || mutable.title,
+        description: text,
+      },
+    }
+  }
+
+  return out
+}
+
+export async function localizeRecommendationsRecord(
   recommendations: RecommendationsByType,
   locale: Locale,
-): RecommendationsByType {
-  return Object.fromEntries(
-    Object.entries(recommendations || {}).map(([type, items]) => [
-      type,
-      Array.isArray(items) ? items.map(item => localizeRecommendationItem(item, locale)) : [],
-    ]),
+  options?: { maxSyncTranslations?: number },
+): Promise<RecommendationsByType> {
+  const entries = await Promise.all(
+    Object.entries(recommendations || {}).map(async ([type, items]) => {
+      if (!Array.isArray(items)) return [type, []]
+
+      const withDescriptions = await ensureRecommendationDescriptionsLocale(items, locale, {
+        maxSync: options?.maxSyncTranslations ?? 48,
+      })
+
+      return [
+        type,
+        withDescriptions.map(item => localizeRecommendationItem(item, locale)),
+      ]
+    }),
   )
+
+  return Object.fromEntries(entries)
 }
 
 export function flattenRecommendations(value: unknown): Recommendation[] {
@@ -185,13 +284,17 @@ export function localizeRecommendationRails(rails: any[] | undefined, locale: Lo
   })
 }
 
-export function buildLocalizedRecommendationPayload(params: {
+export async function buildLocalizedRecommendationPayload(params: {
   recommendations: RecommendationsByType
   tasteProfile: any
   locale: Locale
   base?: Record<string, unknown>
+  maxSyncTranslations?: number
 }) {
-  const recommendations = localizeRecommendationsRecord(params.recommendations, params.locale)
+  const recommendations = await localizeRecommendationsRecord(params.recommendations, params.locale, {
+    maxSyncTranslations: params.maxSyncTranslations ?? 48,
+  })
+
   return {
     ...(params.base || {}),
     items: flattenRecommendations(recommendations),
@@ -203,15 +306,16 @@ export function buildLocalizedRecommendationPayload(params: {
   }
 }
 
-export function localizeRecommendationPayload<T extends PayloadLike>(payload: T, locale: Locale): T {
+export async function localizeRecommendationPayload<T extends PayloadLike>(payload: T, locale: Locale): Promise<T> {
   const recommendations = payload.recommendations
-    ? localizeRecommendationsRecord(payload.recommendations, locale)
+    ? await localizeRecommendationsRecord(payload.recommendations, locale, { maxSyncTranslations: 48 })
     : undefined
 
   const items = recommendations
     ? flattenRecommendations(recommendations)
     : Array.isArray(payload.items)
-      ? payload.items.map(item => localizeRecommendationItem(item, locale))
+      ? (await ensureRecommendationDescriptionsLocale(payload.items, locale, { maxSync: 48 }))
+        .map(item => localizeRecommendationItem(item, locale))
       : payload.items
 
   return {

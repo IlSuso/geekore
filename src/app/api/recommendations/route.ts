@@ -27,7 +27,6 @@ import {
 import { getRequestLocale } from '@/lib/i18n/serverLocale'
 import {
   buildLocalizedRecommendationPayload,
-  localizeRecommendationsRecord,
 } from '@/lib/i18n/recommendationLocale'
 
 export async function GET(request: NextRequest) {
@@ -57,9 +56,8 @@ export async function GET(request: NextRequest) {
           ? memHit.data
           : { [requestedType]: memHit.data[requestedType] || [] }
 
-        const localizedRecs = localizeRecommendationsRecord(canonicalRecs, locale)
-        const payload = buildLocalizedRecommendationPayload({
-          recommendations: localizedRecs,
+        const payload = await buildLocalizedRecommendationPayload({
+          recommendations: canonicalRecs,
           tasteProfile: memHit.tasteProfile,
           locale,
           base: {
@@ -68,7 +66,8 @@ export async function GET(request: NextRequest) {
           },
         })
 
-        const types = Object.keys(localizedRecs).filter(k => Array.isArray(localizedRecs[k]) && localizedRecs[k].length > 0)
+        const recs = payload.recommendations || {}
+        const types = Object.keys(recs).filter(k => Array.isArray((recs as any)[k]) && (recs as any)[k].length > 0)
         if (requestedType !== 'all' || types.length >= 1) {
           return NextResponse.json(payload, { headers: { 'X-Cache': 'MEM_HIT' } })
         }
@@ -189,6 +188,8 @@ export async function GET(request: NextRequest) {
     persistCreatorProfile(supabase, userId, tasteProfile)
 
     const tasteProfileResponse = buildTasteProfileResponse(tasteProfile)
+    // Salviamo in cache il dato canonico, non quello già localizzato.
+    // La response viene localizzata ogni volta in base a locale.
     memCacheSet(userId, recommendations, tasteProfile, locale)
 
     updateRecommendationPoolProfile({
@@ -201,7 +202,7 @@ export async function GET(request: NextRequest) {
       totalEntries: allEntries.length,
     })
 
-    const payload = buildLocalizedRecommendationPayload({
+    const payload = await buildLocalizedRecommendationPayload({
       recommendations,
       tasteProfile,
       locale,

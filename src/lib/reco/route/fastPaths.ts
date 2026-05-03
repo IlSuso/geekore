@@ -24,7 +24,7 @@ export async function handlePoolOnlyFastPath({
 
   const served = await serveFromSavedPool(supabase, userId)
   if (served) {
-    return NextResponse.json(localizeRecommendationPayload(served.payload, locale), {
+    return NextResponse.json(await localizeRecommendationPayload(served.payload, locale), {
       headers: { 'X-Cache': served.cacheHeader || 'POOL_HIT' },
     })
   }
@@ -83,5 +83,5 @@ export async function handleRefreshPoolFastPath({
     }
   }
 
-  return NextResponse.json(localizeRecommendationPayload(payload, locale))
+  return NextResponse.json(await localizeRecommendationPayload(payload, locale))
 }

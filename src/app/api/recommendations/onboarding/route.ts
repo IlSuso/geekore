@@ -17,66 +17,97 @@ const TARGET_PER_TYPE = 50;
 const BOARDGAME_DESCRIPTION_MAX = 1100;
 const DEFAULT_DESCRIPTION_MAX = 900;
 
-function clampDescriptionWithoutEllipsis(text: string, maxLen = DEFAULT_DESCRIPTION_MAX): string {
-  const cleaned = text
+function clampDescriptionWithoutEllipsis(
+  text: string,
+  _maxLen = DEFAULT_DESCRIPTION_MAX,
+): string {
+  return text
     .replace(/\s+/g, " ")
     .replace(/\s+([,.;:!?])/g, "$1")
     .trim();
-
-  if (!cleaned || cleaned.length <= maxLen) return cleaned;
-
-  const slice = cleaned.slice(0, maxLen);
-  const sentenceEnd = Math.max(
-    slice.lastIndexOf(". "),
-    slice.lastIndexOf("! "),
-    slice.lastIndexOf("? "),
-    slice.lastIndexOf("; "),
-  );
-
-  if (sentenceEnd > maxLen * 0.55) {
-    return slice.slice(0, sentenceEnd + 1).trim();
-  }
-
-  const lastSpace = slice.lastIndexOf(" ");
-  return (lastSpace > 0 ? slice.slice(0, lastSpace) : slice).trim();
 }
 
 function looksMostlyEnglish(text: string): boolean {
   const sample = ` ${text.toLowerCase()} `;
-  const englishHits = [" the ", " and ", " with ", " your ", " players ", " game ", " each ", " cards ", " board ", " victory "]
-    .filter(token => sample.includes(token)).length;
-  const italianHits = [" il ", " lo ", " la ", " gli ", " le ", " con ", " per ", " giocatori ", " partita ", " carte "]
-    .filter(token => sample.includes(token)).length;
+  const englishHits = [
+    " the ",
+    " and ",
+    " with ",
+    " your ",
+    " players ",
+    " game ",
+    " each ",
+    " cards ",
+    " board ",
+    " victory ",
+  ].filter((token) => sample.includes(token)).length;
+  const italianHits = [
+    " il ",
+    " lo ",
+    " la ",
+    " gli ",
+    " le ",
+    " con ",
+    " per ",
+    " giocatori ",
+    " partita ",
+    " carte ",
+  ].filter((token) => sample.includes(token)).length;
   return englishHits >= 2 && englishHits > italianHits;
 }
 
 async function translateBoardgameDescriptions(items: any[]): Promise<any[]> {
   const toTranslate = items
-    .filter(item => item?.id && item?.description && looksMostlyEnglish(item.description))
-    .map(item => ({ id: `bgg-onboarding:${item.id}`, text: item.description }));
+    .filter(
+      (item) =>
+        item?.id && item?.description && looksMostlyEnglish(item.description),
+    )
+    .map((item) => ({
+      id: `bgg-onboarding:${item.id}`,
+      text: item.description,
+    }));
 
   if (toTranslate.length === 0) {
-    return items.map(item => ({
+    return items.map((item) => ({
       ...item,
-      description: item.description ? clampDescriptionWithoutEllipsis(item.description, BOARDGAME_DESCRIPTION_MAX) : item.description,
+      description: item.description
+        ? clampDescriptionWithoutEllipsis(
+            item.description,
+            BOARDGAME_DESCRIPTION_MAX,
+          )
+        : item.description,
     }));
   }
 
   try {
     const translated = await translateWithCache(toTranslate, "IT", "EN");
-    return items.map(item => {
+    return items.map((item) => {
       const key = `bgg-onboarding:${item.id}`;
       const nextDescription = translated[key] || item.description;
       return {
         ...item,
-        description: nextDescription ? clampDescriptionWithoutEllipsis(nextDescription, BOARDGAME_DESCRIPTION_MAX) : nextDescription,
+        description: nextDescription
+          ? clampDescriptionWithoutEllipsis(
+              nextDescription,
+              BOARDGAME_DESCRIPTION_MAX,
+            )
+          : nextDescription,
       };
     });
   } catch (err) {
-    logger.warn("OnboardingQuick", "BGG translation failed, using original descriptions", err);
-    return items.map(item => ({
+    logger.warn(
+      "OnboardingQuick",
+      "BGG translation failed, using original descriptions",
+      err,
+    );
+    return items.map((item) => ({
       ...item,
-      description: item.description ? clampDescriptionWithoutEllipsis(item.description, BOARDGAME_DESCRIPTION_MAX) : item.description,
+      description: item.description
+        ? clampDescriptionWithoutEllipsis(
+            item.description,
+            BOARDGAME_DESCRIPTION_MAX,
+          )
+        : item.description,
     }));
   }
 }
@@ -86,30 +117,44 @@ async function translateLikelyEnglishDescriptions(
   cachePrefix = "onboarding",
   maxLen = DEFAULT_DESCRIPTION_MAX,
 ): Promise<any[]> {
-  const normalized = items.map(item => ({
+  const normalized = items.map((item) => ({
     ...item,
-    description: item?.description ? clampDescriptionWithoutEllipsis(String(item.description), maxLen) : item?.description,
+    description: item?.description
+      ? clampDescriptionWithoutEllipsis(String(item.description), maxLen)
+      : item?.description,
   }));
 
   const toTranslate = normalized
-    .filter(item => item?.id && item?.description && looksMostlyEnglish(item.description))
-    .map(item => ({ id: `${cachePrefix}:${item.type || "media"}:${item.id}`, text: item.description }));
+    .filter(
+      (item) =>
+        item?.id && item?.description && looksMostlyEnglish(item.description),
+    )
+    .map((item) => ({
+      id: `${cachePrefix}:${item.type || "media"}:${item.id}`,
+      text: item.description,
+    }));
 
   if (toTranslate.length === 0) return normalized;
 
   try {
     const translated = await translateWithCache(toTranslate, "IT", "EN");
-    return normalized.map(item => {
+    return normalized.map((item) => {
       if (!item?.id || !item?.description) return item;
       const key = `${cachePrefix}:${item.type || "media"}:${item.id}`;
       const nextDescription = translated[key] || item.description;
       return {
         ...item,
-        description: nextDescription ? clampDescriptionWithoutEllipsis(nextDescription, maxLen) : nextDescription,
+        description: nextDescription
+          ? clampDescriptionWithoutEllipsis(nextDescription, maxLen)
+          : nextDescription,
       };
     });
   } catch (err) {
-    logger.warn("OnboardingQuick", "description translation failed, using original descriptions", err);
+    logger.warn(
+      "OnboardingQuick",
+      "description translation failed, using original descriptions",
+      err,
+    );
     return normalized;
   }
 }
@@ -248,7 +293,11 @@ async function fetchMangaQuick(): Promise<any[]> {
     }),
   );
 
-  return translateLikelyEnglishDescriptions(results.slice(0, TARGET_PER_TYPE), "anilist-onboarding", 900);
+  return translateLikelyEnglishDescriptions(
+    results.slice(0, TARGET_PER_TYPE),
+    "anilist-onboarding",
+    900,
+  );
 }
 
 async function fetchMovieQuick(token: string): Promise<any[]> {
@@ -553,7 +602,10 @@ function parseBggThingXml(xml: string): any[] {
     const designers = xmlLinkValues(chunk, "boardgamedesigner", 6).filter(
       (d) => d !== "(Uncredited)",
     );
-    const description = clampDescriptionWithoutEllipsis(xmlNodeText(chunk, "description") || "", BOARDGAME_DESCRIPTION_MAX);
+    const description = clampDescriptionWithoutEllipsis(
+      xmlNodeText(chunk, "description") || "",
+      BOARDGAME_DESCRIPTION_MAX,
+    );
     const minPlayers =
       Number(
         xmlAttr(chunk.match(/<minplayers[^>]*\/>/i)?.[0] || "", "value"),

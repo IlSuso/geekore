@@ -25,6 +25,12 @@ function toQueueRow(row: any, userId: string) {
   return {
     user_id: userId,
     ...core,
+    title_original: cleanString(row?.title_original, 300),
+    title_en: cleanString(row?.title_en, 300),
+    title_it: cleanString(row?.title_it, 300),
+    description_en: typeof row?.description_en === 'string' ? row.description_en : null,
+    description_it: typeof row?.description_it === 'string' ? row.description_it : null,
+    localized: row?.localized && typeof row.localized === 'object' ? row.localized : {},
     is_award_winner: boolValue(row?.is_award_winner ?? row?.isAwardWinner),
     is_discovery: boolValue(row?.is_discovery ?? row?.isDiscovery),
   }

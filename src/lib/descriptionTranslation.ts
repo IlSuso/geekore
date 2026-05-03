@@ -33,7 +33,7 @@ export function cleanDescriptionText(value: unknown, maxLen = 900): string | und
 
   if (!clean) return undefined
   if (/^(0|null|undefined|nan|n\/a)$/i.test(clean)) return undefined
-  return truncateAtSentence(clean, maxLen)
+  return clean
 }
 
 export function isProbablyEnglish(text: string): boolean {
@@ -64,12 +64,12 @@ export async function translateDescriptionIfNeeded(
   if (!clean) return undefined
 
   if (!options?.force && !isProbablyEnglish(clean)) {
-    return truncateAtSentence(clean, maxLen)
+    return clean
   }
 
   const cacheId = `${options?.cachePrefix || 'description'}:${id}`
   const translated = await translateWithCache([{ id: cacheId, text: clean }], 'IT', 'EN')
-  return truncateAtSentence(translated[cacheId] || clean, maxLen)
+  return translated[cacheId] || clean
 }
 
 export async function translateRecommendationDescriptions<T extends Record<string, any>>(
@@ -85,7 +85,7 @@ export async function translateRecommendationDescriptions<T extends Record<strin
     .map((item: any) => {
       const clean = cleanDescriptionText(item.description, Math.max(options?.maxLen ?? 900, 1200))
       if (!clean || !isProbablyEnglish(clean)) {
-        if (clean) item.description = truncateAtSentence(clean, options?.maxLen ?? 900)
+        if (clean) item.description = clean
         return null
       }
       return {
@@ -99,7 +99,7 @@ export async function translateRecommendationDescriptions<T extends Record<strin
   if (toTranslate.length > 0) {
     const translated = await translateWithCache(toTranslate.map(({ id, text }) => ({ id, text })), 'IT', 'EN')
     for (const row of toTranslate) {
-      row.item.description = truncateAtSentence(translated[row.id] || row.text, options?.maxLen ?? 900)
+      row.item.description = translated[row.id] || row.text
     }
   }
 
