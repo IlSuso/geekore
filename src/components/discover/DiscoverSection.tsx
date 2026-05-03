@@ -24,7 +24,7 @@ export function DiscoverSection({
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="min-w-0 flex items-center gap-3">
           {icon && (
-            <div className="grid h-7 w-7 shrink-0 place-items-center rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)] text-[var(--accent)]">
+            <div className="grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)] text-[var(--accent)]">
               {icon}
             </div>
           )}

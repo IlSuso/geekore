@@ -133,8 +133,8 @@ export function MediumTypeChipRow({
   ]
 
   return (
-    <div className="border-b border-[var(--border-subtle)] pb-3 pt-2" data-no-swipe="true">
-      <div className="flex items-center gap-2 overflow-x-auto overscroll-x-contain scrollbar-hide" data-no-swipe="true" data-horizontal-scroll="true" aria-label="Filtri tipo media Home">
+    <div className="border-b border-[var(--border-subtle)] pb-3 pt-2 flex items-center gap-2" data-no-swipe="true">
+      <div className="flex flex-1 min-w-0 items-center gap-2 overflow-x-auto overscroll-x-contain scrollbar-hide" data-no-swipe="true" data-horizontal-scroll="true" aria-label="Filtri tipo media Home">
         {chips.map(chip => {
           const parsedActive = parseCategoryString(categoryFilter)
           const isActive = chip.value === '' ? categoryFilter === '' : parsedActive?.category === chip.value
@@ -151,9 +151,8 @@ export function MediumTypeChipRow({
             </button>
           )
         })}
-        <div className="h-4 w-px shrink-0 bg-[var(--border)]" aria-hidden="true" />
-        <CategorySelector value={categoryFilter} onChange={setCategoryFilter} />
       </div>
+      <div className="flex-shrink-0" data-no-swipe="true"><CategorySelector value={categoryFilter} onChange={setCategoryFilter} /></div>
     </div>
   )
 }

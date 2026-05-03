@@ -43,7 +43,7 @@
 }
 
 .gk-home-page .gk-feed-card-body { padding: 14px 14px 0 !important; }
-.gk-home-page .gk-feed-card .gk-feed-card-body + div { padding-left: 66px !important; padding-right: 16px !important; padding-bottom: 14px !important; }
+.gk-home-page .gk-feed-card .gk-feed-card-body + div { padding-left: 16px !important; padding-right: 16px !important; padding-bottom: 14px !important; }
 .gk-home-page .gk-feed-card p { text-wrap: pretty; }
 .gk-home-page .gk-feed-card .gk-feed-card-image { margin: 0 !important; border-top: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08); border-radius: 0 !important; }
 .gk-home-page .gk-feed-card .gk-feed-card-image img { object-position: center center; }
@@ -55,8 +55,8 @@
 
 /* Activity/media embed nei post: deve partire allineato al testo, non “a metà card”. */
 .gk-home-page .gk-feed-card [class*='mx-3'][class*='mb-3'] {
-  margin-left: 66px !important;
-  width: calc(100% - 82px) !important;
+  margin-left: 12px !important;
+  width: calc(100% - 24px) !important;
   border-radius: 18px !important;
   background: rgba(255,255,255,0.035) !important;
 }

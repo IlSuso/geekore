@@ -27,7 +27,7 @@ body {
 
 @media (min-width: 768px) {
   .gk-page-shell {
-    padding-inline: 24px;
+    padding-inline: 0;
   }
 }
 
@@ -131,7 +131,7 @@ img[loading='lazy'] {
     padding-right: 0;
   }
   main:not([data-auth]) > .gk-page-shell {
-    max-width: min(100%, calc(var(--shell-max-w) + var(--desktop-context-w) + 72px));
+    width: 100%;
   }
 
   /* KeepAlive panels are position:fixed — on desktop they must start after the sidebar. */

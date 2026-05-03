@@ -251,30 +251,20 @@ const RecommendationCard = memo(function RecommendationCard({
           </div>
         )}
 
-        <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-1.5">
-          <button
-            onClick={(e) => { e.stopPropagation(); onAdd?.(item) }}
-            disabled={addDisabled || !onAdd}
-            title={added ? 'Già in libreria' : 'Aggiungi alla libreria'}
-            className={`flex h-8 flex-1 items-center justify-center gap-1 rounded-xl text-[11px] font-black transition-all disabled:cursor-default ${added
-                ? 'bg-[var(--accent)] text-[#0B0B0F]'
-                : 'bg-white text-black hover:bg-zinc-200 disabled:opacity-50'
-              }`}
-          >
-            {added ? <Check size={13} /> : <Plus size={13} />}
-            <span>{added ? 'Aggiunto' : 'Add'}</span>
+        {/* 3 bottoni tondi glass: ThumbsDown, Eye, Bookmark */}
+        <div className="absolute bottom-2 right-2 flex items-center gap-1">
+          <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }} title="Non mi interessa"
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 border border-white/15 text-zinc-300 backdrop-blur-md transition-all hover:text-red-300 hover:border-red-400/30">
+            <ThumbsDown size={11} />
           </button>
-
-          <button
-            onClick={(e) => { e.stopPropagation(); onWishlist?.(item) }}
-            disabled={!onWishlist}
+          <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'already_seen') }} title="L'ho già visto"
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 border border-white/15 text-zinc-300 backdrop-blur-md transition-all hover:text-white hover:border-white/30">
+            <Eye size={11} />
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); onWishlist?.(item) }} disabled={!onWishlist}
             title={wishlisted ? 'Rimuovi dalla wishlist' : 'Aggiungi alla wishlist'}
-            className={`flex h-8 w-8 items-center justify-center rounded-xl border backdrop-blur-sm transition-all ${wishlisted
-                ? 'border-[rgba(230,255,61,0.55)] bg-black/75 text-[var(--accent)]'
-                : 'border-white/10 bg-black/68 text-zinc-200 hover:text-[var(--accent)]'
-              }`}
-          >
-            {wishlisted ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
+            className={`flex h-7 w-7 items-center justify-center rounded-full backdrop-blur-md border transition-all disabled:opacity-40 ${wishlisted ? 'bg-black/70 border-[rgba(230,255,61,0.45)] text-[var(--accent)]' : 'bg-black/60 border-white/15 text-zinc-300 hover:text-[var(--accent)] hover:border-[rgba(230,255,61,0.35)]'}`}>
+            {wishlisted ? <BookmarkCheck size={11} /> : <Bookmark size={11} />}
           </button>
         </div>
       </div>

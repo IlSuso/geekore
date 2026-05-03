@@ -5,7 +5,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import {
-  Search, X, Film, Tv, Gamepad2, Mic, MicOff, Loader2, Swords, Layers, Dices, Sparkles,
+  Search, X, Film, Tv, Gamepad2, Mic, MicOff, Loader2, Swords, Layers, Dices, Telescope, Flame,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/context/AuthContext'
@@ -104,6 +104,16 @@ const TYPE_PLACEHOLDER_ICON: Record<string, React.ReactNode> = {
   anime: <Swords size={28} />,
   movie: <Film size={28} />,
   tv: <Tv size={28} />,
+}
+
+
+const TYPE_SECTION_ICON: Record<string, React.ReactNode> = {
+  game: <Gamepad2 size={14} />,
+  boardgame: <Dices size={14} />,
+  manga: <Layers size={14} />,
+  anime: <Swords size={14} />,
+  movie: <Film size={14} />,
+  tv: <Tv size={14} />,
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -536,7 +546,7 @@ export default function DiscoverPage() {
       <div className="mx-auto max-w-screen-2xl px-4 pt-14 md:px-6 md:pt-8 xl:px-8">
         <div className="mb-5 flex items-center gap-3 md:hidden">
           <div className="grid h-9 w-9 place-items-center rounded-[14px] border border-[rgba(230,255,61,0.2)] bg-[rgba(230,255,61,0.08)] text-[var(--accent)]">
-            <Sparkles size={18} />
+            <Telescope size={18} />
           </div>
           <div>
             <p className="gk-label text-[var(--accent)]">Discover</p>
@@ -635,7 +645,7 @@ export default function DiscoverPage() {
 
         {!loading && !searchTerm.trim() && (
           <div className="space-y-8 md:mx-auto md:max-w-4xl">
-            <DiscoverSection title="Sfoglia" subtitle="Scegli un universo e parti da una ricerca guidata" icon={<Sparkles size={13} />}>
+            <DiscoverSection title="Sfoglia" subtitle="Scegli un universo e parti da una ricerca guidata" icon={<Telescope size={13} />}>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 {BROWSE_PROMPTS.map(prompt => (
                   <BrowseTile key={prompt.type} prompt={prompt} onClick={() => applyPrompt(prompt.q, prompt.type)} />
@@ -643,7 +653,7 @@ export default function DiscoverPage() {
               </div>
             </DiscoverSection>
 
-            <DiscoverSection title="Trending oggi" subtitle="I media più caldi ora, mischiati per categoria" icon={<Sparkles size={15} />}>
+            <DiscoverSection title="Trending oggi" subtitle="I media più caldi ora, mischiati per categoria" icon={<Flame size={15} />}>
               {trendingToday.length === 0 ? (
                 <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
                   {Array.from({ length: 7 }).map((_, i) => <div key={i} className="aspect-[2/3] animate-pulse rounded-xl bg-[var(--bg-card)]" />)}
@@ -726,7 +736,7 @@ export default function DiscoverPage() {
         {showingResults && (
           <div className="space-y-8 md:mx-auto md:max-w-4xl">
             {grouped.map(([type, items]) => items.length === 0 ? null : (
-              <DiscoverSection key={type} title={TYPE_LABELS[type] || type} count={items.length} icon={TYPE_PLACEHOLDER_ICON[type]}>
+              <DiscoverSection key={type} title={TYPE_LABELS[type] || type} count={items.length} icon={TYPE_SECTION_ICON[type]}>
                 <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
                   {items.map((item) => (
                     <DiscoverMediaCard
