@@ -954,6 +954,7 @@ function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
   const [items, setItems] = useState<SwipeItem[]>([])
   const [loading, setLoading] = useState(true)
   const userIdRef = useRef<string | null>(null)
+  const swipeAddedIdsRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     async function init() {
@@ -1007,6 +1008,32 @@ function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres || [], action }),
     }).catch(() => null)
+
+    if (action === 'already_seen' || action === 'added') {
+      const collectionPayload: any = {
+        external_id: item.id,
+        title: item.title,
+        type: item.type,
+        cover_image: item.coverImage,
+        genres: item.genres || [],
+        status: 'completed',
+        display_order: Date.now(),
+        upsert: true,
+      }
+      if (item.episodes != null) collectionPayload.episodes = item.episodes
+      if (rating != null) collectionPayload.rating = rating
+
+      const res = await fetch('/api/collection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(collectionPayload),
+      }).catch(() => null)
+      if (res?.ok) {
+        swipeAddedIdsRef.current.add(item.id)
+        profileInvalidateBridge.invalidate()
+      }
+    }
+
     if ((action === 'already_seen' || action === 'added') && (item.genres || []).length > 0) {
       triggerTasteDelta({
         action: 'rating',
@@ -1015,6 +1042,19 @@ function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
         genres: item.genres || [],
         rating: rating || item.score || 3.5,
       })
+    }
+  }
+
+  const handleSwipeUndo = async (item: SwipeItem) => {
+    if (!swipeAddedIdsRef.current.has(item.id)) return
+    const res = await fetch('/api/collection', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ external_id: item.id }),
+    }).catch(() => null)
+    if (res?.ok) {
+      swipeAddedIdsRef.current.delete(item.id)
+      profileInvalidateBridge.invalidate()
     }
   }
 
@@ -1038,6 +1078,7 @@ function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
       userId={userIdRef.current || undefined}
       onSeen={(item, rating) => sendSwipeFeedback(item, 'already_seen', rating ?? undefined)}
       onSkip={(item) => sendSwipeFeedback(item, 'not_interested')}
+      onUndo={handleSwipeUndo}
       onClose={onClose}
       onRequestMore={requestMore}
     />
