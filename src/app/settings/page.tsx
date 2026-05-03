@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from 'react'
 import { useLocale } from '@/lib/locale'
+import { appCopy } from '@/lib/i18n/appCopy'
 import { createClient } from '@/lib/supabase/client'
 import {
   Globe, List, TrendingUp, BarChart3, Bell,
@@ -339,18 +340,18 @@ function DigestToggle() {
 }
 
 const STREAMING_PLATFORMS = [
-  { id: 8,    name: 'Netflix',        color: 'bg-red-600',      textColor: 'text-red-400',     borderColor: 'border-red-500/40',   logo: '🎬' },
-  { id: 119,  name: 'Prime Video',    color: 'bg-sky-600',      textColor: 'text-sky-400',     borderColor: 'border-sky-500/40',   logo: '📦' },
-  { id: 337,  name: 'Disney+',        color: 'bg-blue-700',     textColor: 'text-blue-400',    borderColor: 'border-blue-500/40',  logo: '✨' },
-  { id: 283,  name: 'Crunchyroll',    color: 'bg-orange-600',   textColor: 'text-orange-400',  borderColor: 'border-orange-500/40',logo: '⛩️' },
-  { id: 531,  name: 'Paramount+',     color: 'bg-blue-500',     textColor: 'text-blue-300',    borderColor: 'border-blue-400/40',  logo: '⭐' },
-  { id: 39,   name: 'NOW TV',         color: 'bg-lime-600',     textColor: 'text-lime-400',    borderColor: 'border-lime-500/40',  logo: '📡' },
-  { id: 35,   name: 'Apple TV+',      color: 'bg-zinc-600',     textColor: 'text-zinc-300',    borderColor: 'border-zinc-500/40',  logo: '🍎' },
-  { id: 2,    name: 'Apple iTunes',   color: 'bg-zinc-700',     textColor: 'text-zinc-400',    borderColor: 'border-zinc-600/40',  logo: '💾' },
-  { id: 3,    name: 'Google Play',    color: 'bg-green-600',    textColor: 'text-green-400',   borderColor: 'border-green-500/40', logo: '▶️' },
-  { id: 192,  name: 'YouTube',        color: 'bg-red-700',      textColor: 'text-red-400',     borderColor: 'border-red-600/40',   logo: '📺' },
-  { id: 1773, name: 'MUBI',           color: 'bg-indigo-600',   textColor: 'text-indigo-400',  borderColor: 'border-indigo-500/40',logo: '🎞️' },
-  { id: 188,  name: 'Sky Go',         color: 'bg-violet-700',   textColor: 'text-violet-400',  borderColor: 'border-violet-500/40',logo: '☁️' },
+  { id: 8, name: 'Netflix', color: 'bg-red-600', textColor: 'text-red-400', borderColor: 'border-red-500/40', logo: '🎬' },
+  { id: 119, name: 'Prime Video', color: 'bg-sky-600', textColor: 'text-sky-400', borderColor: 'border-sky-500/40', logo: '📦' },
+  { id: 337, name: 'Disney+', color: 'bg-blue-700', textColor: 'text-blue-400', borderColor: 'border-blue-500/40', logo: '✨' },
+  { id: 283, name: 'Crunchyroll', color: 'bg-orange-600', textColor: 'text-orange-400', borderColor: 'border-orange-500/40', logo: '⛩️' },
+  { id: 531, name: 'Paramount+', color: 'bg-blue-500', textColor: 'text-blue-300', borderColor: 'border-blue-400/40', logo: '⭐' },
+  { id: 39, name: 'NOW TV', color: 'bg-lime-600', textColor: 'text-lime-400', borderColor: 'border-lime-500/40', logo: '📡' },
+  { id: 35, name: 'Apple TV+', color: 'bg-zinc-600', textColor: 'text-zinc-300', borderColor: 'border-zinc-500/40', logo: '🍎' },
+  { id: 2, name: 'Apple iTunes', color: 'bg-zinc-700', textColor: 'text-zinc-400', borderColor: 'border-zinc-600/40', logo: '💾' },
+  { id: 3, name: 'Google Play', color: 'bg-green-600', textColor: 'text-green-400', borderColor: 'border-green-500/40', logo: '▶️' },
+  { id: 192, name: 'YouTube', color: 'bg-red-700', textColor: 'text-red-400', borderColor: 'border-red-600/40', logo: '📺' },
+  { id: 1773, name: 'MUBI', color: 'bg-indigo-600', textColor: 'text-indigo-400', borderColor: 'border-indigo-500/40', logo: '🎞️' },
+  { id: 188, name: 'Sky Go', color: 'bg-violet-700', textColor: 'text-violet-400', borderColor: 'border-violet-500/40', logo: '☁️' },
 ] as const
 
 function StreamingPlatformsSelector({ onSelectedCountChange }: { onSelectedCountChange?: (count: number) => void }) {
@@ -421,11 +422,10 @@ function StreamingPlatformsSelector({ onSelectedCountChange }: { onSelectedCount
                 type="button"
                 data-no-swipe="true"
                 onClick={() => toggle(id)}
-                className={`flex items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-sm font-bold transition-all ${
-                  isSelected
+                className={`flex items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-sm font-bold transition-all ${isSelected
                     ? `${borderColor} bg-[var(--bg-secondary)] ${textColor}`
                     : 'border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:border-[var(--border)] hover:text-[var(--text-secondary)]'
-                }`}
+                  }`}
               >
                 <span className="text-base leading-none">{logo}</span>
                 <span className="truncate">{name}</span>
@@ -488,6 +488,7 @@ function DeleteAccountSection() {
 
 export default function SettingsPage() {
   const { locale, setLocale, t } = useLocale()
+  const copy = appCopy(locale)
   const [selectedPlatformsCount, setSelectedPlatformsCount] = useState(0)
 
   return (
@@ -504,9 +505,9 @@ export default function SettingsPage() {
         digestEnabled
       />
 
-      <SettingsSection icon={<Globe size={15} />} title={t.settings.language}>
+      <SettingsSection icon={<Globe size={15} />} title={copy.settings.appLanguage}>
         <SettingsCard>
-          <p className="gk-body max-w-none px-5 pb-3 pt-4">{t.settings.languageDesc}</p>
+          <p className="gk-body max-w-none px-5 pb-3 pt-4">{copy.settings.productLanguage}</p>
           <div className="flex gap-2 p-3" data-no-swipe="true">
             {(['it', 'en'] as const).map(lang => (
               <button
@@ -514,12 +515,11 @@ export default function SettingsPage() {
                 type="button"
                 data-no-swipe="true"
                 onClick={() => setLocale(lang)}
-                className={`flex flex-1 items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black transition-all ${
-                  locale === lang ? '' : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black transition-all ${locale === lang ? '' : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
                 style={locale === lang ? { background: 'var(--accent)', color: '#0B0B0F' } : {}}
               >
-                {lang === 'it' ? t.settings.italian : t.settings.english}
+                {lang === 'it' ? copy.settings.italian : copy.settings.english}
                 {locale === lang && <Check size={12} className="text-black" />}
               </button>
             ))}

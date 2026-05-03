@@ -109,7 +109,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const initialPathname = headersList.get('x-pathname') ?? headersList.get('x-invoke-path') ?? '/home'
 
   return (
-    <html lang="it">
+    <html lang={initialLocale}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

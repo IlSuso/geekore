@@ -8,6 +8,7 @@ import { checkOrigin } from '@/lib/csrf'
 import { logger } from '@/lib/logger'
 import { translateWithCache } from '@/lib/deepl'
 import { truncateAtSentence } from '@/lib/utils'
+import { getRequestLocale } from '@/lib/i18n/serverLocale'
 
 let cachedToken: { token: string; expiresAt: number } | null = null
 
@@ -92,14 +93,20 @@ async function searchIgdb(cleanSearch: string, headers: Record<string, string>) 
     return NextResponse.json({ error: 'Risposta IGDB non valida' }, { status: 502, headers })
   }
 
-  const formattedGames = games.map((g: any) => ({
+  const formattedGames = games.map((g: any) => {
+    const descriptionEn = g.summary ? truncateAtSentence(g.summary, 400) : undefined
+    return {
     id: g.id.toString(),
     title: g.name,
+    title_original: g.name,
+    title_en: g.name,
     type: 'game',
     coverImage: g.cover?.url ? `https:${g.cover.url.replace('t_thumb', 't_1080p')}` : undefined,
     year: g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : undefined,
     episodes: 1,
-    description: g.summary ? truncateAtSentence(g.summary, 400) : undefined,
+    description: descriptionEn,
+    description_en: descriptionEn,
+    localized: { en: { title: g.name, description: descriptionEn } },
     genres: g.genres?.map((gen: any) => gen.name) as string[] | undefined,
     themes: g.themes?.map((t: any) => t.name) as string[] | undefined,
     keywords: g.keywords?.map((k: any) => k.name) as string[] | undefined,
@@ -110,7 +117,7 @@ async function searchIgdb(cleanSearch: string, headers: Record<string, string>) 
       .map((c: any) => c.company?.name)
       .filter(Boolean) as string[] | undefined,
     source: 'igdb',
-  }))
+  }} )
 
   return NextResponse.json(formattedGames, { headers })
 }
@@ -156,8 +163,9 @@ export async function GET(request: NextRequest) {
     const validated = validateSearch(q)
     if (!validated.ok) return NextResponse.json([], { headers: rl.headers })
 
+    const locale = await getRequestLocale(request)
     const response = await searchIgdb(validated.value, rl.headers)
-    if (!response.ok || lang !== 'it') return response
+    if (!response.ok || locale !== 'it') return response
 
     const games: any[] = await response.json()
     if (!Array.isArray(games) || games.length === 0) return NextResponse.json(games, { headers: rl.headers })
@@ -167,7 +175,12 @@ export async function GET(request: NextRequest) {
       const items = toTranslate.map((g: any) => ({ id: `igdb:${g.id}`, text: g.description }))
       const translated = await translateWithCache(items, 'IT', 'EN')
       toTranslate.forEach((g: any) => {
-        if (translated[`igdb:${g.id}`]) g.description = translated[`igdb:${g.id}`]
+        const value = translated[`igdb:${g.id}`]
+        if (value) {
+          g.description = value
+          g.description_it = value
+          g.localized = { ...(g.localized || {}), it: { title: g.title, description: value } }
+        }
       })
     }
     return NextResponse.json(games, { headers: rl.headers })

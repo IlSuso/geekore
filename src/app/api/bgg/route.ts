@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { truncateAtSentence } from '@/lib/utils'
 import { translateWithCache } from '@/lib/deepl'
 import { logger } from '@/lib/logger'
+import { getRequestLocale } from '@/lib/i18n/serverLocale'
 
 const BGG_BASE = 'https://boardgamegeek.com/xmlapi2'
 
@@ -53,6 +54,11 @@ interface BGGItem {
   coverImage?: string
   year?: number
   description?: string
+  description_en?: string
+  description_it?: string
+  title_original?: string
+  title_en?: string
+  localized?: Record<string, { title?: string; description?: string }>
   genres?: string[]
   mechanics?: string[]
   designers?: string[]
@@ -157,11 +163,15 @@ async function fetchBGGBatch(ids: string[]): Promise<BGGItem[]> {
     items.push({
       id: `bgg-${idM[1]}`,
       title: name,
+      title_original: name,
+      title_en: name,
       type: 'boardgame',
       source: 'bgg',
       coverImage: cover,
       year: isNaN(year!) ? undefined : year,
       description: trimmedDesc,
+      description_en: trimmedDesc,
+      localized: { en: { title: name, description: trimmedDesc } },
       genres: genres.length > 0 ? genres : undefined,
       mechanics: mechanics.length > 0 ? mechanics : undefined,
       designers: designers.length > 0 ? designers : undefined,
@@ -210,14 +220,18 @@ export async function GET(req: NextRequest) {
     const items = await fetchBGGDetails(ids)
 
     // Traduci descrizioni in italiano se la lingua richiesta è IT
-    const lang = req.headers.get('x-lang') || req.nextUrl.searchParams.get('lang') || 'it'
-    if (lang === 'it') {
+    const locale = await getRequestLocale(req)
+    if (locale === 'it') {
       const toTranslate = items.filter(r => r.description)
       if (toTranslate.length > 0) {
         const descItems = toTranslate.map(r => ({ id: r.id, text: r.description! }))
         const translated = await translateWithCache(descItems, 'IT', 'EN')
         toTranslate.forEach(r => {
-          if (translated[r.id]) r.description = translated[r.id]
+          if (translated[r.id]) {
+            r.description = translated[r.id]
+            r.description_it = translated[r.id]
+            r.localized = { ...(r.localized || {}), it: { title: r.title, description: translated[r.id] } }
+          }
         })
       }
     }

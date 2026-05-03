@@ -78,6 +78,8 @@ import { swipeNavBridge } from "@/hooks/swipeNavBridge";
 
 import { useTabActive } from "@/context/TabActiveContext";
 import { optimizeCover } from "@/lib/imageOptimizer";
+import { useLocale } from '@/lib/locale'
+import { appCopy } from '@/lib/i18n/uiCopy'
 
 type SwipeMediaType = "anime" | "manga" | "movie" | "tv" | "game" | "boardgame";
 
@@ -135,7 +137,7 @@ const TYPE_LABEL: Record<SwipeMediaType, string> = {
   anime: "Anime",
   manga: "Manga",
   movie: "Film",
-  tv: "Serie TV",
+  tv: "{typeLabel('tv', locale)}",
   game: "Videogioco",
   boardgame: "Gioco da Tavolo",
 };
@@ -152,9 +154,9 @@ const CATEGORIES: { key: CategoryFilter; label: string }[] = [
   { key: "anime", label: "Anime" },
   { key: "manga", label: "Manga" },
   { key: "movie", label: "Film" },
-  { key: "tv", label: "Serie TV" },
-  { key: "game", label: "Videogiochi" },
-  { key: "boardgame", label: "Giochi da Tavolo" },
+  { key: "tv", label: "{typeLabel('tv', locale)}" },
+  { key: "game", label: "{typeLabel('game', locale)}" },
+  { key: "boardgame", label: "{typeLabel('boardgame', locale)}" },
 ];
 
 const SWIPE_FEEDBACK_DISTANCE = 150;
@@ -609,11 +611,10 @@ function SwipeCard({
             data-testid="swipe-close"
             aria-label="Chiudi swipe"
             title="Chiudi"
-            className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-[transform,background-color] duration-150 z-20 ${
-              closePress.pressed
-                ? "scale-90 bg-white/20 text-white"
-                : "bg-zinc-900 text-white/80 hover:text-white"
-            }`}
+            className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-[transform,background-color] duration-150 z-20 ${closePress.pressed
+              ? "scale-90 bg-white/20 text-white"
+              : "bg-zinc-900 text-white/80 hover:text-white"
+              }`}
           >
             <X size={17} strokeWidth={2.5} />
           </button>
@@ -724,13 +725,12 @@ function SwipeCard({
               disabled={!canUndo || !isTop}
               {...undoPress.pressProps}
               data-testid="swipe-undo"
-              aria-label="Annulla ultima azione"
+              aria-label="{swipeUi.undo} ultima azione"
               title="Z / Backspace"
-              className={`w-11 h-11 md:w-10 md:h-10 flex items-center justify-center rounded-full border transition-[transform,background-color,border-color] duration-150 disabled:opacity-35 disabled:pointer-events-none ${
-                undoPress.pressed
-                  ? "scale-90 bg-white/15 border-white/60 text-white"
-                  : "bg-zinc-900 border-white/25 text-white/85 hover:bg-zinc-800 hover:border-white/45 hover:text-white"
-              }`}
+              className={`w-11 h-11 md:w-10 md:h-10 flex items-center justify-center rounded-full border transition-[transform,background-color,border-color] duration-150 disabled:opacity-35 disabled:pointer-events-none ${undoPress.pressed
+                ? "scale-90 bg-white/15 border-white/60 text-white"
+                : "bg-zinc-900 border-white/25 text-white/85 hover:bg-zinc-800 hover:border-white/45 hover:text-white"
+                }`}
             >
               <RotateCcw size={17} />
             </button>
@@ -744,11 +744,10 @@ function SwipeCard({
                 data-testid="swipe-skip"
                 aria-label="Salta questo titolo"
                 title="Freccia sinistra"
-                className={`w-14 h-14 md:w-[52px] md:h-[52px] rounded-full border-2 flex items-center justify-center transition-[transform,background-color,border-color,color] duration-150 ${!isTop ? "opacity-0 pointer-events-none" : ""} ${
-                  skipPress.pressed
-                    ? "scale-90 bg-red-500/40 border-red-300 text-red-300"
-                    : "bg-zinc-900 border-red-400/90 text-red-400 hover:bg-red-900/60 hover:border-red-400"
-                }`}
+                className={`w-14 h-14 md:w-[52px] md:h-[52px] rounded-full border-2 flex items-center justify-center transition-[transform,background-color,border-color,color] duration-150 ${!isTop ? "opacity-0 pointer-events-none" : ""} ${skipPress.pressed
+                  ? "scale-90 bg-red-500/40 border-red-300 text-red-300"
+                  : "bg-zinc-900 border-red-400/90 text-red-400 hover:bg-red-900/60 hover:border-red-400"
+                  }`}
               >
                 <X size={24} strokeWidth={3} />
               </button>
@@ -762,11 +761,10 @@ function SwipeCard({
                   data-testid="swipe-details"
                   aria-label="Apri dettagli"
                   title="Enter"
-                  className={`w-10 h-10 md:w-9 md:h-9 rounded-full border flex items-center justify-center transition-[transform,background-color,border-color] duration-150 ${detailsMobileOnly ? "md:hidden" : ""} ${!isTop ? "opacity-0 pointer-events-none" : ""} ${
-                    infoPress.pressed
-                      ? "scale-90 bg-white/20 border-white text-white"
-                      : "bg-zinc-900 border-white/50 text-white/90 hover:bg-zinc-800 hover:text-white"
-                  }`}
+                  className={`w-10 h-10 md:w-9 md:h-9 rounded-full border flex items-center justify-center transition-[transform,background-color,border-color] duration-150 ${detailsMobileOnly ? "md:hidden" : ""} ${!isTop ? "opacity-0 pointer-events-none" : ""} ${infoPress.pressed
+                    ? "scale-90 bg-white/20 border-white text-white"
+                    : "bg-zinc-900 border-white/50 text-white/90 hover:bg-zinc-800 hover:text-white"
+                    }`}
                 >
                   <ChevronRight size={20} strokeWidth={2.5} />
                 </button>
@@ -780,11 +778,10 @@ function SwipeCard({
                 data-testid="swipe-seen"
                 aria-label="Segna come visto"
                 title="Freccia destra"
-                className={`w-14 h-14 md:w-[52px] md:h-[52px] rounded-full border-2 flex items-center justify-center transition-[transform,background-color,border-color,color] duration-150 ${!isTop ? "opacity-0 pointer-events-none" : ""} ${
-                  checkPress.pressed
-                    ? "scale-90 bg-emerald-500/40 border-emerald-300 text-emerald-300"
-                    : "bg-zinc-900 border-emerald-400/90 text-emerald-400 hover:bg-emerald-900/60 hover:border-emerald-400"
-                }`}
+                className={`w-14 h-14 md:w-[52px] md:h-[52px] rounded-full border-2 flex items-center justify-center transition-[transform,background-color,border-color,color] duration-150 ${!isTop ? "opacity-0 pointer-events-none" : ""} ${checkPress.pressed
+                  ? "scale-90 bg-emerald-500/40 border-emerald-300 text-emerald-300"
+                  : "bg-zinc-900 border-emerald-400/90 text-emerald-400 hover:bg-emerald-900/60 hover:border-emerald-400"
+                  }`}
               >
                 <Check size={24} strokeWidth={3} />
               </button>
@@ -799,11 +796,10 @@ function SwipeCard({
               data-testid="swipe-wishlist"
               aria-label="Aggiungi alla wishlist"
               title="W"
-              className={`w-11 h-11 md:w-10 md:h-10 flex items-center justify-center rounded-full border transition-[transform,background-color,border-color,color] duration-150 disabled:opacity-35 disabled:pointer-events-none ${
-                wishlistPress.pressed
-                  ? "scale-90 bg-amber-500/20 border-amber-400/60 text-amber-400"
-                  : "bg-zinc-900 border-white/25 text-white/85 hover:bg-zinc-800 hover:border-white/45 hover:text-white"
-              }`}
+              className={`w-11 h-11 md:w-10 md:h-10 flex items-center justify-center rounded-full border transition-[transform,background-color,border-color,color] duration-150 disabled:opacity-35 disabled:pointer-events-none ${wishlistPress.pressed
+                ? "scale-90 bg-amber-500/20 border-amber-400/60 text-amber-400"
+                : "bg-zinc-900 border-white/25 text-white/85 hover:bg-zinc-800 hover:border-white/45 hover:text-white"
+                }`}
             >
               <Bookmark size={17} fill="none" />
             </button>
@@ -1085,7 +1081,10 @@ export function SwipeMode({
   onUndo: onUndoCallback,
   onUndoWishlist,
 }: SwipeModeProps) {
-  const supabase = createClient();
+  const supabase = createClient()
+  const { locale } = useLocale()
+  const swipeUi = appCopy[locale].swipe
+  const commonUi = appCopy[locale].common
   const isTabActive = useTabActive();
   // userId risolto una sola volta al mount — evita getUser() ad ogni swipe/skip
   const userIdRef = useRef<string | null>(userIdProp ?? null);
@@ -1188,7 +1187,7 @@ export function SwipeMode({
           ...existing,
           ...fresh.filter((i) => !existingIds.has(i.id)),
         ].slice(0, PRELOAD_TARGET);
-      } catch {}
+      } catch { }
       categoryLoading.current[filter] = false;
     },
     [onRequestMore],
@@ -1249,7 +1248,7 @@ export function SwipeMode({
             retryFresh.forEach((i) => seen.add(i.id));
           }
         }
-      } catch {}
+      } catch { }
       setIsLoadingMore(false);
       loadingRef.current = false;
     },
@@ -1316,7 +1315,7 @@ export function SwipeMode({
         title: item.title,
         type: item.type,
       }),
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   const removeSkip = useCallback((item: SwipeItem) => {
@@ -1324,7 +1323,7 @@ export function SwipeMode({
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ external_id: item.id }),
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   const handleSwipe = useCallback(
@@ -1378,7 +1377,7 @@ export function SwipeMode({
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ external_id: last.id }),
-        }).catch(() => {});
+        }).catch(() => { });
       }
       // Notifica il parent (per onboarding)
       onUndoWishlist?.(last);
@@ -1471,7 +1470,7 @@ export function SwipeMode({
             type: item.type,
             cover_image: item.coverImage,
           }),
-        }).catch(() => {});
+        }).catch(() => { });
       }
     },
     [handleSwipe, isOnboarding, onWishlistCallback],
@@ -1658,9 +1657,9 @@ export function SwipeMode({
               ? "absolute z-20 left-3 right-3 top-5 flex justify-center md:top-7"
               : isMirrorOnboardingLayout
                 ? "absolute z-20 left-3 right-3 top-5 flex justify-center md:left-[280px] md:right-0 md:top-7"
-              : isFullscreenSwipe
-                ? "absolute z-20 left-3 right-3 top-3 flex justify-center md:left-[max(24px,calc(50%-500px))] md:right-auto md:top-1/2 md:-translate-y-1/2 md:w-[174px]"
-                : "relative z-20 flex-shrink-0 flex justify-center px-3 md:absolute md:left-4 md:top-4 md:bottom-4 md:w-44 md:items-start md:px-0"
+                : isFullscreenSwipe
+                  ? "absolute z-20 left-3 right-3 top-3 flex justify-center md:left-[max(24px,calc(50%-500px))] md:right-auto md:top-1/2 md:-translate-y-1/2 md:w-[174px]"
+                  : "relative z-20 flex-shrink-0 flex justify-center px-3 md:absolute md:left-4 md:top-4 md:bottom-4 md:w-44 md:items-start md:px-0"
           }
         >
           <div
@@ -1679,9 +1678,9 @@ export function SwipeMode({
                   ? "min-w-0 max-w-full overflow-x-auto rounded-[999px] bg-black/28 p-1.5 shadow-[0_14px_46px_rgba(0,0,0,0.22)] backdrop-blur-xl scrollbar-hide"
                   : isMirrorOnboardingLayout
                     ? "min-w-0 max-w-full overflow-x-auto rounded-[999px] bg-black/28 p-1.5 shadow-[0_14px_46px_rgba(0,0,0,0.22)] backdrop-blur-xl scrollbar-hide md:w-auto md:overflow-visible"
-                  : isFullscreenSwipe
-                    ? "min-w-0 max-w-full overflow-x-auto rounded-[22px] border border-white/5 bg-black/24 p-1.5 shadow-[0_10px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl scrollbar-hide md:w-full md:overflow-visible md:rounded-[26px] md:border-[rgba(230,255,61,0.12)] md:bg-[linear-gradient(180deg,rgba(230,255,61,0.07),rgba(12,12,16,0.72))] md:p-3 md:ring-1 md:ring-white/5 md:shadow-[0_18px_54px_rgba(0,0,0,0.34)]"
-                    : "min-w-0 flex-1 overflow-x-auto rounded-[24px] border border-white/5 bg-black/18 p-1.5 shadow-[0_10px_34px_rgba(0,0,0,0.18)] scrollbar-hide md:h-full md:overflow-y-auto md:overflow-x-hidden"
+                    : isFullscreenSwipe
+                      ? "min-w-0 max-w-full overflow-x-auto rounded-[22px] border border-white/5 bg-black/24 p-1.5 shadow-[0_10px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl scrollbar-hide md:w-full md:overflow-visible md:rounded-[26px] md:border-[rgba(230,255,61,0.12)] md:bg-[linear-gradient(180deg,rgba(230,255,61,0.07),rgba(12,12,16,0.72))] md:p-3 md:ring-1 md:ring-white/5 md:shadow-[0_18px_54px_rgba(0,0,0,0.34)]"
+                      : "min-w-0 flex-1 overflow-x-auto rounded-[24px] border border-white/5 bg-black/18 p-1.5 shadow-[0_10px_34px_rgba(0,0,0,0.18)] scrollbar-hide md:h-full md:overflow-y-auto md:overflow-x-hidden"
               }
               data-testid="swipe-filter-bar"
             >
@@ -1691,9 +1690,9 @@ export function SwipeMode({
                     ? "flex w-max min-w-full items-center justify-start gap-1.5 md:justify-center"
                     : isMirrorOnboardingLayout
                       ? "flex w-max min-w-full items-center justify-start gap-1.5 md:w-auto md:min-w-0 md:justify-center"
-                    : isFullscreenSwipe
-                      ? "flex w-max min-w-full items-center justify-center gap-1.5 md:w-full md:min-w-0 md:flex-col md:items-stretch md:justify-start md:gap-2"
-                      : "flex w-max min-w-full items-center justify-center gap-2 md:w-full md:min-w-0 md:flex-col md:items-stretch md:justify-start"
+                      : isFullscreenSwipe
+                        ? "flex w-max min-w-full items-center justify-center gap-1.5 md:w-full md:min-w-0 md:flex-col md:items-stretch md:justify-start md:gap-2"
+                        : "flex w-max min-w-full items-center justify-center gap-2 md:w-full md:min-w-0 md:flex-col md:items-stretch md:justify-start"
                 }
               >
                 {CATEGORIES.map((cat) => {
@@ -1704,11 +1703,10 @@ export function SwipeMode({
                       onClick={() => handleFilterChange(cat.key)}
                       data-testid={`swipe-filter-${cat.key}`}
                       aria-pressed={active}
-                      className={`flex-shrink-0 rounded-full text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${isOnboarding || isMirrorOnboardingLayout ? "px-4 py-2.5 text-[13px]" : isFullscreenSwipe ? "px-3.5 py-2 md:w-full md:justify-start md:px-3.5 md:py-2.5 md:text-left md:text-[13px]" : "px-4 py-2 md:w-full md:justify-center md:px-3 md:py-2"} ${
-                        active
-                          ? "bg-[var(--accent)] text-[#0B0B0F] shadow-[0_0_26px_rgba(230,255,61,0.18)]"
-                          : "bg-[rgba(244,244,245,0.07)] text-[var(--text-secondary)] hover:bg-[rgba(244,244,245,0.12)] hover:text-[var(--text-primary)]"
-                      }`}
+                      className={`flex-shrink-0 rounded-full text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${isOnboarding || isMirrorOnboardingLayout ? "px-4 py-2.5 text-[13px]" : isFullscreenSwipe ? "px-3.5 py-2 md:w-full md:justify-start md:px-3.5 md:py-2.5 md:text-left md:text-[13px]" : "px-4 py-2 md:w-full md:justify-center md:px-3 md:py-2"} ${active
+                        ? "bg-[var(--accent)] text-[#0B0B0F] shadow-[0_0_26px_rgba(230,255,61,0.18)]"
+                        : "bg-[rgba(244,244,245,0.07)] text-[var(--text-secondary)] hover:bg-[rgba(244,244,245,0.12)] hover:text-[var(--text-primary)]"
+                        }`}
                     >
                       {cat.label}
                     </button>
@@ -1727,9 +1725,9 @@ export function SwipeMode({
               ? "relative z-10 flex-1 flex items-center justify-center px-4 min-h-0 pt-[92px] pb-4 md:pt-[98px] md:pb-6"
               : isMirrorOnboardingLayout
                 ? "relative z-10 flex-1 flex items-center justify-center px-4 min-h-0 pt-[92px] pb-4 md:pt-[98px] md:pb-6 md:pl-[280px] md:pr-8"
-              : isFullscreenSwipe
-                ? "relative z-10 flex-1 flex items-center justify-center px-4 min-h-0 pt-[88px] pb-4 md:py-5 md:pl-[172px]"
-                : "relative z-10 flex-1 flex items-center justify-center px-4 min-h-0 py-2 md:py-3 md:pl-52"
+                : isFullscreenSwipe
+                  ? "relative z-10 flex-1 flex items-center justify-center px-4 min-h-0 pt-[88px] pb-4 md:py-5 md:pl-[172px]"
+                  : "relative z-10 flex-1 flex items-center justify-center px-4 min-h-0 py-2 md:py-3 md:pl-52"
           }
         >
           {filteredQueue.length === 0 ? (
@@ -1778,7 +1776,7 @@ export function SwipeMode({
                   ? "grid w-full max-w-[1180px] items-center justify-center gap-6 md:grid-cols-[minmax(360px,440px)_minmax(430px,510px)] md:gap-10"
                   : isMirrorOnboardingLayout
                     ? "grid w-full max-w-[1100px] items-center justify-center gap-6 md:grid-cols-[minmax(340px,420px)_minmax(430px,510px)] md:gap-8"
-                  : "contents"
+                    : "contents"
               }
             >
               {(isOnboarding || isMirrorOnboardingLayout) && topItem && (
@@ -1827,7 +1825,7 @@ export function SwipeMode({
                       <div className="rounded-[22px] border border-white/8 bg-white/[0.035] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
                         <div className="mb-2 flex items-center gap-3">
                           <p className="text-[11px] font-black uppercase tracking-[0.14em] text-white/44">
-                            Descrizione
+                            {swipeUi.description}
                           </p>
                         </div>
                         <div className={`gk-onboarding-desc-scroll overflow-y-auto pr-2 text-sm leading-6 text-white/70 ${isOnboarding ? "max-h-[220px]" : "max-h-[150px]"}`}>
@@ -1848,7 +1846,7 @@ export function SwipeMode({
                   </div>
                   <div className={isOnboarding ? "mt-4 shrink-0 rounded-[24px] border border-[rgba(230,255,61,0.12)] bg-[rgba(230,255,61,0.055)] p-4" : "mt-4 shrink-0 rounded-[22px] border border-[rgba(230,255,61,0.10)] bg-[rgba(230,255,61,0.045)] p-3.5"}>
                     <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--accent)]">
-                      Come funziona
+                      {swipeUi.howItWorks}
                     </p>
                     <p className="mt-2 text-sm leading-6 text-white/64">
                       Dai una valutazione, salta ciò che non ti interessa o

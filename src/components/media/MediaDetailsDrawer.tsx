@@ -16,6 +16,8 @@ import { StarRating } from '@/components/ui/StarRating'
 import { translateGenre } from '@/lib/genres'
 import { MediaDetailsHero, MediaDetailsSection, MediaDetailsTag } from '@/components/media/MediaDetailsPrimitives'
 import { optimizeCover } from '@/lib/imageOptimizer'
+import { useLocale } from '@/lib/locale'
+import { appCopy, typeLabel, genreLabel, relationLabels } from '@/lib/i18n/uiCopy'
 
 // ─── Tipi ─────────────────────────────────────────────────────────────────────
 
@@ -124,7 +126,7 @@ const TYPE_ICON: Record<string, React.ElementType> = {
 
 const RELATION_LABEL: Record<string, string> = {
   SEQUEL: 'Sequel', PREQUEL: 'Prequel', SIDE_STORY: 'Side story',
-  SPIN_OFF: 'Spin-off', ALTERNATIVE: 'Alternativo',
+  SPIN_OFF: 'Spin-off', ALTERNATIVE: 'Alternative',
 }
 
 // ─── Componente ───────────────────────────────────────────────────────────────
@@ -144,6 +146,9 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
   const [descExpanded, setDescExpanded] = useState(false)
   const formRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
+  const { locale } = useLocale()
+  const ui = appCopy[locale].drawer
+  const commonUi = appCopy[locale].common
 
   const historyPushedRef = useRef(false)
   const closingRef = useRef(false)  // true while our own history.back() is in flight
@@ -253,6 +258,11 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
         external_id: media.id,
         title: media.title,
         title_en: media.title_en || media.title,
+        title_original: (media as any).title_original || media.title,
+        title_it: (media as any).title_it || null,
+        description_en: (media as any).description_en || media.description || null,
+        description_it: (media as any).description_it || null,
+        localized: (media as any).localized || null,
         type: media.type,
         cover_image: media.coverImage,
         genres: media.genres || [],
@@ -310,6 +320,12 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
           title: media.title,
           type: media.type,
           cover_image: media.coverImage,
+          title_original: (media as any).title_original || media.title,
+          title_en: (media as any).title_en || media.title,
+          title_it: (media as any).title_it || null,
+          description_en: (media as any).description_en || media.description || null,
+          description_it: (media as any).description_it || null,
+          localized: (media as any).localized || null,
         }),
       }).catch(() => null)
       if (!res?.ok) { setWishlistBusy(false); return }
@@ -466,15 +482,15 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
   const creatorLabel = creatorList?.slice(0, 2).join(', ') ?? null
   const creatorTitle = isManga
-    ? (media.authors?.length ? 'Autori' : 'Editori')
-    : (media.studios?.length ? 'Studio' : media.directors?.length ? 'Registi' : 'Autori')
+    ? (media.authors?.length ? ui.authors : ui.publishers)
+    : (media.studios?.length ? ui.studios : media.directors?.length ? ui.directors : ui.authors)
 
   const continuityRelations = (media.relations || [])
     .filter(r => ['SEQUEL', 'PREQUEL', 'SIDE_STORY', 'SPIN_OFF'].includes(r.relationType))
     .slice(0, 4)
 
   const isLongDesc = (media.description?.length ?? 0) > 350
-  const timeLabel = (media.type === 'anime' || media.type === 'tv') ? 'min/ep' : 'min'
+  const timeLabel = (media.type === 'anime' || media.type === 'tv') ? commonUi.minutesPerEpisode : commonUi.minutesShort
 
   // Portal to body so the drawer is in the root stacking context.
   // z-[80]: below MobileHeader (z-99) and Navbar (z-100) — they overlay the edges.
@@ -561,10 +577,10 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
             {/* Generi */}
             {media.genres && media.genres.length > 0 && (
-              <MediaDetailsSection title="Generi" icon={<Hash size={13} />}>
+              <MediaDetailsSection title={ui.genres} icon={<Hash size={13} />}>
                 <div className="flex flex-wrap gap-1.5">
                   {media.genres.map(g => (
-                    <MediaDetailsTag key={g} accent>{translateGenre(g)}</MediaDetailsTag>
+                    <MediaDetailsTag key={g} accent>{genreLabel(genreLabel(g, locale), locale)}</MediaDetailsTag>
                   ))}
                 </div>
               </MediaDetailsSection>
@@ -572,7 +588,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
             {/* Perché te lo consigliamo */}
             {media.why && (
-              <MediaDetailsSection title="Perché te lo consigliamo" icon={<Sparkles size={13} />}>
+              <MediaDetailsSection title={ui.why} icon={<Sparkles size={13} />}>
                 <p className="text-sm leading-relaxed text-[rgba(230,255,61,0.85)]">{media.why}</p>
               </MediaDetailsSection>
             )}
@@ -588,7 +604,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               )
               if (media.score != null) cells.push(
                 <div key="score" className="rounded-2xl bg-black/18 p-3 text-center ring-1 ring-white/5">
-                  <p className="gk-label mb-1">Voto</p>
+                  <p className="gk-label mb-1">{commonUi.score}</p>
                   <div className="flex items-center justify-center gap-1">
                     <Star size={11} className="text-yellow-400 fill-yellow-400" />
                     <p className="font-mono-data text-[18px] font-black text-[var(--text-primary)]">{(media.score!).toFixed(1)}</p>
@@ -598,39 +614,39 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               )
               if (media.year) cells.push(
                 <div key="year" className="rounded-2xl bg-black/18 p-3 text-center ring-1 ring-white/5">
-                  <p className="gk-label mb-1">Anno</p>
+                  <p className="gk-label mb-1">{commonUi.year}</p>
                   <p className="font-mono-data text-[18px] font-black text-[var(--text-primary)]">{media.year}</p>
                 </div>
               )
               if (media.episodes != null && media.episodes > 1) cells.push(
                 <div key="eps" className="rounded-2xl bg-black/18 p-3 text-center ring-1 ring-white/5">
                   <p className="gk-label mb-1">
-                    {media.type === 'manga' ? 'Cap.' : 'Ep.'}
+                    {media.type === 'manga' ? commonUi.chapters : commonUi.episodes}
                   </p>
                   <p className="font-mono-data text-[18px] font-black text-[var(--text-primary)]">{media.episodes}</p>
                 </div>
               )
               if (media.totalSeasons != null && media.totalSeasons > 1) cells.push(
                 <div key="seasons" className="rounded-2xl bg-black/18 p-3 text-center ring-1 ring-white/5">
-                  <p className="gk-label mb-1">Stagioni</p>
+                  <p className="gk-label mb-1">{commonUi.seasons}</p>
                   <p className="font-mono-data text-[18px] font-black text-[var(--text-primary)]">{media.totalSeasons}</p>
                 </div>
               )
               if (media.playing_time) cells.push(
                 <div key="time" className="rounded-2xl bg-black/18 p-3 text-center ring-1 ring-white/5">
-                  <p className="gk-label mb-1">Durata</p>
+                  <p className="gk-label mb-1">{commonUi.duration}</p>
                   <p className="font-mono-data text-[18px] font-black text-[var(--text-primary)]">{media.playing_time}<span className="ml-0.5 text-[10px] text-[var(--text-muted)]">m</span></p>
                 </div>
               )
               if (media.complexity) cells.push(
                 <div key="cmplx" className="rounded-2xl bg-black/18 p-3 text-center ring-1 ring-white/5">
-                  <p className="gk-label mb-1">Difficoltà</p>
+                  <p className="gk-label mb-1">{commonUi.difficulty}</p>
                   <p className="font-mono-data text-[18px] font-black text-[var(--text-primary)]">{media.complexity.toFixed(1)}<span className="text-[10px] text-[var(--text-muted)]">/5</span></p>
                 </div>
               )
               if (media.min_players != null || media.max_players != null) cells.push(
                 <div key="players" className="rounded-2xl bg-black/18 p-3 text-center ring-1 ring-white/5">
-                  <p className="gk-label mb-1">Giocatori</p>
+                  <p className="gk-label mb-1">{commonUi.players}</p>
                   <p className="font-mono-data text-[18px] font-black text-[var(--text-primary)]">
                     {media.min_players === media.max_players
                       ? media.min_players
@@ -640,7 +656,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
               )
               if (media.pages) cells.push(
                 <div key="pages" className="rounded-2xl bg-black/18 p-3 text-center ring-1 ring-white/5">
-                  <p className="gk-label mb-1">Pagine</p>
+                  <p className="gk-label mb-1">{commonUi.pages}</p>
                   <p className="text-lg font-bold text-white">{media.pages}</p>
                 </div>
               )
@@ -926,8 +942,8 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                   onClick={handleToggleWishlist}
                   disabled={wishlistBusy}
                   className={`flex-1 py-2 rounded-2xl text-xs font-bold border transition-all disabled:opacity-60 flex items-center justify-center gap-1.5 ${inWishlist
-                      ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
-                      : 'bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[rgba(230,255,61,0.45)]'
+                    ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                    : 'bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[rgba(230,255,61,0.45)]'
                     }`}
                 >
                   <Bookmark size={12} fill={inWishlist ? 'currentColor' : 'none'} />

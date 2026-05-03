@@ -158,7 +158,7 @@ const ContinuitySection = memo(function ContinuitySection({ items, onFeedback, o
                   {TYPE_LABEL[item.type]}
                 </div>
                 <div className="absolute bottom-0 inset-x-0 h-20 bg-gradient-to-t from-black/80 to-transparent" />
-  
+
               </div>
               <p className="text-xs font-bold text-white leading-tight line-clamp-2 mb-0.5">{item.title}</p>
             </div>
@@ -382,31 +382,31 @@ function SimilarSearchBar({ onSearch, loading, actions }: {
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
         {/* Input — stile identico alla navbar */}
         <div className="relative min-w-0 flex-1">
-        <Search
-          size={14}
-          className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${searching || loading ? 'animate-pulse' : 'text-zinc-500'}`}
-          style={searching || loading ? { color: 'var(--accent)' } : {}}
-        />
-        <input
-          value={query}
-          onChange={e => handleChange(e.target.value)}
-          onFocus={() => suggestions.length > 0 && setOpen(true)}
-          onKeyDown={e => {
-            if (e.key === 'Escape') { setOpen(false); return }
-            if (e.key === 'Enter' && query.trim().length >= 2) {
-              setOpen(false)
-              if (suggestions.length > 0) handleSelect(suggestions[0])
-              else onSearch(query.trim(), [])
-            }
-          }}
-          placeholder="Cerca un titolo per trovare contenuti simili…"
-          className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl pl-9 pr-8 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
-        />
-        {query && (
-          <button onClick={handleClear} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors" aria-label="Cancella ricerca simili">
-            <X size={13} />
-          </button>
-        )}
+          <Search
+            size={14}
+            className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${searching || loading ? 'animate-pulse' : 'text-zinc-500'}`}
+            style={searching || loading ? { color: 'var(--accent)' } : {}}
+          />
+          <input
+            value={query}
+            onChange={e => handleChange(e.target.value)}
+            onFocus={() => suggestions.length > 0 && setOpen(true)}
+            onKeyDown={e => {
+              if (e.key === 'Escape') { setOpen(false); return }
+              if (e.key === 'Enter' && query.trim().length >= 2) {
+                setOpen(false)
+                if (suggestions.length > 0) handleSelect(suggestions[0])
+                else onSearch(query.trim(), [])
+              }
+            }}
+            placeholder="Cerca un titolo per trovare contenuti simili…"
+            className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl pl-9 pr-8 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
+          />
+          {query && (
+            <button onClick={handleClear} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors" aria-label="Cancella ricerca simili">
+              <X size={13} />
+            </button>
+          )}
         </div>
         {actions && (
           <div className="flex flex-shrink-0 items-center justify-end gap-2 lg:min-w-[240px]" data-no-swipe="true">
@@ -978,7 +978,7 @@ function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
       }
       // Fall back to recommendations API
       try {
-        const res = await fetch('/api/recommendations?type=all')
+        const res = await fetch('/api/recommendations?type=all&lang=${locale}')
         if (res.ok) {
           const json = await res.json()
           const all = (Object.values(json.recommendations || {}) as any[][]).flat()
@@ -1059,7 +1059,7 @@ function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
   }
 
   const requestMore = async (): Promise<SwipeItem[]> => {
-    const res = await fetch('/api/recommendations?type=all&refresh=1', { credentials: 'include' }).catch(() => null)
+    const res = await fetch('/api/recommendations?type=all&lang=${locale}&refresh=1', { credentials: 'include' }).catch(() => null)
     if (!res?.ok) return []
     const json = await res.json()
     const all = (Object.values(json.recommendations || {}) as any[][]).flat()
@@ -1090,7 +1090,7 @@ export default function ForYouPage() {
   const { scrollToTop } = useScrollPanel()
   const isActive = useTabActive()
   const supabase = createClient(); const router = useRouter()
-  const { t } = useLocale(); const fy = t.forYou
+  const { t, locale } = useLocale(); const fy = t.forYou
   const hasCachedData = forYouCache.recommendations !== null
   const [loading, setLoading] = useState(!hasCachedData); const [refreshing, setRefreshing] = useState(false)
   const [recommendations, setRecommendations] = useState<Record<string, Recommendation[]>>(forYouCache.recommendations ?? {})
@@ -1116,7 +1116,7 @@ export default function ForYouPage() {
   const fetchRecommendations = useCallback(async (force = false) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
-    const res = await fetch(`/api/recommendations?type=all${force ? '&refresh=1' : ''}`)
+    const res = await fetch(`/api/recommendations?type=all&lang=${locale}${force ? '&refresh=1' : ''}`)
     if (!res.ok) return
     const json = await res.json()
     const incoming = json.recommendations || {}
@@ -1260,7 +1260,7 @@ export default function ForYouPage() {
       }
 
       // 2. Pool vuota → calcola tutto
-      const recsRes = await fetch('/api/recommendations?type=all')
+      const recsRes = await fetch('/api/recommendations?type=all&lang=${locale}')
       if (recsRes.ok) {
         const json = await recsRes.json()
         const incoming = json.recommendations || {}
@@ -1293,7 +1293,7 @@ export default function ForYouPage() {
     setShowNewRecsBadge(false)
     const { data: { user } } = await supabase.auth.getUser()
     const [lightJson] = await Promise.all([
-      fetch('/api/recommendations?type=all&refresh=1', { cache: 'no-store' })
+      fetch('/api/recommendations?type=all&lang=${locale}&refresh=1', { cache: 'no-store' })
         .then(r => r.ok ? r.json() : null)
         .catch(() => null),
       user ? fetchFriends(user.id) : Promise.resolve(),

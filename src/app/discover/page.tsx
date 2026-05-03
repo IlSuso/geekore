@@ -11,6 +11,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/context/AuthContext'
 import { useLocale } from '@/lib/locale'
+import { appCopy, discoverFilterLabel, typeLabel } from '@/lib/i18n/uiCopy'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { SkeletonDiscoverCard } from '@/components/ui/SkeletonCard'
@@ -232,7 +233,7 @@ function triggerTasteDelta(options: {
   }).catch(() => {})
 }
 
-function useVoiceSearch(onResult: (text: string) => void) {
+function useVoiceSearch(onResult: (text: string) => void, locale: 'it' | 'en' = 'it') {
   const [isListening, setIsListening] = useState(false)
   const [isSupported, setIsSupported] = useState(false)
   const recRef = useRef<any>(null)
@@ -247,7 +248,7 @@ function useVoiceSearch(onResult: (text: string) => void) {
     haptic(40)
     const rec = new SR()
     recRef.current = rec
-    rec.lang = 'it-IT'
+    rec.lang = locale === 'en' ? 'en-US' : 'it-IT'
     rec.interimResults = false
     rec.maxAlternatives = 1
     rec.continuous = false
@@ -305,6 +306,7 @@ export default function DiscoverPage() {
   const authUser = useUser()
   const { t, locale } = useLocale()
   const d = t.discover
+  const ui = appCopy[locale]
 
   const [searchTerm, setSearchTerm] = useState('')
   const [activeType, setActiveType] = useState<string>('all')
@@ -327,7 +329,7 @@ export default function DiscoverPage() {
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const lastTrackedQueryRef = useRef<string>('')
 
-  const { isListening, isSupported: voiceSupported, toggle: toggleVoice } = useVoiceSearch((transcript) => setSearchTerm(transcript))
+  const { isListening, isSupported: voiceSupported, toggle: toggleVoice } = useVoiceSearch((transcript) => setSearchTerm(transcript), locale)
 
   const urlQuery = searchParams.get('q')?.trim() || ''
   const urlType = searchParams.get('type')?.trim() || ''
@@ -407,7 +409,7 @@ export default function DiscoverPage() {
         reqs.push(fetch(`/api/igdb?q=${encodeURIComponent(trimmed)}&lang=${lang}`, { signal: controller.signal }))
       }
       if (type === 'all' || type === 'boardgame') {
-        reqs.push(fetch(`/api/bgg?q=${encodeURIComponent(trimmed)}`, { signal: controller.signal }))
+        reqs.push(fetch(`/api/bgg?q=${encodeURIComponent(trimmed)}&lang=${lang}&lang=${lang}`, { signal: controller.signal }))
       }
 
       const responses = await Promise.allSettled(reqs)
@@ -546,7 +548,7 @@ export default function DiscoverPage() {
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
 
       <div className="mx-auto max-w-screen-xl px-4 pt-14 md:px-6 md:pt-8 xl:px-8">
-        <section className="mb-4 rounded-[24px] border border-[var(--border-subtle)] bg-[rgba(13,13,19,0.82)] p-3 shadow-[0_12px_42px_rgba(0,0,0,0.20)] ring-1 ring-white/5 backdrop-blur-xl" data-no-swipe="true" aria-label="Discover search">
+        <section className="mb-4 rounded-[24px] border border-[var(--border-subtle)] bg-[rgba(13,13,19,0.82)] p-3 shadow-[0_12px_42px_rgba(0,0,0,0.20)] ring-1 ring-white/5 backdrop-blur-xl" data-no-swipe="true" aria-label={ui.discover.searchLabel}>
           <div className="relative">
             <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
             <input
@@ -556,7 +558,7 @@ export default function DiscoverPage() {
               value={searchTerm}
               ref={searchInputRef}
               onChange={e => setSearchTerm(e.target.value)}
-              placeholder={isListening ? 'In ascolto...' : 'Cerca anime, film, giochi, serie...'}
+              placeholder={isListening ? ui.discover.listeningPlaceholder : ui.discover.searchPlaceholder}
               className={`h-[54px] w-full rounded-[18px] border pl-12 pr-[96px] text-[17px] font-semibold outline-none transition-colors ${isListening
                 ? 'border-red-500/40 bg-red-500/10 text-[var(--text-primary)] placeholder-red-400/60'
                 : 'border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[rgba(230,255,61,0.26)]'
@@ -569,7 +571,7 @@ export default function DiscoverPage() {
                   data-no-swipe="true"
                   onClick={() => { setSearchTerm(''); setResults([]); setIsPending(false); lastTrackedQueryRef.current = '' }}
                   className="grid h-9 w-9 place-items-center rounded-[14px] bg-[var(--bg-elevated)] text-[var(--text-muted)] transition-colors hover:text-white"
-                  aria-label="Cancella ricerca"
+                  aria-label={ui.discover.clearSearch}
                 >
                   <X size={15} strokeWidth={2.5} />
                 </button>
@@ -595,12 +597,12 @@ export default function DiscoverPage() {
                   <div key={i} className="w-0.5 animate-bounce rounded-full bg-red-400" style={{ height: h, animationDelay: `${i * 0.12}s` }} />
                 ))}
               </div>
-              <span className="flex-1 text-[13px] font-medium text-red-400">In ascolto...</span>
-              <button type="button" data-no-swipe="true" onClick={toggleVoice} className="text-[12px] text-red-400 hover:text-red-300">Annulla</button>
+              <span className="flex-1 text-[13px] font-medium text-red-400">{ui.discover.listening}</span>
+              <button type="button" data-no-swipe="true" onClick={toggleVoice} className="text-[12px] text-red-400 hover:text-red-300">{ui.common.cancel}</button>
             </div>
           )}
 
-          <div className="mt-2 flex flex-nowrap gap-2 overflow-x-auto pb-0.5 pr-1 scrollbar-hide" data-horizontal-scroll="true" aria-label="Filtri Discover">
+          <div className="mt-2 flex flex-nowrap gap-2 overflow-x-auto pb-0.5 pr-1 scrollbar-hide" data-horizontal-scroll="true" aria-label={ui.discover.filtersLabel}>
             {FILTERS.map(tf => (
               <button
                 key={tf.id}
@@ -614,7 +616,7 @@ export default function DiscoverPage() {
                 }`}
                 style={activeType === tf.id ? { background: 'var(--accent)', color: '#0B0B0F', border: '1px solid var(--accent)' } : {}}
               >
-                {tf.icon}{tf.label}
+                {tf.icon}{discoverFilterLabel(tf.id, locale)}
               </button>
             ))}
           </div>
@@ -629,7 +631,7 @@ export default function DiscoverPage() {
         {isPending && !loading && searchTerm.trim().length >= 2 && (
           <div className="mb-5 flex items-center justify-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] py-4">
             <Loader2 size={16} className="animate-spin" style={{ color: 'var(--accent)' }} />
-            <span className="text-[13px] text-[var(--text-secondary)]">Ricerca in corso…</span>
+            <span className="text-[13px] text-[var(--text-secondary)]">{ui.common.searching}</span>
           </div>
         )}
 
@@ -639,7 +641,7 @@ export default function DiscoverPage() {
 
         {!loading && !searchTerm.trim() && (
           <div className="space-y-5">
-            <DiscoverSection title="Parti da un universo" subtitle="Shortcut editoriali per aprire subito ricerche utili" icon={<Compass size={15} />} variant="panel" className="!mb-4">
+            <DiscoverSection title={ui.discover.browseTitle} subtitle={ui.discover.browseSubtitle} icon={<Compass size={15} />} variant="panel" className="!mb-4">
               <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-6">
                 {BROWSE_PROMPTS.map(prompt => (
                   <BrowseTile key={prompt.type} prompt={prompt} onClick={() => applyPrompt(prompt.q, prompt.type)} />
@@ -647,7 +649,7 @@ export default function DiscoverPage() {
               </div>
             </DiscoverSection>
 
-            <DiscoverSection title="Trending oggi" subtitle="Il mix più caldo tra community e cataloghi" icon={<Flame size={15} />} variant="panel">
+            <DiscoverSection title={ui.discover.trendingTitle} subtitle={ui.discover.trendingSubtitle} icon={<Flame size={15} />} variant="panel">
               {trendingToday.length === 0 ? (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">
                   {Array.from({ length: 8 }).map((_, i) => <div key={i} className="aspect-[2/3] animate-pulse rounded-xl bg-[var(--bg-card)]" />)}
@@ -764,7 +766,7 @@ export default function DiscoverPage() {
             </div>
 
             {grouped.map(([type, items]) => items.length === 0 ? null : (
-              <DiscoverSection key={type} title={TYPE_LABELS[type] || type} count={items.length} icon={TYPE_SECTION_ICON[type]} variant="panel">
+              <DiscoverSection key={type} title={typeLabel(type, locale)} count={items.length} icon={TYPE_SECTION_ICON[type]} variant="panel">
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">
                   {items.map((item) => (
                     <DiscoverMediaCard

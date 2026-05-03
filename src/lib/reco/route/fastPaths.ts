@@ -3,24 +3,28 @@ import { FORCE_REGEN_COOLDOWN_MINUTES } from '@/lib/reco/pool'
 import { finishRegen, tryStartRegen } from '@/lib/reco/regen-lock'
 import { refreshFromMasterPool, serveFromSavedPool } from '@/lib/reco/serving'
 import type { SupabaseClient } from './context'
+import type { Locale } from '@/lib/i18n/serverLocale'
+import { localizeRecommendationPayload } from '@/lib/i18n/recommendationLocale'
 
 export async function handlePoolOnlyFastPath({
   searchParams,
   forceRefresh,
   supabase,
   userId,
+  locale,
 }: {
   searchParams: URLSearchParams
   forceRefresh: boolean
   supabase: SupabaseClient
   userId: string
+  locale: Locale
 }): Promise<NextResponse | null> {
   const poolOnly = searchParams.get('source') === 'pool'
   if (!poolOnly || forceRefresh) return null
 
   const served = await serveFromSavedPool(supabase, userId)
   if (served) {
-    return NextResponse.json(served.payload, {
+    return NextResponse.json(localizeRecommendationPayload(served.payload, locale), {
       headers: { 'X-Cache': served.cacheHeader || 'POOL_HIT' },
     })
   }
@@ -38,11 +42,13 @@ export async function handleRefreshPoolFastPath({
   searchParams,
   supabase,
   userId,
+  locale,
 }: {
   request: NextRequest
   searchParams: URLSearchParams
   supabase: SupabaseClient
   userId: string
+  locale: Locale
 }): Promise<NextResponse | null> {
   const refreshPoolOnly = searchParams.get('source') === 'refresh_pool'
   if (!refreshPoolOnly) return null
@@ -57,10 +63,11 @@ export async function handleRefreshPoolFastPath({
 
     after(async () => {
       try {
-        await fetch(`${appUrl}/api/recommendations?type=all&types=${encodeURIComponent(depletedTypes.join(','))}&onboarding=1`, {
+        await fetch(`${appUrl}/api/recommendations?type=all&types=${encodeURIComponent(depletedTypes.join(','))}&onboarding=1&lang=${locale}`, {
           headers: {
             'X-Service-User-Id': userId,
             'X-Service-Secret': process.env.CRON_SECRET || '',
+            'x-lang': locale,
           },
           signal: AbortSignal.timeout(20_000),
         })
@@ -76,5 +83,5 @@ export async function handleRefreshPoolFastPath({
     }
   }
 
-  return NextResponse.json(payload)
+  return NextResponse.json(localizeRecommendationPayload(payload, locale))
 }

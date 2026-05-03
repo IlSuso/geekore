@@ -13,6 +13,7 @@ import { useUser } from '@/context/AuthContext'
 import { Avatar, getLocalAvatarSvg } from '@/components/ui/Avatar'
 import { useLocale } from '@/lib/locale'
 import { GeekoreWordmark } from '@/components/ui/GeekoreWordmark'
+import { appCopy } from '@/lib/i18n/appCopy'
 
 const AUTH_PATHS = ['/login', '/register', '/auth/confirm', '/forgot-password', '/auth/reset-password', '/onboarding']
 
@@ -21,7 +22,8 @@ export default function Navbar() {
   const router = useRouter()
   const { setActiveTab, activeTab } = useActiveTab()
   const supabase = createClient()
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
+  const copy = appCopy(locale)
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [displayName, setDisplayName] = useState<string | null>(null)
@@ -57,23 +59,23 @@ export default function Navbar() {
   const NAV_ITEMS = [
     { href: '/home', label: t.nav.home, icon: Home },
     { href: '/for-you', label: t.nav.forYou, icon: Sparkles },
-    { href: '/swipe', label: 'Swipe', icon: Shuffle },
+    { href: '/swipe', label: copy.nav.swipe, icon: Shuffle },
     { href: '/discover', label: t.nav.discover, icon: Compass },
-    { href: '/friends', label: 'Friends', icon: Users },
+    { href: '/friends', label: copy.nav.friends, icon: Users },
   ]
 
   const SECONDARY_NAV = [
-    { href: '/trending', label: 'Trending', icon: TrendingUp },
-    { href: '/wishlist', label: 'Wishlist', icon: Heart },
-    { href: '/leaderboard', label: 'Classifica', icon: Trophy },
-    { href: '/stats', label: 'Stats', icon: BarChart3 },
-    { href: '/lists', label: 'Liste', icon: List },
+    { href: '/trending', label: copy.nav.trending, icon: TrendingUp },
+    { href: '/wishlist', label: copy.nav.wishlist, icon: Heart },
+    { href: '/leaderboard', label: copy.nav.leaderboard, icon: Trophy },
+    { href: '/stats', label: copy.nav.stats, icon: BarChart3 },
+    { href: '/lists', label: copy.nav.lists, icon: List },
   ]
 
   const ACCOUNT_LINKS = [
-    { href: `/profile/${username || 'me'}`, label: 'Il tuo profilo', icon: User },
-    { href: '/library', label: 'Gestisci Library', icon: Library },
-    { href: '/settings', label: 'Impostazioni', icon: Settings },
+    { href: `/profile/${username || 'me'}`, label: copy.nav.yourProfile, icon: User },
+    { href: '/library', label: copy.nav.manageLibrary, icon: Library },
+    { href: '/settings', label: t.nav.settings, icon: Settings },
   ]
 
   useEffect(() => {
@@ -166,7 +168,7 @@ export default function Navbar() {
           <GeekoreWordmark size="md" />
         </div>
 
-        <nav className="space-y-1" aria-label="Navigazione principale desktop">
+        <nav className="space-y-1" aria-label={locale === 'it' ? 'Navigazione principale desktop' : 'Main desktop navigation'}>
           {NAV_ITEMS.map((item) => {
             const itemTab = pathnameToTab(item.href)
             const isActive = activeTab ? activeTab === itemTab : (item.href === '/home' ? pathname === '/home' || pathname === '/' : pathname === item.href)
@@ -199,11 +201,11 @@ export default function Navbar() {
             data-no-swipe="true"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Cerca utenti..."
+            placeholder={copy.nav.searchUsers}
             className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] py-2.5 pl-8 pr-8 text-[12px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-colors focus:border-[rgba(230,255,61,0.45)]"
           />
           {searchQuery && (
-            <button type="button" data-no-swipe="true" onClick={clearSearch} className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)]" aria-label="Cancella ricerca">
+            <button type="button" data-no-swipe="true" onClick={clearSearch} className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)]" aria-label={copy.nav.clearSearch}>
               <X size={12} />
             </button>
           )}
@@ -225,7 +227,7 @@ export default function Navbar() {
                   </div>
                 </Link>
               )) : searchQuery.length >= 2 && !searchLoading ? (
-                <div className="px-4 py-3 text-sm text-[var(--text-muted)]">Nessun utente trovato</div>
+                <div className="px-4 py-3 text-sm text-[var(--text-muted)]">{copy.nav.noUsers}</div>
               ) : null}
             </div>
           )}
@@ -233,7 +235,7 @@ export default function Navbar() {
 
         {/* Secondary nav — pagine raggiungibili */}
         <div className="mt-5">
-          <p className="gk-label mb-2 px-3">Scopri</p>
+          <p className="gk-label mb-2 px-3">{copy.nav.discoverGroup}</p>
           <div className="space-y-0.5">
             {SECONDARY_NAV.map(({ href, label, icon: Icon }) => {
               const isActive = pathname === href
@@ -256,7 +258,7 @@ export default function Navbar() {
         <div className="mt-auto border-t border-[var(--border-subtle)] pt-3">
           <Link href="/notifications" data-no-swipe="true" className="mb-1 flex h-9 items-center gap-2.5 rounded-xl px-3 text-[12px] font-bold text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35">
             <Bell size={15} />
-            Notifiche
+            {copy.nav.notifications}
           </Link>
 
           <div ref={menuRef} className="relative">
@@ -265,11 +267,11 @@ export default function Navbar() {
               data-no-swipe="true"
               onClick={() => setMenuOpen(o => !o)}
               className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${menuOpen ? 'border-[rgba(230,255,61,0.18)] bg-[rgba(230,255,61,0.06)]' : 'border-transparent hover:bg-[var(--bg-card-hover)]'}`}
-              aria-label="Menu account"
+              aria-label={copy.nav.accountMenu}
             >
               <Avatar src={avatarSrc} username={currentUsername || 'me'} displayName={currentDisplayName || 'Utente'} size={36} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-bold leading-snug text-[var(--text-primary)]">{currentDisplayName || currentUsername || 'Utente'}</p>
+                <p className="truncate text-[13px] font-bold leading-snug text-[var(--text-primary)]">{currentDisplayName || currentUsername || copy.nav.userFallback}</p>
                 {currentUsername && <p className="gk-mono truncate text-[var(--text-muted)]">@{currentUsername}</p>}
               </div>
               <ChevronDown size={14} className={`flex-shrink-0 text-[var(--text-muted)] transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
@@ -287,7 +289,7 @@ export default function Navbar() {
                 </div>
                 <button type="button" data-no-swipe="true" onClick={handleLogout} className="flex w-full items-center gap-2.5 border-t border-[var(--border)] px-4 py-3 text-left text-[13px] font-bold text-red-400 transition-colors hover:bg-[var(--bg-card-hover)] hover:text-red-300">
                   <LogOut size={15} />
-                  Esci da Geekore
+                  {copy.nav.logoutGeekore}
                 </button>
               </div>
             )}

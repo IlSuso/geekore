@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { persistLocale } from '@/lib/i18n/clientLocale'
 
 export type Locale = 'it' | 'en'
 
@@ -508,6 +509,61 @@ const LocaleContext = createContext<LocaleContextType>({
   locale: 'it', setLocale: () => {}, t: translations.it,
 })
 
+
+const LOCALIZED_API_PREFIXES = [
+  '/api/tmdb',
+  '/api/anilist',
+  '/api/igdb',
+  '/api/bgg',
+  '/api/recommendations',
+  '/api/trending',
+  '/api/news',
+  '/api/translate/description',
+]
+
+function installLocaleFetchBridge() {
+  if (typeof window === 'undefined') return
+  const w = window as any
+  if (w.__geekoreFetchBridgeInstalled) return
+
+  w.__geekoreFetchBridgeInstalled = true
+  w.__geekoreOriginalFetch = window.fetch.bind(window)
+
+  window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+    const currentLocale: Locale = w.__geekoreLocale === 'en' ? 'en' : 'it'
+
+    try {
+      const rawUrl = typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url
+      const url = new URL(rawUrl, window.location.origin)
+      const isSameOrigin = url.origin === window.location.origin
+      const shouldLocalize = isSameOrigin && LOCALIZED_API_PREFIXES.some(prefix => url.pathname.startsWith(prefix))
+
+      if (shouldLocalize) {
+        const method = (init?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase()
+        const headers = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined))
+        headers.set('x-lang', currentLocale)
+        headers.set('x-geekore-locale', currentLocale)
+
+        let nextInput: RequestInfo | URL = input
+        if (method === 'GET') {
+          if (!url.searchParams.has('lang')) url.searchParams.set('lang', currentLocale)
+          nextInput = rawUrl.startsWith('/') ? `${url.pathname}${url.search}${url.hash}` : url.toString()
+        }
+
+        return w.__geekoreOriginalFetch(nextInput, { ...init, headers })
+      }
+    } catch {
+      // fallback to original fetch
+    }
+
+    return w.__geekoreOriginalFetch(input, init)
+  }
+}
+
 function getCookieLocale(): Locale | null {
   if (typeof document === 'undefined') return null
   const match = document.cookie.match(/(?:^|;\s*)geekore_locale=([^;]+)/)
@@ -528,13 +584,17 @@ export function LocaleProvider({ children, initialLocale = 'it' }: { children: R
   })
 
   useEffect(() => {
+    const w = window as any
+    w.__geekoreLocale = locale
+    installLocaleFetchBridge()
     setCookieLocale(locale)
+    document.documentElement.lang = locale
   }, [locale])
 
   const setLocale = (l: Locale) => {
     setLocaleState(l)
-    localStorage.setItem('geekore_locale', l)
-    setCookieLocale(l)
+    if (typeof document !== 'undefined') document.documentElement.lang = l
+    void persistLocale(l)
   }
 
   return (

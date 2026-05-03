@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { rateLimitAsync } from '@/lib/rateLimit'
 import { translateWithCache } from '@/lib/deepl'
 import { truncateAtSentence } from '@/lib/utils'
+import { getRequestLocale } from '@/lib/i18n/serverLocale'
 
 const ANILIST_API = 'https://graphql.anilist.co'
 
@@ -57,7 +58,8 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const q = searchParams.get('q') || searchParams.get('search') || ''
   const typeParam = (searchParams.get('type') || '').toLowerCase()
-  const lang = searchParams.get('lang') || 'it'
+  const locale = await getRequestLocale(request)
+  const lang = locale
 
   if (!q || q.trim().length < 2) return NextResponse.json([], { headers: rl.headers })
 
@@ -152,15 +154,22 @@ export async function GET(request: NextRequest) {
             })
           }
 
+          const title = m.title?.english || m.title?.romaji || 'Senza titolo'
+          const descriptionEn = m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 400) : undefined
+
           return {
             id: `anilist-${type}-${m.id}`,
-            title: m.title?.english || m.title?.romaji || 'Senza titolo',
+            title,
+            title_original: m.title?.romaji || title,
+            title_en: title,
             titleRomaji: m.title?.romaji || undefined,
             type,
             coverImage: m.coverImage.extraLarge || m.coverImage.large,
             year: m.seasonYear,
             episodes: isAnime ? m.episodes : m.chapters,
-            description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 400) : undefined,
+            description: descriptionEn,
+            description_en: descriptionEn,
+            localized: { en: { title, description: descriptionEn } },
             genres: m.genres || [],
             tags: (m.tags || [])
               .filter((t: any) => t.rank >= 60)
@@ -186,7 +195,11 @@ export async function GET(request: NextRequest) {
       const items = toTranslate.map((r: any) => ({ id: r.id, text: r.description }))
       const translated = await translateWithCache(items, 'IT', 'EN')
       toTranslate.forEach((r: any) => {
-        if (translated[r.id]) r.description = translated[r.id]
+        if (translated[r.id]) {
+          r.description = translated[r.id]
+          r.description_it = translated[r.id]
+          r.localized = { ...(r.localized || {}), it: { title: r.title, description: translated[r.id] } }
+        }
       })
     }
   }

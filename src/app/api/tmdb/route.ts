@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimitAsync } from '@/lib/rateLimit'
 import { truncateAtSentence } from '@/lib/utils'
+import { getRequestLocale, localeToTmdbLanguage } from '@/lib/i18n/serverLocale'
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
 
@@ -45,8 +46,8 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const q = searchParams.get('q') || searchParams.get('search') || ''
   const typeParam = searchParams.get('type')
-  const langParam = searchParams.get('lang')
-  const tmdbLang = langParam === 'en' ? 'en-US' : 'it-IT'
+  const locale = await getRequestLocale(request)
+  const tmdbLang = localeToTmdbLanguage(locale)
 
   if (!q || q.trim().length < 2) return NextResponse.json([], { headers: rl.headers })
 
@@ -127,17 +128,26 @@ export async function GET(request: NextRequest) {
           const titleEn = tmdbLang === 'en-US'
             ? localTitle
             : (enMap.get(m.id) || m.original_title || m.original_name || localTitle)
+          const description = m.overview ? truncateAtSentence(m.overview, 400) : undefined
 
           return {
             id: m.id.toString(),
-            title: localTitle || 'No title',
+            title: localTitle || titleEn || 'No title',
+            title_original: m.original_title || m.original_name || titleEn || localTitle || undefined,
             title_en: titleEn || localTitle || 'No title',
+            title_it: locale === 'it' ? (localTitle || undefined) : undefined,
             type: mediaType,
             coverImage: tmdbImage(m.poster_path),
             year: m.release_date
               ? parseInt(m.release_date.substring(0, 4))
               : m.first_air_date ? parseInt(m.first_air_date.substring(0, 4)) : undefined,
-            description: m.overview ? truncateAtSentence(m.overview, 400) : undefined,
+            description,
+            description_en: locale === 'en' ? description : undefined,
+            description_it: locale === 'it' ? description : undefined,
+            localized: {
+              [locale]: { title: localTitle || titleEn || 'No title', description },
+              ...(titleEn ? { en: { title: titleEn } } : {}),
+            },
             genres: resolveGenreNames(m.genre_ids || [], mediaType),
             episodes: totalEpisodes,
             totalSeasons: seasons ? Object.keys(seasons).length : undefined,

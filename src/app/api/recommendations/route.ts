@@ -1,6 +1,5 @@
 // DESTINAZIONE: src/app/api/recommendations/route.ts
 // TASTE ENGINE V5 — route orchestrator.
-// Heavy route logic is extracted under src/lib/reco/route/*.
 
 export const maxDuration = 60
 
@@ -9,7 +8,6 @@ import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
 import { memCacheGet, memCacheSet, memCacheInvalidate } from '@/lib/reco/cache'
 import type { MediaType } from '@/lib/reco/engine-types'
-import { composeRecommendationRails } from '@/lib/reco/rails'
 import { sampleAndPersistFromMasterPool } from '@/lib/reco/serving'
 import type { MasterGeneratorContext } from '@/lib/reco/recruitment/master-generator'
 import { resolveRecommendationContext } from '@/lib/reco/route/context'
@@ -26,12 +24,11 @@ import {
   persistCreatorProfile,
   updateRecommendationPoolProfile,
 } from '@/lib/reco/route/response'
-
-function flattenRecommendations(value: unknown): any[] {
-  if (Array.isArray(value)) return value
-  if (!value || typeof value !== 'object') return []
-  return Object.values(value as Record<string, unknown>).flatMap(group => Array.isArray(group) ? group : [])
-}
+import { getRequestLocale } from '@/lib/i18n/serverLocale'
+import {
+  buildLocalizedRecommendationPayload,
+  localizeRecommendationsRecord,
+} from '@/lib/i18n/recommendationLocale'
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,6 +36,7 @@ export async function GET(request: NextRequest) {
     if (context.response) return context.response
 
     const { searchParams, supabase, userId, isServiceCall } = context
+    const locale = await getRequestLocale(request, supabase, userId)
 
     const requestedType = searchParams.get('type') || 'all'
     const forceRefresh = searchParams.get('refresh') === '1'
@@ -46,39 +44,33 @@ export async function GET(request: NextRequest) {
     const isOnboardingCall = searchParams.get('onboarding') === '1'
     const onboardingTypes = searchParams.get('types')?.split(',').filter(Boolean) as MediaType[] | undefined
 
-    const poolOnlyResponse = await handlePoolOnlyFastPath({ searchParams, forceRefresh, supabase, userId })
+    const poolOnlyResponse = await handlePoolOnlyFastPath({ searchParams, forceRefresh, supabase, userId, locale })
     if (poolOnlyResponse) return poolOnlyResponse
 
-    const refreshPoolResponse = await handleRefreshPoolFastPath({ request, searchParams, supabase, userId })
+    const refreshPoolResponse = await handleRefreshPoolFastPath({ request, searchParams, supabase, userId, locale })
     if (refreshPoolResponse) return refreshPoolResponse
 
     if (!forceRefresh && !similarToId && !isServiceCall) {
-      const memHit = memCacheGet(userId)
+      const memHit = memCacheGet(userId, locale)
       if (memHit) {
-        const recs = requestedType === 'all'
+        const canonicalRecs = requestedType === 'all'
           ? memHit.data
           : { [requestedType]: memHit.data[requestedType] || [] }
-        const items = flattenRecommendations(recs)
 
-        if (requestedType !== 'all') {
-          return NextResponse.json({
-            items,
-            recommendations: recs,
-            rails: composeRecommendationRails(recs, memHit.tasteProfile),
+        const localizedRecs = localizeRecommendationsRecord(canonicalRecs, locale)
+        const payload = buildLocalizedRecommendationPayload({
+          recommendations: localizedRecs,
+          tasteProfile: memHit.tasteProfile,
+          locale,
+          base: {
             tasteProfile: memHit.tasteProfile,
             cached: true,
-          }, { headers: { 'X-Cache': 'MEM_HIT' } })
-        }
+          },
+        })
 
-        const types = Object.keys(recs).filter(k => Array.isArray(recs[k]) && recs[k].length > 0)
-        if (types.length >= 1) {
-          return NextResponse.json({
-            items,
-            recommendations: recs,
-            rails: composeRecommendationRails(recs, memHit.tasteProfile),
-            tasteProfile: memHit.tasteProfile,
-            cached: true,
-          }, { headers: { 'X-Cache': 'MEM_HIT' } })
+        const types = Object.keys(localizedRecs).filter(k => Array.isArray(localizedRecs[k]) && localizedRecs[k].length > 0)
+        if (requestedType !== 'all' || types.length >= 1) {
+          return NextResponse.json(payload, { headers: { 'X-Cache': 'MEM_HIT' } })
         }
       }
     }
@@ -197,7 +189,7 @@ export async function GET(request: NextRequest) {
     persistCreatorProfile(supabase, userId, tasteProfile)
 
     const tasteProfileResponse = buildTasteProfileResponse(tasteProfile)
-    memCacheSet(userId, recommendations, tasteProfile)
+    memCacheSet(userId, recommendations, tasteProfile, locale)
 
     updateRecommendationPoolProfile({
       supabase,
@@ -209,27 +201,29 @@ export async function GET(request: NextRequest) {
       totalEntries: allEntries.length,
     })
 
-    const items = flattenRecommendations(recommendations)
-
-    return NextResponse.json({
-      items,
+    const payload = buildLocalizedRecommendationPayload({
       recommendations,
-      rails: composeRecommendationRails(recommendations, tasteProfile),
-      tasteProfile: {
-        ...tasteProfileResponse,
-        lowConfidence: tasteProfile.lowConfidence,
-        totalEntries: allEntries.length,
+      tasteProfile,
+      locale,
+      base: {
+        tasteProfile: {
+          ...tasteProfileResponse,
+          lowConfidence: tasteProfile.lowConfidence,
+          totalEntries: allEntries.length,
+        },
+        cached: false,
+        recommendationDiagnostics: {
+          ...servingDiagnostics,
+          backgroundRegenQueued: backgroundRegenTypes,
+          syncRegenTypes: typesNeedingMasterRegen,
+          recruitment: recruitmentDiagnostics,
+          poolHealth: buildPoolHealthDiagnostics({ masterHealthByType, rowByType, masterByType, allShownKeys }),
+          entriesByType: Object.fromEntries(entriesByType),
+        },
       },
-      cached: false,
-      recommendationDiagnostics: {
-        ...servingDiagnostics,
-        backgroundRegenQueued: backgroundRegenTypes,
-        syncRegenTypes: typesNeedingMasterRegen,
-        recruitment: recruitmentDiagnostics,
-        poolHealth: buildPoolHealthDiagnostics({ masterHealthByType, rowByType, masterByType, allShownKeys }),
-        entriesByType: Object.fromEntries(entriesByType),
-      },
-    }, { headers: { 'X-Cache': 'MISS' } })
+    })
+
+    return NextResponse.json(payload, { headers: { 'X-Cache': 'MISS' } })
   } catch (err) {
     console.error('[Recommendations] error:', err)
     return NextResponse.json({ error: 'Errore interno' }, { status: 500 })
