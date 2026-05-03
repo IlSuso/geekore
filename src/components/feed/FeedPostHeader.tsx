@@ -67,7 +67,6 @@ export function FeedPostHeader({
           <p className="gk-mono text-[var(--text-muted)]">
             {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })}
           </p>
-          {showPostType && <PostTypeBadge type={postType} />}
         </div>
       </div>
 

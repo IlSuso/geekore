@@ -217,12 +217,14 @@ export default function FeedPage() {
     const vw = window.innerWidth
     const vh = window.innerHeight
     if (vw >= 640) {
-      const modalW = Math.min(548, vw - 48)
-      const top = 25  // vicino alla navbar
-      const bottomMargin = 80  // margine generoso dal fondo
+      const sidebarW = vw >= 1280 ? 240 : 0   // left nav solo su xl+
+      const contentW = vw - sidebarW
+      const modalW = Math.min(560, contentW - 48)
+      const top = 40
+      const bottomMargin = 80
       setModalPos({
         top,
-        left: Math.round((vw - modalW) / 2),
+        left: Math.round(sidebarW + (contentW - modalW) / 2),
         width: modalW,
         maxHeight: vh - top - bottomMargin,
       })
@@ -589,12 +591,12 @@ export default function FeedPage() {
 
       <PullWrapper distance={pullDistance} refreshing={isPullRefreshing}>
       {/* Layout: colonna centrale centrata su desktop, full-bleed su mobile */}
-      <div className="pt-14 md:pt-4 pb-24 xl:pb-6 relative min-h-screen">
+      <div className="pb-24 xl:pb-6 relative min-h-screen">
 
         <div className="flex items-start min-h-screen">
 
           {/* ── Colonna principale ─────────────────────────────────── */}
-          <div className="flex-1 min-w-0 flex justify-center">
+          <div className="flex-1 min-w-0 flex justify-center pt-14 md:pt-4">
           <div className="w-full max-w-[680px] px-4">
 
             {/* Composer — barra statica non invasiva, modal fullscreen al tap */}
@@ -692,7 +694,7 @@ export default function FeedPage() {
 
           {/* ── Sidebar destra — sticky, scorre col feed e si ferma a fondo contenuto ── */}
           <div className="hidden xl:block w-[420px] flex-shrink-0 self-stretch">
-            <StickyFromBottom navHeight={0}>
+            <StickyFromBottom navHeight={16}>
               <FeedSidebar currentUserId={currentUser?.id ?? null} />
             </StickyFromBottom>
           </div>

@@ -1,92 +1,51 @@
 'use client'
+// DESTINAZIONE: src/app/register/page.tsx
 
 import { useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
-import { Eye, EyeOff, Zap, CheckCircle, Mail } from 'lucide-react'
+import { Eye, EyeOff, Zap, CheckCircle, Mail, Gamepad2, Layers, Tv, Film, Sparkles, ArrowRight } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { PrimitiveButton } from '@/components/ui/PrimitiveButton'
-import { PrimitiveInput } from '@/components/ui/PrimitiveInput'
 
 function LocaleToggle() {
   const { locale, setLocale } = useLocale()
   return (
-    <div className="inline-flex items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-1" aria-label="Seleziona lingua">
-      <button
-        type="button"
-        onClick={() => setLocale('it')}
-        className={`h-7 rounded-lg px-3 text-xs font-bold transition-colors ${locale === 'it' ? 'bg-[var(--accent)] text-[#0B0B0F]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
-      >IT</button>
-      <button
-        type="button"
-        onClick={() => setLocale('en')}
-        className={`h-7 rounded-lg px-3 text-xs font-bold transition-colors ${locale === 'en' ? 'bg-[var(--accent)] text-[#0B0B0F]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
-      >EN</button>
+    <div className="inline-flex items-center gap-0.5 rounded-lg border border-white/10 bg-white/5 p-0.5">
+      {(['it', 'en'] as const).map(l => (
+        <button key={l} type="button" onClick={() => setLocale(l)}
+          className={`h-7 rounded-md px-3 text-xs font-bold transition-all uppercase ${locale === l ? 'bg-[var(--accent)] text-[#0B0B0F]' : 'text-white/40 hover:text-white/70'}`}>
+          {l}
+        </button>
+      ))}
     </div>
   )
 }
 
-function AuthWordmark() {
-  return (
-    <Link href="/" className="inline-flex items-center gap-2 text-[var(--text-primary)]" aria-label="Geekore home">
-      <span className="grid h-7 w-7 place-items-center rounded-[9px] bg-[var(--accent)] text-sm font-black text-[#0B0B0F]">
-        <Zap size={15} fill="currentColor" />
-      </span>
-      <span className="font-display text-[22px] font-black tracking-[-0.03em]">geekore</span>
-    </Link>
-  )
+const BRAND_ITEMS = [
+  { icon: Gamepad2, label: 'Videogiochi & Steam', color: '#7C3AED' },
+  { icon: Layers, label: 'Anime & Manga', color: '#E6FF3D' },
+  { icon: Tv, label: 'Serie TV', color: '#0EA5E9' },
+  { icon: Film, label: 'Film & Letterboxd', color: '#F97316' },
+  { icon: Sparkles, label: 'Raccomandazioni AI', color: '#EC4899' },
+]
+
+function calcStrength(p: string): number {
+  if (!p) return 0
+  let s = 0
+  if (p.length >= 8) s++
+  if (/[0-9]/.test(p)) s++
+  if (/[^a-zA-Z0-9]/.test(p)) s++
+  if (p.length >= 12) s++
+  return s
 }
 
-function calcStrength(password: string): number {
-  if (!password) return 0
-  let score = 0
-  if (password.length >= 8) score++
-  if (/[0-9]/.test(password)) score++
-  if (/[^a-zA-Z0-9]/.test(password)) score++
-  if (password.length >= 12) score++
-  return score
+function normalizeUsername(v: string) {
+  return v.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_{2,}/g, '_').replace(/^_|_$/, '').substring(0, 28)
 }
 
-const STRENGTH_LABELS = ['', 'Debole', 'Media', 'Buona', 'Forte']
-const STRENGTH_LABELS_EN = ['', 'Weak', 'Medium', 'Good', 'Strong']
-
-function PasswordStrengthBar({ password, locale }: { password: string; locale: string }) {
-  const strength = calcStrength(password)
-  if (!password) return null
-  const labels = locale === 'en' ? STRENGTH_LABELS_EN : STRENGTH_LABELS
-  const activeColor = strength <= 1 ? '#EF4444' : strength === 2 ? '#F59E0B' : '#4ADE80'
-  return (
-    <div className="mt-2 space-y-1.5">
-      <div className="flex gap-1" aria-hidden>
-        {[1, 2, 3, 4].map(level => (
-          <div
-            key={level}
-            className="h-1 flex-1 rounded-full transition-colors"
-            style={{ background: strength >= level ? activeColor : 'var(--bg-elevated)' }}
-          />
-        ))}
-      </div>
-      <p className="text-xs font-medium" style={{ color: activeColor }}>
-        {labels[strength]}
-        {strength === 1 && (locale === 'en' ? ' — min. 8 chars, a number and a symbol' : ' — min. 8 caratteri, un numero e un simbolo')}
-        {strength === 2 && (locale === 'en' ? ' — add a symbol or make it longer' : ' — aggiungi un simbolo o allungala')}
-      </p>
-    </div>
-  )
-}
-
-function normalizeUsername(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9_]/g, '_')
-    .replace(/_{2,}/g, '_')
-    .replace(/^_|_$/g, '')
-    .substring(0, 28)
-}
-
-function generateUsername(displayName: string, email: string): string {
-  return normalizeUsername(displayName || email.split('@')[0]) || 'user'
-}
+const inputStyle = { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-primary)' } as const
+const labelStyle = { fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: 8 }
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
@@ -100,169 +59,225 @@ export default function RegisterPage() {
   const supabase = createClient()
   const { locale, t } = useLocale()
   const l = t.register
-
-  const passwordStrength = useMemo(() => calcStrength(password), [password])
-  const passwordTooWeak = password.length > 0 && passwordStrength < 2
+  const strength = calcStrength(password)
+  const passwordTooWeak = useMemo(() => password.length > 0 && strength < 2, [password, strength])
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     if (passwordTooWeak) return
-    setLoading(true)
-    setError(null)
+    setLoading(true); setError(null)
     try {
-      const resolvedUsername = normalizeUsername(username) || generateUsername(displayName, email)
+      const resolvedUsername = username.trim() || normalizeUsername(displayName || email.split('@')[0]) || 'user'
       const { error } = await supabase.auth.signUp({
-        email,
-        password,
+        email, password,
         options: {
-          data: {
-            display_name: displayName || email.split('@')[0],
-            username: resolvedUsername,
-          },
+          data: { display_name: displayName || email.split('@')[0], username: resolvedUsername },
           emailRedirectTo: `https://geekore.it/auth/confirm?email=${encodeURIComponent(email)}`,
         },
       })
       if (error) { setError(error.message); return }
       setSuccess(true)
-    } catch {
-      setError(l.error)
-    } finally {
-      setLoading(false)
-    }
+    } catch { setError(l.error) } finally { setLoading(false) }
   }
 
   if (success) {
     return (
-      <main data-auth className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
-        <header className="flex h-[52px] items-center justify-between px-[14px] md:px-8">
-          <AuthWordmark />
-          <LocaleToggle />
-        </header>
-        <section className="flex min-h-[calc(100vh-52px)] items-center justify-center px-[14px] pb-10">
-          <div className="w-full max-w-[420px] rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-[22px] text-center">
-            <div className="mx-auto mb-6 grid h-20 w-20 place-items-center rounded-3xl border border-[rgba(230,255,61,0.2)] bg-[rgba(230,255,61,0.06)]">
-              <Mail size={36} style={{ color: 'var(--accent)' }} />
+      <main data-auth className="min-h-screen flex items-center justify-center px-5 relative overflow-hidden" style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+        <div className="pointer-events-none absolute inset-0" aria-hidden>
+          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '60vw', height: '60vh', background: 'radial-gradient(ellipse at center, rgba(230,255,61,0.06) 0%, transparent 70%)', borderRadius: '50%' }} />
+        </div>
+        <div className="relative w-full max-w-[380px] text-center">
+          <div className="rounded-[28px] p-10" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 60px rgba(0,0,0,0.3)' }}>
+            <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.2)' }}>
+              <Mail size={28} style={{ color: 'var(--accent)' }} />
             </div>
-            <h1 className="gk-h1 mb-3">{l.confirmTitle}</h1>
-            <p className="gk-body mb-2">{l.confirmSent}</p>
-            <p className="gk-body-strong mb-8 text-[var(--text-primary)]">{email}</p>
-            <div className="mb-8 space-y-3 text-sm text-[var(--text-secondary)]">
-              <div className="flex items-center justify-center gap-2">
-                <CheckCircle size={14} className="text-emerald-400" />
-                <span>{l.confirmLink}</span>
-              </div>
-              <div className="flex items-center justify-center gap-2">
-                <CheckCircle size={14} className="text-emerald-400" />
-                <span>{l.confirmSpam}</span>
-              </div>
+            <h1 className="font-black text-2xl mb-2" style={{ fontFamily: 'var(--font-display)' }}>{l.confirmTitle}</h1>
+            <p className="text-sm mb-1" style={{ color: 'rgba(255,255,255,0.45)' }}>{l.confirmSent}</p>
+            <p className="font-bold mb-6">{email}</p>
+            <div className="space-y-2 text-sm mb-6" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              <div className="flex items-center justify-center gap-2"><CheckCircle size={13} className="text-emerald-400" /><span>{l.confirmLink}</span></div>
+              <div className="flex items-center justify-center gap-2"><CheckCircle size={13} className="text-emerald-400" /><span>{l.confirmSpam}</span></div>
             </div>
-            <Link href="/login" className="gk-btn gk-btn-secondary gk-focus-ring w-full">
-              {l.backToLogin}
-            </Link>
+            <Link href="/login" className="gk-btn gk-btn-secondary gk-focus-ring w-full block text-center">{l.backToLogin}</Link>
           </div>
-        </section>
+        </div>
       </main>
     )
   }
 
+  const strengthColor = strength <= 1 ? '#EF4444' : strength === 2 ? '#F59E0B' : '#4ADE80'
+  const strengthLabel = locale === 'en'
+    ? ['', 'Weak', 'Medium', 'Good', 'Strong'][strength]
+    : ['', 'Debole', 'Media', 'Buona', 'Forte'][strength]
+
+  const FormFields = (
+    <form onSubmit={handleRegister} className="space-y-4" noValidate>
+      <div>
+        <label style={labelStyle}>{l.displayName}</label>
+        <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder={l.displayNamePlaceholder} autoComplete="name"
+          className="auth-input w-full h-12 rounded-2xl px-4 text-sm font-medium outline-none" style={inputStyle} />
+      </div>
+      <div>
+        <label style={labelStyle}>Username <span style={{ color: 'rgba(255,255,255,0.2)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(opzionale)</span></label>
+        <input type="text" value={username} onChange={e => setUsername(normalizeUsername(e.target.value))} placeholder="es. edo_geek" autoComplete="username"
+          className="auth-input w-full h-12 rounded-2xl px-4 text-sm font-medium outline-none" style={inputStyle} />
+      </div>
+      <div>
+        <label style={labelStyle}>{l.email}</label>
+        <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={l.emailPlaceholder} autoComplete="email" required
+          className="auth-input w-full h-12 rounded-2xl px-4 text-sm font-medium outline-none" style={inputStyle} />
+      </div>
+      <div>
+        <label style={labelStyle}>{l.password}</label>
+        <div className="relative">
+          <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder={l.passwordPlaceholder} autoComplete="new-password" required
+            className="auth-input w-full h-12 rounded-2xl px-4 pr-12 text-sm font-medium outline-none" style={inputStyle} />
+          <button type="button" onClick={() => setShowPassword(v => !v)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 h-8 w-8 grid place-items-center rounded-xl hover:bg-white/5 transition-colors"
+            style={{ color: 'rgba(255,255,255,0.3)' }}>
+            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
+        </div>
+        {password && (
+          <div className="mt-2.5">
+            <div className="flex gap-1 mb-1.5">
+              {[1, 2, 3, 4].map(i => <div key={i} style={{ height: 3, flex: 1, borderRadius: 99, background: strength >= i ? strengthColor : 'rgba(255,255,255,0.08)', transition: 'background 0.2s' }} />)}
+            </div>
+            <p className="text-[11px] font-semibold" style={{ color: strengthColor }}>{strengthLabel}</p>
+          </div>
+        )}
+      </div>
+      {error && (
+        <div className="rounded-2xl px-4 py-3 text-sm" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#F87171' }}>
+          {error}
+        </div>
+      )}
+      <PrimitiveButton type="submit" disabled={loading || passwordTooWeak} className="w-full !mt-6">
+        {loading ? l.creating : l.create}
+      </PrimitiveButton>
+    </form>
+  )
+
   return (
-    <main data-auth className="gk-auth-page min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
-      <header className="flex h-[52px] items-center justify-between px-[14px] md:px-8">
-        <AuthWordmark />
+    <main data-auth className="gk-auth-page min-h-screen relative overflow-hidden" style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+
+      {/* Background glows - no grid (already in globals.css) */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden>
+        <div style={{ position: 'absolute', top: '-20%', left: '50%', transform: 'translateX(-50%)', width: '70vw', height: '60vh', background: 'radial-gradient(ellipse at center, rgba(230,255,61,0.055) 0%, transparent 65%)', borderRadius: '50%' }} />
+        <div style={{ position: 'absolute', bottom: '-10%', left: '0', width: '40vw', height: '50vh', background: 'radial-gradient(ellipse at center, rgba(14,165,233,0.04) 0%, transparent 70%)', borderRadius: '50%' }} />
+      </div>
+
+      {/* Mobile header */}
+      <header className="md:hidden relative z-10 flex h-14 items-center justify-between px-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <Link href="/" className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-[8px] grid place-items-center" style={{ background: 'var(--accent)' }}>
+            <Zap size={14} fill="#0B0B0F" color="#0B0B0F" />
+          </div>
+          <span className="font-black text-[18px] tracking-tight" style={{ fontFamily: 'var(--font-display)' }}>geekore</span>
+        </Link>
         <LocaleToggle />
       </header>
 
-      <section className="flex min-h-[calc(100vh-52px)] items-start justify-center px-[14px] pb-10 pt-6 md:items-center md:pt-0">
-        <div className="w-full max-w-[420px] rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-[22px]">
-          <div className="mb-6">
-            <p className="gk-label mb-2 text-[var(--accent)]">Registrazione</p>
-            <h1 className="gk-h1 mb-2">{l.title}</h1>
-            <p className="gk-caption text-[var(--text-secondary)]">{l.subtitle}</p>
-          </div>
+      {/* Desktop 2-col layout */}
+      <div className="hidden md:flex relative z-10" style={{ height: '100vh' }}>
 
-          <form onSubmit={handleRegister} className="space-y-4" noValidate>
-            <PrimitiveInput
-              name="displayName"
-              label={l.displayName}
-              type="text"
-              value={displayName}
-              onChange={e => setDisplayName(e.target.value)}
-              placeholder={l.displayNamePlaceholder}
-              autoComplete="name"
-            />
+        {/* Left brand panel */}
+        <div className="relative flex flex-col" style={{ width: 380, flexShrink: 0, background: 'rgba(255,255,255,0.018)', borderRight: '1px solid rgba(255,255,255,0.07)', padding: '40px 36px' }}>
+          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(160deg, rgba(230,255,61,0.03) 0%, transparent 60%)' }} />
 
-            <PrimitiveInput
-              name="username"
-              label="Username"
-              type="text"
-              value={username}
-              onChange={e => setUsername(normalizeUsername(e.target.value))}
-              placeholder="es. edo_geek"
-              autoComplete="username"
-              helperText="Solo lettere, numeri e underscore. Se lo lasci vuoto lo generiamo noi."
-            />
+          <Link href="/" className="relative flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-[10px] grid place-items-center" style={{ background: 'var(--accent)' }}>
+              <Zap size={16} fill="#0B0B0F" color="#0B0B0F" />
+            </div>
+            <span className="font-black text-xl tracking-tight" style={{ fontFamily: 'var(--font-display)' }}>geekore</span>
+          </Link>
 
-            <PrimitiveInput
-              name="email"
-              label={l.email}
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder={l.emailPlaceholder}
-              autoComplete="email"
-              required
-            />
-
-            <div className="gk-field">
-              <label htmlFor="password" className="gk-label normal-case tracking-normal text-[var(--text-secondary)]">
-                {l.password}
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder={l.passwordPlaceholder}
-                  autoComplete="new-password"
-                  className="gk-input pr-12"
-                  aria-invalid={passwordTooWeak ? true : undefined}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(v => !v)}
-                  className="absolute right-2 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-[14px] text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
-                  aria-label={showPassword ? 'Nascondi password' : 'Mostra password'}
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-              <PasswordStrengthBar password={password} locale={locale} />
+          <div className="relative flex-1 flex flex-col justify-center gap-8">
+            <div>
+              <h2 className="font-black leading-tight mb-3" style={{ fontFamily: 'var(--font-display)', fontSize: 28, letterSpacing: '-0.03em' }}>
+                Tutto ciò che<br />
+                <span style={{ color: 'var(--accent)' }}>segui, qui</span>
+              </h2>
+              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                Un profilo unico per ogni media che ami. Gratis per sempre.
+              </p>
             </div>
 
-            {error && (
-              <p className="gk-input-error-msg rounded-2xl border border-red-500/30 bg-red-500/8 px-3 py-2" role="alert">
-                {error}
-              </p>
-            )}
+            <div className="space-y-2.5">
+              <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: 'rgba(255,255,255,0.25)' }}>Include tutto questo</p>
+              {BRAND_ITEMS.map(({ icon: Icon, label, color }) => (
+                <div key={label} className="flex items-center gap-3">
+                  <div className="grid place-items-center flex-shrink-0" style={{ width: 36, height: 36, borderRadius: 10, background: `${color}18`, border: `1px solid ${color}22` }}>
+                    <Icon size={15} style={{ color }} />
+                  </div>
+                  <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>{label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
 
-            <PrimitiveButton type="submit" disabled={loading || passwordTooWeak} className="w-full">
-              {loading ? l.creating : l.create}
-            </PrimitiveButton>
-          </form>
-
-          <div className="mt-6 border-t border-[var(--border-soft)] pt-5 text-center">
-            <p className="gk-caption">
-              {l.hasAccount}{' '}
-              <Link href="/login" className="font-bold text-[var(--accent)] hover:opacity-80">
-                {l.loginLink}
-              </Link>
-            </p>
+          <div className="relative rounded-2xl p-4" style={{ background: 'rgba(230,255,61,0.04)', border: '1px solid rgba(230,255,61,0.12)' }}>
+            <p className="text-xs font-black mb-0.5" style={{ color: 'var(--accent)' }}>Gratis per sempre</p>
+            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>Nessuna carta. Nessun piano premium nascosto.</p>
           </div>
         </div>
-      </section>
+
+        {/* Right: form */}
+        <div className="flex flex-1 flex-col overflow-y-auto">
+          <div className="flex h-14 items-center justify-between px-12 flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
+              Hai già un account?{' '}
+              <Link href="/login" className="font-black" style={{ color: 'var(--accent)' }}>Accedi</Link>
+            </span>
+            <LocaleToggle />
+          </div>
+
+          <div className="flex flex-1 items-center justify-center p-10">
+            <div className="w-full max-w-[420px]">
+
+              {/* Form card */}
+              <div className="rounded-[28px] p-8" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)', boxShadow: '0 24px 60px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.07)' }}>
+                <div className="mb-7">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: 'var(--accent)' }}>Registrazione</p>
+                  <h1 className="font-black mb-1.5" style={{ fontFamily: 'var(--font-display)', fontSize: 30, letterSpacing: '-0.03em' }}>{l.title}</h1>
+                  <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>{l.subtitle}</p>
+                </div>
+                {FormFields}
+              </div>
+
+              <p className="mt-5 text-center text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                Hai già un account? <Link href="/login" className="font-black" style={{ color: 'var(--accent)' }}>{l.loginLink}</Link>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile form */}
+      <div className="md:hidden relative z-10 px-5 py-8" style={{ maxWidth: 420, margin: '0 auto' }}>
+        <div className="mb-7">
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: 'var(--accent)' }}>Registrazione</p>
+          <h1 className="font-black mb-1.5" style={{ fontFamily: 'var(--font-display)', fontSize: 28, letterSpacing: '-0.03em' }}>{l.title}</h1>
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>{l.subtitle}</p>
+        </div>
+
+        <div className="rounded-[24px] p-6 mb-5" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 16px 40px rgba(0,0,0,0.25)' }}>
+          {FormFields}
+        </div>
+
+        <p className="text-center text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>
+          Hai già un account? <Link href="/login" className="font-black" style={{ color: 'var(--accent)' }}>{l.loginLink}</Link>
+        </p>
+      </div>
+
+      <style>{`
+        .auth-input::placeholder { color: rgba(255,255,255,0.2); }
+        .auth-input:focus {
+          border-color: rgba(230,255,61,0.45) !important;
+          background: rgba(255,255,255,0.07) !important;
+          box-shadow: 0 0 0 3px rgba(230,255,61,0.07), inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+      `}</style>
     </main>
   )
 }

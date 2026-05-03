@@ -149,15 +149,25 @@ export function FeedComposer({
           {modalPos && (
             <div
               data-no-swipe="true"
-              className="fixed z-[260] hidden flex-col overflow-hidden rounded-[28px] border border-[var(--border)] bg-[var(--bg-primary)] shadow-[0_24px_80px_rgba(0,0,0,0.55)] md:flex"
-              style={{ top: modalPos.top, left: modalPos.left, width: modalPos.width, maxHeight: modalPos.maxHeight }}
+              className="fixed z-[260] hidden flex-col overflow-hidden rounded-[28px] border border-[rgba(255,255,255,0.1)] bg-[var(--bg-primary)] shadow-[0_32px_80px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.06)] md:flex"
+              style={{
+                top: modalPos.top,
+                left: '50%',
+                transform: 'translateX(calc(-50% + 120px))',
+                width: modalPos.width,
+                maxHeight: modalPos.maxHeight,
+              }}
               onClick={e => e.stopPropagation()}
             >
-              <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--border)] bg-[rgba(230,255,61,0.04)] px-5 py-4">
-                <button type="button" onClick={closeComposer} data-no-swipe="true" className="text-[14px] font-bold text-[var(--text-muted)] transition-colors hover:text-white">Annulla</button>
+              {/* Header */}
+              <div className="flex flex-shrink-0 items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
+                <button type="button" onClick={closeComposer} data-no-swipe="true"
+                  className="text-[13px] font-bold transition-colors hover:text-white" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  Annulla
+                </button>
                 <div className="text-center">
-                  <p className="gk-label text-[var(--accent)]">Activity composer</p>
-                  <span className="gk-headline text-[var(--text-primary)]">Nuova activity</span>
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: 'var(--accent)' }}>Activity composer</p>
+                  <span className="text-[15px] font-black text-[var(--text-primary)]">Nuova activity</span>
                 </div>
                 <PublishButton disabled={publishDisabled} isPublishing={isPublishing} onClick={async (e) => { await handleCreatePost(e as any); closeComposer() }} />
               </div>
@@ -166,7 +176,7 @@ export function FeedComposer({
                 <div className="flex gap-3 px-5 pb-3 pt-5">
                   <ProfileAvatar profile={profile} className="h-10 w-10" textClassName="text-sm" />
                   <div className="min-w-0 flex-1">
-                    <p className="mb-1.5 text-[14px] font-black text-[var(--text-primary)]">{profile?.display_name || profile?.username}</p>
+                    <p className="mb-2 text-[14px] font-black text-[var(--text-primary)]">{profile?.display_name || profile?.username}</p>
                     <textarea
                       data-testid="post-composer"
                       data-no-swipe="true"
@@ -175,9 +185,9 @@ export function FeedComposer({
                       onChange={handleTextChange}
                       placeholder={activityPlaceholder || placeholder}
                       maxLength={500}
-                      rows={3}
+                      rows={4}
                       className="no-nav-hide w-full resize-none bg-transparent text-[16px] leading-relaxed text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
-                      style={{ minHeight: '80px' }}
+                      style={{ minHeight: '100px' }}
                     />
                   </div>
                 </div>
@@ -191,7 +201,7 @@ export function FeedComposer({
                 )}
               </div>
 
-              <div className="flex flex-shrink-0 items-center gap-3 border-t border-[var(--border)] bg-[var(--bg-primary)] px-4 py-3">
+              <div className="flex flex-shrink-0 items-center gap-3 px-4 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.015)' }}>
                 <label className="flex h-10 w-10 cursor-pointer select-none items-center justify-center rounded-2xl text-[var(--text-muted)] transition-all hover:bg-[var(--bg-card-hover)] hover:text-[var(--accent)]">
                   <ImageIcon size={22} strokeWidth={1.5} />
                   <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />

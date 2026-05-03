@@ -1,4 +1,4 @@
-import { Flame, MessageCircle, Send, Bookmark } from 'lucide-react'
+import { Flame, MessageCircle, Link2, Bookmark } from 'lucide-react'
 
 interface FeedActionBarProps {
   liked?: boolean
@@ -56,7 +56,7 @@ export function FeedActionBar({
         aria-label="Condividi post"
         className="group inline-flex h-11 min-w-11 items-center gap-1.5 rounded-[14px] px-2.5 text-[var(--text-muted)] transition-all hover:bg-[rgba(230,255,61,0.08)] hover:text-[var(--accent)] active:scale-[0.97]"
       >
-        <Send size={17} aria-hidden="true" />
+        <Link2 size={17} aria-hidden="true" />
       </button>
 
       <div className="ml-auto flex items-center gap-2">

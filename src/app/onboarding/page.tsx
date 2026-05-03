@@ -128,9 +128,17 @@ function BrandPanel({ step }: { step: number }) {
   ][Math.min(step, 3)]
 
   return (
-    <div className="relative flex h-full w-full flex-col justify-between overflow-hidden px-14 py-14 xl:px-20">
+    <div className="relative flex h-full w-full flex-col justify-between overflow-hidden px-14 py-14 xl:px-20"
+      style={{ background: 'linear-gradient(160deg, rgba(230,255,61,0.04) 0%, var(--bg-primary) 50%)' }}>
+      {/* Background decoration */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden>
+        <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '70%', height: '60%', background: 'radial-gradient(ellipse at center, rgba(230,255,61,0.08) 0%, transparent 70%)', borderRadius: '50%' }} />
+        <div style={{ position: 'absolute', bottom: '10%', right: '-5%', width: '50%', height: '40%', background: 'radial-gradient(ellipse at center, rgba(124,58,237,0.05) 0%, transparent 70%)', borderRadius: '50%' }} />
+        <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.8) 1px, transparent 1px)', backgroundSize: '44px 44px' }} />
+      </div>
+
       <div className="relative z-10 flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--accent)]"><Zap size={22} className="text-black" /></div>
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--accent)] shadow-[0_4px_20px_rgba(230,255,61,0.3)]"><Zap size={22} className="text-black" /></div>
         <span className="font-display text-2xl font-black tracking-[-0.03em] text-white">geekore</span>
       </div>
       <div className="relative z-10 space-y-7">
@@ -138,9 +146,9 @@ function BrandPanel({ step }: { step: number }) {
           {copy.title.map((line, i) => <span key={line} className="block" style={i === copy.title.length - 1 ? { color: 'var(--accent)' } : {}}>{line}</span>)}
         </h2>
         <p className="max-w-[380px] text-lg leading-relaxed text-[var(--text-secondary)]">{copy.sub}</p>
-        {step === 0 && <div className="space-y-4 pt-2">{FEATURES.map(({ icon: Icon, label }) => <div key={label} className="flex items-start gap-3"><div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[rgba(230,255,61,0.2)] bg-[rgba(230,255,61,0.08)]"><Icon size={17} className="text-[var(--accent)]" /></div><span className="pt-1 text-sm leading-relaxed text-zinc-300">{label}</span></div>)}</div>}
+        {step === 0 && <div className="space-y-3 pt-2">{FEATURES.map(({ icon: Icon, label }) => <div key={label} className="flex items-center gap-3 rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[rgba(230,255,61,0.2)] bg-[rgba(230,255,61,0.08)]"><Icon size={17} className="text-[var(--accent)]" /></div><span className="text-sm font-medium leading-relaxed text-zinc-300">{label}</span></div>)}</div>}
       </div>
-      <p className="relative z-10 text-xs text-zinc-800">© {new Date().getFullYear()} Geekore</p>
+      <p className="relative z-10 text-xs" style={{ color: 'rgba(255,255,255,0.15)' }}>© {new Date().getFullYear()} Geekore</p>
     </div>
   )
 }

@@ -158,12 +158,7 @@ const ContinuitySection = memo(function ContinuitySection({ items, onFeedback, o
                   {TYPE_LABEL[item.type]}
                 </div>
                 <div className="absolute bottom-0 inset-x-0 h-20 bg-gradient-to-t from-black/80 to-transparent" />
-                <div className="absolute bottom-2 left-1/2 -translate-x-1/2">
-                  <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'already_seen') }}
-                    className="w-7 h-7 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-white hover:bg-zinc-600/60 transition-colors">
-                    <Eye size={11} />
-                  </button>
-                </div>
+  
               </div>
               <p className="text-xs font-bold text-white leading-tight line-clamp-2 mb-0.5">{item.title}</p>
             </div>
@@ -232,7 +227,7 @@ const RecommendationCard = memo(function RecommendationCard({
         </div>
 
         {signals.length > 0 && (
-          <div className="absolute bottom-12 left-2 right-2 flex flex-wrap gap-1.5">
+          <div className="absolute bottom-14 left-2 right-2 flex flex-wrap gap-1.5">
             {signals.slice(0, 1).map(signal => {
               const SignalIcon = signal.icon
               return (
@@ -251,8 +246,8 @@ const RecommendationCard = memo(function RecommendationCard({
           </div>
         )}
 
-        {/* 3 bottoni tondi glass: ThumbsDown, Eye, Bookmark */}
-        <div className="absolute bottom-2 right-2 flex items-center gap-1">
+        {/* 3 bottoni tondi glass: ThumbsDown, Eye, Bookmark — fissi in basso centrati */}
+        <div className="absolute bottom-2 inset-x-0 flex items-center justify-center gap-2">
           <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }} title="Non mi interessa"
             className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 border border-white/15 text-zinc-300 backdrop-blur-md transition-all hover:text-red-300 hover:border-red-400/30">
             <ThumbsDown size={11} />
@@ -279,23 +274,7 @@ const RecommendationCard = memo(function RecommendationCard({
         )}
         {episodeLabel && <span className="text-[10px] text-zinc-500">{episodeLabel}</span>}
       </div>
-      <div className="flex items-center gap-1">
-        <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }} title="Non mi interessa"
-          className="w-7 h-7 flex items-center justify-center rounded-full bg-zinc-900/80 border border-zinc-800 text-zinc-400 hover:text-red-300 hover:border-red-900/70 transition-colors">
-          <ThumbsDown size={11} />
-        </button>
-        <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'already_seen') }} title="L'ho già visto"
-          className="w-7 h-7 flex items-center justify-center rounded-full bg-zinc-900/80 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors">
-          <Eye size={11} />
-        </button>
-        {onSimilar && (
-          <button onClick={(e) => { e.stopPropagation(); onSimilar(item) }} disabled={isSimilarLoading} title="Simili"
-            className={`w-7 h-7 flex items-center justify-center rounded-full border transition-colors ${isSimilarLoading ? 'bg-zinc-800/80 border-zinc-700' : 'bg-zinc-900/80 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600'}`}
-            style={isSimilarLoading ? { color: 'var(--accent)' } : {}}>
-            {isSimilarLoading ? <RefreshCw size={11} className="animate-spin" /> : <Search size={11} />}
-          </button>
-        )}
-      </div>
+
     </div>
   )
 })
