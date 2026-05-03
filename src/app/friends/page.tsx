@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { Users, Search, Sparkles, UserPlus, UserCheck, X, Loader2, Activity, LogIn, Clock, MessageCircle, Flame, Radar } from 'lucide-react'
+import { Users, Search, UserPlus, UserCheck, X, Loader2, Activity, LogIn, MessageCircle, Flame } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/context/AuthContext'
 import { Avatar } from '@/components/ui/Avatar'
@@ -68,35 +68,23 @@ function actionVerb(activity: FriendActivity): string {
   return CLOSED_VERBS[activity.status || ''] || 'ha iniziato'
 }
 
-function SocialStat({ label, value, accent = false, icon }: { label: string; value: string | number; accent?: boolean; icon?: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <p className="gk-label">{label}</p>
-        {icon && <span className={accent ? 'text-[var(--accent)]' : 'text-[var(--text-muted)]'}>{icon}</span>}
-      </div>
-      <p className={`font-mono-data text-[20px] font-black leading-none ${accent ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>{value}</p>
-    </div>
-  )
-}
-
 function StoriesRail({ profiles }: { profiles: ProfileRow[] }) {
   if (profiles.length === 0) return null
   return (
-    <div className="mb-5 rounded-[24px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/70 p-3 ring-1 ring-white/5" data-no-swipe="true">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-[var(--accent)]"><Flame size={14} /><p className="gk-label text-[var(--accent)]">Attivi ora</p></div>
-        <p className="gk-mono text-[var(--text-muted)]">{profiles.length} profili</p>
+    <div className="mb-5" data-no-swipe="true">
+      <div className="mb-3 flex items-center gap-2 text-[var(--accent)]">
+        <Flame size={14} />
+        <p className="gk-label text-[var(--accent)]">Attivi ora</p>
       </div>
       <div className="-mx-1 overflow-x-auto px-1 pb-1 scrollbar-hide" data-horizontal-scroll="true">
         <div className="flex gap-3">
-          {profiles.slice(0, 16).map(profile => {
+          {profiles.slice(0, 18).map(profile => {
             const username = profile.username || profile.id
             const label = profile.display_name || profile.username || 'utente'
             return (
-              <Link key={profile.id} href={`/profile/${username}`} className="w-[62px] shrink-0 text-center">
-                <div className="mx-auto mb-1 rounded-[18px] p-[2px] gk-story-ring">
-                  <Avatar src={profile.avatar_url} username={username} displayName={label} size={48} className="rounded-[16px]" />
+              <Link key={profile.id} href={`/profile/${username}`} className="w-[64px] shrink-0 text-center">
+                <div className="mx-auto mb-1 rounded-[19px] p-[2px] gk-story-ring">
+                  <Avatar src={profile.avatar_url} username={username} displayName={label} size={50} className="rounded-[17px]" />
                 </div>
                 <p className="truncate text-[10px] font-bold text-[var(--text-secondary)]">{username}</p>
               </Link>
@@ -114,20 +102,20 @@ function ActivityCard({ activity }: { activity: FriendActivity }) {
   const name = profile?.display_name || profile?.username || 'utente'
   const verb = actionVerb(activity)
   return (
-    <div data-no-swipe="true" className="group flex w-full items-center gap-3 rounded-[22px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 text-left transition-colors hover:border-[rgba(230,255,61,0.22)] hover:bg-[var(--bg-card-hover)]">
+    <div data-no-swipe="true" className="group flex w-full items-center gap-3 rounded-[24px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3.5 text-left transition-colors hover:border-[rgba(230,255,61,0.22)] hover:bg-[var(--bg-card-hover)]">
       <Link href={`/profile/${username}`} className="shrink-0">
-        <Avatar src={profile?.avatar_url} username={username} displayName={name} size={36} className="rounded-xl" />
+        <Avatar src={profile?.avatar_url} username={username} displayName={name} size={40} className="rounded-[15px]" />
       </Link>
       <div className="min-w-0 flex-1">
-        <p className="line-clamp-2 text-[13.5px] leading-snug text-[var(--text-secondary)]">
+        <p className="line-clamp-2 text-[14px] leading-snug text-[var(--text-secondary)]">
           <Link href={`/profile/${username}`} className="font-black text-[var(--text-primary)] hover:text-[var(--accent)]">@{username}</Link>{' '}
           <span>{verb}</span>{' '}
           <span className="font-bold italic text-[var(--text-primary)]">{activity.title}</span>
         </p>
         <p className="mt-1 font-mono-data text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">{compactTimeAgo(activity.updated_at)} · {activity.type}</p>
       </div>
-      <div className="h-14 w-10 shrink-0 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)]">
-        {activity.cover_image ? <img src={activity.cover_image} alt="" className="h-full w-full object-cover" /> : <div className="grid h-full w-full place-items-center text-[var(--text-muted)]"><Activity size={15} /></div>}
+      <div className="h-[72px] w-[52px] shrink-0 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] shadow-sm">
+        {activity.cover_image ? <img src={activity.cover_image} alt="" className="h-full w-full object-cover" /> : <div className="grid h-full w-full place-items-center text-[var(--text-muted)]"><Activity size={16} /></div>}
       </div>
     </div>
   )
@@ -141,7 +129,7 @@ function ProfileSuggestionCard({ profile, followingIds, pendingFollowId, authUse
   const pseudoMatch = Math.max(52, 94 - (username.length % 7) * 6)
 
   return (
-    <div data-no-swipe="true" className="group flex items-center gap-3 rounded-[22px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 transition-colors hover:border-[rgba(230,255,61,0.22)] hover:bg-[var(--bg-card-hover)]">
+    <div data-no-swipe="true" className="group flex items-center gap-3 rounded-[24px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3.5 transition-colors hover:border-[rgba(230,255,61,0.22)] hover:bg-[var(--bg-card-hover)]">
       <Link href={`/profile/${username}`} data-no-swipe="true" className="flex min-w-0 flex-1 items-center gap-3">
         <Avatar src={profile.avatar_url} username={username} displayName={label} size={48} className="rounded-2xl" />
         <div className="min-w-0 flex-1">
@@ -150,7 +138,7 @@ function ProfileSuggestionCard({ profile, followingIds, pendingFollowId, authUse
           {profile.bio ? <p className="mt-0.5 line-clamp-1 text-[12px] text-[var(--text-muted)]">{profile.bio}</p> : <p className="mt-0.5 text-[12px] text-[var(--accent)]">taste match {pseudoMatch}%</p>}
         </div>
       </Link>
-      <button type="button" data-no-swipe="true" onClick={() => onToggleFollow(profile.id)} disabled={!authUserId || isPending} className="inline-flex h-9 min-w-[92px] flex-shrink-0 items-center justify-center gap-1.5 rounded-full border px-3 text-[11px] font-black transition-all disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35" style={isFollowing ? { borderColor: 'var(--border)', color: 'var(--text-secondary)', background: 'var(--bg-secondary)' } : { borderColor: 'rgba(230,255,61,0.45)', color: '#0B0B0F', background: 'var(--accent)' }}>
+      <button type="button" data-no-swipe="true" onClick={() => onToggleFollow(profile.id)} disabled={!authUserId || isPending} className="inline-flex h-9 min-w-[86px] flex-shrink-0 items-center justify-center gap-1.5 rounded-full border px-3 text-[11px] font-black transition-all disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35" style={isFollowing ? { borderColor: 'var(--border)', color: 'var(--text-secondary)', background: 'var(--bg-secondary)' } : { borderColor: 'rgba(230,255,61,0.45)', color: '#0B0B0F', background: 'var(--accent)' }}>
         {isPending ? <Loader2 size={13} className="animate-spin" /> : isFollowing ? <UserCheck size={13} /> : <UserPlus size={13} />}
         {isFollowing ? 'Seguito' : 'Segui'}
       </button>
@@ -231,34 +219,56 @@ export default function FriendsPage() {
   ]
 
   return (
-    <PageScaffold title="Friends" description="Trova persone con gusti simili e trasforma la tua libreria in un diario condiviso." icon={<Users size={16} />} className="gk-friends-page" contentClassName="gk-page-density mx-auto max-w-screen-lg pt-2 md:pt-8 pb-28">
-      <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[radial-gradient(circle_at_18%_0%,rgba(230,255,61,0.13),transparent_36%),linear-gradient(160deg,rgba(230,255,61,0.07),var(--bg-secondary))] p-5 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
-        <div className="mb-2 gk-section-eyebrow"><Radar size={12} /> Social graph</div>
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div className="min-w-0"><h1 className="font-display text-[34px] font-black leading-none tracking-[-0.045em] text-[var(--text-primary)] md:text-[42px]">Friends</h1><p className="mt-2 max-w-2xl text-[14px] leading-6 text-[var(--text-secondary)]">Attività delle persone che segui, profili affini e segnali che rendono migliore il tuo For You.</p></div>
+    <PageScaffold title="Friends" description="Persone, attività e suggerimenti social." icon={<Users size={16} />} className="gk-friends-page" contentClassName="gk-page-density mx-auto max-w-screen-md pt-2 md:pt-8 pb-28">
+      <div className="mb-5 rounded-[28px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/70 p-4 ring-1 ring-white/5">
+        <div className="min-w-0">
+          <div className="mb-2 gk-section-eyebrow"><Users size={12} /> Social</div>
+          <h1 className="font-display text-[34px] font-black leading-none tracking-[-0.045em] text-[var(--text-primary)] md:text-[40px]">Friends</h1>
+          <p className="mt-2 max-w-xl text-[14px] leading-6 text-[var(--text-secondary)]">Segui persone con gusti affini e guarda cosa stanno scoprendo.</p>
         </div>
-        <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
-          <SocialStat label="profili" value={profiles.length} accent icon={<Users size={14} />} />
-          <SocialStat label="seguiti" value={followingCount} icon={<UserCheck size={14} />} />
-          <SocialStat label="activity" value={activities.length} icon={<Activity size={14} />} />
+
+        <div className="mt-4 grid gap-2 border-t border-white/5 pt-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+          <div className="relative" data-no-swipe="true" data-interactive="true">
+            <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+            <input data-no-swipe="true" value={query} onChange={event => setQuery(event.target.value)} placeholder="Cerca utenti, media, attività..." className="w-full rounded-2xl border border-[var(--border)] bg-black/18 py-2.5 pl-10 pr-10 text-[14px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]" />
+            {query && <button type="button" data-no-swipe="true" onClick={() => setQuery('')} className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35" aria-label="Cancella ricerca amici"><X size={14} /></button>}
+          </div>
+          <div className="grid grid-cols-3 gap-1 rounded-2xl border border-[var(--border-subtle)] bg-black/14 p-1" data-no-swipe="true">
+            {tabs.map(tab => {
+              const active = activeTab === tab.id
+              return (
+                <button key={tab.id} type="button" data-no-swipe="true" onClick={() => setActiveTab(tab.id)} className="rounded-xl px-3 py-2 text-[11px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35" style={active ? { background: 'var(--accent)', color: '#0B0B0F' } : { color: 'var(--text-muted)' }} aria-pressed={active}>
+                  {tab.label} <span className="font-mono-data opacity-70">{tab.count}</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
 
-      {!authUser && <div className="mb-5 rounded-[22px] border border-amber-500/20 bg-amber-500/8 p-4" data-no-swipe="true"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-300"><LogIn size={18} /></div><div className="min-w-0 flex-1"><p className="text-sm font-black text-[var(--text-primary)]">Accedi per seguire utenti</p><p className="gk-caption">Puoi esplorare i profili, ma il follow richiede login.</p></div><Link href="/login" data-no-swipe="true" className="rounded-2xl bg-[var(--accent)] px-3 py-2 text-xs font-black text-[#0B0B0F]">Login</Link></div></div>}
+      {!authUser && (
+        <div className="mb-5 rounded-[22px] border border-amber-500/20 bg-amber-500/8 p-4" data-no-swipe="true">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-300"><LogIn size={18} /></div>
+            <div className="min-w-0 flex-1"><p className="text-sm font-black text-[var(--text-primary)]">Accedi per seguire utenti</p><p className="gk-caption">Puoi esplorare i profili, ma il follow richiede login.</p></div>
+            <Link href="/login" data-no-swipe="true" className="rounded-2xl bg-[var(--accent)] px-3 py-2 text-xs font-black text-[#0B0B0F]">Login</Link>
+          </div>
+        </div>
+      )}
 
       <StoriesRail profiles={stories.length ? stories : followingProfiles} />
 
-      <div className="relative mb-3" data-no-swipe="true" data-interactive="true">
-        <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-        <input data-no-swipe="true" value={query} onChange={event => setQuery(event.target.value)} placeholder="Cerca utenti, media, attività..." className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] py-2.5 pl-10 pr-10 text-[14px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]" />
-        {query && <button type="button" data-no-swipe="true" onClick={() => setQuery('')} className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35" aria-label="Cancella ricerca amici"><X size={14} /></button>}
-      </div>
-
-      <div className="mb-5 grid grid-cols-3 gap-1 rounded-[22px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/80 p-2 ring-1 ring-white/5" data-no-swipe="true">
-        {tabs.map(tab => { const active = activeTab === tab.id; return <button key={tab.id} type="button" data-no-swipe="true" onClick={() => setActiveTab(tab.id)} className="min-h-11 rounded-xl px-1 py-2 text-[11px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 sm:text-[12px]" style={active ? { background: 'rgba(230,255,61,0.09)', color: 'var(--accent)' } : { color: 'var(--text-muted)' }} aria-pressed={active}><span className="block">{tab.label}</span><span className="font-mono-data text-[9px] opacity-70">{tab.count}</span></button> })}
-      </div>
-
-      {loading ? <div className="space-y-2">{Array.from({ length: 8 }).map((_, index) => <div key={index} className="h-[84px] rounded-2xl bg-[var(--bg-card)] skeleton" />)}</div> : activeTab === 'activity' ? (filteredActivities.length > 0 ? <div className="grid gap-2 md:grid-cols-2">{filteredActivities.map(activity => <ActivityCard key={activity.id} activity={activity} />)}</div> : <div className="gk-empty-state py-14"><Activity className="gk-empty-state-icon" /><p className="gk-empty-state-title">Nessuna attività recente</p><p className="gk-empty-state-subtitle">Segui utenti o torna più tardi per vedere cosa stanno guardando.</p></div>) : activeTab === 'common' ? (followingProfiles.length > 0 ? <div className="space-y-2">{followingProfiles.map(profile => <ProfileSuggestionCard key={profile.id} profile={profile} followingIds={followingIds} pendingFollowId={pendingFollowId} authUserId={authUser?.id} onToggleFollow={toggleFollow} />)}</div> : <div className="gk-empty-state py-14"><MessageCircle className="gk-empty-state-icon" /><p className="gk-empty-state-title">Non segui ancora nessuno</p><p className="gk-empty-state-subtitle">Apri i suggeriti per costruire il tuo grafo sociale.</p></div>) : suggestedProfiles.length > 0 ? <div className="space-y-2">{suggestedProfiles.map(profile => <ProfileSuggestionCard key={profile.id} profile={profile} followingIds={followingIds} pendingFollowId={pendingFollowId} authUserId={authUser?.id} onToggleFollow={toggleFollow} />)}</div> : <div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] px-6 py-14 text-center"><UserPlus size={28} className="mx-auto mb-3 text-[var(--text-muted)]" /><p className="gk-headline mb-1">Nessun profilo trovato</p><p className="gk-body mx-auto mb-5 max-w-sm">Prova con un altro nome o torna più tardi quando ci saranno nuovi profili affini.</p>{query && <button type="button" data-no-swipe="true" onClick={() => setQuery('')} className="rounded-2xl border border-[var(--border)] px-4 py-2 text-sm font-bold text-[var(--text-secondary)] hover:text-white">Cancella ricerca</button>}</div>}
+      {loading ? (
+        <div className="space-y-2">{Array.from({ length: 8 }).map((_, index) => <div key={index} className="h-[92px] rounded-2xl bg-[var(--bg-card)] skeleton" />)}</div>
+      ) : activeTab === 'activity' ? (
+        filteredActivities.length > 0 ? <div className="space-y-2.5">{filteredActivities.map(activity => <ActivityCard key={activity.id} activity={activity} />)}</div> : <div className="gk-empty-state py-14"><Activity className="gk-empty-state-icon" /><p className="gk-empty-state-title">Nessuna attività recente</p><p className="gk-empty-state-subtitle">Segui utenti o torna più tardi per vedere cosa stanno guardando.</p></div>
+      ) : activeTab === 'common' ? (
+        followingProfiles.length > 0 ? <div className="space-y-2.5">{followingProfiles.map(profile => <ProfileSuggestionCard key={profile.id} profile={profile} followingIds={followingIds} pendingFollowId={pendingFollowId} authUserId={authUser?.id} onToggleFollow={toggleFollow} />)}</div> : <div className="gk-empty-state py-14"><MessageCircle className="gk-empty-state-icon" /><p className="gk-empty-state-title">Non segui ancora nessuno</p><p className="gk-empty-state-subtitle">Apri i suggeriti per costruire il tuo grafo sociale.</p></div>
+      ) : suggestedProfiles.length > 0 ? (
+        <div className="space-y-2.5">{suggestedProfiles.map(profile => <ProfileSuggestionCard key={profile.id} profile={profile} followingIds={followingIds} pendingFollowId={pendingFollowId} authUserId={authUser?.id} onToggleFollow={toggleFollow} />)}</div>
+      ) : (
+        <div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] px-6 py-14 text-center"><UserPlus size={28} className="mx-auto mb-3 text-[var(--text-muted)]" /><p className="gk-headline mb-1">Nessun profilo trovato</p><p className="gk-body mx-auto mb-5 max-w-sm">Prova con un altro nome o torna più tardi quando ci saranno nuovi profili affini.</p>{query && <button type="button" data-no-swipe="true" onClick={() => setQuery('')} className="rounded-2xl border border-[var(--border)] px-4 py-2 text-sm font-bold text-[var(--text-secondary)] hover:text-white">Cancella ricerca</button>}</div>
+      )}
     </PageScaffold>
   )
 }

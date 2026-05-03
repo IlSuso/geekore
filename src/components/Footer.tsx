@@ -19,6 +19,8 @@ const APP_ROUTE_PREFIXES = [
   '/library',
   '/discover',
   '/friends',
+  '/community',
+  '/explore',
   '/trending',
   '/lists',
   '/notifications',
@@ -28,7 +30,6 @@ const APP_ROUTE_PREFIXES = [
   '/swipe',
   '/wishlist',
   '/leaderboard',
-  '/search',
 ]
 
 const PUBLIC_FOOTER_ROUTES = new Set([

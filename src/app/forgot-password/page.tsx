@@ -3,18 +3,38 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
-import { Mail, Zap, CheckCircle } from 'lucide-react'
-import { PrimitiveButton } from '@/components/ui/PrimitiveButton'
-import { PrimitiveInput } from '@/components/ui/PrimitiveInput'
+import { ArrowLeft, CheckCircle2, Mail, ShieldCheck, Zap } from 'lucide-react'
 
 function AuthWordmark() {
   return (
     <Link href="/" className="inline-flex items-center gap-2 text-[var(--text-primary)]" aria-label="Geekore home">
-      <span className="grid h-7 w-7 place-items-center rounded-[9px] bg-[var(--accent)] text-sm font-black text-[#0B0B0F]">
-        <Zap size={15} fill="currentColor" />
+      <span className="grid h-8 w-8 place-items-center rounded-[10px] bg-[var(--accent)] text-sm font-black text-[#0B0B0F]">
+        <Zap size={16} fill="currentColor" />
       </span>
-      <span className="font-display text-[22px] font-black tracking-[-0.03em]">geekore</span>
+      <span className="font-display text-[22px] font-black tracking-[-0.04em]">geekore</span>
     </Link>
+  )
+}
+
+function RecoveryShell({ children }: { children: React.ReactNode }) {
+  return (
+    <main data-auth className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
+      <div className="pointer-events-none fixed inset-0" aria-hidden>
+        <div className="absolute left-1/2 top-[-24%] h-[48vh] w-[70vw] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(230,255,61,0.07),transparent_68%)]" />
+        <div className="absolute bottom-[-22%] right-[-14%] h-[58vh] w-[44vw] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(14,165,233,0.05),transparent_70%)]" />
+      </div>
+
+      <header className="relative z-10 flex h-16 items-center justify-between px-5 md:px-8">
+        <AuthWordmark />
+        <Link href="/login" className="inline-flex h-9 items-center gap-2 rounded-2xl border border-[var(--border)] bg-white/[0.03] px-3 text-xs font-black text-[var(--text-secondary)] transition-colors hover:text-white">
+          <ArrowLeft size={14} /> Login
+        </Link>
+      </header>
+
+      <section className="relative z-10 flex min-h-[calc(100vh-64px)] items-start justify-center px-5 pb-10 pt-8 md:items-center md:pt-0">
+        {children}
+      </section>
+    </main>
   )
 }
 
@@ -29,88 +49,93 @@ export default function ForgotPasswordPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: 'https://geekore.it/auth/reset-password',
     })
-    if (error) {
-      setError('Errore nell\'invio. Controlla l\'email e riprova.')
-    } else {
-      setSent(true)
-    }
+
+    if (error) setError('Errore nell\'invio. Controlla l\'email e riprova.')
+    else setSent(true)
+
     setLoading(false)
   }
 
   if (sent) {
     return (
-      <main data-auth className="gk-auth-page min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
-        <header className="flex h-[52px] items-center justify-between px-[14px] md:px-8">
-          <AuthWordmark />
-        </header>
-
-        <section className="flex min-h-[calc(100vh-52px)] items-start justify-center px-[14px] pb-10 pt-6 md:items-center md:pt-0">
-          <div className="w-full max-w-[420px] rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-[22px] text-center">
-            <div className="mx-auto mb-6 grid h-20 w-20 place-items-center rounded-3xl border border-emerald-400/30 bg-emerald-400/10">
-              <CheckCircle size={36} className="text-emerald-400" />
-            </div>
-            <h1 className="gk-h1 mb-3">Email inviata!</h1>
-            <p className="gk-body mb-2">Abbiamo inviato un link per reimpostare la password a</p>
-            <p className="gk-body-strong mb-6 text-[var(--text-primary)]">{email}</p>
-            <p className="gk-caption mb-8">Controlla anche la cartella spam. Il link scade dopo 1 ora.</p>
-            <Link href="/login" className="gk-btn gk-btn-secondary gk-focus-ring w-full">
-              Torna al login
-            </Link>
+      <RecoveryShell>
+        <div className="w-full max-w-[430px] overflow-hidden rounded-[28px] border border-[var(--border)] bg-[rgba(20,20,28,0.78)] p-6 text-center shadow-[0_24px_80px_rgba(0,0,0,0.34)] ring-1 ring-white/5 backdrop-blur-xl md:p-7">
+          <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-[24px] border border-emerald-400/25 bg-emerald-400/10 text-emerald-300">
+            <CheckCircle2 size={32} />
           </div>
-        </section>
-      </main>
+          <p className="gk-label mb-2 text-emerald-300">Link inviato</p>
+          <h1 className="font-display text-[30px] font-black leading-none tracking-[-0.045em] text-[var(--text-primary)]">Controlla la mail</h1>
+          <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">Abbiamo inviato il link di reset a:</p>
+          <p className="mt-1 break-all font-mono-data text-sm font-black text-[var(--accent)]">{email}</p>
+          <div className="mt-5 rounded-2xl border border-[var(--border-subtle)] bg-black/18 p-4 text-left">
+            <div className="flex gap-3">
+              <ShieldCheck size={17} className="mt-0.5 flex-shrink-0 text-[var(--text-muted)]" />
+              <p className="text-xs leading-5 text-[var(--text-muted)]">Controlla anche spam o promozioni. Il link può scadere dopo poco tempo per sicurezza.</p>
+            </div>
+          </div>
+          <Link href="/login" className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-2xl border border-[var(--border)] bg-white/[0.03] text-sm font-black text-[var(--text-primary)] transition-colors hover:bg-white/[0.06]">
+            Torna al login
+          </Link>
+        </div>
+      </RecoveryShell>
     )
   }
 
   return (
-    <main data-auth className="gk-auth-page min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
-      <header className="flex h-[52px] items-center justify-between px-[14px] md:px-8">
-        <AuthWordmark />
-      </header>
-
-      <section className="flex min-h-[calc(100vh-52px)] items-start justify-center px-[14px] pb-10 pt-6 md:items-center md:pt-0">
-        <div className="w-full max-w-[420px] rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-[22px]">
-          <div className="mb-6">
-            <p className="gk-label mb-2 text-[var(--accent)]">Reset</p>
-            <h1 className="gk-h1 mb-2">Password dimenticata?</h1>
-            <p className="gk-caption text-[var(--text-secondary)]">Inserisci la tua email e ti mandiamo un link per reimpostarla.</p>
+    <RecoveryShell>
+      <div className="w-full max-w-[430px] overflow-hidden rounded-[28px] border border-[var(--border)] bg-[rgba(20,20,28,0.78)] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.34)] ring-1 ring-white/5 backdrop-blur-xl md:p-7">
+        <div className="mb-6">
+          <div className="mb-4 grid h-12 w-12 place-items-center rounded-[18px] border border-[rgba(230,255,61,0.18)] bg-[rgba(230,255,61,0.08)] text-[var(--accent)]">
+            <Mail size={21} />
           </div>
+          <p className="gk-label mb-2 text-[var(--accent)]">Reset password</p>
+          <h1 className="font-display text-[32px] font-black leading-none tracking-[-0.045em] text-[var(--text-primary)]">Recupera accesso</h1>
+          <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">Inserisci la mail del tuo account. Ti mandiamo un link sicuro per scegliere una nuova password.</p>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <div>
+            <label htmlFor="email" className="mb-2 block text-[11px] font-black uppercase tracking-[0.12em] text-[var(--text-muted)]">Email</label>
             <div className="relative">
-              <PrimitiveInput
+              <Mail className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={17} />
+              <input
+                id="email"
                 name="email"
-                label="Email"
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder="tuo@email.com"
                 autoComplete="email"
-                className="pl-12"
-                error={error || undefined}
                 required
+                className="h-12 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] pl-11 pr-4 text-sm font-medium text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-muted)] focus:border-[rgba(230,255,61,0.45)]"
               />
-              <Mail className="pointer-events-none absolute left-4 top-[42px] text-[var(--text-muted)]" size={18} />
             </div>
-
-            <PrimitiveButton type="submit" disabled={loading} className="w-full">
-              {loading ? 'Invio in corso...' : 'Invia link'}
-            </PrimitiveButton>
-          </form>
-
-          <div className="mt-6 border-t border-[var(--border-soft)] pt-5 text-center">
-            <p className="gk-caption">
-              Ricordi la password?{' '}
-              <Link href="/login" className="font-bold text-[var(--accent)] hover:opacity-80">
-                Accedi
-              </Link>
-            </p>
           </div>
-        </div>
-      </section>
-    </main>
+
+          {error && (
+            <div className="rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading || email.trim().length === 0}
+            className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-[var(--accent)] text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-55"
+          >
+            {loading ? 'Invio in corso...' : 'Invia link di reset'}
+          </button>
+        </form>
+
+        <p className="mt-6 border-t border-[var(--border-soft)] pt-5 text-center text-xs text-[var(--text-muted)]">
+          Ricordi la password?{' '}
+          <Link href="/login" className="font-black text-[var(--accent)] hover:opacity-80">Accedi</Link>
+        </p>
+      </div>
+    </RecoveryShell>
   )
 }

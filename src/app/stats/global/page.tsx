@@ -1,10 +1,6 @@
-// DESTINAZIONE: src/app/stats/global/page.tsx
-// #38: Pagina statistiche globali della community Geekore.
-// Server Component — dati aggregati letti da Supabase.
-
-import { createClient } from '@/lib/supabase/server'
-import { Users, Clock, Star, Gamepad2, Tv, Film, Layers, TrendingUp, Globe, Trophy } from 'lucide-react'
 import Link from 'next/link'
+import { Clock, Film, Gamepad2, Globe, Layers, Star, Trophy, Tv, Users } from 'lucide-react'
+import { createClient } from '@/lib/supabase/server'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 
 async function getGlobalStats() {
@@ -18,71 +14,66 @@ async function getGlobalStats() {
     { count: totalPosts },
   ] = await Promise.all([
     supabase.from('profiles').select('id', { count: 'exact', head: true }),
-
-    supabase
-      .from('user_media_entries')
-      .select('type, current_episode, is_steam, status'),
-
+    supabase.from('user_media_entries').select('type, current_episode, is_steam, status'),
     supabase
       .from('user_media_entries')
       .select('title, type, cover_image, external_id')
       .not('title', 'is', null)
       .limit(500),
-
-    supabase
-      .from('user_media_entries')
-      .select('genres')
-      .not('genres', 'is', null),
-
+    supabase.from('user_media_entries').select('genres').not('genres', 'is', null),
     supabase.from('posts').select('id', { count: 'exact', head: true }),
   ])
 
-  // Aggregazione ore per tipo
   const entries = mediaAgg || []
-  let animeEps = 0, mangaChapters = 0, gameHours = 0, movieCount = 0, tvEps = 0
+  let animeEps = 0
+  let mangaChapters = 0
+  let gameHours = 0
+  let movieCount = 0
+  let tvEps = 0
   let totalEntries = 0
 
-  for (const e of entries) {
-    totalEntries++
-    const ep = e.current_episode || 0
-    if (e.type === 'anime') animeEps += ep
-    else if (e.type === 'manga') mangaChapters += ep
-    else if (e.type === 'game' && e.is_steam) gameHours += ep
-    else if (e.type === 'movie' && e.status === 'completed') movieCount++
-    else if (e.type === 'tv') tvEps += ep
+  for (const entry of entries) {
+    totalEntries += 1
+    const progress = entry.current_episode || 0
+
+    if (entry.type === 'anime') animeEps += progress
+    if (entry.type === 'manga') mangaChapters += progress
+    if (entry.type === 'game' && entry.is_steam) gameHours += progress
+    if (entry.type === 'movie' && entry.status === 'completed') movieCount += 1
+    if (entry.type === 'tv') tvEps += progress
   }
 
-  const animeHours = Math.round(animeEps * 24 / 60)
-  const mangaHours = Math.round(mangaChapters * 5 / 60)
+  const animeHours = Math.round((animeEps * 24) / 60)
+  const mangaHours = Math.round((mangaChapters * 5) / 60)
   const movieHours = Math.round(movieCount * 1.8)
-  const tvHours = Math.round(tvEps * 45 / 60)
+  const tvHours = Math.round((tvEps * 45) / 60)
   const totalHours = animeHours + mangaHours + gameHours + movieHours + tvHours
 
-  // Titoli più popolari
   const titleMap = new Map<string, { count: number; item: any }>()
   for (const row of topTitles || []) {
     if (!row.title) continue
     const key = `${row.type}::${row.title}`
     if (!titleMap.has(key)) titleMap.set(key, { count: 0, item: row })
-    titleMap.get(key)!.count++
+    titleMap.get(key)!.count += 1
   }
+
   const popularTitles = [...titleMap.values()]
     .sort((a, b) => b.count - a.count)
-    .slice(0, 10)
+    .slice(0, 8)
 
-  // Generi più popolari
   const genreMap = new Map<string, number>()
   for (const row of topGenres || []) {
     if (!Array.isArray(row.genres)) continue
-    for (const g of row.genres) {
-      if (g) genreMap.set(g, (genreMap.get(g) || 0) + 1)
+    for (const genre of row.genres) {
+      if (genre) genreMap.set(genre, (genreMap.get(genre) || 0) + 1)
     }
   }
+
   const popularGenres = [...genreMap.entries()]
     .sort(([, a], [, b]) => b - a)
-    .slice(0, 12)
+    .slice(0, 10)
 
-    return {
+  return {
     totalUsers: totalUsers || 0,
     totalEntries,
     totalPosts: totalPosts || 0,
@@ -101,145 +92,178 @@ async function getGlobalStats() {
   }
 }
 
+function formatNumber(n: number) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
+  return n.toLocaleString('it')
+}
 
-function StatCard({ label, value, sub, icon: Icon, color }: {
-  label: string; value: string; sub?: string; icon: React.ElementType; color: string
+function MetricCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="rounded-[24px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/58 px-5 py-4 ring-1 ring-white/5">
+      <p className="font-display text-[28px] font-black leading-none tracking-[-0.04em] text-[var(--text-primary)]">{value}</p>
+      <p className="mt-2 text-[11px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">{label}</p>
+      {sub && <p className="mt-1 text-[12px] leading-5 text-[var(--text-subtle)]">{sub}</p>}
+    </div>
+  )
+}
+
+function CategoryRow({ label, value, sub, color, max, icon: Icon }: {
+  label: string
+  value: number
+  sub: string
+  color: string
+  max: number
+  icon: React.ElementType
 }) {
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 flex flex-col gap-2">
-      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${color}`}>
-        <Icon size={18} className="text-white" />
+    <div className="rounded-[22px] border border-[var(--border-subtle)] bg-black/16 px-4 py-3">
+      <div className="flex items-center gap-3">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[15px] border border-white/8 bg-black/25" style={{ color }}>
+          <Icon size={18} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-3">
+            <p className="truncate text-[14px] font-black text-[var(--text-primary)]">{label}</p>
+            <p className="shrink-0 font-mono-data text-[15px] font-black text-[var(--text-primary)]">{formatNumber(value)}h</p>
+          </div>
+          <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--text-muted)]">{sub}</p>
+        </div>
       </div>
-      <p className="text-2xl font-black text-white mt-1">{value}</p>
-      <p className="text-sm text-zinc-400 leading-snug">{label}</p>
-      {sub && <p className="text-xs text-zinc-600">{sub}</p>}
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-black/38">
+        <div
+          className="h-full rounded-full transition-all duration-700"
+          style={{ width: max > 0 ? `${Math.max(2, (value / max) * 100)}%` : '0%', background: color }}
+        />
+      </div>
     </div>
   )
 }
 
 export default async function GlobalStatsPage() {
   const stats = await getGlobalStats()
+  const totalDays = Math.floor(stats.totalHours / 24)
+  const remainingHours = stats.totalHours % 24
+  const dominant = [
+    { label: 'Videogiochi', value: stats.gameHours },
+    { label: 'Film', value: stats.movieHours },
+    { label: 'Anime', value: stats.animeHours },
+    { label: 'Serie TV', value: stats.tvHours },
+    { label: 'Manga', value: stats.mangaHours },
+  ].sort((a, b) => b.value - a.value)[0]
 
-  const formatNumber = (n: number) =>
-    n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` :
-    n >= 1_000 ? `${(n / 1_000).toFixed(1)}K` :
-    n.toLocaleString('it')
+  const maxCategoryHours = Math.max(stats.animeHours, stats.gameHours, stats.tvHours, stats.movieHours, stats.mangaHours, 1)
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-white pb-24">
-      <div className="max-w-3xl mx-auto px-4 pt-8">
+    <div className="min-h-screen bg-[var(--bg-primary)] pb-24 text-[var(--text-primary)]">
+      <div className="mx-auto max-w-screen-md px-4 pt-8">
+        <section className="rounded-[32px] border border-[rgba(230,255,61,0.2)] bg-[radial-gradient(circle_at_top_left,rgba(230,255,61,0.12),transparent_42%),var(--bg-card)] px-6 py-6 shadow-[0_24px_70px_rgba(0,0,0,0.34)] ring-1 ring-white/5 sm:px-7">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.28)] bg-[rgba(230,255,61,0.08)] px-3 py-1 font-mono-data text-[11px] font-black uppercase tracking-[0.18em] text-[var(--accent)]">
+                <Globe size={13} />
+                Community DNA
+              </div>
+              <h1 className="font-display text-[42px] font-black leading-[0.92] tracking-[-0.06em] text-[var(--text-primary)] sm:text-[54px]">
+                {formatNumber(stats.totalUsers)} persone, {formatNumber(stats.totalEntries)} titoli
+              </h1>
+              <p className="mt-3 max-w-xl text-[15px] leading-6 text-[var(--text-secondary)]">
+                La community ha tracciato circa <strong className="text-[var(--text-primary)]">{formatNumber(stats.totalHours)} ore</strong>: {totalDays} giorni e {remainingHours} ore di anime, film, serie, manga e videogiochi.
+              </p>
+            </div>
+            <Link
+              href="/stats"
+              className="inline-flex h-12 shrink-0 items-center justify-center rounded-[18px] border border-[var(--border)] bg-[var(--bg-secondary)] px-5 text-[13px] font-black text-[var(--text-primary)] transition hover:border-[rgba(230,255,61,0.35)] hover:text-[var(--accent)]"
+            >
+              Le mie stats
+            </Link>
+          </div>
+        </section>
 
-        {/* Header */}
-        <div className="mb-10">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: 'var(--accent)' }}>
-              <Globe size={20} className="text-black" />
+        <section className="mt-5 grid gap-3 sm:grid-cols-4">
+          <MetricCard label="Ore totali" value={formatNumber(stats.totalHours)} sub="stima aggregata" />
+          <MetricCard label="Post" value={formatNumber(stats.totalPosts)} sub="pubblicati" />
+          <MetricCard label="Dominante" value={dominant?.label || '—'} sub={dominant ? `${formatNumber(dominant.value)}h` : undefined} />
+          <MetricCard label="Film visti" value={formatNumber(stats.movieCount)} sub="completati" />
+        </section>
+
+        <section className="mt-8 rounded-[30px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/68 p-5 ring-1 ring-white/5 sm:p-6">
+          <div className="mb-5 flex items-center gap-3">
+            <div className="grid h-9 w-9 place-items-center rounded-[14px] border border-[rgba(230,255,61,0.18)] bg-[rgba(230,255,61,0.07)] text-[var(--accent)]">
+              <Clock size={17} />
             </div>
             <div>
-              <h1 className="text-3xl font-black tracking-tighter">Statistiche globali</h1>
-              <p className="text-zinc-500 text-sm">La community Geekore in numeri</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">Distribuzione</p>
+              <h2 className="font-display text-[26px] font-black leading-none tracking-[-0.04em]">Ore per categoria</h2>
             </div>
           </div>
-          <Link href="/stats" className="text-xs hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>
-            ← Le mie statistiche personali
-          </Link>
-        </div>
 
-        {/* Big stats grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-10">
-          <StatCard label="Utenti registrati" value={formatNumber(stats.totalUsers)} icon={Users} color="bg-emerald-600" />
-          <StatCard label="Titoli in collezione" value={formatNumber(stats.totalEntries)} icon={TrendingUp} color="bg-zinc-700" />
-          <StatCard label="Ore di contenuto" value={formatNumber(stats.totalHours)} sub="stima aggregata" icon={Clock} color="bg-emerald-600" />
-          <StatCard label="Ep. anime guardati" value={formatNumber(stats.animeEps)} sub={`≈ ${formatNumber(stats.animeHours)} ore`} icon={Tv} color="bg-sky-600" />
-          <StatCard label="Ore Steam" value={formatNumber(stats.gameHours)} icon={Gamepad2} color="bg-green-600" />
-          <StatCard label="Film visti" value={formatNumber(stats.movieCount)} icon={Film} color="bg-red-600" />
-        </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <CategoryRow label="Videogiochi" value={stats.gameHours} sub="ore Steam" color="var(--type-game)" max={maxCategoryHours} icon={Gamepad2} />
+            <CategoryRow label="Film" value={stats.movieHours} sub={`${formatNumber(stats.movieCount)} film`} color="var(--type-movie)" max={maxCategoryHours} icon={Film} />
+            <CategoryRow label="Anime" value={stats.animeHours} sub={`${formatNumber(stats.animeEps)} episodi`} color="var(--type-anime)" max={maxCategoryHours} icon={Tv} />
+            <CategoryRow label="Serie TV" value={stats.tvHours} sub={`${formatNumber(stats.tvEps)} episodi`} color="var(--type-tv)" max={maxCategoryHours} icon={Tv} />
+            <CategoryRow label="Manga" value={stats.mangaHours} sub={`${formatNumber(stats.mangaChapters)} capitoli`} color="var(--type-manga)" max={maxCategoryHours} icon={Layers} />
+          </div>
+        </section>
 
-        {/* Ore per tipo */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 mb-8">
-          <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-widest mb-5">Ore per categoria</h2>
-          {(() => {
-            const maxH = Math.max(stats.animeHours, stats.gameHours, stats.tvHours, stats.movieHours, stats.mangaHours) || 1
-            return [
-              { label: 'Anime', hours: stats.animeHours, color: 'var(--type-anime)' },
-              { label: 'Videogiochi (Steam)', hours: stats.gameHours, color: 'var(--type-game)' },
-              { label: 'Serie TV', hours: stats.tvHours, color: 'var(--type-tv)' },
-              { label: 'Film', hours: stats.movieHours, color: 'var(--type-movie)' },
-              { label: 'Manga', hours: stats.mangaHours, color: 'var(--type-manga)' },
-            ].map(({ label, hours, color }) => ({ label, hours, color, max: maxH }))
-          })().map(({ label, hours, color, max }) => (
-            <div key={label} className="mb-4 last:mb-0">
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-zinc-300">{label}</span>
-                <span className="font-bold text-white">{formatNumber(hours)}h</span>
-              </div>
-              <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-700"
-                  style={{ width: max > 0 ? `${(hours / max) * 100}%` : '0%', background: color }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Titoli più popolari */}
         {stats.popularTitles.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <Star size={14} className="text-yellow-400" />
-              <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-widest">Più aggiunti di sempre</h2>
+          <section className="mt-8">
+            <div className="mb-4 flex items-center gap-2">
+              <Trophy size={15} className="text-[var(--accent)]" />
+              <h2 className="text-[12px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">Più aggiunti dalla community</h2>
             </div>
-            <div className="space-y-2">
-              {stats.popularTitles.map((t, i) => (
-                <div key={`${t.item.type}-${t.item.title}`} className="flex items-center gap-3 p-3 bg-zinc-900 border border-zinc-800 rounded-2xl">
-                  <div className="w-6 text-center flex-shrink-0">
-                    {i < 3
-                      ? <Trophy size={14} className={i === 0 ? 'text-yellow-400' : i === 1 ? 'text-zinc-300' : 'text-amber-600'} />
-                      : <span className="text-xs font-bold text-zinc-600">#{i+1}</span>
-                    }
+            <div className="space-y-2.5">
+              {stats.popularTitles.map((title, index) => (
+                <div key={`${title.item.type}-${title.item.title}`} className="flex items-center gap-3 rounded-[22px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/58 p-3 ring-1 ring-white/5">
+                  <div className="grid w-8 shrink-0 place-items-center">
+                    {index < 3 ? (
+                      <Trophy size={15} className={index === 0 ? 'text-yellow-400' : index === 1 ? 'text-zinc-300' : 'text-amber-600'} />
+                    ) : (
+                      <span className="font-mono-data text-[11px] font-black text-[var(--text-muted)]">#{index + 1}</span>
+                    )}
                   </div>
-                  <div className="w-10 h-14 rounded-xl overflow-hidden bg-zinc-800 flex-shrink-0">
-                    {t.item.cover_image
-                      ? <img src={t.item.cover_image} alt={t.item.title} className="w-full h-full object-cover" loading="lazy" />
-                      : <div className="w-full h-full flex items-center justify-center text-zinc-600"><Tv size={20} /></div>
-                    }
+                  <div className="h-16 w-11 shrink-0 overflow-hidden rounded-[12px] bg-[var(--bg-secondary)]">
+                    {title.item.cover_image ? (
+                      <img src={title.item.cover_image} alt={title.item.title} className="h-full w-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className="grid h-full w-full place-items-center text-[var(--text-muted)]">
+                        <Tv size={18} />
+                      </div>
+                    )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-white truncate">{t.item.title}</p>
-                    <MediaTypeBadge type={t.item.type} size="xs" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[14px] font-black text-[var(--text-primary)]">{title.item.title}</p>
+                    <div className="mt-1">
+                      <MediaTypeBadge type={title.item.type} size="xs" />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 text-emerald-400 flex-shrink-0">
+                  <div className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-emerald-300">
                     <Users size={11} />
-                    <span className="text-xs font-bold">{t.count}</span>
+                    <span className="font-mono-data text-[11px] font-black">{formatNumber(title.count)}</span>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* Generi più popolari */}
         {stats.popularGenres.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <Layers size={14} style={{ color: 'var(--accent)' }} />
-              <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-widest">Generi più amati</h2>
+          <section className="mt-8">
+            <div className="mb-4 flex items-center gap-2">
+              <Star size={15} className="text-[var(--accent)]" />
+              <h2 className="text-[12px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">Generi più amati</h2>
             </div>
             <div className="flex flex-wrap gap-2">
               {stats.popularGenres.map(([genre, count]) => (
-                <div key={genre} className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-full">
-                  <span className="text-sm font-medium text-zinc-200">{genre}</span>
-                  <span className="text-xs font-bold" style={{ color: 'var(--accent)' }}>{formatNumber(count)}</span>
-                </div>
+                <span key={genre} className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-[13px] font-bold text-[var(--text-primary)]">
+                  {genre}
+                  <span className="font-mono-data text-[11px] font-black text-[var(--accent)]">{formatNumber(count)}</span>
+                </span>
               ))}
             </div>
-          </div>
+          </section>
         )}
-
-        <p className="text-center text-zinc-700 text-xs">
-          Statistiche aggiornate in tempo reale · {stats.totalPosts.toLocaleString('it')} post pubblicati dalla community
-        </p>
       </div>
     </div>
   )

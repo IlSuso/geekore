@@ -4,17 +4,27 @@ import { useEffect, useRef, useState } from 'react'
 
 function findScrollParent(el: HTMLElement | null): HTMLElement | Window {
   let node = el?.parentElement || null
+
   while (node) {
     const style = window.getComputedStyle(node)
     const overflowY = style.overflowY
-    if (/(auto|scroll|overlay)/.test(overflowY)) return node
+
+    if (/(auto|scroll|overlay)/.test(overflowY)) {
+      return node
+    }
+
     node = node.parentElement
   }
+
   return window
 }
 
 function getViewportHeight(scrollParent: HTMLElement | Window): number {
-  return scrollParent === window ? window.innerHeight : (scrollParent as HTMLElement).clientHeight
+  if (scrollParent instanceof HTMLElement) {
+    return scrollParent.clientHeight
+  }
+
+  return window.innerHeight
 }
 
 /**
@@ -53,10 +63,12 @@ export function StickyFromBottom({
 
     const update = () => {
       scrollParent = findScrollParent(el)
+
       const viewportHeight = getViewportHeight(scrollParent)
       const contentHeight = el.offsetHeight
       const shortTop = navHeight
       const bottomLockedTop = viewportHeight - contentHeight - bottomOffset
+
       setTop(Math.min(shortTop, bottomLockedTop))
     }
 
@@ -64,10 +76,11 @@ export function StickyFromBottom({
 
     const ro = new ResizeObserver(update)
     ro.observe(el)
+
     window.addEventListener('resize', update)
 
-    if (scrollParent !== window) {
-      ;(scrollParent as HTMLElement).addEventListener('scroll', update, { passive: true })
+    if (scrollParent instanceof HTMLElement) {
+      scrollParent.addEventListener('scroll', update, { passive: true })
     } else {
       window.addEventListener('scroll', update, { passive: true })
     }
@@ -75,8 +88,9 @@ export function StickyFromBottom({
     return () => {
       ro.disconnect()
       window.removeEventListener('resize', update)
-      if (scrollParent !== window) {
-        ;(scrollParent as HTMLElement).removeEventListener('scroll', update)
+
+      if (scrollParent instanceof HTMLElement) {
+        scrollParent.removeEventListener('scroll', update)
       } else {
         window.removeEventListener('scroll', update)
       }

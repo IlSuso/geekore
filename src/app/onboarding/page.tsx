@@ -128,8 +128,8 @@ function BrandPanel({ step }: { step: number }) {
   ][Math.min(step, 3)]
 
   return (
-    <div className="relative flex h-full w-full flex-col justify-between overflow-hidden px-14 py-14 xl:px-20"
-      style={{ background: 'linear-gradient(160deg, rgba(230,255,61,0.04) 0%, var(--bg-primary) 50%)' }}>
+    <div className="relative flex h-full w-full flex-col justify-between overflow-hidden px-8 py-9"
+      style={{ background: 'linear-gradient(160deg, rgba(230,255,61,0.035) 0%, var(--bg-primary) 58%)' }}>
       {/* Background decoration */}
       <div className="pointer-events-none absolute inset-0" aria-hidden>
         <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '70%', height: '60%', background: 'radial-gradient(ellipse at center, rgba(230,255,61,0.08) 0%, transparent 70%)', borderRadius: '50%' }} />
@@ -137,16 +137,17 @@ function BrandPanel({ step }: { step: number }) {
         <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.8) 1px, transparent 1px)', backgroundSize: '44px 44px' }} />
       </div>
 
-      <div className="relative z-10 flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--accent)] shadow-[0_4px_20px_rgba(230,255,61,0.3)]"><Zap size={22} className="text-black" /></div>
-        <span className="font-display text-2xl font-black tracking-[-0.03em] text-white">geekore</span>
+      <div className="relative z-10 flex items-center gap-2.5">
+        <div className="flex h-9 w-9 items-center justify-center rounded-[13px] bg-[var(--accent)] shadow-[0_4px_20px_rgba(230,255,61,0.18)]"><Zap size={18} className="text-black" /></div>
+        <span className="font-display text-xl font-black tracking-[-0.03em] text-white">geekore</span>
       </div>
-      <div className="relative z-10 space-y-7">
-        <h2 key={step} className="gk-display max-w-[520px] text-white">
+      <div className="relative z-10 space-y-5">
+        <p className="gk-section-eyebrow mb-2 inline-flex"><Sparkles size={12} /> onboarding</p>
+        <h2 key={step} className="font-display max-w-[300px] text-[36px] font-black leading-[0.95] tracking-[-0.055em] text-white">
           {copy.title.map((line, i) => <span key={line} className="block" style={i === copy.title.length - 1 ? { color: 'var(--accent)' } : {}}>{line}</span>)}
         </h2>
-        <p className="max-w-[380px] text-lg leading-relaxed text-[var(--text-secondary)]">{copy.sub}</p>
-        {step === 0 && <div className="space-y-3 pt-2">{FEATURES.map(({ icon: Icon, label }) => <div key={label} className="flex items-center gap-3 rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[rgba(230,255,61,0.2)] bg-[rgba(230,255,61,0.08)]"><Icon size={17} className="text-[var(--accent)]" /></div><span className="text-sm font-medium leading-relaxed text-zinc-300">{label}</span></div>)}</div>}
+        <p className="max-w-[280px] text-sm leading-6 text-[var(--text-secondary)]">{copy.sub}</p>
+        {step === 0 && <div className="space-y-2 pt-1">{FEATURES.map(({ icon: Icon, label }) => <div key={label} className="flex items-center gap-3 rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.028)', border: '1px solid rgba(255,255,255,0.055)' }}><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[rgba(230,255,61,0.18)] bg-[rgba(230,255,61,0.07)]"><Icon size={15} className="text-[var(--accent)]" /></div><span className="text-xs font-medium leading-relaxed text-zinc-300">{label}</span></div>)}</div>}
       </div>
       <p className="relative z-10 text-xs" style={{ color: 'rgba(255,255,255,0.15)' }}>© {new Date().getFullYear()} Geekore</p>
     </div>
@@ -272,18 +273,18 @@ export default function OnboardingPage() {
 
   return (
     <div className="gk-onboarding-page flex min-h-screen w-full bg-[var(--bg-primary)] text-[var(--text-primary)]">
-      <div className="hidden shrink-0 border-r border-[var(--border)] lg:block lg:w-[46%] xl:w-[50%]"><div className="sticky top-0 h-screen"><BrandPanel step={step} /></div></div>
-      <div className="flex flex-1 flex-col items-center justify-center px-7 py-12 sm:px-12 lg:px-14 xl:px-20">
+      <div className="hidden w-[340px] shrink-0 border-r border-[var(--border)] lg:block xl:w-[380px]"><div className="sticky top-0 h-screen"><BrandPanel step={step} /></div></div>
+      <div className="flex flex-1 flex-col items-center justify-center px-5 py-8 sm:px-10 lg:px-12 xl:px-16">
         <div className="mb-10 flex items-center gap-3 self-start lg:hidden"><div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--accent)]"><Zap size={20} className="text-black" /></div><span className="font-display text-2xl font-black tracking-[-0.03em] text-white">geekore</span></div>
-        <div className="w-full max-w-md">
-          <div className="mb-8"><StepDots current={step} total={TOTAL_STEPS} /></div>
+        <div className="w-full max-w-[560px]">
+          <div className="mb-6 rounded-[22px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/50 p-4"><StepDots current={step} total={TOTAL_STEPS} /></div>
 
           {step === 0 && <>
-            <div className="mb-7">
+            <div className="mb-5">
               <h1 className="gk-title mb-2 text-white">Cosa tracci?</h1>
-              <p className="gk-body">Scegli almeno una categoria. Puoi cambiarle più avanti dal profilo.</p>
+              <p className="gk-body">Scegli i mondi che vuoi usare per costruire il tuo primo Taste DNA.</p>
             </div>
-            <div className="mb-4 grid grid-cols-2 gap-3">
+            <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
               {MEDIA_TYPES.map(({ id, label, icon: Icon, color }) => {
                 const selected = selectedTypes.includes(id)
                 return (
@@ -292,7 +293,7 @@ export default function OnboardingPage() {
                     type="button"
                     data-no-swipe="true"
                     onClick={() => toggleType(id)}
-                    className="gk-active-press relative flex aspect-[1.05] flex-col justify-between rounded-[18px] border p-4 text-left transition-colors"
+                    className="gk-active-press relative flex min-h-[128px] flex-col justify-between rounded-[18px] border p-4 text-left transition-colors"
                     style={selected ? { borderColor: 'rgba(230,255,61,0.55)', background: 'rgba(230,255,61,0.06)' } : { borderColor: 'var(--border)', background: 'var(--bg-card)' }}
                     aria-pressed={selected}
                   >
@@ -314,7 +315,7 @@ export default function OnboardingPage() {
               <h1 className="gk-title mb-2 text-white">Importa la tua storia</h1>
               <p className="gk-body">Collega o importa le librerie che hai già. Puoi saltare e farlo dopo dal profilo.</p>
             </div>
-            <div className="mb-7 space-y-2">
+            <div className="mb-7 grid gap-2 sm:grid-cols-2">
               {IMPORT_SOURCES.map(({ id, label, detail, href, icon: Icon, color }) => <a key={id} href={href} data-no-swipe="true" className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-3 transition-colors hover:bg-[var(--bg-elevated)]"><div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `color-mix(in srgb, ${color} 14%, transparent)`, color }}><Icon size={18} /></div><div className="min-w-0 flex-1"><p className="text-sm font-black text-white">{label}</p><p className="text-xs text-[var(--text-muted)]">{detail}</p></div><ArrowRight size={16} className="text-[var(--text-muted)]" /></a>)}
             </div>
             <div className="flex gap-3">
@@ -347,8 +348,8 @@ export default function OnboardingPage() {
                 <p className="gk-label text-[var(--text-secondary)]">Suggeriti da seguire</p>
                 <span className="font-mono-data text-[10px] text-[var(--text-muted)]">{Math.min(suggestedUsers.length, 8)} utenti</span>
               </div>
-              <div className="space-y-2">
-                {suggestedUsers.length > 0 ? suggestedUsers.slice(0, 8).map(user => <UserSuggestionCard key={user.id} user={user} />) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {suggestedUsers.length > 0 ? suggestedUsers.slice(0, 6).map(user => <UserSuggestionCard key={user.id} user={user} />) : (
                   <div className="gk-empty-state">
                     <Users className="gk-empty-state-icon" />
                     <p className="gk-empty-state-title">Nessun suggerimento ancora</p>

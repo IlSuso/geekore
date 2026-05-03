@@ -105,9 +105,9 @@ export function MobileHeader() {
     '/stats': { title: 'Statistiche', icon: <BarChart2 size={16} /> },
     '/leaderboard': { title: 'Classifica', icon: <Trophy size={16} /> },
     '/lists': { title: 'Liste', icon: <List size={16} /> },
-    '/search': { title: 'Cerca', icon: <Search size={16} /> },
     '/explore': { title: 'Esplora', icon: <Search size={16} /> },
     '/friends': { title: 'Friends', icon: <Users size={16} /> },
+    '/community': { title: 'Friends', icon: <Users size={16} /> },
     '/library': { title: 'Library', icon: <Library size={16} /> },
   }
 

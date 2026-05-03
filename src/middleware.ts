@@ -6,8 +6,8 @@ import { NextRequest, NextResponse } from 'next/server'
 const PROTECTED_PATHS = [
   '/home', '/discover', '/for-you', '/news', '/notifications',
   '/profile/me', '/settings', '/wishlist',
-  '/lists', '/stats', '/trending', '/leaderboard',
-  '/search', '/profile',
+  '/lists', '/stats', '/trending', '/leaderboard', '/explore', '/community',
+  '/profile',
 ]
 
 const AUTH_ONLY_PATHS = ['/login', '/register', '/forgot-password']

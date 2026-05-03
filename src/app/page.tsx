@@ -1,10 +1,8 @@
-// DESTINAZIONE: src/app/page.tsx — Landing pubblica
-
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Suspense } from 'react'
-import { Zap, Gamepad2, Tv, BookOpen, Film, Layers, Trophy, Users, Sparkles, ArrowRight } from 'lucide-react'
+import { ArrowRight, BookOpen, Film, Gamepad2, Layers, Sparkles, Tv, Users, Zap } from 'lucide-react'
 
 async function getCommunityStats() {
   const supabase = await createClient()
@@ -23,102 +21,106 @@ function formatCount(n: number): string {
 
 async function CommunityLive() {
   const { userCount, mediaCount } = await getCommunityStats()
+
   return (
-    <div className="flex items-center gap-6 md:gap-8">
-      <div className="text-center">
-        <p className="text-2xl font-black tracking-tight" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent)' }}>{formatCount(userCount)}</p>
-        <p className="text-[10px] font-bold uppercase tracking-widest mt-0.5" style={{ color: 'var(--text-muted)' }}>Geek iscritti</p>
+    <div className="flex items-center gap-5 text-left">
+      <div>
+        <p className="font-display text-2xl font-black tracking-[-0.04em] text-[var(--accent)]">{formatCount(userCount)}</p>
+        <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">Geek</p>
       </div>
-      <div className="w-px h-7" style={{ background: 'var(--border)' }} />
-      <div className="text-center">
-        <p className="text-2xl font-black tracking-tight" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent)' }}>{formatCount(mediaCount)}</p>
-        <p className="text-[10px] font-bold uppercase tracking-widest mt-0.5" style={{ color: 'var(--text-muted)' }}>Media tracciati</p>
+      <div className="h-8 w-px bg-white/10" />
+      <div>
+        <p className="font-display text-2xl font-black tracking-[-0.04em] text-[var(--accent)]">{formatCount(mediaCount)}</p>
+        <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">Media</p>
       </div>
-      <div className="w-px h-7" style={{ background: 'var(--border)' }} />
-      <div className="text-center">
-        <p className="text-2xl font-black tracking-tight" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent)' }}>5+</p>
-        <p className="text-[10px] font-bold uppercase tracking-widest mt-0.5" style={{ color: 'var(--text-muted)' }}>Categorie</p>
+      <div className="h-8 w-px bg-white/10" />
+      <div>
+        <p className="font-display text-2xl font-black tracking-[-0.04em] text-[var(--accent)]">5+</p>
+        <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">Universi</p>
       </div>
     </div>
   )
 }
 
-const FEATURES = [
-  { icon: Gamepad2, label: 'Videogiochi', color: '#7C3AED', desc: 'Steam, Xbox, IGDB' },
-  { icon: Layers, label: 'Anime & Manga', color: '#E6FF3D', desc: 'AniList, MAL' },
-  { icon: Tv, label: 'Serie TV', color: '#0EA5E9', desc: 'TMDB integrato' },
-  { icon: Film, label: 'Film', color: '#F97316', desc: 'Letterboxd import' },
-  { icon: BookOpen, label: 'Board Game', color: '#10B981', desc: 'BGG collection' },
-  { icon: Sparkles, label: 'Per Te', color: '#EC4899', desc: 'AI recommendations' },
-  { icon: Trophy, label: 'Classifiche', color: '#F59E0B', desc: 'Leaderboard' },
-  { icon: Users, label: 'Social', color: '#8B5CF6', desc: 'Feed & amici' },
+const FEATURE_LINKS = [
+  { icon: Gamepad2, label: 'Videogiochi', text: 'Steam, Xbox, IGDB', color: '#22C55E' },
+  { icon: Layers, label: 'Anime & Manga', text: 'AniList, MAL', color: '#E6FF3D' },
+  { icon: Tv, label: 'Serie TV', text: 'TMDB', color: '#0EA5E9' },
+  { icon: Film, label: 'Film', text: 'Letterboxd', color: '#F97316' },
+  { icon: BookOpen, label: 'Board game', text: 'BGG', color: '#10B981' },
+  { icon: Sparkles, label: 'Per te', text: 'Taste DNA', color: '#EC4899' },
+  { icon: Users, label: 'Social', text: 'Feed e amici', color: '#8B5CF6' },
 ]
 
-function AppMockup() {
-  const cards = [
-    { title: 'Frieren', type: 'Anime', color: '#7C3AED', score: '9.0' },
-    { title: 'Hades II', type: 'Game', color: '#E6FF3D', score: '9.4' },
-    { title: 'The Boys', type: 'TV', color: '#0EA5E9', score: '8.7' },
-    { title: 'Dune Part 2', type: 'Film', color: '#F97316', score: '8.5' },
+function AppPreview() {
+  const rows = [
+    { title: 'Frieren', type: 'Anime', score: '9.0', color: '#7C3AED' },
+    { title: 'Hades II', type: 'Game', score: '9.4', color: '#22C55E' },
+    { title: 'The Boys', type: 'TV', score: '8.7', color: '#0EA5E9' },
+    { title: 'Dune Part 2', type: 'Film', score: '8.5', color: '#F97316' },
   ]
+
   return (
-    <div className="relative w-full max-w-[400px] mx-auto select-none">
-      {/* Glow */}
-      <div className="absolute inset-0 -z-10 scale-110" style={{ background: 'radial-gradient(ellipse 70% 70% at 50% 50%, rgba(230,255,61,0.14), transparent)' }} />
-      {/* App shell */}
-      <div className="rounded-[28px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.08)]" style={{ background: 'rgba(16,16,22,0.97)', backdropFilter: 'blur(24px)' }}>
-        {/* Header */}
-        <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-          <div className="w-5 h-5 rounded-[6px] grid place-items-center" style={{ background: 'var(--accent)' }}>
-            <Zap size={11} fill="#0B0B0F" color="#0B0B0F" />
+    <div className="relative mx-auto w-full max-w-[430px] select-none">
+      <div className="absolute inset-0 -z-10 scale-105 rounded-[36px] bg-[radial-gradient(circle_at_50%_20%,rgba(230,255,61,0.20),transparent_58%)] blur-2xl" />
+      <div className="overflow-hidden rounded-[30px] border border-white/10 bg-[rgba(17,17,23,0.92)] shadow-[0_30px_100px_rgba(0,0,0,0.48)] backdrop-blur-2xl">
+        <div className="flex items-center gap-2 border-b border-white/6 px-4 py-3">
+          <div className="grid h-6 w-6 place-items-center rounded-[8px] bg-[var(--accent)] text-[#0B0B0F]">
+            <Zap size={13} fill="currentColor" />
           </div>
-          <span className="text-xs font-black tracking-tight" style={{ fontFamily: 'var(--font-display)' }}>geekore</span>
+          <span className="font-display text-xs font-black tracking-[-0.03em]">geekore</span>
           <div className="ml-auto flex gap-1.5">
-            {['#FF5F57', '#FEBC2E', '#28C840'].map(c => <div key={c} className="w-2.5 h-2.5 rounded-full" style={{ background: c }} />)}
+            <span className="h-2.5 w-2.5 rounded-full bg-[#FF5F57]" />
+            <span className="h-2.5 w-2.5 rounded-full bg-[#FEBC2E]" />
+            <span className="h-2.5 w-2.5 rounded-full bg-[#28C840]" />
           </div>
         </div>
-        {/* Per Te section */}
-        <div className="px-4 pt-4 pb-2">
-          <div className="flex items-center gap-2 mb-3">
-            <Sparkles size={12} style={{ color: 'var(--accent)' }} />
-            <span className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--accent)' }}>Per te</span>
+
+        <div className="p-4">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--accent)]">Per te</p>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">Consigli dal tuo Taste DNA</p>
+            </div>
+            <div className="rounded-full border border-[rgba(230,255,61,0.24)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[11px] font-black text-[var(--accent)]">
+              92% match
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            {cards.map(card => (
-              <div key={card.title} className="rounded-[14px] overflow-hidden relative" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                <div className="h-20 w-full" style={{ background: `linear-gradient(135deg, ${card.color}22, ${card.color}08)` }}>
-                  <div className="absolute top-1.5 left-1.5">
-                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{ background: card.color, color: card.color === '#E6FF3D' ? '#0B0B0F' : 'white' }}>{card.type}</span>
-                  </div>
-                  <div className="absolute top-1.5 right-1.5 text-[10px] font-black" style={{ color: '#F59E0B' }}>★ {card.score}</div>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            {rows.map(item => (
+              <div key={item.title} className="overflow-hidden rounded-[17px] bg-white/[0.035] ring-1 ring-white/8">
+                <div className="relative h-24" style={{ background: `linear-gradient(135deg, ${item.color}30, ${item.color}08)` }}>
+                  <span
+                    className="absolute left-2 top-2 rounded-full px-2 py-0.5 text-[9px] font-black uppercase"
+                    style={{ background: item.color, color: item.color === '#E6FF3D' ? '#0B0B0F' : '#fff' }}
+                  >
+                    {item.type}
+                  </span>
+                  <span className="absolute right-2 top-2 text-[10px] font-black text-amber-400">★ {item.score}</span>
                 </div>
-                <div className="px-2 py-1.5">
-                  <p className="text-[11px] font-bold leading-tight truncate">{card.title}</p>
+                <div className="px-2.5 py-2">
+                  <p className="truncate text-[12px] font-black text-[var(--text-primary)]">{item.title}</p>
                 </div>
               </div>
             ))}
           </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-2 rounded-[18px] border border-[rgba(230,255,61,0.16)] bg-[rgba(230,255,61,0.055)] p-3 text-center">
+            <div>
+              <p className="font-display text-[16px] font-black text-[var(--accent)]">142</p>
+              <p className="text-[9px] font-black uppercase tracking-wider text-[var(--text-muted)]">Media</p>
+            </div>
+            <div>
+              <p className="font-display text-[16px] font-black text-[var(--accent)]">4.2★</p>
+              <p className="text-[9px] font-black uppercase tracking-wider text-[var(--text-muted)]">Score</p>
+            </div>
+            <div>
+              <p className="font-display text-[16px] font-black text-[var(--accent)]">18</p>
+              <p className="text-[9px] font-black uppercase tracking-wider text-[var(--text-muted)]">Amici</p>
+            </div>
+          </div>
         </div>
-        {/* Stats strip */}
-        <div className="mx-4 mb-4 mt-2 rounded-[12px] px-3 py-2 flex items-center justify-between" style={{ background: 'rgba(230,255,61,0.06)', border: '1px solid rgba(230,255,61,0.15)' }}>
-          <div className="text-center">
-            <p className="text-[13px] font-black" style={{ color: 'var(--accent)' }}>142</p>
-            <p className="text-[9px] font-bold uppercase" style={{ color: 'var(--text-muted)' }}>Media</p>
-          </div>
-          <div className="text-center">
-            <p className="text-[13px] font-black" style={{ color: 'var(--accent)' }}>4.2★</p>
-            <p className="text-[9px] font-bold uppercase" style={{ color: 'var(--text-muted)' }}>Score</p>
-          </div>
-          <div className="text-center">
-            <p className="text-[13px] font-black" style={{ color: 'var(--accent)' }}>18</p>
-            <p className="text-[9px] font-bold uppercase" style={{ color: 'var(--text-muted)' }}>Amici</p>
-          </div>
-        </div>
-      </div>
-      {/* Floating badge */}
-      <div className="absolute -bottom-3 -right-3 rounded-2xl px-3 py-2 shadow-xl" style={{ background: 'rgba(16,16,22,0.95)', border: '1px solid rgba(230,255,61,0.3)', backdropFilter: 'blur(16px)' }}>
-        <p className="text-[11px] font-black" style={{ color: 'var(--accent)' }}>🏆 Top Tracker</p>
-        <p className="text-[9px]" style={{ color: 'var(--text-muted)' }}>questa settimana</p>
       </div>
     </div>
   )
@@ -126,139 +128,100 @@ function AppMockup() {
 
 export default async function LandingPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
   if (user) redirect('/home')
 
   return (
-    <div className="min-h-screen flex flex-col" style={{
-      background: 'var(--bg-primary)',
-      color: 'var(--text-primary)',
-    }}>
-      {/* Background effects — centrati */}
+    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
       <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
-        <div style={{ position: 'absolute', top: '-10%', left: '50%', transform: 'translateX(-50%)', width: '80vw', height: '60vh', background: 'radial-gradient(ellipse at center, rgba(230,255,61,0.07) 0%, transparent 70%)', borderRadius: '50%' }} />
-        <div style={{ position: 'absolute', bottom: '10%', left: '10%', width: '40vw', height: '40vh', background: 'radial-gradient(ellipse at center, rgba(124,58,237,0.05) 0%, transparent 70%)', borderRadius: '50%' }} />
-        <div className="absolute inset-0 opacity-[0.022]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.8) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
+        <div className="absolute left-1/2 top-[-18%] h-[620px] w-[820px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_center,rgba(230,255,61,0.085),transparent_68%)] blur-2xl" />
+        <div className="absolute bottom-[-20%] right-[-12%] h-[520px] w-[620px] rounded-full bg-[radial-gradient(circle_at_center,rgba(124,58,237,0.09),transparent_68%)] blur-2xl" />
+        <div className="absolute inset-0 opacity-[0.018] [background-image:linear-gradient(rgba(255,255,255,0.75)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.75)_1px,transparent_1px)] [background-size:56px_56px]" />
       </div>
 
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-5 md:px-10 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="flex items-center gap-2.5" style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 20, letterSpacing: '-0.03em' }}>
-          <div className="grid place-items-center flex-shrink-0" style={{ width: 30, height: 30, borderRadius: 10, background: 'var(--accent)', color: '#0B0B0F' }}>
-            <Zap size={16} fill="currentColor" />
-          </div>
+      <header className="relative z-10 flex items-center justify-between px-5 py-4 md:px-10">
+        <Link href="/" className="flex items-center gap-2.5 font-display text-[20px] font-black tracking-[-0.04em]">
+          <span className="grid h-8 w-8 place-items-center rounded-[11px] bg-[var(--accent)] text-[#0B0B0F]">
+            <Zap size={17} fill="currentColor" />
+          </span>
           geekore
-        </div>
+        </Link>
+
         <div className="flex items-center gap-2">
-          <Link href="/login" className="px-4 h-9 rounded-xl text-sm font-bold flex items-center transition-colors" style={{ color: 'var(--text-secondary)', border: '1px solid var(--border)', background: 'var(--bg-card)' }}>
+          <Link href="/login" className="flex h-10 items-center rounded-[14px] bg-white/[0.045] px-4 text-sm font-bold text-[var(--text-secondary)] ring-1 ring-white/10 transition hover:bg-white/[0.075]">
             Accedi
           </Link>
-          <Link href="/register" className="px-4 h-9 rounded-xl text-sm font-black flex items-center gap-1.5 transition-all hover:scale-[1.02]" style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
+          <Link href="/register" className="flex h-10 items-center gap-1.5 rounded-[14px] bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition hover:scale-[1.02]">
             Registrati <ArrowRight size={14} />
           </Link>
         </div>
       </header>
 
-      {/* Hero */}
-      <main className="relative z-10 flex-1 flex flex-col">
+      <main className="relative z-10">
+        <section className="mx-auto grid min-h-[calc(100vh-72px)] max-w-6xl items-center gap-12 px-5 py-12 md:grid-cols-[1fr_0.9fr] md:px-10 md:py-16 xl:px-0">
+          <div>
+            <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.24)] bg-[rgba(230,255,61,0.075)] px-4 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-[var(--accent)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+              Il tuo universo geek
+            </div>
 
-        {/* Desktop hero: 2 col — centrato */}
-        <div className="hidden md:flex items-center justify-center px-10 xl:px-20 py-16 min-h-[calc(100vh-65px)]">
-          <div className="w-full max-w-5xl mx-auto grid grid-cols-2 gap-16 items-center">
-            {/* Left */}
+            <h1 className="max-w-[720px] font-display text-[clamp(52px,7.5vw,96px)] font-black leading-[0.88] tracking-[-0.07em]">
+              Tutto ciò che ami, in un profilo.
+            </h1>
+
+            <p className="mt-6 max-w-xl text-lg leading-8 text-[var(--text-secondary)]">
+              Anime, manga, videogiochi, serie TV, film e board game nello stesso posto: library, consigli, swipe e feed sociale senza duplicare tutto tra mille app.
+            </p>
+
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+              <Link href="/register" className="flex h-14 items-center justify-center gap-2 rounded-[18px] bg-[var(--accent)] px-7 font-display text-[15px] font-black text-[#0B0B0F] shadow-[0_18px_50px_rgba(230,255,61,0.12)] transition hover:scale-[1.015]">
+                Registrati gratis <ArrowRight size={16} />
+              </Link>
+              <Link href="/login" className="flex h-14 items-center justify-center rounded-[18px] bg-white/[0.045] px-7 text-[15px] font-bold text-[var(--text-primary)] ring-1 ring-white/10 transition hover:bg-white/[0.075]">
+                Accedi
+              </Link>
+            </div>
+
+            <div className="mt-10 flex flex-wrap items-center gap-5">
+              <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                Community live
+              </div>
+              <Suspense fallback={<span className="text-sm text-[var(--text-muted)]">...</span>}>
+                <CommunityLive />
+              </Suspense>
+            </div>
+          </div>
+
+          <AppPreview />
+        </section>
+
+        <section className="relative mx-auto max-w-6xl px-5 pb-20 md:px-10 xl:px-0">
+          <div className="mb-5 flex items-end justify-between gap-4">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold mb-8" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.25)', color: 'var(--accent)' }}>
-                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: 'var(--accent)' }} />
-                Il tuo universo geek in un unico posto
-              </div>
-
-              <h1 className="font-black leading-[0.95] tracking-[-0.04em] mb-6" style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(48px, 5.5vw, 76px)' }}>
-                Traccia tutto<br />
-                <span style={{ color: 'var(--accent)' }}>ciò che ami</span>
-              </h1>
-
-              <p className="text-lg leading-relaxed mb-10" style={{ color: 'var(--text-secondary)', maxWidth: 420 }}>
-                Anime, manga, videogiochi, serie TV e film in un unico profilo. Consigli personalizzati, classifica e feed sociale.
-              </p>
-
-              <div className="flex gap-3 mb-12">
-                <Link href="/register" className="flex items-center gap-2 px-7 font-black text-[15px] rounded-[16px] transition-all hover:scale-[1.02] hover:shadow-[0_0_40px_rgba(230,255,61,0.22)]" style={{ height: 52, background: 'var(--accent)', color: '#0B0B0F', fontFamily: 'var(--font-display)' }}>
-                  Registrati gratis <ArrowRight size={16} />
-                </Link>
-                <Link href="/login" className="flex items-center px-7 font-bold text-[15px] rounded-[16px] transition-colors" style={{ height: 52, border: '1px solid var(--border)', color: 'var(--text-primary)', background: 'var(--bg-card)' }}>
-                  Accedi
-                </Link>
-              </div>
-
-              {/* Stats */}
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full" style={{ background: '#4ADE80' }} />
-                <span className="text-xs font-bold uppercase tracking-widest mr-4" style={{ color: 'var(--text-muted)' }}>Community live</span>
-                <Suspense fallback={<span className="text-sm text-zinc-600">...</span>}>
-                  <CommunityLive />
-                </Suspense>
-              </div>
-            </div>
-
-            {/* Right: app mockup */}
-            <div className="flex justify-center">
-              <AppMockup />
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">Universi collegati</p>
+              <h2 className="mt-2 font-display text-3xl font-black tracking-[-0.05em] text-[var(--text-primary)]">Un solo posto, più segnali.</h2>
             </div>
           </div>
-        </div>
 
-        {/* Mobile hero */}
-        <div className="md:hidden px-5 pt-10 pb-6 flex flex-col items-center text-center">
-          <div className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[11px] font-bold self-center mb-6" style={{ background: 'rgba(230,255,61,0.08)', border: '1px solid rgba(230,255,61,0.25)', color: 'var(--accent)' }}>
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--accent)' }} />
-            Il tuo universo geek
-          </div>
-
-          <h1 className="font-black leading-[0.95] tracking-[-0.04em] mb-5" style={{ fontFamily: 'var(--font-display)', fontSize: 44 }}>
-            Traccia tutto<br />
-            <span style={{ color: 'var(--accent)' }}>ciò che ami</span>
-          </h1>
-
-          <p className="text-base leading-relaxed mb-8 max-w-sm" style={{ color: 'var(--text-secondary)' }}>
-            Anime, manga, videogiochi, serie TV e film. Con consigli personalizzati e feed sociale.
-          </p>
-
-          <div className="flex flex-col gap-3 mb-10 w-full max-w-xs">
-            <Link href="/register" className="flex items-center justify-center gap-2 font-black text-[15px] rounded-[16px]" style={{ height: 52, background: 'var(--accent)', color: '#0B0B0F', fontFamily: 'var(--font-display)' }}>
-              Registrati gratis <ArrowRight size={15} />
-            </Link>
-            <Link href="/login" className="flex items-center justify-center font-bold text-[15px] rounded-[16px]" style={{ height: 52, border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
-              Accedi
-            </Link>
-          </div>
-
-          <div className="w-full px-4">
-            <AppMockup />
-          </div>
-        </div>
-
-        {/* Feature grid */}
-        <div className="relative z-10 px-5 md:px-10 xl:px-20 pb-20">
-          <div className="max-w-5xl mx-auto">
-            <div className="pt-10 md:pt-6">
-              <p className="text-[11px] font-black uppercase tracking-widest mb-6 text-center md:text-left" style={{ color: 'var(--text-muted)' }}>Tutto in un posto</p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {FEATURES.map(({ icon: Icon, label, color, desc }) => (
-                  <div key={label} className="rounded-[18px] p-4 transition-all hover:scale-[1.01]" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div className="w-9 h-9 rounded-[12px] grid place-items-center mb-3" style={{ background: `${color}18` }}>
-                      <Icon size={18} style={{ color }} />
-                    </div>
-                    <p className="font-black text-[13px] mb-0.5">{label}</p>
-                    <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{desc}</p>
-                  </div>
-                ))}
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
+            {FEATURE_LINKS.map(({ icon: Icon, label, text, color }) => (
+              <div key={label} className="rounded-[20px] bg-white/[0.032] p-4 ring-1 ring-white/8 transition hover:-translate-y-0.5 hover:bg-white/[0.055]">
+                <div className="mb-3 grid h-10 w-10 place-items-center rounded-[14px]" style={{ background: `${color}18` }}>
+                  <Icon size={18} style={{ color }} />
+                </div>
+                <p className="text-sm font-black text-[var(--text-primary)]">{label}</p>
+                <p className="mt-1 text-[11px] text-[var(--text-muted)]">{text}</p>
               </div>
-            </div>
+            ))}
           </div>
-        </div>
+        </section>
       </main>
 
-      <footer className="relative z-10 text-center py-5 text-[12px]" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', color: 'var(--text-muted)' }}>
+      <footer className="relative z-10 border-t border-white/6 py-5 text-center text-[12px] text-[var(--text-muted)]">
         Geekore — fatto con passione per i geek
       </footer>
     </div>
