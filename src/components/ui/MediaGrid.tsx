@@ -13,6 +13,7 @@ interface MediaGridProps<T extends MediaRailItem = MediaRailItem> {
   emptyState?: ReactNode
   renderActions?: (item: T) => ReactNode
   onItemClick?: (item: T) => void
+  variant?: 'default' | 'library'
 }
 
 export function MediaGrid<T extends MediaRailItem = MediaRailItem>({
@@ -25,6 +26,7 @@ export function MediaGrid<T extends MediaRailItem = MediaRailItem>({
   emptyState,
   renderActions,
   onItemClick,
+  variant = 'default',
 }: MediaGridProps<T>) {
   if (loading) {
     return <MediaGridSkeleton count={skeletonCount} showMeta={showMetaRow} className={className} />
@@ -42,8 +44,12 @@ export function MediaGrid<T extends MediaRailItem = MediaRailItem>({
     )
   }
 
+  const gridClass = variant === 'library'
+    ? 'grid grid-cols-3 gap-x-4 gap-y-8 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-7 2xl:grid-cols-8'
+    : 'grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6'
+
   return (
-    <div className={`grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 ${className}`} data-no-swipe="true">
+    <div className={`${gridClass} ${className}`} data-no-swipe="true">
       {items.map(item => (
         <PosterCard
           key={item.id}
@@ -60,6 +66,7 @@ export function MediaGrid<T extends MediaRailItem = MediaRailItem>({
           isInCollection={item.isInCollection}
           isWishlisted={item.isWishlisted}
           actions={renderActions?.(item)}
+          variant={variant}
           onClick={onItemClick ? () => onItemClick(item) : undefined}
         />
       ))}
