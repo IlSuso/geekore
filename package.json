@@ -9,7 +9,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
-    "audit:screenshots": "node scripts/visual-audit-screenshots.mjs",
+    "audit:screenshots": "node scripts/visual-audit-screenshots-v2.mjs",
+    "audit:screenshots:legacy": "node scripts/visual-audit-screenshots.mjs",
     "ci": "npm run typecheck && npm run lint && npm run build",
     "import:bgg-catalog": "node scripts/import-bgg-catalog.mjs"
   },
