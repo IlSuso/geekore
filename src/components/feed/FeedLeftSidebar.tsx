@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bookmark, List, BarChart2, Trophy, Bell, TrendingUp, Users, Settings } from 'lucide-react'
+import { Bookmark, List, BarChart2, Trophy, Bell, TrendingUp, Settings } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { useState } from 'react'
 import { NotificationsDrawer } from './NotificationsDrawer'
@@ -22,7 +22,6 @@ const MAIN_NAV = [
 
 const EXPLORE_NAV = [
   { href: '/trending',   icon: TrendingUp,  label: 'Trending' },
-  { href: '/community',  icon: Users,       label: 'Community' },
 ]
 
 function NavItem({ href, icon: Icon, label, active }: { href: string; icon: React.ElementType; label: string; active: boolean }) {

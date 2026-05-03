@@ -273,222 +273,245 @@ export default function EditProfilePage() {
   }
 
   const isBusy = saving || uploadingAvatar
+  const likedCount = likedGenres.length
+  const dislikedCount = dislikedGenres.length
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-white flex items-center justify-center p-6">
-      <div className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-bold">{pe.title}</h1>
+    <div className="min-h-screen bg-[radial-gradient(circle_at_30%_0%,rgba(230,255,61,0.06),transparent_34%),var(--bg-primary)] px-4 py-6 text-white md:px-8 md:py-10">
+      <div className="mx-auto w-full max-w-screen-lg">
+        <div className="mb-5 flex items-center justify-between gap-4">
+          <div>
+            <p className="gk-section-eyebrow mb-2"><Sparkles size={12} /> Account</p>
+            <h1 className="font-display text-[34px] font-black leading-none tracking-[-0.045em] text-[var(--text-primary)] md:text-[42px]">Modifica profilo</h1>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--text-muted)]">Aggiorna identità, avatar e pochi segnali di gusto essenziali.</p>
+          </div>
           <Link
             href={`/profile/${profile?.username || 'me'}`}
-            className="text-zinc-400 hover:text-white text-sm transition"
+            className="inline-flex h-11 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 text-sm font-black text-[var(--text-secondary)] transition-colors hover:text-white"
           >
             {pe.backToProfile}
           </Link>
         </div>
 
-        {/* Avatar */}
-        <div className="flex flex-col items-center mb-8 gap-4">
-          <div
-            className="w-28 h-28 rounded-full border-4 border-zinc-700 overflow-hidden bg-zinc-800 flex items-center justify-center cursor-pointer group relative"
-            onClick={() => fileRef.current?.click()}
-          >
-            {avatarPreview ? (
-              <img src={avatarPreview} alt="avatar" className="w-full h-full object-cover" />
-            ) : (
-              <Avatar
-                src={null}
-                username={formData.username || profile?.username || 'u'}
-                displayName={formData.display_name}
-                size={112}
-              />
-            )}
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-full">
-              {uploadingAvatar
-                ? <Loader2 size={24} className="text-white animate-spin" />
-                : <Upload size={24} className="text-white" />
-              }
-            </div>
+        {message && (
+          <div className={`mb-5 rounded-[22px] border px-4 py-3 text-sm font-bold ${
+            messageType === 'success'
+              ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
+              : 'border-red-500/25 bg-red-500/10 text-red-300'
+          }`}>
+            {message}
           </div>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp"
-            onChange={handleAvatarChange}
-            className="hidden"
-          />
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="text-sm hover:opacity-80 transition"
-              style={{ color: 'var(--accent)' }}
-            >
-              {pe.changePhoto}
-            </button>
+        )}
 
-            {avatarPreview && (
+        <form onSubmit={handleSave} className="grid gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
+          <aside className="space-y-5">
+            <div className="rounded-[30px] border border-[var(--border)] bg-[var(--bg-card)] p-5 ring-1 ring-white/5">
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  className="group relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-[28px] border border-[var(--border)] bg-[var(--bg-secondary)] ring-1 ring-white/5"
+                  onClick={() => fileRef.current?.click()}
+                  aria-label="Cambia avatar"
+                >
+                  {avatarPreview ? (
+                    <img src={avatarPreview} alt="avatar" className="h-full w-full object-cover" />
+                  ) : (
+                    <Avatar
+                      src={null}
+                      username={formData.username || profile?.username || 'u'}
+                      displayName={formData.display_name}
+                      size={96}
+                    />
+                  )}
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/55 opacity-0 transition-opacity group-hover:opacity-100">
+                    {uploadingAvatar
+                      ? <Loader2 size={22} className="animate-spin text-white" />
+                      : <Upload size={22} className="text-white" />
+                    }
+                  </span>
+                </button>
+                <div className="min-w-0">
+                  <p className="line-clamp-1 font-display text-[24px] font-black leading-none tracking-[-0.04em] text-[var(--text-primary)]">
+                    {formData.display_name || profile?.display_name || 'Profilo'}
+                  </p>
+                  <p className="mt-1 truncate font-mono-data text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">@{formData.username || profile?.username}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => fileRef.current?.click()}
+                      className="rounded-full border border-[rgba(230,255,61,0.28)] bg-[rgba(230,255,61,0.08)] px-3 py-1.5 text-xs font-black text-[var(--accent)] transition-opacity hover:opacity-80"
+                    >
+                      {pe.changePhoto}
+                    </button>
+                    {avatarPreview && (
+                      <button type="button" onClick={removeAvatar} className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 transition-opacity hover:opacity-80">
+                        {pe.removePhoto}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                onChange={handleAvatarChange}
+                className="hidden"
+              />
+              <p className="mt-4 text-[11px] leading-5 text-[var(--text-muted)]">JPEG, PNG, GIF o WebP · max 5MB. Usa un avatar leggibile anche in piccolo.</p>
+            </div>
+
+            <div className="rounded-[26px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/70 p-4 ring-1 ring-white/5">
+              <p className="gk-label mb-3">Dati e sicurezza</p>
               <button
                 type="button"
-                onClick={removeAvatar}
-                className="text-sm text-red-400 hover:text-red-300 transition"
+                onClick={handleExportData}
+                disabled={exporting}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-3 text-sm font-black text-[var(--text-secondary)] transition-colors hover:text-white disabled:opacity-50"
               >
-                {pe.removePhoto}
+                {exporting
+                  ? <><Loader2 size={16} className="animate-spin" /> Esportazione...</>
+                  : <><Download size={16} /> Esporta dati</>}
               </button>
-            )}
-          </div>
-
-
-          <p className="text-[10px] text-zinc-600">JPEG, PNG, GIF o WebP · max 5MB</p>
-        </div>
-
-        <form onSubmit={handleSave} className="space-y-5">
-
-          {/* Display name */}
-          <div>
-            <label className="block text-sm text-zinc-400 mb-2">{pe.displayName}</label>
-            <input
-              type="text"
-              value={formData.display_name}
-              onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
-              maxLength={50}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 focus:outline-none focus:border-zinc-600 transition"
-            />
-          </div>
-
-          {/* Username */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm text-zinc-400">{pe.username}</label>
-              <span className={`text-xs ${formData.username.length > USERNAME_MAX - 5 ? 'text-amber-400' : 'text-zinc-600'}`}>
-                {formData.username.length}/{USERNAME_MAX}
-              </span>
+              <p className="mt-3 text-[11px] leading-5 text-[var(--text-muted)]">Scarica una copia JSON dei dati del tuo account.</p>
             </div>
-            <input
-              type="text"
-              value={formData.username}
-              onChange={(e) => handleUsernameChange(e.target.value)}
-              maxLength={USERNAME_MAX}
-              required
-              className={`w-full bg-zinc-800 border rounded-2xl px-5 py-3 focus:outline-none transition ${
-                fieldErrors.username ? 'border-red-500 focus:border-red-500' : 'border-zinc-700 focus:border-zinc-500'
-              }`}
-            />
-            {fieldErrors.username ? (
-              <p className="text-xs text-red-400 mt-1">{fieldErrors.username}</p>
-            ) : (
-              <p className="text-xs text-zinc-600 mt-1">{pe.usernameHint}</p>
-            )}
-          </div>
+          </aside>
 
-          {/* Bio */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm text-zinc-400">{pe.bio}</label>
-              <span className={`text-xs ${formData.bio.length > BIO_MAX - 50 ? 'text-amber-400' : 'text-zinc-600'}`}>
-                {formData.bio.length}/{BIO_MAX}
-              </span>
-            </div>
-            <textarea
-              value={formData.bio}
-              onChange={(e) => handleBioChange(e.target.value)}
-              rows={3}
-              maxLength={BIO_MAX}
-              placeholder={pe.bioPlaceholder}
-              className={`w-full bg-zinc-800 border rounded-2xl px-5 py-3 focus:outline-none transition resize-none ${
-                fieldErrors.bio ? 'border-red-500 focus:border-red-500' : 'border-zinc-700 focus:border-zinc-500'
-              }`}
-            />
-            {fieldErrors.bio && (
-              <p className="text-xs text-red-400 mt-1">{fieldErrors.bio}</p>
-            )}
-          </div>
-
-          {/* Gusti & Preferenze */}
-          <div className="pt-4 border-t border-zinc-800">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles size={16} style={{ color: 'var(--accent)' }} />
-              <div className="min-w-0 flex-1">
-                <span className="text-sm font-semibold text-white">Gusti & Preferenze</span>
-                <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">Per una personalizzazione avanzata apri il Taste DNA nella pagina Per Te.</p>
+          <section className="rounded-[30px] border border-[var(--border)] bg-[var(--bg-card)] p-5 ring-1 ring-white/5 md:p-6">
+            <div className="mb-6 flex items-center justify-between gap-4 border-b border-[var(--border-subtle)] pb-5">
+              <div>
+                <p className="gk-label">Identità pubblica</p>
+                <p className="mt-1 text-sm text-[var(--text-muted)]">Nome, username e bio visibili nel profilo.</p>
               </div>
-              <Link href="/for-you" className="ml-auto flex-shrink-0 text-xs font-bold hover:opacity-80 transition" style={{ color: 'var(--accent)' }}>
-                Vai al Taste DNA →
-              </Link>
+              <button
+                type="submit"
+                disabled={isBusy || !!fieldErrors.username || !!fieldErrors.bio}
+                className="hidden h-11 items-center justify-center gap-2 rounded-2xl bg-[var(--accent)] px-5 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02] disabled:opacity-50 md:inline-flex"
+              >
+                {isBusy ? <><Loader2 size={17} className="animate-spin" /> {uploadingAvatar ? 'Avatar...' : pe.saving}</> : pe.save}
+              </button>
             </div>
-            <div className="mb-4">
-              <p className="text-xs text-zinc-400 mb-2">Generi che ami</p>
-              <div className="flex flex-wrap gap-2">
-                {ALL_GENRES.map(genre => (
-                  <button key={genre} type="button"
-                    onClick={() => setLikedGenres(prev =>
-                      prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
-                    )}
-                    className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
-                      likedGenres.includes(genre)
-                        ? ''
-                        : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-500'
-                    }`}
-                    style={likedGenres.includes(genre) ? { background: 'rgba(230,255,61,0.12)', borderColor: 'rgba(230,255,61,0.4)', color: 'var(--accent)' } : {}}
-                  >{genre}</button>
-                ))}
+
+            <div className="grid gap-5 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-bold text-[var(--text-secondary)]">{pe.displayName}</label>
+                <input
+                  type="text"
+                  value={formData.display_name}
+                  onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
+                  maxLength={50}
+                  className="h-12 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-4 text-sm font-bold text-[var(--text-primary)] outline-none transition focus:border-[rgba(230,255,61,0.45)]"
+                />
+              </div>
+
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <label className="block text-sm font-bold text-[var(--text-secondary)]">{pe.username}</label>
+                  <span className={`font-mono-data text-[10px] font-bold ${formData.username.length > USERNAME_MAX - 5 ? 'text-amber-300' : 'text-[var(--text-muted)]'}`}>
+                    {formData.username.length}/{USERNAME_MAX}
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  value={formData.username}
+                  onChange={(e) => handleUsernameChange(e.target.value)}
+                  maxLength={USERNAME_MAX}
+                  required
+                  className={`h-12 w-full rounded-2xl border bg-[var(--bg-secondary)] px-4 text-sm font-bold text-[var(--text-primary)] outline-none transition ${
+                    fieldErrors.username ? 'border-red-500 focus:border-red-500' : 'border-[var(--border)] focus:border-[rgba(230,255,61,0.45)]'
+                  }`}
+                />
+                {fieldErrors.username ? (
+                  <p className="mt-1 text-xs text-red-300">{fieldErrors.username}</p>
+                ) : (
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">{pe.usernameHint}</p>
+                )}
               </div>
             </div>
-            <div>
-              <p className="text-xs text-zinc-400 mb-2">Generi che non ti piacciono</p>
-              <div className="flex flex-wrap gap-2">
-                {ALL_GENRES.map(genre => (
-                  <button key={genre} type="button"
-                    onClick={() => setDislikedGenres(prev =>
-                      prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
-                    )}
-                    className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
-                      dislikedGenres.includes(genre)
-                        ? 'bg-red-500/20 border-red-500/50 text-red-300'
-                        : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-500'
-                    }`}
-                  >{genre}</button>
-                ))}
+
+            <div className="mt-5">
+              <div className="mb-2 flex items-center justify-between">
+                <label className="block text-sm font-bold text-[var(--text-secondary)]">{pe.bio}</label>
+                <span className={`font-mono-data text-[10px] font-bold ${formData.bio.length > BIO_MAX - 50 ? 'text-amber-300' : 'text-[var(--text-muted)]'}`}>
+                  {formData.bio.length}/{BIO_MAX}
+                </span>
+              </div>
+              <textarea
+                value={formData.bio}
+                onChange={(e) => handleBioChange(e.target.value)}
+                rows={4}
+                maxLength={BIO_MAX}
+                placeholder={pe.bioPlaceholder}
+                className={`w-full resize-none rounded-2xl border bg-[var(--bg-secondary)] px-4 py-3 text-sm leading-6 text-[var(--text-primary)] outline-none transition ${
+                  fieldErrors.bio ? 'border-red-500 focus:border-red-500' : 'border-[var(--border)] focus:border-[rgba(230,255,61,0.45)]'
+                }`}
+              />
+              {fieldErrors.bio && <p className="mt-1 text-xs text-red-300">{fieldErrors.bio}</p>}
+            </div>
+
+            <div className="mt-6 rounded-[24px] border border-[var(--border-subtle)] bg-black/16 p-4">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={16} className="text-[var(--accent)]" />
+                  <div>
+                    <p className="text-sm font-black text-[var(--text-primary)]">Gusti rapidi</p>
+                    <p className="text-xs text-[var(--text-muted)]">{likedCount} amati · {dislikedCount} esclusi</p>
+                  </div>
+                </div>
+                <Link href="/for-you" className="inline-flex h-8 items-center justify-center rounded-full border border-[rgba(230,255,61,0.22)] bg-[rgba(230,255,61,0.07)] px-3 text-xs font-black text-[var(--accent)] transition-opacity hover:opacity-80">Taste DNA →</Link>
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-2">
+                <div className="rounded-[20px] border border-[var(--border-subtle)] bg-[var(--bg-secondary)]/55 p-3">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <p className="gk-label">Ami</p>
+                    <span className="font-mono-data text-[10px] font-black text-[var(--accent)]">{likedCount}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {ALL_GENRES.map(genre => (
+                      <button key={genre} type="button"
+                        onClick={() => setLikedGenres(prev => prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre])}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-all ${
+                          likedGenres.includes(genre)
+                            ? 'border-[rgba(230,255,61,0.45)] bg-[rgba(230,255,61,0.12)] text-[var(--accent)]'
+                            : 'border-[var(--border)] bg-black/14 text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                        }`}
+                      >{genre}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="rounded-[20px] border border-[var(--border-subtle)] bg-[var(--bg-secondary)]/55 p-3">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <p className="gk-label">Eviti</p>
+                    <span className="font-mono-data text-[10px] font-black text-red-300">{dislikedCount}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {ALL_GENRES.map(genre => (
+                      <button key={genre} type="button"
+                        onClick={() => setDislikedGenres(prev => prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre])}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-all ${
+                          dislikedGenres.includes(genre)
+                            ? 'border-red-500/45 bg-red-500/12 text-red-300'
+                            : 'border-[var(--border)] bg-black/14 text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                        }`}
+                      >{genre}</button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
 
-          {message && (
-            <div className={`p-4 rounded-2xl text-sm text-center ${
-              messageType === 'success'
-                ? 'bg-emerald-950 border border-emerald-800 text-emerald-400'
-                : 'bg-red-950 border border-red-800 text-red-400'
-            }`}>
-              {message}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={isBusy || !!fieldErrors.username || !!fieldErrors.bio}
-            className="w-full py-4 rounded-2xl font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2"
-            style={{ background: 'var(--accent)', color: '#0B0B0F' }}
-          >
-            {isBusy
-              ? <><Loader2 size={18} className="animate-spin" /> {uploadingAvatar ? 'Caricamento avatar...' : pe.saving}</>
-              : pe.save
-            }
-          </button>
-
-          {/* 6.4 — Export dati (GDPR) */}
-          <div className="pt-4 border-t border-zinc-800">
-            <p className="text-xs text-zinc-500 mb-3">Puoi scaricare una copia di tutti i tuoi dati in formato JSON.</p>
             <button
-              type="button"
-              onClick={handleExportData}
-              disabled={exporting}
-              className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-2xl text-sm font-medium text-zinc-300 transition disabled:opacity-50 flex items-center justify-center gap-2"
+              type="submit"
+              disabled={isBusy || !!fieldErrors.username || !!fieldErrors.bio}
+              className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--accent)] text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.01] disabled:opacity-50 md:hidden"
             >
-              {exporting
-                ? <><Loader2 size={16} className="animate-spin" /> Esportazione in corso...</>
-                : <><Download size={16} /> Esporta i tuoi dati</>}
+              {isBusy
+                ? <><Loader2 size={18} className="animate-spin" /> {uploadingAvatar ? 'Caricamento avatar...' : pe.saving}</>
+                : pe.save
+              }
             </button>
-          </div>
+          </section>
         </form>
       </div>
     </div>

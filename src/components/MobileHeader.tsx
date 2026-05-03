@@ -108,7 +108,6 @@ export function MobileHeader() {
     '/search': { title: 'Cerca', icon: <Search size={16} /> },
     '/explore': { title: 'Esplora', icon: <Search size={16} /> },
     '/friends': { title: 'Friends', icon: <Users size={16} /> },
-    '/community': { title: 'Community', icon: <Users size={16} /> },
     '/library': { title: 'Library', icon: <Library size={16} /> },
   }
 

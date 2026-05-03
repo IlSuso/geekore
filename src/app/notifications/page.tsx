@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Heart, UserPlus, MessageCircle, Star, PlugZap, Bell, BellOff, Sparkles, Users, Radio, Settings } from 'lucide-react'
+import { Flame, UserPlus, MessageCircle, Star, PlugZap, Bell, BellOff } from 'lucide-react'
 import Link from 'next/link'
 import { FollowBackButton } from '@/components/notifications/FollowBackButton'
 import { Avatar } from '@/components/ui/Avatar'
@@ -19,12 +19,6 @@ const FILTERS: Array<{ id: NotificationFilter; label: string }> = [
   { id: 'social', label: 'Social' },
   { id: 'system', label: 'Sistema' },
   { id: 'integration', label: 'Integrazioni' },
-]
-
-const LOW_STATE_HINTS = [
-  { icon: <Users size={16} />, title: 'Segui profili affini', text: 'Più amici e taste match generano segnali social utili.' },
-  { icon: <Radio size={16} />, title: 'Interagisci nel feed', text: 'Like, commenti e follow rendono questa pagina più viva.' },
-  { icon: <Settings size={16} />, title: 'Connetti integrazioni', text: 'Steam, AniList e altre fonti possono creare update automatici.' },
 ]
 
 function notificationBucket(type: string): NotificationFilter {
@@ -51,25 +45,6 @@ function compactTimeAgo(dateStr: string): string {
   const d = Math.floor(h / 24)
   if (d < 7) return `${d}G`
   return `${Math.floor(d / 7)}SETT`
-}
-
-function NotificationCompactStats({ total, unread }: { total: number; unread: number }) {
-  return (
-    <div className="grid grid-cols-3 gap-3">
-      <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
-        <p className="font-mono-data text-[20px] font-black leading-none text-[var(--accent)]">{total}</p>
-        <p className="gk-label mt-1">totali</p>
-      </div>
-      <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
-        <p className="font-mono-data text-[20px] font-black leading-none text-[var(--text-primary)]">{unread}</p>
-        <p className="gk-label mt-1">non lette</p>
-      </div>
-      <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
-        <p className="font-mono-data text-[20px] font-black leading-none text-[var(--text-primary)]">24h</p>
-        <p className="gk-label mt-1">merge</p>
-      </div>
-    </div>
-  )
 }
 
 export default function NotificationsPage() {
@@ -158,7 +133,7 @@ export default function NotificationsPage() {
   const { distance: pullDistance, refreshing: isRefreshing } = usePullToRefresh({ onRefresh: fetchNotifications })
 
   function notifText(type: string): string {
-    if (type === 'like') return 'ha messo like al tuo post.'
+    if (type === 'like') return 'ha acceso il tuo post.'
     if (type === 'comment') return 'ha commentato il tuo post.'
     if (type === 'follow') return 'ha iniziato a seguirti.'
     if (type === 'rating') return 'ha votato un media.'
@@ -168,7 +143,7 @@ export default function NotificationsPage() {
 
   function NotifIcon({ type }: { type: string }) {
     const base = 'absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full border-[1.5px] border-black'
-    if (type === 'like') return <span className={`${base} bg-red-500`}><Heart size={10} fill="white" color="white" /></span>
+    if (type === 'like') return <span className={`${base} bg-orange-500`}><Flame size={10} fill="white" color="white" /></span>
     if (type === 'follow') return <span className={base} style={{ background: 'var(--accent)' }}><UserPlus size={10} color="#0B0B0F" /></span>
     if (type === 'comment') return <span className={base} style={{ background: 'var(--accent)' }}><MessageCircle size={10} color="#0B0B0F" /></span>
     if (type === 'rating') return <span className={`${base} bg-yellow-500`}><Star size={10} fill="white" color="white" /></span>
@@ -238,51 +213,76 @@ export default function NotificationsPage() {
   const unread = notifications.filter((n: any) => !n.is_read).length
 
   return (
-    <PageScaffold title="Notifiche" description="Like, commenti, follow e segnali social dalla community." icon={<Sparkles size={16} />} className="gk-notifications-page" contentClassName="gk-page-density mx-auto max-w-screen-lg pt-2 md:pt-8 pb-28">
+    <PageScaffold
+      title="Notifiche"
+      description="Segnali social e update dalla community."
+      icon={<Bell size={16} />}
+      className="gk-notifications-page"
+      contentClassName="gk-page-density mx-auto max-w-screen-md pt-2 md:pt-8 pb-28"
+    >
       <PullToRefreshIndicator distance={pullDistance} refreshing={isRefreshing} />
 
-      <div className="mb-5 overflow-hidden rounded-[28px] border border-[rgba(230,255,61,0.16)] bg-[linear-gradient(135deg,rgba(230,255,61,0.075),rgba(18,18,26,0.96))] p-5 ring-1 ring-white/5">
-        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="mb-2 gk-section-eyebrow"><Bell size={13} /> Segnali social</div>
-            <h1 className="font-display text-[34px] font-black leading-none tracking-[-0.045em] text-[var(--text-primary)] md:text-[42px]">Notifiche</h1>
-            <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[var(--text-secondary)]">Segui like, commenti, follow e update dalle integrazioni senza far sembrare vuota la pagina quando i segnali sono pochi.</p>
+      <div className="mb-5 rounded-[24px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/72 p-3 ring-1 ring-white/5 md:p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-2xl border border-[rgba(230,255,61,0.22)] bg-[rgba(230,255,61,0.08)] text-[var(--accent)]">
+              <Bell size={18} />
+            </div>
+            <div className="min-w-0">
+              <h1 className="font-display text-[28px] font-black leading-none tracking-[-0.04em] text-[var(--text-primary)] md:text-[32px]">Notifiche</h1>
+              <p className="mt-1 text-[13px] text-[var(--text-muted)]">{unread > 0 ? `${unread} da leggere` : 'Tutto letto'} · {notifications.length} totali</p>
+            </div>
           </div>
-          <Link href="/friends" data-no-swipe="true" className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.035)] px-4 text-sm font-black text-[var(--text-secondary)] transition-colors hover:text-white">
-            <Users size={15} /> Trova amici
-          </Link>
-        </div>
-        <NotificationCompactStats total={notifications.length} unread={unread} />
-      </div>
 
-      <div className="mb-5 grid grid-cols-4 gap-1 rounded-[22px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/80 p-2 ring-1 ring-white/5" data-no-swipe="true">
-        {FILTERS.map(filter => {
-          const active = activeFilter === filter.id
-          const count = filter.id === 'all' ? notifications.length : notifications.filter(n => notificationBucket(n.type) === filter.id).length
-          return (
-            <button key={filter.id} type="button" data-no-swipe="true" onClick={() => setActiveFilter(filter.id)} className="min-h-11 rounded-xl px-1 py-2 text-[11px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 sm:text-[12px]" style={active ? { background: 'rgba(230,255,61,0.09)', color: 'var(--accent)' } : { color: 'var(--text-muted)' }} aria-pressed={active}>
-              <span className="block">{filter.label}</span><span className="font-mono-data text-[9px] opacity-70">{count}</span>
-            </button>
-          )
-        })}
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide md:pb-0" data-no-swipe="true">
+            {FILTERS.map(filter => {
+              const active = activeFilter === filter.id
+              const count = filter.id === 'all' ? notifications.length : notifications.filter(n => notificationBucket(n.type) === filter.id).length
+              return (
+                <button
+                  key={filter.id}
+                  type="button"
+                  data-no-swipe="true"
+                  onClick={() => setActiveFilter(filter.id)}
+                  className={`inline-flex h-9 flex-shrink-0 items-center gap-2 rounded-2xl border px-3 text-[13px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${active ? 'border-[rgba(230,255,61,0.42)] bg-[rgba(230,255,61,0.12)] text-[var(--accent)]' : 'border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:text-white'}`}
+                  aria-pressed={active}
+                >
+                  <span>{filter.label}</span>
+                  <span className={`font-mono-data text-[10px] ${active ? 'text-[var(--accent)]/75' : 'text-[var(--text-muted)]'}`}>{count}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </div>
 
       {loading ? (
-        <div className="space-y-2">{Array.from({ length: 8 }).map((_, i) => <div key={i} className="flex items-center gap-3 rounded-[20px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 animate-pulse"><div className="h-11 w-11 skeleton rounded-2xl flex-shrink-0" /><div className="flex-1 space-y-1.5"><div className="h-3 skeleton rounded-full w-3/4" /><div className="h-2.5 skeleton rounded-full w-1/3" /></div><div className="h-8 w-16 skeleton rounded-2xl flex-shrink-0" /></div>)}</div>
+        <div className="space-y-2">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 rounded-[20px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 animate-pulse">
+              <div className="h-11 w-11 skeleton rounded-2xl flex-shrink-0" />
+              <div className="flex-1 space-y-1.5">
+                <div className="h-3 skeleton rounded-full w-3/4" />
+                <div className="h-2.5 skeleton rounded-full w-1/3" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : visibleNotifications.length === 0 ? (
-        <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-12 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-secondary)]"><BellOff size={28} className="text-[var(--text-muted)]" /></div>
-          <p className="gk-headline mb-1 text-[var(--text-primary)]">Nessuna notifica</p>
-          <p className="gk-body mx-auto mb-6 max-w-sm">Quando ci saranno notifiche in questa categoria, appariranno qui. Nel frattempo puoi rendere più viva la tua rete.</p>
-          <div className="mx-auto mb-6 grid max-w-3xl gap-3 md:grid-cols-3">
-            {LOW_STATE_HINTS.map(hint => <div key={hint.title} className="rounded-2xl border border-[var(--border-subtle)] bg-black/18 p-4 text-left ring-1 ring-white/5"><div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-[rgba(230,255,61,0.10)] text-[var(--accent)]">{hint.icon}</div><p className="text-sm font-black text-[var(--text-primary)]">{hint.title}</p><p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">{hint.text}</p></div>)}
+        <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-14 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-secondary)]">
+            <BellOff size={28} className="text-[var(--text-muted)]" />
           </div>
-          <Link href="/friends" data-no-swipe="true" className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]">Vai a Friends</Link>
+          <p className="gk-headline mb-1 text-[var(--text-primary)]">Nessuna notifica</p>
+          <p className="gk-body mx-auto mb-6 max-w-sm">Quando arriveranno like, commenti, follow o update dalle integrazioni li troverai qui.</p>
+          <Link href="/friends" data-no-swipe="true" className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]">
+            Trova amici
+          </Link>
         </div>
       ) : (
         <div className="space-y-6">
           {groupOrder.filter(g => grouped[g]?.length).map(group => (
-            <div key={group}>
+            <section key={group}>
               <p className="gk-label mb-2 px-1">{group}</p>
               <div className="space-y-2">
                 {grouped[group].map((n: any) => {
@@ -296,19 +296,45 @@ export default function NotificationsPage() {
                     return <><Link href={`/profile/${n._firstSender?.username}`} className="font-black transition-opacity hover:opacity-70">{first}</Link>{second && <>, <Link href={`/profile/${n._secondSender?.username}`} className="font-black transition-opacity hover:opacity-70">{second}</Link></>}{others > 0 && <> e altre <span className="font-black">{others}</span> persone</>} {' '}{action}</>
                   }
                   return (
-                    <div key={n.id} data-notif-id={n.id} className={`flex items-center gap-3 rounded-[20px] border p-3 transition-colors hover:bg-[var(--bg-card-hover)] ${!n.is_read ? 'border-[rgba(230,255,61,0.22)] bg-[rgba(230,255,61,0.045)]' : 'border-[var(--border-subtle)] bg-[var(--bg-card)]'}`}>
+                    <div
+                      key={n.id}
+                      data-notif-id={n.id}
+                      className={`flex items-center gap-3 rounded-[22px] border p-3 transition-colors hover:bg-[var(--bg-card-hover)] ${!n.is_read ? 'border-[rgba(230,255,61,0.24)] bg-[rgba(230,255,61,0.045)]' : 'border-[var(--border-subtle)] bg-[var(--bg-card)]'}`}
+                    >
                       <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${n.is_read ? 'bg-transparent' : 'bg-[var(--accent)]'}`} />
                       <div className="relative flex-shrink-0">
-                        {n._aggregated ? <div className="relative h-11 w-11"><div className="absolute left-0 top-0 h-8 w-8 overflow-hidden rounded-2xl ring-2 ring-[var(--bg-primary)]"><Avatar src={n._senders[1]?.avatar_url} username={n._senders[1]?.username || 'user'} displayName={n._senders[1]?.display_name} size={32} /></div><div className="absolute bottom-0 right-0 h-8 w-8 overflow-hidden rounded-2xl ring-2 ring-[var(--bg-primary)]"><Avatar src={n._senders[0]?.avatar_url} username={n._senders[0]?.username || 'user'} displayName={n._senders[0]?.display_name} size={32} /></div></div> : n.sender ? <div className="h-11 w-11 overflow-hidden rounded-2xl ring-1 ring-white/10"><Avatar src={n.sender?.avatar_url} username={n.sender?.username || 'user'} displayName={n.sender?.display_name} size={44} /></div> : <div className="grid h-11 w-11 place-items-center rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)]">{notificationBucket(n.type) === 'integration' ? <PlugZap size={18} className="text-sky-300" /> : <Bell size={18} className="text-[var(--accent)]" />}</div>}
+                        {n._aggregated ? (
+                          <div className="relative h-11 w-11">
+                            <div className="absolute left-0 top-0 h-8 w-8 overflow-hidden rounded-2xl ring-2 ring-[var(--bg-primary)]">
+                              <Avatar src={n._senders[1]?.avatar_url} username={n._senders[1]?.username || 'user'} displayName={n._senders[1]?.display_name} size={32} />
+                            </div>
+                            <div className="absolute bottom-0 right-0 h-8 w-8 overflow-hidden rounded-2xl ring-2 ring-[var(--bg-primary)]">
+                              <Avatar src={n._senders[0]?.avatar_url} username={n._senders[0]?.username || 'user'} displayName={n._senders[0]?.display_name} size={32} />
+                            </div>
+                          </div>
+                        ) : n.sender ? (
+                          <div className="h-11 w-11 overflow-hidden rounded-2xl ring-1 ring-white/10">
+                            <Avatar src={n.sender?.avatar_url} username={n.sender?.username || 'user'} displayName={n.sender?.display_name} size={44} />
+                          </div>
+                        ) : (
+                          <div className="grid h-11 w-11 place-items-center rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)]">
+                            {notificationBucket(n.type) === 'integration' ? <PlugZap size={18} className="text-sky-300" /> : <Bell size={18} className="text-[var(--accent)]" />}
+                          </div>
+                        )}
                         <NotifIcon type={n.type} />
                       </div>
-                      <div className="min-w-0 flex-1"><p className="text-[14px] leading-snug text-[var(--text-secondary)]">{n._aggregated ? aggregatedText(n) : <>{username ? <Link href={`/profile/${username}`} className="font-black text-[var(--text-primary)] transition-opacity hover:opacity-70">{name}</Link> : n.sender ? <span className="font-black text-[var(--text-primary)]">{name}</span> : null}{' '}<span>{notifText(n.type)}</span></>}</p><p className="mt-1 font-mono-data text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">{compactTimeAgo(n.created_at)}</p></div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[14px] leading-snug text-[var(--text-secondary)]">
+                          {n._aggregated ? aggregatedText(n) : <>{username ? <Link href={`/profile/${username}`} className="font-black text-[var(--text-primary)] transition-opacity hover:opacity-70">{name}</Link> : n.sender ? <span className="font-black text-[var(--text-primary)]">{name}</span> : null}{' '}<span>{notifText(n.type)}</span></>}
+                        </p>
+                        <p className="mt-1 font-mono-data text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">{compactTimeAgo(n.created_at)}</p>
+                      </div>
                       <div className="flex-shrink-0">{!n._aggregated && n.type === 'follow' && n.sender_id ? <FollowBackButton targetId={n.sender_id} isFollowingInitial={n._isFollowing} /> : null}</div>
                     </div>
                   )
                 })}
               </div>
-            </div>
+            </section>
           ))}
         </div>
       )}

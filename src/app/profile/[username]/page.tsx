@@ -32,7 +32,6 @@ import { useDndSensors } from '@/hooks/useDndSensors'
 import { useCsrf } from '@/hooks/useCsrf'
 import Link from 'next/link'
 import { useLocale } from '@/lib/locale'
-import { ProfileStatsPanel } from '@/components/profile/ProfileStatsPanel'
 import { AniListImport } from '@/components/import/AniListImport'
 import { MALImport } from '@/components/import/MALImport'
 import { LetterboxdImport } from '@/components/import/LetterboxdImport'
@@ -649,45 +648,29 @@ function CopyProfileLink({ username }: { username: string }) {
 // ─── CollectionControls ───────────────────────────────────────────────────────
 
 function CollectionControls({
-  search, onSearch, sort, onSort, statusFilter, onStatusFilter,
+  search, onSearch, sort, onSort, statusFilter, onStatusFilter, isOwner,
 }: {
   search: string; onSearch: (v: string) => void
   sort: SortMode; onSort: (v: SortMode) => void
   statusFilter: string; onStatusFilter: (v: string) => void
+  isOwner: boolean
 }) {
-  return (
-    <div className="mb-6 rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-3">
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="mb-1 flex items-center gap-2">
-            <SlidersHorizontal size={14} className="text-[var(--accent)]" />
-            <p className="gk-label">Collection controls</p>
-          </div>
-          <p className="gk-caption">Cerca, filtra e ordina la libreria pubblica.</p>
-        </div>
-        {(search || statusFilter !== 'all' || sort !== 'default') && (
-          <button
-            type="button"
-            onClick={() => { onSearch(''); onStatusFilter('all'); onSort('default') }}
-            className="rounded-full border border-[var(--border)] px-2.5 py-1 text-[11px] font-bold text-[var(--text-muted)] transition-colors hover:text-[var(--accent)]"
-          >
-            reset
-          </button>
-        )}
-      </div>
+  const hasFilters = search || statusFilter !== 'all' || sort !== 'default'
 
-      <div className="grid gap-2 md:grid-cols-[1fr_auto_auto]">
+  return (
+    <div className="mb-5 rounded-[22px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/70 p-2.5 ring-1 ring-white/5">
+      <div className="grid gap-2 md:grid-cols-[1fr_150px_150px_auto]">
         <div className="relative">
           <SearchIcon size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
           <input
             type="text"
             value={search}
             onChange={e => onSearch(e.target.value)}
-            placeholder="Cerca nella collezione…"
-            className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] py-2.5 pl-9 pr-8 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]"
+            placeholder={isOwner ? "Cerca nella tua collezione…" : "Cerca nella collezione…"}
+            className="h-10 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] pl-9 pr-8 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]"
           />
           {search && (
-            <button onClick={() => onSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+            <button type="button" onClick={() => onSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]" aria-label="Cancella ricerca collezione">
               <X size={13} />
             </button>
           )}
@@ -696,7 +679,7 @@ function CollectionControls({
         <select
           value={statusFilter}
           onChange={e => onStatusFilter(e.target.value)}
-          className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2.5 text-xs font-bold text-[var(--text-secondary)] outline-none transition-colors focus:border-[rgba(230,255,61,0.45)] md:w-40"
+          className="h-10 rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 text-xs font-bold text-[var(--text-secondary)] outline-none transition-colors focus:border-[rgba(230,255,61,0.45)]"
         >
           <option value="all">Tutti</option>
           <option value="watching">In corso</option>
@@ -708,7 +691,7 @@ function CollectionControls({
         <select
           value={sort}
           onChange={e => onSort(e.target.value as SortMode)}
-          className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2.5 text-xs font-bold text-[var(--text-secondary)] outline-none transition-colors focus:border-[rgba(230,255,61,0.45)] md:w-40"
+          className="h-10 rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 text-xs font-bold text-[var(--text-secondary)] outline-none transition-colors focus:border-[rgba(230,255,61,0.45)]"
         >
           <option value="default">Default</option>
           <option value="rating_desc">Voto ↓</option>
@@ -717,10 +700,21 @@ function CollectionControls({
           <option value="progress_desc">Progresso ↓</option>
           <option value="date_desc">Recenti</option>
         </select>
+
+        {hasFilters && (
+          <button
+            type="button"
+            onClick={() => { onSearch(''); onStatusFilter('all'); onSort('default') }}
+            className="h-10 rounded-2xl border border-[var(--border)] px-3 text-xs font-black text-[var(--text-muted)] transition-colors hover:text-[var(--accent)]"
+          >
+            Reset
+          </button>
+        )}
       </div>
     </div>
   )
 }
+
 
 // ─── CompactMediaRow ──────────────────────────────────────────────────────────
 
@@ -1346,54 +1340,44 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
       <div className="gk-page-density pt-4 md:pt-8 max-w-screen-2xl mx-auto px-4 md:px-6">
 
-        {/* ── Profile hero — media identity hub ── */}
-        <section className="mb-6 overflow-hidden rounded-[34px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(160deg,rgba(230,255,61,0.07),var(--bg-secondary))] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.28)] md:mb-8 md:p-6">
-          <div className="mb-5 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-            <div className="flex min-w-0 flex-col items-center gap-4 text-center md:flex-row md:text-left">
-              <div className="relative flex-shrink-0">
-                <div className="h-24 w-24 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.22)] bg-[var(--bg-card)] p-1 shadow-[0_0_44px_rgba(230,255,61,0.10)] md:h-32 md:w-32">
-                  <Avatar
-                    src={profile.avatar_url}
-                    username={profile.username}
-                    displayName={profile.display_name}
-                    size={128}
-                    className="h-full w-full rounded-[26px]"
-                  />
-                </div>
-                <div className="absolute -bottom-2 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full border border-[rgba(230,255,61,0.35)] bg-black/80 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-[var(--accent)] backdrop-blur">
-                  <Sparkles size={10} />
-                  Profile
-                </div>
+        {/* ── Profile header ── */}
+        <section className="mb-5 rounded-[30px] border border-[rgba(230,255,61,0.16)] bg-[linear-gradient(145deg,rgba(230,255,61,0.055),rgba(18,18,26,0.82))] p-4 shadow-[0_18px_56px_rgba(0,0,0,0.22)] ring-1 ring-white/5 md:p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-center gap-4">
+              <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-[24px] border border-[rgba(230,255,61,0.18)] bg-[var(--bg-card)] p-1 md:h-24 md:w-24">
+                <Avatar
+                  src={profile.avatar_url}
+                  username={profile.username}
+                  displayName={profile.display_name}
+                  size={96}
+                  className="h-full w-full rounded-[20px]"
+                />
               </div>
 
               <div className="min-w-0 flex-1">
-                <div className="mb-2 gk-section-eyebrow">
+                <div className="mb-1 gk-section-eyebrow">
                   <Sparkles size={12} />
-                  Media identity
+                  Profile
                 </div>
-                <h1 className="mb-1 text-2xl font-black tracking-[-0.03em] text-[var(--text-primary)] md:text-4xl">
-                  <UserBadge badge={profile.badge} displayName={profileDisplayName} className="text-2xl font-black md:text-4xl" />
+                <h1 className="line-clamp-1 text-3xl font-black tracking-[-0.04em] text-[var(--text-primary)] md:text-4xl">
+                  <UserBadge badge={profile.badge} displayName={profileDisplayName} className="text-3xl font-black md:text-4xl" />
                 </h1>
-                <p className="gk-mono mb-3 text-[var(--text-muted)]">@{profile.username}</p>
+                <p className="gk-mono mt-1 text-[var(--text-muted)]">@{profile.username}</p>
                 {profile.bio ? (
-                  <p className="mx-auto max-w-xl text-sm leading-relaxed text-[var(--text-secondary)] md:mx-0">
-                    {profile.bio}
-                  </p>
-                ) : (
-                  <p className="mx-auto max-w-xl text-sm leading-relaxed text-[var(--text-muted)] md:mx-0">
-                    {isOwner ? 'Aggiungi una bio per raccontare il tuo universo media.' : 'Questo profilo sta ancora costruendo la propria identità.'}
-                  </p>
-                )}
+                  <p className="mt-2 max-w-2xl line-clamp-2 text-sm leading-6 text-[var(--text-secondary)]">{profile.bio}</p>
+                ) : isOwner ? (
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">Aggiungi una bio per raccontare il tuo universo media.</p>
+                ) : null}
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-2 md:justify-end">
+            <div className="flex flex-wrap items-center gap-2 md:justify-end">
               {isOwner ? (
                 <>
                   <Link href="/settings/profile">
                     <button
                       data-testid="btn-edit-profile"
-                      className="inline-flex h-10 items-center gap-2 rounded-2xl border border-[rgba(230,255,61,0.28)] bg-[rgba(230,255,61,0.10)] px-4 text-sm font-black text-[var(--accent)] transition-all hover:border-[rgba(230,255,61,0.45)] hover:bg-[rgba(230,255,61,0.14)]"
+                      className="inline-flex h-10 items-center gap-2 rounded-2xl border border-[rgba(230,255,61,0.26)] bg-[rgba(230,255,61,0.08)] px-4 text-sm font-black text-[var(--accent)] transition-colors hover:bg-[rgba(230,255,61,0.12)]"
                     >
                       <Settings size={15} />
                       {t.profile.editProfile}
@@ -1418,99 +1402,22 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 border-t border-white/5 pt-4 md:grid-cols-6">
-            <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/5">
-              <p className="font-mono-data text-[20px] font-black leading-none text-[var(--accent)]">{mediaList.length}</p>
-              <p className="gk-label mt-1">media</p>
-            </div>
-            <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/5">
-              <p className="font-mono-data text-[20px] font-black leading-none text-[var(--text-primary)]">{followersCount}</p>
-              <p className="gk-label mt-1">{t.profile.follower}</p>
-            </div>
-            <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/5">
-              <p className="font-mono-data text-[20px] font-black leading-none text-[var(--text-primary)]">{followingCount}</p>
-              <p className="gk-label mt-1">{t.profile.following}</p>
-            </div>
-            <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/5">
-              <p className="font-mono-data text-[20px] font-black leading-none text-[var(--text-primary)]">{completedCount}</p>
-              <p className="gk-label mt-1">completati</p>
-            </div>
-            <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/5">
-              <p className="font-mono-data text-[20px] font-black leading-none text-[var(--text-primary)]">{avgProfileRating}</p>
-              <p className="gk-label mt-1">rating</p>
-            </div>
-            <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/5">
-              <p className="line-clamp-1 font-mono-data text-[16px] font-black leading-none text-[var(--text-primary)]">{profileTopGenre}</p>
-              <p className="gk-label mt-1">top genre</p>
-            </div>
-          </div>
-
-          {topGenres.length > 0 && (
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-2 border-t border-white/5 pt-4 md:justify-start">
-              {topGenres.slice(0, 8).map((genre, i) => (
-                <span
-                  key={genre}
-                  className="inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[11px] font-bold"
-                  style={{ background: 'rgba(230,255,61,0.06)', borderColor: 'rgba(230,255,61,0.2)', color: 'rgba(230,255,61,0.85)' }}
-                >
-                  {genre}
-                  {i === 0 && <span className="font-mono-data text-[10px] opacity-60">#1</span>}
-                </span>
-              ))}
-              {topGenres.length > 8 && (
-                <span className="rounded-full border border-[var(--border)] bg-black/20 px-3 py-1.5 text-[11px] font-bold text-[var(--text-muted)]">
-                  +{topGenres.length - 8}
-                </span>
-              )}
-            </div>
-          )}
-
-          {isOwner && (
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-2 border-t border-white/5 pt-4 md:justify-start">
-              {([
-                { key: 'steam', label: steamAccount ? 'Steam connesso' : 'Steam', icon: <SteamIcon size={18} /> },
-                { key: 'anilist', label: 'AniList', icon: <Tv size={15} /> },
-                { key: 'mal', label: 'MAL', icon: <Tv size={15} /> },
-                { key: 'letterboxd', label: 'Letterboxd', icon: <Film size={15} /> },
-                { key: 'xbox', label: 'Xbox', icon: <Gamepad2 size={15} /> },
-                { key: 'bgg', label: 'BGG', icon: <List size={15} /> },
-              ] as const).map(item => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => setImportPlatform(item.key)}
-                  className="inline-flex h-9 items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-3 text-xs font-bold text-[var(--text-secondary)] transition-all hover:border-[rgba(230,255,61,0.32)] hover:text-[var(--text-primary)]"
-                >
-                  {item.icon}
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-
-
-
-        {/* Quick links — owner tools */}
-        {isOwner && (
-          <div className="flex items-center gap-2 mb-5 -mx-4 px-4 overflow-x-auto scrollbar-hide md:mx-0 md:px-0">
-            {([
-              { href: '/wishlist', icon: <Bookmark size={14} style={{ color: 'var(--accent)' }} />, label: 'Wishlist' },
-              { href: '/lists', icon: <List size={14} className="text-cyan-400" />, label: 'Liste' },
-              { href: '/stats', icon: <BarChart2 size={14} className="text-zinc-400" />, label: 'Statistiche' },
-              { href: '/trending', icon: <TrendingUp size={14} className="text-orange-400" />, label: 'Trending' },
-              { href: '/community', icon: <Users size={14} style={{ color: 'var(--accent)' }} />, label: 'Community' },
-            ] as const).map(item => (
-              <Link key={item.href} href={item.href}
-                className="flex flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm font-bold text-[var(--text-secondary)] transition-all hover:border-[rgba(230,255,61,0.28)] hover:text-[var(--text-primary)]">
-                {item.icon}{item.label}
-              </Link>
+          <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-4 md:grid-cols-6">
+            {[
+              { label: 'media', value: mediaList.length, accent: true },
+              { label: t.profile.follower, value: followersCount },
+              { label: t.profile.following, value: followingCount },
+              { label: 'completati', value: completedCount },
+              { label: 'rating', value: avgProfileRating },
+              { label: 'top', value: profileTopGenre },
+            ].map(stat => (
+              <div key={stat.label} className="rounded-2xl bg-black/16 px-3 py-2.5 ring-1 ring-white/5">
+                <p className={`line-clamp-1 font-mono-data text-[18px] font-black leading-none ${stat.accent ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>{stat.value}</p>
+                <p className="gk-label mt-1">{stat.label}</p>
+              </div>
             ))}
           </div>
-        )}
-
-        {/* Stats */}
-        {mediaList.length > 0 && <ProfileStatsPanel mediaList={mediaList} />}
+        </section>
 
         {/* ── TABS ─────────────────────────────────────────────────── */}
         <div className="mb-6 flex gap-2 overflow-x-auto rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)] p-1.5 scrollbar-hide md:mb-8">
@@ -1558,11 +1465,13 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
               </div>
             ) : (
               <>
+
                 {mediaList.length > 3 && (
                   <CollectionControls
                     search={collectionSearch} onSearch={setCollectionSearch}
                     sort={sortMode} onSort={setSortMode}
                     statusFilter={statusFilter} onStatusFilter={setStatusFilter}
+                    isOwner={isOwner}
                   />
                 )}
 
@@ -1590,7 +1499,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                         <div key={category} className="mb-10 md:mb-14">
                           <div className="mb-4 flex items-center justify-between gap-4 md:mb-5">
                             <div className="min-w-0">
-                              <p className="gk-label mb-1">Collection rail</p>
+                              <p className="gk-label mb-1">Sezione collezione</p>
                               <h3 className="truncate text-lg font-black tracking-[-0.02em] text-[var(--text-primary)] md:text-2xl">{category}</h3>
                             </div>
                             <div className="flex flex-shrink-0 items-center gap-3">

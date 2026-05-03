@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { useState, useEffect, useMemo } from 'react'
+import type { ElementType } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Clock, Gamepad2, Film, Tv, Gem, Briefcase, Calendar, Plane, Layers, Library } from 'lucide-react'
+import { Clock, Gamepad2, Film, Tv, Gem, Calendar, Layers, Library, BarChart3, Sparkles } from 'lucide-react'
 import { PageScaffold } from '@/components/ui/PageScaffold'
 
 const AVG_ANIME_EP_MINUTES = 24
@@ -28,6 +29,15 @@ interface Stats {
   totalMinutes: number
 }
 
+type CategoryStat = {
+  id: string
+  label: string
+  icon: ElementType
+  hours: number
+  detail: string
+  color: string
+}
+
 const statsCache = new Map<string, { entries: MediaEntry[]; ts: number }>()
 const CACHE_TTL = 5 * 60 * 1000
 
@@ -48,55 +58,56 @@ function formatReadable(minutes: number): string {
   return parts.join(', ') || '0 minuti'
 }
 
-function StatBar({ label, icon: Icon, hours, color, detail, maxHours = 1 }: {
-  label: string
-  icon: React.ElementType
-  hours: number
-  color: string
-  detail: string
-  maxHours?: number
-}) {
-  const pct = Math.min(Math.round((hours / maxHours) * 100), 100)
-  return (
-    <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3.5">
-      <div className="mb-2.5 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-black/20 ring-1 ring-white/5" style={{ color }}>
-            <Icon size={16} />
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-[var(--text-primary)]">{label}</p>
-            <p className="gk-mono text-[var(--text-muted)]">{detail}</p>
-          </div>
-        </div>
-        <span className="font-mono-data text-sm font-black text-[var(--text-primary)]">{Math.round(hours)}h</span>
-      </div>
-      <div className="h-2 overflow-hidden rounded-full bg-black/25 ring-1 ring-white/5">
-        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: color }} />
-      </div>
-    </div>
-  )
+function compactHours(hours: number): string {
+  if (hours >= 1000) return `${(hours / 1000).toFixed(1)}k`
+  return Math.round(hours).toLocaleString('it')
 }
 
 function StatsSkeleton() {
   return (
     <div className="animate-pulse space-y-4">
-      <div className="h-[220px] rounded-[30px] bg-[var(--bg-card)]" />
+      <div className="h-[180px] rounded-[28px] bg-[var(--bg-card)]" />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-24 rounded-2xl bg-[var(--bg-card)]" />)}
+        {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-28 rounded-2xl bg-[var(--bg-card)]" />)}
       </div>
-      {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-[78px] rounded-2xl bg-[var(--bg-card)]" />)}
+      <div className="h-[260px] rounded-[28px] bg-[var(--bg-card)]" />
     </div>
   )
 }
 
-function TimeStat({ label, value, suffix, accent = false }: { label: string; value: string | number; suffix?: string; accent?: boolean }) {
+function MetricCard({ label, value, detail, accent = false }: { label: string; value: string | number; detail?: string; accent?: boolean }) {
   return (
-    <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
-      <p className={`font-mono-data text-[22px] font-black leading-none ${accent ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>
-        {value}<span className="ml-1 text-[11px] font-bold text-[var(--text-muted)]">{suffix}</span>
-      </p>
-      <p className="gk-label mt-1">{label}</p>
+    <div className="rounded-[18px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/55 px-4 py-3 ring-1 ring-white/5">
+      <p className="gk-label mb-1">{label}</p>
+      <div className="flex min-w-0 items-end justify-between gap-3">
+        <p className={`truncate font-mono-data text-[23px] font-black leading-none ${accent ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>{value}</p>
+        {detail && <p className="shrink-0 text-right text-[11px] leading-4 text-[var(--text-muted)]">{detail}</p>}
+      </div>
+    </div>
+  )
+}
+
+function CategoryCard({ item, maxHours }: { item: CategoryStat; maxHours: number }) {
+  const Icon = item.icon
+  const pct = Math.max(3, Math.min(Math.round((item.hours / maxHours) * 100), 100))
+  const isMinor = item.hours < maxHours * 0.08
+  return (
+    <div className={`rounded-[20px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/70 px-4 py-3 ring-1 ring-white/5 ${isMinor ? 'md:col-span-1' : ''}`}>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-[14px] bg-black/18 ring-1 ring-white/5" style={{ color: item.color }}>
+            <Icon size={18} />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-[14px] font-black text-[var(--text-primary)]">{item.label}</p>
+            <p className="gk-mono text-[var(--text-muted)]">{item.detail}</p>
+          </div>
+        </div>
+        <p className="shrink-0 font-mono-data text-[16px] font-black text-[var(--text-primary)]">{compactHours(item.hours)}h</p>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-black/24 ring-1 ring-white/5">
+        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: item.color }} />
+      </div>
     </div>
   )
 }
@@ -184,19 +195,32 @@ export default function StatsPage() {
     }
   }, [entries])
 
+  const { days, hours: remHours, totalHours } = formatDuration(stats.totalMinutes)
+  const totalHoursRounded = Math.round(totalHours)
+
+  const categories = useMemo<CategoryStat[]>(() => [
+    { id: 'game', label: 'Videogiochi', icon: Gamepad2, hours: stats.gameHours, detail: 'ore Steam', color: 'var(--type-game)' },
+    { id: 'movie', label: 'Film', icon: Film, hours: stats.movieHours, detail: `${stats.movieCount} film`, color: 'var(--type-movie)' },
+    { id: 'anime', label: 'Anime', icon: Tv, hours: stats.animeHours, detail: `${stats.animeEpisodes} ep`, color: 'var(--type-anime)' },
+    { id: 'tv', label: 'Serie TV', icon: Tv, hours: stats.tvHours, detail: `${stats.tvEpisodes} ep`, color: 'var(--type-tv)' },
+    { id: 'manga', label: 'Manga', icon: Layers, hours: stats.mangaHours, detail: `${stats.mangaChapters} cap`, color: 'var(--type-manga)' },
+  ].filter(item => item.hours > 0), [stats])
+
+  const maxH = Math.max(...categories.map(c => c.hours), 1)
+  const topCategory = categories[0] ? [...categories].sort((a, b) => b.hours - a.hours)[0] : null
+  const topShare = topCategory && totalHours > 0 ? Math.round((topCategory.hours / totalHours) * 100) : 0
+  const insight = topCategory
+    ? `La tua libreria è trainata da ${topCategory.label.toLowerCase()}: circa ${topShare}% del tuo tempo registrato.`
+    : 'Aggiungi titoli alla collezione per iniziare a costruire il tuo Time DNA.'
+
   const comparisons = useMemo(() => {
     const hours = stats.totalMinutes / 60
     return [
+      { label: 'Giorni pieni di contenuto', value: (hours / 24).toFixed(1), Icon: Calendar },
+      { label: 'Maratone cinematografiche da 3 ore', value: Math.round(hours / 3).toLocaleString('it'), Icon: Film },
       { label: 'Trilogie estese del Signore degli Anelli', value: (hours / 11.4).toFixed(1), Icon: Gem },
-      { label: 'Pizze mangiate con calma', value: Math.round(stats.totalMinutes / 30).toLocaleString('it'), Icon: Clock },
-      { label: 'Giri del mondo in aereo', value: (hours / 20).toFixed(1), Icon: Plane },
-      { label: 'Settimane lavorative full-time', value: (hours / 40).toFixed(1), Icon: Briefcase },
-      { label: 'Giorni di vita convertiti in media', value: (hours / 24).toFixed(1), Icon: Calendar },
     ]
   }, [stats.totalMinutes])
-
-  const { days, hours: remHours, minutes: remMins, totalHours } = formatDuration(stats.totalMinutes)
-  const maxH = Math.max(stats.animeHours, stats.gameHours, stats.tvHours, stats.movieHours, stats.mangaHours, 1)
 
   if (!isLoggedIn && !loading) {
     return (
@@ -215,39 +239,22 @@ export default function StatsPage() {
     <PageScaffold
       title="Stats"
       description="Quanto tempo hai trasformato in anime, manga, film, serie e videogiochi."
-      icon={<Clock size={16} />}
-      contentClassName="pt-2 md:pt-8 pb-28"
+      icon={<BarChart3 size={16} />}
+      contentClassName="mx-auto max-w-screen-md pt-2 md:pt-8 pb-28"
     >
       {loading ? <StatsSkeleton /> : (
         <>
-          <div className="mb-5 overflow-hidden rounded-[30px] border border-[var(--border)] bg-[var(--bg-secondary)] p-4 text-center md:p-6">
-            <p className="gk-label mb-3 text-[var(--text-muted)]">Time DNA · totale stimato</p>
-            <div className="mb-4 flex items-end justify-center gap-4">
-              {days > 0 && (
-                <div>
-                  <p className="gk-display text-[var(--text-primary)]">{days}</p>
-                  <p className="text-sm text-[var(--text-muted)]">giorni</p>
-                </div>
-              )}
-              {remHours > 0 && (
-                <div>
-                  <p className="gk-display text-[var(--accent)]">{remHours}</p>
-                  <p className="text-sm text-[var(--text-muted)]">ore</p>
-                </div>
-              )}
-              {remMins > 0 && days === 0 && (
-                <div>
-                  <p className="gk-display text-[var(--accent)]">{remMins}</p>
-                  <p className="text-sm text-[var(--text-muted)]">minuti</p>
-                </div>
-              )}
-              {stats.totalMinutes === 0 && <p className="gk-display text-zinc-600">0</p>}
+          <div className="mb-4 overflow-hidden rounded-[28px] border border-[rgba(230,255,61,0.16)] bg-[radial-gradient(circle_at_16%_0%,rgba(230,255,61,0.12),transparent_42%),linear-gradient(145deg,rgba(230,255,61,0.05),var(--bg-secondary))] p-5 ring-1 ring-white/5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="gk-section-eyebrow"><Clock size={13} /> Time DNA</div>
+              <Link href="/profile" data-no-swipe="true" className="hidden h-9 items-center justify-center rounded-2xl border border-[var(--border)] bg-black/14 px-4 text-xs font-black text-[var(--text-secondary)] transition-colors hover:text-white md:inline-flex">
+                Apri profilo
+              </Link>
             </div>
-            <p className="gk-body mx-auto max-w-md">{formatReadable(stats.totalMinutes)}</p>
-            <div className="mt-5 grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
-              <TimeStat label="ore totali" value={Math.round(totalHours)} accent />
-              <TimeStat label="titoli" value={entries.length} />
-              <TimeStat label="media/titolo" value={entries.length ? Math.round(totalHours / entries.length) : 0} suffix="h" />
+            <h1 className="font-display text-[34px] font-black leading-none tracking-[-0.05em] text-[var(--text-primary)] md:text-[44px]">{formatReadable(stats.totalMinutes)}</h1>
+            <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[var(--text-secondary)]">Stima aggregata da episodi, capitoli, film completati e ore di gioco registrate.</p>
+            <div className="mt-4 rounded-2xl border border-[rgba(230,255,61,0.12)] bg-black/18 px-4 py-3 text-[13px] font-semibold leading-5 text-[var(--text-secondary)]">
+              <span className="text-[var(--accent)]">Insight:</span> {insight}
             </div>
           </div>
 
@@ -257,37 +264,46 @@ export default function StatsPage() {
                 <Library size={28} className="text-[var(--text-muted)]" />
               </div>
               <p className="gk-headline mb-1 text-[var(--text-primary)]">Nessun dato ancora</p>
-              <p className="gk-body mx-auto mb-5 max-w-sm">Aggiungi media alla Library per calcolare il tuo Time DNA.</p>
+              <p className="gk-body mx-auto mb-5 max-w-sm">Aggiungi media alla collezione per calcolare il tuo Time DNA.</p>
               <Link href="/discover" className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]">
                 Apri Discover
               </Link>
             </div>
           ) : (
             <>
-              <div className="mb-6 space-y-2">
-                {stats.animeHours > 0 && <StatBar label="Anime" icon={Tv} hours={stats.animeHours} color="var(--type-anime)" detail={`${stats.animeEpisodes} ep`} maxHours={maxH} />}
-                {stats.gameHours > 0 && <StatBar label="Videogiochi" icon={Gamepad2} hours={stats.gameHours} color="var(--type-game)" detail="ore Steam" maxHours={maxH} />}
-                {stats.tvHours > 0 && <StatBar label="Serie TV" icon={Tv} hours={stats.tvHours} color="var(--type-tv)" detail={`${stats.tvEpisodes} ep`} maxHours={maxH} />}
-                {stats.movieHours > 0 && <StatBar label="Film" icon={Film} hours={stats.movieHours} color="var(--type-movie)" detail={`${stats.movieCount} film`} maxHours={maxH} />}
-                {stats.mangaHours > 0 && <StatBar label="Manga" icon={Layers} hours={stats.mangaHours} color="var(--type-manga)" detail={`${stats.mangaChapters} cap`} maxHours={maxH} />}
+              <div className="mb-5 grid grid-cols-2 gap-2.5 md:grid-cols-4">
+                <MetricCard label="ore totali" value={compactHours(totalHoursRounded)} accent detail={days > 0 ? `${days}g ${remHours}h` : undefined} />
+                <MetricCard label="titoli" value={entries.length.toLocaleString('it')} detail="collezione" />
+                <MetricCard label="ore per titolo" value={entries.length ? Math.round(totalHours / entries.length) : 0} detail="media" />
+                <MetricCard label="categoria dominante" value={topCategory?.label || '—'} detail={topCategory ? `${compactHours(topCategory.hours)}h` : undefined} />
               </div>
 
-              <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] p-4 md:p-5">
-                <p className="gk-label mb-4">Equivale a…</p>
-                <div className="space-y-3">
+              <section className="mb-5 rounded-[26px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/64 p-4 ring-1 ring-white/5">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="mb-1 gk-section-eyebrow"><Sparkles size={12} /> Distribuzione</div>
+                    <h2 className="font-display text-[22px] font-black tracking-[-0.04em] text-[var(--text-primary)]">Ore per categoria</h2>
+                  </div>
+                </div>
+                <div className="grid gap-2.5 md:grid-cols-2">
+                  {categories.map(item => <CategoryCard key={item.id} item={item} maxHours={maxH} />)}
+                </div>
+              </section>
+
+              <section className="rounded-[26px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/58 p-4 ring-1 ring-white/5">
+                <p className="gk-label mb-3">In prospettiva</p>
+                <div className="grid gap-3 md:grid-cols-3">
                   {comparisons.map((c, i) => (
-                    <div key={i} className="flex items-center justify-between gap-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-3">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-black/20 text-[var(--text-muted)] ring-1 ring-white/5">
-                          <c.Icon size={17} />
-                        </div>
-                        <span className="line-clamp-1 text-xs font-semibold text-[var(--text-secondary)]">{c.label}</span>
+                    <div key={i} className="rounded-2xl border border-[var(--border-subtle)] bg-black/14 p-3 ring-1 ring-white/5">
+                      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(230,255,61,0.08)] text-[var(--accent)]">
+                        <c.Icon size={18} />
                       </div>
-                      <span className="font-mono-data flex-shrink-0 text-sm font-black text-[var(--text-primary)]">{c.value}×</span>
+                      <p className="font-mono-data text-[22px] font-black leading-none text-[var(--text-primary)]">{c.value}×</p>
+                      <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">{c.label}</p>
                     </div>
                   ))}
                 </div>
-              </div>
+              </section>
             </>
           )}
         </>

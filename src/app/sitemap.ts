@@ -9,7 +9,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/discover',
     '/trending',
     '/leaderboard',
-    '/community',
     '/privacy',
     '/terms',
     '/cookies',

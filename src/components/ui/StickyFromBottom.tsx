@@ -2,19 +2,44 @@
 
 import { useEffect, useRef, useState } from 'react'
 
+function findScrollParent(el: HTMLElement | null): HTMLElement | Window {
+  let node = el?.parentElement || null
+  while (node) {
+    const style = window.getComputedStyle(node)
+    const overflowY = style.overflowY
+    if (/(auto|scroll|overlay)/.test(overflowY)) return node
+    node = node.parentElement
+  }
+  return window
+}
+
+function getViewportHeight(scrollParent: HTMLElement | Window): number {
+  return scrollParent === window ? window.innerHeight : (scrollParent as HTMLElement).clientHeight
+}
+
 /**
- * Wrapper that makes content sticky in a "scroll-until-bottom-then-stick" style.
- * - If the content is shorter than the available viewport: sticks at the top (navHeight).
- * - If the content is taller: the top offset is negative so the sidebar scrolls freely
- *   until its bottom reaches the viewport bottom, then it sticks.
+ * Twitter-like sticky sidebar.
+ *
+ * Behaviour:
+ * - the sidebar stays in the normal document flow;
+ * - it scrolls together with the page;
+ * - if it is taller than the available viewport, it keeps scrolling until its
+ *   bottom reaches the viewport bottom, then it sticks there;
+ * - it never creates an inner scrollbar.
+ *
+ * Important: sticky is relative to the nearest scrolling ancestor. In Geekore
+ * tabs the scroll container is `.gk-tab-panel`, not `window`, so this component
+ * measures the nearest scroll parent instead of relying on `window.innerHeight`.
  */
 export function StickyFromBottom({
   children,
   navHeight = 64,
+  bottomOffset = 16,
   className = '',
 }: {
   children: React.ReactNode
   navHeight?: number
+  bottomOffset?: number
   className?: string
 }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -24,9 +49,15 @@ export function StickyFromBottom({
     const el = ref.current
     if (!el) return
 
+    let scrollParent: HTMLElement | Window = window
+
     const update = () => {
-      const h = el.offsetHeight
-      setTop(Math.min(navHeight, window.innerHeight - h))
+      scrollParent = findScrollParent(el)
+      const viewportHeight = getViewportHeight(scrollParent)
+      const contentHeight = el.offsetHeight
+      const shortTop = navHeight
+      const bottomLockedTop = viewportHeight - contentHeight - bottomOffset
+      setTop(Math.min(shortTop, bottomLockedTop))
     }
 
     update()
@@ -34,14 +65,31 @@ export function StickyFromBottom({
     const ro = new ResizeObserver(update)
     ro.observe(el)
     window.addEventListener('resize', update)
+
+    if (scrollParent !== window) {
+      ;(scrollParent as HTMLElement).addEventListener('scroll', update, { passive: true })
+    } else {
+      window.addEventListener('scroll', update, { passive: true })
+    }
+
     return () => {
       ro.disconnect()
       window.removeEventListener('resize', update)
+      if (scrollParent !== window) {
+        ;(scrollParent as HTMLElement).removeEventListener('scroll', update)
+      } else {
+        window.removeEventListener('scroll', update)
+      }
     }
-  }, [navHeight])
+  }, [navHeight, bottomOffset])
 
   return (
-    <div ref={ref} style={{ position: 'sticky', top }} className={className}>
+    <div
+      ref={ref}
+      style={{ position: 'sticky', top }}
+      className={className}
+      data-twitter-sticky-sidebar
+    >
       {children}
     </div>
   )

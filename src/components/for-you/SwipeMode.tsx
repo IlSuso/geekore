@@ -373,7 +373,16 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
       data-swipe-card={isTop ? 'true' : undefined}
       style={{
         transform: undoTransform,
-        transition: dragX !== 0 ? 'none' : 'transform .38s cubic-bezier(.25,.46,.45,.94), opacity .38s ease',
+        // Durante il drag la card segue il cursore senza transition.
+        // Quando il rilascio supera la soglia, isFlying=true e la card deve
+        // AUTOCOMPLETARE l'uscita con una vera animazione, partendo dalla
+        // posizione attuale verso fuori schermo. Prima era disattivata perché
+        // dragX restava !== 0 fino al timeout.
+        transition: isFlying
+          ? 'transform .34s cubic-bezier(.22,1,.36,1), opacity .34s ease'
+          : dragX !== 0
+            ? 'none'
+            : 'transform .38s cubic-bezier(.25,.46,.45,.94), opacity .38s ease',
         opacity: isFlying ? 0 : isUndoEntering ? 0.4 : 1 - stackIndex * 0.12,
         zIndex: 10 - stackIndex,
         willChange: isTop ? 'transform' : 'auto',

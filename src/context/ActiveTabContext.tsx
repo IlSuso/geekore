@@ -13,7 +13,7 @@ function pathnameToTab(pathname: string): KATab | null {
   if (pathname === '/for-you') return 'for-you'
   if (pathname === '/swipe') return 'swipe'
   if (pathname === '/discover') return 'discover'
-  if (pathname === '/friends' || pathname === '/community') return 'friends'
+  if (pathname === '/friends') return 'friends'
   if (pathname.startsWith('/profile/') && pathname.split('/').length === 3) return 'profile'
   return null
 }

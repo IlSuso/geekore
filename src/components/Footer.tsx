@@ -19,8 +19,6 @@ const APP_ROUTE_PREFIXES = [
   '/library',
   '/discover',
   '/friends',
-  '/community',
-  '/explore',
   '/trending',
   '/lists',
   '/notifications',

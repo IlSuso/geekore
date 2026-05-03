@@ -24,10 +24,10 @@ import { Loader2 } from 'lucide-react'
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll'
 import { useLocale } from '@/lib/locale'
 import { FeedSidebar } from '@/components/feed/FeedSidebar'
-import { StickyFromBottom } from '@/components/ui/StickyFromBottom'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 import { PullWrapper } from '@/components/ui/PullWrapper'
+import { StickyFromBottom } from '@/components/ui/StickyFromBottom'
 import { gestureState } from '@/hooks/gestureState'
 import { androidBack } from '@/hooks/androidBack'
 import { parseCategoryString } from '@/components/feed/CategoryBasics'
@@ -597,7 +597,7 @@ export default function FeedPage() {
 
           {/* ── Colonna principale ─────────────────────────────────── */}
           <div className="flex-1 min-w-0 flex justify-center pt-14 md:pt-4">
-          <div className="w-full max-w-[680px] px-4">
+          <div className="w-full max-w-[720px] px-4">
 
             {/* Composer — barra statica non invasiva, modal fullscreen al tap */}
             {currentUser && (
@@ -692,9 +692,11 @@ export default function FeedPage() {
           </div>
           </div>
 
-          {/* ── Sidebar destra — sticky, scorre col feed e si ferma a fondo contenuto ── */}
-          <div className="hidden xl:block w-[420px] flex-shrink-0 self-stretch">
-            <StickyFromBottom navHeight={16}>
+          {/* ── Sidebar destra — Twitter-like: nessuno scroll interno.
+              La sidebar resta nel flusso normale, scorre insieme al feed e,
+              quando il suo fondo raggiunge il fondo viewport, resta ancorata. */}
+          <div className="hidden 2xl:block w-[430px] flex-shrink-0 self-start px-3 pt-4">
+            <StickyFromBottom navHeight={16} bottomOffset={16} className="gk-home-right-sticky">
               <FeedSidebar currentUserId={currentUser?.id ?? null} />
             </StickyFromBottom>
           </div>
