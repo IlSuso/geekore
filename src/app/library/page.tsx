@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/context/AuthContext'
-import { BookOpen, LayoutGrid, List, Search, X, Star, Plus, Sparkles, Clock, Trophy, BarChart3, CheckSquare, Square, Trash2, CheckCircle2, Layers } from 'lucide-react'
+import { BookOpen, LayoutGrid, List, Search, X, Star, Plus, Clock, Trophy, BarChart3, CheckSquare, Square, Trash2, CheckCircle2, Layers, SlidersHorizontal } from 'lucide-react'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
 import { PageScaffold } from '@/components/ui/PageScaffold'
+import { PageHero } from '@/components/ui/PageHero'
 import { FilterBar } from '@/components/ui/FilterBar'
 import { MediaGrid } from '@/components/ui/MediaGrid'
 import type { MediaRailItem } from '@/components/ui/MediaRail'
@@ -80,6 +81,11 @@ function normalize(value: string): string {
     .trim()
 }
 
+function defaultLibraryViewMode(): ViewMode {
+  if (typeof window === 'undefined') return 'grid'
+  return window.matchMedia('(min-width: 768px)').matches ? 'grid' : 'list'
+}
+
 function toRailItem(entry: MediaEntry): MediaRailItem {
   return {
     id: entry.id,
@@ -92,20 +98,6 @@ function toRailItem(entry: MediaEntry): MediaRailItem {
       ? { current: entry.current_episode || 0, total: entry.episodes }
       : undefined,
   }
-}
-
-function LibraryStat({ label, value, accent = false, icon }: { label: string; value: string | number; accent?: boolean; icon?: React.ReactNode }) {
-  return (
-    <div className="rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)] p-4 ring-1 ring-white/5">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="gk-label">{label}</p>
-        {icon && <span className={accent ? 'text-[var(--accent)]' : 'text-[var(--text-muted)]'}>{icon}</span>}
-      </div>
-      <p className={`font-display text-[28px] font-black leading-none tracking-[-0.04em] ${accent ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>
-        {value}
-      </p>
-    </div>
-  )
 }
 
 function LibraryHeatmap({ entries }: { entries: MediaEntry[] }) {
@@ -241,7 +233,7 @@ export default function LibraryPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [typeFilter, setTypeFilter] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
-  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [viewMode, setViewMode] = useState<ViewMode>(defaultLibraryViewMode)
   const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null)
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -373,38 +365,50 @@ export default function LibraryPage() {
       description="La tua collezione viva: progressi, completati, wishlist e voto medio in un unico spazio compatto."
       icon={<BookOpen size={16} />}
       className="gk-library-page"
-      contentClassName="gk-page-density max-w-screen-xl pt-2 md:pt-8 pb-28"
+      contentClassName="gk-page-density mx-auto max-w-screen-xl pt-2 md:pt-8 pb-28"
     >
-      <div className="mb-4 flex items-center justify-end gap-2" data-no-swipe="true">
-        <button
-          type="button"
-          data-no-swipe="true"
-          onClick={toggleSelectMode}
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 text-[12px] font-black text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
-        >
-          <CheckSquare size={13} />
-          {selectMode ? 'Annulla' : 'Seleziona'}
-        </button>
-        <Link href="/discover" data-no-swipe="true" className="inline-flex h-9 flex-shrink-0 items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-3 text-[12px] font-black text-[#0B0B0F] transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35">
-          <Plus size={13} />
-          Aggiungi
-        </Link>
-      </div>
+      <PageHero
+        eyebrow="Media vault"
+        title="Library"
+        description="La tua collezione media in forma visiva: guarda tutto, filtra veloce e passa da copertine, lista e statistiche senza perdere contesto."
+        icon={<BookOpen size={14} />}
+        actions={[
+          { label: 'Aggiungi', href: '/discover', icon: <Plus size={14} /> },
+          { label: selectMode ? 'Annulla selezione' : 'Seleziona', onClick: toggleSelectMode, icon: <CheckSquare size={14} />, variant: 'secondary' },
+        ]}
+        stats={[
+          { label: 'Totale', value: stats.total, accent: true, icon: <BookOpen size={14} /> },
+          { label: 'Completati', value: stats.completed, icon: <Trophy size={14} /> },
+          { label: 'In corso', value: stats.inProgress, icon: <Clock size={14} /> },
+        ]}
+      />
 
-      <div className="mb-5 grid grid-cols-3 gap-3 md:grid-cols-3">
-        <LibraryStat label="Totale" value={stats.total} accent icon={<BookOpen size={16} />} />
-        <LibraryStat label="Completati" value={stats.completed} icon={<Trophy size={16} />} />
-        <LibraryStat label="In corso" value={stats.inProgress} icon={<Clock size={16} />} />
-      </div>
+      <div className="sticky top-0 z-20 mb-5 rounded-[26px] border border-[var(--border)] bg-[rgba(16,16,22,0.86)] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.22)] ring-1 ring-white/5 backdrop-blur-xl" data-no-swipe="true" data-interactive="true">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="relative min-w-0 flex-1">
+            <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+            <input data-no-swipe="true" type="text" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Cerca titolo, genere, medium..." className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] py-3 pl-10 pr-10 text-[14px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]" />
+            {searchTerm && <button type="button" data-no-swipe="true" onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35" aria-label="Cancella ricerca libreria"><X size={14} /></button>}
+          </div>
 
-      <div className="mb-5 space-y-3" data-no-swipe="true" data-interactive="true">
-        <div className="relative">
-          <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-          <input data-no-swipe="true" type="text" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Cerca titolo, genere, medium..." className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] py-2.5 pl-10 pr-10 text-[14px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]" />
-          {searchTerm && <button type="button" data-no-swipe="true" onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35" aria-label="Cancella ricerca libreria"><X size={14} /></button>}
+          <div className="flex items-center justify-between gap-3 lg:justify-end">
+            <p className="hidden whitespace-nowrap gk-mono text-[var(--text-muted)] sm:block">{filtered.length} elementi</p>
+            <div className="flex flex-shrink-0 items-center gap-1 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-1" data-no-swipe="true" aria-label="Vista Library">
+              {([
+                ['grid', <LayoutGrid key="grid" size={15} />, 'Griglia'],
+                ['list', <List key="list" size={15} />, 'Lista'],
+                ['stats', <BarChart3 key="stats" size={15} />, 'Stats'],
+              ] as [ViewMode, React.ReactNode, string][]).map(([mode, icon, label]) => (
+                <button key={mode} type="button" data-no-swipe="true" onClick={() => setViewMode(mode)} className="inline-flex h-9 items-center justify-center gap-2 rounded-xl px-3 text-[12px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35" style={{ background: viewMode === mode ? 'var(--accent)' : 'transparent', color: viewMode === mode ? '#0B0B0F' : 'var(--text-muted)' }} aria-label={`Vista ${mode}`} aria-pressed={viewMode === mode}>
+                  {icon}
+                  <span className="hidden sm:inline">{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div className="rounded-[22px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/80 p-2 ring-1 ring-white/5">
+        <div className="mt-3 rounded-[22px] border border-[var(--border-subtle)] bg-black/16 p-2">
           <div className="mb-2 grid grid-cols-4 gap-1">
             {STATUS_FILTERS.map(filter => {
               const active = statusFilter === filter.id
@@ -414,7 +418,7 @@ export default function LibraryPage() {
                   type="button"
                   data-no-swipe="true"
                   onClick={() => setStatusFilter(filter.id)}
-                  className="min-h-11 rounded-xl px-1 py-2 text-[11px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 sm:text-[12px]"
+                  className="min-h-10 rounded-xl px-1 py-2 text-[11px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 sm:text-[12px]"
                   style={active ? { background: 'rgba(230,255,61,0.09)', color: 'var(--accent)' } : { color: 'var(--text-muted)' }}
                   aria-pressed={active}
                 >
@@ -423,51 +427,36 @@ export default function LibraryPage() {
               )
             })}
           </div>
-
-          <div className="border-t border-[var(--border-soft)] pt-2">
-            <div className="mb-2 flex items-center justify-between">
+          <div className="flex flex-col gap-2 border-t border-[var(--border-soft)] pt-2 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-2 text-[var(--text-muted)]">
+              <SlidersHorizontal size={13} />
               <p className="gk-label text-[var(--text-muted)]">Tipo media</p>
-              {typeFilter !== 'all' && (
-                <button type="button" data-no-swipe="true" onClick={() => setTypeFilter('all')} className="gk-mono rounded-lg px-1 text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35">reset</button>
-              )}
             </div>
-            <FilterBar items={TYPE_FILTERS} activeId={typeFilter} onChange={(id) => setTypeFilter(id)} className="mx-0 px-0" chipClassName="h-8 px-3 text-[12px]" ariaLabel="Filtri tipo media Library" />
+            <FilterBar items={TYPE_FILTERS} activeId={typeFilter} onChange={(id) => setTypeFilter(id)} className="mx-0 px-0 md:justify-end" chipClassName="h-8 px-3 text-[12px]" ariaLabel="Filtri tipo media Library" />
           </div>
         </div>
-
-        <div className="flex items-center justify-between gap-3">
-          <p className="gk-mono text-[var(--text-muted)]">{filtered.length} elementi</p>
-          <div className="flex flex-shrink-0 items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-1" data-no-swipe="true">
-            {([
-              ['list', <List key="list" size={14} />],
-              ['grid', <LayoutGrid key="grid" size={14} />],
-              ['stats', <BarChart3 key="stats" size={14} />],
-            ] as [ViewMode, React.ReactNode][]).map(([mode, icon]) => (
-              <button key={mode} type="button" data-no-swipe="true" onClick={() => setViewMode(mode)} className="rounded-lg p-1.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35" style={{ background: viewMode === mode ? 'var(--accent)' : 'transparent', color: viewMode === mode ? '#0B0B0F' : 'var(--text-muted)' }} aria-label={`Vista ${mode}`} aria-pressed={viewMode === mode}>
-                {icon}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {selectMode && (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[rgba(230,255,61,0.18)] bg-[rgba(230,255,61,0.06)] px-3 py-2">
-            <span className="gk-mono text-[var(--accent)]">{selectedCount} selezionati</span>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" data-no-swipe="true" disabled={selectedCount === 0 || bulkBusy} onClick={() => bulkSetStatus('completed')} className="inline-flex items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-xs font-bold text-[var(--text-secondary)] disabled:opacity-40"><CheckCircle2 size={13} /> completati</button>
-              <button type="button" data-no-swipe="true" disabled={selectedCount === 0 || bulkBusy} onClick={() => bulkSetStatus('planning')} className="inline-flex items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-xs font-bold text-[var(--text-secondary)] disabled:opacity-40"><Layers size={13} /> wishlist</button>
-              <button type="button" data-no-swipe="true" disabled={selectedCount === 0 || bulkBusy} onClick={bulkDelete} className="inline-flex items-center gap-1 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-300 disabled:opacity-40"><Trash2 size={13} /> elimina</button>
-            </div>
-          </div>
-        )}
 
         {hasActiveFilters && (
-          <div className="flex items-center justify-between rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2">
+          <div className="mt-3 flex items-center justify-between rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2">
             <span className="gk-mono text-[var(--text-muted)]">{filtered.length} risultati su {entries.length}</span>
             <button type="button" data-no-swipe="true" onClick={clearFilters} className="gk-mono rounded-lg px-2 py-1 text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35">reset</button>
           </div>
         )}
       </div>
+
+      {selectMode && (
+        <div className="sticky top-[142px] z-20 mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-[rgba(230,255,61,0.28)] bg-[linear-gradient(135deg,rgba(230,255,61,0.14),rgba(22,22,30,0.96))] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.28)] ring-1 ring-white/5 backdrop-blur-xl" data-no-swipe="true">
+          <div>
+            <p className="text-sm font-black text-[var(--accent)]">Modalità selezione</p>
+            <p className="gk-caption">{selectedCount} elementi selezionati</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" data-no-swipe="true" disabled={selectedCount === 0 || bulkBusy} onClick={() => bulkSetStatus('completed')} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 text-xs font-bold text-[var(--text-secondary)] transition-colors hover:text-white disabled:opacity-40"><CheckCircle2 size={13} /> completati</button>
+            <button type="button" data-no-swipe="true" disabled={selectedCount === 0 || bulkBusy} onClick={() => bulkSetStatus('planning')} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 text-xs font-bold text-[var(--text-secondary)] transition-colors hover:text-white disabled:opacity-40"><Layers size={13} /> wishlist</button>
+            <button type="button" data-no-swipe="true" disabled={selectedCount === 0 || bulkBusy} onClick={bulkDelete} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-red-500/25 bg-red-500/10 px-3 text-xs font-bold text-red-300 transition-colors hover:bg-red-500/15 disabled:opacity-40"><Trash2 size={13} /> elimina</button>
+          </div>
+        </div>
+      )}
 
       {authLoading || loading ? (
         viewMode === 'grid' ? <MediaGridSkeleton count={21} showMeta /> : <div className="space-y-2">{Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-[74px] rounded-2xl bg-[var(--bg-card)] skeleton" />)}</div>
