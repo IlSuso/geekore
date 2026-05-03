@@ -19,6 +19,13 @@ interface DiscoverMediaCardProps {
   className?: string
 }
 
+function hasRealScore(score?: number | string | null): boolean {
+  if (score == null || score === '') return false
+  const numeric = typeof score === 'string' ? Number(score) : score
+  if (Number.isNaN(numeric)) return true
+  return numeric > 0
+}
+
 export function DiscoverMediaCard({
   title,
   type,
@@ -34,6 +41,7 @@ export function DiscoverMediaCard({
   className = '',
 }: DiscoverMediaCardProps) {
   const Wrapper = onClick ? 'button' : 'div'
+  const visibleScore = hasRealScore(score) ? score : null
 
   return (
     <Wrapper
@@ -48,7 +56,7 @@ export function DiscoverMediaCard({
           src={coverImage}
           alt={`Copertina di ${title}`}
           type={type}
-          score={score}
+          score={visibleScore}
           match={match}
           completed={added}
           fallback={placeholderIcon || <Film size={28} />}
@@ -58,12 +66,12 @@ export function DiscoverMediaCard({
         {(added || wishlisted) && (
           <div className="absolute right-1.5 top-1.5 z-20">
             {added ? (
-              <div className="gk-status-pill !static !bg-[var(--accent)] !text-[#0B0B0F]">
+              <div className="gk-status-pill !static !bg-[var(--accent)] !px-2 !py-1 !text-[#0B0B0F]">
                 <Check size={10} strokeWidth={2.5} />
                 {getMediaStatusLabel('completed')}
               </div>
             ) : (
-              <div className="gk-status-pill !static">
+              <div className="gk-status-pill !static !px-2 !py-1">
                 <BookmarkCheck size={10} />
                 Wishlist
               </div>
@@ -79,14 +87,14 @@ export function DiscoverMediaCard({
               event.stopPropagation()
               onWishlist()
             }}
-            className={`absolute bottom-1.5 right-1.5 z-20 flex h-9 w-9 items-center justify-center rounded-[14px] border shadow-sm backdrop-blur-sm transition-all hover:scale-105 ${
+            className={`absolute bottom-1.5 right-1.5 z-20 flex h-8 w-8 items-center justify-center rounded-[13px] border shadow-sm backdrop-blur-sm transition-all hover:scale-105 ${
               wishlisted
                 ? 'border-[rgba(230,255,61,0.5)] bg-black/75 text-[var(--accent)]'
-                : 'border-white/10 bg-black/70 text-white hover:text-[var(--accent)]'
+                : 'border-white/10 bg-black/62 text-white hover:text-[var(--accent)]'
             }`}
             aria-label={wishlisted ? 'Rimuovi dalla wishlist' : 'Aggiungi alla wishlist'}
           >
-            {wishlisted ? <BookmarkCheck size={15} /> : <Plus size={16} />}
+            {wishlisted ? <BookmarkCheck size={14} /> : <Plus size={15} />}
           </button>
         )}
       </div>
@@ -95,7 +103,7 @@ export function DiscoverMediaCard({
         <p className="line-clamp-2 text-[13px] font-bold leading-tight tracking-[-0.01em] text-[var(--text-primary)]">
           {title}
         </p>
-        <MediaMetaRow dense className="mt-1" year={year} />
+        <MediaMetaRow dense className="mt-1" year={year} score={visibleScore} />
       </div>
     </Wrapper>
   )
