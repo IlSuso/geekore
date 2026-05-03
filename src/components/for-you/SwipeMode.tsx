@@ -1098,31 +1098,51 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
           </div>
         )}
 
-        {/* Filtri categoria: rail laterale contestualizzata su desktop, barra orizzontale su mobile. */}
+        {isOnboarding && (
+          <div className="absolute left-4 right-4 top-5 z-20 mx-auto max-w-[1040px] text-center md:top-7" data-no-swipe="true">
+            <div className="mb-2 inline-flex items-center rounded-full border border-[rgba(230,255,61,0.18)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-[var(--accent)]">
+              Step 1 di 3 · Personalizza Geekore
+            </div>
+            <h1 className="text-[26px] font-black leading-tight tracking-[-0.04em] text-white md:text-[38px]">
+              Costruiamo il tuo profilo
+            </h1>
+            <p className="mx-auto mt-2 max-w-[620px] text-sm leading-6 text-white/62 md:text-[15px]">
+              Valuta qualche titolo: useremo le tue scelte per consigliarti anime, film, serie, manga e giochi più vicini ai tuoi gusti.
+            </p>
+          </div>
+        )}
+
+        {/* Filtri categoria: nell'onboarding sono pill orizzontali integrate; nello swipe normale restano invariati. */}
         <div
-          className={isFullscreenSwipe
-            ? 'absolute z-20 left-3 right-3 top-3 flex justify-center md:left-[max(24px,calc(50%-500px))] md:right-auto md:top-1/2 md:-translate-y-1/2 md:w-[174px]'
-            : 'relative z-20 flex-shrink-0 flex justify-center px-3 md:absolute md:left-4 md:top-4 md:bottom-4 md:w-44 md:items-start md:px-0'}
+          className={isOnboarding
+            ? 'absolute z-20 left-3 right-3 top-[142px] flex justify-center md:top-[166px]'
+            : isFullscreenSwipe
+              ? 'absolute z-20 left-3 right-3 top-3 flex justify-center md:left-[max(24px,calc(50%-500px))] md:right-auto md:top-1/2 md:-translate-y-1/2 md:w-[174px]'
+              : 'relative z-20 flex-shrink-0 flex justify-center px-3 md:absolute md:left-4 md:top-4 md:bottom-4 md:w-44 md:items-start md:px-0'}
         >
-          <div className={isFullscreenSwipe ? 'flex w-full max-w-[820px] items-center justify-center md:block' : 'flex w-full items-center justify-center gap-2 md:h-full md:items-start'} data-no-swipe="true">
-            <div className={isFullscreenSwipe
-              ? 'min-w-0 max-w-full overflow-x-auto rounded-[22px] border border-white/5 bg-black/24 p-1.5 shadow-[0_10px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl scrollbar-hide md:w-full md:overflow-visible md:rounded-[26px] md:border-[rgba(230,255,61,0.12)] md:bg-[linear-gradient(180deg,rgba(230,255,61,0.07),rgba(12,12,16,0.72))] md:p-3 md:ring-1 md:ring-white/5 md:shadow-[0_18px_54px_rgba(0,0,0,0.34)]'
-              : 'min-w-0 flex-1 overflow-x-auto rounded-[24px] border border-white/5 bg-black/18 p-1.5 shadow-[0_10px_34px_rgba(0,0,0,0.18)] scrollbar-hide md:h-full md:overflow-y-auto md:overflow-x-hidden'} data-testid="swipe-filter-bar">
-              {isFullscreenSwipe && (
+          <div className={isOnboarding ? 'flex w-full max-w-[920px] items-center justify-center' : isFullscreenSwipe ? 'flex w-full max-w-[820px] items-center justify-center md:block' : 'flex w-full items-center justify-center gap-2 md:h-full md:items-start'} data-no-swipe="true">
+            <div className={isOnboarding
+              ? 'min-w-0 max-w-full overflow-x-auto rounded-[999px] border border-white/8 bg-black/32 p-1.5 shadow-[0_14px_46px_rgba(0,0,0,0.24)] backdrop-blur-xl scrollbar-hide'
+              : isFullscreenSwipe
+                ? 'min-w-0 max-w-full overflow-x-auto rounded-[22px] border border-white/5 bg-black/24 p-1.5 shadow-[0_10px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl scrollbar-hide md:w-full md:overflow-visible md:rounded-[26px] md:border-[rgba(230,255,61,0.12)] md:bg-[linear-gradient(180deg,rgba(230,255,61,0.07),rgba(12,12,16,0.72))] md:p-3 md:ring-1 md:ring-white/5 md:shadow-[0_18px_54px_rgba(0,0,0,0.34)]'
+                : 'min-w-0 flex-1 overflow-x-auto rounded-[24px] border border-white/5 bg-black/18 p-1.5 shadow-[0_10px_34px_rgba(0,0,0,0.18)] scrollbar-hide md:h-full md:overflow-y-auto md:overflow-x-hidden'} data-testid="swipe-filter-bar">
+              {isFullscreenSwipe && !isOnboarding && (
                 <div className="mb-3 hidden md:block">
                   <p className="font-mono-data text-[10px] font-black uppercase tracking-[0.16em] text-[var(--accent)]">Categorie</p>
                 </div>
               )}
-              <div className={isFullscreenSwipe
-                ? 'flex w-max min-w-full items-center justify-center gap-1.5 md:w-full md:min-w-0 md:flex-col md:items-stretch md:justify-start md:gap-2'
-                : 'flex w-max min-w-full items-center justify-center gap-2 md:w-full md:min-w-0 md:flex-col md:items-stretch md:justify-start'}>
+              <div className={isOnboarding
+                ? 'flex w-max min-w-full items-center justify-start gap-1.5 md:justify-center'
+                : isFullscreenSwipe
+                  ? 'flex w-max min-w-full items-center justify-center gap-1.5 md:w-full md:min-w-0 md:flex-col md:items-stretch md:justify-start md:gap-2'
+                  : 'flex w-max min-w-full items-center justify-center gap-2 md:w-full md:min-w-0 md:flex-col md:items-stretch md:justify-start'}>
                 {CATEGORIES.map(cat => {
                   const active = activeFilter === cat.key
                   return (
                     <button key={cat.key} onClick={() => handleFilterChange(cat.key)}
                       data-testid={`swipe-filter-${cat.key}`}
                       aria-pressed={active}
-                      className={`flex-shrink-0 rounded-full text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${isFullscreenSwipe ? 'px-3.5 py-2 md:w-full md:justify-start md:px-3.5 md:py-2.5 md:text-left md:text-[13px]' : 'px-4 py-2 md:w-full md:justify-center md:px-3 md:py-2'} ${
+                      className={`flex-shrink-0 rounded-full text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${isOnboarding ? 'px-4 py-2.5 text-[13px]' : isFullscreenSwipe ? 'px-3.5 py-2 md:w-full md:justify-start md:px-3.5 md:py-2.5 md:text-left md:text-[13px]' : 'px-4 py-2 md:w-full md:justify-center md:px-3 md:py-2'} ${
                         active
                           ? 'bg-[var(--accent)] text-[#0B0B0F] shadow-[0_0_26px_rgba(230,255,61,0.18)]'
                           : 'bg-[rgba(244,244,245,0.07)] text-[var(--text-secondary)] hover:bg-[rgba(244,244,245,0.12)] hover:text-[var(--text-primary)]'
@@ -1139,9 +1159,11 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
         {/* Area card — flex-1 min-h-0 si adatta automaticamente tra filtri e spacer */}
         <div
           ref={containerRef}
-          className={isFullscreenSwipe
-            ? 'relative z-10 flex-1 flex items-center justify-center px-4 min-h-0 pt-[88px] pb-4 md:py-5 md:pl-[172px]'
-            : 'relative z-10 flex-1 flex items-center justify-center px-4 min-h-0 py-2 md:py-3 md:pl-52'}
+          className={isOnboarding
+            ? 'relative z-10 flex-1 flex items-center justify-center px-4 min-h-0 pt-[210px] pb-5 md:pt-[230px] md:pb-8'
+            : isFullscreenSwipe
+              ? 'relative z-10 flex-1 flex items-center justify-center px-4 min-h-0 pt-[88px] pb-4 md:py-5 md:pl-[172px]'
+              : 'relative z-10 flex-1 flex items-center justify-center px-4 min-h-0 py-2 md:py-3 md:pl-52'}
         >
           {filteredQueue.length === 0 ? (
             isLoadingMore ? (
@@ -1161,32 +1183,72 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
               </div>
             )
           ) : (
-            <div
-              data-no-swipe=""
-              data-testid="swipe-card-stack"
-              className={isFullscreenSwipe
-                ? 'relative h-[min(660px,calc(100dvh-132px))] md:h-[min(780px,calc(100dvh-44px))]'
-                : 'relative self-stretch md:self-auto md:h-[min(560px,calc(100dvh-230px))]'}
-              style={{ maxWidth: isFullscreenSwipe ? 'min(430px, 88vw)' : 'min(340px, 88vw)', width: '100%', margin: '0 auto' }}
-            >
-              {filteredQueue.slice(0, 3).map((item, idx) => (
-                <SwipeCard key={item.id} item={item} isTop={idx === 0} stackIndex={idx}
-                  onSwipe={handleSwipe}
-                  rating={idx === 0 ? currentRating : null}
-                  onRatingChange={setRating}
-                  onDetailOpen={handleDetailOpen}
-                  onUndo={handleUndo} canUndo={history.length > 0}
-                  onWishlist={handleWishlist}
-                  onClose={isOnboarding && onOnboardingComplete ? onOnboardingComplete : onClose}
-                  hideClose={standalone}
-                  panelActive={isTabActive}
-                  starsRef={idx === 0 ? starsRef : undefined}
-                  dragX={idx === 0 ? cardDragX : 0}
-                  isFlying={idx === 0 ? cardFlying : false}
-                  flyDir={idx === 0 ? cardFlyDir : null}
-                  isUndoEntering={idx === 0 ? undoEntering : false}
-                />
-              ))}
+            <div className={isOnboarding ? 'grid w-full max-w-[1040px] items-center justify-center gap-6 md:grid-cols-[minmax(280px,390px)_minmax(360px,430px)] md:gap-9' : 'contents'}>
+              {isOnboarding && topItem && (
+                <aside className="hidden md:block rounded-[30px] border border-white/8 bg-black/26 p-6 shadow-[0_18px_64px_rgba(0,0,0,0.28)] backdrop-blur-xl" data-no-swipe="true">
+                  <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-white/8 px-3 py-1.5 text-xs font-bold text-white/72">
+                    <span className={`h-2 w-2 rounded-full bg-gradient-to-r ${TYPE_COLORS[topItem.type]}`} />
+                    {TYPE_LABEL[topItem.type]}
+                    {topItem.year ? <span className="text-white/38">· {topItem.year}</span> : null}
+                  </div>
+                  <h2 className="text-[30px] font-black leading-[0.98] tracking-[-0.05em] text-white">
+                    {topItem.title}
+                  </h2>
+                  {topItem.description && (
+                    <p className="mt-4 line-clamp-5 text-sm leading-6 text-white/62">
+                      {topItem.description}
+                    </p>
+                  )}
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {topItem.genres.slice(0, 4).map(genre => (
+                      <span key={genre} className="rounded-full border border-white/8 bg-white/6 px-3 py-1.5 text-xs font-bold text-white/64">
+                        {genre}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="mt-6 rounded-[24px] border border-[rgba(230,255,61,0.12)] bg-[rgba(230,255,61,0.055)] p-4">
+                    <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--accent)]">Come funziona</p>
+                    <p className="mt-2 text-sm leading-6 text-white/64">
+                      Dai una valutazione, salta ciò che non ti interessa o salva per dopo. Bastano pochi swipe per rendere i consigli più precisi.
+                    </p>
+                  </div>
+                  <div className="mt-5 grid grid-cols-3 gap-2 text-center text-xs font-bold text-white/54">
+                    <div className="rounded-2xl bg-white/6 px-3 py-3">← Skip</div>
+                    <div className="rounded-2xl bg-white/6 px-3 py-3">★ Voto</div>
+                    <div className="rounded-2xl bg-white/6 px-3 py-3">→ Visto</div>
+                  </div>
+                </aside>
+              )}
+
+              <div
+                data-no-swipe=""
+                data-testid="swipe-card-stack"
+                className={isOnboarding
+                  ? 'relative h-[min(620px,calc(100dvh-240px))] min-h-[430px] md:h-[min(650px,calc(100dvh-260px))]'
+                  : isFullscreenSwipe
+                    ? 'relative h-[min(660px,calc(100dvh-132px))] md:h-[min(780px,calc(100dvh-44px))]'
+                    : 'relative self-stretch md:self-auto md:h-[min(560px,calc(100dvh-230px))]'}
+                style={{ maxWidth: isFullscreenSwipe ? 'min(430px, 88vw)' : 'min(340px, 88vw)', width: '100%', margin: '0 auto' }}
+              >
+                {filteredQueue.slice(0, 3).map((item, idx) => (
+                  <SwipeCard key={item.id} item={item} isTop={idx === 0} stackIndex={idx}
+                    onSwipe={handleSwipe}
+                    rating={idx === 0 ? currentRating : null}
+                    onRatingChange={setRating}
+                    onDetailOpen={handleDetailOpen}
+                    onUndo={handleUndo} canUndo={history.length > 0}
+                    onWishlist={handleWishlist}
+                    onClose={isOnboarding && onOnboardingComplete ? onOnboardingComplete : onClose}
+                    hideClose={standalone}
+                    panelActive={isTabActive}
+                    starsRef={idx === 0 ? starsRef : undefined}
+                    dragX={idx === 0 ? cardDragX : 0}
+                    isFlying={idx === 0 ? cardFlying : false}
+                    flyDir={idx === 0 ? cardFlyDir : null}
+                    isUndoEntering={idx === 0 ? undoEntering : false}
+                  />
+                ))}
+              </div>
             </div>
           )}
         </div>
