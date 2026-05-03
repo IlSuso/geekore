@@ -111,7 +111,7 @@ export default function WishlistPage() {
       title="Wishlist"
       description="La tua coda dei desideri: titoli salvati da Discover e For You, pronti a diventare Library."
       icon={<Bookmark size={16} />}
-      contentClassName="max-w-screen-lg pt-2 md:pt-8 pb-28"
+      contentClassName="pt-2 md:pt-8 pb-28"
     >
       <div className="mb-5 grid grid-cols-3 gap-3">
         <WishlistStat label="salvati" value={wishlist.length} accent />

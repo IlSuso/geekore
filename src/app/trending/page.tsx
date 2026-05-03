@@ -113,7 +113,7 @@ export default async function TrendingPage() {
       title="Trending"
       description="Il battito settimanale della community: titoli aggiunti, votati e scoperti."
       icon={<TrendingUp size={16} />}
-      contentClassName="max-w-screen-lg pt-2 md:pt-8 pb-28"
+      contentClassName="pt-2 md:pt-8 pb-28"
     >
       <div className="mb-5 grid grid-cols-3 gap-3">
         <PulseStat label="titoli" value={byAdditions.length} accent />

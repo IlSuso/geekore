@@ -273,16 +273,16 @@ function BrowseTile({ prompt, onClick }: { prompt: typeof BROWSE_PROMPTS[number]
       type="button"
       data-no-swipe="true"
       onClick={onClick}
-      className="group flex min-h-[104px] flex-col justify-between rounded-[18px] border p-4 text-left transition-transform hover:scale-[1.015] active:scale-[0.97]"
+      className="group flex min-h-[136px] flex-col justify-between rounded-[24px] border p-5 text-left transition-transform hover:scale-[1.015] active:scale-[0.97]"
       style={{ borderColor: `color-mix(in srgb, ${prompt.color} 18%, transparent)`, background: `color-mix(in srgb, ${prompt.color} 4%, transparent)` }}
     >
-      <span className="grid h-10 w-10 place-items-center rounded-[14px]" style={{ background: `color-mix(in srgb, ${prompt.color} 12%, transparent)`, color: prompt.color }}>
-        <Icon size={19} />
-      </span>
-      <span>
-        <span className="block text-[14px] font-black text-[var(--text-primary)]">{prompt.label}</span>
+      <div className="flex h-11 w-11 items-center justify-center rounded-[16px]" style={{ background: `color-mix(in srgb, ${prompt.color} 12%, transparent)`, color: prompt.color }}>
+        <Icon size={20} />
+      </div>
+      <div>
+        <span className="block text-[15px] font-black leading-[1.1] text-[var(--text-primary)]">{prompt.label}</span>
         <span className="mt-1 block gk-mono text-[var(--text-muted)]">{prompt.subtitle}</span>
-      </span>
+      </div>
     </button>
   )
 }

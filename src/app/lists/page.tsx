@@ -316,7 +316,7 @@ export default function ListsPage() {
       title="Liste"
       description="Raccolte curate, classifiche personali e collezioni da condividere."
       icon={<List size={16} />}
-      contentClassName="max-w-screen-lg pt-2 md:pt-8 pb-28"
+      contentClassName="pt-2 md:pt-8 pb-28"
     >
       <div className="mb-4 flex items-center gap-3">
         <div className="grid grid-cols-3 gap-3 flex-1">

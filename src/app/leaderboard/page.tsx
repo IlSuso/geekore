@@ -79,7 +79,7 @@ export default function LeaderboardPage() {
       title="Classifica"
       description="Geek Score, ore giocate e anime tracciati dalla community."
       icon={<Trophy size={16} />}
-      contentClassName="max-w-screen-lg pt-2 md:pt-8 pb-28"
+      contentClassName="pt-2 md:pt-8 pb-28"
     >
       <div className="mb-5 grid grid-cols-3 gap-3">
         <RankingStat label="utenti" value={leaders.length} accent />

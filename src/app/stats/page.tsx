@@ -216,7 +216,7 @@ export default function StatsPage() {
       title="Stats"
       description="Quanto tempo hai trasformato in anime, manga, film, serie e videogiochi."
       icon={<Clock size={16} />}
-      contentClassName="max-w-screen-lg pt-2 md:pt-8 pb-28"
+      contentClassName="pt-2 md:pt-8 pb-28"
     >
       {loading ? <StatsSkeleton /> : (
         <>

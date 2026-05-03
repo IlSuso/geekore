@@ -196,7 +196,7 @@ main[data-auth='true'] {
 .gk-for-you-page,
 .gk-home-page,
 .gk-discover-page {
-  scrollbar-gutter: stable both-edges;
+  scrollbar-gutter: stable;
 }
 
 /* Any page still routed through PageScaffold inherits the final cabinet finish. */
