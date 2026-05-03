@@ -22,26 +22,33 @@ interface MediaDetailsHeroProps {
   onClose?: () => void
 }
 
+function hasRealScore(score?: number | string | null): boolean {
+  if (score == null || score === '') return false
+  const numeric = typeof score === 'string' ? Number(score) : score
+  if (Number.isNaN(numeric)) return true
+  return numeric > 0
+}
+
 export function MediaDetailsHero({ media, fallbackIcon, meta, subtitle, onClose }: MediaDetailsHeroProps) {
   const typeColor = getMediaTypeColor(media.type)
+  const visibleScore = hasRealScore(media.score) ? media.score : null
 
   return (
-    <div className="gk-media-details-hero relative min-h-[320px] overflow-hidden border-b border-[var(--border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(11,11,15,0.96))] p-5 pt-10 md:min-h-[360px] md:p-7 md:pt-12">
+    <div className="gk-media-details-hero relative border-b border-[var(--border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.026),rgba(11,11,15,0.98))] p-3">
       {media.coverImage && (
         <img
           src={optimizeCover(media.coverImage, 'drawer-cover')}
           alt=""
-          className="absolute inset-0 h-full w-full scale-105 object-cover opacity-35 blur-[2px]"
+          className="pointer-events-none absolute inset-0 h-full w-full scale-105 object-cover opacity-[0.035] blur-[2px]"
           aria-hidden
         />
       )}
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.05),rgba(11,11,15,0.72)_48%,var(--bg-primary)_100%)]" aria-hidden />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-[linear-gradient(0deg,var(--bg-primary),transparent)]" aria-hidden />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(11,11,15,0.96),rgba(11,11,15,0.88),rgba(11,11,15,0.98))]" aria-hidden />
 
-      <div className="relative z-10 flex min-h-[250px] flex-col justify-end gap-4 md:min-h-[280px] md:flex-row md:items-end md:justify-start">
+      <div className="relative z-10 flex items-start gap-3 pr-10">
         <div
-          className="gk-poster-first relative h-40 w-[108px] flex-shrink-0 overflow-hidden rounded-[20px] bg-[var(--bg-card)] shadow-[0_18px_60px_rgba(0,0,0,0.48)] ring-1 ring-white/12 md:h-52 md:w-[140px]"
-          style={{ boxShadow: `0 18px 60px rgba(0,0,0,0.48), inset 0 -3px 0 ${typeColor}` }}
+          className="gk-poster-first relative h-[112px] w-[75px] flex-shrink-0 overflow-hidden rounded-[14px] bg-[var(--bg-card)] shadow-[0_12px_34px_rgba(0,0,0,0.40)] ring-1 ring-white/12"
+          style={{ boxShadow: `0 12px 34px rgba(0,0,0,0.42), inset 0 -3px 0 ${typeColor}` }}
         >
           {media.coverImage ? (
             <img
@@ -63,8 +70,8 @@ export function MediaDetailsHero({ media, fallbackIcon, meta, subtitle, onClose 
           <span className="absolute inset-x-0 bottom-0 h-[3px]" style={{ background: typeColor }} aria-hidden="true" />
         </div>
 
-        <div className="min-w-0 flex-1 self-auto md:max-w-[520px] md:pb-1">
-          <div className="mb-2 flex flex-wrap items-center gap-1.5">
+        <div className="min-w-0 flex-1 pt-0.5">
+          <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
             <MediaTypeBadge type={media.type} size="xs" />
             {media.isAwardWinner && (
               <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300">
@@ -78,35 +85,33 @@ export function MediaDetailsHero({ media, fallbackIcon, meta, subtitle, onClose 
             )}
           </div>
 
-          <h2 className="font-display text-[28px] font-black leading-[0.96] tracking-[-0.045em] text-[var(--text-primary)] md:text-[42px]">
+          <h2 className="font-display text-[22px] font-black leading-[0.98] tracking-[-0.045em] text-[var(--text-primary)] md:text-[24px]">
             {media.title}
           </h2>
 
-          {(media.year || media.score != null) && (
-            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          {(media.year || visibleScore != null) && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
               {media.year && <span className="font-mono-data text-[11px] font-bold text-[var(--text-muted)]">{media.year}</span>}
-              {media.score != null && media.score !== '' && (
+              {visibleScore != null && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-yellow-500/15 bg-yellow-500/8 px-1.5 py-0.5 font-mono-data text-[10px] font-black text-yellow-300">
                   <Star size={10} fill="currentColor" />
-                  {media.score}
+                  {visibleScore}
                 </span>
               )}
             </div>
           )}
 
-          {subtitle && <div className="mt-2 text-[11px] text-[var(--text-secondary)]">{subtitle}</div>}
-          {meta && <div className="mt-3 flex flex-wrap items-center gap-1.5">{meta}</div>}
+          {subtitle && <div className="mt-1.5 text-[11px] text-[var(--text-secondary)]">{subtitle}</div>}
+          {meta && <div className="mt-2 flex flex-wrap items-center gap-1.5">{meta}</div>}
         </div>
       </div>
-
-      <div className="absolute left-1/2 top-3 z-20 h-1.5 w-9 -translate-x-1/2 rounded-full bg-zinc-500/70 md:hidden" aria-hidden />
 
       {onClose && (
         <button
           type="button"
           data-no-swipe="true"
           onClick={onClose}
-          className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-black/45 text-white backdrop-blur-xl transition-colors hover:bg-white/10"
+          className="absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-2xl border border-white/10 bg-black/50 text-white backdrop-blur-xl transition-colors hover:bg-white/10"
           aria-label="Chiudi"
         >
           <X size={16} />
@@ -118,9 +123,9 @@ export function MediaDetailsHero({ media, fallbackIcon, meta, subtitle, onClose 
 
 export function MediaDetailsSection({ title, children, icon }: { title?: string; children: ReactNode; icon?: ReactNode }) {
   return (
-    <section className="gk-panel rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+    <section className="rounded-[16px] border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.022)] p-2.5 ring-1 ring-white/5">
       {title && (
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-2 flex items-center gap-2">
           {icon && <span className="text-[var(--accent)]">{icon}</span>}
           <p className="gk-label">{title}</p>
         </div>
@@ -132,7 +137,7 @@ export function MediaDetailsSection({ title, children, icon }: { title?: string;
 
 export function MediaDetailsStat({ label, value, accent = false, icon }: { label: string; value: ReactNode; accent?: boolean; icon?: ReactNode }) {
   return (
-    <div className="rounded-2xl bg-black/18 p-3 text-center ring-1 ring-white/5">
+    <div className="rounded-2xl bg-black/18 p-2.5 text-center ring-1 ring-white/5">
       <div className={`font-mono-data text-[18px] font-black leading-none ${accent ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>
         {value}
       </div>
@@ -146,7 +151,7 @@ export function MediaDetailsStat({ label, value, accent = false, icon }: { label
 export function MediaDetailsTag({ children, accent = false }: { children: ReactNode; accent?: boolean }) {
   return (
     <span
-      className="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold"
+      className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-bold"
       style={accent
         ? { background: 'rgba(230,255,61,0.07)', borderColor: 'rgba(230,255,61,0.22)', color: 'rgba(230,255,61,0.85)' }
         : { background: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}

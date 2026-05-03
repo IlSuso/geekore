@@ -83,8 +83,7 @@
 
 /* Mobile media modals and sheets must feel like Geekore, not generic overlays. */
 [role='dialog'] [class*='rounded-3xl'],
-[role='dialog'] [class*='rounded-[28px]'],
-.gk-swipe-mode [class*='rounded-3xl'] {
+[role='dialog'] [class*='rounded-[28px]'] {
   border-color: var(--border) !important;
   background-color: var(--bg-secondary) !important;
 }
@@ -228,4 +227,16 @@ main[data-auth='true'] {
 .gk-page-scaffold select:focus {
   border-color: rgba(230,255,61,0.46) !important;
   box-shadow: 0 0 0 2px rgba(230,255,61,0.08) !important;
+}
+
+
+/* Swipe desktop: no forced generic rounded-3xl surfaces. Keep the card cinematic,
+   but constrain the stage so it does not look like a giant mobile mockup. */
+@media (min-width: 768px) {
+  .gk-swipe-mode {
+    background:
+      radial-gradient(760px 420px at 50% -8%, rgba(230,255,61,0.055), transparent 62%),
+      radial-gradient(620px 520px at 72% 25%, rgba(139,92,246,0.035), transparent 66%),
+      var(--bg-primary) !important;
+  }
 }

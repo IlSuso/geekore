@@ -129,7 +129,12 @@ const CATEGORIES: { key: CategoryFilter; label: string }[] = [
   { key: 'boardgame', label: 'Giochi da Tavolo' },
 ]
 
-const SWIPE_THRESHOLD = 80
+const SWIPE_FEEDBACK_DISTANCE = 150
+const SWIPE_COMPLETE_MIN = 120
+const SWIPE_COMPLETE_MAX = 220
+const SWIPE_COMPLETE_RATIO = 0.32
+const SWIPE_FLING_MIN_DISTANCE = 82
+const SWIPE_FLING_VELOCITY = 1.15 // px/ms: solo un gesto veloce e intenzionale completa sotto soglia
 const ROTATION_FACTOR = 0.08
 const REFILL_THRESHOLD = 25
 const PRELOAD_TARGET = 50
@@ -352,7 +357,7 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
     ? (flyDir === 'right' ? '160%' : flyDir === 'left' ? '-160%' : '0')
     : `${dragX}px`
   const translateY = isFlying && flyDir === 'down' ? '160%' : '0'
-  const swipeProgress = Math.min(Math.abs(dragX) / SWIPE_THRESHOLD, 1)
+  const swipeProgress = Math.min(Math.abs(dragX) / SWIPE_FEEDBACK_DISTANCE, 1)
 
   // Undo entering: card starts scaled down + offset from below, transitions to normal
   const undoTransform = isUndoEntering
@@ -363,7 +368,9 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
 
   return (
     <div
-      className={`absolute inset-0 select-none ${isTop ? 'cursor-grab' : 'pointer-events-none'}`}
+      className={`absolute inset-0 select-none ${isTop ? (dragX !== 0 ? 'cursor-grabbing' : 'cursor-grab') : 'pointer-events-none'}`}
+      data-testid={isTop ? 'swipe-card-active' : undefined}
+      data-swipe-card={isTop ? 'true' : undefined}
       style={{
         transform: undoTransform,
         transition: dragX !== 0 ? 'none' : 'transform .38s cubic-bezier(.25,.46,.45,.94), opacity .38s ease',
@@ -372,7 +379,7 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
         willChange: isTop ? 'transform' : 'auto',
       }}
     >
-      <div className="relative w-full h-full rounded-3xl overflow-hidden bg-zinc-900 shadow-xl">
+      <div className="relative w-full h-full rounded-[28px] overflow-hidden bg-zinc-950 shadow-[0_24px_80px_rgba(0,0,0,0.42)] ring-1 ring-white/8">
         {item.coverImage
           ? <img src={optimizeCover(item.coverImage, 'swipe-card')} alt={item.title} className="absolute inset-0 w-full h-full object-cover" draggable={false} loading="eager" decoding="async" />
           : <div className="absolute inset-0 flex items-center justify-center bg-zinc-900"><Icon size={64} className="text-zinc-700" /></div>
@@ -381,6 +388,7 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
 
         {!hideClose && (
           <button {...closePress.pressProps} onClick={e => { e.stopPropagation(); onClose() }}
+            data-testid="swipe-close" aria-label="Chiudi swipe" title="Chiudi"
             className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-[transform,background-color] duration-150 z-20 ${
               closePress.pressed
                 ? 'scale-90 bg-white/20 text-white'
@@ -435,7 +443,8 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
           <div className="flex items-center justify-between">
             <button onClick={e => { e.stopPropagation(); if (isTop && canUndo) onUndo() }} disabled={!canUndo || !isTop}
               {...undoPress.pressProps}
-              className={`w-11 h-11 flex items-center justify-center rounded-full border transition-[transform,background-color,border-color] duration-150 disabled:opacity-35 disabled:pointer-events-none ${
+              data-testid="swipe-undo" aria-label="Annulla ultima azione" title="Z / Backspace"
+              className={`w-11 h-11 md:w-10 md:h-10 flex items-center justify-center rounded-full border transition-[transform,background-color,border-color] duration-150 disabled:opacity-35 disabled:pointer-events-none ${
                 undoPress.pressed
                   ? 'scale-90 bg-white/15 border-white/60 text-white'
                   : 'bg-zinc-900 border-white/25 text-white/85 hover:bg-zinc-800 hover:border-white/45 hover:text-white'
@@ -445,7 +454,8 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
             <div className="flex items-center gap-4">
               <button onClick={e => { e.stopPropagation(); if (isTop) triggerSwipe('left') }}
                 {...skipPress.pressProps}
-                className={`w-14 h-14 rounded-full border-2 flex items-center justify-center transition-[transform,background-color,border-color,color] duration-150 ${!isTop ? 'opacity-0 pointer-events-none' : ''} ${
+                data-testid="swipe-skip" aria-label="Salta questo titolo" title="Freccia sinistra"
+                className={`w-14 h-14 md:w-[52px] md:h-[52px] rounded-full border-2 flex items-center justify-center transition-[transform,background-color,border-color,color] duration-150 ${!isTop ? 'opacity-0 pointer-events-none' : ''} ${
                   skipPress.pressed
                     ? 'scale-90 bg-red-500/40 border-red-300 text-red-300'
                     : 'bg-zinc-900 border-red-400/90 text-red-400 hover:bg-red-900/60 hover:border-red-400'
@@ -454,7 +464,8 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
               </button>
               <button onClick={e => { e.stopPropagation(); if (isTop) onDetailOpen(item) }}
                 {...infoPress.pressProps}
-                className={`w-10 h-10 rounded-full border flex items-center justify-center transition-[transform,background-color,border-color] duration-150 ${!isTop ? 'opacity-0 pointer-events-none' : ''} ${
+                data-testid="swipe-details" aria-label="Apri dettagli" title="Enter"
+                className={`w-10 h-10 md:w-9 md:h-9 rounded-full border flex items-center justify-center transition-[transform,background-color,border-color] duration-150 ${!isTop ? 'opacity-0 pointer-events-none' : ''} ${
                   infoPress.pressed
                     ? 'scale-90 bg-white/20 border-white text-white'
                     : 'bg-zinc-900 border-white/50 text-white/90 hover:bg-zinc-800 hover:text-white'
@@ -463,7 +474,8 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
               </button>
               <button onClick={e => { e.stopPropagation(); if (isTop) triggerSwipe('right') }}
                 {...checkPress.pressProps}
-                className={`w-14 h-14 rounded-full border-2 flex items-center justify-center transition-[transform,background-color,border-color,color] duration-150 ${!isTop ? 'opacity-0 pointer-events-none' : ''} ${
+                data-testid="swipe-seen" aria-label="Segna come visto" title="Freccia destra"
+                className={`w-14 h-14 md:w-[52px] md:h-[52px] rounded-full border-2 flex items-center justify-center transition-[transform,background-color,border-color,color] duration-150 ${!isTop ? 'opacity-0 pointer-events-none' : ''} ${
                   checkPress.pressed
                     ? 'scale-90 bg-emerald-500/40 border-emerald-300 text-emerald-300'
                     : 'bg-zinc-900 border-emerald-400/90 text-emerald-400 hover:bg-emerald-900/60 hover:border-emerald-400'
@@ -473,7 +485,8 @@ function SwipeCard({ item, isTop, stackIndex, onSwipe, rating, onRatingChange, o
             </div>
             <button onClick={e => { e.stopPropagation(); if (isTop && !isFlying) triggerWishlist() }} disabled={!isTop || isFlying}
               {...wishlistPress.pressProps}
-              className={`w-11 h-11 flex items-center justify-center rounded-full border transition-[transform,background-color,border-color,color] duration-150 disabled:opacity-35 disabled:pointer-events-none ${
+              data-testid="swipe-wishlist" aria-label="Aggiungi alla wishlist" title="W"
+              className={`w-11 h-11 md:w-10 md:h-10 flex items-center justify-center rounded-full border transition-[transform,background-color,border-color,color] duration-150 disabled:opacity-35 disabled:pointer-events-none ${
                 wishlistPress.pressed
                   ? 'scale-90 bg-amber-500/20 border-amber-400/60 text-amber-400'
                   : 'bg-zinc-900 border-white/25 text-white/85 hover:bg-zinc-800 hover:border-white/45 hover:text-white'
@@ -504,6 +517,10 @@ interface GestureState {
   currentX: number
   decided: boolean
   isDragging: boolean
+  startTime: number
+  lastX: number
+  lastTime: number
+  velocityX: number
 }
 
 function useSwipeGestures(
@@ -512,11 +529,22 @@ function useSwipeGestures(
   isActive: boolean,
   standalone: boolean,
   onCardSwipe: (dx: number) => void,
-  onCardRelease: (dx: number) => void,
+  onCardRelease: (dx: number, velocityX?: number) => void,
 ) {
-  const gs = useRef<GestureState>({
-    zone: null, startX: 0, startY: 0, currentX: 0, decided: false, isDragging: false
+  const emptyGesture = (): GestureState => ({
+    zone: null,
+    startX: 0,
+    startY: 0,
+    currentX: 0,
+    decided: false,
+    isDragging: false,
+    startTime: 0,
+    lastX: 0,
+    lastTime: 0,
+    velocityX: 0,
   })
+
+  const gs = useRef<GestureState>(emptyGesture())
 
   useEffect(() => {
     const el = containerRef.current
@@ -527,6 +555,22 @@ function useSwipeGestures(
       return starsRef.current.getBoundingClientRect().bottom
     }
 
+    const now = () => performance.now()
+    const makeGesture = (zone: GestureZone, startX: number, startY: number, decided = false, isDragging = false): GestureState => {
+      const t = now()
+      return { zone, startX, startY, currentX: 0, decided, isDragging, startTime: t, lastX: startX, lastTime: t, velocityX: 0 }
+    }
+
+    const updateVelocity = (g: GestureState, clientX: number) => {
+      const t = now()
+      const dt = Math.max(1, t - g.lastTime)
+      const instantVelocity = (clientX - g.lastX) / dt
+      // Media mobile leggera: evita che un singolo frame rumoroso completi lo swipe.
+      g.velocityX = g.velocityX * 0.65 + instantVelocity * 0.35
+      g.lastX = clientX
+      g.lastTime = t
+    }
+
     const onStart = (e: TouchEvent) => {
       const t = e.touches[0]
       const target = e.target as HTMLElement
@@ -535,21 +579,21 @@ function useSwipeGestures(
 
       if (target.closest('[data-stars]')) {
         // Stelline: non intercettare mai
-        gs.current = { zone: null, startX: 0, startY: 0, currentX: 0, decided: false, isDragging: false }
+        gs.current = emptyGesture()
         return
       }
 
       if (target.closest('button')) {
         // Bottone nella fascia (sotto le stelline): salva posizione.
         // In onMove decideremo se è un tap (lascia il click) o uno swipe di pagina.
-        gs.current = { zone: 'button', startX: t.clientX, startY: clientY, currentX: 0, decided: false, isDragging: false }
+        gs.current = makeGesture('button', t.clientX, clientY)
         return
       }
 
       if (standalone && clientY > starsBottom) {
-        gs.current = { zone: 'page', startX: t.clientX, startY: clientY, currentX: 0, decided: false, isDragging: false }
+        gs.current = makeGesture('page', t.clientX, clientY)
       } else {
-        gs.current = { zone: 'card', startX: t.clientX, startY: clientY, currentX: 0, decided: false, isDragging: false }
+        gs.current = makeGesture('card', t.clientX, clientY)
       }
     }
 
@@ -599,6 +643,7 @@ function useSwipeGestures(
       }
 
       if (g.zone === 'card' && g.isDragging) {
+        updateVelocity(g, t.clientX)
         g.currentX = dx
         onCardSwipe(dx)
         // passive:true listener — iOS mostra :active; scroll bloccato via touch-action CSS
@@ -608,7 +653,7 @@ function useSwipeGestures(
     const onEnd = (e: TouchEvent) => {
       const g = gs.current
       if (g.zone === 'card' && g.isDragging) {
-        onCardRelease(g.currentX)
+        onCardRelease(g.currentX, g.velocityX)
         if (el) el.style.touchAction = ''  // ripristina
       } else if (g.zone === 'page' && gestureState.pageSwipeZone) {
         // Delega la decisione navigate/snap-back a SwipeablePageContainer via bridge.
@@ -623,14 +668,56 @@ function useSwipeGestures(
         }
       }
       gestureState.pageSwipeZone = false
-      gs.current = { zone: null, startX: 0, startY: 0, currentX: 0, decided: false, isDragging: false }
+      gs.current = emptyGesture()
     }
+
+    // Desktop: abilita drag col mouse stile Tinder sulla card attiva.
+    // Separato dai touch listener per non interferire con mobile/page swipe.
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return
+      const target = e.target as HTMLElement
+      if (!target.closest('[data-swipe-card="true"]')) return
+      if (target.closest('button, [data-stars], input, textarea, select, [contenteditable="true"]')) return
+
+      e.preventDefault()
+      gs.current = makeGesture('card', e.clientX, e.clientY, true, true)
+      document.body.style.userSelect = 'none'
+      document.body.style.cursor = 'grabbing'
+    }
+
+    const onMouseMove = (e: MouseEvent) => {
+      const g = gs.current
+      if (g.zone !== 'card' || !g.isDragging) return
+      const dx = e.clientX - g.startX
+      updateVelocity(g, e.clientX)
+      g.currentX = dx
+      onCardSwipe(dx)
+    }
+
+    const onMouseUp = () => {
+      const g = gs.current
+      if (g.zone === 'card' && g.isDragging) {
+        onCardRelease(g.currentX, g.velocityX)
+      }
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+      gs.current = emptyGesture()
+    }
+
+    el.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
 
     el.addEventListener('touchstart',  onStart,  { passive: true })
     el.addEventListener('touchmove',   onMove,   { passive: true })  // passive:true → :active funziona
     el.addEventListener('touchend',    onEnd,    { passive: true })
     el.addEventListener('touchcancel', onEnd,    { passive: true })
     return () => {
+      el.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
       el.removeEventListener('touchstart',  onStart)
       el.removeEventListener('touchmove',   onMove)
       el.removeEventListener('touchend',    onEnd)
@@ -781,7 +868,7 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
   // Preload all categories (including 'all') 1.5 s after mount so the cache
   // is ready before the user exhausts the initial deck.
   useEffect(() => {
-    const cats: CategoryFilter[] = ['all', 'anime', 'manga', 'movie', 'tv', 'game']
+    const cats: CategoryFilter[] = ['all', 'anime', 'manga', 'movie', 'tv', 'game', 'boardgame']
     cats.forEach((cat, i) => setTimeout(() => preloadCategory(cat), 1500 + i * 300))
   }, []) // eslint-disable-line
 
@@ -928,8 +1015,19 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
     setCardDragX(dx)
   }, [])
 
-  const handleCardRelease = useCallback((dx: number) => {
-    if (Math.abs(dx) > SWIPE_THRESHOLD) {
+  const handleCardRelease = useCallback((dx: number, velocityX = 0) => {
+    const activeCard = containerRef.current?.querySelector('[data-swipe-card="true"]') as HTMLElement | null
+    const cardWidth = activeCard?.getBoundingClientRect().width || 420
+    const positionThreshold = Math.max(
+      SWIPE_COMPLETE_MIN,
+      Math.min(SWIPE_COMPLETE_MAX, cardWidth * SWIPE_COMPLETE_RATIO),
+    )
+    const absDx = Math.abs(dx)
+    const absVelocity = Math.abs(velocityX)
+    const acceptedByPosition = absDx >= positionThreshold
+    const acceptedByFling = absDx >= SWIPE_FLING_MIN_DISTANCE && absVelocity >= SWIPE_FLING_VELOCITY
+
+    if (acceptedByPosition || acceptedByFling) {
       const dir = dx > 0 ? 'right' : 'left'
       setCardFlyDir(dir)
       setCardFlying(true)
@@ -940,59 +1038,127 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
         setCardFlyDir(null)
       }, 340)
     } else {
+      // Snap-back: un trascinamento corto torna al centro e NON registra skip/visto.
       setCardDragX(0)
     }
   }, [topItem, handleSwipe])
 
   useSwipeGestures(containerRef, starsRef, isTabActive, standalone, handleCardSwipe, handleCardRelease)
 
+  useEffect(() => {
+    if (!isTabActive || detailItem || !topItem) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return
+      if (event.key === 'ArrowLeft') { event.preventDefault(); handleSwipe('left', topItem) }
+      if (event.key === 'ArrowRight') { event.preventDefault(); handleSwipe('right', topItem) }
+      if (event.key === 'Enter') { event.preventDefault(); handleDetailOpen(topItem) }
+      if (event.key.toLowerCase() === 'w') { event.preventDefault(); handleWishlist(topItem) }
+      if ((event.key.toLowerCase() === 'z' || event.key === 'Backspace') && history.length > 0) { event.preventDefault(); handleUndo() }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isTabActive, detailItem, topItem, history.length, handleSwipe, handleDetailOpen, handleWishlist, handleUndo])
+
   const topCoverImage = filteredQueue[0]?.coverImage
 
-  const containerClass = standalone
+  const isFullscreenSwipe = standalone || isOnboarding
+  const containerClass = isFullscreenSwipe
     ? 'gk-swipe-mode fixed inset-0 bg-[var(--bg-primary)] flex flex-col overflow-hidden'
-    : 'gk-swipe-mode fixed inset-0 bg-[var(--bg-primary)] flex flex-col'
-  const containerStyle = standalone
+    : 'gk-swipe-mode relative flex h-[calc(100dvh-156px)] min-h-[560px] max-h-[720px] flex-col overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.16)] bg-[linear-gradient(160deg,rgba(230,255,61,0.045),var(--bg-secondary))] shadow-[0_18px_60px_rgba(0,0,0,0.22)]'
+  const containerStyle = isFullscreenSwipe
     ? { contain: 'layout style paint' as const }
-    : { zIndex: 9999, contain: 'layout style paint' as const }
+    : { contain: 'layout style paint' as const }
   return (
     <>
       <div className={containerClass} style={containerStyle}>
 
         {(standalone || isOnboarding) && (
-          <div className="absolute inset-0 z-0 pointer-events-none" aria-hidden>
-            <div className="absolute inset-0 bg-gradient-to-br from-zinc-950 via-black to-zinc-900 opacity-60" />
+          <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden" aria-hidden>
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_58%_42%,rgba(37,99,235,0.13),transparent_34%),radial-gradient(circle_at_42%_55%,rgba(230,255,61,0.055),transparent_32%),linear-gradient(135deg,#050507_0%,#09090d_52%,#050507_100%)]" />
+            {topCoverImage && (
+              <img
+                src={topCoverImage}
+                alt=""
+                className="absolute left-1/2 top-1/2 h-[88vh] w-[54vw] max-w-[760px] -translate-x-1/2 -translate-y-1/2 scale-110 object-cover opacity-[0.075] blur-[54px]"
+                loading="eager"
+                decoding="async"
+              />
+            )}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.28)_48%,rgba(0,0,0,0.72)_100%)]" />
           </div>
         )}
 
-        {/* Filtri categoria */}
+        {/* Filtri categoria: rail laterale contestualizzata su desktop, barra orizzontale su mobile. */}
         <div
-          className="relative z-10 flex-shrink-0 flex justify-center px-3"
-          style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top, 0px))' }}
+          className={isFullscreenSwipe
+            ? 'absolute z-20 left-3 right-3 top-3 flex justify-center md:left-[max(24px,calc(50%-500px))] md:right-auto md:top-1/2 md:-translate-y-1/2 md:w-[174px]'
+            : 'relative z-20 flex-shrink-0 flex justify-center px-3 md:absolute md:left-4 md:top-4 md:bottom-4 md:w-44 md:items-start md:px-0'}
         >
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide w-full">
-            {CATEGORIES.map(cat => (
-              <button key={cat.key} onClick={() => handleFilterChange(cat.key)}
-                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-                  activeFilter === cat.key ? 'bg-[var(--accent)] text-[#0B0B0F]' : 'bg-[rgba(244,244,245,0.08)] text-[var(--text-secondary)] hover:bg-[rgba(244,244,245,0.12)] hover:text-[var(--text-primary)]'
-                }`}>
-                {cat.label}
-              </button>
-            ))}
+          <div className={isFullscreenSwipe ? 'flex w-full max-w-[820px] items-center justify-center md:block' : 'flex w-full items-center justify-center gap-2 md:h-full md:items-start'} data-no-swipe="true">
+            <div className={isFullscreenSwipe
+              ? 'min-w-0 max-w-full overflow-x-auto rounded-[22px] border border-white/5 bg-black/24 p-1.5 shadow-[0_10px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl scrollbar-hide md:w-full md:overflow-visible md:rounded-[26px] md:border-[rgba(230,255,61,0.12)] md:bg-[linear-gradient(180deg,rgba(230,255,61,0.07),rgba(12,12,16,0.72))] md:p-3 md:ring-1 md:ring-white/5 md:shadow-[0_18px_54px_rgba(0,0,0,0.34)]'
+              : 'min-w-0 flex-1 overflow-x-auto rounded-[24px] border border-white/5 bg-black/18 p-1.5 shadow-[0_10px_34px_rgba(0,0,0,0.18)] scrollbar-hide md:h-full md:overflow-y-auto md:overflow-x-hidden'} data-testid="swipe-filter-bar">
+              {isFullscreenSwipe && (
+                <div className="mb-3 hidden md:block">
+                  <p className="font-mono-data text-[10px] font-black uppercase tracking-[0.16em] text-[var(--accent)]">Categorie</p>
+                </div>
+              )}
+              <div className={isFullscreenSwipe
+                ? 'flex w-max min-w-full items-center justify-center gap-1.5 md:w-full md:min-w-0 md:flex-col md:items-stretch md:justify-start md:gap-2'
+                : 'flex w-max min-w-full items-center justify-center gap-2 md:w-full md:min-w-0 md:flex-col md:items-stretch md:justify-start'}>
+                {CATEGORIES.map(cat => {
+                  const active = activeFilter === cat.key
+                  return (
+                    <button key={cat.key} onClick={() => handleFilterChange(cat.key)}
+                      data-testid={`swipe-filter-${cat.key}`}
+                      aria-pressed={active}
+                      className={`flex-shrink-0 rounded-full text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${isFullscreenSwipe ? 'px-3.5 py-2 md:w-full md:justify-start md:px-3.5 md:py-2.5 md:text-left md:text-[13px]' : 'px-4 py-2 md:w-full md:justify-center md:px-3 md:py-2'} ${
+                        active
+                          ? 'bg-[var(--accent)] text-[#0B0B0F] shadow-[0_0_26px_rgba(230,255,61,0.18)]'
+                          : 'bg-[rgba(244,244,245,0.07)] text-[var(--text-secondary)] hover:bg-[rgba(244,244,245,0.12)] hover:text-[var(--text-primary)]'
+                      }`}>
+                      {cat.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Area card — flex-1 min-h-0 si adatta automaticamente tra filtri e spacer */}
         <div
           ref={containerRef}
-          className="relative z-10 flex-1 flex items-center justify-center px-4 min-h-0 py-2"
+          className={isFullscreenSwipe
+            ? 'relative z-10 flex-1 flex items-center justify-center px-4 min-h-0 pt-[88px] pb-4 md:py-5 md:pl-[172px]'
+            : 'relative z-10 flex-1 flex items-center justify-center px-4 min-h-0 py-2 md:py-3 md:pl-52'}
         >
           {filteredQueue.length === 0 ? (
-            <LoadingScreen message={isLoadingMore ? 'Caricamento nuovi titoli' : 'Preparazione in corso'} />
+            isLoadingMore ? (
+              <LoadingScreen message="Caricamento nuovi titoli" />
+            ) : (
+              <div className="mx-auto flex max-w-sm flex-col items-center justify-center rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-10 text-center shadow-[0_18px_60px_rgba(0,0,0,0.26)]" data-no-swipe="true" data-testid="swipe-empty-state">
+                <p className="mb-2 text-lg font-black text-[var(--text-primary)]">Nessun titolo in questa categoria</p>
+                <p className="mb-5 text-sm leading-6 text-[var(--text-muted)]">Prova un altro filtro o torna alla lista Per Te.</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {activeFilter !== 'all' && (
+                    <button type="button" data-no-swipe="true" onClick={() => handleFilterChange('all')} className="rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-black text-[#0B0B0F]">Tutti</button>
+                  )}
+                  {!standalone && !isOnboarding && (
+                    <button type="button" data-no-swipe="true" onClick={onClose} className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-bold text-[var(--text-secondary)] hover:text-white">Torna alla lista</button>
+                  )}
+                </div>
+              </div>
+            )
           ) : (
             <div
               data-no-swipe=""
-              className="relative self-stretch"
-              style={{ maxWidth: 'min(420px, 92vw)', width: '100%', margin: '0 auto' }}
+              data-testid="swipe-card-stack"
+              className={isFullscreenSwipe
+                ? 'relative h-[min(660px,calc(100dvh-132px))] md:h-[min(780px,calc(100dvh-44px))]'
+                : 'relative self-stretch md:self-auto md:h-[min(560px,calc(100dvh-230px))]'}
+              style={{ maxWidth: isFullscreenSwipe ? 'min(430px, 88vw)' : 'min(340px, 88vw)', width: '100%', margin: '0 auto' }}
             >
               {filteredQueue.slice(0, 3).map((item, idx) => (
                 <SwipeCard key={item.id} item={item} isTop={idx === 0} stackIndex={idx}
@@ -1015,13 +1181,6 @@ export function SwipeMode({ items: initialItems, userId: userIdProp, onSeen, onS
             </div>
           )}
         </div>
-
-        {/* Hint desktop */}
-        {filteredQueue.length > 0 && (
-          <div className="relative z-10 text-center flex-shrink-0 select-none hidden md:block pb-3">
-            <p className="text-zinc-600 text-xs pointer-events-none">← Skip  ·  Visto →</p>
-          </div>
-        )}
 
         {/* Spacer navbar mobile — esatto spazio sotto la card per non andare sotto la navbar */}
         {standalone && (

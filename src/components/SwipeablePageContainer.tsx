@@ -1,6 +1,6 @@
 'use client'
 // SwipeablePageContainer — swipe orizzontale tra tab primarie.
-// Swipe non è più una tab: è una modalità interna di For You.
+// Swipe è una tab primaria. Library resta fuori dalla nav principale.
 // Profile non è più tab primaria: è accessibile dall'avatar/header.
 
 import { usePathname, useRouter } from 'next/navigation'
@@ -10,7 +10,7 @@ import { gestureState } from '@/hooks/gestureState'
 import { swipeNavBridge } from '@/hooks/swipeNavBridge'
 import { useActiveTab, pathnameToTab } from '@/context/ActiveTabContext'
 
-export const TAB_ORDER = ['/home', '/for-you', '/library', '/discover', '/friends']
+export const TAB_ORDER = ['/home', '/for-you', '/swipe', '/discover', '/friends']
 
 const THRESHOLD = 0.40
 const VEL_THRESHOLD = 0.5

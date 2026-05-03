@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { KeyboardEvent, ReactNode } from 'react'
 import { BookmarkCheck, Check, Film, Plus } from 'lucide-react'
 import { MediaMetaRow } from '@/components/ui/MediaMetaRow'
 import { MediaCover } from '@/components/ui/MediaCover'
@@ -40,16 +40,26 @@ export function DiscoverMediaCard({
   onWishlist,
   className = '',
 }: DiscoverMediaCardProps) {
-  const Wrapper = onClick ? 'button' : 'div'
   const visibleScore = hasRealScore(score) ? score : null
+  const isInteractive = Boolean(onClick)
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!onClick) return
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      onClick()
+    }
+  }
 
   return (
-    <Wrapper
-      type={onClick ? 'button' : undefined}
+    <div
       data-no-swipe="true"
-      className={`group relative min-w-0 cursor-pointer text-left ${className}`}
+      role={isInteractive ? 'button' : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
+      className={`group relative min-w-0 ${isInteractive ? 'cursor-pointer' : ''} text-left ${className}`}
       onClick={onClick}
-      aria-label={onClick ? `Apri dettagli di ${title}` : undefined}
+      onKeyDown={handleKeyDown}
+      aria-label={isInteractive ? `Apri dettagli di ${title}` : undefined}
     >
       <div className="relative">
         <MediaCover
@@ -105,6 +115,6 @@ export function DiscoverMediaCard({
         </p>
         <MediaMetaRow dense className="mt-1" year={year} score={visibleScore} />
       </div>
-    </Wrapper>
+    </div>
   )
 }

@@ -1,112 +1,120 @@
-/* Geekore — Fase 16.7: MediaDetailsDrawer check finale */
+/* Geekore — MediaDetailsDrawer final override
+   Patch 05: neutralizza il transform translate(-50%, -50%) ereditato da roadmap.css.
+   Important: questo file NON deve trasformare il drawer in modal centrale.
+   Il drawer desktop deve restare laterale, stretto e scrollabile. */
 
-/* Target: il drawer principale ha role=dialog + aria-modal e contiene la hero dedicata. */
 div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) {
   background: var(--bg-primary) !important;
-  border-color: rgba(230, 255, 61, 0.16) !important;
+  border-color: rgba(230, 255, 61, 0.14) !important;
 }
 
 div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) .gk-media-details-hero {
-  border-bottom-color: rgba(255, 255, 255, 0.08);
+  border-bottom-color: rgba(255, 255, 255, 0.07) !important;
 }
 
 div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) .gk-media-details-hero + div {
-  min-height: 0;
+  min-height: 0 !important;
   scrollbar-gutter: stable;
 }
 
 div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) .gk-media-details-hero + div > div {
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 14px) !important;
 }
 
-/* Mobile: bottom sheet 90% con cover full-bleed e contenuto scrollabile. */
+/* Mobile: bottom sheet. */
 @media (max-width: 767px) {
   div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) {
     top: auto !important;
     left: 0 !important;
     right: 0 !important;
     bottom: 0 !important;
+    transform: none !important;
     width: 100% !important;
     max-width: none !important;
     height: 90dvh !important;
     border-left: 0 !important;
     border-top: 1px solid rgba(230, 255, 61, 0.18) !important;
-    border-radius: 28px 28px 0 0 !important;
+    border-radius: 26px 26px 0 0 !important;
     overflow: hidden !important;
-    box-shadow: 0 -28px 90px rgba(0, 0, 0, 0.66) !important;
+    box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.62) !important;
   }
 
   div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) .gk-media-details-hero {
-    min-height: 315px;
-    padding-left: 16px;
-    padding-right: 16px;
+    min-height: auto !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
   }
 
   div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) .gk-media-details-hero h2 {
-    font-size: clamp(27px, 8vw, 34px);
-  }
-
-  div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) .gk-panel {
-    border-radius: 22px;
+    font-size: clamp(24px, 7vw, 31px) !important;
   }
 }
 
-/* Desktop: modal centrata/split, non side drawer puro. */
+/* Desktop: drawer laterale vero. Non modal centrata. */
 @media (min-width: 768px) {
   div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) {
-    top: 50% !important;
-    left: 50% !important;
-    right: auto !important;
-    bottom: auto !important;
-    width: min(940px, calc(100vw - 48px)) !important;
+    top: calc(env(safe-area-inset-top, 0px) + 12px) !important;
+    right: 12px !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 12px) !important;
+    left: auto !important;
+    transform: none !important;
+    width: min(456px, calc(100vw - 40px)) !important;
     max-width: none !important;
-    height: min(86dvh, 840px) !important;
-    transform: translate(-50%, -50%) !important;
-    border: 1px solid rgba(230, 255, 61, 0.16) !important;
-    border-radius: 32px !important;
+    height: auto !important;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px) !important;
+    border: 1px solid rgba(230, 255, 61, 0.14) !important;
+    border-radius: 24px !important;
     overflow: hidden !important;
-    box-shadow: 0 34px 120px rgba(0, 0, 0, 0.70) !important;
+    box-shadow: 0 28px 100px rgba(0, 0, 0, 0.64) !important;
   }
 
   div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) .gk-media-details-hero {
-    min-height: 310px;
+    min-height: auto !important;
+    padding: 12px !important;
+  }
+
+  div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) .gk-media-details-hero h2 {
+    font-size: 23px !important;
+    line-height: 0.98 !important;
   }
 
   div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) .gk-media-details-hero + div > div {
-    padding: 20px;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    padding: 12px !important;
+    align-items: start !important;
   }
 
-  div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) .gk-panel {
-    border-radius: 24px;
+  div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) .gk-panel,
+  div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) section {
+    border-radius: 16px !important;
   }
 }
 
+/* Anche su monitor grandi resta drawer: niente override 940/1040px. */
 @media (min-width: 1180px) {
   div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) {
-    width: min(1040px, calc(100vw - 72px)) !important;
+    width: 456px !important;
+    right: 16px !important;
+    transform: none !important;
   }
 
   div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) .gk-media-details-hero + div > div {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(280px, 0.45fr);
-    gap: 16px;
-    align-items: start;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
   }
 
-  div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) .gk-media-details-hero + div > div > *:first-child,
-  div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) .gk-media-details-hero + div > div > *:nth-child(2) {
-    grid-column: 1 / -1;
+  div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) .gk-media-details-hero + div > div > * {
+    grid-column: auto !important;
   }
 }
 
-/* Backdrop più simile al full wireframe. */
 body:has(div[role='dialog'][aria-modal='true'] .gk-media-details-hero) > div.fixed.inset-0.z-\[80\] {
-  background: rgba(0, 0, 0, 0.72) !important;
-  backdrop-filter: blur(12px) saturate(145%);
+  background: rgba(0, 0, 0, 0.38) !important;
+  backdrop-filter: blur(3px) saturate(125%) !important;
 }
 
 @supports not selector(:has(*)) {
-  .gk-media-details-hero {
-    min-height: 315px;
-  }
+  .gk-media-details-hero { min-height: auto; }
 }

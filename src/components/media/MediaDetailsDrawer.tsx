@@ -485,7 +485,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
       {/* Backdrop — below MobileHeader (z-99) and Navbar (z-100) */}
       <div
         data-no-swipe="true"
-        className="fixed inset-0 z-[80] bg-black/76 backdrop-blur-md"
+        className="fixed inset-0 z-[80] bg-black/34 backdrop-blur-[1px]"
         onMouseDown={handleClose}
         aria-hidden
       />
@@ -493,14 +493,19 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
       {/* Drawer — sits behind MobileHeader/Navbar; top/bottom account for their heights */}
       <div
         data-no-swipe="true"
-        className="fixed right-0 z-[80] w-full max-w-md flex flex-col shadow-[0_0_80px_rgba(0,0,0,0.55)]"
+        className="fixed right-0 z-[80] flex flex-col shadow-[0_0_56px_rgba(0,0,0,0.50)]"
         role="dialog" aria-modal aria-label={media.title}
         onMouseDown={event => event.stopPropagation()}
         style={{
           background: 'var(--bg-primary)',
-          borderLeft: '1px solid rgba(230,255,61,0.14)',
-          top: 'calc(env(safe-area-inset-top, 0px) + 52px)',
-          bottom: 'calc(env(safe-area-inset-bottom, 0px) + 56px)',
+          border: '1px solid rgba(230,255,61,0.13)',
+          borderRadius: typeof window !== 'undefined' && window.innerWidth >= 768 ? '22px 0 0 22px' : '22px 22px 0 0',
+          overflow: 'hidden',
+          width: 'min(456px, calc(100vw - 18px))',
+          maxWidth: 'none',
+          left: 'auto',
+          top: 'calc(env(safe-area-inset-top, 0px) + 10px)',
+          bottom: 'calc(env(safe-area-inset-bottom, 0px) + 10px)',
           transform: `translateX(${drawerOffset}px)`,
           transition: drawerAnimate ? 'transform 0.26s cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
           willChange: drawerOffset > 0 ? 'transform' : 'auto',
@@ -552,7 +557,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
         {/* ── CONTENUTO SCORREVOLE ───────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto overscroll-contain bg-[var(--bg-primary)]" data-no-swipe="true">
-          <div className="space-y-4 p-4">
+          <div className="grid gap-2.5 p-3 md:grid-cols-1">
 
             {/* Generi */}
             {media.genres && media.genres.length > 0 && (
@@ -649,7 +654,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
 
             {/* Descrizione */}
             {media.description && (
-              <MediaDetailsSection title="Overview" icon={<FileText size={13} />}>
+              <div className=""><MediaDetailsSection title="Overview" icon={<FileText size={13} />}>
                 <p className={`text-sm leading-relaxed text-[var(--text-secondary)] ${!descExpanded ? 'line-clamp-6' : ''}`}>
                   {media.description}
                 </p>
@@ -663,7 +668,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                     {descExpanded ? 'Meno ▲' : 'Leggi di più ▼'}
                   </button>
                 )}
-              </MediaDetailsSection>
+              </MediaDetailsSection></div>
             )}
 
             {/* Autori / Studio / Registi */}
@@ -865,7 +870,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
         </div>
 
         {/* ── FOOTER STICKY ────────────────────────────────────────── */}
-        <div className="flex-shrink-0 space-y-2 border-t border-[var(--border)] bg-[rgba(11,11,15,0.92)] p-3 backdrop-blur-xl" data-no-swipe="true">
+        <div className="flex-shrink-0 space-y-2 border-t border-[var(--border)] bg-[rgba(11,11,15,0.94)] p-3 backdrop-blur-xl" data-no-swipe="true">
           {!checkDone ? (
             <div className="animate-pulse space-y-2">
               <div className="h-10 bg-[var(--bg-card)] rounded-2xl" />
@@ -903,7 +908,7 @@ export function MediaDetailsDrawer({ media, onClose, isOwner, onAdd }: MediaDeta
                   type="button"
                   data-no-swipe="true"
                   onClick={() => setShowAddForm(true)}
-                  className="w-full rounded-2xl py-3 font-black transition-all shadow-[0_0_28px_rgba(230,255,61,0.14)]"
+                  className="w-full rounded-2xl py-2.5 text-sm font-black transition-all shadow-[0_0_24px_rgba(230,255,61,0.12)]"
                   style={{ background: 'var(--accent)', color: '#0B0B0F' }}
                 >
                   Aggiungi alla collezione

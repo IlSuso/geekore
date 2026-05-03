@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   Home, Search, Sparkles, Library, User, X, Settings, LogOut, ChevronDown, Bell, Users,
-  Bookmark, BarChart3, List, Trophy, Compass, TrendingUp, Heart,
+  Bookmark, BarChart3, List, Trophy, Compass, TrendingUp, Heart, Shuffle,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useActiveTab, pathnameToTab } from '@/context/ActiveTabContext'
@@ -57,7 +57,7 @@ export default function Navbar() {
   const NAV_ITEMS = [
     { href: '/home', label: t.nav.home, icon: Home },
     { href: '/for-you', label: t.nav.forYou, icon: Sparkles },
-    { href: '/library', label: 'Library', icon: Library },
+    { href: '/swipe', label: 'Swipe', icon: Shuffle },
     { href: '/discover', label: t.nav.discover, icon: Compass },
     { href: '/friends', label: 'Friends', icon: Users },
   ]
@@ -72,6 +72,7 @@ export default function Navbar() {
 
   const ACCOUNT_LINKS = [
     { href: `/profile/${username || 'me'}`, label: 'Il tuo profilo', icon: User },
+    { href: '/library', label: 'Gestisci Library', icon: Library },
     { href: '/settings', label: 'Impostazioni', icon: Settings },
   ]
 

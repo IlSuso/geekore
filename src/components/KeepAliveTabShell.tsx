@@ -1,8 +1,8 @@
 'use client'
 
 // src/components/KeepAliveTabShell.tsx
-// Keep-alive solo per le tab primarie: Home, For You, Library, Discover, Friends.
-// Swipe è una modalità interna di For You. Profile/Community e altre pagine secondarie
+// Keep-alive solo per le tab primarie: Home, For You, Swipe, Discover, Friends.
+// Library/Profile/Community e altre pagine secondarie
 // devono renderizzare i children reali, non riusare il pannello cached della tab primaria.
 
 import { Activity } from 'react'
@@ -14,16 +14,16 @@ import type { ReactNode, CSSProperties, MutableRefObject } from 'react'
 import FeedPage     from '@/app/home/page'
 import DiscoverPage from '@/app/discover/page'
 import ForYouPage   from '@/app/for-you/page'
-import LibraryPage  from '@/app/library/page'
+import SwipePage    from '@/app/swipe/page'
 import FriendsPage  from '@/app/friends/page'
 import { swipeNavBridge } from '@/hooks/swipeNavBridge'
 import { ScrollPanelContext } from '@/context/ScrollPanelContext'
 import { TabActiveContext } from '@/context/TabActiveContext'
 
-type KATab = 'feed' | 'for-you' | 'library' | 'discover' | 'friends'
+type KATab = 'feed' | 'for-you' | 'swipe' | 'discover' | 'friends'
 
-const ALL_TABS: KATab[] = ['feed', 'for-you', 'library', 'discover', 'friends']
-const TAB_IDX_TO_KA: Array<KATab | null> = ['feed', 'for-you', 'library', 'discover', 'friends']
+const ALL_TABS: KATab[] = ['feed', 'for-you', 'swipe', 'discover', 'friends']
+const TAB_IDX_TO_KA: Array<KATab | null> = ['feed', 'for-you', 'swipe', 'discover', 'friends']
 
 const HEADER_H_PX  = 53
 const HEADER_TOP   = `calc(env(safe-area-inset-top, 0px) + ${HEADER_H_PX}px)`
@@ -48,8 +48,8 @@ const SPRING_BACK = {
 
 function getKATab(pathname: string): KATab | null {
   if (pathname === '/home') return 'feed'
-  if (pathname === '/for-you' || pathname === '/swipe') return 'for-you'
-  if (pathname === '/library') return 'library'
+  if (pathname === '/for-you') return 'for-you'
+  if (pathname === '/swipe') return 'swipe'
   if (pathname === '/discover') return 'discover'
   if (pathname === '/friends') return 'friends'
   return null
@@ -105,10 +105,9 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
   const { activeTab, setActiveTab } = useActiveTab()
 
   const pathnameTab = getKATab(pathname)
-  const normalizedActiveTab = activeTab === 'swipe' ? 'for-you' : activeTab
   const tab = pathnameTab ?? (
-    normalizedActiveTab && ALL_TABS.includes(normalizedActiveTab as KATab)
-      ? normalizedActiveTab as KATab
+    activeTab && ALL_TABS.includes(activeTab as KATab)
+      ? activeTab as KATab
       : null
   )
 
@@ -391,9 +390,9 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
         </PanelWrapper>
       </Activity>
 
-      <Activity mode={activityMode('library')}>
-        <PanelWrapper divRef={panelRefs.current.library} isActive={pathnameTab === 'library'} style={getPanelStyle('library')}>
-          {shouldMount('library') && <LibraryPage />}
+      <Activity mode={activityMode('swipe')}>
+        <PanelWrapper divRef={panelRefs.current.swipe} isActive={pathnameTab === 'swipe'} style={getPanelStyle('swipe')}>
+          {shouldMount('swipe') && <SwipePage />}
         </PanelWrapper>
       </Activity>
 

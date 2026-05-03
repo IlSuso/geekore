@@ -3,7 +3,7 @@
 // V5: Serendipity badge + Award badge + Seasonal badge + Social boost display +
 //     lowConfidence banner + Feedback granulare micro-menu + Anti-ripetizione (recommendations_shown)
 
-import { useState, useEffect, useCallback, memo, useRef } from 'react'
+import { useState, useEffect, useCallback, memo, useRef, type ReactNode } from 'react'
 import { useScrollPanel } from '@/context/ScrollPanelContext'
 import { useTabActive } from '@/context/TabActiveContext'
 import { usePathname, useRouter } from 'next/navigation'
@@ -294,9 +294,10 @@ interface SearchSuggestion {
   description?: string; keywords?: string[]
 }
 
-function SimilarSearchBar({ onSearch, loading }: {
+function SimilarSearchBar({ onSearch, loading, actions }: {
   onSearch: (title: string, genres: string[], keywords?: string[], type?: string) => void
   loading: boolean
+  actions?: ReactNode
 }) {
   const [query, setQuery] = useState('')
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([])
@@ -378,8 +379,9 @@ function SimilarSearchBar({ onSearch, loading }: {
 
   return (
     <div ref={containerRef} className="relative mb-6">
-      {/* Input — stile identico alla navbar */}
-      <div className="relative">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+        {/* Input — stile identico alla navbar */}
+        <div className="relative min-w-0 flex-1">
         <Search
           size={14}
           className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${searching || loading ? 'animate-pulse' : 'text-zinc-500'}`}
@@ -401,9 +403,15 @@ function SimilarSearchBar({ onSearch, loading }: {
           className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl pl-9 pr-8 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
         />
         {query && (
-          <button onClick={handleClear} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors">
+          <button onClick={handleClear} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors" aria-label="Cancella ricerca simili">
             <X size={13} />
           </button>
+        )}
+        </div>
+        {actions && (
+          <div className="flex flex-shrink-0 items-center justify-end gap-2 lg:min-w-[240px]" data-no-swipe="true">
+            {actions}
+          </div>
         )}
       </div>
 
@@ -1244,7 +1252,7 @@ export default function ForYouPage() {
     setShowNewRecsBadge(false)
     const { data: { user } } = await supabase.auth.getUser()
     const [lightJson] = await Promise.all([
-      fetch('/api/recommendations?source=refresh_pool', { cache: 'no-store' })
+      fetch('/api/recommendations?type=all&refresh=1', { cache: 'no-store' })
         .then(r => r.ok ? r.json() : null)
         .catch(() => null),
       user ? fetchFriends(user.id) : Promise.resolve(),
@@ -1507,74 +1515,6 @@ export default function ForYouPage() {
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPulling} />
       <div className="pt-2 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
 
-        <section className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(160deg,rgba(230,255,61,0.07),var(--bg-secondary))] p-4 md:p-6 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="min-w-0">
-              <h1 className="gk-h1 mb-1 text-[var(--text-primary)]">Per Te</h1>
-              <p className="gk-caption text-[var(--text-secondary)]">Consigli personalizzati sul tuo Taste DNA</p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex items-center gap-1 rounded-[18px] border border-[rgba(230,255,61,0.18)] bg-[rgba(20,20,27,0.94)] p-1 shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
-                <button
-                  type="button"
-                  onClick={() => setViewMode('lista')}
-                  className="inline-flex h-9 items-center gap-2 rounded-[14px] px-3 text-xs font-black transition-all"
-                  style={{
-                    background: viewMode === 'lista' ? 'var(--accent)' : 'transparent',
-                    color: viewMode === 'lista' ? '#0B0B0F' : 'var(--text-secondary)',
-                  }}
-                >
-                  <List size={14} />
-                  <span>Lista</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('swipe')}
-                  className="inline-flex h-9 items-center gap-2 rounded-[14px] px-3 text-xs font-black transition-all"
-                  style={{
-                    background: viewMode === 'swipe' ? 'var(--accent)' : 'transparent',
-                    color: viewMode === 'swipe' ? '#0B0B0F' : 'var(--text-secondary)',
-                  }}
-                >
-                  <Shuffle size={14} />
-                  <span>Swipe</span>
-                </button>
-              </div>
-
-              <button onClick={() => setShowPrefs(true)}
-                className="inline-flex h-10 items-center gap-2 rounded-[16px] border border-[var(--border)] bg-[var(--bg-card)] px-3.5 text-xs font-bold text-[var(--text-secondary)] transition-all hover:border-[rgba(230,255,61,0.28)] hover:text-[var(--text-primary)]">
-                <SlidersHorizontal size={14} />
-                <span>{fy.preferences}</span>
-              </button>
-              <div className="relative">
-                <button onClick={handleRefresh} disabled={refreshing}
-                  className="flex h-10 w-10 items-center justify-center rounded-[16px] border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] transition-all hover:text-[var(--text-primary)] disabled:opacity-40">
-                  <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-                </button>
-                {showNewRecsBadge && (
-                  <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 animate-pulse rounded-full border border-black" style={{ background: 'var(--accent)' }} />
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
-            <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
-              <p className="font-mono-data text-[18px] font-black leading-none text-[var(--accent)]">{totalEntries}</p>
-              <p className="gk-label mt-1">in libreria</p>
-            </div>
-            <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
-              <p className="font-mono-data text-[18px] font-black leading-none text-[var(--text-primary)]">{visibleRails.length || SECTIONS.length}</p>
-              <p className="gk-label mt-1">sezioni</p>
-            </div>
-            <div className="rounded-2xl bg-black/18 p-3 ring-1 ring-white/5">
-              <p className="font-mono-data text-[18px] font-black leading-none text-[var(--text-primary)]">{spotlightItem ? spotlightItem.matchScore : '—'}</p>
-              <p className="gk-label mt-1">top match</p>
-            </div>
-          </div>
-        </section>
-
         {!hasEnoughData ? (
           <EmptyState
             icon={Sparkles}
@@ -1583,16 +1523,33 @@ export default function ForYouPage() {
             action={{ label: fy.emptyStateCta, href: '/discover' }}
             accent="violet"
           />
-        ) : viewMode === 'swipe' ? (
-          <SwipeModeWrapper onClose={() => setViewMode('lista')} />
         ) : (
           <>
             {totalEntries < 15 && <LowConfidenceBanner totalEntries={totalEntries} />}
             {tasteProfile && <DNAWidget tasteProfile={tasteProfile} totalEntries={totalEntries} />}
-            {/* Barra ricerca libera "Trova simili a..." */}
+            {/* Barra ricerca libera "Trova simili a..." + azioni pagina */}
             <SimilarSearchBar
               onSearch={(title, genres, keywords, type) => searchSimilar(title, genres, undefined, undefined, keywords, type)}
               loading={!!similarLoading}
+              actions={(
+                <>
+                  <button onClick={() => setShowPrefs(true)}
+                    className="inline-flex h-10 items-center gap-2 rounded-[16px] border border-[var(--border)] bg-[var(--bg-card)] px-3.5 text-xs font-bold text-[var(--text-secondary)] transition-all hover:border-[rgba(230,255,61,0.28)] hover:text-[var(--text-primary)]">
+                    <SlidersHorizontal size={14} />
+                    <span>{fy.preferences}</span>
+                  </button>
+                  <div className="relative">
+                    <button onClick={handleRefresh} disabled={refreshing}
+                      className="flex h-10 w-10 items-center justify-center rounded-[16px] border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] transition-all hover:text-[var(--text-primary)] disabled:opacity-40"
+                      aria-label="Aggiorna consigli">
+                      <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+                    </button>
+                    {showNewRecsBadge && (
+                      <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 animate-pulse rounded-full border border-black" style={{ background: 'var(--accent)' }} />
+                    )}
+                  </div>
+                </>
+              )}
             />
 
             {similarSection && (
