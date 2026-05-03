@@ -2,29 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
 import { rateLimitAsync } from '@/lib/rateLimit'
+import {
+  cleanMediaType,
+  cleanString,
+  normalizeMediaCore,
+} from '@/lib/mediaSanitizer'
 
 const QUEUE_TYPES = new Set(['all', 'anime', 'manga', 'movie', 'tv', 'game', 'boardgame'])
-const MEDIA_TYPES = new Set(['anime', 'manga', 'movie', 'tv', 'game', 'boardgame'])
-
-function cleanString(value: unknown, max: number): string | null {
-  if (typeof value !== 'string') return null
-  const clean = value.trim().slice(0, max)
-  return clean || null
-}
-
-function stringArray(value: unknown, maxItems = 60): string[] {
-  if (!Array.isArray(value)) return []
-  return value
-    .filter((v): v is string => typeof v === 'string')
-    .map(v => v.trim().slice(0, 120))
-    .filter(Boolean)
-    .slice(0, maxItems)
-}
-
-function numberOrNull(value: unknown): number | null {
-  const n = Number(value)
-  return Number.isFinite(n) ? n : null
-}
 
 function boolValue(value: unknown): boolean {
   return value === true
@@ -35,30 +19,14 @@ function queueTable(queue: string): string {
 }
 
 function toQueueRow(row: any, userId: string) {
-  const externalId = cleanString(row?.external_id, 200)
-  const title = cleanString(row?.title, 300)
-  const type = cleanString(row?.type, 40)
-  if (!externalId || !title || !type || !MEDIA_TYPES.has(type)) return null
+  const core = normalizeMediaCore(row)
+  if (!core) return null
 
   return {
     user_id: userId,
-    external_id: externalId,
-    title,
-    type,
-    cover_image: cleanString(row?.cover_image, 1000),
-    year: numberOrNull(row?.year),
-    genres: stringArray(row?.genres),
-    score: numberOrNull(row?.score),
-    description: cleanString(row?.description, 3000),
-    why: cleanString(row?.why, 1000),
-    match_score: numberOrNull(row?.match_score) ?? 0,
-    episodes: numberOrNull(row?.episodes),
-    authors: stringArray(row?.authors),
-    developers: stringArray(row?.developers),
-    platforms: stringArray(row?.platforms),
-    is_award_winner: boolValue(row?.is_award_winner),
-    is_discovery: boolValue(row?.is_discovery),
-    source: cleanString(row?.source, 120),
+    ...core,
+    is_award_winner: boolValue(row?.is_award_winner ?? row?.isAwardWinner),
+    is_discovery: boolValue(row?.is_discovery ?? row?.isDiscovery),
   }
 }
 
@@ -94,6 +62,8 @@ export async function POST(request: NextRequest) {
 
   if (body?.mirrorByType === true) {
     const types = [...new Set(rows.map(row => row.type))]
+      .filter(type => cleanMediaType(type) !== null)
+
     await Promise.all(types.map(type => {
       const typedRows = rows.filter((row: any) => row.type === type)
       return supabase.from(queueTable(type)).upsert(typedRows, { onConflict: 'user_id,external_id' })

@@ -471,6 +471,7 @@ interface SwipeCardProps {
   onWishlist: (item: SwipeItem) => void;
   hideClose?: boolean;
   hideDetails?: boolean;
+  detailsMobileOnly?: boolean;
   panelActive?: boolean;
   starsRef?: React.RefObject<HTMLDivElement | null>;
   // Gesture controllate dall'esterno dal container unico
@@ -494,6 +495,7 @@ function SwipeCard({
   onWishlist,
   hideClose,
   hideDetails = false,
+  detailsMobileOnly = false,
   panelActive = true,
   starsRef,
   dragX = 0,
@@ -760,7 +762,7 @@ function SwipeCard({
                   data-testid="swipe-details"
                   aria-label="Apri dettagli"
                   title="Enter"
-                  className={`w-10 h-10 md:w-9 md:h-9 rounded-full border flex items-center justify-center transition-[transform,background-color,border-color] duration-150 ${!isTop ? "opacity-0 pointer-events-none" : ""} ${
+                  className={`w-10 h-10 md:w-9 md:h-9 rounded-full border flex items-center justify-center transition-[transform,background-color,border-color] duration-150 ${detailsMobileOnly ? "md:hidden" : ""} ${!isTop ? "opacity-0 pointer-events-none" : ""} ${
                     infoPress.pressed
                       ? "scale-90 bg-white/20 border-white text-white"
                       : "bg-zinc-900 border-white/50 text-white/90 hover:bg-zinc-800 hover:text-white"
@@ -1570,6 +1572,7 @@ export function SwipeMode({
   const topCoverImage = filteredQueue[0]?.coverImage;
 
   const isFullscreenSwipe = standalone || isOnboarding;
+  const isMirrorOnboardingLayout = standalone && !isOnboarding;
   const containerClass = isFullscreenSwipe
     ? "gk-swipe-mode fixed inset-0 bg-[var(--bg-primary)] flex flex-col overflow-hidden"
     : "gk-swipe-mode relative flex h-[calc(100dvh-156px)] min-h-[560px] max-h-[720px] flex-col overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.16)] bg-[linear-gradient(160deg,rgba(230,255,61,0.045),var(--bg-secondary))] shadow-[0_18px_60px_rgba(0,0,0,0.22)]";
@@ -1653,6 +1656,8 @@ export function SwipeMode({
           className={
             isOnboarding
               ? "absolute z-20 left-3 right-3 top-5 flex justify-center md:top-7"
+              : isMirrorOnboardingLayout
+                ? "absolute z-20 left-3 right-3 top-5 flex justify-center md:left-[280px] md:right-0 md:top-7"
               : isFullscreenSwipe
                 ? "absolute z-20 left-3 right-3 top-3 flex justify-center md:left-[max(24px,calc(50%-500px))] md:right-auto md:top-1/2 md:-translate-y-1/2 md:w-[174px]"
                 : "relative z-20 flex-shrink-0 flex justify-center px-3 md:absolute md:left-4 md:top-4 md:bottom-4 md:w-44 md:items-start md:px-0"
@@ -1660,7 +1665,7 @@ export function SwipeMode({
         >
           <div
             className={
-              isOnboarding
+              isOnboarding || isMirrorOnboardingLayout
                 ? "flex w-full max-w-[920px] items-center justify-center"
                 : isFullscreenSwipe
                   ? "flex w-full max-w-[820px] items-center justify-center md:block"
@@ -1672,23 +1677,20 @@ export function SwipeMode({
               className={
                 isOnboarding
                   ? "min-w-0 max-w-full overflow-x-auto rounded-[999px] bg-black/28 p-1.5 shadow-[0_14px_46px_rgba(0,0,0,0.22)] backdrop-blur-xl scrollbar-hide"
+                  : isMirrorOnboardingLayout
+                    ? "min-w-0 max-w-full overflow-x-auto rounded-[999px] bg-black/28 p-1.5 shadow-[0_14px_46px_rgba(0,0,0,0.22)] backdrop-blur-xl scrollbar-hide md:w-auto md:overflow-visible"
                   : isFullscreenSwipe
                     ? "min-w-0 max-w-full overflow-x-auto rounded-[22px] border border-white/5 bg-black/24 p-1.5 shadow-[0_10px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl scrollbar-hide md:w-full md:overflow-visible md:rounded-[26px] md:border-[rgba(230,255,61,0.12)] md:bg-[linear-gradient(180deg,rgba(230,255,61,0.07),rgba(12,12,16,0.72))] md:p-3 md:ring-1 md:ring-white/5 md:shadow-[0_18px_54px_rgba(0,0,0,0.34)]"
                     : "min-w-0 flex-1 overflow-x-auto rounded-[24px] border border-white/5 bg-black/18 p-1.5 shadow-[0_10px_34px_rgba(0,0,0,0.18)] scrollbar-hide md:h-full md:overflow-y-auto md:overflow-x-hidden"
               }
               data-testid="swipe-filter-bar"
             >
-              {isFullscreenSwipe && !isOnboarding && (
-                <div className="mb-3 hidden md:block">
-                  <p className="font-mono-data text-[10px] font-black uppercase tracking-[0.16em] text-[var(--accent)]">
-                    Categorie
-                  </p>
-                </div>
-              )}
               <div
                 className={
                   isOnboarding
                     ? "flex w-max min-w-full items-center justify-start gap-1.5 md:justify-center"
+                    : isMirrorOnboardingLayout
+                      ? "flex w-max min-w-full items-center justify-start gap-1.5 md:w-auto md:min-w-0 md:justify-center"
                     : isFullscreenSwipe
                       ? "flex w-max min-w-full items-center justify-center gap-1.5 md:w-full md:min-w-0 md:flex-col md:items-stretch md:justify-start md:gap-2"
                       : "flex w-max min-w-full items-center justify-center gap-2 md:w-full md:min-w-0 md:flex-col md:items-stretch md:justify-start"
@@ -1702,7 +1704,7 @@ export function SwipeMode({
                       onClick={() => handleFilterChange(cat.key)}
                       data-testid={`swipe-filter-${cat.key}`}
                       aria-pressed={active}
-                      className={`flex-shrink-0 rounded-full text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${isOnboarding ? "px-4 py-2.5 text-[13px]" : isFullscreenSwipe ? "px-3.5 py-2 md:w-full md:justify-start md:px-3.5 md:py-2.5 md:text-left md:text-[13px]" : "px-4 py-2 md:w-full md:justify-center md:px-3 md:py-2"} ${
+                      className={`flex-shrink-0 rounded-full text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${isOnboarding || isMirrorOnboardingLayout ? "px-4 py-2.5 text-[13px]" : isFullscreenSwipe ? "px-3.5 py-2 md:w-full md:justify-start md:px-3.5 md:py-2.5 md:text-left md:text-[13px]" : "px-4 py-2 md:w-full md:justify-center md:px-3 md:py-2"} ${
                         active
                           ? "bg-[var(--accent)] text-[#0B0B0F] shadow-[0_0_26px_rgba(230,255,61,0.18)]"
                           : "bg-[rgba(244,244,245,0.07)] text-[var(--text-secondary)] hover:bg-[rgba(244,244,245,0.12)] hover:text-[var(--text-primary)]"
@@ -1723,6 +1725,8 @@ export function SwipeMode({
           className={
             isOnboarding
               ? "relative z-10 flex-1 flex items-center justify-center px-4 min-h-0 pt-[92px] pb-4 md:pt-[98px] md:pb-6"
+              : isMirrorOnboardingLayout
+                ? "relative z-10 flex-1 flex items-center justify-center px-4 min-h-0 pt-[92px] pb-4 md:pt-[98px] md:pb-6 md:pl-[280px] md:pr-8"
               : isFullscreenSwipe
                 ? "relative z-10 flex-1 flex items-center justify-center px-4 min-h-0 pt-[88px] pb-4 md:py-5 md:pl-[172px]"
                 : "relative z-10 flex-1 flex items-center justify-center px-4 min-h-0 py-2 md:py-3 md:pl-52"
@@ -1772,12 +1776,18 @@ export function SwipeMode({
               className={
                 isOnboarding
                   ? "grid w-full max-w-[1180px] items-center justify-center gap-6 md:grid-cols-[minmax(360px,440px)_minmax(430px,510px)] md:gap-10"
+                  : isMirrorOnboardingLayout
+                    ? "grid w-full max-w-[1100px] items-center justify-center gap-6 md:grid-cols-[minmax(340px,420px)_minmax(430px,510px)] md:gap-8"
                   : "contents"
               }
             >
-              {isOnboarding && topItem && (
+              {(isOnboarding || isMirrorOnboardingLayout) && topItem && (
                 <aside
-                  className="hidden md:flex md:h-[min(640px,calc(100dvh-150px))] md:min-h-[500px] flex-col overflow-hidden rounded-[30px] bg-black/22 p-6 shadow-[0_18px_64px_rgba(0,0,0,0.24)] ring-1 ring-[rgba(230,255,61,0.08)] backdrop-blur-xl"
+                  className={
+                    isOnboarding
+                      ? "hidden md:flex md:h-[min(640px,calc(100dvh-150px))] md:min-h-[500px] flex-col overflow-hidden rounded-[30px] bg-black/22 p-6 shadow-[0_18px_64px_rgba(0,0,0,0.24)] ring-1 ring-[rgba(230,255,61,0.08)] backdrop-blur-xl"
+                      : "hidden md:flex self-center flex-col overflow-hidden rounded-[30px] bg-black/22 p-6 shadow-[0_18px_64px_rgba(0,0,0,0.24)] ring-1 ring-[rgba(230,255,61,0.08)] backdrop-blur-xl"
+                  }
                   data-no-swipe="true"
                 >
                   <style>{`
@@ -1820,7 +1830,7 @@ export function SwipeMode({
                             Descrizione
                           </p>
                         </div>
-                        <div className="gk-onboarding-desc-scroll max-h-[220px] overflow-y-auto pr-2 text-sm leading-6 text-white/70">
+                        <div className={`gk-onboarding-desc-scroll overflow-y-auto pr-2 text-sm leading-6 text-white/70 ${isOnboarding ? "max-h-[220px]" : "max-h-[150px]"}`}>
                           {topItem.description}
                         </div>
                       </div>
@@ -1836,7 +1846,7 @@ export function SwipeMode({
                       </span>
                     ))}
                   </div>
-                  <div className="mt-4 shrink-0 rounded-[24px] border border-[rgba(230,255,61,0.12)] bg-[rgba(230,255,61,0.055)] p-4">
+                  <div className={isOnboarding ? "mt-4 shrink-0 rounded-[24px] border border-[rgba(230,255,61,0.12)] bg-[rgba(230,255,61,0.055)] p-4" : "mt-4 shrink-0 rounded-[22px] border border-[rgba(230,255,61,0.10)] bg-[rgba(230,255,61,0.045)] p-3.5"}>
                     <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--accent)]">
                       Come funziona
                     </p>
@@ -1864,14 +1874,14 @@ export function SwipeMode({
                 data-no-swipe=""
                 data-testid="swipe-card-stack"
                 className={
-                  isOnboarding
+                  isOnboarding || isMirrorOnboardingLayout
                     ? "relative h-[min(680px,calc(100dvh-150px))] min-h-[500px] md:h-[min(640px,calc(100dvh-150px))]"
                     : isFullscreenSwipe
                       ? "relative h-[min(660px,calc(100dvh-132px))] md:h-[min(780px,calc(100dvh-44px))]"
                       : "relative self-stretch md:self-auto md:h-[min(560px,calc(100dvh-230px))]"
                 }
                 style={{
-                  maxWidth: isOnboarding
+                  maxWidth: isOnboarding || isMirrorOnboardingLayout
                     ? "min(510px, 92vw)"
                     : isFullscreenSwipe
                       ? "min(430px, 88vw)"
@@ -1900,6 +1910,7 @@ export function SwipeMode({
                     }
                     hideClose={standalone || isOnboarding}
                     hideDetails={isOnboarding}
+                    detailsMobileOnly={isMirrorOnboardingLayout}
                     panelActive={isTabActive}
                     starsRef={idx === 0 ? starsRef : undefined}
                     dragX={idx === 0 ? cardDragX : 0}

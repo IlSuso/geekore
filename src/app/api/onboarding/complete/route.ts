@@ -2,42 +2,26 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
 import { rateLimitAsync } from '@/lib/rateLimit'
+import {
+  MEDIA_TYPES,
+  cleanRating,
+  cleanStringArray,
+  normalizeMediaCore,
+} from '@/lib/mediaSanitizer'
 
-const MEDIA_TYPES = new Set(['anime', 'manga', 'movie', 'tv', 'game', 'boardgame'])
 const QUEUE_TABLES = ['swipe_queue_all', 'swipe_queue_anime', 'swipe_queue_manga', 'swipe_queue_movie', 'swipe_queue_tv', 'swipe_queue_game', 'swipe_queue_boardgame']
 
-function cleanString(value: unknown, max: number): string | null {
-  if (typeof value !== 'string') return null
-  const clean = value.trim().slice(0, max)
-  return clean || null
-}
-
-function stringArray(value: unknown, maxItems = 60): string[] {
-  if (!Array.isArray(value)) return []
-  return value
-    .filter((v): v is string => typeof v === 'string')
-    .map(v => v.trim().slice(0, 120))
-    .filter(Boolean)
-    .slice(0, maxItems)
-}
-
-function numberOrNull(value: unknown): number | null {
-  const n = Number(value)
-  return Number.isFinite(n) ? n : null
-}
-
 function normalizeItem(raw: any) {
-  const externalId = cleanString(raw?.id ?? raw?.external_id, 200)
-  const title = cleanString(raw?.title, 300)
-  const type = cleanString(raw?.type, 40)
-  if (!externalId || !title || !type || !MEDIA_TYPES.has(type)) return null
+  const core = normalizeMediaCore(raw)
+  if (!core) return null
+
   return {
-    external_id: externalId,
-    title,
-    type,
-    cover_image: cleanString(raw?.coverImage ?? raw?.cover_image, 1000),
-    genres: stringArray(raw?.genres),
-    episodes: numberOrNull(raw?.episodes),
+    external_id: core.external_id,
+    title: core.title,
+    type: core.type,
+    cover_image: core.cover_image,
+    genres: core.genres,
+    episodes: core.episodes,
   }
 }
 
@@ -56,7 +40,7 @@ export async function POST(request: NextRequest) {
   const accepted = Array.isArray(body?.accepted) ? body.accepted.slice(0, 100) : []
   const wishlist = Array.isArray(body?.wishlist) ? body.wishlist.slice(0, 100) : []
   const skipped = Array.isArray(body?.skipped) ? body.skipped.slice(0, 200) : []
-  const selectedTypes = stringArray(body?.selected_types, 12).filter(type => MEDIA_TYPES.has(type))
+  const selectedTypes = cleanStringArray(body?.selected_types, 12).filter(type => MEDIA_TYPES.has(type as any))
 
   const ts = Date.now()
   const mediaRows = accepted
@@ -67,7 +51,7 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         ...item,
         status: 'completed',
-        rating: numberOrNull(entry?.rating),
+        rating: cleanRating(entry?.rating),
         updated_at: new Date().toISOString(),
         display_order: ts - i * 1000,
       }
