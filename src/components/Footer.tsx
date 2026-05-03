@@ -13,11 +13,50 @@ const PRODUCT_LINKS = [
   { href: '/settings', label: 'Settings' },
 ]
 
+const APP_ROUTE_PREFIXES = [
+  '/home',
+  '/for-you',
+  '/library',
+  '/discover',
+  '/friends',
+  '/community',
+  '/explore',
+  '/trending',
+  '/lists',
+  '/notifications',
+  '/stats',
+  '/settings',
+  '/profile',
+  '/swipe',
+  '/wishlist',
+  '/leaderboard',
+  '/search',
+]
+
+const PUBLIC_FOOTER_ROUTES = new Set([
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/privacy',
+  '/terms',
+  '/cookies',
+])
+
+function matchesRoutePrefix(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`)
+}
+
 export function Footer() {
   const pathname = usePathname()
   const { t } = useLocale()
 
+  // La landing ha già il proprio footer/chiusura visuale.
   if (pathname === '/') return null
+
+  // Nelle pagine app logged-in il footer crea grandi vuoti e fa sembrare la UI un sito marketing.
+  // Lo lasciamo solo su auth/legal/public routes.
+  if (APP_ROUTE_PREFIXES.some(prefix => matchesRoutePrefix(pathname, prefix))) return null
+  if (!PUBLIC_FOOTER_ROUTES.has(pathname)) return null
 
   const linkClass = 'rounded-lg transition-colors hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35'
   const legalClass = 'rounded-lg transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35'

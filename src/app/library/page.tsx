@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { useUser } from '@/context/AuthContext'
+import { useAuth } from '@/context/AuthContext'
 import { BookOpen, LayoutGrid, List, Search, X, Star, Plus, Sparkles, Clock, Trophy, BarChart3, CheckSquare, Square, Trash2, CheckCircle2, Layers } from 'lucide-react'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
@@ -64,6 +64,14 @@ function normalizeType(type: string): string {
   return type === 'board_game' ? 'boardgame' : type
 }
 
+function normalizeImageUrl(url?: string): string | undefined {
+  if (!url) return undefined
+  if (url.startsWith('http://store-images.s-microsoft.com')) {
+    return url.replace('http://store-images.s-microsoft.com', 'https://store-images.s-microsoft.com')
+  }
+  return url
+}
+
 function normalize(value: string): string {
   return value
     .toLowerCase()
@@ -77,7 +85,7 @@ function toRailItem(entry: MediaEntry): MediaRailItem {
     id: entry.id,
     title: entry.title,
     type: normalizeType(entry.type),
-    coverImage: entry.cover_image,
+    coverImage: normalizeImageUrl(entry.cover_image),
     score: entry.rating,
     status: entry.status,
     progress: entry.episodes && entry.episodes > 0
@@ -226,7 +234,7 @@ function computeStats(entries: MediaEntry[]) {
 
 export default function LibraryPage() {
   const router = useRouter()
-  const authUser = useUser()
+  const { user: authUser, loading: authLoading } = useAuth()
   const supabase = createClient()
   const [entries, setEntries] = useState<MediaEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -240,7 +248,15 @@ export default function LibraryPage() {
   const [bulkBusy, setBulkBusy] = useState(false)
 
   useEffect(() => {
-    if (!authUser) { router.push('/login'); return }
+    if (authLoading) return
+    if (!authUser) {
+      router.push('/login')
+      return
+    }
+
+    let cancelled = false
+    setLoading(true)
+
     supabase
       .from('user_media_entries')
       .select('id, title, title_en, type, cover_image, current_episode, episodes, updated_at, rating, status, genres, external_id')
@@ -248,10 +264,17 @@ export default function LibraryPage() {
       .order('updated_at', { ascending: false })
       .limit(10000)
       .then(({ data }: { data: MediaEntry[] | null }) => {
-        setEntries((data || []).map(entry => ({ ...entry, type: normalizeType(entry.type) })))
+        if (cancelled) return
+        setEntries((data || []).map(entry => ({
+          ...entry,
+          type: normalizeType(entry.type),
+          cover_image: normalizeImageUrl(entry.cover_image),
+        })))
         setLoading(false)
       })
-  }, [authUser]) // eslint-disable-line
+
+    return () => { cancelled = true }
+  }, [authUser, authLoading, router, supabase])
 
   const filtered = useMemo(() => {
     const query = normalize(searchTerm)
@@ -293,7 +316,7 @@ export default function LibraryPage() {
       title: entry.title,
       title_en: entry.title_en,
       type: normalizeType(entry.type),
-      coverImage: entry.cover_image,
+      coverImage: normalizeImageUrl(entry.cover_image),
       episodes: entry.episodes,
       genres: entry.genres,
       source: 'anilist' as any,
@@ -446,7 +469,7 @@ export default function LibraryPage() {
         )}
       </div>
 
-      {loading ? (
+      {authLoading || loading ? (
         viewMode === 'grid' ? <MediaGridSkeleton count={21} showMeta /> : <div className="space-y-2">{Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-[74px] rounded-2xl bg-[var(--bg-card)] skeleton" />)}</div>
       ) : filtered.length === 0 ? (
         entries.length === 0 ? (
@@ -503,7 +526,7 @@ export default function LibraryPage() {
                       key={entry.id}
                       title={entry.title}
                       type={normalizeType(entry.type)}
-                      coverImage={entry.cover_image}
+                      coverImage={normalizeImageUrl(entry.cover_image)}
                       status={entry.status || 'planning'}
                       score={entry.rating}
                       progress={entry.episodes && entry.episodes > 0 ? { current: entry.current_episode || 0, total: entry.episodes } : undefined}
