@@ -1,0 +1,320 @@
+{
+  "runId": "2026-05-03_09-15-02",
+  "baseUrl": "https://geekore.it",
+  "viewport": {
+    "width": 1440,
+    "height": 1200
+  },
+  "createdAt": "2026-05-03T09:15:02.049Z",
+  "pages": [
+    {
+      "name": "00_landing",
+      "path": "/",
+      "requestedUrl": "https://geekore.it/",
+      "finalUrl": "https://geekore.it/",
+      "title": "Geekore",
+      "screenshot": "00_landing.png",
+      "ok": true,
+      "durationMs": 14007
+    },
+    {
+      "name": "01_login",
+      "path": "/login",
+      "requestedUrl": "https://geekore.it/login",
+      "finalUrl": "https://geekore.it/login",
+      "title": "Geekore",
+      "screenshot": "01_login.png",
+      "ok": true,
+      "durationMs": 4264
+    },
+    {
+      "name": "02_register",
+      "path": "/register",
+      "requestedUrl": "https://geekore.it/register",
+      "finalUrl": "https://geekore.it/register",
+      "title": "Geekore",
+      "screenshot": "02_register.png",
+      "ok": true,
+      "durationMs": 4695
+    },
+    {
+      "name": "10_home",
+      "path": "/home",
+      "requestedUrl": "https://geekore.it/home",
+      "finalUrl": "https://geekore.it/home",
+      "title": "Home — Geekore",
+      "screenshot": "10_home.png",
+      "ok": true,
+      "durationMs": 21835
+    },
+    {
+      "name": "11_for_you",
+      "path": "/for-you",
+      "requestedUrl": "https://geekore.it/for-you",
+      "finalUrl": "https://geekore.it/for-you",
+      "title": "Geekore",
+      "screenshot": "11_for_you.png",
+      "ok": true,
+      "durationMs": 6836
+    },
+    {
+      "name": "12_library",
+      "path": "/library",
+      "requestedUrl": "https://geekore.it/library",
+      "finalUrl": "https://geekore.it/home",
+      "title": "Home — Geekore",
+      "screenshot": "12_library.png",
+      "ok": true,
+      "durationMs": 21925
+    },
+    {
+      "name": "13_discover",
+      "path": "/discover",
+      "requestedUrl": "https://geekore.it/discover",
+      "finalUrl": "https://geekore.it/discover",
+      "title": "Discover — Geekore",
+      "screenshot": "13_discover.png",
+      "ok": true,
+      "durationMs": 5058
+    },
+    {
+      "name": "14_friends",
+      "path": "/friends",
+      "requestedUrl": "https://geekore.it/friends",
+      "finalUrl": "https://geekore.it/friends",
+      "title": "Geekore",
+      "screenshot": "14_friends.png",
+      "ok": true,
+      "durationMs": 5189
+    },
+    {
+      "name": "15_community",
+      "path": "/community",
+      "requestedUrl": "https://geekore.it/community",
+      "finalUrl": "https://geekore.it/community",
+      "title": "Community — Geekore",
+      "screenshot": "15_community.png",
+      "ok": true,
+      "durationMs": 5143
+    },
+    {
+      "name": "16_explore",
+      "path": "/explore",
+      "requestedUrl": "https://geekore.it/explore",
+      "finalUrl": "https://geekore.it/explore",
+      "title": "Geekore",
+      "screenshot": "16_explore.png",
+      "ok": true,
+      "durationMs": 4316
+    },
+    {
+      "name": "17_trending",
+      "path": "/trending",
+      "requestedUrl": "https://geekore.it/trending",
+      "finalUrl": "https://geekore.it/trending",
+      "title": "Geekore",
+      "screenshot": "17_trending.png",
+      "ok": true,
+      "durationMs": 5370
+    },
+    {
+      "name": "18_lists",
+      "path": "/lists",
+      "requestedUrl": "https://geekore.it/lists",
+      "finalUrl": "https://geekore.it/lists",
+      "title": "Geekore",
+      "screenshot": "18_lists.png",
+      "ok": true,
+      "durationMs": 4242
+    },
+    {
+      "name": "19_notifications",
+      "path": "/notifications",
+      "requestedUrl": "https://geekore.it/notifications",
+      "finalUrl": "https://geekore.it/notifications",
+      "title": "Geekore",
+      "screenshot": "19_notifications.png",
+      "ok": true,
+      "durationMs": 4224
+    },
+    {
+      "name": "20_stats_global",
+      "path": "/stats/global",
+      "requestedUrl": "https://geekore.it/stats/global",
+      "finalUrl": "https://geekore.it/stats/global",
+      "title": "Geekore",
+      "screenshot": "20_stats_global.png",
+      "ok": true,
+      "durationMs": 3834
+    },
+    {
+      "name": "21_settings_profile",
+      "path": "/settings/profile",
+      "requestedUrl": "https://geekore.it/settings/profile",
+      "finalUrl": "https://geekore.it/settings/profile",
+      "title": "Geekore",
+      "screenshot": "21_settings_profile.png",
+      "ok": true,
+      "durationMs": 3743
+    },
+    {
+      "name": "22_swipe",
+      "path": "/swipe",
+      "requestedUrl": "https://geekore.it/swipe",
+      "finalUrl": "https://geekore.it/swipe",
+      "title": "Geekore",
+      "screenshot": "22_swipe.png",
+      "ok": true,
+      "durationMs": 4190
+    },
+    {
+      "name": "23_profile_me",
+      "path": "/profile/me",
+      "requestedUrl": "https://geekore.it/profile/me",
+      "finalUrl": "https://geekore.it/profile/edoardos99",
+      "title": "Edoardo — Geekore",
+      "screenshot": "23_profile_me.png",
+      "ok": true,
+      "durationMs": 7023
+    }
+  ],
+  "states": [
+    {
+      "name": "lists_modal",
+      "ok": true,
+      "screenshot": "80_state_lists_modal.png"
+    }
+  ],
+  "login": {
+    "attempted": true,
+    "ok": true,
+    "finalUrl": "https://geekore.it/home",
+    "note": "Login apparentemente riuscito."
+  },
+  "console": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 ()"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 ()"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 ()"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 ()"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 ()"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 ()"
+    },
+    {
+      "type": "warning",
+      "text": "Mixed Content: The page at 'https://geekore.it/library' was loaded over HTTPS, but requested an insecure element 'http://store-images.s-microsoft.com/image/apps.52504.14330850369313893.a687698c-b891-44f6-9576-fe28978ce915.95e011f8-5d23-40a4-abde-4ae00a4bb6f7'. This request was automatically upgraded to HTTPS, For more information see https://blog.chromium.org/2019/10/no-more-mixed-messages-about-https.html"
+    },
+    {
+      "type": "warning",
+      "text": "Mixed Content: The page at 'https://geekore.it/library' was loaded over HTTPS, but requested an insecure element 'http://store-images.s-microsoft.com/image/apps.52800.13510798887356280.872082a0-a9d8-442c-bedf-502faebeb150.6d00e952-baea-499b-ab3e-e43b4031f297'. This request was automatically upgraded to HTTPS, For more information see https://blog.chromium.org/2019/10/no-more-mixed-messages-about-https.html"
+    },
+    {
+      "type": "warning",
+      "text": "Mixed Content: The page at 'https://geekore.it/library' was loaded over HTTPS, but requested an insecure element 'http://store-images.s-microsoft.com/image/apps.44598.65187692735347017.339b0ca1-9877-42f5-897f-7b8b80dccd51.b2f0d669-10c9-4f29-8246-00350c79a4e9'. This request was automatically upgraded to HTTPS, For more information see https://blog.chromium.org/2019/10/no-more-mixed-messages-about-https.html"
+    },
+    {
+      "type": "warning",
+      "text": "Mixed Content: The page at 'https://geekore.it/library' was loaded over HTTPS, but requested an insecure element 'http://store-images.s-microsoft.com/image/apps.1446.14422652290628995.fd287f0c-f737-4084-ae1c-7d3738acfe04.11106a3b-143f-435e-8ebc-b52473a0bcd4'. This request was automatically upgraded to HTTPS, For more information see https://blog.chromium.org/2019/10/no-more-mixed-messages-about-https.html"
+    },
+    {
+      "type": "warning",
+      "text": "Mixed Content: The page at 'https://geekore.it/library' was loaded over HTTPS, but requested an insecure element 'http://store-images.s-microsoft.com/image/apps.45218.65494054591008504.7da34730-f3b8-4554-bade-55b9bc0b3e41.458705a0-4446-4d96-8ed3-4c46531bbe85'. This request was automatically upgraded to HTTPS, For more information see https://blog.chromium.org/2019/10/no-more-mixed-messages-about-https.html"
+    },
+    {
+      "type": "warning",
+      "text": "Mixed Content: The page at 'https://geekore.it/library' was loaded over HTTPS, but requested an insecure element 'http://store-images.s-microsoft.com/image/apps.50564.13597880418237927.1db3ecc3-d73b-4573-a4d1-d16bd9922438.652f42d1-6d0d-4c1d-a65f-e42e3cd2a7a9'. This request was automatically upgraded to HTTPS, For more information see https://blog.chromium.org/2019/10/no-more-mixed-messages-about-https.html"
+    },
+    {
+      "type": "warning",
+      "text": "Mixed Content: The page at 'https://geekore.it/library' was loaded over HTTPS, but requested an insecure element 'http://store-images.s-microsoft.com/image/apps.25919.14011015795942652.ca67db1b-d21e-47e9-bbb4-5ece2ce3f774.c71a2431-5ef1-4c32-92fa-22cca6162053'. This request was automatically upgraded to HTTPS, For more information see https://blog.chromium.org/2019/10/no-more-mixed-messages-about-https.html"
+    },
+    {
+      "type": "warning",
+      "text": "Mixed Content: The page at 'https://geekore.it/library' was loaded over HTTPS, but requested an insecure element 'http://store-images.s-microsoft.com/image/apps.61144.14083498106527717.baf556ff-4380-4b5b-9e66-afb4977d6535.4a859985-0b7f-4da2-a9fe-a5e2e8296319'. This request was automatically upgraded to HTTPS, For more information see https://blog.chromium.org/2019/10/no-more-mixed-messages-about-https.html"
+    },
+    {
+      "type": "warning",
+      "text": "Mixed Content: The page at 'https://geekore.it/library' was loaded over HTTPS, but requested an insecure element 'http://store-images.s-microsoft.com/image/apps.30935.68785176255228170.152a1029-d0c3-4d27-a42d-ecccb32aa4ca.dc750da7-3cda-4a73-9705-24b6c06e820d'. This request was automatically upgraded to HTTPS, For more information see https://blog.chromium.org/2019/10/no-more-mixed-messages-about-https.html"
+    },
+    {
+      "type": "warning",
+      "text": "Mixed Content: The page at 'https://geekore.it/library' was loaded over HTTPS, but requested an insecure element 'http://store-images.s-microsoft.com/image/apps.22422.65595136073047161.857e51a5-2b52-4c0e-8ac2-92b6b4609fc2.575238f4-dafa-47d8-a0b9-0ab665f39566'. This request was automatically upgraded to HTTPS, For more information see https://blog.chromium.org/2019/10/no-more-mixed-messages-about-https.html"
+    },
+    {
+      "type": "warning",
+      "text": "Mixed Content: The page at 'https://geekore.it/library' was loaded over HTTPS, but requested an insecure element 'http://store-images.s-microsoft.com/image/apps.6631.13850085746326678.06e2dc5c-7997-46e9-a8e6-0e48b57cb13b.53ca896e-c3c3-460b-b9ee-70cc217b041c'. This request was automatically upgraded to HTTPS, For more information see https://blog.chromium.org/2019/10/no-more-mixed-messages-about-https.html"
+    },
+    {
+      "type": "warning",
+      "text": "Mixed Content: The page at 'https://geekore.it/library' was loaded over HTTPS, but requested an insecure element 'http://store-images.s-microsoft.com/image/apps.19485.13966330883349940.8c9ea467-652a-4b13-9319-9621a0ac161f.5b9b17db-caf6-4d50-9b10-ddadb115a6f1'. This request was automatically upgraded to HTTPS, For more information see https://blog.chromium.org/2019/10/no-more-mixed-messages-about-https.html"
+    },
+    {
+      "type": "warning",
+      "text": "Mixed Content: The page at 'https://geekore.it/library' was loaded over HTTPS, but requested an insecure element 'http://store-images.s-microsoft.com/image/apps.45920.14050533476382116.9ce9be62-6690-4c40-8e76-7e5af2a256fb.7023cebb-16fb-4fc9-a05d-7256ea29e33f'. This request was automatically upgraded to HTTPS, For more information see https://blog.chromium.org/2019/10/no-more-mixed-messages-about-https.html"
+    },
+    {
+      "type": "warning",
+      "text": "Mixed Content: The page at 'https://geekore.it/library' was loaded over HTTPS, but requested an insecure element 'http://store-images.s-microsoft.com/image/apps.45072.13533127236106585.b0f87808-64a0-4796-a93b-8383bddce2fc.9dfad45d-5f98-4eb1-b1bc-2da6252b2280'. This request was automatically upgraded to HTTPS, For more information see https://blog.chromium.org/2019/10/no-more-mixed-messages-about-https.html"
+    },
+    {
+      "type": "warning",
+      "text": "Mixed Content: The page at 'https://geekore.it/library' was loaded over HTTPS, but requested an insecure element 'http://store-images.s-microsoft.com/image/apps.9041.13913810623304292.2c79f720-96e8-4735-9ebd-b3493e7e772f.145f793d-c616-4178-af32-e60b7f5b1cbf'. This request was automatically upgraded to HTTPS, For more information see https://blog.chromium.org/2019/10/no-more-mixed-messages-about-https.html"
+    },
+    {
+      "type": "warning",
+      "text": "Mixed Content: The page at 'https://geekore.it/library' was loaded over HTTPS, but requested an insecure element 'http://store-images.s-microsoft.com/image/apps.46694.68182501197884443.ac728a87-7bc1-4a0d-8bc6-0712072da93c.f150105c-bb41-4bc6-bd72-2a7c63df9f90'. This request was automatically upgraded to HTTPS, For more information see https://blog.chromium.org/2019/10/no-more-mixed-messages-about-https.html"
+    },
+    {
+      "type": "warning",
+      "text": "Mixed Content: The page at 'https://geekore.it/library' was loaded over HTTPS, but requested an insecure element 'http://store-images.s-microsoft.com/image/apps.13628.14322280443288156.27788484-2760-47f7-be0d-dd693682e016.04a10e3c-848f-424d-a431-2846f34b1a6b'. This request was automatically upgraded to HTTPS, For more information see https://blog.chromium.org/2019/10/no-more-mixed-messages-about-https.html"
+    },
+    {
+      "type": "warning",
+      "text": "Mixed Content: The page at 'https://geekore.it/library' was loaded over HTTPS, but requested an insecure element 'http://store-images.s-microsoft.com/image/apps.54832.71265222147666518.3f1ada8f-c011-446c-83e8-95b5171001ad.b2a86e1e-717c-4fae-a3eb-d9d477ba9ce7'. This request was automatically upgraded to HTTPS, For more information see https://blog.chromium.org/2019/10/no-more-mixed-messages-about-https.html"
+    },
+    {
+      "type": "warning",
+      "text": "Mixed Content: The page at 'https://geekore.it/library' was loaded over HTTPS, but requested an insecure element 'http://store-images.s-microsoft.com/image/apps.17664.68607194681373551.b4c09a44-be36-42d6-96c5-4a33b566becd.f0735af8-acef-4b7e-b40c-d0d2b622dd37'. This request was automatically upgraded to HTTPS, For more information see https://blog.chromium.org/2019/10/no-more-mixed-messages-about-https.html"
+    },
+    {
+      "type": "warning",
+      "text": "Mixed Content: The page at 'https://geekore.it/library' was loaded over HTTPS, but requested an insecure element 'http://store-images.s-microsoft.com/image/apps.37229.68631123789499032.6299bbb9-6778-40d5-965f-080b552baa15.be2992c1-0236-4fd3-983a-9a9d9df0877e'. This request was automatically upgraded to HTTPS, For more information see https://blog.chromium.org/2019/10/no-more-mixed-messages-about-https.html"
+    },
+    {
+      "type": "warning",
+      "text": "Mixed Content: The page at 'https://geekore.it/library' was loaded over HTTPS, but requested an insecure element 'http://store-images.s-microsoft.com/image/apps.44244.70323071690757883.aa344172-c923-4b38-a055-9ce9a093bc86.0f5d2994-3b99-4968-9b8b-ccdff7d7612f'. This request was automatically upgraded to HTTPS, For more information see https://blog.chromium.org/2019/10/no-more-mixed-messages-about-https.html"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 ()"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 ()"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 ()"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 ()"
+    }
+  ]
+}
