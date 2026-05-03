@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { androidBack } from '@/hooks/androidBack'
 import {
   List, Plus, Trash2, Edit3, Globe, Lock, X, Check,
-  ChevronRight, Loader2, Search,
+  ChevronRight, Loader2, Search, Sparkles,
 } from 'lucide-react'
 import { PageScaffold } from '@/components/ui/PageScaffold'
 
