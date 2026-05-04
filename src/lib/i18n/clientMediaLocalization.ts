@@ -116,7 +116,7 @@ function mergeLocalizedRow<T extends MediaRow>(
     cover_image_en: localized.cover_image_en ?? next.cover_image_en,
     cover_image_it: localized.cover_image_it ?? next.cover_image_it,
     localized: localized.localized ?? next.localized,
-  } as T
+  } as unknown as T
 }
 
 export async function localizeMediaRows<T extends MediaRow>(

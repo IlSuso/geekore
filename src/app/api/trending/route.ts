@@ -59,7 +59,7 @@ const STALE_TTL_MS = 24 * 60 * 60 * 1000
 const REQUEST_TIMEOUT_MS = 6500
 const BGG_TIMEOUT_MS = 8500
 const PER_SECTION_LIMIT = 10
-const TRENDING_CACHE_VERSION = 'v4'
+const TRENDING_CACHE_VERSION = 'v5'
 
 const memoryCache = new Map<string, CacheEntry>()
 let cachedIgdbToken: { token: string; expiresAt: number } | null = null
@@ -372,6 +372,40 @@ function isLikelyGoodGameTitle(name: string): boolean {
   return !blocked.some(b => n.includes(b))
 }
 
+
+function mapIgdbGame(game: any): TrendingItem | null {
+  const id = game?.id
+  const title = cleanString(game?.name)
+  const imageId = cleanString(game?.cover?.image_id) || cleanString(game?.cover?.imageId)
+  const cover = igdbCoverUrl(imageId)
+
+  if (!id || !title || !cover) return null
+
+  const releaseSeconds = Number(game?.first_release_date || 0)
+  const year = releaseSeconds > 0 ? new Date(releaseSeconds * 1000).getUTCFullYear() : undefined
+  const genres = Array.isArray(game?.genres)
+    ? game.genres.map((g: any) => cleanString(g?.name)).filter(Boolean) as string[]
+    : []
+
+  const scoreRaw = Number(game?.total_rating ?? game?.aggregated_rating ?? game?.rating ?? 0)
+  const score = Number.isFinite(scoreRaw) && scoreRaw > 0 ? Math.round(scoreRaw) : undefined
+
+  return {
+    id: `igdb-${id}`,
+    external_id: `igdb-${id}`,
+    title,
+    title_original: title,
+    title_en: title,
+    type: 'game',
+    coverImage: cover,
+    cover_image: cover,
+    year,
+    genres,
+    score,
+    source: 'igdb',
+  }
+}
+
 async function fetchIgdbCuratedFallback(): Promise<TrendingItem[]> {
   const curatedNames = [
     'Baldur\'s Gate 3',
@@ -512,7 +546,10 @@ async function fetchSteamFallback(locale: Locale): Promise<TrendingItem[]> {
 }
 
 async function fetchGameTrending(locale: Locale): Promise<{ items: TrendingItem[]; source: string }> {
-  const igdb = await fetchIgdbTrending().catch(() => [])
+  const igdb = await fetchIgdbTrending().catch((error) => {
+    pushIgdbDiagnostic({ label: 'fetchIgdbTrending', ok: false, error: error?.message || 'mapping_failed' })
+    return []
+  })
   if (igdb.length >= 6) return { items: igdb, source: 'igdb' }
 
   // Steam resta solo ultima rete di sicurezza. In condizioni normali, con IGDB configurato,
